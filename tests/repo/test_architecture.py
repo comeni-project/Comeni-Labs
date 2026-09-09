@@ -233,7 +233,16 @@ def test_the_generated_exemption_covers_only_the_generated_tree():
 
     A prefix exclusion is a blocklist, and this repository has learned twice what a blocklist
     costs. So this asserts the complement: probe every directory under `docs/` with a name that
-    does not exist, and exactly one may come back ignored.
+    does not exist, and nothing outside the `docs/tools/` tree may come back ignored.
+
+    **It asserted `== {docs/tools}` until 2026-09-09, and that made it depend on whether
+    somebody had built the wiki.** `mendel docs` writes one page per tool *nested under its
+    org*, so `docs/tools/nf-core/` and `docs/tools/comeni/` exist in a built checkout and not
+    in a fresh one — and the ignore rule is `/docs/tools/**/*.md`, which covers them because
+    they are the generated tree this test is named for. The set was one directory in CI and
+    three on any machine that had run `make wiki`, and `make dev` runs it now. Containment is
+    what the docstring above always claimed; equality was a stricter thing that happened to
+    hold while nobody had generated anything.
     """
     root = ROOT
     sys.path.insert(0, str(root / "tools"))
@@ -246,9 +255,14 @@ def test_the_generated_exemption_covers_only_the_generated_tree():
     probes = {(d / "__a_page_nobody_wrote__.md").resolve() for d in directories}
     ignored = {p.parent.relative_to(root) for p in check_links._generated(probes)}
 
-    assert ignored == {pathlib.Path("docs/tools")}, (
-        "the generated-page exemption covers a directory other than docs/tools/. A link into "
-        f"one of these is now unchecked and nothing says so:\n  {sorted(map(str, ignored))}"
+    tools = pathlib.Path("docs/tools")
+    assert tools in ignored, (
+        "docs/tools/ is no longer exempt — either the ignore rule moved or the probe is wrong"
+    )
+    strays = {d for d in ignored if d != tools and tools not in d.parents}
+    assert not strays, (
+        "the generated-page exemption covers a directory outside docs/tools/. A link into "
+        f"one of these is now unchecked and nothing says so:\n  {sorted(map(str, strays))}"
     )
 
 
