@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1, 2 and 3 complete
+**Status:** in progress — Tasks 1 to 4 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -573,27 +573,70 @@ phase, the goal, the revision, both turns in order and the pending proposal, unc
 **Files:** modify `comeni_core.plan.draft`, `mendel_resolver.materialise`, draft services/routes,
 and their tests.
 
-- [ ] Write a failing test containing three nodes: one resolver-settled, one model-selected, and
+- [x] Write a failing test containing three nodes: one resolver-settled, one model-selected, and
   one later replaced by a person. Keep it and assert all three sources, ids, tiers, and reasons
   in `pipeline.yml`.
-- [ ] Define the server-owned provenance sidecar from §1.8. Prefer closed lists keyed by declared
+- [x] Define the server-owned provenance sidecar from §1.8. Prefer closed lists keyed by declared
   `NodeId`/`DecisionKey` over free-form mappings. Keep it separate from browser-writable graph
   data.
-- [ ] Teach `ir_of` to reuse accepted selection/presence/setting provenance when supplied and to
+- [x] Teach `ir_of` to reuse accepted selection/presence/setting provenance when supplied and to
   retain today's all-human semantics when it is absent.
-- [ ] Teach draft creation/update to preserve unchanged sidecar entries and stamp changed graph
+- [x] Teach draft creation/update to preserve unchanged sidecar entries and stamp changed graph
   choices as human. Test node replacement, parameter edit/clear, channel scope edit, deletion,
   and a pure position move—which must change no pipeline provenance.
-- [ ] Use a stored confirmed goal when present; preserve `goal_of(graph)` for old/manual drafts.
-- [ ] Remove the whole-draft `by` shortcut only when every caller has moved; until then retain a
+- [x] Use a stored confirmed goal when present; preserve `goal_of(graph)` for old/manual drafts.
+- [x] Remove the whole-draft `by` shortcut only when every caller has moved; until then retain a
   compatibility wrapper and prove it produces the old bytes.
-- [ ] Run the materialisation, artifact, draft service, and provenance tests before broader API
+- [x] Run the materialisation, artifact, draft service, and provenance tests before broader API
   work.
 
 **Checkpoint:** editing one setting in a spawned draft changes the author of that setting only.
 Untouched steps remain attributed to the resolver/model that actually chose them.
 
 ---
+
+### Execution record — 2026-09-09
+
+`make check`: **2506 passed**, up from 2496. With a database, the API suite is 439 passed and the
+same five pre-existing `forge_jobs`/`full_cycle` failures Task 3 recorded.
+
+| Step | Carried out as written? | Deviation |
+|---|---|---|
+| failing test with three differently-settled nodes | yes | `packages/mendel-resolver/tests/test_provenance.py`, 12 tests, all eight failing before `ir_of` learned the parameter |
+| server-owned sidecar, closed lists, keyed by declared aliases | **deviated** | `ChannelSettled` is keyed by the **ports** a channel feeds, not by its name. A channel's name is *derived* — `channels_of` computes it from the registry — and `drafts.update` diffs two graphs without loading one. Keying on the derived thing would make every edit pay for a registry load to answer a question the draft already contains |
+| `ir_of` reuses provenance; `None` keeps today's semantics | yes | two tests hold the byte-for-byte promise, and `DraftProvenance()` is asserted equal to `None` so that an edit which retains nothing is not a different pipeline |
+| creation/update preserve, stamp, and drop | yes | all five cases. **A position move is structural**: `DraftGraph` carries no coordinates, so a drag produces a byte-identical graph and the diff is never reached — the test is what notices if a coordinate is ever added |
+| stored confirmed goal when present | yes | asserted through `keep` and read back out of `pipeline.yml`, not through the helper that reads the column |
+| keep `by` until every caller moves, prove the old bytes | yes | `test_the_whole_draft_by_still_produces_the_old_bytes` |
+| run the four suites | yes | plus the whole API suite against a real Postgres |
+
+**Three things a reader should know before Task 5:**
+
+1. **`Pipeline.of` gained an `ai` parameter, and Task 4 did not ask for it.** It had to: `MD0225`
+   refuses a setting recording that a model settled it in a build recording `ai.available: []`,
+   and that field was **hardcoded empty** in `materialise.of`. A model-authored setting could not
+   reach `pipeline.yml` at all. It is **stated by the caller, never derived from the sidecar** —
+   deriving it would make the check circular, since a value claiming a model settled it would
+   certify that a model was there to settle it. A Spawn draft kept without declaring one is
+   refused, and `test_a_spawned_draft_kept_without_declaring_a_model_is_refused` holds that.
+   Task 6's authoring service is what actually knows the configuration.
+2. **`drafts._load` now returns `Stored(graph, provenance, goal)`.** Reading the sidecar beside it
+   was a *second* storage read, and it broke eight tests that stub the seam — correctly, because
+   two reads means two authorities on whether a draft exists and only one of them is stubbed. The
+   server-owned columns travel with the graph or they are a second source of truth.
+3. **A stamp is written explicitly rather than left to `ir_of`'s fallback.** Dropping a changed
+   entry would let the fallback decide, and the fallback follows the whole-draft `by` — so a
+   person editing one step of a Spawn draft later kept with `by=<model>` would have their edit
+   recorded as the model's. An explicit `HUMAN` stamp cannot be reinterpreted by whoever calls
+   `keep`.
+
+**Watched failing against the specific defect:** the diff with nothing recognised as unchanged —
+the old whole-draft behaviour — fails five of these tests, including the checkpoint. And
+`test_a_persons_setting_keeps_its_own_words` was found to pass **with or without** the sidecar
+being read, because the fallback for a typed value is already `HUMAN`; a discriminating test
+(`test_a_model_answered_setting_is_not_attributed_to_a_person`) was added and the param path only
+then turned out to be ignoring provenance entirely.
+
 
 ## Task 5 — Implement versioned goal and authoring prompts
 

@@ -1184,7 +1184,9 @@ class Pipeline(EgressPayload):
         return digest_of(self.model_copy(update={"emitted": None}))
 
     @classmethod
-    def of(cls, ir, registry, vocab, measurements=None, layers=(), *, goal) -> "Pipeline":
+    def of(
+        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None
+    ) -> "Pipeline":
         """The **only** validating constructor. The body lives in `materialise.of`.
 
         Kept here rather than exposed as a bare function because
@@ -1199,5 +1201,5 @@ class Pipeline(EgressPayload):
         from comeni_core.artifact import materialise
 
         return materialise.of(
-            ir, registry, vocab, measurements=measurements, layers=layers, goal=goal
+            ir, registry, vocab, measurements=measurements, layers=layers, goal=goal, ai=ai
         )

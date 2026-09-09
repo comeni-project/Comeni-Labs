@@ -42,7 +42,9 @@ def _graph(nodes, edges=()):
 @pytest.fixture
 def kept(monkeypatch, tmp_path):
     """A real kept pipeline under `tmp_path/a-draft`, with both services pointed at it."""
-    monkeypatch.setattr(drafts, "_load", lambda draft_id: _graph(*SPINE))
+    monkeypatch.setattr(
+        drafts, "_load", lambda draft_id: drafts.Stored(_graph(*SPINE), None, None)
+    )
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
     monkeypatch.setattr(bundle, "_directory", lambda draft_id: tmp_path / draft_id)
     drafts.keep("a-draft")

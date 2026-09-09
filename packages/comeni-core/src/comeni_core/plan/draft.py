@@ -14,8 +14,11 @@ whole subject.
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.goal.profile import DataProfile
+from comeni_core.plan.tiers import Tier
+from comeni_core.review.answer import ValueSource
 from comeni_core.spell.marks import (
     ContractId,
+    DecisionKey,
     HumanParamValue,
     Line,
     NfIdentifier,
@@ -25,11 +28,16 @@ from comeni_core.spell.marks import (
 )
 
 __all__ = [
+    "ChannelSettled",
     "DraftChannel",
+    "DraftProvenance",
     "DraftEdge",
     "DraftGraph",
     "DraftLabel",
     "DraftNode",
+    "NodeSettled",
+    "ParamSettled",
+    "Settled",
     "DraftParam",
 ]
 
@@ -202,3 +210,127 @@ class DraftGraph(BaseModel):
     profile: DataProfile = Field(default_factory=DataProfile)
     """Carried because an advisory check may want to say *the rule that would have fired here
     read a measurement you have not supplied*. `validate` never resolves; it only reports."""
+
+
+class Settled(BaseModel):
+    """One decision somebody already made, kept so that redrawing does not re-attribute it.
+
+    **The whole of §1.8 in one shape.** A resolver-settled step must keep its tier and its reason
+    merely because Build paused to explain it; a person choosing a different candidate becomes the
+    author of *that* choice and of nothing else; and a later manual edit must not relabel the
+    untouched rest of a spawned pipeline as human.
+
+    `source` is `ValueSource` rather than a new enum, because that vocabulary already draws
+    exactly this line — resolver, goal, human, model — and a second one would be two answers to
+    *who decided this*. `by` carries the model id when `source` is `MODEL`, which is what keeps
+    `model_override_by` fillable: A130's point is that a pipeline an agent assembled must not
+    read as one a person drew by hand.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source: ValueSource
+    tier: Tier
+    reason: Line = ""
+    axis_reason: Line = ""
+    by: Line = ""
+    """The model id, when `source` is `MODEL`. Empty otherwise, and empty is not a sentinel —
+    a person has no id here, because `who` on the draft is attribution and not authentication."""
+
+
+class NodeSettled(BaseModel):
+    """What was already decided about one step: whether it exists, and which contract fills it.
+
+    Two axes rather than one, because they are answered separately and can have different
+    authors. The resolver can settle *that a trimmer belongs here* while a person settles *which
+    trimmer* — and collapsing them would attribute both to whoever answered last.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    node: NodeId
+    selection: Settled | None = None
+    presence: Settled | None = None
+
+
+class ParamSettled(BaseModel):
+    """One setting, keyed exactly as the artifact keys it.
+
+    `key` is `<node>.<param>` — the same spelling `ParamDecision.key` uses, because `Pipeline`'s
+    MD0220 check looks a decision up by it. A second spelling here would be a sidecar the
+    artifact cannot match, and the value would then be a review cleared by assertion.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: DecisionKey
+    settled: Settled
+
+
+class ChannelSettled(BaseModel):
+    """One channel's scope override, keyed by the sockets it feeds.
+
+    **By ports rather than by name**, because a channel's *name* is derived — `channels_of`
+    computes it from the registry — and the draft service diffs two graphs without loading a
+    registry at all. Keying on the derived thing would make every edit pay for a registry load to
+    answer a question the draft already contains.
+
+    The ports are what a person actually chose when they split or merged a channel, so they are
+    also the honest identity: rename the derivation tomorrow and this entry still names the same
+    decision.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ports: tuple[SocketKey, ...]
+    settled: Settled
+
+
+class DraftProvenance(BaseModel):
+    """Who settled what, per decision — **server-owned, and never accepted from a browser.**
+
+    §1.8: *never put trusted provenance fields into browser-writable `DraftGraph` merely because
+    that is the easiest payload to send.* A client that can post provenance can post
+    `source: resolver` on a value it typed, and the product claim — nothing was guessed silently
+    — becomes a claim the client makes about itself. `DraftIn` does not carry this; the service
+    writes it, and `PipelineDraft.provenance` stores its JSON dump.
+
+    **Lists rather than mappings**, keyed by declared aliases. A `dict[str, ...]` accepts any key
+    and orders by insertion; a list of typed entries makes the key a validated `NodeId`,
+    `DecisionKey` or `ChannelName`, and can be sorted into a stable order — which matters here
+    because byte-identical emission is a hard requirement and this feeds the IR.
+
+    **Empty means "nobody has recorded anything", which is what every existing draft is.**
+    `ir_of` treats an absent sidecar as today's all-human behaviour, byte for byte.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    nodes: list[NodeSettled] = Field(default_factory=list)
+    params: list[ParamSettled] = Field(default_factory=list)
+    channels: list[ChannelSettled] = Field(default_factory=list)
+
+    def node(self, node_id: str) -> NodeSettled | None:
+        return next((n for n in self.nodes if n.node == node_id), None)
+
+    def param(self, key: str) -> Settled | None:
+        return next((p.settled for p in self.params if p.key == key), None)
+
+    def channel(self, ports: tuple[str, ...]) -> Settled | None:
+        return next((c.settled for c in self.channels if tuple(c.ports) == tuple(ports)), None)
+
+    def retaining(
+        self, *, nodes: set[str], params: set[str], channels: set[tuple[str, ...]]
+    ) -> "DraftProvenance":
+        """This sidecar with every entry whose subject is no longer in the graph dropped.
+
+        **The removal half of the diff**, and it is separate from the stamping half on purpose:
+        deciding what survives an edit is a question about the *graph*, and deciding who authored
+        a change is a question about the *edit*. A node deleted and a node replaced are the same
+        `nodes` set from here, and the caller is what tells them apart.
+        """
+        return DraftProvenance(
+            nodes=[n for n in self.nodes if n.node in nodes],
+            params=[p for p in self.params if p.key in params],
+            channels=[c for c in self.channels if tuple(c.ports) in channels],
+        )

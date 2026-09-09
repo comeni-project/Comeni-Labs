@@ -35,7 +35,7 @@ def test_keep_refuses_an_illegal_graph(monkeypatch):
         [("align", STAR), ("counts", COUNTS)],
         [("align", "bam", "counts", "bam")],
     )
-    monkeypatch.setattr(drafts, "_load", lambda draft_id: graph)
+    monkeypatch.setattr(drafts, "_load", lambda draft_id: drafts.Stored(graph, None, None))
     with pytest.raises(ValueError, match="MD0504"):
         drafts.keep("whatever")
 
@@ -47,7 +47,7 @@ def test_the_refusal_says_how_many_problems_there_are(monkeypatch):
         [("align", STAR), ("counts", COUNTS)],
         [("align", "bam", "counts", "bam"), ("align", "nope", "counts", "annotation")],
     )
-    monkeypatch.setattr(drafts, "_load", lambda draft_id: graph)
+    monkeypatch.setattr(drafts, "_load", lambda draft_id: drafts.Stored(graph, None, None))
     with pytest.raises(ValueError, match="2 illegal finding"):
         drafts.keep("whatever")
 
@@ -57,7 +57,7 @@ def test_keep_allows_a_graph_with_only_unmet_ports(monkeypatch, tmp_path):
     Nextflow simply has an input nothing fills, which the gates catch where it costs something.
     """
     graph = _graph([("counts", COUNTS)])
-    monkeypatch.setattr(drafts, "_load", lambda draft_id: graph)
+    monkeypatch.setattr(drafts, "_load", lambda draft_id: drafts.Stored(graph, None, None))
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
     written = drafts.keep("whatever")
     assert written.exists()
@@ -77,7 +77,7 @@ def test_a_kept_draft_records_who_chose_each_step(monkeypatch, tmp_path):
             ("sort", "bam", "counts", "bam"),
         ],
     )
-    monkeypatch.setattr(drafts, "_load", lambda draft_id: graph)
+    monkeypatch.setattr(drafts, "_load", lambda draft_id: drafts.Stored(graph, None, None))
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
 
     written = drafts.keep("by-a-person")
@@ -115,7 +115,7 @@ def _kept(monkeypatch, tmp_path):
             ("sort", "bam", "counts", "bam"),
         ],
     )
-    monkeypatch.setattr(drafts, "_load", lambda draft_id: graph)
+    monkeypatch.setattr(drafts, "_load", lambda draft_id: drafts.Stored(graph, None, None))
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
     return pipeline_file.load(drafts.keep("d1"))
 

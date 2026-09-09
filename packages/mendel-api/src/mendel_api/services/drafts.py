@@ -12,11 +12,21 @@ only a developer machine could check.
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import Pipeline, Why
+from comeni_core.artifact.pipeline import AiProvenance, Pipeline, Why
 from comeni_core.diagnostics import coded
-from comeni_core.plan.draft import DraftGraph
+from comeni_core.goal.asked import Goal
+from comeni_core.plan.draft import (
+    ChannelSettled,
+    DraftGraph,
+    DraftProvenance,
+    NodeSettled,
+    ParamSettled,
+    Settled,
+)
 from comeni_core.plan.ir import ValueSource
+from comeni_core.plan.tiers import Tier
 from comeni_core.spell.marks import NodeId, PortName
 from mendel_compiler import pipeline_file, staging
 from mendel_resolver.materialise import goal_of, ir_of
@@ -265,6 +275,90 @@ def artifact_path(draft_id: str) -> Path | None:
     return path if path.is_file() else None
 
 
+
+_HAND = "changed in the builder by a person"
+
+
+def _by_hand(axis: str) -> Settled:
+    """The stamp a server puts on something a person just changed.
+
+    **Written explicitly rather than left to `ir_of`'s fallback**, and the difference matters on
+    exactly the pipelines this whole task is about. Dropping the entry would let the fallback
+    decide, and the fallback follows the whole-draft `by` — so a person editing one step of a
+    Spawn draft that is later kept with `by=<model>` would have their edit recorded as the
+    model's. An explicit stamp cannot be reinterpreted by whoever calls `keep`.
+    """
+    return Settled(source=ValueSource.HUMAN, tier=Tier.AMBIGUOUS, reason=_HAND, axis_reason=axis)
+
+
+def _restamped(new: DraftGraph, old: DraftGraph, prior: DraftProvenance) -> DraftProvenance:
+    """The sidecar after an edit: unchanged decisions keep their author, changed ones become the
+    person's, and anything no longer in the graph is dropped.
+
+    **Per decision, not per node.** Replacing a step's contract changes *which contract fills
+    this step* and changes nothing about *whether this step exists* — so the selection is
+    restamped and the presence is retained. Collapsing the two would relabel a resolver's
+    structural reasoning as a person's the moment somebody swapped an aligner.
+
+    **A position move is not an edit here, and cannot be.** `DraftGraph` carries no coordinates —
+    layout is `dag-core`'s, computed from the graph — so moving a node produces a byte-identical
+    graph and this function is never even reached with a difference to find.
+    """
+    was_node = {n.id: n for n in old.nodes}
+    nodes: list[NodeSettled] = []
+    for node in new.nodes:
+        before = was_node.get(node.id)
+        kept = prior.node(node.id)
+        if before is not None and before.contract_id == node.contract_id:
+            if kept is not None:
+                nodes.append(kept)
+            continue
+        nodes.append(
+            NodeSettled(
+                node=node.id,
+                selection=_by_hand("which contract fills this step"),
+                # A replaced step still exists for whatever reason it existed; only a *new* one
+                # is here because a person put it here.
+                presence=(
+                    kept.presence
+                    if before is not None and kept is not None and kept.presence is not None
+                    else _by_hand("whether this step exists at all")
+                ),
+            )
+        )
+
+    was_param = {
+        f"{n.id}.{param.name}": param for n in old.nodes for param in n.params
+    }
+    params: list[ParamSettled] = []
+    for node in new.nodes:
+        for param in node.params:
+            key = f"{node.id}.{param.name}"
+            before = was_param.get(key)
+            kept = prior.param(key)
+            if before is not None and before.value == param.value and before.why == param.why:
+                if kept is not None:
+                    params.append(ParamSettled(key=key, settled=kept))
+                continue
+            params.append(ParamSettled(key=key, settled=_by_hand("a declared setting")))
+
+    was_channel = {tuple(sorted(c.ports)): c for c in old.channels}
+    channels: list[ChannelSettled] = []
+    for channel in new.channels:
+        ports = tuple(sorted(channel.ports))
+        before = was_channel.get(ports)
+        kept = prior.channel(ports)
+        if before is not None and before.scope == channel.scope and before.why == channel.why:
+            if kept is not None:
+                channels.append(ChannelSettled(ports=ports, settled=kept))
+            continue
+        channels.append(
+            ChannelSettled(ports=ports, settled=_by_hand("how many times this channel delivers"))
+        )
+
+    return DraftProvenance(nodes=nodes, params=params, channels=channels)
+
+
 def create(graph: DraftGraph, name: str, who: str) -> str:
     """`token_hex(16)` rather than a serial: `routes/build.py` records that the API may not
     accept a path, and a guessable id is the next-worst thing."""
@@ -282,13 +376,35 @@ def create(graph: DraftGraph, name: str, who: str) -> str:
     return draft_id
 
 
-def _load(draft_id: str) -> DraftGraph:
-    """The storage seam. Raises `KeyError` for an unknown draft; the route maps it to 404."""
+class Stored(NamedTuple):
+    """A draft as the server holds it: what the client drew, and what only the server knows.
+
+    **One read, one seam.** `_load` returned a bare `DraftGraph` until 2026-09-09, and adding a
+    second storage call beside it for provenance broke eight tests that stub the seam — correctly,
+    because two reads means two authorities on whether a draft exists, and only one of them is
+    stubbed. The server-owned columns travel with the graph or they are a second source of truth.
+    """
+
+    graph: DraftGraph
+    provenance: DraftProvenance | None
+    goal: Goal | None
+
+
+def _load(draft_id: str) -> Stored:
+    """The storage seam. Raises `KeyError` for an unknown draft; the route maps it to 404.
+
+    `provenance` and `goal` are `None` for every draft written before those columns existed, and
+    every path downstream reads `None` as *carry on exactly as before*.
+    """
     with session_scope() as session:
         row = session.get(PipelineDraft, draft_id)
         if row is None:
             raise KeyError(draft_id)
-        return DraftGraph.model_validate(row.graph)
+        return Stored(
+            graph=DraftGraph.model_validate(row.graph),
+            provenance=DraftProvenance.model_validate(row.provenance) if row.provenance else None,
+            goal=Goal.model_validate(row.goal) if row.goal else None,
+        )
 
 
 def _output_root() -> Path:
@@ -305,15 +421,25 @@ def read(draft_id: str) -> PipelineDraft:
 
 
 def update(draft_id: str, graph: DraftGraph) -> None:
+    """Store the new graph, and carry the provenance of everything it did not change.
+
+    **The sidecar is computed here and never accepted from the client** — §1.8. A browser that
+    could post provenance could post `source: resolver` on a value it typed, and *nothing was
+    guessed silently* would become a claim the client makes about itself.
+    """
     with session_scope() as session:
         row = session.get(PipelineDraft, draft_id)
         if row is None:
             raise KeyError(draft_id)
+        before = DraftGraph.model_validate(row.graph)
+        prior = DraftProvenance.model_validate(row.provenance or {})
         row.graph = graph.model_dump(mode="json")
+        row.provenance = _restamped(graph, before, prior).model_dump(mode="json")
         row.updated_at = datetime.now(UTC)
 
 
-def keep(draft_id: str, *, by: str = "") -> Path:
+
+def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path:
     """Validate, refuse anything illegal, write the artifact.
 
     **`validate` reports and this refuses.** That split is the spec's, and it is the whole of
@@ -324,7 +450,8 @@ def keep(draft_id: str, *, by: str = "") -> Path:
     emitted Nextflow will simply have an input nothing fills — which the gates catch, loudly,
     at the point where that actually costs something.
     """
-    graph = _load(draft_id)
+    stored = _load(draft_id)
+    graph = stored.graph
     verdict = validation.of(graph)
     if verdict.illegal:
         first = verdict.illegal[0]
@@ -340,12 +467,23 @@ def keep(draft_id: str, *, by: str = "") -> Path:
     out = _output_root() / draft_id
     out.mkdir(parents=True, exist_ok=True)
     pipeline = Pipeline.of(
-        ir_of(graph, stack, by=by),
+        ir_of(graph, stack, by=by, provenance=stored.provenance),
+        # **Stated by the caller, never derived from the sidecar.** `MD0225` refuses a setting
+        # that claims a model settled it in a build recording that no AI point was available —
+        # and deriving `available` from the very values it checks would make that circular: a
+        # value claiming a model settled it would certify that a model was there to settle it.
+        # So a Spawn draft kept without this is *refused*, which is the check working. Task 6's
+        # authoring service is what knows the configuration and supplies it.
         stack.registry,
         stack.vocabulary,
         stack.measurements,
         stack.paths,
-        goal=goal_of(graph, stack),
+        # **The confirmed goal when there is one** — §1.9. A conversational draft was built from
+        # what the researcher asked for; `goal_of` derives a goal from whichever nodes happen to
+        # be on the canvas, which is narrower and drifts as the graph grows. An old or manual
+        # draft has no stored goal and keeps deriving one, exactly as it always has.
+        goal=stored.goal or goal_of(graph, stack),
+        ai=ai,
     )
     # The compiler's writer, not a second one: `mendel build` writes through this and a
     # kept draft must produce the same file, or `mendel emit` is only true of pipelines

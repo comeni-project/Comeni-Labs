@@ -37,7 +37,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import InputForm, Scope, Tier, ValueSource
 
 
-def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
+def of(ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None) -> Pipeline:
     """The **only** validating constructor.
 
     `goal` is **keyword-only and required**, with no default. The first version defaulted
@@ -103,9 +103,17 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
         # ports — so no declared AI point had an adapter and none answered. Writing `[]`
         # rather than leaving the field defaulted is the difference between the artifact
         # *stating* that no model was consulted and merely not mentioning it, which is A130.
-        # Plan 2 fills these from what was actually configured. Do not "fix" them to a
-        # default: `None` means a file written before the question existed.
-        ai=AiProvenance(available=[], used=[]),
+        # Do not "fix" this to a default: `None` means a file written before the question
+        # existed, and `[]` means somebody looked and found nothing wired.
+        #
+        # **`ai` is supplied by the caller since 2026-09-09, and it is deliberately not derived
+        # here.** A build that ran a model knows it; this function only sees decisions, and
+        # `available` is a fact about *configuration* that decisions cannot carry. Deriving it
+        # from `model_override` would also make `MD0225` circular — a value claiming a model
+        # settled it would certify that a model was available to settle it, which is the
+        # adapter marking its own homework. The default keeps every existing caller writing
+        # exactly the bytes it wrote before.
+        ai=ai or AiProvenance(available=[], used=[]),
         steps=steps,
         channels=channels,
         # **Derived, never authored.** One sample-scoped channel is a glob; two or more is a

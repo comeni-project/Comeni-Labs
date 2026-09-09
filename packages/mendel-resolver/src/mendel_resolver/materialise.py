@@ -36,7 +36,7 @@ from comeni_core.artifact.materialise import _stem, _unique
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.goal.asked import Goal, GoalInput
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
-from comeni_core.plan.draft import DraftGraph
+from comeni_core.plan.draft import DraftGraph, DraftProvenance, Settled
 from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Tier, ValueSource
 
@@ -93,7 +93,13 @@ def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
     )
 
 
-def _scope_choice(drawn, source: ValueSource) -> ResolvedValue:
+_SCOPE_AXIS = (
+    "how many times this channel delivers is a judgement about the experiment: one "
+    "reference for the whole run, or one per sample"
+)
+
+
+def _scope_choice(drawn, source: ValueSource, chose: Settled | None = None) -> ResolvedValue:
     """Why a channel's scope is not its type's default.
 
     **Tier 4, and invariant 6 is why.** Whether two GTF ports are fed by one file or by two is
@@ -105,15 +111,20 @@ def _scope_choice(drawn, source: ValueSource) -> ResolvedValue:
     with what the resolver would have said, which is A77 exactly: `upgrade` overwrote a
     reviewer's own words with *"selected the first of 1 candidates without judgement"*.
     """
+    if chose is not None:
+        return ResolvedValue(
+            value=drawn.scope,
+            tier=chose.tier,
+            source=chose.source,
+            reason=chose.reason,
+            axis_reason=chose.axis_reason or _SCOPE_AXIS,
+        )
     return ResolvedValue(
         value=drawn.scope,
         tier=Tier.AMBIGUOUS,
         source=source,
         reason=drawn.why or "no reason was given for this channel's scope",
-        axis_reason=(
-            "how many times this channel delivers is a judgement about the experiment: one "
-            "reference for the whole run, or one per sample"
-        ),
+        axis_reason=_SCOPE_AXIS,
     )
 
 
@@ -233,13 +244,59 @@ def _depths(graph: DraftGraph) -> dict[str, int]:
     return depth
 
 
-def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
+def _override(value: object, chose: Settled | None, drawn_by_model: bool, by: str) -> dict:
+    """Which override field records this decision, and whether one is recorded at all.
+
+    **A resolver-settled choice carries neither**, and that is the half worth stating. MD0220
+    refuses a value claiming `source: human` that no person actually answered; the mirror of it
+    is a value the resolver settled being *given* a human override because the builder stamps one
+    on everything. The artifact would then say a person cleared a review nobody looked at.
+
+    Without a recorded decision this falls back to the whole-draft `by`, which is what every
+    manual-builder draft still relies on.
+    """
+    if chose is None:
+        return (
+            {"model_override": value, "model_override_by": by}
+            if drawn_by_model
+            else {"human_override": value}
+        )
+    if chose.source is ValueSource.MODEL:
+        return {"model_override": value, "model_override_by": chose.by or by}
+    if chose.source is ValueSource.HUMAN:
+        return {"human_override": value}
+    return {}
+
+
+def ir_of(
+    graph: DraftGraph,
+    layers: Layers,
+    *,
+    by: str = "",
+    provenance: DraftProvenance | None = None,
+) -> PipelineIR:
     """The drawing as an IR, with every choice recorded as somebody's.
 
-    `by` names a model when one drew this. Empty means a person did, and the two land in
-    different fields — `model_override` versus `human_override` — because a pipeline an agent
-    assembled must not be indistinguishable from one a person drew by hand.
+    `by` names a model when one drew the **whole** graph. Empty means a person did, and the two
+    land in different fields — `model_override` versus `human_override` — because a pipeline an
+    agent assembled must not be indistinguishable from one a person drew by hand.
+
+    `provenance` is §1.8's per-decision record, and it is what makes a *mixed* session tellable.
+    The whole-draft `by` can only say one thing about a graph, so a Spawn pipeline that somebody
+    later edits in one place becomes, in the artifact, a pipeline a person drew: the resolver's
+    reasons are overwritten and its tiers become 4. That inverts the artifact's own claim — it
+    would say a human decided things no human ever saw.
+
+    **`None` is today's behaviour, byte for byte**, and `test_no_sidecar_is_byte_for_byte_what_it
+    _always_was` holds it. The manual builder is shipped and none of its drafts has a sidecar; if
+    an absent one changed a single reason string, every existing draft would emit differently the
+    next time somebody opened it.
+
+    An entry naming a node the graph no longer has is **ignored** rather than refused: this walks
+    the graph, so a stale entry has nothing to attach to. The service drops them on edit; this is
+    the belt.
     """
+    settled = provenance or DraftProvenance()
     contracts = _contracts(graph, layers)
     goal = goal_of(graph, layers)
     resolver = FlagOnlyResolver()
@@ -253,31 +310,61 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
     who = "drawn by a model" if drawn_by_model else "drawn by a person"
 
     decisions: list = []
-    nodes = [
-        IRNode(
-            id=node.id,
-            contract_id=node.contract_id,
-            # **Empty, and filled below.** A `DraftParam` is not a `ParamBinding`: it carries
-            # the answer and the reason, and the tier is this module's to stamp rather than the
-            # client's to claim.
-            params=[],
-            selection=ResolvedValue(
-                value=node.contract_id,
-                tier=Tier.AMBIGUOUS,
-                source=source,
-                reason=f"{who} in the builder rather than resolved from a goal",
-                axis_reason="which contract fills this step",
-            ),
-            presence=ResolvedValue(
-                value=None,
-                tier=Tier.AMBIGUOUS,
-                source=source,
-                reason=f"this step exists because it was {who}",
-                axis_reason="whether this step exists at all",
-            ),
+
+    def _recorded(
+        entry: Settled | None, value: object, fallback: ResolvedValue
+    ) -> ResolvedValue:
+        """A recorded decision, or the drawn-by-hand fallback when nothing recorded one.
+
+        The fallback is built by the caller rather than here, so that the no-sidecar path
+        constructs exactly the object it always did — the byte-for-byte promise is easier to keep
+        than to check, and this is where it would be lost.
+        """
+        if entry is None:
+            return fallback
+        return ResolvedValue(
+            value=value,
+            tier=entry.tier,
+            source=entry.source,
+            reason=entry.reason,
+            axis_reason=entry.axis_reason,
         )
-        for node in graph.nodes
-    ]
+
+    nodes = []
+    for node in graph.nodes:
+        recorded = settled.node(node.id)
+        nodes.append(
+            IRNode(
+                id=node.id,
+                contract_id=node.contract_id,
+                # **Empty, and filled below.** A `DraftParam` is not a `ParamBinding`: it carries
+                # the answer and the reason, and the tier is this module's to stamp rather than
+                # the client's to claim.
+                params=[],
+                selection=_recorded(
+                    recorded.selection if recorded else None,
+                    node.contract_id,
+                    ResolvedValue(
+                        value=node.contract_id,
+                        tier=Tier.AMBIGUOUS,
+                        source=source,
+                        reason=f"{who} in the builder rather than resolved from a goal",
+                        axis_reason="which contract fills this step",
+                    ),
+                ),
+                presence=_recorded(
+                    recorded.presence if recorded else None,
+                    None,
+                    ResolvedValue(
+                        value=None,
+                        tier=Tier.AMBIGUOUS,
+                        source=source,
+                        reason=f"this step exists because it was {who}",
+                        axis_reason="whether this step exists at all",
+                    ),
+                ),
+            )
+        )
 
     # Settings, through the same ladder `resolve()` uses. A param the person already set in the
     # builder wins — it is on the `DraftNode` — and everything else is decided here.
@@ -287,6 +374,8 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
         for param in contract.params:
             answer = typed.get(param.name)
             if answer is not None:
+                key = f"{drawn.id}.{param.name}"
+                chose = settled.param(key)
                 # **The server stamps the tier, not the client.** A browser claiming tier 1 on
                 # a value somebody typed would put a lie in `pipeline.yml` that nothing
                 # downstream could catch. Tier 4 because a person who typed a value had a
@@ -296,17 +385,21 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
                     param.name,
                     ResolvedValue(
                         value=answer.value,
-                        tier=Tier.AMBIGUOUS,
-                        source=source,
-                        reason=answer.why or f"set in the builder, {who}, with no reason given",
-                        axis_reason=param.because or f"{param.name} is a declared setting",
+                        tier=chose.tier if chose else Tier.AMBIGUOUS,
+                        source=chose.source if chose else source,
+                        reason=(
+                            chose.reason
+                            if chose
+                            else answer.why or f"set in the builder, {who}, with no reason given"
+                        ),
+                        axis_reason=(
+                            chose.axis_reason
+                            if chose and chose.axis_reason
+                            else param.because or f"{param.name} is a declared setting"
+                        ),
                     ),
                 )
-                override = (
-                    {"model_override": answer.value, "model_override_by": by}
-                    if drawn_by_model
-                    else {"human_override": answer.value}
-                )
+                override = _override(answer.value, chose, drawn_by_model, by)
                 decisions.append(
                     ParamDecision(
                         # **`<node>.<param>` with no prefix.** `Pipeline`'s MD0220 check looks
@@ -315,11 +408,11 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
                         # A prefixed key is a decision the artifact cannot find, and the value
                         # is then a review cleared by assertion — which is what MD0220 exists
                         # to refuse. It refused this, correctly, the first time it ran.
-                        key=f"{drawn.id}.{param.name}",
-                        subject=f"{drawn.id}.{param.name}",
-                        reason=f"set in the builder, {who}",
+                        key=key,
+                        subject=key,
+                        reason=chose.reason if chose else f"set in the builder, {who}",
                         resolved_by="builder",
-                        tier=Tier.AMBIGUOUS,
+                        tier=chose.tier if chose else Tier.AMBIGUOUS,
                         chosen=answer.value,
                         override_reason=answer.why,
                         **override,
@@ -365,18 +458,18 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
         )
 
     for node in graph.nodes:
-        override = {"model_override": node.contract_id, "model_override_by": by} if drawn_by_model \
-            else {"human_override": node.contract_id}
+        recorded = settled.node(node.id)
+        chose = recorded.selection if recorded else None
         decisions.append(
             ProducerDecision(
                 key=f"producer:{node.id}",
                 subject=node.id,
-                reason=f"{who} in the builder",
+                reason=chose.reason if chose else f"{who} in the builder",
                 resolved_by="builder",
-                tier=Tier.AMBIGUOUS,
+                tier=chose.tier if chose else Tier.AMBIGUOUS,
                 candidates=[node.contract_id],
                 chosen=node.contract_id,
-                **override,
+                **_override(node.contract_id, chose, drawn_by_model, by),
             )
         )
 
@@ -389,7 +482,9 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
                 name=c.name,
                 type_id=c.type_id,
                 ports=sorted(c.ports),
-                scope=_scope_choice(c, source) if c.scope else None,
+                scope=_scope_choice(c, source, settled.channel(tuple(sorted(c.ports))))
+                if c.scope
+                else None,
             )
             for c in channels_of(graph, layers)
         ],
