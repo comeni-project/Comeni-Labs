@@ -31,13 +31,24 @@ def clean_forge():
     `ai_invocation` is in the list despite not being named `forge_*`: it is referenced by
     `forge_message`, and leaving it out makes the truncation fail on the first test that
     records a model call.
+
+    **The two `pipeline_authoring_*` tables are here for exactly that reason, one agent later.**
+    `ai_invocation` was built to be shared — `agent` is the column that says whose call it was —
+    and on 2026-09-09 the living pipeline became the second agent to reference it. Truncating
+    `ai_invocation` without them is refused, and `pipeline_authoring_turn` cannot go without
+    `pipeline_authoring_proposal`, which references it.
+
+    This fixture is the cost of a shared audit table, and it is the right cost: the alternative
+    the docstring above rejects is one invocation table per agent, which is a lie the second
+    time. A third agent adds a line here.
     """
     from mendel_api.db import session_scope
     from sqlalchemy import text
 
     tables = (
         "forge_message, forge_event, forge_revision, forge_adaptation, "
-        "forge_catalogue_item, forge_source_snapshot, ai_invocation"
+        "forge_catalogue_item, forge_source_snapshot, ai_invocation, "
+        "pipeline_authoring_proposal, pipeline_authoring_turn"
     )
     with session_scope() as session:
         session.execute(text(f"TRUNCATE TABLE {tables}"))

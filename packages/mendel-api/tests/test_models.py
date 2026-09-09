@@ -48,9 +48,20 @@ def test_the_registry_is_not_in_the_database():
     holds a candidate, which is a draft in the same sense `pipeline_draft` is.
 
     **The test of which side a row is on is whether deleting the table changes a build.** For
-    all eleven, it does not. `forge_catalogue_item` is the one worth naming: it holds tool
+    all fourteen, it does not. `forge_catalogue_item` is the one worth naming: it holds tool
     metadata, which sounds exactly like registry data, and is a cache of what somebody else
     publishes — read over the network, replaced on every sync, read by no build.
+
+    **Three authoring tables arrived on 2026-09-09** and pass that test in the direction that
+    matters: delete every session, turn and proposal and `pipeline_draft` still opens, still
+    validates and still keeps. What is lost is the *account* of how the graph came to look that
+    way, which is the workflow-state side of issue #43's line — the same side a `forge_revision`
+    is on.
+
+    They are also the closest thing yet to the §8 mistake this test guards, and the distinction
+    is worth stating: a `pipeline_authoring_*` row is about **authoring an artifact**, and a run
+    row would be about **executing one**. A samplesheet, an input path or a task record here
+    would mean this table has become Wiener's.
     """
     import mendel_api.models as m
 
@@ -67,9 +78,12 @@ def test_the_registry_is_not_in_the_database():
         "forge_event",
         "forge_message",
         "ai_invocation",
+        "pipeline_authoring_session",
+        "pipeline_authoring_turn",
+        "pipeline_authoring_proposal",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
-        "docstring, and a twelfth needs the same argument written down. Two rejections in "
+        "docstring, and a fifteenth needs the same argument written down. Two rejections in "
         "particular: a table of contracts, types or roles that a BUILD reads reverses issue "
         "#43 (declared data is files); a table of RUNS is Wiener's, and building it here "
         "because the worker is here is the exact failure docs/design/execution-boundary.md "
@@ -185,3 +199,67 @@ def test_a_gate_run_carries_no_input_and_no_credential():
         "credential — docs/design/execution-boundary.md §3. A column for any of those makes this "
         "run history, which is Wiener's, and moves the boundary without anybody deciding to."
     )
+
+
+def test_the_pending_proposal_index_names_the_pending_state():
+    """`PipelineAuthoringProposal`'s docstring says the index's SQL is `ProposalState.PENDING`
+    spelled out. This is the named test that claim refers to.
+
+    Same failure mode as `test_the_partial_index_names_exactly_the_terminal_states` one table
+    over: what drifts is not the index, it is the enum. Renaming the member without editing the
+    SQL leaves the index enforcing uniqueness over a state nothing ever writes — so the rule
+    reads as enforced and enforces nothing, which is A14's failure mode in a constraint.
+    """
+    from mendel_api.authoring.types import ProposalState
+    from mendel_api.models import PipelineAuthoringProposal
+
+    index = next(
+        i
+        for i in PipelineAuthoringProposal.__table__.indexes
+        if i.name == "ix_pipeline_authoring_proposal_one_pending"
+    )
+    assert index.unique, "one-pending is not unique, so it enforces nothing"
+    clause = str(index.dialect_options["postgresql"]["where"])
+    assert ProposalState.PENDING.value in clause, (
+        f"the index says {clause!r}, which does not name ProposalState.PENDING"
+    )
+
+
+def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
+    """The §8 line, asked of the three tables closest to crossing it.
+
+    `test_the_registry_is_not_in_the_database` argues these are workflow state rather than run
+    state. This is the structural half: a column that could hold a samplesheet, an input path or
+    a provider key would move the boundary without anybody deciding to.
+
+    Named columns rather than a substring sweep would be a blocklist. This asks the opposite —
+    every column is one somebody wrote down here — so a column added later fails until it is
+    named, which is `_leaf_problems`' shape applied to a table.
+    """
+    from mendel_api import models as m
+
+    declared = {
+        "pipeline_authoring_session": {
+            "id", "draft_id", "mode", "phase", "failed_from", "goal", "blueprint",
+            "registry_digest", "cursor", "row_version", "who", "created_at", "updated_at",
+        },
+        "pipeline_authoring_turn": {
+            "id", "session_id", "seq", "role", "state", "blocks", "text", "base_revision",
+            "ai_invocation_id", "at",
+        },
+        "pipeline_authoring_proposal": {
+            "id", "session_id", "turn_id", "kind", "payload", "state", "chosen_option",
+            "by", "draft_revision", "created_at", "settled_at",
+        },
+    }
+    tables = {t.__tablename__: t for t in vars(m).values() if hasattr(t, "__tablename__")}
+    assert set(declared) <= set(tables), "the authoring tables moved"
+
+    for name, expected in declared.items():
+        actual = {c.name for c in tables[name].__table__.columns}
+        assert actual == expected, (
+            f"{name}'s columns are {sorted(actual)}. A new one needs an argument: nothing here "
+            "may hold a sample identifier, a filename, a path, a provider's own error text, or "
+            "a credential — the first three are invariant 15 and the last two are why "
+            "ai_invocation carries a diagnostic code instead."
+        )

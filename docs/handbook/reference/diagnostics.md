@@ -209,6 +209,10 @@ decline to curate one.
 | `MI0112` | a review question is empty, or longer than the limit |
 | `MI0113` | the model answered and its answer was refused |
 | `MI0114` | the proposal could not be applied to the scaffold |
+| `MI0200` | an authoring session cannot move from this phase by this event |
+| `MI0201` | this draft moved while you were looking at it — re-read it before accepting |
+| `MI0202` | this proposal was made against an older draft and can no longer be applied |
+| `MI0203` | this proposal has already been settled |
 
 ## The forge — what a model is told, and what it cites
 

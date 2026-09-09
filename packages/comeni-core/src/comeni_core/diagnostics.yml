@@ -30,6 +30,7 @@
 #   MF0400-MF0499  the forge: composing what a model is told, and reading what it said
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: the forge workflow's durable state, and the workers that move it
+#   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
@@ -3425,3 +3426,74 @@ MW0002:
     The ingest endpoint is bound on loopback behind a per-run secret (§13.1), so this is not
     the last line of defence. It is the line that does not depend on anybody remembering, which
     is the argument for an allowlist in the first place.
+
+MI0200:
+  emitted_by: api
+  concern: workflow
+  says: "an authoring session cannot move from this phase by this event"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Re-read the session and act on the phase it reports now. The refusal names the phase it is
+    actually in and what can happen from there, so the recovery is one request rather than a
+    guess.
+  explanation: |
+    The phases are the state diagram in the living-pipeline plan §2, transcribed rather than
+    invented, and the transition table is closed. An event that is legal in `building` and
+    arrives in `understanding` is a client acting on a view it has not refreshed — or two tabs,
+    which is the ordinary case rather than the exotic one.
+
+    Refusing is what keeps the diagram the specification. A machine that silently ignored an
+    illegal event would let the phase and the transcript disagree, and the transcript is what a
+    person reads.
+
+MI0201:
+  emitted_by: api
+  concern: workflow
+  says: "this draft moved while you were looking at it — re-read it before accepting"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Re-read the draft and the pending proposal, then act on what they say now. The refusal
+    reports the revision the server holds, so a client knows exactly what it missed.
+  explanation: |
+    Every mutating authoring request carries `expected_revision`, and this is what happens when
+    it does not match. Two tabs on one draft is the ordinary case — somebody accepts a step in
+    one and then accepts a setting in the other, against a picture that is one revision old.
+
+    Read-then-write would leave a window between the check and the write. The comparison is
+    against a number the client was *shown*, not against a timestamp: two writes inside one
+    clock tick are indistinguishable by time, which is precisely when this matters.
+
+MI0202:
+  emitted_by: api
+  concern: workflow
+  says: "this proposal was made against an older draft and can no longer be applied"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Nothing to undo — the proposal is marked `stale` and the draft is untouched. Ask again on
+    the current draft; the engine will re-propose if the choice still exists.
+  explanation: |
+    A proposal is offered against a specific draft revision. If the draft moves before the
+    proposal is answered, applying it would write a decision made about a pipeline that no
+    longer looks that way.
+
+    `stale` is a state of its own rather than `rejected`, and the distinction is not
+    bookkeeping: nobody rejected this. A person who reads their own transcript later must be
+    able to tell a choice they declined from one the engine withdrew.
+
+MI0203:
+  emitted_by: api
+  concern: workflow
+  says: "this proposal has already been settled"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Re-read the session. The proposal already carries an outcome and an actor, and applying it
+    twice would record a second decision nobody made.
+  explanation: |
+    The ordinary cause is a duplicate delivery — a retried request, or a double click — and the
+    correct answer to a duplicate is the same answer, not a second effect. This is what makes
+    accepting a proposal idempotent in the way that matters: the first call decides and every
+    later one is refused rather than silently re-applied.

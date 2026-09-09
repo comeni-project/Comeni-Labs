@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 and 2 complete
+**Status:** in progress — Tasks 1, 2 and 3 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -503,28 +503,70 @@ passed.
 **Files:** modify `models.py`; add one Alembic migration; create `authoring/state.py` and
 `services/authoring.py`; update model, migration, and fixture cleanup tests.
 
-- [ ] Write the migration/model tests first. The offline Alembic comparison must fail before the
+- [x] Write the migration/model tests first. The offline Alembic comparison must fail before the
   migration exists.
-- [ ] Add the three authoring workflow tables described in §2 with RESTRICT foreign keys and no
+- [x] Add the three authoring workflow tables described in §2 with RESTRICT foreign keys and no
   cascade. Add a unique one-session-per-draft constraint if the design does not support several.
-- [ ] Add `goal`, provenance sidecar, and integer revision columns to `pipeline_draft`. Backfill
+- [x] Add `goal`, provenance sidecar, and integer revision columns to `pipeline_draft`. Backfill
   old rows as `goal = null`, empty provenance, revision 0; those rows must still open and keep.
-- [ ] Explain each table in its model docstring using the repository's test: deleting authoring
+- [x] Explain each table in its model docstring using the repository's test: deleting authoring
   history must not change a build, while deleting the pipeline draft still removes the working
   copy. Do not store contracts, types, credentials, provider errors, or runtime sample data.
-- [ ] Implement the pure state machine and compare-and-swap transitions. A stale proposal becomes
+- [x] Implement the pure state machine and compare-and-swap transitions. A stale proposal becomes
   `stale` or returns a coded conflict; it never applies to a newer draft.
-- [ ] Make turn order explicit and stable. A user turn appears immediately; its assistant turn
+- [x] Make turn order explicit and stable. A user turn appears immediately; its assistant turn
   can be pending, answered, or failed.
-- [ ] Add service tests for reload, retry, duplicate delivery, two-tab stale acceptance, and a
+- [x] Add service tests for reload, retry, duplicate delivery, two-tab stale acceptance, and a
   session whose model call finishes after the draft changed.
-- [ ] Update exact-table guards deliberately and run:
+- [x] Update exact-table guards deliberately and run:
   `uv run pytest packages/mendel-api/tests/test_models.py packages/mendel-api/tests/test_migrations.py packages/mendel-api/tests/test_authoring_state.py -v`.
 
 **Checkpoint:** restart the API between creating a session and reading it; the transcript,
 pending proposal, confirmed goal, draft, and revision all return unchanged.
 
 ---
+
+### Execution record — 2026-09-09
+
+`make check` (no database, as CI runs it): **2496 passed**, 131 skipped. Task 3's own command
+plus the service tests, against a real Postgres: **51 passed**.
+
+| Step | Carried out as written? | Deviation |
+|---|---|---|
+| migration/model tests first, offline comparison failing | yes | the comparison named all three tables and **36 columns** before the migration existed. The harness already existed and is generic, so adding the models *is* the failing test |
+| three tables, RESTRICT, no cascade, unique one-session-per-draft | yes | verified in a real database, not only in rendered DDL: all five foreign keys report `confdeltype = r` |
+| `goal`, provenance, revision on `pipeline_draft`, backfilled | yes | verified by inserting a pre-migration-shaped row and reading back `goal IS NULL`, `provenance = {}`, `revision = 0` |
+| each table explained by the repository's test | yes | and the exact-table guard's own docstring now carries the argument for all three |
+| pure state machine and compare-and-swap | yes | `authoring/state.py`. Two mutations watched failing: the stale check removed, and the duplicate-delivery check removed |
+| turn order explicit and stable | yes | `seq`, with a unique index on `(session_id, seq)`. `at` is not an ordering |
+| service tests for the five scenarios | yes | all five, plus the checkpoint. Two mutations watched failing: a late model answer applied anyway, and a refused acceptance bumping the revision |
+| update exact-table guards **deliberately** | **more than written** | the exact-table list, *and* `clean_forge` — see below |
+
+**Four things a reader should know before Task 4:**
+
+1. **`failed_from` is a column the plan did not ask for, and §2 requires it.** The diagram draws
+   **two** arrows out of `failed` — back to `understanding` and to `resolving` — and `phase`
+   alone cannot choose between them. This is `ForgeAdaptation.failed_stage`'s argument arriving a
+   second time, and without it a failed build is retried as a prompt call, which re-asks a person
+   a question they have already answered.
+2. **`clean_forge` had to change, and that is the cost of a shared audit table.**
+   `pipeline_authoring_turn` references `ai_invocation`, so truncating it without naming the
+   authoring tables is refused by Postgres — **94 errors**, all from one fixture. That table was
+   built to be shared (`agent` is the column saying whose call it was) and the living pipeline is
+   the second agent to use it. A third adds a line to that fixture.
+3. **`Settlement.refusal` carries a `coded()` message, not a bare code**, and
+   `test_every_declared_code_is_emitted` is what forced it. `MI0202` was declared, appeared in
+   the generated diagnostics page and answered `mendel explain`, while no code path could
+   produce it — the string was being assembled by hand.
+4. **Five tests in `test_forge_jobs.py` and `test_full_cycle.py` fail on this branch and are not
+   ours.** Verified against a database migrated to `d3b81c5a4f07` with this work stashed: the
+   same five, with the same `MF0001: 'fake' is not a catalogue source`. They are database-gated,
+   so CI has never run them.
+
+**The checkpoint was run literally.** One process created a session, wrote a turn, moved it to
+`goal_review` with a goal and left a proposal pending; a **second interpreter** read back the
+phase, the goal, the revision, both turns in order and the pending proposal, unchanged.
+
 
 ## Task 4 — Preserve mixed decision provenance
 

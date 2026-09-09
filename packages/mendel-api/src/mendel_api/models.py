@@ -86,6 +86,40 @@ class PipelineDraft(Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     graph: Mapped[dict] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    goal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    """The confirmed `Goal`, once a person has accepted one. Null on every draft drawn by hand.
+
+    **An authored draft retains its goal** (§1.9), and this is where. Without it a conversation
+    that has already established what somebody wants has to re-derive it from the graph on
+    every turn — `materialise.py` does derive one, and a derived goal is a reading of the graph
+    rather than a record of what was asked for. Both exist because they answer different
+    questions; this is the one a person confirmed.
+
+    Nullable rather than defaulted to `{}`, because *no goal was ever confirmed* and *an empty
+    goal was confirmed* are different facts and a default would erase the distinction on every
+    row that predates this column."""
+    provenance: Mapped[dict] = mapped_column(JSON, default=dict)
+    """Who settled what, per decision rather than per session (§1.8).
+
+    A sidecar rather than fields on the graph's nodes: the browser owns the graph and sends it
+    whole, so anything written into it is something the next PUT can overwrite. Provenance is
+    the server's record of a mixed session — this node from the resolver, that one a person
+    chose, this setting a model answered — and it must survive a client that knows nothing
+    about it. Task 4 is what fills it.
+
+    **Empty is a truthful default.** A draft nobody authored conversationally has no mixed
+    provenance to record, and `{}` says exactly that."""
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    """Monotonic, and the thing every mutating authoring request is checked against.
+
+    **Not `updated_at`.** Two writes inside one clock tick are indistinguishable by timestamp,
+    and the comparison a stale proposal needs is equality against a number the client was shown
+    — `AcceptProposal.expected_revision`. `row_version` on `ForgeAdaptation` is the same
+    mechanism for the same reason; this one is named `revision` because the browser displays it
+    and *revision 4* is what a person is looking at.
+
+    A draft that existed before this column is revision 0, which is correct rather than a
+    placeholder: it has had no authoring turn, so nothing has been proposed against it."""
 
 
 class GateRun(Base):
@@ -507,3 +541,197 @@ class AiInvocation(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     """Nullable because a provider supplies them or does not, and a local Ollama lane often
     does not. A zero would be a measurement; a null is the absence of one."""
+
+
+class PipelineAuthoringSession(Base):
+    """One conversation about one draft.
+
+    **The twelfth table, and the argument is the one every table here has had to make: does
+    deleting it change a build?** It does not. Delete every row in this table and the three
+    below it and `pipeline_draft` still opens, still validates and still keeps — what is lost is
+    the *account* of how the graph came to look that way, which is exactly the split issue #43
+    drew. Declared data is files; a half-finished conversation is workflow state.
+
+    Deleting the draft is the other direction and is not symmetric: the working copy goes, and
+    these rows are what `ondelete="RESTRICT"` refuses to orphan. A session about a draft that no
+    longer exists is a transcript nobody can act on, so the delete is refused rather than
+    cascaded — `test_no_foreign_key_cascades` is what keeps that true for the whole schema.
+
+    **What is deliberately not here**: contracts, types, roles or vocabulary (issue #43, and
+    `test_the_registry_is_not_in_the_database`); a credential of any kind (the provider key
+    lives in the environment and reaches `comeni_ai.access` and nothing else); a provider's own
+    error text (`failure_code` on `ai_invocation` carries a declared code instead); and any
+    runtime sample data, which is invariant 15 and is Wiener's anyway.
+
+    `blueprint` is what the **resolver** produced, stored whole. §1.4 — resolve the whole
+    blueprint, reveal it incrementally — so the reveal is a cursor over something already
+    computed rather than a series of fresh resolutions that could each answer differently.
+    `cursor` is how far the reveal has got.
+
+    `row_version` is optimistic concurrency on the session itself, the same mechanism
+    `ForgeAdaptation` documents: two tabs on one conversation is the ordinary case.
+    """
+
+    __tablename__ = "pipeline_authoring_session"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    draft_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), unique=True, index=True
+    )
+    """**Unique**, because the MVP does not support several sessions on one draft.
+
+    Task 3 asks for this constraint if the design does not support several, and it does not:
+    §2 gives a session one phase and one cursor, so two sessions on one draft would be two
+    answers to *where are we* with nothing to arbitrate between them. A second conversation is
+    a second draft."""
+    mode: Mapped[str] = mapped_column(String(8))
+    """A `Mode` value — `build` or `spawn`. A plain column rather than a native Postgres enum,
+    for the reason `GateRun.state` records: adding a member to a Postgres enum is a migration,
+    and `authoring.types.Mode` is already the closed vocabulary that matters."""
+    phase: Mapped[str] = mapped_column(String(16), index=True)
+    """A `Phase` value. Indexed because sweeping for sessions stuck in `understanding` is how a
+    job that never came back is found — `forge_jobs` already sweeps that way."""
+    failed_from: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    """The phase it was in when it failed, so retry resumes *that* one.
+
+    **§2 draws two arrows out of `failed`** — back to `understanding` and to `resolving` — and
+    `phase` alone cannot choose between them. This is `ForgeAdaptation.failed_stage`'s argument
+    arriving a second time: retry resumes the stage that failed rather than assuming every
+    failure came from the model, and without the column a failed build would be retried as a
+    prompt call.
+
+    Nullable, and null is not a sentinel: a session that has never failed has no such phase, and
+    `""` would be a phase name that is not one."""
+    goal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    """The confirmed `Goal`, mirrored onto `pipeline_draft.goal` when the person accepts it.
+
+    Here as well as there because they answer different questions: this is what *this
+    conversation* settled on, and the draft's is what the artifact will be built from. They are
+    equal in the ordinary case and must be allowed to differ while a revision is being
+    reviewed."""
+    blueprint: Mapped[dict] = mapped_column(JSON, default=dict)
+    registry_digest: Mapped[str] = mapped_column(String(64), default="")
+    """Which layer stack the blueprint was resolved against. A blueprint outlives the registry
+    that produced it, and `MF0301`'s lesson one product over: a green answer about a layer that
+    has since moved is a statement about something that no longer exists."""
+    cursor: Mapped[int] = mapped_column(Integer, default=0)
+    row_version: Mapped[int] = mapped_column(Integer, default=1)
+    who: Mapped[str] = mapped_column(String(200), index=True)
+    """ATTRIBUTION, not authentication, exactly as on `QueueVisit`, `PipelineDraft`,
+    `GateRun` and `ForgeAdaptation`."""
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class PipelineAuthoringTurn(Base):
+    """One turn of an authoring conversation, in a fixed order.
+
+    **The thirteenth table.** `seq` is what makes the order explicit rather than emergent: two
+    turns written inside one clock tick sort arbitrarily by `at`, and a transcript that reorders
+    itself on reload is the defect a timestamp ordering hides until the machine is fast enough.
+    Unique per session, so the ordering cannot be ambiguous even in principle.
+
+    **A user turn appears immediately and its answer is a separate row**, which is why `state`
+    exists. The assistant's turn is written `pending` the moment the person's is accepted, so
+    the transcript can draw the waiting instead of the browser inventing a placeholder that
+    reload would lose. `failed` is not `answered` with empty content — folding them hides the
+    only thing worth measuring about a provider.
+
+    `base_revision` is the draft revision this turn was composed against, so a reply that
+    arrives after the draft moved can be recognised as stale rather than applied.
+    """
+
+    __tablename__ = "pipeline_authoring_turn"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_authoring_session.id", ondelete="RESTRICT"), index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer)
+    """Explicit order within the session. See the class docstring: `at` is not an ordering."""
+    role: Mapped[str] = mapped_column(String(16))
+    """`person` or `assistant`. The same distinction `AuthoringRole` draws at the door."""
+    state: Mapped[str] = mapped_column(String(16), index=True)
+    """A `TurnState` value — `pending`, `answered` or `failed`."""
+    blocks: Mapped[list] = mapped_column(JSON, default=list)
+    """The assistant's turn as a list of discriminated blocks. Empty while `pending`."""
+    text: Mapped[str] = mapped_column(Text, default="")
+    """The person's own words. Free text with a real author, and the same kind of field
+    `ForgeMessage.content` is — which door carries it and what may be in it is
+    `tests/guards/test_egress.py`'s to declare, not this docstring's to assume."""
+    base_revision: Mapped[int] = mapped_column(Integer, default=0)
+    ai_invocation_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("ai_invocation.id", ondelete="RESTRICT"), nullable=True
+    )
+    """The audit row for the call that produced this turn. `ai_invocation.agent` is why that
+    table is not named `forge_*`: this is the second agent it was built for."""
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+    __table_args__ = (
+        Index("ix_pipeline_authoring_turn_order", "session_id", "seq", unique=True),
+    )
+
+
+class PipelineAuthoringProposal(Base):
+    """Something the engine offered, and what became of it.
+
+    **The fourteenth table.** A proposal is separate from the turn that carried it because the
+    two have different lifetimes: the turn is an immutable line of transcript, and the proposal
+    is answered later — possibly after the draft has moved underneath it.
+
+    `state` carries `stale` as a named member rather than as a comparison somebody remembers to
+    perform. A proposal made against revision 4 and answered after revision 5 landed was not
+    rejected — nobody rejected it — and applying it would write over work done in between.
+
+    `draft_revision` is what that comparison is against, and `chosen_option` records which
+    option id won, never a value: the browser posts ids, and a proposal that recorded a *value*
+    would be a place for something outside the offered set to enter.
+
+    `by` distinguishes a person from the model for the reason `model_override` exists on all
+    three decision kinds — a pipeline an agent assembled must not read as one a person drew by
+    hand. That is A130 arriving in a third place.
+    """
+
+    __tablename__ = "pipeline_authoring_proposal"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_authoring_session.id", ondelete="RESTRICT"), index=True
+    )
+    turn_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("pipeline_authoring_turn.id", ondelete="RESTRICT"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(24), index=True)
+    """A `BlockKind` value — which of the discriminated payloads `payload` holds."""
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    """The block itself, stored whole and validated back through `authoring.types.parse_block`.
+    Whole rather than shredded for `PipelineDraft.graph`'s reason: a schema that could hold half
+    a proposal would be a second definition of what a proposal is."""
+    state: Mapped[str] = mapped_column(String(16), index=True)
+    """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
+    chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    """An option **id**, never a value. See the class docstring."""
+    by: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    """`person`, `model` or `resolver`, once answered. Null while pending."""
+    draft_revision: Mapped[int] = mapped_column(Integer)
+    """The revision this was proposed against. Staleness is equality against this."""
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "ix_pipeline_authoring_proposal_one_pending",
+            "session_id",
+            unique=True,
+            postgresql_where=text("state = 'pending'"),
+        ),
+    )
+    """At most one pending proposal per session, which is §2's MVP rule made unraceable.
+
+    **A partial unique index where supported, and a service-level refusal everywhere**, exactly
+    as `ix_forge_adaptation_one_active` does it: the service answers with a sentence, and the
+    index is the half that holds when two requests arrive together. The literal `'pending'` is
+    `ProposalState.PENDING` spelled in SQL, and
+    `test_the_pending_proposal_index_names_the_pending_state` holds the two together rather than
+    this sentence doing it — a comment claiming a guard exists is worse than no comment.
+    """
