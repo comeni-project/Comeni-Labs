@@ -1,4 +1,4 @@
-.PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs docs-status static stub profile forge clean \
+.PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve
 
 # The containers run as the host user so bind-mounted files stay yours: git refuses a
@@ -97,6 +97,12 @@ wiki-serve: wiki-tools  ## serve the wiki at http://localhost:8000 with live rel
 static:         ## conformance + lint + preview — everything checkable without Docker
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
+
+demo-seed:       ## seed the example pipeline and fake runs into the running stack
+	uv run python tools/seed_demo.py --fake-runs
+
+demo-fake-run:   ## add a visible running demo run without launching Nextflow
+	uv run python tools/seed_demo.py --fake-running
 
 stub:           ## build the RNA-seq spine and run the stub gate (needs Docker + Nextflow)
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
