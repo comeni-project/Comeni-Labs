@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 
 import { Field } from "../ui/Field";
@@ -75,6 +76,17 @@ function Tab({ to, children }: { to: string; children: string }) {
 }
 
 export function Shell() {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("comeni-theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("comeni-theme", theme);
+  }, [theme]);
+
   // **One field for the whole application, and the route picks where it is thrown from.**
   // The front door's arcs bloom from below the prompt (`OverviewFirst`); every other board
   // throws them from the lower-left corner (`_field.html`). Two mounted fields stacked their
@@ -126,6 +138,16 @@ export function Shell() {
         <Tab to="/build">Builder</Tab>
         <Tab to="/runs">Runs</Tab>
         <Tab to="/forge">Registry</Tab>
+        <button
+          type="button"
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="ml-auto pb-[3px] border-b border-transparent bg-transparent text-[12.5px]
+                     text-ink-3 hover:text-ink cursor-pointer"
+        >
+          {theme === "dark" ? "Light" : "Dark"}
+        </button>
       </nav>
       <Outlet />
     </div>

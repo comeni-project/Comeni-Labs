@@ -67,6 +67,22 @@ services:
   web:
     restart: unless-stopped
 
+  # **Not started here**, and a profile is how compose says that — there is no "off" switch for
+  # an inherited service. `mkdocs serve` is a live-reload development server watching a mounted
+  # source tree; the prod answer for the wiki is a built `site/` (`make wiki`) behind a real
+  # server, and until something serves it this stack does not pretend to.
+  #
+  #     docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile wiki up -d
+  #
+  # brings it up anyway — **on the compose network only.** The port is reset like every other
+  # service's, so opting in gets you a wiki another container can reach and the internet
+  # cannot. That is the overlay's rule holding: a profile says *not started*, and it may not
+  # also mean *and published on the host if you ask twice*.
+  wiki:
+    profiles: ["wiki"]
+    restart: unless-stopped
+    ports: !reset []
+
   wiener-postgres:
     restart: unless-stopped
     ports: !reset []   # reachable on the compose network only

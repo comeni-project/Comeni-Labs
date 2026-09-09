@@ -91,17 +91,22 @@ def _publish_a_host_port(base) -> set[str]:
     return {name for name, service in _default_stack(base).items() if service.get("ports")}
 
 
-def test_the_default_stack_is_these_ten_services(base):
+def test_the_default_stack_is_these_eleven_services(base):
     """Named literally: adding one means editing this test, which is where somebody notices
     that a new service needs a healthcheck and a place in the overlay.
 
-    **It worked twice.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test
-    is what stopped them arriving with a host-published port the prod overlay had never heard
-    of. `ai-worker` arrived on 2026-09-05 and it fired again, for the same reason — Task 12 says
-    "add the services" and says nothing about the overlay."""
+    **It has worked three times**, which is the whole return on a literal list.
+    `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test is what stopped them
+    arriving with a host-published port the prod overlay had never heard of. `ai-worker` arrived
+    on 2026-09-05 and it fired again, for the same reason — Task 12 said "add the services" and
+    said nothing about the overlay. `wiki` arrived on 2026-09-09 and **failed five tests in this
+    file**: no healthcheck, no restart policy, and a host port the overlay did not close.
+
+    All three were written as a service and nothing else. The list is the only thing that
+    notices, because everything a new service is missing is missing *quietly*."""
     assert sorted(_default_stack(base)) == [
         "ai-worker", "api", "postgres", "redis", "web",
-        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "worker",
+        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "wiki", "worker",
     ]
 
 

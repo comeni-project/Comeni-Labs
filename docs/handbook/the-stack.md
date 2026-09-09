@@ -18,6 +18,7 @@ When it finishes, use:
 | `http://localhost:8000/docs` | Mendel API docs |
 | `http://localhost:5173/runs` | runs board |
 | `http://localhost:5173/forge/queue` | registry review queue |
+| `http://localhost:8010/` | this wiki, with live reload |
 
 Use `:5173` while developing the frontend.
 
@@ -35,6 +36,7 @@ Use `:5173` while developing the frontend.
 | `wiener-ingest`, `wiener-worker` | ingest and fold Nextflow events |
 | `wiener-postgres` | Wiener database and migration chain |
 | `otel-collector`, `clickhouse`, `grafana` | local telemetry |
+| `wiki` | mkdocs serving these pages, reloading as you edit them |
 
 Mendel builds and explains pipeline artifacts. Wiener launches and observes runs. The browser
 carries a pipeline artifact between them; the two services are not one combined backend.

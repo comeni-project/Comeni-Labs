@@ -1,4 +1,4 @@
-.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links test lint fmt types docs docs-status static stub profile forge clean \
+.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links test lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -20,6 +20,15 @@ LOGFILE  := $(RUN_DIR)/vite.log
 DEVREG   := $(RUN_DIR)/registry
 # npm writes this file on every install, so it is the honest mtime for "what is installed".
 NODEDEPS := frontend/node_modules/.package-lock.json
+# Where the wiki is served, by `make dev` (in the stack) and by `make wiki-serve` (on the host).
+#
+# **This read `.env` with its own `sed` until this branch merged.** It was written on main,
+# where make did not load that file — `-include .env` above arrived here at the same time and
+# says the same thing once, for every variable. Two spellings of "what is in `.env`" is the
+# defect the include exists to prevent, so the hand-rolled one goes.
+#
+# 8010 rather than mkdocs' default 8000: `api` publishes 8000.
+WIKI_PORT := $(or $(WIKI_HOST_PORT),8010)
 
 registry-present:  ## refuse early if the registry submodule was not checked out
 	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
@@ -101,12 +110,21 @@ wiki-tools:     ## render the tool catalogue from the registry into docs/tools/
 wiki: wiki-tools  ## build the wiki to site/ — local, no hosting
 	uv run --group docs mkdocs build --strict
 
-wiki-serve: wiki-tools  ## serve the wiki at http://localhost:8000 with live reload
-	uv run --group docs mkdocs serve
+# **8010, not mkdocs' default 8000** — that is the port `api` publishes, so with the stack up
+# this command died on "address already in use". `make dev` now serves the wiki in the stack at
+# the same port; this target is the way to read it without Docker.
+wiki-serve: wiki-tools  ## serve the wiki at http://localhost:8010 with live reload
+	uv run --group docs mkdocs serve --dev-addr 127.0.0.1:$(WIKI_PORT)
 
 static:         ## conformance + lint + preview — everything checkable without Docker
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
+
+demo-seed:       ## seed the example pipeline and fake runs into the running stack
+	uv run python tools/seed_demo.py --fake-runs
+
+demo-fake-run:   ## add a visible running demo run without launching Nextflow
+	uv run python tools/seed_demo.py --fake-running
 
 stub:           ## build the RNA-seq spine and run the stub gate (needs Docker + Nextflow)
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
@@ -145,7 +163,7 @@ telemetry:  ## bring up the OTLP backend — ClickHouse, the collector and Grafa
 wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
 	cd packages/wiener-api && uv run alembic upgrade head
 
-dev: names-free $(DEVREG) dev-refresh $(NODEDEPS)  ## the whole stack, plus Vite on the host for HMR
+dev: names-free $(DEVREG) dev-refresh $(NODEDEPS) wiki-tools  ## the whole stack, plus Vite on the host for HMR
 	@test -f .env || cp .env.example .env
 	@# **Made here, owned by whoever ran make.** Docker creates a missing bind-mount source
 	@# ROOT-owned, and the containers run as the host user — so the first write dies on
@@ -173,6 +191,7 @@ dev: names-free $(DEVREG) dev-refresh $(NODEDEPS)  ## the whole stack, plus Vite
 	@echo "  Registry:       http://localhost:5173/forge"
 	@echo "  API:            http://localhost:$(or $(API_HOST_PORT),8000)/docs"
 	@echo "  Runs:           http://localhost:5173/runs"
+	@echo "  Wiki:           http://localhost:$(WIKI_PORT)/"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
 
 # **Install what the frontend now depends on, before Vite serves it.**

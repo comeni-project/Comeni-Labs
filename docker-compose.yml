@@ -270,6 +270,42 @@ services:
     restart: unless-stopped
     ports: ["${WEB_HOST_PORT:-80}:80"]
 
+  # **The wiki, beside the app it documents.** `make wiki-serve` runs the same server on the
+  # host, and it wanted port 8000 — which `api` already publishes, so the two could not be up
+  # at once and the documented command failed with "address already in use" for anybody with
+  # the stack running. Here it is a service like the rest, on 8010, printed by `make dev`.
+  #
+  # **The official Material image, not our own.** This is the one container that shares nothing
+  # with the application image: it needs mkdocs and mkdocs-material and none of the workspace,
+  # and baking a docs toolchain into the runtime image would put it in every API and worker
+  # container for the sake of one process.
+  #
+  # `tools/catalogue.md` is NOT in git — `make wiki-tools` renders it from the registry, which
+  # is why `dev` depends on that target. Without it mkdocs serves everything else and answers
+  # 404 on the one page the Tools tab links to.
+  wiki:
+    image: squidfunk/mkdocs-material:9
+    container_name: ${WIKI_CONTAINER_NAME:-mendel-wiki}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    # Read-only, both of them: the server builds in memory and writes nothing back. It watches
+    # these paths, so editing a page on the host reloads the browser.
+    volumes:
+      - ./mkdocs.yml:/docs/mkdocs.yml:ro
+      - ./docs:/docs/docs:ro
+    ports: ["${WIKI_HOST_PORT:-8010}:8000"]
+    # The image's ENTRYPOINT is `mkdocs`, so this is its arguments and not a command.
+    # `--dev-addr=0.0.0.0` because the default binds 127.0.0.1 *inside* the container, where
+    # a published port reaches nothing.
+    command: ["serve", "--dev-addr=0.0.0.0:8000"]
+    # busybox `wget`, the same spelling `clickhouse` uses — the image is Alpine and has no
+    # curl. **Thirty retries at five seconds**, because `mkdocs serve` builds the whole site
+    # before it binds, and a wiki that is merely slow to start must not read as unhealthy.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8000/"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
   wiener-postgres:
     # **Wiener's own database, not a schema in Mendel's.** `execution-boundary.md` §8 names the
     # failure mode as run state entangling with the deterministic half, and a shared server is
