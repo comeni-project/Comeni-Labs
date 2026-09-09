@@ -29,6 +29,7 @@ from typing import NamedTuple
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core.artifact.digest import digest_of_bytes
+from comeni_core.goal.asked import Goal
 from comeni_core.plan.ir import PipelineIR
 from comeni_core.review.question import Excerpt
 from comeni_core.spell.marks import (
@@ -39,6 +40,7 @@ from comeni_core.spell.marks import (
     Line,
     NfPath,
     NodeId,
+    OptionId,
     StateName,
     Subject,
     Text,
@@ -115,10 +117,80 @@ class GateFailure(EgressPayload):
     """Populated only in the `open` profile. Free text, and declared as such."""
 
 
-class PromptRequest(EgressPayload):
-    """Door 1 — goal extraction. The single taint source."""
+class AuthoringRole(StrEnum):
+    """Who wrote a turn of an authoring conversation.
+
+    The same distinction `ReviewRole` draws for door 5, and it is drawn separately rather than
+    shared because the two doors are on different paths: a curator is talking about a contract,
+    a person here is talking about their own analysis. One enum serving both would be the first
+    step toward one payload serving both.
+    """
+
+    PERSON = "person"
+    MODEL = "model"
+
+
+class AuthoringTurn(EgressPayload):
+    """One exchange in an authoring conversation.
+
+    A `MODEL` turn is quoted back so the next call can be answered in context; it is text this
+    system produced from typed data. A `PERSON` turn is prose somebody typed — the same author
+    and the same door as `AuthoringRequest.prompt`, one sentence earlier.
+    """
+
+    role: AuthoringRole
+    content: Text
+
+
+class KnownStep(EgressPayload):
+    """A step the draft already holds, as the two facts a model may be told about it.
+
+    **Deliberately not the node.** An `IRNode` carries settings, premises and reasons, and a
+    call that needs to say *STAR is already here* does not need any of them. What a follow-up
+    turn has to be grounded on is which steps exist and what each one is, so that is the whole
+    of it — the same reasoning that keeps `AmbiguityRequest` from being a context dict.
+    """
+
+    node: NodeId
+    contract: ContractId
+
+
+class AuthoringRequest(EgressPayload):
+    """Door 1 — goal extraction, and the authoring conversation that continues it.
+
+    **This was `PromptRequest`, and `prompt` still means what it always did**: the string a
+    person just typed, the single taint source invariant 14 is written around. What changed is
+    that goal extraction turned out not to be one call. A researcher says what they have, reads
+    back what the engine understood, and corrects it — so the second call needs to know what
+    the first one produced, and a door that can carry only a prompt forces that context to be
+    smuggled into the prose of the next prompt.
+
+    **Everything beside `prompt` is typed and was already ours.** `goal` is the confirmed
+    `Goal`, which carries type ids, states and declared measurements — a shape and not data
+    (invariant 15), and already crosses door 4 inside a `Pipeline`. `steps` and `options` are
+    identifiers the engine issued. `registry` is the layer stack the answer is grounded on, so
+    an answer is about a specific registry the way `ForgeReviewRequest.revision` pins a
+    candidate.
+
+    **The model answers with option ids, not with values.** That is what `options` is for and it
+    is the property the product claim rests on: a model addressed by id cannot produce a value
+    outside the candidate set. Carrying the ids is what makes the closed set enforceable at the
+    boundary rather than trusted afterwards.
+
+    **What is deliberately absent**, and asserted by
+    `test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample`: draft labels, filenames,
+    paths, samplesheet rows, run inputs and tool output. None of them helps a model choose a
+    step, and every one of them is either patient-adjacent or a path. A draft's *name* is the
+    tempting one — it is right there on the row the person clicked — and it is the one a person
+    is most likely to have typed a sample identifier into.
+    """
 
     prompt: Text
+    turns: list[AuthoringTurn] = []
+    goal: Goal | None = None
+    steps: list[KnownStep] = []
+    options: list[OptionId] = []
+    registry: Digest | None = None
 
 
 class AmbiguityRequest(EgressPayload):
@@ -334,7 +406,11 @@ class Door(NamedTuple):
 
 
 DECLARED: dict[str, Door] = {
-    "goal_extraction": Door(PromptRequest, DoorPath.PIPELINE),
+    # Door 1's payload grew from `PromptRequest` on 2026-09-09. Still one door, still
+    # `AiPoint.PROMPT`, still one taint source — goal extraction simply turned out to be a
+    # conversation rather than a single extraction, and the door had no way to say what the
+    # previous turn established.
+    "goal_extraction": Door(AuthoringRequest, DoorPath.PIPELINE),
     "tier4_resolution": Door(AmbiguityRequest, DoorPath.PIPELINE),
     "compiler_repair": Door(RepairRequest, DoorPath.PIPELINE),
     # Door 4 carries a `Pipeline` since Plan 1.10 Task 11. `PublishBundle` held goal + IR +

@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** proposed
+**Status:** in progress — Tasks 1 and 2 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -447,26 +447,56 @@ meaningless, which is how the first nine boards passed it.
 **Files:** create `authoring/types.py`; modify `artifact/egress.py`; add focused schema and guard
 tests.
 
-- [ ] Write failing tests for every block discriminator, proposal state, phase transition input,
+- [x] Write failing tests for every block discriminator, proposal state, phase transition input,
   extra-field refusal, bounded prose, stable ids, and mutually exclusive reply fields.
-- [ ] Define `Build` and `Spawn` as a closed enum and define the session, turn, proposal, and
+- [x] Define `Build` and `Spawn` as a closed enum and define the session, turn, proposal, and
   response DTOs.
-- [ ] Define separate model-response shapes for initial goal understanding and follow-up intent.
+- [x] Define separate model-response shapes for initial goal understanding and follow-up intent.
   Keep the JSON schema shallow enough for the local model; prefer one object with validated
   exclusive fields over a deeply nested union if recorded evaluation proves it follows better.
-- [ ] Evolve pipeline egress door 1 from a bare initial prompt into a declared authoring request
+- [x] Evolve pipeline egress door 1 from a bare initial prompt into a declared authoring request
   that can carry the bounded tail, current `Goal`, known steps, and offered option ids safely.
   Keep it one pipeline door and keep `AiPoint.PROMPT`; update their prose to match reality.
-- [ ] Add each genuinely new free-text field to `tests/guards/test_egress.py` explicitly. Do not
+- [x] Add each genuinely new free-text field to `tests/guards/test_egress.py` explicitly. Do not
   weaken the recursive allowlist or smuggle a serialized graph through one `Text` field.
-- [ ] Add a test that draft labels, paths, run inputs, samplesheet rows, and tool output are not
+- [x] Add a test that draft labels, paths, run inputs, samplesheet rows, and tool output are not
   reachable from the authoring request.
-- [ ] Run `uv run pytest tests/guards/test_egress.py packages/mendel-api/tests/test_authoring_types.py -v`.
+- [x] Run `uv run pytest tests/guards/test_egress.py packages/mendel-api/tests/test_authoring_types.py -v`.
 
 **Checkpoint:** an authoring request and reply can be explained field by field; neither can carry
 YAML, a graph, arbitrary API verbs, or untyped context.
 
 ---
+
+### Execution record — 2026-09-09
+
+`make check`: **2470 passed**, 118 skipped, up from 2450. Task 2's own command
+(`pytest tests/guards/test_egress.py packages/mendel-api/tests/test_authoring_types.py`) is 69
+passed.
+
+| Step | Carried out as written? | Deviation |
+|---|---|---|
+| failing tests first | yes | 19 in `test_authoring_types.py`, plus two guard changes. Three were **watched failing against the specific defect**: `chose` as a plain `str`, the exclusivity validator deleted, and `Notice` dropped from the union |
+| `Build`/`Spawn` closed enum; session, turn, proposal, response DTOs | **deviated** | `Mode`, `TurnState`, `ProposalState`, the eight blocks and both reply shapes are here. There is **no `Session` DTO** — §2's session record owns a blueprint, a cursor and a row version, which are durable columns and Task 3's subject. What Task 2 defines is the vocabulary a session is made of; defining the record here would have meant guessing the schema Task 3 writes |
+| separate goal/follow-up reply shapes, shallow | yes | `GoalUnderstanding` and `AuthoringIntent`, one level deep. Exclusivity is a `model_validator`, not a nested union — the plan's own preference |
+| evolve door 1; keep one door and `AiPoint.PROMPT` | yes | `PromptRequest` → `AuthoringRequest`; `goal_extraction` and `DoorPath.PIPELINE` unchanged, so `test_pipeline_data_still_leaves_through_exactly_four` never moved. `PromptRequest` is **retired**, not kept beside it |
+| new free-text fields listed explicitly | yes | two: `AuthoringRequest.prompt` (the same field renamed) and `AuthoringTurn.content` (genuinely new). The recursive allowlist was not touched |
+| a test that labels, paths and samples are unreachable | yes | `test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample`, written as a **mark allowlist**. Both halves watched failing: an `NfPath` field, and a `draft_name: Text` |
+
+**Three things a reader should know before Task 3:**
+
+1. **`Goal` was free to carry.** It reaches door 1 with **zero** free-text fields anywhere in the
+   seven models below it, and it already crosses door 4 as `Pipeline.goal` — so it was already
+   past the leaf allowlist and the taint surface did not widen. That was checked before the
+   field was added, not after.
+2. **The containment test found a mark the author had not listed.** `Mark.PORT_NAME` reaches
+   door 1 through `Goal.have`. Harmless, and the point is that reading the fields did not find
+   it — `Goal` brings its own vocabulary and the walk is what noticed.
+3. **A new `Mark.OPTION_ID` exists**, with an `OptionId` alias validated as a bare identifier.
+   That is what makes *a model cannot produce a value outside the candidate set* a property of
+   the type rather than a check somebody remembers to run: prose, a path and a contract body are
+   all refused before anything asks whether the option was offered.
+
 
 ## Task 3 — Persist sessions without making the database the pipeline
 

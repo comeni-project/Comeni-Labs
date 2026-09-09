@@ -655,7 +655,13 @@ class AiPoint(StrEnum):
     """
 
     PROMPT = "prompt"
-    """Prompt → goal extraction. The user corrects the result before anything runs."""
+    """Prompt → goal extraction. The user corrects the result before anything runs.
+
+    **A conversation since 2026-09-09, and still one point.** Door 1 carries an
+    `AuthoringRequest` rather than a bare prompt, because correcting the result is itself a turn
+    and the call that follows has to be grounded on what the previous one established. What
+    reaches a model is still prose plus typed vocabulary this engine issued, and the correction
+    still happens before anything runs."""
     TIER_4 = "tier-4"
     """Resolution of an ambiguity the ladder could not settle. Always flagged (invariant 6)."""
     REPAIR = "repair"

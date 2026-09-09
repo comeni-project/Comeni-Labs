@@ -746,7 +746,7 @@ Violating any of these breaks the product claim, not just a test.
     2026-08-17 exemption (`notes/specs/2026-08-17-forge-phase-2.md` §1) stood on three: it has
     no prompt, takes no `Goal`, and writes no `pipeline.yml`. A **review chat breaks the first**
     — `ReviewTurn.content` is a string a curator types, at request time, and it goes to a
-    provider, which is exactly what `PromptRequest.prompt` is on the pipeline side. The other
+    provider, which is exactly what `AuthoringRequest.prompt` is on the pipeline side. The other
     two legs still hold, and `DoorPath.FORGE` is what records that. `AiPoint` is unchanged and
     still corroborates the rest: invariant 3 declares three runtime AI points and the forge is
     not one of them.
@@ -758,11 +758,21 @@ Violating any of these breaks the product claim, not just a test.
     *these are all the ways data leaves*, and two files creates a cheaper file, which is where
     a door belonging on the other list eventually goes.
     Each door carries one declared payload type, and a **named set** of fields across the whole
-    surface may hold free text: `PromptRequest.prompt`, `GateFailure.tool_message`,
+    surface may hold free text: `AuthoringRequest.prompt`, `GateFailure.tool_message`,
     `ResolvedValue.reason`, one `reason` per decision kind, `Why.reason` — the citation beside
     every value in `pipeline.yml` — the `axis_reason` on `Why` and `ResolvedValue` plus
-    `ParamDecision.override_reason` since Plan 1.14, and `ReviewTurn.content` with
-    `ForgeReviewRequest.candidate` since door 5.
+    `ParamDecision.override_reason` since Plan 1.14, `ReviewTurn.content` with
+    `ForgeReviewRequest.candidate` since door 5, and `AuthoringTurn.content` since door 1 became
+    a conversation on 2026-09-09.
+    **Door 1's payload is `AuthoringRequest`, and it is still one door.** `PromptRequest` carried
+    a single string because goal extraction was assumed to be a single call; it is not — a person
+    reads back what the engine understood and corrects it, so the second call has to know what
+    the first established. Everything it gained beside the bounded tail is typed vocabulary the
+    engine itself issued: a `Goal` (which already crosses door 4 inside a `Pipeline`), node and
+    contract ids, and the **option ids** a model must answer with. That last one is the product
+    claim made enforceable at the boundary — a reply addressed by id cannot name a value nobody
+    offered. `AiPoint.PROMPT` is unchanged, and invariant 3 still declares three runtime AI
+    points.
     **The count is deliberately not written here any more** (2026-09-05). It said "exactly two"
     for a plan and a half, then four, six, seven, ten and fourteen, and it was wrong within a
     day of every one of those. `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count,

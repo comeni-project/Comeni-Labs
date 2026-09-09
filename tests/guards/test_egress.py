@@ -53,7 +53,6 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # A16 splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly
 # what a literal list exists to make somebody look at.
 FREE_TEXT_FIELDS = {
-    ("PromptRequest", "prompt"),
     ("GateFailure", "tool_message"),
     # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
     # prose explaining a choice — genuinely free text, and named here rather than
@@ -129,7 +128,7 @@ FREE_TEXT_FIELDS = {
     # refactor — the second time that has happened, after `override_reason`.
     #
     # `ReviewTurn.content` is the load-bearing one: a curator types it, at request time, and it
-    # goes to a provider. That is what `PromptRequest.prompt` is on the pipeline side, and it
+    # goes to a provider. That is what `AuthoringRequest.prompt` is on the pipeline side, and it
     # is precisely the leg the forge's 2026-08-17 exemption stood on — *it has no prompt*. The
     # chat is a prompt, so the exemption stopped covering it and a door was declared instead of
     # the argument being stretched.
@@ -143,6 +142,22 @@ FREE_TEXT_FIELDS = {
     # *how much text crosses*, and by that line generating a proposal is not a door.
     ("ReviewTurn", "content"),
     ("ForgeReviewRequest", "candidate"),
+    # Seventeenth, 2026-09-09, and it is **the same field it replaced**. Door 1's payload grew
+    # from `PromptRequest` — one prompt, one call — into `AuthoringRequest`, because the living
+    # pipeline is a conversation and not a single extraction. `prompt` is still exactly what it
+    # was: the string a person just typed, the single taint source invariant 14 is written
+    # around. The name on the left changed; nothing new crosses here.
+    ("AuthoringRequest", "prompt"),
+    # Eighteenth, and it IS new: the bounded tail. A follow-up turn is only answerable with
+    # what was already said, so prior turns are quoted back the way `ReviewTurn` does for door
+    # 5 — and this is the pipeline path, where the same shape had to be argued for separately
+    # rather than inherited.
+    #
+    # **What bounds it is that a turn is not a transcript.** The tail is capped (`CHAT_TAIL`,
+    # the Forge's precedent), and a `MODEL` turn is text this system produced from typed data.
+    # A `PERSON` turn is prose the person typed — the same author, the same door, one more
+    # sentence of the same conversation `prompt` already carries.
+    ("AuthoringTurn", "content"),
 }
 
 
@@ -691,11 +706,12 @@ def test_a_computed_field_cannot_cross_a_door_unchecked():
 
     The leaf allowlist was inverted from a blocklist precisely so that a shape nobody named
     could not be silence (A19, A20, A30). It was still a blocklist with respect to *where a
-    value comes from*: the audit put a patient path into `PromptRequest`'s JSON this way with
-    the whole file reporting 15 passed.
+    value comes from*: the audit put a patient path into door 1's JSON this way with the whole
+    file reporting 15 passed. (The payload was `PromptRequest` then and is `AuthoringRequest`
+    now; the hole and the fix are the same one.)
     """
 
-    class Sneaky(egress.PromptRequest):
+    class Sneaky(egress.AuthoringRequest):
         @computed_field
         @property
         def context(self) -> str:
@@ -933,3 +949,70 @@ def test_the_door_carries_what_the_forge_measured_a_model_needs():
             f"{needed} does not cross door 2, so a tier-4 model call is the configuration "
             f"the forge measured at 69%"
         )
+
+
+def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
+    """Door 1 grew, and this is the assertion that it grew only where it was argued to.
+
+    `AuthoringRequest` replaced `PromptRequest` so that a *second* authoring turn could be
+    grounded on what the first one established. Everything it gained beside the tail is typed
+    registry vocabulary, and the risk in a change like that is not the field somebody argued
+    for — it is the one that arrives later, on a nested model, because it was convenient.
+
+    So this asks the question as an allowlist, the way `_leaf_problems` does: these are the
+    marks reachable from door 1, and a new one fails here until somebody writes down why a
+    goal-extraction call needs it.
+
+    **What must never appear, and why each is tempting:**
+
+    - `Mark.NF_PATH`, `Mark.TEST_DATA_REF` — a filename. `params.input` is a placeholder the
+      lab fills at run time (invariant 15) and its *value* is the one thing Mendel never sees.
+    - `Mark.FREE_TEXT` anywhere but the two declared fields — a draft's **name** is the
+      tempting one. It is on the row the person clicked, it reads like helpful context, and it
+      is the field a person is most likely to have typed a sample identifier into.
+    - a `Path` of any kind, which `_leaf_problems` already refuses everywhere; named here
+      because door 1 is the door where a path would look most like context.
+
+    Samplesheet rows, run inputs and tool output are absent structurally rather than by a rule:
+    none of the ten models reachable from here has a field that could hold one, and this test
+    is what notices if one gains it.
+    """
+    door = egress.DOORS["goal_extraction"]
+    models = reachable(door)
+    assert len(models) > 5, "the walk is not walking"
+
+    marks = {
+        meta
+        for model in models
+        for annotation in _serialised_hints(model).values()
+        for meta in _marks_in(annotation)
+    }
+    assert marks == {
+        Mark.FREE_TEXT,  # prompt, and a turn's content — the two argued for
+        Mark.CONTRACT_ID,
+        Mark.TYPE_ID,
+        Mark.NODE_ID,
+        Mark.OPTION_ID,
+        Mark.STATE_NAME,
+        # Through `Goal.have`, which names the port an input arrives on. Found by this test
+        # rather than by reading — the list above was written from `AuthoringRequest`'s own
+        # fields, and `Goal` brings its own vocabulary with it.
+        Mark.PORT_NAME,
+        Mark.CHANNEL_NAME,
+        Mark.DIGEST,
+        Mark.MEASUREMENT_ID,
+        Mark.PARAM_LITERAL,
+    }, f"door 1 reaches a mark nobody argued for: {sorted(m.value for m in marks)}"
+
+    free = {field for model in models for field in _fields(model, Mark.FREE_TEXT)}
+    assert free == {("AuthoringRequest", "prompt"), ("AuthoringTurn", "content")}, (
+        f"free text reached door 1 somewhere new: {sorted(free)}"
+    )
+
+
+def _marks_in(annotation: object) -> set[Mark]:
+    """Every `Mark` anywhere in an annotation tree, containers and unions included."""
+    found = {meta for meta in getattr(annotation, "__metadata__", ()) if isinstance(meta, Mark)}
+    for arg in typing.get_args(annotation):
+        found |= _marks_in(arg)
+    return found

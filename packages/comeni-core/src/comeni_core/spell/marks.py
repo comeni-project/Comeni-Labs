@@ -110,6 +110,14 @@ class Mark(StrEnum):
     """Text a human typed or a tool printed. Unbounded, and the thing the egress boundary
     exists to contain. Only the fields named in the guard's allowlist may carry it."""
 
+    OPTION_ID = "option-id"
+    """One answer a person may pick, addressed by id rather than by value.
+
+    The living pipeline's whole shape: the engine offers a closed set and the browser — or a
+    model — posts back **an id from that set and nothing else**, which is what makes "a model
+    cannot produce a value outside the candidate set" a property rather than a hope. An
+    identifier, so it can carry neither prose nor a path."""
+
     PARAM_LITERAL = "param-literal"
     """A scalar drawn from curated registry data rather than from a person. It can be a
     string, but not an arbitrary one — see `_reject_path_shaped` for how little that
@@ -556,6 +564,7 @@ NodeId = Annotated[str, Mark.NODE_ID, AfterValidator(_identifier("node id"))]
 Subject = Annotated[str, Mark.SUBJECT, AfterValidator(_joined_identifier("subject"))]
 PortName = Annotated[str, Mark.PORT_NAME, AfterValidator(_identifier("port name"))]
 StateName = Annotated[str, Mark.STATE_NAME, AfterValidator(_identifier("state name"))]
+OptionId = Annotated[str, Mark.OPTION_ID, AfterValidator(_identifier("option id"))]
 DecisionKey = Annotated[
     str, Mark.DECISION_KEY, AfterValidator(_joined_identifier("decision key"))
 ]
