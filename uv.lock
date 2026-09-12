@@ -1337,6 +1337,7 @@ source = { editable = "packages/mendel-api" }
 dependencies = [
     { name = "alembic" },
     { name = "arq" },
+    { name = "comeni-ai" },
     { name = "comeni-core" },
     { name = "fastapi" },
     { name = "mendel-compiler" },
@@ -1352,6 +1353,7 @@ dependencies = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
     { name = "arq", specifier = ">=0.26" },
+    { name = "comeni-ai", editable = "packages/comeni-ai" },
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },

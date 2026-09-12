@@ -186,3 +186,111 @@ def test_a_person_speaking_is_not_a_mutating_request():
     proposes no change — conflating the two is how a chat message acquires the power to
     overwrite a draft."""
     assert "expected_revision" not in t.Say.model_fields
+
+
+# ── the six intents builder.chat.v1 can return ────────────────────────────────────────────
+#
+# Task 2 shipped three — chose, revise, explain — because those were the three §1.3 spelled out
+# as sentences. Task 5's prompt has to name the whole closed set, and the other three are what a
+# person actually does in the middle of a build: name a value for an open setting, say *go on*,
+# or ask for something this conversation cannot do. Adding them here rather than letting the
+# prompt describe a seventh, untyped "other" is the point — an intent with no field is an intent
+# the service layer has to parse out of prose.
+
+
+def test_every_intent_the_chat_prompt_offers_has_somewhere_to_go():
+    """The prompt and the shape are one closed set stated twice, and they must agree.
+
+    A prompt naming an intent the shape cannot carry produces a reply that validates as
+    something else — *continue* arriving as an empty `explain`, which reads as the model having
+    answered a question nobody asked.
+    """
+    for field in ("chose", "revise", "explain", "setting", "proceed", "unsupported"):
+        assert field in t.AuthoringIntent.model_fields, f"an intent cannot express {field}"
+
+
+def test_continuing_is_still_exactly_one_thing():
+    """`proceed` is a bool and joins the exclusivity check anyway. *Continue, and also revise the
+    goal* is not a turn anybody can act on, and a bool that sat outside the check would be the
+    one way to express it."""
+    assert t.AuthoringIntent(proceed=True).proceed is True
+    with pytest.raises(ValidationError):
+        t.AuthoringIntent(proceed=True, revise="use hisat2 instead")
+
+
+def test_an_unsupported_request_says_so_in_words():
+    """The sixth intent carries prose because *no* is not an answer by itself — the person needs
+    to know what would work instead, and that sentence has to live somewhere typed."""
+    assert t.AuthoringIntent(unsupported="I cannot change the registry from here").unsupported
+
+
+def test_a_proposed_setting_names_a_step_and_a_setting_and_never_a_path():
+    """The one place a model may produce a value rather than choose an id, which is why the
+    value is guarded rather than free.
+
+    §1.3 permits a proposed setting revision *that still requires validation and explicit
+    acceptance*. `HumanParamValue` is the guard `ParamOverride` already uses, and it is the
+    right one here for the reason audit A3 gave: a path-shaped value is the thing neither a
+    person nor a model may write into a goal.
+    """
+    proposal = t.SettingProposal(
+        node="counts", setting="min_mqs", value=20, because="they asked for stricter mapping"
+    )
+    assert proposal.value == 20
+    with pytest.raises(ValidationError):
+        t.SettingProposal(
+            node="counts",
+            setting="min_mqs",
+            value="/data/patients/PT-4471023/S1_R1.fastq.gz",
+            because="",
+        )
+
+
+def test_a_proposed_setting_cannot_name_a_step_that_is_not_an_identifier():
+    """`node` is a `NodeId`, so the reference is refused before anything checks whether the step
+    exists. Admission checks the second half; the type is what makes the first half free."""
+    with pytest.raises(ValidationError):
+        t.SettingProposal(node="../etc", setting="min_mqs", value=20, because="")
+
+
+def test_an_explanation_refers_to_steps_by_id():
+    """Task 5: *model explanations must refer to known step ids; reject invented references*.
+
+    The ids go in a typed list rather than being parsed back out of the prose, which is what
+    makes rejecting an invented one a set difference instead of a regex over English.
+    """
+    intent = t.AuthoringIntent(explain="STAR is here because you asked for splice-aware counts")
+    assert intent.refers_to == []
+    assert t.AuthoringIntent(explain="it sorts the BAM", refers_to=["sort"]).refers_to == ["sort"]
+    with pytest.raises(ValidationError):
+        t.AuthoringIntent(explain="it sorts the BAM", refers_to=["../../etc/passwd"])
+
+
+def test_a_goal_understanding_carries_the_questions_it_could_not_settle():
+    """The grouping question has to be able to come back from the first call.
+
+    §1.7 says *do not infer one silently*, and a first call with nowhere to put a question can
+    only infer: the shape would force a `Goal` that states a sample structure nobody confirmed.
+    """
+    assert "questions" in t.GoalUnderstanding.model_fields
+    asked = t.AskedQuestion(
+        asks="how do those 24 files group?",
+        why_open="the grouping changes what gets built and was not stated",
+        choices=["24 independent items", "12 paired samples"],
+        exhaustive=False,
+    )
+    assert asked.exhaustive is False
+
+
+def test_a_question_the_model_raises_carries_labels_and_not_ids():
+    """**The engine issues ids, always** — rule 2 of this module, applied to the one case that
+    tempts otherwise.
+
+    A question the model invents has options nobody has minted yet, and letting the model name
+    them would mean the next turn's `chose` is checked against a set the model itself authored.
+    The engine mints the ids when it stores the question, and *that* is what the next reply is
+    held to.
+    """
+    assert "id" not in t.AskedQuestion.model_fields
+    for name, field in t.AskedQuestion.model_fields.items():
+        assert "OptionId" not in str(field.annotation), f"AskedQuestion.{name} names an id"

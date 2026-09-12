@@ -213,6 +213,8 @@ decline to curate one.
 | `MI0201` | this draft moved while you were looking at it — re-read it before accepting |
 | `MI0202` | this proposal was made against an older draft and can no longer be applied |
 | `MI0203` | this proposal has already been settled |
+| `MI0204` | the goal a model wrote names something this registry does not declare |
+| `MI0205` | the reply names an option or a step that was never offered |
 
 ## The forge — what a model is told, and what it cites
 

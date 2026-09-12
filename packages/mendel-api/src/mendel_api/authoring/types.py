@@ -25,7 +25,7 @@ from enum import StrEnum
 from typing import Annotated, Literal, Self, get_args
 
 from comeni_core.goal.asked import Goal
-from comeni_core.spell.marks import ContractId, NodeId, OptionId, TypeId
+from comeni_core.spell.marks import ContractId, HumanParamValue, NodeId, OptionId, TypeId
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # **The Forge's number, not a new one.** `forge_jobs.CHAT_TAIL` bounds what a model is shown of
@@ -336,6 +336,26 @@ def parse_block(data: object) -> _Block:
 # ── what a model may reply ────────────────────────────────────────────────────────────────
 
 
+class AskedQuestion(_Shape):
+    """A question the **model** raises, before the engine has minted ids for it.
+
+    **Deliberately not a `Question`.** That one is a block with an `id` and `Option`s carrying
+    ids, and those ids are the engine's to issue — rule 2 of this module. A model that named its
+    own option ids would be authoring the set that its own next reply is checked against, which
+    turns the boundary into a formality.
+
+    So this carries labels, the engine mints the ids when it stores the question, and the next
+    turn's `chose` is held to *those*.
+    """
+
+    asks: Prose
+    why_open: Prose
+    choices: list[Prose] = []
+    exhaustive: bool = True
+    """Whether `choices` is the whole of what is possible. A shortlist presented as a closed set
+    is how a person comes to believe they were shown everything."""
+
+
 class GoalUnderstanding(_Shape):
     """The first call's answer: prose in, a typed `Goal` out.
 
@@ -353,6 +373,33 @@ class GoalUnderstanding(_Shape):
     have: Prose
     do: Prose
     get: Prose
+    questions: list[AskedQuestion] = []
+    """What could not be settled from what the person said.
+
+    **The grouping question needs somewhere to come back to.** §1.7 says *do not infer one
+    silently*, and a reply shape with nowhere to put a question can only infer: it would force a
+    `Goal` stating a sample structure nobody confirmed, and that goal validates, resolves and
+    builds.
+    """
+
+
+class SettingProposal(_Shape):
+    """A value the model proposes for an open setting.
+
+    **The one place a model may produce a value rather than choose an id**, and it is bounded
+    three ways rather than trusted: the step is a `NodeId`, the value is a `HumanParamValue` —
+    audit A3's guard, which refuses a path-shaped value — and §1.3 requires the engine to
+    validate it and, when consequential, to show it before applying.
+
+    `chose` is here for the ordinary case where the engine already offered a closed set: naming
+    the option is stronger than restating its value, and a proposal carrying both must agree.
+    """
+
+    node: NodeId
+    setting: str = Field(min_length=1, max_length=128)
+    chose: OptionId | None = None
+    value: HumanParamValue | None = None
+    because: Prose
 
 
 class AuthoringIntent(_Shape):
@@ -382,12 +429,39 @@ class AuthoringIntent(_Shape):
     explain: Prose | None = None
     """A request for explanation. Mutates nothing, so it needs no revision and no proposal."""
 
+    setting: SettingProposal | None = None
+    """A value proposed for an open setting. Validated, and shown before it is applied."""
+
+    proceed: bool = False
+    """*Go on* — they are happy and want the next step. The one intent with no payload, and it
+    still joins the exclusivity check below: *continue, and also revise the goal* is not a turn
+    anybody can act on."""
+
+    unsupported: Prose | None = None
+    """What was asked is not something this conversation can do, and what would work instead.
+
+    **The sixth intent exists so the other five stay honest.** Without somewhere to say *no*,
+    the closest-looking alternative is always available — and a request to edit the registry
+    arriving as a goal revision is worse than a refusal, because it looks like it worked.
+    """
+
+    refers_to: list[NodeId] = []
+    """The steps an explanation is about, as ids the engine issued.
+
+    Typed rather than parsed back out of the prose, which is what makes rejecting an invented
+    reference a set difference instead of a regex over English.
+    """
+
     @model_validator(mode="after")
     def _exactly_one(self) -> Self:
-        set_fields = [name for name in ("chose", "revise", "explain") if getattr(self, name)]
+        """`refers_to` is deliberately outside the count: it qualifies an explanation rather
+        than being an intent of its own, and including it would make a grounded explanation
+        read as two intents at once."""
+        intents = ("chose", "revise", "explain", "setting", "proceed", "unsupported")
+        set_fields = [name for name in intents if getattr(self, name)]
         if len(set_fields) != 1:
             raise ValueError(
-                "an authoring intent carries exactly one of chose/revise/explain, "
+                f"an authoring intent carries exactly one of {'/'.join(intents)}, "
                 f"not {set_fields or 'none'}"
             )
         return self

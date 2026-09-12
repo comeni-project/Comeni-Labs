@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 description = "HTTP surface over the Mendel engine and the forge"
 dependencies = [
     "comeni-core>=0.1.0",
+    "comeni-ai>=0.1.0",
     "mendel-resolver>=0.1.0",
     "mendel-compiler>=0.1.0",
     "mendel-forge>=0.1.0",
@@ -26,6 +27,7 @@ packages = ["src/mendel_api"]
 
 [tool.uv.sources]
 comeni-core = { workspace = true }
+comeni-ai = { workspace = true }
 mendel-resolver = { workspace = true }
 mendel-compiler = { workspace = true }
 mendel-forge = { workspace = true }

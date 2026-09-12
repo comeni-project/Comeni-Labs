@@ -2819,7 +2819,7 @@ MI0106:
   emitted_by: api
   concern: workflow
   says: "no model is configured, so nothing can be generated"
-  fires_on: [forge generate, forge review]
+  fires_on: [forge generate, forge review, authoring]
   refuses: true
   fix: |
     Set `COMENI_AI_MODEL` to a LiteLLM model id — `ollama/qwen2.5-coder:14b` for a local
@@ -3497,3 +3497,50 @@ MI0203:
     correct answer to a duplicate is the same answer, not a second effect. This is what makes
     accepting a proposal idempotent in the way that matters: the first call decides and every
     later one is refused rather than silently re-applied.
+
+MI0204:
+  emitted_by: api
+  concern: workflow
+  says: "the goal a model wrote names something this registry does not declare"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Nothing was applied. The refusal names the ids that are not declared; say what you want in
+    different words, or add the missing type or measurement to a registry layer through the
+    forge, which is the reviewed path for new vocabulary (invariant 2).
+  explanation: |
+    A goal is expressed entirely in declared vocabulary — type ids, states, and measurement ids
+    that a registry layer declares. The prompt shows a model that vocabulary and tells it to
+    stay inside it; this is what happens when the answer does not.
+
+    **It is refused rather than trimmed**, and the difference matters. A plausible id that is
+    not declared is the single most convincing thing a model produces here: it validates as a
+    string, reads correctly to a person, and routes to nothing. Dropping it silently would leave
+    a goal that is *missing* what somebody asked for rather than one that says it could not be
+    understood — and the person would find out when the pipeline came back without the step.
+
+    This is the admission half of the boundary invariant 14 describes. The door declares the
+    shape; this declares that the contents were already ours.
+
+MI0205:
+  emitted_by: api
+  concern: workflow
+  says: "the reply names an option or a step that was never offered"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Nothing was applied. Ask again — the engine re-offers the same options, each with the id it
+    issued. If the option you want is genuinely absent, say what you want in prose instead; a
+    goal revision can reach things an option list cannot.
+  explanation: |
+    **This is the product claim, enforced at the moment it would otherwise be lost.** A model
+    answers typed questions addressed by id and cannot produce a value outside the candidate
+    set — which is only true if something checks, and this is the check.
+
+    Both halves are the same rule. An `chose` naming an option nobody minted is a value from
+    outside the set. An explanation citing a step id that is not in the draft is a claim about a
+    pipeline the person cannot see, which is the same failure wearing prose: a fluent, checkable
+    answer about something that does not exist is the hardest kind for a reader to catch.
+
+    The ids are issued by the engine and stored before the call is made, so this comparison is a
+    set difference rather than a judgement.

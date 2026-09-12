@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 4 complete
+**Status:** in progress — Tasks 1 to 5 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -644,26 +644,72 @@ then turned out to be ignoring provenance entirely.
 and prompt/response tests. Add `comeni-ai` as an explicit `mendel-api` dependency; do not import
 from deprecated `mendel_ai`.
 
-- [ ] Write `builder.goal.v1`: convert the user's have/do/get language into a typed `Goal`, a
+- [x] Write `builder.goal.v1`: convert the user's have/do/get language into a typed `Goal`, a
   concise summary, and only questions whose answers can change the pipeline. Include declared
   type and measurement vocabulary; reject invented ids during admission.
-- [ ] Make file grouping explicit in the prompt. “Many FASTA/FASTQ files” must produce either a
+- [x] Make file grouping explicit in the prompt. “Many FASTA/FASTQ files” must produce either a
   safe typed interpretation or a grouping question, never an assumed sample structure.
-- [ ] Write `builder.chat.v1`: return explanation, goal revision, option selection, setting
+- [x] Write `builder.chat.v1`: return explanation, goal revision, option selection, setting
   proposal, continue, or unsupported. No generic mutation command and no arbitrary tool id.
-- [ ] Ground the prompt on the declared authoring request and bounded tail. Model explanations
+- [x] Ground the prompt on the declared authoring request and bounded tail. Model explanations
   must refer to known step/question ids; reject invented references.
-- [ ] Use `Client.respond`/`converse` and record prompt id, digest, model, provider, timing, token
+- [x] Use `Client.respond`/`converse` and record prompt id, digest, model, provider, timing, token
   counts, state, and safe failure code in `AiInvocation` with `agent="builder"`.
-- [ ] Add recorded/fake transport cases for paired RNA-seq counts, many independent FASTA items,
+- [x] Add recorded/fake transport cases for paired RNA-seq counts, many independent FASTA items,
   paired-file ambiguity, a goal correction, “why STAR?”, selecting an offered alternative, an
   invented option, invalid JSON, provider failure, and no configured model.
-- [ ] Assert prompt templates ship in the built wheel and are immutable by version: behavioural
+- [x] Assert prompt templates ship in the built wheel and are immutable by version: behavioural
   changes add `v2`, never edit a prompt already cited by an invocation.
-- [ ] Run the authoring AI tests without a live provider.
+- [x] Run the authoring AI tests without a live provider.
 
 **Checkpoint:** the recorded cases either return an admitted typed reply or a visible coded
-refusal. No test reaches the network.
+refusal. No test reaches the network. **Met** — 21 cases, every refusal carrying a declared code,
+and the transport is a seam every test supplies by hand.
+
+**Five things a reader should know before Task 6:**
+
+1. **It is the first writer of `ai_invocation`.** The table, its migration, its `agent` column and
+   its place in `clean_forge` have existed since the forge workflow landed, and nothing ever wrote
+   a row: the forge's review chat calls a provider and records nothing. `agent="builder"` is what
+   that column was built for. **The forge joining it is still owed** and is not Task 5's to do.
+2. **`Client.generate`, not `respond`.** The step says `respond`/`converse`; both were tried and
+   neither is right here. `respond` sends a prompt as-is, which would mean pasting each reply
+   shape's JSON Schema into a committed `.md` — a second copy of a Pydantic model, stale the
+   first time a field moves. `generate` with no evidence appends the schema after the rendered
+   template, so the instruction is still last and the shape is shown rather than described.
+   `converse` is unused because the bounded tail is rendered into the template's own
+   `{{conversation}}` section, which is what puts it inside the digest.
+3. **The protocol gained three intents, and Task 2 had shipped three.** §1.3 names six things a
+   chat reply may be, and `AuthoringIntent` could express half of them — so a prompt naming
+   *continue* would have had it come back as an empty `explain`. `setting`, `proceed` and
+   `unsupported` were added, plus `refers_to` so an explanation's step references are a set
+   difference rather than a regex over English. `GoalUnderstanding` gained `questions`, because a
+   first call with nowhere to put the grouping question can only infer one.
+4. **A model-raised question carries labels and never option ids.** `AskedQuestion` is
+   deliberately not a `Question`: the engine mints the ids when it stores it, so the next turn's
+   `chose` is checked against a set the engine issued rather than one the model wrote itself.
+5. **A fake transport rather than recorded fixtures, and the reason is which thing is under
+   test.** `RecordedTransport` keys on a digest of the exact prompt, which is right for the Forge,
+   where the question *is* the subject. Here the subject is admission and audit — what happens to
+   an answer on the way back in — and keying on the prompt would turn every wording change in a
+   committed template into ten `KeyError`s. The prompts have their own tests next door.
+
+**Watched failing against the specific defect:** neutering the two refusal branches in
+`_admit_goal` and `_admit_intent` — `if unknown:`/`if invented:` → `if False:` — fails exactly the
+six admission tests and leaves the other two in that selection passing. Before that, the wheel
+guard was watched by building one, and the two grouping phrases were found missing because the
+prose had wrapped them across a line break, which is the failure that assertion exists to catch.
+
+**One defect found by a constraint rather than a test:** the first `clean_invocations` fixture
+truncated the authoring tables and `ai_invocation` alone, and Postgres refused it — `forge_message`
+references `ai_invocation` too. The fix was to delete the rival fixture and use `clean_forge`,
+whose docstring already said so.
+
+**Reused rather than added:** `MI0106` covers *no model is configured* for the builder as well as
+the forge, with `authoring` added to its `fires_on`; `InvocationState` is imported from
+`mendel_forge.workflow` because a refused call and a failed one mean the same thing whoever made
+it. `Purpose` is declared locally, because purposes genuinely are per-agent and `agent` is the
+column that separates a builder `chat` from a forge one.
 
 ---
 
