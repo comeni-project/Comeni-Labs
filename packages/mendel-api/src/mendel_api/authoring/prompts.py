@@ -32,12 +32,21 @@ GOAL: PromptId = "builder.goal.v1"
 CHAT: PromptId = "builder.chat.v1"
 """A follow-up turn in, exactly one declared authoring intent out."""
 
-TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT)
-"""Both of them, for the tests that hold every template to the shared block.
+TIER4: PromptId = "builder.tier4.v1"
+"""One tier-4 ambiguity in, one of its own candidates out. Egress door 2.
 
-Two calls and not more: §1.3 lists what a model may return, and everything on that list is one
-of these two shapes. A third template would be a third thing a model is asked to author, which
-is a design decision rather than a file.
+**Spawn only.** Build mode resolves tier 4 with the flag-only path so the question stays visible
+and unanswered; this is the template for the mode that answers it. `choose_one` appends the
+candidate list and the reply schema, so what is committed here is the framing and nothing else —
+the options are the engine's and are never written into a file.
+"""
+
+TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4)
+"""The three, for the tests that hold every template to the shared block.
+
+Three calls and not more: §1.3 lists what a model may return, and everything on that list is one
+of these shapes. A fourth template would be a fourth thing a model is asked to author, which is a
+design decision rather than a file.
 """
 
 

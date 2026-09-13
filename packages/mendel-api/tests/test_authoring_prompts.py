@@ -60,7 +60,51 @@ def test_the_invariant_block_is_at_the_top_of_each_one():
 
 def test_there_are_templates_to_check():
     """A loop is not an assertion: every test above passes over an empty tuple."""
-    assert len(prompts.TEMPLATES) == 2
+    assert len(prompts.TEMPLATES) == 3
+
+
+# ── the tier-4 prompt ─────────────────────────────────────────────────────────────────────
+
+
+def test_the_tier_four_prompt_chooses_and_never_proposes():
+    """Door 2's whole discipline in one template.
+
+    `choose_or_propose` exists next door in `comeni-ai` and is deliberately not what this uses:
+    an ambiguity is a choice between contracts that already exist, and nothing here should be
+    able to invent a candidate.
+    """
+    body = prompts.template(prompts.TIER4).body
+    for required in (
+        "You are choosing between candidates the engine already found",
+        "You cannot propose a candidate that is not listed",
+        "say why in one sentence that a person could check",
+    ):
+        assert required in body, f"the tier-4 prompt no longer says: {required!r}"
+
+
+def test_the_tier_four_prompt_refuses_popularity_as_a_reason():
+    """The failure mode a model brings to this question. *Most people use STAR* is a fact about
+    the world and not about this analysis, and it is the sentence that looks most like a
+    justification while resting on nothing in the record."""
+    body = prompts.template(prompts.TIER4).body
+    assert "Do not reason from a tool's popularity" in body
+    assert "not a fact about this analysis" in body
+
+
+def test_the_tier_four_prompt_says_the_choice_is_flagged_whatever_its_confidence():
+    """Invariant 6, told to the thing it constrains. Tier 4 is always flagged — that is the
+    honesty mechanism and the difference from a chat window — so the model is told its answer is
+    provisional rather than left to infer that from the shape of the request."""
+    body = prompts.template(prompts.TIER4).body
+    assert "recorded as a model decision and shown to a person" in body
+    assert "flagged whatever" in body
+
+
+def test_the_tier_four_prompt_takes_the_question_and_its_evidence():
+    """Two placeholders. The candidates are **not** among them: `choose_one` appends the offered
+    list itself, so there is exactly one place the option set is composed and no way for a caller
+    to render a different set into the prose than the one membership is checked against."""
+    assert prompts.template(prompts.TIER4).placeholders() == {"asking", "evidence"}
 
 
 # ── the goal prompt ───────────────────────────────────────────────────────────────────────

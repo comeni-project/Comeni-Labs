@@ -15,15 +15,19 @@ and it earns its keep the same way: the second caller is where a remembered `if`
 Neither is a timestamp, for the reason `state.settle` records: two writes inside one clock tick
 are indistinguishable by time, which is precisely when the comparison matters.
 
-**Nothing here composes a prompt or calls a provider.** `services/authoring_ai.py` is Task 6's,
-and keeping the transport out of this file is what lets every test below run against a database
-and no model.
+**Nothing here composes a prompt.** `services/authoring_ai.py` owns prompts and admission, and
+`services/blueprint.py` owns resolving and committing a step. The one path from this file that
+can reach a provider is `start_building` in Spawn mode, and only through a `Client` its caller
+passes — so every test here runs against a database and, unless it hands one over, no model.
 """
 
 import secrets
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
+from comeni_core.plan.draft import DraftGraph, DraftProvenance
+from mendel_resolver.goal import Goal
 from sqlalchemy import select, update
 
 from mendel_api.authoring import state as st
@@ -35,6 +39,9 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
+from mendel_api.services import authoring_ai, registry
+from mendel_api.services import blueprint as bp
+from mendel_api.settings import settings
 
 
 def _now() -> datetime:
@@ -385,3 +392,282 @@ def decide(
             draft.updated_at = _now()
 
     return outcome
+
+
+# ── the blueprint: resolved once, revealed a step at a time ───────────────────────────────
+
+
+STEP = "step"
+"""The proposal `kind` for a step offered from a blueprint."""
+
+
+class StepOutcome(NamedTuple):
+    """What answering a step proposal did, and what is waiting now.
+
+    §2: *return the new revision and next proposal* — both, from the one transaction that made
+    them true, so a browser never has to re-read to learn what it just caused.
+    """
+
+    settlement: st.Settlement
+    revision: int
+    next_proposal: str | None
+    phase: Phase
+
+
+def start_building(session_id: str, *, client=None) -> str | None:
+    """Resolve the whole blueprint, store it, and offer its first step. `resolving → building`.
+
+    **The resolve happens outside any transaction**, because it can take most of a second and in
+    Spawn may reach a provider — and a row lock held across a model call is a lock held for as
+    long as a provider feels like. The session's `row_version` is read first and compared when
+    the blueprint is written, so a session that moved while the resolver ran is refused rather
+    than overwritten.
+
+    Returns the first proposal's id, or `None` for a blueprint with nothing in it.
+    """
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        # Refuses with `MI0200` naming what the session can do instead.
+        st.advance(Phase(row.phase), st.Event.BLUEPRINT_STORED)
+        if row.goal is None:
+            raise ValueError(
+                coded("MI0200", "this session has no confirmed goal to build from")
+                + "\n  accept a goal first; a blueprint resolved from nothing is not a pipeline"
+            )
+        goal = Goal.model_validate(row.goal)
+        mode = Mode(row.mode)
+        version = row.row_version
+
+    try:
+        blueprint, calls = bp.resolve(goal, mode=mode, client=client)
+    except Exception:
+        move(session_id, st.Event.BUILD_FAILED, row_version=version)
+        raise
+    if calls and client is not None:
+        authoring_ai.record_calls(calls, client=client, registry=blueprint.registry)
+
+    contracts = registry.stack().registry
+    with session_scope() as db:
+        _swap(
+            db,
+            session_id,
+            version,
+            phase=Phase.BUILDING,
+            blueprint=blueprint.model_dump(mode="json"),
+            registry_digest=blueprint.registry,
+            cursor=0,
+        )
+        session_row = db.get(PipelineAuthoringSession, session_id)
+        draft = db.get(PipelineDraft, session_row.draft_id)
+        draft.goal = goal.model_dump(mode="json")
+        if not DraftGraph.model_validate(draft.graph).nodes:
+            # The measured profile rides on the graph, because `ir_of` builds its premises from
+            # it — without it a tier-3 step re-materialises with nothing to have matched on.
+            draft.graph = DraftGraph(profile=goal.profile).model_dump(mode="json")
+
+        first = blueprint.after(None)
+        if first is None:
+            _swap(db, session_id, version + 1, phase=Phase.COMPLETE)
+            return None
+        return _offer(db, session_id, blueprint, first, revision=draft.revision, registry=contracts)
+
+
+def settle_step(
+    proposal_id: str,
+    decision: ProposalState,
+    *,
+    expected_revision: int,
+    by: str,
+    chosen_option: str | None = None,
+    client=None,
+) -> StepOutcome:
+    """Accept or reject one step, commit it, and offer the next — or say why not.
+
+    **One transaction from the check to the next proposal.** The draft's graph, its provenance
+    sidecar, its revision, the proposal's outcome, the session's cursor and the next proposal are
+    written together or not at all; a draft revision that moved without the proposal recording
+    it, or the reverse, is two accounts of one click.
+
+    **The registry is compared before anything else.** If a layer moved since the blueprint was
+    resolved, the proposal is marked `stale` and the blueprint is resolved again — `MI0206` — and
+    nothing about the draft changes. An option chosen against a registry that no longer supplies
+    it is not a choice anybody made.
+    """
+    contracts = registry.stack().registry
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        if proposal is None:
+            raise KeyError(proposal_id)
+        session_row = db.get(PipelineAuthoringSession, proposal.session_id)
+        draft = db.get(PipelineDraft, session_row.draft_id)
+        blueprint = bp.Blueprint.model_validate(session_row.blueprint)
+        node = proposal.payload["node"]
+        phase = Phase(session_row.phase)
+
+        moved = (
+            proposal.state == ProposalState.PENDING.value
+            and bp.registry_digest([settings.registry_root]) != session_row.registry_digest
+        )
+        if moved:
+            proposal.state = ProposalState.STALE.value
+            proposal.settled_at = _now()
+            # Plain values, not ORM attributes: everything below runs after this transaction has
+            # closed, and reading a detached row's attribute there is a refresh with no session.
+            session_id = session_row.id
+            was = session_row.registry_digest
+            goal = Goal.model_validate(session_row.goal)
+            mode = Mode(session_row.mode)
+            version = session_row.row_version
+            revision = draft.revision
+            accepted = {n.id for n in DraftGraph.model_validate(draft.graph).nodes}
+        else:
+            outcome = st.settle(
+                current=ProposalState(proposal.state),
+                proposal_revision=proposal.draft_revision,
+                draft_revision=draft.revision,
+                expected_revision=expected_revision,
+                decision=decision,
+            )
+            if not outcome.applies:
+                if outcome.state is not ProposalState(proposal.state):
+                    proposal.state = outcome.state.value
+                    proposal.settled_at = _now()
+                return StepOutcome(outcome, draft.revision, None, phase)
+
+            options: dict[str, str] = proposal.payload["options"]
+            option = chosen_option or bp.KEEP
+            if decision is ProposalState.ACCEPTED:
+                if option not in options:
+                    return StepOutcome(
+                        st.Settlement(
+                            ProposalState(proposal.state),
+                            False,
+                            coded("MI0205", "that option was never offered for this step")
+                            + f"\n  offered: {', '.join(sorted(options))}",
+                            False,
+                        ),
+                        draft.revision,
+                        None,
+                        phase,
+                    )
+                graph, provenance = bp.committed(
+                    blueprint,
+                    DraftGraph.model_validate(draft.graph),
+                    DraftProvenance.model_validate(draft.provenance or {}),
+                    node,
+                    contract_id=options[option],
+                    by=by,
+                    registry=contracts,
+                )
+                draft.graph = graph.model_dump(mode="json")
+                draft.provenance = provenance.model_dump(mode="json")
+                draft.revision = draft.revision + 1
+                draft.updated_at = _now()
+                proposal.chosen_option = option
+
+            proposal.state = outcome.state.value
+            proposal.by = by
+            proposal.settled_at = _now()
+            db.flush()
+
+            following = blueprint.after(node)
+            target = st.advance(
+                phase,
+                st.Event.PROPOSAL_SETTLED if following else st.Event.NOTHING_LEFT,
+            )
+            _swap(
+                db,
+                session_row.id,
+                session_row.row_version,
+                phase=target,
+                cursor=session_row.cursor + 1,
+            )
+            offered = (
+                _offer(db, session_row.id, blueprint, following, revision=draft.revision,
+                       registry=contracts)
+                if following
+                else None
+            )
+            return StepOutcome(outcome, draft.revision, offered, target)
+
+    # The registry moved. Resolve again outside the transaction, for `start_building`'s reason.
+    fresh, calls = bp.resolve(goal, mode=mode, client=client)
+    if calls and client is not None:
+        authoring_ai.record_calls(calls, client=client, registry=fresh.registry)
+    with session_scope() as db:
+        _swap(
+            db,
+            session_id,
+            version,
+            phase=Phase.BUILDING,
+            blueprint=fresh.model_dump(mode="json"),
+            registry_digest=fresh.registry,
+        )
+        again = node if node in fresh.order else next(
+            (step for step in fresh.order if step not in accepted), None
+        )
+        offered = (
+            _offer(db, session_id, fresh, again, revision=revision, registry=contracts)
+            if again
+            else None
+        )
+    refusal = (
+        coded("MI0206", "the registry changed after this step was proposed")
+        + f"\n  it was resolved against {was}; it is {fresh.registry}"
+        + "\n  nothing was applied — the blueprint was resolved again, and a fresh proposal waits"
+    )
+    return StepOutcome(
+        st.Settlement(ProposalState.STALE, False, refusal, False), revision, offered, Phase.BUILDING
+    )
+
+
+def _swap(db, session_id: str, version: int, *, phase: Phase, **values: object) -> None:
+    """Move a session inside an open transaction, compare-and-swap on its version.
+
+    `move` opens its own transaction, which is right for a lone phase change and wrong here,
+    where the phase is one of several writes that must land together.
+    """
+    done = db.execute(
+        update(PipelineAuthoringSession)
+        .where(
+            PipelineAuthoringSession.id == session_id,
+            PipelineAuthoringSession.row_version == version,
+        )
+        .values(
+            phase=phase.value,
+            failed_from=None,
+            row_version=version + 1,
+            updated_at=_now(),
+            **values,
+        )
+    )
+    if done.rowcount != 1:
+        raise ValueError(
+            coded("MI0201", "this session moved while the blueprint was being resolved")
+            + f"\n  it was at version {version} when the work started"
+            + "\n  re-read it before acting on it"
+        )
+
+
+def _offer(db, session_id: str, blueprint, node_id: str, *, revision: int, registry) -> str:
+    """Store one step proposal as `pending`, against the draft as it stands now."""
+    proposal_id = _id()
+    db.add(
+        PipelineAuthoringProposal(
+            id=proposal_id,
+            session_id=session_id,
+            turn_id=None,
+            kind=STEP,
+            payload=bp.proposal(blueprint, node_id, registry=registry),
+            state=ProposalState.PENDING.value,
+            chosen_option=None,
+            by=None,
+            draft_revision=revision,
+            created_at=_now(),
+            settled_at=None,
+        )
+    )
+    db.flush()
+    return proposal_id

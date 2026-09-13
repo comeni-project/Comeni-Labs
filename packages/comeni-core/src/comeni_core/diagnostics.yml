@@ -3544,3 +3544,23 @@ MI0205:
 
     The ids are issued by the engine and stored before the call is made, so this comparison is a
     set difference rather than a judgement.
+
+MI0206:
+  emitted_by: api
+  concern: workflow
+  says: "the registry changed after this step was proposed, so it was re-resolved instead"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Nothing was applied, and nothing needs undoing. The blueprint was resolved again against the
+    registry as it is now, and a fresh proposal for the same place in the pipeline is waiting —
+    read the session and answer that one.
+  explanation: |
+    A session resolves the whole pipeline once and reveals it a step at a time, so a proposal can
+    sit for a while between being offered and being answered. If a registry layer moved in that
+    time — a contract updated, an overlay installed — the option the person is choosing may no
+    longer exist, or may no longer be what the resolver would pick.
+
+    Applying it anyway would write a choice made against one registry into a draft that will be
+    built against another. **The proposal is marked stale rather than rejected**, because nobody
+    rejected it: the engine withdrew it, and the transcript has to be able to say which.

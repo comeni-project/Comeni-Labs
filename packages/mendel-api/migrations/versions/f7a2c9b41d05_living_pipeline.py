@@ -60,7 +60,7 @@ def upgrade() -> None:
         sa.Column("failed_from", sa.String(length=16), nullable=True),
         sa.Column("goal", sa.JSON(), nullable=True),
         sa.Column("blueprint", sa.JSON(), nullable=False),
-        sa.Column("registry_digest", sa.String(length=64), nullable=False),
+        sa.Column("registry_digest", sa.String(length=80), nullable=False),
         sa.Column("cursor", sa.Integer(), nullable=False),
         sa.Column("row_version", sa.Integer(), nullable=False),
         sa.Column("who", sa.String(length=200), nullable=False),

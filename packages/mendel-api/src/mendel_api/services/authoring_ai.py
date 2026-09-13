@@ -81,6 +81,7 @@ class Purpose(StrEnum):
 
     GOAL = "goal"
     CHAT = "chat"
+    TIER4 = "tier4"
 
 
 class Outcome(NamedTuple):
@@ -441,6 +442,51 @@ def _admit_intent(intent: AuthoringIntent, request: AuthoringRequest) -> Authori
 
 
 # ── the audit row ─────────────────────────────────────────────────────────────────────────
+
+
+def record_calls(calls, *, client: Client, registry: str) -> list[str]:
+    """One `ai_invocation` row per tier-4 call a blueprint made. Returns their ids.
+
+    **Written after the build, not during it.** `ModelResolver` runs inside the resolver's own
+    loop, which must stay free of I/O, so it keeps its calls in memory and this writes them once
+    the pipeline exists. The timing columns are therefore the row's, not the call's: no duration
+    is claimed for a call nobody timed, and `duration_ms` stays null rather than zero.
+
+    A call whose answer was refused or declined is recorded as `refused` with its code — the
+    rows worth reading afterwards are precisely the ones where a model kept naming something
+    that was not on offer.
+    """
+    written: list[str] = []
+    access: ModelAccess = client.access
+    now = datetime.now(UTC)
+    with session_scope() as session:
+        for call in calls:
+            invocation_id = secrets.token_hex(16)
+            session.add(
+                AiInvocation(
+                    id=invocation_id,
+                    agent=AGENT,
+                    purpose=Purpose.TIER4.value,
+                    model=call.model,
+                    provider="local" if access.base_url else "",
+                    prompt_id=call.prompt_id,
+                    prompt_version=call.prompt_id.rsplit(".", 1)[-1],
+                    prompt_digest=call.prompt_digest,
+                    input_digests={"registry": registry, "subject": call.subject},
+                    temperature=access.temperature,
+                    state=(
+                        InvocationState.SUCCEEDED if call.chosen else InvocationState.REFUSED
+                    ).value,
+                    failure_code="" if call.chosen else (_code_in(call.refusal or "") or "MA0004"),
+                    started_at=now,
+                    finished_at=now,
+                    duration_ms=None,
+                    input_tokens=None,
+                    output_tokens=None,
+                )
+            )
+            written.append(invocation_id)
+    return written
 
 
 def _record(

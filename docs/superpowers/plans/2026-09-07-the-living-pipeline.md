@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 5 complete
+**Status:** in progress — Tasks 1 to 6 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -717,29 +717,83 @@ column that separates a builder `chat` from a forge one.
 
 **Files:** add a builder-owned `AmbiguityResolver`; extend authoring service and build view tests.
 
-- [ ] Implement the adapter through the existing `AmbiguityRequest` door and `choose_one`. It can
+- [x] Implement the adapter through the existing `AmbiguityRequest` door and `choose_one`. It can
   choose only an offered candidate and returns `Resolution` with model id, reason, confidence,
   and `ValueSource.MODEL`.
-- [ ] Build mode resolves with the flag-only path so tier-4 questions remain visible. Spawn mode
+- [x] Build mode resolves with the flag-only path so tier-4 questions remain visible. Spawn mode
   resolves with the model adapter. A declined/no-candidate ambiguity remains open in both modes.
-- [ ] Store the complete resolved `Pipeline`, registry digest, and proposal order as the session
+- [x] Store the complete resolved `Pipeline`, registry digest, and proposal order as the session
   blueprint. Do not ask the model to enumerate modules after the resolver already did.
-- [ ] Convert the blueprint to step proposals in deterministic layout/topological order. Include
+- [x] Convert the blueprint to step proposals in deterministic layout/topological order. Include
   incoming edges only when both endpoint steps have been accepted.
-- [ ] Populate alternatives from the resolver's decision candidates and existing candidate
+- [x] Populate alternatives from the resolver's decision candidates and existing candidate
   service. Never ask the model to invent a plausible alternative list.
-- [ ] On accept, commit the step/edge/settings into the session's draft and provenance sidecar in
+- [x] On accept, commit the step/edge/settings into the session's draft and provenance sidecar in
   one transaction. Return the new revision and next proposal.
-- [ ] A resolver-settled proposal acknowledged unchanged retains its resolver provenance. A
+- [x] A resolver-settled proposal acknowledged unchanged retains its resolver provenance. A
   person choosing a tier-4/default or alternative option records a human decision. Spawn's
   model-selected tier-4 choice records the model.
-- [ ] Detect a changed registry digest before applying a stored proposal. Mark it stale and
+- [x] Detect a changed registry digest before applying a stored proposal. Mark it stale and
   re-resolve rather than applying an option against a registry that no longer supplied it.
-- [ ] Test a one-step pipeline, the RNA-seq example, N→N flow, an N→1 gatherer, a branched
+- [x] Test a one-step pipeline, the RNA-seq example, N→N flow, an N→1 gatherer, a branched
   blueprint rendered in deterministic order, and a model refusal.
 
 **Checkpoint:** identical goal + registry + policy produces identical blueprint/proposal order.
-No per-module model calls occur for tiers 1–3.
+No per-module model calls occur for tiers 1–3. **Met** —
+`test_the_same_goal_and_registry_and_policy_give_the_same_blueprint` compares the stored bytes, and
+`test_spawn_calls_no_model_for_anything_the_resolver_settled` runs Spawn against a transport that
+records every prompt and finds none.
+
+**Six things a reader should know before Task 7:**
+
+1. **Door 2 had never been crossed.** `AmbiguityRequest` was declared in Plan 1 and the only place
+   in the repository that constructed one was the egress guard's own totality test.
+   `resolver.request_for` is its first producer, and it is written as `model_dump()` minus `kind`
+   because that is exactly the shape the guard proves — two spellings would be two shapes.
+2. **A declined tier-4 answer falls back to the flag rather than failing the build.** `choose_one`
+   refuses a value outside the offered set; the adapter then resolves exactly as Build would have.
+   A provider outage turns one Spawn question back into a Build question, not a failed session.
+   A question with **no** candidates still raises `NoCandidatesError`, as `FlagOnlyResolver` does,
+   so whether a build fails never depends on the mode.
+3. **`Resolution.confidence` stays `0.0`**, and the step said to return a confidence. `choose_one`
+   returns a value and a sentence, and a model's self-rating is not a measurement; what separates a
+   model's answer from the flag is `how=MODEL` and `by=<model id>`, which are facts. Invariant 6
+   flags tier 4 at any confidence, so nothing downstream reads it.
+4. **The shipped registry produces no producer tie**, so Spawn's model path is exercised at the
+   adapter level (13 tests with a fake transport) and not end to end — the spine's one tier-4
+   question has `[None]` as its only candidate and is never put to a model. A real tie needs an
+   overlay with two conforming contracts, which is fixture work Task 12 is better placed to do.
+5. **Alternatives exclude any contract that consumes the type it would stand in for.** Found
+   twice by running rather than reading: the first smoke run offered `samtools/sort` as an
+   alternative to STAR, and the first test run offered MultiQC to FastQC. Both *produce* the type
+   and both *consume* it — `CLAUDE.md`'s *a contract cannot satisfy its own input*, which the
+   router enforces and the candidate service, answering a narrower question, does not.
+6. **`pipeline_authoring_session.registry_digest` was `String(64)` and a `Digest` is 71
+   characters.** A Task 3 defect: Postgres would have refused the first blueprint ever stored, and
+   nothing stored one until now. The unpushed migration was widened to 80 in place, and the
+   defect was reproduced for real before the fix — a database migrated at the old revision
+   refused all seven commit tests with `value too long for type character varying(64)`.
+   **`forge_revision.registry_digest` has the same shape** (`forge_jobs.py:960` writes a full
+   `Digest` into `String(64)`), predates this plan, and is not fixed here.
+
+**Deviations:** a third committed prompt, `builder.tier4.v1`, because `choose_one` takes a
+question and a question sent to a provider is product code; tier-4 calls are kept in memory by
+the adapter and written by `authoring_ai.record_calls` after the build, because the adapter runs
+inside the resolver's loop, which must stay free of I/O; and a registry that moved re-resolves
+*within* `building` rather than adding an arrow to §2's diagram — the session never leaves the
+phase, only its blueprint changes, and `MI0206` says so.
+
+**Watched failing against the specific defect:** committing an edge regardless of acceptance
+fails the two edge tests and nothing else; never noticing a moved registry fails only the stale
+test; and letting a tier-4 default keep the flag's `resolver` label fails only the human-author
+test. `test_accepting_every_step_rebuilds_the_blueprint_through_ir_of` is the one that holds the
+whole commit: a fully accepted draft, materialised through `ir_of`, names the same contracts,
+wires and authors at the same tiers as the blueprint.
+
+**`make check` skips every database test**, and not because of this task: the Makefile's
+`-include .env` re-exports `MENDEL_DATABASE_URL`, overriding one set on the command line. The API
+suite was run directly against a throwaway Postgres — 528 passed, and the 5 failures are the
+pre-existing `MF0001: 'fake' is not a catalogue source` ones.
 
 ---
 

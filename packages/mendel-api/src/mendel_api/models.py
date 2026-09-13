@@ -610,10 +610,14 @@ class PipelineAuthoringSession(Base):
     equal in the ordinary case and must be allowed to differ while a revision is being
     reviewed."""
     blueprint: Mapped[dict] = mapped_column(JSON, default=dict)
-    registry_digest: Mapped[str] = mapped_column(String(64), default="")
+    registry_digest: Mapped[str] = mapped_column(String(80), default="")
     """Which layer stack the blueprint was resolved against. A blueprint outlives the registry
     that produced it, and `MF0301`'s lesson one product over: a green answer about a layer that
-    has since moved is a statement about something that no longer exists."""
+    has since moved is a statement about something that no longer exists.
+
+    **80, not 64.** It was 64 for a commit, which is a hex digest's length — and a `Digest` is
+    `sha256:` plus 64 hex, seventy-one characters. Postgres would have refused the first
+    blueprint ever stored, and nothing wrote one until Task 6."""
     cursor: Mapped[int] = mapped_column(Integer, default=0)
     row_version: Mapped[int] = mapped_column(Integer, default=1)
     who: Mapped[str] = mapped_column(String(200), index=True)
