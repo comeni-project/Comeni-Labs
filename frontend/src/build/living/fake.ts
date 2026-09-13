@@ -123,7 +123,7 @@ export const FAKE_SESSION = {
     options: ["alt_1", "keep"],
     edges: [{ from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam" }],
     block: { kind: "step_proposal", id: "step-samtools_sort", node: "samtools_sort", contract: SORT,
-      produces: ["alignment.bam"], tier: 2,
+      consumes: ["alignment.bam"], produces: ["alignment.bam"], tier: 2,
       alternatives: [{ id: "alt_1", label: "SAMTOOLS_SORMADUP", recommended: false,
         note: "Sorts and marks duplicates in one pass. Adds a step you did not ask for." }],
       reason: "Nothing downstream reads an unsorted BAM. This is structural — there is no version " +
@@ -131,22 +131,22 @@ export const FAKE_SESSION = {
   },
 } as unknown as AuthoringSession;
 
-const port = (name: string, type_id: string, side: "in" | "out", states: string[] = []) =>
-  ({ name, type_id, side, met: true, states });
+const port = (name: string, type_id: string, side: "in" | "out", states: string[] = [], gathers = false) =>
+  ({ name, type_id, side, met: true, states, gathers });
 
 /** Ports for the fixture's steps, in the drawn view's shape. */
 export const FAKE_STEPS = {
   star_genomegenerate: { id: "star_genomegenerate", process: "STAR_GENOMEGENERATE", contract_id: INDEX,
-    tier: 2, reason: "", settings: [],
+    tier: 2, runs: "once", reason: "", settings: [],
     ports: [port("fasta", "genome.fasta", "in"), port("gtf", "annotation.gtf", "in"),
       port("index", "genome.index.star", "out")] },
-  trimgalore: { id: "trimgalore", process: "TRIMGALORE", contract_id: TRIM, tier: 2, reason: "",
+  trimgalore: { id: "trimgalore", process: "TRIMGALORE", contract_id: TRIM, tier: 2, runs: "per_item", reason: "",
     settings: [], ports: [port("reads", "fastq.reads", "in"),
       port("reads", "fastq.reads", "out", ["trimmed"])] },
-  star_align: { id: "star_align", process: "STAR_ALIGN", contract_id: ALIGN, tier: 3, reason: "",
+  star_align: { id: "star_align", process: "STAR_ALIGN", contract_id: ALIGN, tier: 3, runs: "per_item", reason: "",
     settings: [{}, {}, {}], ports: [port("reads", "fastq.reads", "in", ["trimmed"]),
       port("index", "genome.index.star", "in"), port("bam", "alignment.bam", "out")] },
-  samtools_sort: { id: "samtools_sort", process: "SAMTOOLS_SORT", contract_id: SORT, tier: 2,
+  samtools_sort: { id: "samtools_sort", process: "SAMTOOLS_SORT", contract_id: SORT, tier: 2, runs: "per_item",
     reason: "", settings: [], ports: [port("bam", "alignment.bam", "in"),
       port("bam", "alignment.bam", "out", ["coordinate_sorted"])] },
 } as unknown as Record<string, Step>;
@@ -159,3 +159,62 @@ export const FAKE_VOCABULARY: Record<string, string[]> = {
   "genome.fasta": [],
   "qc.report": ["aggregated"],
 };
+
+/** The fixture's entry channels, in the drawn view's shape. `reads` was measured at 12 samples. */
+export const FAKE_CHANNELS = [
+  { name: "reads", param: "input", type_id: "fastq.reads", scope: "sample", count: 12, states: [],
+    ports: ["trimgalore.reads"] },
+  { name: "fasta", param: "fasta", type_id: "genome.fasta", scope: "run", count: null, states: [],
+    ports: ["star_genomegenerate.fasta"] },
+  { name: "gtf", param: "gtf", type_id: "annotation.gtf", scope: "run", count: null, states: [],
+    ports: ["star_genomegenerate.gtf"] },
+] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];
+
+/** 1→1, N→N and N→1, the three collection shapes, on one small graph — `LivingCollect`'s content. */
+export const COLLECT_SESSION = {
+  ...FAKE_SESSION,
+  name: "rnaseq-counts",
+  phase: "complete",
+  steps_total: 4,
+  graph: {
+    nodes: [
+      { id: "star_align", contract_id: ALIGN, params: [] },
+      { id: "trimgalore", contract_id: TRIM, params: [] },
+      { id: "fastqc", contract_id: "nf-core/fastqc@0.12.1", params: [] },
+      { id: "multiqc", contract_id: "nf-core/multiqc@1.35", params: [] },
+    ],
+    edges: [
+      { from_node: "fastqc", from_port: "zip", to_node: "multiqc", to_port: "reports" },
+    ],
+  },
+  placement: {
+    star_align: { x: 420, y: 40 },
+    trimgalore: { x: 420, y: 250 },
+    fastqc: { x: 196, y: 470 },
+    multiqc: { x: 420, y: 470 },
+  },
+  turns: [],
+  history: [],
+  pending_proposal: null,
+} as unknown as AuthoringSession;
+
+export const COLLECT_STEPS = {
+  star_align: { id: "star_align", process: "STAR_ALIGN", contract_id: ALIGN, tier: 2, runs: "per_item",
+    reason: "", settings: [], ports: [port("index", "genome.index.star", "in"),
+      port("bam", "alignment.bam", "out")] },
+  trimgalore: { id: "trimgalore", process: "TRIMGALORE", contract_id: TRIM, tier: 2, runs: "per_item",
+    reason: "", settings: [], ports: [port("reads", "fastq.reads", "in"),
+      port("reads", "fastq.reads", "out", ["trimmed"])] },
+  fastqc: { id: "fastqc", process: "FASTQC", contract_id: "nf-core/fastqc@0.12.1", tier: 1, runs: "per_item",
+    reason: "", settings: [], ports: [port("reads", "fastq.reads", "in"), port("zip", "qc.report", "out")] },
+  multiqc: { id: "multiqc", process: "MULTIQC", contract_id: "nf-core/multiqc@1.35", tier: 2, runs: "once",
+    reason: "", settings: [], ports: [port("reports", "qc.report", "in", [], true),
+      port("report", "qc.report", "out", ["aggregated"])] },
+} as unknown as Record<string, Step>;
+
+export const COLLECT_CHANNELS = [
+  { name: "reference", param: "index", type_id: "genome.index.star", scope: "run", count: null,
+    states: [], ports: ["star_align.index"] },
+  { name: "reads", param: "input", type_id: "fastq.reads", scope: "sample", count: 12,
+    states: ["paired"], ports: ["trimgalore.reads"] },
+] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];

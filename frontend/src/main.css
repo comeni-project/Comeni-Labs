@@ -378,3 +378,21 @@ body {
   .living > .living-canvas { order: 2; height: 430px; }
   .living > .living-rail { order: 1; border-left: 0 !important; }
 }
+
+/* ── The living canvas's motion — one class per domain event, and nothing else moves ──────
+   §1.11: animate proposal_shown, proposal_accepted and edge_committed. Never fetch completion,
+   never model tokens. The curve is the product's one curve. Under `prefers-reduced-motion` every
+   state change still happens — the step is placed and highlighted where it lands — and nothing
+   travels: `animation: none`, so the end state is simply there. */
+@keyframes living-pop { from { opacity: 0; transform: translateY(-6px) scale(.985); } }
+@keyframes living-settle { from { opacity: .55; transform: translateY(4px); } }
+/* A wire is drawn over its OWN length: `pathLength="1"` on the path makes one dash exactly the whole
+   wire. It was a fixed 400 behind an undefined custom property, which the token guard refused —
+   and which would have left a gap in every wire longer than 400px once the animation ended. */
+@keyframes living-draw { from { stroke-dashoffset: 1; } }
+.living-pop { animation: living-pop 180ms var(--ease) backwards; }
+.living-settle { animation: living-settle 220ms var(--ease) backwards; }
+.living-draw { stroke-dasharray: 1; animation: living-draw 520ms var(--ease) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .living-pop, .living-settle, .living-draw { animation: none !important; stroke-dasharray: none; }
+}

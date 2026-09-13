@@ -6,7 +6,7 @@ import { post } from "../../api/client";
 import type { AuthoringBlock, AuthoringSession, Built, DraftGraph, Step } from "../../api/types";
 import { withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring, visibleGraph } from "./authoringReducer";
-import { FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
+import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
 import { LivingSurface } from "./LivingSurface";
 import { useAuthoringSession } from "./useAuthoringSession";
@@ -25,6 +25,7 @@ export function LivingBuilder() {
   const session = params.get("session");
   const fake = params.get("fake");
   if (fake === "guided") return <GuidedLiving />;
+  if (fake === "collect") return <CollectLiving />;
   if (fake) return <FakeLiving />;
   if (session) return <LiveLiving sessionId={session} />;
   return (
@@ -43,7 +44,7 @@ function idFor(graph: DraftGraph, contract: string): string {
 
 function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId);
-  const steps = useDrawnSteps(living.graph, living.session);
+  const drawn = useDrawn(living.graph, living.session);
 
   if (living.loading) {
     return <p className="gutter py-10 text-[13px] text-ink-3" data-testid="living-loading">Opening…</p>;
@@ -61,7 +62,9 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
     <LivingSurface
       session={living.session}
       graph={graph}
-      steps={steps}
+      steps={drawn.steps}
+      channels={drawn.channels}
+      onPlayed={living.consumed}
       state={living.state}
       preview={living.preview}
       busy={living.busy}
@@ -91,7 +94,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
  * **Asked once per revision, never per frame.** The ghost is included so the step on offer shows
  * its real ports before it is accepted.
  */
-function useDrawnSteps(graph: DraftGraph, session: AuthoringSession | null): Record<string, Step> {
+function useDrawn(graph: DraftGraph, session: AuthoringSession | null) {
   const pending = session?.pending_proposal;
   const withGhost =
     pending?.block.kind === "step_proposal"
@@ -102,7 +105,10 @@ function useDrawnSteps(graph: DraftGraph, session: AuthoringSession | null): Rec
     queryFn: () => post<Built>("/pipeline/draw", withGhost),
     enabled: withGhost.nodes.length > 0,
   });
-  return Object.fromEntries((drawn.data?.steps ?? []).map((step) => [step.id, step]));
+  return {
+    steps: Object.fromEntries((drawn.data?.steps ?? []).map((step) => [step.id, step])) as Record<string, Step>,
+    channels: drawn.data?.channels ?? [],
+  };
 }
 
 function FakeLiving() {
@@ -116,6 +122,8 @@ function FakeLiving() {
       session={session}
       graph={visibleGraph(state)}
       steps={FAKE_STEPS}
+      channels={FAKE_CHANNELS}
+      onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={{ revision: session.revision, text: "version: 6\ngoal:\n  want: [counts.matrix]\n" }}
       busy={(id) => state.inFlight === id}
@@ -150,6 +158,8 @@ export function GuidedLiving() {
       session={session}
       graph={session.graph}
       steps={FAKE_STEPS}
+      channels={FAKE_CHANNELS}
+      onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={null}
       busy={() => false}
@@ -157,6 +167,34 @@ export function GuidedLiving() {
       onAccept={(proposal, option = "keep") =>
         advance(guidedDecide(session, proposal.id, "accepted", option))}
       onReject={(proposal) => advance(guidedDecide(session, proposal.id, "rejected"))}
+      onPreviewOption={(option) => dispatch({ type: "preview", option })}
+      onSelect={(node) => dispatch({ type: "select", node })}
+      onCompose={(text) => dispatch({ type: "compose", text })}
+      onSay={(text) => dispatch({ type: "sent", text })}
+      onRetry={() => undefined}
+      onAddStep={() => undefined}
+      onSetParam={() => undefined}
+      onApplyChange={() => undefined}
+      onDismiss={() => dispatch({ type: "dismiss" })}
+    />
+  );
+}
+
+/** 1→1, N→N and N→1 on one canvas — Task 11's browser checkpoint, beside `LivingCollect`. */
+function CollectLiving() {
+  const [state, dispatch] = useReducer(authoringReducer, { ...initialAuthoring, snapshot: COLLECT_SESSION });
+  return (
+    <LivingSurface
+      session={COLLECT_SESSION}
+      graph={COLLECT_SESSION.graph}
+      steps={COLLECT_STEPS}
+      channels={COLLECT_CHANNELS}
+      onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
+      state={state}
+      preview={null}
+      busy={() => false}
+      onAccept={() => undefined}
+      onReject={() => undefined}
       onPreviewOption={(option) => dispatch({ type: "preview", option })}
       onSelect={(node) => dispatch({ type: "select", node })}
       onCompose={(text) => dispatch({ type: "compose", text })}

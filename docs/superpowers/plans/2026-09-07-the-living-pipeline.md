@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 10 complete
+**Status:** in progress — Tasks 1 to 11 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -1077,28 +1077,68 @@ edit produced invalid syntax, and was redone rather than counted.
 **Files:** `LivingCanvas.tsx`, `CollectionChannel.tsx`, `motion.ts`, relevant build view DTOs and
 tests.
 
-- [ ] Extend `ChannelView` with its materialized `scope` and extend `PortView` with whether the
+- [x] Extend `ChannelView` with its materialized `scope` and extend `PortView` with whether the
   input gathers many. Read these from `Pipeline.channels` and `Step.inputs`; do not re-derive
   them from type names in React.
-- [ ] Add a safe multiplicity view: known scalar `n_samples` may become `×12 samples`; otherwise
+- [x] Add a safe multiplicity view: known scalar `n_samples` may become `×12 samples`; otherwise
   sample/item scope becomes `×N items`. Never send or display filenames from Mendel.
-- [ ] Render one collection channel, not repeated wires. Label N→N as `once per item` and N→1 as
+- [x] Render one collection channel, not repeated wires. Label N→N as `once per item` and N→1 as
   `collect all` in the expanded/selected view established by the design.
-- [ ] Reveal a pending proposal as a clearly provisional ghost. Acceptance settles the node;
+- [x] Reveal a pending proposal as a clearly provisional ghost. Acceptance settles the node;
   rejection withdraws it; neither state may look committed before the server agrees.
-- [ ] Draw committed edges when both endpoints are accepted. Use SVG stroke reveal or an
+- [x] Draw committed edges when both endpoints are accepted. Use SVG stroke reveal or an
   equivalent native animation tied to `edge_committed`.
-- [ ] Animate parameter commitment and changed YAML sections without moving unrelated objects.
+- [x] Animate parameter commitment and changed YAML sections without moving unrelated objects.
   Preserve object permanence during replacement.
-- [ ] Use blueprint target coordinates for staged reveal. Continue to let the client own manual
+- [x] Use blueprint target coordinates for staged reveal. Continue to let the client own manual
   offsets after a drag and retain the existing Tidy/server-layout escape hatch.
-- [ ] Implement `prefers-reduced-motion`: state changes remain visible through immediate placement
+- [x] Implement `prefers-reduced-motion`: state changes remain visible through immediate placement
   and highlighting, with no spatial travel.
-- [ ] Test event classes/order and reduced-motion behaviour. Do not pretend jsdom pixel assertions
+- [x] Test event classes/order and reduced-motion behaviour. Do not pretend jsdom pixel assertions
   replace the Task 14 browser checkpoint.
 
 **Checkpoint:** demonstrate 1→1, N→N, and N→1 in the browser. The N→N example must show several
-items flowing through one logical linear pipeline, not several branches.
+items flowing through one logical linear pipeline, not several branches. **Met in headless
+Chromium, not yet in a person's browser** — `/build/living?fake=collect` renders the reference as
+one stroke, reads as a three-strand ribbon into tall ports, and FastQC's reports converging into
+MultiQC's wide gathering port, beside `LivingCollect`. A live session's canvas is Task 14's walk.
+
+### Execution record — the side-by-side
+
+| # | What the renders showed | Outcome |
+|---|---|---|
+| 1 | **both inputs drawn below their consumers, on top of the next node** | **fixed** — "clear" is now whether the left-hand box would overlap a node, which is `place`'s own stated reason; it was "is this the leftmost column" |
+| 2 | wire labels clipped by the source boxes | **fixed** as a consequence of 1, and by 4 |
+| 3 | `reads` also feeding FastQC, a second line across the board | fixture corrected to the artboard's content |
+| 4 | the full sentence on a 90px wire clipped to `lue · read once pe`, and `ollect al` in a 52px gap | **fixed** — a wire at rest says the behaviour (`once per item`); the count is on the source; the full sentence appears when either end is selected; a tag is drawn only where it fits |
+| 5 | no port marks | **fixed** — a square, a tall mark where a ribbon lands, a wide one where it converges |
+
+**Five things a reader should know before Task 12:**
+
+1. **How often each part runs is the server's answer.** `ChannelView` gained `scope` and `count` —
+   the count only when `n_samples` was measured as a whole number — `PortView` gained `gathers`,
+   and `StepView` gained `runs`, propagated in `build._runs` to a fixed point over
+   `Pipeline.channels` and `Step.inputs`. React chooses a stroke and nothing else.
+2. **Inputs are placed by the existing canvas's rule**, `Sources.place`, now exported and taking a
+   box size — the living source is 120×80 where a socket is 150×62. One rule for both canvases.
+3. **Motion is one table** (`motion.ts`): `proposal_shown` pops the ghost, `proposal_accepted`
+   settles the node, `edge_committed` draws the wire over its own length (`pathLength="1"`).
+   Rejection withdraws the ghost rather than animating it away; parameter commitment is shown
+   where it is read, the YAML preview, which is Task 13's. Reduced motion is CSS: the classes stay
+   and `animation: none`, so the end state is identical and nothing travels.
+4. **The event queue is capped at 40.** Under reduced motion no animation ends, so nothing reports
+   an event played — an uncapped queue grows for as long as the page is open.
+5. **A dragged node is the client's; Tidy gives the blueprint's layout back.** The release is a
+   macrotask, or the click ending a drag would also select.
+
+**Two defects found by the token guard** (`defines every custom property the app references`): a
+`var(--living-length, 400)` nothing defined — and behind it, a fixed 400-unit dash pattern that
+would have left a gap in every wire longer than 400px after the animation ended.
+
+**Watched failing against the specific defect:** sources always below fails only the gutter test;
+ignoring `gathers` fails only the three-shapes test; an uncapped queue fails only the bounded-queue
+test; removing the reduced-motion block fails only its scan; and on the server, dropping upstream
+propagation from `_runs` fails only the per-item test.
 
 ---
 

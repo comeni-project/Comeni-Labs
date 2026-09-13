@@ -1,5 +1,5 @@
 import type { PortView } from "../../api/types";
-import { HEAD_H, NODE_H, NODE_W, PORT_ROW } from "../geometry";
+import { HEAD_H, NODE_H, NODE_W, PORT_ROW, portOffset } from "../geometry";
 import type { Author } from "./format";
 import { processName } from "./format";
 
@@ -30,6 +30,13 @@ export function LivingNode({
   selected = false,
   onSelect,
   instead = null,
+  runs,
+  perItem = false,
+  className,
+  onAnimationEnd,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
 }: {
   id: string;
   at: { x: number; y: number };
@@ -46,6 +53,16 @@ export function LivingNode({
    *  `INSTEAD`. The design record's operator finding — a substitution drawn as a second node reads
    *  as a pipeline that gained a module. */
   instead?: string | null;
+  /** `runs 12×` or `runs once` — the server's `StepView.runs`, said in the footer. */
+  runs?: string;
+  /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
+  perItem?: boolean;
+  /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
+  className?: string;
+  onAnimationEnd?: () => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  onPointerMove?: (e: React.PointerEvent) => void;
+  onPointerUp?: (e: React.PointerEvent) => void;
 }) {
   const bar = tier === 4 ? "var(--undecided)" : tier === 3 ? "var(--measured)" : "var(--rail)";
   const rows = ports.slice(0, Math.floor((NODE_H - HEAD_H - 24) / PORT_ROW));
@@ -60,7 +77,11 @@ export function LivingNode({
       aria-pressed={selected}
       aria-label={`${processName(id)}${ghost ? ", proposed" : ""}`}
       onClick={onSelect}
-      className="absolute flex flex-col text-left p-0 cursor-pointer focus-visible:shadow-[var(--ring)]"
+      onAnimationEnd={onAnimationEnd}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      className={`absolute flex flex-col text-left p-0 cursor-pointer touch-none focus-visible:shadow-[var(--ring)] ${className ?? ""}`}
       style={{
         left: at.x,
         top: at.y,
@@ -73,6 +94,32 @@ export function LivingNode({
         boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--link) 26%, transparent)" : undefined,
       }}
     >
+      {/* **Ports, as the collection grammar draws them**: a square for a single value, a tall
+          mark where a ribbon lands, and a wide one where a ribbon converges — `.port.many` and
+          `.port.gather` in the artboards. Positions from `portOffset`, the one derivation. */}
+      {(["in", "out"] as const).flatMap((side) =>
+        ports.filter((p) => p.side === side).map((port, index) => {
+          const gather = side === "in" && port.gathers;
+          const tall = gather ? 29 : perItem ? 25 : 7;
+          const wide = gather ? 12 : 7;
+          return (
+            <span
+              key={`mark-${side}-${port.name}`}
+              aria-hidden
+              data-port-mark={gather ? "gather" : perItem ? "many" : "one"}
+              className="absolute"
+              style={{
+                left: side === "in" ? -Math.ceil(wide / 2) - 2 : NODE_W - Math.floor(wide / 2) - 3,
+                top: portOffset(index) - tall / 2 - 1,
+                width: wide,
+                height: tall,
+                background: "var(--node)",
+                border: "1px solid var(--port-line)",
+              }}
+            />
+          );
+        }),
+      )}
       {author === "person" && !ghost && (
         <span
           aria-hidden
@@ -117,7 +164,7 @@ export function LivingNode({
           className="h-[24px] flex items-center px-[10px] w-full shrink-0 font-data text-[9px] text-ink-3"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
-          {settled ?? 0} settled
+          {runs ? `${runs} · ` : ""}{settled ?? 0} settled
         </span>
       )}
     </button>

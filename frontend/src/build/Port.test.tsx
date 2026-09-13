@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Port } from "./Port";
 
-const out = { name: "bam", type_id: "alignment.bam", side: "out" as const, met: true, states: [] };
-const inp = { name: "bam", type_id: "alignment.bam", side: "in" as const, met: false, states: [] };
+const out = { name: "bam", type_id: "alignment.bam", side: "out" as const, met: true, states: [], gathers: false };
+const inp = { name: "bam", type_id: "alignment.bam", side: "in" as const, met: false, states: [], gathers: false };
 
 describe("drag-to-connect", () => {
   it("an output starts a wire and an input does not", () => {

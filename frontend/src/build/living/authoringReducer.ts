@@ -87,10 +87,14 @@ export type AuthoringAction =
 
 const KEEP = "keep";
 
+/** How many unplayed events are kept. Under reduced motion no animation ends, so nothing reports
+ *  an event played — a queue with no cap would grow for as long as the page is open. */
+export const EVENT_CAP = 40;
+
 function emit(state: AuthoringState, kind: MotionKind, subject: string): AuthoringState {
   return {
     ...state,
-    events: [...state.events, { seq: state.nextSeq, kind, subject }],
+    events: [...state.events, { seq: state.nextSeq, kind, subject }].slice(-EVENT_CAP),
     nextSeq: state.nextSeq + 1,
   };
 }

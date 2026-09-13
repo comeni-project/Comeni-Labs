@@ -1942,6 +1942,14 @@ export interface components {
         ChannelView: {
             /** Name */
             name: string;
+            /**
+             * Scope
+             * @default sample
+             * @enum {string}
+             */
+            scope: "run" | "sample";
+            /** Count */
+            count?: number | null;
             /** Param */
             param: string;
             /** Type Id */
@@ -3335,6 +3343,11 @@ export interface components {
              * @default []
              */
             states: string[];
+            /**
+             * Gathers
+             * @default false
+             */
+            gathers: boolean;
         };
         /**
          * Proposal
@@ -3938,6 +3951,12 @@ export interface components {
             process: string;
             /** Contract Id */
             contract_id: string;
+            /**
+             * Runs
+             * @default once
+             * @enum {string}
+             */
+            runs: "once" | "per_item";
             /** Tier */
             tier: number;
             /** Reason */

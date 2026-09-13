@@ -41,6 +41,7 @@ const STEP = {
   process: "STAR_ALIGN",
   contract_id: "nf-core/star/align@1.11.0",
   tier: 3,
+  runs: "per_item" as const,
   reason: "a rule matched",
   ports: [],
   settings: [

@@ -219,19 +219,27 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
  * Below is the honest place for the rest. It is beside its node, it overlaps nothing, and the
  * stub becomes a short vertical instead of a long horizontal through a node.
  */
-function place(kind: "Input" | "Output", anchor: Point, index: number, clear: boolean) {
+export function place(
+  kind: "Input" | "Output",
+  anchor: Point,
+  index: number,
+  clear: boolean,
+  /** The box being placed. The living canvas draws a 120×80 source where this canvas draws a
+   *  150×62 socket — one placement rule for both, which is why it takes the size. */
+  size: { w: number; h: number } = { w: SOCKET_W, h: SOCKET_H },
+) {
   // **The first socket is level with the first port; the rest stack clear of it.** `portOffset`
   // steps by 22, which is right for a 7px port and puts two 62px cards on top of each other —
   // so the BOX stacks by its own height while the WIRE still lands on the port, and the stub
   // between them reconciles the two. That is what a stub is for.
-  const stacked = index * (SOCKET_H + 8);
+  const stacked = index * (size.h + 8);
   const box = clear
     ? {
-      x: kind === "Input" ? anchor.x - SOCKET_W - GAP : anchor.x + NODE_W + GAP,
-      y: anchor.y + portOffset(0) - SOCKET_H / 2 + stacked,
+      x: kind === "Input" ? anchor.x - size.w - GAP : anchor.x + NODE_W + GAP,
+      y: anchor.y + portOffset(0) - size.h / 2 + stacked,
     }
     : {
-      x: kind === "Input" ? anchor.x : anchor.x + NODE_W - SOCKET_W,
+      x: kind === "Input" ? anchor.x : anchor.x + NODE_W - size.w,
       y: anchor.y + NODE_H + 20 + stacked,
     };
   // Where the stub meets the box: its near edge, at its middle. Where it meets the node: the
@@ -243,7 +251,7 @@ function place(kind: "Input" | "Output", anchor: Point, index: number, clear: bo
   // kind and nothing else. Caught by the first test written against an output.
   return {
     box,
-    edge: { x: kind === "Input" ? box.x + SOCKET_W : box.x, y: box.y + SOCKET_H / 2 },
+    edge: { x: kind === "Input" ? box.x + size.w : box.x, y: box.y + size.h / 2 },
     tip: {
       x: kind === "Input" ? anchor.x : anchor.x + NODE_W,
       y: anchor.y + portOffset(index),

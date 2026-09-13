@@ -189,3 +189,53 @@ def test_the_browser_derives_no_channel_of_its_own():
     body = body[: body.index("\n}")]
     assert "data.channels" in body, "entryChannels must read the server's answer"
     assert "port.side" not in body, "entryChannels must not walk the ports again"
+
+
+
+# ── the collection grammar's facts, served — living-pipeline Task 11 ──────────────────────
+
+
+def test_a_reference_is_run_scoped_and_reads_are_counted_only_because_a_measurement_said_so():
+    """`×12 samples` is drawn only where `n_samples` supplies it — the example goal measures 12 —
+    and a run-scoped channel carries no count at all, because it delivers once."""
+    built = build.example()
+    by_name = {channel.name: channel for channel in built.channels}
+
+    assert by_name["reads"].scope == "sample"
+    assert by_name["reads"].count == 12
+    assert by_name["fasta"].scope == "run" and by_name["fasta"].count is None
+
+
+def test_a_step_runs_per_item_exactly_when_something_it_does_not_gather_does():
+    built = build.example()
+    runs = {step.id: step.runs for step in built.steps}
+
+    assert runs["star_genomegenerate"] == "once", "an index is built once from a reference"
+    assert runs["trimgalore"] == "per_item"
+    assert runs["star_align"] == "per_item", "fed by trimmed reads, so it multiplies too"
+    assert runs["subread_featurecounts"] == "per_item"
+
+
+def test_a_gathering_input_says_so_and_its_step_runs_once():
+    """N→1. MultiQC collects every FastQC report into one invocation, so its port gathers and
+    the step does not multiply — the converging ribbon on the canvas is this fact, drawn."""
+    from mendel_resolver.goal import Goal
+
+    built = build.of(
+        Goal.model_validate(
+            {
+                "have": [{"type_id": "fastq.reads"}],
+                "want": ["qc.report"],
+                "constraints": {"required_states": {"qc.report": ["aggregated"]}},
+            }
+        )
+    )
+    steps = {step.id: step for step in built.steps}
+    reports = next(p for p in steps["multiqc"].ports if p.side == "in" and p.name == "reports")
+
+    assert reports.gathers is True
+    assert steps["multiqc"].runs == "once"
+    assert steps["fastqc"].runs == "per_item"
+    assert next(c for c in built.channels if c.name == "reads").count is None, (
+        "nobody measured n_samples here, so nothing may be counted"
+    )

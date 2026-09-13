@@ -55,3 +55,15 @@ describe("the layout does not assume JavaScript measured anything", () => {
     expect(css).toMatch(/@media \(max-width: 1000px\)[\s\S]*\.living-rail\s*\{\s*order:\s*1/);
   });
 });
+
+describe("reduced motion", () => {
+  it("switches off every living animation and leaves the end state where it is", () => {
+    const css = readFileSync(join(HERE, "../../main.css"), "utf8");
+    const block = /@media \(prefers-reduced-motion: reduce\)\s*\{([^}]*\.living-pop[^}]*)\}/.exec(css);
+    expect(block, "no reduced-motion block names the living classes").not.toBeNull();
+    for (const name of ["living-pop", "living-settle", "living-draw"]) {
+      expect(block![1]).toContain(name);
+    }
+    expect(block![1]).toMatch(/animation:\s*none/);
+  });
+});

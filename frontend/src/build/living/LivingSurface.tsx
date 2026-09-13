@@ -8,8 +8,9 @@ import type {
   GoalIn,
   Step,
 } from "../../api/types";
+import type { components } from "../../api/schema";
 import { Browse } from "../Browse";
-import type { AuthoringState } from "./authoringReducer";
+import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import { Composer } from "./Composer";
 import { DecisionLog } from "./DecisionLog";
 import { Drawer } from "./Drawer";
@@ -46,6 +47,8 @@ export function LivingSurface({
   vocabulary = null,
   onSetParam,
   onApplyChange,
+  channels = [],
+  onPlayed = () => undefined,
 }: {
   session: AuthoringSession;
   graph: DraftGraph;
@@ -65,6 +68,9 @@ export function LivingSurface({
   vocabulary?: Record<string, string[]> | null;
   onSetParam: (node: string, setting: string, value: string) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
+  /** Where data enters and how often — the drawn view's channels, from the server. */
+  channels?: components["schemas"]["ChannelView"][];
+  onPlayed?: (event: MotionEvent) => void;
 }) {
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
   const [browsing, setBrowsing] = useState(false);
@@ -95,7 +101,11 @@ export function LivingSurface({
           <LivingCanvas
             graph={graph}
             ghost={ghost}
+            ghostProposal={pending?.kind === "step" ? pending.id : null}
             ghostEdges={pending?.edges ?? []}
+            channels={channels}
+            events={state.events}
+            onPlayed={onPlayed}
             positions={session.placement}
             steps={steps}
             authors={authors}

@@ -16,6 +16,7 @@ expiry to get wrong — the same shape `services/registry.py` uses.
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
@@ -165,6 +166,10 @@ class PortView(BaseModel):
     contract author's own first choice, which is the same convention the compatibility index's
     `requires` ordering carries.
     """
+    gathers: bool = False
+    """Whether this input takes **the whole channel in one invocation** — `.collect()`. The wide
+    port the collection grammar draws a converging ribbon into. Read from `Step.inputs`, where the
+    contract's `cardinality: "*"` was materialised; never re-derived from a type name here."""
 
 
 class ModuleView(BaseModel):
@@ -200,6 +205,14 @@ class StepView(BaseModel):
     id: str
     process: str
     contract_id: str
+    runs: Literal["once", "per_item"] = "once"
+    """Whether this step runs once for the run, or once per item — `runs 12×` against `runs once`.
+
+    **Derived here, from the artifact, and nowhere else.** A step runs per item when any input it
+    does not gather is fed by a sample-scoped channel or by a step that itself runs per item. That
+    is the propagation Nextflow performs; doing it in the browser would be a second implementation
+    of which parts of a pipeline multiply, from data the browser only half has.
+    """
     tier: int
     reason: str
     ports: list[PortView]
@@ -237,6 +250,13 @@ class ChannelView(BaseModel):
 
     name: str
     """The channel's own id — `gtf`, `gtf_2`. Derived; see `Channel.name`."""
+    scope: Literal["run", "sample"] = "sample"
+    """How many times it delivers: once for the run, or once per item. `Channel.scope`, as the
+    artifact materialised it — the difference between one stroke and a ribbon on the canvas."""
+    count: int | None = None
+    """How many items, **only when a measurement said so** — `n_samples` in the goal's profile,
+    for a sample-scoped channel. `None` means nobody counted, and the canvas says `×N items`
+    rather than inventing a number."""
     param: str
     """The hole a laboratory fills: `params.<param>`. Not always the name — `fastq.reads` is
     named `reads` and reads `params.input`."""
@@ -326,6 +346,10 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     # perfectly satisfied input, on the one encoding that exists to flag real problems. A
     # false alarm on it costs more than the signal is worth.
     fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
+    gathered = {
+        (step.id, item.port) for step in pipeline.steps for item in step.inputs if item.gather
+    }
+    runs = _runs(pipeline)
     entered = {channel.type_id for channel in pipeline.channels}
 
     def ports_of(node_id: str) -> list[PortView]:
@@ -338,6 +362,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                 name=port.name,
                 type_id=port.type_id,
                 side="in",
+                gathers=(node_id, port.name) in gathered,
                 met=(node_id, port.name) in fed or port.type_id in entered,
                 # The conventional alternative — index 0 is the contract author's own first
                 # choice, the same ordering `compatibility.requires` carries.
@@ -356,6 +381,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
             process=by_id[node.id].process if node.id in by_id else node.id,
             contract_id=by_id[node.id].module.contract_id if node.id in by_id else "",
             tier=node.tier,
+            runs=runs.get(node.id, "once"),
             reason=by_id[node.id].why.reason if node.id in by_id else "",
             ports=ports_of(node.id),
             settings=[
@@ -410,6 +436,8 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     channels = [
         ChannelView(
             name=channel.name,
+            scope=channel.scope.value,
+            count=_counted(pipeline) if channel.scope.value == "sample" else None,
             param=channel.param,
             type_id=channel.type_id,
             states=port_states.get(feeds[channel.name][0], []) if feeds[channel.name] else [],
@@ -511,3 +539,40 @@ def modules() -> list[ModuleView]:
 def example() -> BuiltPipeline:
     """The spine, from the goal committed in `examples/`."""
     return of(Goal.model_validate(yaml_strict.load(settings.example_goal)))
+
+
+def _runs(pipeline) -> dict[str, str]:
+    """`per_item` or `once` for every step, propagated through the artifact to a fixed point.
+
+    Iterated rather than walked in order, because nothing here promises `pipeline.steps` is
+    topological and a wrong order would silently under-count — a step seen before its producer
+    reads `once` and never learns otherwise. A handful of passes over a handful of steps.
+    """
+    sample = {channel.name for channel in pipeline.channels if channel.scope.value == "sample"}
+    per_item: set[str] = set()
+    moved = True
+    while moved:
+        moved = False
+        for step in pipeline.steps:
+            if step.id in per_item:
+                continue
+            for item in step.inputs:
+                if item.gather:
+                    continue
+                upstream = item.source.split(".", 1)[0] if item.source else None
+                if (item.channel in sample) or (upstream in per_item):
+                    per_item.add(step.id)
+                    moved = True
+                    break
+    return {step.id: ("per_item" if step.id in per_item else "once") for step in pipeline.steps}
+
+
+def _counted(pipeline) -> int | None:
+    """`n_samples`, when the profile carries it as a whole number. **Never a guess.**"""
+    for measured in pipeline.goal.profile.measurements:
+        value = measured.value
+        if measured.measurement == "n_samples" and isinstance(value, int) and not isinstance(
+            value, bool
+        ):
+            return value
+    return None
