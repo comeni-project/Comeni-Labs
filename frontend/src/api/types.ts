@@ -56,3 +56,7 @@ export type AuthoringRetried = S["AuthoringRetried"];
 export type AuthoringPreview = S["AuthoringPreview"];
 export type BeginAuthoring = S["BeginAuthoring"];
 export type DecideProposal = S["DecideProposal"];
+export type AuthoringVocabulary = S["AuthoringVocabulary"];
+export type AuthoringEdited = S["AuthoringEdited"];
+/** A goal as the goal card edits it — FastAPI's input half of `Goal`; see the note at the top. */
+export type GoalIn = S["Goal-Input"];

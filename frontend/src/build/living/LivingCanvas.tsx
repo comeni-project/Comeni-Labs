@@ -22,6 +22,7 @@ export function LivingCanvas({
   selected,
   onSelect,
   footer,
+  instead = null,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -34,6 +35,8 @@ export function LivingCanvas({
   selected: string | null;
   onSelect: (node: string | null) => void;
   footer?: React.ReactNode;
+  /** An alternative being previewed for the ghost's slot — drawn *in* the slot, never beside it. */
+  instead?: string | null;
 }) {
   const view = useView();
   const ids = [...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])];
@@ -56,6 +59,19 @@ export function LivingCanvas({
 
   const width = Math.max(0, ...ids.map((id) => (positions[id]?.x ?? 0) + NODE_W + 40));
   const height = Math.max(0, ...ids.map((id) => (positions[id]?.y ?? 0) + 160));
+
+  if (ids.length === 0) {
+    return (
+      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-2"
+           data-testid="canvas-empty">
+        <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">Nothing built yet</span>
+        <span className="text-[12.5px] text-ink-2">
+          Confirm the goal on the right and the steps arrive one at a time
+        </span>
+        {footer}
+      </div>
+    );
+  }
 
   return (
     <Canvas
@@ -96,6 +112,7 @@ export function LivingCanvas({
             ports={steps[id]?.ports ?? []}
             settled={steps[id]?.settings.length}
             ghost={id === ghost}
+            instead={id === ghost ? instead : null}
             selected={selected === id}
             onSelect={() => onSelect(id)}
           />

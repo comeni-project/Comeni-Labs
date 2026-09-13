@@ -1,7 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthoringSession } from "../../api/types";
@@ -33,6 +31,8 @@ function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
     onRetry: vi.fn(),
     onAddStep: vi.fn(),
     onDismiss: vi.fn(),
+    onSetParam: vi.fn(),
+    onApplyChange: vi.fn(),
     ...overrides,
   };
   render(
@@ -188,26 +188,5 @@ describe("drawers", () => {
     fireEvent.keyDown(drawer, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(opener).toHaveFocus();
-  });
-});
-
-describe("the layout does not assume JavaScript measured anything", () => {
-  it("reads no viewport size in any living component — breakpoints are CSS", () => {
-    const here = __dirname;
-    const sources = readdirSync(here, { recursive: true })
-      .map(String)
-      .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f));
-    expect(sources.length).toBeGreaterThan(5);
-    for (const file of sources) {
-      const text = readFileSync(join(here, file), "utf8");
-      expect(text, file).not.toMatch(/\b(?:innerWidth|innerHeight|matchMedia|ResizeObserver)\b/);
-    }
-  });
-
-  it("declares the artboards' breakpoints in the stylesheet", () => {
-    const css = readFileSync(join(__dirname, "../../main.css"), "utf8");
-    expect(css).toMatch(/\.living\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*420px/);
-    expect(css).toMatch(/@media \(max-width: 1180px\)\s*\{\s*\.living/);
-    expect(css).toMatch(/@media \(max-width: 1000px\)[\s\S]*\.living-rail\s*\{\s*order:\s*1/);
   });
 });

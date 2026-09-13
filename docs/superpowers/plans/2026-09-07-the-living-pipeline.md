@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 9 complete
+**Status:** in progress — Tasks 1 to 10 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -858,6 +858,7 @@ second time and finds the transcript unchanged, one model call, and one `ai_invo
    schemas once a model with a serializer appears in a response as well as a request, and the
    session view returns the confirmed goal. Nothing in `frontend/src` referenced the old name and
    `tsc` is clean, so FastAPI's global `separate_input_output_schemas` was left alone.
+   **Correction, recorded in Task 10:** that `tsc` was `tsc --noEmit -p .`, which checks nothing.
 
 **Deviations:** `authoring_jobs.py` rather than extending `jobs.py`, following `forge_jobs.py`'s
 arrangement, with its own `AI_JOBS` set — the existing
@@ -997,27 +998,77 @@ in the full run with Vite and Chromium running beside it, and passes 17/17 alone
 
 **Files:** block components, `Conversation.tsx`, composer, and integration tests.
 
-- [ ] Render the initial have/do/get summary as an editable typed goal card. Editing structured
+- [x] Render the initial have/do/get summary as an editable typed goal card. Editing structured
   fields does not need another model call; a new prose interpretation does.
-- [ ] Render one module proposal with what it does, why it is present, its input/output types,
+- [x] Render one module proposal with what it does, why it is present, its input/output types,
   provenance tier, and real options. The recommended option must be explicit.
-- [ ] Make option hover and keyboard focus preview the candidate on the canvas without mutating
+- [x] Make option hover and keyboard focus preview the candidate on the canvas without mutating
   the draft. Touch users get an explicit Preview action or the same information expanded.
-- [ ] Render parameter choices using their declared domains; open-domain values use the existing
+- [x] Render parameter choices using their declared domains; open-domain values use the existing
   guarded value types and server validation.
-- [ ] Require a confirmation card for a model-parsed change set that removes/replaces several
+- [x] Require a confirmation card for a model-parsed change set that removes/replaces several
   nodes. Show the exact affected steps before Apply.
-- [ ] A direct canvas/settings edit appends a compact deterministic receipt; do not call the
+- [x] A direct canvas/settings edit appends a compact deterministic receipt; do not call the
   model to narrate a fact the client already knows.
-- [ ] Selecting a chat card focuses/highlights its graph object. Selecting a node reveals its
+- [x] Selecting a chat card focuses/highlights its graph object. Selecting a node reveals its
   relevant decision card or inspector without losing transcript position.
-- [ ] Follow-up messages appear immediately and show queued/working/refused states. Enter sends;
+- [x] Follow-up messages appear immediately and show queued/working/refused states. Enter sends;
   Shift+Enter inserts a line break. One pending model turn per session is sufficient for MVP.
-- [ ] Test keyboard-only operation and screen-reader names for every choice; hover is enrichment,
+- [x] Test keyboard-only operation and screen-reader names for every choice; hover is enrichment,
   never the only route.
 
 **Checkpoint:** complete a fake guided pipeline using only the keyboard and then using a touch-like
-pointer with no hover.
+pointer with no hover. **Met** — `?fake=guided` is a session that answers itself, and
+`Conversation.test.tsx` completes it twice: tabbing to each control and pressing Enter, then with
+`[TouchA]` taps only, using **Preview** to see the alternative in the slot on the way.
+
+### A correction to Tasks 7, 8 and 9 — the typecheck that checked nothing
+
+**Every "tsc clean" reported for Tasks 7, 8 and 9 was `npx tsc --noEmit -p .`**, and the root
+`tsconfig.json` is `files: []` with project references — so that command type-checks no file and
+exits 0. It was found here, when it stayed silent about props this task had just made required.
+The real check is `tsc -b` (what `npm run build` runs), and at HEAD it failed: Task 8's and Task 9's
+source-scanning guards imported `node:fs` and used `__dirname` inside `.test.tsx` component tests,
+which the app config cannot resolve. **The frontend build was broken for two commits.**
+
+Fixed the way the repository already does it: both scans moved into
+`src/build/living/sources.test.ts`, added to `tsconfig.app.json`'s exclude list beside
+`tokens.test.ts` and `norule.test.ts`. `tsc -b` now reports 0 errors, and it is the only typecheck
+this plan's records cite from here on. The Vitest results reported for those tasks were real; only
+the typecheck claims were not.
+
+### Execution record
+
+**Six things a reader should know before Task 11:**
+
+1. **Four server additions, each the least the cards needed.** A goal decision may carry the goal
+   as edited, held to the declared vocabulary by `authoring_ai.admit_goal` — the same check a
+   model's goal gets, with no model call. A step proposal says what it reads (`consumes`). A
+   vocabulary read serves the card its choices. And `POST …/edits` records a direct edit: saves the
+   draft stamped as the person's, **moves the revision**, writes a receipt the server composes from
+   the difference, and re-offers a pending step at the new revision — or the next step, if the
+   person just added the offered one by hand. The browser sends a graph and nothing a log could be
+   told.
+2. **Task 9's `+ Add step` used a plain draft `PUT`** that changed the pipeline and left the log
+   silent about it. It now goes through the edit verb, as do settings and change sets.
+3. **Two defects found by rendering the guided session**: the goal was drawn twice — read-only in
+   its turn and editable beneath — and the typed goal sat under its prose where `LivingGoal` leads
+   with it. Both fixed; the first now has a test that was watched failing against it.
+4. **One found by the real typecheck**: rebuilding `have` from bare type ids dropped the states of
+   inputs the person had not touched. It asked where `states` went; the card now keeps them.
+5. **A change set applies removals only.** The block names steps it would add by node id, and a
+   node id is not a contract — so additions are shown as *proposed next* and arrive through the
+   proposal flow. No server path emits a change set yet.
+6. **Recorded against `LivingGoal`, not changed:** the artboard folds the grouping question inside
+   the goal card, where the server sends questions as their own blocks; and its resting card shows
+   plain rows where this shows edit chips at all times.
+
+**Watched failing against the specific defect:** *Add it* removed from the tab order fails only the
+keyboard checkpoint; a Preview that does nothing fails only the touch checkpoint; dropping kept
+states fails only the states test; applying a change set on the first press fails only the
+two-press test; drawing the offered goal in its turn fails only the drawn-once test; removing the
+re-offer fails both edit tests on the server. One mutation first printed `no tests` because the
+edit produced invalid syntax, and was redone rather than counted.
 
 ---
 

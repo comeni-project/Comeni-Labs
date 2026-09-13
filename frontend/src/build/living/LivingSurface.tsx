@@ -1,6 +1,13 @@
 import { useState } from "react";
 
-import type { AuthoringProposal, AuthoringSession, DraftGraph, Step } from "../../api/types";
+import type {
+  AuthoringBlock,
+  AuthoringProposal,
+  AuthoringSession,
+  DraftGraph,
+  GoalIn,
+  Step,
+} from "../../api/types";
 import { Browse } from "../Browse";
 import type { AuthoringState } from "./authoringReducer";
 import { Composer } from "./Composer";
@@ -36,6 +43,9 @@ export function LivingSurface({
   onRetry,
   onAddStep,
   onDismiss,
+  vocabulary = null,
+  onSetParam,
+  onApplyChange,
 }: {
   session: AuthoringSession;
   graph: DraftGraph;
@@ -43,7 +53,7 @@ export function LivingSurface({
   state: AuthoringState;
   preview: { revision: number; text: string } | null;
   busy: (proposalId: string) => boolean;
-  onAccept: (proposal: AuthoringProposal, option?: string) => void;
+  onAccept: (proposal: AuthoringProposal, option?: string, goal?: GoalIn) => void;
   onReject: (proposal: AuthoringProposal) => void;
   onPreviewOption: (option: string | null) => void;
   onSelect: (node: string | null) => void;
@@ -52,6 +62,9 @@ export function LivingSurface({
   onRetry: () => void;
   onAddStep: (contractId: string) => void;
   onDismiss: () => void;
+  vocabulary?: Record<string, string[]> | null;
+  onSetParam: (node: string, setting: string, value: string) => void;
+  onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
 }) {
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
   const [browsing, setBrowsing] = useState(false);
@@ -88,6 +101,11 @@ export function LivingSurface({
             authors={authors}
             selected={state.selected}
             onSelect={onSelect}
+            instead={
+              state.previewed && pending?.block.kind === "step_proposal"
+                ? (pending.block.alternatives.find((o) => o.id === state.previewed)?.label ?? null)
+                : null
+            }
             footer={
               <div className="absolute left-5 bottom-5 flex gap-2">
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
@@ -153,6 +171,10 @@ export function LivingSurface({
               onSelect={onSelect}
               onRetry={onRetry}
               onSay={onSay}
+              saying={state.saying}
+              vocabulary={vocabulary}
+              onSetParam={onSetParam}
+              onApplyChange={onApplyChange}
             />
           </div>
           <div className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>

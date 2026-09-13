@@ -4,11 +4,15 @@ import { useCallback, useEffect, useReducer } from "react";
 import { get, post, Refused } from "../../api/client";
 import type {
   AuthoringDecided,
+  AuthoringEdited,
   AuthoringPreview,
   AuthoringProposal,
   AuthoringRetried,
   AuthoringSaid,
   AuthoringSession,
+  AuthoringVocabulary,
+  DraftGraph,
+  GoalIn,
 } from "../../api/types";
 import {
   authoringReducer,
@@ -60,13 +64,31 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     enabled: session.data !== undefined,
   });
 
+  const vocabulary = useQuery({
+    queryKey: ["authoring-vocabulary"],
+    queryFn: () => get<AuthoringVocabulary>("/pipeline/authoring/vocabulary"),
+    staleTime: Infinity,
+  });
+
   const say = useMutation({
     mutationFn: (text: string) =>
       post<AuthoringSaid>(`/pipeline/authoring/${sessionId}/messages`, { text }),
-    onSuccess: () => {
-      dispatch({ type: "sent" });
-      void refresh();
-    },
+    // **Drawn before the request returns** — Task 10: *follow-up messages appear immediately*.
+    onMutate: (text) => dispatch({ type: "sent", text }),
+    onSuccess: () => void refresh(),
+    onError: () => dispatch({ type: "unsent" }),
+  });
+
+  const edit = useMutation({
+    mutationFn: (graph: DraftGraph) =>
+      post<AuthoringEdited>(`/pipeline/authoring/${sessionId}/edits`, { graph }),
+    onSuccess: () => void refresh(),
+    onError: (error) =>
+      dispatch({
+        type: "refused",
+        proposalId: "",
+        detail: error instanceof Refused ? error.message : String(error),
+      }),
   });
 
   const decide = useMutation({
@@ -75,6 +97,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       decision: "accepted" | "rejected";
       option: string;
       expectedRevision: number;
+      goal?: GoalIn;
     }) =>
       post<AuthoringDecided>(
         `/pipeline/authoring/${sessionId}/proposals/${input.proposal.id}/decide`,
@@ -82,6 +105,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
           decision: input.decision,
           expected_revision: input.expectedRevision,
           option: input.proposal.kind === "step" ? input.option : null,
+          goal: input.proposal.kind === "goal" ? (input.goal ?? null) : null,
         },
       ),
     onMutate: (input) => {
@@ -119,11 +143,12 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
   });
 
   const accept = useCallback(
-    (proposal: AuthoringProposal, option = "keep") =>
+    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn) =>
       decide.mutate({
         proposal,
         decision: "accepted",
         option,
+        goal,
         expectedRevision: session.data?.revision ?? 0,
       }),
     [decide, session.data?.revision],
@@ -154,6 +179,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     reject,
     say: (text: string) => say.mutate(text),
     retry: () => retry.mutate(),
+    /** A direct edit, recorded as the person's with a receipt the server composes. */
+    edit: (graph: DraftGraph) => edit.mutate(graph),
+    vocabulary: vocabulary.data?.types ?? null,
     previewOption: (option: string | null) => dispatch({ type: "preview", option }),
     select: (node: string | null) => dispatch({ type: "select", node }),
     compose: (text: string) => dispatch({ type: "compose", text }),

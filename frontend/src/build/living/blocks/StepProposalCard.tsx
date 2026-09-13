@@ -21,6 +21,7 @@ export function StepProposalCard({
   onReject,
   onPreview,
   onExplain,
+  onSelect,
 }: {
   proposal: AuthoringProposal;
   /** `4` in *step 4*. */
@@ -31,11 +32,21 @@ export function StepProposalCard({
   onPreview: (option: string | null) => void;
   /** Ask why this step is here — a real turn to the model, not a canned sentence. */
   onExplain: () => void;
+  /** Focus this step on the canvas — selecting a card highlights its object. */
+  onSelect: () => void;
 }) {
   const block = proposal.block;
   const group = useId();
   const [chosen, setChosen] = useState("keep");
+  const [previewing, setPreviewing] = useState<string | null>(null);
   if (block.kind !== "step_proposal") return null;
+
+  /** Touch has no hover, so a preview is an explicit press — and pressing it again clears it. */
+  const togglePreview = (option: string) => {
+    const next = previewing === option ? null : option;
+    setPreviewing(next);
+    onPreview(next);
+  };
 
   const options = [
     { id: "keep", label: processName(block.node), note: block.reason, recommended: true },
@@ -66,10 +77,14 @@ export function StepProposalCard({
         </>
       }
     >
-      <p className="m-0 mb-2 text-[13px] leading-[1.55] text-ink">{block.reason}</p>
-      {block.produces.length > 0 && (
-        <p className="m-0 mb-3 font-data text-[10.5px] text-ink-3">makes {block.produces.join(", ")}</p>
-      )}
+      <button type="button" data-testid="select-step" onClick={onSelect}
+              className="block w-full text-left bg-transparent border-0 p-0 cursor-pointer
+                         focus-visible:shadow-[var(--ring)]">
+        <span className="block m-0 mb-2 text-[13px] leading-[1.55] text-ink">{block.reason}</span>
+        <span className="block m-0 mb-3 font-data text-[10.5px] text-ink-3">
+          {(block.consumes ?? []).join(", ") || "nothing"} → {block.produces.join(", ") || "nothing"}
+        </span>
+      </button>
       <div role="radiogroup" aria-label={`options for step ${position}`}>
         {options.map((option) => {
           const picked = chosen === option.id;
@@ -118,6 +133,23 @@ export function StepProposalCard({
                   <span className="block mt-1 text-[12px] text-ink-2">{option.note}</span>
                 )}
               </span>
+              {option.id !== "keep" && (
+                <button
+                  type="button"
+                  data-testid={`preview-${option.id}`}
+                  aria-pressed={previewing === option.id}
+                  aria-label={`preview ${option.label} on the canvas`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    togglePreview(option.id);
+                  }}
+                  className="shrink-0 self-center font-data text-[10px] px-2 py-[2px] bg-transparent
+                             text-ink-2 border cursor-pointer focus-visible:shadow-[var(--ring)]"
+                  style={{ borderColor: previewing === option.id ? "var(--link)" : "var(--line-2)" }}
+                >
+                  Preview
+                </button>
+              )}
             </label>
           );
         })}

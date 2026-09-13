@@ -379,7 +379,9 @@ def test_starting_a_session_accepts_prose_and_a_mode_and_nothing_else():
     every one of those would be a `str`, so no rule could tell them apart."""
     assert set(routes.BeginAuthoring.model_fields) == {"prompt", "mode"}
     assert set(routes.SayToAuthoring.model_fields) == {"text"}
-    assert set(routes.DecideProposal.model_fields) == {"decision", "expected_revision", "option"}
+    assert set(routes.DecideProposal.model_fields) == {
+        "decision", "expected_revision", "goal", "option"
+    }
 
 
 def test_the_authoring_jobs_run_on_the_ai_worker_and_nowhere_else():
@@ -391,3 +393,134 @@ def test_the_authoring_jobs_run_on_the_ai_worker_and_nowhere_else():
         assert job in ai, f"{job.__name__} is not on the AI worker"
         assert job not in ordinary, f"{job.__name__} would run beside a source sync"
     assert not ai & ordinary
+
+
+
+# ── Task 10: editing without a model, and the receipt the server writes ───────────────────
+
+
+def _building(client, queue, monkeypatch) -> tuple[dict, dict]:
+    session = _goal_review(client, queue, monkeypatch)
+    goal = client.post(
+        f"/api/pipeline/authoring/{session['id']}/proposals/{session['pending_proposal']['id']}/decide",
+        json={"decision": "accepted", "expected_revision": 0},
+    ).json()
+    return _session(client, session["id"]), goal
+
+
+@needs_db
+def test_an_edited_goal_is_confirmed_without_a_model_call(client, clean, queue, monkeypatch):
+    """A structured edit on the goal card needs no model — the person corrected a field, and the
+    engine can check a field."""
+    session = _goal_review(client, queue, monkeypatch)
+    transport = _model(monkeypatch, GOAL)
+    edited = json.loads(GOAL)["goal"]
+    edited["want"] = ["counts.matrix", "qc.report"]
+
+    response = client.post(
+        f"/api/pipeline/authoring/{session['id']}/proposals/{session['pending_proposal']['id']}/decide",
+        json={"decision": "accepted", "expected_revision": 0, "goal": edited},
+    )
+    assert response.status_code == 200, response.text
+    assert _session(client, session["id"])["goal"]["want"] == ["counts.matrix", "qc.report"]
+    assert transport.sent == []
+
+
+@needs_db
+def test_an_edited_goal_naming_an_undeclared_type_is_refused_like_a_models(
+    client, clean, queue, monkeypatch
+):
+    session = _goal_review(client, queue, monkeypatch)
+    edited = json.loads(GOAL)["goal"]
+    edited["want"] = ["rnaseq.counts"]
+
+    response = client.post(
+        f"/api/pipeline/authoring/{session['id']}/proposals/{session['pending_proposal']['id']}/decide",
+        json={"decision": "accepted", "expected_revision": 0, "goal": edited},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("MI0204")
+    assert _session(client, session["id"])["phase"] == "goal_review"
+
+
+@needs_db
+def test_a_step_proposal_says_what_it_reads_as_well_as_what_it_makes(
+    client, clean, queue, monkeypatch
+):
+    building, _ = _building(client, queue, monkeypatch)
+    block = building["pending_proposal"]["block"]
+    assert block["node"] == "star_genomegenerate"
+    assert set(block["consumes"]) == {"genome.fasta", "annotation.gtf"}
+
+
+@needs_db
+def test_a_direct_edit_writes_a_receipt_the_server_composed(client, clean, queue, monkeypatch):
+    """The receipt is derived from the difference — the browser sends a graph and nothing that
+    could be told to the log."""
+    building, goal = _building(client, queue, monkeypatch)
+    graph = building["graph"]
+    graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
+
+    response = client.post(
+        f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph}
+    )
+    assert response.status_code == 200, response.text
+    after = _session(client, building["id"])
+
+    receipt = after["turns"][-1]["blocks"][0]
+    assert receipt["kind"] == "receipt"
+    assert receipt["summary"] == "you added FASTQC_1"
+    assert after["revision"] == goal["revision"] + 1
+
+
+@needs_db
+def test_an_edit_re_offers_the_pending_step_at_the_new_revision(client, clean, queue, monkeypatch):
+    """Otherwise the proposal on the card would be stale the moment somebody moved a box, and
+    accepting it would be refused with nothing left to answer."""
+    building, _ = _building(client, queue, monkeypatch)
+    before = building["pending_proposal"]
+    graph = building["graph"]
+    graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
+
+    edited = client.post(f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph})
+    after = _session(client, building["id"])
+
+    assert edited.json()["reoffered"] == after["pending_proposal"]["id"] != before["id"]
+    assert after["pending_proposal"]["block"]["node"] == before["block"]["node"]
+    assert after["pending_proposal"]["draft_revision"] == after["revision"]
+
+
+@needs_db
+def test_adding_the_offered_step_by_hand_moves_the_offer_on(client, clean, queue, monkeypatch):
+    building, _ = _building(client, queue, monkeypatch)
+    offered = building["pending_proposal"]["block"]
+    graph = building["graph"]
+    graph["nodes"].append({"id": offered["node"], "contract_id": offered["contract"], "params": []})
+
+    client.post(f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph})
+    after = _session(client, building["id"])
+
+    assert after["pending_proposal"] is not None
+    assert after["pending_proposal"]["block"]["node"] != offered["node"]
+
+
+@needs_db
+def test_an_edit_that_changes_nothing_writes_nothing(client, clean, queue, monkeypatch):
+    building, _ = _building(client, queue, monkeypatch)
+    turns = len(building["turns"])
+    client.post(f"/api/pipeline/authoring/{building['id']}/edits",
+                json={"graph": building["graph"]})
+    after = _session(client, building["id"])
+    assert len(after["turns"]) == turns
+    assert after["revision"] == building["revision"]
+
+
+def test_the_vocabulary_a_goal_card_may_use_is_the_registrys():
+    client = TestClient(create_app())
+    types = client.get("/api/pipeline/authoring/vocabulary").json()["types"]
+    assert "counts.matrix" in types
+    assert "gene_level" in types["counts.matrix"]
+
+
+def test_an_edit_body_is_the_graph_and_nothing_else():
+    assert set(routes.EditAuthoringDraft.model_fields) == {"graph"}

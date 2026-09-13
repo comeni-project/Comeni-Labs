@@ -1,31 +1,44 @@
 import { useQuery } from "@tanstack/react-query";
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import { useSearchParams } from "react-router";
 
-import { post, put } from "../../api/client";
-import type { AuthoringSession, Built, DraftGraph, Step } from "../../api/types";
-import { withNode } from "../graphOps";
+import { post } from "../../api/client";
+import type { AuthoringBlock, AuthoringSession, Built, DraftGraph, Step } from "../../api/types";
+import { withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring, visibleGraph } from "./authoringReducer";
-import { FAKE_SESSION, FAKE_STEPS } from "./fake";
+import { FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
+import { guidedDecide, guidedStart } from "./guided";
 import { LivingSurface } from "./LivingSurface";
 import { useAuthoringSession } from "./useAuthoringSession";
 
+type ChangeBlock = Extract<AuthoringBlock, { kind: "change_set" }>;
+
 /** `/build/living` — a secondary route while `/build` stays exactly as it is.
  *
- * `?session=<id>` restores a live authoring session; `?fake=1` opens a static session carrying
- * every block state, which is Task 9's checkpoint and what the artboard comparison is rendered
- * against. Anything else says what to add rather than opening a default pipeline.
+ * `?session=<id>` restores a live authoring session. `?fake=1` opens a static session carrying
+ * every block state (Task 9's checkpoint, and what the artboard comparison renders); `?fake=guided`
+ * opens one that answers itself, for completing a pipeline by keyboard or by touch (Task 10's).
+ * Anything else says what to add rather than opening a default pipeline.
  */
 export function LivingBuilder() {
   const [params] = useSearchParams();
   const session = params.get("session");
-  if (params.get("fake")) return <FakeLiving />;
+  const fake = params.get("fake");
+  if (fake === "guided") return <GuidedLiving />;
+  if (fake) return <FakeLiving />;
   if (session) return <LiveLiving sessionId={session} />;
   return (
     <p className="gutter py-10 text-[13px] text-ink-2" data-testid="living-empty">
       Open a session with <span className="font-data">?session=&lt;id&gt;</span>.
     </p>
   );
+}
+
+/** A step id for a module added by hand: the tool's path, like `useGraph` names one. */
+function idFor(graph: DraftGraph, contract: string): string {
+  const base = contract.split("@")[0].split("/").slice(1).join("_").replace(/\W/g, "_") || "step";
+  const taken = new Set(graph.nodes.map((n) => n.id));
+  for (let n = 1; ; n += 1) if (!taken.has(`${base}_${n}`)) return `${base}_${n}`;
 }
 
 function LiveLiving({ sessionId }: { sessionId: string }) {
@@ -43,15 +56,16 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const session = living.session;
+  const graph = living.graph;
   return (
     <LivingSurface
-      session={session}
-      graph={living.graph}
+      session={living.session}
+      graph={graph}
       steps={steps}
       state={living.state}
       preview={living.preview}
       busy={living.busy}
+      vocabulary={living.vocabulary}
       onAccept={living.accept}
       onReject={living.reject}
       onPreviewOption={living.previewOption}
@@ -60,13 +74,14 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onSay={living.say}
       onRetry={living.retry}
       onDismiss={living.dismiss}
-      onAddStep={(contract) => {
-        // A direct edit goes through the draft's own save, where the server stamps it as the
-        // person's. The session re-reads and the receipt arrives with it.
-        const id = contract.split("@")[0].split("/").slice(1).join("_").replace(/\W/g, "_");
-        const graph = withNode(living.graph, { id: `${id}_1`, contract_id: contract, params: [] });
-        void put(`/pipeline/drafts/${session.draft_id}`, { name: session.name, graph });
-      }}
+      // **Every direct edit goes through the session's edit verb**, which saves the draft, stamps
+      // it as the person's and writes the receipt the server composes. A plain draft `PUT` would
+      // change the pipeline and leave the log saying nothing about it.
+      onAddStep={(contract) =>
+        living.edit(withNode(graph, { id: idFor(graph, contract), contract_id: contract, params: [] }))}
+      onSetParam={(node, setting, value) => living.edit(withParam(graph, node, setting, value))}
+      onApplyChange={(block: ChangeBlock) =>
+        living.edit(block.removes.reduce(withoutNode, graph))}
     />
   );
 }
@@ -110,9 +125,46 @@ function FakeLiving() {
       onPreviewOption={(option) => dispatch({ type: "preview", option })}
       onSelect={(node) => dispatch({ type: "select", node })}
       onCompose={(text) => dispatch({ type: "compose", text })}
-      onSay={() => dispatch({ type: "sent" })}
+      onSay={(text) => dispatch({ type: "sent", text })}
       onRetry={() => undefined}
       onAddStep={() => undefined}
+      onSetParam={() => undefined}
+      onApplyChange={() => undefined}
+      onDismiss={() => dispatch({ type: "dismiss" })}
+    />
+  );
+}
+
+/** The guided fake — a session that moves when a proposal is decided. Exported for its tests. */
+export function GuidedLiving() {
+  const [session, setSession] = useState<AuthoringSession>(guidedStart);
+  const [state, dispatch] = useReducer(authoringReducer, { ...initialAuthoring, snapshot: session });
+
+  const advance = (next: AuthoringSession) => {
+    setSession(next);
+    dispatch({ type: "snapshot", session: next });
+  };
+
+  return (
+    <LivingSurface
+      session={session}
+      graph={session.graph}
+      steps={FAKE_STEPS}
+      state={state}
+      preview={null}
+      busy={() => false}
+      vocabulary={FAKE_VOCABULARY}
+      onAccept={(proposal, option = "keep") =>
+        advance(guidedDecide(session, proposal.id, "accepted", option))}
+      onReject={(proposal) => advance(guidedDecide(session, proposal.id, "rejected"))}
+      onPreviewOption={(option) => dispatch({ type: "preview", option })}
+      onSelect={(node) => dispatch({ type: "select", node })}
+      onCompose={(text) => dispatch({ type: "compose", text })}
+      onSay={(text) => dispatch({ type: "sent", text })}
+      onRetry={() => undefined}
+      onAddStep={() => undefined}
+      onSetParam={() => undefined}
+      onApplyChange={() => undefined}
       onDismiss={() => dispatch({ type: "dismiss" })}
     />
   );

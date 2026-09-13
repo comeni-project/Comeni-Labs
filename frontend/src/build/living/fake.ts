@@ -49,7 +49,9 @@ export const FAKE_SESSION = {
       text: "I have 12 paired RNA-seq samples, a genome and its annotation. I want gene counts." },
     { seq: 1, role: "assistant", state: "answered", base_revision: 0, at: at(1), text: "",
       blocks: [
-        { kind: "goal_summary", id: "goal-1", goal: { have: [], want: ["counts.matrix"] },
+        { kind: "goal_summary", id: "goal-1",
+          goal: { have: [{ type_id: "fastq.reads", states: [] }, { type_id: "genome.fasta", states: [] },
+            { type_id: "annotation.gtf", states: [] }], want: ["counts.matrix"] },
           have: "paired RNA-seq reads, a genome and its annotation",
           do: "trim, align to the genome, sort and count reads per gene",
           get: "a gene-level counts matrix" },
@@ -148,3 +150,12 @@ export const FAKE_STEPS = {
     reason: "", settings: [], ports: [port("bam", "alignment.bam", "in"),
       port("bam", "alignment.bam", "out", ["coordinate_sorted"])] },
 } as unknown as Record<string, Step>;
+
+/** A slice of the registry's vocabulary, so the fixture's goal card has something to add. */
+export const FAKE_VOCABULARY: Record<string, string[]> = {
+  "annotation.gtf": [],
+  "counts.matrix": ["gene_level", "normalised", "transcript_level"],
+  "fastq.reads": ["deduplicated", "subsampled", "trimmed"],
+  "genome.fasta": [],
+  "qc.report": ["aggregated"],
+};

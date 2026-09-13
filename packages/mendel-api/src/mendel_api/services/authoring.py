@@ -844,7 +844,12 @@ def withdraw_pending(session_id: str, *, by: str) -> None:
 
 
 def decide_goal(
-    proposal_id: str, decision: ProposalState, *, expected_revision: int, by: str
+    proposal_id: str,
+    decision: ProposalState,
+    *,
+    expected_revision: int,
+    by: str,
+    edited: Goal | None = None,
 ) -> tuple[st.Settlement, Phase]:
     """Accept or reject a goal summary. Accepting stores it as the confirmed goal.
 
@@ -857,6 +862,13 @@ def decide_goal(
             raise KeyError(proposal_id)
         session_id = row.session_id
         goal = row.payload.get("goal")
+
+    if edited is not None and decision is ProposalState.ACCEPTED:
+        # **A structured edit needs no model call** — §Task 10. It is held to the same vocabulary
+        # a model's goal is, before anything is recorded, so an invented type id typed into the
+        # card is refused exactly as one a model wrote would be.
+        authoring_ai.admit_goal(edited, registry.stack())
+        goal = edited.model_dump(mode="json")
 
     outcome = decide(proposal_id, decision, expected_revision=expected_revision, by=by)
     if outcome.refusal is not None:
@@ -918,3 +930,113 @@ def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pendi
     if pending is not None and pending.kind == STEP:
         visible.add(pending.payload.get("node"))
     return {node: {"x": at[0], "y": at[1]} for node, at in placed.items() if node in visible}
+
+
+def record_edit(session_id: str, graph: DraftGraph, *, by: str) -> tuple[int, str | None]:
+    """A direct edit to the session's draft, recorded in the transcript. Returns the new revision
+    and the id of a re-offered proposal, if one was pending.
+
+    **The receipt is composed here, from the difference, never sent by the browser.** A receipt is
+    a fact the client already knew restated so the log stays complete — and a fact the server can
+    derive is one a client cannot misstate. No model is called to narrate it.
+
+    **An edit moves the revision**, because it changes the draft: a proposal offered against the
+    old picture would otherwise apply to a pipeline that no longer looks that way. So a pending
+    step proposal is marked stale and offered again at the new revision, in the same transaction —
+    the session never ends up with nothing to answer because somebody moved a box.
+    """
+    from mendel_api.services import drafts
+
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        draft = db.get(PipelineDraft, row.draft_id)
+        before = DraftGraph.model_validate(draft.graph)
+        prior = DraftProvenance.model_validate(draft.provenance or {})
+        summary = describe_edit(before, graph)
+        if summary is None:
+            return draft.revision, None
+
+        draft.graph = graph.model_dump(mode="json")
+        draft.provenance = drafts._restamped(graph, before, prior).model_dump(mode="json")
+        draft.revision = draft.revision + 1
+        draft.updated_at = _now()
+
+        seq = _next_seq(db, session_id)
+        db.add(
+            PipelineAuthoringTurn(
+                session_id=session_id,
+                seq=seq,
+                role="assistant",
+                state=TurnState.ANSWERED.value,
+                blocks=[
+                    {
+                        "kind": "receipt",
+                        "id": f"receipt-{seq}",
+                        "summary": summary,
+                        "revision": draft.revision,
+                        "by": "person",
+                    }
+                ],
+                text="",
+                base_revision=draft.revision,
+                at=_now(),
+            )
+        )
+
+        pending = db.scalar(
+            select(PipelineAuthoringProposal).where(
+                PipelineAuthoringProposal.session_id == session_id,
+                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+            )
+        )
+        reoffered = None
+        if pending is not None and pending.kind == STEP and row.blueprint:
+            pending.state = ProposalState.STALE.value
+            pending.settled_at = _now()
+            db.flush()
+            blueprint = bp.Blueprint.model_validate(row.blueprint)
+            present = {n.id for n in graph.nodes}
+            # The same step again — unless the person just put it there by hand, in which case the
+            # next step the draft does not already hold. Never nothing: a session with no pending
+            # proposal and steps left is a session nobody can move forward.
+            node = pending.payload["node"]
+            while node is not None and node in present:
+                node = blueprint.after(node)
+            if node is not None:
+                reoffered = _offer(
+                    db,
+                    session_id,
+                    blueprint,
+                    node,
+                    revision=draft.revision,
+                    registry=registry.stack().registry,
+                )
+        return draft.revision, reoffered
+
+
+def describe_edit(before: DraftGraph, after: DraftGraph) -> str | None:
+    """One line saying what a direct edit did, or `None` when it did nothing.
+
+    Named in the log's own vocabulary — step ids, upper-cased as the canvas draws them — and only
+    what changed. A position move is not a change: `DraftGraph` has no coordinates.
+    """
+    was = {n.id: n for n in before.nodes}
+    now = {n.id: n for n in after.nodes}
+    parts: list[str] = []
+    parts += [f"added {i.upper()}" for i in sorted(now.keys() - was.keys())]
+    parts += [f"removed {i.upper()}" for i in sorted(was.keys() - now.keys())]
+    for i in sorted(now.keys() & was.keys()):
+        if now[i].contract_id != was[i].contract_id:
+            parts.append(f"swapped {i.upper()} for {now[i].contract_id}")
+        old = {p.name: p.value for p in was[i].params}
+        for param in now[i].params:
+            if old.get(param.name) != param.value:
+                parts.append(f"set {i.upper()}.{param.name} to {param.value}")
+        for name in sorted(old.keys() - {p.name for p in now[i].params}):
+            parts.append(f"cleared {i.upper()}.{name}")
+    edges = lambda g: {(e.from_node, e.from_port, e.to_node, e.to_port) for e in g.edges}  # noqa: E731
+    if edges(before) != edges(after):
+        parts.append("rewired the canvas")
+    return ("you " + ", ".join(parts)) if parts else None

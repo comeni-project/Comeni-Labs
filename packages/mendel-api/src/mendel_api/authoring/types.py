@@ -222,6 +222,8 @@ class StepProposal(_Block):
     kind: Literal[BlockKind.STEP_PROPOSAL] = BlockKind.STEP_PROPOSAL
     node: NodeId
     contract: ContractId
+    consumes: list[TypeId] = []
+    """What it reads — the left half of *alignment.bam → alignment.bam[sorted]*."""
     produces: list[TypeId] = []
     reason: Prose
     tier: int = Field(ge=1, le=4)

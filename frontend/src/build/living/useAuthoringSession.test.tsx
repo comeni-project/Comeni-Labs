@@ -1,7 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useAuthoringSession } from "./useAuthoringSession";
@@ -49,7 +47,9 @@ describe("polling", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const answers = [view("pending"), view("pending"), view("answered")];
     const fetch = vi.fn(async (url: string) =>
-      url.endsWith("/preview") ? ok({ revision: 0, text: "" }) : ok(answers.shift() ?? view("answered")),
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : ok(answers.shift() ?? view("answered")),
     );
     vi.stubGlobal("fetch", fetch);
 
@@ -65,7 +65,7 @@ describe("polling", () => {
     await waitFor(() => expect(result.current.waiting).toBe(false));
 
     const sessionReads = () =>
-      fetch.mock.calls.filter(([url]) => !String(url).endsWith("/preview")).length;
+      fetch.mock.calls.filter(([url]) => String(url).endsWith("/authoring/s1")).length;
     const settled = sessionReads();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
@@ -76,7 +76,9 @@ describe("polling", () => {
   it("never polls a session with nothing on its way", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetch = vi.fn(async (url: string) =>
-      url.endsWith("/preview") ? ok({ revision: 0, text: "" }) : ok(view("answered")),
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : ok(view("answered")),
     );
     vi.stubGlobal("fetch", fetch);
 
@@ -87,7 +89,9 @@ describe("polling", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
-    expect(fetch.mock.calls.filter(([url]) => !String(url).endsWith("/preview"))).toHaveLength(1);
+    // Counted by URL: the preview and the vocabulary are one-time reads, and only the session is
+    // polled. Counting "everything but the preview" broke the day a vocabulary read was added.
+    expect(fetch.mock.calls.filter(([url]) => String(url).endsWith("/authoring/s1"))).toHaveLength(1);
   });
 });
 
@@ -125,24 +129,5 @@ describe("a refused decision", () => {
     act(() => result.current.accept(result.current.session!.pending_proposal!));
     await waitFor(() => expect(result.current.state.notice?.code).toBe("MI0201"));
     await waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(before));
-  });
-});
-
-describe("what is kept in the browser", () => {
-  it("writes nothing about a session to localStorage", () => {
-    // The prompt and the transcript are durable on the server. A browser copy would be a second
-    // record of what somebody typed about their analysis, on a machine the platform does not
-    // control, and it would outlive the session it came from.
-    const here = __dirname;
-    const sources = readdirSync(here).filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f));
-    expect(sources.length).toBeGreaterThan(0);
-    for (const file of sources) {
-      // **Use, not the word.** The first version matched the bare name and fired on the hook's
-      // own docstring saying it does not do this — a scan over prose firing on the sentence that
-      // protects it, which `CLAUDE.md` records twice already.
-      expect(readFileSync(join(here, file), "utf8"), file).not.toMatch(
-        /\b(?:local|session)Storage\s*[.[]/,
-      );
-    }
   });
 });

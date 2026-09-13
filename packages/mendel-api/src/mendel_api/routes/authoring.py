@@ -78,6 +78,9 @@ class DecideProposal(BaseModel):
 
     decision: Literal["accepted", "rejected"]
     expected_revision: int = Field(ge=0)
+    goal: Goal | None = None
+    """For a goal: the goal as the person edited it on the card, when they changed a field. Held to
+    the declared vocabulary — `MI0204` — exactly as a model's goal is. Ignored for a step."""
     option: OptionId | None = None
     """For a step: `keep`, or one of the alternative ids the proposal offered. Ignored for a
     goal. **An id the engine minted, never a contract id** — a value chosen by id cannot be a
@@ -200,6 +203,32 @@ class AuthoringRetried(BaseModel):
     queued: bool
 
 
+class EditAuthoringDraft(BaseModel):
+    """The whole graph after a direct edit. **The graph and nothing else** — no summary: the server
+    composes the receipt from the difference, so the log cannot be told something that did not
+    happen."""
+
+    model_config = _FROZEN
+
+    graph: DraftGraph
+
+
+class AuthoringEdited(BaseModel):
+    model_config = _FROZEN
+
+    revision: int
+    reoffered: str | None
+    """A pending step proposal made stale by the edit and offered again at the new revision."""
+
+
+class AuthoringVocabulary(BaseModel):
+    """Every declared type and its states — what a goal card may be edited to say."""
+
+    model_config = _FROZEN
+
+    types: dict[str, list[str]]
+
+
 class AuthoringPreview(BaseModel):
     model_config = _FROZEN
 
@@ -224,6 +253,21 @@ async def begin(body: BeginAuthoring) -> AuthoringStarted:
     session_id, seq = authoring.begin(body.prompt, mode=body.mode, who=identity.default_author())
     queued = await authoring_jobs.enqueue_turn(session_id, seq)
     return AuthoringStarted(session=_view(session_id), queued=queued)
+
+
+@router.get(
+    "/vocabulary",
+    operation_id="authoringVocabulary",
+    summary="The types a goal may name",
+)
+def vocabulary() -> AuthoringVocabulary:
+    """Declared, public registry data — the same list a model is shown, served to the card that
+    lets a person correct what the model wrote. Registered before `/{session_id}`, which would
+    otherwise read `vocabulary` as a session id."""
+    from mendel_api.services import registry as registry_service
+
+    types = registry_service.stack().vocabulary.types
+    return AuthoringVocabulary(types={t: sorted(types[t]) for t in sorted(types)})
 
 
 @router.get(
@@ -267,7 +311,11 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
 
     if kind == authoring_jobs.GOAL:
         outcome, phase = authoring.decide_goal(
-            proposal_id, decision, expected_revision=body.expected_revision, by=who
+            proposal_id,
+            decision,
+            expected_revision=body.expected_revision,
+            by=who,
+            edited=body.goal,
         )
         if outcome.refusal is not None:
             raise ValueError(outcome.refusal)
@@ -304,6 +352,21 @@ async def retry(session_id: str) -> AuthoringRetried:
         )
     decided = await _after_goal(session_id, phase)
     return AuthoringRetried(phase=decided.phase, queued=decided.queued)
+
+
+@router.post(
+    "/{session_id}/edits",
+    operation_id="editAuthoringDraft",
+    summary="Record a direct edit to the session's draft",
+    responses=REFUSES,
+)
+def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
+    """A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
+    receipt the server composes — never narrated by a model."""
+    revision, reoffered = authoring.record_edit(
+        session_id, body.graph, by=identity.default_author()
+    )
+    return AuthoringEdited(revision=revision, reoffered=reoffered)
 
 
 @router.get(

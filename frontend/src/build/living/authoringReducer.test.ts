@@ -236,7 +236,9 @@ describe("the small states", () => {
   it("empties the composer once a message is sent, and not before", () => {
     const typed = run([{ type: "compose", text: "why STAR?" }]);
     expect(typed.composer).toBe("why STAR?");
-    expect(run([{ type: "sent" }], typed).composer).toBe("");
+    const sent = run([{ type: "sent", text: "why STAR?" }], typed);
+    expect(sent.composer).toBe("");
+    expect(sent.saying).toBe("why STAR?");
   });
 
   it("forgets an animation once it has played", () => {

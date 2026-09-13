@@ -51,6 +51,8 @@ export type AuthoringState = {
   previewed: string | null;
   selected: string | null;
   composer: string;
+  /** What a person just sent, drawn at once until the server's transcript holds it. */
+  saying: string | null;
   notice: ServerNotice | null;
   events: MotionEvent[];
   nextSeq: number;
@@ -63,6 +65,7 @@ export const initialAuthoring: AuthoringState = {
   previewed: null,
   selected: null,
   composer: "",
+  saying: null,
   notice: null,
   events: [],
   nextSeq: 1,
@@ -77,7 +80,8 @@ export type AuthoringAction =
   | { type: "preview"; option: string | null }
   | { type: "select"; node: string | null }
   | { type: "compose"; text: string }
-  | { type: "sent" }
+  | { type: "sent"; text: string }
+  | { type: "unsent" }
   | { type: "consumed"; seq: number }
   | { type: "dismiss" };
 
@@ -109,6 +113,16 @@ export function authoringReducer(state: AuthoringState, action: AuthoringAction)
       const before = state.snapshot?.pending_proposal?.id ?? null;
       const now = action.session.pending_proposal?.id ?? null;
       let next: AuthoringState = { ...state, snapshot: action.session };
+
+      // A follow-up drawn optimistically retires once the transcript carries a person's turn with
+      // those words — never by timeout, which would erase a message the server simply had not
+      // answered yet.
+      if (state.saying !== null) {
+        const people = action.session.turns.filter((turn) => turn.role === "person");
+        if (people.length > 0 && people[people.length - 1].text === state.saying) {
+          next = { ...next, saying: null };
+        }
+      }
 
       // **Reconcile by proposal id and revision.** The optimistic acceptance is retired only when
       // the server shows a revision past the one the request was made against — the draft now
@@ -183,7 +197,10 @@ export function authoringReducer(state: AuthoringState, action: AuthoringAction)
     case "compose":
       return { ...state, composer: action.text };
     case "sent":
-      return { ...state, composer: "" };
+      return { ...state, composer: "", saying: action.text };
+    case "unsent":
+      // The request failed: put the words back where the person can send them again.
+      return { ...state, composer: state.saying ?? state.composer, saying: null };
     case "consumed":
       return { ...state, events: state.events.filter((e) => e.seq !== action.seq) };
     case "dismiss":

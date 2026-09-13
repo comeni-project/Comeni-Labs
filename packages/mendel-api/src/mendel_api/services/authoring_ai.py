@@ -367,14 +367,23 @@ def _code_in(message: str) -> str | None:
 
 
 def _admit_goal(understanding: GoalUnderstanding, stack) -> GoalUnderstanding:
+    """A model's goal, held to the vocabulary. See `admit_goal`."""
+    admit_goal(understanding.goal, stack)
+    return understanding
+
+
+def admit_goal(goal, stack) -> None:
     """Every id in the goal against what the registry declares. `MI0204`.
+
+    **One check for a model's goal and a person's edit of it.** A goal typed into the card is held
+    to exactly the vocabulary a model's is, because the resolver cannot tell who wrote a type id
+    and should not have to.
 
     **The measurement half routes through `MeasurementRegistry.check`** rather than comparing
     keys here, because that is the declared validating path and it checks the *value* as well as
     the id — `tests/guards/test_construction.py` exists to stop a second one being written, and a
     hand-rolled `in` test beside it is that second one arriving by another name.
     """
-    goal = understanding.goal
     declared = stack.vocabulary.types
     unknown: list[str] = []
 
@@ -405,7 +414,6 @@ def _admit_goal(understanding: GoalUnderstanding, stack) -> GoalUnderstanding:
             + "".join(f"\n  {item}" for item in unknown)
             + "\n  nothing was applied — say it in different words, or add it through the forge"
         )
-    return understanding
 
 
 def _admit_intent(intent: AuthoringIntent, request: AuthoringRequest) -> AuthoringIntent:

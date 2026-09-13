@@ -29,6 +29,7 @@ export function LivingNode({
   ghost = false,
   selected = false,
   onSelect,
+  instead = null,
 }: {
   id: string;
   at: { x: number; y: number };
@@ -41,6 +42,10 @@ export function LivingNode({
   ghost?: boolean;
   selected?: boolean;
   onSelect?: () => void;
+  /** **One slot, one box**: an alternative being previewed replaces the ghost's name and says
+   *  `INSTEAD`. The design record's operator finding — a substitution drawn as a second node reads
+   *  as a pipeline that gained a module. */
+  instead?: string | null;
 }) {
   const bar = tier === 4 ? "var(--undecided)" : tier === 3 ? "var(--measured)" : "var(--rail)";
   const rows = ports.slice(0, Math.floor((NODE_H - HEAD_H - 24) / PORT_ROW));
@@ -80,9 +85,13 @@ export function LivingNode({
         className="flex items-center gap-2 px-[10px] w-full shrink-0"
         style={{ height: HEAD_H, borderBottom: `1px solid ${ghost ? "var(--line-soft)" : "var(--node-rule)"}` }}
       >
-        <span className="font-data text-[11px] font-medium text-ink truncate">{processName(id)}</span>
+        <span className="font-data text-[11px] font-medium text-ink truncate" data-testid={`node-name-${id}`}>
+          {instead ?? processName(id)}
+        </span>
         {ghost && (
-          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">PROPOSED</span>
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
+            {instead ? "INSTEAD" : "PROPOSED"}
+          </span>
         )}
       </span>
       {/* **No top padding, measured rather than read.** The artboard's CSS says `padding:5px 0`,

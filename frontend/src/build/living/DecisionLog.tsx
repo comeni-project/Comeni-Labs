@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 
-import type { AuthoringProposal, AuthoringSession } from "../../api/types";
-import { Block, NoticeLine, Primary, Secondary } from "./blocks/Block";
+import type { AuthoringBlock, AuthoringProposal, AuthoringSession, GoalIn } from "../../api/types";
+import { Block, NoticeLine, Primary } from "./blocks/Block";
+import { ChangeSetCard } from "./blocks/ChangeSetCard";
+import { GoalCard } from "./blocks/GoalCard";
+import { SettingCard } from "./blocks/SettingCard";
 import { StepProposalCard } from "./blocks/StepProposalCard";
 import { authorOf, processName } from "./format";
 import { Turn, type Tick } from "./blocks/parts";
@@ -30,16 +33,25 @@ export function DecisionLog({
   onSelect,
   onRetry,
   onSay,
+  saying = null,
+  vocabulary = null,
+  onSetParam,
+  onApplyChange,
 }: {
   session: AuthoringSession;
   selected: string | null;
   busy: (proposalId: string) => boolean;
-  onAccept: (proposal: AuthoringProposal, option?: string) => void;
+  onAccept: (proposal: AuthoringProposal, option?: string, goal?: GoalIn) => void;
   onReject: (proposal: AuthoringProposal) => void;
   onPreview: (option: string | null) => void;
   onSelect: (node: string | null) => void;
   onRetry: () => void;
   onSay: (text: string) => void;
+  /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
+  saying?: string | null;
+  vocabulary?: Record<string, string[]> | null;
+  onSetParam: (node: string, setting: string, value: string) => void;
+  onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
 }) {
   const end = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
@@ -83,7 +95,9 @@ export function DecisionLog({
         {entries.map((entry) =>
           entry.kind === "turn" ? (
             <TurnEntry key={`t${entry.turn.seq}`} turn={entry.turn} accepted={accepted}
-                       failedPhase={session.phase === "failed"} onRetry={onRetry} />
+                       offered={pending?.kind === "goal" ? pending.block.id : null}
+                       failedPhase={session.phase === "failed"} onRetry={onRetry}
+                       onSetParam={onSetParam} onApplyChange={onApplyChange} />
           ) : (
             <DecisionEntry key={`d${entry.decision.id}`} decision={entry.decision}
                            position={stepNumber.get(entry.decision.id) ?? 0}
@@ -111,26 +125,28 @@ export function DecisionLog({
               onPreview={onPreview}
               onExplain={() =>
                 onSay(`Why is ${pending.block.kind === "step_proposal" ? pending.block.node : "this step"} here?`)}
+              onSelect={() => onSelect(pending.block.kind === "step_proposal" ? pending.block.node : null)}
             />
           </Turn>
         )}
         {pending && pending.kind === "goal" && (
           <Turn tick="wait">
-            <Block
-              block={pending.block}
-              actions={
-                <>
-                  <Primary data-testid="accept-goal" disabled={busy(pending.id)}
-                           onClick={() => onAccept(pending)}>
-                    {busy(pending.id) ? "Confirming…" : "That's right"}
-                  </Primary>
-                  <Secondary data-testid="reject-goal" disabled={busy(pending.id)}
-                             onClick={() => onReject(pending)}>
-                    Not quite
-                  </Secondary>
-                </>
-              }
+            <GoalCard
+              key={pending.id}
+              proposal={pending}
+              vocabulary={vocabulary}
+              busy={busy(pending.id)}
+              onConfirm={(edited) => onAccept(pending, "keep", edited)}
+              onReject={() => onReject(pending)}
             />
+          </Turn>
+        )}
+        {saying !== null && (
+          <Turn tick="you">
+            <p className="m-0 text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap" data-testid="saying">
+              {saying}
+            </p>
+            <p className="m-0 mt-1 font-data text-[10px] text-ink-4">sending…</p>
           </Turn>
         )}
         {session.phase === "resolving" && (
@@ -148,13 +164,20 @@ export function DecisionLog({
 function TurnEntry({
   turn,
   accepted,
+  offered,
   failedPhase,
   onRetry,
+  onSetParam,
+  onApplyChange,
 }: {
   turn: AuthoringSession["turns"][number];
   accepted: Set<string>;
+  /** The goal summary currently on offer as a card — drawn there, and so not drawn here. */
+  offered: string | null;
   failedPhase: boolean;
   onRetry: () => void;
+  onSetParam: (node: string, setting: string, value: string) => void;
+  onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
 }) {
   if (turn.role === "person") {
     return (
@@ -183,11 +206,37 @@ function TurnEntry({
   return (
     <>
       {turn.blocks.map((block) => {
+        // **The goal on offer is the card, and only the card.** The first render drew it twice —
+        // read-only in the turn that produced it and editable underneath — which is two goals on a
+        // screen whose whole job at that moment is to make one of them checkable.
+        if (block.kind === "goal_summary" && block.id === offered) {
+          return (
+            <Turn key={block.id} tick="quiet">
+              <p className="m-0 text-[12.5px] leading-[1.6] text-ink-2">
+                Here is the goal I read. Nothing is decided yet.
+              </p>
+            </Turn>
+          );
+        }
         // A goal summary that was confirmed collapses to one line, like every answered decision.
         if (block.kind === "goal_summary" && accepted.has(block.id)) {
           return (
             <Turn key={block.id} tick="person">
               <Collapsed name="Goal confirmed" detail={block.get} by="you chose" />
+            </Turn>
+          );
+        }
+        if (block.kind === "setting_request") {
+          return (
+            <Turn key={block.id} tick="open" anchor={block.node}>
+              <SettingCard block={block} onApply={onSetParam} />
+            </Turn>
+          );
+        }
+        if (block.kind === "change_set") {
+          return (
+            <Turn key={block.id} tick="wait">
+              <ChangeSetCard block={block} onApply={onApplyChange} />
             </Turn>
           );
         }

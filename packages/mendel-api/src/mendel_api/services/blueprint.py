@@ -250,6 +250,7 @@ def proposal(
         id=f"step-{node_id}",
         node=node_id,
         contract=chosen,
+        consumes=sorted({port.type_id for port in contract.consumes if port.type_id}),
         produces=sorted({output.type_id for output in contract.produces}),
         reason=step.why.reason,
         tier=int(step.why.tier),

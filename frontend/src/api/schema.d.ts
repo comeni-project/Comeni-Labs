@@ -1056,6 +1056,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The types a goal may name
+         * @description Declared, public registry data — the same list a model is shown, served to the card that
+         *     lets a person correct what the model wrote. Registered before `/{session_id}`, which would
+         *     otherwise read `vocabulary` as a session id.
+         */
+        get: operations["authoringVocabulary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring/{session_id}": {
         parameters: {
             query?: never;
@@ -1125,6 +1147,27 @@ export interface paths {
         put?: never;
         /** Try again from where the session failed */
         post: operations["retryAuthoring"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/edits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a direct edit to the session's draft
+         * @description A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
+         *     receipt the server composes — never narrated by a model.
+         */
+        post: operations["editAuthoringDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1450,6 +1493,13 @@ export interface components {
             /** At */
             at: string;
         };
+        /** AuthoringEdited */
+        AuthoringEdited: {
+            /** Revision */
+            revision: number;
+            /** Reoffered */
+            reoffered: string | null;
+        };
         /** AuthoringPosition */
         AuthoringPosition: {
             /** X */
@@ -1565,6 +1615,16 @@ export interface components {
             base_revision: number;
             /** At */
             at: string;
+        };
+        /**
+         * AuthoringVocabulary
+         * @description Every declared type and its states — what a goal card may be edited to say.
+         */
+        AuthoringVocabulary: {
+            /** Types */
+            types: {
+                [key: string]: string[];
+            };
         };
         /**
          * Band
@@ -2086,6 +2146,7 @@ export interface components {
             decision: "accepted" | "rejected";
             /** Expected Revision */
             expected_revision: number;
+            goal?: components["schemas"]["Goal-Input"] | null;
             /** Option */
             option?: string | null;
         };
@@ -2399,6 +2460,15 @@ export interface components {
             verdict: components["schemas"]["mendel_forge__drift__Verdict"];
             /** Says */
             says: string;
+        };
+        /**
+         * EditAuthoringDraft
+         * @description The whole graph after a direct edit. **The graph and nothing else** — no summary: the server
+         *     composes the receipt from the difference, so the log cannot be told something that did not
+         *     happen.
+         */
+        EditAuthoringDraft: {
+            graph: components["schemas"]["DraftGraph"];
         };
         /** Event */
         Event: {
@@ -3833,6 +3903,11 @@ export interface components {
             node: string;
             /** Contract */
             contract: string;
+            /**
+             * Consumes
+             * @default []
+             */
+            consumes: string[];
             /**
              * Produces
              * @default []
@@ -5807,6 +5882,26 @@ export interface operations {
             };
         };
     };
+    authoringVocabulary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringVocabulary"];
+                };
+            };
+        };
+    };
     readAuthoring: {
         parameters: {
             query?: never;
@@ -5954,6 +6049,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthoringRetried"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    editAuthoringDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditAuthoringDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringEdited"];
                 };
             };
             /** @description The id in the path names nothing. */

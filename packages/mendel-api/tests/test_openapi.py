@@ -72,6 +72,8 @@ def test_every_operation_is_named_by_hand():
         ): "decideAuthoringProposal",
         ("/api/pipeline/authoring/{session_id}/retry", "post"): "retryAuthoring",
         ("/api/pipeline/authoring/{session_id}/preview", "get"): "previewAuthoring",
+        ("/api/pipeline/authoring/{session_id}/edits", "post"): "editAuthoringDraft",
+        ("/api/pipeline/authoring/vocabulary", "get"): "authoringVocabulary",
         ("/api/pipeline/drafts", "get"): "listDrafts",
         ("/api/pipeline/drafts", "post"): "createDraft",
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
