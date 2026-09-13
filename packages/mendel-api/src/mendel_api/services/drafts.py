@@ -466,7 +466,49 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     stack = registry.stack()
     out = _output_root() / draft_id
     out.mkdir(parents=True, exist_ok=True)
-    pipeline = Pipeline.of(
+    pipeline = _materialised(stored, stack, by=by, ai=ai)
+    # The compiler's writer, not a second one: `mendel build` writes through this and a
+    # kept draft must produce the same file, or `mendel emit` is only true of pipelines
+    # the resolver wrote.
+    pipeline_file.write(out, pipeline)
+
+    # **MD0210 found this.** `mendel build` copies the vendored modules beside the artifact and
+    # `keep` did not, so every `include` in the emitted workflow pointed at nothing and
+    # `mendel emit` refused the file this had just written. A kept draft that cannot be emitted
+    # is not a pipeline, whatever the header says.
+    #
+    # `nf_include` is where a module lands in the GENERATED pipeline; the layer is where the
+    # source lives. Deliberately not the same path, and since Plan 5A the layer carries both —
+    # so `staging.stage` is one implementation shared with `mendel build` rather than a second
+    # `copytree` that can go missing again.
+    staging.stage(pipeline, stack.modules, out)
+    return out / "pipeline.yml"
+
+
+def preview(draft_id: str, *, ai: AiProvenance | None = None) -> tuple[int, str]:
+    """The draft as `pipeline.yml` would read, materialised in memory. Writes nothing. §1.10.
+
+    **The same materialisation `keep` uses, called from the same function**, so the preview a
+    person watches grow and the artifact they keep cannot disagree about anything but the fields
+    keeping stamps. A second path to the text — however similar — is a second answer to *what
+    will this pipeline say*, which is the question the preview exists to answer honestly.
+
+    Returns the draft's revision beside the text, so a client animating changed lines knows which
+    picture the text belongs to. An empty draft is an empty string rather than a refusal: a
+    session that has accepted nothing yet has nothing to show, and that is not an error.
+    """
+    stored = _load(draft_id)
+    with session_scope() as session:
+        revision = session.get(PipelineDraft, draft_id).revision
+    if not stored.graph.nodes:
+        return revision, ""
+    return revision, pipeline_file.dump(_materialised(stored, registry.stack(), by="", ai=ai))
+
+
+def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:
+    """A stored draft as a `Pipeline`, for `keep` and `preview` alike."""
+    graph = stored.graph
+    return Pipeline.of(
         ir_of(graph, stack, by=by, provenance=stored.provenance),
         # **Stated by the caller, never derived from the sidecar.** `MD0225` refuses a setting
         # that claims a model settled it in a build recording that no AI point was available —
@@ -485,19 +527,3 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
         goal=stored.goal or goal_of(graph, stack),
         ai=ai,
     )
-    # The compiler's writer, not a second one: `mendel build` writes through this and a
-    # kept draft must produce the same file, or `mendel emit` is only true of pipelines
-    # the resolver wrote.
-    pipeline_file.write(out, pipeline)
-
-    # **MD0210 found this.** `mendel build` copies the vendored modules beside the artifact and
-    # `keep` did not, so every `include` in the emitted workflow pointed at nothing and
-    # `mendel emit` refused the file this had just written. A kept draft that cannot be emitted
-    # is not a pipeline, whatever the header says.
-    #
-    # `nf_include` is where a module lands in the GENERATED pipeline; the layer is where the
-    # source lives. Deliberately not the same path, and since Plan 5A the layer carries both —
-    # so `staging.stage` is one implementation shared with `mendel build` rather than a second
-    # `copytree` that can go missing again.
-    staging.stage(pipeline, stack.modules, out)
-    return out / "pipeline.yml"

@@ -26,7 +26,7 @@ import logging
 from arq.connections import RedisSettings
 
 from mendel_api.jobs import AI_QUEUE
-from mendel_api.services import forge_jobs
+from mendel_api.services import authoring_jobs, forge_jobs
 from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)
@@ -58,7 +58,14 @@ class AIWorkerSettings:
     job does. `test_ai_worker.py` holds the two lists disjoint.
     """
 
-    functions = [forge_jobs.generate_forge_revision, forge_jobs.answer_forge_review_message]
+    functions = [
+        forge_jobs.generate_forge_revision,
+        forge_jobs.answer_forge_review_message,
+        # The builder's two model calls. Answering a turn crosses door 1; resolving a Spawn
+        # blueprint may cross door 2. Accepting a step is neither and is not on this list.
+        authoring_jobs.answer_authoring_turn,
+        authoring_jobs.build_authoring_blueprint,
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE
     max_jobs = settings.ai_max_jobs

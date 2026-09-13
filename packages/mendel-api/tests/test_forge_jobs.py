@@ -713,7 +713,13 @@ def test_the_two_worker_function_lists_are_disjoint():
     ordinary = {f.__name__ for f in WorkerSettings.functions}
     assert ai, "an empty list would make the check below assert nothing"
     assert ai & ordinary == set()
-    assert ai == forge_jobs.AI_JOBS
+    # **Every owner's declared set, and nothing else.** The builder became the second agent on
+    # this queue on 2026-09-13; its jobs are declared in `authoring_jobs.AI_JOBS` rather than
+    # added here by name, so a job reaches the allowlist only if its own module says it calls a
+    # model.
+    from mendel_api.services import authoring_jobs
+
+    assert ai == forge_jobs.AI_JOBS | authoring_jobs.AI_JOBS
 
 
 def test_the_ai_worker_runs_one_job_at_a_time_by_default():

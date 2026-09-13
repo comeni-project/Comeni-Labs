@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 6 complete
+**Status:** in progress — Tasks 1 to 7 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -815,25 +815,62 @@ GET  /api/pipeline/authoring/{session_id}/preview
 
 Exact paths may follow existing router style, but every operation needs a stable `operationId`.
 
-- [ ] Create an empty draft and authoring session together, store the initial user turn, enqueue
+- [x] Create an empty draft and authoring session together, store the initial user turn, enqueue
   one AI job with a semantic id, and return 201 with the visible pending state.
-- [ ] Post follow-up turns as 202. Use `jobs.job_id_for("builder", "turn", session, turn)` so
+- [x] Post follow-up turns as 202. Use `jobs.job_id_for("builder", "turn", session, turn)` so
   at-least-once delivery cannot produce two answers.
-- [ ] Add the authoring job to the AI worker allowlist and keep it off the ordinary worker.
-- [ ] Let deterministic proposal acceptance remain a normal request; do not put a button click
+- [x] Add the authoring job to the AI worker allowlist and keep it off the ordinary worker.
+- [x] Let deterministic proposal acceptance remain a normal request; do not put a button click
   behind the slow queue.
-- [ ] Polling GET returns the whole authoritative session view needed to restore the page. Bound
+- [x] Polling GET returns the whole authoritative session view needed to restore the page. Bound
   pagination only if the transcript evaluation actually needs it; do not truncate history on
   screen merely because model context is bounded.
-- [ ] Return visible no-model, refused, failed, stale, and retry states. Do not log or return raw
+- [x] Return visible no-model, refused, failed, stale, and retry states. Do not log or return raw
   provider errors.
-- [ ] Extend AI health only if the existing endpoint cannot explain why Build/Spawn is disabled.
-- [ ] Regenerate the client with `make client`; never hand-edit `schema.d.ts`.
-- [ ] Run route/worker/OpenAPI tests and `git diff --exit-code frontend/src/api/schema.d.ts`
+- [x] Extend AI health only if the existing endpoint cannot explain why Build/Spawn is disabled.
+- [x] Regenerate the client with `make client`; never hand-edit `schema.d.ts`.
+- [x] Run route/worker/OpenAPI tests and `git diff --exit-code frontend/src/api/schema.d.ts`
   only after the generated file has intentionally been reviewed and staged in the change.
 
 **Checkpoint:** submit a turn with a fake queued job, reload immediately, observe pending, run the
-job, reload, and observe the admitted assistant blocks exactly once.
+job, reload, and observe the admitted assistant blocks exactly once. **Met, and taken one step
+further** — `test_a_turn_is_pending_on_reload_and_answered_exactly_once` then delivers the job a
+second time and finds the transcript unchanged, one model call, and one `ai_invocation` row.
+
+**Five things a reader should know before Task 8:**
+
+1. **Exactly once is two mechanisms, and only one of them is the job id.**
+   `builder:turn:<session>:<seq>` collides a re-delivery at the queue; `turn_context` returning
+   `None` for a turn that is no longer pending stops a delivery that slipped past Redis's memory
+   *before* a call is spent. Removing the second fails the checkpoint on its model-call count.
+2. **Accepting a goal moves the draft revision.** The confirmed goal becomes the draft's goal,
+   which changes what keeping it builds, and Task 3's rule is that any acceptance is a change to
+   the draft. A client must read `revision` from the decide response rather than assume it.
+3. **A missing model and an unreachable one fail the session; a refused answer does not.**
+   `MI0106`, `MA0002`, `MA0003` and `MA0007` move to `failed`, where `retry` adds a *new* pending
+   turn rather than reopening the failed one — whose notice is the record of why. `MA0004` and the
+   admission codes leave the phase alone, because the person can say it differently.
+4. **A goal revision while building is not implemented.** §2 draws `building → resolving` on an
+   accepted goal revision; this task answers a revision during `goal_review` by re-understanding
+   it, and during `building` or `complete` with a notice saying to start a new session. It needs
+   a proposal that can replace a whole blueprint, which is a design question, not a route.
+5. **`Goal` is now `Goal-Input` and `Goal-Output` in the generated client.** Pydantic emits two
+   schemas once a model with a serializer appears in a response as well as a request, and the
+   session view returns the confirmed goal. Nothing in `frontend/src` referenced the old name and
+   `tsc` is clean, so FastAPI's global `separate_input_output_schemas` was left alone.
+
+**Deviations:** `authoring_jobs.py` rather than extending `jobs.py`, following `forge_jobs.py`'s
+arrangement, with its own `AI_JOBS` set — the existing
+`test_the_two_worker_function_lists_are_disjoint` held the AI allowlist equal to the forge's set
+and failed when the builder's jobs arrived, and it now holds it equal to the union of every
+owner's declared set rather than to a list written in the worker. AI health was not extended:
+`configured` and `worker_available` already explain why Build and Spawn are unavailable, and the
+session view adds `model_configured` for the page itself. `preview` shares `keep`'s
+materialisation through one extracted function, so the two cannot disagree about the text.
+
+**Watched failing against the specific defect:** dropping the pending check from `turn_context`
+fails only the checkpoint test. The provider-failure test reaches the page with an endpoint in the
+exception and asserts the address is absent from the response body.
 
 ---
 

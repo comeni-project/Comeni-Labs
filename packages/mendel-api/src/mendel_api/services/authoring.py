@@ -671,3 +671,205 @@ def _offer(db, session_id: str, blueprint, node_id: str, *, revision: int, regis
     )
     db.flush()
     return proposal_id
+
+
+# ── the transport's verbs: starting, grounding a turn, goals, retrying ────────────────────
+
+
+UNTITLED = "Untitled analysis"
+"""What an authored draft is called until somebody names it.
+
+**Not derived from the prompt.** A first sentence is the likeliest place for a sample name or a
+cohort label to appear, and a draft's name is shown in lists and carried into a kept artifact's
+directory — §2 already excludes draft labels from what a model is shown, and a name *made from*
+the prompt would put the prompt somewhere that exclusion was never meant to reach.
+"""
+
+
+def begin(prompt: str, *, mode: Mode, who: str) -> tuple[str, int]:
+    """An empty draft, a session about it, and the first turn — returns the session and the
+    pending assistant turn's `seq`.
+
+    Three writes that are one act for a person, and they are made in order so that a failure
+    part-way leaves nothing a person could open: the draft exists before the session that points
+    at it, and the turn is written last.
+    """
+    from mendel_api.services import drafts
+
+    draft_id = drafts.create(DraftGraph(), UNTITLED, who)
+    session_id = open_session(draft_id, mode=mode, who=who)
+    return session_id, say(session_id, prompt)
+
+
+class TurnContext(NamedTuple):
+    """What one model call is grounded on, read in one transaction so the parts agree.
+
+    §2: *ground every authoring call on the confirmed goal, current known step ids and
+    contracts, current pending options, registry digest, and bounded tail — not on the transcript
+    alone.* Each of those is a field here, and nothing else is, which is why a draft's label is
+    not among them.
+    """
+
+    phase: Phase
+    prompt: str
+    tail: list[tuple[str, str]]
+    revision: int
+    goal: Goal | None
+    steps: list[tuple[str, str]]
+    options: list[str]
+    registry: str | None
+
+
+def turn_context(session_id: str, seq: int) -> TurnContext | None:
+    """The grounding for assistant turn `seq`, or `None` when that turn is not pending.
+
+    `None` is how a duplicate delivery is recognised **before** a model call is spent, which the
+    queue's job id alone cannot promise once Redis has forgotten the id.
+    """
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        turns = db.scalars(
+            select(PipelineAuthoringTurn)
+            .where(PipelineAuthoringTurn.session_id == session_id)
+            .order_by(PipelineAuthoringTurn.seq)
+        ).all()
+        target = next((t for t in turns if t.seq == seq), None)
+        if target is None or target.role != "assistant" or target.state != TurnState.PENDING.value:
+            return None
+
+        earlier = [t for t in turns if t.seq < seq]
+        person = next((t for t in reversed(earlier) if t.role == "person"), None)
+        tail = [
+            ("person" if t.role == "person" else "model", _spoken(t))
+            for t in earlier
+            if t is not person and (t.role == "person" or t.state == TurnState.ANSWERED.value)
+        ]
+        draft = db.get(PipelineDraft, row.draft_id)
+        pending = db.scalar(
+            select(PipelineAuthoringProposal).where(
+                PipelineAuthoringProposal.session_id == session_id,
+                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+            )
+        )
+        goal = row.goal or (pending.payload.get("goal") if pending is not None else None)
+        return TurnContext(
+            phase=Phase(row.phase),
+            prompt=person.text if person is not None else "",
+            tail=[(role, text) for role, text in tail if text],
+            revision=draft.revision if draft else 0,
+            goal=Goal.model_validate(goal) if goal else None,
+            steps=[
+                (node.id, node.contract_id)
+                for node in DraftGraph.model_validate(draft.graph).nodes
+            ]
+            if draft
+            else [],
+            options=sorted(pending.payload.get("options", {})) if pending is not None else [],
+            registry=row.registry_digest or None,
+        )
+
+
+def _spoken(turn: PipelineAuthoringTurn) -> str:
+    """What an assistant turn *said*, for the tail — the prose of its blocks, never their ids.
+
+    A goal summary is its three sentences; a narrative or a notice is its text. Structured
+    blocks — a step proposal, a question's options — are the engine's own vocabulary and reach
+    the model through `steps` and `options`, where they are held to admission, rather than as
+    prose it could quote back as if it had authored them.
+    """
+    if turn.role == "person":
+        return turn.text
+    said = []
+    for block in turn.blocks or []:
+        if block.get("kind") == "goal_summary":
+            said.append(f"{block['have']} {block['do']} {block['get']}")
+        elif block.get("kind") in ("narrative", "notice"):
+            said.append(block.get("text", ""))
+    return " ".join(part for part in said if part)
+
+
+def current_phase(session_id: str) -> Phase:
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        return Phase(row.phase)
+
+
+def withdraw_pending(session_id: str, *, by: str) -> None:
+    """Reject whatever is pending — a goal summary the person has just corrected in prose."""
+    with session_scope() as db:
+        pending = db.scalar(
+            select(PipelineAuthoringProposal).where(
+                PipelineAuthoringProposal.session_id == session_id,
+                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+            )
+        )
+        if pending is not None:
+            pending.state = ProposalState.REJECTED.value
+            pending.by = by
+            pending.settled_at = _now()
+
+
+def decide_goal(
+    proposal_id: str, decision: ProposalState, *, expected_revision: int, by: str
+) -> tuple[st.Settlement, Phase]:
+    """Accept or reject a goal summary. Accepting stores it as the confirmed goal.
+
+    `goal_review → resolving` on accept, `goal_review → understanding` on reject — §2's two
+    arrows out of that phase, through `move` so the diagram is enforced where every other move is.
+    """
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringProposal, proposal_id)
+        if row is None:
+            raise KeyError(proposal_id)
+        session_id = row.session_id
+        goal = row.payload.get("goal")
+
+    outcome = decide(proposal_id, decision, expected_revision=expected_revision, by=by)
+    if outcome.refusal is not None:
+        return outcome, current_phase(session_id)
+
+    with session_scope() as db:
+        version = db.get(PipelineAuthoringSession, session_id).row_version
+    if decision is ProposalState.ACCEPTED:
+        return outcome, move(session_id, st.Event.GOAL_ACCEPTED, row_version=version, goal=goal)
+    return outcome, move(session_id, st.Event.GOAL_REVISED, row_version=version)
+
+
+def retry(session_id: str) -> tuple[Phase, int | None]:
+    """Leave `failed` for whichever phase failed. Returns the phase, and a new pending turn's
+    `seq` when the retry needs a model to answer again.
+
+    **A new turn rather than re-opening the failed one.** The failed turn is the record that the
+    call failed — its notice says why — and overwriting it would erase the one thing a person
+    trying to understand a flaky provider needs to see.
+    """
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        version = row.row_version
+
+    target = move(session_id, st.Event.RETRY, row_version=version)
+    if target is not Phase.UNDERSTANDING:
+        return target, None
+
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
+        seq = _next_seq(db, session_id)
+        db.add(
+            PipelineAuthoringTurn(
+                session_id=session_id,
+                seq=seq,
+                role="assistant",
+                state=TurnState.PENDING.value,
+                blocks=[],
+                text="",
+                base_revision=draft.revision if draft else 0,
+                at=_now(),
+            )
+        )
+    return target, seq

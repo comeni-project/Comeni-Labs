@@ -20,6 +20,7 @@ from fastapi import FastAPI
 
 from mendel_api.refusals import missing_handler, refusal_handler
 from mendel_api.routes import attention as attention_routes
+from mendel_api.routes import authoring as authoring_routes
 from mendel_api.routes import build as build_routes
 from mendel_api.routes import contracts as contracts_routes
 from mendel_api.routes import forge as forge_routes
@@ -96,6 +97,9 @@ def create_app() -> FastAPI:
     # reads today, and removing them in the same change that adds their replacement would
     # mean the interface is broken for exactly as long as the rework takes.
     app.include_router(forge_routes.router, prefix="/api")
+    # The living pipeline. `/pipeline/authoring` sits under the build router's own prefix and
+    # declares no path parameter at its root, so it cannot be swallowed by anything above it.
+    app.include_router(authoring_routes.router, prefix="/api")
     return app
 
 

@@ -60,6 +60,18 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/validate", "post"): "validatePipeline",
         ("/api/pipeline/compare", "post"): "comparePipeline",
         ("/api/pipeline/draw", "post"): "drawPipeline",
+        # **The living pipeline.** Two of these six are answered by the AI worker and return
+        # before the answer exists (201 and 202); the other four answer in the response, because
+        # a button click is not put behind the slow queue.
+        ("/api/pipeline/authoring", "post"): "beginAuthoring",
+        ("/api/pipeline/authoring/{session_id}", "get"): "readAuthoring",
+        ("/api/pipeline/authoring/{session_id}/messages", "post"): "sayToAuthoring",
+        (
+            "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/decide",
+            "post",
+        ): "decideAuthoringProposal",
+        ("/api/pipeline/authoring/{session_id}/retry", "post"): "retryAuthoring",
+        ("/api/pipeline/authoring/{session_id}/preview", "get"): "previewAuthoring",
         ("/api/pipeline/drafts", "get"): "listDrafts",
         ("/api/pipeline/drafts", "post"): "createDraft",
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
