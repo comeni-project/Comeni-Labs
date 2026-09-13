@@ -1142,3 +1142,42 @@ def pending_id(session_id: str) -> str | None:
                 PipelineAuthoringProposal.state == ProposalState.PENDING.value,
             )
         )
+
+
+def ai_for(provenance: DraftProvenance):
+    """What AI points this installation offers, and which this draft used. For `pipeline.yml`.
+
+    **One function for the preview and for Keep**, so the two cannot disagree about the `ai`
+    block — which would make the preview and the kept file differ for a reason nobody edited.
+    `available` follows the installation, never the mode (Task 12); `used` is read from the
+    sidecar, because it answers which points this draft actually exercised.
+    """
+    from comeni_core.artifact.pipeline import AiPoint, AiProvenance
+    from comeni_core.plan.tiers import ValueSource
+
+    from mendel_api.settings import model_access
+
+    if model_access() is None:
+        return AiProvenance(available=[], used=[])
+    modelled = any(
+        entry.selection is not None and entry.selection.source is ValueSource.MODEL
+        for entry in provenance.nodes
+    ) or any(entry.settled.source is ValueSource.MODEL for entry in provenance.params)
+    return AiProvenance(
+        available=[AiPoint.PROMPT, AiPoint.TIER_4],
+        used=[AiPoint.PROMPT] + ([AiPoint.TIER_4] if modelled else []),
+    )
+
+
+def ai_for_draft(draft_id: str):
+    """`ai_for` for a draft an authoring session owns, or `None` for a hand-drawn one."""
+    with session_scope() as db:
+        owned = db.scalar(
+            select(PipelineAuthoringSession.id).where(
+                PipelineAuthoringSession.draft_id == draft_id
+            )
+        )
+        if owned is None:
+            return None
+        draft = db.get(PipelineDraft, draft_id)
+        return ai_for(DraftProvenance.model_validate(draft.provenance or {}))

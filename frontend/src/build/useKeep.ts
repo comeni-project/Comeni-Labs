@@ -16,8 +16,15 @@ import { useState } from "react";
 import { post, put } from "../api/client";
 import type { DraftGraph, DraftOut, Kept } from "../api/types";
 
-export function useKeep(graph: DraftGraph) {
-  const [draftId, setDraftId] = useState<string | null>(null);
+export function useKeep(
+  graph: DraftGraph,
+  /** A draft this page already owns. **The living session's** — its draft is created with the
+   *  session and saved by the server on every commit, so Keep must neither create a second draft
+   *  (which the local ref alone would do on first use) nor overwrite the server's graph with the
+   *  browser's, which may be carrying an acceptance the server has not confirmed yet. */
+  owned: { draftId: string } | null = null,
+) {
+  const [draftId, setDraftId] = useState<string | null>(owned?.draftId ?? null);
   /** The graph as it was when it was last kept, serialised. **Not a boolean**: `useGraph`'s
    *  `dirty` clears on a successful autosave, and a saved draft is still not a kept one. */
   const [keptGraph, setKeptGraph] = useState<string | null>(null);
@@ -29,6 +36,10 @@ export function useKeep(graph: DraftGraph) {
 
   const keep = useMutation({
     mutationFn: async () => {
+      if (owned !== null) {
+        await post<Kept>(`/pipeline/drafts/${owned.draftId}/keep`, {});
+        return owned.draftId;
+      }
       let id = draftId;
       if (id === null) {
         id = (await post<DraftOut>("/pipeline/drafts", { graph, name: "" })).id;
@@ -48,7 +59,8 @@ export function useKeep(graph: DraftGraph) {
   const moved = keptGraph !== null && keptGraph !== JSON.stringify(graph);
 
   return {
-    draftId,
+    // The owned id wins: the session loads after this hook first runs, so state set from it is stale.
+    draftId: owned?.draftId ?? draftId,
     keptAt,
     keep: () => keep.mutate(),
     /** The same verb, awaitable — what `useRun` needs to sequence keep -> lint -> sheet.

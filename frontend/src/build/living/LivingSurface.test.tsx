@@ -20,7 +20,7 @@ function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
     graph: session.graph,
     steps: FAKE_STEPS,
     state: { ...initialAuthoring, snapshot: session },
-    preview: { revision: session.revision, text: "version: 6\n" },
+    preview: { revision: session.revision, state: "ready" as const, text: "version: 6\n", findings: [] },
     busy: () => false,
     onAccept: vi.fn(),
     onReject: vi.fn(),

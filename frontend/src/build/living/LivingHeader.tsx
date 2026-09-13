@@ -13,12 +13,20 @@ export function LivingHeader({
   onView,
   onRun,
   running,
+  stage = null,
+  runError = null,
+  runnable = false,
 }: {
   session: AuthoringSession;
   view: "canvas" | "artifact";
   onView: (view: "canvas" | "artifact") => void;
   onRun: () => void;
   running: boolean;
+  stage?: string | null;
+  runError?: string | null;
+  /** Whether Run is connected. **An unconnected Run is disabled** — a live-looking control that
+   *  does nothing is the one thing Task 14's walk may not find. */
+  runnable?: boolean;
 }) {
   const progress = progressWords(session);
   const waiting = session.phase === "failed" || session.turns.some((t) => t.state === "pending");
@@ -62,13 +70,18 @@ export function LivingHeader({
         <button
           type="button"
           data-testid="living-run"
-          disabled={running || session.graph.nodes.length === 0 || session.phase !== "complete"}
+          disabled={!runnable || running || session.graph.nodes.length === 0 || session.phase !== "complete"}
           onClick={onRun}
           className="px-[26px] py-[9px] border-0 cursor-pointer font-semibold text-[13.5px]
                      bg-[var(--link)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Run
+          {stage === "keeping" ? "Keeping…" : stage === "linting" ? "Checking…" : "Run"}
         </button>
+        {runError && (
+          <span role="alert" data-testid="living-run-error" className="text-secondary text-[var(--undecided)]">
+            {runError}
+          </span>
+        )}
       </div>
     </div>
   );

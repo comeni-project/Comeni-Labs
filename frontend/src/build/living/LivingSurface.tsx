@@ -9,7 +9,9 @@ import type {
   Step,
 } from "../../api/types";
 import type { components } from "../../api/schema";
+import { ArtifactView } from "../ArtifactView";
 import { Browse } from "../Browse";
+import { ArtifactPreview } from "./ArtifactPreview";
 import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import { Composer } from "./Composer";
 import { DecisionLog } from "./DecisionLog";
@@ -50,12 +52,13 @@ export function LivingSurface({
   channels = [],
   onPlayed = () => undefined,
   reveal = {},
+  run = null,
 }: {
   session: AuthoringSession;
   graph: DraftGraph;
   steps: Record<string, Step>;
   state: AuthoringState;
-  preview: { revision: number; text: string } | null;
+  preview: components["schemas"]["AuthoringPreview"] | null;
   busy: (proposalId: string) => boolean;
   onAccept: (proposal: AuthoringProposal, option?: string, goal?: GoalIn) => void;
   onReject: (proposal: AuthoringProposal) => void;
@@ -73,8 +76,18 @@ export function LivingSurface({
   channels?: components["schemas"]["ChannelView"][];
   onPlayed?: (event: MotionEvent) => void;
   reveal?: Record<string, number>;
+  /** The Run sequence — keep, lint, run sheet — when the page has one. The fixtures do not. */
+  run?: {
+    onRun: () => void;
+    busy: boolean;
+    stage: string | null;
+    error: string | null;
+    kept: boolean;
+    sheet: React.ReactNode;
+  } | null;
 }) {
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
+  const [artifactTab, setArtifactTab] = useState<"preview" | "kept">("preview");
   const [browsing, setBrowsing] = useState(false);
 
   const pending = session.pending_proposal;
@@ -95,8 +108,11 @@ export function LivingSurface({
         session={session}
         view={view}
         onView={setView}
-        onRun={() => setView("artifact")}
-        running={false}
+        onRun={run ? run.onRun : () => setView("artifact")}
+        running={run ? run.busy : false}
+        stage={run?.stage ?? null}
+        runError={run?.error ?? null}
+        runnable={run !== null}
       />
       <div className="living min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
@@ -131,19 +147,27 @@ export function LivingSurface({
             }
           />
           {view === "artifact" && (
-            <Drawer title="pipeline.yml — as it would read now" onClose={() => setView("canvas")}>
-              {preview?.text ? (
-                <pre data-testid="artifact-text"
-                     className="m-0 font-data text-[11px] leading-[1.6] text-ink-2 whitespace-pre">
-                  {preview.text}
-                </pre>
-              ) : (
-                <p className="m-0 text-[12.5px] text-ink-3">
-                  Nothing has been added yet, so there is no pipeline to show.
-                </p>
-              )}
+            <Drawer title="pipeline.yml" onClose={() => setView("canvas")}>
+              <div className="flex gap-2 mb-4" role="tablist" aria-label="which pipeline.yml">
+                {(["preview", "kept"] as const).map((tab) => (
+                  <button key={tab} type="button" role="tab" aria-selected={artifactTab === tab}
+                          data-testid={`artifact-tab-${tab}`}
+                          disabled={tab === "kept" && !run?.kept}
+                          onClick={() => setArtifactTab(tab)}
+                          className={`font-data text-[10px] uppercase tracking-[.1em] px-3 py-[5px] border cursor-pointer
+                                      disabled:opacity-40 disabled:cursor-not-allowed
+                                      ${artifactTab === tab ? "text-link" : "text-ink-3 bg-transparent"}`}
+                          style={{ borderColor: artifactTab === tab ? "var(--link-line)" : "var(--line)" }}>
+                    {tab === "preview" ? "as it would read" : "as kept"}
+                  </button>
+                ))}
+              </div>
+              {artifactTab === "kept" && run?.kept
+                ? <ArtifactView draftId={session.draft_id} />
+                : <ArtifactPreview preview={preview} />}
             </Drawer>
           )}
+          {run?.sheet}
           {browsing && (
             <Browse onAdd={(contract) => { onAddStep(contract); setBrowsing(false); }}
                     onClose={() => setBrowsing(false)} />

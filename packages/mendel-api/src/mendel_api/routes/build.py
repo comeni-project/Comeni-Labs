@@ -238,8 +238,15 @@ def save_draft(draft_id: str, body: DraftIn) -> DraftOut:
 def keep_draft(draft_id: str) -> Kept:
     """**Where `validate` reports and this refuses.** An illegal finding answers 422 with its
     code; `mendel explain <code>` expands it, the same as everywhere else."""
+    from mendel_api.services import authoring as authoring_service
+
     try:
-        return Kept(path=str(draft_service.keep(draft_id)))
+        # **An authored draft states its AI points, the same way its preview does.** Without them
+        # a Spawn draft carrying a model's tier-4 choice is refused by `MD0225` — correctly, since
+        # the file would otherwise claim no AI point was available to make it.
+        return Kept(
+            path=str(draft_service.keep(draft_id, ai=authoring_service.ai_for_draft(draft_id)))
+        )
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 
 import { get, post, Refused } from "../../api/client";
 import type {
@@ -25,6 +25,9 @@ import {
 /** How often a page with something on its way asks again. Seconds, not milliseconds: the answer
  *  is a model call, and a second's latency on seeing it costs nothing a person can perceive. */
 export const POLL_MS = 1500;
+
+/** How long the preview waits after the revision moves before asking for the new text. */
+export const PREVIEW_DEBOUNCE_MS = 300;
 
 const key = (sessionId: string) => ["authoring", sessionId] as const;
 
@@ -58,10 +61,20 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     [client, sessionId],
   );
 
+  // **Debounced on the revision**, which only moves when something is committed — so a burst of
+  // accepted steps asks once, and nothing here reacts to a keystroke or an animation frame.
+  const revision = session.data?.revision ?? -1;
+  const [settledRevision, setSettledRevision] = useState(revision);
+  useEffect(() => {
+    const wait = setTimeout(() => setSettledRevision(revision), PREVIEW_DEBOUNCE_MS);
+    return () => clearTimeout(wait);
+  }, [revision]);
+
   const preview = useQuery({
-    queryKey: [...key(sessionId), "preview", session.data?.revision ?? -1],
+    queryKey: [...key(sessionId), "preview", settledRevision],
     queryFn: () => get<AuthoringPreview>(`/pipeline/authoring/${sessionId}/preview`),
-    enabled: session.data !== undefined,
+    enabled: session.data !== undefined && settledRevision === revision,
+    placeholderData: (previous) => previous,
   });
 
   const vocabulary = useQuery({

@@ -485,7 +485,23 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     return out / "pipeline.yml"
 
 
-def preview(draft_id: str, *, ai: AiProvenance | None = None) -> tuple[int, str]:
+class Preview(NamedTuple):
+    """What the draft would say as `pipeline.yml`, or a declared reason it cannot say anything.
+
+    **Never fake YAML.** A partial graph that is illegal, or that cannot be materialised, answers
+    with a state and the coded findings — a preview that serialised half a pipeline would be a
+    document that looks kept and is not.
+    """
+
+    revision: int
+    state: str
+    """`ready`, `empty`, `illegal` or `unavailable`."""
+    text: str
+    findings: list[str]
+    """Coded sentences, for `illegal` and `unavailable`. Empty otherwise."""
+
+
+def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
     """The draft as `pipeline.yml` would read, materialised in memory. Writes nothing. §1.10.
 
     **The same materialisation `keep` uses, called from the same function**, so the preview a
@@ -501,8 +517,17 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> tuple[int, str]
     with session_scope() as session:
         revision = session.get(PipelineDraft, draft_id).revision
     if not stored.graph.nodes:
-        return revision, ""
-    return revision, pipeline_file.dump(_materialised(stored, registry.stack(), by="", ai=ai))
+        return Preview(revision, "empty", "", [])
+    verdict = validation.of(stored.graph)
+    if verdict.illegal:
+        return Preview(
+            revision, "illegal", "", [f"{f.code}: {f.message}" for f in verdict.illegal[:5]]
+        )
+    try:
+        pipeline = _materialised(stored, registry.stack(), by="", ai=ai)
+    except ValueError as refused:
+        return Preview(revision, "unavailable", "", [str(refused).splitlines()[0]])
+    return Preview(revision, "ready", pipeline_file.dump(pipeline), [])
 
 
 def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:

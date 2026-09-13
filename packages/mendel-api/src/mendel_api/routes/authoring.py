@@ -18,9 +18,8 @@ formats one.
 
 from typing import Literal
 
-from comeni_core.artifact.pipeline import AiPoint, AiProvenance
+from comeni_core.artifact.pipeline import AiProvenance
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
-from comeni_core.plan.tiers import ValueSource
 from comeni_core.spell.marks import OptionId
 from fastapi import APIRouter, status
 from mendel_resolver.goal import Goal
@@ -230,11 +229,17 @@ class AuthoringVocabulary(BaseModel):
 
 
 class AuthoringPreview(BaseModel):
+    """The draft as `pipeline.yml` would read — **a preview, never the kept artifact.**"""
+
     model_config = _FROZEN
 
     revision: int
+    state: Literal["ready", "empty", "illegal", "unavailable"]
+    """`ready` carries text; the other three carry none — a partial pipeline is never YAML."""
     text: str
-    """`pipeline.yml` as it would read now. Empty while nothing has been accepted."""
+    """`pipeline.yml` as it would read now, byte for byte what Keep would write."""
+    findings: list[str] = []
+    """Why there is no text, as coded sentences."""
 
 
 # ── operations ────────────────────────────────────────────────────────────────────────────
@@ -394,8 +399,10 @@ def preview(session_id: str) -> AuthoringPreview:
         draft_id, mode = row.draft_id, Mode(row.mode)
         stored = db.get(PipelineDraft, draft_id)
         provenance = DraftProvenance.model_validate(stored.provenance or {})
-    revision, text = drafts.preview(draft_id, ai=_ai_for(mode, provenance))
-    return AuthoringPreview(revision=revision, text=text)
+    shown = drafts.preview(draft_id, ai=_ai_for(mode, provenance))
+    return AuthoringPreview(
+        revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
+    )
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────────────────
@@ -484,24 +491,6 @@ def _view(session_id: str) -> AuthoringSessionView:
 
 
 def _ai_for(mode: Mode, provenance: DraftProvenance) -> AiProvenance:
-    """What AI points this installation offers a session, stated from configuration.
-
-    **Never derived from the sidecar's claims** — `MD0225` checks a model-settled value against
-    `available`, and deriving `available` from those values would make the check circular. `used`
-    is read from the sidecar because it answers a different question: which points this draft
-    actually exercised.
-    """
-    if model_access() is None:
-        return AiProvenance(available=[], used=[])
-    # **What the installation offers, never what the mode used.** This was mode-dependent for three
-    # tasks — Build `[prompt]`, Spawn `[prompt, tier4]` — which would have made Build and Spawn over
-    # one deterministic goal emit different YAML: a mode selecting a different artifact, which is
-    # exactly what Task 12 says a mode must not do. `used` is where the difference belongs.
+    """`authoring.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
     del mode
-    available = [AiPoint.PROMPT, AiPoint.TIER_4]
-    modelled = any(
-        entry.selection is not None and entry.selection.source is ValueSource.MODEL
-        for entry in provenance.nodes
-    ) or any(entry.settled.source is ValueSource.MODEL for entry in provenance.params)
-    used = [AiPoint.PROMPT] + ([AiPoint.TIER_4] if modelled else [])
-    return AiProvenance(available=available, used=used)
+    return authoring.ai_for(provenance)

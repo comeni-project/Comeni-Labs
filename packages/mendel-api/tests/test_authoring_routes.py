@@ -329,7 +329,7 @@ def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
     ).json()
     after = client.get(f"/api/pipeline/authoring/{session['id']}/preview").json()
 
-    assert before == {"revision": goal["revision"], "text": ""}
+    assert before == {"revision": goal["revision"], "state": "empty", "text": "", "findings": []}
     assert decided["revision"] == goal["revision"] + 1
     history = _session(client, session["id"])["history"]
     assert [(d["kind"], d["state"]) for d in history] == [

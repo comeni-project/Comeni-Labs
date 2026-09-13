@@ -1507,12 +1507,25 @@ export interface components {
             /** Y */
             y: number;
         };
-        /** AuthoringPreview */
+        /**
+         * AuthoringPreview
+         * @description The draft as `pipeline.yml` would read — **a preview, never the kept artifact.**
+         */
         AuthoringPreview: {
             /** Revision */
             revision: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ready" | "empty" | "illegal" | "unavailable";
             /** Text */
             text: string;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: string[];
         };
         /** AuthoringProposalView */
         AuthoringProposalView: {

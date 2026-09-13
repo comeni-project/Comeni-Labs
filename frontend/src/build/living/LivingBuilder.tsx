@@ -8,6 +8,12 @@ import { withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring, visibleGraph } from "./authoringReducer";
 import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
+import { RunSheet } from "../RunSheet";
+import { entryChannels } from "../Sources";
+import { withTypedValues } from "../useBuilder";
+import { useGate } from "../useGate";
+import { useKeep } from "../useKeep";
+import { useRun } from "../useRun";
 import { LivingSurface } from "./LivingSurface";
 import { lastSeen, markSeen, revealPlan } from "./replay";
 import { useAuthoringSession } from "./useAuthoringSession";
@@ -47,6 +53,16 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId);
   const drawn = useDrawn(living.graph, living.session);
   const reveal = useFirstArrival(sessionId, living.session);
+  // **The session's own draft**, so Keep neither creates a second one nor re-saves the graph.
+  const keeper = useKeep(living.graph, living.session ? { draftId: living.session.draft_id } : null);
+  const gate = useGate(living.session?.draft_id ?? null);
+  const [sheet, setSheet] = useState(false);
+  const runner = useRun({
+    keep: keeper.keepAsync,
+    lint: () => gate.start("lint"),
+    gatePassed: gate.passed,
+    openSheet: () => setSheet(true),
+  });
 
   if (living.loading) {
     return <p className="gutter py-10 text-[13px] text-ink-3" data-testid="living-loading">Opening…</p>;
@@ -68,6 +84,26 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       channels={drawn.channels}
       onPlayed={living.consumed}
       reveal={reveal}
+      run={{
+        onRun: () => void runner.run(),
+        busy: runner.busy,
+        stage: runner.stage,
+        error: runner.error ?? keeper.error,
+        kept: keeper.keptAt !== null,
+        sheet: sheet && drawn.built ? (
+          <RunSheet
+            name={living.session.name || "this pipeline"}
+            // **Open human decisions come first on the sheet** — it counts what nobody answered
+            // before it asks where the data is, which is the order Build's Run has always had.
+            steps={drawn.built.steps.map((step) => withTypedValues(step, graph))}
+            sources={entryChannels(drawn.built)}
+            draftId={living.session.draft_id}
+            blocked={keeper.blocked}
+            gated={gate.passed}
+            onClose={() => setSheet(false)}
+          />
+        ) : null,
+      }}
       state={living.state}
       preview={living.preview}
       busy={living.busy}
@@ -138,6 +174,7 @@ function useDrawn(graph: DraftGraph, session: AuthoringSession | null) {
   return {
     steps: Object.fromEntries((drawn.data?.steps ?? []).map((step) => [step.id, step])) as Record<string, Step>,
     channels: drawn.data?.channels ?? [],
+    built: drawn.data ?? null,
   };
 }
 
@@ -155,7 +192,8 @@ function FakeLiving() {
       channels={FAKE_CHANNELS}
       onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
-      preview={{ revision: session.revision, text: "version: 6\ngoal:\n  want: [counts.matrix]\n" }}
+      preview={{ revision: session.revision, state: "ready", findings: [],
+        text: "version: 6\ngoal:\n  want: [counts.matrix]\n" }}
       busy={(id) => state.inFlight === id}
       onAccept={(proposal, option = "keep") =>
         dispatch({ type: "accept", proposal, option, expectedRevision: session.revision })}

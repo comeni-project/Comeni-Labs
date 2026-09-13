@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 12 complete
+**Status:** in progress — Tasks 1 to 13 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -1213,24 +1213,78 @@ and storing more than a count each fail their own tests.
 **Files:** authoring preview service/route, `ArtifactPreview.tsx`, existing Keep/Run integration,
 and tests.
 
-- [ ] Materialize current graph + confirmed goal + provenance sidecar in memory and return
+- [x] Materialize current graph + confirmed goal + provenance sidecar in memory and return
   canonical `pipeline_file.dump` text with the draft revision. An empty/illegal partial graph
   returns a declared unavailable/finding state, not fake YAML.
-- [ ] Debounce preview refresh after accepted commands and field edits. Do not request it per
+- [x] Debounce preview refresh after accepted commands and field edits. Do not request it per
   animation frame or keystroke.
-- [ ] Diff old/new text in the browser only for presentation. Highlight inserted/changed lines
+- [x] Diff old/new text in the browser only for presentation. Highlight inserted/changed lines
   or sections, then settle to ordinary artifact text. The server remains the serializer.
-- [ ] Distinguish preview from kept artifact clearly. Previewing must not set `DraftRow.kept`,
+- [x] Distinguish preview from kept artifact clearly. Previewing must not set `DraftRow.kept`,
   write files, stage modules, or make a gate available.
-- [ ] Make the living session reuse its existing draft id. Do not let `useKeep` create a second
+- [x] Make the living session reuse its existing draft id. Do not let `useKeep` create a second
   draft because its local ref did not know the session already owns one.
-- [ ] Keep the existing Run sequence: save/keep, lint, run sheet, submit. Show open human
+- [x] Keep the existing Run sequence: save/keep, lint, run sheet, submit. Show open human
   decisions before the run sheet and preserve coded refusals.
-- [ ] Test preview purity, preview/Keep byte relationship, no duplicate draft, artifact reload,
+- [x] Test preview purity, preview/Keep byte relationship, no duplicate draft, artifact reload,
   and Run against a completed authored draft.
 
 **Checkpoint:** watch modules and parameters appear in YAML during authoring, then Keep and confirm
-the artifact view shows the same pipeline without a second implementation having serialized it.
+the artifact view shows the same pipeline without a second implementation having serialized it. **Met on the
+server, owed in a browser** — `test_the_kept_file_is_byte_for_byte_the_preview` keeps an authored
+draft and finds the file on disk, the preview and the artifact reload identical byte for byte. The
+drawer's text was not rendered beside anything: watching it fill during a real session is Task 14's
+walk, and this record does not claim it.
+
+### Execution record
+
+**Five things a reader should know before Task 14:**
+
+1. **A preview is a state, not a string.** `drafts.preview` returns `ready`, `empty`, `illegal`
+   (up to five coded `MD05xx` findings) or `unavailable` (a materialisation refusal's first line),
+   and only `ready` carries text. It uses `_materialised`, the function `keep` uses, so there is
+   still one serializer — and it writes no file, sets no `kept`, and makes no gate available.
+2. **Keep states the session's AI points.** `routes/build.py`'s keep now passes
+   `authoring.ai_for_draft(draft_id)`, so a kept Spawn draft says `available: [prompt, tier-4]`
+   and `used` what the session used, as its preview already did. A draft with no session keeps
+   `available: []`.
+3. **`MD0225` does not cover step selections — a gap, recorded rather than closed.** The first
+   version of the keep test asserted that keeping a model-chosen draft *without* its AI points
+   would be refused. It is not: `MD0225` checks model-sourced *settings*, and which contract fills
+   a step is not one, so a draft kept by the unguarded path records `available: []` beside a
+   model's decision and nothing refuses it. The route closes it for the product; the check does
+   not. The test's docstring says so.
+4. **`useKeep` takes the draft a page already owns.** With `{ draftId }` it only POSTs `keep` —
+   no `POST /pipeline/drafts` and no `PUT`, because the server saves the session's graph on every
+   commit and the browser's copy may carry an acceptance the server has not confirmed. The living
+   page wires `useKeep`, `useGate` and `useRun` to the existing `RunSheet`, which counts open
+   decisions before asking where the data is; a coded refusal is shown in the header.
+   **Run is disabled unless something is connected to it** — the fixtures pass no `run`, so their
+   Run is inert *and looks it*.
+   **No test drives `LiveLiving` through keep → lint → sheet**: the sequence is `useRun`'s existing
+   tests, the server half is keeping a completed Spawn draft, and the two together are walk item 9.
+5. **The preview is debounced on the revision** (300 ms), which moves only on a commit, so a burst
+   of Spawn acceptances asks once and nothing reacts to a keystroke. The drawer has two tabs,
+   *as it would read* and *as kept*; the second is the existing `ArtifactView` and is disabled
+   until something was kept. Changed lines are highlighted by a line-multiset comparison in the
+   browser for 1.6 s, for presentation only.
+
+**One guard was inert when first written.** The debounce test advanced 1.2 s inside a single
+`act`, React flushed once at the end, six revisions collapsed into one render, and the test passed
+with the debounce set to zero. It now advances in forty short acts and fails with `expected 5 to
+be 1` against the same mutation.
+
+**Watched failing against the specific defect:** ignoring the owned draft fails only the no-second-
+draft test; a zero debounce fails only the burst test; a highlight that never settles, rendering an
+illegal preview as text, a Run connected when it is not, and a kept tab enabled before keeping each
+fail only their own; on the server, dropping the preview's illegal branch fails only the illegal
+test, dropping the empty branch only the empty test, and passing `ai=None` from the keep route only
+the AI-points test.
+
+**Not ours, and still failing on this branch's base:** four `test_forge_jobs.py` tests
+(`MF0001: 'fake' is not a catalogue source`) and `test_full_cycle.py::test_the_loop_closes`
+(`MF0008: no stored scaffold`), confirmed by stashing this task's changes.
+
 
 ---
 
