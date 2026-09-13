@@ -75,6 +75,13 @@ class Blueprint(BaseModel):
     """The layer stack's digest when this was resolved. Compared before any proposal applies."""
     order: list[str]
     """Step ids in reveal order: `(rank, order, id)` off the same layout the canvas draws."""
+    placed: dict[str, tuple[int, int]] = {}
+    """Where each step sits in the finished pipeline, from `dag-core` — §1.4's second reason.
+
+    **Every node is drawn at its final position from the moment it appears**, so the graph does
+    not re-lay itself out under the person each time a step is accepted. The canvas reads these
+    rather than running a layout of its own: one implementation for both canvases, which is why
+    `dag-core` exists. Empty for a blueprint stored before this field did."""
     pipeline: Pipeline
 
     def step(self, node_id: str) -> Step:
@@ -132,6 +139,7 @@ def resolve(
         mode=mode,
         registry=registry_digest(stack),
         order=order,
+        placed={node.id: (node.x, node.y) for node in placed.nodes},
         pipeline=built.pipeline,
     )
     return blueprint, list(adapter.calls) if adapter is not None else []

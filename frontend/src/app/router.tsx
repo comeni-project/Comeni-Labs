@@ -6,6 +6,7 @@ import { Tools } from "../forge/Tools";
 import { Home } from "../home/Home";
 import { ContractRoute } from "../forge/ContractRoute";
 import { Builder } from "../build/Builder";
+import { LivingBuilder } from "../build/living/LivingBuilder";
 import { Adaptation } from "../forge/registry/Adaptation";
 import { Catalogue } from "../forge/registry/Catalogue";
 import { Overview as Registry } from "../forge/registry/Overview";
@@ -54,6 +55,10 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <Home /> },
       { path: "/build", element: <Builder /> },
+      // **The living builder, beside the one that ships** — a secondary route until Task 14's
+      // walk. `/build` is untouched: a replacement mounted before it has been driven end to end
+      // would send somebody from a screen that works to one that might not.
+      { path: "/build/living", element: <LivingBuilder /> },
       { path: "/runs", element: <Runs /> },
       { path: "/runs/:id", element: <Run /> },
       // **The Registry section — `/forge` is its front door, not a redirect.** The three

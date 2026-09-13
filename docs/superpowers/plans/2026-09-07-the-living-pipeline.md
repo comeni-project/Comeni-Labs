@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 8 complete
+**Status:** in progress — Tasks 1 to 9 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -934,23 +934,62 @@ return to the design skill and add the state to the artboards before improvising
 **Files:** create the small components under `frontend/src/build/living/`; temporarily expose the
 new surface at a development-only/secondary route while the current `/build` remains intact.
 
-- [ ] Compose two primary surfaces: living canvas and conversation. Do not recreate the current
+- [x] Compose two primary surfaces: living canvas and conversation. Do not recreate the current
   stack of permanent palette, tabs, inspector, problems, and artifact chrome.
-- [ ] Keep pipeline name, save/validation state, Build/Spawn identity, and Run discoverable
+- [x] Keep pipeline name, save/validation state, Build/Spawn identity, and Run discoverable
   without competing with the conversation.
-- [ ] Make module browsing, technical step inspection, validation findings, and YAML contextual
+- [x] Make module browsing, technical step inspection, validation findings, and YAML contextual
   drawers/overlays as established by the artboards.
-- [ ] Split block renderers and canvas primitives from orchestration. `LivingBuilder.tsx` should
+- [x] Split block renderers and canvas primitives from orchestration. `LivingBuilder.tsx` should
   wire state and callbacks, not contain every card and SVG path.
-- [ ] Reuse product tokens and fonts. Add semantic motion/collection tokens only when repeated;
+- [x] Reuse product tokens and fonts. Add semantic motion/collection tokens only when repeated;
   do not introduce a second color system.
-- [ ] Add component tests for shell regions, pending/restored/error states, drawer focus return,
+- [x] Add component tests for shell regions, pending/restored/error states, drawer focus return,
   narrow stacking, and no-JavaScript-layout assumptions.
-- [ ] Render the implementation and Task 1 artboard side by side at every designed width. Record
+- [x] Render the implementation and Task 1 artboard side by side at every designed width. Record
   mismatches before fixing them; source reading is not visual verification.
 
 **Checkpoint:** a static fake session containing every block state is readable and operable before
-the live API is connected.
+the live API is connected. **Met** — `/build/living?fake=1` renders all eight block kinds, all five
+notice kinds, collapsed history, a pending turn and a proposal with an alternative, with no API.
+
+### Execution record — the side-by-side
+
+Rendered with `_prev.py` (through a shim pointing `google-chrome-stable` at Playwright's Chromium)
+and headless Chromium against Vite, at 1400 and 900, beside `LivingBuild` and `LivingTrouble`.
+Mismatches were written down before anything was fixed.
+
+| # | What the pictures showed | Outcome |
+|---|---|---|
+| 1 | port rows ~4px low; the third clipped into the footer | **fixed** — the artboard's render puts row one on the header rule, whatever its CSS says |
+| 2 | the log's spine looked missing at 1400 | **withdrawn** — visible at 900; faint, not absent |
+| 3 | a native blue radio circle beside square cards; no *Show me why* | **fixed** — square dot drawn, native radio kept for keyboard and screen reader; *Show me why* sends a real turn |
+| 4 | collapsed rows read `tier 2`, not `step 1` / `step 3 · measured`; no line above the card | **fixed** |
+| 5 | **Run dimmed** where the artboard shows it live | **kept**: until Task 13 connects Keep/Run, a live-looking Run that does not run is a control leading nowhere |
+| 6 | no input source node (`reads ×12 samples`), single-stroke wires | **Task 11's** collection grammar |
+| 7 | status says `revision 4` where the artboard says `saved 3s ago` | **kept** — the session exposes no save time, and inventing one is inventing a fact |
+| 8 | stacked at 900: conversation, composer, then canvas | **matches** |
+
+**Five things a reader should know before Task 10:**
+
+1. **The server grew four more fields, each the page's minimum.** `placement` — the blueprint's
+   own `dag-core` positions, for visible steps only, so nothing moves as the graph grows and the
+   plan is not put on the page as empty slots; `history`, every answered proposal, because the
+   log is the pipeline's provenance record and the view held only the pending one; `steps_total`,
+   a count and not the steps; and `name` plus each turn's `at`, for the header and the ordering.
+2. **The canvas does not lay anything out.** Positions come from the blueprint; ports and tiers
+   from `POST /pipeline/draw` once per revision, ghost included. A hand-added step takes the drawn
+   layout's position — one implementation, which is why `dag-core` exists.
+3. **The first full suite caught a colour leak** — two `rgba(…)` literals, the selected halo and
+   the option focus ring — through `names no colour outside the token file`. Both are now
+   `color-mix` over `--link`.
+4. **`+ Add step` opens the existing `Browse` overlay** and saves through the draft's own `PUT`,
+   so the server stamps it as the person's. The receipt for that edit is Task 10's.
+5. **`/build` is untouched.** The living builder is at `/build/living` until Task 14's walk.
+
+**Watched failing:** removing the drawer's focus restore fails only the drawer test; removing
+`onFocus` preview fails only the keyboard-preview test. `zooms toward the cursor` timed out once
+in the full run with Vite and Chromium running beside it, and passes 17/17 alone.
 
 ---
 

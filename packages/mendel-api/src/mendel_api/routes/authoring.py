@@ -87,6 +87,13 @@ class DecideProposal(BaseModel):
 # ── what comes out ────────────────────────────────────────────────────────────────────────
 
 
+class AuthoringPosition(BaseModel):
+    model_config = _FROZEN
+
+    x: int
+    y: int
+
+
 class AuthoringTurnView(BaseModel):
     model_config = _FROZEN
 
@@ -96,6 +103,24 @@ class AuthoringTurnView(BaseModel):
     text: str
     blocks: list[Block]
     base_revision: int
+    at: str
+    """When it was written, ISO 8601 — so a log can interleave turns and decisions in order."""
+
+
+class AuthoringDecisionView(BaseModel):
+    """A proposal that has been answered — one collapsed row of the decision log."""
+
+    model_config = _FROZEN
+
+    id: str
+    kind: Literal["goal", "step"]
+    state: ProposalState
+    block: Block
+    by: str | None
+    chosen_option: str | None
+    chosen_contract: str | None
+    """The contract the chosen option stood for, so a row can name a substitution."""
+    at: str
 
 
 class AuthoringProposalView(BaseModel):
@@ -118,6 +143,7 @@ class AuthoringSessionView(BaseModel):
 
     id: str
     draft_id: str
+    name: str
     mode: Mode
     phase: Phase
     failed_from: Phase | None
@@ -125,11 +151,17 @@ class AuthoringSessionView(BaseModel):
     revision: int
     graph: DraftGraph
     """The draft as the server holds it — the canvas restores from this, not from the transcript."""
+    steps_total: int = 0
+    """How many steps the resolved pipeline has. `0` until a blueprint exists."""
+    placement: dict[str, AuthoringPosition] = {}
+    """Where each visible step sits in the finished pipeline, so nothing moves as it grows."""
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
     Build and Spawn need one, and why, rather than spinning on a turn nobody will answer."""
     turns: list[AuthoringTurnView]
+    history: list[AuthoringDecisionView] = []
+    """Every answered proposal, oldest first — the pipeline's provenance, made navigable."""
     pending_proposal: AuthoringProposalView | None
 
 
@@ -338,12 +370,15 @@ def _view(session_id: str) -> AuthoringSessionView:
     return AuthoringSessionView(
         id=picture["id"],
         draft_id=picture["draft_id"],
+        name=picture["name"],
         mode=Mode(picture["mode"]),
         phase=Phase(picture["phase"]),
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=Goal.model_validate(picture["goal"]) if picture["goal"] else None,
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
+        placement=picture["placement"],
+        steps_total=picture["steps_total"],
         row_version=picture["row_version"],
         model_configured=model_access() is not None,
         turns=[
@@ -354,9 +389,11 @@ def _view(session_id: str) -> AuthoringSessionView:
                 text=turn["text"],
                 blocks=turn["blocks"],
                 base_revision=turn["base_revision"],
+                at=turn["at"],
             )
             for turn in picture["turns"]
         ],
+        history=[AuthoringDecisionView(**decision) for decision in picture["history"]],
         pending_proposal=(
             None
             if pending is None

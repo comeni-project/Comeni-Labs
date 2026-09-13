@@ -363,3 +363,18 @@ body {
 @media (min-width: 760px) { .gutter { padding-inline: 44px; } }
 
 .band { grid-template-columns: 1fr; } }
+
+/* ── The living builder's two surfaces — the artboards' `.split`, breakpoint for breakpoint ──
+   A 420px rail beside the canvas; 360px under 1180px, where a proposal card's two actions and a
+   172px column still both fit; and STACKED under 1000px, where they do not. Stacked puts the
+   conversation first by `order`, not by DOM order — the canvas is still what the page is about,
+   so it stays first for a screen reader — and the rail never overlays the graph it is about. */
+.living { display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
+.living > .living-canvas { min-height: 0; }
+@media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
+@media (max-width: 1000px) {
+  .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);
+            overflow: auto; }
+  .living > .living-canvas { order: 2; height: 430px; }
+  .living > .living-rail { order: 1; border-left: 0 !important; }
+}

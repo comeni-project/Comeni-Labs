@@ -137,6 +137,10 @@ def read(session_id: str) -> dict:
             "row_version": row.row_version,
             "revision": draft.revision if draft else 0,
             "graph": draft.graph if draft else {},
+            "placement": _placement(row, draft, pending),
+            # **A count, not the plan.** How many steps the blueprint holds lets the header say
+            # `4 of 7`; which steps they are stays private until each is offered.
+            "steps_total": len((row.blueprint or {}).get("order") or []),
             "turns": [
                 {
                     "seq": t.seq,
@@ -145,8 +149,30 @@ def read(session_id: str) -> dict:
                     "text": t.text,
                     "blocks": t.blocks,
                     "base_revision": t.base_revision,
+                    "at": t.at.isoformat(),
                 }
                 for t in turns
+            ],
+            "name": draft.name if draft else "",
+            "history": [
+                {
+                    "id": p.id,
+                    "kind": p.kind,
+                    "state": p.state,
+                    "block": p.payload.get("block"),
+                    "by": p.by,
+                    "chosen_option": p.chosen_option,
+                    "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
+                    "at": (p.settled_at or p.created_at).isoformat(),
+                }
+                for p in db.scalars(
+                    select(PipelineAuthoringProposal)
+                    .where(
+                        PipelineAuthoringProposal.session_id == session_id,
+                        PipelineAuthoringProposal.state != ProposalState.PENDING.value,
+                    )
+                    .order_by(PipelineAuthoringProposal.created_at)
+                ).all()
             ],
             "pending_proposal": (
                 None
@@ -877,3 +903,18 @@ def retry(session_id: str) -> tuple[Phase, int | None]:
             )
         )
     return target, seq
+
+
+def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pending) -> dict:
+    """Blueprint positions for the steps a person can see — accepted ones and the one on offer.
+
+    **Only those.** The blueprint is the whole pipeline and it is private until revealed; handing
+    the browser a coordinate for a step nobody has been shown yet would put the plan on the page
+    as a set of empty slots. A step added by hand has no blueprint position and is simply absent
+    here, for the canvas to place as it places any hand-drawn node.
+    """
+    placed = (row.blueprint or {}).get("placed") or {}
+    visible = {n["id"] for n in (draft.graph or {}).get("nodes", [])} if draft else set()
+    if pending is not None and pending.kind == STEP:
+        visible.add(pending.payload.get("node"))
+    return {node: {"x": at[0], "y": at[1]} for node, at in placed.items() if node in visible}

@@ -1426,6 +1426,37 @@ export interface components {
             /** Queued */
             queued: boolean;
         };
+        /**
+         * AuthoringDecisionView
+         * @description A proposal that has been answered — one collapsed row of the decision log.
+         */
+        AuthoringDecisionView: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "goal" | "step";
+            state: components["schemas"]["ProposalState"];
+            /** Block */
+            block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
+            /** By */
+            by: string | null;
+            /** Chosen Option */
+            chosen_option: string | null;
+            /** Chosen Contract */
+            chosen_contract: string | null;
+            /** At */
+            at: string;
+        };
+        /** AuthoringPosition */
+        AuthoringPosition: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** AuthoringPreview */
         AuthoringPreview: {
             /** Revision */
@@ -1476,6 +1507,8 @@ export interface components {
             id: string;
             /** Draft Id */
             draft_id: string;
+            /** Name */
+            name: string;
             mode: components["schemas"]["Mode"];
             phase: components["schemas"]["Phase"];
             failed_from: components["schemas"]["Phase"] | null;
@@ -1483,12 +1516,29 @@ export interface components {
             /** Revision */
             revision: number;
             graph: components["schemas"]["DraftGraph"];
+            /**
+             * Steps Total
+             * @default 0
+             */
+            steps_total: number;
+            /**
+             * Placement
+             * @default {}
+             */
+            placement: {
+                [key: string]: components["schemas"]["AuthoringPosition"];
+            };
             /** Row Version */
             row_version: number;
             /** Model Configured */
             model_configured: boolean;
             /** Turns */
             turns: components["schemas"]["AuthoringTurnView"][];
+            /**
+             * History
+             * @default []
+             */
+            history: components["schemas"]["AuthoringDecisionView"][];
             pending_proposal: components["schemas"]["AuthoringProposalView"] | null;
         };
         /** AuthoringStarted */
@@ -1513,6 +1563,8 @@ export interface components {
             blocks: (components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"])[];
             /** Base Revision */
             base_revision: number;
+            /** At */
+            at: string;
         };
         /**
          * Band
@@ -3257,6 +3309,18 @@ export interface components {
              */
             decided_id: string;
         };
+        /**
+         * ProposalState
+         * @description What became of a proposal.
+         *
+         *     **`stale` is the member that earns the enum.** A proposal made against revision 4 and
+         *     answered after revision 5 landed was not rejected — nobody rejected it — and it is not
+         *     pending, because applying it would write over work the person did in between. Without a name
+         *     for that, the service layer has to encode it as "pending but the revision does not match",
+         *     which is a rule living in whichever caller remembered it.
+         * @enum {string}
+         */
+        ProposalState: "pending" | "accepted" | "rejected" | "stale";
         /** ProposeRequest */
         ProposeRequest: {
             /** Draft */

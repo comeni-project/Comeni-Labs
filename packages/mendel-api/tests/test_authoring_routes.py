@@ -274,6 +274,9 @@ def test_accepting_the_goal_builds_inline_and_offers_the_first_step(
     building = _session(client, session["id"])
     assert building["pending_proposal"]["id"] == decided["next_proposal"]
     assert building["pending_proposal"]["block"]["kind"] == "step_proposal"
+    # The step on offer has its final position already; nothing not yet shown has one.
+    offered = building["pending_proposal"]["block"]["node"]
+    assert set(building["placement"]) == {offered}
     assert [q for q in queue if q[0] == "build"] == []
 
 
@@ -313,6 +316,12 @@ def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
 
     assert before == {"revision": goal["revision"], "text": ""}
     assert decided["revision"] == goal["revision"] + 1
+    history = _session(client, session["id"])["history"]
+    assert [(d["kind"], d["state"]) for d in history] == [
+        ("goal", "accepted"),
+        ("step", "accepted"),
+    ]
+    assert history[1]["chosen_contract"] == "nf-core/star/genomegenerate@1.11.0"
     assert after["revision"] == decided["revision"]
     assert "star_genomegenerate" in after["text"]
 
