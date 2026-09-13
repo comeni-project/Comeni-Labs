@@ -16,7 +16,13 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
-> **The newest entry is [`2026-09-06-the-forge-runs.md`](2026-09-06-the-forge-runs.md)** — the
+> **The newest entry is
+> [`2026-09-13-the-living-pipeline-built-not-walked.md`](2026-09-13-the-living-pipeline-built-not-walked.md)**
+> — thirteen of the living pipeline's fourteen tasks, and a handoff. Build and Spawn converge on one
+> draft and one YAML in tests; **nobody has yet described an analysis in a browser with a real model
+> behind it**, and that walk is Task 14. Read its *What to do next* before starting.
+>
+> Before it, [`2026-09-06-the-forge-runs.md`](2026-09-06-the-forge-runs.md) — the
 > Forge MVP is complete, and the whole chain runs from one HTTP call: a real nf-core catalogue
 > of 2,062 tools, a scaffold that proves eight values and hands out six typed questions, an AI
 > worker taking a job off its own queue, a local model on a GPU, and the validation ladder.

@@ -86,7 +86,18 @@ it up is what 2026-09-02 was.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — which is
-> [`2026-09-06-the-forge-runs.md`](docs/notes/journal/2026-09-06-the-forge-runs.md).
+> [`2026-09-13-the-living-pipeline-built-not-walked.md`](docs/notes/journal/2026-09-13-the-living-pipeline-built-not-walked.md).
+> **The living pipeline is 13 of 14 tasks complete and has not been walked.** A researcher can
+> describe an analysis on the first-run screen, choose Build or Spawn, and build it beside a
+> conversation at `/build?session=<id>`; `/build` and `/build?draft=` are still the manual builder.
+> Build and Spawn converge on one draft and byte-identical YAML **in tests**. Task 14 — a real
+> model, the real stack, a person in a browser — is next, and that entry's *What to do next* is the
+> checklist. Plan: `docs/superpowers/plans/2026-09-07-the-living-pipeline.md`.
+>
+> **`text-ink-4` rendered at full ink across the app until that day** — an unmapped Tailwind colour
+> generates no CSS — and `tokens.test.ts` now refuses one.
+>
+> Before it, [`2026-09-06-the-forge-runs.md`](docs/notes/journal/2026-09-06-the-forge-runs.md).
 > **The Forge MVP is COMPLETE**, merged from `.claude/worktrees/forge-mvp`, and the whole chain
 > runs from one HTTP call: sync → scaffold → the AI worker claiming the job → a local model on a
 > GPU → the validation ladder → `review`.
