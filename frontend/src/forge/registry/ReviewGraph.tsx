@@ -14,7 +14,7 @@ import type { GraphPort, IoGraph } from "../../api/registry";
  */
 
 const LOOK: Record<string, { border: string; tint: string; word: string }> = {
-  derived: { border: "border-[var(--rail)]", tint: "bg-node", word: "from the source" },
+  derived: { border: "border-[var(--rail)]", tint: "bg-[var(--node)]", word: "from the source" },
   model: { border: "border-[var(--link)]", tint: "bg-[var(--link-soft)]", word: "AI proposed" },
   human: { border: "border-[var(--pea)]", tint: "bg-[var(--pea-soft)]", word: "answered by hand" },
   open: {
@@ -93,7 +93,7 @@ export function ReviewGraph({
               type="button"
               onClick={onParams}
               className="lift text-left border border-[var(--node-line)] border-l-[3px]
-                         border-l-[var(--rail)] bg-node rounded-[var(--r)] px-[13px] py-[11px]
+                         border-l-[var(--rail)] bg-[var(--node)] rounded-[var(--r)] px-[13px] py-[11px]
                          min-w-[172px]"
             >
               <div className="text-body font-medium">{graph.process || "—"}</div>

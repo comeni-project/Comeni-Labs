@@ -155,7 +155,11 @@ describe("the builder shell", () => {
       fireEvent.wheel(canvas, { deltaY: 100, clientX: 10, clientY: 10 });
     }
     expect(Number(screen.getByTestId("zoom").dataset.k)).toBeGreaterThanOrEqual(0.3);
-  });
+    // **An explicit timeout, and the reason is load rather than this component.** 260 wheel events
+    // each re-render the canvas synchronously: 1.6s alone, and past vitest's 5s default in the
+    // full parallel run once there were 72 files (2026-09-13, measured at 1be1494 and after). The
+    // assertion is about clamping, never speed, so a timeout failure here said nothing about zoom.
+  }, 20_000);
 
   it("resets to where it started", async () => {
     at();

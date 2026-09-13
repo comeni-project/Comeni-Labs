@@ -156,12 +156,12 @@ describe("the front door", () => {
   it("offers the first-run composition when the lab has nothing yet", async () => {
     at({ drafts: [], runs: [] });
     await waitFor(() => expect(screen.getByText("What do you want to make?")).toBeTruthy());
-    // **The prompt is drawn and disabled, with the reason under it** — door 1 is declared by
-    // invariant 3 and implemented nowhere, and the operator chose to show what is coming rather
-    // than omit it. What must never happen is it appearing to work.
+    // **With no model configured the prompt is drawn and disabled, with the reason under it** —
+    // the no-AI lane is a choice, and what must never happen is the bar appearing to work.
+    // First.test.tsx holds the configured half.
+    await waitFor(() => expect(screen.getByText(/No model is configured/)).toBeTruthy());
     expect(screen.getByPlaceholderText(/RNA-seq/)).toBeDisabled();
-    expect(screen.getByText(/not built yet/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /build it by hand/i })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /draw it yourself/i })).toBeTruthy();
   });
 
   it("still lists the lab's pipelines when Wiener is unreachable", async () => {

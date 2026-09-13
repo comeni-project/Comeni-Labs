@@ -58,5 +58,7 @@ export type BeginAuthoring = S["BeginAuthoring"];
 export type DecideProposal = S["DecideProposal"];
 export type AuthoringVocabulary = S["AuthoringVocabulary"];
 export type AuthoringEdited = S["AuthoringEdited"];
+/** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
+export type AiHealth = S["AiHealth"];
 /** A goal as the goal card edits it — FastAPI's input half of `Goal`; see the note at the top. */
 export type GoalIn = S["Goal-Input"];

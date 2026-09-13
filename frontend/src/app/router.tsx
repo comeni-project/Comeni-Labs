@@ -5,7 +5,6 @@ import { Queue } from "../forge/Queue";
 import { Tools } from "../forge/Tools";
 import { Home } from "../home/Home";
 import { ContractRoute } from "../forge/ContractRoute";
-import { Builder } from "../build/Builder";
 import { LivingBuilder } from "../build/living/LivingBuilder";
 import { Adaptation } from "../forge/registry/Adaptation";
 import { Catalogue } from "../forge/registry/Catalogue";
@@ -13,6 +12,7 @@ import { Overview as Registry } from "../forge/registry/Overview";
 import { Work } from "../forge/registry/Work";
 import { Board as Runs } from "../runs/Board";
 import { Run } from "../runs/Run";
+import { BuildRoute } from "./BuildRoute";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
 
@@ -54,7 +54,7 @@ export const routes: RouteObject[] = [
     errorElement: <ErrorBoundary />,
     children: [
       { path: "/", element: <Home /> },
-      { path: "/build", element: <Builder /> },
+      { path: "/build", element: <BuildRoute /> },
       // **The living builder, beside the one that ships** — a secondary route until Task 14's
       // walk. `/build` is untouched: a replacement mounted before it has been driven end to end
       // would send somebody from a screen that works to one that might not.

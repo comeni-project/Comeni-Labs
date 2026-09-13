@@ -89,6 +89,52 @@ it("finds something, so it cannot pass by reaching nothing", () => {
   expect(referenced().has("hover")).toBe(true);
 });
 
+/** Every palette token worn as a Tailwind colour utility — `text-ink-4`, `bg-paper-2` — by file.
+ *
+ *  **Only names that are tokens.** `text-center`, `bg-transparent` and `text-label` are Tailwind's
+ *  or the theme's own, and are not this guard's business; a name defined as `--<name>:` in
+ *  `tokens.css` and worn as `text-<name>` is exactly the shape that went dark.
+ */
+function tokenUtilities(): Map<string, string[]> {
+  const tokens = new Set(
+    [...readFileSync(join(SRC, "tokens.css"), "utf8").matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]),
+  );
+  const found = new Map<string, string[]>();
+  for (const [path, text] of sources()) {
+    if (path.endsWith(".css")) continue;
+    for (const match of text.matchAll(/(?:^|[\s"'`:])(text|bg|border)-([a-z][a-z0-9-]*[a-z0-9])(?=[\s"'`]|$)/gm)) {
+      const [, prefix, name] = match;
+      if (!tokens.has(name)) continue;
+      const key = `${prefix}-${name}`;
+      found.set(key, [...(found.get(key) ?? []), path]);
+    }
+  }
+  return found;
+}
+
+it("maps every palette token worn as a colour utility into the theme", () => {
+  // `text-ink-4` was worn in five files — the Sends row, a setting's `via`, the run sheet's
+  // process names — and rendered at full ink in every one, because `@theme` mapped `ink`,
+  // `ink-2` and `ink-3` and stopped. **An unmapped utility generates no CSS**, so it inherits,
+  // and inheriting the brightest ink reads as a deliberate choice. The custom-property guard
+  // above cannot see it: nothing references `var(--color-ink-4)`, nothing is undefined, the
+  // class simply means nothing. Found by putting the first-run screen beside `LivingOpen`.
+  const theme = readFileSync(join(SRC, "main.css"), "utf8");
+  const unmapped = [...tokenUtilities()]
+    .filter(([key]) => {
+      const name = key.slice(key.indexOf("-") + 1);
+      return !theme.includes(`--color-${name}:`) && !(key.startsWith("text-") && theme.includes(`--text-${name}:`));
+    })
+    .map(([key, where]) => `${key} (${[...new Set(where)].map((p) => p.slice(SRC.length + 1)).join(", ")})`);
+  expect(unmapped).toEqual([]);
+});
+
+it("reaches the utilities it checks, so it cannot pass by finding none", () => {
+  expect(tokenUtilities().has("text-ink-4")).toBe(true);
+  expect(tokenUtilities().has("text-ink-3")).toBe(true);
+  expect(tokenUtilities().size).toBeGreaterThan(5);
+});
+
 it("names no colour outside the token file", () => {
   // **This is what made swapping the whole palette cheap**, and until 2026-08-30 it held by
   // convention alone. Migrating the product to Observatory touched `tokens.css` and one

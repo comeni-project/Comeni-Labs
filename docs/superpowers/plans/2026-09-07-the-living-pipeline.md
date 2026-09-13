@@ -1293,9 +1293,9 @@ the AI-points test.
 **Files:** `First.tsx`, router/current builder seam, tests, handbook pages, `CLAUDE.md` current
 state, and a dated journal entry.
 
-- [ ] Enable the home prompt and Build/Spawn choice. No live-looking control may lead nowhere;
+- [x] Enable the home prompt and Build/Spawn choice. No live-looking control may lead nowhere;
   when no model is configured, state that plainly and preserve a route to manual building.
-- [ ] Make `/build?session=<id>` restore the living session and `/build?draft=<id>` open an
+- [x] Make `/build?session=<id>` restore the living session and `/build?draft=<id>` open an
   existing draft. Decide through Task 1's design whether an old draft opens directly in the
   living shell or its manual editing state; do not silently open the RNA-seq example instead.
 - [ ] Preserve direct module browsing, settings, swapping, validation, artifact, and Run actions
@@ -1333,6 +1333,46 @@ state, and a dated journal entry.
 and begin running a living pipeline. Build and Spawn share one draft/proposal engine, collections
 read as collections, and the final artifact explains every decision without requiring the chat
 transcript.
+
+
+### Execution record (in progress — the walk has not run)
+
+| Box | What was done | Deviation |
+|---|---|---|
+| home prompt | `First.tsx` asks `/health/ai`; the bar, the two `LivingOpen` cards, *Start building* and *Sends* appear only when `configured` is true. `useBegin` posts `{prompt, mode}` and opens `/build?session=<id>`. With no model the bar stays drawn and disabled, the aside says *No model is configured on this installation*, and *draw it yourself* goes to `/build` | the mutation lives in `home/useBegin.ts` because `reported.test.ts` holds that a mutation is a hook that returns it |
+| `/build` routes | `BuildRoute` sends `?session=` to the living builder and everything else — `?draft=`, a bare `/build` — to the manual one | **decided here, not in Task 1's design, which never addressed it**: an old draft has no session, so the living shell would show a canvas with no conversation behind it — the manual builder with fewer controls. It stays manual; a draft that *has* a session is not yet redirected to it |
+
+**Compared beside `LivingOpen` at 1400×900, rendered, not read.** The heading, bar, cards, *Start
+building* and the aside line up. Two things were found only by the render:
+
+1. **The cards and *Sends* were invisible in the first headless capture** while the DOM held them —
+   `settle`'s `backwards` fill held at `opacity: 0` in headless Chrome. A capture under
+   `--force-prefers-reduced-motion` shows them; it is a capture artefact, not the page.
+2. **`text-ink-4` generated no CSS anywhere in the app.** `@theme` mapped `ink`, `ink-2` and `ink-3`
+   and stopped, so every `text-ink-4` — ten files, among them `RunSheet`, `Settings`, `Rail`,
+   `Run`, `Timeline` and three living components — rendered at full ink. `--color-ink-4` is added,
+   which **changes how those existing screens look**, to what their authors wrote. A new guard in
+   `tokens.test.ts` requires every palette token worn as `text-`/`bg-`/`border-` to be mapped; it
+   failed naming `text-ink-4` in all ten files with the line removed, and found one more:
+   `bg-node` in `forge/registry/ReviewGraph.tsx`, a node card painting no fill since `8bfaa23`, now
+   `bg-[var(--node)]` like its neighbours.
+
+**Two scans needed correcting.** `reported.test.ts` counted a hook's own file as a caller of it and
+reported `useBegin.ts` deaf for declaring itself; it now excludes hook files, and still fails naming
+`home/First.tsx` when that component stops showing `begin.error`. And the builder's zoom test gained
+an explicit timeout: it takes 1.6s alone and crossed 5s in the full parallel run — measured the same
+at `1be1494`, so load and not this change.
+
+**Watched failing against the specific defect:** an always-live prompt fails the three no-model
+tests; ignoring the chosen mode fails only the mode test; allowing a blank sentence fails the two
+readiness tests; opening `/build` without the session id fails only the start test; `BuildRoute`
+always-living fails only the draft test and never-living only the session test.
+
+**Not done, and why this record stops here.** No model is configured on this machine — no
+`COMENI_AI_MODEL` in `.env`, no Ollama answering — and the real stack is not up; another project's
+containers hold the host's Postgres port. The walk, the provenance audit from logs, the handbook
+pages (*from observed behaviour*) and the journal entry all need that. The old builder is untouched
+and still mounted.
 
 ---
 

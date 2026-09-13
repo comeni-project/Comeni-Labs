@@ -77,8 +77,12 @@ it("references that error in every component that calls one", () => {
   // mention an error and cannot see it reach the screen, and the prop only covers one
   // component. Together they cover the shape of the actual defect.
   const names = hookNames();
+  // **A hook's own file is not a caller of it.** It names itself in `export function`, and the
+  // first hook whose file never happened to say `error` in code — `home/useBegin.ts`, which
+  // returns the mutation whole — was reported deaf for declaring itself.
+  const own = new Set(hooks().map(([path]) => path));
   const deaf = walk()
-    .filter(([path]) => !path.includes("/api/") && !path.endsWith("queryClient.ts"))
+    .filter(([path]) => !path.includes("/api/") && !path.endsWith("queryClient.ts") && !own.has(path))
     .filter(([, text]) => names.some((name) => new RegExp(`\\b${name}\\b`).test(code(text))))
     .filter(([, text]) => !/\.error\b|\berror\b|isError/.test(code(text)))
     .map(([path]) => rel(path));

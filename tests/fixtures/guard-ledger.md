@@ -4991,3 +4991,18 @@ candidate and an `unresolved` count of `0` — because there was no proposal to 
 **135 of those 205 seconds were two repairs producing byte-identical proposals.** Three attempts,
 three identical `response_digest`s. At temperature 0 that is the expected case rather than a
 surprise, and it is one comparison to detect.
+
+## 2026-09-13 — the living pipeline's first-run screen, and a colour that meant nothing
+
+Found by rendering the first-run screen beside `LivingOpen`, not by any test. The living-pipeline
+plan's Tasks 1–13 recorded their reverts in the plan's execution records; these are the guards
+added or corrected today.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-13 | `frontend/src/tokens.test.ts::maps every palette token worn as a colour utility into the theme` | deleted `--color-ink-4: var(--ink-4);` from `main.css`'s `@theme` | failed | `text-ink-4 (build/Rail.tsx, build/RunSheet.tsx, build/Settings.tsx, build/living/DecisionLog.tsx, build/living/LivingNode.tsx, build/living/blocks/Block.tsx, forge/registry/Adaptation.tsx, home/First.tsx, runs/Run.tsx, runs/Timeline.tsx)` — **and on first run, with the fix present, it named `bg-node (forge/registry/ReviewGraph.tsx)`**, a second instance nobody knew about |
+| 2026-09-13 | `frontend/src/tokens.test.ts::reaches the utilities it checks` | — | new | asserts `text-ink-4` and `text-ink-3` are found, so a broken walk cannot pass by reaching nothing |
+| 2026-09-13 | `frontend/src/reported.test.ts::references that error in every component that calls one` | — | **fired on a correct file** | reported `home/useBegin.ts` deaf: a hook's own file names the hook and was counted as its caller. Corrected to exclude hook files; then deleting `begin.error` from `home/First.tsx` failed naming `home/First.tsx` |
+| 2026-09-13 | `frontend/src/build/living/Keep.test.tsx::asks once after a burst of commits` | preview debounce set to `0` | **passed — inert** | one 1.2s `act` flushed six revisions into one render. Rewritten as forty short acts; the same revert then failed `expected 5 to be 1` |
+| 2026-09-13 | `frontend/src/home/First.test.tsx` (5 tests) | `live` forced true · mode ignored · blank sentence allowed · no session id in the URL | failed, each only its own | always-live failed the three no-model tests; the rest failed one or two readiness tests each |
+| 2026-09-13 | `frontend/src/home/First.test.tsx::where /build goes` (2 tests) | `BuildRoute` always living · never living | failed, each only its own | the draft test first passed against always-living, because `LivingBuilder` with no session renders its hint rather than `living-loading`; it now also asserts that hint is absent |
