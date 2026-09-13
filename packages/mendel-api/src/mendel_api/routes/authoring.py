@@ -19,7 +19,7 @@ formats one.
 from typing import Literal
 
 from comeni_core.artifact.pipeline import AiPoint, AiProvenance
-from comeni_core.plan.draft import DraftProvenance
+from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
 from comeni_core.plan.tiers import ValueSource
 from comeni_core.spell.marks import OptionId
 from fastapi import APIRouter, status
@@ -107,6 +107,8 @@ class AuthoringProposalView(BaseModel):
     block: Block
     options: list[str]
     """Every id this proposal accepts. The block renders labels; this is what may be posted."""
+    edges: list[DraftEdge] = []
+    """The wires accepting it as proposed would add — what an optimistic reveal draws."""
 
 
 class AuthoringSessionView(BaseModel):
@@ -121,6 +123,8 @@ class AuthoringSessionView(BaseModel):
     failed_from: Phase | None
     goal: Goal | None
     revision: int
+    graph: DraftGraph
+    """The draft as the server holds it — the canvas restores from this, not from the transcript."""
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
@@ -339,6 +343,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=Goal.model_validate(picture["goal"]) if picture["goal"] else None,
         revision=picture["revision"],
+        graph=DraftGraph.model_validate(picture["graph"] or {}),
         row_version=picture["row_version"],
         model_configured=model_access() is not None,
         turns=[
@@ -361,6 +366,7 @@ def _view(session_id: str) -> AuthoringSessionView:
                 draft_revision=pending["draft_revision"],
                 block=pending["payload"]["block"],
                 options=sorted(pending["payload"].get("options", {})),
+                edges=pending["payload"].get("edges", []),
             )
         ),
     )

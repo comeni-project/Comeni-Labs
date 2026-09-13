@@ -136,6 +136,7 @@ def read(session_id: str) -> dict:
             "cursor": row.cursor,
             "row_version": row.row_version,
             "revision": draft.revision if draft else 0,
+            "graph": draft.graph if draft else {},
             "turns": [
                 {
                     "seq": t.seq,
@@ -654,13 +655,16 @@ def _swap(db, session_id: str, version: int, *, phase: Phase, **values: object) 
 def _offer(db, session_id: str, blueprint, node_id: str, *, revision: int, registry) -> str:
     """Store one step proposal as `pending`, against the draft as it stands now."""
     proposal_id = _id()
+    session_row = db.get(PipelineAuthoringSession, session_id)
+    draft = db.get(PipelineDraft, session_row.draft_id)
+    present = frozenset(node.id for node in DraftGraph.model_validate(draft.graph).nodes)
     db.add(
         PipelineAuthoringProposal(
             id=proposal_id,
             session_id=session_id,
             turn_id=None,
             kind=STEP,
-            payload=bp.proposal(blueprint, node_id, registry=registry),
+            payload=bp.proposal(blueprint, node_id, registry=registry, present=present),
             state=ProposalState.PENDING.value,
             chosen_option=None,
             by=None,

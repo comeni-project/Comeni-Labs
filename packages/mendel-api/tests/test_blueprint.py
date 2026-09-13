@@ -339,3 +339,19 @@ def test_accepting_every_step_rebuilds_the_blueprint_through_ir_of(spine, contra
         }
 
     assert shape(rebuilt) == shape(spine.pipeline)
+
+
+def test_a_proposal_carries_exactly_the_wires_accepting_it_would_add(spine, contracts):
+    """What the browser draws optimistically must be what the server commits. The aligner's
+    proposal, offered after only the index is in the draft, carries the index wire and not the
+    trimmer's — and `committed` adds the same one."""
+    offered = bp.proposal(
+        spine, "star_align", registry=contracts, present=frozenset({"star_genomegenerate"})
+    )
+    graph, _ = _accept(spine, DraftGraph(nodes=[{"id": "star_genomegenerate",
+        "contract_id": "nf-core/star/genomegenerate@1.11.0"}]), DraftProvenance(),
+        "star_align", contracts)
+
+    drawn = {(e["from_node"], e["to_node"]) for e in offered["edges"]}
+    assert drawn == {("star_genomegenerate", "star_align")}
+    assert drawn == {(e.from_node, e.to_node) for e in graph.edges}

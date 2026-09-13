@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 7 complete
+**Status:** in progress — Tasks 1 to 8 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -879,24 +879,50 @@ exception and asserts the address is absent from the response body.
 **Files:** create `frontend/src/build/living/useAuthoringSession.ts`, `authoringReducer.ts`, and
 focused tests; extend the generated-type seam in `frontend/src/api/types.ts`.
 
-- [ ] Model transient states explicitly: server snapshot, optimistic proposal acceptance,
+- [x] Model transient states explicitly: server snapshot, optimistic proposal acceptance,
   previewed option, selected step, animation event queue, composer text, and reconciliation.
-- [ ] Keep server data in TanStack Query and interaction state in a reducer. Do not mirror the
+- [x] Keep server data in TanStack Query and interaction state in a reducer. Do not mirror the
   entire query response into ad-hoc `useState` fields.
-- [ ] Poll only while the session or newest turn is pending. Stop on answer, refusal, failure, or
+- [x] Poll only while the session or newest turn is pending. Stop on answer, refusal, failure, or
   unmount.
-- [ ] Apply an accepted proposal optimistically from the already received typed payload. Disable
+- [x] Apply an accepted proposal optimistically from the already received typed payload. Disable
   only that proposal while its request is in flight; the canvas remains inspectable.
-- [ ] Reconcile by proposal id and revision. On a stale/conflicting response, discard the
+- [x] Reconcile by proposal id and revision. On a stale/conflicting response, discard the
   optimistic event and show the server notice; never silently overwrite newer work.
-- [ ] Reuse or extract `useGraph` operations for direct editing after the guided build. Do not
+- [x] Reuse or extract `useGraph` operations for direct editing after the guided build. Do not
   maintain separate graph mutation rules for “chat graph” and “manual graph”.
-- [ ] Do not persist prompt/transcript content to `localStorage`. Durable state already lives on
+- [x] Do not persist prompt/transcript content to `localStorage`. Durable state already lives on
   the server; transient drafts in the composer may use component state.
-- [ ] Test reducer transitions with plain objects and fake timers before component tests.
+- [x] Test reducer transitions with plain objects and fake timers before component tests.
 
 **Checkpoint:** reducer tests reconstruct the same visible graph from a fresh server snapshot as
-from the optimistic event sequence that produced it.
+from the optimistic event sequence that produced it. **Met** —
+`draws the same graph from the optimistic sequence as from the server's snapshot after it` compares
+three pictures: optimistic, reconciled, and fresh.
+
+**Four things a reader should know before Task 9:**
+
+1. **The server gained two fields, and the plan's own rules required both.** The session view
+   carries the draft `graph` — the canvas cannot restore from one read without it — and a step
+   proposal carries the `edges` accepting it would add, because *apply an accepted proposal
+   optimistically from the already received typed payload* cannot draw wires from a node alone.
+   The server computes those edges with the same filter `committed` uses, and
+   `test_a_proposal_carries_exactly_the_wires_accepting_it_would_add` holds the two equal.
+2. **Only the proposal as offered is drawn early.** Choosing an alternative disables the card and
+   waits: its wires depend on its ports, and a guessed wire the server then removes is a picture
+   corrected in front of the person.
+3. **Reconciliation is two rules, and a mutation found that one of them had no test.** A drawing
+   retires when the server's revision passes the one the request was made against, or when its
+   proposal is no longer pending once the request has returned. Disabling the revision rule
+   failed nothing — the id rule covered every existing case — until a test for the real race
+   was added: a poll that sees the commit before the POST's own response resolves.
+4. **`useGraph`'s mutation rules are now `graphOps.ts`**, pure functions both the manual builder
+   and the reducer call. The 37 existing builder tests pass unchanged on the extraction.
+
+**Watched failing:** the storage guard first matched the bare word and fired on the hook's own
+docstring saying it does not use storage — the prose-scan trap again — and was narrowed to use
+(`localStorage.` / `[`), then watched failing against a probe file calling
+`window.localStorage.setItem` before the probe was removed.
 
 ---
 

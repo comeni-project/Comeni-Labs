@@ -217,12 +217,20 @@ def _fed(
     return None
 
 
-def proposal(blueprint: Blueprint, node_id: str, *, registry) -> dict:
+def proposal(
+    blueprint: Blueprint, node_id: str, *, registry, present: frozenset[str] = frozenset()
+) -> dict:
     """The stored payload for offering `node_id`: the block a person reads, and the option map.
 
     `options` maps every id the engine minted to the contract it stands for, and it is what an
     acceptance is checked against — so the block the browser renders and the set the server
     enforces are written in the same breath and cannot disagree.
+
+    `edges` are the wires accepting the blueprint's own step would add, given the steps already
+    in the draft (`present`). **They let the browser apply an acceptance optimistically from what
+    it already holds** — Task 8's rule — and they are exactly the wires `committed` would add,
+    because both come from `_edges_touching` filtered the same way. An alternative's wires are
+    not offered: they depend on its ports, and the server's answer is what draws them.
     """
     step = blueprint.step(node_id)
     chosen = step.module.contract_id
@@ -241,10 +249,17 @@ def proposal(blueprint: Blueprint, node_id: str, *, registry) -> dict:
             Option(id=option_id, label=candidate) for option_id, candidate in minted.items()
         ],
     )
+    here = set(present) | {node_id}
+    wires = [
+        edge.model_dump(mode="json")
+        for edge in _edges_touching(blueprint, node_id)
+        if edge.from_node in here and edge.to_node in here
+    ]
     return {
         "node": node_id,
         "block": block.model_dump(mode="json"),
         "options": {KEEP: chosen, **minted},
+        "edges": wires,
     }
 
 

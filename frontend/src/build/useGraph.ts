@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DraftEdge, DraftGraph } from "../api/types";
+import type { DraftGraph } from "../api/types";
+import {
+  withContract,
+  withEdge,
+  withLabel,
+  withMerge,
+  withNode,
+  withoutEdge,
+  withoutNode,
+  withParam,
+  withSplit,
+} from "./graphOps";
 
 
 
@@ -34,12 +45,6 @@ function nextId(existing: Set<string>, contractId: string): string {
     if (!existing.has(candidate)) return candidate;
   }
 }
-
-const sameEdge = (a: DraftEdge, b: DraftEdge) =>
-  a.from_node === b.from_node &&
-  a.from_port === b.from_port &&
-  a.to_node === b.to_node &&
-  a.to_port === b.to_port;
 
 /** The graph you are drawing. **Every edit is local; nothing here touches the network.**
  *
@@ -81,10 +86,7 @@ export function useGraph(
       // so the second call sees the first.
       const id = nextId(taken.current, contractId);
       taken.current.add(id);
-      edit((g) => ({
-        ...g,
-        nodes: [...g.nodes, { id, contract_id: contractId, params: [] }],
-      }));
+      edit((g) => withNode(g, { id, contract_id: contractId, params: [] }));
       return id;
     },
     [edit],
@@ -94,48 +96,29 @@ export function useGraph(
     (id: string) => (
       taken.current.delete(id),
       moved.current.delete(id),
-      edit((g) => ({
-        ...g,
-        nodes: g.nodes.filter((n) => n.id !== id),
-        // A wire to a node that is gone is not a wire; leaving it would make `validate`
-        // report MD0509 for something the person already deleted.
-        edges: g.edges.filter((e) => e.from_node !== id && e.to_node !== id),
-      }))
+      edit((g) => withoutNode(g, id))
     ),
     [edit],
   );
 
   const connect = useCallback(
     (fromNode: string, fromPort: string, toNode: string, toPort: string) =>
-      edit((g) => {
-        const wire = {
-          from_node: fromNode,
-          from_port: fromPort,
-          to_node: toNode,
-          to_port: toPort,
-        };
-        // Drawn twice is drawn once. MD0505 counts wires into a port, so a duplicate would
-        // report an arity error for a graph that has one wire in it.
-        if (g.edges.some((e) => sameEdge(e, wire))) return g;
-        return { ...g, edges: [...g.edges, wire] };
-      }),
+      edit((g) =>
+        withEdge(g, { from_node: fromNode, from_port: fromPort, to_node: toNode, to_port: toPort }),
+      ),
     [edit],
   );
 
   const disconnect = useCallback(
     (fromNode: string, fromPort: string, toNode: string, toPort: string) =>
-      edit((g) => ({
-        ...g,
-        edges: g.edges.filter(
-          (e) =>
-            !sameEdge(e, {
-              from_node: fromNode,
-              from_port: fromPort,
-              to_node: toNode,
-              to_port: toPort,
-            }),
-        ),
-      })),
+      edit((g) =>
+        withoutEdge(g, {
+          from_node: fromNode,
+          from_port: fromPort,
+          to_node: toNode,
+          to_port: toPort,
+        }),
+      ),
     [edit],
   );
 
@@ -151,16 +134,7 @@ export function useGraph(
    */
   const setParam = useCallback(
     (id: string, name: string, value: string | number | boolean | null) =>
-      edit((g) => ({
-        ...g,
-        nodes: g.nodes.map((n) => {
-          if (n.id !== id) return n;
-          const rest = (n.params ?? []).filter((p) => p.name !== name);
-          return value === null
-            ? { ...n, params: rest }
-            : { ...n, params: [...rest, { name, value, why: "" }] };
-        }),
-      })),
+      edit((g) => withParam(g, id, name, value)),
     [edit],
   );
 
@@ -181,10 +155,7 @@ export function useGraph(
    */
   const setLabel = useCallback(
     (key: string, label: string) =>
-      edit((g) => {
-        const rest = (g.labels ?? []).filter((l) => l.key !== key);
-        return { ...g, labels: label ? [...rest, { key, label }] : rest };
-      }),
+      edit((g) => withLabel(g, key, label)),
     [edit],
   );
 
@@ -200,14 +171,10 @@ export function useGraph(
    */
   const splitChannel = useCallback(
     (port: string) =>
-      edit((g) => {
-        const channels = g.channels ?? [];
-        if (channels.some((c) => c.ports.includes(port))) return g;
-        // `why: ""` explicitly, because splitting a channel is not yet a *scope* decision
-        // — it says these ports read different files, and the reason belongs to whoever later
-        // says one of them is per-sample. Empty is legal and is said in those words (A77).
-        return { ...g, channels: [...channels, { ports: [port], why: "" }] };
-      }),
+      // `why: ""` explicitly, because splitting a channel is not yet a *scope* decision — it
+      // says these ports read different files, and the reason belongs to whoever later says one
+      // of them is per-sample. Empty is legal and is said in those words (A77).
+      edit((g) => withSplit(g, port)),
     [edit],
   );
 
@@ -216,12 +183,7 @@ export function useGraph(
    *  resolver would have to decide what to do with. */
   const mergeChannel = useCallback(
     (port: string) =>
-      edit((g) => ({
-        ...g,
-        channels: (g.channels ?? [])
-          .map((c) => ({ ...c, ports: c.ports.filter((p) => p !== port) }))
-          .filter((c) => c.ports.length > 0),
-      })),
+      edit((g) => withMerge(g, port)),
     [edit],
   );
 
@@ -233,10 +195,7 @@ export function useGraph(
    */
   const replaceContract = useCallback(
     (id: string, contractId: string) =>
-      edit((g) => ({
-        ...g,
-        nodes: g.nodes.map((n) => (n.id === id ? { ...n, contract_id: contractId } : n)),
-      })),
+      edit((g) => withContract(g, id, contractId)),
     [edit],
   );
 

@@ -43,3 +43,16 @@ export type Kept = S["Kept"];
  *  has no type here on purpose: `docs/design/execution-boundary.md` §3. */
 export type GateView = S["GateView"];
 export type GateIn = S["GateIn"];
+
+/** The living pipeline — one authoring session, as the server restores it. */
+export type AuthoringSession = S["AuthoringSessionView"];
+export type AuthoringTurn = S["AuthoringTurnView"];
+export type AuthoringProposal = S["AuthoringProposalView"];
+export type AuthoringBlock = AuthoringTurn["blocks"][number];
+export type AuthoringStarted = S["AuthoringStarted"];
+export type AuthoringSaid = S["AuthoringSaid"];
+export type AuthoringDecided = S["AuthoringDecided"];
+export type AuthoringRetried = S["AuthoringRetried"];
+export type AuthoringPreview = S["AuthoringPreview"];
+export type BeginAuthoring = S["BeginAuthoring"];
+export type DecideProposal = S["DecideProposal"];

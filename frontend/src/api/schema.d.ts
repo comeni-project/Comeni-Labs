@@ -1448,6 +1448,11 @@ export interface components {
             block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
             /** Options */
             options: string[];
+            /**
+             * Edges
+             * @default []
+             */
+            edges: components["schemas"]["DraftEdge"][];
         };
         /** AuthoringRetried */
         AuthoringRetried: {
@@ -1477,6 +1482,7 @@ export interface components {
             goal: components["schemas"]["Goal-Output"] | null;
             /** Revision */
             revision: number;
+            graph: components["schemas"]["DraftGraph"];
             /** Row Version */
             row_version: number;
             /** Model Configured */
