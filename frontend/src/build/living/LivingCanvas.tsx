@@ -39,6 +39,7 @@ export function LivingCanvas({
   instead = null,
   events = [],
   onPlayed = () => undefined,
+  reveal = {},
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -57,6 +58,8 @@ export function LivingCanvas({
   instead?: string | null;
   events?: MotionEvent[];
   onPlayed?: (event: MotionEvent) => void;
+  /** Spawn's first-arrival reveal: a delay per step, in ms. Empty on reload. */
+  reveal?: Record<string, number>;
 }) {
   const view = useView();
   const [moved, setMoved] = useState<Positions>({});
@@ -229,7 +232,8 @@ export function LivingCanvas({
             ghost={isGhost}
             instead={isGhost ? instead : null}
             selected={selected === id}
-            className={played?.className}
+            className={id in reveal ? "living-reveal" : played?.className}
+            delay={reveal[id]}
             onAnimationEnd={played ? () => onPlayed(played.event) : undefined}
             onSelect={() => {
               if (!drag.current?.travelled) onSelect(id);

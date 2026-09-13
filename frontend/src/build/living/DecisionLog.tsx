@@ -67,6 +67,7 @@ export function DecisionLog({
   ].sort((a, b) => (a.at === b.at ? a.order - b.order : a.at < b.at ? -1 : 1));
 
   const accepted = new Set(session.history.filter((d) => d.state === "accepted").map((d) => d.block.id));
+  const acceptedBy = new Map(session.history.map((d) => [d.block.id, d.by ?? ""] as const));
   const pending = session.pending_proposal;
   const stepsSoFar = session.history.filter((d) => d.kind === "step").length;
   const stepNumber = new Map(
@@ -95,6 +96,7 @@ export function DecisionLog({
         {entries.map((entry) =>
           entry.kind === "turn" ? (
             <TurnEntry key={`t${entry.turn.seq}`} turn={entry.turn} accepted={accepted}
+                       acceptedBy={acceptedBy}
                        offered={pending?.kind === "goal" ? pending.block.id : null}
                        failedPhase={session.phase === "failed"} onRetry={onRetry}
                        onSetParam={onSetParam} onApplyChange={onApplyChange} />
@@ -164,6 +166,7 @@ export function DecisionLog({
 function TurnEntry({
   turn,
   accepted,
+  acceptedBy,
   offered,
   failedPhase,
   onRetry,
@@ -172,6 +175,8 @@ function TurnEntry({
 }: {
   turn: AuthoringSession["turns"][number];
   accepted: Set<string>;
+  /** Who accepted each answered block — a Spawn goal is accepted by policy on the model's reading. */
+  acceptedBy: Map<string, string>;
   /** The goal summary currently on offer as a card — drawn there, and so not drawn here. */
   offered: string | null;
   failedPhase: boolean;
@@ -221,8 +226,9 @@ function TurnEntry({
         // A goal summary that was confirmed collapses to one line, like every answered decision.
         if (block.kind === "goal_summary" && accepted.has(block.id)) {
           return (
-            <Turn key={block.id} tick="person">
-              <Collapsed name="Goal confirmed" detail={block.get} by="you chose" />
+            <Turn key={block.id} tick={acceptedBy.get(block.id) === "model" ? "model" : "person"}>
+              <Collapsed name="Goal confirmed" detail={block.get}
+                         by={acceptedBy.get(block.id) === "model" ? "read by the model" : "you chose"} />
             </Turn>
           );
         }

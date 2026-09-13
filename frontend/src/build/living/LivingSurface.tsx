@@ -49,6 +49,7 @@ export function LivingSurface({
   onApplyChange,
   channels = [],
   onPlayed = () => undefined,
+  reveal = {},
 }: {
   session: AuthoringSession;
   graph: DraftGraph;
@@ -71,6 +72,7 @@ export function LivingSurface({
   /** Where data enters and how often — the drawn view's channels, from the server. */
   channels?: components["schemas"]["ChannelView"][];
   onPlayed?: (event: MotionEvent) => void;
+  reveal?: Record<string, number>;
 }) {
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
   const [browsing, setBrowsing] = useState(false);
@@ -106,6 +108,7 @@ export function LivingSurface({
             channels={channels}
             events={state.events}
             onPlayed={onPlayed}
+            reveal={reveal}
             positions={session.placement}
             steps={steps}
             authors={authors}

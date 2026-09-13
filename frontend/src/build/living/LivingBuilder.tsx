@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { post } from "../../api/client";
@@ -9,6 +9,7 @@ import { authoringReducer, initialAuthoring, visibleGraph } from "./authoringRed
 import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
 import { LivingSurface } from "./LivingSurface";
+import { lastSeen, markSeen, revealPlan } from "./replay";
 import { useAuthoringSession } from "./useAuthoringSession";
 
 type ChangeBlock = Extract<AuthoringBlock, { kind: "change_set" }>;
@@ -45,6 +46,7 @@ function idFor(graph: DraftGraph, contract: string): string {
 function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId);
   const drawn = useDrawn(living.graph, living.session);
+  const reveal = useFirstArrival(sessionId, living.session);
 
   if (living.loading) {
     return <p className="gutter py-10 text-[13px] text-ink-3" data-testid="living-loading">Opening…</p>;
@@ -65,6 +67,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       steps={drawn.steps}
       channels={drawn.channels}
       onPlayed={living.consumed}
+      reveal={reveal}
       state={living.state}
       preview={living.preview}
       busy={living.busy}
@@ -87,6 +90,33 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
         living.edit(block.removes.reduce(withoutNode, graph))}
     />
   );
+}
+
+/** Spawn's reveal plan, computed **once** when the session first arrives in this tab.
+ *
+ * Held in a ref, because the count is written to `sessionStorage` straight away: recomputing on the
+ * next render would read the count just written and plan nothing, cutting the reveal off mid-play.
+ */
+export function useFirstArrival(sessionId: string, session: AuthoringSession | null) {
+  const plan = useRef<Record<string, number> | null>(null);
+  const accepted = session
+    ? session.history.filter((d) => d.kind === "step" && d.state === "accepted")
+    : [];
+
+  if (plan.current === null && session !== null) {
+    const seen = session.mode === "spawn" ? (lastSeen(sessionId) ?? 0) : accepted.length;
+    const fresh = accepted
+      .slice(seen)
+      .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""))
+      .filter((node) => node && session.placement[node]);
+    plan.current = revealPlan(fresh, (node) => session.placement[node]?.x ?? 0);
+  }
+
+  useEffect(() => {
+    if (session !== null) markSeen(sessionId, accepted.length);
+  }, [sessionId, session, accepted.length]);
+
+  return plan.current ?? {};
 }
 
 /** Ports and tiers for what is on the canvas, from the server's drawn view of it.

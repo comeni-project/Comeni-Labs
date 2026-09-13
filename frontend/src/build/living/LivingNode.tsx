@@ -33,6 +33,7 @@ export function LivingNode({
   runs,
   perItem = false,
   className,
+  delay,
   onAnimationEnd,
   onPointerDown,
   onPointerMove,
@@ -59,6 +60,8 @@ export function LivingNode({
   perItem?: boolean;
   /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
   className?: string;
+  /** When this step's reveal starts, for Spawn's staged arrival. */
+  delay?: number;
   onAnimationEnd?: () => void;
   onPointerDown?: (e: React.PointerEvent) => void;
   onPointerMove?: (e: React.PointerEvent) => void;
@@ -92,6 +95,7 @@ export function LivingNode({
         border: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
         borderLeft: `3px ${author === "model" ? "dashed" : "solid"} ${selected ? "var(--link)" : bar}`,
         boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--link) 26%, transparent)" : undefined,
+        animationDelay: delay === undefined ? undefined : `${delay}ms`,
       }}
     >
       {/* **Ports, as the collection grammar draws them**: a square for a single value, a tall

@@ -25,7 +25,7 @@ describe("what is kept in the browser", () => {
     // The prompt and the transcript are durable on the server. A browser copy would be a second
     // record of what somebody typed about their analysis, on a machine the platform does not
     // control, and it would outlive the session it came from.
-    const files = sources();
+    const files = sources().filter((file) => file !== "replay.ts");
     expect(files.length).toBeGreaterThan(5);
     for (const file of files) {
       // **Use, not the word.** The first version matched the bare name and fired on the hook's
@@ -65,5 +65,17 @@ describe("reduced motion", () => {
       expect(block![1]).toContain(name);
     }
     expect(block![1]).toMatch(/animation:\s*none/);
+  });
+});
+
+describe("the one storage exception", () => {
+  it("is replay.ts, it is sessionStorage, and what it writes is a count", () => {
+    // Task 12 permits exactly this: the last-seen number, in `sessionStorage`, never transcript
+    // content. Held by reading the file rather than trusting its docstring.
+    const text = readFileSync(join(HERE, "replay.ts"), "utf8");
+    expect(text).not.toMatch(/\blocalStorage\s*[.[]/);
+    const writes = [...text.matchAll(/sessionStorage\.setItem\(([^;]*)\);/g)].map((m) => m[1]);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatch(/String\(Math\.max\(0, Math\.floor\(count\)\)\)/);
   });
 });

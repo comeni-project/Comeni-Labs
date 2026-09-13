@@ -330,6 +330,17 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     )
     if stepped.settlement.refusal is not None:
         raise ValueError(stepped.settlement.refusal)
+    if _view(session_id).mode is Mode.SPAWN:
+        # A person answered the card Spawn stopped on; the policy carries on from there. Every
+        # step it takes is settled — no model call — so it runs in the request.
+        authoring.spawn_forward(session_id)
+        after = _view(session_id)
+        return AuthoringDecided(
+            phase=after.phase,
+            revision=after.revision,
+            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
+            queued=False,
+        )
     return AuthoringDecided(
         phase=stepped.phase,
         revision=stepped.revision,
@@ -482,7 +493,12 @@ def _ai_for(mode: Mode, provenance: DraftProvenance) -> AiProvenance:
     """
     if model_access() is None:
         return AiProvenance(available=[], used=[])
-    available = [AiPoint.PROMPT] + ([AiPoint.TIER_4] if mode is Mode.SPAWN else [])
+    # **What the installation offers, never what the mode used.** This was mode-dependent for three
+    # tasks — Build `[prompt]`, Spawn `[prompt, tier4]` — which would have made Build and Spawn over
+    # one deterministic goal emit different YAML: a mode selecting a different artifact, which is
+    # exactly what Task 12 says a mode must not do. `used` is where the difference belongs.
+    del mode
+    available = [AiPoint.PROMPT, AiPoint.TIER_4]
     modelled = any(
         entry.selection is not None and entry.selection.source is ValueSource.MODEL
         for entry in provenance.nodes

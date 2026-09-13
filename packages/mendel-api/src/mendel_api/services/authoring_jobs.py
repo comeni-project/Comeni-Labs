@@ -26,11 +26,13 @@ from mendel_api.authoring.types import (
     AuthoringIntent,
     GoalSummary,
     GoalUnderstanding,
+    Mode,
     Narrative,
     Notice,
     NoticeKind,
     Option,
     Phase,
+    ProposalState,
     Question,
 )
 from mendel_api.db import session_scope
@@ -160,6 +162,19 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     )
     authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=_version(session_id))
 
+    # **Spawn shows the goal and proceeds when it is valid; it pauses only on a question.**
+    # §1.2's table. A goal with an open question — the grouping question above all — stops here
+    # for a person exactly as Build does; one with none is accepted by the policy and built.
+    if authoring.mode_of(session_id) is Mode.SPAWN and not understood.questions:
+        pending = authoring.pending_id(session_id)
+        if pending is not None:
+            outcome, phase = authoring.decide_goal(
+                pending, ProposalState.ACCEPTED, expected_revision=context.revision, by="model"
+            )
+            if outcome.refusal is None and phase is Phase.RESOLVING:
+                authoring.start_building(session_id, client=_client())
+                authoring.spawn_forward(session_id)
+
 
 def _follow_up(session_id: str, seq: int, context) -> None:
     request = authoring_ai.compose(
@@ -271,6 +286,7 @@ async def build_authoring_blueprint(ctx: dict, session_id: str) -> str:
     """
     try:
         authoring.start_building(session_id, client=_client())
+        authoring.spawn_forward(session_id)
     except ValueError as refused:
         log.warning("blueprint for %s refused: %s", session_id, str(refused).splitlines()[0])
     return session_id

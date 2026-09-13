@@ -282,7 +282,20 @@ def test_accepting_the_goal_builds_inline_and_offers_the_first_step(
 
 @needs_db
 def test_a_spawn_goal_is_resolved_on_the_ai_worker(client, clean, queue, monkeypatch):
-    session = _goal_review(client, queue, monkeypatch, mode="spawn")
+    """A Spawn goal a person had to confirm — one that paused on an open question — is built on the
+    AI worker. **Since Task 12 a Spawn goal with no question does not pause at all**, which is why
+    this uses one that asks: the route under test is the person's confirmation, not the policy."""
+    session_id, seq = _begin(client, queue, "spawn")
+    asking = json.loads(GOAL)
+    asking["questions"] = [{
+        "asks": "how do the files group?",
+        "why_open": "it changes the pipeline",
+        "choices": ["paired", "independent"],
+        "exhaustive": False,
+    }]
+    _model(monkeypatch, json.dumps(asking))
+    _run(session_id, seq)
+    session = _session(client, session_id)
     proposal = session["pending_proposal"]
     decided = client.post(
         f"/api/pipeline/authoring/{session['id']}/proposals/{proposal['id']}/decide",
@@ -293,7 +306,9 @@ def test_a_spawn_goal_is_resolved_on_the_ai_worker(client, clean, queue, monkeyp
     # which changes what keeping it builds — and any acceptance is a change to the draft.
     assert decided == {"phase": "resolving", "revision": 1, "next_proposal": None, "queued": True}
     asyncio.run(authoring_jobs.build_authoring_blueprint({}, session["id"]))
-    assert _session(client, session["id"])["phase"] == "building"
+    # Spawn does not stop at the first step: the policy accepts every settled one, so the RNA-seq
+    # blueprint — no tier-4 step choice — is complete by the end of the job.
+    assert _session(client, session["id"])["phase"] == "complete"
 
 
 @needs_db

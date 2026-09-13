@@ -393,6 +393,10 @@ body {
 .living-pop { animation: living-pop 180ms var(--ease) backwards; }
 .living-settle { animation: living-settle 220ms var(--ease) backwards; }
 .living-draw { stroke-dasharray: 1; animation: living-draw 520ms var(--ease) backwards; }
+/* Spawn's first-arrival reveal: invisible until its delay, then placed. `both`, so a step waiting
+   its turn is not drawn early. */
+@keyframes living-reveal { from { opacity: 0; transform: translateY(4px); } }
+.living-reveal { animation: living-reveal 260ms var(--ease) both; }
 @media (prefers-reduced-motion: reduce) {
-  .living-pop, .living-settle, .living-draw { animation: none !important; stroke-dasharray: none; }
+  .living-pop, .living-settle, .living-draw, .living-reveal { animation: none !important; stroke-dasharray: none; }
 }

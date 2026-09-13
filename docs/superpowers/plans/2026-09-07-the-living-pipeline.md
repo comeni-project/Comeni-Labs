@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 11 complete
+**Status:** in progress — Tasks 1 to 12 complete
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -1147,25 +1147,64 @@ propagation from `_runs` fails only the per-item test.
 **Files:** authoring policy service, mode controls, session controller, and end-to-end fake-model
 tests.
 
-- [ ] Make the opening mode choice set only the session policy; it must not select a different
+- [x] Make the opening mode choice set only the session policy; it must not select a different
   route, graph type, YAML writer, or component tree.
-- [ ] In Spawn, automatically accept resolver-settled proposals and model-admitted tier-4 closed
+- [x] In Spawn, automatically accept resolver-settled proposals and model-admitted tier-4 closed
   choices in one server transaction or an idempotent sequence. Keep every proposal/decision in
   history so the completed result is explainable.
-- [ ] Stop on a missing candidate, unsupported open value, model refusal, stale registry, or
+- [x] Stop on a missing candidate, unsupported open value, model refusal, stale registry, or
   illegal graph. Present the same actionable card Build would have presented.
-- [ ] On first arrival, replay the accepted proposal event sequence as a short staged reveal.
+- [x] On first arrival, replay the accepted proposal event sequence as a short staged reveal.
   Cap total duration and group bursts for a long pipeline. On reload, show the completed graph
   immediately; do not replay a ten-second animation every time. Store only the last-seen event
   sequence number in `sessionStorage`, never transcript content.
-- [ ] Keep model provenance on model choices and resolver provenance on deterministic choices.
+- [x] Keep model provenance on model choices and resolver provenance on deterministic choices.
   “Spawn” is not permission to label the whole graph AI-authored.
-- [ ] Test that Build and Spawn over an all-deterministic goal end at equal `DraftGraph` and YAML,
+- [x] Test that Build and Spawn over an all-deterministic goal end at equal `DraftGraph` and YAML,
   while their interaction histories differ. Add a tier-4 case proving author provenance differs
   only at the actual model decision.
 
 **Checkpoint:** Build and Spawn converge on one artifact for the RNA-seq fixture; Spawn merely
-traverses the proposal policy automatically.
+traverses the proposal policy automatically.**Met** —
+`test_build_and_spawn_converge_on_one_draft_and_one_yaml` builds the RNA-seq fixture both ways and
+compares the draft and the preview YAML byte for byte, then finds Build's history answered by a
+person and Spawn's by the author it relied on.
+
+### Execution record
+
+**Five things a reader should know before Task 13:**
+
+1. **Spawn is a loop over Build's own commit.** `spawn_forward` calls `settle_step` once per
+   proposal — no second commit path — accepting a step the resolver settled at tiers 1–3, or a
+   tier-4 step a model chose. It stops, leaving the proposal pending for the card Build shows, on a
+   tier-4 step the flag settled (no model, a refusal, no candidate the model could take), a graph
+   `validate` calls illegal with the step, and any refusal from the commit — a moved registry
+   included. It runs after the build job and after a person answers the card it stopped on.
+2. **Acceptances are recorded against the author the policy relied on** — `resolver` or `model` —
+   never `spawn`: the policy decided nothing, it only declined to ask. A goal Spawn proceeds past
+   is recorded as the model's reading, and the log says *read by the model*.
+3. **A Spawn goal pauses only on an open question**, per §1.2's table; with none, the understanding
+   job accepts it, builds the blueprint and runs the policy in the same job. Two Task 7 route tests
+   encoded the old behaviour — a Spawn goal waiting in review, and a build stopping at step one —
+   and now use a goal that asks, with the build ending `complete`.
+4. **`ai.available` was mode-dependent for three tasks**, `[prompt]` in Build and `[prompt, tier4]`
+   in Spawn, which would have made the two modes emit different YAML over one goal — a mode
+   selecting a different artifact, exactly what the first box forbids. It now follows the
+   installation; `used` is where the modes differ.
+5. **The reveal plays once per tab.** Steps accepted since this tab last looked appear column by
+   column, pauses shrinking so the whole takes at most 2.4s; a reload shows the pipeline at once.
+   Only a count is stored, in `sessionStorage`, from `replay.ts` — the one file the storage guard
+   now exempts, and the guard reads that file to check what it writes is a number.
+
+**The shipped registry has no tier-4 step choice**, so the model half is proved by rewriting one
+stored step to `tier: 4, source: model` — authorship then differs at that step and nowhere else —
+and to `source: resolver`, where Spawn stops on it.
+
+**Watched failing against the specific defect:** accepting a flag-settled tier-4 step fails only
+the stop test; recording `spawn` as the author fails only the convergence test's history check;
+mode-dependent `available` fails only its test; a reveal that replays on reload, an uncapped pause,
+and storing more than a count each fail their own tests.
+
 
 ---
 
