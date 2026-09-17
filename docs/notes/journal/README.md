@@ -17,7 +17,13 @@ earlier one — the same discipline as `audits/` and for the same reason.
 ## Reading it
 
 > **The newest entry is
-> [`2026-09-13-the-living-pipeline-built-not-walked.md`](2026-09-13-the-living-pipeline-built-not-walked.md)**
+> [`2026-09-17-labs-in-the-hybrid-identity.md`](2026-09-17-labs-in-the-hybrid-identity.md)**
+> — a design session, not code: Labs redrawn in the identity it now shares with Comeni Code, the
+> decision to stay on FastAPI, and the order the screens move in. **Read it before changing how a
+> screen looks. It is not the build handoff** — the entry below still is.
+>
+> Before it, **the build handoff,**
+> [`2026-09-13-the-living-pipeline-built-not-walked.md`](2026-09-13-the-living-pipeline-built-not-walked.md)
 > — thirteen of the living pipeline's fourteen tasks, and a handoff. Build and Spawn converge on one
 > draft and one YAML in tests; **nobody has yet described an analysis in a browser with a real model
 > behind it**, and that walk is Task 14. Read its *What to do next* before starting.

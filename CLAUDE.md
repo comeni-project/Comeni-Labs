@@ -86,6 +86,9 @@ it up is what 2026-09-02 was.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — which is
+> [`2026-09-17-labs-in-the-hybrid-identity.md`](docs/notes/journal/2026-09-17-labs-in-the-hybrid-identity.md),
+> a design session: the screens move to the identity shared with Comeni Code, and Labs stays on
+> FastAPI. **The build handoff is still the entry before it,**
 > [`2026-09-13-the-living-pipeline-built-not-walked.md`](docs/notes/journal/2026-09-13-the-living-pipeline-built-not-walked.md).
 > **The living pipeline is 13 of 14 tasks complete and has not been walked.** A researcher can
 > describe an analysis on the first-run screen, choose Build or Spawn, and build it beside a
