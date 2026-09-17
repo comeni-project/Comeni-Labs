@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; background: #F4F5F8; }
+    a { color: #2F6FEB; text-decoration: none; } a:hover { color: #171A26; }
+  </style>
+</helmet>
+<div style="width:1440px;height:1100px;display:flex;flex-direction:column;background:#F4F5F8;color:#171A26;font-family:'Lexend', system-ui, sans-serif;overflow:hidden">
+<header style="height:60px;flex:none;display:flex;align-items:center;gap:26px;padding:0 28px;border-bottom:1px solid #E1E4EC;background:#F4F5F8">
+  <div style="display:flex;align-items:center;gap:10px">
+  <svg width="30" height="16" viewBox="0 0 30 16"><line x1="3" y1="8" x2="27" y2="8" style="stroke:#0F9D7A;stroke-width:4;stroke-linecap:round"></line><circle cx="4" cy="8" r="3.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:2"></circle><circle cx="15" cy="8" r="3.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:2"></circle><circle cx="26" cy="8" r="3.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:2"></circle></svg>
+  <span style="font-size:17px;font-weight:700;letter-spacing:-.01em">Comeni Labs</span></div>
+  <nav style="display:flex;align-items:center;gap:4px;font-size:14px"><span style="padding:6px 12px;border:1px solid transparent;color:#474D63">Build</span><span style="padding:6px 12px;border:1px solid transparent;color:#474D63">Runs</span><span style="padding:6px 12px;border:1px solid transparent;color:#474D63">Registry</span></nav>
+  <div style="display:flex;align-items:center;gap:10px;width:400px;height:38px;padding:0 14px;border-radius:10px;border:1px solid #C9CEDB;background:#FFFFFF;color:#666C84;font-size:13.5px;margin-left:auto">
+    <svg width="15" height="15" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" style="fill:none;stroke:currentColor;stroke-width:1.6"></circle><path d="M11 11l3.5 3.5" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round"></path></svg><span>Describe an analysis, or jump to one</span><span style="margin-left:auto"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:11px;padding:1px 6px;border-radius:5px;border:1px solid #C9CEDB;background:#F4F5F8;color:#474D63">⌘K</span></span></div>
+  <div style="display:flex;align-items:center;gap:16px;font-size:13px;color:#474D63">
+    <span style="display:inline-flex;align-items:center;gap:7px"><svg width="22" height="10" viewBox="0 0 22 10"><line x1="2" y1="5" x2="20" y2="5" style="stroke:#0F9D7A;stroke-width:3;stroke-linecap:round"></line><circle cx="4" cy="5" r="2.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:1.5"></circle><circle cx="18" cy="5" r="2.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:1.5"></circle></svg>Learn in Code</span>
+    <span style="width:28px;height:28px;border-radius:50%;border:1px solid #C9CEDB;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#474D63">?</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:999px;border:1px solid #E1E4EC;background:#FFFFFF;color:#171A26">
+      <span style="width:24px;height:24px;border-radius:50%;background:#E6EEFD;color:#2F6FEB;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">FL</span>Ferreira lab<svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3" style="fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"></path></svg></span>
+  </div>
+</header>
+  <main style="flex:1;display:flex;flex-direction:column;gap:22px;padding:28px 28px 32px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.15;text-wrap:balance">Ferreira lab</h1><span style="font-size:14px;color:#474D63">5 pipelines · 1 run going · 4 values need a person</span></div>
+      <div style="display:flex;gap:10px"><span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;background:#FFFFFF;border:1px solid #C9CEDB;color:#171A26;font-size:13px;font-weight:500">Import pipeline.yml</span><span style="display:inline-flex;align-items:center;gap:8px;padding:10px 26px;border-radius:10px;background:#0B7F63;color:#FFFFFF;font-size:14.5px;font-weight:600;box-shadow:0 3px 0 #075C48">New analysis</span></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:16px">
+      <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600;">Running now</span><span style="display:inline-flex;align-items:center;gap:8px;color:#2F6FEB;font-weight:600;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:#2F6FEB;box-shadow:0 0 0 4px #E6EEFD"></span></span>running</span></div>
+        <span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:15px;font-weight:500">rnaseq-counts <span style="color:#666C84;font-size:12px">b71e04d2</span></span>
+        <div style="display:flex;gap:3px"><span style="flex:1;height:7px;border-radius:3px;background:#0F9D7A"></span><span style="flex:1;height:7px;border-radius:3px;background:#0F9D7A"></span><span style="flex:1;height:7px;border-radius:3px;background:#0F9D7A"></span><span style="flex:1;height:7px;border-radius:3px;background:#2F6FEB"></span><span style="flex:1;height:7px;border-radius:3px;background:#E1E4EC"></span><span style="flex:1;height:7px;border-radius:3px;background:#E1E4EC"></span></div>
+        <span style="font-size:13px;color:#474D63">3 of 6 steps · on SAMTOOLS_SORT, 9 of 12 tasks · 21m 40s</span>
+        <span style="font-size:12.5px;color:#666C84">Started by R. Correia · relaunch of a3f9c2e1 with more memory</span></div>
+      <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600;">Waiting on a person</span><span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;background:#FCE5E6;color:#C92F36;font-weight:600">4 values</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #E1E4EC;font-size:13px">
+          <span style="width:9px;height:9px;border-radius:50%;border:2.5px solid #C92F36;flex:none"></span>
+          <span style="font-family:'Geist Mono', ui-monospace, monospace;font-weight:500">atac-peaks</span><span style="color:#474D63;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">strandedness and fragment size</span><a style="font-weight:500">Answer</a></div><div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #E1E4EC;font-size:13px">
+          <span style="width:9px;height:9px;border-radius:50%;border:2.5px solid #C92F36;flex:none"></span>
+          <span style="font-family:'Geist Mono', ui-monospace, monospace;font-weight:500">rnaseq-counts</span><span style="color:#474D63;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">strandedness</span><a style="font-weight:500">Answer</a></div><div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #E1E4EC;font-size:13px">
+          <span style="width:9px;height:9px;border-radius:50%;border:2.5px solid #C92F36;flex:none"></span>
+          <span style="font-family:'Geist Mono', ui-monospace, monospace;font-weight:500">16s-profile</span><span style="color:#474D63;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">primer set</span><a style="font-weight:500">Answer</a></div>
+        <span style="font-size:12.5px;color:#666C84">No rule could settle these, so nothing runs until someone answers.</span></div>
+      <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600;">Went wrong</span><span style="display:inline-flex;align-items:center;gap:8px;color:#C92F36;font-weight:600;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="width:10px;height:10px;border-radius:2px;background:#C92F36;transform:rotate(45deg)"></span></span>failed</span></div>
+        <span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:15px;font-weight:500">rnaseq-counts <span style="color:#666C84;font-size:12px">a3f9c2e1</span></span>
+        <span style="font-size:13px;color:#474D63">STAR_ALIGN on SRR6357072 exited <b style="color:#171A26">137</b> on its third attempt, at 71.4 of 72 GB.</span>
+        <div style="display:flex;gap:8px;align-items:center"><span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;background:#FFFFFF;border:1px solid #C9CEDB;color:#171A26;font-size:13px;font-weight:500">Open the run</span><span style="font-size:12.5px;color:#666C84">relaunched · see Running now</span></div></div>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:minmax(0, 1fr) 380px;gap:18px;min-height:0">
+      <section style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:14px"><span style="font-size:15px;font-weight:600;font-size:17px">The lab’s work</span><div style="display:flex;padding:3px;border-radius:10px;background:#F4F5F8;border:1px solid #E1E4EC"><span style="padding:5px 13px;border-radius:7px;font-size:12.5px;background:#FFFFFF;color:#171A26;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)">By pipeline</span><span style="padding:5px 13px;border-radius:7px;font-size:12.5px;color:#474D63">By run</span></div></div>
+          <div style="display:flex;align-items:center;gap:8px;width:240px;height:34px;padding:0 12px;border-radius:9px;border:1px solid #C9CEDB;background:#FFFFFF;font-size:13px;color:#666C84"><svg width="15" height="15" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" style="fill:none;stroke:currentColor;stroke-width:1.6"></circle><path d="M11 11l3.5 3.5" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round"></path></svg>Filter pipelines</div>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:minmax(0, 1.6fr) 160px 70px 110px 110px;gap:14px;padding:9px 16px;font-size:11.5px;color:#666C84"><span>Pipeline</span><span>How it was decided</span><span style="text-align:right">Runs</span><span>Last outcome</span><span>Owner</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0, 1.6fr) 160px 70px 110px 110px;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid #E1E4EC;font-size:13px">
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:13.5px;font-weight:500">rnaseq-counts</span><span style="color:#474D63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">gene counts from paired RNA-seq reads · 6 steps</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px;width:150px">
+    <div style="display:flex;gap:2px;height:6px"><span style="width:87.8048780487805%;background:#C9CEDB;border-radius:2px"></span><span style="width:9.75609756097561%;background:#D08A10;border-radius:2px"></span><span style="width:2.4390243902439024%;background:#C92F36;border-radius:2px"></span></div>
+    <span style="font-size:11.5px;color:#666C84;font-variant-numeric:tabular-nums">36 settled · <span style="color:#9A5B00">4 measured</span> · <span style="color:#C92F36;font-weight:600">1 open</span></span></div>
+    <span style="text-align:right;font-variant-numeric:tabular-nums">31</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;color:#2F6FEB;font-weight:600;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:#2F6FEB;box-shadow:0 0 0 4px #E6EEFD"></span></span>running</span>
+    <span style="color:#474D63">R. Correia</span></div><div style="display:grid;grid-template-columns:minmax(0, 1.6fr) 160px 70px 110px 110px;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid #E1E4EC;font-size:13px">
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:13.5px;font-weight:500">atac-peaks</span><span style="color:#474D63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">peaks from paired ATAC-seq reads · 7 steps</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px;width:150px">
+    <div style="display:flex;gap:2px;height:6px"><span style="width:87.87878787878788%;background:#C9CEDB;border-radius:2px"></span><span style="width:6.0606060606060606%;background:#D08A10;border-radius:2px"></span><span style="width:6.0606060606060606%;background:#C92F36;border-radius:2px"></span></div>
+    <span style="font-size:11.5px;color:#666C84;font-variant-numeric:tabular-nums">29 settled · <span style="color:#9A5B00">2 measured</span> · <span style="color:#C92F36;font-weight:600">2 open</span></span></div>
+    <span style="text-align:right;font-variant-numeric:tabular-nums">8</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;color:#C92F36;font-weight:600;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:2.5px solid #C92F36"></span></span>needs you</span>
+    <span style="color:#474D63">M. Silva</span></div><div style="display:grid;grid-template-columns:minmax(0, 1.6fr) 160px 70px 110px 110px;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid #E1E4EC;font-size:13px">
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:13.5px;font-weight:500">wgs-variants</span><span style="color:#474D63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">small variants from whole-genome reads · 11 steps</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px;width:150px">
+    <div style="display:flex;gap:2px;height:6px"><span style="width:90.625%;background:#C9CEDB;border-radius:2px"></span><span style="width:9.375%;background:#D08A10;border-radius:2px"></span></div>
+    <span style="font-size:11.5px;color:#666C84;font-variant-numeric:tabular-nums">58 settled · <span style="color:#9A5B00">6 measured</span> · <span style="color:#666C84;">0 open</span></span></div>
+    <span style="text-align:right;font-variant-numeric:tabular-nums">14</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;color:#474D63;font-weight:500;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="display:flex;color:#474D63"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" style="fill:none;stroke:#474D63;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"></path></svg></span></span>succeeded</span>
+    <span style="color:#474D63">J. Costa</span></div><div style="display:grid;grid-template-columns:minmax(0, 1.6fr) 160px 70px 110px 110px;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid #E1E4EC;font-size:13px">
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:13.5px;font-weight:500">16s-profile</span><span style="color:#474D63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">community profile from 16S amplicons · 5 steps</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px;width:150px">
+    <div style="display:flex;gap:2px;height:6px"><span style="width:94.44444444444444%;background:#C9CEDB;border-radius:2px"></span><span style="width:5.555555555555555%;background:#C92F36;border-radius:2px"></span></div>
+    <span style="font-size:11.5px;color:#666C84;font-variant-numeric:tabular-nums">17 settled · <span style="color:#666C84">0 measured</span> · <span style="color:#C92F36;font-weight:600">1 open</span></span></div>
+    <span style="text-align:right;font-variant-numeric:tabular-nums">0</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;color:#C92F36;font-weight:600;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:2.5px solid #C92F36"></span></span>needs you</span>
+    <span style="color:#474D63">A. Reis</span></div><div style="display:grid;grid-template-columns:minmax(0, 1.6fr) 160px 70px 110px 110px;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid #E1E4EC;font-size:13px">
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:13.5px;font-weight:500">chip-peaks</span><span style="color:#474D63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">binding sites from ChIP-seq reads · 6 steps</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px;width:150px">
+    <div style="display:flex;gap:2px;height:6px"><span style="width:91.17647058823529%;background:#C9CEDB;border-radius:2px"></span><span style="width:8.823529411764707%;background:#D08A10;border-radius:2px"></span></div>
+    <span style="font-size:11.5px;color:#666C84;font-variant-numeric:tabular-nums">31 settled · <span style="color:#9A5B00">3 measured</span> · <span style="color:#666C84;">0 open</span></span></div>
+    <span style="text-align:right;font-variant-numeric:tabular-nums">5</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;color:#474D63;font-weight:500;white-space:nowrap"><span style="width:16px;display:flex;justify-content:center"><span style="display:flex;color:#474D63"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" style="fill:none;stroke:#474D63;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"></path></svg></span></span>succeeded</span>
+    <span style="color:#474D63">M. Silva</span></div>
+        </div>
+        <span style="font-size:12.5px;color:#666C84">“How it was decided” counts every value in the pipeline: settled by a rule or a convention, measured from your files, or still open.</span>
+        <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600;">Compute this month</span><span style="font-size:12.5px;color:#666C84">reserved against what tasks actually used</span></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:grid;grid-template-columns:130px 1fr 150px;align-items:center;gap:12px;font-size:12.5px">
+              <span style="font-family:'Geist Mono', ui-monospace, monospace">wgs-variants</span>
+              <div style="position:relative;height:10px"><span style="position:absolute;left:0;top:0;height:10px;width:100%;border-radius:3px;background:#ECEFF5;border:1px solid #C9CEDB;box-sizing:border-box"></span><span style="position:absolute;left:0;top:0;height:10px;width:20%;border-radius:3px;background:#D08A10"></span></div>
+              <span style="text-align:right;color:#474D63;font-variant-numeric:tabular-nums">820 / 164 GB·h</span></div><div style="display:grid;grid-template-columns:130px 1fr 150px;align-items:center;gap:12px;font-size:12.5px">
+              <span style="font-family:'Geist Mono', ui-monospace, monospace">rnaseq-counts</span>
+              <div style="position:relative;height:10px"><span style="position:absolute;left:0;top:0;height:10px;width:34%;border-radius:3px;background:#ECEFF5;border:1px solid #C9CEDB;box-sizing:border-box"></span><span style="position:absolute;left:0;top:0;height:10px;width:20%;border-radius:3px;background:#D08A10"></span></div>
+              <span style="text-align:right;color:#474D63;font-variant-numeric:tabular-nums">279 / 164 GB·h</span></div><div style="display:grid;grid-template-columns:130px 1fr 150px;align-items:center;gap:12px;font-size:12.5px">
+              <span style="font-family:'Geist Mono', ui-monospace, monospace">atac-peaks</span>
+              <div style="position:relative;height:10px"><span style="position:absolute;left:0;top:0;height:10px;width:14.000000000000002%;border-radius:3px;background:#ECEFF5;border:1px solid #C9CEDB;box-sizing:border-box"></span><span style="position:absolute;left:0;top:0;height:10px;width:12%;border-radius:3px;background:#D08A10"></span></div>
+              <span style="text-align:right;color:#474D63;font-variant-numeric:tabular-nums">115 / 98 GB·h</span></div><div style="display:grid;grid-template-columns:130px 1fr 150px;align-items:center;gap:12px;font-size:12.5px">
+              <span style="font-family:'Geist Mono', ui-monospace, monospace">chip-peaks</span>
+              <div style="position:relative;height:10px"><span style="position:absolute;left:0;top:0;height:10px;width:9%;border-radius:3px;background:#ECEFF5;border:1px solid #C9CEDB;box-sizing:border-box"></span><span style="position:absolute;left:0;top:0;height:10px;width:8%;border-radius:3px;background:#D08A10"></span></div>
+              <span style="text-align:right;color:#474D63;font-variant-numeric:tabular-nums">74 / 66 GB·h</span></div>
+          </div>
+          <span style="font-size:12.5px;color:#666C84">Nearly all of the gap is wgs-variants: its callers ask for 64 GB and peak under 14.</span>
+        </div>
+      </section>
+      <aside style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600;">Results ready</span><a style="font-size:13px;font-weight:500">All results</a></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #E1E4EC;font-size:13px"><span style="color:#474D63;display:flex"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M4 1.5h5l3.5 3.5v9.5h-8.5z M9 1.5V5h3.5" style="fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round"></path></svg></span><span style="font-family:'Geist Mono', ui-monospace, monospace;font-weight:500">wgs-variants</span><span style="color:#666C84">6 d ago</span><span style="margin-left:auto;color:#474D63">18 files · 4.2 GB</span></div><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #E1E4EC;font-size:13px"><span style="color:#474D63;display:flex"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M4 1.5h5l3.5 3.5v9.5h-8.5z M9 1.5V5h3.5" style="fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round"></path></svg></span><span style="font-family:'Geist Mono', ui-monospace, monospace;font-weight:500">rnaseq-counts</span><span style="color:#666C84">3 d ago</span><span style="margin-left:auto;color:#474D63">6 files · 88 MB</span></div><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #E1E4EC;font-size:13px"><span style="color:#474D63;display:flex"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M4 1.5h5l3.5 3.5v9.5h-8.5z M9 1.5V5h3.5" style="fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round"></path></svg></span><span style="font-family:'Geist Mono', ui-monospace, monospace;font-weight:500">chip-peaks</span><span style="color:#666C84">4 d ago</span><span style="margin-left:auto;color:#474D63">9 files · 610 MB</span></div></div>
+        <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600;">Changed in the registry</span><a style="font-size:13px;font-weight:500">Registry</a></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding:8px 0;border-top:1px solid #E1E4EC">
+            <span style="font-size:13px"><span style="font-family:'Geist Mono', ui-monospace, monospace;">nf-core/star</span> <span style="font-family:'Geist Mono', ui-monospace, monospace;color:#474D63">2.7.11a → 2.7.11b</span></span>
+            <span style="font-size:12.5px;color:#474D63">Upgrading would change <b style="color:#171A26">1 setting</b> in rnaseq-counts.</span>
+            <div style="display:flex;gap:8px;margin-top:4px"><span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;background:#FFFFFF;border:1px solid #C9CEDB;color:#171A26;font-size:13px;font-weight:500">Show the change</span></div></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding:8px 0;border-top:1px solid #E1E4EC">
+            <span style="font-size:13px">Rule <span style="font-family:'Geist Mono', ui-monospace, monospace;">R04</span> read length, revised</span>
+            <span style="font-size:12.5px;color:#474D63">wgs-variants would come out the same. Nothing to do.</span></div></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:#F4F5F8;border:1px solid #E1E4EC">
+  <svg width="44" height="14" viewBox="0 0 44 14" style="flex:none"><line x1="3" y1="7" x2="41" y2="7" style="stroke:#0F9D7A;stroke-width:4;stroke-linecap:round"></line><circle cx="7" cy="7" r="4" style="fill:#474D63"></circle><circle cx="22" cy="7" r="5" style="fill:#E6EEFD;stroke:#2F6FEB;stroke-width:2"></circle><circle cx="37" cy="7" r="4" style="fill:#FFFFFF;stroke:#666C84;stroke-width:1.5"></circle></svg>
+  <div style="display:flex;flex-direction:column;min-width:0"><span style="font-size:12px;color:#666C84">Two pipelines are waiting on this. Learn it in Code</span><span style="font-size:13.5px;font-weight:600">Library strandedness · 12 min</span></div>
+  <span style="margin-left:auto;color:#2F6FEB;display:flex"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"></path></svg></span></div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>

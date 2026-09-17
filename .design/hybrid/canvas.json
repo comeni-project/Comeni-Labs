@@ -1,0 +1,204 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Home — the lab’s work",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1100
+    },
+    {
+      "file": "Describe.dc.html",
+      "title": "Describe — what do you want to analyse?",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 1180
+    },
+    {
+      "file": "Build.dc.html",
+      "title": "Build — step by step",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "Question.dc.html",
+      "title": "Build — a value that needs you",
+      "x": 0,
+      "y": 1500,
+      "w": 1440,
+      "h": 980
+    },
+    {
+      "file": "PipelineFile.dc.html",
+      "title": "Pipeline file — every value and its reason",
+      "x": 1560,
+      "y": 1500,
+      "w": 1440,
+      "h": 1060
+    },
+    {
+      "file": "RunSheet.dc.html",
+      "title": "Run — files, reference, where",
+      "x": 3120,
+      "y": 1500,
+      "w": 1440,
+      "h": 1040
+    },
+    {
+      "file": "Runs.dc.html",
+      "title": "Runs — every run, filterable",
+      "x": 0,
+      "y": 2880,
+      "w": 1440,
+      "h": 1000
+    },
+    {
+      "file": "Run.dc.html",
+      "title": "A run — going",
+      "x": 1560,
+      "y": 2880,
+      "w": 1440,
+      "h": 1400
+    },
+    {
+      "file": "RunFailed.dc.html",
+      "title": "A run — went wrong (dark)",
+      "x": 3120,
+      "y": 2880,
+      "w": 1440,
+      "h": 1500
+    },
+    {
+      "file": "Registry.dc.html",
+      "title": "Registry — overview",
+      "x": 0,
+      "y": 4700,
+      "w": 1440,
+      "h": 1040
+    },
+    {
+      "file": "WorkQueue.dc.html",
+      "title": "Registry — work queue",
+      "x": 1560,
+      "y": 4700,
+      "w": 1440,
+      "h": 1000
+    },
+    {
+      "file": "Adaptation.dc.html",
+      "title": "Registry — reviewing a tool",
+      "x": 3120,
+      "y": 4700,
+      "w": 1440,
+      "h": 1180
+    },
+    {
+      "file": "Colours.dc.html",
+      "title": "One meaning per colour",
+      "x": 0,
+      "y": 6200,
+      "w": 1100,
+      "h": 780
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-main",
+      "x": 0,
+      "y": -210,
+      "w": 620,
+      "text": "Reached from: the logo, signing in.\nAnswers “what needs me, what is running, what went wrong” before listing anything. The table’s bar is every value in a pipeline by how it was decided — settled spends no colour."
+    },
+    {
+      "id": "note-describe",
+      "x": 1560,
+      "y": -210,
+      "w": 620,
+      "text": "Reached from: New analysis, the search box, the first visit.\nThe model turns the sentence into a goal; the person sees and corrects what was understood before anything is built. Strandedness is not guessed. Two ways on: step by step, or all at once."
+    },
+    {
+      "id": "note-build",
+      "x": 3120,
+      "y": -210,
+      "w": 620,
+      "text": "The step line on the right is the same metro drawing as a route in Code: settled stops are plain, measured ones amber, the current one blue. The proposed step is drawn dashed on the canvas and is not added until the person says so."
+    },
+    {
+      "id": "note-question",
+      "x": 0,
+      "y": 1290,
+      "w": 620,
+      "text": "An open value is a question with every legal answer listed. The person answers with a reason, which is saved beside the value, or adds a step that measures it instead. Learn it in Code sits under the question it explains."
+    },
+    {
+      "id": "note-pipelinefile",
+      "x": 1560,
+      "y": 1290,
+      "w": 620,
+      "text": "The second view of the canvas is the file itself. Settings are grouped by step; each shows how it was decided and why. The file on the right is what you download."
+    },
+    {
+      "id": "note-runsheet",
+      "x": 3120,
+      "y": 1290,
+      "w": 620,
+      "text": "Reached from: Run. Three things to confirm, the measured read length shown per sample, and the three places a pipeline can go — only this machine is launched for you."
+    },
+    {
+      "id": "note-runs",
+      "x": 0,
+      "y": 2670,
+      "w": 620,
+      "text": "Built for hundreds of runs: saved views, filters with counts, a dense table. Reserved vs used memory per run shows where compute is wasted; a run that has not finished shows a hatch, not a zero."
+    },
+    {
+      "id": "note-run",
+      "x": 1560,
+      "y": 2670,
+      "w": 620,
+      "text": "Four panels, then the timeline (tasks per step, CPUs asked vs used — used is derived, so hatched), then steps and tasks. Progress is counted in steps, because tasks have no known total."
+    },
+    {
+      "id": "note-runfailed",
+      "x": 3120,
+      "y": 2670,
+      "w": 620,
+      "text": "Dark mode. The failure panel shows the record and nothing interpreted: exit 137 is SIGKILL, and the attempts show each asked and peak memory. Nextflow’s own report is quoted, not explained."
+    },
+    {
+      "id": "note-registry",
+      "x": 0,
+      "y": 4490,
+      "w": 620,
+      "text": "The flow is drawn as a line: found → drafted → with the model → ready for review → in the registry. Only the review stop is red, because only it needs a person."
+    },
+    {
+      "id": "note-workqueue",
+      "x": 1560,
+      "y": 4490,
+      "w": 620,
+      "text": "Grouped by state, with saved views, filters, bulk actions and a detail pane — the same triage pattern as Code’s Requests."
+    },
+    {
+      "id": "note-adaptation",
+      "x": 3120,
+      "y": 4490,
+      "w": 620,
+      "text": "Model answers first and amber, each with the evidence it came from and how many answers it chose among. Checks and the decision on the right; the chat is marked as going to the model."
+    },
+    {
+      "id": "note-brief",
+      "x": -760,
+      "y": -210,
+      "w": 620,
+      "text": "Comeni Labs — redesigned in the hybrid identity shared with Comeni Code (Lexend, Geist Mono, one meaning per colour, metro lines).\n\nTop bar: logo (home) · Build · Runs · Registry · search that also takes a description · Learn in Code · help · lab.\n\nThe loop is describe → build → run → watch. Every board is light except the failed run, which shows dark."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

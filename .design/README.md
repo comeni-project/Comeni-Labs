@@ -18,6 +18,7 @@ rot references that are still being read.
 | [`runs-board/`](runs-board/) | the across-runs boards | [55693858](https://claude.ai/code/artifact/55693858-69a2-49f1-baaf-33e0cf199d92) |
 | `./Forge*.dc.html` (flat) | the Forge MVP §8 boards — the Registry section, nine artboards. **Current** | [51526cef](https://claude.ai/code/artifact/51526cef-d6a5-4a33-acc8-7273b975f814) |
 | [`living-pipeline/`](living-pipeline/) | the conversational builder — eleven artboards. **Current** | [0877ba13](https://claude.ai/code/artifact/0877ba13-690f-44cc-9ba8-d92036441653) |
+| [`hybrid/`](hybrid/) | Labs in the hybrid identity shared with Comeni Code — thirteen artboards, 2026-09-17. **The target of the visual update**; the canvases above stay the reference for behaviour until each screen is updated | [K4PDRcfb](https://claude.ai/artifact/K4PDRcfbUC6U1jmJmwqvTM) |
 
 **Only one canvas owns `Main.dc.html`.** The 2026-08-29
 redesign has it and the Forge boards deliberately have none: that file is cited by path from
