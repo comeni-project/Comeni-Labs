@@ -32,12 +32,19 @@ export function GoalCard({
   const addWant = useId();
   const original = block.kind === "goal_summary" ? goalOf(block.goal) : { have: [], want: [] };
   const [chosen, setChosen] = useState<Chosen>(original);
+  // **States belong to the input the person is holding, not to its type id** (issue 111). Looked up
+  // by type id from the model's goal, an invented state came back every time the type was
+  // removed and added again, and nothing else could take it off.
+  const [held, setHeld] = useState<Record<string, string[]>>(() =>
+    block.kind === "goal_summary" ? Object.fromEntries(statesOf(block.goal).have) : {});
   if (block.kind !== "goal_summary") return null;
 
-  const edited =
+  const states = statesOf(block.goal);
+  const statesMoved = original.have.some(
+    (t) => (held[t] ?? []).join() !== (states.have.get(t) ?? []).join());
+  const edited = statesMoved ||
     chosen.have.join() !== original.have.join() || chosen.want.join() !== original.want.join();
   const types = vocabulary ? Object.keys(vocabulary) : [];
-  const states = statesOf(block.goal);
 
   const confirm = () => {
     if (!edited) return onConfirm();
@@ -48,7 +55,11 @@ export function GoalCard({
     const kept = new Map((goal.have ?? []).map((entry) => [entry.type_id, entry]));
     onConfirm({
       ...goal,
-      have: chosen.have.map((type_id) => kept.get(type_id) ?? { type_id, states: [] }),
+      have: chosen.have.map((type_id) => ({
+        ...(kept.get(type_id) ?? { type_id }),
+        type_id,
+        states: held[type_id] ?? [],
+      })),
       want: chosen.want,
     });
   };
@@ -63,11 +74,39 @@ export function GoalCard({
         {chosen[side].map((type_id) => (
           <li key={type_id} className="list-none flex items-center gap-2 px-2 py-[3px] border font-data text-[11px] text-ink"
               style={{ borderColor: "var(--line-2)" }}>
-            {spelled(type_id, states[side].get(type_id))}
+            {side === "want" ? spelled(type_id, states.want.get(type_id)) : (
+              <span>
+                {type_id}
+                {(held[type_id] ?? []).length > 0 && (
+                  <>
+                    [
+                    {(held[type_id] ?? []).map((state, i) => (
+                      <span key={state}>
+                        {i > 0 && ", "}
+                        <button
+                          type="button"
+                          title="not true of this input — take it off"
+                          aria-label={`remove state ${state} from ${type_id}`}
+                          onClick={() => setHeld({ ...held, [type_id]: held[type_id].filter((x) => x !== state) })}
+                          className="bg-transparent border-0 p-0 font-data text-[11px] text-ink cursor-pointer
+                                     hover:line-through focus-visible:shadow-[var(--ring)]"
+                        >
+                          {state}
+                        </button>
+                      </span>
+                    ))}
+                    ]
+                  </>
+                )}
+              </span>
+            )}
             <button
               type="button"
               aria-label={`remove ${type_id} from ${label}`}
-              onClick={() => setChosen({ ...chosen, [side]: chosen[side].filter((t) => t !== type_id) })}
+              onClick={() => {
+                setChosen({ ...chosen, [side]: chosen[side].filter((t) => t !== type_id) });
+                if (side === "have") setHeld({ ...held, [type_id]: [] });
+              }}
               className="bg-transparent border-0 p-0 text-ink-3 hover:text-ink cursor-pointer
                          focus-visible:shadow-[var(--ring)]"
             >

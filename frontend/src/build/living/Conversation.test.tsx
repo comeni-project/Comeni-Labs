@@ -137,6 +137,37 @@ describe("the goal card", () => {
     expect(screen.getByText(/^reads — count them — a matrix\.$/)).toBeTruthy();
   });
 
+  it("lets a person take a state off — by itself, or by removing the type and adding it back", () => {
+    // Found by the first walk (issue 111): the card restored states by type id from the model's
+    // goal, so an invented `deduplicated` came back with the type, and there was no other way
+    // to remove it.
+    const withStates = {
+      ...goal,
+      block: { ...goal.block, goal: { have: [{ type_id: "fastq.reads", states: ["deduplicated"] },
+        { type_id: "genome.fasta", states: [] }], want: ["counts.matrix"] } },
+    } as typeof goal;
+    const vocab = { ...vocabulary, "fastq.reads": ["deduplicated", "trimmed"], "genome.fasta": [] };
+
+    const byState = vi.fn();
+    const first = mount(<GoalCard proposal={withStates} vocabulary={vocab} busy={false}
+                                  onConfirm={byState} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "remove state deduplicated from fastq.reads" }));
+    expect(screen.getByRole("list", { name: "what you have" })).not.toHaveTextContent("deduplicated");
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(byState.mock.calls[0][0].have).toEqual([
+      { type_id: "fastq.reads", states: [] }, { type_id: "genome.fasta", states: [] }]);
+    first.unmount();
+
+    const byReadding = vi.fn();
+    mount(<GoalCard proposal={withStates} vocabulary={vocab} busy={false}
+                    onConfirm={byReadding} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "remove fastq.reads from what you have" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "add to what you have" }),
+      { target: { value: "fastq.reads" } });
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(byReadding.mock.calls[0][0].have).toContainEqual({ type_id: "fastq.reads", states: [] });
+  });
+
   it("keeps the states of an input the person did not touch", () => {
     const withStates = {
       ...goal,

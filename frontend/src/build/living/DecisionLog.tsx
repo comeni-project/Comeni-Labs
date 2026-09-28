@@ -14,7 +14,7 @@ import { GoalCard } from "./blocks/GoalCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepProposalCard } from "./blocks/StepProposalCard";
 import { StepTools } from "./blocks/StepTools";
-import { authorOf, processName } from "./format";
+import { authorOf, processName, waitingOn } from "./format";
 import { Turn, type Tick } from "./blocks/parts";
 
 type Entry =
@@ -175,6 +175,15 @@ export function DecisionLog({
               onConfirm={(edited) => onAccept(pending, "keep", edited)}
               onReject={() => onReject(pending)}
             />
+          </Turn>
+        )}
+        {saying === null && waitingOn(session) && (
+          <Turn tick="open">
+            <p className="m-0 text-[12.5px] leading-[1.6] text-ink-2" data-testid="your-turn">
+              {waitingOn(session) === "refused"
+                ? "Say it again, or put it differently — nothing was built from that answer."
+                : "Say what is wrong with it, and the goal is read again."}
+            </p>
           </Turn>
         )}
         {saying !== null && (

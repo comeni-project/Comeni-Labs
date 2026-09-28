@@ -227,7 +227,13 @@ export function LivingSurface({
               onChange={onCompose}
               onSend={onSay}
               disabled={pendingTurn}
-              placeholder={pendingTurn ? "Waiting for the answer…" : undefined}
+              placeholder={
+                pendingTurn
+                  ? "Waiting for the answer…"
+                  : session.phase === "understanding"
+                    ? "Say what you have and what you want"
+                    : undefined
+              }
             />
           </div>
         </section>

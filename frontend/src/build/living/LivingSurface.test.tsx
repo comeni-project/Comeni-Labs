@@ -191,3 +191,47 @@ describe("drawers", () => {
     expect(opener).toHaveFocus();
   });
 });
+
+// ── waiting on the person ─────────────────────────────────────────────────────────────────
+
+describe("when the session is waiting on the person to say something (issues 110 and 112)", () => {
+  // **Found by the first walk with a real model (2026-09-28).** A refused goal left the header on
+  // *reading your goal* with nothing being read, and a goal answered *Not quite* left a read-only
+  // card and a composer asking about steps that did not exist. Saying it again worked; nothing on
+  // the page said so.
+  const person = { seq: 0, role: "person", state: "answered", base_revision: 0,
+    at: "2026-09-28T10:00:00Z", blocks: [], text: "paired-end RNA-seq to gene counts" };
+  const summary = { kind: "goal_summary", id: "goal-1", goal: { have: [], want: ["counts.matrix"] },
+    have: "reads", do: "count them", get: "a matrix" };
+  const understanding = (turns: unknown[], history: unknown[] = []) =>
+    with_({ phase: "understanding", steps_total: null, pending_proposal: null,
+      graph: { nodes: [], edges: [] }, placement: {}, turns, history } as Partial<AuthoringSession>);
+
+  it("after a refusal: the header waits on you, and the log says to say it again", () => {
+    surface(understanding([person, { seq: 1, role: "assistant", state: "answered", base_revision: 0,
+      at: "2026-09-28T10:01:00Z", text: "",
+      blocks: [{ kind: "notice", id: "notice-1", notice: "refusal", code: "MA0004",
+        text: "MA0004: the answer did not match GoalUnderstanding: have" }] }]));
+    expect(screen.getByTestId("living-status")).toHaveTextContent("waiting for you");
+    expect(screen.getByTestId("living-status")).not.toHaveTextContent("reading your goal");
+    expect(screen.getByTestId("your-turn")).toHaveTextContent("Say it again, or put it differently");
+    expect(screen.getByPlaceholderText(/what you have and what you want/)).toBeInTheDocument();
+  });
+
+  it("after Not quite: the log asks what is wrong with the goal", () => {
+    surface(understanding(
+      [person, { seq: 1, role: "assistant", state: "answered", base_revision: 0,
+        at: "2026-09-28T10:01:00Z", text: "", blocks: [summary] }],
+      [{ id: "h-goal", kind: "goal", state: "rejected", by: "person", chosen_option: null,
+        chosen_contract: null, at: "2026-09-28T10:02:00Z", block: summary }],
+    ));
+    expect(screen.getByTestId("your-turn")).toHaveTextContent("Say what is wrong with it");
+  });
+
+  it("says nothing of the kind while a turn is still being answered", () => {
+    surface(understanding([person, { seq: 1, role: "assistant", state: "pending", base_revision: 0,
+      at: "2026-09-28T10:01:00Z", text: "", blocks: [] }]));
+    expect(screen.getByTestId("living-status")).toHaveTextContent("reading your goal");
+    expect(screen.queryByTestId("your-turn")).toBeNull();
+  });
+});
