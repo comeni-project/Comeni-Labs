@@ -27,6 +27,10 @@ export function GapCard({
 
   const typedOption = block.options.find((o) => o.id === "value");
   const buttons = block.options.filter((o) => o.id !== "value");
+  // **Only the question's ordinary answers are primary.** Deferring, withholding, and the one that
+  // ends the session (*I don't have one*) are secondary: an answer that stops everything must not
+  // look like the recommended one (issue 168).
+  const quiet = new Set(["not_sure", "cant_share", "dont_have"]);
   const number = typed.trim() === "" ? null : Number(typed);
 
   return (
@@ -56,7 +60,7 @@ export function GapCard({
       )}
       <div className="flex flex-wrap gap-2">
         {buttons.map((option) =>
-          option.id === "not_sure" || option.id === "cant_share" || typedOption ? (
+          quiet.has(option.id) || typedOption ? (
             <Secondary key={option.id} disabled={busy} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Secondary>

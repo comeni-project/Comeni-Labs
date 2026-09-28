@@ -56,6 +56,21 @@ describe("a gap card", () => {
     expect(screen.getByRole("button", { name: "I can't share it" })).toBeInTheDocument();
   });
 
+  it("draws only the ordinary answer as primary — never the one that stops the analysis", () => {
+    // Issue 168: *I don't have one* ends the session and was styled like *I have it*.
+    const INPUT = gap(
+      [["have_it", "I have it"], ["cant_share", "I have it, but can't share it"],
+       ["dont_have", "I don't have one"]],
+      "This analysis needs genome.fasta. Do you have one?",
+    );
+    render(<GapCard proposal={INPUT} busy={false} onAnswer={vi.fn()} />);
+    const primary = (name: string) =>
+      screen.getByRole("button", { name }).className.includes("bg-[var(--link)]");
+    expect(primary("I have it")).toBe(true);
+    expect(primary("I don't have one")).toBe(false);
+    expect(primary("I have it, but can't share it")).toBe(false);
+  });
+
   it("cannot send an empty value", () => {
     render(<GapCard proposal={LENGTH} busy={false} onAnswer={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Use this" })).toBeDisabled();
