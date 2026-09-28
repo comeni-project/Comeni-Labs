@@ -1,4 +1,4 @@
-"""The gap engine: what an analysis still needs, computed from the registry, never asked of a model."""
+"""The gap engine: what an analysis still needs, computed from the registry, not by a model."""
 
 from mendel_api.authoring.types import Fact, FactKind, FactSource
 from mendel_api.services import gaps as g
