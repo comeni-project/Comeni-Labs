@@ -5,7 +5,9 @@ The consolidated state of the project. **Read this first**; then any entry still
 [the compaction rules](compaction.md). Each line cites the entry it came from; the long form of any
 line is in [the archive](journal/archive/).
 
-**Compacted through: 2026-09-28.**
+**Compacted through: 2026-09-28.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
+history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim in
+`tests/fixtures/claude-md-2026-09-28.md`.
 
 ## Where the work is
 
@@ -61,6 +63,8 @@ line is in [the archive](journal/archive/).
   different questions. (2026-09-04)
 - **Never run:** approve → land → `mendel build` on a fully answered candidate; a second revision;
   the review chat; pegi3s (needs a Docker Hub credential). (2026-09-06)
+- `make forge-rework` lists every `FORGE-REWORK` marker left where Plan 5A invalidated forge code;
+  add a marker rather than repointing a forge fixture. (CLAUDE.md, 2026-09-28)
 - **Open:** `forge_revision.registry_digest` is `String(64)`, too short for a `sha256:` digest
   (checked 2026-09-28). (2026-09-13)
 
@@ -80,6 +84,10 @@ line is in [the archive](journal/archive/).
 
 ## The emitted pipeline
 
+- **The v1 criterion:** from a plain-language prompt and a test dataset, emit Nextflow that runs
+  green on the nf-core test profile and produces a counts matrix, on the RNA-seq spine. The spine
+  runs and is asserted by `tests/emit/test_counts.py`; it has 10 processes, not the 15–20 the
+  criterion names, and whether that clause survives is #11, undecided. (CLAUDE.md, 2026-09-28)
 - A `RUN`-scoped channel emits as a value channel and an aggregator gets `.collect()`: the
   24-samples-run-once defect is fixed. A samplesheet pipeline runs under `--gate test`. (2026-09-01)
 - **Open:** `DraftChannel.scope` has no control on the canvas, so the samplesheet is reachable by

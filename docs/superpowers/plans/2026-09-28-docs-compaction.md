@@ -321,18 +321,18 @@ if __name__ == "__main__":
 **Files:**
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: Run the `claude-md-management:claude-md-improver` audit** on `CLAUDE.md`, read
+- [x] **Step 1: Run the `claude-md-management:claude-md-improver` audit** on `CLAUDE.md`, read
   its report, and record anything it finds that the spec does not already cover.
-- [ ] **Step 2: Rewrite to the spec's seven-part shape** (§4): *What this is* · *How we work* ·
+- [x] **Step 2: Rewrite to the spec's seven-part shape** (§4): *What this is* · *How we work* ·
   *Invariants* (one line each, linking `docs/design/invariants.md#…`) · *The system in a
   paragraph each* · *Commands* · *Gotchas* · *Where to look* (`now.md` first, then `journal/`,
   the issue tree #119, `invariants.md`, `ARCHITECTURE.md`, `docs/design/authoring-protocol.md`).
   Use the improver for the rewrite, and hold it to that shape.
-- [ ] **Step 3: The line-by-line check** (review focus 4). Walk `tests/fixtures/claude-md-2026-09-28.md`
+- [x] **Step 3: The line-by-line check** (review focus 4). Walk `tests/fixtures/claude-md-2026-09-28.md`
   section by section and tick each rule, command and gotcha as **kept** (in the brief), **moved**
   (in `invariants.md` or `now.md`, name where), or **dropped** (with the reason). Paste the
   dropped list, with reasons, into the commit message body.
-- [ ] **Step 4:** `uv run python tools/check_doc_paths.py` (expected: 0 dead paths),
+- [x] **Step 4:** `uv run python tools/check_doc_paths.py` (expected: 0 dead paths),
   `uv run python tools/check_doc_sizes.py` (expected: pass), `make links`. Commit:
   `docs: CLAUDE.md as a working brief — 1,441 lines to N — #118`.
 
