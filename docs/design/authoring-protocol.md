@@ -12,56 +12,91 @@ Started 2026-09-28 from #105 and #114, during Living Pipeline Plan 2.
 ## The loop
 
 ```mermaid
-flowchart TD
-    classDef person fill:#1f3a5f,stroke:#6fa8dc,color:#fff
+flowchart LR
+    classDef you fill:#1f3a5f,stroke:#6fa8dc,color:#fff
     classDef engine fill:#1e3d2f,stroke:#6fbf8f,color:#fff
-    classDef model fill:#4a2f1f,stroke:#e0a060,color:#fff
-    classDef gate fill:#3a1f3a,stroke:#c080c0,color:#fff
+    classDef ai fill:#4a2f1f,stroke:#e0a060,color:#fff
+    classDef safety fill:#3a1f3a,stroke:#c080c0,color:#fff
     classDef stop fill:#4a1f1f,stroke:#e06060,color:#fff
-    classDef t3 fill:#4a4a1f,stroke:#e0d060,color:#fff
-    classDef t4 fill:#5a1f1f,stroke:#ff6060,color:#fff
+    classDef yellow fill:#4a4a1f,stroke:#e0d060,color:#fff
+    classDef red fill:#5a1f1f,stroke:#ff6060,color:#fff
 
-    START(["Person: what they want<br/>(+ optional files)"]):::person
-    WANT["Main agent: sentence → typed want<br/>goal.want"]:::model
-    NEEDS["Engine: walk back from the want<br/>→ required INPUTS + MEASUREMENTS rules read"]:::engine
-    FILES{"Files dropped?"}:::engine
-    PROFILE{{"Protection profile:<br/>what may cross"}}:::gate
-    INSPECT["Declared inspector for this type<br/>→ facts marked MEASURED"]:::engine
-    CHARM["Characteriser agent (no inspector)<br/>→ typed facts, closed vocabulary<br/>marked MODEL-READ"]:::model
-    GAPS{"Engine: next gap?"}:::engine
-    ASK["Main agent: gap → typed question<br/>in the person's words"]:::model
-    ANSWER{"Person answers"}:::person
-    FACT["Fact recorded<br/>marked PERSON-SAID"]:::engine
-    UPLOAD(["Ask for a file"]):::person
-    OPEN["Measurement left OPEN<br/>(nobody knows, nothing guessed)"]:::engine
-    STOP(["Honest stop:<br/>names the missing INPUT"]):::stop
-    CARD["Goal card: every fact with its source<br/>open measurements listed"]:::person
-    RESOLVE["Resolve: the four-tier ladder"]:::engine
-    T3["Tier 3 — a rule matched a fact<br/>yellow: check the premise"]:::t3
-    T4["Tier 4 — no rule matched, or its fact is open<br/>red: always flagged, a person answers"]:::t4
-    BUILD(["Build step by step"]):::engine
+    subgraph S1 ["① You describe it"]
+        direction TB
+        SAY(["You: “gene counts from my<br/>paired-end RNA-seq”<br/>(files optional)"]):::you
+        TARGET["AI turns it into a target:<br/>a gene-counts table"]:::ai
+        SAY --> TARGET
+    end
 
-    START --> WANT --> NEEDS --> FILES
-    FILES -- yes --> PROFILE
-    FILES -- no --> GAPS
-    PROFILE -- "type has an inspector" --> INSPECT --> GAPS
-    PROFILE -- "no inspector" --> CHARM --> GAPS
-    GAPS -- "none left" --> CARD
-    GAPS -- "a gap" --> ASK --> ANSWER
-    ANSWER -- "states it" --> FACT --> GAPS
-    ANSWER -- "doesn't know" --> UPLOAD
-    UPLOAD -- "uploads" --> PROFILE
-    UPLOAD -- "can't / won't, MEASUREMENT" --> OPEN --> GAPS
-    UPLOAD -- "can't / won't, INPUT they have" --> FACT
-    ANSWER -- "doesn't have the INPUT" --> STOP
-    CARD --> RESOLVE
-    RESOLVE -- "fact known" --> T3 --> BUILD
-    RESOLVE -- "fact open" --> T4 --> BUILD
+    subgraph S2 ["② The engine gathers what it needs"]
+        direction TB
+        NEEDS["Engine lists what the target needs<br/>inputs: reads, genome, annotation<br/>facts: read length, paired or not"]:::engine
+        MISSING{"Anything on the<br/>list still unknown?"}:::engine
+        ASK["AI asks you about it,<br/>in plain words"]:::ai
+        REPLY{"You answer"}:::you
+        FILE(["You upload a file"]):::you
+        SAFETY{{"Safety level decides<br/>what the AI may see"}}:::safety
+        READ_ENGINE["Engine reads it exactly<br/>(FASTQ, …)<br/>→ “measured”"]:::engine
+        READ_AI["AI reads it<br/>(types the engine can't)<br/>→ “read by AI”"]:::ai
+        SAID["→ “you said”"]:::engine
+        OPEN["Left open → you'll choose<br/>during the build"]:::engine
+        STOP(["Stop: can't build without it<br/>(e.g. no genome)"]):::stop
+        TICK["Added to the list"]:::engine
+
+        NEEDS --> MISSING
+        MISSING -- "yes" --> ASK --> REPLY
+        REPLY -- "I know it" --> SAID
+        REPLY -- "not sure" --> FILE
+        REPLY -- "I don't have that input" --> STOP
+        FILE -- "uploaded" --> SAFETY
+        SAFETY -- "engine knows the type" --> READ_ENGINE
+        SAFETY -- "it doesn't" --> READ_AI
+        FILE -- "can't share it" --> OPEN
+        SAID --> TICK
+        READ_ENGINE --> TICK
+        READ_AI --> TICK
+        OPEN --> TICK
+        TICK --> MISSING
+    end
+
+    subgraph S3 ["③ You check the goal"]
+        direction TB
+        CARD["Goal card: every fact<br/>and where it came from"]:::you
+    end
+
+    subgraph S4 ["④ It's built step by step"]
+        direction TB
+        DECIDE{"For each choice: is the<br/>fact it depends on known?"}:::engine
+        RULE["Chosen by a rule<br/>yellow: check the fact behind it"]:::yellow
+        CHOOSE["No rule could decide<br/>red: you choose"]:::red
+        STEPS(["Each step offered to you"]):::you
+        DECIDE -- "known" --> RULE --> STEPS
+        DECIDE -- "left open" --> CHOOSE --> STEPS
+    end
+
+    TARGET --> NEEDS
+    MISSING -- "no, all known<br/>or left open" --> CARD
+    CARD -- "that's right" --> DECIDE
+
+    subgraph KEY ["Who acts"]
+        direction TB
+        K1(["You"]):::you
+        K2["Engine: same input, same answer"]:::engine
+        K3["AI: typed answers only, always marked"]:::ai
+        K4{{"Safety level"}}:::safety
+    end
+
+    style S1 fill:transparent,stroke:#555
+    style S2 fill:transparent,stroke:#555
+    style S3 fill:transparent,stroke:#555
+    style S4 fill:transparent,stroke:#555
+    style KEY fill:transparent,stroke:#333
 ```
 
-**Colour is authorship.** Green is deterministic (the engine proves it, and the same inputs give
-the same answer). Orange is a model (typed output, closed vocabulary, always marked). Blue is the
-person. Purple is the protection profile deciding what crosses.
+**Colour is who acts**, and the key is in the diagram. In the rules below, *engine* means
+deterministic code, *AI* means a model answering in a typed shape, and the safety level is the
+protection profile. The facts' labels in the diagram (*you said*, *measured*, *read by AI*) are
+`PERSON-SAID`, `MEASURED` and `MODEL-READ` below.
 
 ## The rules the diagram encodes
 
@@ -138,4 +173,5 @@ tightening is filling in a row, not rewiring.
 | Date | Change | Why |
 |---|---|---|
 | 2026-09-28 | first version | #105 (no place for *paired-end*), #114 (nobody asked for the genome) |
+| 2026-09-28 | diagram reorganised into four stages with plain-language labels and a key | operator: *make the text more intuitive, and the organisation* |
 | 2026-09-28 | nothing is guessed; an open measurement falls to tier 4 rather than blocking; inputs and measurements split; the tier table | operator, during the #105/#114 brainstorm: *the model can keep that param open as a tier-4 question* |
