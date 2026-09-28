@@ -102,6 +102,7 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 
 docs:           ## fail if docs/reference/ disagrees with the code
 	uv run python tools/generate_diagnostics_doc.py --check
+	uv run python tools/generate_protocol_doc.py --check
 	uv run python tools/check_reference.py --check
 
 docs-status:    ## what on the wiki is vision and what is real — derived, not asserted

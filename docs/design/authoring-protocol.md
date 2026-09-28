@@ -11,105 +11,9 @@ Started 2026-09-28 from #105 and #114, during Living Pipeline Plan 2.
 
 ## The loop
 
-```mermaid
-flowchart LR
-    classDef you fill:#1f3a5f,stroke:#6fa8dc,color:#fff
-    classDef engine fill:#1e3d2f,stroke:#6fbf8f,color:#fff
-    classDef ai fill:#4a2f1f,stroke:#e0a060,color:#fff
-    classDef safety fill:#3a1f3a,stroke:#c080c0,color:#fff
-    classDef stop fill:#4a1f1f,stroke:#e06060,color:#fff
-    classDef tier12 fill:#1e3d2f,stroke:#6fbf8f,color:#fff
-    classDef tier3 fill:#1e3d2f,stroke:#f0d040,stroke-width:4px,color:#fff
-    classDef tier4 fill:#1f3a5f,stroke:#ff5050,stroke-width:4px,color:#fff
-
-    subgraph S1 ["① You describe it"]
-        direction TB
-        SAY(["You: “gene counts from my<br/>paired-end RNA-seq”<br/>(files optional)"]):::you
-        TARGET["AI turns it into a target:<br/>a gene-counts table"]:::ai
-        SAY --> TARGET
-    end
-
-    subgraph S2 ["② The engine gathers what it needs"]
-        direction TB
-        NEEDS["Engine lists what the target needs<br/>inputs: reads, genome, annotation<br/>facts: read length, paired or not"]:::engine
-        MISSING{"Anything on the<br/>list still unknown?"}:::engine
-        ASK["AI asks you about it,<br/>in plain words"]:::ai
-        REPLY{"You answer"}:::you
-        FILE(["You upload a file"]):::you
-        SAFETY{{"Safety level decides<br/>what the AI may see"}}:::safety
-        READ_ENGINE["Engine reads it exactly<br/>(FASTQ, …)<br/>→ “measured”"]:::engine
-        READ_AI["AI reads it<br/>(types the engine can't)<br/>→ “read by AI”"]:::ai
-        SAID["→ “you said”"]:::engine
-        OPEN["Left open → you'll choose<br/>during the build"]:::engine
-        STOP(["Stop: can't build without it<br/>(e.g. no genome)"]):::stop
-        TICK["Added to the list"]:::engine
-
-        NEEDS --> MISSING
-        MISSING -- "yes" --> ASK --> REPLY
-        REPLY -- "I know it" --> SAID
-        REPLY -- "not sure" --> FILE
-        REPLY -- "I don't have that input" --> STOP
-        FILE -- "uploaded" --> SAFETY
-        SAFETY -- "engine knows the type" --> READ_ENGINE
-        SAFETY -- "it doesn't" --> READ_AI
-        FILE -- "can't share it" --> OPEN
-        SAID --> TICK
-        READ_ENGINE --> TICK
-        READ_AI --> TICK
-        OPEN --> TICK
-        TICK --> MISSING
-    end
-
-    subgraph S3 ["③ You check the goal"]
-        direction TB
-        CARD["Goal card: every fact<br/>and where it came from"]:::you
-    end
-
-    subgraph S4 ["④ Your consultant builds it with you"]
-        direction TB
-        PLAN["The plan, in plain stages<br/>clean reads → align → count → QC report<br/>(engine resolves it, AI tells it)"]:::ai
-        PACE{"“Go through it together, or set it up<br/>and stop only where I need you?”<br/>(together: every step waits for “continue”)"}:::you
-        NEXT{"Next step:<br/>does it need you?"}:::engine
-        SETTLED["Tier 1–2 · placed, one obvious answer<br/>what it does and why, one tap away"]:::tier12
-        RULE["Tier 3 · placed by a rule<br/>“this rests on your read length — check it”"]:::tier3
-        CHOOSE["Tier 4 · you choose<br/>options with trade-offs, in biology terms"]:::tier4
-        WRAP(["Wrap-up: what you'll get,<br/>what you need to run it, who decided what"]):::ai
-        PLAN --> PACE --> NEXT
-        NEXT -- "settled" --> SETTLED
-        NEXT -- "a rule decided" --> RULE
-        NEXT -- "no rule could decide" --> CHOOSE
-        SETTLED --> NEXT
-        RULE --> NEXT
-        CHOOSE -- "you choose" --> NEXT
-        NEXT -- "nothing left" --> WRAP
-    end
-
-    ASKANY(["Ask anything, any time:<br/>why? what if? what's a BAM?"]):::you
-    EXPLAIN["AI answers only from sources<br/>tool docs, citations, glossary, and shows them<br/>(“I don't have a source for that” otherwise)"]:::ai
-    ASKANY --> EXPLAIN
-    EXPLAIN -.-> S4
-
-    TARGET --> NEEDS
-    MISSING -- "no, all known<br/>or left open" --> CARD
-    CARD -- "that's right" --> PLAN
-
-    subgraph KEY ["Key — fill is who acts, border is the tier"]
-        direction TB
-        K1(["Blue fill · you"]):::you
-        K2["Green fill · engine: same input, same answer"]:::engine
-        K3["Orange fill · AI: typed answers only, always marked"]:::ai
-        K4{{"Purple fill · safety level: what the AI may see"}}:::safety
-        K5(["Red fill · stop: can't continue"]):::stop
-        K6["Yellow border · tier 3: a rule decided, check its fact"]:::tier3
-        K7["Red border · tier 4: no rule could, you decide"]:::tier4
-    end
-
-    style S1 fill:transparent,stroke:#555
-    style S2 fill:transparent,stroke:#555
-    style S3 fill:transparent,stroke:#555
-    style S4 fill:transparent,stroke:#555
-    style KEY fill:transparent,stroke:#333
-```
+**The diagram is [generated from the code](authoring-protocol-diagram.md)**: solid is built,
+dashed is designed and not built yet. The same object is where the running state machine comes
+from, so the picture and the machine cannot disagree.
 
 **Fill is who acts, border is the tier**, and every colour is named in the diagram's key. Red
 *fill* means only one thing (a stop); a tier-4 choice is the person's, so it is blue with a red
@@ -186,20 +90,22 @@ the tier-3 colour already asks a reader to check.
 | open: nobody knows | **4**, ambiguous | red border: always flagged, a person answers |
 | no rule reads it | 1 or 2 as today | — |
 
-## The protocol is code (planned)
+## The protocol is code
 
-This page's diagram is **generated, not drawn**, once the rework lands. One declarative object in
-the code (`mendel_api/authoring/protocol.py`) holds the stages, every node (who acts: *you*,
-*engine*, *AI*, *safety*) and every edge (with its label and, where it moves the session, its
-state-machine event). Three things are derived from it:
+The diagram is **generated, not drawn** (14.7.2). One declarative object in the code
+(`mendel_api/authoring/protocol.py`) holds the stages, every node (who acts: *you*, *engine*,
+*AI*, *safety*, *stop*; its tier border; its session phase) and every edge (its label and, where
+it moves the session, its event). The design lives in the same object, marked planned. From it:
 
-- **the Mermaid diagram above**, written between markers by a generator, with `make docs` failing
-  when the page is stale, the same arrangement as `diagnostics.md`;
-- **a test that the running state machine is the diagram**: every phase transition in
-  `authoring/state.py` must be an edge here and every event-carrying edge a transition, so the
-  picture cannot drift from the code;
+- **the state machine is derived**: `state.TRANSITIONS` is computed from the built edges that
+  carry events, and a retry out of `failed` may resume only where a return edge is drawn
+  (anything else is refused, MI0212). The object refuses to load when it is inconsistent;
+- **the diagram is generated**, as a whole file, with `make docs` failing when it is stale;
 - later, **the agents' wiring**: which prompt a node sends and what evidence it receives, per
   protection level, read from the same object instead of scattered through services.
+
+**To change the protocol, edit `PROTOCOL`**, never the state machine: a substep that builds a
+planned part gives its nodes phases and flips `built`.
 
 ## Protection profiles: what may cross, per node
 
@@ -242,3 +148,4 @@ tightening is filling in a row, not rewiring.
 | 2026-09-28 | stage ④ as a consultant: overview, pacing asked at the start, stops by tier, grounded explanations, wrap-up; the protocol to become code that generates this diagram | operator: *the builder is a consultant guiding a biology researcher*; settings deferred to #117 |
 | 2026-09-28 | diagram reorganised into four stages with plain-language labels and a key | operator: *make the text more intuitive, and the organisation* |
 | 2026-09-28 | nothing is guessed; an open measurement falls to tier 4 rather than blocking; inputs and measurements split; the tier table | operator, during the #105/#114 brainstorm: *the model can keep that param open as a tier-4 question* |
+| 2026-09-28 | the diagram is generated from `protocol.py`, and the state machine is derived from the same object; the design is drawn dashed until built; a retry may resume only where a return edge is drawn | 14.7.2 (#132), second brainstorm with the operator |

@@ -596,7 +596,7 @@ RETRY_TARGETS: frozenset[Phase] = PROTOCOL.retry_targets()
 - Modify: `Makefile` (the `docs:` target), `docs/design/authoring-protocol.md`
 - Test: `tests/repo/test_protocol_doc.py`
 
-- [ ] **Step 1: Write the failing test.**
+- [x] **Step 1: Write the failing test.**
 
 ```python
 """The protocol diagram is generated, and a stale one fails the build."""
@@ -618,7 +618,7 @@ def test_the_protocol_diagram_is_fresh():
   (Check `tests/README.md` and `support.paths` for the real name of the root constant first.)
   Run: `uv run pytest -q tests/repo/test_protocol_doc.py`. Expected: FAIL (no such file).
 
-- [ ] **Step 2: Write the generator**, the same shape as `tools/generate_diagnostics_doc.py`:
+- [x] **Step 2: Write the generator**, the same shape as `tools/generate_diagnostics_doc.py`:
   compare, print the fixing command, exit 1 under `--check`.
 
 ```python
@@ -667,20 +667,20 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 3: Add it to `make docs`**, after the diagnostics line:
+- [x] **Step 3: Add it to `make docs`**, after the diagnostics line:
   `uv run python tools/generate_protocol_doc.py --check`. Run `make docs`. Expected: FAIL,
   *authoring-protocol-diagram.md is stale*.
 
-- [ ] **Step 4: Generate it**, `uv run python tools/generate_protocol_doc.py`, then open the
+- [x] **Step 4: Generate it**, `uv run python tools/generate_protocol_doc.py`, then open the
   Mermaid in a browser and look at it: every stage drawn, dashed parts dashed, the key complete.
   Expected: `make docs` and the test pass.
 
-- [ ] **Step 5: Replace the hand-drawn diagram** in `docs/design/authoring-protocol.md` with a
+- [x] **Step 5: Replace the hand-drawn diagram** in `docs/design/authoring-protocol.md` with a
   pointer: *The diagram is [generated from the code](authoring-protocol-diagram.md); solid is
   built, dashed is designed.* Add a changelog line: *2026-09-28: the diagram is generated from
   `protocol.py`, and the state machine is derived from the same object (14.7.2).*
 
-- [ ] **Step 6: Watch it fail stale.** Change one node label in `protocol.py`, run `make docs`,
+- [x] **Step 6: Watch it fail stale.** Change one node label in `protocol.py`, run `make docs`,
   see *stale*; restore. Then `make links` (expected: 0 broken) and commit —
   `docs(living): the protocol diagram, generated and checked by make docs — 14.7.2.3 (#132)`.
   Close #140 and #132.
@@ -1406,3 +1406,10 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   (*MI0200: a session in goal_review cannot handle goal_revised*); restored. MI0212's refusal
   lists the resumable phases on a second line, the way MI0200 lists onward events. Only
   `understanding` and `resolving` can fail, so no stored `failed_from` is outside the new set.
+- **14.7.2.3 (2026-09-28).** The generator could not be lifted verbatim from this plan (the plan's
+  code block ends at the Mermaid fence inside it); written with `FENCE = "`" * 3`. `make docs`
+  watched failing twice: before the file existed, and with one node label changed. Looked at in
+  Chrome (Mermaid 11): every node, border, dash and key entry is right; stage ①'s box stretches
+  across stage ②. Declaring within-stage arrows inside their subgraph did not help and was
+  reverted; filed as #163 (deferred, cosmetic). `make check`: 2,804 passed and the five base
+  failures; `types`, `docs`, `docs-status`, `links`, `doc-paths`, `doc-sizes`, `tsc -b` pass.
