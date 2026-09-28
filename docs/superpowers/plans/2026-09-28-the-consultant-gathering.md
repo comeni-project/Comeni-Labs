@@ -1256,6 +1256,41 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 
 ---
 
+### Task 14.7.3.9 (#174): a rule that cannot apply is a question, not a priority win
+
+Added 2026-09-28 from the walk; spec §8 *An open premise at build time*. Plan review waived by the
+operator (*write the plan and implement*). A reverted probe measured the fallout first.
+
+**Files:**
+- Modify: `packages/mendel-resolver/src/mendel_resolver/rules/table.py` (`unapplied_implementation`),
+  `packages/mendel-resolver/src/mendel_resolver/router.py` (`_choose`)
+- Test: `packages/mendel-resolver/tests/test_pinning.py`, `tests/regressions/test_decisions.py`
+
+**Interfaces:**
+- Produces: `RuleTable.unapplied_implementation(roles, premises) -> tuple[Decision, list[str]] | None`:
+  the first decision (in `roles` order) choosing an implementation for one of `roles` with no row
+  that matches, and the premise keys its rows read that are absent.
+
+- [x] **Step 1: Failing tests** in `test_pinning.py`, on the `spine` fixture with no profile:
+  the aligner is **tier 4**, its reason names `read_length`, STAR is the provisional placement,
+  and the question's candidates are in rank order with STAR first. In `test_decisions.py`: A125's
+  question holds minimap2 and STAR (the tie) **and** HISAT2 (the rule's), in rank order, and never
+  places HISAT2; A128 moves to a stack whose rule table is empty, where priority still decides and
+  says why.
+- [x] **Step 2: Run them to see them fail** (tier 2 on priority).
+- [x] **Step 3: Implement.** `unapplied_implementation` in the table. In `_choose`, when no pin
+  applies and a declared implementation decision is unapplied, and at least two of its `then`
+  contracts are candidates here: the question's candidates are the rule's contracts plus every
+  contract tied at the top of the ranking, ordered by rank (so the flag-only placement is the
+  priority pick); `why_open` names the rule and the unknown premises; the evidence is the rule's
+  rows with `because` and `cite`. Otherwise the ranking runs as before.
+- [x] **Step 4: Update the tests that change on purpose**: `test_a_priority_resolved_choice_is_convention`
+  (now the unapplied-rule test), A125, A128. The replay test must pass unchanged.
+- [x] **Step 5: `make verify`** (or `check` + `guards` + `slow` past the base failures), then commit —
+  `feat(resolver): a rule that cannot apply is a tier-4 question — 14.7.3.9 (#174)`.
+
+---
+
 ## 14.7.4 — Samples at protection level 0, and the FASTQ inspector (#134)
 
 ### Task 14.7.4.1 (#149): the protection level
@@ -1484,3 +1519,13 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   first: #168 (e71dd2d), #169 (a6d6c3d; history gains `answer`), #172 (02f948f), #173 (40843b6),
   #175 (8c91a2e). Looking at them in Chrome found #177 (a wrapping log line), fixed by
   screenshot. Protocol issues #167 #170 #171 #174 #176 go to brainstorm, #174 first.
+- **14.7.3.9 (2026-09-28), #174.** `RuleTable.unapplied_implementation` and a shared `_ask` in
+  the router (the tie's tail, factored out unchanged). Rulings: the question holds the rule's
+  contracts **plus** anything tied at the top of the ranking (the spec said only the rule's;
+  A125's minimap2 ties STAR and the rule does not know it), in rank order so the flag-only pick
+  is STAR; A128 now reaches a priority win through an empty rule table; the replay test's goal
+  gained `read_length: 150` (its assertions unchanged — without it the aligner is now a second
+  open question). Watched failing: 3 new tests plus A125 (tier 2 on priority). `make check`
+  2,831 + 5 base; guards, slow, docs pass. Re-walked through the API: `star_align` tier 4,
+  *implementation:alignment could not apply (read_length unknown)*, options keep/alt_1. The
+  flag-only resolver's *no rule covered* now contradicts that: #178.

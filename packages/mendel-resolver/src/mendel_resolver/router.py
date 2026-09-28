@@ -387,6 +387,47 @@ def _choose(
 
     ordered = sorted(candidates, key=rank)
     best = rank(ordered[0])
+
+    # **A rule that cannot apply is a question, not a priority win** (#174, invariant 4). The
+    # alignment rule reads `read_length`; with nobody knowing it, falling through to `priority`
+    # took the decision the person deferred, silently, at tier 2. Asked only where the rule
+    # actually chooses between two contracts present here — a rule about aligners says nothing
+    # at the sorter's site.
+    unapplied = (
+        rules.unapplied_implementation(roles_here, premises) if rules and pinned is None else None
+    )
+    ruled: list[ModuleContract] = []
+    if unapplied is not None:
+        named = {row.then for row in unapplied[0].rows}
+        if sum(1 for c in ordered if c.id in named) >= 2:
+            # The rule's contracts **and** anything tied at the top of the ranking, which the
+            # rule does not know about (A125's minimap2), in rank order: the flag-only placement
+            # is then the registry's priority pick rather than the first id alphabetically.
+            ruled = [c for c in ordered if c.id in named or rank(c)[:2] == best[:2]]
+
+    if ruled:
+        decision, unknown = unapplied
+        return _ask(
+            plan, resolver, type_id, states, ruled,
+            why_open=(
+                f"the {decision.key()} rule reads {', '.join(unknown) or 'a fact'}, and nobody "
+                f"knows it; invariant 4 says a rule that cannot apply is a question, not a default"
+            ),
+            evidence=[
+                Excerpt(
+                    locator=decision.key(),
+                    text=(
+                        f"when {', '.join(f'{k} {v}' for k, v in row.when.items())}: {row.then}"
+                        + (f" — {row.because}" if row.because else "")
+                        + (f" ({row.cite or decision.cite})" if row.cite or decision.cite else "")
+                    )[:500],
+                )
+                for row in decision.rows
+            ],
+            candidates=[c.id for c in ruled],
+            summary=f"{decision.key()} could not apply ({', '.join(unknown)} unknown)",
+        )
+
     if len(ordered) == 1:
         # **Tier 2, not tier 1.** A113: "this stack holds one contract that can do it" is a
         # fact about registry contents, not about the inputs — install a second sorter
@@ -449,15 +490,12 @@ def _choose(
     # one — threading a ninth parameter into a function whose own docstring calls its return
     # "one past what a tuple should carry" is a refactor this did not authorise. Recorded as
     # a known gap rather than done badly.
-    ambiguity = ProducerAsked(
-        node_id=_node_id(tied[0]),
-        subject=f"producer:{type_id}",
-        what=f"which contract produces {type_id}",
+    return _ask(
+        plan, resolver, type_id, states, tied,
         why_open=(
             f"{len(tied)} contracts produce it and nothing distinguishes them; "
             f"invariant 8 says a tie is ambiguity, not a coin flip"
         ),
-        candidates=sorted(c.id for c in tied),
         evidence=[
             Excerpt(
                 locator=contract.id,
@@ -469,6 +507,34 @@ def _choose(
             )
             for contract in sorted(tied, key=lambda c: c.id)
         ],
+        candidates=sorted(c.id for c in tied),
+        summary=f"nothing distinguishes {', '.join(c.id for c in ordered)}",
+    )
+
+
+def _ask(
+    plan: "RoutePlan",
+    resolver: AmbiguityResolver,
+    type_id: str,
+    states: frozenset[str],
+    tied: list[ModuleContract],
+    *,
+    why_open: str,
+    evidence: list[Excerpt],
+    candidates: list[str],
+    summary: str,
+) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None, ValueSource]:
+    """A tier-4 producer question, answered by the resolver and recorded. Shared by a tie
+    (invariant 8) and a rule that cannot apply (invariant 4, #174): the two differ only in why
+    the question is open, what evidence it carries, and the order its candidates are offered in.
+    """
+    ambiguity = ProducerAsked(
+        node_id=_node_id(tied[0]),
+        subject=f"producer:{type_id}",
+        what=f"which contract produces {type_id}",
+        why_open=why_open,
+        candidates=candidates,
+        evidence=evidence,
         states=sorted(states),
     )
     resolution = resolver.resolve(ambiguity)
@@ -509,7 +575,7 @@ def _choose(
     return (
         chosen,
         Tier.AMBIGUOUS,
-        f"nothing distinguishes {', '.join(c.id for c in ordered)}; {how}",
+        f"{summary}; {how}",
         None,
         None,
         # A replayed human override keeps tier 4 and clears the *review*, never the tier.

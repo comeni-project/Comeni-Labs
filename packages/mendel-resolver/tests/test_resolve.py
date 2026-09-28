@@ -446,7 +446,10 @@ def test_a_replayed_override_backed_by_its_record_is_still_honoured():
     goal = Goal(
         have=[GoalInput(type_id=t) for t in ("fastq.reads", "annotation.gtf", "genome.fasta")],
         want=["counts.matrix"],
-        profile=loaded.measurements.profile({}),
+        # A read length, so the alignment rule applies and `seq_platform` is the only question
+        # left: since #174 an unknown read length is a question of its own, and this test is
+        # about replaying one answer, not about how many questions a goal leaves open.
+        profile=loaded.measurements.profile({"read_length": 150}),
     )
     # `key` is `{node_id}.{subject}` — `Ambiguity.key()`. `chosen=None` with a
     # `human_override` is the real recorded shape: nothing was resolved, a person answered.

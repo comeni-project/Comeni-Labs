@@ -469,11 +469,14 @@ def _tying_layer(tmp_path: Path) -> Path:
     return layer
 
 
-def _aligner_ir(*roots):
-    """Resolve an aligner with no `read_length`, so the tier-3 rule cannot pin one."""
+def _aligner_ir(*roots, rules: bool = True):
+    """Resolve an aligner with no `read_length`, so the tier-3 rule cannot pin one.
+
+    `rules=False` resolves against an empty rule table: no rule exists to be unable to apply."""
     from mendel_resolver import layers
     from mendel_resolver.goal import Goal, GoalInput
     from mendel_resolver.resolve import resolve
+    from mendel_resolver.rules.table import RuleTable
 
     loaded = layers.load(list(roots))
     goal = Goal(
@@ -488,7 +491,7 @@ def _aligner_ir(*roots):
     return resolve(
         goal,
         loaded.registry,
-        loaded.rules,
+        loaded.rules if rules else RuleTable(),
         loaded.measurements,
         vocabulary=loaded.vocabulary,
     )
@@ -508,9 +511,13 @@ def test_a125_a_tie_offers_only_the_candidates_that_tied(tmp_path):
 
     asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
     assert len(asked) == 1, [d.subject for d in ir.decisions]
+    # Since #174 the alignment rule cannot apply here (no read length), so the question is the
+    # tie *and* the rule's own contracts, in rank order. HISAT2 is offered — the rule names it
+    # — and still never placed: rank order, not the letter h, decides the provisional pick.
     assert asked[0].candidates == [
         "nf-core/minimap2/align@2.28.0",
         "nf-core/star/align@1.11.0",
+        "nf-core/hisat2/align@2.2.2",
     ]
     assert "hisat2" not in asked[0].chosen
 
@@ -612,10 +619,10 @@ def test_a128_a_priority_win_says_why_the_registry_ranks_it_there(tmp_path):
     reason. Tier 2 promises "a documented default exists", and the document was a YAML
     comment the loader discards — A76's exact shape, one field over.
 
-    Reached by giving the goal no `read_length`, so the tier-3 rule cannot fire and priority
-    is what decides.
+    Reached with a stack whose rule table is empty, so priority is what decides. It used to be
+    reached by leaving out `read_length`; since #174 a rule that cannot apply asks instead.
     """
-    ir = _aligner_ir(ROOT / "registry")
+    ir = _aligner_ir(ROOT / "registry", rules=False)
     node = next(n for n in ir.nodes if n.id == "star_align")
 
     assert node.selection.tier is Tier.CONVENTION
