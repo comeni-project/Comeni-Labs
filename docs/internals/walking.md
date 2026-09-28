@@ -99,3 +99,9 @@ the model, the phase the session was in, and any diagnostic code, request, or `a
 For a protocol issue, say which way the rule failed (**too strict**, **too loose**, or
 **unclear**) and which rule or stage of the protocol it touches. Read the code before claiming what
 it does: one issue in round 1 was filed about a prompt nobody had read.
+
+## Traps when walking with a browser agent
+
+- **An automated tab is hidden**, so the page's polling pauses (TanStack Query does not poll a
+  hidden tab). A page that seems stuck after a model answered may simply not have asked: reload,
+  or read the session from the API, before filing it. Issue 166 was this.
