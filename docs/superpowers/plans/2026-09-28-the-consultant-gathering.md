@@ -1478,3 +1478,9 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   #166 #168 #169 #172 #173 #175; protocol #167 #170 #171 #174 #176. #105 and #114 closed.
   Steps 4–5 wait on the operator: mechanical fixes need an approved approach, protocol ones a
   brainstorm.
+- **14.7.3.8 step 4, mechanical (2026-09-28).** Approaches approved by the operator. #166 closed
+  as **not a defect**: an automated Chrome tab is hidden and TanStack Query does not poll a
+  hidden tab (recorded as a trap in `docs/internals/walking.md`). Fixed, each watched failing
+  first: #168 (e71dd2d), #169 (a6d6c3d; history gains `answer`), #172 (02f948f), #173 (40843b6),
+  #175 (8c91a2e). Looking at them in Chrome found #177 (a wrapping log line), fixed by
+  screenshot. Protocol issues #167 #170 #171 #174 #176 go to brainstorm, #174 first.
