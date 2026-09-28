@@ -437,8 +437,8 @@ function Collapsed({
       className="w-full flex items-baseline gap-[9px] py-[5px] px-0 bg-transparent border-0
                  text-left cursor-pointer focus-visible:shadow-[var(--ring)]"
     >
-      <span className={`font-data text-[11px] ${selected ? "text-link" : "text-ink-2"}`}>{name}</span>
-      <span className="font-data text-[10px] text-ink-3 truncate">{detail}</span>
+      <span className={`font-data text-[11px] shrink-0 whitespace-nowrap ${selected ? "text-link" : "text-ink-2"}`}>{name}</span>
+      <span className="font-data text-[10px] text-ink-3 truncate min-w-0">{detail}</span>
       <span className="ml-auto font-data text-[9px] text-ink-4 shrink-0">{by}</span>
     </button>
   );
