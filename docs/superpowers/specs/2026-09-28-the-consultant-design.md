@@ -46,8 +46,9 @@ With `gemma3:12b` locally and the stack from `make dev`:
 4. The build opens with the plan in stages, asks the pacing question, stops only at tier 4 (or at
    every step, going through together), explains any step from its sources, and ends with a
    wrap-up.
-5. The diagram in `authoring-protocol.md` is generated from code, and a test fails if the running
-   state machine and the diagram disagree.
+5. The diagram of the protocol is generated from code, and the running state machine is derived
+   from the same object, so the two cannot disagree. What is designed and not yet built is drawn
+   dashed.
 
 **Scenario 1 of the walk is the acceptance test.** The unit and route tests below are necessary
 and not sufficient: the walk has already shown that a green suite says nothing about a model.
@@ -68,11 +69,12 @@ and not sufficient: the walk has already shown that a green suite says nothing a
 | The build is a consultant: overview, pacing asked at the start, stops by tier, wrap-up | rules 8–14 |
 | Pacing is **asked, not a setting**; the settings menu is deferred | #117 |
 | The protocol becomes code that generates its own diagram | *The protocol is code* |
+| The state machine is **derived** from the protocol object; retry uses return edges and is refused outside them; planned parts live in the object, drawn dashed | §5 of this spec |
 
 ## 4. Scope
 
 **In the MVP**
-- the protocol object, the generated diagram, and the state-machine test;
+- the protocol object, the state machine derived from it, and the generated diagram;
 - the `gathering` phase and the gap engine;
 - gap questions in the conversation, and reading answers back into typed facts;
 - sample upload at level 0, and a FASTQ inspector;
@@ -91,34 +93,70 @@ and not sufficient: the walk has already shown that a green suite says nothing a
 
 ## 5. The protocol as code
 
+Brainstormed again before building (operator, 2026-09-28): **the protocol object is the only
+definition, and the state machine is derived from it.** The designed protocol lives in the same
+object, marked planned.
+
 `packages/mendel-api/src/mendel_api/authoring/protocol.py` holds one frozen, declarative object:
 
 ```python
-class Actor(StrEnum):   YOU, ENGINE, AI, SAFETY
-class Tier(StrEnum):    NONE, T12, T3, T4          # the border
-class Stage(...):       id, title                   # ① … ④
-class Node(...):        id, stage, actor, label, tier=NONE, shape
-class Edge(...):        source, target, label, event: st.Event | None
+class Actor(StrEnum):   YOU, ENGINE, AI, SAFETY, STOP      # the fill
+class Border(StrEnum):  NONE, TIER12, TIER3, TIER4        # the border
+class Shape(StrEnum):   BOX, ROUND, CHOICE, GATE
+class Stage(...):       id, title
+class Node(...):        id, stage, actor, label, phase: Phase | None, border, shape, built
+class Edge(...):        source, target, label, event: Event | None, returns: bool, built
 PROTOCOL = Protocol(stages=..., nodes=..., edges=...)
 ```
 
-- **`to_mermaid(PROTOCOL) -> str`** renders the diagram: fill by actor, border by tier, and a key
-  generated from the enums, so a new actor cannot appear without a key entry.
+### One definition: the machine is derived
+
+- **`state.TRANSITIONS` is computed**, not written: every *built* edge that carries an event
+  contributes `(source.phase, event) → target.phase`. A step inside a phase is an edge with no
+  event and contributes nothing.
+- **`state.RETRY_TARGETS` is computed** from the built edges marked `returns`: the phases a retry
+  out of `failed` may resume. Today that is `understanding` and `resolving`.
+- **`advance()` refuses a retry into a phase outside `RETRY_TARGETS`.** A **tightening**: before
+  this, any recorded `failed_from` was accepted. Nothing uses the hole it closes.
+- Rejected: keeping `TRANSITIONS` hand-written and testing it against the object (two edits per
+  change); deriving and also keeping a frozen snapshot (a third file per change); splitting
+  `failed` per stage so retry is an ordinary edge (a migration, and a new failed phase per stage).
+
+### Checked when it loads
+
+`PROTOCOL` refuses to construct, so the module refuses to import, when:
+
+- an edge names a node that is not declared, or a node names a stage that is not declared;
+- a **built** node has no `phase`, or a **built** edge touches a planned node;
+- two built edges give the same `(phase, event)` different targets (a return edge is exempt,
+  since its target is chosen by `failed_from`);
+- a `returns` edge does not leave a node in `failed`.
+
+Because a drawing mistake is now a behaviour mistake, these checks and the existing `advance()`
+tests are what stand between them.
+
+### Designed and built, in one object
+
+- **Every node and edge carries `built`.** 14.7.2 encodes today's loop as built, and the designed
+  consultant (gathering, gaps, uploads, the characteriser, the paced build, the stops), transcribed
+  from the hand-drawn diagram, as **planned**. A planned node may have `phase=None`, since
+  `gathering` and `stopped` do not exist until 14.7.3.
+- **Each later substep flips `built`** on its part and gives its nodes their phases. The picture
+  turns solid as the work lands; there is never a second diagram to keep in step.
+- Rejected: a generated *as built* diagram beside the hand-drawn design (two pictures, and the
+  design still hand-drawn); generating only what is built (the design disappears while it is
+  being built).
+
+### The diagram
+
+- **`to_mermaid(PROTOCOL) -> str`** renders it: fill by actor, border by tier, planned parts
+  **dashed and grey**, and a key generated from the enums plus *dashed · designed, not built*, so
+  nothing can be drawn without the key saying what it means.
 - **`tools/generate_protocol_doc.py`** writes a **whole generated file**,
-  `docs/design/authoring-protocol-diagram.md`, and the hand-written protocol page links to it.
-  `make docs` runs it with `--check` and fails when it is stale. Not a block spliced between
-  markers: `generate_diagnostics_doc.py` records why this repository stopped doing that
-  (*`--check` could only ever see the block*).
-- **The state machine's phases are nodes too.** Each node carries the `Phase` it belongs to, and
-  `failed`, `resolving`, `complete` and `stopped` get nodes of their own, because an edge that
-  carries an event must join nodes in the two phases that transition joins.
-- **14.7.2 encodes the loop as it is built today**, and the generated diagram is labelled *as
-  built*. The hand-drawn diagram stays on the protocol page, labelled *the design*, until
-  14.7.3 and 14.7.4 land and the generated one reaches it. Then the hand-drawn one is deleted.
-- **`test_the_state_machine_is_the_protocol`**: every `(phase, event) → phase` in
-  `state.TRANSITIONS` is an edge carrying that event between the nodes that stand for those
-  phases, and every event-carrying edge is a transition. Both directions are asserted, and the
-  collection is asserted non-empty first (a loop is not an assertion).
+  `docs/design/authoring-protocol-diagram.md`, and the hand-written protocol page links to it in
+  place of its hand-drawn diagram. `make docs` runs it with `--check` and fails when it is stale.
+  Not a block spliced between markers: `generate_diagnostics_doc.py` records why this repository
+  stopped doing that (*`--check` could only ever see the block*).
 - The rules' prose stays hand-written in the protocol page. The object holds the structure, not
   the argument.
 
@@ -130,7 +168,8 @@ PROTOCOL = Protocol(stages=..., nodes=..., edges=...)
 today. New transitions: `(UNDERSTANDING, WANT_RETURNED) → GATHERING`,
 `(GATHERING, FACT_ADDED) → GATHERING`, `(GATHERING, NOTHING_MISSING) → GOAL_REVIEW`,
 `(GATHERING, INPUT_UNAVAILABLE) → STOPPED`. `stopped` is a new terminal phase that is not a failure:
-the protocol ended honestly. Every one of these is an edge in `PROTOCOL`.
+the protocol ended honestly. Every one of these is an edge in `PROTOCOL`, planned since 14.7.2;
+14.7.3 adds the phases and flips them to built, and `TRANSITIONS` follows by derivation.
 
 ### The goal call becomes a want call
 
@@ -309,7 +348,10 @@ the log).
 
 ## 10. Testing
 
-- **Protocol:** generated diagram fresh (`make docs`); state machine ⇔ protocol, both directions.
+- **Protocol:** each load-time check watched refusing a bad object; the derived `TRANSITIONS`
+  equals today's hand-written table (captured before it is deleted); a retry into `building` is
+  refused and into `resolving` accepted; the diagram is deterministic, keys every actor, border
+  and *planned*, and draws planned parts dashed; the generated file is fresh (`make docs`).
 - **Gap engine:** the RNA-seq want with empty facts yields exactly reads, genome, annotation,
   read length, pairing and strandedness, in rank order. Each fact removes its gap. An `OPEN`
   measurement is not asked twice.
@@ -326,8 +368,9 @@ the log).
 
 Each substep leaves the loop working and is walked before the next begins.
 
-- **14.7.2 Protocol object, generated diagram, state-machine test.** No behaviour change; the current
-   protocol is encoded first, then edited as each later substep lands.
+- **14.7.2 Protocol object, derived state machine, generated diagram.** One behaviour change, the
+   retry tightening. Today's loop is encoded as built and the design as planned; each later substep
+   flips its part to built.
 - **14.7.3 Gathering without files:** want-only goal prompt, gap engine, gap questions, facts, the card.
    Scenario 1 by answering questions.
 - **14.7.4 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading.
