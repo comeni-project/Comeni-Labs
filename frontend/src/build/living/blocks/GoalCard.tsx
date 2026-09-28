@@ -57,6 +57,11 @@ export function GoalCard({
   const edited = statesMoved ||
     chosen.have.join() !== original.have.join() || chosen.want.join() !== original.want.join();
   const types = vocabulary ? Object.keys(vocabulary) : [];
+  // **Each input once, its source on its chip** (issue 172); the facts list below is for
+  // measurements.
+  const sourceOf = new Map(
+    facts.filter((f) => f.kind === "input").map((f) => [f.subject, SOURCE[f.source]] as const));
+  const measured = facts.filter((f) => f.kind === "measurement");
 
   const confirm = () => {
     if (!edited) return onConfirm();
@@ -111,6 +116,9 @@ export function GoalCard({
                   </>
                 )}
               </span>
+            )}
+            {side === "have" && sourceOf.has(type_id) && (
+              <span className="font-data text-[9.5px] text-ink-3">{sourceOf.get(type_id)}</span>
             )}
             <button
               type="button"
@@ -171,7 +179,7 @@ export function GoalCard({
           checking. The sentences beneath say the same thing in words, quieter, for reading. */}
       {list("have", addHave, "what you have")}
       {list("want", addWant, "what you want")}
-      {facts.length > 0 && <Facts facts={facts} />}
+      {measured.length > 0 && <Facts facts={measured} />}
       <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
         {[block.have, block.do, block.get].map(sentence).join(" — ")}.
       </p>

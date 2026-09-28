@@ -123,8 +123,11 @@ describe("the goal card", () => {
     ];
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
                     onReject={vi.fn()} facts={facts} />);
+    // Issue 172: each input once — its source on its chip — and the facts list for measurements.
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByText(/genome\.fasta/).closest("li")).toHaveTextContent("you said");
     const said = screen.getByRole("list", { name: "what the engine knows" });
-    expect(within(said).getByText(/genome\.fasta/)).toHaveTextContent("you said");
+    expect(within(said).queryByText(/genome\.fasta/)).toBeNull();
     expect(within(said).getByText(/paired/)).toHaveTextContent("yes");
     const open = screen.getByRole("list", { name: "Left open, you'll choose during the build" });
     expect(within(open).getByText("read_length")).toBeInTheDocument();
