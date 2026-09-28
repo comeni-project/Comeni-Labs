@@ -143,6 +143,11 @@ protection profile. The facts' labels in the diagram (*you said*, *measured*, *r
 
 ## The build, as a consultant (stage ④)
 
+> **Provisional, and knowingly optimistic** (operator, 2026-09-28). Stage ② came from what the
+> walk actually broke; stage ④ was designed before a model has walked it. Expect it to expand
+> and change more than any other part of this page, and treat every rule below as a first guess
+> to be tested, not a settled one.
+
 The person is a researcher, not a pipeline engineer. They know their experiment and not
 necessarily what a BAM is. Stage ④ is written for them.
 
@@ -231,6 +236,7 @@ tightening is filling in a row, not rewiring.
 | Date | Change | Why |
 |---|---|---|
 | 2026-09-28 | first version | #105 (no place for *paired-end*), #114 (nobody asked for the genome) |
+| 2026-09-28 | stage ④ marked provisional and optimistic | operator: *during testing the protocol will probably expand and change* |
 | 2026-09-28 | a rule may decide on a model-read fact: tier 3, premise marked *read by AI* | operator: *that is why we have tier 3* |
 | 2026-09-28 | fill is who acts, border is the tier; every colour labelled in the key | operator: red meant both *stop* and *tier 4* |
 | 2026-09-28 | stage ④ as a consultant: overview, pacing asked at the start, stops by tier, grounded explanations, wrap-up; the protocol to become code that generates this diagram | operator: *the builder is a consultant guiding a biology researcher*; settings deferred to #117 |

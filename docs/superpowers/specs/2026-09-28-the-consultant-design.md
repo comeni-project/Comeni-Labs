@@ -218,6 +218,11 @@ round 1 (states per input, *before your edit*) carries over.
 
 ## 8. Stage ④: the consultant build
 
+> **Knowingly optimistic.** Stages ② and ③ answer defects the walk found; this stage was
+> designed before any model walked it. It is the first draft to be tested, and phase 5 of the
+> build order should expect to be revised by what the walk finds, more than the phases before
+> it. Build the smallest version that can be walked, not the whole section at once.
+
 ### Plan and pacing
 
 After the blueprint resolves, the engine composes an **overview** from it: steps grouped into
