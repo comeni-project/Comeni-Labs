@@ -64,19 +64,33 @@ flowchart LR
         CARD["Goal card: every fact<br/>and where it came from"]:::you
     end
 
-    subgraph S4 ["④ It's built step by step"]
+    subgraph S4 ["④ Your consultant builds it with you"]
         direction TB
-        DECIDE{"For each choice: is the<br/>fact it depends on known?"}:::engine
-        RULE["Chosen by a rule<br/>yellow: check the fact behind it"]:::yellow
-        CHOOSE["No rule could decide<br/>red: you choose"]:::red
-        STEPS(["Each step offered to you"]):::you
-        DECIDE -- "known" --> RULE --> STEPS
-        DECIDE -- "left open" --> CHOOSE --> STEPS
+        PLAN["The plan, in plain stages<br/>clean reads → align → count → QC report<br/>(engine resolves it, AI tells it)"]:::ai
+        PACE{"“Go through it together, or set it up<br/>and stop only where I need you?”<br/>(together: every step waits for “continue”)"}:::you
+        NEXT{"Next step:<br/>does it need you?"}:::engine
+        SETTLED["Placed: settled, one obvious answer<br/>what it does and why, one tap away"]:::engine
+        RULE["Placed by a rule, yellow:<br/>“this rests on your read length”"]:::yellow
+        CHOOSE["A real choice, red:<br/>options with trade-offs, in biology terms"]:::red
+        WRAP(["Wrap-up: what you'll get,<br/>what you need to run it, who decided what"]):::ai
+        PLAN --> PACE --> NEXT
+        NEXT -- "settled" --> SETTLED
+        NEXT -- "a rule decided" --> RULE
+        NEXT -- "no rule could decide" --> CHOOSE
+        SETTLED --> NEXT
+        RULE --> NEXT
+        CHOOSE -- "you choose" --> NEXT
+        NEXT -- "nothing left" --> WRAP
     end
+
+    ASKANY(["Ask anything, any time:<br/>why? what if? what's a BAM?"]):::you
+    EXPLAIN["AI answers only from sources<br/>tool docs, citations, glossary, and shows them<br/>(“I don't have a source for that” otherwise)"]:::ai
+    ASKANY --> EXPLAIN
+    EXPLAIN -.-> S4
 
     TARGET --> NEEDS
     MISSING -- "no, all known<br/>or left open" --> CARD
-    CARD -- "that's right" --> DECIDE
+    CARD -- "that's right" --> PLAN
 
     subgraph KEY ["Who acts"]
         direction TB
@@ -121,6 +135,32 @@ protection profile. The facts' labels in the diagram (*you said*, *measured*, *r
    aligns. *I have it but won't upload it* records it as `PERSON-SAID`; *I don't have one* is an
    honest stop naming the input, never a pipeline built around the gap.
 
+## The build, as a consultant (stage ④)
+
+The person is a researcher, not a pipeline engineer. They know their experiment and not
+necessarily what a BAM is. Stage ④ is written for them.
+
+8. **Overview before detail.** The engine resolves the whole pipeline before offering anything,
+   so the build opens with its shape **in stages, not tools**: *clean the reads, line them up
+   against the genome, count reads per gene, a quality report. Four stages; two need you.*
+9. **Then the pacing question, asked, not set** (decided 2026-09-28): *go through it together, or
+   set it up and stop only where I need you?* A settings menu for this is deferred (#117), so
+   the MVP gets no extra UI.
+10. **Stops are paced by tier.** Tiers 1–2 are placed with their reason one tap away. Tier 3 is
+    placed with the fact it rests on shown (yellow). **Tier 4 always stops** (red) and is posed as a
+    choice with trade-offs in biology terms. Going through together, every step waits for
+    *continue*.
+11. **Every step carries four things:** what it does, why it is here, what it makes, and what to
+    check. The engine supplies the facts (tier, rule, citation, inputs and outputs), and the AI
+    only puts them in the researcher's words.
+12. **The AI explains only from sources it is handed**: the tool's declared description, the rule's
+    citation, a glossary entry. It shows the source, and it says *I don't have a source for that*
+    rather than answering from memory. That needs declared descriptions per tool or role (#78):
+    the forge drafts them and a person approves (invariant 2, unchanged).
+13. **Ask anything, any time.** *Why? What if? What's a BAM?* A structural question (*what feeds
+    what*) is answered by the engine; the AI phrases it.
+14. **It ends with a wrap-up**: what you'll get, what you need to run it, and who decided what.
+
 ## How a fact's source reaches the tiers
 
 The four tiers are unchanged. What this protocol adds is **where the premise came from**, which
@@ -133,6 +173,21 @@ the tier-3 colour already asks a reader to check.
 | `MODEL-READ`: the characteriser read it | *open question, see below* | — |
 | open: nobody knows | **4**, ambiguous | red: always flagged, a person answers |
 | no rule reads it | 1 or 2 as today | — |
+
+## The protocol is code (planned)
+
+This page's diagram is **generated, not drawn**, once the rework lands. One declarative object in
+the code (`mendel_api/authoring/protocol.py`) holds the stages, every node (who acts: *you*,
+*engine*, *AI*, *safety*) and every edge (with its label and, where it moves the session, its
+state-machine event). Three things are derived from it:
+
+- **the Mermaid diagram above**, written between markers by a generator, with `make docs` failing
+  when the page is stale, the same arrangement as `diagnostics.md`;
+- **a test that the running state machine is the diagram**: every phase transition in
+  `authoring/state.py` must be an edge here and every event-carrying edge a transition, so the
+  picture cannot drift from the code;
+- later, **the agents' wiring**: which prompt a node sends and what evidence it receives, per
+  protection level, read from the same object instead of scattered through services.
 
 ## Protection profiles: what may cross, per node
 
@@ -173,5 +228,6 @@ tightening is filling in a row, not rewiring.
 | Date | Change | Why |
 |---|---|---|
 | 2026-09-28 | first version | #105 (no place for *paired-end*), #114 (nobody asked for the genome) |
+| 2026-09-28 | stage ④ as a consultant: overview, pacing asked at the start, stops by tier, grounded explanations, wrap-up; the protocol to become code that generates this diagram | operator: *the builder is a consultant guiding a biology researcher*; settings deferred to #117 |
 | 2026-09-28 | diagram reorganised into four stages with plain-language labels and a key | operator: *make the text more intuitive, and the organisation* |
 | 2026-09-28 | nothing is guessed; an open measurement falls to tier 4 rather than blocking; inputs and measurements split; the tier table | operator, during the #105/#114 brainstorm: *the model can keep that param open as a tier-4 question* |
