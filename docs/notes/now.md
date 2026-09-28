@@ -18,8 +18,9 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   `docs/superpowers/plans/2026-09-28-the-consultant-gathering.md` (#132–#134). Scenario 1 is
   blocked until 14.7.3 lands: nobody asks for the genome (#114), and paired-end has nowhere to go
   (#105). (2026-09-28)
-- **Docs compaction (#118)** is in progress: `CLAUDE.md` to a ≤ 300-line brief, this page, and two
-  checks in `make check`. (2026-09-28)
+- **Docs compaction (#118) is done:** `CLAUDE.md` is a brief under 300 lines, arguments are in
+  `docs/design/invariants.md`, and `make doc-paths`, `make doc-sizes` and a pytest on the live
+  files keep it so. (2026-09-28)
 
 ## How work is done now
 

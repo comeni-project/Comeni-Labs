@@ -300,8 +300,9 @@ crossing, tier 4 always flagged, typed-only publish bundles, no patient data rec
 **None of this table is implemented yet, and saying so is the point** —
 [#71](https://github.com/comeni-project/Comeni-Labs/issues/71). A search for
 `ProtectionProfile`, `SEALED` or `GUARDED` across every package returns nothing, because every
-row describes a subsystem that does not exist: the prompt door, compiler repair and tier-4
-resolution are all Plan 3 or later.
+row describes a subsystem that does not exist. (Corrected 2026-09-28: goal extraction and tier-4
+resolution now exist, in the living pipeline; compiler repair is still declared and not built.
+The profiles themselves are still unbuilt.)
 
 **Deprioritised 2026-09-05, by the operator's PI**, and it costs nothing today because it was
 never started. Do not open #71 on privacy grounds alone; open it when a *user* needs a posture,
@@ -315,7 +316,7 @@ person typed crosses it.
 is somewhere `sealed` can honestly close while scaffolding, generation and landing keep working,
 which is a coherent posture for a lab curating a private registry. That row is not written yet;
 the door being declared is what makes it writable.
-A laboratory wanting no model calls from an installation does not configure `MENDEL_MODEL`,
+A laboratory wanting no model calls from an installation does not configure `COMENI_AI_MODEL`,
 which is stronger than a check: there is nothing to reach a provider *with*.
 
 **Say "Mendel does not receive patient data" — never "anonymised".** Genetic data are not

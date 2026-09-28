@@ -68,6 +68,8 @@ each written because it was broken:
 - **Rules are tuned, never forced.** The product's thesis is the balance between flexibility and
   restraint: a rule too strict to function is loosened, one too loose is tightened. Do not make a
   thing work "no matter what".
+- **Work on a feature branch, never `main`**: the living pipeline is on `living-pipeline-design`,
+  and `main` stays unpushed until it merges.
 - **Execute plans yourself** with `superpowers:executing-plans`, task by task. **Subagents are for
   review and design only**, never the default way to write code.
 - **Plans** live in `docs/superpowers/plans/`, specs in `docs/superpowers/specs/`; finished ones
@@ -105,8 +107,9 @@ Violating any of these breaks the product claim, not just a test. Each is argued
    `test_purity_runtime.py`), `ctypes` banned, no `datetime.now` in `wiener-core`.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** Nothing writes to a
    registry layer automatically.
-3. **Runtime AI is confined to declared points** (`AiPoint`): goal extraction, tier-4 resolution,
-   compiler repair, and, at protection level 0 only, characterisation (a recorded loosening).
+3. **Runtime AI is confined to three declared points** (`AiPoint`): goal extraction, tier-4
+   resolution, compiler repair (declared, not built). A fourth, characterisation at protection
+   level 0, is **designed, not built** (`docs/design/authoring-protocol.md`).
 4. **A tier-3 rule miss demotes to tier 4.** It never calls a model inside tier 3.
 5. **Repair patches the IR and re-emits**, never the generated `.nf` text.
 6. **Tier 4 is always flagged**, even at high model confidence.
@@ -122,8 +125,9 @@ Violating any of these breaks the product claim, not just a test. Each is argued
 13. **Self-hosted is not a degraded tier:** same registry, same resolver, byte-identical output.
 14. **Data leaves through declared doors only** (`DOORS`, `DoorPath`), each with one typed payload;
     `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count. Publication has no undo.
-15. **Mendel does not receive patient data** at protection levels above 0. `DataProfile` is built
-    only by `MeasurementRegistry.profile()`.
+15. **Mendel does not receive patient data.** `DataProfile` is built only by
+    `MeasurementRegistry.profile()`. The designed protection level 0 would loosen this for an
+    uploaded sample; that is not built.
 
 ## The system, briefly
 
@@ -131,9 +135,9 @@ Violating any of these breaks the product claim, not just a test. Each is argued
 structural (silent), **2** convention (green), **3** data-profiled, a declared rule matched a
 measured fact (yellow: *check the premise*), **4** ambiguous (red, review required).
 
-**Protection levels.** Level **0** is open and is the only one being built: a sample may be
-uploaded and a model may read it. `guarded` and `sealed` are designed and not built (#71); do not
-start them on privacy grounds alone.
+**Protection profiles** (`open`, `guarded`, `sealed`) are designed and **none is built** (#71); do
+not start them on privacy grounds alone. The consultant's design adds a level **0** (a sample
+uploaded, a model may read it) as the MVP's setting; it arrives with substep 14.7.4.
 
 **Packages** (`packages/`): `comeni-core` (types, schema, IR, registry; pure), `mendel-resolver`
 (four-tier ladder, rules, routing; pure), `mendel-compiler` (IR → Nextflow, gates; pure),
@@ -154,7 +158,8 @@ step and setting with a `why:`, contracts pinned by digest, no paths or timestam
 lanes: none (what CI runs), self-hosted (a key, or a local model over an OpenAI-compatible
 endpoint), hosted. Releases are per package, tagged `<package>-v<version>`; read
 `docs/internals/releasing.md` before cutting one; GitHub Releases only, no PyPI. Telemetry is
-opt-in and off by default, and lives outside the pure packages. GitHub Actions are pinned by SHA.
+opt-in and off by default, and lives outside the pure packages. GitHub Actions are pinned by SHA
+(`tests/repo/test_workflow_pins.py`).
 Code is Apache-2.0; registry data CC-BY-4.0.
 
 ## Commands
@@ -184,6 +189,10 @@ uv run mendel profile --have fastq.reads --out profile-build/
 uv run mendel lint --registry registry/                  # is the layer arranged as it says?
 uv run forge draft nf-core:fastqc --name fastqc --version 0.12.1   # sources, discover, show,
 uv run forge land fastqc --registry ../comeni-registry --by "$USER" # fill, verify, check, land
+# `land` needs --registry: registry/ here is a submodule at a detached HEAD, never a landing site.
+uv run comeni-vendor check --registry registry/ --upstream   # has upstream moved? network (#64)
+uv run mendel docs --registry registry/ --out /tmp/tool-docs --check
+uv run mendel build --goal examples/rnaseq-goal.yml --registry registry/ --registry ./lab --out b/
 cd frontend && npx vitest run && npx tsc -b              # tsc -b, never tsc --noEmit
 ```
 
@@ -206,7 +215,8 @@ package, `mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artif
 - **Toolchain, verified 2026-08-02, do not re-audit:** uv, Python 3.12, Nextflow 25.10, Java 21,
   Docker. The nf-core CLI is not installed; `uvx nf-core` works.
 - **CI has no Nextflow or Docker.** Any test passing `--gate` is green locally and red in CI; omit
-  it unless the test is about gates (`test_gates.py` guards with `skipif`).
+  it unless the test is about gates (`test_gates.py` guards with `skipif`). **Check by
+  shadowing:** put a `nextflow` that exits non-zero on `PATH` and run the fast suite.
 - **The stub gate needs Docker and ~900s cold**, and `-stub-run` cannot see a hollow input: only
   `--gate test` catches a process handed nothing.
 - **nf-core's module metadata (meta.yml) is a scaffold, not a contract**: "sorted" exists only in
@@ -220,6 +230,9 @@ package, `mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artif
   never out of a plan. nf-core 4.x mostly uses `community.wave.seqera.io`; take the last quoted
   `container` string.
 - **`frozenset` has no stable order**: anything serialised needs a sorting serializer.
+- **A contract is a hand-written binding** to its module, checked by `mendel build` and
+  `mendel conformance`. With no readable module source it is marked `unverified`; never assert a
+  conformance property over modules that were not read.
 - **Entry channels come from the vocabulary**, not the compiler: a type declares `entry_channel`.
   **A producer pin binds only where the pinned contract is a candidate**; `UnroutablePinError` is
   for a pin whose own inputs cannot be reached.

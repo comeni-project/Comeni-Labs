@@ -63,3 +63,13 @@ def test_the_budget_names_the_file_and_says_compact(tmp_path):
 
 def test_the_budgets_are_the_specs():
     assert cds.BUDGETS == {"CLAUDE.md": 300, "docs/notes/now.md": 150}
+
+
+def test_the_live_brief_and_its_companions_pass_both_checks():
+    """CI runs pytest, not `make doc-paths`/`make doc-sizes`, so without this a pull request could
+    push CLAUDE.md past its budget or add a dead path and merge green (review of #118). A missing
+    file fails here too: a check over a file that is not there passes on nothing."""
+    for name in cdp.FILES:
+        assert (ROOT / name).exists(), f"{name} is missing; the checks would pass vacuously"
+        assert cdp.dead_paths((ROOT / name).read_text(), ROOT) == [], name
+    assert cds.over_budget(ROOT, cds.BUDGETS) == []
