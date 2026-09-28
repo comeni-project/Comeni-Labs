@@ -83,7 +83,7 @@ done
   `FILES = ["CLAUDE.md", "docs/notes/now.md", "docs/design/invariants.md"]` (a missing file in
   that list is skipped until it exists, so the tool can be written before the files).
 
-- [ ] **Step 1: The failing tests**
+- [x] **Step 1: The failing tests**
 
 ```python
 """The two checks that keep CLAUDE.md short and its paths real (#118)."""
@@ -132,12 +132,12 @@ def test_it_finds_the_dead_paths_in_claude_md_as_it_was():
     assert len(cdp.dead_paths(before, ROOT)) >= 20
 ```
 
-- [ ] **Step 2: Freeze the *before*:** `cp CLAUDE.md tests/fixtures/claude-md-2026-09-28.md`. The
+- [x] **Step 2: Freeze the *before*:** `cp CLAUDE.md tests/fixtures/claude-md-2026-09-28.md`. The
   fixture is the measured starting point, and Task 6 checks the rewrite against it. Run the tests:
   `uv run pytest -q tests/repo/test_doc_checks.py`. Expected: FAIL, `No module named
   'check_doc_paths'`. Until Task 3 exists, comment out the `check_doc_sizes` import line and
   restore it there.
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 """Every backticked repository path in the agent brief and its two companions exists (#118).
@@ -197,11 +197,11 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run the tests.** Expected: 4 passed. Then run the tool on today's `CLAUDE.md`
+- [x] **Step 4: Run the tests.** Expected: 4 passed. Then run the tool on today's `CLAUDE.md`
   (`uv run python tools/check_doc_paths.py`) and **read the whole output**. Every line must be a
   real dead path. A false positive means tightening `_looks_like_path` and adding it to the third
   test, not ignoring it. Record the count; the spec measured 29.
-- [ ] **Step 5: Commit**: `test(docs): the path check, and the before it measures — #118`.
+- [x] **Step 5: Commit**: `test(docs): the path check, and the before it measures — #118`.
   It does **not** join `make check` yet.
 
 ### Task 3 (#157): the size budget
@@ -373,4 +373,5 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 | Task | What was done differently from the plan | Why |
 |---|---|---|
 | 1 | 11 worktrees removed (the plan said 12; the 12th is the main checkout). The six `agent-*` needed `--force`, **operator-approved**: their only untracked content was scratch and four design-audit drafts byte-identical to `014a169`. The five others hold the `registry` submodule, which `git worktree remove` refuses even with `--force`, so their directories were deleted after checking each `registry/` was clean and on `comeni-registry`'s `main`, then `git worktree prune`. An empty root-owned `.run/wiener` needed a container to delete. | git refuses worktrees containing submodules |
+| 2 | Measured **140** before a second rule, **101** after: a bare filename (no directory) is live if any tracked file has that name (`tokens.test.ts` is; `wiener.md` is not), and a bare extension (`.nf`) is not a path. Two tests added for them. The remaining non-paths (tool ids like `samtools/sort`, scheme-less URLs, directories named relative to a context like `rules/`) stay reported; the rewrite qualifies them or takes them out of backticks. The spec's "29" counted only design/notes paths. | noise vs. strictness: a stricter heuristic would miss `notes/journal/` |
 | 1 | **Trap, recorded:** `git -C <worktree> submodule deinit` clears `submodule.registry` in the *shared* `.git/config`, which de-initialised the main checkout's `registry` (files intact). Restored with `git submodule init registry`. Never deinit inside a worktree. | the config is shared between worktrees |
