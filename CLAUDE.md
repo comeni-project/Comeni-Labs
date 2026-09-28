@@ -143,7 +143,7 @@ measured fact (yellow: *check the premise*), **4** ambiguous (red, review requir
 
 **Protection profiles** (`open`, `guarded`, `sealed`) are designed and **none is built** (#71); do
 not start them on privacy grounds alone. The consultant's design adds a level **0** (a sample
-uploaded, a model may read it) as the MVP's setting; it arrives with substep 14.7.4.
+uploaded, a model may read it) as the MVP's setting; it arrives with substep 14.7.6.
 
 **Packages** (`packages/`): `comeni-core` (types, schema, IR, registry; pure), `mendel-resolver`
 (four-tier ladder, rules, routing; pure), `mendel-compiler` (IR → Nextflow, gates; pure),

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-28 · **Status:** design, awaiting the operator's review
 **Where this sits:** Task 14 of the living pipeline (Living Pipeline Plan 2, the walk), step 14.7.
-This spec is substeps **14.7.2–14.7.6**; 14.7.1 was round 1 of the walk.
+This spec is substeps **14.7.2–14.7.8**; 14.7.1 was round 1 of the walk. Renumbered on 2026-09-28: 14.7.4 (the consultant's words, fast and cheap) and 14.7.5 (the settings menu) were inserted, and samples, the characteriser, the consultant build and the nine-scenario walk became 14.7.6–14.7.9.
 **Issues:** #105 (no place for *paired-end*), #114 (nobody asked for the genome), #113 (*New
 pipeline*), #117 (settings, deferred), #78 (contracts have no description), #71 (protection
 profiles)
@@ -211,7 +211,7 @@ card is confirmed: inputs into `goal.have`, measurements into `goal.profile` wit
 carried into `Measured.source`. `PERSON_SAID` maps to `ValueSource.GOAL` (*asserted in the goal*,
 which is what it is; `HUMAN` means answering a flagged ambiguity **after** resolution, and is not
 this), and `MODEL_READ` to `ValueSource.MODEL`. `MEASURED` has no spelling yet: `ValueSource` gains
-`INSPECTED`, with `Measured.by` naming the inspector (a `comeni-core` feature, in 14.7.4).
+`INSPECTED`, with `Measured.by` naming the inspector (a `comeni-core` feature, in 14.7.6).
 
 **A profile with mixed sources needs one new constructor.** `MeasurementRegistry.profile()` stamps
 one source on every entry, and `tests/guards/test_construction.py` forbids building a
@@ -316,7 +316,7 @@ round 1 (states per input, *before your edit*) carries over.
 ## 8. Stage ④: the consultant build
 
 > **Knowingly optimistic.** Stages ② and ③ answer defects the walk found; this stage was
-> designed before any model walked it. It is the first draft to be tested, and substep 14.7.6
+> designed before any model walked it. It is the first draft to be tested, and substep 14.7.8
 > should expect to be revised by what the walk finds, more than the substeps before it. Build the smallest version that can be walked, not the whole section at once.
 
 ### Plan and pacing
@@ -379,7 +379,7 @@ read length gets the question too, which is the flag the invariants promise.
 - **A recorded human answer still wins on replay** (`ReplayResolver`): the probe showed a backed
   override losing its human source.
 
-**The fact-first card** (stage ④, built with 14.7.6). The step card leads with the fact the rule
+**The fact-first card** (stage ④, built with 14.7.8). The step card leads with the fact the rule
 reads, not the tools: *your read length decides the aligner: 70 bp or longer, STAR; shorter,
 HISAT2 (Dobin et al. 2013)*. What it offers follows why the fact is open:
 
@@ -391,7 +391,7 @@ HISAT2 (Dobin et al. 2013)*. What it offers follows why the fact is open:
 
 Answering the fact adds it to the session's facts and re-resolves the step: **tier 3**, the
 premise marked *measured* or *you said*. Choosing a tool keeps **tier 4**, *you chose*. Until
-14.7.6, the card shows the rule's rows as the reason and the two tools as options.
+14.7.8, the card shows the rule's rows as the reason and the two tools as options.
 
 **Tests that change on purpose** (the probe's fallout, 5 beyond the base failures):
 `test_a_priority_resolved_choice_is_convention` and `test_a128_…` assert a priority win on a
@@ -446,7 +446,7 @@ the log).
   with the field unmarked.
 - **The walk:** scenario 1 with and without an upload, then round 2 of Plan 2.
 
-## 11. Build order: substeps 14.7.2–14.7.6
+## 11. Build order: substeps 14.7.2–14.7.9
 
 Each substep leaves the loop working and is walked before the next begins.
 
@@ -457,14 +457,19 @@ Each substep leaves the loop working and is walked before the next begins.
    Scenario 1 by answering questions. **Plus stated and typed facts as confirmed candidates**
    (#170, #171; §6), **and the resolver half of #174**: an absent premise on a
    declared rule is tier 4 (§8, *An open premise at build time*).
-- **14.7.4 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading. *Not sure*
+- **14.7.4 The consultant's words, fast and cheap:** record what the model answered; prompts as a
+   fixed system message plus a dynamic one, `keep_alive`, prefix reuse; then the consultant's prose
+   (#167, #176) with prefetching. Spec amended when its brainstorm is written up.
+- **14.7.5 The settings menu:** pacing, protection level, a model per purpose, lane; then which
+   local models fit an 8 GiB card.
+- **14.7.6 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading. *Not sure*
    in gathering asks for the file, closing the protocol's planned upload branch.
-- **14.7.5 The characteriser, door 6, the fourth AI point.**
-- **14.7.6 The consultant build:** plan, pacing, four things per step, tier pacing, wrap-up, starter
+- **14.7.7 The characteriser, door 6, the fourth AI point.**
+- **14.7.8 The consultant build:** plan, pacing, four things per step, tier pacing, wrap-up, starter
    descriptions, explanations from sources, and the fact-first card for an open premise (#174).
 
-14.7.2–14.7.4 finish scenario 1; 14.7.5 and 14.7.6 are what make it a consultant. After them,
-**14.7.7** walks all nine scenarios again, round by round.
+14.7.2–14.7.6 finish scenario 1; 14.7.7 and 14.7.8 are what make it a consultant. After them,
+**14.7.9** walks all nine scenarios again, round by round.
 
 ## 12. Open questions
 

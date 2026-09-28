@@ -1,4 +1,4 @@
-# The consultant, substeps 14.7.2–14.7.4: protocol as code, gathering, samples
+# The consultant, substeps 14.7.2–14.7.6: protocol as code, gathering, samples
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
 > plan task by task, in one hand. `CLAUDE.md` says subagents are for review and design only. Steps
@@ -12,7 +12,7 @@ uploaded FASTQ, reaches a goal holding reads, a genome and an annotation, with `
 
 **Architecture:** The engine computes what an analysis still needs (the gap list) by walking back
 from the want through the registry. Each gap is a proposal of kind `gap` the person answers by
-click, by typed value, or (from 14.7.4) by uploading a file an inspector measures. Facts carry
+click, by typed value, or (from 14.7.6) by uploading a file an inspector measures. Facts carry
 their source into the goal, and an open measurement is simply absent, so the tiers carry it as
 tier 4. The protocol is a declarative object: the state machine is derived from it and its diagram is
 generated from it, with the design drawn dashed until built.
@@ -22,11 +22,11 @@ TanStack Query + Vitest, LiteLLM to a local Ollama `gemma3:12b` for the walk.
 
 **Spec:** [`docs/superpowers/specs/2026-09-28-the-consultant-design.md`](../specs/2026-09-28-the-consultant-design.md).
 **Protocol:** [`docs/design/authoring-protocol.md`](../../design/authoring-protocol.md).
-**Issues:** Task 14 #119 → 14.7 #126 → 14.7.2 #132, 14.7.3 #133 (#105, #113, #114), 14.7.4 #134.
+**Issues:** Task 14 #119 → 14.7 #126 → 14.7.2 #132, 14.7.3 #133 (#105, #113, #114), 14.7.6 #134.
 Each task below is a sub-issue of its substep (#138–#154), numbered in its heading.
 
-**Not in this plan:** 14.7.5 (characteriser) and 14.7.6 (consultant build) are planned after
-14.7.4 is walked. 14.7.6 is knowingly optimistic, and writing its code now would be writing
+**Not in this plan:** 14.7.7 (characteriser) and 14.7.8 (consultant build) are planned after
+14.7.6 is walked. 14.7.8 is knowingly optimistic, and writing its code now would be writing
 against a guess.
 
 ## Global constraints
@@ -70,7 +70,7 @@ in the owning task.
    facts gathered so far are intact. Task 14.7.3.5.
 5. **A FASTQ head that is not FASTQ** (a FASTA, a BAM, a truncated gzip). Expected: the inspector
    refuses with a declared code, and the gap stays open for another file or an answer. Task
-   14.7.4.2.
+   14.7.6.2.
 
 ---
 
@@ -745,8 +745,8 @@ class FactKind(StrEnum):
 class FactSource(StrEnum):
     """Where a fact came from, which is what the goal card and the tier-3 premise show."""
 
-    MEASURED = "measured"        # an inspector read the file (14.7.4)
-    MODEL_READ = "model_read"    # the characteriser read it (14.7.5)
+    MEASURED = "measured"        # an inspector read the file (14.7.6)
+    MODEL_READ = "model_read"    # the characteriser read it (14.7.7)
     PERSON_SAID = "person_said"  # the person stated it
     OPEN = "open"                # nobody knows; the tiers carry it as tier 4
 
@@ -773,7 +773,7 @@ class Fact(_Shape):
   `stopped` `phase=STOPPED`, set `built=True` on them, and on their edges set `built=True` and the
   events: `read_goal→list_needs` WANT_RETURNED, `said→next_gap` and `left_open→next_gap`
   FACT_ADDED, `next_gap→card` NOTHING_MISSING, `reply→stopped` INPUT_UNAVAILABLE. `upload`,
-  `safety`, `read_engine` and `read_ai` stay planned (14.7.4, 14.7.5). `TRANSITIONS` follows by
+  `safety`, `read_engine` and `read_ai` stay planned (14.7.6, 14.7.7). `TRANSITIONS` follows by
   derivation; there is no table to edit. **Delete** `test_the_derived_machine_is_the_one_that_was_written_by_hand`
   and its `TODAY` (14.7.2.2): the machine is meant to change now, and the arrow-by-arrow tests in
   `test_authoring_state.py` gain the four new arrows instead. Retire `read_goal→card`
@@ -1164,11 +1164,11 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
     NOTHING_MISSING. Otherwise propose the first gap: kind `GAP`, payload `{"subject", "kind",
     "why", "options": {...}}`, block a `Question` with options:
     - input: `have_it` *I have it*, `cant_share` *I have it, but can't share it*, `dont_have`
-      *I don't have one*. (`upload` arrives in 14.7.4.)
+      *I don't have one*. (`upload` arrives in 14.7.6.)
     - measurement with declared `values`: one option per value, then `not_sure`, `cant_share`.
     - measurement `boolean`: `yes`, `no`, `not_sure`, `cant_share`.
     - measurement `integer`/`number`: `value` (the typed field), `not_sure`, `cant_share`.
-    - `not_sure` asks for a file: until 14.7.4 it records the fact `OPEN`, and the block says
+    - `not_sure` asks for a file: until 14.7.6 it records the fact `OPEN`, and the block says
       *upload arrives soon*, which the walk will flag if it bites. It never guesses.
   - `answer_gap`: settle the proposal (`decide` with `chosen_option`). For `value`, run
     `stack.measurements.check(subject, value)` first and raise MI0208 before anything is written.
@@ -1320,9 +1320,9 @@ MI0208 for a refused value, writes nothing then); the session's `goal` dict gain
 
 ---
 
-## 14.7.4 — Samples at protection level 0, and the FASTQ inspector (#134)
+## 14.7.6 — Samples at protection level 0, and the FASTQ inspector (#134)
 
-### Task 14.7.4.1 (#149): the protection level
+### Task 14.7.6.1 (#149): the protection level
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/authoring/protection.py`
@@ -1340,9 +1340,9 @@ MI0208 for a refused value, writes nothing then); the session's `goal` dict gain
 - [ ] **Step 2–4:** implement, declare MI0210, and document `COMENI_PROTECTION_LEVEL` in
   `.env.example` with one line: *0 is open, and the only level built; see
   `docs/design/authoring-protocol.md`*. Commit —
-  `feat(living): the protection level, with level 0 the only one built — 14.7.4.1 (#134)`.
+  `feat(living): the protection level, with level 0 the only one built — 14.7.6.1 (#134)`.
 
-### Task 14.7.4.2 (#150): the FASTQ inspector
+### Task 14.7.6.2 (#150): the FASTQ inspector
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/services/inspect/__init__.py`,
@@ -1385,9 +1385,9 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   `_R?[12](_\d+)?\.f(ast)?q(\.gz)?$`, and **absent** otherwise: a lone file named `reads.fq`
   proves nothing about pairing, and the gap stays for the person.
 - [ ] **Step 4: Run and commit** —
-  `feat(living): the FASTQ inspector — paired and read length, measured — 14.7.4.2 (#134)`.
+  `feat(living): the FASTQ inspector — paired and read length, measured — 14.7.6.2 (#134)`.
 
-### Task 14.7.4.3 (#151): `ValueSource.INSPECTED` (`comeni-core`)
+### Task 14.7.6.3 (#151): `ValueSource.INSPECTED` (`comeni-core`)
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/review/answer.py`, and every exhaustive match on
@@ -1399,9 +1399,9 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   breaks. **Stop and report if it touches `SCHEMA_VERSION`**: that is a `comeni-core` break, not
   a feature, and the operator decides.
 - [ ] **Step 2:** fix what the run named, `make verify`, commit —
-  `feat(core): ValueSource.INSPECTED — 14.7.4.3 (#134)`.
+  `feat(core): ValueSource.INSPECTED — 14.7.6.3 (#134)`.
 
-### Task 14.7.4.4 (#152): uploading a sample
+### Task 14.7.6.4 (#152): uploading a sample
 
 **Files:**
 - Modify: `packages/mendel-api/pyproject.toml` (`python-multipart>=0.0.9`, as `wiener-api` has),
@@ -1423,13 +1423,13 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   pending and records nothing.
 - [ ] **Step 2–3: Implement.** `require(Crossing.UPLOAD)` first; store; `inspector_for`; append the
   facts; `FACT_ADDED`; `offer_next_gap`. A type with no inspector (a FASTA) answers with a notice:
-  *the characteriser arrives in 14.7.5; tell me what it is for now*, and the gap stays. `compose_goal`
+  *the characteriser arrives in 14.7.7; tell me what it is for now*, and the gap stays. `compose_goal`
   maps `MEASURED` to `ValueSource.INSPECTED` with `by="inspect:fastq"`. Every gap gains the option
   `upload` beside *not sure*, and *not sure* now **asks for the upload** instead of recording OPEN.
 - [ ] **Step 4:** `make client`, run the tests, commit —
-  `feat(living): upload a sample, measured by its inspector — 14.7.4.4 (#134)`.
+  `feat(living): upload a sample, measured by its inspector — 14.7.6.4 (#134)`.
 
-### Task 14.7.4.5 (#153): the page — upload on a gap card
+### Task 14.7.6.5 (#153): the page — upload on a gap card
 
 **Files:**
 - Modify: `frontend/src/build/living/blocks/GapCard.tsx`, `GoalCard.tsx`,
@@ -1440,14 +1440,14 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
 - [ ] **Step 1: Failing tests:** a gap card has *Upload a file* and posts the chosen file; while
   uploading it says so; the goal card shows `read_length 150 · measured from s1_R1.fastq`.
 - [ ] **Step 2–3: Implement, and run** `npx vitest run`, `npx tsc -b`. Commit —
-  `feat(living): upload a file from a gap card — 14.7.4.5 (#134)`.
+  `feat(living): upload a file from a gap card — 14.7.6.5 (#134)`.
 
-### Task 14.7.4.6 (#154): the ladder, then walk scenario 1 by uploading
+### Task 14.7.6.6 (#154): the ladder, then walk scenario 1 by uploading
 
 - [ ] **Step 1:** the full ladder, as in 14.7.3.8.
 - [ ] **Step 2: Walk it:** upload a real paired FASTQ head, see `paired` and `read_length`
   measured and not asked, answer the genome and annotation, confirm, and see STAR chosen at
-  **tier 3** with the premise *measured*. Then plan 14.7.5 and 14.7.6 from what the walk shows.
+  **tier 3** with the premise *measured*. Then plan 14.7.7 and 14.7.8 from what the walk shows.
 - [ ] **Step 3:** issues for every defect, the execution record, close #134.
 
 ---
@@ -1479,7 +1479,7 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   failures; `types`, `docs`, `links`, `doc-paths`, `doc-sizes`, `tsc -b` pass. `docs-status` failed on the walking guide (#164), fixed separately.
 - **14.7.3.1 (2026-09-28).** Protocol: the planned `upload→left_open` *can't share it* became a
   built `reply→left_open`, because the spec's gap options put *can't share it* on the reply, not
-  behind an upload; `reply→upload` *not sure* stays planned for 14.7.4. Two tests changed on
+  behind an upload; `reply→upload` *not sure* stays planned for 14.7.6. Two tests changed on
   purpose: the literal phase list gains `gathering` and `stopped`; `test_the_table_covers_every_phase`
   exempts `stopped` as terminal. `test_models`' column guard failed on `facts` and was answered by
   naming it, with the level-0 note on `Fact.sample`. Migration `a4c8e1f26b93` watched up, down and

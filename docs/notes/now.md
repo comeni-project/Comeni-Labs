@@ -14,10 +14,14 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **Task 14 of the living pipeline, step 14.7: walking it with a real model.** The tree is GitHub
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). Round 1 of the walk found
   and fixed #106–#116. (2026-09-28)
-- **Next: substeps 14.7.2–14.7.4**, the consultant's gathering stage, planned in
-  `docs/superpowers/plans/2026-09-28-the-consultant-gathering.md` (#132–#134). Scenario 1 is
-  blocked until 14.7.3 lands: nobody asks for the genome (#114), and paired-end has nowhere to go
-  (#105). (2026-09-28)
+- **Order of work, in #119's own order** (renumbered 2026-09-28 so the tree reads as done):
+  **14.7.3** gathering (open: #179 fixed by moving the local lane to `ollama_chat/`, #170, #178,
+  #165) → **14.7.4** the consultant's words, fast and cheap (#182–#186, then #167 #176) →
+  **14.7.5** the settings menu (#117, #187) → **14.7.6** samples → **14.7.7** the characteriser
+  → **14.7.8** the consultant build → **14.7.9** the nine scenarios. (2026-09-28)
+- **Scenario 1 builds end to end with `gemma3:12b`** after gathering (reads, genome, annotation,
+  paired, read length, strandedness asked; aligner tier 3 with a read length, tier 4 without).
+  (2026-09-28)
 - **Docs compaction (#118) is done:** `CLAUDE.md` is a brief under 300 lines, arguments are in
   `docs/design/invariants.md`, and `make doc-paths`, `make doc-sizes` and a pytest on the live
   files keep it so. (2026-09-28)

@@ -15,10 +15,12 @@ Each line is a GitHub issue, and each level is a sub-issue of the one above it.
 │   ├─ #131   14.7.1  round 1: #106–#112, #115, #116                    done
 │   ├─ #132   14.7.2  the protocol as code                              spec §5
 │   ├─ #133   14.7.3  gathering without files (#105, #113, #114)        spec §6–7
-│   ├─ #134   14.7.4  samples + the FASTQ inspector                     spec §6
-│   ├─ #135   14.7.5  the characteriser                                 spec §6
-│   ├─ #136   14.7.6  the consultant build, provisional (#117)          spec §8
-│   └─ #137   14.7.7  the nine scenarios, round by round
+│   ├─ #180   14.7.4  the consultant's words, fast and cheap (#167 #176 #182–#186)
+│   ├─ #181   14.7.5  the settings menu (#117, #187)
+│   ├─ #134   14.7.6  samples + the FASTQ inspector                     spec §6
+│   ├─ #135   14.7.7  the characteriser                                 spec §6
+│   ├─ #136   14.7.8  the consultant build, provisional                 spec §8
+│   └─ #137   14.7.9  the nine scenarios, round by round
 ├─ #127       14.8        artboards beside the page
 ├─ #128       14.9        ai_invocation rows and pipeline.yml provenance
 ├─ #129       14.10       handbook from observed behaviour

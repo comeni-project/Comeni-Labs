@@ -259,7 +259,7 @@ PROTOCOL = Protocol(
             shape=Shape.ROUND,
         ),
         _built("read_goal", "describe", _AI, "AI reads it into a typed goal", _P.UNDERSTANDING),
-        # ② built in 14.7.3; the upload branch stays planned (14.7.4, 14.7.5)
+        # ② built in 14.7.3; the upload branch stays planned (14.7.6, 14.7.7)
         _built(
             "list_needs",
             "gather",
@@ -416,14 +416,14 @@ PROTOCOL = Protocol(
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
         _move("list_needs", "failed", _E.BUILD_FAILED, "nothing can make it"),
-        # planned: a file answers it (14.7.4, 14.7.5)
+        # planned: a file answers it (14.7.6, 14.7.7)
         _e("reply", "upload", "not sure"),
         _e("upload", "safety", "uploaded"),
         _e("safety", "read_engine", "engine knows the type"),
         _e("safety", "read_ai", "it doesn't"),
         _e("read_engine", "next_gap"),
         _e("read_ai", "next_gap"),
-        # planned: the consultant build (14.7.6)
+        # planned: the consultant build (14.7.8)
         _e("resolve", "plan"),
         _e("plan", "pace"),
         _e("pace", "offer"),

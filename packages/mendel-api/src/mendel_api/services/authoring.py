@@ -1265,7 +1265,7 @@ _INPUT_OPTIONS = {
 _UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
 
 _SOURCE = {FactSource.PERSON_SAID: ValueSource.GOAL, FactSource.MODEL_READ: ValueSource.MODEL}
-"""A fact's source as the profile records it. `MEASURED` arrives with 14.7.4's inspector and
+"""A fact's source as the profile records it. `MEASURED` arrives with 14.7.6's inspector and
 `INSPECTED`; an `OPEN` fact never reaches the profile, which is what makes it tier 4."""
 
 

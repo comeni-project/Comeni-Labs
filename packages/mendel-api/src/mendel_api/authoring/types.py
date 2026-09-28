@@ -200,8 +200,8 @@ class FactKind(StrEnum):
 class FactSource(StrEnum):
     """Where a fact came from, which is what the goal card and the tier-3 premise show."""
 
-    MEASURED = "measured"  # an inspector read the file (14.7.4)
-    MODEL_READ = "model_read"  # the characteriser read it (14.7.5)
+    MEASURED = "measured"  # an inspector read the file (14.7.6)
+    MODEL_READ = "model_read"  # the characteriser read it (14.7.7)
     PERSON_SAID = "person_said"  # the person stated it
     OPEN = "open"  # nobody knows; the tiers carry it as tier 4
 
