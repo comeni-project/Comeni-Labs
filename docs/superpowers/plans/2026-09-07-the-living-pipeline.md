@@ -9,7 +9,7 @@
 
 **Date:** 2026-09-07
 
-**Status:** in progress — Tasks 1 to 13 complete
+**Status:** in progress — Tasks 1 to 13 complete; Task 14 continues as Living Pipeline Plan 2
 
 **Goal:** Replace the builder's unwired one-shot Assistant placeholder with a durable,
 continuous authoring conversation. A researcher describes what they have, what they want to do,
@@ -1306,8 +1306,15 @@ state, and a dated journal entry.
   just because their old components moved.
 - [x] Run focused Python tests, frontend Vitest, `make client`, TypeScript, lint, `make check`,
   `make guards`, and `make verify` in that order. Fix the narrowest failure first.
-- [ ] Bring up the real stack. Remember that backend source is baked into the image; rebuild the
+- [x] Bring up the real stack. Remember that backend source is baked into the image; rebuild the
   API/AI worker after backend changes.
+
+> **The rest of this task continues as its own plan** —
+> [`2026-09-28-the-living-pipeline-2-the-walk.md`](2026-09-28-the-living-pipeline-2-the-walk.md).
+> The first hour of the walk found ten defects before a goal was confirmed, and the operator
+> set down a protocol for them (every defect an issue; mechanical ones fixed, protocol ones
+> brainstormed and chosen). The steps below are carried there as its scenarios and stay
+> unticked here until they hold.
 - [ ] With a configured local or hosted model, walk at least:
   1. Build: paired-end RNA-seq → gene counts;
   2. Spawn: the same request;

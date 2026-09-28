@@ -17,7 +17,13 @@ earlier one — the same discipline as `audits/` and for the same reason.
 ## Reading it
 
 > **The newest entry is
-> [`2026-09-13-the-living-pipeline-built-not-walked.md`](2026-09-13-the-living-pipeline-built-not-walked.md)**
+> [`2026-09-28-the-walk-begins.md`](2026-09-28-the-walk-begins.md)** — the living pipeline in a
+> browser with a real local model, ten defects in the first hour, and the protocol for them:
+> every defect an issue; mechanical ones fixed, rule and protocol ones brainstormed and chosen by
+> the operator. That phase is *Living Pipeline Plan 2*.
+>
+> Before it,
+> [`2026-09-13-the-living-pipeline-built-not-walked.md`](2026-09-13-the-living-pipeline-built-not-walked.md)
 > — thirteen of the living pipeline's fourteen tasks, and a handoff. Build and Spawn converge on one
 > draft and one YAML in tests; **nobody has yet described an analysis in a browser with a real model
 > behind it**, and that walk is Task 14. Read its *What to do next* before starting.

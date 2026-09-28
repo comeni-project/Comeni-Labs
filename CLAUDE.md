@@ -86,13 +86,23 @@ it up is what 2026-09-02 was.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — which is
+> [`2026-09-28-the-walk-begins.md`](docs/notes/journal/2026-09-28-the-walk-begins.md).
+> **The project is in a testing phase: Living Pipeline Plan 2**
+> (`docs/superpowers/plans/2026-09-28-the-living-pipeline-2-the-walk.md`) — the living pipeline
+> walked in a browser against a deliberately weak local model (`gemma3:12b`), in rounds.
+> **Every defect gets a GitHub issue first.** Mechanical ones are fixed test-first and closed
+> citing the commit; a defect in a *rule or protocol* is brainstormed, **the operator chooses**,
+> the choice is commented on the issue, then implemented. The thesis being tested is the balance
+> between flexibility and restraint: a rule too strict to function is loosened, one too loose is
+> tightened — **never made to work anyway**. The plan's issue ledger is the state of play.
+>
+> Before it,
 > [`2026-09-13-the-living-pipeline-built-not-walked.md`](docs/notes/journal/2026-09-13-the-living-pipeline-built-not-walked.md).
-> **The living pipeline is 13 of 14 tasks complete and has not been walked.** A researcher can
+> **That entry's state, now superseded: 13 of 14 tasks, not yet walked.** A researcher can
 > describe an analysis on the first-run screen, choose Build or Spawn, and build it beside a
 > conversation at `/build?session=<id>`; `/build` and `/build?draft=` are still the manual builder.
 > Build and Spawn converge on one draft and byte-identical YAML **in tests**. Task 14 — a real
-> model, the real stack, a person in a browser — is next, and that entry's *What to do next* is the
-> checklist. Plan: `docs/superpowers/plans/2026-09-07-the-living-pipeline.md`.
+> model, the real stack, a person in a browser — became Living Pipeline Plan 2 on 2026-09-28. Plan: `docs/superpowers/plans/2026-09-07-the-living-pipeline.md`.
 >
 > **`text-ink-4` rendered at full ink across the app until that day** — an unmapped Tailwind colour
 > generates no CSS — and `tokens.test.ts` now refuses one.
