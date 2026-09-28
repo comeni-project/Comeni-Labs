@@ -1,9 +1,18 @@
 import { useId, useState } from "react";
 
-import type { AuthoringProposal, GoalIn } from "../../../api/types";
+import type { AuthoringProposal, AuthoringSession, GoalIn } from "../../../api/types";
 import { BlockFrame, Primary, Secondary } from "./parts";
 
 type Chosen = { have: string[]; want: string[] };
+type Fact = AuthoringSession["facts"][number];
+
+/** Where a fact came from, in the words the protocol's diagram uses. */
+const SOURCE: Record<Fact["source"], string> = {
+  person_said: "you said",
+  measured: "measured",
+  model_read: "read by AI",
+  open: "left open",
+};
 
 /** The goal read back — the plain-language summary, and the typed goal it stands for, editable.
  *
@@ -19,6 +28,7 @@ export function GoalCard({
   busy,
   onConfirm,
   onReject,
+  facts = [],
 }: {
   proposal: AuthoringProposal;
   /** Declared type ids and their states. `null` while it loads — the card is still answerable. */
@@ -26,6 +36,8 @@ export function GoalCard({
   busy: boolean;
   onConfirm: (edited?: GoalIn) => void;
   onReject: () => void;
+  /** What gathering learned, each with its source (14.7.3). Empty for a goal nobody gathered. */
+  facts?: Fact[];
 }) {
   const block = proposal.block;
   const addHave = useId();
@@ -159,6 +171,7 @@ export function GoalCard({
           checking. The sentences beneath say the same thing in words, quieter, for reading. */}
       {list("have", addHave, "what you have")}
       {list("want", addWant, "what you want")}
+      {facts.length > 0 && <Facts facts={facts} />}
       <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
         {[block.have, block.do, block.get].map(sentence).join(" — ")}.
       </p>
@@ -171,6 +184,43 @@ export function GoalCard({
         </p>
       )}
     </BlockFrame>
+  );
+}
+
+/** Each gathered fact with its source, and what was deliberately left open.
+ *
+ * **Open is said out loud**, because it is a decision deferred rather than a gap forgotten: every
+ * step that reads an open measurement comes back as a tier-4 choice during the build. */
+function Facts({ facts }: { facts: Fact[] }) {
+  const known = facts.filter((f) => f.source !== "open");
+  const open = facts.filter((f) => f.source === "open");
+  const said = (f: Fact) =>
+    f.value === null || f.value === undefined ? f.subject
+      : `${f.subject}: ${f.value === true ? "yes" : f.value === false ? "no" : String(f.value)}`;
+  return (
+    <div className="mb-3">
+      <ul aria-label="what the engine knows" className="m-0 p-0">
+        {known.map((f) => (
+          <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink">
+            {said(f)} <span className="text-ink-3">· {SOURCE[f.source]}</span>
+          </li>
+        ))}
+      </ul>
+      {open.length > 0 && (
+        <>
+          <p className="m-0 mt-2 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">
+            Left open, you'll choose during the build
+          </p>
+          <ul aria-label="Left open, you'll choose during the build" className="m-0 p-0">
+            {open.map((f) => (
+              <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink-2">
+                {f.subject}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   );
 }
 

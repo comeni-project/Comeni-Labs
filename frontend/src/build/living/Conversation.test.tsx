@@ -114,6 +114,22 @@ describe("the goal card", () => {
     expect(onConfirm.mock.calls[0][0].want).toEqual(["counts.matrix", "qc.report"]);
   });
 
+  it("lists each input with where it came from, and what was left open", () => {
+    // 14.7.3: the card is composed from gathered facts, so it can say who each one came from.
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "genome.fasta", source: "person_said", states: [] },
+      { kind: "measurement", subject: "paired", source: "person_said", states: [], value: true },
+      { kind: "measurement", subject: "read_length", source: "open", states: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/genome\.fasta/)).toHaveTextContent("you said");
+    expect(within(said).getByText(/paired/)).toHaveTextContent("yes");
+    const open = screen.getByRole("list", { name: "Left open, you'll choose during the build" });
+    expect(within(open).getByText("read_length")).toBeInTheDocument();
+  });
+
   it("shows the states it is asking the person to confirm", () => {
     // **Found by the first walk with a real model (2026-09-28).** `gemma3:12b` wrote
     // `fastq.reads[deduplicated]` for *paired-end RNA-seq*, and the chip said `fastq.reads` —

@@ -236,10 +236,28 @@ describe("when the session is waiting on the person to say something (issues 110
   });
 });
 
+describe("the new phases say what is happening (14.7.3)", () => {
+  it("reads gathering as gathering what it needs", () => {
+    surface(with_({ phase: "gathering", pending_proposal: null }));
+    expect(screen.getByTestId("living-status")).toHaveTextContent("gathering what it needs");
+  });
+
+  it("reads stopped as stopped: something is missing", () => {
+    surface(with_({ phase: "stopped", pending_proposal: null }));
+    expect(screen.getByTestId("living-status")).toHaveTextContent("stopped: something is missing");
+  });
+});
+
 describe("the composer's invitation follows the phase", () => {
   it("asks for a correction while a goal is being checked", () => {
     surface(with_({ phase: "goal_review",
       turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending") } as Partial<AuthoringSession>));
     expect(screen.getByPlaceholderText(/what is wrong with the goal/)).toBeInTheDocument();
+  });
+
+  it("while gathering, invites an answer in the person's own words", () => {
+    surface(with_({ phase: "gathering", pending_proposal: null,
+      turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending") } as Partial<AuthoringSession>));
+    expect(screen.getByPlaceholderText(/answer the question above/i)).toBeInTheDocument();
   });
 });

@@ -111,14 +111,16 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       option: string;
       expectedRevision: number;
       goal?: GoalIn;
+      value?: number;
     }) =>
       post<AuthoringDecided>(
         `/pipeline/authoring/${sessionId}/proposals/${input.proposal.id}/decide`,
         {
           decision: input.decision,
           expected_revision: input.expectedRevision,
-          option: input.proposal.kind === "step" ? input.option : null,
+          option: input.proposal.kind === "goal" ? null : input.option,
           goal: input.proposal.kind === "goal" ? (input.goal ?? null) : null,
+          value: input.proposal.kind === "gap" ? (input.value ?? null) : null,
         },
       ),
     onMutate: (input) => {
@@ -156,12 +158,13 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
   });
 
   const accept = useCallback(
-    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn) =>
+    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: number) =>
       decide.mutate({
         proposal,
         decision: "accepted",
         option,
         goal,
+        value,
         expectedRevision: session.data?.revision ?? 0,
       }),
     [decide, session.data?.revision],

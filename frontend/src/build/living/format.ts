@@ -49,6 +49,8 @@ export function phaseWords(session: AuthoringSession): string {
   switch (session.phase) {
     case "understanding":
       return waitingOn(session) ? "waiting for you" : "reading your goal";
+    case "gathering":
+      return "gathering what it needs";
     case "goal_review":
       return "check the goal";
     case "resolving":
@@ -59,6 +61,8 @@ export function phaseWords(session: AuthoringSession): string {
       return "complete";
     case "failed":
       return "waiting";
+    case "stopped":
+      return "stopped: something is missing";
   }
 }
 

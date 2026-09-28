@@ -1226,18 +1226,18 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 - Consumes: the regenerated `frontend/src/api/` types (`kind: "gap"`, `facts`,
   `DecideProposal.value`).
 
-- [ ] **Step 1: Failing tests** in `GapCard.test.tsx`: a boolean gap draws its options as buttons,
+- [x] **Step 1: Failing tests** in `GapCard.test.tsx`: a boolean gap draws its options as buttons,
   and clicking *yes* calls `onAnswer("yes", undefined)`; an integer gap draws a number field plus
   *not sure* and *can't share it*, and `150` + *Use this* calls `onAnswer("value", 150)`; the
   card says **why** the engine asked (the payload's `why`). In `Conversation.test.tsx`: the goal
   card lists each input with its source (*you said*), and a heading **Left open, you'll choose
   during the build** lists open measurements. In `LivingSurface.test.tsx`: `gathering` reads
   *gathering what it needs* and `stopped` reads *stopped: something is missing*.
-- [ ] **Step 2: Run to see them fail:** `cd frontend && npx vitest run src/build/living/`.
-- [ ] **Step 3: Implement** `GapCard` on `BlockFrame`/`Primary`/`Secondary` from `blocks/parts`,
+- [x] **Step 2: Run to see them fail:** `cd frontend && npx vitest run src/build/living/`.
+- [x] **Step 3: Implement** `GapCard` on `BlockFrame`/`Primary`/`Secondary` from `blocks/parts`,
   render it in `DecisionLog` for `pending.kind === "gap"`, and extend the rest. No new colours:
   `tokens.test.ts` refuses an unmapped one.
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npx oxlint src/build/living`. Commit —
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npx oxlint src/build/living`. Commit —
   `feat(living): gap cards, and facts with their sources on the goal card — 14.7.3.7 (#133)`.
 
 ### Task 14.7.3.8 (#148): the ladder, then walk scenario 1 by answering
@@ -1461,3 +1461,10 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   (`_spawn_confirms`) for a typed last answer. **Not built:** the spec also gives the AI the
   *phrasing* of each question; the plan did not, so the `ask` node shows engine wording.
   Raised at the checkpoint.
+- **14.7.3.7 (2026-09-28).** `GapCard` draws closed answers as buttons (primary for the
+  question's own values, secondary for *not sure* / *can't share it*) and an open value as a
+  number field with *Use this*; it reads its order from the block's options, not the view's
+  sorted id list. The goal card takes `facts` and lists each with its source (*you said*,
+  *measured*, *read by AI*) plus **Left open, you'll choose during the build**. An answered gap
+  is one collapsed log line (question, answer, *you said* or *read by AI*). The composer invites
+  a typed answer while gathering. vitest 539, `tsc -b` clean, oxlint only its three old warnings.

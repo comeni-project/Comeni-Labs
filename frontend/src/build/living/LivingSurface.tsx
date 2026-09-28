@@ -234,7 +234,9 @@ export function LivingSurface({
                     ? "Say what you have and what you want"
                     : session.phase === "goal_review"
                       ? "Say what is wrong with the goal, or confirm it above"
-                      : undefined
+                      : session.phase === "gathering"
+                        ? "Answer the question above, or say it in your own words"
+                        : undefined
               }
             />
           </div>

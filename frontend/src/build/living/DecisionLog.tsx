@@ -10,6 +10,7 @@ import type {
 } from "../../api/types";
 import { Block, NoticeLine, Primary } from "./blocks/Block";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
+import { GapCard } from "./blocks/GapCard";
 import { GoalCard } from "./blocks/GoalCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepProposalCard } from "./blocks/StepProposalCard";
@@ -52,7 +53,7 @@ export function DecisionLog({
   session: AuthoringSession;
   selected: string | null;
   busy: (proposalId: string) => boolean;
-  onAccept: (proposal: AuthoringProposal, option?: string, goal?: GoalIn) => void;
+  onAccept: (proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: number) => void;
   onReject: (proposal: AuthoringProposal) => void;
   onPreview: (option: string | null) => void;
   onSelect: (node: string | null) => void;
@@ -165,11 +166,22 @@ export function DecisionLog({
             />
           </Turn>
         )}
+        {pending && pending.kind === "gap" && (
+          <Turn tick="wait">
+            <GapCard
+              key={pending.id}
+              proposal={pending}
+              busy={busy(pending.id)}
+              onAnswer={(option, value) => onAccept(pending, option, undefined, value)}
+            />
+          </Turn>
+        )}
         {pending && pending.kind === "goal" && (
           <Turn tick="wait">
             <GoalCard
               key={pending.id}
               proposal={pending}
+              facts={session.facts}
               vocabulary={vocabulary}
               busy={busy(pending.id)}
               onConfirm={(edited) => onAccept(pending, "keep", edited)}
@@ -329,6 +341,16 @@ function DecisionEntry({
 }) {
   if (decision.kind === "goal") return null; // drawn on its own turn, where it was offered
   const block = decision.block;
+  if (decision.kind === "gap" && block.kind === "question") {
+    // One quiet line per answered gap: the question, and what was said to it.
+    const answer = block.options.find((o) => o.id === decision.chosen_option)?.label
+      ?? decision.chosen_option ?? "";
+    return (
+      <Turn tick={decision.by === "model" ? "model" : "person"}>
+        <Collapsed name={block.asks} detail={answer} by={decision.by === "model" ? "read by AI" : "you said"} />
+      </Turn>
+    );
+  }
   if (block.kind !== "step_proposal") return null;
   const author = authorOf(decision);
   const tick: Tick = author === "model" ? "model" : author === "person" ? "person" : "resolver";
