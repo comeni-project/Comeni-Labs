@@ -38,6 +38,10 @@ saying what was misread, and labelled `invalid`. It stays on the record.
 
 ## The mechanical path
 
+The one exception to brainstorm → spec → plan: a mechanical fix needs only **a one-paragraph
+approach the operator approves** (what changes, where, and the test that proves it). If the
+paragraph grows a choice, it was a protocol issue.
+
 1. A failing test that reproduces the finding. Watch it fail.
 2. The fix. Watch it pass; run the suite the change touches.
 3. Commit with the issue number in the message.
