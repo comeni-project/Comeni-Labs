@@ -89,6 +89,14 @@ def test_an_unrecorded_failure_retries_from_the_beginning():
     assert st.advance(Phase.FAILED, st.Event.RETRY, None) is Phase.UNDERSTANDING
 
 
+def test_a_retry_cannot_resume_where_the_protocol_draws_no_return():
+    """Tightened in 14.7.2: before, any recorded `failed_from` was accepted."""
+    with pytest.raises(ValueError) as raised:
+        st.advance(Phase.FAILED, st.Event.RETRY, Phase.BUILDING)
+    assert "MI0212" in str(raised.value)
+    assert "resolving" in str(raised.value) and "understanding" in str(raised.value)
+
+
 def test_a_failure_records_where_it_came_from():
     """The column exists to be written. A `failed` session that does not know what failed is a
     session `retry` has to guess about, which is the defect `failed_from` was added to close."""

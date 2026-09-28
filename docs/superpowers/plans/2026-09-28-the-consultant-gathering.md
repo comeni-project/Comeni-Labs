@@ -492,7 +492,7 @@ def to_mermaid(protocol: Protocol) -> str:
 - Produces: `state.TRANSITIONS` (same type as today, now computed), `state.RETRY_TARGETS:
   frozenset[Phase]`; `advance()` refuses a retry outside `RETRY_TARGETS` with **MI0212**.
 
-- [ ] **Step 1: Capture today's table as the test's expectation.** In
+- [x] **Step 1: Capture today's table as the test's expectation.** In
   `test_authoring_protocol.py`, add the hand-written table **once**, as the proof the derivation
   changed nothing. It is deleted in 14.7.3.1, where the machine is meant to change and the
   existing arrow-by-arrow tests in `test_authoring_state.py` carry the contract.
@@ -538,16 +538,16 @@ def test_a_retry_cannot_resume_where_the_protocol_draws_no_return():
     assert "resolving" in str(raised.value) and "understanding" in str(raised.value)
 ```
 
-- [ ] **Step 2: Run both files.** Expected: FAIL: `st.TRANSITIONS is not TODAY` holds but
+- [x] **Step 2: Run both files.** Expected: FAIL: `st.TRANSITIONS is not TODAY` holds but
   `RETRY_TARGETS` does not exist, and the retry into `building` is accepted.
 
-- [ ] **Step 3: Declare MI0212** in `packages/comeni-core/src/comeni_core/diagnostics.yml` beside
+- [x] **Step 3: Declare MI0212** in `packages/comeni-core/src/comeni_core/diagnostics.yml` beside
   MI0200, same shape: summary *a retry cannot resume into that phase*, long form *A retry leaves
   `failed` for the phase that failed, and only where the authoring protocol draws a return edge.
   Resuming anywhere else would enter a phase whose preconditions nobody checked.* Regenerate with
   `uv run python tools/generate_diagnostics_doc.py`.
 
-- [ ] **Step 4: Derive in `state.py`.** Replace the literal `TRANSITIONS` dict with
+- [x] **Step 4: Derive in `state.py`.** Replace the literal `TRANSITIONS` dict with
 
 ```python
 from mendel_api.authoring.protocol import PROTOCOL
@@ -576,17 +576,17 @@ RETRY_TARGETS: frozenset[Phase] = PROTOCOL.retry_targets()
 
   (Match `_refusal`'s actual `coded(...)` call shape; read it before writing.)
 
-- [ ] **Step 5: Run.** `uv run pytest -q packages/mendel-api/tests/test_authoring_state.py
+- [x] **Step 5: Run.** `uv run pytest -q packages/mendel-api/tests/test_authoring_state.py
   packages/mendel-api/tests/test_authoring_protocol.py`. Expected: all pass. Then the authoring
   suite against the throwaway database: `MENDEL_DATABASE_URL=… uv run pytest -q
   packages/mendel-api/tests -k authoring`. Expected: pass.
 
-- [ ] **Step 6: Watch the derivation fail against a drawing mistake.** Temporarily delete the
+- [x] **Step 6: Watch the derivation fail against a drawing mistake.** Temporarily delete the
   `card→read_goal` GOAL_REVISED edge: `test_the_derived_machine_is_the_one_that_was_written_by_hand`
   and the arrow-by-arrow state test both fail naming `goal_revised`. Restore; record the message
   in the execution record.
 
-- [ ] **Step 7: Commit** — `feat(living): the state machine is derived from the protocol; retry
+- [x] **Step 7: Commit** — `feat(living): the state machine is derived from the protocol; retry
   held to its return edges — 14.7.2.2 (#132)`; close #139.
 
 ### Task 14.7.2.3 (#140): the generated diagram and `make docs`
@@ -1399,3 +1399,10 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   complete*. Both restored. The derived table equals today's hand-written one already
   (`PROTOCOL.transitions() == state.TRANSITIONS`), checked by hand ahead of 14.7.2.2's test.
   Plan said 13 tests; there are 12.
+- **14.7.2.2 (2026-09-28).** Step 2 failed as expected on `RETRY_TARGETS` and the retry into
+  `building`. Step 6: deleting `card→read_goal` GOAL_REVISED failed
+  `test_the_derived_machine_is_the_one_that_was_written_by_hand` and
+  `test_every_arrow_in_the_diagram_is_a_transition[goal_review-goal_revised-understanding]`
+  (*MI0200: a session in goal_review cannot handle goal_revised*); restored. MI0212's refusal
+  lists the resumable phases on a second line, the way MI0200 lists onward events. Only
+  `understanding` and `resolving` can fail, so no stored `failed_from` is outside the new set.

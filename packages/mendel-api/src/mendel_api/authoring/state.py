@@ -17,30 +17,22 @@ from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
 
+from mendel_api.authoring.protocol import PROTOCOL
 from mendel_api.authoring.types import Event, Phase, ProposalState
 
-TRANSITIONS: dict[tuple[Phase, Event], Phase] = {
-    (Phase.UNDERSTANDING, Event.GOAL_RETURNED): Phase.GOAL_REVIEW,
-    (Phase.UNDERSTANDING, Event.PROVIDER_FAILED): Phase.FAILED,
-    (Phase.GOAL_REVIEW, Event.GOAL_ACCEPTED): Phase.RESOLVING,
-    (Phase.GOAL_REVIEW, Event.GOAL_REVISED): Phase.UNDERSTANDING,
-    (Phase.RESOLVING, Event.BLUEPRINT_STORED): Phase.BUILDING,
-    (Phase.RESOLVING, Event.BUILD_FAILED): Phase.FAILED,
-    (Phase.RESOLVING, Event.PROVIDER_FAILED): Phase.FAILED,
-    (Phase.BUILDING, Event.PROPOSAL_SETTLED): Phase.BUILDING,
-    (Phase.BUILDING, Event.NOTHING_LEFT): Phase.COMPLETE,
-    (Phase.BUILDING, Event.GOAL_ACCEPTED): Phase.RESOLVING,
-    (Phase.COMPLETE, Event.GOAL_ACCEPTED): Phase.RESOLVING,
-}
-"""Every legal move, as one closed table.
+TRANSITIONS: dict[tuple[Phase, Event], Phase] = PROTOCOL.transitions()
+"""Every legal move, **derived** from the built event edges of `protocol.PROTOCOL`: change the
+protocol, not this line.
 
 **`failed` is deliberately not a source here.** Leaving it needs a second input — which phase
-failed — so `advance` handles `RETRY` before consulting this table rather than encoding two
-different destinations under one key.
+failed — so `advance` handles `RETRY` against `RETRY_TARGETS` before consulting this table.
 
 `building --> building` on `PROPOSAL_SETTLED` is a real arrow and not a no-op: it is what makes
 answering a proposal legal at all, and its absence would refuse every acceptance.
 """
+
+RETRY_TARGETS: frozenset[Phase] = PROTOCOL.retry_targets()
+"""Where a retry may resume: the targets of the protocol's return edges."""
 
 RETRY_FALLBACK = Phase.UNDERSTANDING
 """Where a retry resumes when nothing recorded which phase failed.
@@ -63,7 +55,14 @@ def advance(phase: Phase, event: Event, failed_from: Phase | None = None) -> Pha
     if event is Event.RETRY:
         if phase is not Phase.FAILED:
             raise ValueError(_refusal(phase, event))
-        return failed_from or RETRY_FALLBACK
+        target = failed_from or RETRY_FALLBACK
+        if target not in RETRY_TARGETS:
+            onward = ", ".join(sorted(p.value for p in RETRY_TARGETS))
+            raise ValueError(
+                coded("MI0212", f"a retry cannot resume into {target.value}")
+                + f"\n  a retry may resume into: {onward}"
+            )
+        return target
 
     try:
         return TRANSITIONS[(phase, event)]

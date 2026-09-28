@@ -3579,3 +3579,16 @@ MI0207:
     The resolver works backwards from what you want, and every chain has to end at something you
     have. When one ends at a type nothing produces, the goal is missing an input rather than the
     registry missing a tool: nothing makes a reference genome, it is supplied.
+MI0212:
+  emitted_by: api
+  concern: workflow
+  says: "a failed authoring session cannot resume into this phase"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Retry from where the failure happened. The refusal names the phases a retry may resume into;
+    anything else is a client or a stored session asking to skip a step.
+  explanation: |
+    A retry leaves `failed` for the phase that failed, and only where the authoring protocol
+    draws a return edge (`mendel_api/authoring/protocol.py`). Resuming anywhere else would enter a
+    phase whose preconditions nobody checked: a build against a goal nobody confirmed.

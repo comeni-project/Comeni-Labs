@@ -217,6 +217,7 @@ decline to curate one.
 | `MI0205` | the reply names an option or a step that was never offered |
 | `MI0206` | the registry changed after this step was proposed, so it was re-resolved instead |
 | `MI0207` | the confirmed goal cannot be built: it needs an input nothing produces |
+| `MI0212` | a failed authoring session cannot resume into this phase |
 
 ## The forge — what a model is told, and what it cites
 
