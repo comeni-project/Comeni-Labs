@@ -79,6 +79,36 @@ class Phase(StrEnum):
     FAILED = "failed"
 
 
+class Event(StrEnum):
+    """What happens to a session.
+
+    One member per labelled arrow in §2's diagram. Named for the *fact* rather than for the
+    destination — `GOAL_RETURNED`, not `TO_GOAL_REVIEW` — because the same fact leads somewhere
+    different depending on where it arrives: `GOAL_ACCEPTED` reaches `resolving` from
+    `goal_review`, from `building` and from `complete`, and naming it for the target would make
+    those read as three events.
+    """
+
+    GOAL_RETURNED = "goal_returned"
+    """A typed goal came back from the model."""
+    GOAL_ACCEPTED = "goal_accepted"
+    """The person accepted the goal — including a revised one, later in the session."""
+    GOAL_REVISED = "goal_revised"
+    """The person answered the goal summary in prose instead of accepting it."""
+    BLUEPRINT_STORED = "blueprint_stored"
+    """The resolver produced a whole blueprint and it was written down (§1.4)."""
+    PROPOSAL_SETTLED = "proposal_settled"
+    """A proposal was accepted or rejected. `building` loops on itself."""
+    NOTHING_LEFT = "nothing_left"
+    """The reveal reached the end of the blueprint with no proposal outstanding."""
+    PROVIDER_FAILED = "provider_failed"
+    """A model call failed or was refused, past retrying."""
+    BUILD_FAILED = "build_failed"
+    """The resolver could not produce a blueprint."""
+    RETRY = "retry"
+    """Leave `failed` for whichever phase failed."""
+
+
 class ProposalState(StrEnum):
     """What became of a proposal.
 

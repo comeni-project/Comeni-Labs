@@ -99,12 +99,12 @@ call sites spelling `st.Event` / `state.Event` keep working.
   `PROTOCOL`, `to_mermaid(protocol: Protocol) -> str`. Later substeps flip `built` and set
   `phase`/`event` on planned parts; they do not change these types.
 
-- [ ] **Step 1: Move `Event`.** Cut the `Event` class from `state.py` into `types.py` directly
+- [x] **Step 1: Move `Event`.** Cut the `Event` class from `state.py` into `types.py` directly
   after `Phase`, unchanged. In `state.py`, import it: `from mendel_api.authoring.types import
   Event, Phase, ProposalState`. Run `uv run pytest -q packages/mendel-api/tests/test_authoring_state.py`.
   Expected: all pass (a move, no behaviour).
 
-- [ ] **Step 2: Write the failing tests.**
+- [x] **Step 2: Write the failing tests.**
 
 ```python
 """The protocol is one object: the machine is derived from it and the diagram is drawn from it.
@@ -209,10 +209,10 @@ def test_rendering_is_deterministic():
     assert p.to_mermaid(p.PROTOCOL) == p.to_mermaid(p.PROTOCOL)
 ```
 
-- [ ] **Step 3: Run them.** `uv run pytest -q packages/mendel-api/tests/test_authoring_protocol.py`.
+- [x] **Step 3: Run them.** `uv run pytest -q packages/mendel-api/tests/test_authoring_protocol.py`.
   Expected: FAIL, `ImportError: cannot import name 'protocol'`.
 
-- [ ] **Step 4: Write `protocol.py`: types, checks, derivation, renderer.**
+- [x] **Step 4: Write `protocol.py`: types, checks, derivation, renderer.**
 
 ```python
 """The authoring protocol as one declarative object: who acts, in which stage, and what moves.
@@ -429,7 +429,7 @@ def to_mermaid(protocol: Protocol) -> str:
     return "\n".join(lines) + "\n"
 ```
 
-- [ ] **Step 5: Encode `PROTOCOL`** below the renderer: today's loop **built**, the design
+- [x] **Step 5: Encode `PROTOCOL`** below the renderer: today's loop **built**, the design
   **planned**, transcribed from the hand-drawn diagram in `docs/design/authoring-protocol.md`.
   Stages: `describe` *① You describe it*, `gather` *② The engine gathers what it needs*,
   `check` *③ You check the goal*, `build` *④ Your consultant builds it with you*, `anytime`
@@ -468,15 +468,15 @@ def to_mermaid(protocol: Protocol) -> str:
 
   Labels are short plain text; `<br/>` is allowed, double quotes are not.
 
-- [ ] **Step 6: Run the tests.** Expected: 13 passed. Then `uv run pytest -q
+- [x] **Step 6: Run the tests.** Expected: 12 passed (the plan first said 13; there are twelve tests). Then `uv run pytest -q
   packages/mendel-api/tests/test_authoring_state.py` still passes (nothing reads `PROTOCOL` yet).
 
-- [ ] **Step 7: Watch two checks fail against the real object.** Temporarily set `built=False` on
+- [x] **Step 7: Watch two checks fail against the real object.** Temporarily set `built=False` on
   `card`: import fails with *built edge read_goal→card touches a planned node*. Temporarily add a
   second built `read_goal→done` GOAL_RETURNED edge: *understanding on goal_returned leads to both*.
   Restore both, and record the two messages in the execution record.
 
-- [ ] **Step 8: Commit** —
+- [x] **Step 8: Commit** —
   `feat(living): the authoring protocol as one object, checked when it loads — 14.7.2.1 (#132)`;
   close #138 citing it.
 
@@ -1392,3 +1392,10 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
 
 | Task | What was done differently from the plan | Why |
 |---|---|---|
+
+- **14.7.2.1 (2026-09-28).** Step 7's two refusals against the real object: setting `card`
+  planned → *built edge read_goal→card touches a planned node*; adding a second built
+  `read_goal→done` GOAL_RETURNED → *understanding on goal_returned leads to both goal_review and
+  complete*. Both restored. The derived table equals today's hand-written one already
+  (`PROTOCOL.transitions() == state.TRANSITIONS`), checked by hand ahead of 14.7.2.2's test.
+  Plan said 13 tests; there are 12.
