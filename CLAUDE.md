@@ -64,7 +64,9 @@ each written because it was broken:
   journal entry by name; a named pointer is what went stale in August.
 - **Every defect gets a GitHub issue first**, mechanical ones too. Mechanical: fix test-first,
   close citing the commit. A **rule or protocol** question: brainstorm, the operator chooses, the
-  choice is commented on the issue, then implement.
+  choice is commented on the issue, then implement. The loop, the labels (`walk`, `mechanical`,
+  `protocol`, `decided`) and the decision comment are in
+  [`docs/internals/walking.md`](docs/internals/walking.md).
 - **Rules are tuned, never forced.** The product's thesis is the balance between flexibility and
   restraint: a rule too strict to function is loosened, one too loose is tightened. Do not make a
   thing work "no matter what".
@@ -260,6 +262,7 @@ package, `mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artif
 | the task tree | GitHub issue #119 |
 | why each invariant exists | [`docs/design/invariants.md`](docs/design/invariants.md) |
 | how it fits together, against real types | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| walking it: issues, decisions, rounds | [`docs/internals/walking.md`](docs/internals/walking.md) |
 | how authoring works (the conversation) | [`docs/design/authoring-protocol.md`](docs/design/authoring-protocol.md) |
 | where a test goes | [`tests/README.md`](tests/README.md) |
 | `pipeline.yml`, field by field | [`docs/handbook/reference/pipeline-schema.md`](docs/handbook/reference/pipeline-schema.md) |

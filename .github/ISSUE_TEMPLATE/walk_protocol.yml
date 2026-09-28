@@ -1,0 +1,45 @@
+name: "Walk: protocol"
+description: Found while walking — a rule is too strict, too loose, or unclear
+labels: [walk, protocol]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Brainstormed as options, the operator chooses, the decision is commented here and labelled
+        `decided`, then implemented. Never worked around. See `docs/internals/walking.md`.
+  - type: input
+    id: where
+    attributes:
+      label: Scenario, round, model
+      placeholder: "scenario 1, round 2, gemma3:12b (local)"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What the page or the engine did, and the phase the session was in.
+    validations:
+      required: true
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Which way the rule failed
+      options:
+        - too strict — it stopped something that should work
+        - too loose — it let through something it should not
+        - unclear — nobody decided this case
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: The rule or protocol stage it touches
+      placeholder: "stage ① gathering; invariant 7 (closed vocabularies)"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Diagnostic codes, requests, `ai_invocation` rows, the code path (`file:line`).

@@ -16,6 +16,7 @@ serves.
 |---|---|
 | how the public docs should be written | [Documentation style](documentation-style.md) |
 | how releases are cut | [Releasing](releasing.md) |
+| how a walk becomes issues, decisions and fixes | [Walking it](walking.md) |
 | how the build path is structured | `ARCHITECTURE.md` at the repository root |
 
 Internals pages may name packages, tests, and historical failures. User-facing pages should not
