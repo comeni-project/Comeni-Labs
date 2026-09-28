@@ -303,17 +303,17 @@ if __name__ == "__main__":
 **Files:**
 - Create: `docs/design/invariants.md`
 
-- [ ] **Step 1: Copy each invariant's full text** from `tests/fixtures/claude-md-2026-09-28.md`
+- [x] **Step 1: Copy each invariant's full text** from `tests/fixtures/claude-md-2026-09-28.md`
   (*Invariants*, 1–15), plus *The four tiers* and *The three protection profiles* tables, under
   one heading per invariant, numbered as today, with an anchor (`## 11. The registry is a stack`)
   the brief can link to.
-- [ ] **Step 2: Remove only what is no longer true or no longer argument.** Counts that
+- [x] **Step 2: Remove only what is no longer true or no longer argument.** Counts that
   `CLAUDE.md` itself says drift (*"exactly two"* … *"fourteen"*) go, and so does history that
   `now.md` holds. Word for word everywhere else.
-- [ ] **Step 3: Replace every dead citation** with `git show 83c873d^:<path>` (for example
+- [x] **Step 3: Replace every dead citation** with `git show 83c873d^:<path>` (for example
   `git show 83c873d^:docs/design/wiener.md` §3.1), or with the live path where the file moved
   (`docs/handbook/reference/glossary.md`, `docs/internals/releasing.md`).
-- [ ] **Step 4:** `uv run python tools/check_doc_paths.py` (expected: none in `invariants.md`),
+- [x] **Step 4:** `uv run python tools/check_doc_paths.py` (expected: none in `invariants.md`),
   `make links`. Commit: `docs(design): the invariants' arguments, moved out of the brief — #118`.
 
 ### Task 6 (#160): `CLAUDE.md` rewritten as a brief
@@ -375,4 +375,5 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 | 1 | 11 worktrees removed (the plan said 12; the 12th is the main checkout). The six `agent-*` needed `--force`, **operator-approved**: their only untracked content was scratch and four design-audit drafts byte-identical to `014a169`. The five others hold the `registry` submodule, which `git worktree remove` refuses even with `--force`, so their directories were deleted after checking each `registry/` was clean and on `comeni-registry`'s `main`, then `git worktree prune`. An empty root-owned `.run/wiener` needed a container to delete. | git refuses worktrees containing submodules |
 | 2 | Measured **140** before a second rule, **101** after: a bare filename (no directory) is live if any tracked file has that name (`tokens.test.ts` is; `wiener.md` is not), and a bare extension (`.nf`) is not a path. Two tests added for them. The remaining non-paths (tool ids like `samtools/sort`, scheme-less URLs, directories named relative to a context like `rules/`) stay reported; the rewrite qualifies them or takes them out of backticks. The spec's "29" counted only design/notes paths. | noise vs. strictness: a stricter heuristic would miss `notes/journal/` |
 | 4 | Compaction read each entry's opening plus its decision, open, next and trap sections (the narrative is superseded by later entries). Five carried claims were spot-checked: four still true (forge digest `String(64)`, `ABORTED` counted as failed, no scope control on the canvas, `submitted_by` hardcoded), and **one UPDATE**: the mendel `api` and `worker` now mount `./packages` (`api` reloads); only `ai-worker` and `wiener-api` are baked. `CLAUDE.md`'s and the plans' links to journal entries were repointed to `archive/` so `make links` stays green until Task 6. `now.md` is 122 lines. | the plan's step 4 said check claims; one was stale |
+| 5 | Word for word from the frozen file, with four kinds of edit only: three dead citations became `git show 83c873d^:…` (wiener.md, clinical-data-protection.md, the forge phase-2 spec); the old per-kind directory names (`contracts/`, `rules/`, `vocabularies/`), which no longer exist, were rephrased; one moved path (`registry/tools/nf-core/star/align/contract.yml`); and one paragraph restating invariant 14's count drift and ending on a now-false *and now ten* was removed. List items became `###` headings so the brief can link to each. | the spec's allowed edits |
 | 1 | **Trap, recorded:** `git -C <worktree> submodule deinit` clears `submodule.registry` in the *shared* `.git/config`, which de-initialised the main checkout's `registry` (files intact). Restored with `git submodule init registry`. Never deinit inside a worktree. | the config is shared between worktrees |
