@@ -92,7 +92,7 @@ from observed behaviour; the journal.
 | 1 | [#106](https://github.com/comeni-project/Comeni-Labs/issues/106) | the goal reply shape named two different fields `have`: MA0004 | mechanical | closed, `36d22a3` |
 | 1 | [#107](https://github.com/comeni-project/Comeni-Labs/issues/107) | MA0004 did not say which fields failed | mechanical | closed, `36d22a3` |
 | 1 | [#108](https://github.com/comeni-project/Comeni-Labs/issues/108) | the goal card hid states | mechanical | closed, `36d22a3` |
-| 1 | [#109](https://github.com/comeni-project/Comeni-Labs/issues/109) | assistant turns reach the model blank | mechanical | open |
+| 1 | [#109](https://github.com/comeni-project/Comeni-Labs/issues/109) | ~~assistant turns reach the model blank~~ — they don't; `_spoken()` sends the summary. The model ignored a correction it could see: evidence for #105 | — | closed, not a defect |
 | 1 | [#110](https://github.com/comeni-project/Comeni-Labs/issues/110) | a refused goal has no retry; header stays *reading your goal* | mechanical | open |
 | 1 | [#111](https://github.com/comeni-project/Comeni-Labs/issues/111) | the goal card cannot remove a state | mechanical | open |
 | 1 | [#112](https://github.com/comeni-project/Comeni-Labs/issues/112) | after *Not quite*, nothing says what to do next | mechanical | open |

@@ -48,8 +48,7 @@ loop is rough.
    the answer is the prompt, the vocabulary, the reply shape, admission or the card is the design
    question. The `LivingGoal` artboard draws `fastq.reads[paired]`, so design and registry already
    disagree.
-4. **Mechanical, open:** assistant turns reach the model blank, so it can't see the goal it proposed
-   (#109); a refused goal offers no retry and the header stays on *reading your goal* (#110); the
+4. **Mechanical, open:** a refused goal offers no retry and the header stays on *reading your goal* (#110); the
    card can't remove a state (#111); nothing says what to do after *Not quite* (#112); *New
    pipeline* opens the RNA-seq example (#113).
 
@@ -65,7 +64,13 @@ restoring a pending proposal with no duplicate turn; typing the request again af
 - A prompt change is a new version: `builder.goal.v2` now, `v1` kept loadable as
   `prompts.RETIRED` because rows cite it.
 
+**A wrong issue, corrected the same session (#109).** I filed *assistant turns reach the model
+blank* from an empty `text` column, without reading `_spoken()`, which sends each turn's summary.
+The model saw its own *deduplicated* and the person's *not deduplicated*, and it still repeated
+itself. That makes it evidence for #105 and not a bug. **Read the code that composes a prompt
+before filing a claim about what the prompt holds.**
+
 ## What to do next
 
-Fix #109–#112, rebuild, and walk round 2 from scenario 1. Bring #105 to the operator as a
+Fix #110–#112, rebuild, and walk round 2 from scenario 1. Bring #105 to the operator as a
 brainstorm with options before touching the prompt.
