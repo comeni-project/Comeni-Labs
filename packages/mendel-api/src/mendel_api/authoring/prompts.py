@@ -52,12 +52,16 @@ candidate list and the reply schema, so what is committed here is the framing an
 the options are the engine's and are never written into a file.
 """
 
-TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4)
-"""The three, for the tests that hold every template to the shared block.
+GAP: PromptId = "builder.gap.v1"
+"""A person's typed answer to one gap in, one offered option id or a typed value out, or
+*unsure*. Egress door 1. Clicking an option never reaches this: it needs no model (14.7.3)."""
 
-Three calls and not more: §1.3 lists what a model may return, and everything on that list is one
-of these shapes. A fourth template would be a fourth thing a model is asked to author, which is a
-design decision rather than a file.
+TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP)
+"""The four, for the tests that hold every template to the shared block.
+
+§1.3 lists what a model may return, and everything on that list is one of these shapes. The
+fourth, `GAP`, was that design decision (spec §6, *Gap questions*): a model reads a person's words
+back into an id the engine offered, and authors nothing.
 """
 
 

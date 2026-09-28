@@ -480,6 +480,27 @@ class WantUnderstanding(_Shape):
     """Only when the want itself is ambiguous. What they have is the engine's to ask."""
 
 
+class GapReply(_Shape):
+    """A person's typed answer to one gap, read back by a model (`builder.gap.v1`).
+
+    **One option id, or one typed value, or `unsure`**, never two of them. The ids are the
+    engine's, so admission can hold `chose` to what was offered (MI0205); a value goes through
+    the measurement's declaration (MI0208). `unsure` is the honest answer to words that do not
+    say, and the engine re-offers the options rather than guess (protocol rule 5).
+    """
+
+    chose: OptionId | None = None
+    value: HumanParamValue | None = None
+    unsure: bool = False
+
+    @model_validator(mode="after")
+    def _one_answer(self) -> Self:
+        given = [self.chose is not None, self.value is not None, self.unsure]
+        if sum(given) > 1:
+            raise ValueError("a reply is one option, one value, or unsure — never two")
+        return self
+
+
 class SettingProposal(_Shape):
     """A value the model proposes for an open setting.
 

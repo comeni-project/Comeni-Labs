@@ -62,7 +62,27 @@ def test_the_invariant_block_is_at_the_top_of_each_one():
 
 def test_there_are_templates_to_check():
     """A loop is not an assertion: every test above passes over an empty tuple."""
-    assert len(prompts.TEMPLATES) == 3
+    assert len(prompts.TEMPLATES) == 4
+
+
+# ── the gap-reply prompt ──────────────────────────────────────────────────────────────
+
+
+def test_the_gap_prompt_maps_a_reply_and_never_chooses():
+    """14.7.3.6: the model reads a person's words back into one offered id, or says it cannot."""
+    body = prompts.template(prompts.GAP).body
+    for required in (
+        "Map the answer to one of these option ids",
+        "If the answer does not say, set `unsure`",
+        "never choose for them",
+    ):
+        assert required in body, f"the gap prompt no longer says: {required!r}"
+    assert prompts.template(prompts.GAP).placeholders() == {
+        "question",
+        "options",
+        "conversation",
+        "request",
+    }
 
 
 # ── the tier-4 prompt ─────────────────────────────────────────────────────────────────────

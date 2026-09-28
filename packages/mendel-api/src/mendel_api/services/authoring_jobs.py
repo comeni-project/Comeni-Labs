@@ -24,11 +24,13 @@ from mendel_api import jobs
 from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
     AuthoringIntent,
+    Mode,
     Narrative,
     Notice,
     NoticeKind,
     Option,
     Phase,
+    ProposalState,
     Question,
     WantUnderstanding,
 )
@@ -103,6 +105,8 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
 
     if context.phase is Phase.UNDERSTANDING:
         _understand(session_id, seq, context, context.prompt)
+    elif context.phase is Phase.GATHERING and _pending_gap(session_id) is not None:
+        _gap_reply(session_id, seq, context)
     else:
         _follow_up(session_id, seq, context)
     return f"{session_id}:{seq}"
@@ -162,6 +166,88 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         },
     )
     authoring.offer_next_gap(session_id)
+
+
+def _pending_gap(session_id: str) -> dict | None:
+    pending = authoring.read(session_id)["pending_proposal"]
+    return pending if pending is not None and pending["kind"] == authoring.GAP else None
+
+
+def _gap_reply(session_id: str, seq: int, context) -> None:
+    """A typed answer to the pending gap, read into one of its ids — or re-offered, never guessed.
+
+    Clicking an option answers without this; typing is the path that needs a model to read words
+    back into an id the engine minted (`builder.gap.v1`).
+    """
+    gap = _pending_gap(session_id)
+    options = gap["payload"]["options"]
+    request = authoring_ai.compose(
+        prompt=context.prompt, turns=context.tail, options=list(options), registry=context.registry
+    )
+    outcome = authoring_ai.read_gap_reply(
+        request, question=gap["payload"]["block"]["asks"], client=_client()
+    )
+    if not outcome.admitted:
+        _refused(session_id, seq, context, outcome)
+        return
+
+    reply = outcome.reply
+    if reply.unsure:
+        listed = "; ".join(label for key, label in options.items() if key != "value")
+        _narrate(
+            session_id, seq, context, outcome.invocation_id,
+            f"I couldn't tell from that. Here are the options: {listed}. Pick one, or say it "
+            "another way.",
+        )
+        return
+
+    option = reply.chose if reply.chose is not None else "value"
+    try:
+        # **`by="model"`**: the words are the person's, and the id they were read into is a
+        # model's reading. The decision log says so rather than crediting either alone.
+        authoring.answer_gap(gap["id"], option, reply.value, by="model")
+    except ValueError as refused:
+        code = authoring_ai._code_in(str(refused))
+        _answer_blocks(
+            session_id, seq, context, outcome.invocation_id,
+            [Notice(id=f"notice-{seq}", notice=NoticeKind.REFUSAL, text=str(refused)[:2000],
+                    code=code).model_dump(mode="json")],
+        )
+        return
+
+    said = options.get(option, option) if reply.value is None else str(reply.value)
+    _narrate(session_id, seq, context, outcome.invocation_id, f"Noted: {said}.")
+    _spawn_confirms(session_id)
+
+
+def _narrate(session_id: str, seq: int, context, invocation_id, text: str) -> None:
+    _answer_blocks(
+        session_id, seq, context, invocation_id,
+        [Narrative(id=f"said-{seq}", text=text).model_dump(mode="json")],
+    )
+
+
+def _answer_blocks(session_id: str, seq: int, context, invocation_id, blocks: list) -> None:
+    authoring.answer(
+        session_id, seq, blocks=blocks, base_revision=context.revision, invocation_id=invocation_id
+    )
+
+
+def _spawn_confirms(session_id: str) -> None:
+    """Spawn shows the goal and proceeds (§1.2): once the last gap is answered the policy
+    confirms the card and builds, as the route does for a clicked answer."""
+    if authoring.mode_of(session_id) is not Mode.SPAWN:
+        return
+    view = authoring.read(session_id)
+    card = view["pending_proposal"]
+    if card is None or card["kind"] != authoring.GOAL:
+        return
+    outcome, phase = authoring.decide_goal(
+        card["id"], ProposalState.ACCEPTED, expected_revision=view["revision"], by="model"
+    )
+    if outcome.refusal is None and phase is Phase.RESOLVING:
+        authoring.start_building(session_id, client=_client())
+        authoring.spawn_forward(session_id)
 
 
 def _follow_up(session_id: str, seq: int, context) -> None:

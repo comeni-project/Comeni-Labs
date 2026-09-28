@@ -48,6 +48,7 @@ from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
     CHAT_TAIL,
     AuthoringIntent,
+    GapReply,
     GoalUnderstanding,
     WantUnderstanding,
 )
@@ -84,6 +85,7 @@ class Purpose(StrEnum):
     GOAL = "goal"
     CHAT = "chat"
     TIER4 = "tier4"
+    GAP = "gap"
 
 
 class Outcome(NamedTuple):
@@ -98,7 +100,7 @@ class Outcome(NamedTuple):
     the transcript stores the other.
     """
 
-    reply: WantUnderstanding | GoalUnderstanding | AuthoringIntent | None
+    reply: WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | None
     invocation_id: str | None
     refusal: str | None
     code: str | None
@@ -245,6 +247,30 @@ def follow_up(request: AuthoringRequest, *, client: Client | None = None) -> Out
             "request": request.prompt,
         },
         admit=lambda reply: _admit_intent(reply, request),
+        client=client,
+    )
+
+
+def read_gap_reply(
+    request: AuthoringRequest, *, question: str, client: Client | None = None
+) -> Outcome:
+    """A typed answer to one gap in, an offered option id or a typed value out, or `unsure`.
+
+    `request.options` is the gap's own option ids, written down before the call went out, so
+    admission compares the reply against a set the reply cannot have widened (MI0205).
+    """
+    return _call(
+        request,
+        purpose=Purpose.GAP,
+        prompt_id=prompts.GAP,
+        shape=GapReply,
+        values={
+            "question": question,
+            "options": _options_text(request.options),
+            "conversation": _conversation_text(request.turns),
+            "request": request.prompt,
+        },
+        admit=lambda reply: _admit_gap_reply(reply, request),
         client=client,
     )
 
@@ -423,6 +449,21 @@ def admit_goal(goal, stack) -> None:
             + "".join(f"\n  {item}" for item in unknown)
             + "\n  nothing was applied — say it in different words, or add it through the forge"
         )
+
+
+def _admit_gap_reply(reply: GapReply, request: AuthoringRequest) -> GapReply:
+    """The reply's id against the gap's offered ids. `MI0205`, as for any intent."""
+    offered = set(request.options)
+    named = reply.chose
+    if named is None and reply.value is not None:
+        named = "value"
+    if named is not None and named not in offered:
+        raise ValueError(
+            coded("MI0205", "the reply names an option that was never offered")
+            + f"\n  option {named}"
+            + f"\n  offered: {', '.join(sorted(offered)) or '(none)'}"
+        )
+    return reply
 
 
 def _admit_intent(intent: AuthoringIntent, request: AuthoringRequest) -> AuthoringIntent:

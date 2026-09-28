@@ -1200,19 +1200,19 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 - Produces: `GapReply(_Shape)`: `chose: OptionId | None`, `value: HumanParamValue | None`,
   `unsure: bool = False`; `read_gap_reply(request, *, options, client) -> Outcome`.
 
-- [ ] **Step 1: Failing tests:** a recorded reply `{"chose": "q_yes"}` to the paired gap is admitted;
+- [x] **Step 1: Failing tests:** a recorded reply `{"chose": "q_yes"}` to the paired gap is admitted;
   `{"chose": "q_maybe"}` is refused MI0205 (never offered); a reply with both `chose` and `value`
   is refused by the shape. **A reply the model cannot map re-offers the gap's options as clickable
   and records nothing**, never a guess.
-- [ ] **Step 2: Run to see them fail.**
-- [ ] **Step 3: The prompt** (invariant block first): *The engine asked the person one question,
+- [x] **Step 2: Run to see them fail.**
+- [x] **Step 3: The prompt** (invariant block first): *The engine asked the person one question,
   and they answered in their own words. Map the answer to one of these option ids, or to a typed
   value when the option `value` is offered. If the answer does not say, set `unsure`: never
   choose for them.*
-- [ ] **Step 4: Route `say` in `GATHERING`** to a job that calls `read_gap_reply` against the
+- [x] **Step 4: Route `say` in `GATHERING`** to a job that calls `read_gap_reply` against the
   pending gap's option ids and, when admitted, calls `answer_gap`. `unsure` answers the turn with
   a narrative *I couldn't tell from that. Here are the options* and leaves the gap pending.
-- [ ] **Step 5: Run and commit** —
+- [x] **Step 5: Run and commit** —
   `feat(living): a typed reply to a gap, read by id and never guessed — 14.7.3.6 (#133)`.
 
 ### Task 14.7.3.7 (#147): the page — gap cards, facts on the goal card, the new phases
@@ -1452,3 +1452,12 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   - **Spawn**: gathers from the person like Build; once the last gap is answered, the policy
     confirms the card (`by="model"`) and the blueprint is queued, as Spawn did before.
   - The route test for gap answers passed on first run (the route was written first).
+- **14.7.3.6 (2026-09-28).** `read_gap_reply(request, *, question, client)`: the options travel
+  on `request.options` (the door payload), so admission compares against what was written down
+  before the call. Option ids are the gap's own (`yes`, not the plan's `q_yes`). A typed value is
+  admitted only where `value` was offered (MI0205), then held to the declaration by `answer_gap`
+  (MI0208, shown as a notice; nothing recorded). The proposal is settled `by="model"`: the words
+  are the person's, the reading is a model's. Spawn's card confirmation is repeated in the job
+  (`_spawn_confirms`) for a typed last answer. **Not built:** the spec also gives the AI the
+  *phrasing* of each question; the plan did not, so the `ask` node shows engine wording.
+  Raised at the checkpoint.

@@ -189,3 +189,52 @@ def test_a_gap_is_answered_through_decide_with_an_option_or_a_typed_value(clean)
     assert {"subject": "read_length", "value": 150, "source": "person_said"}.items() <= [
         f for f in facts if f["subject"] == "read_length"
     ][0].items()
+
+
+def _typed(monkeypatch, sid: str, text: str, reply: dict) -> None:
+    """The person types an answer; the job reads it with a recorded model reply."""
+    import asyncio
+    import json
+
+    from comeni_ai import Client, ModelAccess
+    from mendel_api.services import authoring_jobs
+
+    class Once:
+        def send(self, access, prompt: str) -> str:
+            return json.dumps(reply)
+
+    monkeypatch.setattr(
+        authoring_jobs, "_client", lambda: Client(ModelAccess(model="fake/test"), transport=Once())
+    )
+    seq = authoring.say(sid, text)
+    asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
+
+
+def test_a_typed_reply_answers_the_gap_through_the_model(clean, monkeypatch):
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    _typed(monkeypatch, sid, "yes, both ends were sequenced", {"chose": "yes"})
+    assert authoring.pending_id(sid) != pid
+    paired = [f for f in _facts(sid) if f["subject"] == "paired"]
+    assert paired and paired[0]["value"] is True and paired[0]["source"] == "person_said"
+
+
+def test_a_reply_the_model_cannot_map_leaves_the_gap_and_records_nothing(clean, monkeypatch):
+    """Never a guess: *unsure* re-offers the options and writes no fact."""
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    before = _facts(sid)
+    _typed(monkeypatch, sid, "hmm, the sequencing core did it", {"unsure": True})
+    assert authoring.pending_id(sid) == pid and _facts(sid) == before
+    last = authoring.read(sid)["turns"][-1]
+    assert last["state"] == "answered" and "options" in last["blocks"][0]["text"]
+
+
+def test_a_typed_value_the_declaration_refuses_is_a_notice_and_nothing_recorded(clean, monkeypatch):
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "read_length")
+    before = _facts(sid)
+    _typed(monkeypatch, sid, "minus five", {"value": -5})
+    assert authoring.pending_id(sid) == pid and _facts(sid) == before
+    block = authoring.read(sid)["turns"][-1]["blocks"][0]
+    assert block["kind"] == "notice" and block["code"] == "MI0208"

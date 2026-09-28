@@ -170,6 +170,36 @@ def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack
     assert "polished" in outcome.refusal
 
 
+# ── reading a reply to a gap ──────────────────────────────────────────────────────────
+
+
+PAIRED = ai.compose(prompt="yes, both ends", options=["yes", "no", "not_sure", "cant_share"])
+
+
+def test_a_reply_to_a_gap_is_read_into_an_offered_option(clean_forge):
+    outcome = ai.read_gap_reply(
+        PAIRED, question="Is it paired-end?", client=_client(json.dumps({"chose": "yes"}))
+    )
+    assert outcome.admitted, outcome.refusal
+    assert outcome.reply.chose == "yes"
+
+
+def test_a_reply_read_into_an_option_never_offered_is_refused(clean_forge):
+    outcome = ai.read_gap_reply(
+        PAIRED, question="Is it paired-end?", client=_client(json.dumps({"chose": "maybe"}))
+    )
+    assert not outcome.admitted
+    assert outcome.code == "MI0205"
+
+
+def test_a_typed_value_is_refused_where_no_value_was_offered(clean_forge):
+    outcome = ai.read_gap_reply(
+        PAIRED, question="Is it paired-end?", client=_client(json.dumps({"value": 2}))
+    )
+    assert not outcome.admitted
+    assert outcome.code == "MI0205"
+
+
 # ── the chat call ─────────────────────────────────────────────────────────────────────────
 
 

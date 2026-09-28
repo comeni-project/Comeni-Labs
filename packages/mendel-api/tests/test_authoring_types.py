@@ -327,3 +327,11 @@ def test_the_want_reply_has_no_have():
     assert "have" not in t.WantUnderstanding.model_fields
     reply = t.WantUnderstanding(want=["counts.matrix"], summary="gene counts from paired reads")
     assert reply.questions == []
+
+
+def test_a_gap_reply_is_one_option_or_one_value_never_both():
+    assert t.GapReply(chose="yes").chose == "yes"
+    assert t.GapReply(value=150).value == 150
+    assert t.GapReply(unsure=True).unsure
+    with pytest.raises(ValidationError):
+        t.GapReply(chose="value", value=150)
