@@ -1490,6 +1490,8 @@ export interface components {
             chosen_option: string | null;
             /** Chosen Contract */
             chosen_contract: string | null;
+            /** Answer */
+            answer?: string | null;
             /** At */
             at: string;
         };

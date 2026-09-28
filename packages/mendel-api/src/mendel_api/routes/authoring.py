@@ -127,6 +127,8 @@ class AuthoringDecisionView(BaseModel):
     chosen_option: str | None
     chosen_contract: str | None
     """The contract the chosen option stood for, so a row can name a substitution."""
+    answer: str | None = None
+    """For an answered gap, what was said: the typed value, or the chosen option's label."""
     at: str
 
 

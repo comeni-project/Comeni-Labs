@@ -238,3 +238,12 @@ def test_a_typed_value_the_declaration_refuses_is_a_notice_and_nothing_recorded(
     assert authoring.pending_id(sid) == pid and _facts(sid) == before
     block = authoring.read(sid)["turns"][-1]["blocks"][0]
     assert block["kind"] == "notice" and block["code"] == "MI0208"
+
+
+def test_an_answered_gap_says_its_answer_in_the_history(clean):
+    """Issue 169: the log showed *Type it (bp)* for a typed 150, and the label for the rest."""
+    sid = _gathering(want=["counts.matrix"])
+    authoring.answer_gap(_pending_for(sid, "read_length"), "value", 150, by="ana")
+    history = {d["block"]["asks"]: d["answer"] for d in authoring.read(sid)["history"]}
+    assert history["Sequenced read length?"] == "150"
+    assert history["This analysis needs fastq.reads. Do you have one?"] == "I have it"

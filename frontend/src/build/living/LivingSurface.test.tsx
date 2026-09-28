@@ -236,6 +236,25 @@ describe("when the session is waiting on the person to say something (issues 110
   });
 });
 
+describe("an answered gap on the log (issue 169)", () => {
+  it("shows the answer whole — a typed value as the value", () => {
+    const question = (id: string, asks: string) => ({ kind: "question", id, asks,
+      why_open: "a step reads it to decide", options: [], exhaustive: true });
+    surface(with_({ phase: "gathering", pending_proposal: null, history: [
+      { id: "h1", kind: "gap", state: "accepted", by: "person", chosen_option: "value",
+        chosen_contract: null, answer: "150", at: "2026-09-28T10:02:00Z",
+        block: question("gap-5", "Sequenced read length?") },
+      { id: "h2", kind: "gap", state: "accepted", by: "person", chosen_option: "cant_share",
+        chosen_contract: null, answer: "I have it, but can't share it", at: "2026-09-28T10:03:00Z",
+        block: question("gap-6", "This analysis needs a reference genome. Do you have one?") },
+    ] } as Partial<AuthoringSession>));
+    expect(screen.getByTestId("gap-answer-h1")).toHaveTextContent(/^150$/);
+    const whole = screen.getByTestId("gap-answer-h2");
+    expect(whole).toHaveTextContent("I have it, but can't share it");
+    expect(whole.className).not.toContain("truncate");
+  });
+});
+
 describe("the new phases say what is happening (14.7.3)", () => {
   it("reads gathering as gathering what it needs", () => {
     surface(with_({ phase: "gathering", pending_proposal: null }));

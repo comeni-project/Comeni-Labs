@@ -181,6 +181,7 @@ def read(session_id: str) -> dict:
                     "by": p.by,
                     "chosen_option": p.chosen_option,
                     "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
+                    "answer": _answer_of(p, row.facts or []),
                     "at": (p.settled_at or p.created_at).isoformat(),
                 }
                 for p in db.scalars(
@@ -1266,6 +1267,18 @@ _UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
 _SOURCE = {FactSource.PERSON_SAID: ValueSource.GOAL, FactSource.MODEL_READ: ValueSource.MODEL}
 """A fact's source as the profile records it. `MEASURED` arrives with 14.7.4's inspector and
 `INSPECTED`; an `OPEN` fact never reaches the profile, which is what makes it tier 4."""
+
+
+def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | None:
+    """What was said to an answered gap, for the log: the typed value, or the option's label.
+    `None` for anything that is not a gap (issue 169)."""
+    if proposal.kind != GAP or proposal.chosen_option is None:
+        return None
+    if proposal.chosen_option == "value":
+        subject = proposal.payload.get("subject")
+        said = next((f.get("value") for f in facts if f.get("subject") == subject), None)
+        return None if said is None else str(said)
+    return (proposal.payload.get("options") or {}).get(proposal.chosen_option)
 
 
 def _gap_options(gap: gaps.Gap, stack) -> dict[str, str]:

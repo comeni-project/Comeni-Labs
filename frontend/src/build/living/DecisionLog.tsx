@@ -342,12 +342,22 @@ function DecisionEntry({
   if (decision.kind === "goal") return null; // drawn on its own turn, where it was offered
   const block = decision.block;
   if (decision.kind === "gap" && block.kind === "question") {
-    // One quiet line per answered gap: the question, and what was said to it.
-    const answer = block.options.find((o) => o.id === decision.chosen_option)?.label
+    // One quiet line per answered gap. **The answer is never the part cut short** (issue 169): a
+    // long question truncates, and a typed value is shown as the value, not the field's label.
+    const answer = decision.answer
+      ?? block.options.find((o) => o.id === decision.chosen_option)?.label
       ?? decision.chosen_option ?? "";
+    const model = decision.by === "model";
     return (
-      <Turn tick={decision.by === "model" ? "model" : "person"}>
-        <Collapsed name={block.asks} detail={answer} by={decision.by === "model" ? "read by AI" : "you said"} />
+      <Turn tick={model ? "model" : "person"}>
+        <div className="flex items-baseline gap-[9px] py-[5px]">
+          <span className="font-data text-[10px] text-ink-3 truncate min-w-0">{block.asks}</span>
+          <span data-testid={`gap-answer-${decision.id}`}
+                className="font-data text-[11px] text-ink-2 shrink-0">{answer}</span>
+          <span className="ml-auto font-data text-[9px] text-ink-4 shrink-0">
+            {model ? "read by AI" : "you said"}
+          </span>
+        </div>
       </Turn>
     );
   }
