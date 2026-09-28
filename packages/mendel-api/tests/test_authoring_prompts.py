@@ -11,6 +11,7 @@ the sentence that carries the distinction means a rewrite which drops it fails, 
 passing on a word that survived in a different clause.
 """
 
+import re
 import subprocess
 import sys
 import zipfile
@@ -117,8 +118,11 @@ def test_the_goal_prompt_asks_for_have_do_get_and_a_typed_goal():
     body = prompts.template(prompts.GOAL).body
     for required in (
         "what they have, what they want to do, and what they expect to get",
-        "`have` is what already exists",
-        "`want` is what they expect to end up with",
+        "`goal.have` is what already exists",
+        "`goal.want` is what they expect to end up with",
+        "`summary_have`",
+        "Nothing named `have` or `want` belongs at the\ntop level",
+        "Write a state only when the person said it is true",
         "every type id you write must appear in the vocabulary above",
         "states must be declared for that type",
     ):
@@ -221,15 +225,25 @@ def test_the_chat_prompt_is_grounded_on_the_pipeline_the_options_and_a_bounded_t
 def test_every_template_id_is_versioned():
     """Changing behaviour means adding a `v2`. An `ai_invocation` row cites the id it ran
     under, and an id whose content moved underneath it describes nothing."""
-    for prompt_id in prompts.TEMPLATES:
-        assert prompt_id.endswith(".v1")
+    assert prompts.TEMPLATES
+    for prompt_id in (*prompts.TEMPLATES, *prompts.RETIRED):
+        assert re.search(r"\.v[1-9][0-9]*$", prompt_id), prompt_id
+
+
+def test_a_retired_template_is_still_reachable():
+    """The other half of *add a v2, never edit a v1*: a row citing `builder.goal.v1` has to reach
+    the text it ran under, so superseding a template must not make it unloadable."""
+    assert prompts.RETIRED
+    for prompt_id in prompts.RETIRED:
+        assert prompt_id not in prompts.TEMPLATES
+        assert prompts.template(prompt_id).body.startswith(INVARIANT_BLOCK)
 
 
 def test_a_prompt_id_that_does_not_exist_is_refused():
     """Not a fallback. A caller naming a file that is not there must fail rather than be served
     whichever template happens to be nearby."""
     with pytest.raises(UnknownPromptError):
-        prompts.template("builder.goal.v2")
+        prompts.template("builder.goal.v99")
 
 
 def test_a_builder_prompt_is_not_reachable_as_a_forge_one():

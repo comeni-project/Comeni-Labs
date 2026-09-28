@@ -122,9 +122,9 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     summary = GoalSummary(
         id=f"goal-{seq}",
         goal=understood.goal,
-        have=understood.have,
-        do=understood.do,
-        get=understood.get,
+        have=understood.summary_have,
+        do=understood.summary_do,
+        get=understood.summary_get,
     )
     blocks = [summary.model_dump(mode="json")]
     for index, asked in enumerate(understood.questions, start=1):

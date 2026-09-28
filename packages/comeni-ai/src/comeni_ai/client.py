@@ -204,7 +204,10 @@ def _why_refused(shape: type[BaseModel], failure: ValidationError) -> str:
     if too_long:
         fields = ", ".join(".".join(str(part) for part in e["loc"]) for e in too_long)
         return coded("MA0006", f"{fields} was longer than the field allows")
-    return coded("MA0004", f"the answer did not match {shape.__name__}")
+    # **Where, and never what.** A location is the shape's own field names; the offending input
+    # is the model's text and stays out, so this line is as safe to show as the shape itself.
+    where = sorted({".".join(str(part) for part in e["loc"]) or "(root)" for e in failure.errors()})
+    return coded("MA0004", f"the answer did not match {shape.__name__}: {', '.join(where)}")
 
 
 class LiteLLMTransport:

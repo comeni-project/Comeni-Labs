@@ -224,8 +224,8 @@ GOAL_ANSWER = {
             {"measurement": "strandedness", "value": "reverse", "source": "goal"},
         ]},
     },
-    "have": "reads, a genome and its annotation", "do": "count reads per gene",
-    "get": "a gene-level counts matrix", "questions": [],
+    "summary_have": "reads, a genome and its annotation", "summary_do": "count reads per gene",
+    "summary_get": "a gene-level counts matrix", "questions": [],
 }
 
 

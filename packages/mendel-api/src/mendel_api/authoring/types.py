@@ -366,15 +366,20 @@ class GoalUnderstanding(_Shape):
     model doing worst on. The first call has no pipeline to talk about; a later one has nothing
     else to talk about.
 
-    `have`/`do`/`get` are the plain-language reading the person checks the `Goal` against. The
-    model writes both halves and the person is shown both, so a misunderstanding is visible at
-    review time rather than after a build.
+    `summary_have`/`summary_do`/`summary_get` are the plain-language reading the person checks
+    the `Goal` against. The model writes both halves and the person is shown both, so a
+    misunderstanding is visible at review time rather than after a build.
+
+    **Prefixed so no name is shared with `Goal`.** They were `have`/`do`/`get` beside a `goal`
+    holding `have`/`want`, and the first real model to answer put the typed list at the top
+    level and added a `want` there too. The block the page draws, `GoalSummary`, keeps the
+    short names: it is read by a person, not written by a model.
     """
 
     goal: Goal
-    have: Prose
-    do: Prose
-    get: Prose
+    summary_have: Prose
+    summary_do: Prose
+    summary_get: Prose
     questions: list[AskedQuestion] = []
     """What could not be settled from what the person said.
 

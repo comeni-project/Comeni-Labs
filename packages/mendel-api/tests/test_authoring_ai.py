@@ -96,9 +96,9 @@ def _goal_answer(**overrides) -> str:
             "constraints": {},
             "profile": {"measurements": []},
         },
-        "have": "paired RNA-seq reads",
-        "do": "align them and count reads per gene",
-        "get": "a gene-level counts matrix",
+        "summary_have": "paired RNA-seq reads",
+        "summary_do": "align them and count reads per gene",
+        "summary_get": "a gene-level counts matrix",
         "questions": [],
     }
     body.update(overrides)
@@ -137,7 +137,7 @@ def test_a_paired_rnaseq_request_comes_back_as_a_typed_goal(stack, clean_forge):
     assert [entry.type_id for entry in outcome.reply.goal.have] == ["fastq.reads"]
     assert outcome.reply.goal.want == ["counts.matrix"]
     assert outcome.reply.goal.constraints.states_for("counts.matrix") == frozenset({"gene_level"})
-    assert outcome.reply.get
+    assert outcome.reply.summary_get
 
 
 def test_many_independent_items_do_not_acquire_a_sample_count(stack, clean_forge):
@@ -461,8 +461,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v1"
-    assert row.prompt_version == "v1"
+    assert row.prompt_id == "builder.goal.v2"
+    assert row.prompt_version == "v2"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""

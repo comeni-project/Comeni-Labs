@@ -37,6 +37,7 @@ export function GoalCard({
   const edited =
     chosen.have.join() !== original.have.join() || chosen.want.join() !== original.want.join();
   const types = vocabulary ? Object.keys(vocabulary) : [];
+  const states = statesOf(block.goal);
 
   const confirm = () => {
     if (!edited) return onConfirm();
@@ -62,7 +63,7 @@ export function GoalCard({
         {chosen[side].map((type_id) => (
           <li key={type_id} className="list-none flex items-center gap-2 px-2 py-[3px] border font-data text-[11px] text-ink"
               style={{ borderColor: "var(--line-2)" }}>
-            {type_id}
+            {spelled(type_id, states[side].get(type_id))}
             <button
               type="button"
               aria-label={`remove ${type_id} from ${label}`}
@@ -120,10 +121,33 @@ export function GoalCard({
       {list("have", addHave, "what you have")}
       {list("want", addWant, "what you want")}
       <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
-        {block.have} — {block.do} — {block.get}.
+        {[block.have, block.do, block.get].map(sentence).join(" — ")}.
       </p>
     </BlockFrame>
   );
+}
+
+/** `fastq.reads[paired]`, as `LivingGoal` draws it. **States are what a person is confirming**:
+ * a model that writes a state nobody stated tells the engine to skip the step that makes it
+ * true, and a chip showing only the type hides exactly that. */
+function spelled(type_id: string, states: string[] | undefined): string {
+  return states && states.length > 0 ? `${type_id}[${states.join(", ")}]` : type_id;
+}
+
+/** A model's sentence usually ends in a full stop already; the card adds its own once. */
+function sentence(text: string): string {
+  return text.trim().replace(/\.+$/, "");
+}
+
+function statesOf(goal: unknown): Record<keyof Chosen, Map<string, string[]>> {
+  const g = goal as {
+    have?: { type_id: string; states?: string[] }[];
+    constraints?: { required_states?: { type_id: string; states?: string[] }[] };
+  };
+  return {
+    have: new Map((g.have ?? []).map((e) => [e.type_id, e.states ?? []])),
+    want: new Map((g.constraints?.required_states ?? []).map((e) => [e.type_id, e.states ?? []])),
+  };
 }
 
 function goalOf(goal: unknown): Chosen {

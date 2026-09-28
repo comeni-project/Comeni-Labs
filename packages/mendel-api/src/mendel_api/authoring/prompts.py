@@ -26,8 +26,18 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v1"
-"""Prose in, a typed `Goal` and a plain-language summary out. Egress door 1."""
+GOAL: PromptId = "builder.goal.v2"
+"""Prose in, a typed `Goal` and a plain-language summary out. Egress door 1.
+
+**v2 (2026-09-28)** after the first walk with a real model: v1 called the typed list `have` while
+the reply shape had a prose `have` beside it, and `gemma3:12b` put the list at the top level. v2
+says `goal.have`, names the summary fields, and forbids a state nobody stated. `v1` stays on disk
+because rows cite it; `RETIRED` is how a test holds that.
+"""
+
+RETIRED: tuple[PromptId, ...] = ("builder.goal.v1",)
+"""Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
+the text it ran under, so a retired file is kept, never edited and never deleted."""
 
 CHAT: PromptId = "builder.chat.v1"
 """A follow-up turn in, exactly one declared authoring intent out."""

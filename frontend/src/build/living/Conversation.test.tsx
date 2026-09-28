@@ -114,6 +114,29 @@ describe("the goal card", () => {
     expect(onConfirm.mock.calls[0][0].want).toEqual(["counts.matrix", "qc.report"]);
   });
 
+  it("shows the states it is asking the person to confirm", () => {
+    // **Found by the first walk with a real model (2026-09-28).** `gemma3:12b` wrote
+    // `fastq.reads[deduplicated]` for *paired-end RNA-seq*, and the chip said `fastq.reads` —
+    // the one field the model got wrong was the one the card exists to check, and it was hidden.
+    // `LivingGoal` draws it as `fastq.reads[paired]`.
+    const withStates = {
+      ...goal,
+      block: { ...goal.block,
+        goal: { have: [{ type_id: "fastq.reads", states: ["deduplicated", "trimmed"] }],
+          want: ["counts.matrix"],
+          constraints: { required_states: [{ type_id: "counts.matrix", states: ["gene_level"] }] } },
+        have: "reads.", do: "count them.", get: "a matrix." },
+    } as typeof goal;
+    mount(<GoalCard proposal={withStates} vocabulary={vocabulary} busy={false}
+                    onConfirm={vi.fn()} onReject={vi.fn()} />);
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByRole("listitem").textContent).toContain("fastq.reads[deduplicated, trimmed]");
+    const want = screen.getByRole("list", { name: "what you want" });
+    expect(within(want).getByRole("listitem").textContent).toContain("counts.matrix[gene_level]");
+    // and the sentences are joined without doubling the full stop a model already wrote
+    expect(screen.getByText(/^reads — count them — a matrix\.$/)).toBeTruthy();
+  });
+
   it("keeps the states of an input the person did not touch", () => {
     const withStates = {
       ...goal,

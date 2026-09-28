@@ -117,9 +117,9 @@ GOAL = json.dumps(
                 ]
             },
         },
-        "have": "paired RNA-seq reads, a genome and its annotation",
-        "do": "trim, align, sort and count reads per gene",
-        "get": "a gene-level counts matrix",
+        "summary_have": "paired RNA-seq reads, a genome and its annotation",
+        "summary_do": "trim, align, sort and count reads per gene",
+        "summary_get": "a gene-level counts matrix",
         "questions": [],
     }
 )

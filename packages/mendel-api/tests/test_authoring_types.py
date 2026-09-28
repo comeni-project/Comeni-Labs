@@ -134,6 +134,17 @@ def test_goal_understanding_and_follow_up_intent_are_separate_shapes():
     assert set(t.GoalUnderstanding.model_fields) != set(t.AuthoringIntent.model_fields)
 
 
+def test_no_summary_field_shares_a_name_with_a_goal_field():
+    """**Found by the first walk with a real model (2026-09-28).** The summary was `have`/`do`/
+    `get` beside a nested `goal` holding `have`/`want`, and `gemma3:12b` put the typed `have`
+    list at the top level and added a top-level `want` — the goal itself nested correctly. Two
+    fields called `have` in one reply, one prose and one typed, is a shape that asks to be
+    confused, by any model rather than a small one."""
+    from comeni_core import Goal
+
+    assert set(t.GoalUnderstanding.model_fields) & set(Goal.model_fields) == set()
+
+
 def test_an_intent_carries_exactly_one_thing():
     """Mutually exclusive by validation, not by convention. A reply naming both a chosen option
     and a goal revision is a reply nobody can act on, and the ambiguity must not reach the
