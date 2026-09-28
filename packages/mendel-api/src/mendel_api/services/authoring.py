@@ -28,6 +28,7 @@ from typing import NamedTuple
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from mendel_resolver.goal import Goal
+from mendel_resolver.router import UnroutableError
 from sqlalchemy import select, update
 
 from mendel_api.authoring import state as st
@@ -469,6 +470,12 @@ def start_building(session_id: str, *, client=None) -> str | None:
 
     try:
         blueprint, calls = bp.resolve(goal, mode=mode, client=client)
+    except UnroutableError as unroutable:
+        # **A fact about the goal, so it goes in the conversation** (#115). Raised, it reached a
+        # person as a toast and nowhere else, and a reload lost the reason entirely.
+        move(session_id, st.Event.BUILD_FAILED, row_version=version)
+        _note(session_id, _unbuildable(unroutable), code="MI0207")
+        return None
     except Exception:
         move(session_id, st.Event.BUILD_FAILED, row_version=version)
         raise
@@ -648,6 +655,43 @@ def settle_step(
     return StepOutcome(
         st.Settlement(ProposalState.STALE, False, refusal, False), revision, offered, Phase.BUILDING
     )
+
+
+def _unbuildable(unroutable: UnroutableError) -> str:
+    """MI0207's line, naming what is missing when the resolver said — never its raw message,
+    which spells an empty state set as Python's `[]`."""
+    if unroutable.missing is None:
+        return coded("MI0207", "the confirmed goal cannot be built from what it says you have")
+    type_id, states = unroutable.missing
+    spelled = f"{type_id}[{', '.join(sorted(states))}]" if states else type_id
+    return coded(
+        "MI0207",
+        f"this goal needs {spelled}, and nothing can make it from what you have — "
+        "start again and say that you have one",
+    )
+
+
+def _note(session_id: str, text: str, *, code: str) -> None:
+    """An answered assistant turn holding one refusal notice — something the engine says that
+    no model call produced, the same shape `_refused` writes for one that did."""
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
+        seq = _next_seq(db, session_id)
+        db.add(
+            PipelineAuthoringTurn(
+                session_id=session_id,
+                seq=seq,
+                role="assistant",
+                state=TurnState.ANSWERED.value,
+                blocks=[
+                    {"kind": "notice", "id": f"notice-{seq}", "notice": "refusal",
+                     "text": text[:2000], "code": code}
+                ],
+                text="",
+                base_revision=draft.revision if draft else 0,
+                at=_now(),
+            )
+        )
 
 
 def _swap(db, session_id: str, version: int, *, phase: Phase, **values: object) -> None:

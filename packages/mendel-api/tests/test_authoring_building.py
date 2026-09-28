@@ -125,6 +125,31 @@ def test_building_cannot_start_from_any_phase_but_resolving(clean):
         authoring.start_building(session_id)
 
 
+def test_a_goal_missing_an_input_fails_into_the_log_with_its_code(clean):
+    """**Found by the first walk (#115).** *paired-end RNA-seq to gene counts* was confirmed as
+    `have: [fastq.reads]`, and resolving died on `nothing produces genome.fasta` — raised as a
+    422 to a toast, written nowhere, with the session in `failed` and no way to read why after a
+    reload. A resolver refusal is a fact about the goal, so it belongs in the conversation."""
+    draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
+    session_id = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
+    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
+    only_reads = Goal.model_validate(
+        {"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]}
+    )
+    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=2,
+                   goal=only_reads.model_dump(mode="json"))
+
+    assert authoring.start_building(session_id) is None
+    assert _phase(session_id) is Phase.FAILED
+
+    last = authoring.read(session_id)["turns"][-1]
+    assert last["role"] == "assistant"
+    [notice] = last["blocks"]
+    assert notice["kind"] == "notice" and notice["code"] == "MI0207"
+    assert "genome.fasta" in notice["text"]
+    assert "[]" not in notice["text"]
+
+
 # ── answering ─────────────────────────────────────────────────────────────────────────────
 
 

@@ -3564,3 +3564,18 @@ MI0206:
     Applying it anyway would write a choice made against one registry into a draft that will be
     built against another. **The proposal is marked stale rather than rejected**, because nobody
     rejected it: the engine withdrew it, and the transcript has to be able to say which.
+
+MI0207:
+  emitted_by: api
+  concern: workflow
+  says: "the confirmed goal cannot be built: it needs an input nothing produces"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Nothing was built. Start the analysis again and say that you have the input named here — a
+    reference genome or an annotation is the usual case. The type named is one the pipeline needs
+    and that no tool in the registry can make from what the goal said you have.
+  explanation: |
+    The resolver works backwards from what you want, and every chain has to end at something you
+    have. When one ends at a type nothing produces, the goal is missing an input rather than the
+    registry missing a tool: nothing makes a reference genome, it is supplied.

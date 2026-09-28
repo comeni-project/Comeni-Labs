@@ -235,3 +235,11 @@ describe("when the session is waiting on the person to say something (issues 110
     expect(screen.queryByTestId("your-turn")).toBeNull();
   });
 });
+
+describe("the composer's invitation follows the phase", () => {
+  it("asks for a correction while a goal is being checked", () => {
+    surface(with_({ phase: "goal_review",
+      turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending") } as Partial<AuthoringSession>));
+    expect(screen.getByPlaceholderText(/what is wrong with the goal/)).toBeInTheDocument();
+  });
+});

@@ -168,6 +168,21 @@ describe("the goal card", () => {
     expect(byReadding.mock.calls[0][0].have).toContainEqual({ type_id: "fastq.reads", states: [] });
   });
 
+  it("says the sentence is the model's reading once the person has changed the goal", () => {
+    // Found by the first walk (issue 116): with `deduplicated` taken off, the sentence under the
+    // chips still said *deduplicated FASTQ files*, and nothing said which one was current.
+    const withStates = {
+      ...goal,
+      block: { ...goal.block, goal: { have: [{ type_id: "fastq.reads", states: ["deduplicated"] }],
+        want: ["counts.matrix"] }, have: "deduplicated reads", do: "count them", get: "a matrix" },
+    } as typeof goal;
+    mount(<GoalCard proposal={withStates} vocabulary={vocabulary} busy={false}
+                    onConfirm={vi.fn()} onReject={vi.fn()} />);
+    expect(screen.queryByText(/before your edit/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "remove state deduplicated from fastq.reads" }));
+    expect(screen.getByText(/before your edit/)).toBeInTheDocument();
+  });
+
   it("keeps the states of an input the person did not touch", () => {
     const withStates = {
       ...goal,

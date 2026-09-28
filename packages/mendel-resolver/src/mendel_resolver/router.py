@@ -32,7 +32,15 @@ from mendel_resolver.rules import Pin, RuleTable
 
 
 class UnroutableError(ValueError):
-    """Raised when no chain of contracts can reach a wanted type."""
+    """Raised when no chain of contracts can reach a wanted type.
+
+    `missing` names the type and states nothing produces, where one is known — so a caller can
+    say *this goal needs `genome.fasta`* without parsing a message meant for a person.
+    """
+
+    def __init__(self, message: str, *, missing: tuple[str, frozenset[str]] | None = None):
+        super().__init__(message)
+        self.missing = missing
 
 
 class UnroutablePinError(UnroutableError):
@@ -218,7 +226,10 @@ def route(
             if c.id not in visiting and not (absent_roles & set(c.roles))
         ]
         if not candidates:
-            raise UnroutableError(f"nothing produces {type_id} with states {sorted(states)}")
+            raise UnroutableError(
+                f"nothing produces {type_id} with states {sorted(states)}",
+                missing=(type_id, frozenset(states)),
+            )
 
         chosen, tier, reason, pinned_by, pin, source = _choose(
             type_id, states, candidates, goal, rules, resolver, plan, premises

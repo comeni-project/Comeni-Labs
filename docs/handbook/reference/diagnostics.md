@@ -216,6 +216,7 @@ decline to curate one.
 | `MI0204` | the goal a model wrote names something this registry does not declare |
 | `MI0205` | the reply names an option or a step that was never offered |
 | `MI0206` | the registry changed after this step was proposed, so it was re-resolved instead |
+| `MI0207` | the confirmed goal cannot be built: it needs an input nothing produces |
 
 ## The forge — what a model is told, and what it cites
 

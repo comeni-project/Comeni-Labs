@@ -162,6 +162,14 @@ export function GoalCard({
       <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
         {[block.have, block.do, block.get].map(sentence).join(" — ")}.
       </p>
+      {edited && (
+        // The sentence is the model's and the chips are now the person's. Rewriting the prose
+        // would be a second author putting words in the model's mouth, so it stays and says
+        // which of the two runs (issue 116).
+        <p className="m-0 mt-1 font-data text-[10px] text-ink-4">
+          that sentence was the model's reading, before your edit — the types above are what will be built
+        </p>
+      )}
     </BlockFrame>
   );
 }

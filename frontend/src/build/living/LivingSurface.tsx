@@ -232,7 +232,9 @@ export function LivingSurface({
                   ? "Waiting for the answer…"
                   : session.phase === "understanding"
                     ? "Say what you have and what you want"
-                    : undefined
+                    : session.phase === "goal_review"
+                      ? "Say what is wrong with the goal, or confirm it above"
+                      : undefined
               }
             />
           </div>
