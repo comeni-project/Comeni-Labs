@@ -1242,10 +1242,10 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 
 ### Task 14.7.3.8 (#148): the ladder, then walk scenario 1 by answering
 
-- [ ] **Step 1:** `make check MENDEL_DATABASE_URL=…5442…` (expected: only the five base failures),
+- [x] **Step 1:** `make check MENDEL_DATABASE_URL=…5442…` (expected: only the five base failures),
   `make guards`, `make slow`, `make docs`, `make links`.
-- [ ] **Step 2:** `docker compose up -d --build api ai-worker web` and `make migrate`.
-- [ ] **Step 3: Walk it in Chrome.** *Paired-end RNA-seq to gene counts*, answer every gap by
+- [x] **Step 2:** `docker compose up -d --build api ai-worker web` and `make migrate`.
+- [x] **Step 3: Walk it in Chrome.** *Paired-end RNA-seq to gene counts*, answer every gap by
   clicking, type 150 for read length, confirm, and see the first step offered. Then again with
   *can't share it* for read length, and see the aligner arrive as a **tier-4** choice. Then
   *I don't have one* for the genome, and see the honest stop.
@@ -1468,3 +1468,13 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   *measured*, *read by AI*) plus **Left open, you'll choose during the build**. An answered gap
   is one collapsed log line (question, answer, *you said* or *read by AI*). The composer invites
   a typed answer while gathering. vitest 539, `tsc -b` clean, oxlint only its three old warnings.
+- **14.7.3.8 (2026-09-28), steps 1–3.** Ladder: `make check` 2,829 passed and the five base
+  failures; `types`, `docs`, `docs-status`, `links`, `doc-paths`, `doc-sizes`, `guards` pass;
+  `make slow` 11 passed. Stack rebuilt, migration `a4c8e1f26b93` applied. Walked with
+  `gemma3:12b`: (a) all gaps answered, `paired` by typing (read by `builder.gap.v1`), 150 typed:
+  goal confirmed, 5 steps, aligner at **tier 3** with the premise *asserted, not measured*;
+  (b) read length *can't share it*: aligner at **tier 2** on registry priority, not tier 4;
+  (c) genome *I don't have one*: honest stop. Eleven findings filed under #133: mechanical
+  #166 #168 #169 #172 #173 #175; protocol #167 #170 #171 #174 #176. #105 and #114 closed.
+  Steps 4–5 wait on the operator: mechanical fixes need an approved approach, protocol ones a
+  brainstorm.
