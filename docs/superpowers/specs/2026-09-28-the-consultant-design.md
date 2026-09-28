@@ -69,6 +69,7 @@ and not sufficient: the walk has already shown that a green suite says nothing a
 | The build is a consultant: overview, pacing asked at the start, stops by tier, wrap-up | rules 8–14 |
 | Pacing is **asked, not a setting**; the settings menu is deferred | #117 |
 | The protocol becomes code that generates its own diagram | *The protocol is code* |
+| An absent premise on a declared rule is **tier 4**, never a fall-through to priority; the card asks for the fact first (#174) | §8 |
 | The state machine is **derived** from the protocol object; retry uses return edges and is refused outside them; planned parts live in the object, drawn dashed | §5 of this spec |
 
 ## 4. Scope
@@ -318,6 +319,51 @@ The AI phrases them for the researcher in `builder.consult.v1`, **only from thos
 
 The canvas animates each placement as it does today.
 
+### An open premise at build time (#174)
+
+**Found by the 14.7.3 walk.** With read length answered *can't share it*, `star_align` was placed
+at **tier 2**, *registry priority 10, over hisat2*. The alignment rule (`read_length >= 70` → STAR,
+`< 70` → HISAT2) had no row it could evaluate, and the router fell through to priority as if no
+rule existed. The person's deferred decision was taken for them, silently. Decided with the
+operator (2026-09-28): **A, tightened, with a fact-first card.**
+
+**The rule.** Where a declared decision chooses the implementation for a role and **no row can
+be evaluated because a premise is absent**, the choice is **tier 4**. Invariant 4 (*a tier-3 rule
+miss demotes to tier 4*) read as covering an absent premise; protocol rule 6 made true. It holds
+for every path to a goal (gathering, the manual builder, the CLI): a goal that never states a
+read length gets the question too, which is the flag the invariants promise.
+
+**What the tier-4 question holds** (the probe on 2026-09-28 is where each of these came from):
+- **Only the candidates the rule chooses between**: the contracts its rows' `then` name, among
+  the candidates at this site. Tying every candidate put minimap2 in the aligner question.
+- **Provisionally placed by registry priority**, flagged tier 4 and review required, as today's
+  tie is. The flag-only resolver's id order would have swapped the default pipeline to HISAT2.
+- **`why_open` names the rule and the missing premise** (*the alignment rule reads read_length,
+  and nobody knows it*); its evidence is the rule's rows with their `because` and `cite`.
+- **A recorded human answer still wins on replay** (`ReplayResolver`): the probe showed a backed
+  override losing its human source.
+
+**The fact-first card** (stage ④, built with 14.7.6). The step card leads with the fact the rule
+reads, not the tools: *your read length decides the aligner: 70 bp or longer, STAR; shorter,
+HISAT2 (Dobin et al. 2013)*. What it offers follows why the fact is open:
+
+| The fact is open because | The card offers |
+|---|---|
+| *not sure* | upload a file (the inspector measures it), type it, or choose a tool |
+| *can't share it* | type it, or choose a tool; **no upload**, the person already declined |
+| nobody asked (a CLI or manual goal) | type it, or choose a tool |
+
+Answering the fact adds it to the session's facts and re-resolves the step: **tier 3**, the
+premise marked *measured* or *you said*. Choosing a tool keeps **tier 4**, *you chose*. Until
+14.7.6, the card shows the rule's rows as the reason and the two tools as options.
+
+**Tests that change on purpose** (the probe's fallout, 5 beyond the base failures):
+`test_a_priority_resolved_choice_is_convention` and `test_a128_…` assert a priority win on a
+role a rule decides, and move to a role no rule decides; `test_a125_…` and
+`test_a_presence_absent_rule_removes_the_step_…` are checked against the candidate restriction
+above; `test_a_replayed_override_backed_by_its_record_is_still_honoured` must pass unchanged.
+Touches `router.py`: `make verify`.
+
 ### Explanations from sources
 
 *Why?*, *what if?* and *what's a BAM?* go to `builder.explain.v1`, which is handed exactly: the
@@ -372,11 +418,13 @@ Each substep leaves the loop working and is walked before the next begins.
    retry tightening. Today's loop is encoded as built and the design as planned; each later substep
    flips its part to built.
 - **14.7.3 Gathering without files:** want-only goal prompt, gap engine, gap questions, facts, the card.
-   Scenario 1 by answering questions.
-- **14.7.4 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading.
+   Scenario 1 by answering questions. **Plus the resolver half of #174**: an absent premise on a
+   declared rule is tier 4 (§8, *An open premise at build time*).
+- **14.7.4 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading. *Not sure*
+   in gathering asks for the file, closing the protocol's planned upload branch.
 - **14.7.5 The characteriser, door 6, the fourth AI point.**
 - **14.7.6 The consultant build:** plan, pacing, four things per step, tier pacing, wrap-up, starter
-   descriptions, explanations from sources.
+   descriptions, explanations from sources, and the fact-first card for an open premise (#174).
 
 14.7.2–14.7.4 finish scenario 1; 14.7.5 and 14.7.6 are what make it a consultant. After them,
 **14.7.7** walks all nine scenarios again, round by round.
