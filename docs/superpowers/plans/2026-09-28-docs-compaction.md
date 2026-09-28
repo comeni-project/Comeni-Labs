@@ -343,8 +343,8 @@ if __name__ == "__main__":
   `docs/superpowers/plans/2026-09-04-forge-mvp.md` → `docs/superpowers/plans/archive/`
 - Modify: `Makefile`, any doc linking the moved plans (`grep -rn "2026-09-02-the-wiki-scaffolding\|2026-09-04-forge-mvp" --include=*.md .`)
 
-- [ ] **Step 1: `git mv`** the two plans and repoint every link the grep finds.
-- [ ] **Step 2: Add the checks to `make check`:**
+- [x] **Step 1: `git mv`** the two plans and repoint every link the grep finds.
+- [x] **Step 2: Add the checks to `make check`:**
 
 ```make
 check: registry-present lint test types docs docs-status links doc-paths doc-sizes  ## everything CI runs on a pull request (~1 min, no Docker)
@@ -357,13 +357,13 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 ```
 
   and list both in the `.PHONY` line.
-- [ ] **Step 3: Watch each fail through `make`:** add a line `` `docs/design/gone.md` `` to
+- [x] **Step 3: Watch each fail through `make`:** add a line `` `docs/design/gone.md` `` to
   `CLAUDE.md`, see `make doc-paths` name it, and remove it. Append 400 blank lines, see
   `make doc-sizes` fail, and remove them.
-- [ ] **Step 4:** `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
+- [x] **Step 4:** `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
   (expected: only the five known base failures). Commit:
   `chore(docs): the path and size checks join make check; finished plans archived — #118`.
-- [ ] **Step 5:** tick this plan, fill in the execution record, and close #118 and its task
+- [x] **Step 5:** tick this plan, fill in the execution record, and close #118 and its task
   sub-issues with the commits.
 
 ---
@@ -376,4 +376,5 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 | 2 | Measured **140** before a second rule, **101** after: a bare filename (no directory) is live if any tracked file has that name (`tokens.test.ts` is; `wiener.md` is not), and a bare extension (`.nf`) is not a path. Two tests added for them. The remaining non-paths (tool ids like `samtools/sort`, scheme-less URLs, directories named relative to a context like `rules/`) stay reported; the rewrite qualifies them or takes them out of backticks. The spec's "29" counted only design/notes paths. | noise vs. strictness: a stricter heuristic would miss `notes/journal/` |
 | 4 | Compaction read each entry's opening plus its decision, open, next and trap sections (the narrative is superseded by later entries). Five carried claims were spot-checked: four still true (forge digest `String(64)`, `ABORTED` counted as failed, no scope control on the canvas, `submitted_by` hardcoded), and **one UPDATE**: the mendel `api` and `worker` now mount `./packages` (`api` reloads); only `ai-worker` and `wiener-api` are baked. `CLAUDE.md`'s and the plans' links to journal entries were repointed to `archive/` so `make links` stays green until Task 6. `now.md` is 122 lines. | the plan's step 4 said check claims; one was stale |
 | 5 | Word for word from the frozen file, with four kinds of edit only: three dead citations became `git show 83c873d^:…` (wiener.md, clinical-data-protection.md, the forge phase-2 spec); the old per-kind directory names (`contracts/`, `rules/`, `vocabularies/`), which no longer exist, were rephrased; one moved path (`registry/tools/nf-core/star/align/contract.yml`); and one paragraph restating invariant 14's count drift and ending on a now-false *and now ten* was removed. List items became `###` headings so the brief can link to each. | the spec's allowed edits |
+| 7 | No links needed repointing: the only ones to the moved plans are in archived journal entries (moved, never edited, and outside `make links`) and in this plan's own description of the move. Both checks watched failing through `make` (a planted dead path; 400 blank lines) and `CLAUDE.md` restored byte-identical. `make check`: 2,787 passed, the five base failures; the targets after `test` run individually, all ok. | archive entries are append-only |
 | 1 | **Trap, recorded:** `git -C <worktree> submodule deinit` clears `submodule.registry` in the *shared* `.git/config`, which de-initialised the main checkout's `registry` (files intact). Restored with `git submodule init registry`. Never deinit inside a worktree. | the config is shared between worktrees |

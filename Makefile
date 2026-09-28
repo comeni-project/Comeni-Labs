@@ -1,4 +1,4 @@
-.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links test lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
+.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -51,7 +51,7 @@ registry-present:  ## refuse early if the registry submodule was not checked out
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
-check: registry-present lint test types docs docs-status links  ## everything CI runs on a pull request (~1 min, no Docker)
+check: registry-present lint test types docs docs-status links doc-paths doc-sizes  ## everything CI runs on a pull request (~1 min, no Docker)
 
 verify:         ## check + slow + guards — needs Docker, ~2 min. See CLAUDE.md
 	@$(MAKE) --no-print-directory -j1 check
@@ -93,6 +93,12 @@ forge-rework:   ## everything the deferred forge rework has to revisit
 
 links:          ## every relative markdown link in docs/, .github/, .design/ and the root
 	uv run python tools/check_links.py
+
+doc-paths:      ## every backticked path in CLAUDE.md, now.md and invariants.md exists
+	uv run python tools/check_doc_paths.py
+
+doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't raise
+	uv run python tools/check_doc_sizes.py
 
 docs:           ## fail if docs/reference/ disagrees with the code
 	uv run python tools/generate_diagnostics_doc.py --check
