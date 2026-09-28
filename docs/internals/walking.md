@@ -66,7 +66,8 @@ paragraph grows a choice, it was a protocol issue.
    > - **Built by:** <the issue or task that implements it, or "this issue">
 
 4. **Implement it** the way all work is done here: **brainstorm the approach, then a spec, then a
-   plan**, each seen by the operator before the next, then execute the plan test-first. A decision
+   plan**. The operator takes part in the brainstorm and approves the spec; the plan is written
+   from the approved spec and executed test-first without a separate review. A decision
    small enough to need no spec says so in the brainstorm, and the operator agrees to skip it.
 5. **Close** citing the commit, and remove `decided`.
 
