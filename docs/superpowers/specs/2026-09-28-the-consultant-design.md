@@ -69,6 +69,7 @@ and not sufficient: the walk has already shown that a green suite says nothing a
 | The build is a consultant: overview, pacing asked at the start, stops by tier, wrap-up | rules 8–14 |
 | Pacing is **asked, not a setting**; the settings menu is deferred | #117 |
 | The protocol becomes code that generates its own diagram | *The protocol is code* |
+| A model may read the person's words into a **candidate** that pre-fills a gap; only the person's click makes it a fact (#170, #171) | §6 |
 | An absent premise on a declared rule is **tier 4**, never a fall-through to priority; the card asks for the fact first (#174) | §8 |
 | The state machine is **derived** from the protocol object; retry uses return edges and is refused outside them; planned parts live in the object, drawn dashed | §5 of this spec |
 
@@ -235,6 +236,41 @@ to the measurement's declaration by `MeasurementRegistry.check`.
 for this person, and read a free-text reply back into one of that question's option ids or a typed
 value (admitted against the question, exactly as `chose` is today, MI0205). Clicking an option
 needs no model call at all.
+
+### The model reads, the person confirms (#170, #171)
+
+**Found by the 14.7.3 walk.** The person wrote *paired-end RNA-seq to gene counts* and was then
+asked *was the library paired-end?* (#170): v3 drops what the person states, so a model cannot
+guess. And a typed reply read by `builder.gap.v1` was recorded *you said* while the log said
+*read by AI* (#171). Decided with the operator (2026-09-28): **one rule for both — a model may
+read the person's words; only the person's click makes a fact.**
+
+**Stated facts become candidates** (`builder.goal.v4`; v3 joins `RETIRED`). The want call may
+return `stated`: each an input the person said they have (a declared type id) or a measurement
+they stated (a declared id and a value its declaration allows). Admission holds each to the
+registry exactly as `want` is held (MI0204, `MeasurementRegistry.check`); a candidate that fails
+is dropped from `stated` and never refuses the call, since the want is still good. Candidates
+are stored on the session beside the want, never in `facts`.
+
+**A candidate pre-fills its gap; it never answers it.** When the gap engine offers a gap that
+has a candidate, the question block marks the matching option `recommended` with a note (*you
+mentioned it*), or, for a typed value, carries the value to pre-fill the field. The card draws
+the suggestion; the person's click is `answer_gap`, settled by the person, fact source
+`PERSON_SAID`. The other options stay: *No*, *not sure*, *can't share it*.
+
+**A typed reply is read into a candidate the same way.** `read_gap_reply` no longer calls
+`answer_gap`: an admitted reading pre-fills the pending gap (*I read that as **Yes** — confirm
+above*), and `unsure` re-offers it as today. A reading that names a value the declaration
+refuses is shown as a notice (MI0208) and pre-fills nothing. The model call stays recorded
+(`ai_invocation`), so the log can still say the reading was a model's; the fact is the person's.
+
+**Spawn** confirms nothing on the person's behalf: a pre-filled gap waits for the click, as any
+gap does.
+
+**What this changes in the protocol object:** `read_goal` gains a planned-now-built edge to
+`next_gap` carrying candidates (no event); `ask → reply` is unchanged. The loosening, recorded:
+v3's *do not write inputs, states or measurements* becomes *you may report what was stated, as a
+candidate*; rule 5 (*nothing is guessed*) is unchanged, because a candidate is not a fact.
 
 ### Samples and inspectors
 
@@ -418,7 +454,8 @@ Each substep leaves the loop working and is walked before the next begins.
    retry tightening. Today's loop is encoded as built and the design as planned; each later substep
    flips its part to built.
 - **14.7.3 Gathering without files:** want-only goal prompt, gap engine, gap questions, facts, the card.
-   Scenario 1 by answering questions. **Plus the resolver half of #174**: an absent premise on a
+   Scenario 1 by answering questions. **Plus stated and typed facts as confirmed candidates**
+   (#170, #171; §6), **and the resolver half of #174**: an absent premise on a
    declared rule is tier 4 (§8, *An open premise at build time*).
 - **14.7.4 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading. *Not sure*
    in gathering asks for the file, closing the protocol's planned upload branch.
