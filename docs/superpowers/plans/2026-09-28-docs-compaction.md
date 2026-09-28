@@ -51,7 +51,7 @@ Two small tools, a path check and a size budget, are written first and watched f
 
 **Files:** none in the repo; `.worktrees/` and `.claude/worktrees/` shrink.
 
-- [ ] **Step 1: List them**, with their branch, whether that branch is merged into `main` or
+- [x] **Step 1: List them**, with their branch, whether that branch is merged into `main` or
   `living-pipeline-design`, and whether the tree is clean:
 
 ```bash
@@ -66,11 +66,11 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | tail -n +2 | whil
 done
 ```
 
-- [ ] **Step 2: Show the operator the table**, and wait. Proposed for removal: merged, 0
+- [x] **Step 2: Show the operator the table**, and wait. Proposed for removal: merged, 0
   uncommitted. Kept and named: anything else.
-- [ ] **Step 3: Remove the approved ones** with `git worktree remove <path>` (never `--force`),
+- [x] **Step 3: Remove the approved ones** with `git worktree remove <path>` (never `--force`),
   then `git worktree prune`. Branches stay.
-- [ ] **Step 4:** `git worktree list` shows only what was kept. Record the removed paths in the
+- [x] **Step 4:** `git worktree list` shows only what was kept. Record the removed paths in the
   execution record.
 
 ### Task 2 (#156): the path check
@@ -372,3 +372,5 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 
 | Task | What was done differently from the plan | Why |
 |---|---|---|
+| 1 | 11 worktrees removed (the plan said 12; the 12th is the main checkout). The six `agent-*` needed `--force`, **operator-approved**: their only untracked content was scratch and four design-audit drafts byte-identical to `014a169`. The five others hold the `registry` submodule, which `git worktree remove` refuses even with `--force`, so their directories were deleted after checking each `registry/` was clean and on `comeni-registry`'s `main`, then `git worktree prune`. An empty root-owned `.run/wiener` needed a container to delete. | git refuses worktrees containing submodules |
+| 1 | **Trap, recorded:** `git -C <worktree> submodule deinit` clears `submodule.registry` in the *shared* `.git/config`, which de-initialised the main checkout's `registry` (files intact). Restored with `git submodule init registry`. Never deinit inside a worktree. | the config is shared between worktrees |
