@@ -1,7 +1,31 @@
 # Living Pipeline Plan 2 — the walk: test, issue, decide, close
 
 > **Not "Plan 2".** That number belongs to the forge (2026-08). This is the living pipeline's
-> second plan, and it begins where the first one's Task 14 turned from building into testing.
+> second plan, and it **is Task 14** of the first one, from the point it turned from building
+> into testing. There is no Task 15 or 16.
+
+## Where things are: Task 14 → step → substep
+
+Each line is a GitHub issue, and each level is a sub-issue of the one above it.
+
+```
+Task 14 — Cut over, walk the real loop, and update documentation
+├─ 14.1–14.6   cutover, ladder, stack                               done
+├─ 14.7        the walk
+│   ├─ 14.7.1  round 1: #105–#116                                   done (#105/#114 → 14.7.3)
+│   ├─ 14.7.2  the protocol as code                                 spec §5
+│   ├─ 14.7.3  gathering without files                              spec §6–7
+│   ├─ 14.7.4  samples + the FASTQ inspector                        spec §6
+│   ├─ 14.7.5  the characteriser                                    spec §6
+│   ├─ 14.7.6  the consultant build (optimistic)                    spec §8
+│   └─ 14.7.7  the nine scenarios, round by round
+├─ 14.8        artboards beside the page
+├─ 14.9        ai_invocation rows and pipeline.yml provenance
+├─ 14.10       handbook from observed behaviour
+└─ 14.11       journal + CLAUDE.md pointer
+```
+
+Spec: [`2026-09-28-the-consultant-design.md`](../specs/2026-09-28-the-consultant-design.md).
 
 **Date:** 2026-09-28
 

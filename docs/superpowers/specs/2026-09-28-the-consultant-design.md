@@ -1,7 +1,8 @@
 # The consultant: gathering what an analysis needs, then building it with the researcher
 
 **Date:** 2026-09-28 · **Status:** design, awaiting the operator's review
-**Phase:** Living Pipeline Plan 2 (the walk), round 1
+**Where this sits:** Task 14 of the living pipeline (Living Pipeline Plan 2, the walk), step 14.7.
+This spec is substeps **14.7.2–14.7.6**; 14.7.1 was round 1 of the walk.
 **Issues:** #105 (no place for *paired-end*), #114 (nobody asked for the genome), #113 (*New
 pipeline*), #117 (settings, deferred), #78 (contracts have no description), #71 (protection
 profiles)
@@ -219,9 +220,8 @@ round 1 (states per input, *before your edit*) carries over.
 ## 8. Stage ④: the consultant build
 
 > **Knowingly optimistic.** Stages ② and ③ answer defects the walk found; this stage was
-> designed before any model walked it. It is the first draft to be tested, and phase 5 of the
-> build order should expect to be revised by what the walk finds, more than the phases before
-> it. Build the smallest version that can be walked, not the whole section at once.
+> designed before any model walked it. It is the first draft to be tested, and substep 14.7.6
+> should expect to be revised by what the walk finds, more than the substeps before it. Build the smallest version that can be walked, not the whole section at once.
 
 ### Plan and pacing
 
@@ -302,20 +302,21 @@ the log).
   with the field unmarked.
 - **The walk:** scenario 1 with and without an upload, then round 2 of Plan 2.
 
-## 11. Build order
+## 11. Build order: substeps 14.7.2–14.7.6
 
-Each phase leaves the loop working and is walked before the next begins.
+Each substep leaves the loop working and is walked before the next begins.
 
-1. **Protocol object, generated diagram, state-machine test.** No behaviour change; the current
-   protocol is encoded first, then edited as each later phase lands.
-2. **Gathering without files:** want-only goal prompt, gap engine, gap questions, facts, the card.
+- **14.7.2 Protocol object, generated diagram, state-machine test.** No behaviour change; the current
+   protocol is encoded first, then edited as each later substep lands.
+- **14.7.3 Gathering without files:** want-only goal prompt, gap engine, gap questions, facts, the card.
    Scenario 1 by answering questions.
-3. **Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading.
-4. **The characteriser, door 6, the fourth AI point.**
-5. **The consultant build:** plan, pacing, four things per step, tier pacing, wrap-up, starter
+- **14.7.4 Samples and the FASTQ inspector, at level 0.** Scenario 1 by uploading.
+- **14.7.5 The characteriser, door 6, the fourth AI point.**
+- **14.7.6 The consultant build:** plan, pacing, four things per step, tier pacing, wrap-up, starter
    descriptions, explanations from sources.
 
-Phases 1–3 finish scenario 1; 4 and 5 are what make it a consultant.
+14.7.2–14.7.4 finish scenario 1; 14.7.5 and 14.7.6 are what make it a consultant. After them,
+**14.7.7** walks all nine scenarios again, round by round.
 
 ## 12. Open questions
 
