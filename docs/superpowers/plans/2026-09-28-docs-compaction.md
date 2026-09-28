@@ -210,7 +210,7 @@ if __name__ == "__main__":
 - Create: `tools/check_doc_sizes.py`
 - Modify: `tests/repo/test_doc_checks.py`
 
-- [ ] **Step 1: The failing tests**
+- [x] **Step 1: The failing tests**
 
 Restore the `import check_doc_sizes as cds` line at the top of the file, then add:
 
@@ -225,8 +225,8 @@ def test_the_budget_for_claude_md_is_three_hundred():
     assert cds.BUDGETS == {"CLAUDE.md": 300, "docs/notes/now.md": 150}
 ```
 
-- [ ] **Step 2: Run to see them fail.**
-- [ ] **Step 3: Implement**
+- [x] **Step 2: Run to see them fail.**
+- [x] **Step 3: Implement**
 
 ```python
 """A line budget for the files every session reads first (#118). Compact, don't raise it."""
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run the tests** (expected: pass), then the tool (expected: `CLAUDE.md is 1441
+- [x] **Step 4: Run the tests** (expected: pass), then the tool (expected: `CLAUDE.md is 1441
   lines`). Commit: `test(docs): a line budget for the brief — #118`.
 
 ### Task 4 (#158): the compaction rules, and the first compaction

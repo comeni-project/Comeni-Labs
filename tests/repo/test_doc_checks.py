@@ -7,6 +7,7 @@ from support.paths import ROOT
 
 sys.path.insert(0, str(ROOT / "tools"))  # how test_architecture.py imports check_links
 import check_doc_paths as cdp  # noqa: E402
+import check_doc_sizes as cds  # noqa: E402
 
 
 def _tree(tmp_path: Path) -> Path:
@@ -53,3 +54,12 @@ def test_a_bare_filename_is_live_if_the_repository_has_one_by_that_name(tmp_path
 
 def test_a_bare_extension_is_not_a_path(tmp_path):
     assert cdp.dead_paths("the emitted `.nf` and a `.pyi`", _tree(tmp_path)) == []
+
+
+def test_the_budget_names_the_file_and_says_compact(tmp_path):
+    (tmp_path / "CLAUDE.md").write_text("x\n" * 301)
+    assert cds.over_budget(tmp_path, {"CLAUDE.md": 300}) == [("CLAUDE.md", 301, 300)]
+
+
+def test_the_budgets_are_the_specs():
+    assert cds.BUDGETS == {"CLAUDE.md": 300, "docs/notes/now.md": 150}
