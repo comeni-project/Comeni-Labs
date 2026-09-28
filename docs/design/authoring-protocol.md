@@ -177,7 +177,7 @@ the tier-3 colour already asks a reader to check.
 |---|---|---|
 | `MEASURED`: an inspector read the file | 3, data-profiled | yellow border: check the premise (a measurement) |
 | `PERSON-SAID`: the person stated it | 3, data-profiled | yellow border, premise marked *asserted* |
-| `MODEL-READ`: the characteriser read it | *open question, see below* | — |
+| `MODEL-READ`: the characteriser read it | 3, data-profiled | yellow border, premise marked *read by AI* (decided 2026-09-28) |
 | open: nobody knows | **4**, ambiguous | red border: always flagged, a person answers |
 | no rule reads it | 1 or 2 as today | — |
 
@@ -221,10 +221,6 @@ tightening is filling in a row, not rewiring.
 
 ## Open questions
 
-- **Can a tier-3 decision rest on a `MODEL-READ` fact?** Tier 3 means a declared rule matched a
-  fact. If a model supplied the fact, the rule is deterministic but its premise is not.
-  Either it stays tier 3 with the premise marked *model-read*, or it is demoted to tier 4
-  (invariant 6: anything a model touched is flagged).
 - Where do uploaded samples live, how big may one be, and when are they deleted?
 - Does a per-sample fact (`read_length` differs between two files) become a per-sample measurement
   or a question?
@@ -235,6 +231,7 @@ tightening is filling in a row, not rewiring.
 | Date | Change | Why |
 |---|---|---|
 | 2026-09-28 | first version | #105 (no place for *paired-end*), #114 (nobody asked for the genome) |
+| 2026-09-28 | a rule may decide on a model-read fact: tier 3, premise marked *read by AI* | operator: *that is why we have tier 3* |
 | 2026-09-28 | fill is who acts, border is the tier; every colour labelled in the key | operator: red meant both *stop* and *tier 4* |
 | 2026-09-28 | stage ④ as a consultant: overview, pacing asked at the start, stops by tier, grounded explanations, wrap-up; the protocol to become code that generates this diagram | operator: *the builder is a consultant guiding a biology researcher*; settings deferred to #117 |
 | 2026-09-28 | diagram reorganised into four stages with plain-language labels and a key | operator: *make the text more intuitive, and the organisation* |
