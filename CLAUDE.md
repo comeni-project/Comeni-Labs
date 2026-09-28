@@ -72,6 +72,9 @@ each written because it was broken:
   thing work "no matter what".
 - **Work on a feature branch, never `main`**: the living pipeline is on `living-pipeline-design`,
   and `main` stays unpushed until it merges.
+- **Brainstorm, then spec, then plan, always, before any code.** The operator sees the approach
+  (`superpowers:brainstorming`), approves a written spec, then a written plan; only then execute.
+  Explaining an approach while starting it is not a brainstorm (operator, 2026-09-28).
 - **Execute plans yourself** with `superpowers:executing-plans`, task by task. **Subagents are for
   review and design only**, never the default way to write code.
 - **Plans** live in `docs/superpowers/plans/`, specs in `docs/superpowers/specs/`; finished ones

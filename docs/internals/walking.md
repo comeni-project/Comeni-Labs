@@ -61,7 +61,9 @@ saying what was misread, and labelled `invalid`. It stays on the record.
    >   nowhere, and why>
    > - **Built by:** <the issue or task that implements it, or "this issue">
 
-4. **Implement it**, test-first, like a mechanical fix.
+4. **Implement it** the way all work is done here: **brainstorm the approach, then a spec, then a
+   plan**, each seen by the operator before the next, then execute the plan test-first. A decision
+   small enough to need no spec says so in the brainstorm, and the operator agrees to skip it.
 5. **Close** citing the commit, and remove `decided`.
 
 A loosening of an invariant is written into `docs/design/invariants.md` or the protocol page's
