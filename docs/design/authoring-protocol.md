@@ -18,8 +18,9 @@ flowchart LR
     classDef ai fill:#4a2f1f,stroke:#e0a060,color:#fff
     classDef safety fill:#3a1f3a,stroke:#c080c0,color:#fff
     classDef stop fill:#4a1f1f,stroke:#e06060,color:#fff
-    classDef yellow fill:#4a4a1f,stroke:#e0d060,color:#fff
-    classDef red fill:#5a1f1f,stroke:#ff6060,color:#fff
+    classDef tier12 fill:#1e3d2f,stroke:#6fbf8f,color:#fff
+    classDef tier3 fill:#1e3d2f,stroke:#f0d040,stroke-width:4px,color:#fff
+    classDef tier4 fill:#1f3a5f,stroke:#ff5050,stroke-width:4px,color:#fff
 
     subgraph S1 ["① You describe it"]
         direction TB
@@ -69,9 +70,9 @@ flowchart LR
         PLAN["The plan, in plain stages<br/>clean reads → align → count → QC report<br/>(engine resolves it, AI tells it)"]:::ai
         PACE{"“Go through it together, or set it up<br/>and stop only where I need you?”<br/>(together: every step waits for “continue”)"}:::you
         NEXT{"Next step:<br/>does it need you?"}:::engine
-        SETTLED["Placed: settled, one obvious answer<br/>what it does and why, one tap away"]:::engine
-        RULE["Placed by a rule, yellow:<br/>“this rests on your read length”"]:::yellow
-        CHOOSE["A real choice, red:<br/>options with trade-offs, in biology terms"]:::red
+        SETTLED["Tier 1–2 · placed, one obvious answer<br/>what it does and why, one tap away"]:::tier12
+        RULE["Tier 3 · placed by a rule<br/>“this rests on your read length — check it”"]:::tier3
+        CHOOSE["Tier 4 · you choose<br/>options with trade-offs, in biology terms"]:::tier4
         WRAP(["Wrap-up: what you'll get,<br/>what you need to run it, who decided what"]):::ai
         PLAN --> PACE --> NEXT
         NEXT -- "settled" --> SETTLED
@@ -92,12 +93,15 @@ flowchart LR
     MISSING -- "no, all known<br/>or left open" --> CARD
     CARD -- "that's right" --> PLAN
 
-    subgraph KEY ["Who acts"]
+    subgraph KEY ["Key — fill is who acts, border is the tier"]
         direction TB
-        K1(["You"]):::you
-        K2["Engine: same input, same answer"]:::engine
-        K3["AI: typed answers only, always marked"]:::ai
-        K4{{"Safety level"}}:::safety
+        K1(["Blue fill · you"]):::you
+        K2["Green fill · engine: same input, same answer"]:::engine
+        K3["Orange fill · AI: typed answers only, always marked"]:::ai
+        K4{{"Purple fill · safety level: what the AI may see"}}:::safety
+        K5(["Red fill · stop: can't continue"]):::stop
+        K6["Yellow border · tier 3: a rule decided, check its fact"]:::tier3
+        K7["Red border · tier 4: no rule could, you decide"]:::tier4
     end
 
     style S1 fill:transparent,stroke:#555
@@ -107,7 +111,9 @@ flowchart LR
     style KEY fill:transparent,stroke:#333
 ```
 
-**Colour is who acts**, and the key is in the diagram. In the rules below, *engine* means
+**Fill is who acts, border is the tier**, and every colour is named in the diagram's key. Red
+*fill* means only one thing (a stop); a tier-4 choice is the person's, so it is blue with a red
+*border*. In the rules below, *engine* means
 deterministic code, *AI* means a model answering in a typed shape, and the safety level is the
 protection profile. The facts' labels in the diagram (*you said*, *measured*, *read by AI*) are
 `PERSON-SAID`, `MEASURED` and `MODEL-READ` below.
@@ -147,7 +153,8 @@ necessarily what a BAM is. Stage ④ is written for them.
    set it up and stop only where I need you?* A settings menu for this is deferred (#117), so
    the MVP gets no extra UI.
 10. **Stops are paced by tier.** Tiers 1–2 are placed with their reason one tap away. Tier 3 is
-    placed with the fact it rests on shown (yellow). **Tier 4 always stops** (red) and is posed as a
+    placed with the fact it rests on shown (yellow border). **Tier 4 always stops** (red border, the
+    person's own blue) and is posed as a
     choice with trade-offs in biology terms. Going through together, every step waits for
     *continue*.
 11. **Every step carries four things:** what it does, why it is here, what it makes, and what to
@@ -168,10 +175,10 @@ the tier-3 colour already asks a reader to check.
 
 | The fact a rule reads | Tier of the decision | What the reader sees |
 |---|---|---|
-| `MEASURED`: an inspector read the file | 3, data-profiled | yellow: check the premise (a measurement) |
-| `PERSON-SAID`: the person stated it | 3, data-profiled | yellow, premise marked *asserted* |
+| `MEASURED`: an inspector read the file | 3, data-profiled | yellow border: check the premise (a measurement) |
+| `PERSON-SAID`: the person stated it | 3, data-profiled | yellow border, premise marked *asserted* |
 | `MODEL-READ`: the characteriser read it | *open question, see below* | — |
-| open: nobody knows | **4**, ambiguous | red: always flagged, a person answers |
+| open: nobody knows | **4**, ambiguous | red border: always flagged, a person answers |
 | no rule reads it | 1 or 2 as today | — |
 
 ## The protocol is code (planned)
@@ -228,6 +235,7 @@ tightening is filling in a row, not rewiring.
 | Date | Change | Why |
 |---|---|---|
 | 2026-09-28 | first version | #105 (no place for *paired-end*), #114 (nobody asked for the genome) |
+| 2026-09-28 | fill is who acts, border is the tier; every colour labelled in the key | operator: red meant both *stop* and *tier 4* |
 | 2026-09-28 | stage ④ as a consultant: overview, pacing asked at the start, stops by tier, grounded explanations, wrap-up; the protocol to become code that generates this diagram | operator: *the builder is a consultant guiding a biology researcher*; settings deferred to #117 |
 | 2026-09-28 | diagram reorganised into four stages with plain-language labels and a key | operator: *make the text more intuitive, and the organisation* |
 | 2026-09-28 | nothing is guessed; an open measurement falls to tier 4 rather than blocking; inputs and measurements split; the tier table | operator, during the #105/#114 brainstorm: *the model can keep that param open as a tier-4 question* |
