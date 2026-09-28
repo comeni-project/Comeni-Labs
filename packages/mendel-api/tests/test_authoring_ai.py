@@ -170,6 +170,28 @@ def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack
     assert "polished" in outcome.refusal
 
 
+def test_stated_facts_come_back_as_candidates_and_a_bad_one_is_dropped(stack, clean_forge):
+    """#170: what the person said is heard, as a candidate. A candidate the registry refuses is
+    dropped rather than refusing the want, which is still good."""
+    client = _client(
+        _goal_answer(
+            stated=[
+                {"kind": "measurement", "subject": "paired", "value": True},
+                {"kind": "measurement", "subject": "read_length", "value": -5},
+                {"kind": "input", "subject": "genome.fasta"},
+                {"kind": "input", "subject": "rnaseq.reads"},
+            ]
+        )
+    )
+    outcome = ai.understand(ai.compose(prompt="paired-end, I have a genome"), stack=stack,
+                            client=client)
+    assert outcome.admitted, outcome.refusal
+    assert [(c.subject, c.value) for c in outcome.reply.stated] == [
+        ("paired", True),
+        ("genome.fasta", None),
+    ]
+
+
 # ── reading a reply to a gap ──────────────────────────────────────────────────────────
 
 
@@ -403,8 +425,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v3"
-    assert row.prompt_version == "v3"
+    assert row.prompt_id == "builder.goal.v4"
+    assert row.prompt_version == "v4"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""

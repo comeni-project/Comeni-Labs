@@ -24,13 +24,11 @@ from mendel_api import jobs
 from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
     AuthoringIntent,
-    Mode,
     Narrative,
     Notice,
     NoticeKind,
     Option,
     Phase,
-    ProposalState,
     Question,
     WantUnderstanding,
 )
@@ -163,6 +161,7 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
             "want": list(understood.want),
             "constraints": understood.constraints.model_dump(mode="json"),
             "summary": understood.summary,
+            "stated": [c.model_dump(mode="json") for c in understood.stated],
         },
     )
     authoring.offer_next_gap(session_id)
@@ -203,21 +202,23 @@ def _gap_reply(session_id: str, seq: int, context) -> None:
 
     option = reply.chose if reply.chose is not None else "value"
     try:
-        # **`by="model"`**: the words are the person's, and the id they were read into is a
-        # model's reading. The decision log says so rather than crediting either alone.
-        authoring.answer_gap(gap["id"], option, reply.value, by="model")
+        # **A reading is a suggestion, never an answer** (#171): the gap is pre-filled and the
+        # person's click records the fact. The model call is on the turn, so the log still says
+        # the reading was a model's.
+        authoring.prefill_gap(gap["id"], option, reply.value, note=authoring.READ_NOTE)
     except ValueError as refused:
-        code = authoring_ai._code_in(str(refused))
         _answer_blocks(
             session_id, seq, context, outcome.invocation_id,
             [Notice(id=f"notice-{seq}", notice=NoticeKind.REFUSAL, text=str(refused)[:2000],
-                    code=code).model_dump(mode="json")],
+                    code=authoring_ai._code_in(str(refused))).model_dump(mode="json")],
         )
         return
 
     said = options.get(option, option) if reply.value is None else str(reply.value)
-    _narrate(session_id, seq, context, outcome.invocation_id, f"Noted: {said}.")
-    _spawn_confirms(session_id)
+    _narrate(
+        session_id, seq, context, outcome.invocation_id,
+        f"I read that as {said} — confirm it above, or pick another answer.",
+    )
 
 
 def _narrate(session_id: str, seq: int, context, invocation_id, text: str) -> None:
@@ -231,23 +232,6 @@ def _answer_blocks(session_id: str, seq: int, context, invocation_id, blocks: li
     authoring.answer(
         session_id, seq, blocks=blocks, base_revision=context.revision, invocation_id=invocation_id
     )
-
-
-def _spawn_confirms(session_id: str) -> None:
-    """Spawn shows the goal and proceeds (§1.2): once the last gap is answered the policy
-    confirms the card and builds, as the route does for a clicked answer."""
-    if authoring.mode_of(session_id) is not Mode.SPAWN:
-        return
-    view = authoring.read(session_id)
-    card = view["pending_proposal"]
-    if card is None or card["kind"] != authoring.GOAL:
-        return
-    outcome, phase = authoring.decide_goal(
-        card["id"], ProposalState.ACCEPTED, expected_revision=view["revision"], by="model"
-    )
-    if outcome.refusal is None and phase is Phase.RESOLVING:
-        authoring.start_building(session_id, client=_client())
-        authoring.spawn_forward(session_id)
 
 
 def _follow_up(session_id: str, seq: int, context) -> None:

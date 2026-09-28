@@ -1340,12 +1340,19 @@ def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
         return dict(row.goal or {}), facts, row.row_version
 
 
+_NOT_GOAL = frozenset({"summary", "stated"})
+"""What the session's `goal` column holds while gathering beside the want, and a `Goal` does not:
+the model's summary sentence for the card, and the candidates it heard (#170)."""
+
+
 def as_goal(stored: dict | None) -> Goal | None:
     """A stored goal as a `Goal`. While gathering, the column also holds the model's one-sentence
     summary for the card, which is not part of a goal."""
     if not stored:
         return None
-    return Goal.model_validate({k: v for k, v in stored.items() if k != "summary"})
+    return Goal.model_validate(
+        {k: v for k, v in stored.items() if k not in _NOT_GOAL}
+    )
 
 
 def compose_goal(session_id: str) -> Goal:
@@ -1418,6 +1425,16 @@ def offer_next_gap(session_id: str) -> str | None:
     gap = found[0]
     options = _gap_options(gap, stack)
     question = _gap_question(gap, options, stack, version)
+    heard = next(
+        (
+            c
+            for c in wanted.get("stated") or []
+            if c.get("kind") == gap.kind.value and c.get("subject") == gap.subject
+        ),
+        None,
+    )
+    if heard is not None and (fill := _candidate_option(gap.kind, heard.get("value"), options)):
+        question = _prefilled(question, *fill, note=STATED_NOTE)
     return propose(
         session_id,
         kind=GAP,
@@ -1429,6 +1446,70 @@ def offer_next_gap(session_id: str) -> str | None:
             "block": question.model_dump(mode="json"),
         },
     )
+
+
+STATED_NOTE = "you mentioned it"
+"""The note on an option a stated candidate pre-fills (#170)."""
+
+READ_NOTE = "read from your reply"
+"""The note on an option a model's reading of a typed reply pre-fills (#171)."""
+
+
+def _candidate_option(kind: FactKind, value, options: dict[str, str]):
+    """The option (and typed value) a candidate stands for, or `None` if none of the gap's."""
+    if kind is FactKind.INPUT:
+        return ("have_it", None) if "have_it" in options else None
+    if "value" in options and not isinstance(value, bool):
+        return "value", value
+    chosen = ("yes" if value else "no") if isinstance(value, bool) else str(value)
+    return (chosen, None) if chosen in options else None
+
+
+def _prefilled(question: Question, option: str, value, *, note: str) -> Question:
+    """The question with one answer suggested — marked, noted, and still only a suggestion."""
+    return question.model_copy(
+        update={
+            "options": [
+                o.model_copy(update={"recommended": o.id == option,
+                                     "note": note if o.id == option else None})
+                for o in question.options
+            ],
+            "value": value if option == "value" else None,
+        }
+    )
+
+
+def prefill_gap(proposal_id: str, option: str, value, *, note: str) -> None:
+    """Suggest one answer on the pending gap, without answering it (#171).
+
+    A model's reading of the person's words is a suggestion the person confirms with a click;
+    only `answer_gap` records a fact. Held first like an answer: an option the gap did not offer
+    is MI0205, a value its declaration refuses is MI0208, and nothing is written then.
+    """
+    stack = registry.stack()
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        if proposal is None:
+            raise KeyError(proposal_id)
+        if proposal.kind != GAP or proposal.state != ProposalState.PENDING.value:
+            raise ValueError(coded("MI0205", "there is no question about your data waiting"))
+        payload = dict(proposal.payload)
+        if option not in payload["options"]:
+            raise ValueError(
+                coded("MI0205", "that is not one of the answers this question offered")
+                + f"\n  it offered: {', '.join(payload['options'])}"
+            )
+        if option == "value":
+            try:
+                stack.measurements.check(payload["subject"], value)
+            except (ValueError, KeyError, TypeError) as refused:
+                raise ValueError(
+                    coded("MI0208", f"{value!r} does not fit {payload['subject']}")
+                    + f"\n  {refused}"
+                ) from None
+        question = Question.model_validate(payload["block"])
+        payload["block"] = _prefilled(question, option, value, note=note).model_dump(mode="json")
+        proposal.payload = payload
 
 
 def _fact_for(kind: FactKind, subject: str, option: str, value) -> Fact:

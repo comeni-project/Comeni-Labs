@@ -3537,6 +3537,8 @@ export interface components {
              * @default true
              */
             exhaustive: boolean;
+            /** Value */
+            value?: number | boolean | string | null;
         };
         /** QueueResponse */
         QueueResponse: {

@@ -335,3 +335,9 @@ def test_a_gap_reply_is_one_option_or_one_value_never_both():
     assert t.GapReply(unsure=True).unsure
     with pytest.raises(ValidationError):
         t.GapReply(chose="value", value=150)
+
+
+def test_a_stated_fact_is_a_candidate_with_a_kind_and_a_subject():
+    stated = t.Stated(kind=t.FactKind.MEASUREMENT, subject="paired", value=True)
+    assert stated.value is True
+    assert "stated" in t.WantUnderstanding.model_fields

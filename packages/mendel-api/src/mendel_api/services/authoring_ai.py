@@ -48,6 +48,7 @@ from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
     CHAT_TAIL,
     AuthoringIntent,
+    FactKind,
     GapReply,
     GoalUnderstanding,
     WantUnderstanding,
@@ -168,9 +169,14 @@ def _vocabulary_text(stack) -> str:
     for type_id, states in sorted(stack.vocabulary.types.items()):
         spelled = ", ".join(sorted(states)) if states else "(no states)"
         lines.append(f"  {type_id} — {spelled}")
-    lines += ["", "Measurements that may appear in the profile:"]
-    for measurement_id in sorted(stack.measurements.measurements):
-        lines.append(f"  {measurement_id}")
+    # **Each measurement with what it can hold and what it means** (#170): a bare `paired` gave a
+    # model nothing to connect *paired-end* to, and `stated` came back empty.
+    lines += ["", "Measurements, each with what it can hold (what a person may state):"]
+    for measurement_id, m in sorted(stack.measurements.measurements.items()):
+        holds = ", ".join(str(v) for v in m.values) if m.values else m.kind.value
+        unit = f" {m.unit}" if m.unit else ""
+        about = f" — {m.description}" if m.description else ""
+        lines.append(f"  {measurement_id} ({holds}{unit}){about}")
     return "\n".join(lines)
 
 
@@ -402,9 +408,24 @@ def _admit_goal(understanding: GoalUnderstanding, stack) -> GoalUnderstanding:
 
 def _admit_want(understanding: WantUnderstanding, stack) -> WantUnderstanding:
     """A model's want, held to the vocabulary: the same `MI0204` check, over a goal holding only
-    the want and the person's constraints."""
+    the want and the person's constraints.
+
+    **A stated candidate the registry refuses is dropped, not refused** (#170): the want is still
+    good, and a candidate only ever pre-fills a question the engine asks anyway.
+    """
     admit_goal(Goal(want=understanding.want, constraints=understanding.constraints), stack)
-    return understanding
+    kept = []
+    for candidate in understanding.stated:
+        if candidate.kind is FactKind.INPUT:
+            if candidate.subject in stack.vocabulary.types:
+                kept.append(candidate.model_copy(update={"value": None}))
+            continue
+        try:
+            stack.measurements.check(candidate.subject, candidate.value)
+        except (ValueError, KeyError, TypeError):
+            continue
+        kept.append(candidate)
+    return understanding.model_copy(update={"stated": kept})
 
 
 def admit_goal(goal, stack) -> None:

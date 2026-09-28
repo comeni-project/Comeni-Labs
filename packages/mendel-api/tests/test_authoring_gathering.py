@@ -41,7 +41,7 @@ def clean():
     yield
 
 
-def _gathering(want: list[str]) -> str:
+def _gathering(want: list[str], stated: list[dict] | None = None) -> str:
     """A session moved to GATHERING with a want and no facts, its first gap offered."""
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
@@ -50,6 +50,7 @@ def _gathering(want: list[str]) -> str:
             "want": want,
             "constraints": {},
             "summary": "gene counts from paired reads",
+            "stated": stated or [],
         }
     authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring.offer_next_gap(sid)
@@ -210,13 +211,38 @@ def _typed(monkeypatch, sid: str, text: str, reply: dict) -> None:
     asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
 
 
-def test_a_typed_reply_answers_the_gap_through_the_model(clean, monkeypatch):
+def test_a_typed_reply_pre_fills_the_gap_and_records_nothing(clean, monkeypatch):
+    """#171: a model's reading of a typed reply is a suggestion; the person's click is the fact."""
     sid = _gathering(want=["counts.matrix"])
     pid = _pending_for(sid, "paired")
+    before = _facts(sid)
     _typed(monkeypatch, sid, "yes, both ends were sequenced", {"chose": "yes"})
-    assert authoring.pending_id(sid) != pid
-    paired = [f for f in _facts(sid) if f["subject"] == "paired"]
-    assert paired and paired[0]["value"] is True and paired[0]["source"] == "person_said"
+    assert authoring.pending_id(sid) == pid and _facts(sid) == before
+    options = {o["id"]: o for o in _payload(pid)["block"]["options"]}
+    assert options["yes"]["recommended"] and "reply" in options["yes"]["note"]
+    assert "I read that as Yes" in authoring.read(sid)["turns"][-1]["blocks"][0]["text"]
+    authoring.answer_gap(pid, "yes", None, by="ana")
+    paired = [f for f in _facts(sid) if f["subject"] == "paired"][0]
+    assert paired["value"] is True and paired["source"] == "person_said"
+
+
+def test_a_stated_fact_pre_fills_its_gap_and_waits_for_the_click(clean):
+    """#170: *paired-end* in the first sentence is heard, and still confirmed by the person."""
+    sid = _gathering(
+        want=["counts.matrix"],
+        stated=[
+            {"kind": "measurement", "subject": "paired", "value": True},
+            {"kind": "measurement", "subject": "read_length", "value": 150},
+        ],
+    )
+    pid = _pending_for(sid, "paired")
+    options = {o["id"]: o for o in _payload(pid)["block"]["options"]}
+    assert options["yes"]["recommended"] and options["yes"]["note"] == "you mentioned it"
+    assert not options["no"]["recommended"]
+    assert not [f for f in _facts(sid) if f["subject"] == "paired"]
+    authoring.answer_gap(pid, "yes", None, by="ana")
+    length = _payload(_pending_for(sid, "read_length"))["block"]
+    assert length["value"] == 150
 
 
 def test_a_reply_the_model_cannot_map_leaves_the_gap_and_records_nothing(clean, monkeypatch):

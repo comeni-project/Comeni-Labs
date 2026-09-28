@@ -26,6 +26,7 @@ flowchart LR
         next_gap{"Anything on the list<br/>still unknown?"}:::engine
         ask["AI asks you about it,<br/>in plain words"]:::ai
         reply{"You answer"}:::you
+        suggest["AI reads your words<br/>into a suggestion you confirm"]:::ai
         upload(["You upload a file"]):::you
         safety{{"Safety level decides<br/>what the AI may see"}}:::safety
         read_engine["Engine reads it exactly<br/>→ measured"]:::engine
@@ -86,6 +87,9 @@ flowchart LR
     list_needs --> next_gap
     next_gap -- "yes" --> ask
     ask --> reply
+    read_goal -- "you mentioned it" --> suggest
+    reply -- "typed in your words" --> suggest
+    suggest -- "you confirm with a click" --> reply
     reply -- "I know it" --> said
     reply -- "can't share it" --> left_open
     reply -- "I don't have that input" --> stopped

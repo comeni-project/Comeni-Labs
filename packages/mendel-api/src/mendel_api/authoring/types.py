@@ -281,6 +281,9 @@ class Question(_Block):
     why_open: Prose
     options: list[Option] = []
     exhaustive: bool = True
+    value: HumanParamValue | None = None
+    """A value to pre-fill an open field with — a candidate the person confirms, never an
+    answer (#170, #171)."""
 
 
 class StepProposal(_Block):
@@ -462,6 +465,15 @@ class GoalUnderstanding(_Shape):
     """
 
 
+class Stated(_Shape):
+    """Something the person said about their data, as a model heard it: a **candidate**, never a
+    fact. It pre-fills the gap it answers, and only the person's click records it (#170)."""
+
+    kind: FactKind
+    subject: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | None = None
+
+
 class WantUnderstanding(_Shape):
     """The first call's answer under `builder.goal.v3`: what the person wants, and nothing else.
 
@@ -478,6 +490,9 @@ class WantUnderstanding(_Shape):
     """One plain sentence the person reads back: what they will end up with."""
     questions: list[AskedQuestion] = []
     """Only when the want itself is ambiguous. What they have is the engine's to ask."""
+    stated: list[Stated] = []
+    """What the person said they have, or stated about their data (v4). Candidates the engine
+    pre-fills gaps with; it still asks, and the person confirms (#170)."""
 
 
 class GapReply(_Shape):

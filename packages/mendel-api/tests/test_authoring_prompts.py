@@ -141,7 +141,8 @@ def test_the_goal_prompt_asks_only_for_the_want():
     for required in (
         "You are not asked what they have",
         "The engine works that out from what they want and asks them itself",
-        "Do not write inputs, states or measurements",
+        "list it under `stated`",
+        "the engine asks them to confirm it",
         "every type id you write must appear in the vocabulary above",
     ):
         assert required in body, f"the goal prompt no longer says: {required!r}"
@@ -164,7 +165,8 @@ def test_the_goal_prompt_cannot_state_a_sample_structure():
     and so infer a sample structure silently. v3 has nowhere to write either: the shape has no
     `have` and no `profile`, so the inference is impossible rather than discouraged."""
     fields = set(t.WantUnderstanding.model_fields)
-    assert fields == {"want", "constraints", "summary", "questions"}
+    assert fields == {"want", "constraints", "summary", "questions", "stated"}
+    assert "have" not in fields and "profile" not in fields
 
 
 def test_the_goal_prompt_is_grounded_on_vocabulary_and_a_bounded_tail():

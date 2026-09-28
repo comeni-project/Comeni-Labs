@@ -26,8 +26,12 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v3"
-"""Prose in, the typed **want** and a one-sentence summary out. Egress door 1.
+GOAL: PromptId = "builder.goal.v4"
+"""Prose in, the typed **want**, a one-sentence summary, and what was **stated** out. Egress
+door 1.
+
+**v4 (2026-09-28, #170)** may report what the person stated as candidates the engine asks them
+to confirm: v3 dropped them, and the person was asked again what they had just said.
 
 **v3 (2026-09-28, 14.7.3)** asks for the want only. v2 asked for the whole goal, and a model had
 nowhere legal to put *paired-end* and nobody asked for the genome (#105, #114); the engine now
@@ -36,7 +40,7 @@ computes what the want needs and asks the person itself. **v2 (2026-09-28)** had
 that.
 """
 
-RETIRED: tuple[PromptId, ...] = ("builder.goal.v1", "builder.goal.v2")
+RETIRED: tuple[PromptId, ...] = ("builder.goal.v1", "builder.goal.v2", "builder.goal.v3")
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
 

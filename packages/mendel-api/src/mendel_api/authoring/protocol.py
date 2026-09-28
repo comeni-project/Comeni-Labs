@@ -277,6 +277,13 @@ PROTOCOL = Protocol(
         ),
         _built("ask", "gather", _AI, "AI asks you about it,<br/>in plain words", _P.GATHERING),
         _built("reply", "gather", _YOU, "You answer", _P.GATHERING, shape=Shape.CHOICE),
+        _built(
+            "suggest",
+            "gather",
+            _AI,
+            "AI reads your words<br/>into a suggestion you confirm",
+            _P.GATHERING,
+        ),
         _n("upload", "gather", _YOU, "You upload a file", shape=Shape.ROUND),
         _n(
             "safety",
@@ -399,6 +406,9 @@ PROTOCOL = Protocol(
         _e("list_needs", "next_gap", built=True),
         _e("next_gap", "ask", "yes", built=True),
         _e("ask", "reply", built=True),
+        _e("read_goal", "suggest", "you mentioned it", built=True),
+        _e("reply", "suggest", "typed in your words", built=True),
+        _e("suggest", "reply", "you confirm with a click", built=True),
         _e("reply", "said", "I know it", built=True),
         _e("reply", "left_open", "can't share it", built=True),
         _move("reply", "stopped", _E.INPUT_UNAVAILABLE, "I don't have that input"),

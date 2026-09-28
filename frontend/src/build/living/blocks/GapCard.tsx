@@ -21,9 +21,14 @@ export function GapCard({
   onAnswer: (option: string, value?: number) => void;
 }) {
   const field = useId();
-  const [typed, setTyped] = useState("");
   const block = proposal.block;
+  // **A suggestion pre-fills, the person sends** (issues 170 and 171): a value the person stated,
+  // or a model read from their reply, starts in the field and goes nowhere until they press.
+  const [typed, setTyped] = useState(
+    block.kind === "question" && block.value !== null && block.value !== undefined
+      ? String(block.value) : "");
   if (block.kind !== "question") return null;
+  const suggested = block.options.find((o) => o.recommended && o.note);
 
   const typedOption = block.options.find((o) => o.id === "value");
   const buttons = block.options.filter((o) => o.id !== "value");
@@ -37,6 +42,11 @@ export function GapCard({
     <BlockFrame label="a question about your data" title="What it needs" aside="asked by the engine">
       <p className="m-0 mb-1 text-[12.5px] text-ink">{block.asks}</p>
       <p className="m-0 mb-3 text-[11.5px] text-ink-3">{block.why_open}</p>
+      {suggested && (
+        <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-link">
+          {suggested.id === "value" ? String(block.value ?? "") : suggested.label} — {suggested.note}
+        </p>
+      )}
       {typedOption && (
         <div className="flex items-center gap-2 mb-3">
           <label htmlFor={field} className="sr-only">{typedOption.label}</label>
@@ -60,7 +70,7 @@ export function GapCard({
       )}
       <div className="flex flex-wrap gap-2">
         {buttons.map((option) =>
-          quiet.has(option.id) || typedOption ? (
+          quiet.has(option.id) || typedOption || (suggested && suggested.id !== option.id) ? (
             <Secondary key={option.id} disabled={busy} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Secondary>

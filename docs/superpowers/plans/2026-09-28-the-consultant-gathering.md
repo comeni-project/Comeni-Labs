@@ -1291,6 +1291,35 @@ operator (*write the plan and implement*). A reverted probe measured the fallout
 
 ---
 
+### Task 14.7.3.10 (#170, #171): the model reads, the person confirms
+
+Added 2026-09-28; spec §6 *The model reads, the person confirms*. Operator approved the spec.
+
+**Files:** `authoring/types.py` (`Stated`, `WantUnderstanding.stated`, `Question.value`),
+`authoring/prompts/builder.goal.v4.md`, `authoring/prompts.py`, `services/authoring_ai.py`
+(`_admit_want` filters `stated`), `services/authoring.py` (`prefill_gap`, candidates in
+`offer_next_gap`), `services/authoring_jobs.py` (store `stated`; a typed reply pre-fills),
+`frontend/src/build/living/blocks/GapCard.tsx`. Tests: `test_authoring_ai.py`,
+`test_authoring_prompts.py`, `test_authoring_types.py`, `test_authoring_gathering.py`,
+`GapCard.test.tsx`.
+
+**Interfaces:** `Stated(kind: FactKind, subject: str, value: HumanParamValue | None)`;
+`prefill_gap(proposal_id, option, value, *, note) -> None` (MI0205 for an unoffered option,
+MI0208 for a refused value, writes nothing then); the session's `goal` dict gains `stated`.
+
+- [x] **Step 1: Failing tests.** A v4 answer with `stated` is admitted, and a stated entry the
+  registry refuses is dropped without refusing the call. A session whose `stated` holds
+  `paired: true` offers the paired gap with `yes` recommended and noted *you mentioned it*,
+  and records nothing until `answer_gap`; `read_length: 150` pre-fills `Question.value`. A typed
+  reply read as `yes` leaves the gap pending, pre-filled, facts unchanged, and the turn says *I
+  read that as Yes*. The card draws a recommended option with its note and pre-fills the field.
+- [x] **Step 2: Run them to see them fail.**
+- [x] **Step 3: Implement** as the spec says; v3 joins `RETIRED`.
+- [x] **Step 4: Run** the authoring tests, vitest, `tsc -b`, `make client`; walk the paired gap
+  in Chrome. Commit — `feat(living): the model reads, the person confirms — 14.7.3.10 (#170, #171)`.
+
+---
+
 ## 14.7.4 — Samples at protection level 0, and the FASTQ inspector (#134)
 
 ### Task 14.7.4.1 (#149): the protection level
@@ -1529,3 +1558,15 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   2,831 + 5 base; guards, slow, docs pass. Re-walked through the API: `star_align` tier 4,
   *implementation:alignment could not apply (read_length unknown)*, options keep/alt_1. The
   flag-only resolver's *no rule covered* now contradicts that: #178.
+- **14.7.3.10 (2026-09-28), #170 #171.** Built as the spec says; `Question.value` and
+  `Option.recommended`/`note` carry the suggestion, so no new block kind. `as_goal` now drops
+  `summary` **and** `stated` (the new key broke three gathering tests the same way `summary`
+  once did). A suggestion makes only its own answer primary (seen in Chrome, then tested). The
+  protocol gains a built `suggest` node (AI) between `read_goal`/`reply` and the person's click.
+  **Walked with `gemma3:12b`:** a typed *yeah both ends* pre-fills *Yes — read from your reply*
+  and records nothing until the click. **But the want call never fills `stated`**, even after
+  measurements were described in the vocabulary and v4 was given a worked example (four direct
+  calls, all `stated: []`), so #170's first-sentence half does not show with this model. It
+  degrades safely: every gap is still asked. Filed as #179 for the operator. The same calls
+  invented `required_states: gene_level, normalised` (once also `transcript_level`) on the
+  counts matrix: added to #176.
