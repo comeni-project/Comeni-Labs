@@ -93,13 +93,17 @@ from observed behaviour; the journal.
 | 1 | [#107](https://github.com/comeni-project/Comeni-Labs/issues/107) | MA0004 did not say which fields failed | mechanical | closed, `36d22a3` |
 | 1 | [#108](https://github.com/comeni-project/Comeni-Labs/issues/108) | the goal card hid states | mechanical | closed, `36d22a3` |
 | 1 | [#109](https://github.com/comeni-project/Comeni-Labs/issues/109) | ~~assistant turns reach the model blank~~ — they don't; `_spoken()` sends the summary. The model ignored a correction it could see: evidence for #105 | — | closed, not a defect |
-| 1 | [#110](https://github.com/comeni-project/Comeni-Labs/issues/110) | a refused goal has no retry; header stays *reading your goal* | mechanical | open |
-| 1 | [#111](https://github.com/comeni-project/Comeni-Labs/issues/111) | the goal card cannot remove a state | mechanical | open |
-| 1 | [#112](https://github.com/comeni-project/Comeni-Labs/issues/112) | after *Not quite*, nothing says what to do next | mechanical | open |
-| 1 | [#113](https://github.com/comeni-project/Comeni-Labs/issues/113) | *New pipeline* opens the RNA-seq example | mechanical | open |
+| 1 | [#110](https://github.com/comeni-project/Comeni-Labs/issues/110) | a refused goal has no retry; header stays *reading your goal* | mechanical | closed, `bce66df` |
+| 1 | [#111](https://github.com/comeni-project/Comeni-Labs/issues/111) | the goal card cannot remove a state | mechanical | closed, `bce66df` |
+| 1 | [#112](https://github.com/comeni-project/Comeni-Labs/issues/112) | after *Not quite*, nothing says what to do next | mechanical | closed, `bce66df` |
+| 1 | [#113](https://github.com/comeni-project/Comeni-Labs/issues/113) | *New pipeline* opens the RNA-seq example | product choice | open, with the brainstorm |
+| 1 | [#114](https://github.com/comeni-project/Comeni-Labs/issues/114) | a goal missing its genome is confirmed, then cannot resolve; nobody asked | **protocol** | brainstorm, with #105 |
+| 1 | [#115](https://github.com/comeni-project/Comeni-Labs/issues/115) | a resolve failure was a toast, written nowhere, a dead end | mechanical | closed, `a9e94cb` (MI0207; the way forward is #114) |
+| 1 | [#116](https://github.com/comeni-project/Comeni-Labs/issues/116) | an edited goal left the model's sentence saying the opposite | mechanical | closed, `a9e94cb` |
 
 ## 6. Execution record
 
 | Round | What | Result |
 |---|---|---|
 | 1 | stack up with the local model; scenario 1 to goal confirmation | ten defects, three fixed (`36d22a3`); the round stopped to set this protocol down |
+| 1 | mechanical fixes #110–#112 (`bce66df`); scenario 1 continued past the goal to resolving | resolving failed on a missing genome (#114, #115, #116); #115/#116 fixed (`a9e94cb`); scenario 1 is blocked on #114 |

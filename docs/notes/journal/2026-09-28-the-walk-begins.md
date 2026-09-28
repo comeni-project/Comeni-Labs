@@ -70,7 +70,24 @@ The model saw its own *deduplicated* and the person's *not deduplicated*, and it
 itself. That makes it evidence for #105 and not a bug. **Read the code that composes a prompt
 before filing a claim about what the prompt holds.**
 
+## Later the same day: the mechanical ones, and the next wall
+
+#110–#112 closed in `bce66df`. The page now says when it is waiting on the person, and a state
+can come off the goal card one by one. With the invented state removed, scenario 1 reached
+*That's right* and then **resolving failed: `nothing produces genome.fasta`**. The person said
+*RNA-seq to gene counts* and nobody asked for a genome. That is #114, the second protocol question,
+and the operator's first instinct was to **ask for the inputs first**, as the opening loop.
+
+#115 (the failure was a toast, written nowhere, a dead end) and #116 (an edited goal left the
+model's sentence contradicting it) closed in `a9e94cb`. The failure is now **MI0207** in the
+conversation. It deliberately does *not* invent a way back to the goal: from `failed` the only
+move is a retry of the same goal, and where an incomplete goal belongs is #114's decision.
+
+**A guard caught a comment:** the frontend colour guard reads `#110` as a hex colour. Issue
+numbers reached three digits this week, so frontend code cites them as *issue 110*.
+
 ## What to do next
 
-Fix #110–#112, rebuild, and walk round 2 from scenario 1. Bring #105 to the operator as a
-brainstorm with options before touching the prompt.
+~~Fix #110–#112, rebuild, and walk round 2 from scenario 1.~~ Done. **Next: brainstorm #105 and #114 together**
+(both are *the engine knows something the conversation never asks*), with #113 beside them, and
+let the operator choose. Scenario 1 is blocked until #114 is decided.
