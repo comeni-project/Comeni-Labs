@@ -268,33 +268,33 @@ if __name__ == "__main__":
 
 **Files:**
 - Create: `docs/notes/compaction.md`, `docs/notes/now.md`, `docs/notes/journal/archive/`
-- Move: every `docs/notes/journal/2026-*.md`, and `docs/notes/2026-09-05-the-forge-walk.md`, into
+- Move: every `docs/notes/journal/archive/2026-*.md`, and `docs/notes/journal/archive/2026-09-05-the-forge-walk.md`, into
   `archive/`
 - Modify: `docs/notes/journal/README.md`, `docs/notes/README.md`
 
-- [ ] **Step 1: Write `compaction.md`** from spec §5, as a page a stranger could follow: the two
+- [x] **Step 1: Write `compaction.md`** from spec §5, as a page a stranger could follow: the two
   layers; when (a step or substep closes, or five entries are pending); the four operations with
   the spec's examples; move to `archive/` and extend `now.md`'s *compacted through* line; raw
   entries moved, never edited; the same four operations for memory; `CLAUDE.md` is never a
   target.
-- [ ] **Step 2: Write `now.md`'s frame:** a title, *Compacted through: (none yet)*, and topic
+- [x] **Step 2: Write `now.md`'s frame:** a title, *Compacted through: (none yet)*, and topic
   headings: *What the product is now* · *Task 14 and the walk* · *The forge* · *Wiener (run and
   watch)* · *The stack and how to run it* · *Decided, and not to reopen* · *Open decisions* ·
   *Known traps*.
-- [ ] **Step 3: Fold the entries in, oldest first:** the loose forge-walk note, then each journal
+- [x] **Step 3: Fold the entries in, oldest first:** the loose forge-walk note, then each journal
   entry by date. For each fact, ADD, UPDATE, DELETE or NOOP against what `now.md` already holds.
   Every line ends with its source, e.g. `(2026-09-06)`. Keep to 150 lines. Where a fact
   cannot be kept short, `now.md` says it in a line and the archive holds the long form.
-- [ ] **Step 4: Spot-check five claims** against the code (review focus 5), e.g. *`make dev` runs
+- [x] **Step 4: Spot-check five claims** against the code (review focus 5), e.g. *`make dev` runs
   the APIs from a baked image*, *MI0207 exists*, *there are twelve measurements*. Any line the
   code contradicts is a DELETE or an UPDATE, noted in the execution record.
-- [ ] **Step 5: Move the entries** with `git mv` into `docs/notes/journal/archive/`, and set
+- [x] **Step 5: Move the entries** with `git mv` into `docs/notes/journal/archive/`, and set
   *Compacted through: 2026-09-28*.
-- [ ] **Step 6: Rewrite `journal/README.md`** to say what the directory is now (raw entries not
+- [x] **Step 6: Rewrite `journal/README.md`** to say what the directory is now (raw entries not
   yet compacted, `archive/` for the rest, `now.md` for what is true), and remove its
   *newest entry is …* pointer. A named pointer is what went stale in August. Update
   `docs/notes/README.md` to list `now.md` and `compaction.md`.
-- [ ] **Step 7:** `uv run python tools/check_doc_paths.py` for `now.md` (expected: no dead paths
+- [x] **Step 7:** `uv run python tools/check_doc_paths.py` for `now.md` (expected: no dead paths
   in it), `uv run python tools/check_doc_sizes.py` (expected: only `CLAUDE.md` over). Commit:
   `docs: the compaction rules, and the journal's first compaction into now.md — #118`.
 
@@ -374,4 +374,5 @@ doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't ra
 |---|---|---|
 | 1 | 11 worktrees removed (the plan said 12; the 12th is the main checkout). The six `agent-*` needed `--force`, **operator-approved**: their only untracked content was scratch and four design-audit drafts byte-identical to `014a169`. The five others hold the `registry` submodule, which `git worktree remove` refuses even with `--force`, so their directories were deleted after checking each `registry/` was clean and on `comeni-registry`'s `main`, then `git worktree prune`. An empty root-owned `.run/wiener` needed a container to delete. | git refuses worktrees containing submodules |
 | 2 | Measured **140** before a second rule, **101** after: a bare filename (no directory) is live if any tracked file has that name (`tokens.test.ts` is; `wiener.md` is not), and a bare extension (`.nf`) is not a path. Two tests added for them. The remaining non-paths (tool ids like `samtools/sort`, scheme-less URLs, directories named relative to a context like `rules/`) stay reported; the rewrite qualifies them or takes them out of backticks. The spec's "29" counted only design/notes paths. | noise vs. strictness: a stricter heuristic would miss `notes/journal/` |
+| 4 | Compaction read each entry's opening plus its decision, open, next and trap sections (the narrative is superseded by later entries). Five carried claims were spot-checked: four still true (forge digest `String(64)`, `ABORTED` counted as failed, no scope control on the canvas, `submitted_by` hardcoded), and **one UPDATE**: the mendel `api` and `worker` now mount `./packages` (`api` reloads); only `ai-worker` and `wiener-api` are baked. `CLAUDE.md`'s and the plans' links to journal entries were repointed to `archive/` so `make links` stays green until Task 6. `now.md` is 122 lines. | the plan's step 4 said check claims; one was stale |
 | 1 | **Trap, recorded:** `git -C <worktree> submodule deinit` clears `submodule.registry` in the *shared* `.git/config`, which de-initialised the main checkout's `registry` (files intact). Restored with `git submodule init registry`. Never deinit inside a worktree. | the config is shared between worktrees |

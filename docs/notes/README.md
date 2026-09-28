@@ -8,16 +8,20 @@ something works the way it does, that is [`docs/design/`](../design/).
 
 ## What is here
 
-**[`journal/`](journal/)** — one entry per working session. What was built, what broke, what was
-decided, and what the next session should know. Newest first; start there.
+- **[`now.md`](now.md)**: what is true now, consolidated from the journal. **Start here.** It is
+  the one page in this directory that is kept current, by [`compaction.md`](compaction.md), and
+  `make doc-paths` checks every path it names.
+- **[`journal/`](journal/)**: one entry per working session, not yet compacted.
+  `journal/archive/` holds the compacted ones.
+- **[`compaction.md`](compaction.md)**: how the journal becomes `now.md`.
 
-That is currently all of it. Plans, specs and audit rounds used to live here too and were removed
-on 2026-09-02 — they had grown into a second, contradictory account of the system, and answering
-"what does this do" from them was slower than reading the code.
+Plans, specs and audit rounds used to live here and were removed on 2026-09-02; plans and specs
+now live in `docs/superpowers/`.
 
 ## The one rule
 
-**Entries are append-only.** A correction goes in a later entry, never by editing an earlier one.
+**Entries are append-only.** A correction goes in `now.md` or a later entry, never by editing an
+earlier one; compaction moves an entry into the archive without editing it.
 
 That is the whole reason this directory can be trusted while `docs/` needs checking: a status
 page silently goes stale and you cannot tell how stale. A dated entry never claimed to be

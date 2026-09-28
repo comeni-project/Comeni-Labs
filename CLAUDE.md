@@ -86,7 +86,7 @@ it up is what 2026-09-02 was.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — which is
-> [`2026-09-28-the-walk-begins.md`](docs/notes/journal/2026-09-28-the-walk-begins.md).
+> [`2026-09-28-the-walk-begins.md`](docs/notes/journal/archive/2026-09-28-the-walk-begins.md).
 > **The project is in a testing phase: Living Pipeline Plan 2**
 > (`docs/superpowers/plans/2026-09-28-the-living-pipeline-2-the-walk.md`) — the living pipeline
 > walked in a browser against a deliberately weak local model (`gemma3:12b`), in rounds.
@@ -97,7 +97,7 @@ it up is what 2026-09-02 was.
 > tightened — **never made to work anyway**. The plan's issue ledger is the state of play.
 >
 > Before it,
-> [`2026-09-13-the-living-pipeline-built-not-walked.md`](docs/notes/journal/2026-09-13-the-living-pipeline-built-not-walked.md).
+> [`2026-09-13-the-living-pipeline-built-not-walked.md`](docs/notes/journal/archive/2026-09-13-the-living-pipeline-built-not-walked.md).
 > **That entry's state, now superseded: 13 of 14 tasks, not yet walked.** A researcher can
 > describe an analysis on the first-run screen, choose Build or Spawn, and build it beside a
 > conversation at `/build?session=<id>`; `/build` and `/build?draft=` are still the manual builder.
@@ -107,7 +107,7 @@ it up is what 2026-09-02 was.
 > **`text-ink-4` rendered at full ink across the app until that day** — an unmapped Tailwind colour
 > generates no CSS — and `tokens.test.ts` now refuses one.
 >
-> Before it, [`2026-09-06-the-forge-runs.md`](docs/notes/journal/2026-09-06-the-forge-runs.md).
+> Before it, [`2026-09-06-the-forge-runs.md`](docs/notes/journal/archive/2026-09-06-the-forge-runs.md).
 > **The Forge MVP is COMPLETE**, merged from `.claude/worktrees/forge-mvp`, and the whole chain
 > runs from one HTTP call: sync → scaffold → the AI worker claiming the job → a local model on a
 > GPU → the validation ladder → `review`.
@@ -158,7 +158,7 @@ it up is what 2026-09-02 was.
 >
 > Before it, **2026-09-01 has THREE entries that a filename sort does not order.** The one to
 > read is
-> [`2026-09-01-the-run-page-and-the-first-verb.md`](docs/notes/journal/2026-09-01-the-run-page-and-the-first-verb.md),
+> [`2026-09-01-the-run-page-and-the-first-verb.md`](docs/notes/journal/archive/2026-09-01-the-run-page-and-the-first-verb.md),
 > covering **Plan 6 — the run page rebuilt against its artboard, and Wiener's first verb.**
 > `/runs/{id}` is bands rather than four tabs; band 1 is four panels; the timeline exists and
 > `page-5`'s claim that it was *blocked* is retired — the attempt windows have been in
@@ -182,13 +182,13 @@ it up is what 2026-09-02 was.
 > than fixed; it cost two rounds of 404s that were green in tests.
 >
 > Before it that day,
-> [`2026-09-01-the-fan-out-and-the-sheet.md`](docs/notes/journal/2026-09-01-the-fan-out-and-the-sheet.md),
+> [`2026-09-01-the-fan-out-and-the-sheet.md`](docs/notes/journal/archive/2026-09-01-the-fan-out-and-the-sheet.md),
 > covering **Plan 5B phases 4 and 5, which complete that plan.** A `RUN`-scoped channel emits as
 > a **value** channel, so a reference is read once per task rather than consumed once per run —
 > the fan-out defect **is fixed, and was reproduced first**. An aggregator gets `.collect()`.
 > `InputForm` says whether `params.input` is a glob or a CSV, and a samplesheet pipeline **runs
 > end to end under `--gate test`**. Before that,
-> [`2026-09-01-a-channel-gets-a-name.md`](docs/notes/journal/2026-09-01-a-channel-gets-a-name.md) —
+> [`2026-09-01-a-channel-gets-a-name.md`](docs/notes/journal/archive/2026-09-01-a-channel-gets-a-name.md) —
 > phases 1 to 3, where `entry_channel` stopped fusing the param name, the cardinality and the
 > fan-out into the *type*. `SCHEMA_VERSION` is 6 and `REGISTRY_FORMAT` is 2.
 >
@@ -197,19 +197,19 @@ it up is what 2026-09-02 was.
 > so the samplesheet is reachable through the API and not through a browser. **Nobody has looked
 > at the builder since Plan 5B phase 1**; the split/merge control has never been clicked.
 >
-> Before it, [`2026-08-31-the-modules-move-in.md`](docs/notes/journal/2026-08-31-the-modules-move-in.md),
+> Before it, [`2026-08-31-the-modules-move-in.md`](docs/notes/journal/archive/2026-08-31-the-modules-move-in.md),
 > covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
 > `--registry X` is the whole input to a build, and three checks exist that could not before.
 > Read it before touching the registry, conformance, or anything that used to join a path onto
 > a module root. The forge was deprecated then and **is not any more** — see 2026-09-06.
 >
-> Before it, [`2026-08-30-the-overview.md`](docs/notes/journal/2026-08-30-the-overview.md), covering Plan 4
+> Before it, [`2026-08-30-the-overview.md`](docs/notes/journal/archive/2026-08-30-the-overview.md), covering Plan 4
 > phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
 > to 5 shipped with every suite green; opening the pages found that the fonts were never loaded,
 > the arc field every artboard sits on was never built, and the builder's canvas flowed the wrong
 > way. **The guards here are good at behaviour and blind to appearance** — plan for that.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
-> [`2026-08-29-walking-the-loop.md`](docs/notes/journal/2026-08-29-walking-the-loop.md) first — the
+> [`2026-08-29-walking-the-loop.md`](docs/notes/journal/archive/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
 > which answers them and carries the canvas the rework builds from. Earlier days do the same
 > thing: 2026-08-24 has three entries and 2026-08-18 has nine, and each day's entry point is

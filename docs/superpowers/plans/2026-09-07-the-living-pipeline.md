@@ -65,7 +65,7 @@ The implementation agent should read these before editing:
   YAML serializer. Reuse `dump`; never reproduce it in TypeScript.
 - `packages/comeni-ai/src/comeni_ai/`: provider-neutral validated generation and conversation.
   The deprecated `packages/mendel-ai/` is a compatibility shim and must receive no new code.
-- `docs/notes/journal/2026-09-01-the-fan-out-and-the-sheet.md`: in this repository “fan-out”
+- `docs/notes/journal/archive/2026-09-01-the-fan-out-and-the-sheet.md`: in this repository “fan-out”
   already means that N sample items must produce N process invocations; it is not only graph
   branching.
 
