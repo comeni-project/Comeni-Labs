@@ -47,7 +47,7 @@ Two small tools, a path check and a size budget, are written first and watched f
 
 ---
 
-### Task 1: the worktrees
+### Task 1 (#155): the worktrees
 
 **Files:** none in the repo; `.worktrees/` and `.claude/worktrees/` shrink.
 
@@ -73,7 +73,7 @@ done
 - [ ] **Step 4:** `git worktree list` shows only what was kept. Record the removed paths in the
   execution record.
 
-### Task 2: the path check
+### Task 2 (#156): the path check
 
 **Files:**
 - Create: `tools/check_doc_paths.py`, `tests/repo/test_doc_checks.py`
@@ -204,7 +204,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: Commit**: `test(docs): the path check, and the before it measures — #118`.
   It does **not** join `make check` yet.
 
-### Task 3: the size budget
+### Task 3 (#157): the size budget
 
 **Files:**
 - Create: `tools/check_doc_sizes.py`
@@ -264,7 +264,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests** (expected: pass), then the tool (expected: `CLAUDE.md is 1441
   lines`). Commit: `test(docs): a line budget for the brief — #118`.
 
-### Task 4: the compaction rules, and the first compaction
+### Task 4 (#158): the compaction rules, and the first compaction
 
 **Files:**
 - Create: `docs/notes/compaction.md`, `docs/notes/now.md`, `docs/notes/journal/archive/`
@@ -298,7 +298,7 @@ if __name__ == "__main__":
   in it), `uv run python tools/check_doc_sizes.py` (expected: only `CLAUDE.md` over). Commit:
   `docs: the compaction rules, and the journal's first compaction into now.md — #118`.
 
-### Task 5: `docs/design/invariants.md`
+### Task 5 (#159): `docs/design/invariants.md`
 
 **Files:**
 - Create: `docs/design/invariants.md`
@@ -316,7 +316,7 @@ if __name__ == "__main__":
 - [ ] **Step 4:** `uv run python tools/check_doc_paths.py` (expected: none in `invariants.md`),
   `make links`. Commit: `docs(design): the invariants' arguments, moved out of the brief — #118`.
 
-### Task 6: `CLAUDE.md` rewritten as a brief
+### Task 6 (#160): `CLAUDE.md` rewritten as a brief
 
 **Files:**
 - Modify: `CLAUDE.md`
@@ -336,7 +336,7 @@ if __name__ == "__main__":
   `uv run python tools/check_doc_sizes.py` (expected: pass), `make links`. Commit:
   `docs: CLAUDE.md as a working brief — 1,441 lines to N — #118`.
 
-### Task 7: archive the finished plans, and wire the checks in
+### Task 7 (#161): archive the finished plans, and wire the checks in
 
 **Files:**
 - Move: `docs/superpowers/plans/2026-09-02-the-wiki-scaffolding.md`,
