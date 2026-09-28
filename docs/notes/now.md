@@ -15,7 +15,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). Round 1 of the walk found
   and fixed #106–#116. (2026-09-28)
 - **Order of work, in #119's own order** (renumbered 2026-09-28 so the tree reads as done):
-  **14.7.3** gathering (open: #179 fixed by moving the local lane to `ollama_chat/`, #170, #178,
+  **14.7.3** gathering (open: #179 fixed by moving the local lane to the `ollama_chat` model prefix, #170, #178,
   #165) → **14.7.4** the consultant's words, fast and cheap (#182–#186, then #167 #176) →
   **14.7.5** the settings menu (#117, #187) → **14.7.6** samples → **14.7.7** the characteriser
   → **14.7.8** the consultant build → **14.7.9** the nine scenarios. (2026-09-28)
