@@ -23,7 +23,7 @@ TanStack Query + Vitest, LiteLLM to a local Ollama `gemma3:12b` for the walk.
 **Spec:** [`docs/superpowers/specs/2026-09-28-the-consultant-design.md`](../specs/2026-09-28-the-consultant-design.md).
 **Protocol:** [`docs/design/authoring-protocol.md`](../../design/authoring-protocol.md).
 **Issues:** Task 14 #119 → 14.7 #126 → 14.7.2 #132, 14.7.3 #133 (#105, #113, #114), 14.7.4 #134.
-Each task below becomes a sub-issue of its substep before it starts.
+Each task below is a sub-issue of its substep (#138–#154), numbered in its heading.
 
 **Not in this plan:** 14.7.5 (characteriser) and 14.7.6 (consultant build) are planned after
 14.7.4 is walked. 14.7.6 is knowingly optimistic, and writing its code now would be writing
@@ -76,7 +76,7 @@ in the owning task.
 
 ## 14.7.2 — The protocol as code (#132)
 
-### Task 14.7.2.1: the protocol object and its Mermaid rendering
+### Task 14.7.2.1 (#138): the protocol object and its Mermaid rendering
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/authoring/protocol.py`
@@ -294,7 +294,7 @@ git add packages/mendel-api/src/mendel_api/authoring/protocol.py packages/mendel
 git commit -m "feat(living): the authoring protocol as one declarative object — 14.7.2.1 (#132)"
 ```
 
-### Task 14.7.2.2: the state machine is the protocol
+### Task 14.7.2.2 (#139): the state machine is the protocol
 
 **Files:**
 - Modify: `packages/mendel-api/tests/test_authoring_protocol.py`
@@ -345,7 +345,7 @@ def test_retry_is_drawn_from_failed_to_where_a_failure_resumes():
   after #118, and otherwise in this plan's execution record.
 - [ ] **Step 4: Commit** — `test(living): the state machine is the protocol, both ways — 14.7.2.2 (#132)`.
 
-### Task 14.7.2.3: the generated diagram and `make docs`
+### Task 14.7.2.3 (#140): the generated diagram and `make docs`
 
 **Files:**
 - Create: `tools/generate_protocol_doc.py`, `docs/design/authoring-protocol-diagram.md` (generated)
@@ -419,7 +419,7 @@ docs:           ## fail if docs/reference/ disagrees with the code
 
 ## 14.7.3 — Gathering without files (#133)
 
-### Task 14.7.3.1: facts, the `gathering` and `stopped` phases, and their events
+### Task 14.7.3.1 (#141): facts, the `gathering` and `stopped` phases, and their events
 
 **Files:**
 - Modify: `packages/mendel-api/src/mendel_api/authoring/types.py`,
@@ -529,7 +529,7 @@ def downgrade() -> None:
   throwaway database. Expected: all pass, and the protocol test forces the new edges.
 - [ ] **Step 6: Commit** — `feat(living): facts, and the gathering and stopped phases — 14.7.3.1 (#133)`.
 
-### Task 14.7.3.2: a profile with mixed sources (`comeni-core`)
+### Task 14.7.3.2 (#142): a profile with mixed sources (`comeni-core`)
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/declared/measurement.py`
@@ -582,7 +582,7 @@ def test_profile_of_validates_like_profile(registry):
 - [ ] **Step 5: Run** the `comeni-core` tests and `make guards`. Commit —
   `feat(core): profile_of, a validated profile with a source per entry — 14.7.3.2 (#133)`.
 
-### Task 14.7.3.3: the gap engine
+### Task 14.7.3.3 (#143): the gap engine
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/services/gaps.py`
@@ -724,7 +724,7 @@ def gaps(want: list[str], facts: list[Fact], stack) -> list[Gap] | Unreachable:
 - [ ] **Step 4: Run the tests.** Expected: 3 passed. Commit —
   `feat(living): the gap engine — what an analysis still needs, computed — 14.7.3.3 (#133)`.
 
-### Task 14.7.3.4: the want-only goal prompt
+### Task 14.7.3.4 (#144): the want-only goal prompt
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/authoring/prompts/builder.goal.v3.md`
@@ -766,7 +766,7 @@ def gaps(want: list[str], facts: list[Fact], stack) -> list[Gap] | Unreachable:
   authoring tests, and commit —
   `feat(living): the goal call asks for the want only — builder.goal.v3 — 14.7.3.4 (#133, #105)`.
 
-### Task 14.7.3.5: gap proposals, answered by click or typed value
+### Task 14.7.3.5 (#145): gap proposals, answered by click or typed value
 
 **Files:**
 - Modify: `services/authoring.py`, `routes/authoring.py`, `authoring/types.py`,
@@ -916,7 +916,7 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
   the decide body changed). Commit —
   `feat(living): gaps offered and answered, facts folded into the goal — 14.7.3.5 (#133, #114)`.
 
-### Task 14.7.3.6: reading a typed reply to a gap (`builder.gap.v1`)
+### Task 14.7.3.6 (#146): reading a typed reply to a gap (`builder.gap.v1`)
 
 **Files:**
 - Create: `authoring/prompts/builder.gap.v1.md`
@@ -943,7 +943,7 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 - [ ] **Step 5: Run and commit** —
   `feat(living): a typed reply to a gap, read by id and never guessed — 14.7.3.6 (#133)`.
 
-### Task 14.7.3.7: the page — gap cards, facts on the goal card, the new phases
+### Task 14.7.3.7 (#147): the page — gap cards, facts on the goal card, the new phases
 
 **Files:**
 - Create: `frontend/src/build/living/blocks/GapCard.tsx`, `frontend/src/build/living/GapCard.test.tsx`
@@ -968,7 +968,7 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 - [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npx oxlint src/build/living`. Commit —
   `feat(living): gap cards, and facts with their sources on the goal card — 14.7.3.7 (#133)`.
 
-### Task 14.7.3.8: the ladder, then walk scenario 1 by answering
+### Task 14.7.3.8 (#148): the ladder, then walk scenario 1 by answering
 
 - [ ] **Step 1:** `make check MENDEL_DATABASE_URL=…5442…` (expected: only the five base failures),
   `make guards`, `make slow`, `make docs`, `make links`.
@@ -986,7 +986,7 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
 
 ## 14.7.4 — Samples at protection level 0, and the FASTQ inspector (#134)
 
-### Task 14.7.4.1: the protection level
+### Task 14.7.4.1 (#149): the protection level
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/authoring/protection.py`
@@ -1006,7 +1006,7 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
   `docs/design/authoring-protocol.md`*. Commit —
   `feat(living): the protection level, with level 0 the only one built — 14.7.4.1 (#134)`.
 
-### Task 14.7.4.2: the FASTQ inspector
+### Task 14.7.4.2 (#150): the FASTQ inspector
 
 **Files:**
 - Create: `packages/mendel-api/src/mendel_api/services/inspect/__init__.py`,
@@ -1051,7 +1051,7 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
 - [ ] **Step 4: Run and commit** —
   `feat(living): the FASTQ inspector — paired and read length, measured — 14.7.4.2 (#134)`.
 
-### Task 14.7.4.3: `ValueSource.INSPECTED` (`comeni-core`)
+### Task 14.7.4.3 (#151): `ValueSource.INSPECTED` (`comeni-core`)
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/review/answer.py`, and every exhaustive match on
@@ -1065,7 +1065,7 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
 - [ ] **Step 2:** fix what the run named, `make verify`, commit —
   `feat(core): ValueSource.INSPECTED — 14.7.4.3 (#134)`.
 
-### Task 14.7.4.4: uploading a sample
+### Task 14.7.4.4 (#152): uploading a sample
 
 **Files:**
 - Modify: `packages/mendel-api/pyproject.toml` (`python-multipart>=0.0.9`, as `wiener-api` has),
@@ -1093,7 +1093,7 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
 - [ ] **Step 4:** `make client`, run the tests, commit —
   `feat(living): upload a sample, measured by its inspector — 14.7.4.4 (#134)`.
 
-### Task 14.7.4.5: the page — upload on a gap card
+### Task 14.7.4.5 (#153): the page — upload on a gap card
 
 **Files:**
 - Modify: `frontend/src/build/living/blocks/GapCard.tsx`, `GoalCard.tsx`,
@@ -1106,7 +1106,7 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
 - [ ] **Step 2–3: Implement, and run** `npx vitest run`, `npx tsc -b`. Commit —
   `feat(living): upload a file from a gap card — 14.7.4.5 (#134)`.
 
-### Task 14.7.4.6: the ladder, then walk scenario 1 by uploading
+### Task 14.7.4.6 (#154): the ladder, then walk scenario 1 by uploading
 
 - [ ] **Step 1:** the full ladder, as in 14.7.3.8.
 - [ ] **Step 2: Walk it:** upload a real paired FASTQ head, see `paired` and `read_length`
