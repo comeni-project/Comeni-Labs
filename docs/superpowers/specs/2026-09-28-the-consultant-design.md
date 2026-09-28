@@ -104,9 +104,17 @@ PROTOCOL = Protocol(stages=..., nodes=..., edges=...)
 
 - **`to_mermaid(PROTOCOL) -> str`** renders the diagram: fill by actor, border by tier, and a key
   generated from the enums, so a new actor cannot appear without a key entry.
-- **`tools/generate_protocol_doc.py`** writes it between `<!-- protocol:begin -->` and
-  `<!-- protocol:end -->` in `authoring-protocol.md`. `make docs` runs it with `--check` and fails
-  when the page is stale, like `diagnostics.md`.
+- **`tools/generate_protocol_doc.py`** writes a **whole generated file**,
+  `docs/design/authoring-protocol-diagram.md`, and the hand-written protocol page links to it.
+  `make docs` runs it with `--check` and fails when it is stale. Not a block spliced between
+  markers: `generate_diagnostics_doc.py` records why this repository stopped doing that
+  (*`--check` could only ever see the block*).
+- **The state machine's phases are nodes too.** Each node carries the `Phase` it belongs to, and
+  `failed`, `resolving`, `complete` and `stopped` get nodes of their own, because an edge that
+  carries an event must join nodes in the two phases that transition joins.
+- **14.7.2 encodes the loop as it is built today**, and the generated diagram is labelled *as
+  built*. The hand-drawn diagram stays on the protocol page, labelled *the design*, until
+  14.7.3 and 14.7.4 land and the generated one reaches it. Then the hand-drawn one is deleted.
 - **`test_the_state_machine_is_the_protocol`**: every `(phase, event) → phase` in
   `state.TRANSITIONS` is an edge carrying that event between the nodes that stand for those
   phases, and every event-carrying edge is a transition. Both directions are asserted, and the
@@ -159,17 +167,29 @@ class Fact(_Shape):  kind: input | measurement;  type_id | measurement;  value |
 
 Facts live on the session (a JSON column, like `goal`) and are folded into the `Goal` when the
 card is confirmed: inputs into `goal.have`, measurements into `goal.profile` with the source
-carried into `Measured.source`. `PERSON_SAID` maps to `ValueSource.HUMAN` and `MODEL_READ` to
-`ValueSource.MODEL`, both of which exist. `MEASURED` has no spelling yet: `ValueSource` gains
-`INSPECTED`, with `Measured.by` naming the inspector (a `comeni-core` feature). **An `OPEN` measurement is omitted from the profile**, which is what makes a rule not
+carried into `Measured.source`. `PERSON_SAID` maps to `ValueSource.GOAL` (*asserted in the goal*,
+which is what it is; `HUMAN` means answering a flagged ambiguity **after** resolution, and is not
+this), and `MODEL_READ` to `ValueSource.MODEL`. `MEASURED` has no spelling yet: `ValueSource` gains
+`INSPECTED`, with `Measured.by` naming the inspector (a `comeni-core` feature, in 14.7.4).
+
+**A profile with mixed sources needs one new constructor.** `MeasurementRegistry.profile()` stamps
+one source on every entry, and `tests/guards/test_construction.py` forbids building a
+`DataProfile` anywhere else. So `comeni-core` gains `MeasurementRegistry.profile_of(entries)`,
+which validates each entry the same way and carries each one's own source. **An `OPEN` measurement is omitted from the profile**, which is what makes a rule not
 match and the decision fall to tier 4, with no new mechanism.
 
 ### Gap questions
 
-The engine emits one `Question` block per gap, with ids it mints and closed options:
+Each gap is offered as a **proposal of kind `gap`**, not a bare `Question` block. A `Question`
+is display-only today, and a proposal is what the page already knows how to answer with a click
+(`decide` with an option id), with no model call. Its block is a `Question` carrying ids the
+engine mints and closed options:
 - an input: *I have it, and will upload it* / *I have it, but can't share it* / *I don't have one*;
 - a measurement: its declared values where closed (`paired`: yes / no), a typed field where open
   (`read_length`), plus *not sure* and *can't share it*.
+
+A typed value (`read_length: 150`) travels on `DecideProposal.value`, a new optional field held
+to the measurement's declaration by `MeasurementRegistry.check`.
 
 **The AI's only job here** is `builder.gap.v1`: turn the engine's question into one plain sentence
 for this person, and read a free-text reply back into one of that question's option ids or a typed
