@@ -609,6 +609,12 @@ class PipelineAuthoringSession(Base):
     conversation* settled on, and the draft's is what the artifact will be built from. They are
     equal in the ordinary case and must be allowed to differ while a revision is being
     reviewed."""
+    facts: Mapped[list] = mapped_column(JSON, default=list)
+    """What gathering learned, as `authoring.types.Fact` dicts, each with its source.
+
+    Until the goal card composes a full `Goal`, the want sits in `goal` as
+    `{"want": [...], "constraints": {...}}`; these are the rest. `[]` on a session that never
+    gathered, which is true of every session before 14.7.3."""
     blueprint: Mapped[dict] = mapped_column(JSON, default=dict)
     registry_digest: Mapped[str] = mapped_column(String(80), default="")
     """Which layer stack the blueprint was resolved against. A blueprint outlives the registry

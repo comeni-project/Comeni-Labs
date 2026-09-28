@@ -101,26 +101,6 @@ def test_rendering_is_deterministic():
     assert p.to_mermaid(p.PROTOCOL) == p.to_mermaid(p.PROTOCOL)
 
 
-TODAY = {
-    (Phase.UNDERSTANDING, Event.GOAL_RETURNED): Phase.GOAL_REVIEW,
-    (Phase.UNDERSTANDING, Event.PROVIDER_FAILED): Phase.FAILED,
-    (Phase.GOAL_REVIEW, Event.GOAL_ACCEPTED): Phase.RESOLVING,
-    (Phase.GOAL_REVIEW, Event.GOAL_REVISED): Phase.UNDERSTANDING,
-    (Phase.RESOLVING, Event.BLUEPRINT_STORED): Phase.BUILDING,
-    (Phase.RESOLVING, Event.BUILD_FAILED): Phase.FAILED,
-    (Phase.RESOLVING, Event.PROVIDER_FAILED): Phase.FAILED,
-    (Phase.BUILDING, Event.PROPOSAL_SETTLED): Phase.BUILDING,
-    (Phase.BUILDING, Event.NOTHING_LEFT): Phase.COMPLETE,
-    (Phase.BUILDING, Event.GOAL_ACCEPTED): Phase.RESOLVING,
-    (Phase.COMPLETE, Event.GOAL_ACCEPTED): Phase.RESOLVING,
-}
-
-
-def test_the_derived_machine_is_the_one_that_was_written_by_hand():
-    """Deleted in 14.7.3.1: a one-time proof that deriving the table changed no behaviour."""
-    assert st.TRANSITIONS == TODAY
-    assert st.TRANSITIONS is not TODAY
-
 
 def test_the_machine_is_read_from_the_protocol():
     assert p.PROTOCOL.transitions() == st.TRANSITIONS

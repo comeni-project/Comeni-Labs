@@ -83,38 +83,31 @@ flowchart LR
     done -- "the goal changed" --> resolve
     failed -- "retry" --> read_goal
     failed -- "retry" --> resolve
-    read_goal -.-> list_needs
-    list_needs -.-> next_gap
-    next_gap -. "yes" .-> ask
-    ask -.-> reply
-    reply -. "I know it" .-> said
+    read_goal --> list_needs
+    list_needs --> next_gap
+    next_gap -- "yes" --> ask
+    ask --> reply
+    reply -- "I know it" --> said
+    reply -- "can't share it" --> left_open
+    reply -- "I don't have that input" --> stopped
+    said --> next_gap
+    left_open --> next_gap
+    next_gap -- "nothing unknown" --> card
     reply -. "not sure" .-> upload
-    reply -. "I don't have that input" .-> stopped
     upload -. "uploaded" .-> safety
-    upload -. "can't share it" .-> left_open
     safety -. "engine knows the type" .-> read_engine
     safety -. "it doesn't" .-> read_ai
-    said -.-> next_gap
     read_engine -.-> next_gap
     read_ai -.-> next_gap
-    left_open -.-> next_gap
-    next_gap -. "nothing unknown" .-> card
     resolve -.-> plan
     plan -.-> pace
     pace -.-> offer
     done -.-> wrap
     ask_any -.-> explain
-    style list_needs stroke-dasharray:6 4,opacity:0.55
-    style next_gap stroke-dasharray:6 4,opacity:0.55
-    style ask stroke-dasharray:6 4,opacity:0.55
-    style reply stroke-dasharray:6 4,opacity:0.55
     style upload stroke-dasharray:6 4,opacity:0.55
     style safety stroke-dasharray:6 4,opacity:0.55
     style read_engine stroke-dasharray:6 4,opacity:0.55
     style read_ai stroke-dasharray:6 4,opacity:0.55
-    style said stroke-dasharray:6 4,opacity:0.55
-    style left_open stroke-dasharray:6 4,opacity:0.55
-    style stopped stroke-dasharray:6 4,opacity:0.55
     style step_settled stroke:#6fbf8f
     style step_rule stroke:#f0d040,stroke-width:4px
     style step_choice stroke:#ff5050,stroke-width:4px

@@ -3271,7 +3271,7 @@ export interface components {
          *     out of it, back to `understanding` and to `resolving`.
          * @enum {string}
          */
-        Phase: "understanding" | "goal_review" | "resolving" | "building" | "complete" | "failed";
+        Phase: "understanding" | "gathering" | "goal_review" | "resolving" | "building" | "complete" | "failed" | "stopped";
         /** PlacedNode */
         PlacedNode: {
             /** Id */

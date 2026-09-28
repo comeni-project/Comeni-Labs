@@ -62,11 +62,26 @@ def test_the_refusal_says_what_can_happen_instead():
 
 def test_the_table_covers_every_phase():
     """`tests/README.md`: a loop is not an assertion. Every phase must appear as a source or be
-    deliberately terminal, so a phase added to the enum and forgotten here is visible."""
+    deliberately terminal (`failed` leaves by retry; `stopped` is an honest end), so a phase
+    added to the enum and forgotten here is visible."""
     sources = {phase for phase, _ in st.TRANSITIONS}
     assert sources, "the transition table is empty"
-    unreachable = set(Phase) - sources - {Phase.FAILED}
+    unreachable = set(Phase) - sources - {Phase.FAILED, Phase.STOPPED}
     assert unreachable == set(), f"these phases can never be left: {sorted(unreachable)}"
+
+
+def test_gathering_sits_between_the_want_and_the_card():
+    assert st.advance(Phase.UNDERSTANDING, st.Event.WANT_RETURNED) is Phase.GATHERING
+    assert st.advance(Phase.GATHERING, st.Event.FACT_ADDED) is Phase.GATHERING
+    assert st.advance(Phase.GATHERING, st.Event.NOTHING_MISSING) is Phase.GOAL_REVIEW
+    assert st.advance(Phase.GATHERING, st.Event.INPUT_UNAVAILABLE) is Phase.STOPPED
+
+
+def test_stopped_is_terminal_and_not_a_failure():
+    """An honest stop is the protocol ending correctly. RETRY is for failures."""
+    with pytest.raises(ValueError, match="MI0200"):
+        st.advance(Phase.STOPPED, st.Event.RETRY)
+    assert not any(src is Phase.STOPPED for (src, _ev) in st.TRANSITIONS)
 
 
 # ── retry resumes the stage that failed ───────────────────────────────────────────────────

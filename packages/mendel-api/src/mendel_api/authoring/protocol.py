@@ -259,22 +259,24 @@ PROTOCOL = Protocol(
             shape=Shape.ROUND,
         ),
         _built("read_goal", "describe", _AI, "AI reads it into a typed goal", _P.UNDERSTANDING),
-        # ② planned
-        _n(
+        # ② built in 14.7.3; the upload branch stays planned (14.7.4, 14.7.5)
+        _built(
             "list_needs",
             "gather",
             _ENGINE,
             "Engine lists what the target needs<br/>inputs, and facts rules will read",
+            _P.GATHERING,
         ),
-        _n(
+        _built(
             "next_gap",
             "gather",
             _ENGINE,
             "Anything on the list<br/>still unknown?",
+            _P.GATHERING,
             shape=Shape.CHOICE,
         ),
-        _n("ask", "gather", _AI, "AI asks you about it,<br/>in plain words"),
-        _n("reply", "gather", _YOU, "You answer", shape=Shape.CHOICE),
+        _built("ask", "gather", _AI, "AI asks you about it,<br/>in plain words", _P.GATHERING),
+        _built("reply", "gather", _YOU, "You answer", _P.GATHERING, shape=Shape.CHOICE),
         _n("upload", "gather", _YOU, "You upload a file", shape=Shape.ROUND),
         _n(
             "safety",
@@ -285,13 +287,16 @@ PROTOCOL = Protocol(
         ),
         _n("read_engine", "gather", _ENGINE, "Engine reads it exactly<br/>→ measured"),
         _n("read_ai", "gather", _AI, "AI reads it<br/>(types the engine can't)<br/>→ read by AI"),
-        _n("said", "gather", _ENGINE, "→ you said"),
-        _n("left_open", "gather", _ENGINE, "Left open<br/>→ you choose in the build"),
-        _n(
+        _built("said", "gather", _ENGINE, "→ you said", _P.GATHERING),
+        _built(
+            "left_open", "gather", _ENGINE, "Left open<br/>→ you choose in the build", _P.GATHERING
+        ),
+        _built(
             "stopped",
             "gather",
             _STOP,
             "Stop: can't build without it<br/>(e.g. no genome)",
+            _P.STOPPED,
             shape=Shape.ROUND,
         ),
         # ③ built
@@ -390,23 +395,24 @@ PROTOCOL = Protocol(
         _move("done", "resolve", _E.GOAL_ACCEPTED, "the goal changed"),
         _move("failed", "read_goal", _E.RETRY, "retry", returns=True),
         _move("failed", "resolve", _E.RETRY, "retry", returns=True),
-        # planned: gathering (14.7.3, 14.7.4, 14.7.5)
-        _e("read_goal", "list_needs"),
-        _e("list_needs", "next_gap"),
-        _e("next_gap", "ask", "yes"),
-        _e("ask", "reply"),
-        _e("reply", "said", "I know it"),
+        # built: gathering (14.7.3)
+        _move("read_goal", "list_needs", _E.WANT_RETURNED),
+        _e("list_needs", "next_gap", built=True),
+        _e("next_gap", "ask", "yes", built=True),
+        _e("ask", "reply", built=True),
+        _e("reply", "said", "I know it", built=True),
+        _e("reply", "left_open", "can't share it", built=True),
+        _move("reply", "stopped", _E.INPUT_UNAVAILABLE, "I don't have that input"),
+        _move("said", "next_gap", _E.FACT_ADDED),
+        _move("left_open", "next_gap", _E.FACT_ADDED),
+        _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
+        # planned: a file answers it (14.7.4, 14.7.5)
         _e("reply", "upload", "not sure"),
-        _e("reply", "stopped", "I don't have that input"),
         _e("upload", "safety", "uploaded"),
-        _e("upload", "left_open", "can't share it"),
         _e("safety", "read_engine", "engine knows the type"),
         _e("safety", "read_ai", "it doesn't"),
-        _e("said", "next_gap"),
         _e("read_engine", "next_gap"),
         _e("read_ai", "next_gap"),
-        _e("left_open", "next_gap"),
-        _e("next_gap", "card", "nothing unknown"),
         # planned: the consultant build (14.7.6)
         _e("resolve", "plan"),
         _e("plan", "pace"),

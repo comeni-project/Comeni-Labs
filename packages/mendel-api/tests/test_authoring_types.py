@@ -27,11 +27,13 @@ def test_every_phase_in_the_state_diagram_exists():
     a phase the reducer will infer from absent fields."""
     assert {p.value for p in t.Phase} == {
         "understanding",
+        "gathering",
         "goal_review",
         "resolving",
         "building",
         "complete",
         "failed",
+        "stopped",
     }
 
 
@@ -305,3 +307,16 @@ def test_a_question_the_model_raises_carries_labels_and_not_ids():
     assert "id" not in t.AskedQuestion.model_fields
     for name, field in t.AskedQuestion.model_fields.items():
         assert "OptionId" not in str(field.annotation), f"AskedQuestion.{name} names an id"
+
+
+def test_a_fact_says_where_it_came_from_and_an_open_one_has_no_value():
+    said = t.Fact(
+        kind=t.FactKind.MEASUREMENT, subject="read_length", value=150,
+        source=t.FactSource.PERSON_SAID,
+    )
+    assert said.source is t.FactSource.PERSON_SAID
+    with pytest.raises(ValidationError):
+        t.Fact(
+            kind=t.FactKind.MEASUREMENT, subject="read_length", value=150,
+            source=t.FactSource.OPEN,
+        )

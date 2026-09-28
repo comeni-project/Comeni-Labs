@@ -706,7 +706,7 @@ if __name__ == "__main__":
   in the existing `goal` column as `{"want": [...], "constraints": {...}}` until the card
   composes a full `Goal`. No new column for it).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # test_authoring_state.py
@@ -733,8 +733,8 @@ def test_a_fact_says_where_it_came_from_and_an_open_one_has_no_value():
                source=t.FactSource.OPEN)
 ```
 
-- [ ] **Step 2: Run them to see them fail.** Expected: `AttributeError: GATHERING`.
-- [ ] **Step 3: Implement.** In `types.py`:
+- [x] **Step 2: Run them to see them fail.** Expected: `AttributeError: GATHERING`.
+- [x] **Step 3: Implement.** In `types.py`:
 
 ```python
 class FactKind(StrEnum):
@@ -779,7 +779,7 @@ class Fact(_Shape):
   `test_authoring_state.py` gain the four new arrows instead. Retire `read_goal→card`
   GOAL_RETURNED if 14.7.3.4 does (see there).
 
-- [ ] **Step 4: The migration.** `uv run alembic revision -m "gathering facts"` from
+- [x] **Step 4: The migration.** `uv run alembic revision -m "gathering facts"` from
   `packages/mendel-api`, then:
 
 ```python
@@ -797,9 +797,9 @@ def downgrade() -> None:
   and `facts: Mapped[list] = mapped_column(JSON, default=list)` on the model. The phase column is
   `String(16)`, and `gathering` fits.
 
-- [ ] **Step 5: Run** the state, types and protocol tests, plus `alembic upgrade head` against the
+- [x] **Step 5: Run** the state, types and protocol tests, plus `alembic upgrade head` against the
   throwaway database. Expected: all pass, and the protocol test forces the new edges.
-- [ ] **Step 6: Commit** — `feat(living): facts, and the gathering and stopped phases — 14.7.3.1 (#133)`.
+- [x] **Step 6: Commit** — `feat(living): facts, and the gathering and stopped phases — 14.7.3.1 (#133)`.
 
 ### Task 14.7.3.2 (#142): a profile with mixed sources (`comeni-core`)
 
@@ -1413,3 +1413,10 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   across stage ②. Declaring within-stage arrows inside their subgraph did not help and was
   reverted; filed as #163 (deferred, cosmetic). `make check`: 2,804 passed and the five base
   failures; `types`, `docs`, `links`, `doc-paths`, `doc-sizes`, `tsc -b` pass. `docs-status` failed on the walking guide (#164), fixed separately.
+- **14.7.3.1 (2026-09-28).** Protocol: the planned `upload→left_open` *can't share it* became a
+  built `reply→left_open`, because the spec's gap options put *can't share it* on the reply, not
+  behind an upload; `reply→upload` *not sure* stays planned for 14.7.4. Two tests changed on
+  purpose: the literal phase list gains `gathering` and `stopped`; `test_the_table_covers_every_phase`
+  exempts `stopped` as terminal. `test_models`' column guard failed on `facts` and was answered by
+  naming it, with the level-0 note on `Fact.sample`. Migration `a4c8e1f26b93` watched up, down and
+  up. `make client`: the one `Phase` union line changed; `tsc -b` and vitest (531) pass.

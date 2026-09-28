@@ -72,11 +72,15 @@ class Phase(StrEnum):
     """
 
     UNDERSTANDING = "understanding"
+    GATHERING = "gathering"
+    """The engine asks for what the want still needs (14.7.3)."""
     GOAL_REVIEW = "goal_review"
     RESOLVING = "resolving"
     BUILDING = "building"
     COMPLETE = "complete"
     FAILED = "failed"
+    STOPPED = "stopped"
+    """An honest end: an input the analysis needs does not exist. Terminal, and not a failure."""
 
 
 class Event(StrEnum):
@@ -107,6 +111,14 @@ class Event(StrEnum):
     """The resolver could not produce a blueprint."""
     RETRY = "retry"
     """Leave `failed` for whichever phase failed."""
+    WANT_RETURNED = "want_returned"
+    """The model read what the person wants; the engine takes over to gather what it needs."""
+    FACT_ADDED = "fact_added"
+    """A gap was answered: a fact recorded, or deliberately left open."""
+    NOTHING_MISSING = "nothing_missing"
+    """Every gap is closed or open; the goal card can be shown."""
+    INPUT_UNAVAILABLE = "input_unavailable"
+    """The person does not have an input the analysis cannot do without."""
 
 
 class ProposalState(StrEnum):
@@ -180,6 +192,38 @@ class _Shape(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class FactKind(StrEnum):
+    INPUT = "input"
+    MEASUREMENT = "measurement"
+
+
+class FactSource(StrEnum):
+    """Where a fact came from, which is what the goal card and the tier-3 premise show."""
+
+    MEASURED = "measured"  # an inspector read the file (14.7.4)
+    MODEL_READ = "model_read"  # the characteriser read it (14.7.5)
+    PERSON_SAID = "person_said"  # the person stated it
+    OPEN = "open"  # nobody knows; the tiers carry it as tier 4
+
+
+class Fact(_Shape):
+    """One thing gathering learned, and who it came from. Nothing is guessed (protocol rule 5)."""
+
+    kind: FactKind
+    subject: str = Field(min_length=1, max_length=128)
+    """A type id for an input, a measurement id for a measurement."""
+    value: HumanParamValue | None = None
+    states: list[str] = []
+    source: FactSource
+    sample: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="after")
+    def _open_has_no_value(self) -> Self:
+        if self.source is FactSource.OPEN and self.value is not None:
+            raise ValueError("an open fact has no value: nobody knows it")
+        return self
 
 
 class Option(_Shape):
