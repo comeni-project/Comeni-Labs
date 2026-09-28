@@ -191,6 +191,14 @@ export function DecisionLog({
             />
           </Turn>
         )}
+        {session.phase === "stopped" && (
+          // An honest stop ends the session; the way on is a new analysis (issue 175).
+          <Turn tick="open">
+            <a href="/build" className="text-[12.5px] text-link underline focus-visible:shadow-[var(--ring)]">
+              Start a new analysis
+            </a>
+          </Turn>
+        )}
         {saying === null && waitingOn(session) && (
           <Turn tick="open">
             <p className="m-0 text-[12.5px] leading-[1.6] text-ink-2" data-testid="your-turn">

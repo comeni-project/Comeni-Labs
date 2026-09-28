@@ -275,6 +275,15 @@ describe("the new phases say what is happening (14.7.3)", () => {
     expect(screen.getByTestId("living-status")).toHaveTextContent("gathering what it needs");
   });
 
+  it("after an honest stop, says it ended and offers a new analysis (issue 175)", () => {
+    surface(with_({ phase: "stopped", pending_proposal: null, graph: { nodes: [], edges: [] },
+      turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending") } as Partial<AuthoringSession>));
+    expect(screen.getByTestId("canvas-empty")).not.toHaveTextContent("Confirm the goal");
+    expect(screen.getByTestId("canvas-empty")).toHaveTextContent("This analysis stopped");
+    expect(screen.getByRole("link", { name: "Start a new analysis" })).toHaveAttribute("href", "/build");
+    expect(screen.queryByPlaceholderText(/Ask about a step/)).toBeNull();
+  });
+
   it("reads stopped as stopped: something is missing", () => {
     surface(with_({ phase: "stopped", pending_proposal: null }));
     expect(screen.getByTestId("living-status")).toHaveTextContent("stopped: something is missing");

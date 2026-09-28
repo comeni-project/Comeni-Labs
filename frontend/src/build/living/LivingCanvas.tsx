@@ -40,6 +40,7 @@ export function LivingCanvas({
   events = [],
   onPlayed = () => undefined,
   reveal = {},
+  empty,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -60,6 +61,8 @@ export function LivingCanvas({
   onPlayed?: (event: MotionEvent) => void;
   /** Spawn's first-arrival reveal: a delay per step, in ms. Empty on reload. */
   reveal?: Record<string, number>;
+  /** What the empty canvas says instead of the invitation — after an honest stop, why. */
+  empty?: string;
 }) {
   const view = useView();
   const [moved, setMoved] = useState<Positions>({});
@@ -75,7 +78,7 @@ export function LivingCanvas({
            data-testid="canvas-empty">
         <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">Nothing built yet</span>
         <span className="text-[12.5px] text-ink-2">
-          Confirm the goal on the right and the steps arrive one at a time
+          {empty ?? "Confirm the goal on the right and the steps arrive one at a time"}
         </span>
         {footer}
       </div>

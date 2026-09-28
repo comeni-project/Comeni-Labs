@@ -121,6 +121,9 @@ export function LivingSurface({
       <div className="living min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
           <LivingCanvas
+            empty={session.phase === "stopped"
+              ? "This analysis stopped before anything was built — see why on the right"
+              : undefined}
             graph={graph}
             ghost={ghost}
             ghostProposal={pending?.kind === "step" ? pending.id : null}
@@ -226,9 +229,11 @@ export function LivingSurface({
               value={state.composer}
               onChange={onCompose}
               onSend={onSay}
-              disabled={pendingTurn}
+              disabled={pendingTurn || session.phase === "stopped"}
               placeholder={
-                pendingTurn
+                session.phase === "stopped"
+                  ? "This analysis has ended — start a new one above"
+                  : pendingTurn
                   ? "Waiting for the answer…"
                   : session.phase === "understanding"
                     ? "Say what you have and what you want"
