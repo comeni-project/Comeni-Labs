@@ -196,7 +196,7 @@ describe("saying something", () => {
         busy={() => false}
         onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()} onSelect={vi.fn()}
         onCompose={vi.fn()} onSay={vi.fn()} onRetry={vi.fn()} onAddStep={vi.fn()}
-        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()}
+        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
       />,
     );
     expect(screen.getByTestId("saying")).toHaveTextContent("and the sorter?");

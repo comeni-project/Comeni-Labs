@@ -124,6 +124,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onSetParam={(node, setting, value) => living.edit(withParam(graph, node, setting, value))}
       onApplyChange={(block: ChangeBlock) =>
         living.edit(block.removes.reduce(withoutNode, graph))}
+      onEdit={living.edit}
     />
   );
 }
@@ -206,6 +207,7 @@ function FakeLiving() {
       onAddStep={() => undefined}
       onSetParam={() => undefined}
       onApplyChange={() => undefined}
+      onEdit={() => undefined}
       onDismiss={() => dispatch({ type: "dismiss" })}
     />
   );
@@ -243,6 +245,7 @@ export function GuidedLiving() {
       onAddStep={() => undefined}
       onSetParam={() => undefined}
       onApplyChange={() => undefined}
+      onEdit={() => undefined}
       onDismiss={() => dispatch({ type: "dismiss" })}
     />
   );
@@ -271,6 +274,7 @@ function CollectLiving() {
       onAddStep={() => undefined}
       onSetParam={() => undefined}
       onApplyChange={() => undefined}
+      onEdit={() => undefined}
       onDismiss={() => dispatch({ type: "dismiss" })}
     />
   );

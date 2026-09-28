@@ -33,6 +33,7 @@ function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
     onDismiss: vi.fn(),
     onSetParam: vi.fn(),
     onApplyChange: vi.fn(),
+    onEdit: vi.fn(),
     ...overrides,
   };
   render(

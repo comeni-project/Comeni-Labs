@@ -1,3 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useNavigate } from "react-router";
+
+import { get } from "../api/client";
+import type { AiHealth, BeginAuthoring } from "../api/types";
+import { MODES } from "../home/modes";
+import { useBegin } from "../home/useBegin";
 import type { Answered, AnsweredStep } from "./useBuilder";
 import { open as isOpen } from "./useBuilder";
 
@@ -88,34 +96,97 @@ export function StepChoice({
   );
 }
 
-/** **Door 1, and it is a slot rather than a thing.**
+/** **Door 1 — the slot held its place until the door existed, and now it is the door.**
  *
- * The prompt door is the one place in the product where free text enters, and it is deliberately
- * not wired: AI is not in this plan, and #69 comes first. The tab exists because the design has
- * it and because a rail that gains a tab later moves every position a person had learned.
+ * The tab was static copy saying the prompt was *not wired yet*, kept because a rail that gains a
+ * tab later moves every position a person had learned. The living pipeline wired it, and the tab
+ * is **the only way into a living session once a lab has any pipeline**: `Home` draws the
+ * first-run prompt only while there are none, and *New pipeline* opens this builder.
+ *
+ * So it sends exactly what `First` sends — a sentence and a mode, nothing that could carry a
+ * filename — and opens the session it started. What the model writes is still a goal the person
+ * confirms before anything is built; that seam now lives on the goal card in the conversation.
  */
 export function Assistant() {
+  const navigate = useNavigate();
+  const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<BeginAuthoring["mode"]>("build");
+  const health = useQuery({
+    queryKey: ["health", "ai"],
+    queryFn: () => get<AiHealth>("/health/ai"),
+    retry: false,
+  });
+  const live = health.data?.configured === true;
+  const begin = useBegin((started) => navigate(`/build?session=${started.session.id}`));
+  const ready = live && prompt.trim().length > 0 && !begin.isPending;
+
   return (
     <div data-testid="ask" className="p-4">
-      <p className="text-body text-ink m-0">
-        Describe an analysis and Mendel turns it into a <b className="font-normal">goal</b> —
-        have, want, samples, organism — which you correct before anything runs.
-      </p>
-      <div className="mt-4 rounded-r border border-dashed border-line-2 p-4">
-        <p className="text-secondary text-ink-2 m-0">
-          Not wired yet. The prompt door is the first of Mendel&rsquo;s three AI points and it
-          opens after{" "}
-          <a href="https://github.com/comeni-project/Comeni-Labs/issues/69" className="text-pea">
-            #69
-          </a>
-          .
+      <form
+        aria-label="describe an analysis"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (ready) begin.mutate({ prompt: prompt.trim(), mode });
+        }}
+        className="flex flex-col gap-3"
+      >
+        <p className="text-body text-ink m-0">
+          Describe an analysis. It is read into a <b className="font-normal">goal</b> you confirm,
+          then built beside a conversation.
         </p>
-        <p className="text-secondary text-ink-3 mt-3 mb-0">
-          What arrives here is an <b className="font-normal text-ink-2">editable goal card</b>,
-          never a chat bubble — the model&rsquo;s only job is prose to typed goal, and rendering
-          it as conversation would hide the seam that makes the answer checkable.
-        </p>
-      </div>
+        <textarea
+          aria-label="what do you want to make?"
+          disabled={!live || begin.isPending}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={3}
+          placeholder="gene counts from paired-end RNA-seq of mouse liver"
+          className="w-full resize-y font-ui text-body text-ink bg-transparent border px-2 py-1.5
+                     disabled:cursor-not-allowed placeholder:text-[color:var(--ink-4)]"
+          style={{ borderColor: "var(--link-line)" }}
+        />
+        {live && (
+          <div role="radiogroup" aria-label="how to build it" className="flex flex-col gap-1.5">
+            {MODES.map((option) => (
+              <button
+                key={option.mode}
+                type="button"
+                role="radio"
+                aria-checked={mode === option.mode}
+                onClick={() => setMode(option.mode)}
+                className="text-left px-2.5 py-2 border bg-transparent cursor-pointer lift
+                           focus-visible:shadow-[var(--ring)]"
+                style={{ borderColor: mode === option.mode ? "var(--link-line)" : "var(--line)" }}
+              >
+                <span className="block text-body text-ink">{option.title}</span>
+                <span className="block text-secondary text-ink-3">{option.short}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {live ? (
+          <button
+            type="submit"
+            data-testid="ask-start"
+            disabled={!ready}
+            className="self-start px-3 py-1.5 border-0 cursor-pointer text-body font-semibold
+                       bg-[var(--link)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {begin.isPending ? "Starting…" : "Start"}
+          </button>
+        ) : (
+          <p className="text-secondary text-ink-3 m-0">
+            {health.isPending
+              ? "Checking whether a model is configured."
+              : "No model is configured on this installation, so describing it in words is off. The canvas works without one."}
+          </p>
+        )}
+        {begin.error && (
+          <p role="alert" className="m-0 text-secondary text-[var(--undecided)]">
+            {begin.error.message}
+          </p>
+        )}
+      </form>
     </div>
   );
 }

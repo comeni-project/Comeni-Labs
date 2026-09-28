@@ -159,7 +159,7 @@ function surface(session: AuthoringSession, run: Parameters<typeof LivingSurface
         preview={ready(session.revision, "version: 6\n")}
         busy={() => false} onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()}
         onSelect={vi.fn()} onCompose={vi.fn()} onSay={vi.fn()} onRetry={vi.fn()} onAddStep={vi.fn()}
-        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()}
+        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
         run={run}
       />
     </QueryClientProvider>,

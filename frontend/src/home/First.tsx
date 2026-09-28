@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 
 import { get } from "../api/client";
 import type { AiHealth, BeginAuthoring } from "../api/types";
+import { MODES } from "./modes";
 import { useBegin } from "./useBegin";
 
 /** The first run: one question, one field. **Drawn against `OverviewFirst.dc.html`, measurement
@@ -45,13 +46,6 @@ import { useBegin } from "./useBegin";
  * *Sends* is the artboard's last row and it is a promise the payload keeps: `BeginAuthoring` has a
  * prompt and a mode, and no field that could carry a filename.
  */
-const MODES = [
-  { mode: "build", title: "Build step by step", short: "You choose at each real decision.",
-    long: "Every step is shown with the reason it is there, and the alternatives that would also fit." },
-  { mode: "spawn", title: "Spawn the whole thing", short: "It makes the safe choices and stops where it cannot.",
-    long: "Same engine, same pipeline. It only stops where a person genuinely has to answer." },
-] as const;
-
 export function First() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");

@@ -1,11 +1,19 @@
 import { useEffect, useRef } from "react";
 
-import type { AuthoringBlock, AuthoringProposal, AuthoringSession, GoalIn } from "../../api/types";
+import type {
+  AuthoringBlock,
+  AuthoringProposal,
+  AuthoringSession,
+  DraftGraph,
+  GoalIn,
+  Step,
+} from "../../api/types";
 import { Block, NoticeLine, Primary } from "./blocks/Block";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { GoalCard } from "./blocks/GoalCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepProposalCard } from "./blocks/StepProposalCard";
+import { StepTools } from "./blocks/StepTools";
 import { authorOf, processName } from "./format";
 import { Turn, type Tick } from "./blocks/parts";
 
@@ -37,6 +45,9 @@ export function DecisionLog({
   vocabulary = null,
   onSetParam,
   onApplyChange,
+  graph,
+  steps,
+  onEdit,
 }: {
   session: AuthoringSession;
   selected: string | null;
@@ -52,6 +63,11 @@ export function DecisionLog({
   vocabulary?: Record<string, string[]> | null;
   onSetParam: (node: string, setting: string, value: string) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
+  /** The draft as drawn — what a step's tools change. */
+  graph: DraftGraph;
+  /** The drawn view of each step, by id: the ports a swap matches and the settings a card lists. */
+  steps: Record<string, Step>;
+  onEdit: (graph: DraftGraph) => void;
 }) {
   const end = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
@@ -73,6 +89,18 @@ export function DecisionLog({
   const stepNumber = new Map(
     session.history.filter((d) => d.kind === "step").map((d, i) => [d.id, i + 1] as const),
   );
+
+  // **A selected step that is in the draft gets its tools under the line that created it** — or,
+  // for a step added by hand that no decision created, after the history. A ghost is not in the
+  // draft, and its own card already offers the alternatives.
+  const editable = selected !== null && graph.nodes.some((n) => n.id === selected) ? selected : null;
+  const created = new Set(
+    session.history.flatMap((d) =>
+      d.state === "accepted" && d.block.kind === "step_proposal" ? [d.block.node] : []),
+  );
+  const tools = editable ? (
+    <StepTools key={editable} node={editable} step={steps[editable]} graph={graph} onEdit={onEdit} />
+  ) : null;
 
   useEffect(() => {
     end.current?.scrollIntoView?.({ block: "end" });
@@ -103,8 +131,14 @@ export function DecisionLog({
           ) : (
             <DecisionEntry key={`d${entry.decision.id}`} decision={entry.decision}
                            position={stepNumber.get(entry.decision.id) ?? 0}
-                           selected={selected} onSelect={onSelect} />
+                           selected={selected} onSelect={onSelect} tools={tools} />
           ),
+        )}
+
+        {editable && !created.has(editable) && (
+          <Turn tick="person" anchor={editable}>
+            {tools}
+          </Turn>
         )}
 
         {pending && pending.kind === "step" && (
@@ -275,11 +309,14 @@ function DecisionEntry({
   position,
   selected,
   onSelect,
+  tools,
 }: {
   decision: AuthoringSession["history"][number];
   position: number;
   selected: string | null;
   onSelect: (node: string | null) => void;
+  /** The selected step's tools, drawn here only when this is the decision that put it there. */
+  tools: React.ReactNode;
 }) {
   if (decision.kind === "goal") return null; // drawn on its own turn, where it was offered
   const block = decision.block;
@@ -303,6 +340,9 @@ function DecisionEntry({
         selected={selected === block.node}
         onClick={() => onSelect(block.node)}
       />
+      {tools && decision.state === "accepted" && selected === block.node && (
+        <div className="mt-2">{tools}</div>
+      )}
     </Turn>
   );
 }

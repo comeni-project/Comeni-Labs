@@ -49,6 +49,7 @@ export function LivingSurface({
   vocabulary = null,
   onSetParam,
   onApplyChange,
+  onEdit,
   channels = [],
   onPlayed = () => undefined,
   reveal = {},
@@ -72,6 +73,9 @@ export function LivingSurface({
   vocabulary?: Record<string, string[]> | null;
   onSetParam: (node: string, setting: string, value: string) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
+  /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
+   *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
+  onEdit: (graph: DraftGraph) => void;
   /** Where data enters and how often — the drawn view's channels, from the server. */
   channels?: components["schemas"]["ChannelView"][];
   onPlayed?: (event: MotionEvent) => void;
@@ -212,6 +216,9 @@ export function LivingSurface({
               vocabulary={vocabulary}
               onSetParam={onSetParam}
               onApplyChange={onApplyChange}
+              graph={graph}
+              steps={steps}
+              onEdit={onEdit}
             />
           </div>
           <div className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>
