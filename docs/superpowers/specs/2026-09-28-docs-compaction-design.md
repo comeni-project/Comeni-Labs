@@ -69,8 +69,10 @@ backticks.
 4. **The system in a paragraph each:** tiers, protection levels, packages, distribution.
 5. **Commands.**
 6. **Gotchas.**
-7. **Where to look:** `now.md`, the newest journal entry, the issue tree, `invariants.md`,
-   `ARCHITECTURE.md`, `docs/design/authoring-protocol.md`.
+7. **Where to look:** `now.md` first, then any entry in `journal/` (by the rules, those are the
+   ones not yet compacted), the issue tree, `invariants.md`, `ARCHITECTURE.md`,
+   `docs/design/authoring-protocol.md`. Never "the newest entry" by name: a named pointer is
+   what went three entries stale in August.
 
 ## 5. Compaction rules (`docs/notes/compaction.md`)
 
