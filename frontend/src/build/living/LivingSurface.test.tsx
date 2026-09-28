@@ -255,6 +255,20 @@ describe("an answered gap on the log (issue 169)", () => {
   });
 });
 
+describe("a goal composed by gathering, once confirmed (issue 173)", () => {
+  it("stays on the log as the first decision, inputs to outputs", () => {
+    const card = { kind: "goal_summary", id: "goal-9",
+      goal: { have: [{ type_id: "fastq.reads" }, { type_id: "genome.fasta" }], want: ["counts.matrix"] },
+      have: "You have: fastq.reads, genome.fasta.", do: "counts", get: "You get: counts.matrix." };
+    surface(with_({ phase: "building", turns: [], history: [
+      { id: "g1", kind: "goal", state: "accepted", by: "person", chosen_option: null,
+        chosen_contract: null, answer: null, at: "2026-09-28T10:05:00Z", block: card },
+    ] } as Partial<AuthoringSession>));
+    expect(screen.getByText("Goal confirmed")).toBeInTheDocument();
+    expect(screen.getByText("fastq.reads, genome.fasta → counts.matrix")).toBeInTheDocument();
+  });
+});
+
 describe("the new phases say what is happening (14.7.3)", () => {
   it("reads gathering as gathering what it needs", () => {
     surface(with_({ phase: "gathering", pending_proposal: null }));

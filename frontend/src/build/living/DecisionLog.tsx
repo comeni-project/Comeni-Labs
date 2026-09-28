@@ -86,6 +86,7 @@ export function DecisionLog({
   const accepted = new Set(session.history.filter((d) => d.state === "accepted").map((d) => d.block.id));
   const acceptedBy = new Map(session.history.map((d) => [d.block.id, d.by ?? ""] as const));
   const pending = session.pending_proposal;
+  const drawnOnTurns = new Set(session.turns.flatMap((t) => t.blocks.map((b) => b.id)));
   const stepsSoFar = session.history.filter((d) => d.kind === "step").length;
   const stepNumber = new Map(
     session.history.filter((d) => d.kind === "step").map((d, i) => [d.id, i + 1] as const),
@@ -132,7 +133,8 @@ export function DecisionLog({
           ) : (
             <DecisionEntry key={`d${entry.decision.id}`} decision={entry.decision}
                            position={stepNumber.get(entry.decision.id) ?? 0}
-                           selected={selected} onSelect={onSelect} tools={tools} />
+                           selected={selected} onSelect={onSelect} tools={tools}
+                           inTurns={drawnOnTurns.has(entry.decision.block.id)} />
           ),
         )}
 
@@ -331,6 +333,7 @@ function DecisionEntry({
   selected,
   onSelect,
   tools,
+  inTurns = false,
 }: {
   decision: AuthoringSession["history"][number];
   position: number;
@@ -338,8 +341,25 @@ function DecisionEntry({
   onSelect: (node: string | null) => void;
   /** The selected step's tools, drawn here only when this is the decision that put it there. */
   tools: React.ReactNode;
+  /** Whether this decision's block is already drawn on a turn of the transcript. */
+  inTurns?: boolean;
 }) {
-  if (decision.kind === "goal") return null; // drawn on its own turn, where it was offered
+  if (decision.kind === "goal") {
+    // A goal a model read is drawn on its own turn, where it was offered. **One gathering
+    // composed has no turn** — the engine offered it — so it gets its line here, or a confirmed
+    // goal would vanish from the log (issue 173).
+    if (inTurns || decision.state !== "accepted" || decision.block.kind !== "goal_summary") {
+      return null;
+    }
+    const goal = decision.block.goal as { have?: { type_id: string }[]; want?: string[] };
+    const flow = `${(goal.have ?? []).map((h) => h.type_id).join(", ")} → ${(goal.want ?? []).join(", ")}`;
+    return (
+      <Turn tick={decision.by === "model" ? "model" : "person"}>
+        <Collapsed name="Goal confirmed" detail={flow}
+                   by={decision.by === "model" ? "confirmed by the policy" : "you confirmed"} />
+      </Turn>
+    );
+  }
   const block = decision.block;
   if (decision.kind === "gap" && block.kind === "question") {
     // One quiet line per answered gap. **The answer is never the part cut short** (issue 169): a
