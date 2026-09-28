@@ -387,12 +387,24 @@ class MeasurementRegistry(BaseModel):
         path skipping validation would produce an unchecked profile flowing straight into
         routing, which is the class of bug that left `subject: aligner` dead for months.
         """
-        for measurement_id, value in mapping.items():
+        return self.profile_of([(k, v, source, by) for k, v in mapping.items()])
+
+    def profile_of(
+        self,
+        entries: Sequence[tuple[str, ParamValue | list[ParamValue], ValueSource, str | None]],
+    ) -> DataProfile:
+        """`profile()` for entries that do not share a source.
+
+        Gathering folds facts from a person, an inspector and a model into one goal, and
+        `profile()` stamps a single source on every entry. This is the one other validating
+        constructor, in the same file `tests/guards/test_construction.py` already allows.
+        """
+        for measurement_id, value, _source, _by in entries:
             self.check(measurement_id, value)
         return DataProfile(
             measurements=[
-                Measured(measurement=k, value=v, source=source, by=by)
-                for k, v in sorted(mapping.items())
+                Measured(measurement=m, value=v, source=s, by=b)
+                for m, v, s, b in sorted(entries, key=lambda e: e[0])
             ]
         )
 

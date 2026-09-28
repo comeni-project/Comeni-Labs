@@ -24,7 +24,7 @@ from guards.test_purity import (  # the one alias resolver and one package list
 )
 
 ALLOWED = {
-    # the one validated constructor
+    # the validated constructors: MeasurementRegistry.profile() and .profile_of()
     "packages/comeni-core/src/comeni_core/declared/measurement.py",
     # the model's own module, where the class is defined
     "packages/comeni-core/src/comeni_core/goal/profile.py",
@@ -146,7 +146,8 @@ def test_data_profile_is_constructed_in_one_place():
             for line in _constructions(tree, aliases, modules):
                 offenders.append(f"{py.relative_to(root)}:{line}")
     assert offenders == [], (
-        "build a profile through MeasurementRegistry.profile(), which validates it; "
+        "build a profile through MeasurementRegistry.profile() or .profile_of(), which "
+        "validate it; "
         "these construct one directly: " + ", ".join(offenders)
     )
 

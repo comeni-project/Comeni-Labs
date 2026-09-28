@@ -811,7 +811,7 @@ def downgrade() -> None:
 **Interfaces:**
 - Produces: `MeasurementRegistry.profile_of(entries: Sequence[tuple[str, ParamValue | list[ParamValue], ValueSource, str | None]]) -> DataProfile`.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```python
 def test_profile_of_keeps_each_entrys_own_source(registry):
@@ -828,8 +828,8 @@ def test_profile_of_validates_like_profile(registry):
         registry.profile_of([("read_length", -5, ValueSource.GOAL, None)])
 ```
 
-- [ ] **Step 2: Run them to see them fail.**
-- [ ] **Step 3: Implement** beside `profile()`, which then calls it:
+- [x] **Step 2: Run them to see them fail.**
+- [x] **Step 3: Implement** beside `profile()`, which then calls it:
 
 ```python
     def profile_of(self, entries) -> DataProfile:
@@ -848,10 +848,10 @@ def test_profile_of_validates_like_profile(registry):
         ])
 ```
 
-- [ ] **Step 4: Update `tests/guards/test_construction.py`** to allow `profile_of`, then **watch
+- [x] **Step 4: Update `tests/guards/test_construction.py`** to allow `profile_of`, then **watch
   that guard fail** by constructing a `DataProfile` in a scratch function under `packages/`, run the
   guard, see it named, and delete the scratch function.
-- [ ] **Step 5: Run** the `comeni-core` tests and `make guards`. Commit —
+- [x] **Step 5: Run** the `comeni-core` tests and `make guards`. Commit —
   `feat(core): profile_of, a validated profile with a source per entry — 14.7.3.2 (#133)`.
 
 ### Task 14.7.3.3 (#143): the gap engine
@@ -1420,3 +1420,9 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   exempts `stopped` as terminal. `test_models`' column guard failed on `facts` and was answered by
   naming it, with the level-0 note on `Fact.sample`. Migration `a4c8e1f26b93` watched up, down and
   up. `make client`: the one `Phase` union line changed; `tsc -b` and vitest (531) pass.
+- **14.7.3.2 (2026-09-28).** The fixture declares no `paired`, so the source test uses
+  `strandedness`. The guard allows all of `measurement.py`, so it needed only its message and
+  comment to name `profile_of`. Watched failing with a scratch `DataProfile(...)` in
+  `mendel-resolver` (*…construct one directly: …_scratch_guard.py:5*). The same scratch in
+  `mendel-api` **passed**: the guard does not scan the API, where gathering will build profiles.
+  Filed as #165 under 14.7.3, not fixed here. `make guards`: 82 passed.
