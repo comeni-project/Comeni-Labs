@@ -1412,4 +1412,4 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   Chrome (Mermaid 11): every node, border, dash and key entry is right; stage ①'s box stretches
   across stage ②. Declaring within-stage arrows inside their subgraph did not help and was
   reverted; filed as #163 (deferred, cosmetic). `make check`: 2,804 passed and the five base
-  failures; `types`, `docs`, `docs-status`, `links`, `doc-paths`, `doc-sizes`, `tsc -b` pass.
+  failures; `types`, `docs`, `links`, `doc-paths`, `doc-sizes`, `tsc -b` pass. `docs-status` failed on the walking guide (#164), fixed separately.

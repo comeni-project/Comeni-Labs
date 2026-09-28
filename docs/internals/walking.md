@@ -1,6 +1,6 @@
 # Walking it: issues, decisions, rounds
 
-*Serves: **describe and build**. How a driven session with a real model turns into fixes and
+*Serves: **describe**. How a driven session with a real model turns into fixes and
 decisions without anything getting lost or quietly worked around.*
 
 The system was designed from theory. A walk is where it meets use, and every walk so far has found
