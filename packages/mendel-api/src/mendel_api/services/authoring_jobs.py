@@ -24,16 +24,13 @@ from mendel_api import jobs
 from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
     AuthoringIntent,
-    GoalSummary,
-    GoalUnderstanding,
-    Mode,
     Narrative,
     Notice,
     NoticeKind,
     Option,
     Phase,
-    ProposalState,
     Question,
+    WantUnderstanding,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession
@@ -53,8 +50,9 @@ union of every owner's set. A single list in `ai_worker.py` would let a job arri
 the module that defines it ever saying it calls a model.
 """
 
-GOAL = "goal"
-"""The proposal `kind` for a goal summary awaiting confirmation."""
+GOAL = authoring.GOAL
+"""The proposal `kind` for a goal summary awaiting confirmation. Declared in `authoring`, which
+now offers the card itself when gathering finds nothing missing."""
 
 UNREACHABLE = frozenset({"MI0106", "MA0002", "MA0003", "MA0007"})
 """Codes meaning *no answer could be had*, as opposed to *the answer was not acceptable*.
@@ -118,15 +116,8 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         _refused(session_id, seq, context, outcome)
         return
 
-    understood: GoalUnderstanding = outcome.reply
-    summary = GoalSummary(
-        id=f"goal-{seq}",
-        goal=understood.goal,
-        have=understood.summary_have,
-        do=understood.summary_do,
-        get=understood.summary_get,
-    )
-    blocks = [summary.model_dump(mode="json")]
+    understood: WantUnderstanding = outcome.reply
+    blocks = [Narrative(id=f"want-{seq}", text=understood.summary).model_dump(mode="json")]
     for index, asked in enumerate(understood.questions, start=1):
         # **The engine mints the option ids here** — `AskedQuestion` carries labels only, so the
         # set a later `chose` is checked against is one this server issued.
@@ -151,29 +142,26 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         invocation_id=outcome.invocation_id,
     ):
         return
-    authoring.propose(
+    if understood.questions:
+        # **An ambiguous want waits for the person's reply**, still in `understanding`, and that
+        # reply is read again from the top. Gathering for a want nobody settled would ask about
+        # inputs to an analysis they may not want.
+        return
+
+    # **The engine takes over from here, in both modes** (14.7.3). What the want needs is
+    # computed, not asked of a model, and each gap needs a person: nothing is guessed, so Spawn
+    # has nothing it could fill in on their behalf (protocol rule 5).
+    authoring.move(
         session_id,
-        kind=GOAL,
-        payload={
-            "block": summary.model_dump(mode="json"),
-            "goal": understood.goal.model_dump(mode="json"),
-            "options": {"accept": "accept"},
+        st.Event.WANT_RETURNED,
+        row_version=_version(session_id),
+        goal={
+            "want": list(understood.want),
+            "constraints": understood.constraints.model_dump(mode="json"),
+            "summary": understood.summary,
         },
     )
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=_version(session_id))
-
-    # **Spawn shows the goal and proceeds when it is valid; it pauses only on a question.**
-    # §1.2's table. A goal with an open question — the grouping question above all — stops here
-    # for a person exactly as Build does; one with none is accepted by the policy and built.
-    if authoring.mode_of(session_id) is Mode.SPAWN and not understood.questions:
-        pending = authoring.pending_id(session_id)
-        if pending is not None:
-            outcome, phase = authoring.decide_goal(
-                pending, ProposalState.ACCEPTED, expected_revision=context.revision, by="model"
-            )
-            if outcome.refusal is None and phase is Phase.RESOLVING:
-                authoring.start_building(session_id, client=_client())
-                authoring.spawn_forward(session_id)
+    authoring.offer_next_gap(session_id)
 
 
 def _follow_up(session_id: str, seq: int, context) -> None:

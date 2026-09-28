@@ -68,11 +68,12 @@ def _resolving(mode: Mode = Mode.BUILD) -> str:
     """A session whose goal has been confirmed, sitting in `resolving`."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
     session_id = authoring.open_session(draft_id, mode=mode, who="ana")
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     authoring.move(
         session_id,
         st.Event.GOAL_ACCEPTED,
-        row_version=2,
+        row_version=3,
         goal=_goal().model_dump(mode="json"),
     )
     return session_id
@@ -132,11 +133,12 @@ def test_a_goal_missing_an_input_fails_into_the_log_with_its_code(clean):
     reload. A resolver refusal is a fact about the goal, so it belongs in the conversation."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
     session_id = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     only_reads = Goal.model_validate(
         {"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]}
     )
-    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=2,
+    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3,
                    goal=only_reads.model_dump(mode="json"))
 
     assert authoring.start_building(session_id) is None

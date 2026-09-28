@@ -123,7 +123,8 @@ def test_the_confirmed_goal_survives_the_round_trip(draft):
     assert authoring.read(session_id)["goal"] is None
 
     goal = {"have": [], "want": ["counts.matrix"], "constraints": {}, "profile": {}}
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1, goal=goal)
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2, goal=goal)
 
     reread = authoring.read(session_id)
     assert reread["goal"] == goal
@@ -165,16 +166,17 @@ def test_a_failed_session_retries_the_phase_that_failed(draft):
     """The whole reason `failed_from` is a column. A build that failed must not be retried as a
     prompt call — that re-asks a person a question they have already answered."""
     session_id = authoring.open_session(draft, mode=Mode.BUILD, who="tester")
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
-    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=2)
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
+    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3)
     assert authoring.read(session_id)["phase"] == Phase.RESOLVING.value
 
-    authoring.move(session_id, st.Event.BUILD_FAILED, row_version=3)
+    authoring.move(session_id, st.Event.BUILD_FAILED, row_version=4)
     failed = authoring.read(session_id)
     assert failed["phase"] == Phase.FAILED.value
     assert failed["failed_from"] == Phase.RESOLVING.value
 
-    authoring.move(session_id, st.Event.RETRY, row_version=4)
+    authoring.move(session_id, st.Event.RETRY, row_version=5)
     assert authoring.read(session_id)["phase"] == Phase.RESOLVING.value
 
 
@@ -194,7 +196,8 @@ def test_a_session_that_moved_underneath_you_refuses_the_write(draft):
     """`row_version` catches the *session* moving, which `expected_revision` cannot see: a model
     answer landing after the person revised their goal changes no draft revision at all."""
     session_id = authoring.open_session(draft, mode=Mode.BUILD, who="tester")
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
 
     with pytest.raises(ValueError) as raised:
         authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=1)

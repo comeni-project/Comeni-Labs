@@ -65,7 +65,6 @@ flowchart LR
     end
     style wrong fill:transparent,stroke:#555
     say --> read_goal
-    read_goal --> card
     read_goal -- "model failed" --> failed
     card -- "that's right" --> resolve
     card -- "not quite" --> read_goal
@@ -93,6 +92,7 @@ flowchart LR
     said --> next_gap
     left_open --> next_gap
     next_gap -- "nothing unknown" --> card
+    list_needs -- "nothing can make it" --> failed
     reply -. "not sure" .-> upload
     upload -. "uploaded" .-> safety
     safety -. "engine knows the type" .-> read_engine

@@ -88,17 +88,11 @@ def _client(*bodies: str | Exception) -> Client:
 
 
 def _goal_answer(**overrides) -> str:
-    """A well-formed `GoalUnderstanding`, so each test overrides only what it is about."""
+    """A well-formed `WantUnderstanding`, so each test overrides only what it is about."""
     body = {
-        "goal": {
-            "have": [{"type_id": "fastq.reads", "states": []}],
-            "want": ["counts.matrix"],
-            "constraints": {},
-            "profile": {"measurements": []},
-        },
-        "summary_have": "paired RNA-seq reads",
-        "summary_do": "align them and count reads per gene",
-        "summary_get": "a gene-level counts matrix",
+        "want": ["counts.matrix"],
+        "constraints": {},
+        "summary": "gene counts from paired RNA-seq reads",
         "questions": [],
     }
     body.update(overrides)
@@ -113,100 +107,49 @@ def _rows() -> list[AiInvocation]:
 # ── the goal call ─────────────────────────────────────────────────────────────────────────
 
 
-def test_a_paired_rnaseq_request_comes_back_as_a_typed_goal(stack, clean_forge):
-    """The flagship case: prose in, a `Goal` the resolver can run on out, and a summary the
-    person can check it against."""
+def test_a_paired_rnaseq_request_comes_back_as_a_typed_want(stack, clean_forge):
+    """The flagship case under v3: prose in, what they want out, and nothing about what they
+    have. The engine works that out and asks (14.7.3)."""
     client = _client(
-        _goal_answer(
-            goal={
-                "have": [{"type_id": "fastq.reads", "states": []}],
-                "want": ["counts.matrix"],
-                "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
-                "profile": {
-                    "measurements": [
-                        {"measurement": "n_samples", "value": 12, "source": "goal"}
-                    ]
-                },
-            }
-        )
+        _goal_answer(constraints={"required_states": {"counts.matrix": ["gene_level"]}})
     )
     request = ai.compose(prompt="I have 12 paired RNA-seq samples and want gene counts")
     outcome = ai.understand(request, stack=stack, client=client)
 
     assert outcome.admitted, outcome.refusal
-    assert [entry.type_id for entry in outcome.reply.goal.have] == ["fastq.reads"]
-    assert outcome.reply.goal.want == ["counts.matrix"]
-    assert outcome.reply.goal.constraints.states_for("counts.matrix") == frozenset({"gene_level"})
-    assert outcome.reply.summary_get
+    assert outcome.reply.want == ["counts.matrix"]
+    assert outcome.reply.constraints.states_for("counts.matrix") == frozenset({"gene_level"})
+    assert outcome.reply.summary
 
 
-def test_many_independent_items_do_not_acquire_a_sample_count(stack, clean_forge):
-    """§1.7: *never invent a sample count.*
-
-    A model that supplies one produces a goal that validates and builds, and the interface draws
-    `×24 samples` as though somebody had measured it. The honest answer leaves the profile empty
-    and lets the canvas say `×N items`.
-    """
-    client = _client(
-        _goal_answer(
-            goal={
-                "have": [{"type_id": "genome.fasta", "states": []}],
-                "want": ["qc.report"],
-                "constraints": {},
-                "profile": {"measurements": []},
-            }
-        )
-    )
-    request = ai.compose(prompt="I have a folder of FASTA files, QC each one")
-    outcome = ai.understand(request, stack=stack, client=client)
-
-    assert outcome.admitted, outcome.refusal
-    assert outcome.reply.goal.profile.measurements == []
-
-
-def test_an_ambiguous_grouping_comes_back_as_a_question(stack, clean_forge):
-    """The paired-file ambiguity, which is the case §1.7 says must never be settled silently.
-
-    Twenty-four files is a count, not a structure, and the two readings build different
-    pipelines — so the first call's job is to notice, not to choose.
-    """
+def test_an_ambiguous_want_comes_back_as_a_question(stack, clean_forge):
+    """A question only when the want itself is unclear. What they have is the engine's to ask."""
     client = _client(
         _goal_answer(
             questions=[
                 {
-                    "asks": "how do those 24 files group into samples?",
-                    "why_open": "the grouping changes what is built and was not stated",
-                    "choices": ["24 independent items", "12 paired samples"],
+                    "asks": "counts per gene, or per transcript?",
+                    "why_open": "the two are different outputs and the request names neither",
+                    "choices": ["per gene", "per transcript"],
                     "exhaustive": False,
                 }
             ]
         )
     )
-    request = ai.compose(prompt="I have 24 fastq files, count genes")
-    outcome = ai.understand(request, stack=stack, client=client)
+    outcome = ai.understand(ai.compose(prompt="count my reads"), stack=stack, client=client)
 
     assert outcome.admitted, outcome.refusal
     assert len(outcome.reply.questions) == 1
-    assert outcome.reply.questions[0].exhaustive is False
 
 
-def test_a_goal_naming_a_type_the_registry_does_not_declare_is_refused(stack, clean_forge):
+def test_a_want_naming_a_type_the_registry_does_not_declare_is_refused(stack, clean_forge):
     """`MI0204`, and the reason it refuses rather than trims.
 
     `rnaseq.counts` is not a declared type. It reads perfectly, validates as a string, and
     routes to nothing — dropping it silently would leave a goal quietly missing the thing
     somebody asked for.
     """
-    client = _client(
-        _goal_answer(
-            goal={
-                "have": [{"type_id": "fastq.reads", "states": []}],
-                "want": ["rnaseq.counts"],
-                "constraints": {},
-                "profile": {"measurements": []},
-            }
-        )
-    )
+    client = _client(_goal_answer(want=["rnaseq.counts"]))
     outcome = ai.understand(ai.compose(prompt="count genes"), stack=stack, client=client)
 
     assert not outcome.admitted
@@ -214,48 +157,17 @@ def test_a_goal_naming_a_type_the_registry_does_not_declare_is_refused(stack, cl
     assert "rnaseq.counts" in outcome.refusal
 
 
-def test_a_goal_naming_a_state_that_type_does_not_declare_is_refused(stack, clean_forge):
-    """The same code on the other axis. `fastq.reads` is real and `polished` is not one of its
-    states, which is the subtler half — the type check alone would pass this."""
+def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack, clean_forge):
+    """The same code on the other axis: `counts.matrix` is real and `polished` is not one of
+    its states."""
     client = _client(
-        _goal_answer(
-            goal={
-                "have": [{"type_id": "fastq.reads", "states": ["polished"]}],
-                "want": ["counts.matrix"],
-                "constraints": {},
-                "profile": {"measurements": []},
-            }
-        )
+        _goal_answer(constraints={"required_states": {"counts.matrix": ["polished"]}})
     )
     outcome = ai.understand(ai.compose(prompt="count genes"), stack=stack, client=client)
 
     assert not outcome.admitted
     assert outcome.code == "MI0204"
     assert "polished" in outcome.refusal
-
-
-def test_a_goal_naming_a_measurement_nobody_declares_is_refused(stack, clean_forge):
-    """Routed through `MeasurementRegistry.check`, which is the declared validating path — a
-    second membership test written here would be the duplicate `test_construction.py` exists to
-    prevent."""
-    client = _client(
-        _goal_answer(
-            goal={
-                "have": [{"type_id": "fastq.reads", "states": []}],
-                "want": ["counts.matrix"],
-                "constraints": {},
-                "profile": {
-                    "measurements": [
-                        {"measurement": "sample_purity", "value": 0.9, "source": "goal"}
-                    ]
-                },
-            }
-        )
-    )
-    outcome = ai.understand(ai.compose(prompt="count genes"), stack=stack, client=client)
-
-    assert not outcome.admitted
-    assert outcome.code == "MI0204"
 
 
 # ── the chat call ─────────────────────────────────────────────────────────────────────────
@@ -461,8 +373,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v2"
-    assert row.prompt_version == "v2"
+    assert row.prompt_id == "builder.goal.v3"
+    assert row.prompt_version == "v3"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""

@@ -86,8 +86,12 @@ def failed_from(phase: Phase) -> Phase:
     Trivial today and named anyway: the column is only useful if it is written, and a service
     writing `session.phase` directly would be correct by accident until the day a failure is
     recorded one transition after it happened.
+
+    **Gathering fails back to understanding.** It fails only when nothing can make the want,
+    which is the want's fault, not the gathering's: a retry re-reads what the person asked for.
+    Resuming gathering would compute the same empty answer, and there is no return edge into it.
     """
-    return phase
+    return Phase.UNDERSTANDING if phase is Phase.GATHERING else phase
 
 
 class Settlement(NamedTuple):

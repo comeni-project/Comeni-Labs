@@ -26,16 +26,17 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v2"
-"""Prose in, a typed `Goal` and a plain-language summary out. Egress door 1.
+GOAL: PromptId = "builder.goal.v3"
+"""Prose in, the typed **want** and a one-sentence summary out. Egress door 1.
 
-**v2 (2026-09-28)** after the first walk with a real model: v1 called the typed list `have` while
-the reply shape had a prose `have` beside it, and `gemma3:12b` put the list at the top level. v2
-says `goal.have`, names the summary fields, and forbids a state nobody stated. `v1` stays on disk
-because rows cite it; `RETIRED` is how a test holds that.
+**v3 (2026-09-28, 14.7.3)** asks for the want only. v2 asked for the whole goal, and a model had
+nowhere legal to put *paired-end* and nobody asked for the genome (#105, #114); the engine now
+computes what the want needs and asks the person itself. **v2 (2026-09-28)** had fixed v1's
+`have` name collision. Both stay on disk because rows cite them; `RETIRED` is how a test holds
+that.
 """
 
-RETIRED: tuple[PromptId, ...] = ("builder.goal.v1",)
+RETIRED: tuple[PromptId, ...] = ("builder.goal.v1", "builder.goal.v2")
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
 

@@ -25,14 +25,29 @@ import secrets
 from datetime import UTC, datetime
 from typing import NamedTuple
 
+from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import GoalInput
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
+from comeni_core.review.answer import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
 from sqlalchemy import select, update
 
 from mendel_api.authoring import state as st
-from mendel_api.authoring.types import Mode, Phase, ProposalState, TurnState
+from mendel_api.authoring.types import (
+    Fact,
+    FactKind,
+    FactSource,
+    GoalSummary,
+    Mode,
+    Narrative,
+    Option,
+    Phase,
+    ProposalState,
+    Question,
+    TurnState,
+)
 from mendel_api.db import session_scope
 from mendel_api.models import (
     PipelineAuthoringProposal,
@@ -40,7 +55,7 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
-from mendel_api.services import authoring_ai, registry
+from mendel_api.services import authoring_ai, gaps, registry
 from mendel_api.services import blueprint as bp
 from mendel_api.settings import settings
 
@@ -90,6 +105,7 @@ def open_session(draft_id: str, *, mode: Mode, who: str) -> str:
                 phase=Phase.UNDERSTANDING.value,
                 failed_from=None,
                 goal=None,
+                facts=[],
                 blueprint={},
                 registry_digest="",
                 cursor=0,
@@ -134,6 +150,7 @@ def read(session_id: str) -> dict:
             "phase": row.phase,
             "failed_from": row.failed_from,
             "goal": row.goal,
+            "facts": list(row.facts or []),
             "cursor": row.cursor,
             "row_version": row.row_version,
             "revision": draft.revision if draft else 0,
@@ -827,13 +844,16 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
                 PipelineAuthoringProposal.state == ProposalState.PENDING.value,
             )
         )
-        goal = row.goal or (pending.payload.get("goal") if pending is not None else None)
+        # The card's composed goal while it is on offer: `row.goal` holds only the want until the
+        # person confirms it (14.7.3).
+        card = pending.payload.get("goal") if pending is not None and pending.kind == GOAL else None
+        goal = card or row.goal
         return TurnContext(
             phase=Phase(row.phase),
             prompt=person.text if person is not None else "",
             tail=[(role, text) for role, text in tail if text],
             revision=draft.revision if draft else 0,
-            goal=Goal.model_validate(goal) if goal else None,
+            goal=as_goal(goal),
             steps=[
                 (node.id, node.contract_id)
                 for node in DraftGraph.model_validate(draft.graph).nodes
@@ -1225,3 +1245,252 @@ def ai_for_draft(draft_id: str):
             return None
         draft = db.get(PipelineDraft, draft_id)
         return ai_for(DraftProvenance.model_validate(draft.provenance or {}))
+
+
+# ── gathering: the engine asks for what the want needs (14.7.3) ──────────────────────────
+
+
+GOAL = "goal"
+"""The proposal `kind` for a goal summary awaiting confirmation."""
+
+GAP = "gap"
+"""The proposal `kind` for one thing the want needs that no fact settles yet."""
+
+_INPUT_OPTIONS = {
+    "have_it": "I have it",
+    "cant_share": "I have it, but can't share it",
+    "dont_have": "I don't have one",
+}
+_UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
+
+_SOURCE = {FactSource.PERSON_SAID: ValueSource.GOAL, FactSource.MODEL_READ: ValueSource.MODEL}
+"""A fact's source as the profile records it. `MEASURED` arrives with 14.7.4's inspector and
+`INSPECTED`; an `OPEN` fact never reaches the profile, which is what makes it tier 4."""
+
+
+def _gap_options(gap: gaps.Gap, stack) -> dict[str, str]:
+    """The closed answers to one gap, as option id → label. The engine mints every id."""
+    if gap.kind is FactKind.INPUT:
+        return dict(_INPUT_OPTIONS)
+    measurement = stack.measurements.get(gap.subject)
+    if measurement.kind is MeasurementKind.ENUM:
+        options = {value: value for value in measurement.values}
+    elif measurement.kind is MeasurementKind.BOOLEAN:
+        options = {"yes": "Yes", "no": "No"}
+    else:
+        unit = f" ({measurement.unit})" if measurement.unit else ""
+        options = {"value": f"Type it{unit}"}
+    return {**options, **_UNSURE}
+
+
+def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Question:
+    """The engine's own wording. A model rephrases it for the person in 14.7.3.6."""
+    if gap.kind is FactKind.INPUT:
+        asks = f"This analysis needs {gap.subject}. Do you have one?"
+    else:
+        described = stack.measurements.get(gap.subject).description or gap.subject
+        asks = f"{described}?"
+    return Question(
+        id=f"gap-{seq}",
+        asks=asks,
+        why_open=gap.why,
+        options=[Option(id=key, label=label) for key, label in options.items()],
+        exhaustive=True,
+    )
+
+
+def _say(session_id: str, text: str) -> None:
+    """An answered assistant turn holding one narrative the engine wrote — no model call."""
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
+        seq = _next_seq(db, session_id)
+        db.add(
+            PipelineAuthoringTurn(
+                session_id=session_id,
+                seq=seq,
+                role="assistant",
+                state=TurnState.ANSWERED.value,
+                blocks=[Narrative(id=f"said-{seq}", text=text[:2000]).model_dump(mode="json")],
+                text="",
+                base_revision=draft.revision if draft else 0,
+                at=_now(),
+            )
+        )
+
+
+def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        facts = [Fact.model_validate(f) for f in row.facts or []]
+        return dict(row.goal or {}), facts, row.row_version
+
+
+def as_goal(stored: dict | None) -> Goal | None:
+    """A stored goal as a `Goal`. While gathering, the column also holds the model's one-sentence
+    summary for the card, which is not part of a goal."""
+    if not stored:
+        return None
+    return Goal.model_validate({k: v for k, v in stored.items() if k != "summary"})
+
+
+def compose_goal(session_id: str) -> Goal:
+    """The want, and everything gathering learned, as the `Goal` the resolver runs on.
+
+    **An open fact is absent, not empty.** A measurement nobody knows is left out of the
+    profile, and the tiers carry every decision that reads it as tier 4 (protocol rule 6).
+    """
+    wanted, facts, _ = _gathered(session_id)
+    stack = registry.stack()
+    return Goal.model_validate(
+        {
+            "have": [
+                GoalInput(type_id=f.subject, states=frozenset(f.states))
+                for f in facts
+                if f.kind is FactKind.INPUT
+            ],
+            "want": wanted.get("want", []),
+            "constraints": wanted.get("constraints") or {},
+            "profile": stack.measurements.profile_of(
+                [
+                    (f.subject, f.value, _SOURCE[f.source], None)
+                    for f in facts
+                    if f.kind is FactKind.MEASUREMENT and f.source is not FactSource.OPEN
+                ]
+            ),
+        }
+    )
+
+
+def offer_next_gap(session_id: str) -> str | None:
+    """Offer the next thing the want needs, or the goal card when nothing is missing.
+
+    Returns the pending proposal's id, or `None` when the session failed (MI0209).
+    """
+    wanted, facts, version = _gathered(session_id)
+    stack = registry.stack()
+    found = gaps.gaps(wanted.get("want", []), facts, stack)
+
+    if isinstance(found, gaps.Unreachable):
+        _note(
+            session_id,
+            coded("MI0209", f"nothing in the registry can make {found.subject}"),
+            code="MI0209",
+        )
+        move(session_id, st.Event.BUILD_FAILED, row_version=version)
+        return None
+
+    if not found:
+        goal = compose_goal(session_id)
+        inputs = ", ".join(h.type_id for h in goal.have) or "nothing"
+        summary = GoalSummary(
+            id=f"goal-{version}",
+            goal=goal,
+            have=f"You have: {inputs}.",
+            do=wanted.get("summary") or "The engine builds it from what you said.",
+            get=f"You get: {', '.join(goal.want)}.",
+        )
+        move(session_id, st.Event.NOTHING_MISSING, row_version=version)
+        return propose(
+            session_id,
+            kind=GOAL,
+            payload={
+                "block": summary.model_dump(mode="json"),
+                "goal": goal.model_dump(mode="json"),
+                "options": {"accept": "accept"},
+            },
+        )
+
+    gap = found[0]
+    options = _gap_options(gap, stack)
+    question = _gap_question(gap, options, stack, version)
+    return propose(
+        session_id,
+        kind=GAP,
+        payload={
+            "subject": gap.subject,
+            "kind": gap.kind.value,
+            "why": gap.why,
+            "options": options,
+            "block": question.model_dump(mode="json"),
+        },
+    )
+
+
+def _fact_for(kind: FactKind, subject: str, option: str, value) -> Fact:
+    """What one answer means. Nothing is guessed: *not sure* and *can't share* are `OPEN`."""
+    if kind is FactKind.INPUT:
+        # *I have it, but can't share it* is still having it: the input is real.
+        return Fact(kind=kind, subject=subject, source=FactSource.PERSON_SAID)
+    if option in _UNSURE:
+        return Fact(kind=kind, subject=subject, source=FactSource.OPEN)
+    said = {"yes": True, "no": False, "value": value}.get(option, option)
+    return Fact(kind=kind, subject=subject, value=said, source=FactSource.PERSON_SAID)
+
+
+def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
+    """Record one answer to a gap and offer the next, or stop honestly on a missing input.
+
+    Held before anything is written: an option the gap did not offer is MI0205, and a typed value
+    the measurement's declaration refuses is MI0208. **The draft's revision does not move** — a
+    gap answer changes what the engine knows, not the pipeline — so the settlement is checked by
+    `st.settle` (a duplicate answer is MI0203) against the proposal's own revision.
+    """
+    stack = registry.stack()
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        if proposal is None:
+            raise KeyError(proposal_id)
+        if proposal.kind != GAP:
+            raise ValueError(coded("MI0205", "that proposal is not a question about your data"))
+        payload = proposal.payload
+        if option not in payload["options"]:
+            raise ValueError(
+                coded("MI0205", "that is not one of the answers this question offered")
+                + f"\n  it offered: {', '.join(payload['options'])}"
+            )
+        kind, subject = FactKind(payload["kind"]), payload["subject"]
+        if option == "value":
+            try:
+                if value is None:
+                    raise ValueError("no value was given")
+                stack.measurements.check(subject, value)
+            except (ValueError, KeyError) as refused:
+                raise ValueError(
+                    coded("MI0208", f"{value!r} does not fit {subject}") + f"\n  {refused}"
+                ) from None
+
+        settled = st.settle(
+            current=ProposalState(proposal.state),
+            proposal_revision=proposal.draft_revision,
+            draft_revision=proposal.draft_revision,
+            expected_revision=proposal.draft_revision,
+            decision=ProposalState.ACCEPTED,
+        )
+        if settled.refusal is not None:
+            raise ValueError(settled.refusal)
+        proposal.state = ProposalState.ACCEPTED.value
+        proposal.by = by
+        proposal.chosen_option = option
+        proposal.settled_at = _now()
+
+        session_id = proposal.session_id
+        row = db.get(PipelineAuthoringSession, session_id)
+        stops = kind is FactKind.INPUT and option == "dont_have"
+        event = st.Event.INPUT_UNAVAILABLE if stops else st.Event.FACT_ADDED
+        target = st.advance(Phase(row.phase), event)
+        facts = list(row.facts or [])
+        if not stops:
+            facts.append(_fact_for(kind, subject, option, value).model_dump(mode="json"))
+        _swap(db, session_id, row.row_version, phase=target, facts=facts)
+
+    if stops:
+        _say(
+            session_id,
+            f"This analysis needs {subject}, and without one it cannot be built. Nothing was "
+            "built. Start again when you have one, or describe a different analysis.",
+        )
+        return target
+    offer_next_gap(session_id)
+    return current_phase(session_id)

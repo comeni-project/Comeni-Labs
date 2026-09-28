@@ -102,27 +102,20 @@ def _model(monkeypatch, *bodies) -> Answers:
 
 GOAL = json.dumps(
     {
-        "goal": {
-            "have": [
-                {"type_id": "fastq.reads"},
-                {"type_id": "annotation.gtf"},
-                {"type_id": "genome.fasta"},
-            ],
-            "want": ["counts.matrix"],
-            "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
-            "profile": {
-                "measurements": [
-                    {"measurement": "read_length", "value": 150, "source": "goal"},
-                    {"measurement": "strandedness", "value": "reverse", "source": "goal"},
-                ]
-            },
-        },
-        "summary_have": "paired RNA-seq reads, a genome and its annotation",
-        "summary_do": "trim, align, sort and count reads per gene",
-        "summary_get": "a gene-level counts matrix",
+        "want": ["counts.matrix"],
+        "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
+        "summary": "a gene-level counts matrix from paired RNA-seq reads",
         "questions": [],
     }
 )
+"""The model's answer under `builder.goal.v3`: the want only. What it needs is gathered."""
+
+ANSWERS = {
+    "read_length": ("value", 150),
+    "strandedness": ("reverse", None),
+    "paired": ("yes", None),
+}
+"""How `_gather` answers each measurement gap; every input gap is answered *I have it*."""
 
 
 def _run(session_id: str, seq: int) -> str:
@@ -145,11 +138,38 @@ def _session(client, session_id: str) -> dict:
     return response.json()
 
 
+def _gather(client, session_id: str) -> dict:
+    """Answer every gap through the route, as a person clicking would, until the card."""
+    view = _session(client, session_id)
+    while (pending := view["pending_proposal"]) and pending["kind"] == "gap":
+        subject = _subject(session_id, pending["id"])
+        option, value = ANSWERS.get(subject, ("have_it", None))
+        response = client.post(
+            f"/api/pipeline/authoring/{session_id}/proposals/{pending['id']}/decide",
+            json={
+                "decision": "accepted",
+                "expected_revision": view["revision"],
+                "option": option,
+                "value": value,
+            },
+        )
+        assert response.status_code == 200, response.text
+        view = _session(client, session_id)
+    return view
+
+
+def _subject(session_id: str, proposal_id: str) -> str:
+    from mendel_api.models import PipelineAuthoringProposal
+
+    with session_scope() as db:
+        return db.get(PipelineAuthoringProposal, proposal_id).payload["subject"]
+
+
 def _goal_review(client, queue, monkeypatch, mode: str = "build") -> dict:
     session_id, seq = _begin(client, queue, mode)
     _model(monkeypatch, GOAL)
     _run(session_id, seq)
-    return _session(client, session_id)
+    return _gather(client, session_id)
 
 
 # ── the checkpoint ────────────────────────────────────────────────────────────────────────
@@ -172,9 +192,10 @@ def test_a_turn_is_pending_on_reload_and_answered_exactly_once(client, clean, qu
     answered = _session(client, session_id)
     assistant = [t for t in answered["turns"] if t["role"] == "assistant"]
     assert len(assistant) == 1 and assistant[0]["state"] == "answered"
-    assert [b["kind"] for b in assistant[0]["blocks"]] == ["goal_summary"]
-    assert answered["phase"] == "goal_review"
-    assert answered["pending_proposal"]["kind"] == "goal"
+    assert [b["kind"] for b in assistant[0]["blocks"]] == ["narrative"]
+    # The want is read; what it needs is the engine's to ask, one gap at a time (14.7.3).
+    assert answered["phase"] == "gathering"
+    assert answered["pending_proposal"]["kind"] == "gap"
 
     # A second delivery of the same job: nothing changes, and no second call is made.
     _run(session_id, seq)
@@ -282,33 +303,19 @@ def test_accepting_the_goal_builds_inline_and_offers_the_first_step(
 
 @needs_db
 def test_a_spawn_goal_is_resolved_on_the_ai_worker(client, clean, queue, monkeypatch):
-    """A Spawn goal a person had to confirm — one that paused on an open question — is built on the
-    AI worker. **Since Task 12 a Spawn goal with no question does not pause at all**, which is why
-    this uses one that asks: the route under test is the person's confirmation, not the policy."""
+    """Spawn gathers from the person (14.7.3); the last answer confirms the card by policy and
+    the blueprint is resolved on the AI worker, never inline in the request."""
     session_id, seq = _begin(client, queue, "spawn")
-    asking = json.loads(GOAL)
-    asking["questions"] = [{
-        "asks": "how do the files group?",
-        "why_open": "it changes the pipeline",
-        "choices": ["paired", "independent"],
-        "exhaustive": False,
-    }]
-    _model(monkeypatch, json.dumps(asking))
+    _model(monkeypatch, GOAL)
     _run(session_id, seq)
-    session = _session(client, session_id)
-    proposal = session["pending_proposal"]
-    decided = client.post(
-        f"/api/pipeline/authoring/{session['id']}/proposals/{proposal['id']}/decide",
-        json={"decision": "accepted", "expected_revision": 0},
-    ).json()
+    session = _gather(client, session_id)
 
-    # **Accepting a goal moves the draft revision**: the confirmed goal becomes the draft's goal,
-    # which changes what keeping it builds — and any acceptance is a change to the draft.
-    assert decided == {"phase": "resolving", "revision": 1, "next_proposal": None, "queued": True}
-    asyncio.run(authoring_jobs.build_authoring_blueprint({}, session["id"]))
+    assert session["phase"] == "resolving"
+    assert [q for q in queue if q[0] == "build"] == [("build", session_id, session["row_version"])]
+    asyncio.run(authoring_jobs.build_authoring_blueprint({}, session_id))
     # Spawn does not stop at the first step: the policy accepts every settled one, so the RNA-seq
     # blueprint — no tier-4 step choice — is complete by the end of the job.
-    assert _session(client, session["id"])["phase"] == "complete"
+    assert _session(client, session_id)["phase"] == "complete"
 
 
 @needs_db
@@ -331,7 +338,7 @@ def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
 
     assert before == {"revision": goal["revision"], "state": "empty", "text": "", "findings": []}
     assert decided["revision"] == goal["revision"] + 1
-    history = _session(client, session["id"])["history"]
+    history = [d for d in _session(client, session["id"])["history"] if d["kind"] != "gap"]
     assert [(d["kind"], d["state"]) for d in history] == [
         ("goal", "accepted"),
         ("step", "accepted"),
@@ -386,6 +393,22 @@ def test_a_follow_up_during_goal_review_is_answered_as_an_explanation(
     assert reply["blocks"][0]["kind"] == "narrative"
 
 
+@needs_db
+def test_a_follow_up_while_gathering_is_answered_not_crashed(client, clean, queue, monkeypatch):
+    """While gathering, the session's goal column holds the want and the model's summary, which
+    is not a `Goal`; grounding a follow-up on it must not fail validation (14.7.3)."""
+    session_id, seq = _begin(client, queue)
+    _model(monkeypatch, GOAL)
+    _run(session_id, seq)
+    response = client.post(
+        f"/api/pipeline/authoring/{session_id}/messages", json={"text": "why a genome?"}
+    )
+    _model(monkeypatch, json.dumps({"explain": "reads are aligned against it"}))
+    _run(session_id, response.json()["seq"])
+    reply = _session(client, session_id)["turns"][-1]
+    assert reply["state"] == "answered", reply
+
+
 # ── what the boundary will not accept ─────────────────────────────────────────────────────
 
 
@@ -395,7 +418,7 @@ def test_starting_a_session_accepts_prose_and_a_mode_and_nothing_else():
     assert set(routes.BeginAuthoring.model_fields) == {"prompt", "mode"}
     assert set(routes.SayToAuthoring.model_fields) == {"text"}
     assert set(routes.DecideProposal.model_fields) == {
-        "decision", "expected_revision", "goal", "option"
+        "decision", "expected_revision", "goal", "option", "value"
     }
 
 
@@ -429,7 +452,7 @@ def test_an_edited_goal_is_confirmed_without_a_model_call(client, clean, queue, 
     engine can check a field."""
     session = _goal_review(client, queue, monkeypatch)
     transport = _model(monkeypatch, GOAL)
-    edited = json.loads(GOAL)["goal"]
+    edited = dict(session["pending_proposal"]["block"]["goal"])
     edited["want"] = ["counts.matrix", "qc.report"]
 
     response = client.post(
@@ -446,7 +469,7 @@ def test_an_edited_goal_naming_an_undeclared_type_is_refused_like_a_models(
     client, clean, queue, monkeypatch
 ):
     session = _goal_review(client, queue, monkeypatch)
-    edited = json.loads(GOAL)["goal"]
+    edited = dict(session["pending_proposal"]["block"]["goal"])
     edited["want"] = ["rnaseq.counts"]
 
     response = client.post(

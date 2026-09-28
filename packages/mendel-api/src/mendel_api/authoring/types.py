@@ -24,7 +24,7 @@ diagram stays the specification.
 from enum import StrEnum
 from typing import Annotated, Literal, Self, get_args
 
-from comeni_core.goal.asked import Goal
+from comeni_core.goal.asked import Constraints, Goal
 from comeni_core.spell.marks import ContractId, HumanParamValue, NodeId, OptionId, TypeId
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -87,14 +87,12 @@ class Event(StrEnum):
     """What happens to a session.
 
     One member per labelled arrow in §2's diagram. Named for the *fact* rather than for the
-    destination — `GOAL_RETURNED`, not `TO_GOAL_REVIEW` — because the same fact leads somewhere
+    destination — `WANT_RETURNED`, not `TO_GATHERING` — because the same fact leads somewhere
     different depending on where it arrives: `GOAL_ACCEPTED` reaches `resolving` from
     `goal_review`, from `building` and from `complete`, and naming it for the target would make
     those read as three events.
     """
 
-    GOAL_RETURNED = "goal_returned"
-    """A typed goal came back from the model."""
     GOAL_ACCEPTED = "goal_accepted"
     """The person accepted the goal — including a revised one, later in the session."""
     GOAL_REVISED = "goal_revised"
@@ -462,6 +460,24 @@ class GoalUnderstanding(_Shape):
     `Goal` stating a sample structure nobody confirmed, and that goal validates, resolves and
     builds.
     """
+
+
+class WantUnderstanding(_Shape):
+    """The first call's answer under `builder.goal.v3`: what the person wants, and nothing else.
+
+    **No `have`, no `profile`, on purpose (#105).** A shape with a place for inputs is a place a
+    model will guess them; v2's model wrote `deduplicated` onto reads nobody had deduplicated.
+    The engine works out what the want needs (`services.gaps`) and asks the person for it, so a
+    fact always comes from the person, a file, or stays open (protocol rule 5).
+    """
+
+    want: list[TypeId] = Field(min_length=1)
+    constraints: Constraints = Constraints()
+    """Only what the person pinned themselves: a state on an output, a parameter they named."""
+    summary: Prose
+    """One plain sentence the person reads back: what they will end up with."""
+    questions: list[AskedQuestion] = []
+    """Only when the want itself is ambiguous. What they have is the engine's to ask."""
 
 
 class SettingProposal(_Shape):

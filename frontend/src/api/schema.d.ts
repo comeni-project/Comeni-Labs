@@ -1122,7 +1122,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Accept or reject a goal or a step
+         * Accept or reject a goal or a step, or answer a question about your data
          * @description A deterministic request: the answer is in the response, never behind the queue.
          *
          *     A refusal — a stale revision, a moved registry, an option never offered — answers 422 with
@@ -1480,7 +1480,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step";
+            kind: "goal" | "step" | "gap";
             state: components["schemas"]["ProposalState"];
             /** Block */
             block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
@@ -1535,7 +1535,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step";
+            kind: "goal" | "step" | "gap";
             /** Draft Revision */
             draft_revision: number;
             /** Block */
@@ -1576,6 +1576,11 @@ export interface components {
             phase: components["schemas"]["Phase"];
             failed_from: components["schemas"]["Phase"] | null;
             goal: components["schemas"]["Goal-Output"] | null;
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["Fact"][];
             /** Revision */
             revision: number;
             graph: components["schemas"]["DraftGraph"];
@@ -2170,6 +2175,8 @@ export interface components {
             goal?: components["schemas"]["Goal-Input"] | null;
             /** Option */
             option?: string | null;
+            /** Value */
+            value?: number | boolean | string | null;
         };
         /** DecideRequest */
         DecideRequest: {
@@ -2541,6 +2548,36 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * Fact
+         * @description One thing gathering learned, and who it came from. Nothing is guessed (protocol rule 5).
+         */
+        Fact: {
+            kind: components["schemas"]["FactKind"];
+            /** Subject */
+            subject: string;
+            /** Value */
+            value?: number | boolean | string | null;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            source: components["schemas"]["FactSource"];
+            /** Sample */
+            sample?: string | null;
+        };
+        /**
+         * FactKind
+         * @enum {string}
+         */
+        FactKind: "input" | "measurement";
+        /**
+         * FactSource
+         * @description Where a fact came from, which is what the goal card and the tier-3 premise show.
+         * @enum {string}
+         */
+        FactSource: "measured" | "model_read" | "person_said" | "open";
         /** FieldCheck */
         FieldCheck: {
             /** Field */

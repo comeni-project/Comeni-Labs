@@ -3579,6 +3579,33 @@ MI0207:
     The resolver works backwards from what you want, and every chain has to end at something you
     have. When one ends at a type nothing produces, the goal is missing an input rather than the
     registry missing a tool: nothing makes a reference genome, it is supplied.
+MI0208:
+  emitted_by: api
+  concern: workflow
+  says: "that value does not fit what this measurement can be"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Answer again with a value in the range or list the question describes, or choose *not sure*
+    or *can't share it*. Nothing was recorded, and the same question is still waiting.
+  explanation: |
+    Every measurement is declared with what it may hold: a read length is a positive whole
+    number, strandedness is one of three words. A value outside that would reach a rule that
+    decides on it, and a rule deciding on an impossible value decides wrongly without saying so.
+MI0209:
+  emitted_by: api
+  concern: workflow
+  says: "the analysis cannot be built: nothing can make what it asks for"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Retry, and describe what you want to end up with in other words. The type named here is
+    declared, but no tool in the registry produces it; if it is something you already have, it
+    is an input rather than a result.
+  explanation: |
+    Before asking you anything, the engine works backwards from what you want to what it needs.
+    When nothing can make the thing you asked for, every question it could ask would be wasted,
+    so it stops here instead of showing you a goal it already knows cannot be built.
 MI0212:
   emitted_by: api
   concern: workflow

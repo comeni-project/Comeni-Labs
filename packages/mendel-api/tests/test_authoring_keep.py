@@ -58,10 +58,11 @@ def clean(monkeypatch, tmp_path):
 def _complete(mode: Mode = Mode.BUILD) -> tuple[str, str]:
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
     session_id = authoring.open_session(draft_id, mode=mode, who="ana")
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     goal = Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
     authoring.move(
-        session_id, st.Event.GOAL_ACCEPTED, row_version=2, goal=goal.model_dump(mode="json")
+        session_id, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json")
     )
     proposal = authoring.start_building(session_id)
     if mode is Mode.SPAWN:

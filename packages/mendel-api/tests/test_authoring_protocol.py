@@ -39,7 +39,7 @@ def test_a_built_node_without_a_phase_is_refused():
 
 def test_a_built_edge_touching_a_planned_node_is_refused():
     nodes = (_node("a"), _node("b", Phase.GOAL_REVIEW, built=False))
-    edge = p.Edge(source="a", target="b", event=Event.GOAL_RETURNED, built=True)
+    edge = p.Edge(source="a", target="b", event=Event.WANT_RETURNED, built=True)
     with pytest.raises(ValueError, match="built edge a→b touches a planned node"):
         p.Protocol(stages=S, nodes=nodes, edges=(edge,))
 
@@ -47,10 +47,10 @@ def test_a_built_edge_touching_a_planned_node_is_refused():
 def test_one_phase_and_event_with_two_targets_is_refused():
     nodes = (_node("a"), _node("b", Phase.GOAL_REVIEW), _node("c", Phase.FAILED))
     edges = (
-        p.Edge(source="a", target="b", event=Event.GOAL_RETURNED, built=True),
-        p.Edge(source="a", target="c", event=Event.GOAL_RETURNED, built=True),
+        p.Edge(source="a", target="b", event=Event.WANT_RETURNED, built=True),
+        p.Edge(source="a", target="c", event=Event.WANT_RETURNED, built=True),
     )
-    with pytest.raises(ValueError, match="understanding on goal_returned leads to both"):
+    with pytest.raises(ValueError, match="understanding on want_returned leads to both"):
         p.Protocol(stages=S, nodes=nodes, edges=edges)
 
 
@@ -71,11 +71,11 @@ def test_retry_is_only_ever_a_return_edge():
 def test_planned_parts_are_left_out_of_the_machine():
     nodes = (_node("a"), _node("b", Phase.GOAL_REVIEW), _node("c", None, built=False))
     edges = (
-        p.Edge(source="a", target="b", event=Event.GOAL_RETURNED, built=True),
+        p.Edge(source="a", target="b", event=Event.WANT_RETURNED, built=True),
         p.Edge(source="b", target="c", label="later"),
     )
     proto = p.Protocol(stages=S, nodes=nodes, edges=edges)
-    assert proto.transitions() == {(Phase.UNDERSTANDING, Event.GOAL_RETURNED): Phase.GOAL_REVIEW}
+    assert proto.transitions() == {(Phase.UNDERSTANDING, Event.WANT_RETURNED): Phase.GOAL_REVIEW}
 
 
 def test_the_key_names_every_actor_every_border_and_planned():

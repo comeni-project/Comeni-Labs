@@ -41,6 +41,7 @@ from comeni_core.artifact.egress import (
     KnownStep,
 )
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import Goal
 from mendel_forge.workflow import InvocationState
 
 from mendel_api.authoring import prompts
@@ -48,6 +49,7 @@ from mendel_api.authoring.types import (
     CHAT_TAIL,
     AuthoringIntent,
     GoalUnderstanding,
+    WantUnderstanding,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import AiInvocation
@@ -96,7 +98,7 @@ class Outcome(NamedTuple):
     the transcript stores the other.
     """
 
-    reply: GoalUnderstanding | AuthoringIntent | None
+    reply: WantUnderstanding | GoalUnderstanding | AuthoringIntent | None
     invocation_id: str | None
     refusal: str | None
     code: str | None
@@ -204,7 +206,7 @@ def _options_text(options: Sequence[str]) -> str:
 
 
 def understand(request: AuthoringRequest, *, stack, client: Client | None = None) -> Outcome:
-    """Prose in, a typed `Goal` plus a summary out, or a visible coded refusal.
+    """Prose in, the typed want plus a summary out, or a visible coded refusal.
 
     The first call has no pipeline to talk about, which is why it is a different prompt and a
     different shape from `follow_up` rather than one call with half its fields empty.
@@ -213,13 +215,13 @@ def understand(request: AuthoringRequest, *, stack, client: Client | None = None
         request,
         purpose=Purpose.GOAL,
         prompt_id=prompts.GOAL,
-        shape=GoalUnderstanding,
+        shape=WantUnderstanding,
         values={
             "vocabulary": _vocabulary_text(stack),
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: _admit_goal(reply, stack),
+        admit=lambda reply: _admit_want(reply, stack),
         client=client,
     )
 
@@ -369,6 +371,13 @@ def _code_in(message: str) -> str | None:
 def _admit_goal(understanding: GoalUnderstanding, stack) -> GoalUnderstanding:
     """A model's goal, held to the vocabulary. See `admit_goal`."""
     admit_goal(understanding.goal, stack)
+    return understanding
+
+
+def _admit_want(understanding: WantUnderstanding, stack) -> WantUnderstanding:
+    """A model's want, held to the vocabulary: the same `MI0204` check, over a goal holding only
+    the want and the person's constraints."""
+    admit_goal(Goal(want=understanding.want, constraints=understanding.constraints), stack)
     return understanding
 
 

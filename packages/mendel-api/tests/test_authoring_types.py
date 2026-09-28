@@ -320,3 +320,10 @@ def test_a_fact_says_where_it_came_from_and_an_open_one_has_no_value():
             kind=t.FactKind.MEASUREMENT, subject="read_length", value=150,
             source=t.FactSource.OPEN,
         )
+
+
+def test_the_want_reply_has_no_have():
+    """#105, held: a reply shape with a place for inputs is a place a model will guess them."""
+    assert "have" not in t.WantUnderstanding.model_fields
+    reply = t.WantUnderstanding(want=["counts.matrix"], summary="gene counts from paired reads")
+    assert reply.questions == []

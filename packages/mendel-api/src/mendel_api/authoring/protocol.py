@@ -377,7 +377,6 @@ PROTOCOL = Protocol(
     edges=(
         # built: today's loop
         _e("say", "read_goal", built=True),
-        _move("read_goal", "card", _E.GOAL_RETURNED),
         _move("read_goal", "failed", _E.PROVIDER_FAILED, "model failed"),
         _move("card", "resolve", _E.GOAL_ACCEPTED, "that's right"),
         _move("card", "read_goal", _E.GOAL_REVISED, "not quite"),
@@ -406,6 +405,7 @@ PROTOCOL = Protocol(
         _move("said", "next_gap", _E.FACT_ADDED),
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
+        _move("list_needs", "failed", _E.BUILD_FAILED, "nothing can make it"),
         # planned: a file answers it (14.7.4, 14.7.5)
         _e("reply", "upload", "not sure"),
         _e("upload", "safety", "uploaded"),

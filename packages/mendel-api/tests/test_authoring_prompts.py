@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 from comeni_ai import UnknownPromptError
 from mendel_api.authoring import prompts
+from mendel_api.authoring import types as t
 
 ROOT = Path(__file__).resolve().parents[3]
 """The repository root.
@@ -111,20 +112,17 @@ def test_the_tier_four_prompt_takes_the_question_and_its_evidence():
 # ── the goal prompt ───────────────────────────────────────────────────────────────────────
 
 
-def test_the_goal_prompt_asks_for_have_do_get_and_a_typed_goal():
-    """Task 5's first bullet. Both halves, because the person checks the summary and the
-    resolver runs on the `Goal` — a summary with no goal cannot be acted on, and a goal with no
-    summary cannot be checked by the person whose analysis it is."""
+def test_the_goal_prompt_asks_only_for_the_want():
+    """v3 (14.7.3, #105/#114): the model reads what the person wants and nothing else. The
+    engine works out what that needs and asks for it itself, so a model never guesses an input,
+    a state or a measurement into the goal."""
     body = prompts.template(prompts.GOAL).body
+    assert "`goal.have` is what already exists" not in body
     for required in (
-        "what they have, what they want to do, and what they expect to get",
-        "`goal.have` is what already exists",
-        "`goal.want` is what they expect to end up with",
-        "`summary_have`",
-        "Nothing named `have` or `want` belongs at the\ntop level",
-        "Write a state only when the person said it is true",
+        "You are not asked what they have",
+        "The engine works that out from what they want and asks them itself",
+        "Do not write inputs, states or measurements",
         "every type id you write must appear in the vocabulary above",
-        "states must be declared for that type",
     ):
         assert required in body, f"the goal prompt no longer says: {required!r}"
 
@@ -141,20 +139,12 @@ def test_the_goal_prompt_only_wants_questions_that_can_change_the_pipeline():
         assert required in body, f"the goal prompt no longer says: {required!r}"
 
 
-def test_the_goal_prompt_makes_file_grouping_explicit():
-    """§1.7 and Task 5's second bullet, which exist because the silent failure is plausible.
-
-    *Many FASTA files* is not a sample structure, and a model that picks one produces a goal
-    that validates, resolves and builds — and describes an analysis nobody asked for.
-    """
-    body = prompts.template(prompts.GOAL).body
-    for required in (
-        "Many files is not a sample structure",
-        "24 independent items, 12 paired samples, several lanes per sample, or one combined",
-        "ask the grouping question",
-        "Never invent a sample count",
-    ):
-        assert required in body, f"the goal prompt no longer says: {required!r}"
+def test_the_goal_prompt_cannot_state_a_sample_structure():
+    """v2 asked for the grouping question because a model could write `have` and `n_samples`
+    and so infer a sample structure silently. v3 has nowhere to write either: the shape has no
+    `have` and no `profile`, so the inference is impossible rather than discouraged."""
+    fields = set(t.WantUnderstanding.model_fields)
+    assert fields == {"want", "constraints", "summary", "questions"}
 
 
 def test_the_goal_prompt_is_grounded_on_vocabulary_and_a_bounded_tail():

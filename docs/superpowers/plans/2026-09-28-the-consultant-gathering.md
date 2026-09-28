@@ -1010,23 +1010,23 @@ def gaps(want: list[str], facts: list[Fact], stack) -> list[Gap] | Unreachable:
   `summary: Prose`, `questions: list[AskedQuestion] = []`; `prompts.GOAL = "builder.goal.v3"`;
   `RETIRED = ("builder.goal.v1", "builder.goal.v2")`.
 
-- [ ] **Step 1: Failing tests.** In `test_authoring_prompts.py`, the goal prompt no longer says
+- [x] **Step 1: Failing tests.** In `test_authoring_prompts.py`, the goal prompt no longer says
   `goal.have is what already exists` and does say `You are not asked what they have`. In
   `test_authoring_types.py`, `WantUnderstanding` has no field named `have` (the #105 lesson, held).
   In `test_authoring_ai.py`, a recorded `{"want": ["counts.matrix"], "constraints": {},
   "summary": "gene counts from paired reads", "questions": []}` is admitted, and one whose `want`
   names an undeclared type is refused MI0204.
-- [ ] **Step 2: Run to see them fail.**
-- [ ] **Step 3: Write `builder.goal.v3.md`.** Copy the invariant block from v2 verbatim (the test
+- [x] **Step 2: Run to see them fail.**
+- [x] **Step 3: Write `builder.goal.v3.md`.** Copy the invariant block from v2 verbatim (the test
   requires it at the top), then: *what they want to end up with*, as declared type ids; any
   constraint they **stated**; one plain summary sentence; and a question only when the want itself
   is ambiguous. The key line: *You are not asked what they have. The engine works that out from
   what they want and asks them itself. Do not write inputs, states or measurements.* Point `GOAL`
   at v3 and add v2 to `RETIRED`.
-- [ ] **Step 4: Switch `understand()`** to `shape=WantUnderstanding` and an `_admit_want` that
+- [x] **Step 4: Switch `understand()`** to `shape=WantUnderstanding` and an `_admit_want` that
   checks every `want` id against `stack.vocabulary.types` (MI0204, as `_admit_goal` does for
   `have`).
-- [ ] **Step 5: Rewrite `_understand` in `authoring_jobs.py`:** answer the turn with a `Narrative`
+- [x] **Step 5: Rewrite `_understand` in `authoring_jobs.py`:** answer the turn with a `Narrative`
   block holding the summary (plus any want questions as today), store
   `{"want": ..., "constraints": ...}` on the session, move with `WANT_RETURNED`, and call
   `authoring.offer_next_gap(session_id)` (Task 14.7.3.5). **Spawn does not skip gathering:** gaps
@@ -1034,7 +1034,7 @@ def gaps(want: list[str], facts: list[Fact], stack) -> list[Gap] | Unreachable:
   `offer_next_gap` when nothing is missing. Remove the `read_goal→card` GOAL_RETURNED edge from
   `PROTOCOL` if nothing else uses the event (`grep -rn GOAL_RETURNED packages/`); the transition
   goes with it by derivation.
-- [ ] **Step 6: Update the fixtures** in the four test files to the want-only shape, run the
+- [x] **Step 6: Update the fixtures** in the four test files to the want-only shape, run the
   authoring tests, and commit —
   `feat(living): the goal call asks for the want only — builder.goal.v3 — 14.7.3.4 (#133, #105)`.
 
@@ -1054,7 +1054,7 @@ def gaps(want: list[str], facts: list[Fact], stack) -> list[Gap] | Unreachable:
   does not fit the measurement*) and **MI0209** (*the goal cannot be built: its want is something
   nothing can make*).
 
-- [ ] **Step 1: Failing tests** against the throwaway database, driving the service directly.
+- [x] **Step 1: Failing tests** against the throwaway database, driving the service directly.
   The helpers come first. They read rows the way `test_authoring_building.py` does, so no
   service function exists only for a test:
 
@@ -1152,11 +1152,11 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
     assert len([f for f in view["facts"] if f["subject"] == "fastq.reads"]) == 1
 ```
 
-- [ ] **Step 2: Run to see them fail.**
-- [ ] **Step 3: Declare MI0208 and MI0209** in `diagnostics.yml` after MI0207, with `says`, `fix`,
+- [x] **Step 2: Run to see them fail.**
+- [x] **Step 3: Declare MI0208 and MI0209** in `diagnostics.yml` after MI0207, with `says`, `fix`,
   `explanation` in the reader-facing register (no provenance, per `CLAUDE.md` rule 4), and
   regenerate the diagnostics page.
-- [ ] **Step 4: Implement in `services/authoring.py`:**
+- [x] **Step 4: Implement in `services/authoring.py`:**
   - `offer_next_gap`: compute `gaps(want, facts, stack)`. On `Unreachable`, write an MI0209 notice
     (the `_note` helper from `a9e94cb`) and move to FAILED. On an empty list, compose the goal and
     propose it exactly as `_understand` used to (kind `GOAL`, the `GoalSummary` built from the
@@ -1181,10 +1181,10 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
     f.value, _SOURCE[f.source], None) for measurement facts not OPEN]))` with
     `_SOURCE = {PERSON_SAID: ValueSource.GOAL, MODEL_READ: ValueSource.MODEL}`.
   - `read()` returns `facts`.
-- [ ] **Step 5: The route.** `DecideProposal.value: HumanParamValue | None = None`; in `decide`, a
+- [x] **Step 5: The route.** `DecideProposal.value: HumanParamValue | None = None`; in `decide`, a
   `GAP` kind calls `answer_gap(proposal_id, body.option, body.value, by=who)` and returns
   `AuthoringDecided` from the view. Add `facts` to `AuthoringSessionView`.
-- [ ] **Step 6: Run** the new file and all `test_authoring*.py`, then `make client` (the view and
+- [x] **Step 6: Run** the new file and all `test_authoring*.py`, then `make client` (the view and
   the decide body changed). Commit —
   `feat(living): gaps offered and answered, facts folded into the goal — 14.7.3.5 (#133, #114)`.
 
@@ -1426,3 +1426,29 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   `mendel-resolver` (*…construct one directly: …_scratch_guard.py:5*). The same scratch in
   `mendel-api` **passed**: the guard does not scan the API, where gathering will build profiles.
   Filed as #165 under 14.7.3, not fixed here. `make guards`: 82 passed.
+- **14.7.3.4 + 14.7.3.5 (2026-09-28), one commit.** .4's job rewiring needs .5's
+  `offer_next_gap`, so .4's steps 1–4 were done, then .5, then .4's steps 5–6. Deviations:
+  - The v2 grouping-question test became a shape test: `WantUnderstanding` has no `have` or
+    `profile`, so a sample count or structure cannot be written at all. Two `test_authoring_ai`
+    tests (invented sample count, undeclared measurement) went with it, for the same reason.
+  - An ambiguous want (questions) stays in `understanding` and waits for the reply; gathering
+    starts only for a settled want.
+  - The session's `goal` column holds `{"want", "constraints", "summary"}` while gathering (the
+    summary feeds the card's *do*). `authoring.as_goal` drops `summary`; the view and
+    `turn_context` both use it. `turn_context` validated `row.goal` raw, so **a follow-up during
+    gathering crashed**; `test_a_follow_up_while_gathering_is_answered_not_crashed` watched
+    failing (ValidationError) and passing. While the card is on offer, a follow-up is grounded
+    on the card's composed goal.
+  - **`GOAL_RETURNED` retired**, event and edge: nothing in the product takes it, and a built
+    arrow nothing takes is a silent way past gathering. Six test helpers now move
+    `WANT_RETURNED → NOTHING_MISSING`, their later `row_version`s shifted by one.
+  - Gathering fails only on an unbuildable want (MI0209): a built `list_needs→failed`
+    BUILD_FAILED edge, and `st.failed_from(GATHERING)` is `understanding`, so the retry re-reads
+    the want and is inside `RETRY_TARGETS`. Its state test was written with the change, not
+    watched failing first.
+  - A gap answer is settled with `st.settle` against the proposal's own revision and **does not
+    bump the draft revision**: it changes what the engine knows, not the pipeline.
+  - A stop (*I don't have one*) is a narrative turn naming the input, not a refusal notice.
+  - **Spawn**: gathers from the person like Build; once the last gap is answered, the policy
+    confirms the card (`by="model"`) and the blueprint is queued, as Spawn did before.
+  - The route test for gap answers passed on first run (the route was written first).

@@ -19,8 +19,9 @@ formats one.
 from typing import Literal
 
 from comeni_core.artifact.pipeline import AiProvenance
+from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
-from comeni_core.spell.marks import OptionId
+from comeni_core.spell.marks import HumanParamValue, OptionId
 from fastapi import APIRouter, status
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
@@ -28,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from mendel_api import identity
 from mendel_api.authoring.types import (
     Block,
+    Fact,
     Mode,
     Phase,
     ProposalState,
@@ -84,6 +86,9 @@ class DecideProposal(BaseModel):
     """For a step: `keep`, or one of the alternative ids the proposal offered. Ignored for a
     goal. **An id the engine minted, never a contract id** — a value chosen by id cannot be a
     value nobody offered."""
+    value: HumanParamValue | None = None
+    """For a gap answered with the `value` option: the typed value, held to the measurement's
+    declaration before anything is recorded (`MI0208`). Ignored otherwise."""
 
 
 # ── what comes out ────────────────────────────────────────────────────────────────────────
@@ -115,7 +120,7 @@ class AuthoringDecisionView(BaseModel):
     model_config = _FROZEN
 
     id: str
-    kind: Literal["goal", "step"]
+    kind: Literal["goal", "step", "gap"]
     state: ProposalState
     block: Block
     by: str | None
@@ -129,7 +134,7 @@ class AuthoringProposalView(BaseModel):
     model_config = _FROZEN
 
     id: str
-    kind: Literal["goal", "step"]
+    kind: Literal["goal", "step", "gap"]
     draft_revision: int
     block: Block
     options: list[str]
@@ -150,6 +155,8 @@ class AuthoringSessionView(BaseModel):
     phase: Phase
     failed_from: Phase | None
     goal: Goal | None
+    facts: list[Fact] = []
+    """What gathering learned, each with where it came from. Empty until 14.7.3's gathering."""
     revision: int
     graph: DraftGraph
     """The draft as the server holds it — the canvas restores from this, not from the transcript."""
@@ -300,7 +307,7 @@ async def say(session_id: str, body: SayToAuthoring) -> AuthoringSaid:
 @router.post(
     "/{session_id}/proposals/{proposal_id}/decide",
     operation_id="decideAuthoringProposal",
-    summary="Accept or reject a goal or a step",
+    summary="Accept or reject a goal or a step, or answer a question about your data",
     responses=REFUSES,
 )
 async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> AuthoringDecided:
@@ -314,7 +321,32 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     decision = ProposalState(body.decision)
     who = identity.default_author()
 
-    if kind == authoring_jobs.GOAL:
+    if kind == authoring.GAP:
+        if decision is not ProposalState.ACCEPTED or body.option is None:
+            raise ValueError(
+                coded("MI0205", "a question about your data is answered with one of its options")
+            )
+        authoring.answer_gap(proposal_id, body.option, body.value, by=who)
+        after = _view(session_id)
+        card = after.pending_proposal
+        if after.mode is Mode.SPAWN and card is not None and card.kind == authoring.GOAL:
+            # **Spawn shows the goal and proceeds** (§1.2), as it did before gathering: every
+            # fact in it came from the person a moment ago, so the policy confirms the card and
+            # the blueprint is built on the AI queue.
+            outcome, phase = authoring.decide_goal(
+                card.id, ProposalState.ACCEPTED, expected_revision=after.revision, by="model"
+            )
+            if outcome.refusal is not None:
+                raise ValueError(outcome.refusal)
+            return await _after_goal(session_id, phase)
+        return AuthoringDecided(
+            phase=after.phase,
+            revision=after.revision,
+            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
+            queued=False,
+        )
+
+    if kind == authoring.GOAL:
         outcome, phase = authoring.decide_goal(
             proposal_id,
             decision,
@@ -455,7 +487,8 @@ def _view(session_id: str) -> AuthoringSessionView:
         mode=Mode(picture["mode"]),
         phase=Phase(picture["phase"]),
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
-        goal=Goal.model_validate(picture["goal"]) if picture["goal"] else None,
+        goal=authoring.as_goal(picture["goal"]),
+        facts=picture["facts"],
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
         placement=picture["placement"],

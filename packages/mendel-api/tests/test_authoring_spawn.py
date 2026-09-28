@@ -65,8 +65,9 @@ def _goal() -> Goal:
 def _resolving(mode: Mode) -> str:
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
     session_id = authoring.open_session(draft_id, mode=mode, who="ana")
-    authoring.move(session_id, st.Event.GOAL_RETURNED, row_version=1)
-    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=2,
+    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
+    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3,
                    goal=_goal().model_dump(mode="json"))
     return session_id
 
@@ -214,18 +215,16 @@ def test_a_build_session_is_never_advanced_by_the_policy(clean):
 
 
 GOAL_ANSWER = {
-    "goal": {
-        "have": [{"type_id": "fastq.reads"}, {"type_id": "annotation.gtf"},
-                 {"type_id": "genome.fasta"}],
-        "want": ["counts.matrix"],
-        "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
-        "profile": {"measurements": [
-            {"measurement": "read_length", "value": 150, "source": "goal"},
-            {"measurement": "strandedness", "value": "reverse", "source": "goal"},
-        ]},
-    },
-    "summary_have": "reads, a genome and its annotation", "summary_do": "count reads per gene",
-    "summary_get": "a gene-level counts matrix", "questions": [],
+    "want": ["counts.matrix"],
+    "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
+    "summary": "a gene-level counts matrix",
+    "questions": [],
+}
+
+ANSWERS = {
+    "read_length": ("value", 150),
+    "strandedness": ("reverse", None),
+    "paired": ("yes", None),
 }
 
 
@@ -258,24 +257,50 @@ def _spawn_turn(monkeypatch, answer: dict) -> tuple[str, Answers]:
     return session_id, transport
 
 
-def test_a_spawn_session_with_no_open_question_completes_from_one_turn(clean, monkeypatch):
-    session_id, transport = _spawn_turn(monkeypatch, GOAL_ANSWER)
-    view = authoring.read(session_id)
+def _gather(client, session_id: str, built: list) -> None:
+    """Answer every gap as the person would; the last answer confirms the card in Spawn."""
+    while (pending := authoring.read(session_id)["pending_proposal"]) and pending["kind"] == "gap":
+        option, value = ANSWERS.get(pending["payload"]["subject"], ("have_it", None))
+        response = client.post(
+            f"/api/pipeline/authoring/{session_id}/proposals/{pending['id']}/decide",
+            json={"decision": "accepted", "expected_revision": 0, "option": option,
+                  "value": value},
+        )
+        assert response.status_code == 200, response.text
+        built.append(response.json())
 
+
+def test_a_spawn_session_gathers_from_the_person_then_builds_on_its_own(clean, monkeypatch):
+    """Since 14.7.3 Spawn gathers too: nothing is guessed, so each gap is the person's. Once the
+    last is answered, the policy confirms the card and the blueprint builds with no more calls."""
+    session_id, transport = _spawn_turn(monkeypatch, GOAL_ANSWER)
+    assert authoring.read(session_id)["phase"] == "gathering"
+
+    async def build(session_id, row_version):
+        await authoring_jobs.build_authoring_blueprint({}, session_id)
+        return True
+
+    monkeypatch.setattr(authoring_jobs, "enqueue_build", build)
+    decided: list = []
+    _gather(TestClient(create_app()), session_id, decided)
+
+    view = authoring.read(session_id)
+    assert decided[-1]["queued"] is True
     assert view["phase"] == "complete"
     assert len(transport.sent) == 1, "a model call for a step the resolver settled"
     goal = next(d for d in view["history"] if d["kind"] == "goal")
     assert goal["by"] == "model"
 
 
-def test_a_spawn_goal_with_an_open_question_pauses_for_a_person(clean, monkeypatch):
-    """§1.2: Spawn pauses only on material ambiguity — the grouping question above all."""
+def test_a_spawn_want_with_an_open_question_pauses_for_a_person(clean, monkeypatch):
+    """§1.2: Spawn pauses on material ambiguity — now an ambiguous *want*, before gathering."""
     asking = {**GOAL_ANSWER, "questions": [{
-        "asks": "how do the files group?", "why_open": "it changes the pipeline",
-        "choices": ["paired", "independent"], "exhaustive": False,
+        "asks": "per gene or per transcript?", "why_open": "they are different outputs",
+        "choices": ["gene", "transcript"], "exhaustive": False,
     }]}
     session_id, _ = _spawn_turn(monkeypatch, asking)
-    assert authoring.read(session_id)["phase"] == "goal_review"
+    assert authoring.read(session_id)["phase"] == "understanding"
+    assert authoring.read(session_id)["pending_proposal"] is None
 
 
 def test_available_ai_points_follow_the_installation_not_the_mode(monkeypatch):
