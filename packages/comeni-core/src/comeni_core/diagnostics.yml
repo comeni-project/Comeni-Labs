@@ -952,6 +952,30 @@ MD0302:
 
     Audit A119 and A123.
 
+MD0316:
+  emitted_by: core
+  concern: routing
+  says: "a type names a family no layer in the stack declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Declare the family, or rename the type into one that exists. A type's family is the part
+    of its id before the first dot, so `variants.vcf` needs a `variants` family:
+
+        # <layer>/families/variants.yml
+        declares: family
+        id: variants
+        description: Differences between the reads and a reference genome
+
+    A lab that needs a family the public registry does not have declares it in its own
+    overlay; families stack like every other kind.
+  explanation: |
+    Invariant 7 — vocabularies are closed — and the families are the first level of the type
+    choice (#194). A model reading what somebody wants is shown the families with their
+    descriptions, picks one or more, and is then shown every type of those families, whole. A
+    type whose family is undeclared could never be shown at all: nothing a model could pick
+    would lead to it, and the person asking for it would be told that nothing fits.
+
 MD0303:
   emitted_by: resolver
   concern: routing

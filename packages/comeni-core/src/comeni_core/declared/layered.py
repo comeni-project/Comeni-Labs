@@ -185,6 +185,11 @@ class DeclaredKind(StrEnum):
     is what audit A119 and A123 both are.
     """
 
+    FAMILIES = "families"
+    """The first level of the type choice (#194): a model reading what somebody wants picks a
+    family from a short described list, then a type from that family, shown whole. Every type
+    belongs to the family before its first dot, and a family nothing declares fails to load."""
+
 
 class Policy(StrEnum):
     """What a higher layer does to an entry a lower layer already supplied."""
@@ -377,6 +382,7 @@ _KIND_OF = {
     "measurement": DeclaredKind.MEASUREMENTS,
     "role": DeclaredKind.ROLES,
     "module": DeclaredKind.MODULES,
+    "family": DeclaredKind.FAMILIES,
 }
 """The singular a file writes, to the kind it means. Derived from `DeclaredKind` by hand rather
 than by stripping an `s`, because `vocabularies` is not `vocabularys`."""

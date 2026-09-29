@@ -128,6 +128,7 @@ decline to curate one.
 | `MD0313` | a row exits at tier 2 and cites nothing |
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
 | `MD0315` | a measurement's `assertion_only` and its reason disagree |
+| `MD0316` | a type names a family no layer in the stack declares |
 
 ## Gates and emission
 
