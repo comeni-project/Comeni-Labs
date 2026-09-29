@@ -1249,9 +1249,9 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
   clicking, type 150 for read length, confirm, and see the first step offered. Then again with
   *can't share it* for read length, and see the aligner arrive as a **tier-4** choice. Then
   *I don't have one* for the genome, and see the honest stop.
-- [ ] **Step 4: File every defect as an issue** under 14.7.3, with mechanical ones fixed before
+- [x] **Step 4: File every defect as an issue** under 14.7.3, with mechanical ones fixed before
   closing the substep (the protocol in the walk plan).
-- [ ] **Step 5:** Tick this plan, write the execution record, and close #105, #114 and #133 with
+- [x] **Step 5:** Tick this plan, write the execution record, and close #105, #114 and #133 with
   the commits. Comment on #113 with what the walk showed.
 
 ---
@@ -1570,3 +1570,12 @@ def test_a_file_named_one_thing_and_holding_another_is_refused():
   degrades safely: every gap is still asked. Filed as #179 for the operator. The same calls
   invented `required_states: gene_level, normalised` (once also `transcript_level`) on the
   counts matrix: added to #176.
+- **14.7.3 closed (2026-09-29).** After the protocol round: #179 fixed by the local lane moving to
+  `ollama_chat/` (1d28cdb; the text-completion endpoint left reply fields out), which made #170
+  work end to end — walked: the genome, paired-end and 150 bp pre-filled from the first sentence,
+  6 gap clicks of which 3 confirmations, goal confirmed, build started. #178 (4eea587) and #165
+  (556425f) fixed. The Docker daemon went down overnight; the stack was brought back, and the
+  throwaway test database needed `alembic upgrade head` (its first run showed 203 errors, not
+  defects). `make check` 2,836 + 5 base; types, docs, docs-status, links, doc-paths, doc-sizes,
+  guards, slow pass; vitest 545, `tsc -b` clean. #113 moved to 14.7 (the operator's call). The
+  consultant's prose (#167, #176) moved to 14.7.4 when 14.7 was renumbered.
