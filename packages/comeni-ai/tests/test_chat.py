@@ -91,3 +91,66 @@ def test_the_refusal_is_readable_off_the_client() -> None:
     client = Client(ACCESS, Spy("not json at all"))
     assert converse(client, [], "why?", Answer, []) is None
     assert "MA0004" in client.last_refusal
+
+
+# ── the two-part send (14.7.4, #183) ──────────────────────────────────────────────────────
+
+
+def _recording(seen: list):
+    class Records:
+        def send(self, access, prompt):
+            seen.append(prompt)
+            return '{"answer": "x"}'
+
+    return Records()
+
+
+def test_a_split_prompt_is_sent_as_system_then_user():
+    import json
+
+    seen: list = []
+    client = Client(ACCESS, transport=_recording(seen))
+    assert client.chat("fixed part", "per call", Answer).answer == "x"
+    [messages] = seen
+    assert [m["role"] for m in messages] == ["system", "user"]
+    assert "fixed part" in json.dumps(messages[0]) and "per call" in json.dumps(messages[1])
+    assert client.last_prompt.startswith("fixed part") and "per call" in client.last_prompt
+
+
+def test_the_schema_is_in_the_fixed_part_and_the_json_line_closes_the_user_part():
+    seen: list = []
+    Client(ACCESS, transport=_recording(seen)).chat("fixed", "per call", Answer)
+    system, user = seen[0]
+    assert '"answer"' in system["content"] and "schema exactly" in system["content"]
+    assert user["content"].rstrip().endswith("matching the schema above.")
+
+
+def test_anthropic_gets_cache_markers_and_other_providers_do_not():
+    from comeni_ai.client import _messages
+
+    blocks = _messages(
+        ModelAccess(model="anthropic/claude-sonnet-5"), "one\n<!-- cache -->\ntwo", "u", Answer
+    )[0]["content"]
+    assert [b.get("cache_control") for b in blocks] == [{"type": "ephemeral"}] * 2
+    plain = _messages(
+        ModelAccess(model="ollama_chat/gemma3:12b"), "one\n<!-- cache -->\ntwo", "u", Answer
+    )
+    assert isinstance(plain[0]["content"], str)
+    assert "<!-- cache -->" not in plain[0]["content"]
+
+
+def test_choose_one_can_send_a_fixed_part():
+    from comeni_ai.choice import Option, choose_one
+
+    seen: list = []
+
+    class Chooses:
+        def send(self, access, prompt):
+            seen.append(prompt)
+            return '{"value": "a", "why": "because"}'
+
+    client = Client(ACCESS, transport=Chooses())
+    answer = choose_one(client, "which?", [Option(value="a"), Option(value="b")], [],
+                        system="the fixed framing")
+    assert answer.value == "a"
+    assert [m["role"] for m in seen[0]] == ["system", "user"]

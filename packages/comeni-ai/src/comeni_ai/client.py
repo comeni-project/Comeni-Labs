@@ -56,7 +56,7 @@ class Transport(Protocol):
     and it does not catch an argument changing. A type checker is what catches the second.
     """
 
-    def send(self, access: ModelAccess, prompt: str) -> str: ...
+    def send(self, access: ModelAccess, prompt: "str | list[dict]") -> str: ...
 
 
 class Usage(BaseModel):
@@ -95,7 +95,9 @@ class Metered(Protocol):
     the same distinction `Usage`'s nullable fields draw one level down.
     """
 
-    def deliver(self, access: ModelAccess, prompt: str) -> tuple[str, Usage]: ...
+    def deliver(
+        self, access: ModelAccess, prompt: "str | list[dict]"
+    ) -> tuple[str, Usage]: ...
 
 
 class Client:
@@ -145,28 +147,83 @@ class Client:
         needs. It sets `last_prompt`, `last_usage` and `last_refusal` exactly as `generate`
         does, so an audit row is written the same way whichever entry point produced it.
         """
+        return self._exchange(prompt, prompt, shape)
+
+    def chat(self, system: str, user: str, shape: type[T]) -> T | None:
+        """A split prompt: the fixed part as a system message, the per-call part as the user's.
+
+        **For caching** (#183): providers reuse a byte-identical prefix, so everything that does
+        not change between calls — instructions, vocabulary, the reply schema — goes first, and
+        only what does change goes after it. The user part closes with one fixed line asking for
+        JSON: the lesson in `_prompt` (*the instruction has to be the last thing read*), kept in
+        a form that does not break the cached prefix. `last_prompt` is both parts as one string,
+        so a stored digest still covers everything sent.
+        """
+        messages = _messages(self.access, system, user, shape)
+        sent = "\n\n".join(_text_of(m["content"]) for m in messages)
+        return self._exchange(messages, sent, shape)
+
+    def _exchange(self, payload: "str | list[dict]", sent: str, shape: type[T]) -> T | None:
         self.last_refusal = None
         self.last_usage = None
         self.last_response = None
-        self.last_prompt = prompt
+        self.last_prompt = sent
         try:
             if isinstance(self._transport, Metered):
-                body, self.last_usage = self._transport.deliver(self.access, prompt)
+                body, self.last_usage = self._transport.deliver(self.access, payload)
             else:
-                body = self._transport.send(self.access, prompt)
+                body = self._transport.send(self.access, payload)
         except TimeoutError as failure:
             self.last_refusal = str(failure)
             return None
         self.last_response = body
-        payload = _json_in(body)
-        if payload is None:
+        payload_json = _json_in(body)
+        if payload_json is None:
             self.last_refusal = coded("MA0004", "the answer was empty")
             return None
         try:
-            return shape.model_validate_json(payload)
+            return shape.model_validate_json(payload_json)
         except ValidationError as failure:
             self.last_refusal = _why_refused(shape, failure)
             return None
+
+
+CACHE_BREAK = "<!-- cache -->"
+"""A line in a split prompt's fixed part that ends one cacheable block (#183). Providers that
+take cache markers (Anthropic) get one at each break; the line itself is never sent."""
+
+_SCHEMA_INTRO = (
+    "Answer with JSON only, matching this schema exactly. Output nothing else — no "
+    "explanation, no commentary, no markdown outside the JSON:"
+)
+_CLOSING = "Answer with JSON only, matching the schema above."
+
+
+def _messages(access: ModelAccess, system: str, user: str, shape: type[BaseModel]) -> list[dict]:
+    """`[system, user]`, the schema at the end of the system part, cache markers where honoured.
+
+    **Markers only for `anthropic/` models.** LiteLLM passes `cache_control` through to whatever
+    provider it reaches, and one that does not know the field may reject the request; OpenAI and
+    Ollama cache an identical prefix without being told.
+    """
+    schema = json.dumps(shape.model_json_schema(), indent=2, sort_keys=True)
+    parts = [part.strip("\n") for part in system.split(CACHE_BREAK)]
+    parts[-1] = f"{parts[-1]}\n\n{_SCHEMA_INTRO}\n{schema}"
+    if access.model.startswith("anthropic/"):
+        content: str | list[dict] = [
+            {"type": "text", "text": part, "cache_control": {"type": "ephemeral"}}
+            for part in parts
+        ]
+    else:
+        content = "\n".join(parts)
+    return [
+        {"role": "system", "content": content},
+        {"role": "user", "content": f"{user.rstrip()}\n\n{_CLOSING}"},
+    ]
+
+
+def _text_of(content: "str | list[dict]") -> str:
+    return content if isinstance(content, str) else "\n".join(b["text"] for b in content)
 
 
 def _prompt(instruction: str, shape: type[BaseModel], evidence: list[str]) -> str:
@@ -227,10 +284,10 @@ class LiteLLMTransport:
     what lets the no-model lane remain the default rather than a degraded one.
     """
 
-    def send(self, access: ModelAccess, prompt: str) -> str:
+    def send(self, access: ModelAccess, prompt: "str | list[dict]") -> str:
         return self.deliver(access, prompt)[0]
 
-    def deliver(self, access: ModelAccess, prompt: str) -> tuple[str, Usage]:
+    def deliver(self, access: ModelAccess, prompt: "str | list[dict]") -> tuple[str, Usage]:
         import time
 
         import litellm
@@ -239,7 +296,9 @@ class LiteLLMTransport:
         try:
             response = litellm.completion(
                 model=access.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=(
+                    prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
+                ),
                 api_key=access.api_key,
                 base_url=access.base_url,
                 timeout=access.timeout_seconds,

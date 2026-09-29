@@ -67,7 +67,12 @@ def _question(question: str, options: list[Option]) -> str:
 
 
 def choose_one(
-    client: Client, question: str, options: list[Option], evidence: list[str]
+    client: Client,
+    question: str,
+    options: list[Option],
+    evidence: list[str],
+    *,
+    system: str | None = None,
 ) -> Choice | None:
     """One of `options`, or `None`.
 
@@ -76,7 +81,12 @@ def choose_one(
     """
     if not options:
         return None
-    answer = client.generate(_question(question, options), Choice, evidence)
+    if system is not None:
+        # The fixed framing as a system message, the question and its options as the user's
+        # (#183): the options change per call, so they belong after the cached prefix.
+        answer = client.chat(system, _question(question, options), Choice)
+    else:
+        answer = client.generate(_question(question, options), Choice, evidence)
     if answer is None:
         return None
     if answer.value not in {o.value for o in options}:
