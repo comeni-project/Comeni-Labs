@@ -245,6 +245,13 @@ def understand(
         admit=lambda reply: _admit_want(reply, stack),
         client=client,
         session_id=session_id,
+        choices={
+            "want": sorted(stack.vocabulary.types),
+            # An input names a type, a measurement names a measurement: one field, both lists.
+            "stated.subject": sorted(
+                set(stack.vocabulary.types) | set(stack.measurements.measurements)
+            ),
+        },
     )
 
 
@@ -300,6 +307,7 @@ def read_gap_reply(
         admit=lambda reply: _admit_gap_reply(reply, request),
         client=client,
         session_id=session_id,
+        choices={"chose": list(request.options)},
     )
 
 
@@ -333,6 +341,7 @@ def phrase_gap(
         admit=lambda reply: _admit_asked(reply, gap, stack),
         client=client,
         session_id=session_id,
+        choices={"already_option": list(gap["options"])},
     )
 
 
@@ -382,8 +391,12 @@ def _call(
     admit,
     client: Client | None,
     session_id: str | None = None,
+    choices: dict[str, list] | None = None,
 ) -> Outcome:
     """Render, send, admit, record. The one path, so every row is written the same way.
+
+    `choices` names the ids each field may hold, and **it is exactly what the prompt shows**
+    (#194): enforced by the server where it can be, and checked by `admit` either way.
 
     **The schema is appended by `Client.generate` rather than written into the template.** The
     Forge composes its own prompt and calls `respond` because §5.3 fixes the order of ten
@@ -413,7 +426,10 @@ def _call(
     started = datetime.now(UTC)
 
     try:
-        reply = client.chat(system, user, shape)
+        # An empty list is dropped rather than sent: an `enum` of nothing is a schema a server
+        # may reject, and admission refuses any id that was not offered either way.
+        held = {field: values for field, values in (choices or {}).items() if values} or None
+        reply = client.chat(system, user, shape, choices=held)
     except (ModelUnavailableError, TimeoutError) as failure:
         # The provider is broken rather than the answer being wrong, and the two are separate
         # findings: this one is retried, a refusal is a prompt or a model that cannot do the job.

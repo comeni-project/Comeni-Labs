@@ -538,3 +538,51 @@ def test_the_read_back_call_is_given_the_goal_after_the_divider(stack, clean_for
     assert outcome.admitted and outcome.reply.text.startswith("Gene counts")
     assert "fastq.reads (you said)" in seen[0][1]["content"]
     assert _rows()[0].purpose == "readback"
+
+
+# ── allowed lists (#194) ──────────────────────────────────────────────────────────────────
+
+
+class _Choosing(Client):
+    """Records the allowed lists each call names, and answers with a committed body."""
+
+    def __init__(self, body: str) -> None:
+        super().__init__(ACCESS, transport=Answers(body))
+        self.choices: list = []
+
+    def chat(self, system, user, shape, choices=None):
+        self.choices.append(choices)
+        return super().chat(system, user, shape, choices=choices)
+
+
+def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_forge):
+    goal = _Choosing(_goal_answer())
+    ai.understand(ai.compose(prompt="count genes"), stack=stack, client=goal)
+    [held] = goal.choices
+    assert held["want"] == sorted(stack.vocabulary.types)
+    measured = set(stack.measurements.measurements)
+    assert set(held["stated.subject"]) == set(stack.vocabulary.types) | measured
+
+    gap = {"subject": "paired", "kind": "measurement", "asks": "Whether paired?",
+           "description": "paired-end", "options": {"yes": "Yes", "no": "No"}, "facts": ""}
+    asked = _Choosing(json.dumps({"asks": "Paired?"}))
+    ai.phrase_gap(ai.compose(prompt="p", options=["yes", "no"]), gap=gap, stack=stack,
+                  client=asked)
+    assert asked.choices == [{"already_option": ["yes", "no"]}]
+
+    replied = _Choosing(json.dumps({"chose": "yes"}))
+    ai.read_gap_reply(PAIRED, question="Is it paired-end?", client=replied)
+    assert replied.choices == [{"chose": ["yes", "no", "not_sure", "cant_share"]}]
+
+
+def test_prose_only_calls_name_no_list(clean_forge):
+    reader = _Choosing(json.dumps({"text": "You will get a counts matrix."}))
+    ai.read_back(ai.compose(prompt="p"), goal="want: counts.matrix", client=reader)
+    assert reader.choices == [None]
+
+
+def test_an_empty_list_is_not_sent_as_an_enum_of_nothing(clean_forge):
+    """A gap offering no option ids: the reply may still be a value or `unsure`."""
+    replied = _Choosing(json.dumps({"unsure": True}))
+    ai.read_gap_reply(ai.compose(prompt="p", options=[]), question="How long?", client=replied)
+    assert replied.choices == [None]
