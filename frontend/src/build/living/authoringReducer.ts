@@ -230,6 +230,11 @@ export function visibleGraph(state: AuthoringState): DraftGraph {
 export function isWaiting(session: AuthoringSession | null | undefined): boolean {
   if (!session) return false;
   if (session.turns.some((turn) => turn.state === "pending")) return true;
+  // A question being phrased, or a card's read-back being written: the model's words are on
+  // their way, and this poll is how they arrive — no second timer (issues 167 and 176).
+  const block = session.pending_proposal?.block as
+    { phrasing?: string; readback_pending?: boolean } | undefined;
+  if (block?.phrasing === "pending" || block?.readback_pending) return true;
   // A Spawn blueprint resolves on the AI worker; the session sits in `resolving` until it lands.
   return session.phase === "resolving";
 }

@@ -49,12 +49,18 @@ export function GoalCard({
   // removed and added again, and nothing else could take it off.
   const [held, setHeld] = useState<Record<string, string[]>>(() =>
     block.kind === "goal_summary" ? Object.fromEntries(statesOf(block.goal).have) : {});
+  // Constraints the model wrote are offered, not applied: only the ones kept reach the goal
+  // (issue 176). Keyed on the constraint as spelled.
+  const [chosenSuggestions, setChosenSuggestions] = useState<string[]>([]);
   if (block.kind !== "goal_summary") return null;
 
   const states = statesOf(block.goal);
   const statesMoved = original.have.some(
     (t) => (held[t] ?? []).join() !== (states.have.get(t) ?? []).join());
-  const edited = statesMoved ||
+  const suggested = block.suggested ?? [];
+  const keyOf = (r: { type_id: string; states?: string[] }) =>
+    `${r.type_id} [${(r.states ?? []).join(", ")}]`;
+  const edited = chosenSuggestions.length > 0 || statesMoved ||
     chosen.have.join() !== original.have.join() || chosen.want.join() !== original.want.join();
   const types = vocabulary ? Object.keys(vocabulary) : [];
   // **Each input once, its source on its chip** (issue 172); the facts list below is for
@@ -70,8 +76,13 @@ export function GoalCard({
     // turn `fastq.reads[trimmed]` into `fastq.reads` on every edit that touched something else —
     // a quiet change to the goal nobody made, caught by the typecheck asking where `states` went.
     const kept = new Map((goal.have ?? []).map((entry) => [entry.type_id, entry]));
+    const required = [
+      ...(goal.constraints?.required_states ?? []),
+      ...suggested.filter((r) => chosenSuggestions.includes(keyOf(r))),
+    ];
     onConfirm({
       ...goal,
+      constraints: { ...(goal.constraints ?? {}), required_states: required },
       have: chosen.have.map((type_id) => ({
         ...(kept.get(type_id) ?? { type_id }),
         type_id,
@@ -180,9 +191,44 @@ export function GoalCard({
       {list("have", addHave, "what you have")}
       {list("want", addWant, "what you want")}
       {measured.length > 0 && <Facts facts={measured} />}
-      <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
-        {[block.have, block.do, block.get].map(sentence).join(" — ")}.
-      </p>
+      {suggested.length > 0 && (
+        <div className="mb-3">
+          <p className="m-0 mb-1 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">
+            Suggested — keep what you asked for
+          </p>
+          <ul aria-label="suggested constraints" className="m-0 p-0 flex flex-wrap gap-[6px]">
+            {suggested.map((r) => {
+              const key = keyOf(r);
+              const on = chosenSuggestions.includes(key);
+              return (
+                <li key={key} className="list-none">
+                  <button type="button" aria-pressed={on}
+                          aria-label={`${on ? "drop" : "keep"} ${key}`}
+                          onClick={() => setChosenSuggestions(on
+                            ? chosenSuggestions.filter((k) => k !== key)
+                            : [...chosenSuggestions, key])}
+                          className={`font-data text-[11px] px-2 py-[3px] border cursor-pointer
+                                      focus-visible:shadow-[var(--ring)] ${on
+                                        ? "text-link border-[var(--link)]"
+                                        : "text-ink-3 border-dashed border-[var(--line-2)]"}`}>
+                    {key}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {block.readback ? (
+        <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-2">
+          {block.readback}{" "}
+          <span className="font-data text-[9.5px] text-ink-4">in the AI's words</span>
+        </p>
+      ) : (
+        <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
+          {[block.have, block.do, block.get].map(sentence).join(" — ")}.
+        </p>
+      )}
       {edited && (
         // The sentence is the model's and the chips are now the person's. Rewriting the prose
         // would be a second author putting words in the model's mouth, so it stays and says

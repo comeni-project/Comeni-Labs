@@ -101,6 +101,19 @@ describe("a gap card", () => {
     expect(onAnswer).toHaveBeenCalledWith("value", 150);
   });
 
+  it("says a question was phrased for the person, and the swap keeps the options in place", () => {
+    const phrased = { ...PAIRED, block: { ...PAIRED.block, phrasing: "done",
+      asks: "Were both ends of each fragment sequenced?" } } as AuthoringProposal;
+    const labels = () => screen.getAllByRole("button").map((b) => b.textContent);
+    const { rerender } = render(<GapCard proposal={PAIRED} busy={false} onAnswer={vi.fn()} />);
+    const before = labels();
+    expect(screen.queryByText("phrased for you")).toBeNull();
+    rerender(<GapCard proposal={phrased} busy={false} onAnswer={vi.fn()} />);
+    expect(screen.getByText("Were both ends of each fragment sequenced?")).toBeInTheDocument();
+    expect(screen.getByText("phrased for you")).toBeInTheDocument();
+    expect(labels()).toEqual(before);
+  });
+
   it("cannot send an empty value", () => {
     render(<GapCard proposal={LENGTH} busy={false} onAnswer={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Use this" })).toBeDisabled();

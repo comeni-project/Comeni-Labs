@@ -41,6 +41,10 @@ export function GapCard({
   return (
     <BlockFrame label="a question about your data" title="What it needs" aside="asked by the engine">
       <p className="m-0 mb-1 text-[12.5px] text-ink">{block.asks}</p>
+      {block.phrasing === "done" && (
+        // The question in a model's words; the options below are the engine's and never move.
+        <p className="m-0 mb-1 font-data text-[9.5px] text-ink-4">phrased for you</p>
+      )}
       <p className="m-0 mb-3 text-[11.5px] text-ink-3">{block.why_open}</p>
       {suggested && (
         <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-link">

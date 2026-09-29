@@ -133,6 +133,39 @@ describe("the goal card", () => {
     expect(within(open).getByText("read_length")).toBeInTheDocument();
   });
 
+  it("shows the engine's sentence until the read-back lands, then the AI's words, labelled", () => {
+    // Issue 176: the read-back is written from the composed goal, and says whose words it is.
+    const waiting = { ...goal, block: { ...goal.block, readback_pending: true } } as typeof goal;
+    const { rerender } = mount(<GoalCard proposal={waiting} vocabulary={vocabulary} busy={false}
+                                         onConfirm={vi.fn()} onReject={vi.fn()} />);
+    expect(screen.queryByText("in the AI's words")).toBeNull();
+    const landed = { ...goal, block: { ...goal.block, readback_pending: false,
+      readback: "You'll get a table of gene counts from your paired reads." } } as typeof goal;
+    rerender(<QueryClientProvider client={new QueryClient()}>
+      <GoalCard proposal={landed} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                onReject={vi.fn()} />
+    </QueryClientProvider>);
+    expect(screen.getByText("You'll get a table of gene counts from your paired reads."))
+      .toBeInTheDocument();
+    expect(screen.getByText("in the AI's words")).toBeInTheDocument();
+  });
+
+  it("offers suggested constraints, and sends only the ones kept", () => {
+    // Issue 176: *gene_level, normalised* reached the typed goal unasked; now they are offered.
+    const suggesting = { ...goal, block: { ...goal.block, suggested: [
+      { type_id: "counts.matrix", states: ["gene_level"] },
+      { type_id: "counts.matrix", states: ["normalised"] },
+    ] } } as typeof goal;
+    const onConfirm = vi.fn();
+    mount(<GoalCard proposal={suggesting} vocabulary={vocabulary} busy={false}
+                    onConfirm={onConfirm} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "keep counts.matrix [gene_level]" }));
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(onConfirm.mock.calls[0][0].constraints.required_states).toEqual([
+      { type_id: "counts.matrix", states: ["gene_level"] },
+    ]);
+  });
+
   it("shows the states it is asking the person to confirm", () => {
     // **Found by the first walk with a real model (2026-09-28).** `gemma3:12b` wrote
     // `fastq.reads[deduplicated]` for *paired-end RNA-seq*, and the chip said `fastq.reads` —
