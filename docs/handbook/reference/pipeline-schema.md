@@ -120,7 +120,7 @@ decisions:                     # the review queue: tier 4, ties, overrides
     candidates: [null]
     chosen: null
     resolved_by: flag-only
-    reason: "no rule covered 'seq_platform'"
+    reason: "nothing decided 'seq_platform'"
     human_override: illumina
 
 emitted:                       # what was written, and what it was written from
