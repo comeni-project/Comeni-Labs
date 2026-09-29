@@ -39,6 +39,7 @@ flowchart LR
     subgraph check ["③ You check the goal"]
         direction TB
         card["Goal card: every fact<br/>and where it came from"]:::you
+        readback["AI reads the goal back<br/>in its own words"]:::ai
     end
     style check fill:transparent,stroke:#555
     subgraph build ["④ Your consultant builds it with you"]
@@ -67,6 +68,7 @@ flowchart LR
     style wrong fill:transparent,stroke:#555
     say --> read_goal
     read_goal -- "model failed" --> failed
+    readback -- "in the AI's words" --> card
     card -- "that's right" --> resolve
     card -- "not quite" --> read_goal
     resolve --> offer

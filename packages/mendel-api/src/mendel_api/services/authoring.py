@@ -1474,6 +1474,7 @@ def offer_next_gap(session_id: str) -> str | None:
             goal=goal,
             have=f"You have: {inputs}.",
             do="The engine builds it from what you said.",
+            readback_pending=_model_configured(),
             suggested=(wanted.get("suggested") or {}).get("required_states") or [],
             get=f"You get: {', '.join(goal.want)}.",
         )
@@ -1641,6 +1642,67 @@ def phrasing_failed(session_id: str, subject: str) -> None:
                 block["phrasing"] = "none"
                 payload["block"] = block
                 pending.payload = payload
+
+
+def readback_context(session_id: str) -> str:
+    """The composed goal as the read-back call is given it: every input and fact with its
+    source, the want, and the constraints kept so far — never the first sentence (#176)."""
+    wanted, facts, _ = _gathered(session_id)
+    goal = compose_goal(session_id)
+    said = {FactSource.PERSON_SAID: "you said", FactSource.MEASURED: "measured",
+            FactSource.MODEL_READ: "read by AI", FactSource.OPEN: "left open"}
+    lines = [
+        "have: " + (", ".join(
+            f"{f.subject} ({said[f.source]})" for f in facts if f.kind is FactKind.INPUT
+        ) or "nothing"),
+        "facts: " + ("; ".join(
+            f"{f.subject} = {f.value if f.value is not None else 'unknown'} ({said[f.source]})"
+            for f in facts if f.kind is FactKind.MEASUREMENT
+        ) or "none"),
+        "want: " + ", ".join(goal.want),
+    ]
+    kept = goal.constraints.required_states
+    if kept:
+        lines.append("required: " + "; ".join(
+            f"{r.type_id} [{', '.join(r.states)}]" for r in kept
+        ))
+    return "\n".join(lines)
+
+
+def _pending_card(db, session_id: str):
+    pending = db.scalar(
+        select(PipelineAuthoringProposal).where(
+            PipelineAuthoringProposal.session_id == session_id,
+            PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+        )
+    )
+    return pending if pending is not None and pending.kind == GOAL else None
+
+
+def _set_card(session_id: str, **changes) -> None:
+    with session_scope() as db:
+        card = _pending_card(db, session_id)
+        if card is None:
+            return
+        payload = dict(card.payload)
+        payload["block"] = {**payload["block"], **changes}
+        card.payload = payload
+
+
+def store_readback(session_id: str, text: str) -> None:
+    """The read-back on the card on offer; nothing if the card was already answered (#176)."""
+    _set_card(session_id, readback=text, readback_pending=False)
+
+
+def readback_failed(session_id: str) -> None:
+    """A read-back that failed or was refused: the engine's sentence stands."""
+    _set_card(session_id, readback_pending=False)
+
+
+def wants_readback(session_id: str) -> bool:
+    with session_scope() as db:
+        card = _pending_card(db, session_id)
+        return card is not None and bool(card.payload["block"].get("readback_pending"))
 
 
 def _pending_gap(db, session_id: str):

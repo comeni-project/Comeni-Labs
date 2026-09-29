@@ -314,6 +314,13 @@ PROTOCOL = Protocol(
             "Goal card: every fact<br/>and where it came from",
             _P.GOAL_REVIEW,
         ),
+        _built(
+            "readback",
+            "check",
+            _AI,
+            "AI reads the goal back<br/>in its own words",
+            _P.GOAL_REVIEW,
+        ),
         # ④ built
         _built("resolve", "build", _ENGINE, "Engine resolves the pipeline", _P.RESOLVING),
         _built(
@@ -385,6 +392,7 @@ PROTOCOL = Protocol(
         # built: today's loop
         _e("say", "read_goal", built=True),
         _move("read_goal", "failed", _E.PROVIDER_FAILED, "model failed"),
+        _e("readback", "card", "in the AI's words", built=True),
         _move("card", "resolve", _E.GOAL_ACCEPTED, "that's right"),
         _move("card", "read_goal", _E.GOAL_REVISED, "not quite"),
         _move("resolve", "offer", _E.BLUEPRINT_STORED),

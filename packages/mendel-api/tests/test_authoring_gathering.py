@@ -443,3 +443,43 @@ def test_a_question_waiting_for_its_words_counts_as_in_flight(clean, monkeypatch
     assert authoring.read(sid)["usage"]["in_flight"] is True
     authoring.phrasing_failed(sid, "fastq.reads")
     assert authoring.read(sid)["usage"]["in_flight"] is False
+
+
+# ── the read-back (14.7.4, #176) ──────────────────────────────────────────────────────────
+
+
+def _to_card(sid):
+    while (pid := authoring.pending_id(sid)) and "subject" in _payload(pid):
+        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value")]
+        authoring.answer_gap(pid, options[0], None, by="ana")
+    return authoring.pending_id(sid)
+
+
+def test_the_read_back_is_written_from_the_composed_goal(clean):
+    sid = _gathering(want=["counts.matrix"])
+    _to_card(sid)
+    described = authoring.readback_context(sid)
+    for part in ("fastq.reads", "genome.fasta", "annotation.gtf", "counts.matrix", "you said"):
+        assert part in described, part
+
+
+def test_a_read_back_lands_on_the_card_and_a_failed_one_leaves_the_engines_sentence(
+    clean, monkeypatch
+):
+    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    sid = _gathering(want=["counts.matrix"])
+    card = _to_card(sid)
+    assert _payload(card)["block"]["readback_pending"] is True
+    authoring.store_readback(sid, "You'll get a table of gene counts from your reads.")
+    block = _payload(card)["block"]
+    assert block["readback"] == "You'll get a table of gene counts from your reads."
+    assert block["readback_pending"] is False
+
+
+def test_a_failed_read_back_clears_the_wait(clean, monkeypatch):
+    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    sid = _gathering(want=["counts.matrix"])
+    card = _to_card(sid)
+    authoring.readback_failed(sid)
+    block = _payload(card)["block"]
+    assert block["readback"] is None and block["readback_pending"] is False

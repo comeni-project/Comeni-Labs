@@ -2866,6 +2866,13 @@ export interface components {
             do: string;
             /** Get */
             get: string;
+            /** Readback */
+            readback?: string | null;
+            /**
+             * Readback Pending
+             * @default false
+             */
+            readback_pending: boolean;
             /**
              * Suggested
              * @default []

@@ -266,6 +266,11 @@ class GoalSummary(_Block):
     have: Prose
     do: Prose
     get: Prose
+    readback: Prose | None = None
+    """The goal read back in the model's words, written from the composed goal (#176), shown
+    labelled *in the AI's words*; the chips beside it are what gets built."""
+    readback_pending: bool = False
+    """Whether the read-back is still being written: the page's one poll keeps running."""
     suggested: list[RequiredStates] = []
     """Constraints the model wrote, offered for the person to keep or dismiss (#176). Only kept
     ones reach the goal, through the card's edited goal."""
@@ -493,6 +498,12 @@ class AskedGap(_Shape):
     asks: Prose
     already_option: OptionId | None = None
     already_value: HumanParamValue | None = None
+
+
+class ReadBack(_Shape):
+    """The goal read back to the person, by `builder.readback.v1` (#176)."""
+
+    text: Prose
 
 
 class WantUnderstanding(_Shape):

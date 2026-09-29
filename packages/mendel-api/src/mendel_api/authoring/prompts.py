@@ -73,7 +73,11 @@ ASK: PromptId = "builder.ask.v1"
 """One gathering question in, the question in the person's words out, and any answer they
 already gave (#167). Prose only: the options and the fact stay the engine's."""
 
-TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP, ASK)
+READBACK: PromptId = "builder.readback.v1"
+"""The composed goal in, one or two plain sentences out, for the goal card (#176). Written from
+what will be built, never from the first sentence."""
+
+TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP, ASK, READBACK)
 """**Every current template is split** at `comeni_ai.prompts.DIVIDER` (14.7.4, #183): what never
 changes between calls first, as a system message a provider caches, and what does after it.
 The v4/v1 files they replace stay loadable, whole, through `RETIRED`."""

@@ -502,3 +502,20 @@ def test_a_phrasing_keeps_its_words_and_drops_an_already_nobody_offered(stack, c
     assert outcome.admitted and outcome.reply.asks == "Were both ends sequenced?"
     assert outcome.reply.already_option is None
     assert _rows()[0].purpose == "ask"
+
+
+def test_the_read_back_call_is_given_the_goal_after_the_divider(stack, clean_forge):
+    seen: list = []
+
+    class Records:
+        def send(self, access, prompt):
+            seen.append(prompt)
+            return json.dumps({"text": "Gene counts from your paired reads."})
+
+    outcome = ai.read_back(
+        ai.compose(prompt="paired-end RNA-seq"), goal="have: fastq.reads (you said)",
+        client=Client(ACCESS, transport=Records()), session_id="s" * 32,
+    )
+    assert outcome.admitted and outcome.reply.text.startswith("Gene counts")
+    assert "fastq.reads (you said)" in seen[0][1]["content"]
+    assert _rows()[0].purpose == "readback"

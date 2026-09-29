@@ -66,6 +66,7 @@ class AIWorkerSettings:
         authoring_jobs.answer_authoring_turn,
         authoring_jobs.build_authoring_blueprint,
         authoring_jobs.phrase_authoring_gap,
+        authoring_jobs.read_back_authoring_goal,
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE

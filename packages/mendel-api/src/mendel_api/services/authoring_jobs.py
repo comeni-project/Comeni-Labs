@@ -42,8 +42,9 @@ log = logging.getLogger(__name__)
 ANSWER = "answer_authoring_turn"
 BUILD = "build_authoring_blueprint"
 PHRASE = "phrase_authoring_gap"
+READ_BACK = "read_back_authoring_goal"
 
-AI_JOBS = frozenset({ANSWER, BUILD, PHRASE})
+AI_JOBS = frozenset({ANSWER, BUILD, PHRASE, READ_BACK})
 """The builder's jobs that reach a provider — `forge_jobs.AI_JOBS`, one agent over.
 
 **Declared by the module that owns them**, and the AI worker's allowlist is held equal to the
@@ -189,6 +190,33 @@ async def enqueue_phrasing(session_id: str) -> None:
             job_id=jobs.job_id_for("builder", "phrase", session_id, subject),
             queue=jobs.AI_QUEUE,
         )
+    if authoring.wants_readback(session_id):
+        # The card is on offer: its read-back, once per card (#176).
+        await jobs.enqueue(
+            READ_BACK,
+            session_id,
+            job_id=jobs.job_id_for(
+                "builder", "readback", session_id, authoring.pending_id(session_id) or ""
+            ),
+            queue=jobs.AI_QUEUE,
+        )
+
+
+async def read_back_authoring_goal(ctx: dict, session_id: str) -> str:
+    """Read the composed goal back to the person (#176). A failure leaves the engine's sentence."""
+    if not authoring.wants_readback(session_id):
+        return f"{session_id}: no card waiting for a read-back"
+    outcome = authoring_ai.read_back(
+        authoring_ai.compose(prompt="", registry=registry.digest()),
+        goal=authoring.readback_context(session_id),
+        client=_client(),
+        session_id=session_id,
+    )
+    if outcome.admitted:
+        authoring.store_readback(session_id, outcome.reply.text)
+    else:
+        authoring.readback_failed(session_id)
+    return f"{session_id}: read back"
 
 
 async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str) -> str:

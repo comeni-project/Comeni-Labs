@@ -52,6 +52,7 @@ from mendel_api.authoring.types import (
     FactKind,
     GapReply,
     GoalUnderstanding,
+    ReadBack,
     WantUnderstanding,
 )
 from mendel_api.db import session_scope
@@ -89,6 +90,7 @@ class Purpose(StrEnum):
     TIER4 = "tier4"
     GAP = "gap"
     ASK = "ask"
+    READBACK = "readback"
 
 
 class Outcome(NamedTuple):
@@ -103,7 +105,10 @@ class Outcome(NamedTuple):
     the transcript stores the other.
     """
 
-    reply: WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | AskedGap | None
+    reply: (
+        WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | AskedGap | ReadBack
+        | None
+    )
     invocation_id: str | None
     refusal: str | None
     code: str | None
@@ -326,6 +331,26 @@ def phrase_gap(
             "facts": gap.get("facts") or "(nothing yet)",
         },
         admit=lambda reply: _admit_asked(reply, gap, stack),
+        client=client,
+        session_id=session_id,
+    )
+
+
+def read_back(
+    request: AuthoringRequest,
+    *,
+    goal: str,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """The composed goal, read back in plain words for the card (#176). Prose only."""
+    return _call(
+        request,
+        purpose=Purpose.READBACK,
+        prompt_id=prompts.READBACK,
+        shape=ReadBack,
+        values={"goal": goal},
+        admit=lambda reply: reply,
         client=client,
         session_id=session_id,
     )
