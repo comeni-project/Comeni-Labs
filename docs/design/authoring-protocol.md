@@ -119,6 +119,7 @@ tightening is filling in a row, not rewiring.
 | characteriser receives | the sample's head | derived facts, after confirmation | not run |
 | main agent receives | typed facts + the conversation | same | typed goal only |
 | a fact's sample reaches a provider | yes | no | no |
+| a model's reply is stored (`ai_invocation.response`) | yes, whole | decided with the level | decided with the level |
 
 ## Loosenings, recorded (2026-09-28, operator's decision)
 
@@ -127,6 +128,9 @@ tightening is filling in a row, not rewiring.
   as levels *after* the loop works, not before.
 - **Invariant 3, *three runtime AI points*, gains a fourth: characterisation.** It is declared,
   typed and recorded like the others (an `AiPoint`, a door, a prompt file, an `ai_invocation` row).
+- **A model's reply is stored, whole** (`ai_invocation.response`, #182, 2026-09-29). A reply can
+  echo the person's words, so this is a new free-text store at level 0. It is stored, never sent,
+  so it crosses no door; each later level decides whether replies are kept.
 - **The typed payload stays.** Every agent answers in a declared shape. What loosens is *what the
   input may contain*, never the output's type.
 
@@ -149,3 +153,4 @@ tightening is filling in a row, not rewiring.
 | 2026-09-28 | diagram reorganised into four stages with plain-language labels and a key | operator: *make the text more intuitive, and the organisation* |
 | 2026-09-28 | nothing is guessed; an open measurement falls to tier 4 rather than blocking; inputs and measurements split; the tier table | operator, during the #105/#114 brainstorm: *the model can keep that param open as a tier-4 question* |
 | 2026-09-28 | the diagram is generated from `protocol.py`, and the state machine is derived from the same object; the design is drawn dashed until built; a retry may resume only where a return edge is drawn | 14.7.2 (#132), second brainstorm with the operator |
+| 2026-09-29 | model replies stored whole at level 0, and the session's tokens shown | 14.7.4 (#182, #191), operator's brainstorm |

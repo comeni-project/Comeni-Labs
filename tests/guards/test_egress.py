@@ -52,6 +52,9 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # Every increase so far arrived by a refactor rather than by a new kind of string crossing —
 # A16 splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly
 # what a literal list exists to make somebody look at.
+# **`ai_invocation.response` is not here, and should not be** (#182, 2026-09-29): a model's reply
+# is stored, never sent — it crosses no door. It is a level-0 store, recorded in
+# `docs/design/authoring-protocol.md`'s protection table and loosenings.
 FREE_TEXT_FIELDS = {
     ("GateFailure", "tool_message"),
     # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
