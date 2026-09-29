@@ -129,11 +129,13 @@ def test_anthropic_gets_cache_markers_and_other_providers_do_not():
     from comeni_ai.client import _messages
 
     blocks = _messages(
-        ModelAccess(model="anthropic/claude-sonnet-5"), "one\n<!-- cache -->\ntwo", "u", Answer
+        ModelAccess(model="anthropic/claude-sonnet-5"), "one\n<!-- cache -->\ntwo", "u",
+        Answer.model_json_schema(),
     )[0]["content"]
     assert [b.get("cache_control") for b in blocks] == [{"type": "ephemeral"}] * 2
     plain = _messages(
-        ModelAccess(model="ollama_chat/gemma3:12b"), "one\n<!-- cache -->\ntwo", "u", Answer
+        ModelAccess(model="ollama_chat/gemma3:12b"), "one\n<!-- cache -->\ntwo", "u",
+        Answer.model_json_schema(),
     )
     assert isinstance(plain[0]["content"], str)
     assert "<!-- cache -->" not in plain[0]["content"]
@@ -154,3 +156,84 @@ def test_choose_one_can_send_a_fixed_part():
                         system="the fixed framing")
     assert answer.value == "a"
     assert [m["role"] for m in seen[0]] == ["system", "user"]
+
+
+# ── the reply format (#194) ───────────────────────────────────────────────────────────────
+
+
+class _Enforcing:
+    """A transport that can pass a format, recording what it was given."""
+
+    enforces_formats = True
+
+    def __init__(self, body: str = '{"answer": "x"}') -> None:
+        self.body = body
+        self.sent: list = []
+        self.formats: list = []
+
+    def send(self, access, prompt, response_format=None):
+        self.sent.append(prompt)
+        self.formats.append(response_format)
+        return self.body
+
+
+LOCAL = ModelAccess(model="ollama_chat/gemma3:12b")
+
+
+def test_an_enforcing_transport_gets_the_format_and_the_schema_leaves_the_prompt():
+    transport = _Enforcing()
+    client = Client(LOCAL, transport)
+    assert client.chat("fixed", "per call", Answer).answer == "x"
+    system = transport.sent[0][0]["content"]
+    assert "schema exactly" not in system and '"answer"' not in system
+    assert transport.formats[0]["json_schema"]["name"] == "Answer"
+    assert client.last_format == "ollama"
+
+
+def test_a_fake_without_formats_keeps_the_schema_in_the_prompt_unchanged():
+    seen: list = []
+    client = Client(LOCAL, transport=_recording(seen))
+    client.chat("fixed", "per call", Answer)
+    assert '"answer"' in seen[0][0]["content"] and client.last_format == "in_prompt"
+
+
+def test_the_digest_still_covers_the_schema_sent_as_the_format():
+    client = Client(LOCAL, _Enforcing())
+    client.chat("fixed", "per call", Answer)
+    assert '"answer"' in client.last_prompt and "[reply format: ollama]" in client.last_prompt
+
+
+def test_choices_reach_an_enforced_format_and_never_a_written_schema():
+    """The list is enforced where the server can; where it cannot, the prompt already shows the
+    options in its own words and admission checks them — writing them into the schema too would
+    move every recording's key and spend tokens saying it twice."""
+    transport = _Enforcing()
+    Client(LOCAL, transport).chat("fixed", "per call", Answer, choices={"answer": ["x", "y"]})
+    schema = transport.formats[0]["json_schema"]["schema"]
+    assert schema["properties"]["answer"]["enum"] == ["x", "y"]
+    seen: list = []
+    Client(LOCAL, transport=_recording(seen)).chat(
+        "fixed", "per call", Answer, choices={"answer": ["x", "y"]}
+    )
+    assert '"enum"' not in seen[0][0]["content"]
+
+
+def test_generate_drops_the_schema_when_enforced_too():
+    transport = _Enforcing()
+    Client(LOCAL, transport).generate("say it", Answer, [])
+    assert "schema exactly" not in transport.sent[0]
+
+
+def test_a_metered_fake_that_cannot_enforce_is_never_handed_a_format():
+    class Metered:
+        def send(self, access, prompt):
+            raise AssertionError("deliver is used")
+
+        def deliver(self, access, prompt):
+            from comeni_ai.client import Usage
+
+            return '{"answer": "x"}', Usage(model="m", duration_ms=1)
+
+    client = Client(LOCAL, Metered())
+    assert client.chat("fixed", "per call", Answer).answer == "x"
+    assert client.last_format == "in_prompt"

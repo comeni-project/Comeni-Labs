@@ -109,3 +109,21 @@ def test_no_options_does_not_reach_the_model_at_all() -> None:
     transport = Fixed('{"value": "x", "why": "w"}')
     choose_one(Client(ACCESS, transport=transport), "q", [], [])
     assert transport.prompts == []
+
+
+def test_choose_one_holds_the_value_to_the_options_in_the_format():
+    """#194: the options are the allowed list, enforced where the server can."""
+
+    class Enforcing:
+        enforces_formats = True
+        formats: list = []
+
+        def send(self, access, prompt, response_format=None):
+            self.formats.append(response_format)
+            return '{"value": "star", "why": "longer reads"}'
+
+    transport = Enforcing()
+    client = Client(ModelAccess(model="ollama_chat/gemma3:12b"), transport)
+    choose_one(client, "which aligner?", [Option(value="star"), Option(value="hisat2")], [])
+    schema = transport.formats[0]["json_schema"]["schema"]
+    assert schema["properties"]["value"]["enum"] == ["star", "hisat2"]

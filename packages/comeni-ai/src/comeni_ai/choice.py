@@ -81,12 +81,15 @@ def choose_one(
     """
     if not options:
         return None
+    # **The options are the allowed list** (#194): held to them by the server where it enforces
+    # the format, and checked below either way.
+    allowed = {"value": [o.value for o in options]}
     if system is not None:
         # The fixed framing as a system message, the question and its options as the user's
         # (#183): the options change per call, so they belong after the cached prefix.
-        answer = client.chat(system, _question(question, options), Choice)
+        answer = client.chat(system, _question(question, options), Choice, choices=allowed)
     else:
-        answer = client.generate(_question(question, options), Choice, evidence)
+        answer = client.generate(_question(question, options), Choice, evidence, choices=allowed)
     if answer is None:
         return None
     if answer.value not in {o.value for o in options}:
@@ -101,7 +104,8 @@ def choose_many(
     """Any subset of `options`, possibly empty, or `None`."""
     if not options:
         return None
-    answer = client.generate(_question(question, options), Choices, evidence)
+    allowed = {"values": [o.value for o in options]}
+    answer = client.generate(_question(question, options), Choices, evidence, choices=allowed)
     if answer is None:
         return None
     offered = {o.value for o in options}
