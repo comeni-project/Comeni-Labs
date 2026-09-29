@@ -329,11 +329,15 @@ def _call(
             )
         client = Client(access)
 
-    rendered = prompts.template(prompt_id).render(values)
+    template = prompts.template(prompt_id)
+    rendered = template.render(values)
+    # **Sent split** (#183): the fixed part as a system message a provider caches, the per-call
+    # part after it. `rendered` stays for the row's prompt id.
+    system, user = template.render_split(values)
     started = datetime.now(UTC)
 
     try:
-        reply = client.generate(rendered.text, shape, [])
+        reply = client.chat(system, user, shape)
     except (ModelUnavailableError, TimeoutError) as failure:
         # The provider is broken rather than the answer being wrong, and the two are separate
         # findings: this one is retried, a refusal is a prompt or a model that cannot do the job.

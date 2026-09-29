@@ -115,10 +115,12 @@ class ModelResolver:
             # offer the model the literal string "None" to choose. Left to the flag.
             return self._fallback.resolve(ambiguity)
 
-        rendered = prompts.template(prompts.TIER4).render(
-            {"asking": _asking(request), "evidence": _evidence(request)}
-        )
-        answer = choose_one(self._client, rendered.text, options, [])
+        values = {"asking": _asking(request), "evidence": _evidence(request)}
+        template = prompts.template(prompts.TIER4)
+        rendered = template.render(values)
+        system, asked = template.render_split(values)
+        # The framing cached as a system message; the question and its options after it (#183).
+        answer = choose_one(self._client, asked, options, [], system=system)
         # Over what crossed the wire — the framing plus the options and schema `choose_one`
         # appended — for `authoring_ai._record`'s reason: a stored row is compared against a
         # re-render, and a digest of less than was sent cannot be.

@@ -407,7 +407,7 @@ def test_the_prompt_that_was_sent_carries_the_steps_and_the_option_ids(clean_for
     client = _client(json.dumps({"proceed": True}))
     ai.follow_up(DRAFT, client=client)
 
-    sent = client._transport.sent[0]
+    sent = client.last_prompt  # both parts of the split, as one string (#183)
     assert "opt_hisat2" in sent
     assert "align — nf-core/star/align@1.11.0" in sent
 
@@ -468,3 +468,21 @@ def test_a_refused_call_keeps_the_reply_that_was_refused(stack, clean_forge):
 def test_the_session_never_enters_the_door_payload():
     """Door 1's payload is typed and counted; a session id is not something a model is sent."""
     assert "session_id" not in ai.AuthoringRequest.model_fields
+
+
+def test_a_builder_call_sends_the_split_and_digests_what_it_sent(stack, clean_forge):
+    """#183: the fixed part as a system message, the per-call part after it."""
+    seen: list = []
+
+    class Records:
+        def send(self, access, prompt):
+            seen.append(prompt)
+            return _goal_answer()
+
+    client = Client(ACCESS, transport=Records())
+    ai.understand(ai.compose(prompt="count genes"), stack=stack, client=client)
+    [messages] = seen
+    assert [m["role"] for m in messages] == ["system", "user"]
+    assert "count genes" in messages[1]["content"]
+    assert "count genes" not in str(messages[0]["content"])
+    assert _rows()[0].prompt_digest == hashlib.sha256(client.last_prompt.encode()).hexdigest()
