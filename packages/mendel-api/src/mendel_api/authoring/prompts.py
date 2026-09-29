@@ -26,7 +26,7 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v4"
+GOAL: PromptId = "builder.goal.v5"
 """Prose in, the typed **want**, a one-sentence summary, and what was **stated** out. Egress
 door 1.
 
@@ -40,14 +40,22 @@ computes what the want needs and asks the person itself. **v2 (2026-09-28)** had
 that.
 """
 
-RETIRED: tuple[PromptId, ...] = ("builder.goal.v1", "builder.goal.v2", "builder.goal.v3")
+RETIRED: tuple[PromptId, ...] = (
+    "builder.goal.v1",
+    "builder.goal.v2",
+    "builder.goal.v3",
+    "builder.goal.v4",
+    "builder.chat.v1",
+    "builder.gap.v1",
+    "builder.tier4.v1",
+)
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
 
-CHAT: PromptId = "builder.chat.v1"
+CHAT: PromptId = "builder.chat.v2"
 """A follow-up turn in, exactly one declared authoring intent out."""
 
-TIER4: PromptId = "builder.tier4.v1"
+TIER4: PromptId = "builder.tier4.v2"
 """One tier-4 ambiguity in, one of its own candidates out. Egress door 2.
 
 **Spawn only.** Build mode resolves tier 4 with the flag-only path so the question stays visible
@@ -56,11 +64,14 @@ candidate list and the reply schema, so what is committed here is the framing an
 the options are the engine's and are never written into a file.
 """
 
-GAP: PromptId = "builder.gap.v1"
+GAP: PromptId = "builder.gap.v2"
 """A person's typed answer to one gap in, one offered option id or a typed value out, or
 *unsure*. Egress door 1. Clicking an option never reaches this: it needs no model (14.7.3)."""
 
 TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP)
+"""**Every current template is split** at `comeni_ai.prompts.DIVIDER` (14.7.4, #183): what never
+changes between calls first, as a system message a provider caches, and what does after it.
+The v4/v1 files they replace stay loadable, whole, through `RETIRED`."""
 """The four, for the tests that hold every template to the shared block.
 
 §1.3 lists what a model may return, and everything on that list is one of these shapes. The

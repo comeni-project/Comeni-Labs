@@ -425,8 +425,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v4"
-    assert row.prompt_version == "v4"
+    assert row.prompt_id == "builder.goal.v5"
+    assert row.prompt_version == "v5"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""

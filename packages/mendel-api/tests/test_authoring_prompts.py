@@ -206,7 +206,7 @@ def test_the_chat_prompt_refuses_an_arbitrary_tool_id():
     body = prompts.template(prompts.CHAT).body
     for required in (
         "You cannot name a tool that is not already a step or offered as an option",
-        "choose an option id from the list above",
+        "choose an option id from the list below",
     ):
         assert required in body, f"the chat prompt no longer says: {required!r}"
 
@@ -216,7 +216,7 @@ def test_the_chat_prompt_grounds_an_explanation_on_known_step_ids():
     explanation a person cannot check, which is the whole thing this conversation is for."""
     body = prompts.template(prompts.CHAT).body
     for required in (
-        "refer to steps by the ids listed above",
+        "refer to steps by the ids listed below",
         "If the answer is not in what you were given, say so",
     ):
         assert required in body, f"the chat prompt no longer says: {required!r}"
@@ -313,3 +313,39 @@ def test_the_python_running_this_can_import_the_package():
     """Guards the guard above: a skip that fires for the wrong reason reports nothing."""
     assert sys.executable
     assert prompts.HERE.is_dir()
+
+
+# ── the split (14.7.4, #183) ──────────────────────────────────────────────────────────────
+
+PER_CALL = {  # two different sessions' values for every per-call placeholder
+    "conversation": ("person: hello", "person: something else entirely"),
+    "request": ("gene counts", "variant calls"),
+    "pipeline": ("step a", "step b"),
+    "options": ("keep", "alt_1"),
+    "question": ("paired?", "read length?"),
+    "asking": ("which aligner", "which caller"),
+    "evidence": ("row 1", "row 2"),
+}
+
+
+def test_every_builder_prompt_has_a_system_part_identical_across_sessions():
+    """#183: caching pays only if everything above the divider is byte-identical."""
+    assert prompts.TEMPLATES
+    for prompt_id in prompts.TEMPLATES:
+        template = prompts.template(prompt_id)
+        wanted = template.placeholders()
+        fixed = {"vocabulary": "types: a, b"}
+        one = {k: v[0] for k, v in PER_CALL.items()} | fixed
+        two = {k: v[1] for k, v in PER_CALL.items()} | fixed
+        system_one, user_one = template.render_split({k: one[k] for k in wanted})
+        system_two, user_two = template.render_split({k: two[k] for k in wanted})
+        assert system_one == system_two, prompt_id
+        assert user_one != user_two, f"{prompt_id} has no per-call part"
+
+
+def test_the_goal_prompt_puts_the_vocabulary_before_its_instructions():
+    system, _ = prompts.template(prompts.GOAL).render_split(
+        {"vocabulary": "VOCAB", "conversation": "", "request": "x"}
+    )
+    assert system.startswith(INVARIANT_BLOCK)
+    assert system.index("VOCAB") < system.index("# What you are doing")

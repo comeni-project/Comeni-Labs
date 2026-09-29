@@ -179,7 +179,7 @@ def test_every_call_is_recorded_for_the_caller_to_write_down():
     call = adapter.calls[0]
     assert call.subject == "producer:alignment.bam"
     assert call.chosen == STAR
-    assert call.prompt_id == "builder.tier4.v1"
+    assert call.prompt_id == "builder.tier4.v2"
     assert call.prompt_digest and call.refusal is None
 
 
