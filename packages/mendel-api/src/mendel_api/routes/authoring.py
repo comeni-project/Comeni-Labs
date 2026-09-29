@@ -145,6 +145,38 @@ class AuthoringProposalView(BaseModel):
     """The wires accepting it as proposed would add — what an optimistic reveal draws."""
 
 
+class AuthoringUsage(BaseModel):
+    """What the session's model calls have cost so far — the header's count (#191)."""
+
+    model_config = _FROZEN
+
+    input: int = 0
+    output: int = 0
+    cached: int = 0
+    """Input tokens served from a provider's prompt cache (#183)."""
+    calls: int = 0
+    in_flight: bool = False
+    """Whether a model call is on its way right now: the header says *thinking…*."""
+
+
+class AuthoringCallView(BaseModel):
+    """One model call in the session, for the call panel (#182, #191)."""
+
+    model_config = _FROZEN
+
+    id: str
+    purpose: str
+    model: str
+    input: int | None
+    output: int | None
+    cached: int | None
+    duration_ms: int | None
+    state: str
+    response: str | None
+    """Exactly what the model returned — a level-0 store (#182)."""
+    at: str
+
+
 class AuthoringSessionView(BaseModel):
     """Everything needed to restore the page, from one read."""
 
@@ -158,6 +190,8 @@ class AuthoringSessionView(BaseModel):
     failed_from: Phase | None
     goal: Goal | None
     facts: list[Fact] = []
+    usage: AuthoringUsage = AuthoringUsage()
+    """The session's model calls, totalled — carried by the poll the page already makes."""
     """What gathering learned, each with where it came from. Empty until 14.7.3's gathering."""
     revision: int
     graph: DraftGraph
@@ -292,6 +326,17 @@ def vocabulary() -> AuthoringVocabulary:
 )
 def read(session_id: str) -> AuthoringSessionView:
     return _view(session_id)
+
+
+@router.get(
+    "/{session_id}/calls",
+    operation_id="listAuthoringCalls",
+    summary="The session's model calls, with what each returned",
+    responses=REFUSES,
+)
+def list_calls(session_id: str) -> list[AuthoringCallView]:
+    """Fetched when the call panel opens, and again only when the session's call count moves."""
+    return [AuthoringCallView(**call) for call in authoring.calls(session_id)]
 
 
 @router.post(
@@ -491,6 +536,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=authoring.as_goal(picture["goal"]),
         facts=picture["facts"],
+        usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
         placement=picture["placement"],

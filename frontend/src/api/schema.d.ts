@@ -1095,6 +1095,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The session's model calls, with what each returned
+         * @description Fetched when the call panel opens, and again only when the session's call count moves.
+         */
+        get: operations["listAuthoringCalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring/{session_id}/messages": {
         parameters: {
             query?: never;
@@ -1459,6 +1479,32 @@ export interface components {
             /** Mendel */
             mendel?: components["schemas"]["Call"][];
         };
+        /**
+         * AuthoringCallView
+         * @description One model call in the session, for the call panel (#182, #191).
+         */
+        AuthoringCallView: {
+            /** Id */
+            id: string;
+            /** Purpose */
+            purpose: string;
+            /** Model */
+            model: string;
+            /** Input */
+            input: number | null;
+            /** Output */
+            output: number | null;
+            /** Cached */
+            cached: number | null;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** State */
+            state: string;
+            /** Response */
+            response: string | null;
+            /** At */
+            at: string;
+        };
         /** AuthoringDecided */
         AuthoringDecided: {
             phase: components["schemas"]["Phase"];
@@ -1583,6 +1629,16 @@ export interface components {
              * @default []
              */
             facts: components["schemas"]["Fact"][];
+            /**
+             * @default {
+             *       "input": 0,
+             *       "output": 0,
+             *       "cached": 0,
+             *       "calls": 0,
+             *       "in_flight": false
+             *     }
+             */
+            usage: components["schemas"]["AuthoringUsage"];
             /** Revision */
             revision: number;
             graph: components["schemas"]["DraftGraph"];
@@ -1635,6 +1691,37 @@ export interface components {
             base_revision: number;
             /** At */
             at: string;
+        };
+        /**
+         * AuthoringUsage
+         * @description What the session's model calls have cost so far — the header's count (#191).
+         */
+        AuthoringUsage: {
+            /**
+             * Input
+             * @default 0
+             */
+            input: number;
+            /**
+             * Output
+             * @default 0
+             */
+            output: number;
+            /**
+             * Cached
+             * @default 0
+             */
+            cached: number;
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /**
+             * In Flight
+             * @default false
+             */
+            in_flight: boolean;
         };
         /**
          * AuthoringVocabulary
@@ -5993,6 +6080,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthoringSessionView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listAuthoringCalls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCallView"][];
                 };
             };
             /** @description The id in the path names nothing. */

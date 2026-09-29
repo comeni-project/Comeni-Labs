@@ -32,7 +32,7 @@ from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.review.answer import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
@@ -50,6 +50,7 @@ from mendel_api.authoring.types import (
 )
 from mendel_api.db import session_scope
 from mendel_api.models import (
+    AiInvocation,
     PipelineAuthoringProposal,
     PipelineAuthoringSession,
     PipelineAuthoringTurn,
@@ -143,7 +144,26 @@ def read(session_id: str) -> dict:
                 PipelineAuthoringProposal.state == ProposalState.PENDING.value,
             )
         )
+        spent = db.execute(
+            select(
+                func.coalesce(func.sum(AiInvocation.input_tokens), 0),
+                func.coalesce(func.sum(AiInvocation.output_tokens), 0),
+                func.coalesce(func.sum(AiInvocation.cached_tokens), 0),
+                func.count(AiInvocation.id),
+            ).where(AiInvocation.session_id == session_id)
+        ).one()
         return {
+            # **The token total rides the read every poll already makes** (#191; the operator's
+            # constraint for 14.7.4: nothing chatty). A provider that reported no usage counts
+            # as zero here and stays null on its row.
+            "usage": {
+                "input": int(spent[0]),
+                "output": int(spent[1]),
+                "cached": int(spent[2]),
+                "calls": int(spent[3]),
+                "in_flight": any(t.state == TurnState.PENDING.value for t in turns)
+                or (row.mode == Mode.SPAWN.value and row.phase == Phase.RESOLVING.value),
+            },
             "id": row.id,
             "draft_id": row.draft_id,
             "mode": row.mode,
@@ -204,6 +224,36 @@ def read(session_id: str) -> dict:
                 }
             ),
         }
+
+
+def calls(session_id: str) -> list[dict]:
+    """The session's model calls, oldest first, with each reply (#182, #191).
+
+    Fetched only when the page opens its call panel, never on the poll.
+    """
+    with session_scope() as db:
+        if db.get(PipelineAuthoringSession, session_id) is None:
+            raise KeyError(session_id)
+        rows = db.scalars(
+            select(AiInvocation)
+            .where(AiInvocation.session_id == session_id)
+            .order_by(AiInvocation.started_at)
+        ).all()
+        return [
+            {
+                "id": r.id,
+                "purpose": r.purpose,
+                "model": r.model,
+                "input": r.input_tokens,
+                "output": r.output_tokens,
+                "cached": r.cached_tokens,
+                "duration_ms": r.duration_ms,
+                "state": r.state,
+                "response": r.response,
+                "at": r.started_at.isoformat(),
+            }
+            for r in rows
+        ]
 
 
 def move(session_id: str, event: st.Event, *, row_version: int, **values: object) -> Phase:

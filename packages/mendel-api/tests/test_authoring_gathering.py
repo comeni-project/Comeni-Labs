@@ -273,3 +273,55 @@ def test_an_answered_gap_says_its_answer_in_the_history(clean):
     history = {d["block"]["asks"]: d["answer"] for d in authoring.read(sid)["history"]}
     assert history["Sequenced read length?"] == "150"
     assert history["This analysis needs fastq.reads. Do you have one?"] == "I have it"
+
+
+# ── the session's calls, totalled and listed (14.7.4, #191) ───────────────────────────────
+
+
+def _write_call(sid, *, input_tokens, output_tokens, cached, response=None, purpose="goal"):
+    import secrets
+    from datetime import UTC, datetime
+
+    from mendel_api.models import AiInvocation
+
+    now = datetime.now(UTC)
+    with session_scope() as db:
+        db.add(AiInvocation(
+            id=secrets.token_hex(16), agent="builder", purpose=purpose, model="fake/test",
+            provider="local", prompt_id="builder.goal.v4", prompt_version="v4",
+            prompt_digest="0" * 64, input_digests={}, temperature=0.0, state="succeeded",
+            failure_code="", started_at=now, finished_at=now, duration_ms=10,
+            input_tokens=input_tokens, output_tokens=output_tokens, cached_tokens=cached,
+            response=response, session_id=sid,
+        ))
+
+
+def test_usage_sums_the_sessions_calls_and_a_new_session_is_all_zero(clean):
+    sid = _gathering(want=["counts.matrix"])
+    assert authoring.read(sid)["usage"] == {
+        "input": 0, "output": 0, "cached": 0, "calls": 0, "in_flight": False}
+    _write_call(sid, input_tokens=3000, output_tokens=40, cached=2800)
+    _write_call(sid, input_tokens=None, output_tokens=None, cached=None)  # no usage block
+    _write_call("x" * 32, input_tokens=999, output_tokens=9, cached=0)    # another session
+    assert authoring.read(sid)["usage"] == {
+        "input": 3000, "output": 40, "cached": 2800, "calls": 2, "in_flight": False}
+
+
+def test_the_call_list_carries_each_reply_oldest_first(clean):
+    sid = _gathering(want=["counts.matrix"])
+    _write_call(sid, input_tokens=10, output_tokens=1, cached=None, response='{"a": 1}')
+    listed = authoring.calls(sid)
+    assert [c["response"] for c in listed] == ['{"a": 1}']
+    assert listed[0]["purpose"] == "goal" and listed[0]["input"] == 10
+
+
+def test_the_calls_route_lists_them_and_refuses_an_unknown_session(clean):
+    from fastapi.testclient import TestClient
+    from mendel_api.main import create_app
+
+    client = TestClient(create_app())
+    sid = _gathering(want=["counts.matrix"])
+    _write_call(sid, input_tokens=10, output_tokens=1, cached=None, response="{}")
+    assert client.get(f"/api/pipeline/authoring/{sid}/calls").json()[0]["response"] == "{}"
+    assert client.get(f"/api/pipeline/authoring/{sid}").json()["usage"]["calls"] == 1
+    assert client.get("/api/pipeline/authoring/" + "0" * 32 + "/calls").status_code == 404
