@@ -131,6 +131,11 @@ tightening is filling in a row, not rewiring.
 - **A model's reply is stored, whole** (`ai_invocation.response`, #182, 2026-09-29). A reply can
   echo the person's words, so this is a new free-text store at level 0. It is stored, never sent,
   so it crosses no door; each later level decides whether replies are kept.
+- **Phrasing and the read-back are prose inside the authoring AI point** (#167, #176,
+  2026-09-29): `builder.ask.v1` rewrites a question and `builder.readback.v1` reads the goal
+  back, both in the person's register. They author no value — the options, the facts and the
+  goal stay the engine's, and anything a model hears is a suggestion the person confirms — so no
+  new `AiPoint` is declared. Written here for the operator to reject.
 - **The typed payload stays.** Every agent answers in a declared shape. What loosens is *what the
   input may contain*, never the output's type.
 
@@ -154,3 +159,4 @@ tightening is filling in a row, not rewiring.
 | 2026-09-28 | nothing is guessed; an open measurement falls to tier 4 rather than blocking; inputs and measurements split; the tier table | operator, during the #105/#114 brainstorm: *the model can keep that param open as a tier-4 question* |
 | 2026-09-28 | the diagram is generated from `protocol.py`, and the state machine is derived from the same object; the design is drawn dashed until built; a retry may resume only where a return edge is drawn | 14.7.2 (#132), second brainstorm with the operator |
 | 2026-09-29 | model replies stored whole at level 0, and the session's tokens shown | 14.7.4 (#182, #191), operator's brainstorm |
+| 2026-09-29 | the consultant's words: an acknowledgement, each question phrased by a model, a read-back from the composed goal, the model's constraints as suggestions | 14.7.4 (#167, #176, #186), operator's brainstorm |
