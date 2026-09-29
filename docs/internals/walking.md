@@ -91,6 +91,7 @@ piece of work gets its own substep, and the finding points to it.
 | `protocol` | a rule or the protocol needs deciding |
 | `decided` | the operator has chosen; not built yet |
 | `deferred` | decided to do later; not forgotten |
+| `prediction` | a problem expected at scale but not yet seen; worked on only if it shows up |
 
 ## Writing the issue
 
