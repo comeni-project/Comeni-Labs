@@ -374,6 +374,9 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
                 coded("MI0205", "a question about your data is answered with one of its options")
             )
         authoring.answer_gap(proposal_id, body.option, body.value, by=who)
+        # The next question and the one after, phrased while the person reads (#186). Queued,
+        # never called here: a button click is not put behind a model.
+        await authoring_jobs.enqueue_phrasing(session_id)
         after = _view(session_id)
         card = after.pending_proposal
         if after.mode is Mode.SPAWN and card is not None and card.kind == authoring.GOAL:

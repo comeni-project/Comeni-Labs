@@ -287,6 +287,10 @@ class Question(_Block):
     value: HumanParamValue | None = None
     """A value to pre-fill an open field with — a candidate the person confirms, never an
     answer (#170, #171)."""
+    phrasing: Literal["pending", "done", "none"] = "none"
+    """Whether a model is phrasing this question for the person (#167): `pending` while it is,
+    `done` once `asks` is its words, `none` when the engine's words stand (no model, or it
+    failed). The page keeps its one poll running while a pending question is `pending`."""
 
 
 class StepProposal(_Block):
@@ -475,6 +479,20 @@ class Stated(_Shape):
     kind: FactKind
     subject: str = Field(min_length=1, max_length=128)
     value: HumanParamValue | None = None
+
+
+class AskedGap(_Shape):
+    """One gathering question, phrased for the person by `builder.ask.v1` (#167).
+
+    `asks` is prose and replaces the engine's wording in place; the options never change.
+    `already_option` / `already_value` name an answer the person already gave, if the model
+    heard one — a suggestion the person confirms, held to the offered ids and the measurement's
+    declaration, and dropped (never refused) when it fails them.
+    """
+
+    asks: Prose
+    already_option: OptionId | None = None
+    already_value: HumanParamValue | None = None
 
 
 class WantUnderstanding(_Shape):

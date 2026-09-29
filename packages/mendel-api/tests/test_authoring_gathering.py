@@ -347,3 +347,99 @@ def test_the_models_constraints_are_suggestions_never_in_the_goal(clean):
     assert not authoring.compose_goal(sid).constraints.required_states
     card = _payload(authoring.pending_id(sid))["block"]
     assert card["suggested"] == [{"type_id": "counts.matrix", "states": ["gene_level"]}]
+
+
+# ── each question phrased by a model (14.7.4, #167, #186) ─────────────────────────────────
+
+
+def _asked(asks, option=None, value=None):
+    from mendel_api.authoring.types import AskedGap
+
+    return AskedGap(asks=asks, already_option=option, already_value=value)
+
+
+def test_a_phrased_question_replaces_the_engines_words_in_place_and_keeps_the_options(clean):
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    before = _payload(pid)["block"]
+    authoring.store_phrasing(sid, "paired", _asked("Were both ends of each fragment sequenced?"))
+    after = _payload(pid)["block"]
+    assert after["asks"] == "Were both ends of each fragment sequenced?"
+    assert after["phrasing"] == "done"
+    assert [o["id"] for o in after["options"]] == [o["id"] for o in before["options"]]
+
+
+def test_a_phrasing_that_arrives_after_the_answer_changes_nothing(clean):
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    authoring.answer_gap(pid, "yes", None, by="ana")
+    answered = _payload(pid)["block"]
+    authoring.store_phrasing(sid, "paired", _asked("late", option="no"))
+    assert _payload(pid)["block"] == answered
+
+
+def test_already_pre_fills_and_an_unoffered_one_is_dropped(clean):
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    authoring.store_phrasing(sid, "paired", _asked("Paired?", option="maybe"))
+    assert not any(o["recommended"] for o in _payload(pid)["block"]["options"])
+    authoring.store_phrasing(sid, "paired", _asked("Paired?", option="yes"))
+    assert {o["id"] for o in _payload(pid)["block"]["options"] if o["recommended"]} == {"yes"}
+
+
+def test_a_prefetched_phrasing_is_used_when_its_gap_is_offered(clean):
+    sid = _gathering(want=["counts.matrix"])
+    authoring.store_phrasing(sid, "strandedness", _asked("Which way was the library made?"))
+    pid = _pending_for(sid, "strandedness")
+    block = _payload(pid)["block"]
+    assert block["asks"] == "Which way was the library made?" and block["phrasing"] == "done"
+
+
+def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeypatch):
+    import asyncio
+
+    from mendel_api import jobs
+    from mendel_api.services import authoring_jobs
+
+    monkeypatch.setattr(authoring, "_model_configured", lambda: False)
+    queued: list = []
+
+    async def enqueue(*args, **kwargs):
+        queued.append(kwargs)
+        return True
+
+    monkeypatch.setattr(jobs, "enqueue", enqueue)
+    sid = _gathering(want=["counts.matrix"])
+    assert _payload(authoring.pending_id(sid))["block"]["phrasing"] == "none"
+    asyncio.run(authoring_jobs.enqueue_phrasing(sid))
+    assert queued == []
+
+
+def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, monkeypatch):
+    import asyncio
+
+    from mendel_api import jobs
+    from mendel_api.services import authoring_jobs
+
+    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    queued: list = []
+
+    async def enqueue(*args, **kwargs):
+        queued.append((args, kwargs))
+        return True
+
+    monkeypatch.setattr(jobs, "enqueue", enqueue)
+    sid = _gathering(want=["counts.matrix"])
+    asyncio.run(authoring_jobs.enqueue_phrasing(sid))
+    asyncio.run(authoring_jobs.enqueue_phrasing(sid))
+    ids = [kw["job_id"] for _, kw in queued]
+    assert len(set(ids)) == 2 and all(":phrase:" in i for i in ids)
+    assert [args[2] for args, _ in queued[:2]] == ["fastq.reads", "genome.fasta"]
+
+
+def test_a_question_waiting_for_its_words_counts_as_in_flight(clean, monkeypatch):
+    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    sid = _gathering(want=["counts.matrix"])
+    assert authoring.read(sid)["usage"]["in_flight"] is True
+    authoring.phrasing_failed(sid, "fastq.reads")
+    assert authoring.read(sid)["usage"]["in_flight"] is False

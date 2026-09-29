@@ -3631,6 +3631,12 @@ export interface components {
             exhaustive: boolean;
             /** Value */
             value?: number | boolean | string | null;
+            /**
+             * Phrasing
+             * @default none
+             * @enum {string}
+             */
+            phrasing: "pending" | "done" | "none";
         };
         /** QueueResponse */
         QueueResponse: {

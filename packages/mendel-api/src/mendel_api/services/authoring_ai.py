@@ -47,6 +47,7 @@ from mendel_forge.workflow import InvocationState
 from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
     CHAT_TAIL,
+    AskedGap,
     AuthoringIntent,
     FactKind,
     GapReply,
@@ -87,6 +88,7 @@ class Purpose(StrEnum):
     CHAT = "chat"
     TIER4 = "tier4"
     GAP = "gap"
+    ASK = "ask"
 
 
 class Outcome(NamedTuple):
@@ -101,7 +103,7 @@ class Outcome(NamedTuple):
     the transcript stores the other.
     """
 
-    reply: WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | None
+    reply: WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | AskedGap | None
     invocation_id: str | None
     refusal: str | None
     code: str | None
@@ -294,6 +296,55 @@ def read_gap_reply(
         client=client,
         session_id=session_id,
     )
+
+
+def phrase_gap(
+    request: AuthoringRequest,
+    *,
+    gap: dict,
+    stack,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """One gathering question, phrased for this person, and any answer they already gave (#167).
+
+    `gap` carries `subject`, `kind`, `asks` (the engine's wording), `description` and `options`
+    (id → label); `request.prompt` is the person's first sentence and `request.options` the
+    gap's option ids, so admission compares `already_option` against what was written down
+    before the call went out.
+    """
+    return _call(
+        request,
+        purpose=Purpose.ASK,
+        prompt_id=prompts.ASK,
+        shape=AskedGap,
+        values={
+            "gap": gap["asks"],
+            "description": gap.get("description") or gap["subject"],
+            "options": _options_text([f"{k} — {v}" for k, v in gap["options"].items()]),
+            "first_sentence": request.prompt,
+            "facts": gap.get("facts") or "(nothing yet)",
+        },
+        admit=lambda reply: _admit_asked(reply, gap, stack),
+        client=client,
+        session_id=session_id,
+    )
+
+
+def _admit_asked(asked: AskedGap, gap: dict, stack) -> AskedGap:
+    """`asks` is prose and kept; an `already` the gap did not offer, or a value its measurement
+    refuses, is **dropped, not refused** — the phrasing is still worth having (#167)."""
+    option, value = asked.already_option, asked.already_value
+    if option is not None and option not in gap["options"]:
+        option = None
+    if value is not None:
+        try:
+            if "value" not in gap["options"]:
+                raise ValueError("no value was offered")
+            stack.measurements.check(gap["subject"], value)
+        except (ValueError, KeyError, TypeError):
+            value = None
+    return asked.model_copy(update={"already_option": option, "already_value": value})
 
 
 def _call(

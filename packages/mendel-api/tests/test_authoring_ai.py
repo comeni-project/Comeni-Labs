@@ -486,3 +486,19 @@ def test_a_builder_call_sends_the_split_and_digests_what_it_sent(stack, clean_fo
     assert "count genes" in messages[1]["content"]
     assert "count genes" not in str(messages[0]["content"])
     assert _rows()[0].prompt_digest == hashlib.sha256(client.last_prompt.encode()).hexdigest()
+
+
+def test_a_phrasing_keeps_its_words_and_drops_an_already_nobody_offered(stack, clean_forge):
+    """#167: `already` is held like `chose`, but a bad one is dropped, not refused."""
+    gap = {"subject": "paired", "kind": "measurement", "asks": "Whether paired?",
+           "description": "paired-end", "options": {"yes": "Yes", "no": "No"}, "facts": ""}
+    request = ai.compose(prompt="paired-end reads", options=["yes", "no"])
+    outcome = ai.phrase_gap(
+        request, gap=gap, stack=stack, session_id="s" * 32,
+        client=_client(
+            json.dumps({"asks": "Were both ends sequenced?", "already_option": "maybe"})
+        ),
+    )
+    assert outcome.admitted and outcome.reply.asks == "Were both ends sequenced?"
+    assert outcome.reply.already_option is None
+    assert _rows()[0].purpose == "ask"

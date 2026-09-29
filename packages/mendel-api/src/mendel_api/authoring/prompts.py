@@ -69,7 +69,11 @@ GAP: PromptId = "builder.gap.v2"
 """A person's typed answer to one gap in, one offered option id or a typed value out, or
 *unsure*. Egress door 1. Clicking an option never reaches this: it needs no model (14.7.3)."""
 
-TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP)
+ASK: PromptId = "builder.ask.v1"
+"""One gathering question in, the question in the person's words out, and any answer they
+already gave (#167). Prose only: the options and the fact stay the engine's."""
+
+TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP, ASK)
 """**Every current template is split** at `comeni_ai.prompts.DIVIDER` (14.7.4, #183): what never
 changes between calls first, as a system message a provider caches, and what does after it.
 The v4/v1 files they replace stay loadable, whole, through `RETIRED`."""

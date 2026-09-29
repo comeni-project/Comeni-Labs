@@ -275,7 +275,7 @@ PROTOCOL = Protocol(
             _P.GATHERING,
             shape=Shape.CHOICE,
         ),
-        _built("ask", "gather", _AI, "AI asks you about it,<br/>in plain words", _P.GATHERING),
+        _built("ask", "gather", _AI, "AI phrases each question<br/>in plain words", _P.GATHERING),
         _built("reply", "gather", _YOU, "You answer", _P.GATHERING, shape=Shape.CHOICE),
         _built(
             "suggest",

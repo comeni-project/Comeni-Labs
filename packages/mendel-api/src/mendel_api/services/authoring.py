@@ -36,6 +36,7 @@ from sqlalchemy import func, select, update
 
 from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
+    AskedGap,
     Fact,
     FactKind,
     FactSource,
@@ -162,7 +163,8 @@ def read(session_id: str) -> dict:
                 "cached": int(spent[2]),
                 "calls": int(spent[3]),
                 "in_flight": any(t.state == TurnState.PENDING.value for t in turns)
-                or (row.mode == Mode.SPAWN.value and row.phase == Phase.RESOLVING.value),
+                or (row.mode == Mode.SPAWN.value and row.phase == Phase.RESOLVING.value)
+                or _words_coming(pending),
             },
             "id": row.id,
             "draft_id": row.draft_id,
@@ -224,6 +226,15 @@ def read(session_id: str) -> dict:
                 }
             ),
         }
+
+
+def _words_coming(pending) -> bool:
+    """Whether the proposal on offer is still waiting for a model's words: a question being
+    phrased (#167) or a card's read-back (#176). Read from the row already loaded."""
+    if pending is None:
+        return False
+    block = pending.payload.get("block") or {}
+    return block.get("phrasing") == "pending" or bool(block.get("readback_pending"))
 
 
 def calls(session_id: str) -> list[dict]:
@@ -1394,7 +1405,7 @@ def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
         return dict(row.goal or {}), facts, row.row_version
 
 
-_NOT_GOAL = frozenset({"summary", "stated", "suggested"})
+_NOT_GOAL = frozenset({"summary", "stated", "suggested", "phrased"})
 """What the session's `goal` column holds while gathering beside the want, and a `Goal` does not:
 the model's summary sentence for the card, and the candidates it heard (#170)."""
 
@@ -1490,6 +1501,11 @@ def offer_next_gap(session_id: str) -> str | None:
     )
     if heard is not None and (fill := _candidate_option(gap.kind, heard.get("value"), options)):
         question = _prefilled(question, *fill, note=STATED_NOTE)
+    phrased = (wanted.get("phrased") or {}).get(gap.subject)
+    if phrased is not None:
+        question = _phrased(question, AskedGap.model_validate(phrased), gap.kind, options)
+    elif _model_configured():
+        question = question.model_copy(update={"phrasing": "pending"})
     return propose(
         session_id,
         kind=GAP,
@@ -1565,6 +1581,128 @@ def prefill_gap(proposal_id: str, option: str, value, *, note: str) -> None:
         question = Question.model_validate(payload["block"])
         payload["block"] = _prefilled(question, option, value, note=note).model_dump(mode="json")
         proposal.payload = payload
+
+
+ALREADY_NOTE = "from what you said earlier"
+"""The note on an option a phrasing call heard the person already give (#167)."""
+
+
+def _model_configured() -> bool:
+    """Whether a model can phrase questions. The one seam a test replaces."""
+    from mendel_api.settings import model_access
+
+    return model_access() is not None
+
+
+def _phrased(question: Question, asked: AskedGap, kind: FactKind, options: dict) -> Question:
+    """The question in the model's words, options untouched; `already` pre-fills only when
+    nothing is suggested yet (a stated candidate, heard first, wins)."""
+    question = question.model_copy(update={"asks": asked.asks, "phrasing": "done"})
+    if any(o.recommended for o in question.options):
+        return question
+    if asked.already_value is not None and "value" in options:
+        return _prefilled(question, "value", asked.already_value, note=ALREADY_NOTE)
+    if asked.already_option is not None and asked.already_option in options:
+        return _prefilled(question, asked.already_option, None, note=ALREADY_NOTE)
+    return question
+
+
+def store_phrasing(session_id: str, subject: str, asked: AskedGap) -> None:
+    """Keep a phrasing for `subject`, and if that question is on offer, swap it in place (#167).
+
+    **Stored by subject**, because a prefetch phrases the next question before it exists (#186);
+    `offer_next_gap` applies it then. A phrasing for a question already answered changes nothing.
+    """
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        goal = dict(row.goal or {})
+        goal["phrased"] = {**(goal.get("phrased") or {}), subject: asked.model_dump(mode="json")}
+        row.goal = goal
+        pending = _pending_gap(db, session_id)
+        if pending is not None and pending.payload.get("subject") == subject:
+            payload = dict(pending.payload)
+            question = Question.model_validate(payload["block"])
+            payload["block"] = _phrased(
+                question, asked, FactKind(payload["kind"]), payload["options"]
+            ).model_dump(mode="json")
+            pending.payload = payload
+
+
+def phrasing_failed(session_id: str, subject: str) -> None:
+    """A phrasing call that failed or was refused: the engine's words stand (`none`)."""
+    with session_scope() as db:
+        pending = _pending_gap(db, session_id)
+        if pending is not None and pending.payload.get("subject") == subject:
+            payload = dict(pending.payload)
+            block = dict(payload["block"])
+            if block.get("phrasing") == "pending":
+                block["phrasing"] = "none"
+                payload["block"] = block
+                pending.payload = payload
+
+
+def _pending_gap(db, session_id: str):
+    pending = db.scalar(
+        select(PipelineAuthoringProposal).where(
+            PipelineAuthoringProposal.session_id == session_id,
+            PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+        )
+    )
+    return pending if pending is not None and pending.kind == GAP else None
+
+
+def to_phrase(session_id: str) -> list[str]:
+    """The subjects worth phrasing now: the question on offer and the next one (#186), minus any
+    already phrased. Empty with no model, or outside gathering."""
+    if not _model_configured() or current_phase(session_id) is not Phase.GATHERING:
+        return []
+    wanted, facts, _ = _gathered(session_id)
+    found = gaps.gaps(wanted.get("want", []), facts, registry.stack())
+    if isinstance(found, gaps.Unreachable):
+        return []
+    done = set(wanted.get("phrased") or {})
+    return [g.subject for g in found[:2] if g.subject not in done]
+
+
+def gap_context(session_id: str, subject: str) -> dict | None:
+    """What `builder.ask.v1` is given about one question, or `None` if it is no longer needed."""
+    wanted, facts, version = _gathered(session_id)
+    stack = registry.stack()
+    found = gaps.gaps(wanted.get("want", []), facts, stack)
+    if isinstance(found, gaps.Unreachable):
+        return None
+    gap = next((g for g in found if g.subject == subject), None)
+    if gap is None:
+        return None
+    options = _gap_options(gap, stack)
+    described = (
+        stack.measurements.get(subject).description
+        if gap.kind is FactKind.MEASUREMENT
+        else f"an input the analysis reads: {subject}"
+    )
+    with session_scope() as db:
+        first = db.scalar(
+            select(PipelineAuthoringTurn)
+            .where(
+                PipelineAuthoringTurn.session_id == session_id,
+                PipelineAuthoringTurn.role == "person",
+            )
+            .order_by(PipelineAuthoringTurn.seq)
+            .limit(1)
+        )
+    return {
+        "subject": subject,
+        "kind": gap.kind.value,
+        "asks": _gap_question(gap, options, stack, version).asks,
+        "description": described or subject,
+        "options": options,
+        "facts": "; ".join(
+            f"{f.subject}: {f.value if f.value is not None else f.source.value}" for f in facts
+        ),
+        "first_sentence": first.text if first is not None else "",
+    }
 
 
 def _fact_for(kind: FactKind, subject: str, option: str, value) -> Fact:

@@ -24,7 +24,7 @@ flowchart LR
         direction TB
         list_needs["Engine lists what the target needs<br/>inputs, and facts rules will read"]:::engine
         next_gap{"Anything on the list<br/>still unknown?"}:::engine
-        ask["AI asks you about it,<br/>in plain words"]:::ai
+        ask["AI phrases each question<br/>in plain words"]:::ai
         reply{"You answer"}:::you
         suggest["AI reads your words<br/>into a suggestion you confirm"]:::ai
         upload(["You upload a file"]):::you

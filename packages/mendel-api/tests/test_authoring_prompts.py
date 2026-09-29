@@ -62,7 +62,7 @@ def test_the_invariant_block_is_at_the_top_of_each_one():
 
 def test_there_are_templates_to_check():
     """A loop is not an assertion: every test above passes over an empty tuple."""
-    assert len(prompts.TEMPLATES) == 4
+    assert len(prompts.TEMPLATES) == 5
 
 
 # ── the gap-reply prompt ──────────────────────────────────────────────────────────────
@@ -325,6 +325,10 @@ PER_CALL = {  # two different sessions' values for every per-call placeholder
     "question": ("paired?", "read length?"),
     "asking": ("which aligner", "which caller"),
     "evidence": ("row 1", "row 2"),
+    "gap": ("This analysis needs genome.fasta.", "Sequenced read length?"),
+    "description": ("a reference genome", "read length in bp"),
+    "first_sentence": ("gene counts", "variant calls"),
+    "facts": ("paired: yes", "(none)"),
 }
 
 

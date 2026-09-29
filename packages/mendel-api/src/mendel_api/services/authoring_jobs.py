@@ -41,8 +41,9 @@ log = logging.getLogger(__name__)
 
 ANSWER = "answer_authoring_turn"
 BUILD = "build_authoring_blueprint"
+PHRASE = "phrase_authoring_gap"
 
-AI_JOBS = frozenset({ANSWER, BUILD})
+AI_JOBS = frozenset({ANSWER, BUILD, PHRASE})
 """The builder's jobs that reach a provider — `forge_jobs.AI_JOBS`, one agent over.
 
 **Declared by the module that owns them**, and the AI worker's allowlist is held equal to the
@@ -105,6 +106,9 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
         _understand(session_id, seq, context, context.prompt)
     elif context.phase is Phase.GATHERING and _pending_gap(session_id) is not None:
         _gap_reply(session_id, seq, context)
+    if authoring.current_phase(session_id) is Phase.GATHERING:
+        # The question now on offer and the next one, phrased while the person reads (#186).
+        await enqueue_phrasing(session_id)
     else:
         _follow_up(session_id, seq, context)
     return f"{session_id}:{seq}"
@@ -169,6 +173,40 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         },
     )
     authoring.offer_next_gap(session_id)
+
+
+async def enqueue_phrasing(session_id: str) -> None:
+    """Queue `builder.ask.v1` for the question on offer and the next one (#167, #186).
+
+    **Keyed on the question's subject**, so a second call — another answer, a retry, a reload —
+    collides at the queue instead of phrasing twice. Nothing is queued with no model configured.
+    """
+    for subject in authoring.to_phrase(session_id):
+        await jobs.enqueue(
+            PHRASE,
+            session_id,
+            subject,
+            job_id=jobs.job_id_for("builder", "phrase", session_id, subject),
+            queue=jobs.AI_QUEUE,
+        )
+
+
+async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str) -> str:
+    """Phrase one gathering question for the person (#167). A failure leaves the engine's words."""
+    gap = authoring.gap_context(session_id, subject)
+    if gap is None:
+        return f"{session_id}:{subject} is no longer asked"
+    request = authoring_ai.compose(
+        prompt=gap["first_sentence"], options=list(gap["options"]), registry=registry.digest()
+    )
+    outcome = authoring_ai.phrase_gap(
+        request, gap=gap, stack=registry.stack(), client=_client(), session_id=session_id
+    )
+    if outcome.admitted:
+        authoring.store_phrasing(session_id, subject, outcome.reply)
+    else:
+        authoring.phrasing_failed(session_id, subject)
+    return f"{session_id}:{subject}"
 
 
 def _pending_gap(session_id: str) -> dict | None:
