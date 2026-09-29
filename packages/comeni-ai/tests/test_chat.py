@@ -154,3 +154,35 @@ def test_choose_one_can_send_a_fixed_part():
                         system="the fixed framing")
     assert answer.value == "a"
     assert [m["role"] for m in seen[0]] == ["system", "user"]
+
+
+class Documented(BaseModel):
+    """A developer's docstring — naming `builder.ask.v1` and issue 194 — that the model must not
+    be shown: gemma3:12b answered twice with the schema itself, docstring and all (#194)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    description: str
+    inner: Answer
+
+
+def test_the_schema_sent_carries_no_docstrings_in_either_send():
+    seen: list = []
+    client = Client(ACCESS, transport=_recording(seen))
+    client.chat("fixed", "per call", Documented)
+    client.respond(_prompt_for(Documented), Documented)
+    for sent in (seen[0][0]["content"], client.last_prompt):
+        assert "issue 194" not in sent and "builder.ask.v1" not in sent
+
+
+def test_a_field_named_description_survives_the_strip():
+    seen: list = []
+    Client(ACCESS, transport=_recording(seen)).chat("fixed", "per call", Documented)
+    system = seen[0][0]["content"]
+    assert '"description": {' in system and '"inner"' in system
+
+
+def _prompt_for(shape):
+    from comeni_ai import client as module
+
+    return module._prompt("say it", shape, [])

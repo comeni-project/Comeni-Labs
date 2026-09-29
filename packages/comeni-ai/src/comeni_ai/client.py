@@ -206,7 +206,7 @@ def _messages(access: ModelAccess, system: str, user: str, shape: type[BaseModel
     provider it reaches, and one that does not know the field may reject the request; OpenAI and
     Ollama cache an identical prefix without being told.
     """
-    schema = json.dumps(shape.model_json_schema(), indent=2, sort_keys=True)
+    schema = _schema(shape)
     parts = [part.strip("\n") for part in system.split(CACHE_BREAK)]
     parts[-1] = f"{parts[-1]}\n\n{_SCHEMA_INTRO}\n{schema}"
     if access.model.startswith("anthropic/"):
@@ -224,6 +224,29 @@ def _messages(access: ModelAccess, system: str, user: str, shape: type[BaseModel
 
 def _text_of(content: "str | list[dict]") -> str:
     return content if isinstance(content, str) else "\n".join(b["text"] for b in content)
+
+
+def _schema(shape: type[BaseModel]) -> str:
+    """The shape's JSON Schema without its docstrings.
+
+    A docstring is written for whoever maintains the type — issue numbers, prompt names, why a
+    field exists — and it is prose inside the one thing the model is told to copy the form of.
+    `gemma3:12b` answered 4 of 4 sparse phrasing calls with the schema itself, docstring first
+    (#194). Only string `description`s go: a property *named* `description` is a dict and stays.
+    """
+    return json.dumps(_undocumented(shape.model_json_schema()), indent=2, sort_keys=True)
+
+
+def _undocumented(node: object) -> object:
+    if isinstance(node, dict):
+        return {
+            key: _undocumented(value)
+            for key, value in node.items()
+            if not (key == "description" and isinstance(value, str))
+        }
+    if isinstance(node, list):
+        return [_undocumented(item) for item in node]
+    return node
 
 
 def _prompt(instruction: str, shape: type[BaseModel], evidence: list[str]) -> str:
@@ -246,7 +269,7 @@ def _prompt(instruction: str, shape: type[BaseModel], evidence: list[str]) -> st
         "",
         "Answer with JSON only, matching this schema exactly. Output nothing else — no "
         "explanation, no commentary, no markdown outside the JSON:",
-        json.dumps(shape.model_json_schema(), indent=2, sort_keys=True),
+        _schema(shape),
     ]
     return "\n".join(parts)
 
