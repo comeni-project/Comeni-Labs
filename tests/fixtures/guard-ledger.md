@@ -5006,3 +5006,15 @@ added or corrected today.
 | 2026-09-13 | `frontend/src/build/living/Keep.test.tsx::asks once after a burst of commits` | preview debounce set to `0` | **passed — inert** | one 1.2s `act` flushed six revisions into one render. Rewritten as forty short acts; the same revert then failed `expected 5 to be 1` |
 | 2026-09-13 | `frontend/src/home/First.test.tsx` (5 tests) | `live` forced true · mode ignored · blank sentence allowed · no session id in the URL | failed, each only its own | always-live failed the three no-model tests; the rest failed one or two readiness tests each |
 | 2026-09-13 | `frontend/src/home/First.test.tsx::where /build goes` (2 tests) | `BuildRoute` always living · never living | failed, each only its own | the draft test first passed against always-living, because `LivingBuilder` with no session renders its hint rather than `living-loading`; it now also asserts that hint is absent |
+
+## 2026-09-29 — the living pipeline's gathering (14.7.2–14.7.3)
+
+Watched failing while building the protocol object, the derived state machine and gathering; the
+plan's execution record (`docs/superpowers/plans/2026-09-28-the-consultant-gathering.md`) has the
+rest.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-28 | `packages/mendel-api/tests/test_authoring_protocol.py` (load-time checks) | `card` set planned; a second built `read_goal→done` on the same event | failed, each its own | `built edge read_goal→card touches a planned node`; `understanding on goal_returned leads to both goal_review and complete` |
+| 2026-09-28 | `tests/repo/test_protocol_doc.py::test_the_protocol_diagram_is_fresh` | one node label changed in `protocol.py` | failed | `authoring-protocol-diagram.md is stale — run: uv run python tools/generate_protocol_doc.py` |
+| 2026-09-29 | `tests/guards/test_construction.py::test_data_profile_is_constructed_in_one_place` | a scratch `DataProfile(measurements=[])` in `mendel_api/_scratch_guard.py` | **passed — inert for the API** (issue 165); after scanning `mendel-api` too, failed | `… construct one directly: packages/mendel-api/src/mendel_api/_scratch_guard.py:5` |

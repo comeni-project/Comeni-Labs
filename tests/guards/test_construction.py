@@ -50,6 +50,15 @@ and on a payload the copy still goes through `model_dump()`."""
 
 
 _GUARDED = (*CLOSED_PACKAGES, *BANLIST_PACKAGES)
+
+_PROFILE_GUARDED = (*_GUARDED, "mendel-api")
+"""Where a `DataProfile` may not be built directly: the pure packages, **and `mendel-api`**.
+
+Issue 165: gathering (14.7.3) folds a session's facts into a goal's profile inside the API, so
+an unvalidated profile could be built there and reach routing. The purity lists could not say
+so — `mendel-api` is impure, rightly, for everything *except* this rule — so the profile rule
+keeps its own list rather than widening theirs.
+"""
 """The packages this file scans, taken from `test_purity.py` rather than written out again.
 
 A67, issue #31: both files globbed a hand-written package list, and a name that matches no
@@ -136,7 +145,7 @@ def _constructions(
 def test_data_profile_is_constructed_in_one_place():
     root = ROOT
     offenders = []
-    for package in _GUARDED:
+    for package in _PROFILE_GUARDED:
         for py in sorted((root / "packages" / package / "src").rglob("*.py")):
             if str(py.relative_to(root)) in ALLOWED:
                 continue
@@ -298,6 +307,13 @@ def test_the_only_caller_of_materialise_of_is_pipeline_of():
         "the guard above names and the only one the documentation describes:\n  "
         + "\n  ".join(callers)
     )
+
+
+def test_every_profile_guarded_package_exists():
+    """A package name that matches no directory scans nothing and passes (A67's shape)."""
+    assert _PROFILE_GUARDED
+    for package in _PROFILE_GUARDED:
+        assert (ROOT / "packages" / package / "src").is_dir(), package
 
 
 def test_every_exempted_path_names_a_file_that_exists():
