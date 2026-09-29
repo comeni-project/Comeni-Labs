@@ -395,6 +395,18 @@ def test_a_prefetched_phrasing_is_used_when_its_gap_is_offered(clean):
     assert block["asks"] == "Which way was the library made?" and block["phrasing"] == "done"
 
 
+def test_a_refused_prefetch_leaves_the_engines_words_when_its_gap_is_offered(clean, monkeypatch):
+    """#196: refused while it was the *next* question, it used to wait `pending` for ever —
+    its job id spent, nothing left to settle it."""
+    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    sid = _gathering(want=["counts.matrix"])
+    authoring.phrasing_failed(sid, "strandedness")
+    assert "strandedness" not in authoring.to_phrase(sid)
+    block = _payload(_pending_for(sid, "strandedness"))["block"]
+    assert block["phrasing"] == "none"
+    assert "strandedness" not in authoring.to_phrase(sid)
+
+
 def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeypatch):
     import asyncio
 

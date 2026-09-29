@@ -1502,10 +1502,11 @@ def offer_next_gap(session_id: str) -> str | None:
     )
     if heard is not None and (fill := _candidate_option(gap.kind, heard.get("value"), options)):
         question = _prefilled(question, *fill, note=STATED_NOTE)
-    phrased = (wanted.get("phrased") or {}).get(gap.subject)
+    settled = wanted.get("phrased") or {}
+    phrased = settled.get(gap.subject)
     if phrased is not None:
         question = _phrased(question, AskedGap.model_validate(phrased), gap.kind, options)
-    elif _model_configured():
+    elif _model_configured() and gap.subject not in settled:  # a recorded refusal is `none`
         question = question.model_copy(update={"phrasing": "pending"})
     return propose(
         session_id,
@@ -1632,8 +1633,17 @@ def store_phrasing(session_id: str, subject: str, asked: AskedGap) -> None:
 
 
 def phrasing_failed(session_id: str, subject: str) -> None:
-    """A phrasing call that failed or was refused: the engine's words stand (`none`)."""
+    """A phrasing call that failed or was refused: the engine's words stand (`none`).
+
+    **Recorded by subject as `null`**, like a phrasing, because a refused *prefetch* is for a
+    question not yet on offer: unrecorded, that question later waited `pending` with its job id
+    spent and nothing left to settle it (#196)."""
     with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is not None:
+            goal = dict(row.goal or {})
+            goal["phrased"] = {**(goal.get("phrased") or {}), subject: None}
+            row.goal = goal
         pending = _pending_gap(db, session_id)
         if pending is not None and pending.payload.get("subject") == subject:
             payload = dict(pending.payload)
