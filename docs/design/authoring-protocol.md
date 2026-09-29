@@ -136,6 +136,13 @@ tightening is filling in a row, not rewiring.
   back, both in the person's register. They author no value — the options, the facts and the
   goal stay the engine's, and anything a model hears is a suggestion the person confirms — so no
   new `AiPoint` is declared. Written here for the operator to reject.
+- **The type is chosen in two calls** (#194, 2026-09-29): `builder.family.v1` picks the families
+  what the person wants belongs to, from a short described list, and `builder.goal.v7` is shown
+  every type of those families, whole. Both choose declared ids inside goal extraction, so no new
+  `AiPoint` is declared; a request no family fits becomes a question to the person, never the
+  nearest family. It narrows what the goal call is shown to whole families, never to a
+  hand-picked subset. Written here for the operator to reject, and **kept only if the benchmark
+  (#198) says it is worth its extra call**.
 - **The typed payload stays.** Every agent answers in a declared shape. What loosens is *what the
   input may contain*, never the output's type.
 
@@ -160,3 +167,4 @@ tightening is filling in a row, not rewiring.
 | 2026-09-28 | the diagram is generated from `protocol.py`, and the state machine is derived from the same object; the design is drawn dashed until built; a retry may resume only where a return edge is drawn | 14.7.2 (#132), second brainstorm with the operator |
 | 2026-09-29 | model replies stored whole at level 0, and the session's tokens shown | 14.7.4 (#182, #191), operator's brainstorm |
 | 2026-09-29 | the consultant's words: an acknowledgement, each question phrased by a model, a read-back from the composed goal, the model's constraints as suggestions | 14.7.4 (#167, #176, #186), operator's brainstorm |
+| 2026-09-29 | the type chosen by family first: a *family* step before the goal call; a revision and a retry re-run both; replies enforced in shape by the model server where it can | 14.7.4 (#194), operator's brainstorm: *we aim to have hundreds if not thousands of tools* |

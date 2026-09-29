@@ -258,7 +258,22 @@ PROTOCOL = Protocol(
             _P.UNDERSTANDING,
             shape=Shape.ROUND,
         ),
-        _built("read_goal", "describe", _AI, "AI reads it into a typed goal", _P.UNDERSTANDING),
+        # The type in two steps (14.7.4, #194): the family from a short list, then the goal from
+        # each chosen family shown whole.
+        _built(
+            "family",
+            "describe",
+            _AI,
+            "AI picks the kind of result<br/>from a short list",
+            _P.UNDERSTANDING,
+        ),
+        _built(
+            "read_goal",
+            "describe",
+            _AI,
+            "AI reads it into a typed goal,<br/>from each chosen family whole",
+            _P.UNDERSTANDING,
+        ),
         # ② built in 14.7.3; the upload branch stays planned (14.7.6, 14.7.7)
         _built(
             "list_needs",
@@ -390,11 +405,14 @@ PROTOCOL = Protocol(
     ),
     edges=(
         # built: today's loop
-        _e("say", "read_goal", built=True),
+        _e("say", "family", built=True),
+        _e("family", "read_goal", "each family, whole", built=True),
+        _e("family", "say", "none fits: it asks you", built=True),
+        _move("family", "failed", _E.PROVIDER_FAILED, "model failed"),
         _move("read_goal", "failed", _E.PROVIDER_FAILED, "model failed"),
         _e("readback", "card", "in the AI's words", built=True),
         _move("card", "resolve", _E.GOAL_ACCEPTED, "that's right"),
-        _move("card", "read_goal", _E.GOAL_REVISED, "not quite"),
+        _move("card", "family", _E.GOAL_REVISED, "not quite"),
         _move("resolve", "offer", _E.BLUEPRINT_STORED),
         _move("resolve", "failed", _E.BUILD_FAILED, "can't build it"),
         _move("resolve", "failed", _E.PROVIDER_FAILED, "model failed"),
@@ -407,7 +425,7 @@ PROTOCOL = Protocol(
         _move("offer", "done", _E.NOTHING_LEFT, "nothing left"),
         _move("offer", "resolve", _E.GOAL_ACCEPTED, "the goal changed"),
         _move("done", "resolve", _E.GOAL_ACCEPTED, "the goal changed"),
-        _move("failed", "read_goal", _E.RETRY, "retry", returns=True),
+        _move("failed", "family", _E.RETRY, "retry", returns=True),
         _move("failed", "resolve", _E.RETRY, "retry", returns=True),
         # built: gathering (14.7.3)
         _move("read_goal", "list_needs", _E.WANT_RETURNED),

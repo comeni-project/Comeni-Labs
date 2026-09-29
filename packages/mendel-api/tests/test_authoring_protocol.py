@@ -106,3 +106,17 @@ def test_the_machine_is_read_from_the_protocol():
     assert p.PROTOCOL.transitions() == st.TRANSITIONS
     assert st.RETRY_TARGETS == p.PROTOCOL.retry_targets() == {Phase.UNDERSTANDING, Phase.RESOLVING}
     assert st.RETRY_FALLBACK in st.RETRY_TARGETS
+
+
+def test_the_type_is_chosen_by_family_first():
+    """#194: a built AI step before the goal call; a revision and a retry re-run both steps."""
+    nodes = {n.id: n for n in p.PROTOCOL.nodes}
+    family = nodes["family"]
+    assert family.built and family.actor is p.Actor.AI and family.stage == "describe"
+    edges = {(e.source, e.target, e.event) for e in p.PROTOCOL.edges}
+    assert ("say", "family", None) in edges and ("say", "read_goal", None) not in edges
+    assert ("family", "read_goal", None) in edges
+    assert ("family", "say", None) in edges, "none fits: a question back to the person"
+    assert ("card", "family", Event.GOAL_REVISED) in edges
+    assert ("failed", "family", Event.RETRY) in edges
+    assert ("family", "failed", Event.PROVIDER_FAILED) in edges

@@ -17,7 +17,8 @@ flowchart LR
     subgraph describe ["① You describe it"]
         direction TB
         say(["You say what you want<br/>(files optional)"]):::you
-        read_goal["AI reads it into a typed goal"]:::ai
+        family["AI picks the kind of result<br/>from a short list"]:::ai
+        read_goal["AI reads it into a typed goal,<br/>from each chosen family whole"]:::ai
     end
     style describe fill:transparent,stroke:#555
     subgraph gather ["② The engine gathers what it needs"]
@@ -66,11 +67,14 @@ flowchart LR
         failed(["Failed: say why,<br/>offer a retry"]):::stop
     end
     style wrong fill:transparent,stroke:#555
-    say --> read_goal
+    say --> family
+    family -- "each family, whole" --> read_goal
+    family -- "none fits: it asks you" --> say
+    family -- "model failed" --> failed
     read_goal -- "model failed" --> failed
     readback -- "in the AI's words" --> card
     card -- "that's right" --> resolve
-    card -- "not quite" --> read_goal
+    card -- "not quite" --> family
     resolve --> offer
     resolve -- "can't build it" --> failed
     resolve -- "model failed" --> failed
@@ -83,7 +87,7 @@ flowchart LR
     offer -- "nothing left" --> done
     offer -- "the goal changed" --> resolve
     done -- "the goal changed" --> resolve
-    failed -- "retry" --> read_goal
+    failed -- "retry" --> family
     failed -- "retry" --> resolve
     read_goal --> list_needs
     list_needs --> next_gap
