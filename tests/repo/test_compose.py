@@ -525,3 +525,17 @@ def test_nothing_but_the_ai_worker_runs_the_ai_queue(base):
     ]
     assert running == ["ai-worker"]
 
+
+
+def test_the_model_server_keeps_the_model_loaded_and_serves_one_slot(base):
+    """#184, #185: an unloaded model costs 7–8 s to reload, and a prefix is reused only by the
+    slot that last held it. Defaults an operator can override; the app assumes neither."""
+    env = base["services"]["ollama"]["environment"]
+    assert "OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-1h}" in env
+    assert "OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}" in env
+
+
+def test_the_model_server_image_is_pinned_to_an_exact_version(base):
+    image = base["services"]["ollama"]["image"]
+    assert image.startswith("${OLLAMA_IMAGE:-ollama/ollama:")
+    assert ":latest" not in image and "0.6.5" not in image

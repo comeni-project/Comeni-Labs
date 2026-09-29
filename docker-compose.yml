@@ -230,10 +230,10 @@ services:
     # **Both of the next two lines default to exactly what they were.** They are settings
     # because the two things an operator most often already has are a model server image
     # matching their GPU and a directory of weights they have already downloaded, and neither
-    # is worth re-acquiring inside a container. `OLLAMA_IMAGE=ollama/ollama:0.6.5-rocm` with
+    # is worth re-acquiring inside a container. `OLLAMA_IMAGE=ollama/ollama:0.34.4-rocm` with
     # `docker-compose.ollama-rocm.yml` is the AMD lane; `OLLAMA_MODELS=$HOME/.ollama` reuses a
     # host install's models in place, which is a bind mount rather than a copy.
-    image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.5}
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.34.4}
     container_name: ${OLLAMA_CONTAINER_NAME:-mendel-ollama}
     profiles: [ai]
     volumes: ["${OLLAMA_MODELS:-ollama-models}:/root/.ollama"]
@@ -245,6 +245,12 @@ services:
       #
       # The bare-name form, so unset stays unset and the image keeps its own default.
       - OLLAMA_CONTEXT_LENGTH
+      # **Deployment configuration, not app behaviour** (#184, #185). Kept loaded for an hour,
+      # because an unloaded model costs 7–8 s to reload mid-conversation; one slot, because a
+      # prompt's prefix is reused only by the slot that last held it. The app sends no
+      # keep-alive and assumes neither: a Kubernetes deployment sets its own.
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-1h}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
     ports: ["${OLLAMA_HOST_PORT:-11434}:11434"]
     healthcheck:
       # `ollama list` rather than a socket probe: the server answers HTTP before it can serve

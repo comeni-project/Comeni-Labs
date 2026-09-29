@@ -71,7 +71,7 @@ make ai-pull MODEL=qwen2.5-coder:14b  # ~9GB, once. Kept in a named volume
 `make ai-up` prints the two lines to add to `.env`:
 
 ```
-COMENI_AI_MODEL=ollama/qwen2.5-coder:14b
+COMENI_AI_MODEL=ollama_chat/qwen2.5-coder:14b
 COMENI_AI_BASE_URL=http://ollama:11434
 ```
 
@@ -90,6 +90,16 @@ registry.
 
 Leaving `COMENI_AI_MODEL` empty is a supported way to run the forge. Sources sync, scaffolds
 derive, and every open question is answered by hand.
+
+### The model server
+
+The Docker stack keeps the model loaded for an hour after its last request and serves one
+request at a time (`OLLAMA_KEEP_ALIVE=1h`, `OLLAMA_NUM_PARALLEL=1`, both overridable in `.env`).
+Loaded, a question does not wait several seconds for the model to come back; one at a time, a
+prompt that starts like the previous one is not read again from the top.
+
+These are this stack's choices, not the application's. A deployment that runs the model server
+some other way (on Kubernetes, say) sets its own; everything works either way, only slower.
 
 ## When nothing is generating
 
