@@ -139,3 +139,44 @@ def _allows_null(prop: dict) -> bool:
     return prop.get("type") == "null" or any(
         branch.get("type") == "null" for branch in prop.get("anyOf", [])
     )
+
+
+def with_choices(schema: dict, choices: dict[str, list]) -> dict:
+    """`schema` with each named field held to its allowed values (#194, spec §6).
+
+    **A copy**: a `$defs` entry is shared by every field that references it, and the shape's
+    own cached schema must never carry one call's list into the next. **A nullable field keeps
+    `null`**, which is its way out. An unknown path raises — an allowed list that silently
+    constrained nothing would be a guard that is not there.
+    """
+    out = copy.deepcopy(schema)
+    for path, values in choices.items():
+        for target in _targets(out, out, path.split("."), path):
+            target["enum"] = list(values)
+    return out
+
+
+def _targets(root: dict, node: dict, parts: list[str], path: str) -> list[dict]:
+    node = _deref(root, node)
+    if node.get("type") == "array":
+        return _targets(root, node["items"], parts, path)
+    if "anyOf" in node:
+        return [
+            target
+            for branch in node["anyOf"]
+            if branch.get("type") != "null"
+            for target in _targets(root, branch, parts, path)
+        ]
+    if not parts:
+        return [node]
+    properties = node.get("properties", {})
+    if parts[0] not in properties:
+        raise KeyError(f"{path}: no field {parts[0]!r} here")
+    return _targets(root, properties[parts[0]], parts[1:], path)
+
+
+def _deref(root: dict, node: dict) -> dict:
+    ref = node.get("$ref")
+    if ref is None:
+        return node
+    return root["$defs"][ref.rsplit("/", 1)[-1]]

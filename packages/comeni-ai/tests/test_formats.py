@@ -1,5 +1,6 @@
 """Which reply format a model gets, and what each one sends (#194)."""
 
+import pytest
 from comeni_ai.formats import (
     HOSTED_ENUM_CAP,
     AnthropicFormat,
@@ -7,7 +8,9 @@ from comeni_ai.formats import (
     OllamaFormat,
     OpenAIFormat,
     reply_format_for,
+    with_choices,
 )
+from pydantic import BaseModel
 
 SCHEMA = {
     "type": "object",
@@ -72,3 +75,43 @@ def test_openai_over_the_cap_answers_as_in_prompt():
 def test_the_scaffolds_are_not_verified_yet():
     assert not OpenAIFormat().verified and not AnthropicFormat().verified
     assert OllamaFormat().verified
+
+
+# ── allowed values (spec §6) ──────────────────────────────────────────────────────────────
+
+class _Item(BaseModel):
+    subject: str
+
+
+class _Shape(BaseModel):
+    want: list[str]
+    stated: list[_Item] = []
+    already_option: str | None = None
+
+
+def _schema():
+    return _Shape.model_json_schema()
+
+
+def test_a_list_field_gets_an_enum_on_its_items():
+    out = with_choices(_schema(), {"want": ["counts.matrix", "qc.report"]})
+    assert out["properties"]["want"]["items"]["enum"] == ["counts.matrix", "qc.report"]
+
+
+def test_a_field_behind_a_ref_gets_its_enum_and_the_original_is_untouched():
+    original = _schema()
+    out = with_choices(original, {"stated.subject": ["paired"]})
+    assert out["$defs"]["_Item"]["properties"]["subject"]["enum"] == ["paired"]
+    assert "enum" not in original["$defs"]["_Item"]["properties"]["subject"]
+
+
+def test_a_nullable_field_keeps_null_as_its_way_out():
+    out = with_choices(_schema(), {"already_option": ["yes", "no"]})
+    branches = out["properties"]["already_option"]["anyOf"]
+    assert {"type": "null"} in branches
+    assert any(b.get("enum") == ["yes", "no"] for b in branches)
+
+
+def test_an_unknown_path_raises_rather_than_constraining_nothing():
+    with pytest.raises(KeyError, match="nope"):
+        with_choices(_schema(), {"nope": ["x"]})
