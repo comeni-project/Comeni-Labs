@@ -539,6 +539,14 @@ class AiInvocation(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cached_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    """Input tokens the provider served from its prompt cache (#183). Null when it said nothing."""
+    response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """Exactly what the model returned, admitted or refused (#182). A level-0 store: a reply can
+    echo the person's words, and each future protection level decides whether it is kept."""
+    session_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    """The authoring session a builder call belongs to (#191). No foreign key: forge rows have
+    none, and a deleted session must not take its audit rows with it."""
     """Nullable because a provider supplies them or does not, and a local Ollama lane often
     does not. A zero would be a measurement; a null is the absence of one."""
 

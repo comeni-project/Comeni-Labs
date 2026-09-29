@@ -71,6 +71,8 @@ class Call(NamedTuple):
     prompt_digest: str
     refusal: str | None
     """The coded refusal, when there was one. `None` on success."""
+    response: str | None = None
+    """What the model actually returned, admitted or refused, for the audit row (#182)."""
 
 
 class ModelResolver:
@@ -130,6 +132,7 @@ class ModelResolver:
                 prompt_id=rendered.prompt_id,
                 prompt_digest=hashlib.sha256(sent.encode()).hexdigest(),
                 refusal=None if answer else self._client.last_refusal,
+                response=self._client.last_response,
             )
         )
         if answer is None:

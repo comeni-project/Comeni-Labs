@@ -498,7 +498,9 @@ def start_building(session_id: str, *, client=None) -> str | None:
         move(session_id, st.Event.BUILD_FAILED, row_version=version)
         raise
     if calls and client is not None:
-        authoring_ai.record_calls(calls, client=client, registry=blueprint.registry)
+        authoring_ai.record_calls(
+            calls, client=client, registry=blueprint.registry, session_id=session_id
+        )
 
     contracts = registry.stack().registry
     with session_scope() as db:
@@ -647,7 +649,9 @@ def settle_step(
     # The registry moved. Resolve again outside the transaction, for `start_building`'s reason.
     fresh, calls = bp.resolve(goal, mode=mode, client=client)
     if calls and client is not None:
-        authoring_ai.record_calls(calls, client=client, registry=fresh.registry)
+        authoring_ai.record_calls(
+            calls, client=client, registry=fresh.registry, session_id=session_id
+        )
     with session_scope() as db:
         _swap(
             db,

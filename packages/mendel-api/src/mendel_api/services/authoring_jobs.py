@@ -112,7 +112,9 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
 
 def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     request = authoring_ai.compose(prompt=prompt, turns=context.tail, registry=context.registry)
-    outcome = authoring_ai.understand(request, stack=registry.stack(), client=_client())
+    outcome = authoring_ai.understand(
+        request, stack=registry.stack(), client=_client(), session_id=session_id
+    )
 
     if not outcome.admitted:
         _refused(session_id, seq, context, outcome)
@@ -184,7 +186,10 @@ def _gap_reply(session_id: str, seq: int, context) -> None:
         prompt=context.prompt, turns=context.tail, options=list(options), registry=context.registry
     )
     outcome = authoring_ai.read_gap_reply(
-        request, question=gap["payload"]["block"]["asks"], client=_client()
+        request,
+        question=gap["payload"]["block"]["asks"],
+        client=_client(),
+        session_id=session_id,
     )
     if not outcome.admitted:
         _refused(session_id, seq, context, outcome)
@@ -243,7 +248,7 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         options=context.options,
         registry=context.registry,
     )
-    outcome = authoring_ai.follow_up(request, client=_client())
+    outcome = authoring_ai.follow_up(request, client=_client(), session_id=session_id)
     if not outcome.admitted:
         _refused(session_id, seq, context, outcome)
         return

@@ -441,3 +441,30 @@ def test_the_two_calls_are_told_apart_by_purpose_under_one_agent(stack, clean_fo
 
     assert {row.purpose for row in _rows()} == {"goal", "chat"}
     assert {row.agent for row in _rows()} == {"builder"}
+
+
+# ── what a call row keeps (14.7.4, #182 #191) ─────────────────────────────────────────────
+
+
+def test_a_call_stores_its_reply_and_its_session(stack, clean_forge):
+    ai.understand(
+        ai.compose(prompt="count genes"), stack=stack, client=_client(_goal_answer()),
+        session_id="s" * 32,
+    )
+    row = _rows()[0]
+    assert row.response == _goal_answer()
+    assert row.session_id == "s" * 32
+
+
+def test_a_refused_call_keeps_the_reply_that_was_refused(stack, clean_forge):
+    ai.understand(
+        ai.compose(prompt="count genes"), stack=stack,
+        client=_client(_goal_answer(want=["rnaseq.counts"])), session_id="s" * 32,
+    )
+    row = _rows()[0]
+    assert row.state == "refused" and "rnaseq.counts" in row.response
+
+
+def test_the_session_never_enters_the_door_payload():
+    """Door 1's payload is typed and counted; a session id is not something a model is sent."""
+    assert "session_id" not in ai.AuthoringRequest.model_fields

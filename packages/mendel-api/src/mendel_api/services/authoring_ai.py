@@ -213,7 +213,13 @@ def _options_text(options: Sequence[str]) -> str:
 # ── the two calls ─────────────────────────────────────────────────────────────────────────
 
 
-def understand(request: AuthoringRequest, *, stack, client: Client | None = None) -> Outcome:
+def understand(
+    request: AuthoringRequest,
+    *,
+    stack,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
     """Prose in, the typed want plus a summary out, or a visible coded refusal.
 
     The first call has no pipeline to talk about, which is why it is a different prompt and a
@@ -231,10 +237,13 @@ def understand(request: AuthoringRequest, *, stack, client: Client | None = None
         },
         admit=lambda reply: _admit_want(reply, stack),
         client=client,
+        session_id=session_id,
     )
 
 
-def follow_up(request: AuthoringRequest, *, client: Client | None = None) -> Outcome:
+def follow_up(
+    request: AuthoringRequest, *, client: Client | None = None, session_id: str | None = None
+) -> Outcome:
     """A follow-up turn in, exactly one declared intent out, or a visible coded refusal.
 
     Takes no stack: an intent names ids the engine issued and never a type id, so the vocabulary
@@ -254,11 +263,16 @@ def follow_up(request: AuthoringRequest, *, client: Client | None = None) -> Out
         },
         admit=lambda reply: _admit_intent(reply, request),
         client=client,
+        session_id=session_id,
     )
 
 
 def read_gap_reply(
-    request: AuthoringRequest, *, question: str, client: Client | None = None
+    request: AuthoringRequest,
+    *,
+    question: str,
+    client: Client | None = None,
+    session_id: str | None = None,
 ) -> Outcome:
     """A typed answer to one gap in, an offered option id or a typed value out, or `unsure`.
 
@@ -278,6 +292,7 @@ def read_gap_reply(
         },
         admit=lambda reply: _admit_gap_reply(reply, request),
         client=client,
+        session_id=session_id,
     )
 
 
@@ -290,6 +305,7 @@ def _call(
     values: dict[str, str],
     admit,
     client: Client | None,
+    session_id: str | None = None,
 ) -> Outcome:
     """Render, send, admit, record. The one path, so every row is written the same way.
 
@@ -333,6 +349,7 @@ def _call(
                 state=InvocationState.FAILED,
                 failure_code=_code_in(str(failure)) or "MA0007",
                 started=started,
+                session_id=session_id,
             ),
             coded("MA0007", "the model could not be reached"),
             _code_in(str(failure)) or "MA0007",
@@ -350,6 +367,7 @@ def _call(
                 state=InvocationState.REFUSED,
                 failure_code=_code_in(refusal) or "MA0004",
                 started=started,
+                session_id=session_id,
             ),
             refusal,
             _code_in(refusal) or "MA0004",
@@ -370,6 +388,7 @@ def _call(
                 state=InvocationState.REFUSED,
                 failure_code=_code_in(str(refused)) or "MI0205",
                 started=started,
+                session_id=session_id,
             ),
             str(refused),
             _code_in(str(refused)),
@@ -385,6 +404,7 @@ def _call(
             state=InvocationState.SUCCEEDED,
             failure_code="",
             started=started,
+            session_id=session_id,
         ),
         None,
         None,
@@ -523,7 +543,9 @@ def _admit_intent(intent: AuthoringIntent, request: AuthoringRequest) -> Authori
 # ── the audit row ─────────────────────────────────────────────────────────────────────────
 
 
-def record_calls(calls, *, client: Client, registry: str) -> list[str]:
+def record_calls(
+    calls, *, client: Client, registry: str, session_id: str | None = None
+) -> list[str]:
     """One `ai_invocation` row per tier-4 call a blueprint made. Returns their ids.
 
     **Written after the build, not during it.** `ModelResolver` runs inside the resolver's own
@@ -562,6 +584,8 @@ def record_calls(calls, *, client: Client, registry: str) -> list[str]:
                     duration_ms=None,
                     input_tokens=None,
                     output_tokens=None,
+                    response=call.response,
+                    session_id=session_id,
                 )
             )
             written.append(invocation_id)
@@ -577,6 +601,7 @@ def _record(
     state: InvocationState,
     failure_code: str,
     started: datetime,
+    session_id: str | None = None,
 ) -> str:
     """One `ai_invocation` row, written once, after the call.
 
@@ -618,6 +643,9 @@ def _record(
                 ),
                 input_tokens=usage.input_tokens if usage else None,
                 output_tokens=usage.output_tokens if usage else None,
+                cached_tokens=usage.cached_tokens if usage else None,
+                response=client.last_response,
+                session_id=session_id,
             )
         )
     return invocation_id
