@@ -26,7 +26,7 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v5"
+GOAL: PromptId = "builder.goal.v6"
 """Prose in, the typed **want**, a one-sentence summary, and what was **stated** out. Egress
 door 1.
 
@@ -45,6 +45,7 @@ RETIRED: tuple[PromptId, ...] = (
     "builder.goal.v2",
     "builder.goal.v3",
     "builder.goal.v4",
+    "builder.goal.v5",
     "builder.chat.v1",
     "builder.gap.v1",
     "builder.tier4.v1",

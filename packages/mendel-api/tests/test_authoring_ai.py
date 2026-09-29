@@ -92,7 +92,7 @@ def _goal_answer(**overrides) -> str:
     body = {
         "want": ["counts.matrix"],
         "constraints": {},
-        "summary": "gene counts from paired RNA-seq reads",
+        "ack": "Gene counts from paired-end RNA-seq — got it.",
         "questions": [],
     }
     body.update(overrides)
@@ -119,7 +119,7 @@ def test_a_paired_rnaseq_request_comes_back_as_a_typed_want(stack, clean_forge):
     assert outcome.admitted, outcome.refusal
     assert outcome.reply.want == ["counts.matrix"]
     assert outcome.reply.constraints.states_for("counts.matrix") == frozenset({"gene_level"})
-    assert outcome.reply.summary
+    assert outcome.reply.ack
 
 
 def test_an_ambiguous_want_comes_back_as_a_question(stack, clean_forge):
@@ -425,8 +425,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v5"
-    assert row.prompt_version == "v5"
+    assert row.prompt_id == "builder.goal.v6"
+    assert row.prompt_version == "v6"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""

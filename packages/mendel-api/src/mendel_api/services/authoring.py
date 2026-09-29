@@ -1394,7 +1394,7 @@ def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
         return dict(row.goal or {}), facts, row.row_version
 
 
-_NOT_GOAL = frozenset({"summary", "stated"})
+_NOT_GOAL = frozenset({"summary", "stated", "suggested"})
 """What the session's `goal` column holds while gathering beside the want, and a `Goal` does not:
 the model's summary sentence for the card, and the candidates it heard (#170)."""
 
@@ -1462,7 +1462,8 @@ def offer_next_gap(session_id: str) -> str | None:
             id=f"goal-{version}",
             goal=goal,
             have=f"You have: {inputs}.",
-            do=wanted.get("summary") or "The engine builds it from what you said.",
+            do="The engine builds it from what you said.",
+            suggested=(wanted.get("suggested") or {}).get("required_states") or [],
             get=f"You get: {', '.join(goal.want)}.",
         )
         move(session_id, st.Event.NOTHING_MISSING, row_version=version)

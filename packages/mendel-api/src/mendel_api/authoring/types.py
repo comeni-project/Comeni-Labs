@@ -24,7 +24,7 @@ diagram stays the specification.
 from enum import StrEnum
 from typing import Annotated, Literal, Self, get_args
 
-from comeni_core.goal.asked import Constraints, Goal
+from comeni_core.goal.asked import Constraints, Goal, RequiredStates
 from comeni_core.spell.marks import ContractId, HumanParamValue, NodeId, OptionId, TypeId
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -266,6 +266,9 @@ class GoalSummary(_Block):
     have: Prose
     do: Prose
     get: Prose
+    suggested: list[RequiredStates] = []
+    """Constraints the model wrote, offered for the person to keep or dismiss (#176). Only kept
+    ones reach the goal, through the card's edited goal."""
 
 
 class Question(_Block):
@@ -486,8 +489,9 @@ class WantUnderstanding(_Shape):
     want: list[TypeId] = Field(min_length=1)
     constraints: Constraints = Constraints()
     """Only what the person pinned themselves: a state on an output, a parameter they named."""
-    summary: Prose
-    """One plain sentence the person reads back: what they will end up with."""
+    ack: Prose
+    """A short acknowledgement of what they asked for, shown as the model's reply (#176, v6).
+    It replaces the up-front summary, which made claims before anything was known."""
     questions: list[AskedQuestion] = []
     """Only when the want itself is ambiguous. What they have is the engine's to ask."""
     stated: list[Stated] = []

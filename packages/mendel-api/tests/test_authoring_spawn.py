@@ -217,7 +217,7 @@ def test_a_build_session_is_never_advanced_by_the_policy(clean):
 GOAL_ANSWER = {
     "want": ["counts.matrix"],
     "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
-    "summary": "a gene-level counts matrix",
+    "ack": "A gene-level counts matrix — got it.",
     "questions": [],
 }
 

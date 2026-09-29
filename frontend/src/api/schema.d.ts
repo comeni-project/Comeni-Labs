@@ -2866,6 +2866,11 @@ export interface components {
             do: string;
             /** Get */
             get: string;
+            /**
+             * Suggested
+             * @default []
+             */
+            suggested: components["schemas"]["RequiredStates"][];
         };
         /**
          * GraphPort

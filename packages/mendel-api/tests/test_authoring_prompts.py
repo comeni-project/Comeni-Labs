@@ -165,7 +165,7 @@ def test_the_goal_prompt_cannot_state_a_sample_structure():
     and so infer a sample structure silently. v3 has nowhere to write either: the shape has no
     `have` and no `profile`, so the inference is impossible rather than discouraged."""
     fields = set(t.WantUnderstanding.model_fields)
-    assert fields == {"want", "constraints", "summary", "questions", "stated"}
+    assert fields == {"want", "constraints", "ack", "questions", "stated"}
     assert "have" not in fields and "profile" not in fields
 
 
@@ -349,3 +349,10 @@ def test_the_goal_prompt_puts_the_vocabulary_before_its_instructions():
     )
     assert system.startswith(INVARIANT_BLOCK)
     assert system.index("VOCAB") < system.index("# What you are doing")
+
+
+def test_the_goal_prompt_asks_for_an_acknowledgement_not_a_summary():
+    """#176: the up-front summary made claims before anything was known (*normalised*)."""
+    body = prompts.template(prompts.GOAL).body
+    assert "acknowledge what they asked for in one or two short sentences" in body
+    assert "`summary`" not in body

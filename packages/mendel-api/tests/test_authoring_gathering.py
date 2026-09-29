@@ -49,7 +49,6 @@ def _gathering(want: list[str], stated: list[dict] | None = None) -> str:
         db.get(PipelineAuthoringSession, sid).goal = {
             "want": want,
             "constraints": {},
-            "summary": "gene counts from paired reads",
             "stated": stated or [],
         }
     authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
@@ -325,3 +324,26 @@ def test_the_calls_route_lists_them_and_refuses_an_unknown_session(clean):
     assert client.get(f"/api/pipeline/authoring/{sid}/calls").json()[0]["response"] == "{}"
     assert client.get(f"/api/pipeline/authoring/{sid}").json()["usage"]["calls"] == 1
     assert client.get("/api/pipeline/authoring/" + "0" * 32 + "/calls").status_code == 404
+
+
+
+def test_the_models_constraints_are_suggestions_never_in_the_goal(clean):
+    """#176: *gene_level, normalised* arrived in the typed goal unasked; now the card offers."""
+    draft_id = drafts.create(DraftGraph(), "t", "ana")
+    sid = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, sid).goal = {
+            "want": ["counts.matrix"],
+            "constraints": {},
+            "suggested": {"required_states": [{"type_id": "counts.matrix",
+                                               "states": ["gene_level"]}]},
+            "stated": [],
+        }
+    authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
+    authoring.offer_next_gap(sid)
+    while (pid := authoring.pending_id(sid)) and "subject" in _payload(pid):
+        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value")]
+        authoring.answer_gap(pid, options[0], None, by="ana")
+    assert not authoring.compose_goal(sid).constraints.required_states
+    card = _payload(authoring.pending_id(sid))["block"]
+    assert card["suggested"] == [{"type_id": "counts.matrix", "states": ["gene_level"]}]

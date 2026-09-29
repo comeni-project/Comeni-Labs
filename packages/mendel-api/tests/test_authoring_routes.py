@@ -104,7 +104,7 @@ GOAL = json.dumps(
     {
         "want": ["counts.matrix"],
         "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
-        "summary": "a gene-level counts matrix from paired RNA-seq reads",
+        "ack": "A gene-level counts matrix — got it. A few questions first.",
         "questions": [],
     }
 )

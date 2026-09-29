@@ -121,7 +121,7 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         return
 
     understood: WantUnderstanding = outcome.reply
-    blocks = [Narrative(id=f"want-{seq}", text=understood.summary).model_dump(mode="json")]
+    blocks = [Narrative(id=f"want-{seq}", text=understood.ack).model_dump(mode="json")]
     for index, asked in enumerate(understood.questions, start=1):
         # **The engine mints the option ids here** — `AskedQuestion` carries labels only, so the
         # set a later `chose` is checked against is one this server issued.
@@ -161,8 +161,10 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         row_version=_version(session_id),
         goal={
             "want": list(understood.want),
-            "constraints": understood.constraints.model_dump(mode="json"),
-            "summary": understood.summary,
+            # **The model's constraints are suggestions, never the goal's** (#176): the card offers
+            # them and only the ones the person keeps are added.
+            "constraints": {},
+            "suggested": understood.constraints.model_dump(mode="json"),
             "stated": [c.model_dump(mode="json") for c in understood.stated],
         },
     )
