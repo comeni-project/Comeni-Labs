@@ -19,6 +19,7 @@ const gap = (options: [string, string][], asks: string): AuthoringProposal => ({
     why_open: "a step reads it to decide",
     options: options.map(([id, label]) => ({ id, label, recommended: false })),
     exhaustive: true,
+    phrasing: "none",
   },
 });
 
