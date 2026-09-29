@@ -4,6 +4,7 @@ A layer is a directory of files that each declare their own `DeclaredKind`, and 
 not independent:
 
     measurements  ->  vocabulary (a measurement derives a `measurement.<id>` type)
+                  ->  families   (every type, derived ones too, belongs to a declared family)
                   ->  registry   (contracts are validated against that vocabulary,
                   ->              and against the roles they claim to fill)
                   ->  rules      (a rule is validated against all of the above)
@@ -22,6 +23,7 @@ nothing above it depends on a role.
 from collections.abc import Sequence
 from pathlib import Path
 
+from comeni_core.declared.families import FamilyVocabulary
 from comeni_core.declared.layered import (
     Displacement,
     bucket,
@@ -47,6 +49,8 @@ class Layers(BaseModel):
 
     measurements: MeasurementRegistry
     vocabulary: Vocabulary
+    families: FamilyVocabulary
+    """The first level of the type choice (#194). Every type in `vocabulary` belongs to one."""
     registry: Registry
     roles: RoleVocabulary
     rules: RuleTable
@@ -142,6 +146,11 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
+    declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
+    families = FamilyVocabulary.of(declared_families)
+    # **After `with_measurements`**, so the derived `measurement.*` types are held to a family
+    # too — the same ordering lesson as this module's docstring (#194).
+    families.check(vocabulary.types)
     named_roles = stack(stacked, RoleVocabulary.kind(), buckets=buckets)
     vendored = stack(stacked, Module.kind(), buckets=buckets)
     roles = RoleVocabulary(names=frozenset(named_roles.entries))
@@ -171,6 +180,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     return Layers(
         measurements=measurements,
         vocabulary=vocabulary,
+        families=families,
         registry=registry,
         roles=roles,
         rules=rules,
@@ -179,6 +189,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         displaced=[
             *measured.displaced,
             *declared_types.displaced,
+            *declared_families.displaced,
             *named_roles.displaced,
             *vendored.displaced,
             *contracts.displaced,

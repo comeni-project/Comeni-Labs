@@ -8,7 +8,7 @@ it numbered every finding; `docs/notes/audits/` records how each was reproduced.
 from pathlib import Path
 
 import pytest
-from support.audit import _declared, _stacked
+from support.audit import _declared, _stacked, declare_families
 
 
 def test_a12_a_layer_is_named_by_its_manifest():
@@ -146,6 +146,7 @@ def test_a26_a_nested_vocabulary_is_loaded(tmp_path):
     (lab / "vocabularies" / "lab-types" / "assay.panel.yml").write_text(
         _declared(lab / "vocabularies" / "lab-types" / "assay.panel.yml", "states: [validated]\n")
     )
+    declare_families(lab, "assay")
 
     loaded = layers_mod.load([base, lab])
 

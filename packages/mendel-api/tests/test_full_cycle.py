@@ -69,6 +69,12 @@ def _registry(root: Path) -> Path:
     # fixture the first time it ran, which is the sort of thing a walk is for.
     (root / "roles").mkdir()
     (root / "roles" / "bam_sorting.yml").write_text("declares: role\nroles:\n  - bam_sorting\n")
+    # **A family, for the same reason** (#194): a type whose family no layer declares refuses
+    # with `MD0316`.
+    (root / "families").mkdir()
+    (root / "families" / "alignment.yml").write_text(
+        "declares: family\nid: alignment\ndescription: Reads placed on a reference genome\n"
+    )
     subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
     subprocess.run(
         ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init"],
