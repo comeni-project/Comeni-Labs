@@ -506,6 +506,21 @@ class ReadBack(_Shape):
     text: Prose
 
 
+class FamilyChoice(_Shape):
+    """The first of the two type-choice calls, `builder.family.v1` (#194).
+
+    `families` names which declared families what the person wants belongs to — held to the
+    declared ids by the reply format and by admission. **Empty with a question in `unclear`**
+    is the way out: no family fits, and the person is asked rather than shown the nearest.
+    """
+
+    families: list[str] = []
+    ack: Prose
+    """The acknowledgement the person sees first, moved here from `goal.v6`."""
+    unclear: Prose | None = None
+    """One short question, only when no family fits."""
+
+
 class WantUnderstanding(_Shape):
     """The first call's answer under `builder.goal.v3`: what the person wants, and nothing else.
 
@@ -518,9 +533,10 @@ class WantUnderstanding(_Shape):
     want: list[TypeId] = Field(min_length=1)
     constraints: Constraints = Constraints()
     """Only what the person pinned themselves: a state on an output, a parameter they named."""
-    ack: Prose
+    ack: Prose | None = None
     """A short acknowledgement of what they asked for, shown as the model's reply (#176, v6).
-    It replaces the up-front summary, which made claims before anything was known."""
+    It replaces the up-front summary, which made claims before anything was known. **Empty under
+    `goal.v7`** (#194): the family call acknowledges, having read the person's words first."""
     questions: list[AskedQuestion] = []
     """Only when the want itself is ambiguous. What they have is the engine's to ask."""
     stated: list[Stated] = []

@@ -85,6 +85,7 @@ export function usageWords(usage: Usage | undefined): string | null {
 }
 
 const PURPOSE: Record<string, string> = {
+  family: "choosing the kind of result",
   goal: "reading your request",
   chat: "answering you",
   gap: "reading your reply",

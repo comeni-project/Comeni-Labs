@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     `mendel_forge.ai.context.Budget`, which reserves room for the answer because a context
     window is shared between the prompt and the response."""
 
+    family_step_from: int = 0
+    """From how many declared types the first call picks a family before a type (#194).
+
+    `0`, the default, means always: the type choice is two calls, the families and then each
+    chosen family whole. A number above the vocabulary's size switches the family step off, and
+    the want call is shown every type — which is how the benchmark (#198) compares one step with
+    two without a code change. `MENDEL_FAMILY_STEP_FROM`."""
+
     ai_max_jobs: int = 1
     """How many provider calls the AI worker runs at once.
 

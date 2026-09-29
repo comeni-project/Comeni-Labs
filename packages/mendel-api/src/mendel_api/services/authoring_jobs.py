@@ -35,7 +35,7 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession
 from mendel_api.services import authoring, authoring_ai, registry
-from mendel_api.settings import model_access
+from mendel_api.settings import model_access, settings
 
 log = logging.getLogger(__name__)
 
@@ -115,10 +115,33 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
     return f"{session_id}:{seq}"
 
 
+NO_FAMILY_FITS = "Which kind of result do you want?"
+"""The engine's own question when the family call chose nothing and asked nothing (#194)."""
+
+
 def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     request = authoring_ai.compose(prompt=prompt, turns=context.tail, registry=context.registry)
+    stack = registry.stack()
+    ack, families = None, None
+    if len(stack.vocabulary.types) >= settings.family_step_from:
+        # **The type in two steps** (#194): the families first, then each chosen family whole.
+        chosen = authoring_ai.choose_families(
+            request, stack=stack, client=_client(), session_id=session_id
+        )
+        if not chosen.admitted:
+            _refused(session_id, seq, context, chosen)
+            return
+        ack, families = chosen.reply.ack, list(chosen.reply.families)
+        if not families:
+            # **No family fits: ask, never pick the nearest.** The goal call is not made, and
+            # the person's answer is read again from the top, still in `understanding`.
+            _ask_which_result(
+                session_id, seq, context, ack, chosen.reply.unclear, chosen.invocation_id
+            )
+            return
+
     outcome = authoring_ai.understand(
-        request, stack=registry.stack(), client=_client(), session_id=session_id
+        request, stack=stack, families=families, client=_client(), session_id=session_id
     )
 
     if not outcome.admitted:
@@ -126,7 +149,8 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         return
 
     understood: WantUnderstanding = outcome.reply
-    blocks = [Narrative(id=f"want-{seq}", text=understood.ack).model_dump(mode="json")]
+    said = ack or understood.ack or ""
+    blocks = [Narrative(id=f"want-{seq}", text=said).model_dump(mode="json")]
     for index, asked in enumerate(understood.questions, start=1):
         # **The engine mints the option ids here** — `AskedQuestion` carries labels only, so the
         # set a later `chose` is checked against is one this server issued.
@@ -174,6 +198,28 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         },
     )
     authoring.offer_next_gap(session_id)
+
+
+def _ask_which_result(
+    session_id: str, seq: int, context, ack: str, unclear: str | None, invocation_id: str | None
+) -> None:
+    blocks = [
+        Narrative(id=f"want-{seq}", text=ack).model_dump(mode="json"),
+        Question(
+            id=f"question-{seq}-1",
+            asks=unclear or NO_FAMILY_FITS,
+            why_open="none of the kinds of result on offer fits what you said",
+            options=[],
+            exhaustive=False,
+        ).model_dump(mode="json"),
+    ]
+    authoring.answer(
+        session_id,
+        seq,
+        blocks=blocks,
+        base_revision=context.revision,
+        invocation_id=invocation_id,
+    )
 
 
 async def enqueue_phrasing(session_id: str) -> None:

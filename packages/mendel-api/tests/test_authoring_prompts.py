@@ -356,8 +356,14 @@ def test_the_goal_prompt_puts_the_vocabulary_before_its_instructions():
     assert system.index("VOCAB") < system.index("# What you are doing")
 
 
-def test_the_goal_prompt_asks_for_an_acknowledgement_not_a_summary():
-    """#176: the up-front summary made claims before anything was known (*normalised*)."""
-    body = prompts.template(prompts.GOAL).body
-    assert "acknowledge what they asked for in one or two short sentences" in body
-    assert "`summary`" not in body
+def test_the_first_call_asks_for_an_acknowledgement_not_a_summary():
+    """#176: the up-front summary made claims before anything was known (*normalised*).
+
+    **Written by whichever call reads the person first** (#194): the family call when the type is
+    chosen in two steps, the one-step goal call otherwise — and never both, so a person is not
+    acknowledged twice."""
+    for acknowledging in (prompts.FAMILY, prompts.GOAL_ONE_STEP):
+        body = prompts.template(acknowledging).body
+        assert "acknowledge what they asked for in one or two short sentences" in body
+        assert "`summary`" not in body
+    assert "write no\n`ack`" in prompts.template(prompts.GOAL).body

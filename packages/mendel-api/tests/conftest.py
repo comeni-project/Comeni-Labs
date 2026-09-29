@@ -3,6 +3,19 @@
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def one_step_by_default(monkeypatch):
+    """**The first call is one step in this suite unless a test says otherwise** (#194).
+
+    Production chooses a family first (`family_step_from = 0`). Nearly every test here feeds the
+    goal call's answer as the model's first reply, which the family step would now receive; the
+    one-step path stays a supported setting, and the tests of the family step switch it on.
+    """
+    from mendel_api.settings import settings
+
+    monkeypatch.setattr(settings, "family_step_from", 10**9)
+
+
 @pytest.fixture
 def clean_db():
     """A truncated `queue_visit` around each test.

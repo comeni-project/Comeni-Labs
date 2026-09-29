@@ -26,9 +26,12 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v6"
-"""Prose in, the typed **want**, a one-sentence summary, and what was **stated** out. Egress
-door 1.
+GOAL: PromptId = "builder.goal.v7"
+"""Prose in, the typed **want** and what was **stated** out. Egress door 1.
+
+**v7 (2026-09-29, #194)** is shown only the types of the families `builder.family.v1` chose,
+each family whole, and writes no acknowledgement: the family call wrote it. With the family step
+switched off, `GOAL_ONE_STEP` runs instead.
 
 **v4 (2026-09-28, #170)** may report what the person stated as candidates the engine asks them
 to confirm: v3 dropped them, and the person was asked again what they had just said.
@@ -52,6 +55,15 @@ RETIRED: tuple[PromptId, ...] = (
 )
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
+
+GOAL_ONE_STEP: PromptId = "builder.goal.v6"
+"""The want call shown **every** type, acknowledging as it goes — what runs when the family step
+is switched off (`MENDEL_FAMILY_STEP_FROM`, #194), so the benchmark (#198) compares one step with
+two exactly as each shipped."""
+
+FAMILY: PromptId = "builder.family.v1"
+"""Prose in, the **families** what the person wants belongs to and the acknowledgement out, or a
+question when none fits (#194). Egress door 1, the same payload as the goal call."""
 
 CHAT: PromptId = "builder.chat.v2"
 """A follow-up turn in, exactly one declared authoring intent out."""

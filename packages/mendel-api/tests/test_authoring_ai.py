@@ -586,3 +586,41 @@ def test_an_empty_list_is_not_sent_as_an_enum_of_nothing(clean_forge):
     replied = _Choosing(json.dumps({"unsure": True}))
     ai.read_gap_reply(ai.compose(prompt="p", options=[]), question="How long?", client=replied)
     assert replied.choices == [None]
+
+
+# ── choosing the type by family (#194) ────────────────────────────────────────────────────
+
+
+def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_forge):
+    chooser = _Choosing(json.dumps({"families": ["counts"], "ack": "Gene counts — got it."}))
+    outcome = ai.choose_families(ai.compose(prompt="gene counts"), stack=stack, client=chooser)
+    assert outcome.admitted and outcome.reply.families == ["counts"]
+    assert chooser.choices == [{"families": sorted(stack.families.families)}]
+    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v1"
+
+
+def test_a_family_nothing_declares_is_refused(stack, clean_forge):
+    outcome = ai.choose_families(
+        ai.compose(prompt="variant calls"),
+        stack=stack,
+        client=_client(json.dumps({"families": ["variants"], "ack": "Variants — got it."})),
+    )
+    assert not outcome.admitted and outcome.code == "MI0204"
+
+
+def test_the_goal_call_is_shown_only_the_chosen_families_whole(stack, clean_forge):
+    goal = _Choosing(_goal_answer(ack=None))
+    ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=["counts"], client=goal)
+    counts = sorted(t for t in stack.vocabulary.types if t.startswith("counts."))
+    assert goal.choices[0]["want"] == counts
+    assert "fastq.reads" not in goal.last_prompt and "counts.matrix" in goal.last_prompt
+    assert _rows()[0].prompt_id == "builder.goal.v7"
+
+
+def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges(
+    stack, clean_forge
+):
+    goal = _Choosing(_goal_answer())
+    ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=None, client=goal)
+    assert goal.choices[0]["want"] == sorted(stack.vocabulary.types)
+    assert _rows()[0].prompt_id == "builder.goal.v6"

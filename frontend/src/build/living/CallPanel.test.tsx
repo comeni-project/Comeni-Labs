@@ -37,6 +37,7 @@ describe("the session's token count (issue 191)", () => {
     expect(purposeWords("goal")).toBe("reading your request");
     expect(purposeWords("gap")).toBe("reading your reply");
     expect(purposeWords("tier4")).toBe("choosing between tools");
+    expect(purposeWords("family")).toBe("choosing the kind of result");
   });
 });
 

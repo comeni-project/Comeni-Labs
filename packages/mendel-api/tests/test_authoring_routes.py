@@ -562,3 +562,77 @@ def test_the_vocabulary_a_goal_card_may_use_is_the_registrys():
 
 def test_an_edit_body_is_the_graph_and_nothing_else():
     assert set(routes.EditAuthoringDraft.model_fields) == {"graph"}
+
+
+# ── the family step (#194) ────────────────────────────────────────────────────────────────
+
+
+FAMILY = json.dumps({"families": ["counts"], "ack": "Gene counts — got it. A few questions first."})
+GOAL_V7 = json.dumps({"want": ["counts.matrix"], "constraints": {}, "questions": []})
+
+
+def _family_step_on(monkeypatch):
+    from mendel_api.settings import settings
+
+    monkeypatch.setattr(settings, "family_step_from", 0)
+
+
+@needs_db
+def test_the_family_call_acknowledges_and_the_goal_call_follows(client, clean, queue, monkeypatch):
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    transport = _model(monkeypatch, FAMILY, GOAL_V7)
+    _run(session_id, seq)
+    view = _session(client, session_id)
+    assistant = [t for t in view["turns"] if t["role"] == "assistant"][0]
+    assert assistant["blocks"][0]["text"] == "Gene counts — got it. A few questions first."
+    assert view["phase"] == "gathering" and len(transport.sent) == 2
+
+
+@needs_db
+def test_no_family_fits_asks_and_never_calls_the_goal(client, clean, queue, monkeypatch):
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    _model(
+        monkeypatch,
+        json.dumps({"families": [], "ack": "Variant calls — noted.", "unclear": "Which result?"}),
+    )
+    _run(session_id, seq)
+    view = _session(client, session_id)
+    blocks = [t for t in view["turns"] if t["role"] == "assistant"][0]["blocks"]
+    assert [b["kind"] for b in blocks] == ["narrative", "question"]
+    assert blocks[1]["asks"] == "Which result?"
+    assert view["phase"] == "understanding"
+    assert "builder.family.v1" in {
+        r.prompt_id for r in _rows_now()
+    } and "builder.goal.v7" not in {r.prompt_id for r in _rows_now()}, "the goal call is not made"
+
+
+@needs_db
+@pytest.mark.xfail(strict=True, reason="issue 201: a question-answered turn also runs follow_up")
+def test_a_turn_answered_with_a_question_makes_exactly_one_call(client, clean, queue, monkeypatch):
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    transport = _model(
+        monkeypatch,
+        json.dumps({"families": [], "ack": "Variant calls — noted.", "unclear": "Which result?"}),
+    )
+    _run(session_id, seq)
+    assert len(transport.sent) == 1
+
+
+def _rows_now():
+    with session_scope() as db:
+        return list(db.scalars(select(AiInvocation)).all())
+
+
+@needs_db
+def test_no_family_and_no_question_gets_the_engines_question(client, clean, queue, monkeypatch):
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    _model(monkeypatch, json.dumps({"families": [], "ack": "Noted."}))
+    _run(session_id, seq)
+    blocks = [t for t in _session(client, session_id)["turns"] if t["role"] == "assistant"][0][
+        "blocks"
+    ]
+    assert blocks[1]["asks"] == "Which kind of result do you want?"

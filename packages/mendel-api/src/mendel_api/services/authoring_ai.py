@@ -50,6 +50,7 @@ from mendel_api.authoring.types import (
     AskedGap,
     AuthoringIntent,
     FactKind,
+    FamilyChoice,
     GapReply,
     GoalUnderstanding,
     ReadBack,
@@ -86,6 +87,7 @@ class Purpose(StrEnum):
     """
 
     GOAL = "goal"
+    FAMILY = "family"
     CHAT = "chat"
     TIER4 = "tier4"
     GAP = "gap"
@@ -165,15 +167,21 @@ def _conversation_text(turns: Sequence[AuthoringTurn]) -> str:
     return "\n\n".join(f"{turn.role.value}: {turn.content}" for turn in turns)
 
 
-def _vocabulary_text(stack) -> str:
+def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     """Every declared type with its states, and every measurement. **Whole, never a selection.**
+
+    `types`, when given, is **each chosen family whole** (#194) — never a hand-picked subset. The
+    prompt says so, and a model shown one family is told it is seeing all of it.
 
     `mendel_forge.ai.select`'s argument, and it is the one worth restating: a model shown nine of
     eleven values does not know it was shown nine. Its answer then passes every check on the way
     back, because the thing it could not say is the thing nobody asked about.
     """
     lines = ["Types, each with the states declared for it:"]
+    shown = stack.vocabulary.types if types is None else set(types)
     for type_id, states in sorted(stack.vocabulary.types.items()):
+        if type_id not in shown:
+            continue
         spelled = ", ".join(sorted(states)) if states else "(no states)"
         lines.append(f"  {type_id} — {spelled}")
     # **Each measurement with what it can hold and what it means** (#170): a bare `paired` gave a
@@ -220,39 +228,104 @@ def _options_text(options: Sequence[str]) -> str:
 # ── the two calls ─────────────────────────────────────────────────────────────────────────
 
 
-def understand(
+def choose_families(
     request: AuthoringRequest,
     *,
     stack,
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """Prose in, the typed want plus a summary out, or a visible coded refusal.
+    """Prose in, the families what the person wants belongs to and an acknowledgement out (#194).
 
-    The first call has no pipeline to talk about, which is why it is a different prompt and a
-    different shape from `follow_up` rather than one call with half its fields empty.
+    The first of the two type-choice calls. It is shown every family with its description, and
+    **an empty list with a question** is its way out: no family fits, and the person is asked.
     """
     return _call(
         request,
-        purpose=Purpose.GOAL,
-        prompt_id=prompts.GOAL,
-        shape=WantUnderstanding,
+        purpose=Purpose.FAMILY,
+        prompt_id=prompts.FAMILY,
+        shape=FamilyChoice,
         values={
-            "vocabulary": _vocabulary_text(stack),
+            "families": _families_text(stack),
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: _admit_want(reply, stack),
+        admit=lambda reply: _admit_families(reply, stack),
+        client=client,
+        session_id=session_id,
+        choices={"families": sorted(stack.families.families)},
+    )
+
+
+def _families_text(stack) -> str:
+    return "\n".join(
+        f"  {family.id} — {family.description}"
+        for family in sorted(stack.families.families.values(), key=lambda f: f.id)
+    )
+
+
+def _admit_families(reply: FamilyChoice, stack) -> FamilyChoice:
+    """Every family id declared, or `MI0204` — the vocabulary check, one level up."""
+    unknown = sorted(set(reply.families) - set(stack.families.families))
+    if unknown:
+        raise ValueError(
+            coded("MI0204", f"the answer names families nothing declares: {', '.join(unknown)}")
+        )
+    return reply
+
+
+def understand(
+    request: AuthoringRequest,
+    *,
+    stack,
+    families: Sequence[str] | None = None,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """Prose in, the typed want out, or a visible coded refusal.
+
+    **`families` given** (#194): `goal.v7`, shown every type of those families and held to them.
+    **`None`**, the family step switched off: `goal.v6`, shown every type, acknowledging as it
+    goes. The first call has no pipeline to talk about, which is why it is a different prompt
+    and a different shape from `follow_up` rather than one call with half its fields empty.
+    """
+    shown = (
+        sorted(stack.vocabulary.types)
+        if families is None
+        else stack.families.types_of(families, stack.vocabulary.types)
+    )
+    return _call(
+        request,
+        purpose=Purpose.GOAL,
+        prompt_id=prompts.GOAL_ONE_STEP if families is None else prompts.GOAL,
+        shape=WantUnderstanding,
+        values={
+            "vocabulary": _vocabulary_text(stack, None if families is None else shown),
+            "conversation": _conversation_text(request.turns),
+            "request": request.prompt,
+        },
+        admit=lambda reply: _admit_shown(_admit_want(reply, stack), shown),
         client=client,
         session_id=session_id,
         choices={
-            "want": sorted(stack.vocabulary.types),
+            "want": shown,
             # An input names a type, a measurement names a measurement: one field, both lists.
             "stated.subject": sorted(
                 set(stack.vocabulary.types) | set(stack.measurements.measurements)
             ),
         },
     )
+
+
+def _admit_shown(understanding: WantUnderstanding, shown: Sequence[str]) -> WantUnderstanding:
+    """A want outside the families it was shown is refused (`MI0204`): the list is what the call
+    showed, on a lane that cannot enforce it as much as on one that can (#194)."""
+    outside = sorted(set(understanding.want) - set(shown))
+    if outside:
+        raise ValueError(
+            coded("MI0204", f"the want names types it was not shown: {', '.join(outside)}")
+        )
+    return understanding
 
 
 def follow_up(
