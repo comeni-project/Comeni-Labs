@@ -332,7 +332,7 @@ ai-up:  ## start the local Ollama and print the two lines for .env — pulls not
 	$(DC_AI) --profile ai up -d ollama
 	@echo
 	@echo "put these in .env, then \`make dev\` (or restart ai-worker):"
-	@echo "  COMENI_AI_MODEL=ollama/$(AI_MODEL)"
+	@echo "  COMENI_AI_MODEL=ollama_chat/$(AI_MODEL)"
 	@echo "  COMENI_AI_BASE_URL=http://ollama:11434"
 	@echo
 	@echo "the model itself:  make ai-pull MODEL=$(AI_MODEL)"
@@ -344,7 +344,7 @@ ai-pull:  ## download a model into the ollama volume — `make ai-pull MODEL=qwe
 	@test -n "$(MODEL)" || { echo "MODEL= is required, e.g. make ai-pull MODEL=$(AI_MODEL)"; exit 2; }
 	$(DC_AI) --profile ai up -d ollama
 	$(DC_AI) --profile ai exec ollama ollama pull $(MODEL)
-	@echo "pulled $(MODEL) — set COMENI_AI_MODEL=ollama/$(MODEL)"
+	@echo "pulled $(MODEL) — set COMENI_AI_MODEL=ollama_chat/$(MODEL)"
 
 ai-logs:  ## tail the AI worker and the model server
 	$(DC_AI) --profile ai logs -f ai-worker ollama
