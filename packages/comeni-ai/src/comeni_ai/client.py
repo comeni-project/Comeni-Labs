@@ -78,6 +78,9 @@ class Usage(BaseModel):
     duration_ms: int
     input_tokens: int | None = None
     output_tokens: int | None = None
+    cached_tokens: int | None = None
+    """Input tokens the provider served from its prompt cache (#183). `None` when it said
+    nothing, which a local endpoint usually does."""
     finish_reason: str | None = None
 
 
@@ -113,6 +116,11 @@ class Client:
         over from a previous call would be attributed to this one by an audit row that reads it
         afterwards, which is worse than recording nothing.
         """
+        self.last_response: str | None = None
+        """The raw text of the most recent reply, for the audit row (#182). **Set before the reply
+        is validated**, so a refused reply is kept too — it is the one somebody needs to read.
+        `None` when no reply arrived.
+        """
         self.last_prompt: str | None = None
         """The exact text sent, for the caller that has to store a digest of it.
 
@@ -139,6 +147,7 @@ class Client:
         """
         self.last_refusal = None
         self.last_usage = None
+        self.last_response = None
         self.last_prompt = prompt
         try:
             if isinstance(self._transport, Metered):
@@ -148,6 +157,7 @@ class Client:
         except TimeoutError as failure:
             self.last_refusal = str(failure)
             return None
+        self.last_response = body
         payload = _json_in(body)
         if payload is None:
             self.last_refusal = coded("MA0004", "the answer was empty")
@@ -268,11 +278,13 @@ def _usage(access: ModelAccess, response: object, started: float) -> Usage:
 
     elapsed = int((time.monotonic() - started) * 1000)
     usage = getattr(response, "usage", None)
+    details = getattr(usage, "prompt_tokens_details", None)
     choices = getattr(response, "choices", None) or []
     return Usage(
         model=getattr(response, "model", None) or access.model,
         duration_ms=elapsed,
         input_tokens=getattr(usage, "prompt_tokens", None),
         output_tokens=getattr(usage, "completion_tokens", None),
+        cached_tokens=getattr(details, "cached_tokens", None),
         finish_reason=getattr(choices[0], "finish_reason", None) if choices else None,
     )

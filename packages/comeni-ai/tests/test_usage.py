@@ -5,8 +5,11 @@
 was reported is a measurement nobody took, and an audit row cannot tell the two apart.
 """
 
+import time
+from types import SimpleNamespace
+
 from comeni_ai.access import ModelAccess
-from comeni_ai.client import Client, Metered, Transport, Usage
+from comeni_ai.client import Client, Metered, Transport, Usage, _usage
 from pydantic import BaseModel, ConfigDict
 
 ACCESS = ModelAccess(model="ollama/llama3")
@@ -112,3 +115,30 @@ def test_token_counts_are_absent_rather_than_zero_when_unreported() -> None:
     usage = Usage(model="m", duration_ms=5)
     assert usage.input_tokens is None
     assert usage.output_tokens is None
+
+
+def test_the_reply_text_is_kept_even_when_it_is_refused():
+    """#182: every model finding in the 14.7.3 walk had to be re-called by hand to see the reply."""
+
+    class Says:
+        def send(self, access, prompt):
+            return '{"wrong": 1}'
+
+    client = Client(ACCESS, transport=Says())
+    assert client.respond("q", Answer) is None
+    assert client.last_response == '{"wrong": 1}'
+
+
+def test_cached_tokens_are_read_when_the_provider_reports_them():
+    usage = SimpleNamespace(
+        prompt_tokens=100,
+        completion_tokens=5,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=80),
+    )
+    response = SimpleNamespace(usage=usage, choices=[], model="m")
+    assert _usage(ACCESS, response, time.monotonic()).cached_tokens == 80
+
+
+def test_no_usage_block_leaves_cached_tokens_empty():
+    response = SimpleNamespace(usage=None, choices=[], model="m")
+    assert _usage(ACCESS, response, time.monotonic()).cached_tokens is None
