@@ -312,6 +312,7 @@ def test_the_call_list_carries_each_reply_oldest_first(clean):
     listed = authoring.calls(sid)
     assert [c["response"] for c in listed] == ['{"a": 1}']
     assert listed[0]["purpose"] == "goal" and listed[0]["input"] == 10
+    assert "reply_format" in listed[0]  # #194: null for a row written before it was recorded
 
 
 def test_the_calls_route_lists_them_and_refuses_an_unknown_session(clean):
@@ -321,7 +322,8 @@ def test_the_calls_route_lists_them_and_refuses_an_unknown_session(clean):
     client = TestClient(create_app())
     sid = _gathering(want=["counts.matrix"])
     _write_call(sid, input_tokens=10, output_tokens=1, cached=None, response="{}")
-    assert client.get(f"/api/pipeline/authoring/{sid}/calls").json()[0]["response"] == "{}"
+    listed = client.get(f"/api/pipeline/authoring/{sid}/calls").json()
+    assert listed[0]["response"] == "{}" and "reply_format" in listed[0]
     assert client.get(f"/api/pipeline/authoring/{sid}").json()["usage"]["calls"] == 1
     assert client.get("/api/pipeline/authoring/" + "0" * 32 + "/calls").status_code == 404
 

@@ -261,6 +261,7 @@ def calls(session_id: str) -> list[dict]:
                 "duration_ms": r.duration_ms,
                 "state": r.state,
                 "response": r.response,
+                "reply_format": r.reply_format,
                 "at": r.started_at.isoformat(),
             }
             for r in rows

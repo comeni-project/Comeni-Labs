@@ -726,6 +726,7 @@ def _record(
                 cached_tokens=usage.cached_tokens if usage else None,
                 response=client.last_response,
                 session_id=session_id,
+                reply_format=client.last_format,
             )
         )
     return invocation_id

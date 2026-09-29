@@ -1502,6 +1502,8 @@ export interface components {
             state: string;
             /** Response */
             response: string | null;
+            /** Reply Format */
+            reply_format?: string | null;
             /** At */
             at: string;
         };

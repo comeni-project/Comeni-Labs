@@ -174,6 +174,8 @@ class AuthoringCallView(BaseModel):
     state: str
     response: str | None
     """Exactly what the model returned — a level-0 store (#182)."""
+    reply_format: str | None = None
+    """`in_prompt`, or the provider format the server enforced (#194)."""
     at: str
 
 

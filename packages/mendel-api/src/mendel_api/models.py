@@ -547,6 +547,9 @@ class AiInvocation(Base):
     session_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     """The authoring session a builder call belongs to (#191). No foreign key: forge rows have
     none, and a deleted session must not take its audit rows with it."""
+    reply_format: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    """How the reply's shape was asked for (#194): `in_prompt`, or the provider format the server
+    enforced (`ollama`, …). Null on rows written before it was recorded."""
     """Nullable because a provider supplies them or does not, and a local Ollama lane often
     does not. A zero would be a measurement; a null is the absence of one."""
 

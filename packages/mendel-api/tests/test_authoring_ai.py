@@ -433,6 +433,25 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.prompt_digest == hashlib.sha256(client.last_prompt.encode()).hexdigest()
 
 
+def test_the_row_says_which_reply_format_the_call_used(stack, clean_forge):
+    """#194: a reader of a refusal needs to know whether the server enforced the shape."""
+
+    class Enforcing(Answers):
+        enforces_formats = True
+
+        def send(self, access, prompt, response_format=None):
+            return super().send(access, prompt)
+
+    local = ModelAccess(model="ollama_chat/fake", base_url="http://localhost:1")
+    ai.understand(
+        ai.compose(prompt="count genes"),
+        stack=stack,
+        client=Client(local, transport=Enforcing(_goal_answer())),
+    )
+    ai.understand(ai.compose(prompt="count genes"), stack=stack, client=_client(_goal_answer()))
+    assert sorted(row.reply_format for row in _rows()) == ["in_prompt", "ollama"]
+
+
 def test_the_two_calls_are_told_apart_by_purpose_under_one_agent(stack, clean_forge):
     """One member per committed prompt id, scoped by `agent` rather than spelled to be globally
     unique — the Forge declares a `chat` purpose too, and that column is what separates them."""
