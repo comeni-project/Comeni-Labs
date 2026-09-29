@@ -57,6 +57,7 @@ export type AuthoringPreview = S["AuthoringPreview"];
 export type BeginAuthoring = S["BeginAuthoring"];
 export type DecideProposal = S["DecideProposal"];
 export type AuthoringVocabulary = S["AuthoringVocabulary"];
+export type AuthoringCall = S["AuthoringCallView"];
 export type AuthoringEdited = S["AuthoringEdited"];
 /** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
 export type AiHealth = S["AiHealth"];

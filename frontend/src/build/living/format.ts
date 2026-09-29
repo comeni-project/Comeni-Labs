@@ -71,3 +71,29 @@ export function progressWords(session: AuthoringSession): string | null {
   if (!session.steps_total) return null;
   return `${session.graph.nodes.length} of ${session.steps_total} steps`;
 }
+
+type Usage = NonNullable<AuthoringSession["usage"]>;
+
+/** `13.3k tokens · 7 calls`, and `· thinking…` while a call is on its way — or nothing before
+ *  the first call, so a new conversation's header carries no *0 tokens* (issue 191). */
+export function usageWords(usage: Usage | undefined): string | null {
+  if (!usage?.calls) return null;
+  const total = usage.input + usage.output;
+  const tokens = total >= 1000 ? `${(total / 1000).toFixed(1)}k` : String(total);
+  const calls = `${usage.calls} ${usage.calls === 1 ? "call" : "calls"}`;
+  return `${tokens} tokens · ${calls}${usage.in_flight ? " · thinking…" : ""}`;
+}
+
+const PURPOSE: Record<string, string> = {
+  goal: "reading your request",
+  chat: "answering you",
+  gap: "reading your reply",
+  tier4: "choosing between tools",
+  ask: "phrasing a question",
+  readback: "writing the read-back",
+};
+
+/** What a model call was for, in the words the page uses. */
+export function purposeWords(purpose: string): string {
+  return PURPOSE[purpose] ?? purpose;
+}
