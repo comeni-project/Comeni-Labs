@@ -135,7 +135,9 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
             _refused(session_id, seq, context, chosen)
             return
         ack, families = chosen.reply.ack, list(chosen.reply.families)
-        if not families:
+        if chosen.reply.fits != "yes" or not families:
+            # **The verdict decides, not the list** (#202): families beside a `no` are ignored,
+            # and a `yes` naming nothing would show the goal call nothing.
             # **No family fits: ask, never pick the nearest.** The goal call is not made, and
             # the person's answer is read again from the top, still in `understanding`.
             _ask_which_result(

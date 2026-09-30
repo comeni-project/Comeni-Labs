@@ -248,7 +248,14 @@ def test_a_retired_template_is_still_reachable():
     assert prompts.RETIRED
     for prompt_id in prompts.RETIRED:
         assert prompt_id not in prompts.TEMPLATES
-        assert prompts.template(prompt_id).body.startswith(INVARIANT_BLOCK)
+        body = prompts.template(prompt_id).body
+        assert prompt_id in NEVER_SHARED or body.startswith(INVARIANT_BLOCK), prompt_id
+
+
+NEVER_SHARED = frozenset({"builder.family.v1"})
+"""Retired templates that never carried the shared block, so retiring one cannot be held to it.
+The family prompt was written outside `TEMPLATES` (#194); whether its live version should carry
+the block is issue 208, not a reason to stop checking every other retired file."""
 
 
 def test_a_prompt_id_that_does_not_exist_is_refused():
@@ -367,3 +374,10 @@ def test_the_first_call_asks_for_an_acknowledgement_not_a_summary():
         assert "acknowledge what they asked for in one or two short sentences" in body
         assert "`summary`" not in body
     assert "write no\n`ack`" in prompts.template(prompts.GOAL).body
+
+
+def test_the_family_prompt_asks_for_the_verdict_first():
+    body = prompts.template(prompts.FAMILY).body
+    assert prompts.FAMILY == "builder.family.v2"
+    assert body.index("**`fits`**") < body.index("**`families`**")
+    assert "builder.family.v1" in prompts.RETIRED

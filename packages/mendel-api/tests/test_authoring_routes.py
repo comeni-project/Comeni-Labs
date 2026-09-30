@@ -567,7 +567,12 @@ def test_an_edit_body_is_the_graph_and_nothing_else():
 # ── the family step (#194) ────────────────────────────────────────────────────────────────
 
 
-FAMILY = json.dumps({"families": ["counts"], "ack": "Gene counts — got it. A few questions first."})
+FAMILY = json.dumps(
+    {"fits": "yes", "families": ["counts"], "ack": "Gene counts — got it. A few questions first."}
+)
+NO_FIT = json.dumps(
+    {"fits": "no", "families": [], "ack": "Variant calls — noted.", "unclear": "Which result?"}
+)
 GOAL_V7 = json.dumps({"want": ["counts.matrix"], "constraints": {}, "questions": []})
 
 
@@ -595,7 +600,7 @@ def test_no_family_fits_asks_and_never_calls_the_goal(client, clean, queue, monk
     session_id, seq = _begin(client, queue)
     _model(
         monkeypatch,
-        json.dumps({"families": [], "ack": "Variant calls — noted.", "unclear": "Which result?"}),
+        NO_FIT,
     )
     _run(session_id, seq)
     view = _session(client, session_id)
@@ -603,7 +608,7 @@ def test_no_family_fits_asks_and_never_calls_the_goal(client, clean, queue, monk
     assert [b["kind"] for b in blocks] == ["narrative", "question"]
     assert blocks[1]["asks"] == "Which result?"
     assert view["phase"] == "understanding"
-    assert "builder.family.v1" in {
+    assert "builder.family.v2" in {
         r.prompt_id for r in _rows_now()
     } and "builder.goal.v7" not in {r.prompt_id for r in _rows_now()}, "the goal call is not made"
 
@@ -615,7 +620,7 @@ def test_a_turn_answered_with_a_question_makes_exactly_one_call(client, clean, q
     session_id, seq = _begin(client, queue)
     transport = _model(
         monkeypatch,
-        json.dumps({"families": [], "ack": "Variant calls — noted.", "unclear": "Which result?"}),
+        NO_FIT,
     )
     _run(session_id, seq)
     assert len(transport.sent) == 1
@@ -645,9 +650,53 @@ def _rows_now():
 def test_no_family_and_no_question_gets_the_engines_question(client, clean, queue, monkeypatch):
     _family_step_on(monkeypatch)
     session_id, seq = _begin(client, queue)
-    _model(monkeypatch, json.dumps({"families": [], "ack": "Noted."}))
+    _model(monkeypatch, json.dumps({"fits": "no", "families": [], "ack": "Noted."}))
     _run(session_id, seq)
     blocks = [t for t in _session(client, session_id)["turns"] if t["role"] == "assistant"][0][
         "blocks"
     ]
     assert blocks[1]["asks"] == "Which kind of result do you want?"
+
+
+@needs_db
+def test_a_no_with_a_family_listed_still_asks(client, clean, queue, monkeypatch):
+    """#202: the families beside a `no` are ignored, never half-trusted."""
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    transport = _model(
+        monkeypatch,
+        json.dumps({"fits": "no", "families": ["annotation"], "ack": "Variant calls — noted."}),
+    )
+    _run(session_id, seq)
+    view = _session(client, session_id)
+    blocks = [t for t in view["turns"] if t["role"] == "assistant"][0]["blocks"]
+    assert blocks[1]["asks"] == "Which kind of result do you want?"
+    assert view["phase"] == "understanding" and len(transport.sent) == 1
+
+
+@needs_db
+def test_unsure_asks_with_the_models_question(client, clean, queue, monkeypatch):
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    _model(
+        monkeypatch,
+        json.dumps(
+            {"fits": "unsure", "families": [], "ack": "Noted.", "unclear": "Counts or peaks?"}
+        ),
+    )
+    _run(session_id, seq)
+    blocks = [t for t in _session(client, session_id)["turns"] if t["role"] == "assistant"][0][
+        "blocks"
+    ]
+    assert blocks[1]["asks"] == "Counts or peaks?"
+
+
+@needs_db
+def test_a_yes_with_nothing_listed_asks(client, clean, queue, monkeypatch):
+    """Review focus 2: v7 shown no family would be shown nothing."""
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    transport = _model(monkeypatch, json.dumps({"fits": "yes", "families": [], "ack": "Ok."}))
+    _run(session_id, seq)
+    assert _session(client, session_id)["phase"] == "understanding"
+    assert len(transport.sent) == 1

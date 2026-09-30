@@ -237,8 +237,8 @@ def choose_families(
 ) -> Outcome:
     """Prose in, the families what the person wants belongs to and an acknowledgement out (#194).
 
-    The first of the two type-choice calls. It is shown every family with its description, and
-    **an empty list with a question** is its way out: no family fits, and the person is asked.
+    The first of the two type-choice calls. It is shown every family with its description.
+    **`fits` first** (#202): anything but `yes` with a family listed makes the engine ask.
     """
     return _call(
         request,

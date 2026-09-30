@@ -507,18 +507,24 @@ class ReadBack(_Shape):
 
 
 class FamilyChoice(_Shape):
-    """The first of the two type-choice calls, `builder.family.v1` (#194).
+    """The first of the two type-choice calls, `builder.family.v2` (#194, #202).
 
     `families` names which declared families what the person wants belongs to — held to the
-    declared ids by the reply format and by admission. **Empty with a question in `unclear`**
-    is the way out: no family fits, and the person is asked rather than shown the nearest.
+    declared ids by the reply format and by admission.
+
+    **`fits` comes first, on purpose** (#202). The reply is written left to right, so the model
+    commits to whether anything fits before it can start a list; under v1 an empty list was a
+    way out it had to skip to, and gemma3:12b wrote the nearest family instead. The engine reads
+    the verdict, not the list: anything but `yes` with a family listed is a question.
     """
 
+    fits: Literal["yes", "no", "unsure"]
+    """Whether one of the families holds what the person wants to end up with."""
     families: list[str] = []
     ack: Prose
     """The acknowledgement the person sees first, moved here from `goal.v6`."""
     unclear: Prose | None = None
-    """One short question, only when no family fits."""
+    """One short question, when the verdict is not `yes`."""
 
 
 class WantUnderstanding(_Shape):

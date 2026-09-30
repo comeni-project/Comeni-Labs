@@ -52,6 +52,7 @@ RETIRED: tuple[PromptId, ...] = (
     "builder.chat.v1",
     "builder.gap.v1",
     "builder.tier4.v1",
+    "builder.family.v1",
 )
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
@@ -61,9 +62,11 @@ GOAL_ONE_STEP: PromptId = "builder.goal.v6"
 is switched off (`MENDEL_FAMILY_STEP_FROM`, #194), so the benchmark (#198) compares one step with
 two exactly as each shipped."""
 
-FAMILY: PromptId = "builder.family.v1"
+FAMILY: PromptId = "builder.family.v2"
 """Prose in, the **families** what the person wants belongs to and the acknowledgement out, or a
-question when none fits (#194). Egress door 1, the same payload as the goal call."""
+question when none fits (#194). Egress door 1, the same payload as the goal call. **v2 (#202):
+the verdict first** — `fits` is answered before any family is listed, because v1's empty list was
+a way out gemma3:12b skipped past to write the nearest family."""
 
 CHAT: PromptId = "builder.chat.v2"
 """A follow-up turn in, exactly one declared authoring intent out."""

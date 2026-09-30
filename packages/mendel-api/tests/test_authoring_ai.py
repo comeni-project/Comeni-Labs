@@ -591,19 +591,31 @@ def test_an_empty_list_is_not_sent_as_an_enum_of_nothing(clean_forge):
 # ── choosing the type by family (#194) ────────────────────────────────────────────────────
 
 
+def test_the_verdict_comes_before_any_family():
+    """#202: judged first, so declining is a value the model picks, not a list it skips."""
+    from mendel_api.authoring.types import FamilyChoice
+
+    assert next(iter(FamilyChoice.model_json_schema()["properties"])) == "fits"
+    assert "fits" in FamilyChoice.model_json_schema()["required"]
+
+
 def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_forge):
-    chooser = _Choosing(json.dumps({"families": ["counts"], "ack": "Gene counts — got it."}))
+    chooser = _Choosing(
+        json.dumps({"fits": "yes", "families": ["counts"], "ack": "Gene counts — got it."})
+    )
     outcome = ai.choose_families(ai.compose(prompt="gene counts"), stack=stack, client=chooser)
     assert outcome.admitted and outcome.reply.families == ["counts"]
     assert chooser.choices == [{"families": sorted(stack.families.families)}]
-    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v1"
+    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v2"
 
 
 def test_a_family_nothing_declares_is_refused(stack, clean_forge):
     outcome = ai.choose_families(
         ai.compose(prompt="variant calls"),
         stack=stack,
-        client=_client(json.dumps({"families": ["variants"], "ack": "Variants — got it."})),
+        client=_client(
+            json.dumps({"fits": "yes", "families": ["variants"], "ack": "Variants — got it."})
+        ),
     )
     assert not outcome.admitted and outcome.code == "MI0204"
 
