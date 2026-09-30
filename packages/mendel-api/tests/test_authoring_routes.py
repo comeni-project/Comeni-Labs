@@ -17,6 +17,7 @@ import pytest
 from comeni_ai import Client, ModelAccess, ModelUnavailableError
 from fastapi.testclient import TestClient
 from mendel_api import ai_worker, jobs, worker
+from mendel_api.authoring import prompts
 from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import AiInvocation
@@ -608,7 +609,7 @@ def test_no_family_fits_asks_and_never_calls_the_goal(client, clean, queue, monk
     assert [b["kind"] for b in blocks] == ["narrative", "question"]
     assert blocks[1]["asks"] == "Which result?"
     assert view["phase"] == "understanding"
-    assert "builder.family.v2" in {
+    assert prompts.FAMILY in {
         r.prompt_id for r in _rows_now()
     } and "builder.goal.v7" not in {r.prompt_id for r in _rows_now()}, "the goal call is not made"
 

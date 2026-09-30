@@ -62,7 +62,7 @@ def test_the_invariant_block_is_at_the_top_of_each_one():
 
 def test_there_are_templates_to_check():
     """A loop is not an assertion: every test above passes over an empty tuple."""
-    assert len(prompts.TEMPLATES) == 6
+    assert len(prompts.TEMPLATES) == 7
 
 
 # ── the gap-reply prompt ──────────────────────────────────────────────────────────────
@@ -252,7 +252,7 @@ def test_a_retired_template_is_still_reachable():
         assert prompt_id in NEVER_SHARED or body.startswith(INVARIANT_BLOCK), prompt_id
 
 
-NEVER_SHARED = frozenset({"builder.family.v1"})
+NEVER_SHARED = frozenset({"builder.family.v1", "builder.family.v2"})
 """Retired templates that never carried the shared block, so retiring one cannot be held to it.
 The family prompt was written outside `TEMPLATES` (#194); whether its live version should carry
 the block is issue 208, not a reason to stop checking every other retired file."""
@@ -346,7 +346,7 @@ def test_every_builder_prompt_has_a_system_part_identical_across_sessions():
     for prompt_id in prompts.TEMPLATES:
         template = prompts.template(prompt_id)
         wanted = template.placeholders()
-        fixed = {"vocabulary": "types: a, b"}
+        fixed = {"vocabulary": "types: a, b", "families": "counts — a counts table"}
         one = {k: v[0] for k, v in PER_CALL.items()} | fixed
         two = {k: v[1] for k, v in PER_CALL.items()} | fixed
         system_one, user_one = template.render_split({k: one[k] for k in wanted})
@@ -378,6 +378,14 @@ def test_the_first_call_asks_for_an_acknowledgement_not_a_summary():
 
 def test_the_family_prompt_asks_for_the_verdict_first():
     body = prompts.template(prompts.FAMILY).body
-    assert prompts.FAMILY == "builder.family.v2"
+    assert prompts.FAMILY == "builder.family.v3" and prompts.FAMILY in prompts.TEMPLATES
     assert body.index("**`fits`**") < body.index("**`families`**")
-    assert "builder.family.v1" in prompts.RETIRED
+    assert {"builder.family.v1", "builder.family.v2"} <= set(prompts.RETIRED)
+
+
+def test_the_family_prompt_means_the_result_itself_and_does_not_steer():
+    """#202: ChIP-seq peaks were read as `alignment.bam`, a step on the way."""
+    body = prompts.template(prompts.FAMILY).body
+    assert "the result itself" in body
+    assert "never a step on the way" in body
+    assert "A few questions first" not in body

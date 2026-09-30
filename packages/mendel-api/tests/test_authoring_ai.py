@@ -606,7 +606,7 @@ def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_
     outcome = ai.choose_families(ai.compose(prompt="gene counts"), stack=stack, client=chooser)
     assert outcome.admitted and outcome.reply.families == ["counts"]
     assert chooser.choices == [{"families": sorted(stack.families.families)}]
-    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v2"
+    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v3"
 
 
 def test_a_family_nothing_declares_is_refused(stack, clean_forge):

@@ -53,6 +53,7 @@ RETIRED: tuple[PromptId, ...] = (
     "builder.gap.v1",
     "builder.tier4.v1",
     "builder.family.v1",
+    "builder.family.v2",
 )
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
@@ -62,11 +63,14 @@ GOAL_ONE_STEP: PromptId = "builder.goal.v6"
 is switched off (`MENDEL_FAMILY_STEP_FROM`, #194), so the benchmark (#198) compares one step with
 two exactly as each shipped."""
 
-FAMILY: PromptId = "builder.family.v2"
+FAMILY: PromptId = "builder.family.v3"
 """Prose in, the **families** what the person wants belongs to and the acknowledgement out, or a
 question when none fits (#194). Egress door 1, the same payload as the goal call. **v2 (#202):
 the verdict first** — `fits` is answered before any family is listed, because v1's empty list was
-a way out gemma3:12b skipped past to write the nearest family."""
+a way out gemma3:12b skipped past to write the nearest family. **v3 (#202, #208):** `yes` means
+a family holds the result itself, never a step on the way (ChIP-seq peaks were read as
+`alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
+the shared block, as every template does."""
 
 CHAT: PromptId = "builder.chat.v2"
 """A follow-up turn in, exactly one declared authoring intent out."""
@@ -92,7 +96,7 @@ READBACK: PromptId = "builder.readback.v1"
 """The composed goal in, one or two plain sentences out, for the goal card (#176). Written from
 what will be built, never from the first sentence."""
 
-TEMPLATES: tuple[PromptId, ...] = (GOAL, CHAT, TIER4, GAP, ASK, READBACK)
+TEMPLATES: tuple[PromptId, ...] = (GOAL, FAMILY, CHAT, TIER4, GAP, ASK, READBACK)
 """**Every current template is split** at `comeni_ai.prompts.DIVIDER` (14.7.4, #183): what never
 changes between calls first, as a system message a provider caches, and what does after it.
 The v4/v1 files they replace stay loadable, whole, through `RETIRED`."""
