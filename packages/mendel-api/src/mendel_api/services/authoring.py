@@ -21,6 +21,7 @@ can reach a provider is `start_building` in Spawn mode, and only through a `Clie
 passes — so every test here runs against a database and, unless it hands one over, no model.
 """
 
+import logging
 import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -61,6 +62,8 @@ from mendel_api.models import (
 from mendel_api.services import authoring_ai, gaps, registry
 from mendel_api.services import blueprint as bp
 from mendel_api.settings import settings
+
+log = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
@@ -945,7 +948,8 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
 def _spoken(turn: PipelineAuthoringTurn) -> str:
     """What an assistant turn *said*, for the tail — the prose of its blocks, never their ids.
 
-    A goal summary is its three sentences; a narrative or a notice is its text. Structured
+    A goal summary is its three sentences; a narrative or a notice is its text; a question is
+    what it asks. Structured
     blocks — a step proposal, a question's options — are the engine's own vocabulary and reach
     the model through `steps` and `options`, where they are held to admission, rather than as
     prose it could quote back as if it had authored them.
@@ -958,6 +962,11 @@ def _spoken(turn: PipelineAuthoringTurn) -> str:
             said.append(f"{block['have']} {block['do']} {block['get']}")
         elif block.get("kind") in ("narrative", "notice"):
             said.append(block.get("text", ""))
+        elif block.get("kind") == "question":
+            # **What was asked, so the reply is read with it** (#202): a short answer to the
+            # engine's *what result do you want?* means nothing without the question. The prose
+            # only; the options stay out, as above.
+            said.append(block.get("asks", ""))
     return " ".join(part for part in said if part)
 
 
@@ -1467,11 +1476,17 @@ def offer_next_gap(session_id: str) -> str | None:
         # **A dead end asks** (#202). Only a model's want reaches here — a goal edited on the
         # card is admitted and goes straight to resolving — so the person is asked what they
         # want, and the want is cleared so their reply is read from the top.
+        # **The type stays out of the transcript**: it was the model's guess, so the person sees
+        # the code and the question, and the server log says which type (review, #202).
+        log.info(
+            "MI0209 session %s: nothing in the registry can make %s", session_id, found.subject
+        )
         _engine_turn(
             session_id,
             lambda seq: [
-                {"kind": "notice", "id": f"notice-{seq}", "notice": "refusal",
-                 "text": coded("MI0209", f"nothing in the registry can make {found.subject}"),
+                {"kind": "notice", "id": f"notice-{seq}", "notice": "validation",
+                 "text": coded("MI0209", "nothing here can make the result read from what you "
+                               "said"),
                  "code": "MI0209"},
                 Question(
                     id=f"question-{seq}-1",

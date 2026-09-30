@@ -737,3 +737,7 @@ def test_after_a_dead_end_the_next_reply_is_read_from_the_top(client, clean, que
     _run(session_id, response.json()["seq"])
     assert _session(client, session_id)["phase"] == "gathering"
     assert len(transport.sent) == 2
+    read = " ".join(message["content"] for message in transport.sent[0])
+    conversation = read.split("# The conversation so far")[-1]
+    assert "What result do you want?" in conversation, "the reply is read with its question"
+    assert "annotation.gtf" not in conversation, "the model's guess is not handed back as said"

@@ -152,14 +152,17 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
     assert len([f for f in view["facts"] if f["subject"] == "fastq.reads"]) == 1
 
 
-def test_a_want_nothing_can_make_asks_instead_of_failing(clean):
+def test_a_want_nothing_can_make_asks_instead_of_failing(clean, caplog):
     """#202: a model-chosen want nothing makes is a question, never `failed`."""
+    caplog.set_level("INFO")
     sid = _gathering(want=["no.such.type"])
     view = authoring.read(sid)
     assert authoring.current_phase(sid) is Phase.UNDERSTANDING
     blocks = view["turns"][-1]["blocks"]
     assert [b["kind"] for b in blocks] == ["notice", "question"]
-    assert blocks[0]["code"] == "MI0209", "the log still says which type and why"
+    assert blocks[0]["code"] == "MI0209" and blocks[0]["notice"] == "validation"
+    assert "no.such.type" not in blocks[0]["text"], "the model's guess is never shown as fact"
+    assert "no.such.type" in caplog.text, "the server log says which type"
     assert blocks[1]["asks"] == authoring.UNREACHABLE_ASK
     assert "no.such.type" not in blocks[1]["asks"]
     with session_scope() as db:
