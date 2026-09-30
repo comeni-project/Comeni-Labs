@@ -152,11 +152,19 @@ def test_a_reload_mid_gathering_keeps_the_facts_and_one_pending_gap(clean):
     assert len([f for f in view["facts"] if f["subject"] == "fastq.reads"]) == 1
 
 
-def test_a_want_nothing_can_make_fails_with_its_code(clean):
-    """Review focus 1: an unbuildable want never reaches the card."""
+def test_a_want_nothing_can_make_asks_instead_of_failing(clean):
+    """#202: a model-chosen want nothing makes is a question, never `failed`."""
     sid = _gathering(want=["no.such.type"])
-    assert authoring.current_phase(sid) is Phase.FAILED
-    assert authoring.read(sid)["turns"][-1]["blocks"][0]["code"] == "MI0209"
+    view = authoring.read(sid)
+    assert authoring.current_phase(sid) is Phase.UNDERSTANDING
+    blocks = view["turns"][-1]["blocks"]
+    assert [b["kind"] for b in blocks] == ["notice", "question"]
+    assert blocks[0]["code"] == "MI0209", "the log still says which type and why"
+    assert blocks[1]["asks"] == authoring.UNREACHABLE_ASK
+    assert "no.such.type" not in blocks[1]["asks"]
+    with session_scope() as db:
+        assert db.get(PipelineAuthoringSession, sid).goal is None, "the want is cleared"
+    assert view["pending_proposal"] is None
 
 
 def test_a_gap_is_answered_through_decide_with_an_option_or_a_typed_value(clean):

@@ -120,3 +120,10 @@ def test_the_type_is_chosen_by_family_first():
     assert ("card", "family", Event.GOAL_REVISED) in edges
     assert ("failed", "family", Event.RETRY) in edges
     assert ("family", "failed", Event.PROVIDER_FAILED) in edges
+
+
+def test_a_want_nothing_makes_asks_rather_than_fails():
+    """#202: `list_needs → failed` became a question back to the person."""
+    edges = {(e.source, e.target, e.event) for e in p.PROTOCOL.edges}
+    assert ("list_needs", "say", Event.WANT_UNREACHABLE) in edges
+    assert not any(s == "list_needs" and t == "failed" for s, t, _ in edges)

@@ -117,6 +117,8 @@ class Event(StrEnum):
     """Every gap is closed or open; the goal card can be shown."""
     INPUT_UNAVAILABLE = "input_unavailable"
     """The person does not have an input the analysis cannot do without."""
+    WANT_UNREACHABLE = "want_unreachable"
+    """Nothing can make the want a model chose (#202): the person is asked again, never failed."""
 
 
 class ProposalState(StrEnum):

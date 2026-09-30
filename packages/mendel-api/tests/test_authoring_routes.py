@@ -700,3 +700,39 @@ def test_a_yes_with_nothing_listed_asks(client, clean, queue, monkeypatch):
     _run(session_id, seq)
     assert _session(client, session_id)["phase"] == "understanding"
     assert len(transport.sent) == 1
+
+
+UNREACHABLE = json.dumps({"want": ["annotation.gtf"], "constraints": {}, "questions": []})
+"""`annotation.gtf` is declared in the real registry, and nothing produces it."""
+
+
+@needs_db
+def test_a_model_chosen_want_nothing_makes_ends_in_a_question(client, clean, queue, monkeypatch):
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    family = json.dumps({"fits": "yes", "families": ["annotation"], "ack": "Noted."})
+    transport = _model(monkeypatch, family, UNREACHABLE)
+    _run(session_id, seq)
+    view = _session(client, session_id)
+    assert view["phase"] == "understanding" and len(transport.sent) == 2
+    asks = view["turns"][-1]["blocks"][-1]["asks"]
+    assert asks == "Nothing here can produce what you asked for. What result do you want?"
+    assert "annotation.gtf" not in asks
+
+
+@needs_db
+def test_after_a_dead_end_the_next_reply_is_read_from_the_top(client, clean, queue, monkeypatch):
+    """Review focus 1: the family call runs again, never the follow-up call."""
+    _family_step_on(monkeypatch)
+    session_id, seq = _begin(client, queue)
+    family = json.dumps({"fits": "yes", "families": ["annotation"], "ack": "Noted."})
+    _model(monkeypatch, family, UNREACHABLE)
+    _run(session_id, seq)
+    response = client.post(
+        f"/api/pipeline/authoring/{session_id}/messages", json={"text": "gene counts then"}
+    )
+    assert response.status_code == 202, response.text
+    transport = _model(monkeypatch, FAMILY, GOAL_V7)
+    _run(session_id, response.json()["seq"])
+    assert _session(client, session_id)["phase"] == "gathering"
+    assert len(transport.sent) == 2

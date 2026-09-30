@@ -441,7 +441,7 @@ PROTOCOL = Protocol(
         _move("said", "next_gap", _E.FACT_ADDED),
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
-        _move("list_needs", "failed", _E.BUILD_FAILED, "nothing can make it"),
+        _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
         # planned: a file answers it (14.7.6, 14.7.7)
         _e("reply", "upload", "not sure"),
         _e("upload", "safety", "uploaded"),

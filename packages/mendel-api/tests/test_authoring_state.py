@@ -20,6 +20,7 @@ from mendel_api.authoring.types import Phase, ProposalState
     ("phase", "event", "expected"),
     [
         (Phase.UNDERSTANDING, st.Event.WANT_RETURNED, Phase.GATHERING),
+        (Phase.GATHERING, st.Event.WANT_UNREACHABLE, Phase.UNDERSTANDING),
         (Phase.UNDERSTANDING, st.Event.PROVIDER_FAILED, Phase.FAILED),
         (Phase.GOAL_REVIEW, st.Event.GOAL_ACCEPTED, Phase.RESOLVING),
         (Phase.GOAL_REVIEW, st.Event.GOAL_REVISED, Phase.UNDERSTANDING),
@@ -112,11 +113,11 @@ def test_a_retry_cannot_resume_where_the_protocol_draws_no_return():
     assert "resolving" in str(raised.value) and "understanding" in str(raised.value)
 
 
-def test_a_failed_gathering_retries_by_re_reading_the_want():
-    """Gathering fails only when nothing can make the want (MI0209); a retry asks again."""
-    assert st.advance(Phase.GATHERING, st.Event.BUILD_FAILED) is Phase.FAILED
-    assert st.failed_from(Phase.GATHERING) is Phase.UNDERSTANDING
-    assert st.failed_from(Phase.GATHERING) in st.RETRY_TARGETS
+def test_gathering_never_fails_on_an_unreachable_want():
+    """#202: nothing can make the want → ask again, in `understanding`; no arrow to `failed`."""
+    assert st.advance(Phase.GATHERING, st.Event.WANT_UNREACHABLE) is Phase.UNDERSTANDING
+    with pytest.raises(ValueError):
+        st.advance(Phase.GATHERING, st.Event.BUILD_FAILED)
 
 
 def test_a_failure_records_where_it_came_from():

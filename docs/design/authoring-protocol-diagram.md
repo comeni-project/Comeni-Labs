@@ -102,7 +102,7 @@ flowchart LR
     said --> next_gap
     left_open --> next_gap
     next_gap -- "nothing unknown" --> card
-    list_needs -- "nothing can make it" --> failed
+    list_needs -- "nothing makes it: it asks you" --> say
     reply -. "not sure" .-> upload
     upload -. "uploaded" .-> safety
     safety -. "engine knows the type" .-> read_engine

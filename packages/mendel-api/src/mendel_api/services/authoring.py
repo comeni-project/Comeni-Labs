@@ -22,6 +22,7 @@ passes — so every test here runs against a database and, unless it hands one o
 """
 
 import secrets
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import NamedTuple
 
@@ -758,6 +759,18 @@ def _unbuildable(unroutable: UnroutableError) -> str:
 def _note(session_id: str, text: str, *, code: str) -> None:
     """An answered assistant turn holding one refusal notice — something the engine says that
     no model call produced, the same shape `_refused` writes for one that did."""
+    _engine_turn(
+        session_id,
+        lambda seq: [{"kind": "notice", "id": f"notice-{seq}", "notice": "refusal",
+                      "text": text[:2000], "code": code}],
+    )
+
+
+def _engine_turn(session_id: str, blocks: Callable[[int], list[dict]]) -> None:
+    """An answered assistant turn holding blocks the engine wrote — no model call.
+
+    `blocks` is given the turn's seq, which is known only inside the transaction, so each block
+    is built, and validated, with its real id."""
     with session_scope() as db:
         draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
         seq = _next_seq(db, session_id)
@@ -767,10 +780,7 @@ def _note(session_id: str, text: str, *, code: str) -> None:
                 seq=seq,
                 role="assistant",
                 state=TurnState.ANSWERED.value,
-                blocks=[
-                    {"kind": "notice", "id": f"notice-{seq}", "notice": "refusal",
-                     "text": text[:2000], "code": code}
-                ],
+                blocks=blocks(seq),
                 text="",
                 base_revision=draft.revision if draft else 0,
                 at=_now(),
@@ -1380,21 +1390,10 @@ def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Qu
 
 def _say(session_id: str, text: str) -> None:
     """An answered assistant turn holding one narrative the engine wrote — no model call."""
-    with session_scope() as db:
-        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
-        seq = _next_seq(db, session_id)
-        db.add(
-            PipelineAuthoringTurn(
-                session_id=session_id,
-                seq=seq,
-                role="assistant",
-                state=TurnState.ANSWERED.value,
-                blocks=[Narrative(id=f"said-{seq}", text=text[:2000]).model_dump(mode="json")],
-                text="",
-                base_revision=draft.revision if draft else 0,
-                at=_now(),
-            )
-        )
+    _engine_turn(
+        session_id,
+        lambda seq: [Narrative(id=f"said-{seq}", text=text[:2000]).model_dump(mode="json")],
+    )
 
 
 def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
@@ -1449,22 +1448,41 @@ def compose_goal(session_id: str) -> Goal:
     )
 
 
+UNREACHABLE_ASK = "Nothing here can produce what you asked for. What result do you want?"
+"""The engine's question when nothing can make a model-chosen want (#202). **It names no type**:
+the type was the model's guess, not the person's word, and types declare no description."""
+
+
 def offer_next_gap(session_id: str) -> str | None:
     """Offer the next thing the want needs, or the goal card when nothing is missing.
 
-    Returns the pending proposal's id, or `None` when the session failed (MI0209).
+    Returns the pending proposal's id, or `None` when nothing can make the want and the person
+    was asked again (#202).
     """
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
     found = gaps.gaps(wanted.get("want", []), facts, stack)
 
     if isinstance(found, gaps.Unreachable):
-        _note(
+        # **A dead end asks** (#202). Only a model's want reaches here — a goal edited on the
+        # card is admitted and goes straight to resolving — so the person is asked what they
+        # want, and the want is cleared so their reply is read from the top.
+        _engine_turn(
             session_id,
-            coded("MI0209", f"nothing in the registry can make {found.subject}"),
-            code="MI0209",
+            lambda seq: [
+                {"kind": "notice", "id": f"notice-{seq}", "notice": "refusal",
+                 "text": coded("MI0209", f"nothing in the registry can make {found.subject}"),
+                 "code": "MI0209"},
+                Question(
+                    id=f"question-{seq}-1",
+                    asks=UNREACHABLE_ASK,
+                    why_open="nothing here makes the result read from what you said",
+                    options=[],
+                    exhaustive=False,
+                ).model_dump(mode="json"),
+            ],
         )
-        move(session_id, st.Event.BUILD_FAILED, row_version=version)
+        move(session_id, st.Event.WANT_UNREACHABLE, row_version=version, goal=None)
         return None
 
     if not found:
