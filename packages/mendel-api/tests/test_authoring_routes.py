@@ -609,8 +609,8 @@ def test_no_family_fits_asks_and_never_calls_the_goal(client, clean, queue, monk
 
 
 @needs_db
-@pytest.mark.xfail(strict=True, reason="issue 201: a question-answered turn also runs follow_up")
 def test_a_turn_answered_with_a_question_makes_exactly_one_call(client, clean, queue, monkeypatch):
+    """Issue 201: the turn is answered, so nothing else may spend a call on it."""
     _family_step_on(monkeypatch)
     session_id, seq = _begin(client, queue)
     transport = _model(
@@ -619,6 +619,21 @@ def test_a_turn_answered_with_a_question_makes_exactly_one_call(client, clean, q
     )
     _run(session_id, seq)
     assert len(transport.sent) == 1
+
+
+@needs_db
+def test_a_goal_answer_that_asks_makes_exactly_one_call(client, clean, queue, monkeypatch):
+    """Issue 201, the one-step path: the goal call asks, the session stays in understanding."""
+    session_id, seq = _begin(client, queue)
+    asked = {
+        "want": ["counts.matrix"],
+        "ack": "Counts — noted.",
+        "questions": [{"asks": "Gene or transcript level?", "why_open": "Both are possible"}],
+    }
+    transport = _model(monkeypatch, json.dumps(asked))
+    _run(session_id, seq)
+    assert len(transport.sent) == 1
+    assert _session(client, session_id)["phase"] == "understanding"
 
 
 def _rows_now():

@@ -103,15 +103,18 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
         # Already answered, or already failed as late. A duplicate delivery must not spend a call.
         return f"{session_id}:{seq} was not pending"
 
+    # **One handler per turn, chosen by the phase the turn was asked in** (#201). Choosing by the
+    # phase afterwards ran the follow-up on a turn `_understand` had already answered with a
+    # question: a second, wasted call.
     if context.phase is Phase.UNDERSTANDING:
         _understand(session_id, seq, context, context.prompt)
     elif context.phase is Phase.GATHERING and _pending_gap(session_id) is not None:
         _gap_reply(session_id, seq, context)
+    else:
+        _follow_up(session_id, seq, context)
     if authoring.current_phase(session_id) is Phase.GATHERING:
         # The question now on offer and the next one, phrased while the person reads (#186).
         await enqueue_phrasing(session_id)
-    else:
-        _follow_up(session_id, seq, context)
     return f"{session_id}:{seq}"
 
 
