@@ -1389,4 +1389,4 @@ Executed 2026-10-01, in one hand. Commits 013e905..687c820.
 - **Task 6, ruling:** `re` is not on `comeni-core`'s import allowlist (`tests/guards/test_purity.py`).
   The key check is written without a regex (`_is_key`) rather than widening a guard.
 - Lint only: import order, and a call in a default argument (`REVERSING`).
-- Final review batched with plan 2's.
+- Final review: with plan 2 (see its record).

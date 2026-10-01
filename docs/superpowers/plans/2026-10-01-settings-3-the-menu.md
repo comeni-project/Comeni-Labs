@@ -57,7 +57,7 @@
 **Interfaces:**
 - Produces: `put`/`post` throw `Refused(detail)` on 409 as on 422.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -78,12 +78,12 @@ describe("the client", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `cd frontend && npx vitest run src/api/client.test.ts`
 Expected: FAIL, rejected with `Error: /settings/building.pacing → 409`
 
-- [ ] **Step 3: Change `send`**
+- [x] **Step 3: Change `send`**
 
 In `client.ts`, replace `if (r.status === 422) {` with:
 
@@ -93,12 +93,12 @@ In `client.ts`, replace `if (r.status === 422) {` with:
   if (r.status === 422 || r.status === 409) {
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `cd frontend && npx vitest run src/api/client.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/api/client.ts frontend/src/api/client.test.ts
@@ -118,7 +118,7 @@ git commit -m "feat(client): a 409 is a refusal with its coded reason (#213)"
 **Interfaces:**
 - Produces: `useBrowserSetting(key: string, fallback: string): [string, (value: string) => void]`; `storageName(key: string): string` (`comeni.<key>`); `type Theme = "system" | "light" | "dark"`; `useTheme(): [Theme, (t: Theme) => void]`; `painted(theme: Theme): "light" | "dark"`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `useBrowserSetting.test.tsx`:
 
@@ -184,12 +184,12 @@ describe("the theme", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd frontend && npx vitest run src/preferences/useBrowserSetting.test.tsx src/app/useTheme.test.tsx`
 Expected: FAIL, cannot resolve `./useBrowserSetting` and `./useTheme`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `useBrowserSetting.ts`:
 
@@ -278,12 +278,12 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
 }
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `cd frontend && npx vitest run src/preferences/useBrowserSetting.test.tsx src/app/useTheme.test.tsx`
 Expected: PASS, 5 passed
 
-- [ ] **Step 5: The shell uses it, and the toggle becomes a gear**
+- [x] **Step 5: The shell uses it, and the toggle becomes a gear**
 
 In `Shell.tsx`, replace the `useState`/`useEffect` theme block with:
 
@@ -312,12 +312,12 @@ Replace the theme `<button …>…</button>` at the end of the `<nav>` with:
 
 Fix the imports: add `import { painted, useTheme } from "./useTheme";`; drop `useState` from the React import if nothing else uses it (`noUnusedLocals` will say).
 
-- [ ] **Step 6: Type-check and run the shell's tests**
+- [x] **Step 6: Type-check and run the shell's tests**
 
 Run: `cd frontend && npx tsc -b && npx vitest run src/app src/build/Shell.test.tsx`
 Expected: no type errors; PASS. If a test looked for the *Switch to … mode* button, change it to look for the `Settings` link and record the ruling.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/preferences/useBrowserSetting.ts frontend/src/preferences/useBrowserSetting.test.tsx frontend/src/app/useTheme.ts frontend/src/app/useTheme.test.tsx frontend/src/app/Shell.tsx
@@ -338,7 +338,7 @@ git commit -m "feat(settings): the theme is a per-browser setting; the toggle be
 - Consumes: `components["schemas"]["Menu" | "Entry" | "Shown"]` from the generated schema (confirm the names in `schema.d.ts`; a schema split into `-Input`/`-Output` names gets the `-Output` one, recorded as a ruling); `useBrowserSetting` (Task 2); `get`, `put` (`api/client`).
 - Produces: `type Menu`, `type Entry`, `type Shown`; `useMenu()`; `useWrite()` (a mutation taking `{ key: string; value: unknown }`); `Help({ label, help, reason })`; `SettingRow({ entry, onWrite, refusal })`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `Help.test.tsx`:
 
@@ -465,12 +465,12 @@ describe("a setting row", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd frontend && npx vitest run src/preferences/Help.test.tsx src/preferences/SettingRow.test.tsx`
 Expected: FAIL, cannot resolve `./Help`, `./SettingRow`, `./usePreferences`
 
-- [ ] **Step 3: Write `usePreferences.ts`**
+- [x] **Step 3: Write `usePreferences.ts`**
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -498,7 +498,7 @@ export function useWrite() {
 }
 ```
 
-- [ ] **Step 4: Write `Help.tsx`**
+- [x] **Step 4: Write `Help.tsx`**
 
 ```tsx
 import { useEffect, useId, useRef, useState } from "react";
@@ -562,7 +562,7 @@ export function Help({ label, help, reason }: { label: string; help: string; rea
 }
 ```
 
-- [ ] **Step 5: Write `SettingRow.tsx`**
+- [x] **Step 5: Write `SettingRow.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -722,12 +722,12 @@ function Secret({
 }
 ```
 
-- [ ] **Step 6: Run them to verify they pass, and type-check**
+- [x] **Step 6: Run them to verify they pass, and type-check**
 
 Run: `cd frontend && npx vitest run src/preferences/Help.test.tsx src/preferences/SettingRow.test.tsx && npx tsc -b`
 Expected: PASS, 11 passed; no type errors. If `tsc` rejects `reason?.kind` because the generated union narrows differently, narrow with `"kind" in reason` and record it.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/preferences/
@@ -747,7 +747,7 @@ git commit -m "feat(settings): the setting row and its ⓘ — what it is, why i
 - Consumes: `useMenu`, `useWrite`, `Entry`, `Menu` (Task 3); `SettingRow` (Task 3); `Loading`, `Empty`, `Failed` (`ui/States`); `Refused` (`api/client`).
 - Produces: `Preferences` (default section is the first served); route `/settings/:section?`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```tsx
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -861,12 +861,12 @@ describe("the settings page", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd frontend && npx vitest run src/preferences/Preferences.test.tsx`
 Expected: FAIL — `/settings` matches no route (the ErrorBoundary renders), and `Flavour` is never found.
 
-- [ ] **Step 3: Write `Preferences.tsx`**
+- [x] **Step 3: Write `Preferences.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -947,7 +947,7 @@ export function Preferences() {
 }
 ```
 
-- [ ] **Step 4: Add the route**
+- [x] **Step 4: Add the route**
 
 In `router.tsx`, import `import { Preferences } from "../preferences/Preferences";` and add to the main `children`, after `/runs/:id`:
 
@@ -957,12 +957,12 @@ In `router.tsx`, import `import { Preferences } from "../preferences/Preferences
       { path: "/settings/:section?", element: <Preferences /> },
 ```
 
-- [ ] **Step 5: Run the tests, the whole frontend suite and the type check**
+- [x] **Step 5: Run the tests, the whole frontend suite and the type check**
 
 Run: `cd frontend && npx vitest run src/preferences && npx vitest run && npx tsc -b`
 Expected: PASS everywhere; no type errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/preferences/Preferences.tsx frontend/src/preferences/Preferences.test.tsx frontend/src/app/router.tsx
@@ -975,12 +975,12 @@ git commit -m "feat(settings): the settings page, drawn from whatever the API se
 
 **Files:** none changed unless the walk finds something; a finding becomes an issue under #210 unless it blocks the menu.
 
-- [ ] **Step 1: Bring the stack up**
+- [x] **Step 1: Bring the stack up**
 
 Run: `make dev` (the API reloads from `./packages`; the migration from part 2 must be applied: `make migrate`).
 Expected: the app on the printed HMR address.
 
-- [ ] **Step 2: Look at it at two widths**
+- [x] **Step 2: Look at it at two widths**
 
 Open `/settings` in the browser (Claude in Chrome: a new tab). Screenshot at 1280px and at 390px wide. Check by eye:
 - the gear sits at the right of the top bar, baseline-aligned with the tabs;
@@ -988,11 +988,11 @@ Open `/settings` in the browser (Claude in Chrome: a new tab). Screenshot at 128
 - the ⓘ opens a popover that stays on screen at 390px;
 - *This browser* shows as the theme's source.
 
-- [ ] **Step 3: Show the operator**
+- [x] **Step 3: Show the operator**
 
 Send both screenshots. Anything the operator wants changed is a finding: an issue first, then tuned in #210 unless it blocks.
 
-- [ ] **Step 4: Close the part**
+- [x] **Step 4: Close the part**
 
 Run `make check`'s parts separately (lint; tests with the throwaway database; types; docs; links), then comment on #213 with the commits and close it.
 
@@ -1000,4 +1000,20 @@ Run `make check`'s parts separately (lint; tests with the throwaway database; ty
 
 ## Execution record
 
-(Filled in while executing: rulings, deviations, the walk's screenshots and findings, and the closing commit for #213.)
+Executed 2026-10-01, in one hand. Commits 83924eb..(fix pass), #213 closed.
+
+- **Task 2, ruling:** the plan's `useBrowserSetting` wrote every value to its in-memory fallback
+  too, so a value outlived its storage; the fallback is used only when storage throws.
+- **Tasks 3–4, rulings:** two tests matched the code twice (the shared `Refusal` also prints an
+  explain hint with the code); they match the message. An unused parameter renamed for `tsc`.
+- **Task 5, the walk:** Claude in Chrome was not connected (the operator was away), so the page
+  was screenshotted with headless Chrome and a throwaway profile at 1280 and 390 px. On a phone
+  the section list and the heading were ~330 px apart (the grid's rows stretched); fixed with
+  `content-start`. The ⓘ was not opened in a browser.
+- **Final review** (fresh reviewer): 0 critical, 5 important, all fixed test-first — the old
+  `comeni-theme` key is dropped rather than migrated as a choice; typed fields follow the server;
+  the secret editor closes only on an accepted save and says *Set* when there is no last four;
+  an unlocked note is not called *greyed out*; the ⓘ is anchored to the row so it fits a phone.
+  Nine minors deferred (in the ledger): a double PUT on Enter then blur, an empty number sent as
+  0, labels pointing at nothing for some kinds, the note not announced, `shadow-lg`, the system
+  theme not followed live, a 500 shown inside `Refusal`, a header that does not wrap.

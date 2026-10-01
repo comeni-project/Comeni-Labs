@@ -980,4 +980,10 @@ Executed 2026-10-01, in one hand. Commits 748859d..9bf87b6.
 - **Found, not caused here:** five failures exist on the commit before this plan (`748859d`):
   four in `test_forge_jobs.py` (`MF0001: 'fake' is not a catalogue source`) and
   `test_full_cycle.py::test_the_loop_closes`.
-- Final review batched with plan 1's.
+- **Final review** (plans 1 and 2 together, fresh reviewer): 0 critical, 4 important, all fixed
+  test-first — a malformed `COMENI_SETTINGS_KEY` now says so; a rotated key shows *not set* with
+  a reason, and `get()` raises rather than handing out `""` (`Tolerant` removed); secrets are
+  handed over as `SecretStr`; a setting another server serves is never written here. A fifth,
+  re-graded from minor, also fixed: a key under 12 characters shows no last four. Six minors
+  deferred: NaN/inf accepted by an unbounded number, a malformed body's 422 echoing its input,
+  `refusals.py` layout, a non-text secret's message, and the guard covering only good bodies.
