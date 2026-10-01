@@ -71,6 +71,10 @@ knows which directory to open:
 
 `yaml_strict.py` and `diagnostics.py` sit above those five because every one of them uses both.
 
+`comeni_core/settings/` sits beside them: what an installation may change, the layers a value
+comes from, and why a setting is greyed out. It holds declarations and logic only; the store and
+the cipher are adapters in `mendel-api`.
+
 `tests/repo/test_architecture.py` asserts every path this document names exists — prose that names
 a path is prose that goes stale, which is what `CLAUDE.md`'s two stale counts were (A71, A72)
 and what `registry.yml:kinds` was until Plan 1.15.

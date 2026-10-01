@@ -1,0 +1,48 @@
+{
+  "sections": [
+    {
+      "key": "appearance",
+      "title": "Appearance",
+      "order": 1,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "appearance.theme",
+            "label": "Theme",
+            "help": "Light or dark. Kept by this browser, so another browser or another person keeps their own. Match the system follows your operating system's setting.",
+            "kind": "choice",
+            "default": "system",
+            "env": null,
+            "options": [
+              {
+                "value": "system",
+                "label": "Match the system"
+              },
+              {
+                "value": "light",
+                "label": "Light"
+              },
+              {
+                "value": "dark",
+                "label": "Dark"
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "browser"
+          },
+          "shown": {
+            "value": "system",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    }
+  ]
+}

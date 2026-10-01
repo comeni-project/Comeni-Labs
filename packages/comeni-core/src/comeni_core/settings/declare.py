@@ -9,7 +9,6 @@ validator below refuses a declaration that could not work — a default outside 
 secret with a default, a browser setting the server claims to pin.
 """
 
-import re
 from enum import StrEnum
 from typing import Any
 
@@ -17,8 +16,20 @@ from pydantic import BaseModel, ConfigDict, JsonValue, field_validator, model_va
 
 from comeni_core.settings.reasons import Reason
 
-KEY = re.compile(r"^[a-z][a-z_]*(\.[a-z][a-z0-9_]*)+$")
-"""`section.name`, lower case. The key is a stored row's primary key and a URL segment."""
+LOWER = frozenset("abcdefghijklmnopqrstuvwxyz")
+DIGITS = frozenset("0123456789")
+
+
+def _is_key(key: str) -> bool:
+    """`section.name`, lower case: two or more dotted parts, each a lower-case letter followed by
+    letters, digits or underscores. The key is a stored row's primary key and a URL segment.
+
+    **Without `re`**, which is not on `comeni-core`'s import allowlist in
+    `tests/guards/test_purity.py`; this is short enough not to be worth widening a guard for."""
+    parts = key.split(".")
+    return len(parts) >= 2 and all(
+        part and part[0] in LOWER and set(part) <= LOWER | DIGITS | {"_"} for part in parts
+    )
 
 HELP_FLOOR = 20
 """Shorter than this is a label repeated, not an explanation."""
@@ -76,7 +87,7 @@ class Setting(BaseModel):
     @field_validator("key")
     @classmethod
     def _key(cls, key: str) -> str:
-        if not KEY.match(key):
+        if not _is_key(key):
             raise ValueError(f"key {key!r} must be dotted and lower case, as `section.name`")
         return key
 
