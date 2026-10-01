@@ -25,11 +25,12 @@ export function Preferences() {
   if (!section) return <Navigate to={`/settings/${sections[0].key}`} replace />;
   const current = sections.find((s) => s.key === section);
 
-  const save = (key: string, value: unknown) => {
+  const save = (key: string, value: unknown, done?: () => void) => {
     setRefused(null);
     write.mutate(
       { key, value },
       {
+        onSuccess: () => done?.(),
         onError: (error) =>
           setRefused({ key, message: error instanceof Refused ? error.message : String(error) }),
       },
@@ -58,7 +59,7 @@ export function Preferences() {
               <SettingRow
                 key={entry.setting.key}
                 entry={entry}
-                onWrite={(value) => save(entry.setting.key, value)}
+                onWrite={(value, done) => save(entry.setting.key, value, done)}
                 refusal={refused?.key === entry.setting.key ? refused.message : null}
               />
             ))}

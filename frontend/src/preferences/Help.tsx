@@ -6,7 +6,9 @@ import { useEffect, useId, useRef, useState } from "react";
  * one, so it opens on click, tap or Enter and closes on Escape or a click elsewhere. The words
  * are the API's: `help` from the declaration, `reason` from the closed list of reasons.
  */
-export function Help({ label, help, reason }: { label: string; help: string; reason?: string | null }) {
+export function Help({
+  label, help, reason, locked = true,
+}: { label: string; help: string; reason?: string | null; locked?: boolean }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const box = useRef<HTMLSpanElement>(null);
@@ -28,7 +30,7 @@ export function Help({ label, help, reason }: { label: string; help: string; rea
   }, [open]);
 
   return (
-    <span ref={box} className="relative inline-block">
+    <span ref={box} className="inline-block">
       <button
         type="button"
         aria-label={`About ${label}`}
@@ -43,13 +45,17 @@ export function Help({ label, help, reason }: { label: string; help: string; rea
         <span
           id={id}
           role="note"
-          className="absolute left-0 top-full z-10 mt-1 w-[300px] max-w-[calc(100vw-32px)]
+          // **Anchored to the row, not to the ⓘ** (review I-5): the row is `relative`, so the
+          // note spans its width and cannot run past a 390px screen.
+          className="absolute left-0 right-0 top-full z-10 mt-1
                      border border-line bg-surface p-3 text-secondary text-ink shadow-lg"
         >
           <span className="block">{help}</span>
           {reason && (
             <span className="block mt-2 text-ink-2">
-              <strong>Why it is greyed out:</strong> {reason}
+              {/* Only a locked setting is greyed; an unlocked one can carry a note (review I-4). */}
+              {locked && <strong>Why it is greyed out: </strong>}
+              {reason}
             </span>
           )}
         </span>

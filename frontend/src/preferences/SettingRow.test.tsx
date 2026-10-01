@@ -67,7 +67,7 @@ describe("a setting row", () => {
     await userEvent.click(screen.getByRole("button", { name: "Replace" }));
     await userEvent.type(screen.getByLabelText("Pacing"), "sk-new-5678");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onWrite).toHaveBeenCalledWith("sk-new-5678");
+    expect(onWrite).toHaveBeenCalledWith("sk-new-5678", expect.any(Function));
   });
 
   it("draws a kind it does not know as read-only text", () => {
@@ -79,5 +79,37 @@ describe("a setting row", () => {
   it("shows a refusal under the row", () => {
     render(<SettingRow entry={entry()} onWrite={vi.fn()} refusal="MI0302: building.pacing: 'x' is not one of together, ask" />);
     expect(screen.getByText(/MI0302: building.pacing/)).toBeTruthy();
+  });
+
+  it("shows the server's value after it changes, not a stale draft", () => {
+    // Review I-2: typed 8, `.env` pinned 4, the save was refused and the menu reloaded.
+    const number = { kind: "number", options: [], default: 30 };
+    const { rerender } = render(<SettingRow entry={entry(number, { value: 8 })} onWrite={vi.fn()} />);
+    rerender(<SettingRow entry={entry(number, { value: 4, locked: true })} onWrite={vi.fn()} />);
+    expect((screen.getByRole("spinbutton", { name: "Pacing" }) as HTMLInputElement).value).toBe("4");
+  });
+
+  it("keeps the secret editor open until the save succeeds", async () => {
+    // Review I-3: a refused save must not leave the row claiming the secret is set.
+    const onWrite = vi.fn();  // never calls `done`: the save was refused
+    render(<SettingRow entry={entry({ kind: "secret", options: [], default: null }, { value: null, set: false })} onWrite={onWrite} />);
+    await userEvent.type(screen.getByLabelText("Pacing"), "sk-new-5678");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onWrite).toHaveBeenCalled();
+    expect(screen.getByLabelText("Pacing")).toBeTruthy();
+    expect(screen.queryByText(/^Set/)).toBeNull();
+  });
+
+  it("says just Set when there is no last four", () => {
+    render(<SettingRow entry={entry({ kind: "secret", options: [], default: null }, { value: null, set: true, last4: null })} onWrite={vi.fn()} />);
+    expect(screen.getByText(/^Set$/)).toBeTruthy();
+  });
+
+  it("follows the server when a secret it showed as set becomes unreadable", () => {
+    const secret = { kind: "secret", options: [], default: null };
+    const { rerender } = render(<SettingRow entry={entry(secret, { value: null, set: true, last4: "1234" })} onWrite={vi.fn()} />);
+    rerender(<SettingRow entry={entry(secret, { value: null, set: false, last4: null })} onWrite={vi.fn()} />);
+    expect(screen.queryByText(/ending 1234/)).toBeNull();
+    expect(screen.getByLabelText("Pacing")).toBeTruthy();
   });
 });

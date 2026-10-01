@@ -29,4 +29,22 @@ describe("the ⓘ", () => {
     expect(screen.getByText(/Why it is greyed out/)).toBeTruthy();
     expect(screen.getByText(/COMENI_BUILD_PACING/)).toBeTruthy();
   });
+
+  it("does not call an unlocked note a reason for greying", async () => {
+    // Review I-4: a secret that can no longer be opened is not set, unlocked, with a note.
+    render(<Help label="Key" help={HELP} reason="Needs something first: enter it again." locked={false} />);
+    await userEvent.click(screen.getByRole("button", { name: "About Key" }));
+    expect(screen.queryByText(/Why it is greyed out/)).toBeNull();
+    expect(screen.getByText(/enter it again/)).toBeTruthy();
+  });
+
+  it("opens inside the row, never wider than it", async () => {
+    // Review I-5: anchored to the row, so it cannot run past a 390px screen.
+    render(<div className="relative"><Help label="Pacing" help={HELP} /></div>);
+    await userEvent.click(screen.getByRole("button", { name: "About Pacing" }));
+    const note = screen.getByRole("note");
+    expect(note.className).toMatch(/\bleft-0\b/);
+    expect(note.className).toMatch(/\bright-0\b/);
+    expect(note.parentElement?.className ?? "").not.toMatch(/\brelative\b/);
+  });
 });
