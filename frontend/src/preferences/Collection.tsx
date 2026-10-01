@@ -103,6 +103,7 @@ function Action({ setting, name, action }: { setting: string; name: string; acti
     <span className="text-secondary">
       <button type="button" onClick={() => run.mutate()} className="bg-transparent text-link cursor-pointer">{action}</button>
       {run.data && <span className={`ml-2 ${run.data.ok === false ? "text-fault" : "text-ink-2"}`}>{run.data.says}</span>}
+      {run.error && <span className="ml-2 text-fault">Could not run {action}: {run.error.message}</span>}
     </span>
   );
 }

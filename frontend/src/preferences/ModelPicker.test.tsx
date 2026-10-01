@@ -37,4 +37,13 @@ describe("the model picker", () => {
     await userEvent.selectOptions(select, "Local · ollama_chat/gemma3:4b");
     expect(onWrite).toHaveBeenCalledWith({ connection: "Local", model: "ollama_chat/gemma3:4b" });
   });
+
+  it("says which connection could not be listed, and still offers Other", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ModelPicker entry={ENTRY} menu={MENU} onWrite={vi.fn()} />
+    </QueryClientProvider>);
+    expect(await screen.findByText(/Local: could not list its models/)).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Other…" })).toBeTruthy();
+  });
 });

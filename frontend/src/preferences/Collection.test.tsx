@@ -66,4 +66,11 @@ describe("connections", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "test" })[0]);
     expect(await screen.findByText(/Something answers/)).toBeTruthy();
   });
+
+  it("says so when an action cannot be run", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
+    draw();
+    await userEvent.click(screen.getAllByRole("button", { name: "test" })[0]);
+    expect(await screen.findByText(/could not run test/i)).toBeTruthy();
+  });
 });

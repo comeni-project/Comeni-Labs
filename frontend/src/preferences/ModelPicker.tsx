@@ -46,6 +46,10 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
         {options.map((o) => <option key={encode(o)} value={encode(o)}>{o.connection} · {o.model}</option>)}
         <option value={"\u0001"}>Other…</option>
       </select>
+      {/* A connection whose list could not be read still offers *Other…*; say which. */}
+      {records.map((r, i) => lists[i].error && (
+        <span key={r.name} className="text-secondary text-fault">{r.name}: could not list its models.</span>
+      ))}
       {other && (
         <>
           <select aria-label="Connection" value={other.connection}
