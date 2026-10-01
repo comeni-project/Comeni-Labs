@@ -112,4 +112,9 @@ describe("a setting row", () => {
     expect(screen.queryByText(/ending 1234/)).toBeNull();
     expect(screen.getByLabelText("Pacing")).toBeTruthy();
   });
+
+  it("names a reported value's source", () => {
+    render(<SettingRow entry={entry({ kind: "readonly", options: [] }, { value: "docker", source: "reported", locked: true })} onWrite={vi.fn()} />);
+    expect(screen.getByText("Reported")).toBeTruthy();
+  });
 });

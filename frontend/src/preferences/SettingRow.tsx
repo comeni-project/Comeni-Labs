@@ -18,6 +18,7 @@ const SOURCE: Record<string, string> = {
   default: "Default",
   installation: "Set here",
   environment: "Pinned by .env",
+  reported: "Reported",
 };
 
 /** `done` is called once the server has accepted the value: a control that must not move on
