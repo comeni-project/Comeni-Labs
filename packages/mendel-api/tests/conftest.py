@@ -94,3 +94,15 @@ def broken_registry_copy(tmp_path):
         return copy
 
     return _break
+
+
+@pytest.fixture
+def clean_settings():
+    """An empty `installation_setting` around each test. Nothing references it, so it truncates
+    alone."""
+    from mendel_api.db import session_scope
+    from sqlalchemy import text
+
+    with session_scope() as session:
+        session.execute(text("TRUNCATE TABLE installation_setting"))
+    yield
