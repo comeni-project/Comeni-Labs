@@ -76,6 +76,7 @@ decline to curate one.
 | `MD0021` | a tool's file sits in a folder that is not its id |
 | `MD0022` | a tool folder has no tool.yml saying what the tool is |
 | `MD0023` | a type only one tool uses sits outside that tool's types/ folder |
+| `MD0024` | a type one tool keeps as its own is used by another tool's contract |
 
 ## The pipeline file — a setting, an override, or the format
 

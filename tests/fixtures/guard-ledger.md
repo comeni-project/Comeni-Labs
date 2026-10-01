@@ -5034,3 +5034,7 @@ rest.
 | 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_module_whose_folder_is_not_its_id_is_refused` | `found += _path_is_the_id(root)` removed from `lint()` | failed; restored, passed | `assert 'MD0021' in [...]` |
 | 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_tool_folder_without_tool_yml_is_refused` | `found += _every_tool_says_what_it_is(root)` removed | failed; restored, passed | `assert 'MD0022' in [...]` |
 | 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_tools_own_type_outside_its_types_folder_is_refused` | `found += _tool_types_in_types(root)` removed | failed; restored, passed | `assert 'MD0023' in [...]` |
+| 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_tool_yml_whose_id_is_not_its_folder_is_refused` | — (written before the fix, from the final review) | failed before `tool` joined `_path_is_the_id`; passed after | `assert 'MD0021' in []` |
+| 2026-10-01 | `…::test_a_tool_yml_that_declares_something_else_is_refused` | — (written before the fix) | failed before MD0022 read the file's kind; passed after | `assert 'MD0022' in ['MD0014', 'MD0023']` |
+| 2026-10-01 | `…::test_a_type_loose_under_tools_is_refused` | — (written before the fix) | failed before MD0023 covered loose types; passed after | `assert 'MD0023' in []` |
+| 2026-10-01 | `…::test_a_tools_own_type_used_by_another_tool_is_refused` | — (written before MD0024 existed) | failed; passed after | `assert 'MD0024' in []` |

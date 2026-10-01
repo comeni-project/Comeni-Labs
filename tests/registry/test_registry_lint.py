@@ -207,3 +207,53 @@ def test_a_layout_without_the_tool_kind_is_not_held_to_it(tmp_path):
         "tools/nf-core/x/other/module.yml": MODULE.format(id="nf-core/x/sort"),
     }, layout_has_tool=False)
     assert not {"MD0021", "MD0022", "MD0023"} & set(_codes(root))
+
+
+def test_a_tool_yml_whose_id_is_not_its_folder_is_refused(tmp_path):
+    """Review of #216: a misspelt id loaded as a tool that does not exist, and lint passed."""
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL.replace("nf-core/x", "nf-core/y"),
+        "tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert "MD0021" in _codes(root)
+
+
+def test_a_tool_yml_that_declares_something_else_is_refused(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TYPE.replace("genome.index.x", "x.thing"),
+        "tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert "MD0022" in _codes(root)
+
+
+def test_a_type_loose_under_tools_is_refused(tmp_path):
+    """Review of #216: `tools/nf-core/qc.report.yml` belonged to no tool and passed."""
+    root = _layer(tmp_path, {"tools/nf-core/genome.index.x.yml": TYPE})
+    assert "MD0023" in _codes(root)
+
+
+def _contract(id_: str, type_id: str) -> str:
+    return (
+        f"declares: contract\nid: {id_}@1.0.0\n"
+        f"consumes: [{{name: index, type_id: {type_id}, state_required: []}}]\n"
+    )
+
+
+def test_a_tools_own_type_used_by_another_tool_is_refused(tmp_path):
+    """Spec §3: a type in a tool's `types/` is used only by that tool (MD0024)."""
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/types/genome.index.x.yml": TYPE,
+        "tools/nf-core/y/tool.yml": TOOL.replace("nf-core/x", "nf-core/y"),
+        "tools/nf-core/y/align/contract.yml": _contract("nf-core/y/align", "genome.index.x"),
+    })
+    assert "MD0024" in _codes(root)
+
+
+def test_a_tools_own_type_used_by_that_tool_is_fine(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/types/genome.index.x.yml": TYPE,
+        "tools/nf-core/x/align/contract.yml": _contract("nf-core/x/align", "genome.index.x"),
+    })
+    assert "MD0024" not in _codes(root)

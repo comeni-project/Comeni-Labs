@@ -20,7 +20,7 @@
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
 #   MD0500-MD0599  validating a hand-built graph
-#   MD0013-MD0019, MD0021-MD0023  a layer is not arranged the way its own manifest says
+#   MD0013-MD0019, MD0021-MD0024  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
@@ -1883,6 +1883,19 @@ MD0023:
     A type only one tool touches lives with that tool, in `tools/<org>/<tool>/types/`, so the
     tool's folder reads as subtools plus its own words. A type several tools touch belongs in
     `vocabulary/types/`.
+MD0024:
+  emitted_by: compiler
+  concern: layout
+  says: "a type one tool keeps as its own is used by another tool's contract"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move the type to the shared vocabulary (`vocabulary/types/` in the public registry): two
+    tools use it, so neither owns it.
+  explanation: |
+    A tool's `types/` holds the types only that tool touches, so the tool can be reviewed, moved
+    or deleted as a unit. A contract elsewhere using one of them means deleting the tool would
+    take a type another tool depends on with it.
 MD0226:
   emitted_by: core
   concern: pipeline-file
