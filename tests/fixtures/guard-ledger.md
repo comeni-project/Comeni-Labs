@@ -5019,3 +5019,9 @@ rest.
 | 2026-09-28 | `tests/repo/test_protocol_doc.py::test_the_protocol_diagram_is_fresh` | one node label changed in `protocol.py` | failed | `authoring-protocol-diagram.md is stale — run: uv run python tools/generate_protocol_doc.py` |
 | 2026-09-29 | `tests/guards/test_construction.py::test_data_profile_is_constructed_in_one_place` | a scratch `DataProfile(measurements=[])` in `mendel_api/_scratch_guard.py` | **passed — inert for the API** (issue 165); after scanning `mendel-api` too, failed | `… construct one directly: packages/mendel-api/src/mendel_api/_scratch_guard.py:5` |
 | 2026-09-29 | `packages/mendel-resolver/tests/test_families_through_the_loader.py` (issue 194) | the `families.check(vocabulary.types)` call removed from `layers.load` | 4 of 5 failed; restored, 5 passed | `DID NOT RAISE <class 'comeni_core.declared.families.UnknownFamilyError'>` |
+
+## 2026-10-01 — settings (14.7.5)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-01 | `tests/guards/test_settings_secrets.py::test_no_settings_response_and_no_stored_row_holds_the_plaintext` | `Installation.shown` returned the plaintext as `value` for a secret | failed on the first PUT; restored, passed | `PUT leaked the secret` |
