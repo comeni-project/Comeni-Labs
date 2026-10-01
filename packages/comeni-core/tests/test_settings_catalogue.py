@@ -4,7 +4,8 @@ import json
 import os
 from pathlib import Path
 
-from comeni_core.settings import CATALOGUE, Installation, Kind, resolve
+from comeni_core.settings import CATALOGUE, Designed, Installation, Kind, Source, resolve
+from comeni_core.settings.catalogue import BUILDING, PACING, TIER4_ANSWERS
 
 GOLDEN = Path(__file__).parent / "golden" / "settings-menu.json"
 
@@ -43,3 +44,19 @@ def test_the_served_menu_matches_the_golden_file():
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(produced)
     assert json.loads(produced) == json.loads(GOLDEN.read_text())
+
+
+def test_building_sits_between_appearance_and_models():
+    assert [s.key for s in CATALOGUE.sections][:3] == ["appearance", "building", "models"]
+    assert BUILDING.settings == (PACING, TIER4_ANSWERS)
+
+
+def test_pacing_says_designed_even_when_env_and_a_stored_value_are_set():
+    got = resolve(PACING, {"building.pacing": "together"}, {"COMENI_BUILD_PACING": "together"})
+    assert (got.value, got.source, got.locked) == ("ask", Source.DEFAULT, True)
+    assert isinstance(got.reason, Designed)
+
+
+def test_tier4_shows_todays_behaviour_designed():
+    got = resolve(TIER4_ANSWERS, {}, {})
+    assert got.value == "stop" and isinstance(got.reason, Designed)

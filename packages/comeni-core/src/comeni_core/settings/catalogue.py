@@ -2,11 +2,12 @@
 
 **Each section arrived with its consumer.** Appearance came first (the theme, read by
 `frontend/src/app/Shell.tsx`); Models and Privacy & data with 14.7.5.4, which made every model
-call read its purpose's model. Building arrives in 14.7.5.5, the read-only ones in 14.7.5.6.
+call read its purpose's model. Building arrived with 14.7.5.5, declared `Designed` until the
+consultant build (14.7.8) reads it; the read-only ones arrive in 14.7.5.6.
 """
 
 from comeni_core.settings.declare import FROM_ENV, EnvItem, Setting, Where
-from comeni_core.settings.reasons import ReadOnlyHere
+from comeni_core.settings.reasons import Designed, ReadOnlyHere
 from comeni_core.settings.sections import Catalogue, Section
 
 THEME = Setting.choice(
@@ -22,6 +23,41 @@ THEME = Setting.choice(
 )
 
 APPEARANCE = Section(key="appearance", title="Appearance", order=1, settings=(THEME,))
+
+CONSULTANT = "arrives with the consultant build (14.7.8)"
+
+PACING = Setting.choice(
+    key="building.pacing",
+    label="Pacing",
+    help=(
+        "How the build walks you through its steps: together, step by step, or set up at once "
+        "and stopping only where it needs you. Ask me every time asks at the start of each build."
+    ),
+    options=[
+        ("together", "Go through it together"),
+        ("stop_where_needed", "Set it up, stop only where you need me"),
+        ("ask", "Ask me every time"),
+    ],
+    default="ask",
+    env="COMENI_BUILD_PACING",
+    unavailable=Designed(where=CONSULTANT),
+)
+
+TIER4_ANSWERS = Setting.choice(
+    key="building.tier4",
+    label="Choices no rule settles",
+    help=(
+        "What happens at a tier-4 choice, where no rule decides. In the consultant build it "
+        "always stops for you; letting a model propose the answer, always flagged as a model's, "
+        "is designed."
+    ),
+    options=[("stop", "Always stop for me"), ("model", "Let a model answer, flagged")],
+    default="stop",
+    env="COMENI_BUILD_TIER4",
+    unavailable=Designed(where="letting a model answer comes after the consultant build"),
+)
+
+BUILDING = Section(key="building", title="Building", order=2, settings=(PACING, TIER4_ANSWERS))
 
 CONNECTIONS = Setting.collection(
     key="models.connections",
@@ -119,4 +155,4 @@ MODELS = Section(
 )
 PRIVACY = Section(key="privacy", title="Privacy & data", order=4, settings=(WHERE_PURPOSES,))
 
-CATALOGUE = Catalogue(sections=(APPEARANCE, MODELS, PRIVACY))
+CATALOGUE = Catalogue(sections=(APPEARANCE, BUILDING, MODELS, PRIVACY))

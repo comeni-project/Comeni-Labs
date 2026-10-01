@@ -1,7 +1,7 @@
 """Settings: what an installation may change, where each value came from, and why one cannot be
 changed. Spec: `docs/superpowers/specs/2026-10-01-settings-design.md`."""
 
-from comeni_core.settings.catalogue import CATALOGUE
+from comeni_core.settings.catalogue import BUILDING, CATALOGUE, PACING, TIER4_ANSWERS
 from comeni_core.settings.declare import (
     FROM_ENV,
     ChoiceOption,
@@ -26,9 +26,12 @@ from comeni_core.settings.resolve import SETTINGS_KEY_ENV, Resolved, Source, res
 from comeni_core.settings.sections import Catalogue, Section
 
 __all__ = [
+    "BUILDING",
     "CATALOGUE",
     "FROM_ENV",
+    "PACING",
     "SETTINGS_KEY_ENV",
+    "TIER4_ANSWERS",
     "Catalogue",
     "ChoiceOption",
     "Designed",

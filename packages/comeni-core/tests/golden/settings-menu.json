@@ -50,6 +50,108 @@
       ]
     },
     {
+      "key": "building",
+      "title": "Building",
+      "order": 2,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "building.pacing",
+            "label": "Pacing",
+            "help": "How the build walks you through its steps: together, step by step, or set up at once and stopping only where it needs you. Ask me every time asks at the start of each build.",
+            "kind": "choice",
+            "default": "ask",
+            "env": "COMENI_BUILD_PACING",
+            "options": [
+              {
+                "value": "together",
+                "label": "Go through it together"
+              },
+              {
+                "value": "stop_where_needed",
+                "label": "Set it up, stop only where you need me"
+              },
+              {
+                "value": "ask",
+                "label": "Ask me every time"
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "designed",
+              "where": "arrives with the consultant build (14.7.8)",
+              "says": "Designed, not built yet: arrives with the consultant build (14.7.8)."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "ask",
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "designed",
+              "where": "arrives with the consultant build (14.7.8)",
+              "says": "Designed, not built yet: arrives with the consultant build (14.7.8)."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "building.tier4",
+            "label": "Choices no rule settles",
+            "help": "What happens at a tier-4 choice, where no rule decides. In the consultant build it always stops for you; letting a model propose the answer, always flagged as a model's, is designed.",
+            "kind": "choice",
+            "default": "stop",
+            "env": "COMENI_BUILD_TIER4",
+            "options": [
+              {
+                "value": "stop",
+                "label": "Always stop for me"
+              },
+              {
+                "value": "model",
+                "label": "Let a model answer, flagged"
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "designed",
+              "where": "letting a model answer comes after the consultant build",
+              "says": "Designed, not built yet: letting a model answer comes after the consultant build."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "stop",
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "designed",
+              "where": "letting a model answer comes after the consultant build",
+              "says": "Designed, not built yet: letting a model answer comes after the consultant build."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
       "key": "models",
       "title": "Models",
       "order": 3,
