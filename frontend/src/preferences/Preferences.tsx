@@ -37,7 +37,7 @@ export function Preferences() {
   };
 
   return (
-    <main className="gutter grid gap-6 py-7 md:grid-cols-[180px_1fr] max-w-[960px]">
+    <main className="gutter grid content-start gap-6 py-7 md:grid-cols-[180px_1fr] max-w-[960px]">
       <nav aria-label="Settings sections" className="flex md:flex-col gap-3 flex-wrap">
         {sections.map((s) => (
           <NavLink
