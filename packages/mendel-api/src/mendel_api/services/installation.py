@@ -9,12 +9,17 @@ import os
 
 from comeni_core.settings import CATALOGUE, Installation
 
-from mendel_api.services.settings_codec import Tolerant, codec_from_env
+from mendel_api.services.settings_codec import codec_from_env, key_problem
 from mendel_api.services.settings_store import PostgresStore
 
 
 def installation() -> Installation:
-    codec = codec_from_env(os.environ)
+    # **Strict, not tolerant**: a secret sealed under a rotated key raises when opened, so
+    # the code that uses it learns it cannot be read; the menu shows it as not set, with why.
     return Installation(
-        CATALOGUE, PostgresStore(), os.environ, codec=Tolerant(codec) if codec else None
+        CATALOGUE,
+        PostgresStore(),
+        os.environ,
+        codec=codec_from_env(os.environ),
+        secrets_need=key_problem(os.environ),
     )

@@ -39,6 +39,7 @@ def resolve(
     env: Mapping[str, str],
     *,
     secrets_available: bool = True,
+    secrets_need: str | None = None,
 ) -> Resolved:
     """The value a setting has right now, and why.
 
@@ -75,7 +76,8 @@ def resolve(
             update={
                 "locked": True,
                 "reason": Needs(
-                    what=f"set {SETTINGS_KEY_ENV} in .env to store secrets here"
+                    what=secrets_need
+                    or f"set {SETTINGS_KEY_ENV} in .env to store secrets here"
                     + (f", or set {setting.env} there directly" if setting.env else "")
                 ),
             }

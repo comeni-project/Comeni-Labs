@@ -8,9 +8,9 @@ resolver greys every secret with a reason; `key_problem` is that reason's text w
 present but unusable. A menu that crashed because `.env` held a passphrase would hide the one
 message that says how to fix it.
 
-**An unreadable secret is not set.** Rotating the key leaves every sealed value unopenable;
-`Tolerant` turns that into an empty value, which `Installation.shown` reports as *not set*, so
-the person is asked for the key again rather than shown a 500.
+**An unreadable secret is not set.** Rotating the key leaves every sealed value unopenable:
+`open` raises `UnreadableSecret`, `Installation.shown` reports *not set* with a reason naming the
+key, and the code that uses a key learns it cannot be read rather than receiving an empty one.
 """
 
 from collections.abc import Mapping
@@ -40,22 +40,6 @@ class FernetCodec:
             return self._fernet.decrypt(sealed.encode()).decode()
         except InvalidToken:
             raise UnreadableSecret("a stored secret was sealed under another key") from None
-
-
-class Tolerant:
-    """A codec whose `open` answers `""` for a secret it cannot read."""
-
-    def __init__(self, inner: FernetCodec):
-        self._inner = inner
-
-    def seal(self, plain: str) -> str:
-        return self._inner.seal(plain)
-
-    def open(self, sealed: str) -> str:
-        try:
-            return self._inner.open(sealed)
-        except UnreadableSecret:
-            return ""
 
 
 def _key(env: Mapping[str, str]) -> str:

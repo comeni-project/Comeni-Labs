@@ -14,11 +14,11 @@ code that uses a key calls.
 from collections.abc import Mapping
 from typing import Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, JsonValue, SecretStr
 
 from comeni_core.settings.declare import Kind, Setting, Where
-from comeni_core.settings.reasons import ReadOnlyHere, Reason
-from comeni_core.settings.resolve import Resolved, Source, resolve
+from comeni_core.settings.reasons import Needs, ReadOnlyHere, Reason
+from comeni_core.settings.resolve import SETTINGS_KEY_ENV, Resolved, Source, resolve
 from comeni_core.settings.sections import Catalogue
 
 
@@ -44,6 +44,14 @@ class SettingLocked(Exception):
 
 
 BROWSER_ONLY = ReadOnlyHere(why="this one is kept by your browser, not the server")
+
+UNREADABLE = Needs(
+    what=f"the stored value was sealed under another {SETTINGS_KEY_ENV}; enter it again"
+)
+"""A secret the codec cannot open — the key was rotated. Not set, and said so (review I2)."""
+
+LAST4_FLOOR = 12
+"""Shorter than this, the last four characters are most of the secret, so none are shown."""
 
 
 class Shown(BaseModel):
@@ -89,24 +97,41 @@ class Installation:
         store: SettingsStore,
         env: Mapping[str, str],
         codec: SecretCodec | None = None,
+        *,
+        server: Literal["mendel", "wiener"] = "mendel",
+        secrets_need: str | None = None,
     ):
+        """`server` is who is serving this menu: a setting another server reports is never
+        written here. `secrets_need` is the precise reason secrets cannot be stored when the
+        caller knows it — a malformed key rather than a missing one."""
         self.catalogue = catalogue
         self.store = store
         self.env = env
         self.codec = codec
+        self.server = server
+        self.secrets_need = secrets_need
 
     def resolved(self, setting: Setting) -> Resolved:
         return resolve(
-            setting, self.store.values(), self.env, secrets_available=self.codec is not None
+            setting,
+            self.store.values(),
+            self.env,
+            secrets_available=self.codec is not None,
+            secrets_need=self.secrets_need,
         )
 
     def get(self, setting: Setting) -> object:
-        """The value for the code that uses it. **The only place a secret is opened.**"""
+        """The value for the code that uses it. **The only place a secret is opened**, and it
+        is handed over as a `SecretStr`, which prints as hidden (spec §8). A codec that cannot
+        open it raises; `shown` turns that into *not set*, and a caller learns it cannot read
+        the key rather than receiving an empty one."""
         got = self.resolved(setting)
-        if setting.kind is Kind.SECRET and got.source is Source.INSTALLATION:
+        if setting.kind is not Kind.SECRET or got.value is None:
+            return got.value
+        if got.source is Source.INSTALLATION:
             assert self.codec is not None  # resolve() locks secrets when there is no codec
-            return self.codec.open(str(got.value))
-        return got.value
+            return SecretStr(self.codec.open(str(got.value)))
+        return SecretStr(str(got.value))
 
     def shown(self, setting: Setting) -> Shown:
         got = self.resolved(setting)
@@ -116,20 +141,30 @@ class Installation:
             return Shown(
                 value=got.value, source=got.source, locked=got.locked, reason=got.reason
             )
-        plain = self.get(setting) or None  # "" is a secret the codec could not open: not set
+        try:
+            secret = self.get(setting)
+        except ValueError:
+            return Shown(value=None, source=got.source, locked=False, reason=UNREADABLE, set=False)
+        plain = secret.get_secret_value() if isinstance(secret, SecretStr) else None
+        plain = plain or None  # "" is not a secret
         return Shown(
             value=None,
             source=got.source,
             locked=got.locked,
             reason=got.reason,
             set=plain is not None,
-            last4=str(plain)[-4:] if plain is not None else None,
+            last4=plain[-4:] if plain is not None and len(plain) >= LAST4_FLOOR else None,
         )
 
     def put(self, key: str, value: object, by: str) -> Shown:
         setting = self.catalogue.setting(key)
         if setting.where is Where.BROWSER:
             raise SettingLocked(setting, BROWSER_ONLY)
+        served_by = self.catalogue.section_of(key).served_by
+        if served_by != self.server:
+            raise SettingLocked(
+                setting, ReadOnlyHere(why=f"{served_by} reports this from its own .env")
+            )
         got = self.resolved(setting)
         if got.locked:
             assert got.reason is not None  # resolve() never locks without a reason

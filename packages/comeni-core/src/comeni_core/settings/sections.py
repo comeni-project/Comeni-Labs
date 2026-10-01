@@ -60,5 +60,11 @@ class Catalogue(BaseModel):
                 return setting
         raise KeyError(key)
 
+    def section_of(self, key: str) -> Section:
+        for section in self.sections:
+            if any(s.key == key for s in section.settings):
+                return section
+        raise KeyError(key)
+
     def served_by(self, server: Literal["mendel", "wiener"]) -> tuple[Section, ...]:
         return tuple(s for s in self.sections if s.served_by == server)

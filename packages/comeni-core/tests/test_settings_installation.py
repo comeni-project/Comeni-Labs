@@ -104,7 +104,7 @@ def test_a_secret_is_sealed_in_the_store_and_opened_for_the_code_that_uses_it():
     inst = _installation()
     inst.put("models.key", "sk-abcdef1234", by="someone")
     assert inst.store.rows["models.key"] != "sk-abcdef1234"
-    assert inst.get(KEY) == "sk-abcdef1234"
+    assert inst.get(KEY).get_secret_value() == "sk-abcdef1234"
 
 
 def test_a_secret_is_shown_as_set_and_its_last_four_never_its_value():
@@ -141,12 +141,53 @@ def test_the_store_is_read_on_every_use():
     assert inst.get(PACING) == "together"
 
 
-def test_a_secret_the_codec_cannot_open_is_shown_as_not_set():
-    class Forgetful(Reversing):
-        def open(self, sealed):
-            return ""
+def test_a_secret_the_codec_cannot_open_is_not_set_and_says_why():
+    """A rotated key (review I2): not set, and a reason naming the key — never a 500."""
 
-    inst = Installation(CATALOGUE, MemoryStore(), {}, codec=Forgetful())
+    class Rotated(Reversing):
+        def open(self, sealed):
+            raise ValueError("sealed under another key")
+
+    inst = Installation(CATALOGUE, MemoryStore(), {}, codec=Rotated())
     inst.store.rows["models.key"] = "sealed:anything"
     shown = inst.shown(KEY)
     assert (shown.set, shown.last4) == (False, None)
+    assert shown.reason is not None and "COMENI_SETTINGS_KEY" in shown.reason.what
+
+
+def test_a_secret_is_handed_over_hidden():
+    """Spec §8 (review I3): the plaintext travels in a type that prints as hidden."""
+    inst = _installation()
+    inst.put("models.key", "sk-abcdef1234", by="someone")
+    secret = inst.get(KEY)
+    assert "sk-abcdef1234" not in repr(secret) and "sk-abcdef1234" not in str(secret)
+    assert secret.get_secret_value() == "sk-abcdef1234"
+
+
+def test_a_short_secret_shows_no_last_four():
+    """Review M2, re-graded: the last four of a short key is most of the key."""
+    shown = _installation().put("models.key", "sk-12345", by="someone")
+    assert (shown.set, shown.last4) == (True, None)
+
+
+def test_why_secrets_cannot_be_stored_can_be_said_precisely():
+    """Review I1: a malformed COMENI_SETTINGS_KEY must not read as a missing one."""
+    inst = Installation(
+        CATALOGUE, MemoryStore(), {}, codec=None,
+        secrets_need="COMENI_SETTINGS_KEY in .env is not a Fernet key",
+    )
+    assert inst.shown(KEY).reason.what == "COMENI_SETTINGS_KEY in .env is not a Fernet key"
+
+
+def test_a_setting_another_server_serves_is_never_written_here():
+    """Review I4: a PUT to Wiener's setting through Mendel would be a control that does nothing."""
+    running = Setting.toggle(key="running.flag", label="Flag", help=HELP, default=False)
+    catalogue = Catalogue(
+        sections=(Section(key="running", title="Running", order=1, served_by="wiener",
+                          settings=(running,)),)
+    )
+    inst = Installation(catalogue, MemoryStore(), {}, codec=REVERSING)
+    with pytest.raises(SettingLocked) as refused:
+        inst.put("running.flag", True, by="someone")
+    assert refused.value.reason.kind == "read_only_here"
+    assert inst.store.rows == {}
