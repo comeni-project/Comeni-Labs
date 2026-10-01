@@ -118,8 +118,13 @@ class Installation:
 
     def resolved(self, setting: Setting) -> Resolved:
         if setting.kind is Kind.READONLY and setting.key in self.reporters:
+            try:
+                value = self.reporters[setting.key]()
+            except Exception as failed:  # a report must never take the menu down
+                # The type, never the message: a message can carry a host, a path or a DSN.
+                value = f"could not be read ({type(failed).__name__})"
             return Resolved(
-                value=self.reporters[setting.key](),
+                value=value,
                 source=Source.REPORTED,
                 locked=True,
                 reason=setting.unavailable or ReadOnlyHere(why="worked out by the server"),

@@ -284,3 +284,13 @@ def test_a_reported_value_comes_from_its_reporter():
     got = inst.resolved(WHERE)
     assert (got.source, got.locked) == (Source.REPORTED, True)
     assert got.value == [{"purpose": "Want", "goes": "here"}]
+
+
+def test_a_reporter_that_raises_is_a_row_that_says_so():
+    def broken():
+        raise ConnectionError("redis://localhost:6379 refused")
+
+    inst = _models(reporters={"models.where": broken})
+    got = inst.resolved(WHERE)
+    assert got.locked and got.value == "could not be read (ConnectionError)"
+    assert "6379" not in str(got.value)
