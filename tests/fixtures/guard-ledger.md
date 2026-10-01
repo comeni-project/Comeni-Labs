@@ -5025,3 +5025,4 @@ rest.
 | date | guard | what was reverted | what happened | message |
 |---|---|---|---|---|
 | 2026-10-01 | `tests/guards/test_settings_secrets.py::test_no_settings_response_and_no_stored_row_holds_the_plaintext` | `Installation.shown` returned the plaintext as `value` for a secret | failed on the first PUT; restored, passed | `PUT leaked the secret` |
+| 2026-10-01 | `tests/guards/test_settings_secrets.py::test_no_reported_token_reaches_the_menu` | the GitHub token reporter returned `os.environ["COMENI_FORGE_GITHUB_TOKEN"]` instead of `token_state(...)` | failed; restored, passed | `the menu served ['COMENI_FORGE_GITHUB_TOKEN']` |

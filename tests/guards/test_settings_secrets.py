@@ -49,3 +49,22 @@ def test_no_settings_response_and_no_stored_row_holds_the_plaintext():
         assert answer.status_code == 200, answer.text
         assert PLAIN not in answer.text, f"{answer.request.method} leaked the secret"
     assert all(PLAIN not in str(value) for value in store.rows.values()), "stored unsealed"
+
+
+def test_no_reported_token_reaches_the_menu(monkeypatch):
+    """Tokens that live in `.env` are reported as set or not set. A reporter written as
+    `lambda: os.environ["…TOKEN"]` is the defect this refuses."""
+    from mendel_api.services import installation as made
+
+    values = {
+        "COMENI_FORGE_GITHUB_TOKEN": "ghp_guard_github_0001",
+        "COMENI_FORGE_DOCKERHUB_USER": "guard-user",
+        "COMENI_FORGE_DOCKERHUB_TOKEN": "dckr_guard_hub_0002",
+        "COMENI_AI_API_KEY": "sk-guard-provider-0003",
+    }
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(made, "_store", lambda: MemoryStore())
+    body = TestClient(create_app()).get("/api/settings").text
+    leaked = [n for n, v in values.items() if v in body]
+    assert not leaked, f"the menu served {leaked}"
