@@ -66,24 +66,32 @@ def access_for(
     return ModelAccess.from_env(env)
 
 
-def _goes(record: dict | None, model: str) -> str:
-    if record is None:
-        return "no model: nothing is sent"
-    server = record.get("server")
-    if server == "hosted" or (server is None and not record.get("endpoint")):
+def _goes(endpoint: str | None, server: str | None, model: str) -> str:
+    """Where a purpose's data goes. **Decided by the endpoint**, as *test* decides it: no endpoint
+    is a provider, whatever the Server field says (review C1). A hosted server with an endpoint is
+    a provider reached at a custom address."""
+    if not endpoint or server == "hosted":
         return f"goes to {model.split('/', 1)[0]}"
     return "stays on this machine or your network"
 
 
 def where_purposes(inst: Installation) -> list[dict]:
+    """For each purpose, where what it sends goes (spec §6). **The fallback is the one the calls
+    take**: with nothing chosen, the environment as `ModelAccess.from_env` reads it, old names
+    included — a Privacy page saying *nothing is sent* while calls are sent would be false
+    (review M5)."""
     rows = []
     default = inst.get(c.DEFAULT_MODEL)
+    legacy = ModelAccess.from_env(inst.env)
     for setting in c.PURPOSE_SETTINGS:
         choice = inst.get(setting) or default
         record = inst.record(c.CONNECTIONS, choice["connection"]) if choice else None
-        rows.append({
-            "purpose": setting.label,
-            "connection": choice["connection"] if choice else None,
-            "goes": _goes(record, choice["model"] if choice else ""),
-        })
+        if record is not None:
+            goes = _goes(record.get("endpoint"), record.get("server"), choice["model"])
+            connection = choice["connection"]
+        elif legacy is not None:
+            goes, connection = _goes(legacy.base_url, None, legacy.model), "From .env"
+        else:
+            goes, connection = "no model: nothing is sent", None
+        rows.append({"purpose": setting.label, "connection": connection, "goes": goes})
     return rows

@@ -46,4 +46,15 @@ describe("the model picker", () => {
     expect(await screen.findByText(/Local: could not list its models/)).toBeTruthy();
     expect(screen.getByRole("option", { name: "Other…" })).toBeTruthy();
   });
+
+  it("says what the server said when a connection could not list its models", async () => {
+    // Review M4, re-graded: an `ok: false` answer is not an error to the query, so say it here.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ ok: false, says: "Could not list models at http://o:11434 (ConnectError).", values: [] }),
+    }));
+    render(<QueryClientProvider client={new QueryClient()}>
+      <ModelPicker entry={ENTRY} menu={MENU} onWrite={vi.fn()} />
+    </QueryClientProvider>);
+    expect(await screen.findByText(/Local: Could not list models/)).toBeTruthy();
+  });
 });

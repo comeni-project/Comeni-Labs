@@ -47,9 +47,12 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
         <option value={"\u0001"}>Other…</option>
       </select>
       {/* A connection whose list could not be read still offers *Other…*; say which. */}
-      {records.map((r, i) => lists[i].error && (
+      {records.map((r, i) => lists[i].error ? (
         <span key={r.name} className="text-secondary text-fault">{r.name}: could not list its models.</span>
-      ))}
+      ) : lists[i].data?.ok === false ? (
+        /* `ok: false` is an answer, not an error, to the query: say what it said (review M4). */
+        <span key={r.name} className="text-secondary text-fault">{r.name}: {lists[i].data?.says}</span>
+      ) : null)}
       {other && (
         <>
           <select aria-label="Connection" value={other.connection}

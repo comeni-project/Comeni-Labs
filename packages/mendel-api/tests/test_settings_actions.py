@@ -59,3 +59,17 @@ def test_an_endpoint_that_hangs_answers_not_ok(client, monkeypatch):
 )
 def test_unknown_setting_record_or_action_is_404(client, path):
     assert client.post(path).status_code == 404
+
+
+def test_an_endpoint_written_with_v1_is_not_doubled_and_the_key_is_sent(monkeypatch):
+    """Review M2, re-graded: vLLM and LM Studio endpoints are usually written with /v1."""
+    seen = {}
+
+    def handler(request):
+        seen["path"], seen["auth"] = request.url.path, request.headers.get("authorization")
+        return httpx.Response(200, json={"data": [{"id": "qwen"}]})
+
+    monkeypatch.setattr(probe, "TRANSPORT", httpx.MockTransport(handler))
+    listed = probe.listed("http://vllm:8000/v1/", "openai_compatible", "sk-v")
+    body = __import__("asyncio").run(listed)
+    assert body == ["openai/qwen"] and seen == {"path": "/v1/models", "auth": "Bearer sk-v"}

@@ -7,7 +7,10 @@ import type { Entry } from "./usePreferences";
  * declaration and the buttons from its `actions`. A locked record (from .env) is shown and never
  * sent back. A secret field is sent as `null`, which keeps what is stored, unless retyped. */
 type Record = { [field: string]: unknown; locked?: boolean };
-type Field = { key: string; label: string; kind: string };
+type Field = {
+  key: string; label: string; kind: string; default?: unknown;
+  options?: { value: string; label: string }[];
+};
 
 const nameOf = (field: Field) => field.key.split(".").pop() as string;
 
@@ -26,7 +29,14 @@ export function Collection({ entry, onWrite }: { entry: Entry; onWrite: (value: 
       if (f.kind === "secret") return [name, retyped ?? null];
       return [name, retyped ?? record[name] ?? ""];
     }));
-  const save = () => onWrite([...kept.map(plain), ...(added ? [plain(added)] : [])]);
+  /** A new record carries only what was typed or picked, and its key as `null`: a field left
+   *  alone takes its declared default on the server (review I1). */
+  const fresh = (record: Record) => ({
+    ...Object.fromEntries(Object.entries(record).filter(([, v]) => v !== "")),
+    ...Object.fromEntries(setting.fields.filter((f) => f.kind === "secret")
+      .map((f) => [nameOf(f), (record[nameOf(f)] as string) || null])),
+  });
+  const save = () => onWrite([...kept.map(plain), ...(added ? [fresh(added)] : [])]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -40,10 +50,19 @@ export function Collection({ entry, onWrite }: { entry: Entry; onWrite: (value: 
           {setting.fields.map((f) => (
             <label key={f.key} className="flex gap-2 items-center text-secondary text-ink-2">
               <span className="w-[90px]">{nameOf(f)}</span>
-              <input id={`new-${nameOf(f)}`} aria-label={nameOf(f)}
-                     type={f.kind === "secret" ? "password" : "text"}
-                     onChange={(e) => setAdded({ ...added, [nameOf(f)]: e.target.value })}
-                     className="border border-line bg-transparent px-2 py-1 text-ink w-[260px] max-w-full" />
+              {f.kind === "choice" ? (
+                /* A choice is picked from its declared options, never typed (review I1). */
+                <select id={`new-${nameOf(f)}`} aria-label={nameOf(f)} defaultValue={String(f.default ?? "")}
+                        onChange={(e) => setAdded({ ...added, [nameOf(f)]: e.target.value })}
+                        className="border border-line bg-transparent px-2 py-1 text-ink w-[260px] max-w-full">
+                  {(f.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input id={`new-${nameOf(f)}`} aria-label={nameOf(f)}
+                       type={f.kind === "secret" ? "password" : "text"}
+                       onChange={(e) => setAdded({ ...added, [nameOf(f)]: e.target.value })}
+                       className="border border-line bg-transparent px-2 py-1 text-ink w-[260px] max-w-full" />
+              )}
             </label>
           ))}
         </div>

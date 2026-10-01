@@ -59,6 +59,10 @@ TIER4_ANSWERS = Setting.choice(
 
 BUILDING = Section(key="building", title="Building", order=2, settings=(PACING, TIER4_ANSWERS))
 
+PURPOSE_NAMES = ("want", "talk", "tier4", "readback", "forge")
+"""Each purpose a model can be chosen for; its `.env` pin is `COMENI_AI_MODEL_<NAME>`."""
+
+
 CONNECTIONS = Setting.collection(
     key="models.connections",
     label="Connections",
@@ -92,7 +96,11 @@ CONNECTIONS = Setting.collection(
     ),
     from_env=EnvItem(
         name=FROM_ENV,
-        present_when="COMENI_AI_MODEL",
+        # The default model, or any purpose pinned in .env (review I3).
+        present_when=(
+            "COMENI_AI_MODEL",
+            *(f"COMENI_AI_MODEL_{name.upper()}" for name in PURPOSE_NAMES),
+        ),
         fields={"endpoint": "COMENI_AI_BASE_URL", "key": "COMENI_AI_API_KEY"},
     ),
     actions=("test", "models"),

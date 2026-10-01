@@ -84,8 +84,15 @@ class EnvItem(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    present_when: str
+    present_when: tuple[str, ...]
+    """The record exists when **any** of these is set: a purpose pinned in `.env` without a
+    default still needs the endpoint and key `.env` gives it (review I3)."""
     fields: dict[str, str]
+
+    @field_validator("present_when", mode="before")
+    @classmethod
+    def _one_or_many(cls, value: Any) -> Any:
+        return (value,) if isinstance(value, str) else value
 
 
 class Setting(BaseModel):

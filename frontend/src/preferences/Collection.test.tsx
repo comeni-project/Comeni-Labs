@@ -73,4 +73,29 @@ describe("connections", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "test" })[0]);
     expect(await screen.findByText(/could not run test/i)).toBeTruthy();
   });
+
+  it("offers a choice field's options and leaves untouched fields to their defaults", async () => {
+    // Review I1: a Server typed as free text was refused unless spelled exactly.
+    const withServer = {
+      ...ENTRY,
+      setting: {
+        ...ENTRY.setting,
+        fields: [
+          ...(ENTRY.setting as unknown as { fields: unknown[] }).fields,
+          field("connection.server", "choice", {
+            default: "ollama",
+            options: [{ value: "ollama", label: "Ollama" }, { value: "hosted", label: "A hosted provider" }],
+          }),
+        ],
+      },
+    } as unknown as Entry;
+    const onWrite = vi.fn();
+    render(<QueryClientProvider client={new QueryClient()}><Collection entry={withServer} onWrite={onWrite} /></QueryClientProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.type(screen.getByLabelText("name", { selector: "#new-name" }), "Cloud2");
+    await userEvent.selectOptions(screen.getByLabelText("server", { selector: "#new-server" }), "A hosted provider");
+    await userEvent.click(screen.getByRole("button", { name: "Save connections" }));
+    const sent = onWrite.mock.calls[0][0] as Record<string, unknown>[];
+    expect(sent[sent.length - 1]).toEqual({ name: "Cloud2", server: "hosted", key: null });
+  });
 });

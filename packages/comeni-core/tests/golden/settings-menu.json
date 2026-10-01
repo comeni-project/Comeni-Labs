@@ -260,7 +260,14 @@
             "item_name": "name",
             "from_env": {
               "name": "From .env",
-              "present_when": "COMENI_AI_MODEL",
+              "present_when": [
+                "COMENI_AI_MODEL",
+                "COMENI_AI_MODEL_WANT",
+                "COMENI_AI_MODEL_TALK",
+                "COMENI_AI_MODEL_TIER4",
+                "COMENI_AI_MODEL_READBACK",
+                "COMENI_AI_MODEL_FORGE"
+              ],
               "fields": {
                 "endpoint": "COMENI_AI_BASE_URL",
                 "key": "COMENI_AI_API_KEY"

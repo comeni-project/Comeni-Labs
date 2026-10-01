@@ -36,7 +36,10 @@ async def _models(record: dict) -> ActionResult:
     if not endpoint:
         return ActionResult(ok=None, says="Type the model id, as provider/model.")
     try:
-        values = await probe.listed(endpoint, record.get("server"))
+        key = record.get("key")  # a SecretStr, opened only for this request
+        values = await probe.listed(
+            endpoint, record.get("server"), key.get_secret_value() if key else None
+        )
     except probe.ProbeFailed as failed:
         return ActionResult(ok=False, says=f"Could not list models at {endpoint} ({failed}).")
     return ActionResult(ok=True, says=f"{len(values)} models at {endpoint}.", values=values)

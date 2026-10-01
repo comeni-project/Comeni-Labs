@@ -95,3 +95,49 @@ def test_where_each_purpose_goes(clean_env, settings_in_memory):
     rows = {r["purpose"]: r for r in where_purposes(installation.installation())}
     assert rows["Talking with you"]["goes"] == "stays on this machine or your network"
     assert rows["Choosing where the rules cannot"]["goes"] == "goes to anthropic"
+
+
+def test_a_hosted_provider_from_env_is_said_to_leave(clean_env, monkeypatch):
+    """Review C1: a provider configured in .env (no base URL) goes to that provider."""
+    monkeypatch.setenv("COMENI_AI_MODEL", "anthropic/claude-sonnet-4-5")
+    monkeypatch.setenv("COMENI_AI_API_KEY", "sk-ant-guard-0000-1111")
+    rows = where_purposes(installation.installation())
+    assert rows and all(r["goes"] == "goes to anthropic" for r in rows)
+
+
+def test_a_connection_with_no_endpoint_is_said_to_leave(clean_env, settings_in_memory):
+    """Review C1: Server left at its default, no endpoint — still a provider."""
+    settings_in_memory.rows["models.connections"] = [
+        {"name": "Cloud", "server": "ollama", "endpoint": "", "key": None}
+    ]
+    settings_in_memory.rows["models.default"] = {"connection": "Cloud", "model": "openai/gpt-x"}
+    rows = where_purposes(installation.installation())
+    assert all(r["goes"] == "goes to openai" for r in rows)
+
+
+def test_old_names_alone_are_reported_where_they_go(clean_env, monkeypatch):
+    """Review M5, re-graded: calls reach the model, so Privacy must not say nothing is sent."""
+    monkeypatch.setenv("MENDEL_MODEL", "anthropic/claude-sonnet-4-5")
+    rows = where_purposes(installation.installation())
+    assert all(r["goes"] == "goes to anthropic" for r in rows)
+
+
+def test_a_purpose_pinned_in_env_works_without_a_default(clean_env, monkeypatch):
+    """Review I3: COMENI_AI_MODEL_WANT alone is honoured, not reported as a gone connection."""
+    monkeypatch.setenv("COMENI_AI_MODEL_WANT", "ollama_chat/gemma3:12b")
+    monkeypatch.setenv("COMENI_AI_BASE_URL", "http://ollama:11434")
+    got = model_access("builder", "goal")
+    assert (got.model, got.base_url) == ("ollama_chat/gemma3:12b", "http://ollama:11434")
+
+
+def test_stored_keys_with_no_codec_do_not_take_the_menu_down(clean_env, settings_in_memory):
+    """Review C2: keys stored, then COMENI_SETTINGS_KEY removed — no 500, no failed call."""
+    settings_in_memory.rows["models.connections"] = [
+        {"name": "Cloud", "server": "hosted", "endpoint": "", "key": "gAAAA-sealed"}
+    ]
+    settings_in_memory.rows["models.default"] = {"connection": "Cloud", "model": "openai/gpt-x"}
+    inst = installation.installation()
+    assert inst.codec is None
+    shown = inst.shown(catalogue.CONNECTIONS).value
+    assert shown[0]["key"] == {"set": False, "last4": None}
+    assert model_access("builder", "goal").api_key is None

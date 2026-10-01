@@ -53,11 +53,15 @@ class ProbeFailed(Exception):
     pass
 
 
-async def listed(endpoint: str, server: str | None) -> list[str]:
+async def listed(endpoint: str, server: str | None, key: str | None = None) -> list[str]:
     """`GET <endpoint>/v1/models`. **No prompt is sent**: this asks what a server holds."""
     try:
         async with httpx.AsyncClient(timeout=PROBE_SECONDS, transport=TRANSPORT) as http:
-            answer = await http.get(endpoint.rstrip("/") + "/v1/models")
+            # An OpenAI-compatible endpoint is usually written with `/v1` already (review M2),
+            # and one started with an API key wants it here too.
+            base = endpoint.rstrip("/").removesuffix("/v1")
+            headers = {"Authorization": f"Bearer {key}"} if key else {}
+            answer = await http.get(base + "/v1/models", headers=headers)
             answer.raise_for_status()
             ids = [item["id"] for item in answer.json()["data"]]
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as failed:

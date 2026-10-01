@@ -539,3 +539,22 @@ def test_the_model_server_image_is_pinned_to_an_exact_version(base):
     image = base["services"]["ollama"]["image"]
     assert image.startswith("${OLLAMA_IMAGE:-ollama/ollama:")
     assert ":latest" not in image and "0.6.5" not in image
+
+
+def test_every_service_that_reaches_a_model_gets_every_model_setting(base):
+    """Review I2 and I3 (settings, 14.7.5.4). A service handed `COMENI_AI_MODEL` reads Settings →
+    Models too, so it needs the key that opens stored secrets and every purpose's `.env` pin.
+    One process with the key and another without is the crash the review reproduced."""
+    from comeni_core.settings import SETTINGS_KEY_ENV, catalogue
+
+    needed = {SETTINGS_KEY_ENV} | {
+        s.env for s in (catalogue.DEFAULT_MODEL, *catalogue.PURPOSE_SETTINGS) if s.env
+    }
+    reaching = {
+        name: set(service.get("environment") or {})
+        for name, service in base["services"].items()
+        if "COMENI_AI_MODEL" in (service.get("environment") or {})
+    }
+    assert reaching, "no service is handed COMENI_AI_MODEL — this test is measuring nothing"
+    missing = {name: sorted(needed - env) for name, env in reaching.items() if needed - env}
+    assert not missing, f"services that reach a model without every model setting: {missing}"

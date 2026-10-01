@@ -154,7 +154,7 @@ class Installation:
     def _env_record(self, setting: Setting) -> dict | None:
         """The record `.env` supplies, first and locked. Its secrets are the variables' text."""
         spec = setting.from_env
-        if spec is None or not self.env.get(spec.present_when, "").strip():
+        if spec is None or not any(self.env.get(v, "").strip() for v in spec.present_when):
             return None
         record = {f.field_name: f.default for f in setting.fields}
         record[setting.item_name] = spec.name
@@ -184,8 +184,11 @@ class Installation:
                     opened[field] = None
                 elif record.get("locked"):
                     opened[field] = SecretStr(raw)
+                elif self.codec is None:
+                    # Stored while a key was set, and the key has gone: unreadable, not a crash
+                    # (review C2). The menu shows it as not set.
+                    opened[field] = None
                 else:
-                    assert self.codec is not None  # a sealed value needed a codec to be stored
                     try:
                         opened[field] = SecretStr(self.codec.open(raw)) or None
                     except ValueError:
