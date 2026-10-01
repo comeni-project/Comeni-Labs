@@ -72,3 +72,69 @@ def test_the_services_read_through_it(monkeypatch):
 
     assert len(calls) == 1, f"three service calls loaded the registry {len(calls)} times"
     registry._load.cache_clear()
+
+
+def test_an_unchanged_registry_is_not_hashed_again(monkeypatch):
+    """The per-request cost: reading every byte to learn nothing changed (#216)."""
+    hashed = []
+    real = registry.digest_of_directory
+
+    def counting(root):
+        hashed.append(root)
+        return real(root)
+
+    monkeypatch.setattr(registry, "digest_of_directory", counting)
+    registry._digest_for.cache_clear()
+    registry.stack()
+    registry.stack()
+    registry.digest()
+    assert len(hashed) == 1
+
+
+def test_an_edit_of_the_same_size_is_still_seen(monkeypatch, broken_registry_copy):
+    """`FASTQC` → `FASTQX` keeps the size; the modification time still moves."""
+    import os
+    import time
+
+    from mendel_api.settings import settings
+
+    changed = broken_registry_copy(
+        "tools/nf-core/fastqc/contract.yml", "nf_process: FASTQC", "nf_process: FASTQC"
+    )
+    monkeypatch.setattr(settings, "registry_root", changed)
+    registry._digest_for.cache_clear()
+    first = registry.digest()
+    contract = changed / "tools/nf-core/fastqc/contract.yml"
+    text = contract.read_text().replace("nf_process: FASTQC", "nf_process: FASTQX")
+    time.sleep(0.01)
+    contract.write_text(text)
+    os.utime(contract)
+    assert registry.digest() != first
+    registry._digest_for.cache_clear()
+
+
+def test_a_copy_with_the_same_times_is_hashed_on_its_own(monkeypatch, tmp_path):
+    """`copytree` keeps modification times, so a copy's signature can equal the original's:
+    the root is part of the key, or one registry answers for another."""
+    import shutil
+
+    from mendel_api.settings import settings
+
+    hashed = []
+    real = registry.digest_of_directory
+
+    def counting(root):
+        hashed.append(root)
+        return real(root)
+
+    monkeypatch.setattr(registry, "digest_of_directory", counting)
+    registry._digest_for.cache_clear()
+    registry.digest()
+    original = registry.signature()
+    copy = tmp_path / "registry"
+    shutil.copytree(settings.registry_root, copy, ignore=shutil.ignore_patterns(".git"))
+    monkeypatch.setattr(settings, "registry_root", copy)
+    assert registry.signature() == original
+    registry.digest()
+    assert len(hashed) == 2
+    registry._digest_for.cache_clear()
