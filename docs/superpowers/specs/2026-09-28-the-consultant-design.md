@@ -274,6 +274,10 @@ candidate*; rule 5 (*nothing is guessed*) is unchanged, because a candidate is n
 
 ### Samples and inspectors
 
+> **Superseded on 2026-10-01** by `2026-10-01-samples-and-inspectors-design.md`: inspectors
+> live in their own repository, composed from codecs, formats and measures, and run in a separate
+> process. What follows is kept as it was decided on 2026-09-28.
+
 - `POST /api/pipeline/authoring/{id}/samples` (multipart): stored under
   `workspace/samples/<session>/<sample id>`, **capped at 4 MB, only the head kept**, deleted with
   the session. At level 0 this is allowed; the route asks the protection level and refuses above 0
