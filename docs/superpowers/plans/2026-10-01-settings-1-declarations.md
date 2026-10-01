@@ -59,7 +59,7 @@
 **Interfaces:**
 - Produces: `Pinned(env: str)`, `Designed(where: str)`, `Needs(what: str)`, `ReadOnlyHere(why: str)`, each with a computed `says: str` and a literal `kind`; `Reason` (the discriminated union); `REASON_KINDS: tuple[str, ...]`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """Settings: declarations, and the reasons a setting is greyed out (spec §4, §5)."""
@@ -103,12 +103,12 @@ def test_a_reason_round_trips_through_json():
     assert adapter.validate_json(adapter.dump_json(reason)) == reason
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: FAIL, `ModuleNotFoundError: No module named 'comeni_core.settings'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `packages/comeni-core/src/comeni_core/settings/__init__.py`:
 
@@ -190,12 +190,12 @@ REASON_KINDS: tuple[str, ...] = ("pinned", "designed", "needs", "read_only_here"
 """The closed list, in the order the spec's table gives it."""
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: PASS, 3 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/ packages/comeni-core/tests/test_settings_declare.py
@@ -214,7 +214,7 @@ git commit -m "feat(settings): the closed list of reasons a setting is greyed ou
 - Consumes: `Reason`, `Designed` from Task 1.
 - Produces: `Kind` (StrEnum: `choice`, `text`, `number`, `toggle`, `secret`, `readonly`), `Where` (`installation`, `browser`), `Option(value, label)`, `IllegalValue(ValueError)`, `Setting` with fields `key, label, help, kind, default, env, options, minimum, maximum, unavailable, where`, methods `check(value) -> object` and `parse_env(raw: str) -> object`, and factories `Setting.choice(...)`, `.text(...)`, `.number(...)`, `.toggle(...)`, `.secret(...)`, `.readonly(...)`. Part 4 adds `model` and `collection` to `Kind`.
 
-- [ ] **Step 1: Write the failing tests** (append to `test_settings_declare.py`)
+- [x] **Step 1: Write the failing tests** (append to `test_settings_declare.py`)
 
 ```python
 from comeni_core.settings.declare import IllegalValue, Kind, Setting, Where
@@ -308,12 +308,12 @@ def test_options_belong_to_choices_only():
         Setting(key="a.t", label="T", help=HELP, kind=Kind.TEXT, default="", options=(("a", "A"),))
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: FAIL, `ModuleNotFoundError: No module named 'comeni_core.settings.declare'`
 
-- [ ] **Step 3: Write the implementation** — `declare.py`
+- [x] **Step 3: Write the implementation** — `declare.py`
 
 ```python
 """One declaration per setting (spec §4).
@@ -499,12 +499,12 @@ class Setting(BaseModel):
         return cls(kind=Kind.READONLY, **fields)
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: PASS, 14 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/declare.py packages/comeni-core/tests/test_settings_declare.py
@@ -523,7 +523,7 @@ git commit -m "feat(settings): one declaration per setting, kinds as factories (
 - Consumes: `Setting` from Task 2.
 - Produces: `Section(key: str, title: str, order: int, served_by: Literal["mendel", "wiener"] = "mendel", settings: tuple[Setting, ...])`; `Catalogue(sections: tuple[Section, ...])` with `setting(key) -> Setting` (raises `KeyError`), `settings() -> tuple[Setting, ...]`, `served_by(server) -> tuple[Section, ...]`.
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
 
 ```python
 from comeni_core.settings.sections import Catalogue, Section
@@ -567,12 +567,12 @@ def test_sections_come_back_in_their_order():
     assert [s.key for s in catalogue.sections] == ["building", "zeta"]
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: FAIL, `No module named 'comeni_core.settings.sections'`
 
-- [ ] **Step 3: Write the implementation** — `sections.py`
+- [x] **Step 3: Write the implementation** — `sections.py`
 
 ```python
 """Sections, and the catalogue that holds them (spec §4, §7).
@@ -641,12 +641,12 @@ class Catalogue(BaseModel):
         return tuple(s for s in self.sections if s.served_by == server)
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: PASS, 20 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/sections.py packages/comeni-core/tests/test_settings_declare.py
@@ -674,7 +674,7 @@ The order, which is the spec's §3 plus the two Review Focus rules:
 5. The stored value, if still legal; an illegal stored value falls through.
 6. The default.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The resolver: one case per layer path (spec §3, §9)."""
@@ -762,12 +762,12 @@ def test_every_locked_result_carries_a_reason():
         assert got.locked and got.reason is not None
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_resolve.py -q`
 Expected: FAIL, `No module named 'comeni_core.settings.resolve'`
 
-- [ ] **Step 3: Write the implementation** — `resolve.py`
+- [x] **Step 3: Write the implementation** — `resolve.py`
 
 ```python
 """Where a value comes from (spec §3): default → installation → [lab, person later], with the
@@ -864,12 +864,12 @@ def resolve(
     return default
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_resolve.py -q`
 Expected: PASS, 11 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/resolve.py packages/comeni-core/tests/test_settings_resolve.py
@@ -893,7 +893,7 @@ git commit -m "feat(settings): the resolver — default, installation, env as a 
   - `Shown(value, source, locked, reason, set: bool | None, last4: str | None)`, `Entry(setting: Setting, shown: Shown)`, `MenuSection(key, title, order, served_by, entries: list[Entry])`, `Menu(sections: list[MenuSection])`.
   - `Installation(catalogue: Catalogue, store: SettingsStore, env: Mapping[str, str], codec: SecretCodec | None = None)` with `resolved(setting) -> Resolved`, `get(setting) -> object`, `shown(setting) -> Shown`, `put(key: str, value: object, by: str) -> Shown`, `menu(server="mendel") -> Menu`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The installation facade: reading, writing, secrets and the served menu (spec §4, §8)."""
@@ -1037,12 +1037,12 @@ def test_the_store_is_read_on_every_use():
     assert inst.get(PACING) == "together"
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py -q`
 Expected: FAIL, `No module named 'comeni_core.settings.installation'`
 
-- [ ] **Step 3: Write the implementation** — `installation.py`
+- [x] **Step 3: Write the implementation** — `installation.py`
 
 ```python
 """The installation's settings: read, write, and serve (spec §4, §8).
@@ -1203,12 +1203,12 @@ class Installation:
         )
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py -q`
 Expected: PASS, 12 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/installation.py packages/comeni-core/tests/test_settings_installation.py
@@ -1229,7 +1229,7 @@ git commit -m "feat(settings): the installation facade — secrets sealed, never
 **Interfaces:**
 - Produces: `THEME`, `APPEARANCE`, `CATALOGUE` in `comeni_core.settings.catalogue`; `comeni_core.settings` re-exports everything later parts import: `Catalogue, Section, Setting, Kind, Where, Option, IllegalValue, Pinned, Designed, Needs, ReadOnlyHere, Reason, Source, Resolved, resolve, SETTINGS_KEY_ENV, Installation, SettingsStore, SecretCodec, SettingLocked, Shown, Entry, MenuSection, Menu, CATALOGUE`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Every real declaration, held to the spec's rules, and the served menu as a golden file."""
@@ -1279,12 +1279,12 @@ def test_the_served_menu_matches_the_golden_file():
     assert json.loads(produced) == json.loads(GOLDEN.read_text())
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_catalogue.py -q`
 Expected: FAIL, `ImportError: cannot import name 'CATALOGUE' from 'comeni_core.settings'`
 
-- [ ] **Step 3: Write the catalogue and the public surface**
+- [x] **Step 3: Write the catalogue and the public surface**
 
 `catalogue.py`:
 
@@ -1346,7 +1346,7 @@ __all__ = [
 ]
 ```
 
-- [ ] **Step 4: Generate the golden file, read it, run the tests**
+- [x] **Step 4: Generate the golden file, read it, run the tests**
 
 Run: `SETTINGS_GOLDEN=update uv run pytest packages/comeni-core/tests/test_settings_catalogue.py -q && cat packages/comeni-core/tests/golden/settings-menu.json`
 Expected: PASS, 4 passed. The JSON shows one section `appearance`, one entry `appearance.theme` with `"where": "browser"`, `"value": "system"`, `"source": "default"`, `"locked": false`. Read it.
@@ -1354,7 +1354,7 @@ Expected: PASS, 4 passed. The JSON shows one section `appearance`, one entry `ap
 Then without the variable: `uv run pytest packages/comeni-core/tests/test_settings_catalogue.py -q`
 Expected: PASS, 4 passed
 
-- [ ] **Step 5: Add the line to `ARCHITECTURE.md`**
+- [x] **Step 5: Add the line to `ARCHITECTURE.md`**
 
 After the line beginning `` `yaml_strict.py` and `diagnostics.py` sit above those five``, add a blank line and:
 
@@ -1364,12 +1364,12 @@ comes from, and why a setting is greyed out. It holds declarations and logic onl
 the cipher are adapters in `mendel-api`.
 ```
 
-- [ ] **Step 6: Run the package, the purity guards and the doc checks**
+- [x] **Step 6: Run the package, the purity guards and the doc checks**
 
 Run: `uv run pytest packages/comeni-core tests/guards/test_purity.py tests/guards/test_purity_runtime.py tests/repo/test_architecture.py -q 2>&1 | tail -3 && uv run ruff check packages/comeni-core && make doc-paths doc-sizes links`
 Expected: all pass; ruff clean; `0 broken link(s)`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/ packages/comeni-core/tests/test_settings_catalogue.py packages/comeni-core/tests/golden/settings-menu.json ARCHITECTURE.md
@@ -1380,4 +1380,13 @@ git commit -m "feat(settings): Appearance, the golden menu, and the public surfa
 
 ## Execution record
 
-(Filled in while executing: rulings, deviations, and the closing commit for #211.)
+Executed 2026-10-01, in one hand. Commits 013e905..687c820.
+
+- **Task 1, ruling:** a dumped reason carries its computed `says`, which `extra="forbid"` refused on the
+  way back in. `_Reason` drops `says` in a before-validator; everything else stays forbidden.
+- **Task 2, ruling:** the test helper `_pacing` passed `default` twice when a test overrode it; it now
+  merges its fields with the overrides.
+- **Task 6, ruling:** `re` is not on `comeni-core`'s import allowlist (`tests/guards/test_purity.py`).
+  The key check is written without a regex (`_is_key`) rather than widening a guard.
+- Lint only: import order, and a call in a default argument (`REVERSING`).
+- Final review batched with plan 2's.
