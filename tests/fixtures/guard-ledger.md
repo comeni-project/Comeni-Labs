@@ -5026,3 +5026,11 @@ rest.
 |---|---|---|---|---|
 | 2026-10-01 | `tests/guards/test_settings_secrets.py::test_no_settings_response_and_no_stored_row_holds_the_plaintext` | `Installation.shown` returned the plaintext as `value` for a secret | failed on the first PUT; restored, passed | `PUT leaked the secret` |
 | 2026-10-01 | `tests/guards/test_settings_secrets.py::test_no_reported_token_reaches_the_menu` | the GitHub token reporter returned `os.environ["COMENI_FORGE_GITHUB_TOKEN"]` instead of `token_state(...)` | failed; restored, passed | `the menu served ['COMENI_FORGE_GITHUB_TOKEN']` |
+
+## 2026-10-01 — the registry, one folder per tool (14.7.6.1)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_module_whose_folder_is_not_its_id_is_refused` | `found += _path_is_the_id(root)` removed from `lint()` | failed; restored, passed | `assert 'MD0021' in [...]` |
+| 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_tool_folder_without_tool_yml_is_refused` | `found += _every_tool_says_what_it_is(root)` removed | failed; restored, passed | `assert 'MD0022' in [...]` |
+| 2026-10-01 | `tests/registry/test_registry_lint.py::test_a_tools_own_type_outside_its_types_folder_is_refused` | `found += _tool_types_in_types(root)` removed | failed; restored, passed | `assert 'MD0023' in [...]` |

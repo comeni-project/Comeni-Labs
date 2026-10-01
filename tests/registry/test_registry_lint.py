@@ -136,3 +136,74 @@ def test_the_lint_is_not_vacuous(layer):
     from mendel_compiler.registry_lint import _declared_files
 
     assert len(list(_declared_files(layer))) > 30
+
+
+def _layer(root, files: dict[str, str], layout_has_tool: bool = True):
+    layout = {
+        "contract": ["tools/", "profilers/"], "module": ["tools/"],
+        "vocabulary": ["vocabulary/types/", "tools/"], "measurement": ["vocabulary/measurements/"],
+        "role": ["vocabulary/roles/"], "family": ["vocabulary/families/"], "rule": ["rules/"],
+    }
+    if layout_has_tool:
+        layout["tool"] = ["tools/"]
+    import yaml
+
+    (root / "registry.yml").write_text(yaml.safe_dump({
+        "name": "t", "version": "0.1.0", "requires_format": 2, "licence": "CC-BY-4.0",
+        "description": "t", "layout": layout,
+    }))
+    for rel, text in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    return root
+
+
+TOOL = "declares: tool\nid: nf-core/x\nname: X\ndescription: Does x.\n"
+MODULE = (
+    "declares: module\nid: {id}\nlicence: MIT\n"
+    "upstream: {{repo: r, sha: s, path: p}}\ndigest: sha256:0\n"
+)
+TYPE = "declares: vocabulary\nid: genome.index.x\nstates: []\n"
+
+
+def _codes(root):
+    return sorted({f.code for f in lint(root)})
+
+
+def test_a_module_whose_folder_is_not_its_id_is_refused(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/other/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert "MD0021" in _codes(root)
+
+
+def test_a_tool_folder_without_tool_yml_is_refused(tmp_path):
+    root = _layer(tmp_path, {"tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort")})
+    assert "MD0022" in _codes(root)
+
+
+def test_a_tools_own_type_outside_its_types_folder_is_refused(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/genome.index.x.yml": TYPE,
+    })
+    assert "MD0023" in _codes(root)
+
+
+def test_the_arranged_layer_is_clean(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/types/genome.index.x.yml": TYPE,
+        "tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert not {"MD0021", "MD0022", "MD0023"} & set(_codes(root))
+
+
+def test_a_layout_without_the_tool_kind_is_not_held_to_it(tmp_path):
+    """Opt-in: today's registry, and any overlay that has not moved, lints as before."""
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/other/module.yml": MODULE.format(id="nf-core/x/sort"),
+    }, layout_has_tool=False)
+    assert not {"MD0021", "MD0022", "MD0023"} & set(_codes(root))

@@ -73,6 +73,9 @@ decline to curate one.
 | `MD0017` | a type filed under a tool is not namespaced by that tool |
 | `MD0018` | two contract versions for one module, in one layer |
 | `MD0019` | a tool's file holds a relative path leaving that tool's directory |
+| `MD0021` | a tool's file sits in a folder that is not its id |
+| `MD0022` | a tool folder has no tool.yml saying what the tool is |
+| `MD0023` | a type only one tool uses sits outside that tool's types/ folder |
 
 ## The pipeline file — a setting, an override, or the format
 

@@ -63,6 +63,12 @@ def lint(root: Path) -> list[Diagnostic]:
     found += _tool_types_are_namespaced(root)
     found += _one_version_per_module(root)
     found += _nothing_reaches_out_of_its_tool(root)
+    # **Opt-in by manifest** (#216): a layer that has not moved to one folder per tool, and
+    # every private overlay, lints exactly as before.
+    if "tool" in manifest.layout:
+        found += _path_is_the_id(root)
+        found += _every_tool_says_what_it_is(root)
+        found += _tool_types_in_types(root)
     return sorted(found, key=lambda f: (f.where, f.code))
 
 
@@ -294,6 +300,88 @@ def _nothing_reaches_out_of_its_tool(root: Path) -> list[Diagnostic]:
                 )
             )
             break
+    return found
+
+
+_ID_ROOTS = ("tools", "profilers")
+
+
+def _path_is_the_id(root: Path) -> list[Diagnostic]:
+    """MD0021. A contract or module whose folder is not its id.
+
+    **The id is the address.** `nf-core/samtools/sort` is at `tools/nf-core/samtools/sort/`, so a
+    lookup, a review and `forge land` all go straight to it. Only contracts and modules: their
+    file names are fixed (`contract.yml`, `module.yml`), so the folder is the only place the id
+    can be spelled.
+    """
+    found = []
+    for path, singular in _declared_files(root):
+        if singular not in ("contract", "module"):
+            continue
+        rel = path.parent.relative_to(root)
+        if not rel.parts or rel.parts[0] not in _ID_ROOTS:
+            continue
+        key = str((yaml_strict.load(path) or {}).get("id", "")).split("@")[0]
+        where = "/".join(rel.parts[1:])
+        if key != where:
+            found.append(
+                Diagnostic(
+                    code="MD0021",
+                    where=_at(path, root),
+                    summary=f"declares `{key}` and sits in {rel.parts[0]}/{where}/",
+                    detail="",
+                    fix=f"move it to {rel.parts[0]}/{key}/",
+                )
+            )
+    return found
+
+
+def _tool_folders(root: Path) -> set[Path]:
+    """`tools/<org>/<tool>/` for every module key under `tools/`."""
+    folders = set()
+    for path, singular in _declared_files(root):
+        if singular not in ("contract", "module"):
+            continue
+        rel = path.parent.relative_to(root)
+        if len(rel.parts) >= 3 and rel.parts[0] == "tools":
+            folders.add(root / Path(*rel.parts[:3]))
+    return folders
+
+
+def _every_tool_says_what_it_is(root: Path) -> list[Diagnostic]:
+    """MD0022. A tool folder with no `tool.yml`."""
+    return [
+        Diagnostic(
+            code="MD0022",
+            where=_at(folder, root),
+            summary="is a tool folder and has no tool.yml",
+            detail="",
+            fix="add tool.yml: `declares: tool`, its id, name and a description",
+        )
+        for folder in sorted(_tool_folders(root))
+        if not (folder / "tool.yml").exists()
+    ]
+
+
+def _tool_types_in_types(root: Path) -> list[Diagnostic]:
+    """MD0023. A vocabulary file under a tool, not in that tool's `types/`."""
+    found = []
+    for path, singular in _declared_files(root):
+        if singular != "vocabulary":
+            continue
+        rel = path.relative_to(root)
+        if rel.parts[0] != "tools" or len(rel.parts) < 4:
+            continue
+        if rel.parts[3] != "types":
+            found.append(
+                Diagnostic(
+                    code="MD0023",
+                    where=_at(path, root),
+                    summary="is a type under a tool and not in that tool's types/",
+                    detail="",
+                    fix=f"move it to {'/'.join(rel.parts[:3])}/types/",
+                )
+            )
     return found
 
 

@@ -20,7 +20,7 @@
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
 #   MD0500-MD0599  validating a hand-built graph
-#   MD0013-MD0019  a layer is not arranged the way its own manifest says
+#   MD0013-MD0019, MD0021-MD0023  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
@@ -1845,6 +1845,43 @@ MD0020:
     **It had to ship before any registry could use the feature it protects**, which is the
     part worth remembering: a compatibility check that arrives with the change it guards is
     a check every older install has already failed to run.
+MD0021:
+  emitted_by: compiler
+  concern: layout
+  says: "a tool's file sits in a folder that is not its id"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move the file to the folder its id names, or fix the id if it is the id that is wrong.
+  explanation: |
+    In a layer whose `layout:` declares the `tool` kind, the path is the id: the contract or
+    module `nf-core/samtools/sort` lives in `tools/nf-core/samtools/sort/`, and a profiler's in
+    `profilers/<its id>/`. Finding a file is then never a search, and `forge land` writes
+    straight to it.
+MD0022:
+  emitted_by: compiler
+  concern: layout
+  says: "a tool folder has no tool.yml saying what the tool is"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Add `tool.yml` to the tool's folder: `declares: tool`, its id, name and a description.
+  explanation: |
+    Every `tools/<org>/<tool>/` folder carries a `tool.yml` with the tool's name and a
+    description. The description is what an explanation is allowed to quote, so a tool without
+    one cannot be explained from a source.
+MD0023:
+  emitted_by: compiler
+  concern: layout
+  says: "a type only one tool uses sits outside that tool's types/ folder"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move it to `tools/<org>/<tool>/types/`, or to `vocabulary/types/` if several tools use it.
+  explanation: |
+    A type only one tool touches lives with that tool, in `tools/<org>/<tool>/types/`, so the
+    tool's folder reads as subtools plus its own words. A type several tools touch belongs in
+    `vocabulary/types/`.
 MD0226:
   emitted_by: core
   concern: pipeline-file
