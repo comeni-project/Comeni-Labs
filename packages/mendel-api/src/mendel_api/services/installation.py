@@ -20,6 +20,7 @@ def _store():
 
 
 def installation() -> Installation:
+    from mendel_api.services import reports
     from mendel_api.services.models import where_purposes
 
     # **Strict, not tolerant**: a secret sealed under a rotated key raises when opened, so
@@ -31,5 +32,5 @@ def installation() -> Installation:
         codec=codec_from_env(os.environ),
         secrets_need=key_problem(os.environ),
     )
-    inst.reporters = {"privacy.where": lambda: where_purposes(inst)}
+    inst.reporters = {"privacy.where": lambda: where_purposes(inst), **reports.REPORTERS}
     return inst

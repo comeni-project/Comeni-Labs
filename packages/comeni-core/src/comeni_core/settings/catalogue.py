@@ -153,6 +153,76 @@ MODELS = Section(
     key="models", title="Models", order=3,
     settings=(CONNECTIONS, DEFAULT_MODEL, *PURPOSE_SETTINGS),
 )
-PRIVACY = Section(key="privacy", title="Privacy & data", order=4, settings=(WHERE_PURPOSES,))
 
-CATALOGUE = Catalogue(sections=(APPEARANCE, BUILDING, MODELS, PRIVACY))
+RO = ReadOnlyHere(why="reported by the server; not changed here")
+
+PROTECTION = Setting.choice(
+    key="privacy.protection",
+    label="Protection level",
+    help=(
+        "How much of your data a model may see. Level 0 lets a model read an uploaded sample. "
+        "Open, guarded and sealed send less, down to nothing at all."
+    ),
+    options=[
+        ("level_0", "Level 0: a model may read an uploaded sample"),
+        ("open", "Open"),
+        ("guarded", "Guarded"),
+        ("sealed", "Sealed"),
+    ],
+    default="level_0",
+    unavailable=Designed(
+        where="level 0 arrives with samples (14.7.6); open, guarded and sealed are designed "
+        "(issue 71)"
+    ),
+)
+
+
+def _reported(key: str, label: str, help: str, why: ReadOnlyHere = RO) -> Setting:
+    return Setting.readonly(key=key, label=label, help=help, unavailable=why)
+
+
+REGISTRY_ROOT = _reported(
+    "registry.root", "Registry",
+    "The folder the tools and types are read from. Set as MENDEL_REGISTRY_ROOT in .env.",
+)
+REGISTRY_LAYERS = _reported(
+    "registry.layers", "Layers",
+    "Each layer stacked on the registry, in order. A later layer can replace an earlier "
+    "one's tool.",
+)
+GITHUB_TOKEN = _reported(
+    "registry.github", "GitHub token",
+    "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
+    ReadOnlyHere(why="a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env"),
+)
+DOCKERHUB = _reported(
+    "registry.dockerhub", "Docker Hub account",
+    "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
+    ReadOnlyHere(why="a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env"),
+)
+SOURCE_CHECK = _reported(
+    "registry.source_check", "Nightly source check",
+    "When the worker re-reads every source to see whether an upstream tool moved.",
+)
+VERSIONS = _reported(
+    "system.versions", "Versions", "The version of each part of this installation."
+)
+DATABASE = _reported("system.database", "Database", "Whether Mendel's database answers.")
+REDIS = _reported("system.redis", "Job queue", "Whether the queue that runs model jobs answers.")
+MODEL_SERVER = _reported(
+    "system.model", "Default model's server",
+    "Whether anything answers at the default model's endpoint. A hosted provider is not probed.",
+)
+
+PRIVACY = Section(
+    key="privacy", title="Privacy & data", order=4, settings=(PROTECTION, WHERE_PURPOSES)
+)
+REGISTRY = Section(
+    key="registry", title="Registry & sources", order=6,
+    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
+)
+SYSTEM = Section(
+    key="system", title="System", order=7, settings=(VERSIONS, DATABASE, REDIS, MODEL_SERVER)
+)
+
+CATALOGUE = Catalogue(sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, REGISTRY, SYSTEM))

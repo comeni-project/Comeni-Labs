@@ -459,6 +459,59 @@
       "entries": [
         {
           "setting": {
+            "key": "privacy.protection",
+            "label": "Protection level",
+            "help": "How much of your data a model may see. Level 0 lets a model read an uploaded sample. Open, guarded and sealed send less, down to nothing at all.",
+            "kind": "choice",
+            "default": "level_0",
+            "env": null,
+            "options": [
+              {
+                "value": "level_0",
+                "label": "Level 0: a model may read an uploaded sample"
+              },
+              {
+                "value": "open",
+                "label": "Open"
+              },
+              {
+                "value": "guarded",
+                "label": "Guarded"
+              },
+              {
+                "value": "sealed",
+                "label": "Sealed"
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "designed",
+              "where": "level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)",
+              "says": "Designed, not built yet: level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "level_0",
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "designed",
+              "where": "level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)",
+              "says": "Designed, not built yet: level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
             "key": "privacy.where",
             "label": "Where each purpose goes",
             "help": "For each purpose, whether what it sends stays on this machine or your network, or goes to a provider. Worked out from the connection each purpose uses.",
@@ -488,6 +541,346 @@
               "kind": "read_only_here",
               "why": "worked out from Settings → Models",
               "says": "Shown here, set elsewhere: worked out from Settings → Models."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "registry",
+      "title": "Registry & sources",
+      "order": 6,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "registry.root",
+            "label": "Registry",
+            "help": "The folder the tools and types are read from. Set as MENDEL_REGISTRY_ROOT in .env.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.layers",
+            "label": "Layers",
+            "help": "Each layer stacked on the registry, in order. A later layer can replace an earlier one's tool.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.github",
+            "label": "GitHub token",
+            "help": "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.dockerhub",
+            "label": "Docker Hub account",
+            "help": "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.source_check",
+            "label": "Nightly source check",
+            "help": "When the worker re-reads every source to see whether an upstream tool moved.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "system",
+      "title": "System",
+      "order": 7,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "system.versions",
+            "label": "Versions",
+            "help": "The version of each part of this installation.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.database",
+            "label": "Database",
+            "help": "Whether Mendel's database answers.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.redis",
+            "label": "Job queue",
+            "help": "Whether the queue that runs model jobs answers.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.model",
+            "label": "Default model's server",
+            "help": "Whether anything answers at the default model's endpoint. A hosted provider is not probed.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
             },
             "set": null,
             "last4": null
