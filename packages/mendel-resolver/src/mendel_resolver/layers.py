@@ -35,6 +35,7 @@ from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.module import Module
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
+from comeni_core.declared.tools import ToolCatalogue
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field
@@ -51,6 +52,8 @@ class Layers(BaseModel):
     vocabulary: Vocabulary
     families: FamilyVocabulary
     """The first level of the type choice (#194). Every type in `vocabulary` belongs to one."""
+    tools: ToolCatalogue
+    """What each tool is (#216). Read by the docs and, from 14.7.8, by explanations."""
     registry: Registry
     roles: RoleVocabulary
     rules: RuleTable
@@ -148,6 +151,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
     declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
     families = FamilyVocabulary.of(declared_families)
+    declared_tools = stack(stacked, ToolCatalogue.kind(), buckets=buckets)
     # **After `with_measurements`**, so the derived `measurement.*` types are held to a family
     # too — the same ordering lesson as this module's docstring (#194).
     families.check(vocabulary.types)
@@ -181,6 +185,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         measurements=measurements,
         vocabulary=vocabulary,
         families=families,
+        tools=ToolCatalogue.of(declared_tools),
         registry=registry,
         roles=roles,
         rules=rules,
@@ -190,6 +195,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             *measured.displaced,
             *declared_types.displaced,
             *declared_families.displaced,
+            *declared_tools.displaced,
             *named_roles.displaced,
             *vendored.displaced,
             *contracts.displaced,

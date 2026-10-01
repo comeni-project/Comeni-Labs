@@ -107,3 +107,11 @@ def test_the_manifest_is_read_once(monkeypatch):
     layers.load(REGISTRY)
 
     assert Counter(parsed)[REGISTRY / layered.MANIFEST] == 1
+
+
+def test_the_shipped_registry_loads_its_tools():
+    """Empty until the registry moves (Task 6); every tool directory has one after."""
+    from mendel_resolver import layers
+
+    loaded = layers.load(REGISTRY)
+    assert isinstance(loaded.tools.tools, dict)

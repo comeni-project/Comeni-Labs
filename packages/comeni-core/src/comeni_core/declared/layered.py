@@ -190,6 +190,9 @@ class DeclaredKind(StrEnum):
     family from a short described list, then a type from that family, shown whole. Every type
     belongs to the family before its first dot, and a family nothing declares fails to load."""
 
+    TOOLS = "tools"
+    """What each tool is — `comeni_core.declared.tools` (#216)."""
+
 
 class Policy(StrEnum):
     """What a higher layer does to an entry a lower layer already supplied."""
@@ -383,6 +386,7 @@ _KIND_OF = {
     "role": DeclaredKind.ROLES,
     "module": DeclaredKind.MODULES,
     "family": DeclaredKind.FAMILIES,
+    "tool": DeclaredKind.TOOLS,
 }
 """The singular a file writes, to the kind it means. Derived from `DeclaredKind` by hand rather
 than by stripping an `s`, because `vocabularies` is not `vocabularys`."""
