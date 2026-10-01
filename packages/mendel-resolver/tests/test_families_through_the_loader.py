@@ -29,15 +29,16 @@ def test_the_shipped_registry_loads_with_its_families():
 
 def test_a_type_whose_family_is_removed_fails_the_load(tmp_path):
     layer = _registry_copy(tmp_path)
-    (layer / "families" / "fastq.yml").unlink()
+    (layer / "vocabulary" / "families" / "fastq.yml").unlink()
     with pytest.raises(UnknownFamilyError, match=r"MD0316.*fastq\.reads"):
         layers.load(layer)
 
 
 def test_a_tool_directorys_own_type_is_held_to_a_family_too(tmp_path):
-    """`genome.index.star` is declared under `tools/nf-core/star`, not `types/`."""
+    """`genome.index.star` is declared under `tools/nf-core/star/types/`, not in the
+    vocabulary."""
     layer = _registry_copy(tmp_path)
-    (layer / "families" / "genome.yml").unlink()
+    (layer / "vocabulary" / "families" / "genome.yml").unlink()
     with pytest.raises(UnknownFamilyError, match=r"MD0316.*genome\."):
         layers.load(layer)
 
@@ -45,7 +46,7 @@ def test_a_tool_directorys_own_type_is_held_to_a_family_too(tmp_path):
 def test_derived_measurement_types_need_the_measurement_family(tmp_path):
     """They exist only after `with_measurements`, so the check must run after it."""
     layer = _registry_copy(tmp_path)
-    (layer / "families" / "measurement.yml").unlink()
+    (layer / "vocabulary" / "families" / "measurement.yml").unlink()
     with pytest.raises(UnknownFamilyError, match=r"MD0316.*measurement\."):
         layers.load(layer)
 

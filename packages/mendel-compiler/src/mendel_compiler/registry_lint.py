@@ -218,7 +218,7 @@ def _tool_types_are_namespaced(root: Path) -> list[Diagnostic]:
         if singular != "vocabulary" or not path.is_relative_to(tools):
             continue
         declared = (yaml_strict.load(path) or {}).get("id", "")
-        # `tools/nf-core/star/genome.index.star.yml` -> the tool is `star`.
+        # `tools/nf-core/star/types/genome.index.star.yml` -> the tool is `star`.
         parts = path.parent.relative_to(tools).parts
         if len(parts) < 2:
             continue

@@ -53,7 +53,7 @@ def test_a_layer_with_no_layout_is_unenforced(tmp_path):
 def test_a_misfiled_document_is_refused(layer):
     """MD0013. It **loads perfectly** — the loader reads `declares:`, not the path — and is
     invisible to everyone reading the tree."""
-    moved = layer / "measurements" / "sneaky.yml"
+    moved = layer / "vocabulary" / "measurements" / "sneaky.yml"
     moved.write_text((layer / "rules" / "alignment.yml").read_text())
     found = lint(layer)
     assert codes(found) == ["MD0013"]
@@ -63,15 +63,15 @@ def test_a_misfiled_document_is_refused(layer):
 def test_a_file_named_for_something_it_does_not_declare_is_refused(layer):
     """MD0014. Identity is the `id:` since `MD0012`, so the filename carries no meaning to the
     loader — which is exactly why it has to name its subject for a human."""
-    target = layer / "measurements" / "read_length.yml"
-    target.rename(layer / "measurements" / "how_long_the_reads_are.yml")
+    target = layer / "vocabulary" / "measurements" / "read_length.yml"
+    target.rename(layer / "vocabulary" / "measurements" / "how_long_the_reads_are.yml")
     assert codes(lint(layer)) == ["MD0014"]
 
 
 def test_several_roles_in_one_file_are_refused(layer):
     """MD0015. `roles.yml` held all nine and a diff touching it said only that *some* job
     changed."""
-    (layer / "roles" / "trimming.yml").write_text(
+    (layer / "vocabulary" / "roles" / "trimming.yml").write_text(
         "declares: role\nroles:\n  - trimming\n  - alignment\n"
     )
     assert "MD0015" in codes(lint(layer))
@@ -97,10 +97,10 @@ def test_a_shared_type_hidden_inside_a_tool_is_refused(layer):
 
 
 def test_a_type_namespaced_by_its_tool_is_fine(layer):
-    """The other half — `genome.index.star` under `tools/nf-core/star/` is the arrangement
+    """The other half — `genome.index.star` under `tools/nf-core/star/types/` is the arrangement
     this layout exists to produce, and it must not fire on it."""
     assert lint(layer) == []
-    assert (layer / "tools" / "nf-core" / "star" / "genome.index.star.yml").exists()
+    assert (layer / "tools" / "nf-core" / "star" / "types" / "genome.index.star.yml").exists()
 
 
 def test_two_versions_of_one_module_in_one_layer_are_refused(layer):

@@ -155,8 +155,9 @@ never the reverse.
 `frontend/` is React 19 + TS + Vite + Tailwind 4, and **`frontend/src/api/` is generated**
 (`make client`), never hand-edited. `ARCHITECTURE.md` describes all of it against real types.
 
-**The registry** is a git submodule at `registry/` (`comeni-registry`), carrying each tool's
-module beside its contract (`registry/tools/<org>/<tool>/module/`). `git clone
+**The registry** is a git submodule at `registry/` (`comeni-registry`) holding five things:
+tools, profilers, inspectors, vocabulary and rules. One folder per tool, with its `tool.yml`, its
+page and its module beside its contract (`registry/tools/<org>/<tool>/module/`); the path is the id. `git clone
 --recurse-submodules`, or `git submodule update --init`. `pipeline.yml` is the pipeline: every
 step and setting with a `why:`, contracts pinned by digest, no paths or timestamps.
 

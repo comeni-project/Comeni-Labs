@@ -112,20 +112,26 @@ repeating `--registry`. Later layers win.
 globs the layer and buckets by content rather than by path. `MD0010`, `MD0011` and `MD0012`
 are the refusals that replace position.
 
-**So the layout is a convention, free to serve a reader.** The public registry groups a tool's
-files together, which is the whole point — working on STAR used to mean opening three trees:
+**So the layout is free to serve a reader**, and a layer that wants one writes it into its
+manifest's `layout:`, which `mendel lint` enforces. The public registry reads as five things, one
+folder per tool, and **the path is the id** (#216):
 
 ```
 <layer>/
-├─ registry.yml                          the layer's account of itself
-├─ roles.yml                             the roles a contract may fill
-├─ types/<type_id>.yml                   states a type may carry, and how it enters a pipeline
-├─ measurements/<id>.yml                 kind, allowed values, bounds, unit, citation
-├─ rules/<name>.rule.yml                 decision tables: measured data → a value or a module
-└─ tools/nf-core/star/                   one tool, its contracts and the types it produces
-   ├─ align.contract.yml                 what a module consumes, produces and is called with
-   ├─ genomegenerate.contract.yml
-   └─ genome.index.star.type.yml
+├─ registry.yml                          the layer's account of itself, and its layout:
+├─ tools/nf-core/star/                   one tool, everything about it
+│  ├─ tool.yml                           what STAR is, in words an explanation may quote
+│  ├─ README.md                          its page, generated (`mendel docs --in-place`)
+│  ├─ types/genome.index.star.yml        a type only this tool touches
+│  ├─ align/contract.yml  module.yml  module/
+│  └─ genomegenerate/…                   one folder per subtool; the folder is the id
+├─ profilers/comeni/profile/fastqc/      a use of a tool to measure the data
+├─ inspectors/                           code that measures an uploaded sample (14.7.6.2)
+├─ vocabulary/
+│  ├─ types/<type_id>.yml                states a type may carry, and how it enters a pipeline
+│  ├─ measurements/<id>.yml              kind, allowed values, bounds, unit, citation
+│  └─ roles/  families/                  the jobs a contract can do; the kinds of data
+└─ rules/<name>.yml                      decision tables: measured data → a value or a module
 ```
 
 Nothing in the loader requires that shape. A layer that put every file at its root would load

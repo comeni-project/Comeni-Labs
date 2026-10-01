@@ -1762,8 +1762,9 @@ MD0017:
   fires_on: [registry lint]
   refuses: true
   fix: |
-    Move it to `types/` if several tools touch it, or name it for the tool it belongs to —
-    `genome.index.star`, under `tools/nf-core/star/`.
+    Move it to the layer's shared types (`vocabulary/types/` in the public registry) if several
+    tools touch it, or name it for the tool it belongs to — `genome.index.star`, under
+    `tools/nf-core/star/types/`.
   explanation: |
     A thing belongs at the shallowest level that owns it. `genome.index.star` is produced by
     `star/genomegenerate` and consumed by `star/align`, so it is the *tool's* and sits at the

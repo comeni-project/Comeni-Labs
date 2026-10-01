@@ -8,7 +8,7 @@ Both are closed against this list — an undeclared key is refused, which is wha
 `profile: {sample_name: ...}` from ever building.
 
 ```yaml
-# registry/measurements/read_length.yml
+# registry/vocabulary/measurements/read_length.yml
 declares: measurement
 id: read_length
 kind: integer

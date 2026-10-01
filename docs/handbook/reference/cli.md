@@ -257,7 +257,12 @@ An unknown code lists the ones that exist.
 ```bash
 uv run mendel docs --registry registry/ --out docs/tools           # write the pages
 uv run mendel docs --registry registry/ --out docs/tools --check   # exit 1 if any is stale
+uv run mendel docs --registry ../comeni-registry --in-place        # each page as README.md in its tool's folder
 ```
+
+`--in-place` writes each page into the one layer given, as `README.md` in the folder holding the
+tool's contracts, and opens it with the tool's own `tool.yml` description. `--check` with it
+also refuses a generated README whose tool is gone.
 
 One Markdown page per **tool**, rendered from a layer's declared data and nothing else — each
 contract's process, ports, parameters and provenance, plus two facts no single file holds:

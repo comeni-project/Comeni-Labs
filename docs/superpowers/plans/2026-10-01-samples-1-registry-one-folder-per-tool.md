@@ -879,7 +879,7 @@ homepage: https://www.htslib.org
 cite: "Danecek et al. 2021, doi:10.1093/gigascience/giab008"
 ```
 
-- [ ] **Step 5: STOP — the operator approves the nine descriptions**
+- [x] **Step 5: STOP — the operator approves the nine descriptions**
 
 Print the nine files and ask the operator to approve or correct them (spec §3: *the migration writes one for each existing tool … for the operator to approve*). Invariant 2: a person approves what an explanation may quote. Do not continue until they answer; apply their corrections.
 
@@ -910,7 +910,7 @@ In `.github/workflows/ci.yml`, replace the step *The committed pages match the d
 
 and leave `ENGINE_REF` for Step 10 (it must name a pushed Comeni-Labs commit that has Tasks 1–5).
 
-- [ ] **Step 9: Commit in the registry**
+- [x] **Step 9: Commit in the registry**
 
 ```bash
 git add -A && git commit -m "One folder per tool: tools, profilers, inspectors, vocabulary, rules (comeni-labs #216)
@@ -919,7 +919,7 @@ The path is the id; every tool says what it is in tool.yml; each tool's page is 
 into its own folder; profilers move out of tools; shared kinds move under vocabulary/."
 ```
 
-- [ ] **Step 10: STOP — pushing**
+- [x] **Step 10: STOP — pushing**
 
 Ask the operator to authorise: (a) pushing `living-pipeline-design` in Comeni-Labs (already authorised) so Tasks 1–5 have a SHA; (b) setting `ENGINE_REF` to that SHA in a second registry commit; (c) pushing `one-folder-per-tool` to `comeni-registry` (spec §15). Do only what they authorise.
 
@@ -930,33 +930,33 @@ Ask the operator to authorise: (a) pushing `living-pipeline-design` in Comeni-La
 **Files:**
 - Modify: `registry` (submodule pointer), `tests/artifact/test_publish.py:292`, `tests/regressions/test_overlays.py:307`, `CLAUDE.md:159,235`, `.github/CONTRIBUTING.md:73`, `.github/pull_request_template.md:41`, `docs/design/invariants.md:94`, `docs/handbook/reference/cli.md:129,258-259,354-355`, `tools/generate_types.py:35`, `packages/comeni-core/src/comeni_core/goal/profile.pyi:2`, `ARCHITECTURE.md` (wherever it describes the registry's folders)
 
-- [ ] **Step 1: Find every path that moved**
+- [x] **Step 1: Find every path that moved**
 
 Run: `git grep -n -e "registry/types/" -e "registry/measurements/" -e "registry/roles/" -e "registry/families/" -e "tools/comeni/profile" -e "genome.index.star.yml" -e "genome.index.hisat2.yml" -e "registry/docs/" -- ':!docs/notes/journal' ':!docs/superpowers/plans/archive' ':!docs/superpowers/specs/archive' ':!tests/fixtures/guard-ledger.md' ':!tests/fixtures/claude-md-*'`
 Expected: a list close to the Files line above. History (journal, archives, the guard ledger, frozen fixtures) is not rewritten.
 
-- [ ] **Step 2: Update each to the new path**
+- [x] **Step 2: Update each to the new path**
 
 `registry/types/` → `registry/vocabulary/types/` (and the same for `measurements`, `roles`, `families`); `tools/comeni/profile-*` → `profilers/comeni/profile/*`. In `CLAUDE.md`'s *The registry* paragraph, say the five top-level things in one sentence; keep it within `make doc-sizes`. In `cli.md`, document `mendel docs --in-place` beside `--out`.
 
-- [ ] **Step 3: Run the whole check**
+- [x] **Step 3: Run the whole check**
 
 Run: `make check > /tmp/claude-1000/check.log 2>&1; tail -20 /tmp/claude-1000/check.log`
 Expected: PASS. The shipped layer now declares `tool:` in its layout, so `test_the_shipped_layer_lints_clean` runs the new checks against the moved registry and passes.
 
-- [ ] **Step 4: Run `make verify`** (Task 1 touched `layers.py`, which feeds `resolve.py`)
+- [x] **Step 4: Run `make verify`** (Task 1 touched `layers.py`, which feeds `resolve.py`)
 
 Run: `make verify > /tmp/claude-1000/verify.log 2>&1; tail -20 /tmp/claude-1000/verify.log`
 Expected: PASS. Same goal → byte-identical `.nf` (ids did not change, so pinned digests change only because bytes moved: if a golden pins the layer digest, regenerate it and say so in the execution record).
 
-- [ ] **Step 5: Commit, separately from the checks**
+- [x] **Step 5: Commit, separately from the checks**
 
 ```bash
 git add registry tests CLAUDE.md .github docs tools packages/comeni-core/src/comeni_core/goal/profile.pyi ARCHITECTURE.md
 git commit -m "chore(registry): follow the registry to one folder per tool (#216)"
 ```
 
-- [ ] **Step 6: Close the loop on #216**
+- [x] **Step 6: Close the loop on #216**
 
 Comment on #216 with the before/after per-request numbers and the commits; it closes when the registry branch merges.
 
@@ -965,3 +965,8 @@ Comment on #216 with the before/after per-request numbers and the commits; it cl
 ## Execution record
 
 *(Filled in while executing: rulings, measurements, deviations.)*
+
+- **Measured (Task 4):** 10.69 ms per request before, 1.55 ms after, on the shipped registry. The plan expected "well under 1 ms"; `declared_entries` alone cost 6 ms of pathlib per file, so the signature walks every file with `os.walk` (a superset of the digest's files, skipping `.git`) instead.
+- **Rulings:** the `make the manifest place every kind` guard was xfail(strict) from Task 1 to Task 7; diagnostics use `fix:`/`explanation:`; orphan READMEs are found by the banner's stable prefix; `--in-place` needed a CLI change in `cli/__init__.py`; the digest cache keys on root and signature; `_types_dir` reads only `layout:`; `cite:` is the DOI from `meta.yml` only; the registry's CODEOWNERS, CONTRIBUTING and README were rewritten for the new paths.
+- **Registry:** `one-folder-per-tool` at bbca3d3 (pushed), `ENGINE_REF` 0fc19d3. It branches from `families` (c7208bd), which is not yet on `main`.
+- **Found:** issue 219 (five forge database tests fail on a stale fixture, pre-existing) and issue 220 (a lint error from the settings work, fixed in d673e78). A bare `uv run pytest` reached the dev stack's `mendel-db` on 5432 and its fixtures truncated it; the operator said the data was dev-only.

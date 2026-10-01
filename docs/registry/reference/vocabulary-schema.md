@@ -7,7 +7,7 @@ Types are what routing matches on. `fastq.reads` and `alignment.bam` are types; 
 `coordinate_sorted` are states of them.
 
 ```yaml
-# registry/types/fastq.reads.yml
+# registry/vocabulary/types/fastq.reads.yml
 declares: vocabulary
 id: fastq.reads
 states: [trimmed, deduplicated, subsampled]
@@ -19,9 +19,9 @@ test_data:
   - "https://.../SRR6357070_2.fastq.gz"
 ```
 
-**Where the file sits is free.** The public registry keeps general types in `types/` and puts a
-type beside the only tool that produces it — `genome.index.star.type.yml` lives in
-`tools/nf-core/star/`. The loader reads `declares:`, not the path.
+**Where the file sits is free.** The public registry keeps general types in `vocabulary/types/`
+and puts a type with the only tool that produces it — `genome.index.star.yml` lives in
+`tools/nf-core/star/types/`. The loader reads `declares:`, not the path.
 
 **`id:` is required**, and `MD0012` refuses a file without one. The filename used to be the id;
 once a file could live anywhere, `align.type.yml` in a tool folder would have silently declared

@@ -172,7 +172,7 @@ def stage(
     new_types = tuple(sorted(set(draft.scaffold.approved().values())))
     for type_id in new_types:
         # Three lines, matching what the registry already holds — see
-        # `registry/types/alignment.bai.yml`. States are empty on purpose: a new type's
+        # `registry/vocabulary/types/alignment.bai.yml`. States are empty on purpose: a new type's
         # states are a separate judgement, and `add_states:` is how a layer extends them.
         #
         # In the SAME commit as the contract, which is the whole of §4.2's "one review, not
