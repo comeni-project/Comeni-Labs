@@ -36,7 +36,7 @@
 **Interfaces:**
 - Consumes: `PUT /api/settings/{key}`, `GET /api/settings` (part 2), `POST /api/settings/models.connections/items/{name}/models` (part 4), `POST /api/pipeline/authoring` (`beginAuthoring`, body `{"prompt": str}`), `GET /api/pipeline/authoring/{id}` (`row_version`, `phase`), `POST /api/pipeline/authoring/{id}/messages` (body `{"text": str}`), `GET /api/pipeline/authoring/{id}/calls` (`purpose`, `model`, `state`, `duration_ms`, `input`, `output`).
 
-- [ ] **Step 1: Write the tool**
+- [x] **Step 1: Write the tool**
 
 ```python
 """Measure which local model serves each builder purpose — issue 187, part 14.7.5.7.
@@ -166,12 +166,12 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 2: Check it**
+- [x] **Step 2: Check it**
 
 Run: `uv run ruff check tools/measure_models.py && uv run python tools/measure_models.py --help`
 Expected: clean; the usage line
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tools/measure_models.py
@@ -182,18 +182,18 @@ git commit -m "tools: measure which model serves each builder purpose (#187)"
 
 ### Task 2: Measure
 
-- [ ] **Step 1: Prepare, with the operator**
+- [x] **Step 1: Prepare, with the operator**
 
 Ask the operator: the default model must not be pinned by `.env` while measuring (the tool refuses if it is). If `COMENI_AI_MODEL` is set, they comment it out and restart, or say to skip. Then: `make ai-up OLLAMA_GPU=rocm`, `make dev`, and in Settings → Models a *Local Ollama* connection at `http://ollama:11434` (from part 4's walk).
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `uv run python tools/measure_models.py --connection "Local Ollama" ollama_chat/gemma3:4b ollama_chat/qwen2.5:7b ollama_chat/gemma3:12b 2>&1 | tee /tmp/claude-1000/measure-models.txt`
 Expected: three tables. If any session timed out, say which and why before deciding whether to rerun it; do not rerun silently.
 
 While each model runs, record its placement once: `docker exec mendel-ollama ollama ps` (container name from `.env.example`'s `OLLAMA_CONTAINER_NAME`).
 
-- [ ] **Step 3: Record it on #187**
+- [x] **Step 3: Record it on #187**
 
 Comment on #187: the three tables, each model's `ollama ps` line, the family-step setting, the sentences, and the date. No interpretation in the same comment.
 
