@@ -146,7 +146,6 @@ def test_stored_keys_with_no_codec_do_not_take_the_menu_down(clean_env, settings
 def test_a_purpose_can_go_back_to_the_default(clean_env, settings_in_memory):
     """Found executing plan 7: *Same as the default* sends null, which a model setting holds."""
     from fastapi.testclient import TestClient
-
     from mendel_api.main import create_app
 
     _choose(settings_in_memory, default="ollama_chat/qwen2.5:7b", talk="ollama_chat/gemma3:4b")
