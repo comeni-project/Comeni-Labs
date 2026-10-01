@@ -16,7 +16,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   and fixed #106–#116. (2026-09-28)
 - **Order of work, in #119's own order** (renumbered 2026-09-28 so the tree reads as done):
   **14.7.3** gathering, **done 2026-09-29** → **14.7.4** the consultant's words, fast and cheap (#182–#186, then #167 #176) →
-  **14.7.5** the settings menu (#117, #187) → **14.7.6** samples → **14.7.7** the characteriser
+  **14.7.5** settings (#181; spec 2026-10-01, seven parts 14.7.5.1–.7) → **14.7.6** samples → **14.7.7** the characteriser
   → **14.7.8** the consultant build → **14.7.9** tune what the walk found (#210) → **14.7.10** the
   nine scenarios. (2026-09-28, 2026-10-01)
 - **Scenario 1 builds end to end with `gemma3:12b`** after gathering (reads, genome, annotation,
