@@ -1,16 +1,15 @@
 # Samples and inspectors — design
 
-**Issue:** #134 (step 14.7.6, under #126). **Decided** by the operator on 2026-10-01, in the
-brainstorm this spec records. It replaces *Samples and inspectors* in §6 of
-`2026-09-28-the-consultant-design.md`, which put inspectors in a dict inside `mendel-api`; that
-does not survive hundreds of data types.
+**Issues:** #134 (step 14.7.6, under #126) and #216 (the registry's layout), done here, first.
+**Decided** by the operator on 2026-10-01, in the brainstorm this spec records. It replaces
+*Samples and inspectors* in §6 of `2026-09-28-the-consultant-design.md`, which put inspectors in a
+dict inside `mendel-api`; that does not survive hundreds of data types.
 
-Built in six parts, 14.7.6.1–14.7.6.6 (§12). Each part gets its own plan.
+Built in seven parts, 14.7.6.1–14.7.6.7 (§12). Each part gets its own plan.
 
-Opened from this brainstorm, out of scope here: #216 (registry: one folder per tool, and finding
-a file without searching the layout; lands before 14.7.10), #217 (runtime decisions: a profiler
-sets a later step's parameters; after Task 14), #218 (samples that disagree: split the data and
-run smaller pipelines; after the MVP).
+Opened from this brainstorm, out of scope here: #217 (runtime decisions: a profiler sets a later
+step's parameters; after Task 14), #218 (samples that disagree: split the data and run smaller
+pipelines; after the MVP).
 
 ## 1. What a person gets
 
@@ -27,62 +26,102 @@ Nothing is guessed (protocol rule 5). A head that cannot decide a fact says so, 
 open (rule 6). A file nothing can read says *nothing reads this type yet*; the characteriser fills
 that branch in 14.7.7.
 
-## 2. Three kinds of measurer
+## 2. One registry: tools, profilers, inspectors
 
-| | **Module** | **Profiler** | **Inspector** |
+**The registry holds all three kinds of thing**, each in its own place. It is already its own
+repository (`comeni-registry`), with its own versions and tags, and it already carries
+third-party code beside the declarations that bind it (`module/`, licensed per file in
+`LICENSES/`). Inspector code joins it the same way, under Apache-2.0.
+
+| | **Tool** | **Profiler** | **Inspector** |
 |---|---|---|---|
-| What it is | a tool that does work | a tool that **measures** | code that **measures a sample** |
-| Made of | Nextflow module + contract | Nextflow module + contract (produces `measurement.*`) | codecs, formats, measures (§4) |
-| Where it lives | the registry | the registry | `comeni-inspectors` (§3) |
+| What it is | a tool that does work | a **use of a tool** to measure | code that **measures a sample** |
+| Made of | `tool.yml`, contracts, Nextflow modules | a contract today; its own `profiler` kind later | codecs, formats, measures (§4) |
+| Where | `tools/` | `profilers/` | `inspectors/` |
 | **Runs** | **the lab's machine**, in the pipeline | **the lab's machine**, in the pipeline | **our server**, in the conversation |
 | Reads | all the data | all the data | the first 4 MB of one upload |
 | Gives | outputs | a profile, read back as facts | facts for the goal |
 
-- **Profilers stay contracts.** They already are (`profile-fastqc` produces
-  `measurement.read_length`); a separate registry kind would duplicate the contract machinery.
-  #216 makes them visible in the layout.
-- **Inspectors are code that runs on a person's file**, so they are not registry data (CC-BY,
-  approved by a curator) but their own repository (Apache-2.0).
-- **What unifies them is the measurement id.** Comeni builds one **who-measures-what index** at
-  load: for each measurement, every inspector and profiler that produces it, with its version
+- **A tool is just a tool; a profiler uses one.** FastQC is a tool in `tools/nf-core/fastqc/`. A
+  profiler is a separate declaration that uses a tool to produce measurements. **Now**, the
+  existing profiling contracts (`profile-fastqc`, `profile-collect`) move to `profilers/`
+  unchanged, because `mendel profile` routes them as contracts. **Later**, profilers get their
+  own `profiler` kind (`uses: nf-core/fastqc`, `measures: [read_length]`, `runs: lab`), which
+  changes how `mendel profile` works and is its own design.
+- **What unifies the three is the measurement id.** Comeni builds one **who-measures-what index**
+  at load: for each measurement, every inspector and profiler that produces it, with its version
   and where it runs.
 - **Where something runs is declared, never assumed:** every measurer carries
   `runs: server | lab` (later `browser`, the `guarded` level's *read in the browser, facts only*).
   Moving a measurer is a change to that field and a runner, and a protection level can refuse
   anything that runs on the server. This is written into the protocol page and `ARCHITECTURE.md`
   as a table, because it is expected to change.
+- **Inspector code runs only from a trusted layer.** Running a registry layer's code on our server
+  is new: a lab's own overlay could add an inspector. So an installation names the layers whose
+  inspectors may run (`COMENI_TRUSTED_LAYERS`, default: the curated registry only). A piece in an
+  untrusted layer is listed as *not trusted here*, never run, and its files go to the
+  characteriser. The process limits (§8) apply to every piece, trusted or not.
 
-## 3. The `comeni-inspectors` repository
+## 3. The registry, reorganised (#216)
 
-A separate public repository, `comeni-project/comeni-inspectors`, Apache-2.0. **It depends on
-nothing of ours**: it reports plain values keyed by id strings, and Comeni decides what they mean
-(invariant 2). The only coupling is names (type and measurement ids), the coupling the registry
-already has.
+The registry was confusing to read (operator, 2026-10-01): a tool's docs in a parallel tree, no
+file saying what a tool is, subtools and tool-local types side by side, nine flat folders at the
+root. It moves first, so the inspectors land in the layout they keep.
 
 ```
-comeni-inspectors/
-  README.md            what an inspector is; add a format or a measure in five steps
-  PROTOCOL.md          the wire protocol (§6), the contract every implementation speaks
-  src/comeni_inspectors/
-    contract.py        Head, Report, Fact, Undetermined, Unreadable, the declarations
-    run.py             the runner: one inspection per process, request on stdin, report out
-    codecs/gzip/       codec.yml, code, fixtures, tests
-    formats/fastq/     format.yml, code, fixtures, tests
-    measures/read_length/  measure.yml, code, fixtures, tests
-    measures/paired/
-    measures/quality_encoding/
-  conformance/         fixtures and golden reports every implementation must reproduce
-  tests/               guards over every piece
+registry/
+  registry.yml
+  tools/<org>/<tool>/
+    tool.yml                what the tool is (new)
+    README.md               its docs, generated by `mendel docs` (moved from docs/tools/)
+    types/                  types only this tool touches
+    <subtool>/              contract.yml  module.yml  module/
+  profilers/<name>/         contract.yml now; profiler.yml later
+  inspectors/
+    codecs/<name>/          codec.yml, code, fixtures, tests
+    formats/<name>/         format.yml, code, fixtures, tests
+    measures/<name>/        measure.yml, code, fixtures, tests
+  vocabulary/
+    types/  families/  measurements/  roles/
+  rules/                    decisions between tools
 ```
+
+Five things at the top, each with a one-line README.
+
+- **The path is the id.** `nf-core/samtools/sort` is at `tools/nf-core/samtools/sort/`; a tool with
+  one process is its own subtool (`tools/nf-core/fastqc/contract.yml`). Finding a file is never a
+  search, and `forge land` writes straight to it.
+- **`tool.yml`**, one per tool: `id`, `name`, `description`, `homepage`, `cite`. It is also where
+  14.7.8's declared tool descriptions live (protocol rule 12: the AI explains only from sources);
+  the forge drafts it and a person approves (invariant 2). The migration writes one for each
+  existing tool from that tool's own documentation, for the operator to approve.
+- **The lint** (`mendel lint`, `layout:` in `registry.yml`) enforces it in the curated layer: the
+  path equals the id, every tool has a `tool.yml`, a type in a tool's `types/` is used only by that
+  tool. A lab's private overlay stays free-form (invariant 11: the loader ignores folders).
+- **A cheap "has it changed?" check.** The API recomputed `digest_of_directory` on every request
+  (5–12 ms at 68 files, hashing every byte including module sources). It now keys its cache on a
+  **file-metadata signature**, each declared file's size and modified time from `stat`, never its
+  bytes; the ETag follows. The full byte digest is computed only where a pipeline pins the
+  registry, so `pipeline.yml` stays exact. Measured before and after.
+- **The order of the move:** the engine first learns the new layout (lint, docs output, forge
+  landing, paths in tests and CI); then the registry moves in one commit in `comeni-registry`,
+  with its CI's pinned engine bumped in the same commit; then this repository bumps the
+  submodule. About twenty files outside the registry name its paths today.
+
+### Inspector code in the registry
 
 - **One folder per piece**, each with its declaration, code, fixtures and tests.
-- **Consumed by Comeni as a git dependency pinned to a tag**, not a submodule. The repository is
-  tagged (`v0.1.0`); each piece's own `version` is what a fact records.
-- **Guards, in its CI, over every piece:** a declaration, fixtures and tests exist, and the tests
-  are non-empty; no network, no file reads, no subprocesses (the pure packages' import ban);
-  every fixture returns a report, never an exception, including malformed files, a truncated
-  gzip, a decompression bomb and an empty file; every value a piece returns is one its
-  declaration names. Each guard is watched failing (A14).
+- **The interface lives in Comeni**, in a new package `comeni-inspect`: the piece types (`Head`,
+  the accumulator base, `Report`, `Undetermined`, `Unreadable`, the declarations), the runner (one
+  inspection per process, request on stdin, report out), the wire protocol's written contract
+  (`PROTOCOL.md`, §6) and the conformance harness. A piece imports only `comeni_inspect`.
+- **Guards over every piece**, run in this repository's CI and the registry's: a declaration,
+  fixtures and tests exist, and the tests are non-empty; no network, no file reads, no
+  subprocesses (the pure packages' import ban); every fixture returns a report, never an
+  exception, including malformed files, a truncated gzip, a decompression bomb and an empty file;
+  every value a piece returns is one its declaration names. Each guard is watched failing (A14).
+- **Versions:** each piece's own `version` is what a fact records; the registry's tag and the
+  layer digest pin which pieces an installation has.
 
 ## 4. Inside an inspector: codecs, formats, measures
 
@@ -123,7 +162,7 @@ A **pair** is two streams read side by side: record *n* of R1 with record *n* of
 - **The boundary is the wire protocol (§6)**, not Python. A piece declares `impl: python` or
   `impl: executable`; an executable speaking the protocol is a valid implementation in any
   language. A hot loop may also be a compiled extension inside the Python runner (PyO3).
-- **One conformance suite** (`conformance/`): the same fixtures, the expected reports as golden
+- **One conformance suite**, run by `comeni-inspect`'s harness: the same fixtures, the expected reports as golden
   files. A Rust format must reproduce the Python one's reports byte for byte before it replaces
   it, so faster code cannot change a fact.
 - **A speed budget is a test:** a 4 MB gzipped FASTQ head inspected in under one second. It
@@ -132,7 +171,8 @@ A **pair** is two streams read side by side: record *n* of R1 with record *n* of
 ### Native libraries
 
 Every piece is pure Python by default. A piece that needs a compiled library declares it
-(`needs: [pysam]`) and is packaged as an extra (`comeni-inspectors[bam]`). A piece whose library
+(`needs: [pysam]`) and the library is an extra of `comeni-inspect` (`comeni-inspect[bam]`), installed by the
+image. A piece whose library
 is not installed is **listed as not installed here**, never hidden, and its files go to the
 characteriser. CI tests each extra separately. 14.7.6 builds nothing native: gzip and FASTQ are
 standard library.
@@ -189,8 +229,9 @@ pieces arrive; the protocol is the same, only the launch changes.
 
 ## 9. Comeni's side
 
-**Loading** (`mendel-api`, never a pure package, since inspectors read people's files): at
-startup, every installed piece's declaration is read. A piece naming a type or measurement the
+**Loading** (`mendel-api`, never a pure package, since inspectors read people's files): with the
+registry, every piece's declaration is read, through `layers.load()` like every other kind; its
+code is run only from a trusted layer (§2). A piece naming a type or measurement the
 registry does not declare is **refused** with a declared code, and the others still load
 (invariant 7: an inspector cannot invent vocabulary). The **who-measures-what index** is built
 from the pieces and the profiler contracts, and served by the vocabulary endpoint so the card can
@@ -262,12 +303,13 @@ So diagrams split, **one general and several detailed**:
 
 | Part | What | Depends on |
 |---|---|---|
-| **14.7.6.1** | `comeni-inspectors`: the repository, the declarations, the wire protocol and runner, gzip, the FASTQ format, the three measures, the conformance suite, the guards, the speed budget. Tagged `v0.1.0`. | the operator creates the GitHub repository |
-| **14.7.6.2** | `comeni-core`: `INSPECTED`, `Measured.by` and evidence, `profile_of`; `paired` loses `assertion_only` | — |
-| **14.7.6.3** | `mendel-api`: loading and refusing pieces, the who-measures-what index, the inspection service and its limits, the upload route, protection level 0 built | 1, 2 |
-| **14.7.6.4** | Protocol: `detail` on a node, `docs/design/diagrams/`, the inspection diagram, the upload branch built | 3 |
-| **14.7.6.5** | Design pass, then the gap card's upload states and the goal card's measured label | 3 |
-| **14.7.6.6** | The where-it-runs table (protocol page, `ARCHITECTURE.md`), the inspectors README, and scenario 1 walked with a real model and a real FASTQ pair | all |
+| **14.7.6.1** | The registry reorganised (#216): the engine learns the layout, `tool.yml` for every tool (operator approves the descriptions), docs into tool folders, `vocabulary/`, `profilers/`, the lint, the metadata signature; then the registry moves and the submodule is bumped | — |
+| **14.7.6.2** | `comeni-inspect`: the piece types, the wire protocol and runner, the conformance harness, the guards; in the registry, gzip, the FASTQ format and the three measures, with the speed budget | 1 |
+| **14.7.6.3** | `comeni-core`: `INSPECTED`, `Measured.by` and evidence, `profile_of`; `paired` loses `assertion_only` | — |
+| **14.7.6.4** | `mendel-api`: loading pieces, trusted layers, the who-measures-what index, the inspection service and its limits, the upload route, protection level 0 built | 2, 3 |
+| **14.7.6.5** | Protocol: `detail` on a node, `docs/design/diagrams/`, the inspection diagram, the upload branch built | 4 |
+| **14.7.6.6** | Design pass, then the gap card's upload states and the goal card's measured label | 4 |
+| **14.7.6.7** | The where-it-runs table (protocol page, `ARCHITECTURE.md`), the inspectors README, and scenario 1 walked with a real model and a real FASTQ pair | all |
 
 ## 13. Errors
 
@@ -278,7 +320,10 @@ undetermined fact are **answers**, not errors: shown with their reason, never a 
 
 ## 14. Testing
 
-- **`comeni-inspectors`:** fixture heads (plain, gzipped, R1/R2, `_1`/`_2`, interleaved,
+- **The registry move:** the lint refuses a path that is not its id and a tool with no
+  `tool.yml`; every registry path named outside the registry resolves; the signature reloads on an
+  edit and not otherwise; the per-request time, before and after.
+- **Inspector pieces:** fixture heads (plain, gzipped, R1/R2, `_1`/`_2`, interleaved,
   Phred+33 and Phred+64, trimmed lengths, too few reads); malformed files, a truncated gzip, a
   decompression bomb, an empty file; the conformance goldens; the speed budget; each guard watched
   failing.
@@ -295,5 +340,7 @@ undetermined fact are **answers**, not errors: shown with their reason, never a 
 
 - **A sample's head as model input** (14.7.7): the characteriser receives the head at level 0. The
   head stored here is the same bytes; 14.7.7 decides whether it reads from this store.
+- **Pushing to `comeni-registry`:** the move is a commit there; the operator authorises pushing
+  it, as for this repository's branch.
 - **The `comeni-core` version:** `INSPECTED` and `profile_of` are features; the bump is judged at
   release time (`docs/internals/releasing.md`).
