@@ -19,11 +19,13 @@ from comeni_core.settings.sections import Catalogue, Section
 
 __all__ = [
     "CATALOGUE",
+    "FROM_ENV",
     "SETTINGS_KEY_ENV",
     "Catalogue",
     "ChoiceOption",
     "Designed",
     "Entry",
+    "EnvItem",
     "IllegalValue",
     "Installation",
     "Kind",

@@ -1,11 +1,12 @@
 """Every setting this installation has, by section (spec §7).
 
-**One section to start**, Appearance, because it is the one whose consumer exists today: the
-theme toggle in `frontend/src/app/Shell.tsx`. Each later part adds the section it builds —
-Models in 14.7.5.4, Building in 14.7.5.5, the read-only ones in 14.7.5.6.
+**Each section arrived with its consumer.** Appearance came first (the theme, read by
+`frontend/src/app/Shell.tsx`); Models and Privacy & data with 14.7.5.4, which made every model
+call read its purpose's model. Building arrives in 14.7.5.5, the read-only ones in 14.7.5.6.
 """
 
-from comeni_core.settings.declare import Setting, Where
+from comeni_core.settings.declare import FROM_ENV, EnvItem, Setting, Where
+from comeni_core.settings.reasons import ReadOnlyHere
 from comeni_core.settings.sections import Catalogue, Section
 
 THEME = Setting.choice(
@@ -22,4 +23,100 @@ THEME = Setting.choice(
 
 APPEARANCE = Section(key="appearance", title="Appearance", order=1, settings=(THEME,))
 
-CATALOGUE = Catalogue(sections=(APPEARANCE,))
+CONNECTIONS = Setting.collection(
+    key="models.connections",
+    label="Connections",
+    help=(
+        "Where models are reached: a model server on this machine or your network, or a "
+        "provider with a key. Add one, test it, then choose a model for each purpose below."
+    ),
+    fields=(
+        Setting.text(
+            key="connection.name", label="Name",
+            help="What this connection is called here, e.g. Local Ollama.",
+        ),
+        Setting.choice(
+            key="connection.server", label="Server",
+            help="What answers at the endpoint. It decides how model ids are written.",
+            options=[
+                ("ollama", "Ollama"),
+                ("openai_compatible", "Another OpenAI-compatible server (vLLM, LM Studio)"),
+                ("hosted", "A hosted provider"),
+            ],
+            default="ollama",
+        ),
+        Setting.text(
+            key="connection.endpoint", label="Endpoint",
+            help="The server's address, e.g. http://ollama:11434. Empty for a hosted provider.",
+        ),
+        Setting.secret(
+            key="connection.key", label="Key",
+            help="The provider's API key. Stored sealed; shown only as its last four characters.",
+        ),
+    ),
+    from_env=EnvItem(
+        name=FROM_ENV,
+        present_when="COMENI_AI_MODEL",
+        fields={"endpoint": "COMENI_AI_BASE_URL", "key": "COMENI_AI_API_KEY"},
+    ),
+    actions=("test", "models"),
+)
+
+
+def _purpose(name: str, label: str, help: str) -> Setting:
+    return Setting.model(
+        key=f"models.{name}", label=label, help=help, of="models.connections",
+        env=f"COMENI_AI_MODEL_{name.upper()}",
+    )
+
+
+DEFAULT_MODEL = Setting.model(
+    key="models.default",
+    label="Default model",
+    help=(
+        "The model every purpose uses unless it names its own. COMENI_AI_MODEL in .env sets "
+        "it, through the From .env connection."
+    ),
+    of="models.connections",
+    env="COMENI_AI_MODEL",
+)
+MODEL_WANT = _purpose(
+    "want", "Understanding what you want",
+    "Reads what you asked for and picks what it should produce. The call most worth a strong "
+    "model.",
+)
+MODEL_TALK = _purpose(
+    "talk", "Talking with you",
+    "Phrases the questions the build asks you and reads your replies. A small model is enough.",
+)
+MODEL_TIER4 = _purpose(
+    "tier4", "Choosing where the rules cannot",
+    "Proposes an answer to a choice no rule settles (tier 4). Always shown to you as a model's.",
+)
+MODEL_READBACK = _purpose(
+    "readback", "Reading the plan back",
+    "Says back, in a sentence, what the pipeline will do, so you can check it was understood.",
+)
+MODEL_FORGE = _purpose(
+    "forge", "Adapting tools",
+    "Drafts a new tool's contract in the registry's workshop, for a person to review.",
+)
+PURPOSE_SETTINGS = (MODEL_WANT, MODEL_TALK, MODEL_TIER4, MODEL_READBACK, MODEL_FORGE)
+
+WHERE_PURPOSES = Setting.readonly(
+    key="privacy.where",
+    label="Where each purpose goes",
+    help=(
+        "For each purpose, whether what it sends stays on this machine or your network, or "
+        "goes to a provider. Worked out from the connection each purpose uses."
+    ),
+    unavailable=ReadOnlyHere(why="worked out from Settings → Models"),
+)
+
+MODELS = Section(
+    key="models", title="Models", order=3,
+    settings=(CONNECTIONS, DEFAULT_MODEL, *PURPOSE_SETTINGS),
+)
+PRIVACY = Section(key="privacy", title="Privacy & data", order=4, settings=(WHERE_PURPOSES,))
+
+CATALOGUE = Catalogue(sections=(APPEARANCE, MODELS, PRIVACY))

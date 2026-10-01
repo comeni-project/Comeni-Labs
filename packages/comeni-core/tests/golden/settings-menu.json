@@ -48,6 +48,350 @@
           }
         }
       ]
+    },
+    {
+      "key": "models",
+      "title": "Models",
+      "order": 3,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "models.connections",
+            "label": "Connections",
+            "help": "Where models are reached: a model server on this machine or your network, or a provider with a key. Add one, test it, then choose a model for each purpose below.",
+            "kind": "collection",
+            "default": [],
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [
+              {
+                "key": "connection.name",
+                "label": "Name",
+                "help": "What this connection is called here, e.g. Local Ollama.",
+                "kind": "text",
+                "default": "",
+                "env": null,
+                "options": [],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              },
+              {
+                "key": "connection.server",
+                "label": "Server",
+                "help": "What answers at the endpoint. It decides how model ids are written.",
+                "kind": "choice",
+                "default": "ollama",
+                "env": null,
+                "options": [
+                  {
+                    "value": "ollama",
+                    "label": "Ollama"
+                  },
+                  {
+                    "value": "openai_compatible",
+                    "label": "Another OpenAI-compatible server (vLLM, LM Studio)"
+                  },
+                  {
+                    "value": "hosted",
+                    "label": "A hosted provider"
+                  }
+                ],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              },
+              {
+                "key": "connection.endpoint",
+                "label": "Endpoint",
+                "help": "The server's address, e.g. http://ollama:11434. Empty for a hosted provider.",
+                "kind": "text",
+                "default": "",
+                "env": null,
+                "options": [],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              },
+              {
+                "key": "connection.key",
+                "label": "Key",
+                "help": "The provider's API key. Stored sealed; shown only as its last four characters.",
+                "kind": "secret",
+                "default": null,
+                "env": null,
+                "options": [],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              }
+            ],
+            "item_name": "name",
+            "from_env": {
+              "name": "From .env",
+              "present_when": "COMENI_AI_MODEL",
+              "fields": {
+                "endpoint": "COMENI_AI_BASE_URL",
+                "key": "COMENI_AI_API_KEY"
+              }
+            },
+            "actions": [
+              "test",
+              "models"
+            ],
+            "of": null
+          },
+          "shown": {
+            "value": [],
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.default",
+            "label": "Default model",
+            "help": "The model every purpose uses unless it names its own. COMENI_AI_MODEL in .env sets it, through the From .env connection.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.want",
+            "label": "Understanding what you want",
+            "help": "Reads what you asked for and picks what it should produce. The call most worth a strong model.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_WANT",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.talk",
+            "label": "Talking with you",
+            "help": "Phrases the questions the build asks you and reads your replies. A small model is enough.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_TALK",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.tier4",
+            "label": "Choosing where the rules cannot",
+            "help": "Proposes an answer to a choice no rule settles (tier 4). Always shown to you as a model's.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_TIER4",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.readback",
+            "label": "Reading the plan back",
+            "help": "Says back, in a sentence, what the pipeline will do, so you can check it was understood.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_READBACK",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.forge",
+            "label": "Adapting tools",
+            "help": "Drafts a new tool's contract in the registry's workshop, for a person to review.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_FORGE",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "privacy",
+      "title": "Privacy & data",
+      "order": 4,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "privacy.where",
+            "label": "Where each purpose goes",
+            "help": "For each purpose, whether what it sends stays on this machine or your network, or goes to a provider. Worked out from the connection each purpose uses.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "worked out from Settings → Models",
+              "says": "Shown here, set elsewhere: worked out from Settings → Models."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "worked out from Settings → Models",
+              "says": "Shown here, set elsewhere: worked out from Settings → Models."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
     }
   ]
 }
