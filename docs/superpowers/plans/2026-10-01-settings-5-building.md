@@ -37,7 +37,7 @@
 - Consumes: `Setting`, `Section`, `Catalogue`, `Designed` (part 1); `APPEARANCE`, `MODELS`, `PRIVACY` (parts 1 and 4).
 - Produces: `PACING`, `TIER4_ANSWERS`, `BUILDING` in `comeni_core.settings.catalogue`. 14.7.8 consumes `PACING` by name (`settings.get(PACING)` → `"together" | "stop_where_needed" | "ask"`).
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
 
 ```python
 from comeni_core.settings import Designed, Source, resolve
@@ -60,12 +60,12 @@ def test_tier4_shows_todays_behaviour_designed():
     assert got.value == "stop" and isinstance(got.reason, Designed)
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_catalogue.py -q`
 Expected: FAIL, `ImportError: cannot import name 'BUILDING'`
 
-- [ ] **Step 3: Declare them** (in `catalogue.py`, after `APPEARANCE`)
+- [x] **Step 3: Declare them** (in `catalogue.py`, after `APPEARANCE`)
 
 ```python
 CONSULTANT = "arrives with the consultant build (14.7.8)"
@@ -106,7 +106,7 @@ BUILDING = Section(key="building", title="Building", order=2, settings=(PACING, 
 
 Add `BUILDING` to `CATALOGUE`'s sections, export the three names from `__init__.py`.
 
-- [ ] **Step 4: Regenerate the golden menu, read the diff, run the package**
+- [x] **Step 4: Regenerate the golden menu, read the diff, run the package**
 
 Run: `SETTINGS_GOLDEN=update uv run pytest packages/comeni-core/tests/test_settings_catalogue.py -q && git diff packages/comeni-core/tests/golden/settings-menu.json | head -80`
 Expected: PASS; the diff adds the `building` section with both rows `locked: true` and a `designed` reason. Read both help texts as a researcher would.
@@ -114,11 +114,11 @@ Expected: PASS; the diff adds the `building` section with both rows `locked: tru
 Run: `uv run pytest packages/comeni-core packages/mendel-api/tests/test_settings_routes.py -q 2>&1 | tail -2`
 Expected: PASS
 
-- [ ] **Step 5: Look at it**
+- [x] **Step 5: Look at it**
 
 With the stack up (`make dev`), open `/settings/building`: two rows, each with *not built*; the ⓘ says what the choice will do and *Designed, not built yet: arrives with the consultant build (14.7.8).* Screenshot at 1280px and 390px for the operator.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/ packages/comeni-core/tests/test_settings_catalogue.py packages/comeni-core/tests/golden/settings-menu.json
@@ -132,7 +132,7 @@ git commit -m "feat(settings): Building — pacing and tier 4, designed until 14
 **Files:**
 - Modify: `docs/superpowers/specs/2026-09-28-the-consultant-design.md` (§ *Plan and pacing*)
 
-- [ ] **Step 1: Say it in the consultant spec**
+- [x] **Step 1: Say it in the consultant spec**
 
 At the end of the *Plan and pacing* paragraph that introduces `session.pacing`, add:
 
@@ -144,14 +144,14 @@ and flips `test_pacing_says_designed_even_when_env_and_a_stored_value_are_set` t
 stored value wins. `TIER4_ANSWERS` stays designed.
 ```
 
-- [ ] **Step 2: Tell #136 and #117**
+- [x] **Step 2: Tell #136 and #117**
 
 ```bash
 gh issue comment 136 --body "From 14.7.5.5: pacing is a declared setting, \`comeni_core.settings.catalogue.PACING\`, greyed as designed until this substep reads it. To lift it: remove its \`unavailable=\`, read \`installation().get(PACING)\` when a build starts, ask the pacing question only when it is \`ask\`, and flip \`test_pacing_says_designed_even_when_env_and_a_stored_value_are_set\`. The consultant spec's *Plan and pacing* says the same."
 gh issue comment 117 --body "Declared in Settings → Building (14.7.5.5), greyed as designed. Stays open until 14.7.8 (#136) reads it."
 ```
 
-- [ ] **Step 3: Check the docs and commit**
+- [x] **Step 3: Check the docs and commit**
 
 Run: `make doc-paths doc-sizes links`
 Expected: `0 broken link(s)`
@@ -165,4 +165,11 @@ git commit -m "docs(spec): pacing is a setting; what 14.7.8 lifts (#117, #136)"
 
 ## Execution record
 
-(Filled in while executing.)
+Executed 2026-10-01, in one hand. Commits 52ac731..(this record).
+
+- **Task 1, ruling:** the tier-4 reason read *"Designed, not built yet: … is designed"*; it now
+  says *letting a model answer comes after the consultant build*. Walked headless at 390 px: both
+  rows greyed, each marked *not built*.
+- **Task 2:** the handover is in the consultant spec (*Plan and pacing*) and on #136; #117 stays
+  open until 14.7.8 reads the setting.
+- Review: batched with plan 6.
