@@ -35,7 +35,7 @@
 - Modify: `packages/comeni-core/src/comeni_core/settings/installation.py` (`resolved`, the reporter branch)
 - Test: `packages/comeni-core/tests/test_settings_installation.py` (append)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_a_reporter_that_raises_is_a_row_that_says_so():
@@ -48,12 +48,12 @@ def test_a_reporter_that_raises_is_a_row_that_says_so():
     assert "6379" not in str(got.value)
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py -q -k raises`
 Expected: FAIL, `ConnectionError` propagates
 
-- [ ] **Step 3: Catch it** — in `resolved`, the reporter branch:
+- [x] **Step 3: Catch it** — in `resolved`, the reporter branch:
 
 ```python
         if setting.kind is Kind.READONLY and setting.key in self.reporters:
@@ -68,12 +68,12 @@ Expected: FAIL, `ConnectionError` propagates
             )
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/
@@ -95,7 +95,7 @@ git commit -m "feat(settings): a report that fails is a row that says so (#215)"
 - Produces (catalogue): `PROTECTION`, `REGISTRY_ROOT`, `REGISTRY_LAYERS`, `GITHUB_TOKEN`, `DOCKERHUB`, `SOURCE_CHECK`, `VERSIONS`, `DATABASE`, `REDIS`, `MODEL_SERVER`; sections `REGISTRY` (order 6) and `SYSTEM` (order 7); `PRIVACY` gains `PROTECTION` first.
 - Produces (`reports.py`): `REPORTERS: dict[str, Callable[[], object]]` keyed by those settings' keys; `token_state(name: str) -> str`.
 
-- [ ] **Step 1: Declare them** (append to `catalogue.py`; `RO = "read from the server; not changed here"`)
+- [x] **Step 1: Declare them** (append to `catalogue.py`; `RO = "read from the server; not changed here"`)
 
 ```python
 RO = ReadOnlyHere(why="reported by the server; not changed here")
@@ -171,7 +171,7 @@ SYSTEM = Section(
 
 Replace part 4's `PRIVACY` with this one (it now leads with `PROTECTION`) and add `REGISTRY`, `SYSTEM` to `CATALOGUE`.
 
-- [ ] **Step 2: Write the failing reporter tests**
+- [x] **Step 2: Write the failing reporter tests**
 
 ```python
 """What Mendel reports in the read-only sections (spec §7)."""
@@ -230,12 +230,12 @@ def test_a_database_that_does_not_answer_says_so(monkeypatch):
     assert reports.REPORTERS["system.database"]() == "not reachable"
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [x] **Step 3: Run them to verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_reports.py -q`
 Expected: FAIL, `No module named 'mendel_api.services.reports'`
 
-- [ ] **Step 4: Write `reports.py`**
+- [x] **Step 4: Write `reports.py`**
 
 ```python
 """What Mendel reports in the read-only sections (spec §7).
@@ -357,7 +357,7 @@ REPORTERS: dict[str, Callable[[], object]] = {
 
 In `services/installation.py`, merge them: `inst.reporters = {"privacy.where": lambda: where_purposes(inst), **reports.REPORTERS}`.
 
-- [ ] **Step 5: Run them, regenerate the golden menu, run the package**
+- [x] **Step 5: Run them, regenerate the golden menu, run the package**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_reports.py -q`
 Expected: PASS, 7 passed
@@ -368,7 +368,7 @@ Expected: PASS; read the diff.
 Run: `MENDEL_DATABASE_URL=$DB uv run pytest packages/mendel-api packages/comeni-core -q 2>&1 | tail -2`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/ packages/mendel-api/
@@ -391,7 +391,7 @@ git commit -m "feat(settings): Privacy, Registry & sources and System, reported 
 - Produces (catalogue): `CONTAINER_RUNTIME`, `LOST_AFTER`, `EXECUTOR`, `API_TOKEN`, `TELEMETRY`, `RUNNING` (order 5, `served_by="wiener"`).
 - Produces (Wiener): `GET /api/wiener/settings` → `Menu` (operation `readWienerSettings`).
 
-- [ ] **Step 1: Declare Running**
+- [x] **Step 1: Declare Running**
 
 ```python
 WIENER_ENV = ReadOnlyHere(why="Wiener reads this from its own .env")
@@ -431,7 +431,7 @@ RUNNING = Section(
 
 Add `RUNNING` to `CATALOGUE`. The golden test serves `menu("mendel")`, so its file does not change; check with `uv run pytest packages/comeni-core -q`.
 
-- [ ] **Step 2: Write the failing Wiener tests**
+- [x] **Step 2: Write the failing Wiener tests**
 
 ```python
 """Wiener reports its own settings (spec §7)."""
@@ -465,12 +465,12 @@ def test_the_token_is_never_served(monkeypatch):
     assert client.get("/api/wiener/settings").status_code == 401
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [x] **Step 3: Run them to verify they fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_settings_route.py -q`
 Expected: FAIL, 404 on `/api/wiener/settings`
 
-- [ ] **Step 4: Write the route**
+- [x] **Step 4: Write the route**
 
 ```python
 """Running, as Wiener has it (spec §7). **Wiener reports its own** because only Wiener reads
@@ -513,7 +513,7 @@ def read_settings() -> Menu:
 
 `env={}` on purpose: every Running row is reported, so nothing reads Wiener's environment by name here, and a token cannot be served through a declaration. Include the router in `create_app()` beside `runs_router`; add `("/api/wiener/settings", "get"): "readWienerSettings",` to `test_wiener_openapi.py`. `wiener-api` depends on `comeni-core`? Check `packages/wiener-api/pyproject.toml`; if not, add `"comeni-core>=0.1.0"` and `uv lock`, and record it.
 
-- [ ] **Step 5: Route it through nginx and Vite**
+- [x] **Step 5: Route it through nginx and Vite**
 
 `ops/nginx/default.conf`, beside `location /api/artifacts`:
 
@@ -530,12 +530,12 @@ def read_settings() -> Menu:
 
 `tests/repo/test_compose.py`, in `test_nginx_routes_both_halves_of_the_api`: `assert "location /api/wiener" in conf`.
 
-- [ ] **Step 6: Run them**
+- [x] **Step 6: Run them**
 
 Run: `uv run pytest packages/wiener-api/tests/test_settings_route.py packages/wiener-api/tests/test_wiener_openapi.py tests/repo/test_compose.py -q`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/comeni-core/ packages/wiener-api/ ops/nginx/default.conf frontend/vite.config.ts tests/repo/test_compose.py uv.lock
@@ -552,7 +552,7 @@ git commit -m "feat(settings): Running, reported by Wiener itself (#215)"
 - Regenerate: `make client` (Wiener's schema gains `readWienerSettings`)
 - Test: `frontend/src/preferences/Preferences.test.tsx` (append)
 
-- [ ] **Step 1: Write the failing tests** (append; reuse `MENU`, `at`)
+- [x] **Step 1: Write the failing tests** (append; reuse `MENU`, `at`)
 
 ```tsx
 const RUNNING = { sections: [{ key: "running", title: "Running", order: 5, served_by: "wiener", entries: [{
@@ -579,12 +579,12 @@ it("still draws Mendel's sections when Wiener does not answer, and says so", asy
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd frontend && npx vitest run src/preferences/Preferences.test.tsx`
 Expected: FAIL, `docker` never appears
 
-- [ ] **Step 3: Write it**
+- [x] **Step 3: Write it**
 
 `usePreferences.ts`:
 
@@ -610,12 +610,12 @@ export function useWienerMenu() {
 
 Writes are only offered for Mendel's sections: every Wiener row is locked, so the row never calls `onWrite`.
 
-- [ ] **Step 4: Run them, the suite, the type check**
+- [x] **Step 4: Run them, the suite, the type check**
 
 Run: `make client && cd frontend && npx vitest run && npx tsc -b`
 Expected: PASS; no type errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/
@@ -630,7 +630,7 @@ git commit -m "feat(settings): the menu merges Wiener's Running, and says so whe
 - Modify: `tests/guards/test_settings_secrets.py` (append)
 - Modify: `tests/fixtures/guard-ledger.md` (one row)
 
-- [ ] **Step 1: Extend the guard**
+- [x] **Step 1: Extend the guard**
 
 ```python
 def test_no_reported_token_reaches_the_menu(monkeypatch):
@@ -652,7 +652,7 @@ def test_no_reported_token_reaches_the_menu(monkeypatch):
     assert not leaked, f"the menu served {leaked}"
 ```
 
-- [ ] **Step 2: Run it, then watch it fail**
+- [x] **Step 2: Run it, then watch it fail**
 
 Run: `uv run pytest tests/guards/test_settings_secrets.py -q`
 Expected: PASS
@@ -660,7 +660,7 @@ Expected: PASS
 Break: in `reports.py`, change `"registry.github": lambda: token_state("COMENI_FORGE_GITHUB_TOKEN"),` to `"registry.github": lambda: os.environ["COMENI_FORGE_GITHUB_TOKEN"],`.
 Run it again. Expected: FAIL, `the menu served ['COMENI_FORGE_GITHUB_TOKEN']`. Restore, re-run, PASS.
 
-- [ ] **Step 3: Record it and commit**
+- [x] **Step 3: Record it and commit**
 
 Add a row to the guard ledger as in part 2, Task 5.
 
@@ -673,12 +673,26 @@ git commit -m "test(settings): no reported token reaches the menu — watched fa
 
 ### Task 6: Walk it
 
-- [ ] **Step 1:** `make dev`; rebuild `wiener-api` (it is baked): `docker compose build wiener-api && docker compose up -d wiener-api`; reload nginx's config (`docker compose restart web`).
-- [ ] **Step 2:** Open every section at 1280px and 390px. Check: Privacy shows level 0 with *not built*; Running shows the operator's runtime and *open* or *a token is required*; Registry shows the registry path and the tokens as set or not; System shows versions and three health rows. With Wiener stopped (`docker compose stop wiener-api`), the other sections still draw and the note says Running could not be read.
-- [ ] **Step 3:** Screenshots to the operator; findings become issues under #210 unless they block. Run the checks separately, comment on #215 with the commits, close it.
+- [x] **Step 1:** `make dev`; rebuild `wiener-api` (it is baked): `docker compose build wiener-api && docker compose up -d wiener-api`; reload nginx's config (`docker compose restart web`).
+- [x] **Step 2:** Open every section at 1280px and 390px. Check: Privacy shows level 0 with *not built*; Running shows the operator's runtime and *open* or *a token is required*; Registry shows the registry path and the tokens as set or not; System shows versions and three health rows. With Wiener stopped (`docker compose stop wiener-api`), the other sections still draw and the note says Running could not be read.
+- [x] **Step 3:** Screenshots to the operator; findings become issues under #210 unless they block. Run the checks separately, comment on #215 with the commits, close it.
 
 ---
 
 ## Execution record
 
-(Filled in while executing.)
+Executed 2026-10-01, in one hand; #215 closed.
+
+- **Telemetry under Running** (the deviation the plan flagged): approved with the plans.
+- **Task 2, ruling:** a missing registry folder loads as an empty registry rather than raising;
+  the Layers row checks the folder first. The coverage test reads `installation()`'s reporters.
+- **Task 4, ruling:** an older test stubbed every fetch with Mendel's menu, so sections doubled
+  once Wiener's was merged; its stub answers Wiener separately.
+- **Task 6, the walk:** `wiener-api` and `web` were rebuilt (nginx's config is baked into the web
+  image). Running answered through nginx; every section fit 390 px; with Wiener stopped the other
+  sections drew and the nav said *Running could not be read: … → 502*.
+- **Final review** (with plan 5, fresh reviewer): 0 critical, 2 important, both fixed test-first
+  — the queue row said Redis answered when it was down; a packet-dropping database held the page
+  130 s (the row now has its own 2 s connect timeout). Four minors deferred: no place to enter
+  Wiener's token from the 401 note, a direct link to Running flashing *no such section*, Wiener's
+  `Installation` built without `server="wiener"`, and the registry re-digested on every read.

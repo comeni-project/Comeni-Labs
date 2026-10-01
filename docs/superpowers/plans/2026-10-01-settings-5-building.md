@@ -172,4 +172,4 @@ Executed 2026-10-01, in one hand. Commits 52ac731..(this record).
   rows greyed, each marked *not built*.
 - **Task 2:** the handover is in the consultant spec (*Plan and pacing*) and on #136; #117 stays
   open until 14.7.8 reads the setting.
-- Review: batched with plan 6.
+- Review: with plan 6 (see its record); nothing found in this plan's own code.
