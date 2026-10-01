@@ -10,6 +10,7 @@ from comeni_core.settings.reasons import (
     ReadOnlyHere,
     Reason,
 )
+from comeni_core.settings.sections import Catalogue, Section
 from pydantic import TypeAdapter, ValidationError
 
 
@@ -127,3 +128,41 @@ def test_a_readonly_setting_can_never_be_written():
 def test_options_belong_to_choices_only():
     with pytest.raises(ValidationError, match="options"):
         Setting(key="a.t", label="T", help=HELP, kind=Kind.TEXT, default="", options=(("a", "A"),))
+
+
+def _section(key="building", order=2, *settings):
+    return Section(key=key, title=key.title(), order=order, settings=settings or (_pacing(),))
+
+
+def test_a_catalogue_finds_a_setting_by_key():
+    catalogue = Catalogue(sections=(_section(),))
+    assert catalogue.setting("building.pacing").label == "Pacing"
+    with pytest.raises(KeyError):
+        catalogue.setting("building.nothing")
+
+
+def test_a_key_declared_twice_is_refused_when_the_catalogue_is_built():
+    with pytest.raises(ValidationError, match="building.pacing"):
+        Catalogue(sections=(_section("building", 1), _section("other", 2)))
+
+
+def test_an_env_name_used_twice_is_refused():
+    other = _pacing(key="other.pacing")
+    with pytest.raises(ValidationError, match="COMENI_BUILD_PACING"):
+        Catalogue(sections=(_section(), _section("other", 3, other)))
+
+
+def test_a_section_needs_at_least_one_setting():
+    with pytest.raises(ValidationError):
+        Section(key="empty", title="Empty", order=1, settings=())
+
+
+def test_a_setting_lives_in_the_section_its_key_names():
+    with pytest.raises(ValidationError, match="building.pacing"):
+        Section(key="models", title="Models", order=1, settings=(_pacing(),))
+
+
+def test_sections_come_back_in_their_order():
+    later = _section("zeta", 9, _pacing(key="zeta.pacing", env=None))
+    catalogue = Catalogue(sections=(later, _section()))
+    assert [s.key for s in catalogue.sections] == ["building", "zeta"]
