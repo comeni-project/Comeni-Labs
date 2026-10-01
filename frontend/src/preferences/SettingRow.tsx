@@ -3,7 +3,10 @@ import { useState } from "react";
 import { Refusal } from "../ui/Refusal";
 import { Help } from "./Help";
 import { useBrowserSetting } from "./useBrowserSetting";
-import type { Entry } from "./usePreferences";
+import { Collection } from "./Collection";
+import { ModelPicker } from "./ModelPicker";
+import { Report } from "./Report";
+import type { Entry, Menu } from "./usePreferences";
 
 /** One setting, any kind (spec §4, §5).
  *
@@ -20,7 +23,7 @@ const SOURCE: Record<string, string> = {
 /** `done` is called once the server has accepted the value: a control that must not move on
  *  before then (the secret editor) waits for it (review I-3). */
 type Write = (value: unknown, done?: () => void) => void;
-type Props = { entry: Entry; onWrite: Write; refusal?: string | null };
+type Props = { entry: Entry; onWrite: Write; refusal?: string | null; menu?: Menu };
 
 export function SettingRow(props: Props) {
   return props.entry.setting.where === "browser" ? <InBrowser {...props} /> : <Row {...props} />;
@@ -32,7 +35,7 @@ function InBrowser({ entry }: Props) {
 }
 
 function Row({
-  entry, onWrite, refusal, value = entry.shown.value, badge,
+  entry, onWrite, refusal, menu, value = entry.shown.value, badge,
 }: Props & { value?: unknown; badge?: string }) {
   const { setting, shown } = entry;
   const reason = shown.reason ?? null;
@@ -49,7 +52,7 @@ function Row({
         <span className="ml-auto text-secondary text-ink-3">{badge ?? SOURCE[shown.source]}</span>
       </div>
       <div className="mt-2">
-        <Control entry={entry} value={value} disabled={shown.locked} onWrite={onWrite} />
+        <Control entry={entry} value={value} disabled={shown.locked} onWrite={onWrite} menu={menu} />
       </div>
       {refusal && <div className="mt-2"><Refusal message={refusal} /></div>}
     </div>
@@ -57,8 +60,8 @@ function Row({
 }
 
 function Control({
-  entry, value, disabled, onWrite,
-}: { entry: Entry; value: unknown; disabled: boolean; onWrite: Write }) {
+  entry, value, disabled, onWrite, menu,
+}: { entry: Entry; value: unknown; disabled: boolean; onWrite: Write; menu?: Menu }) {
   const { setting, shown } = entry;
   switch (setting.kind) {
     case "choice":
@@ -98,6 +101,12 @@ function Control({
       return <Typed key={String(value)} entry={entry} value={value} disabled={disabled} onWrite={onWrite} />;
     case "secret":
       return <Secret entry={entry} disabled={disabled} onWrite={onWrite} set={shown.set === true} last4={shown.last4 ?? null} />;
+    case "collection":
+      return <Collection entry={entry} onWrite={onWrite} />;
+    case "model":
+      return menu ? <ModelPicker entry={entry} menu={menu} onWrite={onWrite} /> : null;
+    case "readonly":
+      return <Report value={value} />;
     default:
       return <span className="font-data text-secondary text-ink-2">{value === null ? "—" : String(value)}</span>;
   }

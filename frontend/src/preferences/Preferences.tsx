@@ -59,6 +59,7 @@ export function Preferences() {
               <SettingRow
                 key={entry.setting.key}
                 entry={entry}
+                menu={menu.data}
                 onWrite={(value, done) => save(entry.setting.key, value, done)}
                 refusal={refused?.key === entry.setting.key ? refused.message : null}
               />
