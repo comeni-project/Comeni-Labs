@@ -9,6 +9,7 @@ rather than a drift.
 """
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -55,6 +56,24 @@ class QueueVisit(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     who: Mapped[str] = mapped_column(String(200), index=True)
     seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class InstallationSetting(Base):
+    """One setting chosen in the menu, for the whole installation (spec §8).
+
+    **One row per setting rather than one document**, so two people saving two different
+    settings cannot overwrite each other, and each row says who changed it last. `updated_by` is
+    attribution, as in `QueueVisit`, not authentication. No history table: nothing needs one yet.
+
+    A secret's `value` is sealed text (`services/settings_codec.py`), never the secret.
+    """
+
+    __tablename__ = "installation_setting"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[Any] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_by: Mapped[str] = mapped_column(String(200))
 
 
 class PipelineDraft(Base):
