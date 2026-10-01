@@ -1,7 +1,8 @@
 """The installation facade: reading, writing, secrets and the served menu (spec §4, §8)."""
 
 import pytest
-from comeni_core.settings.declare import IllegalValue, Setting, Where
+from comeni_core.settings import ReadOnlyHere, Source
+from comeni_core.settings.declare import FROM_ENV, EnvItem, IllegalValue, Setting, Where
 from comeni_core.settings.installation import Installation, SettingLocked
 from comeni_core.settings.reasons import Designed
 from comeni_core.settings.sections import Catalogue, Section
@@ -53,7 +54,6 @@ CATALOGUE = Catalogue(
         Section(key="appearance", title="Appearance", order=1, settings=(THEME,)),
     )
 )
-
 
 REVERSING = Reversing()
 
@@ -191,3 +191,96 @@ def test_a_setting_another_server_serves_is_never_written_here():
         inst.put("running.flag", True, by="someone")
     assert refused.value.reason.kind == "read_only_here"
     assert inst.store.rows == {}
+
+
+CONNECTIONS = Setting.collection(
+    key="models.connections", label="Connections", help=HELP,
+    fields=(
+        Setting.text(key="connection.name", label="Name", help=HELP),
+        Setting.text(key="connection.endpoint", label="Endpoint", help=HELP),
+        Setting.secret(key="connection.key", label="Key", help=HELP),
+    ),
+    from_env=EnvItem(
+        name=FROM_ENV, present_when="COMENI_AI_MODEL",
+        fields={"endpoint": "COMENI_AI_BASE_URL", "key": "COMENI_AI_API_KEY"},
+    ),
+)
+WANT = Setting.model(key="models.want", label="Want", help=HELP, of="models.connections")
+WHERE = Setting.readonly(
+    key="models.where", label="Where", help=HELP, unavailable=ReadOnlyHere(why="worked out"),
+)
+MODELS = Catalogue(
+    sections=(Section(key="models", title="Models", order=1, settings=(CONNECTIONS, WANT, WHERE)),)
+)
+LOCAL = {"name": "Local", "endpoint": "http://ollama:11434", "key": None}
+
+
+def _models(env=None, codec=REVERSING, reporters=None):
+    return Installation(MODELS, MemoryStore(), env or {}, codec, reporters=reporters)
+
+
+def test_the_env_record_comes_first_and_locked():
+    inst = _models(env={"COMENI_AI_MODEL": "ollama_chat/gemma3:12b", "COMENI_AI_BASE_URL": "http://o"})
+    inst.put("models.connections", [LOCAL], by="a")
+    records = inst.shown(CONNECTIONS).value
+    assert [r["name"] for r in records] == [FROM_ENV, "Local"]
+    assert records[0]["locked"] is True and "locked" not in records[1]
+
+
+def test_a_put_never_stores_the_env_record():
+    inst = _models(env={"COMENI_AI_MODEL": "m"})
+    inst.put("models.connections", [{"name": FROM_ENV, "endpoint": "x"}, LOCAL], by="a")
+    assert [r["name"] for r in inst.store.rows["models.connections"]] == ["Local"]
+
+
+def test_a_record_key_is_sealed_kept_on_null_and_cleared_on_empty():
+    inst = _models()
+    inst.put("models.connections", [{**LOCAL, "key": "sk-abcdef1234"}], by="a")
+    sealed = inst.store.rows["models.connections"][0]["key"]
+    assert sealed != "sk-abcdef1234"
+    inst.put("models.connections", [{**LOCAL, "endpoint": "http://new"}], by="a")
+    assert inst.store.rows["models.connections"][0]["key"] == sealed
+    assert inst.record(CONNECTIONS, "Local")["key"].get_secret_value() == "sk-abcdef1234"
+    inst.put("models.connections", [{**LOCAL, "key": ""}], by="a")
+    assert inst.store.rows["models.connections"][0]["key"] is None
+
+
+def test_a_record_key_is_shown_masked():
+    inst = _models()
+    inst.put("models.connections", [{**LOCAL, "key": "sk-abcdef1234"}], by="a")
+    shown = inst.shown(CONNECTIONS).value[0]
+    assert shown["key"] == {"set": True, "last4": "1234"}  # 13 characters: past the floor
+    assert "sk-abcdef1234" not in inst.menu().model_dump_json()
+
+
+def test_a_record_key_without_a_codec_is_refused():
+    with pytest.raises(SettingLocked):
+        _models(codec=None).put("models.connections", [{**LOCAL, "key": "sk-1"}], by="a")
+
+
+def test_the_env_record_key_comes_from_env():
+    inst = _models(env={"COMENI_AI_MODEL": "m", "COMENI_AI_API_KEY": "sk-env-0000-9999"})
+    assert inst.record(CONNECTIONS, FROM_ENV)["key"].get_secret_value() == "sk-env-0000-9999"
+    assert inst.shown(CONNECTIONS).value[0]["key"] == {"set": True, "last4": "9999"}
+
+
+def test_a_model_naming_a_gone_connection_needs_another():
+    inst = _models()
+    inst.put("models.connections", [LOCAL], by="a")
+    inst.put("models.want", {"connection": "Local", "model": "ollama_chat/gemma3:4b"}, by="a")
+    inst.put("models.connections", [], by="a")
+    got = inst.resolved(WANT)
+    assert (got.value, got.locked) == (None, False)
+    assert "Local" in got.reason.what
+
+
+def test_a_model_cannot_be_put_naming_a_connection_that_does_not_exist():
+    with pytest.raises(IllegalValue, match="Nowhere"):
+        _models().put("models.want", {"connection": "Nowhere", "model": "m"}, by="a")
+
+
+def test_a_reported_value_comes_from_its_reporter():
+    inst = _models(reporters={"models.where": lambda: [{"purpose": "Want", "goes": "here"}]})
+    got = inst.resolved(WHERE)
+    assert (got.source, got.locked) == (Source.REPORTED, True)
+    assert got.value == [{"purpose": "Want", "goes": "here"}]

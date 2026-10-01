@@ -22,6 +22,8 @@ class Source(StrEnum):
     DEFAULT = "default"
     INSTALLATION = "installation"
     ENVIRONMENT = "environment"
+    REPORTED = "reported"
+    """Computed by the server on each read — *where each purpose goes*, versions, health."""
 
 
 class Resolved(BaseModel):
