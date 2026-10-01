@@ -158,11 +158,11 @@ def _build(argv: list[str] | None = None) -> int:
     # all of which describe a pipeline this verb never makes. It resolves nothing either: it
     # loads a layer and reads what the contracts say, which is why it lives in `layer_verbs`.
     if args.command == "docs":
-        if args.out is None:
-            parser.error("docs needs --out")
+        if args.out is None and not args.in_place:
+            parser.error("docs needs --out, or --in-place to write into the layer itself")
         if not args.registry:
             parser.error("docs needs at least one --registry")
-        return layer_verbs._docs_verb(args.registry, args.out, args.check)
+        return layer_verbs._docs_verb(args.registry, args.out, args.check, args.in_place)
 
     # `conformance` acts on a layer too, and produces no pipeline. It exists because
     # `comeni-registry`'s CI could not ask whether its own contracts agree with their own

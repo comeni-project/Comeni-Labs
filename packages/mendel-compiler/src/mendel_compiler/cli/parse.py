@@ -71,6 +71,14 @@ def parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--in-place",
+        action="store_true",
+        help=(
+            "`docs` only: write each tool's page as README.md in that tool's own folder, "
+            "in the one layer given."
+        ),
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help=(
