@@ -977,6 +977,20 @@ MD0316:
     type whose family is undeclared could never be shown at all: nothing a model could pick
     would lead to it, and the person asking for it would be told that nothing fits.
 
+MD0317:
+  emitted_by: core
+  concern: loading
+  says: "an inspector piece names a type or measurement no layer declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Declare the id in the vocabulary, or fix the piece. A format names the types it reads in
+    `reads:`, and a measure the measurement it produces in `measures:`.
+  explanation: |
+    Invariant 7: vocabularies are closed, and an inspector piece is held to them like a
+    contract is. **The piece is not loaded; the others are.** One bad piece does not stop a
+    sample's other files from being inspected, and its files go to the characteriser like any
+    type nothing reads.
 MD0303:
   emitted_by: resolver
   concern: routing

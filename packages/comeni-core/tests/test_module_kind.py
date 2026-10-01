@@ -53,7 +53,7 @@ def test_upstream_s_own_meta_yml_is_not_read_as_declared_data(tmp_path):
     everything under `module/` is upstream's and is not layer data at all. The declaration
     that *is* layer data is `module.yml`, which sits **beside** `module/` for this reason.
 
-    Watched failing: drop `not _in_module(...)` from `_files` and this raises `MD0010`.
+    Watched failing: drop `not _in_source(...)` from `_files` and this raises `MD0010`.
     """
     layer = _layer(tmp_path / "base")
     found = bucket(layers_of([layer]))[0]

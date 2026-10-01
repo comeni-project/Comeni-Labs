@@ -24,6 +24,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from comeni_core.declared.families import FamilyVocabulary
+from comeni_core.declared.inspection import InspectionCatalogue
 from comeni_core.declared.layered import (
     Displacement,
     bucket,
@@ -54,6 +55,10 @@ class Layers(BaseModel):
     """The first level of the type choice (#194). Every type in `vocabulary` belongs to one."""
     tools: ToolCatalogue
     """What each tool is (#216). Read by the docs and, from 14.7.8, by explanations."""
+    inspection: InspectionCatalogue = Field(default_factory=InspectionCatalogue)
+    """The inspector pieces that name only declared ids (#134); the refused are absent."""
+    refused_pieces: list[str] = Field(default_factory=list)
+    """One `MD0317` message per piece `inspection` dropped. A refusal never stops the load."""
     registry: Registry
     roles: RoleVocabulary
     rules: RuleTable
@@ -152,6 +157,10 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
     families = FamilyVocabulary.of(declared_families)
     declared_tools = stack(stacked, ToolCatalogue.kind(), buckets=buckets)
+    pieces = [stack(stacked, kind, buckets=buckets) for kind in InspectionCatalogue.kinds()]
+    inspection, refused_pieces = InspectionCatalogue.of(*pieces).check(
+        set(vocabulary.types), set(measurements.measurements)
+    )
     # **After `with_measurements`**, so the derived `measurement.*` types are held to a family
     # too — the same ordering lesson as this module's docstring (#194).
     families.check(vocabulary.types)
@@ -186,6 +195,8 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         vocabulary=vocabulary,
         families=families,
         tools=ToolCatalogue.of(declared_tools),
+        inspection=inspection,
+        refused_pieces=refused_pieces,
         registry=registry,
         roles=roles,
         rules=rules,
@@ -196,6 +207,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             *declared_types.displaced,
             *declared_families.displaced,
             *declared_tools.displaced,
+            *(displaced for kind in pieces for displaced in kind.displaced),
             *named_roles.displaced,
             *vendored.displaced,
             *contracts.displaced,

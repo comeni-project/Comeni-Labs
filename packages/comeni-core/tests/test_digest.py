@@ -338,7 +338,7 @@ def test_the_layer_digest_covers_a_tool_s_own_source(tmp_path):
     would leave the pinned digest untouched while the emitted pipeline changed behaviour, with
     its provenance apparently intact.
 
-    Watched failing against its own defect: with `_in_module` removed from `_declared` the
+    Watched failing against its own defect: with `_in_source` removed from `_declared` the
     two digests below are equal, and every other digest test still passes — which is exactly
     what "the guard is blind to the thing it exists to cover" looks like.
     """
@@ -394,7 +394,7 @@ def test_a_dotfile_inside_a_module_is_the_module_s_and_is_covered(tmp_path):
     software version, while `main.nf` beside it was covered. Partial coverage again, and this
     time the uncovered half is the one that changes results.
 
-    So `_in_module` is checked **before** the dot rule, and this is what holds that order.
+    So `_in_source` is checked **before** the dot rule, and this is what holds that order.
     """
     one = _layer(tmp_path / "one")
     two = _layer(tmp_path / "two")
