@@ -23,9 +23,10 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
+from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.declared.contract import ModuleContract
-from comeni_core.declared.layered import MODULE_DIR
+from comeni_core.declared.layered import MANIFEST, MODULE_DIR
 from comeni_core.declared.module import key_of
 from comeni_core.declared.roles import RoleVocabulary
 from comeni_core.declared.vocabulary import Vocabulary
@@ -42,6 +43,22 @@ class LandResult(BaseModel):
     branch: str
     files: list[str]
     commit: str
+
+
+def _types_dir(root: Path) -> Path:
+    """Where this layer keeps shared types: its `layout:` says, else `types/` (#216).
+
+    The first vocabulary directory that is not a tool's own — a type the forge proposes is a
+    shared one until a person moves it into a tool. **Only the `layout:` key is read**, not the
+    whole `LayerManifest`: a landing is not the place to refuse a manifest over a field it
+    never uses, and a layer that says nothing keeps the old place.
+    """
+    manifest = root / MANIFEST
+    data = (yaml_strict.load(manifest) or {}) if manifest.exists() else {}
+    for place in (data.get("layout") or {}).get("vocabulary", []):
+        if not place.startswith("tools"):
+            return Path(place.rstrip("/"))
+    return Path("types")
 
 
 def _git(registry: Path, *args: str) -> str:
@@ -99,6 +116,7 @@ def stage(
     approved_at: str,
     vocabulary: Vocabulary | None = None,
     roles: "RoleVocabulary | None" = None,
+    types_dir: Path = Path("types"),
 ) -> Staged:
     """Compose the approved bundle and prove it loads. **Writes nothing.**
 
@@ -161,7 +179,7 @@ def stage(
         # two": a type proposed with no consumer is a type nobody can judge.
         files.append(
             (
-                str(Path("types") / f"{type_id}.yml"),
+                str(types_dir / f"{type_id}.yml"),
                 f"declares: vocabulary\nid: {type_id}\nstates: []\n",
             )
         )
@@ -282,6 +300,7 @@ def land(
         approved_at=approved_at,
         vocabulary=vocabulary,
         roles=roles,
+        types_dir=_types_dir(registry),
     )
 
     default = _default_branch(registry)

@@ -98,3 +98,60 @@ def test_a_generated_module_lands_beside_the_contract(tmp_path, complete_scaffol
         approved_at="2026-08-20",
     )
     assert any(f.endswith("main.nf") for f in result.files)
+
+
+def test_a_new_type_lands_where_the_layer_keeps_types(tmp_path):
+    from pathlib import Path
+
+    from mendel_forge.land import _types_dir
+
+    (tmp_path / "registry.yml").write_text(
+        "name: t\nversion: 0.1.0\nrequires_format: 2\nlicence: CC-BY-4.0\ndescription: t\n"
+        "layout: {vocabulary: [vocabulary/types/, tools/], tool: [tools/]}\n"
+    )
+    assert _types_dir(tmp_path) == Path("vocabulary/types")
+
+
+def test_a_layer_with_no_layout_keeps_types_in_types(tmp_path):
+    from pathlib import Path
+
+    from mendel_forge.land import _types_dir
+
+    assert _types_dir(tmp_path) == Path("types")
+
+
+def test_landing_into_an_arranged_layer_writes_types_under_vocabulary(
+    tmp_path, complete_scaffold
+):
+    """Review focus (#216): a type landed in `types/` is refused by the next lint."""
+    from mendel_forge.scaffold import Decision, Hole, Proposal
+
+    field = "produces[0].type_id"
+    open_hole = complete_scaffold.model_copy(
+        update={
+            "holes": [Hole(subject=field, what="the output's type", why_open="type: file")],
+            "filled": {k: v for k, v in complete_scaffold.filled.items() if k != field},
+        }
+    )
+    scaffold = open_hole.propose(
+        field, Proposal(id="qc.index_stats", description="d", why="nothing fits", by="r")
+    ).decide(field, Decision.APPROVED, by="r", why="w")
+    repo = _repo(tmp_path)
+    (repo / "registry.yml").write_text(
+        "name: t\nlayout: {vocabulary: [vocabulary/types/, tools/], tool: [tools/]}\n"
+    )
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qam", "layout"],
+        cwd=repo,
+        check=True,
+    )
+    result = land(
+        Draft(name="fastqc", scaffold=scaffold, module=None),
+        registry=repo,
+        branch="forge/fastqc",
+        approved_by="rafael",
+        approved_at="2026-08-20",
+    )
+    landed = [f for f in result.files if f.endswith(".yml") and "/types/" in f"/{f}"]
+    assert landed, "the fixture must propose a type or this test is vacuous"
+    assert all(f.startswith("vocabulary/types/") for f in landed), landed
