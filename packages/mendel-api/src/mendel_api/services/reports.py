@@ -11,9 +11,9 @@ import os
 from collections.abc import Callable
 from importlib import metadata
 
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 
-from mendel_api import db, worker
+from mendel_api import worker
 from mendel_api.settings import settings
 
 PARTS = (
@@ -68,20 +68,53 @@ def _source_check() -> str:
     return "not scheduled"
 
 
+_ENGINE = None
+"""The database row's own engine, with a short connect timeout (review I2). The shared engine
+has none, and a database that drops packets held the settings page for 130 s."""
+
+DB_CONNECT_SECONDS = 2
+
+
 def _database() -> str:
+    global _ENGINE
     try:
-        with db.session_scope() as session:
-            session.execute(text("SELECT 1"))
+        if _ENGINE is None:
+            _ENGINE = create_engine(
+                settings.database_url,
+                pool_pre_ping=True,
+                connect_args={"connect_timeout": DB_CONNECT_SECONDS},
+            )
+        with _ENGINE.connect() as connection:
+            connection.execute(text("SELECT 1"))
     except Exception:
         return "not reachable"
     return "answers"
 
 
-def _redis() -> str:
-    from mendel_api.routes.health import _worker_and_depth
+async def _queue() -> tuple[bool, int]:
+    """Its own probe, because `health._worker_and_depth` reads an unreachable broker as *no
+    worker* and never raises — which made this row say the queue answered (review I1)."""
+    from arq.connections import RedisSettings, create_pool
 
+    from mendel_api.jobs import AI_QUEUE
+    from mendel_api.services.probe import PROBE_SECONDS
+
+    where = RedisSettings.from_dsn(settings.redis_url)
+    where.conn_retries = 0
+    where.conn_timeout = PROBE_SECONDS
+    pool = await create_pool(where)
     try:
-        alive, depth = asyncio.run(_worker_and_depth())
+        depth = await pool.zcard(AI_QUEUE)
+        alive = await pool.exists(f"{AI_QUEUE}:health-check")
+        return bool(alive), int(depth or 0)
+    finally:
+        with contextlib.suppress(Exception):
+            await pool.aclose()
+
+
+def _redis() -> str:
+    try:
+        alive, depth = asyncio.run(_queue())
     except Exception:
         return "not reachable"
     return f"answers; worker {'running' if alive else 'not running'}; {depth} waiting"

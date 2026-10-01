@@ -46,10 +46,31 @@ def test_the_source_check_time_is_the_workers_own():
 
 
 def test_a_database_that_does_not_answer_says_so(monkeypatch):
-    from mendel_api import db
+    from mendel_api.settings import settings
 
-    def refuse():
+    monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://x:y@127.0.0.1:1/z")
+    monkeypatch.setattr(reports, "_ENGINE", None)
+    assert reports.REPORTERS["system.database"]() == "not reachable"
+
+
+def test_a_queue_that_does_not_answer_says_so(monkeypatch):
+    """Review I1: health's probe swallows the error, so the row claimed the queue answered."""
+    from mendel_api.settings import settings
+
+    monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:1")
+    assert reports.REPORTERS["system.redis"]() == "not reachable"
+
+
+def test_the_database_row_is_bounded_in_time(monkeypatch):
+    """Review I2: a database that drops packets held the page for 130 s. The reporter connects
+    with its own short timeout."""
+    seen = {}
+
+    def engine(url, **kwargs):
+        seen.update(kwargs)
         raise ConnectionRefusedError()
 
-    monkeypatch.setattr(db, "session_scope", refuse)
+    monkeypatch.setattr(reports, "create_engine", engine)
+    monkeypatch.setattr(reports, "_ENGINE", None)
     assert reports.REPORTERS["system.database"]() == "not reachable"
+    assert seen.get("connect_args", {}).get("connect_timeout", 99) <= 3
