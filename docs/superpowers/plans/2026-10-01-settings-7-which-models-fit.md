@@ -201,15 +201,15 @@ Comment on #187: the three tables, each model's `ollama ps` line, the family-ste
 
 ### Task 3: Choose, with the operator, and set it
 
-- [ ] **Step 1: Present the choice**
+- [x] **Step 1: Present the choice**
 
 For each purpose (understanding what you want, talking with you, choosing where the rules cannot, reading the plan back, adapting tools), one line: the fastest model whose admitted rate matches the best one, and the cost of the next option. Present it as choices with their costs (`present-decisions-as-choices`). The operator picks.
 
-- [ ] **Step 2: Set it in the menu**
+- [x] **Step 2: Set it in the menu**
 
 In Settings → Models, choose each purpose's model as decided. Check Privacy & data → *Where each purpose goes* says every purpose stays on this machine.
 
-- [ ] **Step 3: Record the decision and close**
+- [x] **Step 3: Record the decision and close**
 
 Comment on #187 with the decision (label `decided`), what is now set, and that `.env`'s `COMENI_AI_MODEL` can go back as the default if the operator wants it pinned. Close #187. Update `docs/notes/now.md`'s model line if it names a model.
 
@@ -217,4 +217,19 @@ Comment on #187 with the decision (label `decided`), what is now set, and that `
 
 ## Execution record
 
-(Filled in while executing.)
+Executed 2026-10-01, in one hand; #187 closed with the decision.
+
+- **Ruling:** the tool points the five purpose settings at each model rather than the default,
+  because the default is pinned by the operator's `.env` and the purposes are not. Nothing in
+  `.env` changed, and each purpose was put back as found.
+- **Found while writing the tool, fixed on the spot:** *Same as the default* sent `null`, which
+  the API refused (`MI0301`), so a purpose could never go back to the default. Only a missing
+  value is `MI0301` now; `null` is the setting's own check.
+- **Measured** (3 models × 3 sentences, one reply; numbers on #187): no call refused or failed.
+  gemma3:4b and qwen2.5:7b fit the card (100% GPU) and answered in about 0.5–2.8 s;
+  gemma3:12b runs 36% on the CPU and took 2.8–7.3 s. Only *family*, *goal*, *ask* and *gap* were
+  exercised; tier 4, read-back and the forge were not. Well-formed is not correct: accuracy is
+  #198.
+- **Decided** (operator, option C): the want stays on gemma3:12b until #198; talking with you and
+  reading the plan back on gemma3:4b; tier 4 and the forge on the default.
+- No fresh review: a hand-run measuring tool and a one-line, tested route change.
