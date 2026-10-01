@@ -328,6 +328,12 @@ typed structure. Then the **pacing question** is posed as a `Question` with two 
 through it together* / *set it up, stop only where you need me*. The answer sets
 `session.pacing`, which replaces the Build/Spawn `mode`.
 
+**Pacing is a setting since 14.7.5** (`comeni_core.settings.catalogue.PACING`, declared
+`Designed` until this substep). 14.7.8 removes its `unavailable=`, reads
+`installation().get(PACING)` at the start of a build, asks the question only when it is `ask`,
+and flips `test_pacing_says_designed_even_when_env_and_a_stored_value_are_set` to assert the
+stored value wins. `TIER4_ANSWERS` stays designed.
+
 **One consequence to confirm in review:** under rules 5 and 10, **tier 4 always stops for the
 person** in both paces. Today's Spawn lets a model answer tier 4 (door 2). The MVP consultant does
 not; door 2 stays declared and unused until a setting (#117) asks for it.
