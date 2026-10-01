@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-28 · **Status:** design, awaiting the operator's review
 **Where this sits:** Task 14 of the living pipeline (Living Pipeline Plan 2, the walk), step 14.7.
-This spec is substeps **14.7.2–14.7.8**; 14.7.1 was round 1 of the walk. Renumbered on 2026-09-28: 14.7.4 (the consultant's words, fast and cheap) and 14.7.5 (the settings menu) were inserted, and samples, the characteriser, the consultant build and the nine-scenario walk became 14.7.6–14.7.9.
+This spec is substeps **14.7.2–14.7.8**; 14.7.1 was round 1 of the walk. Renumbered on 2026-09-28: 14.7.4 (the consultant's words, fast and cheap) and 14.7.5 (the settings menu) were inserted, and samples, the characteriser, the consultant build and the nine-scenario walk became 14.7.6–14.7.9. On 2026-10-01 a tuning substep became 14.7.9 (#210), and the nine-scenario walk 14.7.10.
 **Issues:** #105 (no place for *paired-end*), #114 (nobody asked for the genome), #113 (*New
 pipeline*), #117 (settings, deferred), #78 (contracts have no description), #71 (protection
 profiles)

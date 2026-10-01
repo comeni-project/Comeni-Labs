@@ -30,11 +30,16 @@
 
 ## What is next
 
-1. **#207** (the call panel shows whether a reply was enforced) and **#209** (invented details):
-   approaches need the operator's yes.
-2. **#198, narrowed** (on the issue): one step against two on a ~300-type layer, now that the
-   behaviour is settled; and whether `family_step_from` gets a threshold.
-3. **Then 14.7.5**, the settings menu.
+Decided 2026-10-01: **MVP first, then tune.** The open walk findings moved to **14.7.9 (#210)**,
+and #180 (14.7.4) is closed.
+
+1. **14.7.5, the settings menu** (#181: #117, #187). Start with a brainstorm, and the first
+   question: is a setting per installation or per person?
+2. **14.7.6–14.7.8:** samples, the characteriser, the consultant build. A defect found along the
+   way joins #210 unless it blocks the loop.
+3. **14.7.9 (#210):** tune everything found so far, **before** the scenarios, so the scenario
+   walk does not start under a pile of issues.
+4. **14.7.10 (#137):** the nine scenarios, renumbered from 14.7.9.
 
 ## Traps
 
