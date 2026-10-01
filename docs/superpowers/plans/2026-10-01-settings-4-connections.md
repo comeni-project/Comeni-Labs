@@ -65,7 +65,7 @@
 
 A model value is `None` (*same as the default*) or `{"connection": str, "model": str}`. A collection value is a list of records keyed by field name; a record's secret field holds sealed text, `None` (*keep what is stored*) or `""` (*clear it*), and the facade (Task 2) turns those into stored values.
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
 
 ```python
 from comeni_core.settings.declare import FROM_ENV, EnvItem
@@ -140,12 +140,12 @@ def test_an_env_record_names_fields_the_collection_has():
         ))
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: FAIL, `ImportError: cannot import name 'FROM_ENV'`
 
-- [ ] **Step 3: Write the implementation** — additions to `declare.py`
+- [x] **Step 3: Write the implementation** — additions to `declare.py`
 
 Add to `Kind`:
 
@@ -274,12 +274,12 @@ In `parse_env`, before `return raw`:
             return {"connection": FROM_ENV, "model": raw}
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_declare.py -q`
 Expected: PASS (part 1's 20 and these 8)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/declare.py packages/comeni-core/tests/test_settings_declare.py
@@ -307,7 +307,7 @@ Behaviour, each a test:
 - A model whose connection is not a record of its `of` collection resolves to `None` with `Needs(what="the connection '<name>' is gone; choose another")`, unlocked.
 - A read-only setting with a reporter resolves to the reporter's value, `Source.REPORTED`, locked, with its declared reason.
 
-- [ ] **Step 1: Write the failing tests** (append; the file already has `MemoryStore`, `Reversing`, `HELP`)
+- [x] **Step 1: Write the failing tests** (append; the file already has `MemoryStore`, `Reversing`, `HELP`)
 
 ```python
 from comeni_core.settings import ReadOnlyHere, Source
@@ -408,19 +408,19 @@ def test_a_reported_value_comes_from_its_reporter():
 
 Add `IllegalValue` to the file's imports if missing.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py -q`
 Expected: FAIL, `TypeError: Installation.__init__() got an unexpected keyword argument 'reporters'`
 
-- [ ] **Step 3: Add `Source.REPORTED`** in `resolve.py`:
+- [x] **Step 3: Add `Source.REPORTED`** in `resolve.py`:
 
 ```python
     REPORTED = "reported"
     """Computed by the server on each read — *where each purpose goes*, versions, health."""
 ```
 
-- [ ] **Step 4: Extend `installation.py`**
+- [x] **Step 4: Extend `installation.py`**
 
 Constructor gains `reporters: Mapping[str, Callable[[], object]] | None = None` (stored as `self.reporters = reporters or {}`; import `Callable` from `collections.abc`). Then replace `resolved`, `get`, `shown` and `put`, and add the helpers:
 
@@ -563,12 +563,12 @@ Constructor gains `reporters: Mapping[str, Callable[[], object]] | None = None` 
 
 Import `Needs` and `SETTINGS_KEY_ENV`, `IllegalValue`, `Resolved` where missing.
 
-- [ ] **Step 5: Run the facade's tests and part 1's**
+- [x] **Step 5: Run the facade's tests and part 1's**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py packages/comeni-core/tests/test_settings_resolve.py -q`
 Expected: PASS, every test
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/ packages/comeni-core/tests/test_settings_installation.py
@@ -587,7 +587,7 @@ git commit -m "feat(settings): collections with sealed keys, an env record, repo
 **Interfaces:**
 - Produces in `comeni_core.settings.catalogue`: `CONNECTIONS`, `DEFAULT_MODEL`, `MODEL_WANT`, `MODEL_TALK`, `MODEL_TIER4`, `MODEL_READBACK`, `MODEL_FORGE`, `PURPOSE_SETTINGS: tuple[Setting, ...]` (the five purposes, not the default), `WHERE_PURPOSES`, `MODELS`, `PRIVACY`.
 
-- [ ] **Step 1: Declare them** — append to `catalogue.py` and replace `CATALOGUE`:
+- [x] **Step 1: Declare them** — append to `catalogue.py` and replace `CATALOGUE`:
 
 ```python
 from comeni_core.settings.declare import FROM_ENV, EnvItem
@@ -693,7 +693,7 @@ CATALOGUE = Catalogue(sections=(APPEARANCE, MODELS, PRIVACY))
 
 Remove the old one-line `CATALOGUE = Catalogue(sections=(APPEARANCE,))`. Update the module docstring's second paragraph: Models and Privacy arrive here.
 
-- [ ] **Step 2: Regenerate and read the golden menu**
+- [x] **Step 2: Regenerate and read the golden menu**
 
 Run: `SETTINGS_GOLDEN=update uv run pytest packages/comeni-core/tests/test_settings_catalogue.py -q && git diff --stat packages/comeni-core/tests/golden/`
 Expected: PASS; the diff adds the `models` and `privacy` sections. Read it: every purpose's `env` is `COMENI_AI_MODEL_<NAME>`, the default's is `COMENI_AI_MODEL`.
@@ -701,7 +701,7 @@ Expected: PASS; the diff adds the `models` and `privacy` sections. Read it: ever
 Run: `uv run pytest packages/comeni-core -q 2>&1 | tail -2`
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/settings/ packages/comeni-core/tests/golden/settings-menu.json
@@ -738,7 +738,7 @@ The map, from the two enums as they are today (re-read both before writing it):
 
 The fallback order for one call: the purpose's own model → the default model → the legacy environment (`ModelAccess.from_env(os.environ)`, which still reads `MENDEL_*`). With no agent and no purpose (*is anything configured?*): the default → the first purpose that has one → the legacy environment.
 
-- [ ] **Step 1: The in-memory seam for the suite**
+- [x] **Step 1: The in-memory seam for the suite**
 
 In `services/installation.py`, split the store out so tests can replace it:
 
@@ -794,7 +794,7 @@ def settings_in_memory(request, monkeypatch):
 
 Register the marker: in the root `pyproject.toml`'s `[tool.pytest.ini_options]` `markers` list (create the key if absent), add `"real_settings: read settings from the real Postgres store"`.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 """Each call uses its purpose's model (spec §6)."""
@@ -896,12 +896,12 @@ def test_where_each_purpose_goes(clean_env, settings_in_memory):
     assert rows["Choosing where the rules cannot"]["goes"] == "goes to anthropic"
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [x] **Step 3: Run them to verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_models_per_purpose.py -q`
 Expected: FAIL, `No module named 'mendel_api.services.models'`
 
-- [ ] **Step 4: Write `services/models.py`**
+- [x] **Step 4: Write `services/models.py`**
 
 ```python
 """Which model answers each call (spec §6).
@@ -992,7 +992,7 @@ def where_purposes(inst: Installation) -> list[dict]:
     return rows
 ```
 
-- [ ] **Step 5: `model_access` takes the purpose**
+- [x] **Step 5: `model_access` takes the purpose**
 
 Replace `model_access` in `mendel_api/settings.py` (keep its docstring's three paragraphs and add one):
 
@@ -1012,7 +1012,7 @@ def model_access(agent: str | None = None, purpose: str | None = None) -> "Model
     return access_for(installation(), os.environ, agent, purpose)
 ```
 
-- [ ] **Step 6: Pass the purpose at every call site**
+- [x] **Step 6: Pass the purpose at every call site**
 
 - `authoring_jobs.py`: `def _client(purpose: Purpose) -> Client | None:` with `access = model_access("builder", purpose)`; import `Purpose` from `authoring_ai`. Each call passes the purpose of the function it feeds — `choose_families` → `Purpose.FAMILY`; `understand` → `Purpose.GOAL`; `read_back` → `Purpose.READBACK`; `phrase_gap` → the purpose `phrase_gap` records (read it in `authoring_ai.py`; `Purpose.GAP` at the time of writing); `read_gap_reply` → the purpose it records (`Purpose.ASK` at the time of writing); `follow_up` → `Purpose.CHAT`; `start_building` → `Purpose.TIER4`.
 - `authoring_ai._call`: `access = model_access("builder", purpose)`.
@@ -1022,7 +1022,7 @@ def model_access(agent: str | None = None, purpose: str | None = None) -> "Model
 Run: `grep -n "_client()" packages/mendel-api/src/mendel_api/services/authoring_jobs.py`
 Expected: nothing (every call now names its purpose).
 
-- [ ] **Step 7: Run the tests, then the whole package**
+- [x] **Step 7: Run the tests, then the whole package**
 
 Run: `uv run pytest packages/mendel-api/tests/test_models_per_purpose.py -q`
 Expected: PASS, 11 passed
@@ -1030,7 +1030,7 @@ Expected: PASS, 11 passed
 Run: `MENDEL_DATABASE_URL=$DB uv run pytest packages/mendel-api -q 2>&1 | tail -3`
 Expected: PASS. A test that fails because it monkeypatched `authoring_jobs._client` with a zero-argument lambda gets `lambda *_: …`; record each as a ruling.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/mendel-api/ pyproject.toml
@@ -1054,7 +1054,7 @@ git commit -m "feat(settings): every AI call uses its purpose's model, .env unch
 
 Model ids carry LiteLLM's prefix for the server: `ollama` → `ollama_chat/<id>` (the chat endpoint; issue 179), `openai_compatible` → `openai/<id>`, `hosted` → nothing listed (the person types `provider/model`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Record actions: test a connection, list its models (spec §6)."""
@@ -1121,12 +1121,12 @@ def test_unknown_setting_record_or_action_is_404(client, path):
     assert client.post(path).status_code == 404
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_actions.py -q`
 Expected: FAIL, `cannot import name 'probe'`
 
-- [ ] **Step 3: Write `probe.py`** (move `_model_answers` and `PROBE_SECONDS` verbatim from `routes/health.py` as `answers`; then add)
+- [x] **Step 3: Write `probe.py`** (move `_model_answers` and `PROBE_SECONDS` verbatim from `routes/health.py` as `answers`; then add)
 
 ```python
 TRANSPORT: httpx.AsyncBaseTransport | None = None
@@ -1155,7 +1155,7 @@ async def listed(endpoint: str, server: str | None) -> list[str]:
 
 In `routes/health.py`, delete the moved function and constant and `from mendel_api.services.probe import PROBE_SECONDS, answers`; replace `_model_answers(` with `answers(`. Run `uv run pytest packages/mendel-api/tests/test_ai_health.py packages/mendel-api/tests/test_health.py -q` → PASS (if a test monkeypatches `health._model_answers`, point it at `probe.answers` and record it).
 
-- [ ] **Step 4: Write `settings_actions.py`**
+- [x] **Step 4: Write `settings_actions.py`**
 
 ```python
 """What a record can be asked to do (spec §6). One map, one generic route.
@@ -1208,7 +1208,7 @@ ACTIONS: dict[tuple[str, str], Callable[[dict], Awaitable[ActionResult]]] = {
 }
 ```
 
-- [ ] **Step 5: The route** — append to `routes/settings.py`
+- [x] **Step 5: The route** — append to `routes/settings.py`
 
 ```python
 @router.post(
@@ -1231,12 +1231,12 @@ async def run_setting_action(
 
 Import `ActionResult`, `ACTIONS` from `mendel_api.services.settings_actions`. Add to `test_openapi.py`'s dict: `("/api/settings/{key}/items/{name}/{action}", "post"): "runSettingAction",`.
 
-- [ ] **Step 6: Run them to verify they pass**
+- [x] **Step 6: Run them to verify they pass**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_actions.py packages/mendel-api/tests/test_openapi.py -q`
 Expected: PASS
 
-- [ ] **Step 7: Regenerate the client and commit**
+- [x] **Step 7: Regenerate the client and commit**
 
 Run: `make client && cd frontend && npx tsc -b`
 Expected: `schema.d.ts` gains `runSettingAction` and `ActionResult`; no type errors.
@@ -1264,7 +1264,7 @@ git commit -m "feat(settings): test a connection and list its models — one rou
 - Consumes: `Entry`, `Menu`, `useMenu` (part 3); `post` (`api/client`); `components["schemas"]["ActionResult"]`.
 - Produces: `useAction(key, name, action)` (a mutation returning `ActionResult`); `Collection({ entry, onWrite })`; `ModelPicker({ entry, menu, onWrite })`; `Report({ value })`; `SettingRow` gains an optional `menu?: Menu` prop.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `Collection.test.tsx`:
 
@@ -1407,12 +1407,12 @@ describe("a report", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd frontend && npx vitest run src/preferences/Collection.test.tsx src/preferences/ModelPicker.test.tsx src/preferences/Report.test.tsx`
 Expected: FAIL, cannot resolve the three modules
 
-- [ ] **Step 3: Write `useAction.ts` and `Report.tsx`**
+- [x] **Step 3: Write `useAction.ts` and `Report.tsx`**
 
 ```ts
 import { useMutation } from "@tanstack/react-query";
@@ -1458,7 +1458,7 @@ export function Report({ value }: { value: unknown }) {
 }
 ```
 
-- [ ] **Step 4: Write `Collection.tsx`**
+- [x] **Step 4: Write `Collection.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -1571,7 +1571,7 @@ function Action({ setting, name, action }: { setting: string; name: string; acti
 }
 ```
 
-- [ ] **Step 5: Write `ModelPicker.tsx`**
+- [x] **Step 5: Write `ModelPicker.tsx`**
 
 ```tsx
 import { useQueries } from "@tanstack/react-query";
@@ -1642,7 +1642,7 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
 }
 ```
 
-- [ ] **Step 6: Wire them into the row and the page**
+- [x] **Step 6: Wire them into the row and the page**
 
 In `SettingRow.tsx`'s `Control`, add before `default:`:
 
@@ -1657,12 +1657,12 @@ In `SettingRow.tsx`'s `Control`, add before `default:`:
 
 Thread an optional `menu?: Menu` through `Props`, `Row` and `Control`. In `Row`, pass `heading={shown.locked ? "Why it is greyed out" : "Needs attention"}` to `Help`; in `Help.tsx` add `heading = "Why it is greyed out"` to the props and render `<strong>{heading}:</strong>`. In `Preferences.tsx`, pass `menu={menu.data}` to each `SettingRow`.
 
-- [ ] **Step 7: Run the frontend suite and the type check**
+- [x] **Step 7: Run the frontend suite and the type check**
 
 Run: `cd frontend && npx vitest run src/preferences && npx vitest run && npx tsc -b`
 Expected: PASS; no type errors
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/preferences/
@@ -1673,20 +1673,20 @@ git commit -m "feat(settings): connections, the model picker and reports in the 
 
 ### Task 7: Walk it
 
-- [ ] **Step 1: Set a settings key and bring the stack up**
+- [x] **Step 1: Set a settings key and bring the stack up**
 
 Ask the operator before touching `.env`: it is theirs. With their OK they add `COMENI_SETTINGS_KEY=<generated>`. Then `make dev`, `make migrate`. The `ai-worker` is baked: rebuild it (`docker compose build ai-worker && docker compose up -d ai-worker`).
 
-- [ ] **Step 2: Drive it**
+- [x] **Step 2: Drive it**
 
 In Settings → Models: the *From .env* connection is listed, locked, with the operator's model as the default. Add *Local Ollama* at `http://ollama:11434` (the compose hostname), press *test* (expect *Something answers*), then *models* (expect `ollama_chat/gemma3:4b`, `ollama_chat/qwen2.5:7b`, `ollama_chat/gemma3:12b`). Choose `gemma3:4b` for *Talking with you*. Privacy & data → *Where each purpose goes* says every purpose stays on this machine.
 
-- [ ] **Step 3: Check a call used it**
+- [x] **Step 3: Check a call used it**
 
 Start a builder session and answer one question. Then read the last invocations (`docker compose exec postgres psql -U mendel -c "select purpose, model from ai_invocation order by started_at desc limit 5"`; check the column name in `models.py` first).
 Expected: `ask` or `gap` rows with `ollama_chat/gemma3:4b`; `goal` or `family` with the default.
 
-- [ ] **Step 4: Show the operator, and close**
+- [x] **Step 4: Show the operator, and close**
 
 Screenshots of Models and Privacy at 1280px and 390px. Findings become issues under #210 unless they block. Run the checks separately, comment on #214 with the commits, and close it.
 
@@ -1694,4 +1694,27 @@ Screenshots of Models and Privacy at 1280px and 390px. Findings become issues un
 
 ## Execution record
 
-(Filled in while executing.)
+Executed 2026-10-01, in one hand. Commits 0ec26cb..(fix pass); #214 closed.
+
+- **Carried from plans 1–3:** secrets are handed over as `SecretStr` (so `_access` opens a
+  connection key only at the call); `Tolerant` was gone; `Installation`'s extras are keyword-only.
+- **Task 4, rulings:** the code records `phrase_gap` as `ASK` and `read_gap_reply` as `GAP` (the
+  plan had them reversed; both map to *Talking with you*). Three tests replaced `_client` with
+  zero-argument lambdas and now take the purpose.
+- **Task 6:** the repository's reported-errors guard (`src/reported.test.ts`) caught
+  `Collection` and `ModelPicker` showing nothing when a hook failed. My first commit of the task
+  went in with that failure, because a `grep` in an `&&` chain succeeded; the fix is a follow-up
+  commit, not an amend.
+- **Task 7, the walk:** `COMENI_SETTINGS_KEY` was not needed (a local connection has no key);
+  `.env` untouched. Through the API: *Local Ollama* added and tested, its three models listed,
+  gemma3:4b chosen for *Talking with you*; a builder session then ran `family` and `goal` on
+  gemma3:12b (69 s, 51 s) and `ask` on gemma3:4b (3.4 s, 0.45 s). A reported row's empty source
+  badge was fixed. Noted for tuning: the action buttons show raw names (*test*, *models*); a key
+  not set offers *replace*.
+- **Final review** (fresh reviewer): 2 critical, 3 important, all fixed test-first — Privacy now
+  decides where data goes by the endpoint (a hosted provider in `.env` said *stays on this
+  machine*); stored keys with the settings key removed read as not set instead of crashing the
+  menu and every model call; the Add form picks Server from its options; compose passes the
+  settings key and the five per-purpose pins; a pin alone creates the *From .env* record. Three
+  minors re-graded and fixed: the old `MENDEL_*` names reported where they go, the picker says
+  why a list failed, `/v1` is not doubled and the key is sent. Four minors deferred.
