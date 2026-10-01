@@ -479,7 +479,7 @@ def _call(
     would go stale the first time a field moved.
     """
     if client is None:
-        access = model_access()
+        access = model_access("builder", purpose)
         if access is None:
             return Outcome(
                 None,

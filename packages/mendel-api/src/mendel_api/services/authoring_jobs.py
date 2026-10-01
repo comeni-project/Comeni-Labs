@@ -66,9 +66,11 @@ stop a whole session.
 """
 
 
-def _client() -> Client | None:
-    """The configured lane, or `None`. The one seam a test replaces to hand over a fake."""
-    access = model_access()
+def _client(purpose: "authoring_ai.Purpose") -> Client | None:
+    """The model for this call's purpose, or `None`. The one seam a test replaces to hand over
+    a fake. **Every call names its purpose** (14.7.5.4): Settings → Models says which model
+    answers it."""
+    access = model_access("builder", purpose)
     return Client(access) if access is not None else None
 
 
@@ -129,7 +131,7 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     if len(stack.vocabulary.types) >= settings.family_step_from:
         # **The type in two steps** (#194): the families first, then each chosen family whole.
         chosen = authoring_ai.choose_families(
-            request, stack=stack, client=_client(), session_id=session_id
+            request, stack=stack, client=_client(authoring_ai.Purpose.FAMILY), session_id=session_id
         )
         if not chosen.admitted:
             _refused(session_id, seq, context, chosen)
@@ -146,7 +148,11 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
             return
 
     outcome = authoring_ai.understand(
-        request, stack=stack, families=families, client=_client(), session_id=session_id
+        request,
+        stack=stack,
+        families=families,
+        client=_client(authoring_ai.Purpose.GOAL),
+        session_id=session_id,
     )
 
     if not outcome.admitted:
@@ -260,7 +266,7 @@ async def read_back_authoring_goal(ctx: dict, session_id: str) -> str:
     outcome = authoring_ai.read_back(
         authoring_ai.compose(prompt="", registry=registry.digest()),
         goal=authoring.readback_context(session_id),
-        client=_client(),
+        client=_client(authoring_ai.Purpose.READBACK),
         session_id=session_id,
     )
     if outcome.admitted:
@@ -279,7 +285,11 @@ async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str) -> str:
         prompt=gap["first_sentence"], options=list(gap["options"]), registry=registry.digest()
     )
     outcome = authoring_ai.phrase_gap(
-        request, gap=gap, stack=registry.stack(), client=_client(), session_id=session_id
+        request,
+        gap=gap,
+        stack=registry.stack(),
+        client=_client(authoring_ai.Purpose.ASK),
+        session_id=session_id,
     )
     if outcome.admitted:
         authoring.store_phrasing(session_id, subject, outcome.reply)
@@ -307,7 +317,7 @@ def _gap_reply(session_id: str, seq: int, context) -> None:
     outcome = authoring_ai.read_gap_reply(
         request,
         question=gap["payload"]["block"]["asks"],
-        client=_client(),
+        client=_client(authoring_ai.Purpose.GAP),
         session_id=session_id,
     )
     if not outcome.admitted:
@@ -367,7 +377,9 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         options=context.options,
         registry=context.registry,
     )
-    outcome = authoring_ai.follow_up(request, client=_client(), session_id=session_id)
+    outcome = authoring_ai.follow_up(
+        request, client=_client(authoring_ai.Purpose.CHAT), session_id=session_id
+    )
     if not outcome.admitted:
         _refused(session_id, seq, context, outcome)
         return
@@ -467,7 +479,7 @@ async def build_authoring_blueprint(ctx: dict, session_id: str) -> str:
     moves the session to `failed` inside `start_building`, where `retry` picks it up.
     """
     try:
-        authoring.start_building(session_id, client=_client())
+        authoring.start_building(session_id, client=_client(authoring_ai.Purpose.TIER4))
         authoring.spawn_forward(session_id)
     except ValueError as refused:
         log.warning("blueprint for %s refused: %s", session_id, str(refused).splitlines()[0])

@@ -106,3 +106,30 @@ def clean_settings():
     with session_scope() as session:
         session.execute(text("TRUNCATE TABLE installation_setting"))
     yield
+class _MemoryStore:
+    def __init__(self):
+        self.rows = {}
+
+    def values(self):
+        return dict(self.rows)
+
+    def put(self, key, value, by):
+        self.rows[key] = value
+
+
+@pytest.fixture(autouse=True)
+def settings_in_memory(request, monkeypatch):
+    """**Settings start empty and live in memory** unless a test is marked `real_settings`.
+
+    `model_access()` reads the settings store since part 14.7.5.4. Most of this suite configures
+    a model through the environment and has no database; an empty store keeps those tests
+    meaning exactly what they meant. Yields the store so a test can choose a model.
+    """
+    if request.node.get_closest_marker("real_settings"):
+        yield None
+        return
+    from mendel_api.services import installation
+
+    store = _MemoryStore()
+    monkeypatch.setattr(installation, "_store", lambda: store)
+    yield store

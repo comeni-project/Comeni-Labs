@@ -49,7 +49,10 @@ docs = ["mkdocs>=1.6", "mkdocs-material>=9.5"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages"]
-markers = ["slow: needs Docker and Nextflow; run nightly, not on a pull request"]
+markers = [
+    "slow: needs Docker and Nextflow; run nightly, not on a pull request",
+    "real_settings: read settings from the real Postgres store, not the suite's empty one",
+]
 addopts = "-m 'not slow'"
 
 # **Strict, not auto**, and that is the whole reason this is written down. In `auto` mode every

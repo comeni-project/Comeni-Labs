@@ -461,7 +461,7 @@ def _client():
     from comeni_ai import Client
     from comeni_ai.access import BASE_URL, MODEL
 
-    access = model_access()
+    access = model_access("forge", "analysis")  # every forge purpose maps to one setting
     if access is None:
         raise NoModelConfigured(
             coded("MI0106", "no model is configured, so nothing can be generated")
@@ -480,7 +480,7 @@ def _model_id() -> str:
     and *which* model proposed a port type is exactly what somebody re-reading a contract in six
     months needs. `how` already carries that it was a model at all.
     """
-    access = model_access()
+    access = model_access("forge", "analysis")  # every forge purpose maps to one setting
     return access.model if access else ""
 
 

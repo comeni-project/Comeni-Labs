@@ -104,8 +104,8 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def model_access() -> "ModelAccess | None":
-    """How to reach the configured model, or `None` when none is.
+def model_access(agent: str | None = None, purpose: str | None = None) -> "ModelAccess | None":
+    """How to reach the model for one call, or `None` when none is configured.
 
     **One spelling for the whole lane, and it is `comeni-ai`'s.** `mendel-api` declared
     `MENDEL_AI_MODEL` and `MENDEL_AI_BASE_URL` of its own while `comeni_ai.access` declared
@@ -121,7 +121,13 @@ def model_access() -> "ModelAccess | None":
     **`os.environ` at call time, not at import.** A worker holding one would ignore a changed
     environment on restart, which is the one moment an operator most expects it to be read —
     the argument `_client` already makes about not caching a module global.
-    """
-    from comeni_ai import ModelAccess
 
-    return ModelAccess.from_env(os.environ)
+    **Per purpose since 14.7.5.4.** `agent` and `purpose` name the call (`"builder"`, `"ask"`)
+    and Settings → Models says which model answers it; with neither, the question is *is any
+    model configured*. `services/models.py` holds the map and the fallback order, which ends at
+    the environment exactly as this function read it before settings existed.
+    """
+    from mendel_api.services.installation import installation
+    from mendel_api.services.models import access_for
+
+    return access_for(installation(), os.environ, agent, purpose)

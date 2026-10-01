@@ -2,7 +2,15 @@
 changed. Spec: `docs/superpowers/specs/2026-10-01-settings-design.md`."""
 
 from comeni_core.settings.catalogue import CATALOGUE
-from comeni_core.settings.declare import ChoiceOption, IllegalValue, Kind, Setting, Where
+from comeni_core.settings.declare import (
+    FROM_ENV,
+    ChoiceOption,
+    EnvItem,
+    IllegalValue,
+    Kind,
+    Setting,
+    Where,
+)
 from comeni_core.settings.installation import (
     Entry,
     Installation,

@@ -241,7 +241,7 @@ class Answers:
 def _spawn_turn(monkeypatch, answer: dict) -> tuple[str, Answers]:
     transport = Answers(json.dumps(answer))
     monkeypatch.setattr(authoring_jobs, "_client",
-                        lambda: Client(ModelAccess(model="fake/test"), transport=transport))
+                        lambda *_: Client(ModelAccess(model="fake/test"), transport=transport))
 
     async def queued(*args):
         return True
