@@ -290,10 +290,17 @@ def _layers() -> object:
         return f"not readable ({type(failed).__name__}) at {settings.registry_root}"
 
 
+def _first(value: int | set[int] | None) -> int:
+    """arq keeps `hour`/`minute` as given: a number (checked 2026-10-01: `hour: 3`) or a set."""
+    if value is None:
+        return 0
+    return value if isinstance(value, int) else min(value)
+
+
 def _source_check() -> str:
     for job in worker.WorkerSettings.cron_jobs:
         if job.coroutine.__name__ == "check_sources":
-            return f"every day at {min(job.hour):02d}:{min(job.minute):02d}"
+            return f"every day at {_first(job.hour):02d}:{_first(job.minute):02d}"
     return "not scheduled"
 
 
@@ -346,7 +353,7 @@ REPORTERS: dict[str, Callable[[], object]] = {
 }
 ```
 
-Check `arq`'s `CronJob` attribute names (`coroutine`, `hour`, `minute`) against the installed version before relying on them: `uv run python -c "from mendel_api import worker; j=worker.WorkerSettings.cron_jobs[0]; print(vars(j))"`. `asyncio.run` is safe here: FastAPI runs a sync route in a worker thread with no loop of its own.
+`asyncio.run` is safe here: FastAPI runs a sync route in a worker thread with no loop of its own.
 
 In `services/installation.py`, merge them: `inst.reporters = {"privacy.where": lambda: where_purposes(inst), **reports.REPORTERS}`.
 
