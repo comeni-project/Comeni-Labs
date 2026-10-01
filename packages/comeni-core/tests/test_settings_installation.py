@@ -139,3 +139,14 @@ def test_the_store_is_read_on_every_use():
     inst = _installation()
     inst.store.rows["building.pacing"] = "together"
     assert inst.get(PACING) == "together"
+
+
+def test_a_secret_the_codec_cannot_open_is_shown_as_not_set():
+    class Forgetful(Reversing):
+        def open(self, sealed):
+            return ""
+
+    inst = Installation(CATALOGUE, MemoryStore(), {}, codec=Forgetful())
+    inst.store.rows["models.key"] = "sealed:anything"
+    shown = inst.shown(KEY)
+    assert (shown.set, shown.last4) == (False, None)

@@ -116,7 +116,7 @@ class Installation:
             return Shown(
                 value=got.value, source=got.source, locked=got.locked, reason=got.reason
             )
-        plain = self.get(setting)
+        plain = self.get(setting) or None  # "" is a secret the codec could not open: not set
         return Shown(
             value=None,
             source=got.source,
