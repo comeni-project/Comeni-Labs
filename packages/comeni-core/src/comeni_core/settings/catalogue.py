@@ -22,7 +22,13 @@ THEME = Setting.choice(
     where=Where.BROWSER,
 )
 
-APPEARANCE = Section(key="appearance", title="Appearance", order=1, settings=(THEME,))
+APPEARANCE = Section(
+    key="appearance",
+    title="Appearance",
+    lede="How Comeni looks in this browser.",
+    order=1,
+    settings=(THEME,),
+)
 
 CONSULTANT = "arrives with the consultant build (14.7.8)"
 
@@ -57,7 +63,13 @@ TIER4_ANSWERS = Setting.choice(
     unavailable=Designed(where="letting a model answer comes after the consultant build"),
 )
 
-BUILDING = Section(key="building", title="Building", order=2, settings=(PACING, TIER4_ANSWERS))
+BUILDING = Section(
+    key="building",
+    title="Building",
+    lede="How the build walks you through a pipeline. Neither choice is read yet.",
+    order=2,
+    settings=(PACING, TIER4_ANSWERS),
+)
 
 PURPOSE_NAMES = ("want", "talk", "tier4", "readback", "forge")
 """Each purpose a model can be chosen for; its `.env` pin is `COMENI_AI_MODEL_<NAME>`."""
@@ -72,11 +84,13 @@ CONNECTIONS = Setting.collection(
     ),
     fields=(
         Setting.text(
-            key="connection.name", label="Name",
+            key="connection.name",
+            label="Name",
             help="What this connection is called here, e.g. Local Ollama.",
         ),
         Setting.choice(
-            key="connection.server", label="Server",
+            key="connection.server",
+            label="Server",
             help="What answers at the endpoint. It decides how model ids are written.",
             options=[
                 ("ollama", "Ollama"),
@@ -86,11 +100,13 @@ CONNECTIONS = Setting.collection(
             default="ollama",
         ),
         Setting.text(
-            key="connection.endpoint", label="Endpoint",
+            key="connection.endpoint",
+            label="Endpoint",
             help="The server's address, e.g. http://ollama:11434. Empty for a hosted provider.",
         ),
         Setting.secret(
-            key="connection.key", label="Key",
+            key="connection.key",
+            label="Key",
             help="The provider's API key. Stored sealed; shown only as its last four characters.",
         ),
     ),
@@ -109,7 +125,10 @@ CONNECTIONS = Setting.collection(
 
 def _purpose(name: str, label: str, help: str) -> Setting:
     return Setting.model(
-        key=f"models.{name}", label=label, help=help, of="models.connections",
+        key=f"models.{name}",
+        label=label,
+        help=help,
+        of="models.connections",
         env=f"COMENI_AI_MODEL_{name.upper()}",
     )
 
@@ -125,24 +144,29 @@ DEFAULT_MODEL = Setting.model(
     env="COMENI_AI_MODEL",
 )
 MODEL_WANT = _purpose(
-    "want", "Understanding what you want",
+    "want",
+    "Understanding what you want",
     "Reads what you asked for and picks what it should produce. The call most worth a strong "
     "model.",
 )
 MODEL_TALK = _purpose(
-    "talk", "Talking with you",
+    "talk",
+    "Talking with you",
     "Phrases the questions the build asks you and reads your replies. A small model is enough.",
 )
 MODEL_TIER4 = _purpose(
-    "tier4", "Choosing where the rules cannot",
+    "tier4",
+    "Choosing where the rules cannot",
     "Proposes an answer to a choice no rule settles (tier 4). Always shown to you as a model's.",
 )
 MODEL_READBACK = _purpose(
-    "readback", "Reading the plan back",
+    "readback",
+    "Reading the plan back",
     "Says back, in a sentence, what the pipeline will do, so you can check it was understood.",
 )
 MODEL_FORGE = _purpose(
-    "forge", "Adapting tools",
+    "forge",
+    "Adapting tools",
     "Drafts a new tool's contract in the registry's workshop, for a person to review.",
 )
 PURPOSE_SETTINGS = (MODEL_WANT, MODEL_TALK, MODEL_TIER4, MODEL_READBACK, MODEL_FORGE)
@@ -158,7 +182,10 @@ WHERE_PURPOSES = Setting.readonly(
 )
 
 MODELS = Section(
-    key="models", title="Models", order=3,
+    key="models",
+    title="Models",
+    lede="Where models are reached, and which one answers each part of the conversation.",
+    order=3,
     settings=(CONNECTIONS, DEFAULT_MODEL, *PURPOSE_SETTINGS),
 )
 
@@ -190,26 +217,31 @@ def _reported(key: str, label: str, help: str, why: ReadOnlyHere = RO) -> Settin
 
 
 REGISTRY_ROOT = _reported(
-    "registry.root", "Registry",
+    "registry.root",
+    "Registry",
     "The folder the tools and types are read from. Set as MENDEL_REGISTRY_ROOT in .env.",
 )
 REGISTRY_LAYERS = _reported(
-    "registry.layers", "Layers",
+    "registry.layers",
+    "Layers",
     "Each layer stacked on the registry, in order. A later layer can replace an earlier "
     "one's tool.",
 )
 GITHUB_TOKEN = _reported(
-    "registry.github", "GitHub token",
+    "registry.github",
+    "GitHub token",
     "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
     ReadOnlyHere(why="a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env"),
 )
 DOCKERHUB = _reported(
-    "registry.dockerhub", "Docker Hub account",
+    "registry.dockerhub",
+    "Docker Hub account",
     "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
     ReadOnlyHere(why="a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env"),
 )
 SOURCE_CHECK = _reported(
-    "registry.source_check", "Nightly source check",
+    "registry.source_check",
+    "Nightly source check",
     "When the worker re-reads every source to see whether an upstream tool moved.",
 )
 VERSIONS = _reported(
@@ -218,55 +250,75 @@ VERSIONS = _reported(
 DATABASE = _reported("system.database", "Database", "Whether Mendel's database answers.")
 REDIS = _reported("system.redis", "Job queue", "Whether the queue that runs model jobs answers.")
 MODEL_SERVER = _reported(
-    "system.model", "Default model's server",
+    "system.model",
+    "Default model's server",
     "Whether anything answers at the default model's endpoint. A hosted provider is not probed.",
 )
 
 PRIVACY = Section(
-    key="privacy", title="Privacy & data", order=4, settings=(PROTECTION, WHERE_PURPOSES)
+    key="privacy",
+    title="Privacy & data",
+    lede="What a model may see, and where each purpose's data goes.",
+    order=4,
+    settings=(PROTECTION, WHERE_PURPOSES),
 )
 REGISTRY = Section(
-    key="registry", title="Registry & sources", order=6,
+    key="registry",
+    title="Registry & sources",
+    lede="Where tools and types are read from, and what the forge can reach.",
+    order=6,
     settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
 )
 SYSTEM = Section(
-    key="system", title="System", order=7, settings=(VERSIONS, DATABASE, REDIS, MODEL_SERVER)
+    key="system",
+    title="System",
+    lede="What is installed, and whether each part answers.",
+    order=7,
+    settings=(VERSIONS, DATABASE, REDIS, MODEL_SERVER),
 )
 
 WIENER_ENV = ReadOnlyHere(why="Wiener reads this from its own .env")
 
 CONTAINER_RUNTIME = _reported(
-    "running.runtime", "Container runtime",
-    "What runs each step's container: docker or singularity. WIENER_CONTAINER_PROFILE.", WIENER_ENV,
+    "running.runtime",
+    "Container runtime",
+    "What runs each step's container: docker or singularity. WIENER_CONTAINER_PROFILE.",
+    WIENER_ENV,
 )
 LOST_AFTER = _reported(
-    "running.lost_after", "Call a run lost after",
+    "running.lost_after",
+    "Call a run lost after",
     "How long a run may say nothing before it is called lost. Longer than the slowest step.",
     WIENER_ENV,
 )
 EXECUTOR = Setting.choice(
-    key="running.executor", label="Where runs execute",
+    key="running.executor",
+    label="Where runs execute",
     help="This machine, a Kubernetes cluster or AWS Batch. Only this machine launches today.",
     options=[("local", "This machine"), ("k8s", "Kubernetes"), ("awsbatch", "AWS Batch")],
     default="local",
     unavailable=Designed(where="k8s and awsbatch profiles are emitted, not launched"),
 )
 API_TOKEN = _reported(
-    "running.token", "Who may submit runs",
+    "running.token",
+    "Who may submit runs",
     "Whether Wiener asks for a token. Open is fine on a laptop; anything reachable needs one.",
     WIENER_ENV,
 )
 TELEMETRY = _reported(
-    "running.telemetry", "Telemetry",
+    "running.telemetry",
+    "Telemetry",
     "Whether run traces and metrics are sent anywhere. Off unless WIENER_OTLP_ENDPOINT is set; "
     "a privacy matter, kept here because Wiener is what sends them.",
     WIENER_ENV,
 )
 RUNNING = Section(
-    key="running", title="Running", order=5, served_by="wiener",
+    key="running",
+    title="Running",
+    lede="How runs execute, as Wiener reports it from its own settings.",
+    order=5,
+    served_by="wiener",
     settings=(EXECUTOR, CONTAINER_RUNTIME, LOST_AFTER, API_TOKEN, TELEMETRY),
 )
 
-CATALOGUE = Catalogue(
-    sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RUNNING, REGISTRY, SYSTEM)
-)
+CATALOGUE = Catalogue(sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RUNNING, REGISTRY, SYSTEM))

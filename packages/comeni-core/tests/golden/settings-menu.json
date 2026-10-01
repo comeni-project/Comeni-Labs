@@ -3,6 +3,7 @@
     {
       "key": "appearance",
       "title": "Appearance",
+      "lede": "How Comeni looks in this browser.",
       "order": 1,
       "served_by": "mendel",
       "entries": [
@@ -52,6 +53,7 @@
     {
       "key": "building",
       "title": "Building",
+      "lede": "How the build walks you through a pipeline. Neither choice is read yet.",
       "order": 2,
       "served_by": "mendel",
       "entries": [
@@ -154,6 +156,7 @@
     {
       "key": "models",
       "title": "Models",
+      "lede": "Where models are reached, and which one answers each part of the conversation.",
       "order": 3,
       "served_by": "mendel",
       "entries": [
@@ -461,6 +464,7 @@
     {
       "key": "privacy",
       "title": "Privacy & data",
+      "lede": "What a model may see, and where each purpose's data goes.",
       "order": 4,
       "served_by": "mendel",
       "entries": [
@@ -558,6 +562,7 @@
     {
       "key": "registry",
       "title": "Registry & sources",
+      "lede": "Where tools and types are read from, and what the forge can reach.",
       "order": 6,
       "served_by": "mendel",
       "entries": [
@@ -746,6 +751,7 @@
     {
       "key": "system",
       "title": "System",
+      "lede": "What is installed, and whether each part answers.",
       "order": 7,
       "served_by": "mendel",
       "entries": [

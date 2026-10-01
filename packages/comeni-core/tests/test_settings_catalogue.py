@@ -60,3 +60,11 @@ def test_pacing_says_designed_even_when_env_and_a_stored_value_are_set():
 def test_tier4_shows_todays_behaviour_designed():
     got = resolve(TIER4_ANSWERS, {}, {})
     assert got.value == "stop" and isinstance(got.reason, Designed)
+
+
+def test_every_section_says_in_a_line_what_it_holds():
+    """The overlay's design (2026-10-01) opens each section with one line under its title;
+    like every word about a setting, it comes from the declaration."""
+    assert CATALOGUE.sections, "no section is declared — this test is measuring nothing"
+    for section in CATALOGUE.sections:
+        assert 20 <= len(section.lede) <= 140, section.key

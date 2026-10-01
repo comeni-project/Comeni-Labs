@@ -16,6 +16,8 @@ class Section(BaseModel):
 
     key: str
     title: str
+    lede: str = ""
+    """One line under the section's title: what it holds. The menu writes none of its own."""
     order: int
     served_by: Literal["mendel", "wiener"] = "mendel"
     """Which API reports it. Wiener is a separate service with its own `.env` (spec §7)."""

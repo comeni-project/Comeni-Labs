@@ -79,6 +79,7 @@ class MenuSection(BaseModel):
 
     key: str
     title: str
+    lede: str = ""
     order: int
     served_by: Literal["mendel", "wiener"]
     entries: list[Entry]
@@ -322,6 +323,7 @@ class Installation:
                 MenuSection(
                     key=section.key,
                     title=section.title,
+                    lede=section.lede,
                     order=section.order,
                     served_by=section.served_by,
                     entries=[Entry(setting=s, shown=self.shown(s)) for s in section.settings],

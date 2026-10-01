@@ -3162,6 +3162,11 @@ export interface components {
             key: string;
             /** Title */
             title: string;
+            /**
+             * Lede
+             * @default
+             */
+            lede: string;
             /** Order */
             order: number;
             /**
