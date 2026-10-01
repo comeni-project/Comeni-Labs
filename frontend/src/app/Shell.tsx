@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 
 import { Field } from "../ui/Field";
+import { painted, useTheme } from "./useTheme";
 
 
 /** The frame: identity, then two workspaces, then the sections of the one you are in.
@@ -76,15 +77,9 @@ function Tab({ to, children }: { to: string; children: string }) {
 }
 
 export function Shell() {
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    const saved = localStorage.getItem("comeni-theme");
-    if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  });
-
+  const [theme] = useTheme();
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("comeni-theme", theme);
+    document.documentElement.dataset.theme = painted(theme);
   }, [theme]);
 
   // **One field for the whole application, and the route picks where it is thrown from.**
@@ -138,16 +133,17 @@ export function Shell() {
         <Tab to="/build">Builder</Tab>
         <Tab to="/runs">Runs</Tab>
         <Tab to="/forge">Registry</Tab>
-        <button
-          type="button"
-          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="ml-auto pb-[3px] border-b border-transparent bg-transparent text-[12.5px]
-                     text-ink-3 hover:text-ink cursor-pointer"
+        {/* **Settings live behind a gear at the right**, where most applications put it. The
+            theme toggle that sat here moved into Settings → Appearance (spec §7). */}
+        <Link
+          to="/settings"
+          aria-label="Settings"
+          title="Settings"
+          className="ml-auto pb-[3px] border-b border-transparent text-[14px] text-ink-3
+                     hover:text-ink no-underline"
         >
-          {theme === "dark" ? "Light" : "Dark"}
-        </button>
+          ⚙
+        </Link>
       </nav>
       <Outlet />
     </div>
