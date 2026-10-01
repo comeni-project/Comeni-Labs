@@ -1211,6 +1211,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every setting, its value and its source */
+        get: operations["readSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change one setting for this installation */
+        put: operations["writeSetting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1992,6 +2026,10 @@ export interface components {
             item: components["schemas"]["CatalogueItem"];
             standing: components["schemas"]["Standing"];
         };
+        /** Change */
+        Change: {
+            value?: components["schemas"]["JsonValue"];
+        };
         /**
          * ChangeSet
          * @description Exactly what a conversational revision would touch, before it touches it.
@@ -2070,6 +2108,13 @@ export interface components {
             states: string[];
             /** Ports */
             ports: string[];
+        };
+        /** ChoiceOption */
+        ChoiceOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
         };
         /**
          * Citation
@@ -2303,6 +2348,21 @@ export interface components {
          * @enum {string}
          */
         Decision: "open" | "approved" | "rejected";
+        /**
+         * Designed
+         * @description Designed, not built: shown so the menu tells the truth about what is coming.
+         */
+        Designed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "designed";
+            /** Where */
+            where: string;
+            /** Says */
+            readonly says: string;
+        };
         /** Diagnostic */
         Diagnostic: {
             /** Code */
@@ -2588,6 +2648,11 @@ export interface components {
          */
         EditAuthoringDraft: {
             graph: components["schemas"]["DraftGraph"];
+        };
+        /** Entry */
+        Entry: {
+            setting: components["schemas"]["Setting"];
+            shown: components["schemas"]["Shown"];
         };
         /** Event */
         Event: {
@@ -3006,11 +3071,17 @@ export interface components {
              */
             params: number;
         };
+        JsonValue: unknown;
         /** Kept */
         Kept: {
             /** Path */
             path: string;
         };
+        /**
+         * Kind
+         * @enum {string}
+         */
+        Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly";
         /**
          * Level
          * @enum {string}
@@ -3033,6 +3104,27 @@ export interface components {
             source: components["schemas"]["ValueSource"];
             /** By */
             by?: string | null;
+        };
+        /** Menu */
+        Menu: {
+            /** Sections */
+            sections: components["schemas"]["MenuSection"][];
+        };
+        /** MenuSection */
+        MenuSection: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Order */
+            order: number;
+            /**
+             * Served By
+             * @enum {string}
+             */
+            served_by: "mendel" | "wiener";
+            /** Entries */
+            entries: components["schemas"]["Entry"][];
         };
         /**
          * MessageRole
@@ -3138,6 +3230,21 @@ export interface components {
              * @default []
              */
             refers_to: string[];
+        };
+        /**
+         * Needs
+         * @description Something else has to be set first.
+         */
+        Needs: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "needs";
+            /** What */
+            what: string;
+            /** Says */
+            readonly says: string;
         };
         /**
          * NeedsYou
@@ -3412,6 +3519,21 @@ export interface components {
          * @enum {string}
          */
         Phase: "understanding" | "gathering" | "goal_review" | "resolving" | "building" | "complete" | "failed" | "stopped";
+        /**
+         * Pinned
+         * @description A value in `.env` beats every layer. The variable is named so a person knows where to go.
+         */
+        Pinned: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "pinned";
+            /** Env */
+            env: string;
+            /** Says */
+            readonly says: string;
+        };
         /** PlacedNode */
         PlacedNode: {
             /** Id */
@@ -3671,6 +3793,21 @@ export interface components {
             queued: boolean;
         };
         /**
+         * ReadOnlyHere
+         * @description Reported here, set somewhere else.
+         */
+        ReadOnlyHere: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "read_only_here";
+            /** Why */
+            why: string;
+            /** Says */
+            readonly says: string;
+        };
+        /**
          * Reason
          * @description Every state-changing request carries one, and it is the only field.
          *
@@ -3826,6 +3963,32 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** Setting */
+        Setting: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Help */
+            help: string;
+            kind: components["schemas"]["Kind"];
+            default?: components["schemas"]["JsonValue"];
+            /** Env */
+            env?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: components["schemas"]["ChoiceOption"][];
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Unavailable */
+            unavailable?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
+            /** @default installation */
+            where: components["schemas"]["Where"];
+        };
         /**
          * SettingRequest
          * @description A setting the engine cannot settle, with the premise it read.
@@ -3893,6 +4056,27 @@ export interface components {
              */
             premise: string[];
         };
+        /**
+         * Shown
+         * @description What a server may say about a value. For a secret, `value` is always `None`.
+         */
+        Shown: {
+            value: components["schemas"]["JsonValue"];
+            source: components["schemas"]["Source"];
+            /** Locked */
+            locked: boolean;
+            /** Reason */
+            reason?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
+            /** Set */
+            set?: boolean | null;
+            /** Last4 */
+            last4?: string | null;
+        };
+        /**
+         * Source
+         * @enum {string}
+         */
+        Source: "default" | "installation" | "environment";
         /**
          * SourceCapabilities
          * @description What a source can prove, as opposed to what a tool happens to have.
@@ -4252,6 +4436,13 @@ export interface components {
              */
             seen_at: string;
         };
+        /**
+         * Where
+         * @description Where a value is kept. **`browser` is per browser and never reaches the server**: the
+         *     theme is one. The server still declares it, so the menu draws it with everything else.
+         * @enum {string}
+         */
+        Where: "installation" | "browser";
         /**
          * Candidate
          * @description One thing that may be answered, and where it comes from.
@@ -6357,6 +6548,79 @@ export interface operations {
             };
             /** @description The id in the path names nothing. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Menu"];
+                };
+            };
+        };
+    };
+    writeSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Change"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shown"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description `MI0300`: the setting is locked; the detail says why. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

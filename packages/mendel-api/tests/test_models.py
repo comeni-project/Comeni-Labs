@@ -62,6 +62,11 @@ def test_the_registry_is_not_in_the_database():
     is worth stating: a `pipeline_authoring_*` row is about **authoring an artifact**, and a run
     row would be about **executing one**. A samplesheet, an input path or a task record here
     would mean this table has become Wiener's.
+
+    **`installation_setting` arrived on 2026-10-01** (spec 2026-10-01 §8) and passes the same
+    test: it holds what an operator chose in the settings menu — which model answers which
+    purpose, a sealed key — and nothing a build reads to decide a pipeline. Delete every row and
+    every pipeline still builds byte-identically; only the menu forgets its choices.
     """
     import mendel_api.models as m
 
@@ -81,9 +86,10 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_authoring_session",
         "pipeline_authoring_turn",
         "pipeline_authoring_proposal",
+        "installation_setting",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
-        "docstring, and a fifteenth needs the same argument written down. Two rejections in "
+        "docstring, and a sixteenth needs the same argument written down. Two rejections in "
         "particular: a table of contracts, types or roles that a BUILD reads reverses issue "
         "#43 (declared data is files); a table of RUNS is Wiener's, and building it here "
         "because the worker is here is the exact failure docs/design/execution-boundary.md "
