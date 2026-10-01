@@ -48,7 +48,7 @@ describe("connections", () => {
 
   it("adds a record and saves the list without the env record and without retyping keys", async () => {
     const onWrite = draw();
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add connection" }));
     await userEvent.type(screen.getByLabelText("name", { selector: "#new-name" }), "Local");
     await userEvent.type(screen.getByLabelText("endpoint", { selector: "#new-endpoint" }), "http://o:11434");
     await userEvent.click(screen.getByRole("button", { name: "Save connections" }));
@@ -63,14 +63,14 @@ describe("connections", () => {
       ok: true, status: 200, json: async () => ({ ok: true, says: "Something answers at http://ollama:11434.", values: [] }),
     }));
     draw();
-    await userEvent.click(screen.getAllByRole("button", { name: "test" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Test" })[0]);
     expect(await screen.findByText(/Something answers/)).toBeTruthy();
   });
 
   it("says so when an action cannot be run", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
     draw();
-    await userEvent.click(screen.getAllByRole("button", { name: "test" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Test" })[0]);
     expect(await screen.findByText(/could not run test/i)).toBeTruthy();
   });
 
@@ -91,7 +91,7 @@ describe("connections", () => {
     } as unknown as Entry;
     const onWrite = vi.fn();
     render(<QueryClientProvider client={new QueryClient()}><Collection entry={withServer} onWrite={onWrite} /></QueryClientProvider>);
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add connection" }));
     await userEvent.type(screen.getByLabelText("name", { selector: "#new-name" }), "Cloud2");
     await userEvent.selectOptions(screen.getByLabelText("server", { selector: "#new-server" }), "A hosted provider");
     await userEvent.click(screen.getByRole("button", { name: "Save connections" }));

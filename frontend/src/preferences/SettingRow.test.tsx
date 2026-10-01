@@ -40,7 +40,7 @@ describe("a setting row", () => {
   it("marks a designed setting as not built", () => {
     const reason = { kind: "designed", where: "arrives with the consultant build", says: "Designed, not built yet: arrives with the consultant build." };
     render(<SettingRow entry={entry({}, { locked: true, reason })} onWrite={vi.fn()} />);
-    expect(screen.getByText("not built")).toBeTruthy();
+    expect(screen.getByText("Not built")).toBeTruthy();
   });
 
   it("draws a toggle", async () => {
@@ -116,5 +116,12 @@ describe("a setting row", () => {
   it("names a reported value's source", () => {
     render(<SettingRow entry={entry({ kind: "readonly", options: [] }, { value: "docker", source: "reported", locked: true })} onWrite={vi.fn()} />);
     expect(screen.getByText("Reported")).toBeTruthy();
+  });
+
+  it("calls a stored value that equals the default what it is: the default", () => {
+    // A purpose set back to *same as the default* is stored as null, and is the default.
+    render(<SettingRow entry={entry({ kind: "model", options: [], default: null, of: "x" }, { value: null, source: "installation" })} onWrite={vi.fn()} />);
+    expect(screen.getByText("Default")).toBeTruthy();
+    expect(screen.queryByText("Set here")).toBeNull();
   });
 });

@@ -32,9 +32,9 @@ describe("the model picker", () => {
       <ModelPicker entry={ENTRY} menu={MENU} onWrite={onWrite} />
     </QueryClientProvider>);
     const select = screen.getByRole("combobox", { name: "Talking with you" });
-    await waitFor(() => expect(screen.getByRole("option", { name: "Local · ollama_chat/gemma3:4b" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("option", { name: "Local · gemma3:4b" })).toBeTruthy());
     expect(screen.getByRole("option", { name: "Same as the default" })).toBeTruthy();
-    await userEvent.selectOptions(select, "Local · ollama_chat/gemma3:4b");
+    await userEvent.selectOptions(select, "Local · gemma3:4b");
     expect(onWrite).toHaveBeenCalledWith({ connection: "Local", model: "ollama_chat/gemma3:4b" });
   });
 
@@ -43,7 +43,7 @@ describe("the model picker", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ModelPicker entry={ENTRY} menu={MENU} onWrite={vi.fn()} />
     </QueryClientProvider>);
-    expect(await screen.findByText(/Local: could not list its models/)).toBeTruthy();
+    expect(await screen.findByText("Could not list models on Local.")).toBeTruthy();
     expect(screen.getByRole("option", { name: "Other…" })).toBeTruthy();
   });
 
@@ -55,6 +55,6 @@ describe("the model picker", () => {
     render(<QueryClientProvider client={new QueryClient()}>
       <ModelPicker entry={ENTRY} menu={MENU} onWrite={vi.fn()} />
     </QueryClientProvider>);
-    expect(await screen.findByText(/Local: Could not list models/)).toBeTruthy();
+    expect(await screen.findByText("Could not list models on Local.")).toBeTruthy();
   });
 });

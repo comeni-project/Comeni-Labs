@@ -1,6 +1,7 @@
-import { useEffect } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { useCallback, useEffect } from "react";
+import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router";
 
+import { SettingsOverlay } from "../preferences/SettingsOverlay";
 import { Field } from "../ui/Field";
 import { painted, useTheme } from "./useTheme";
 
@@ -86,7 +87,29 @@ export function Shell() {
   // The front door's arcs bloom from below the prompt (`OverviewFirst`); every other board
   // throws them from the lower-left corner (`_field.html`). Two mounted fields stacked their
   // gradients into a grey wash, which is exactly what the first attempt looked like.
-  const bloom = useLocation().pathname === "/";
+  const location = useLocation();
+  const bloom = location.pathname === "/";
+
+  // **Settings is an overlay over the page you are on**, opened by `?settings=<section>` (the
+  // overlay's design, 2026-10-01). The address carries it, so it can be linked, and closing it
+  // removes only that parameter: the page and its own state stay as they were.
+  const [params, setParams] = useSearchParams();
+  const settings = params.get("settings");
+  const withSettings = (section: string | null) => {
+    const next = new URLSearchParams(params);
+    if (section === null) next.delete("settings");
+    else next.set("settings", section);
+    return next;
+  };
+  const gear = `${location.pathname}?${withSettings("").toString()}`;
+  const openSection = (section: string) => setParams(withSettings(section), { replace: true });
+  const closeSettings = useCallback(() => {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("settings");
+      return next;
+    });
+  }, [setParams]);
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh">
@@ -136,7 +159,7 @@ export function Shell() {
         {/* **Settings live behind a gear at the right**, where most applications put it. The
             theme toggle that sat here moved into Settings → Appearance (spec §7). */}
         <Link
-          to="/settings"
+          to={gear}
           aria-label="Settings"
           title="Settings"
           className="ml-auto pb-[3px] border-b border-transparent text-[14px] text-ink-3
@@ -146,6 +169,9 @@ export function Shell() {
         </Link>
       </nav>
       <Outlet />
+      {settings !== null && (
+        <SettingsOverlay section={settings} onSelect={openSection} onClose={closeSettings} />
+      )}
     </div>
   );
 }

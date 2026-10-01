@@ -11,10 +11,10 @@ import { Catalogue } from "../forge/registry/Catalogue";
 import { Overview as Registry } from "../forge/registry/Overview";
 import { Work } from "../forge/registry/Work";
 import { Board as Runs } from "../runs/Board";
-import { Preferences } from "../preferences/Preferences";
 import { Run } from "../runs/Run";
 import { BuildRoute } from "./BuildRoute";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { SettingsLink } from "./SettingsLink";
 import { Shell } from "./Shell";
 
 /** The route table — spec §4.1.
@@ -62,9 +62,9 @@ export const routes: RouteObject[] = [
       { path: "/build/living", element: <LivingBuilder /> },
       { path: "/runs", element: <Runs /> },
       { path: "/runs/:id", element: <Run /> },
-      // **Settings for the whole installation** (spec 2026-10-01). Optional section, so the
-      // gear can link to `/settings` and the page picks the first section.
-      { path: "/settings/:section?", element: <Preferences /> },
+      // **Settings is an overlay now** (`?settings=<section>`, opened by the gear over any
+      // page). A `/settings/<section>` link from before 2026-10-01 still lands on it.
+      { path: "/settings/:section?", element: <SettingsLink /> },
       // **The Registry section — `/forge` is its front door, not a redirect.** The three
       // screens below it are one destination with a subnav, for the same reason filters are
       // query params here: they are views of *the registry*, and three top-level tabs would

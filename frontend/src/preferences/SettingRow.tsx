@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import { Refusal } from "../ui/Refusal";
 import { Help } from "./Help";
+import { Badge, LockIcon } from "./parts";
+import { FIELD, sourceOf } from "./shared";
 import { useBrowserSetting } from "./useBrowserSetting";
 import { Collection } from "./Collection";
 import { ModelPicker } from "./ModelPicker";
@@ -35,27 +37,72 @@ function InBrowser({ entry }: Props) {
   return <Row entry={entry} value={value} onWrite={(next) => set(String(next))} badge="This browser" />;
 }
 
+/** Kinds drawn on one line beside their label (label · control · source, as the design's model
+ *  rows); everything else is drawn under its label. */
+const INLINE = new Set(["model", "text", "number", "toggle", "secret"]);
+
+/** The badge for where a value came from. Words are the menu's own chrome; colour says one thing:
+ *  blue is *you set this here*, everything else is quiet. */
+const TONE: Record<string, string> = {
+  installation: "text-link bg-link-soft border-[var(--link-line)]",
+  environment: "text-ink-2 bg-surface border-line-2",
+};
+
+/** The first sentence of the help, shown under an inline row's label; the ⓘ holds the rest. */
+const hintOf = (help: string) => help.split(/(?<=\.)\s+/)[0];
+
 function Row({
   entry, onWrite, refusal, menu, value = entry.shown.value, badge,
 }: Props & { value?: unknown; badge?: string }) {
   const { setting, shown } = entry;
   const reason = shown.reason ?? null;
   const designed = reason?.kind === "designed";
+  const inline = INLINE.has(setting.kind) || (setting.kind === "readonly" && !Array.isArray(value));
+  const from = sourceOf(entry);
+  const source = (
+    <Badge tone={badge ? "" : TONE[from] ?? ""}>
+      {from === "environment" && !badge && <LockIcon />}
+      {badge ?? SOURCE[from]}
+    </Badge>
+  );
+  const control = (
+    <Control entry={entry} value={value} disabled={shown.locked} onWrite={onWrite} menu={menu} />
+  );
   return (
-    <div data-testid="preference" className="py-3 border-b border-line-soft last:border-b-0">
-      <div className="relative flex items-baseline gap-2">
-        <label htmlFor={setting.key} className="text-body text-ink">{setting.label}</label>
-        <Help label={setting.label} help={setting.help} reason={reason?.says} locked={shown.locked} />
-        {shown.locked && !designed && <span aria-label="Locked" title="Locked">🔒</span>}
-        {designed && (
-          <span className="text-secondary text-ink-3 border border-line px-1">not built</span>
+    <div data-testid="preference" className="py-[14px] border-t border-line-soft first:border-t-0">
+      <div
+        className={`grid gap-x-[20px] gap-y-[8px] items-center grid-cols-[minmax(0,1fr)_auto]
+                    ${inline ? "md:grid-cols-[minmax(0,1fr)_280px_110px]" : ""}`}
+      >
+        <div className="relative flex flex-wrap items-center gap-x-[6px] gap-y-[4px] min-w-0">
+          <label
+            htmlFor={setting.key}
+            className={`text-body ${shown.locked ? "text-ink-2" : "text-ink"}`}
+          >
+            {setting.label}
+          </label>
+          <Help label={setting.label} help={setting.help} reason={reason?.says} locked={shown.locked} />
+          {shown.locked && !designed && (
+            <span className="text-ink-3 inline-flex"><LockIcon label="Locked" /></span>
+          )}
+          {designed && <Badge dashed>Not built</Badge>}
+          {inline && (
+            <span className="basis-full text-secondary text-ink-4">{hintOf(setting.help)}</span>
+          )}
+        </div>
+        {inline ? (
+          <>
+            <div className="col-span-2 md:col-span-1 order-last md:order-none min-w-0">{control}</div>
+            <div className="justify-self-end">{source}</div>
+          </>
+        ) : (
+          <>
+            <div className="justify-self-end">{source}</div>
+            <div className="col-span-2 min-w-0">{control}</div>
+          </>
         )}
-        <span className="ml-auto text-secondary text-ink-3">{badge ?? SOURCE[shown.source]}</span>
       </div>
-      <div className="mt-2">
-        <Control entry={entry} value={value} disabled={shown.locked} onWrite={onWrite} menu={menu} />
-      </div>
-      {refusal && <div className="mt-2"><Refusal message={refusal} /></div>}
+      {refusal && <div className="mt-[8px]"><Refusal message={refusal} /></div>}
     </div>
   );
 }
@@ -66,21 +113,43 @@ function Control({
   const { setting, shown } = entry;
   switch (setting.kind) {
     case "choice":
+      // **A segmented control** (the design's Building rows). The radio sits inside each
+      // segment's label, so a keyboard and a screen reader meet a plain radio group; a greyed
+      // setting is drawn dashed rather than only faded.
       return (
-        <div role="radiogroup" aria-label={setting.label} className="flex flex-wrap gap-4">
-          {(setting.options ?? []).map((option) => (
-            <label key={option.value} className="flex items-center gap-1 text-secondary text-ink">
-              <input
-                type="radio"
-                name={setting.key}
-                value={option.value}
-                checked={value === option.value}
-                disabled={disabled}
-                onChange={() => onWrite(option.value)}
-              />
-              {option.label}
-            </label>
-          ))}
+        <div
+          role="radiogroup"
+          aria-label={setting.label}
+          // Stacked rows on a phone, one segmented line on a desk (the design's phone artboard).
+          className={`flex flex-col md:inline-flex md:flex-row md:flex-wrap max-w-full
+                      rounded-[3px] border border-line-2 ${disabled ? "border-dashed" : ""}`}
+        >
+          {(setting.options ?? []).map((option) => {
+            const on = value === option.value;
+            return (
+              <label
+                key={option.value}
+                className={`px-[12px] py-[8px] min-h-[44px] md:min-h-0 flex items-center
+                            text-[12px] border-b last:border-b-0 md:border-b-0 md:border-r
+                            md:last:border-r-0 border-line-2
+                            ${disabled ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
+                            ${on ? "bg-hover text-ink" : "text-ink-3"}
+                            ${!disabled && !on ? "hover:text-ink" : ""}
+                            has-[:focus-visible]:shadow-[var(--ring)]`}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  name={setting.key}
+                  value={option.value}
+                  checked={on}
+                  disabled={disabled}
+                  onChange={() => onWrite(option.value)}
+                />
+                {option.label}
+              </label>
+            );
+          })}
         </div>
       );
     case "toggle":
@@ -131,7 +200,7 @@ function Typed({
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => event.key === "Enter" && commit()}
-      className="border border-line bg-transparent px-2 py-1 text-secondary text-ink w-[260px] max-w-full"
+      className={FIELD}
     />
   );
 }
@@ -145,7 +214,7 @@ function Secret({
   const [draft, setDraft] = useState("");
   if (set && !replacing) {
     return (
-      <span className="flex items-center gap-3 text-secondary text-ink-2">
+      <span className="flex items-center gap-[12px] text-secondary text-ink-2">
         {last4 ? `Set, ending ${last4}` : "Set"}
         <button type="button" disabled={disabled} onClick={() => setReplacing(true)}
                 className="bg-transparent text-link cursor-pointer">Replace</button>
@@ -153,7 +222,7 @@ function Secret({
     );
   }
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex items-center gap-[8px]">
       <input
         id={entry.setting.key}
         type="password"
@@ -162,7 +231,7 @@ function Secret({
         value={draft}
         disabled={disabled}
         onChange={(event) => setDraft(event.target.value)}
-        className="border border-line bg-transparent px-2 py-1 text-secondary text-ink w-[260px] max-w-full"
+        className={FIELD}
       />
       <button type="button" disabled={disabled || !draft}
               onClick={() => onWrite(draft, () => { setDraft(""); setReplacing(false); })}

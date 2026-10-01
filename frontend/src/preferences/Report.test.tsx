@@ -4,10 +4,16 @@ import { describe, expect, it } from "vitest";
 import { Report } from "./Report";
 
 describe("a report", () => {
-  it("draws a list of records as a table", () => {
-    render(<Report value={[{ purpose: "Talking with you", goes: "stays on this machine or your network" }]} />);
-    expect(screen.getByRole("columnheader", { name: "purpose" })).toBeTruthy();
-    expect(screen.getByRole("cell", { name: "Talking with you" })).toBeTruthy();
+  it("draws a list of records as a stacked list, the first field as each line", () => {
+    render(<Report value={[{ purpose: "Talking with you", goes: "stays on this machine", connection: "Local" }]} />);
+    expect(screen.getByRole("listitem")).toBeTruthy();
+    expect(screen.getByText("Talking with you")).toBeTruthy();
+    expect(screen.getByText("stays on this machine · Local")).toBeTruthy();
+  });
+
+  it("draws a list of values on one line", () => {
+    render(<Report value={["/app/registry", "/app/lab"]} />);
+    expect(screen.getByText("/app/registry · /app/lab")).toBeTruthy();
   });
 
   it("draws anything else as text", () => {
