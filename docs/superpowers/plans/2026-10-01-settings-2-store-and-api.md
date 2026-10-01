@@ -64,12 +64,12 @@
 **Interfaces:**
 - Produces: `InstallationSetting` with `key: str` (primary key, `String(120)`), `value: dict | list | str | int | float | bool` (`JSON`), `updated_at: datetime` (timezone), `updated_by: str` (`String(200)`).
 
-- [ ] **Step 1: Check the migration head before writing one**
+- [x] **Step 1: Check the migration head before writing one**
 
 Run: `cd packages/mendel-api && uv run alembic heads`
 Expected: `c3e8f1a57d20 (head)`. If it is anything else, use that revision as `down_revision` below and record the ruling.
 
-- [ ] **Step 2: Add the model**
+- [x] **Step 2: Add the model**
 
 ```python
 class InstallationSetting(Base):
@@ -92,12 +92,12 @@ class InstallationSetting(Base):
 
 Add `from typing import Any` to the imports at the top of `models.py` if it is not there (`grep -n "^from typing" packages/mendel-api/src/mendel_api/models.py`).
 
-- [ ] **Step 3: Run the migrations test to watch it fail**
+- [x] **Step 3: Run the migrations test to watch it fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_migrations.py -q`
 Expected: FAIL, naming `installation_setting` as a model the migrations never create.
 
-- [ ] **Step 4: Write the migration**
+- [x] **Step 4: Write the migration**
 
 ```python
 """installation_setting — the settings menu's store (spec 2026-10-01 §8).
@@ -131,7 +131,7 @@ def downgrade() -> None:
     op.drop_table("installation_setting")
 ```
 
-- [ ] **Step 5: Run the migrations test to watch it pass, then apply to the throwaway**
+- [x] **Step 5: Run the migrations test to watch it pass, then apply to the throwaway**
 
 Run: `uv run pytest packages/mendel-api/tests/test_migrations.py -q`
 Expected: PASS
@@ -139,7 +139,7 @@ Expected: PASS
 Run: `cd packages/mendel-api && MENDEL_DATABASE_URL=$DB uv run alembic upgrade head 2>&1 | tail -1`
 Expected: `Running upgrade c3e8f1a57d20 -> d5a1c7e93b20, installation_setting …`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/models.py packages/mendel-api/migrations/versions/d5a1c7e93b20_installation_setting.py
@@ -159,7 +159,7 @@ git commit -m "feat(settings): the installation_setting table (#212)"
 - Consumes: `InstallationSetting` (Task 1); `session_scope` (`mendel_api.db`).
 - Produces: `PostgresStore()` with `values() -> dict[str, object]`, `put(key: str, value: object, by: str) -> None` (an upsert), `who(key: str) -> str | None`.
 
-- [ ] **Step 1: Add the fixture** (append to `conftest.py`)
+- [x] **Step 1: Add the fixture** (append to `conftest.py`)
 
 ```python
 @pytest.fixture
@@ -174,7 +174,7 @@ def clean_settings():
     yield
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 """The settings store against the real database (spec §8)."""
@@ -243,12 +243,12 @@ def test_two_saves_to_different_keys_both_land(clean_settings):
     assert store.values() == {f"building.k{i}": i for i in range(8)}
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [x] **Step 3: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=$DB uv run pytest packages/mendel-api/tests/test_settings_store.py -q`
 Expected: FAIL, `No module named 'mendel_api.services.settings_store'` (and not *skipped*: if it says skipped, the throwaway is not up)
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 ```python
 """The settings store: one row per setting in `installation_setting` (spec §8).
@@ -292,12 +292,12 @@ class PostgresStore:
             )
 ```
 
-- [ ] **Step 5: Run them to verify they pass**
+- [x] **Step 5: Run them to verify they pass**
 
 Run: `MENDEL_DATABASE_URL=$DB uv run pytest packages/mendel-api/tests/test_settings_store.py -q`
 Expected: PASS, 4 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/services/settings_store.py packages/mendel-api/tests/conftest.py packages/mendel-api/tests/test_settings_store.py
@@ -319,12 +319,12 @@ git commit -m "feat(settings): the Postgres store, one row per setting (#212)"
 
 Two failure modes from the Review Focus shape this task. A malformed key is reported, not raised, so `codec_from_env` returns `None` and `key_problem()` says why; part 1's resolver then greys every secret. A secret sealed under an old key cannot be opened; `Installation.get` would raise, so `installation()` in Task 4 wraps the codec in `Tolerant`, which turns an unreadable secret into *not set*.
 
-- [ ] **Step 1: Add the dependency**
+- [x] **Step 1: Add the dependency**
 
 In `packages/mendel-api/pyproject.toml`, add `"cryptography>=42",` to `dependencies` after `"pydantic-settings>=2.4",`. Then run `uv lock && uv sync`.
 Expected: the lockfile changes only in `mendel-api`'s dependency list (`git diff --stat uv.lock` is small); `cryptography` was already installed transitively.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 """The secret codec: Fernet, keyed by COMENI_SETTINGS_KEY (spec §8)."""
@@ -377,12 +377,12 @@ def test_the_codec_never_prints_its_key():
     assert KEY not in repr(codec) and KEY not in str(codec)
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [x] **Step 3: Run them to verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_codec.py -q`
 Expected: FAIL, `No module named 'mendel_api.services.settings_codec'`
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 ```python
 """Sealing secrets stored from the menu (spec §8).
@@ -469,7 +469,7 @@ def key_problem(env: Mapping[str, str]) -> str | None:
     return None
 ```
 
-- [ ] **Step 5: Make an unreadable secret read as not set in part 1's facade**
+- [x] **Step 5: Make an unreadable secret read as not set in part 1's facade**
 
 `Installation.shown` treats `get()`'s `""` as set. Change it in `packages/comeni-core/src/comeni_core/settings/installation.py`, in `shown()`:
 
@@ -493,12 +493,12 @@ def test_a_secret_the_codec_cannot_open_is_shown_as_not_set():
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_installation.py -q` before the change (Expected: the new test FAILS, `set` is `True`) and after (Expected: PASS).
 
-- [ ] **Step 6: Run the codec tests to verify they pass**
+- [x] **Step 6: Run the codec tests to verify they pass**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_codec.py -q`
 Expected: PASS, 6 passed
 
-- [ ] **Step 7: Document the key in `.env.example`**
+- [x] **Step 7: Document the key in `.env.example`**
 
 After the `COMENI_AI_MAX_CONCURRENT_JOBS` lines, add:
 
@@ -513,7 +513,7 @@ After the `COMENI_AI_MAX_CONCURRENT_JOBS` lines, add:
 COMENI_SETTINGS_KEY=
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/mendel-api/pyproject.toml uv.lock packages/mendel-api/src/mendel_api/services/settings_codec.py packages/mendel-api/tests/test_settings_codec.py packages/comeni-core/src/comeni_core/settings/installation.py packages/comeni-core/tests/test_settings_installation.py .env.example
@@ -537,7 +537,7 @@ git commit -m "feat(settings): secrets sealed with Fernet; a bad or rotated key 
 - Consumes: `Installation`, `Menu`, `Shown`, `SettingLocked`, `IllegalValue`, `CATALOGUE`, `Needs` (part 1); `PostgresStore` (Task 2); `codec_from_env`, `Tolerant`, `key_problem` (Task 3).
 - Produces: `installation() -> Installation` (a FastAPI dependency; tests override it); `GET /api/settings` → `Menu` (operation `readSettings`); `PUT /api/settings/{key}` with body `{"value": ...}` → `Shown` (operation `writeSetting`); `MI0300` locked (409), `MI0301` no value (422), `MI0302` illegal value (422).
 
-- [ ] **Step 1: Declare the codes**
+- [x] **Step 1: Declare the codes**
 
 In `diagnostics.yml`'s header band list, after the `MI0200-MI0299` line, add:
 
@@ -587,7 +587,7 @@ MI0302:
 
 Run: `uv run python tools/generate_diagnostics_doc.py`
 
-- [ ] **Step 2: Write the failing route tests**
+- [x] **Step 2: Write the failing route tests**
 
 ```python
 """The settings routes (spec §8). The catalogue and store are overridden: these tests are about
@@ -698,12 +698,12 @@ def test_a_secret_comes_back_as_set_and_last_four(client, made):
     assert made["store"].rows["models.key"] != "sk-abcdef1234"
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [x] **Step 3: Run them to verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_routes.py -q`
 Expected: FAIL, `No module named 'mendel_api.services.installation'`
 
-- [ ] **Step 4: Write the dependency**
+- [x] **Step 4: Write the dependency**
 
 `services/installation.py`:
 
@@ -730,7 +730,7 @@ def installation() -> Installation:
     )
 ```
 
-- [ ] **Step 5: Write the refusal and the routes**
+- [x] **Step 5: Write the refusal and the routes**
 
 Append to `refusals.py`:
 
@@ -809,7 +809,7 @@ In `main.py`:
 
 `IllegalValue` subclasses `ValueError`; it is caught in the route so it gets its code, and never reaches the plain `ValueError` handler uncoded.
 
-- [ ] **Step 6: Name the operations in `test_openapi.py`**
+- [x] **Step 6: Name the operations in `test_openapi.py`**
 
 Add to the dict in `test_every_operation_is_named_by_hand`:
 
@@ -818,7 +818,7 @@ Add to the dict in `test_every_operation_is_named_by_hand`:
         ("/api/settings/{key}", "put"): "writeSetting",
 ```
 
-- [ ] **Step 7: Run everything this task touched**
+- [x] **Step 7: Run everything this task touched**
 
 Run: `uv run pytest packages/mendel-api/tests/test_settings_routes.py packages/mendel-api/tests/test_openapi.py tests/diagnostics -q 2>&1 | tail -3`
 Expected: PASS. If `tests/diagnostics` reports a code declared but never emitted, the emission is in the wrong package; the ownership test reads `packages/mendel-api/src`.
@@ -826,7 +826,7 @@ Expected: PASS. If `tests/diagnostics` reports a code declared but never emitted
 Run against the real store: `MENDEL_DATABASE_URL=$DB uv run python -c "from fastapi.testclient import TestClient; from mendel_api.main import create_app; print(TestClient(create_app()).get('/api/settings').json()['sections'][0]['key'])"`
 Expected: `appearance`
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/services/installation.py packages/mendel-api/src/mendel_api/routes/settings.py packages/mendel-api/src/mendel_api/refusals.py packages/mendel-api/src/mendel_api/main.py packages/comeni-core/src/comeni_core/diagnostics.yml docs/handbook/reference/diagnostics.md packages/mendel-api/tests/test_settings_routes.py packages/mendel-api/tests/test_openapi.py
@@ -846,7 +846,7 @@ git commit -m "feat(settings): GET and PUT /api/settings, locked is MI0300 and a
 **Interfaces:**
 - Consumes: `create_app`, `installation` (Task 4); `Installation`, `Setting`, `Catalogue`, `Section` (part 1); `FernetCodec` (Task 3).
 
-- [ ] **Step 1: Write the guard**
+- [x] **Step 1: Write the guard**
 
 ```python
 """A secret typed into the settings menu never leaves through the API (spec §8, §9).
@@ -903,12 +903,12 @@ def test_no_settings_response_and_no_stored_row_holds_the_plaintext():
     assert all(PLAIN not in str(value) for value in store.rows.values()), "stored unsealed"
 ```
 
-- [ ] **Step 2: Run it to watch it pass**
+- [x] **Step 2: Run it to watch it pass**
 
 Run: `uv run pytest tests/guards/test_settings_secrets.py -q`
 Expected: PASS, 1 passed
 
-- [ ] **Step 3: Watch it fail against the defect**
+- [x] **Step 3: Watch it fail against the defect**
 
 Break the code under test: in `packages/comeni-core/src/comeni_core/settings/installation.py`, in `shown()`, change `value=None,` (the secret branch) to `value=plain,`.
 
@@ -917,7 +917,7 @@ Expected: FAIL with `PUT leaked the secret`. Copy the message.
 
 Restore `value=None,` and re-run. Expected: PASS.
 
-- [ ] **Step 4: Record it in the ledger**
+- [x] **Step 4: Record it in the ledger**
 
 Append a row to the newest table in `tests/fixtures/guard-ledger.md` (read its last section first and match its columns):
 
@@ -925,7 +925,7 @@ Append a row to the newest table in `tests/fixtures/guard-ledger.md` (read its l
 | 2026-10-?? | `tests/guards/test_settings_secrets.py` | `Installation.shown` returned the plaintext as `value` for a secret | failed on the first PUT | `PUT leaked the secret` |
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/guards/test_settings_secrets.py tests/fixtures/guard-ledger.md
@@ -939,24 +939,24 @@ git commit -m "test(settings): a secret never leaves the settings API — watche
 **Files:**
 - Regenerate: `frontend/openapi.json`, `frontend/src/api/schema.d.ts` (and Wiener's, unchanged)
 
-- [ ] **Step 1: Regenerate the clients**
+- [x] **Step 1: Regenerate the clients**
 
 Run: `make client && git diff --stat frontend/`
 Expected: `frontend/src/api/schema.d.ts` and `frontend/openapi.json` change; the diff names `readSettings`, `writeSetting`, `Menu`, `Shown`, `Setting`.
 
-- [ ] **Step 2: Type-check the frontend**
+- [x] **Step 2: Type-check the frontend**
 
 Run: `cd frontend && npx tsc -b`
 Expected: no errors (nothing consumes the new types yet)
 
-- [ ] **Step 3: Run the checks, one at a time**
+- [x] **Step 3: Run the checks, one at a time**
 
 Run each, reading each result before the next:
 - `uv run ruff check .` → clean
 - `MENDEL_DATABASE_URL=$DB uv run pytest packages/mendel-api packages/comeni-core tests/guards tests/diagnostics -q 2>&1 | tail -3` → all pass, none skipped for want of a database in the settings files
 - `make types docs links doc-paths doc-sizes` → pass
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/openapi.json frontend/src/api/schema.d.ts
@@ -967,4 +967,17 @@ git commit -m "chore(client): regenerate for the settings API (#212)"
 
 ## Execution record
 
-(Filled in while executing: rulings, deviations, and the closing commit for #212.)
+Executed 2026-10-01, in one hand. Commits 748859d..9bf87b6.
+
+- **Task 3, ruling:** `cryptography` was **not** already in the project's environment; the check
+  that said so read a conda environment. It is now a real dependency of `mendel-api`
+  (cryptography 50.0.2, with cffi and pycparser in `uv.lock`).
+- **Task 4, rulings:** the settings `Option` collided with the authoring `Option` in the OpenAPI
+  schema and is `ChoiceOption`; `tools/generate_diagnostics_doc.py` needed a heading for the new
+  `settings` concern.
+- **Task 6, ruling:** `test_models.py` holds a literal list of tables; `installation_setting` is
+  added with its argument.
+- **Found, not caused here:** five failures exist on the commit before this plan (`748859d`):
+  four in `test_forge_jobs.py` (`MF0001: 'fake' is not a catalogue source`) and
+  `test_full_cycle.py::test_the_loop_closes`.
+- Final review batched with plan 1's.
