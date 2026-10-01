@@ -63,7 +63,7 @@
 **Interfaces:**
 - Produces: `comeni_core.declared.tools.Tool(id: str, name: str, description: str, homepage: str | None, cite: str | None)`; `ToolCatalogue(tools: dict[str, Tool])` with `.kind()`, `.of(stacked)`, `.load(layers)`; `DeclaredKind.TOOLS = "tools"`; `Layers.tools: ToolCatalogue`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/comeni-core/tests/test_tools.py
@@ -134,12 +134,12 @@ def test_the_shipped_registry_loads_its_tools():
 
 (`REGISTRY` is the module's existing constant for the shipped layer; reuse it.)
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_tools.py tests/registry/test_declared_loading.py -q`
 Expected: FAIL — `ModuleNotFoundError: comeni_core.declared.tools`, and `Layers` has no `tools`.
 
-- [ ] **Step 3: Implement the kind**
+- [x] **Step 3: Implement the kind**
 
 ```python
 # packages/comeni-core/src/comeni_core/declared/tools.py
@@ -232,12 +232,12 @@ and in `load()`, beside `declared_families`:
 
 pass `tools=ToolCatalogue.of(declared_tools)` to `Layers(...)`, and add `*declared_tools.displaced` to the displacement list.
 
-- [ ] **Step 4: Run them to see them pass, and the kind count wherever it is pinned**
+- [x] **Step 4: Run them to see them pass, and the kind count wherever it is pinned**
 
 Run: `uv run pytest packages/comeni-core/tests/test_tools.py tests/registry/ -q && grep -rn "len(DeclaredKind)" tests packages | head`
 Expected: PASS. If a test pins `len(DeclaredKind)`, it now fails by one: update its number in this step (the count lives in `DeclaredKind`, never in prose).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/declared/tools.py packages/comeni-core/src/comeni_core/declared/layered.py packages/mendel-resolver/src/mendel_resolver/layers.py packages/comeni-core/tests/test_tools.py tests/registry/test_declared_loading.py
@@ -259,7 +259,7 @@ git commit -m "feat(core): the tool kind — what a tool is, beside its contract
 
 The rule *path is the id*, exactly: for a `contract` or `module` under `tools/` or `profilers/`, the id minus `@version` must equal the file's folder relative to that root (`tools/nf-core/samtools/sort/contract.yml` ↔ `nf-core/samtools/sort`). A **tool folder** is `tools/<org>/<tool>/` — the first two segments of any module key under `tools/`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/registry/test_registry_lint.py` (the module already has a `copy` fixture of the shipped layer; these tests build small layers in `tmp_path` so they do not depend on whether the registry has moved yet):
 
@@ -331,12 +331,12 @@ def test_a_layout_without_the_tool_kind_is_not_held_to_it(tmp_path):
     assert not {"MD0021", "MD0022", "MD0023"} & set(_codes(root))
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest tests/registry/test_registry_lint.py -q -k "folder or tool_yml or types_folder or arranged or without_the_tool"`
 Expected: FAIL on the three refusals (codes absent); the two clean cases pass.
 
-- [ ] **Step 3: Declare the codes**
+- [x] **Step 3: Declare the codes**
 
 In `diagnostics.yml`, change the header line `#   MD0013-MD0019  a layer is not arranged …` to `#   MD0013-MD0019, MD0021-MD0023  a layer is not arranged the way its own manifest says`, and add after `MD0020`, copying `MD0019`'s shape:
 
@@ -376,7 +376,7 @@ MD0023:
 
 Copy any further keys `MD0019` carries (for example `fix:` or `see:`) so the file's own schema check passes; read `MD0019` first.
 
-- [ ] **Step 4: Implement the three checks**
+- [x] **Step 4: Implement the three checks**
 
 In `registry_lint.py`, in `lint()` after the existing checks:
 
@@ -474,16 +474,16 @@ def _tool_types_in_types(root: Path) -> list[Diagnostic]:
 
 `_tool_types_are_namespaced` (MD0017) keeps working unchanged: it reads `parts[1]` of the path below `tools/`, which is still the tool.
 
-- [ ] **Step 5: Run the lint tests and regenerate the diagnostics page**
+- [x] **Step 5: Run the lint tests and regenerate the diagnostics page**
 
 Run: `uv run python tools/generate_diagnostics_doc.py && uv run pytest tests/registry/test_registry_lint.py tests/ -q -k "lint or diagnostic" -p no:randomly`
 Expected: PASS, including `test_the_shipped_layer_lints_clean` against today's registry (its `layout:` has no `tool`).
 
-- [ ] **Step 6: Watch each new guard fail (A14)**
+- [x] **Step 6: Watch each new guard fail (A14)**
 
 For each of MD0021–MD0023, delete the `found += …` line, run its test, see it FAIL, restore. Record the three reverts in `tests/fixtures/guard-ledger.md` in the table's existing format.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/mendel-compiler/src/mendel_compiler/registry_lint.py packages/comeni-core/src/comeni_core/diagnostics.yml docs/handbook/reference/diagnostics.md tests/registry/test_registry_lint.py tests/fixtures/guard-ledger.md
@@ -504,12 +504,12 @@ git commit -m "feat(lint): the path is the id, every tool says what it is — op
 - Consumes: `Layers.tools` (Task 1).
 - Produces: `mendel docs --registry <one layer> --in-place [--check]` writes `README.md` in the folder holding each tool's contracts: `tools/<key>/` if it exists in the layer, else `profilers/<key>/`, where `<key>` is `tool_docs._tool_of(id)`. A page opens with the tool's `name` and `description` when a `tool.yml` declares it.
 
-- [ ] **Step 1: Read the existing tests and parser**
+- [x] **Step 1: Read the existing tests and parser**
 
 Run: `sed -n 1,80p tests/registry/test_docs_verb.py && sed -n 20,90p packages/mendel-compiler/src/mendel_compiler/cli/parse.py`
 Note how the tests invoke the verb (directly through `_docs_verb`, or through `main([...])`) and follow the same style below.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 def _arranged(tmp_path):
@@ -565,12 +565,12 @@ def test_in_place_refuses_a_stack(tmp_path):
 
 An orphan is a `README.md` **beginning with the generated banner** under `tools/` or `profilers/` that is not in the page set: a hand-written top-level `README.md` (`tools/README.md`) is never an orphan, because it lacks the banner.
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `uv run pytest tests/registry/test_docs_verb.py -q`
 Expected: FAIL — `_docs_verb() got an unexpected keyword argument 'in_place'`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 In `tool_docs.render`, after the banner, when `loaded.tools.tools.get(tool)` exists, title the page with its `name` and put its `description` (and `homepage`/`cite` lines when set) under the title; otherwise keep `# {tool}`. Keep the rest of the page as it is.
 
@@ -605,12 +605,12 @@ Change `_docs_verb(registries, out, check)` to `_docs_verb(registries, out, chec
 
 In `parse.py`, add `--in-place` to `docs` (help: "`docs` only: write each tool's page as README.md in that tool's own folder, in the one layer given") and make `--out` optional when `--in-place` is given; pass it through where `_docs_verb` is called.
 
-- [ ] **Step 5: Run them to see them pass, and the existing docs tests**
+- [x] **Step 5: Run them to see them pass, and the existing docs tests**
 
 Run: `uv run pytest tests/registry/test_docs_verb.py tests/repo/test_wiki.py -q`
 Expected: PASS. `make wiki-tools` (`--out docs/tools/`) is unchanged.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-compiler/src/mendel_compiler/cli/layer_verbs.py packages/mendel-compiler/src/mendel_compiler/cli/parse.py packages/mendel-compiler/src/mendel_compiler/tool_docs.py tests/registry/test_docs_verb.py
@@ -628,7 +628,7 @@ git commit -m "feat(docs): mendel docs --in-place — a tool's page lives in its
 **Interfaces:**
 - Produces: `registry.signature() -> tuple[tuple[str, int, int], ...]` (relative path, size, `st_mtime_ns`, over `declared_entries`); `registry.digest() -> str` unchanged in value, computed once per signature; `registry.stack()` unchanged.
 
-- [ ] **Step 1: Measure today**
+- [x] **Step 1: Measure today**
 
 Run:
 ```bash
@@ -641,7 +641,7 @@ print('per request ms', round(timeit.timeit(registry.stack, number=200) / 200 * 
 ```
 Expected: a number around 5–12 ms. Write it into the plan's execution record.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 def test_an_unchanged_registry_is_not_hashed_again(monkeypatch):
@@ -683,12 +683,12 @@ def test_an_edit_of_the_same_size_is_still_seen(monkeypatch, broken_registry_cop
 
 (Read the `broken_registry_copy` fixture first: if its replacement must differ, copy the layer with `shutil.copytree` in the test instead.)
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_registry_cache.py -q`
 Expected: FAIL — `registry` has no `_digest_for`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 ```python
 from comeni_core.declared.layered import declared_entries
@@ -722,12 +722,12 @@ def digest() -> str:
 
 Keep `_load(digest)` and `stack()` as they are. `declared_entries` already lists what the digest covers, so the two agree on what "the registry" is.
 
-- [ ] **Step 5: Run them to see them pass, then measure again**
+- [x] **Step 5: Run them to see them pass, then measure again**
 
 Run: `uv run pytest packages/mendel-api/tests/test_registry_cache.py -q` then the Step 1 command.
 Expected: PASS; the per-request number well under 1 ms. Write both numbers into the execution record and onto issue #216.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/services/registry.py packages/mendel-api/tests/test_registry_cache.py
@@ -746,12 +746,12 @@ git commit -m "perf(api): know the registry changed from stat, hash it only when
 - Consumes: `LayerManifest.of(root).layout` (`comeni_core.declared.layer`).
 - Produces: a new type lands at `<first directory of layout["vocabulary"] that is not under tools/>/<id>.yml`, or `types/<id>.yml` when the layer declares no layout.
 
-- [ ] **Step 1: Read how `stage()` (the function holding lines 154–168) learns the landing root**
+- [x] **Step 1: Read how `stage()` (the function holding lines 154–168) learns the landing root**
 
 Run: `sed -n 100,150p packages/mendel-forge/src/mendel_forge/land.py && grep -n "def test" packages/mendel-forge/tests/test_land.py | head -30`
 If the function has no access to the layer root, add a `types_dir: Path = Path("types")` parameter and have its caller pass `_types_dir(registry_root)`.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```python
 def test_a_new_type_lands_where_the_layer_keeps_types(tmp_path):
@@ -770,12 +770,12 @@ def test_a_layer_with_no_layout_keeps_types_in_types(tmp_path):
     assert _types_dir(tmp_path) == Path("types")
 ```
 
-- [ ] **Step 3: Run it to see it fail**
+- [x] **Step 3: Run it to see it fail**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_land.py -q -k "types_dir or keeps_types"`
 Expected: FAIL — `cannot import name '_types_dir'`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 ```python
 def _types_dir(root: Path) -> Path:
@@ -793,12 +793,12 @@ def _types_dir(root: Path) -> Path:
 
 and replace `str(Path("types") / f"{type_id}.yml")` with `str(types_dir / f"{type_id}.yml")`, threading `types_dir` from the caller that knows the layer root.
 
-- [ ] **Step 5: Run the forge's tests**
+- [x] **Step 5: Run the forge's tests**
 
 Run: `uv run pytest packages/mendel-forge -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-forge/src/mendel_forge/land.py packages/mendel-forge/tests/test_land.py
@@ -815,14 +815,14 @@ git commit -m "feat(forge): land a new type where the layer's layout keeps types
 - Consumes: Tasks 1–5.
 - Produces: comeni-registry commit on `one-folder-per-tool`, which Task 7 pins.
 
-- [ ] **Step 1: Branch from the pinned commit**
+- [x] **Step 1: Branch from the pinned commit**
 
 ```bash
 cd registry && git switch -c one-folder-per-tool && git log --oneline -1
 ```
 Expected: `c7208bd feat: families…` (the commit this repository pins; it is on the remote branch `families`, not yet merged to `main`).
 
-- [ ] **Step 2: Move the files**
+- [x] **Step 2: Move the files**
 
 ```bash
 mkdir -p vocabulary profilers/comeni/profile inspectors
@@ -840,7 +840,7 @@ rmdir tools/comeni 2>/dev/null; ls
 ```
 Expected: top level `CODEOWNERS CONTRIBUTING.md LICENSE LICENSES README.md inspectors profilers registry.yml rules tools vocabulary` (plus `docs/` only if something other than `docs/tools/` was in it).
 
-- [ ] **Step 3: The new `layout:`**
+- [x] **Step 3: The new `layout:`**
 
 Replace the `layout:` block in `registry.yml` (keep its comment style; rewrite the comments for the new places):
 
@@ -864,7 +864,7 @@ layout:
   rule: [rules/]
 ```
 
-- [ ] **Step 4: Write the nine `tool.yml`**
+- [x] **Step 4: Write the nine `tool.yml`**
 
 One per folder under `tools/nf-core/`: `bedtools`, `fastqc`, `hisat2`, `multiqc`, `picard`, `samtools`, `star`, `subread`, `trimgalore`. Each: `declares: tool`, `id: nf-core/<tool>`, `name`, a one-to-three-sentence `description` of what the tool does for a researcher, `homepage`, and `cite` (author year, doi) — taken from the tool's own homepage or paper and from `module/meta.yml`'s `description`/`homepage`/`doi` under that tool, never from memory. Example:
 
@@ -883,11 +883,11 @@ cite: "Danecek et al. 2021, doi:10.1093/gigascience/giab008"
 
 Print the nine files and ask the operator to approve or correct them (spec §3: *the migration writes one for each existing tool … for the operator to approve*). Invariant 2: a person approves what an explanation may quote. Do not continue until they answer; apply their corrections.
 
-- [ ] **Step 6: One-line README for each top-level folder**
+- [x] **Step 6: One-line README for each top-level folder**
 
 `tools/README.md`, `profilers/README.md`, `inspectors/README.md`, `vocabulary/README.md`, `rules/README.md`, each one hand-written line (no generated banner), e.g. `profilers/README.md`: `Uses of a tool to measure the data, run in the lab's pipeline. One folder per profiler; the path is its id.` and `inspectors/README.md`: `Code that measures an uploaded sample on the server: codecs, formats and measures. Arrives in 14.7.6.2.`
 
-- [ ] **Step 7: Generate the pages in place, and run every gate the registry's CI runs**
+- [x] **Step 7: Generate the pages in place, and run every gate the registry's CI runs**
 
 ```bash
 uv run mendel docs --registry . --in-place
@@ -899,7 +899,7 @@ uv run comeni-vendor check --registry .
 (Run from inside `registry/`, with this repository's engine: `uv run --project ..`.)
 Expected: each exits 0; `lint` reports the declared files checked and no findings.
 
-- [ ] **Step 8: The registry's CI**
+- [x] **Step 8: The registry's CI**
 
 In `.github/workflows/ci.yml`, replace the step *The committed pages match the data* with:
 
