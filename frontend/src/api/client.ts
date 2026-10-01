@@ -63,7 +63,9 @@ async function send<T>(method: string, path: string, payload: unknown): Promise<
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (r.status === 422) {
+  // **409 as well as 422**: a setting locked between reading and saving answers 409 with a
+  // coded reason (`MI0300`), and the person needs that sentence, not a status code.
+  if (r.status === 422 || r.status === 409) {
     const detail = (await body(r)) as Refusal | null;
     throw new Refused(detail?.detail ?? "refused, with no reason given");
   }
