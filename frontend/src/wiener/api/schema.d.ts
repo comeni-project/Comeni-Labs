@@ -303,6 +303,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wiener/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Running, as Wiener has it */
+        get: operations["readWienerSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -454,11 +471,18 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** ChoiceOption */
+        ChoiceOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+        };
         /** Curve */
         Curve: {
             /** Name */
             name: string;
-            kind: components["schemas"]["Kind"];
+            kind: components["schemas"]["wiener_core__series__Kind"];
             /** Unit */
             unit: string;
             /**
@@ -475,6 +499,21 @@ export interface components {
             succeeded: number;
             /** Failed */
             failed: number;
+        };
+        /**
+         * Designed
+         * @description Designed, not built: shown so the menu tells the truth about what is coming.
+         */
+        Designed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "designed";
+            /** Where */
+            where: string;
+            /** Says */
+            readonly says: string;
         };
         /** DrawnWire */
         DrawnWire: {
@@ -497,6 +536,28 @@ export interface components {
             active: boolean;
             /** Bytes Moved */
             bytes_moved?: number | null;
+        };
+        /** Entry */
+        Entry: {
+            setting: components["schemas"]["Setting"];
+            shown: components["schemas"]["Shown"];
+        };
+        /**
+         * EnvItem
+         * @description A record built from the environment, shown first and locked (spec §6).
+         *
+         *     `fields` maps a record field to the variable that fills it; the record exists when
+         *     `present_when` is set. Declared, so the facade needs no code that knows about models.
+         */
+        EnvItem: {
+            /** Name */
+            name: string;
+            /** Present When */
+            present_when: string[];
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
         };
         /**
          * EventPage
@@ -521,16 +582,7 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /**
-         * Kind
-         * @description How much a curve's shape can be trusted.
-         *
-         *     **Two members, and the absence of a third is the design.** A peak has no honest shape, so
-         *     there is nowhere in this type to record one — which is a stronger guarantee than a comment
-         *     asking nobody to try.
-         * @enum {string}
-         */
-        Kind: "exact" | "derived";
+        JsonValue: unknown;
         /**
          * Lane
          * @description One process, and every attempt of it.
@@ -556,6 +608,42 @@ export interface components {
              */
             dense: number;
         };
+        /** Menu */
+        Menu: {
+            /** Sections */
+            sections: components["schemas"]["MenuSection"][];
+        };
+        /** MenuSection */
+        MenuSection: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Order */
+            order: number;
+            /**
+             * Served By
+             * @enum {string}
+             */
+            served_by: "mendel" | "wiener";
+            /** Entries */
+            entries: components["schemas"]["Entry"][];
+        };
+        /**
+         * Needs
+         * @description Something else has to be set first.
+         */
+        Needs: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "needs";
+            /** What */
+            what: string;
+            /** Says */
+            readonly says: string;
+        };
         /** OverviewOut */
         OverviewOut: {
             /**
@@ -573,6 +661,21 @@ export interface components {
              * @default 0
              */
             steps_finished: number;
+        };
+        /**
+         * Pinned
+         * @description A value in `.env` beats every layer. The variable is named so a person knows where to go.
+         */
+        Pinned: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "pinned";
+            /** Env */
+            env: string;
+            /** Says */
+            readonly says: string;
         };
         /**
          * PlacedNode
@@ -706,6 +809,21 @@ export interface components {
             read_bytes?: number | null;
             /** Write Bytes */
             write_bytes?: number | null;
+        };
+        /**
+         * ReadOnlyHere
+         * @description Reported here, set somewhere else.
+         */
+        ReadOnlyHere: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "read_only_here";
+            /** Why */
+            why: string;
+            /** Says */
+            readonly says: string;
         };
         /**
          * ResultFile
@@ -853,6 +971,71 @@ export interface components {
              */
             reported_resources: boolean;
         };
+        /** Setting */
+        Setting: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Help */
+            help: string;
+            kind: components["schemas"]["comeni_core__settings__declare__Kind"];
+            default?: components["schemas"]["JsonValue"];
+            /** Env */
+            env?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: components["schemas"]["ChoiceOption"][];
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Unavailable */
+            unavailable?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
+            /** @default installation */
+            where: components["schemas"]["Where"];
+            /**
+             * Fields
+             * @default []
+             */
+            fields: components["schemas"]["Setting"][];
+            /**
+             * Item Name
+             * @default name
+             */
+            item_name: string;
+            from_env?: components["schemas"]["EnvItem"] | null;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: string[];
+            /** Of */
+            of?: string | null;
+        };
+        /**
+         * Shown
+         * @description What a server may say about a value. For a secret, `value` is always `None`.
+         */
+        Shown: {
+            value: components["schemas"]["JsonValue"];
+            source: components["schemas"]["Source"];
+            /** Locked */
+            locked: boolean;
+            /** Reason */
+            reason?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
+            /** Set */
+            set?: boolean | null;
+            /** Last4 */
+            last4?: string | null;
+        };
+        /**
+         * Source
+         * @enum {string}
+         */
+        Source: "default" | "installation" | "environment" | "reported";
         /** SubmitRequest */
         SubmitRequest: {
             /** Artifact Id */
@@ -965,6 +1148,28 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * Where
+         * @description Where a value is kept. **`browser` is per browser and never reaches the server**: the
+         *     theme is one. The server still declares it, so the menu draws it with everything else.
+         * @enum {string}
+         */
+        Where: "installation" | "browser";
+        /**
+         * Kind
+         * @enum {string}
+         */
+        comeni_core__settings__declare__Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly" | "model" | "collection";
+        /**
+         * Kind
+         * @description How much a curve's shape can be trusted.
+         *
+         *     **Two members, and the absence of a third is the design.** A peak has no honest shape, so
+         *     there is nowhere in this type to record one — which is a stronger guarantee than a comment
+         *     asking nobody to try.
+         * @enum {string}
+         */
+        wiener_core__series__Kind: "exact" | "derived";
     };
     responses: never;
     parameters: never;
@@ -1402,6 +1607,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readWienerSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Menu"];
                 };
             };
         };

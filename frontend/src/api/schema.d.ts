@@ -2694,7 +2694,7 @@ export interface components {
             /** Name */
             name: string;
             /** Present When */
-            present_when: string;
+            present_when: string[];
             /** Fields */
             fields: {
                 [key: string]: string;

@@ -49,7 +49,11 @@ function at(path: string, fetch: ReturnType<typeof vi.fn>) {
 }
 
 const serving = (menu = MENU) =>
-  vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => menu });
+  // Wiener answers its own request; here it has no sections, so each section appears once.
+  vi.fn().mockImplementation((url: string) => Promise.resolve({
+    ok: true, status: 200,
+    json: async () => (url === "/api/wiener/settings" ? { sections: [] } : menu),
+  }));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -105,5 +109,28 @@ describe("the settings page", () => {
     at("/settings/lab", serving());
     expect((await screen.findByRole("link", { name: "Settings" })).getAttribute("href"))
       .toBe("/settings");
+  });
+
+  const RUNNING = { sections: [{ key: "running", title: "Running", order: 5, served_by: "wiener", entries: [{
+    setting: { key: "running.runtime", label: "Container runtime", help: HELP, kind: "readonly",
+               default: null, env: null, options: [], minimum: null, maximum: null, unavailable: null, where: "installation" },
+    shown: { value: "docker", source: "reported", locked: true, reason: null, set: null, last4: null },
+  }] }] };
+
+  const both = (wiener: { ok: boolean; status: number; json: () => Promise<unknown> }) =>
+    vi.fn().mockImplementation((url: string) => Promise.resolve(
+      url === "/api/wiener/settings" ? wiener : { ok: true, status: 200, json: async () => MENU }));
+
+  it("adds Wiener's sections in their order", async () => {
+    at("/settings/running", both({ ok: true, status: 200, json: async () => RUNNING }));
+    expect(await screen.findByText("docker")).toBeTruthy();
+    const links = (await screen.findAllByRole("link")).map((a) => a.textContent);
+    expect(links.indexOf("Running")).toBeGreaterThan(links.indexOf("Other"));
+  });
+
+  it("still draws Mendel's sections when Wiener does not answer, and says so", async () => {
+    at("/settings/lab", both({ ok: false, status: 401, json: async () => ({}) }));
+    expect(await screen.findByText("Flavour")).toBeTruthy();
+    expect(await screen.findByText(/Running could not be read/)).toBeTruthy();
   });
 });

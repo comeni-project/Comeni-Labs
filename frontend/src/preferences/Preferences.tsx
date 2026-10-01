@@ -4,7 +4,7 @@ import { Link, Navigate, NavLink, useParams } from "react-router";
 import { Refused } from "../api/client";
 import { Empty, Failed, Loading } from "../ui/States";
 import { SettingRow } from "./SettingRow";
-import { useMenu, useWrite } from "./usePreferences";
+import { useMenu, useWienerMenu, useWrite } from "./usePreferences";
 
 /** Settings (spec §1, §7): sections down the left, the chosen one's settings on the right.
  *
@@ -15,12 +15,16 @@ import { useMenu, useWrite } from "./usePreferences";
 export function Preferences() {
   const { section } = useParams();
   const menu = useMenu();
+  const wiener = useWienerMenu();
   const write = useWrite();
   const [refused, setRefused] = useState<{ key: string; message: string } | null>(null);
 
   if (menu.isLoading) return <Loading what="settings" />;
   if (menu.error) return <Failed error={menu.error} />;
-  const sections = menu.data?.sections ?? [];
+  // **Both servers' sections, by order.** Every Wiener row is locked, so nothing here writes to
+  // Wiener; a Wiener that does not answer costs its own section and says so below.
+  const sections = [...(menu.data?.sections ?? []), ...(wiener.data?.sections ?? [])]
+    .sort((a, b) => a.order - b.order);
   if (!sections.length) return <Empty title="There are no settings to show." />;
   if (!section) return <Navigate to={`/settings/${sections[0].key}`} replace />;
   const current = sections.find((s) => s.key === section);
@@ -50,6 +54,11 @@ export function Preferences() {
             {s.title}
           </NavLink>
         ))}
+        {wiener.error && (
+          <p className="text-secondary text-ink-3 md:mt-4">
+            Running could not be read: {wiener.error instanceof Error ? wiener.error.message : "no answer"}.
+          </p>
+        )}
       </nav>
       <section>
         {current ? (
