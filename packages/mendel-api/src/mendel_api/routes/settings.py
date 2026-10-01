@@ -39,7 +39,9 @@ def read_settings(inst: Annotated[Installation, Depends(installation)]) -> Menu:
 def write_setting(
     key: str, change: Change, inst: Annotated[Installation, Depends(installation)]
 ) -> Shown:
-    if change.value is None:
+    # **Missing, not null, is MI0301.** `null` is a value some settings hold — a model's *same as
+    # the default* — so whether it is legal is the setting's own check (MI0302 when it is not).
+    if "value" not in change.model_fields_set:
         raise ValueError(coded("MI0301", f"{key} was saved with no value"))
     try:
         return inst.put(key, change.value, by=default_author())
