@@ -138,6 +138,7 @@ def test_nginx_routes_both_halves_of_the_api():
     conf = (ROOT / "ops" / "nginx" / "default.conf").read_text()
     assert "location /api/runs" in conf and "wiener-api:8001" in conf
     assert "location /api/artifacts" in conf
+    assert "location /api/wiener" in conf
     assert "location /api/" in conf and "api:8000" in conf
     assert "$connection_upgrade" in conf, (
         "the WebSocket needs Upgrade forwarded, or the console never connects and nothing on "

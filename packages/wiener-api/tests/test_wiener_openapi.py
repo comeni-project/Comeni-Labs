@@ -18,6 +18,7 @@ def test_every_operation_is_named_by_hand():
     assert got == {
         ("/api/artifacts", "post"): "uploadArtifact",
         ("/api/runs", "post"): "submitRun",
+        ("/api/wiener/settings", "get"): "readWienerSettings",
         ("/api/runs", "get"): "listRuns",
         ("/api/runs/summary", "get"): "readBoardSummary",
         ("/api/runs/{run_id}", "get"): "readRun",

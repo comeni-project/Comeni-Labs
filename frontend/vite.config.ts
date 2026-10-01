@@ -27,6 +27,7 @@ export default defineConfig({
     proxy: {
       "/api/runs": { target: "http://localhost", ws: true },
       "/api/artifacts": "http://localhost",
+      "/api/wiener": "http://localhost",
       "/api": "http://localhost:8000",
     },
   },

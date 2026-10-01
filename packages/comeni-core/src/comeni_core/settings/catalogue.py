@@ -233,4 +233,40 @@ SYSTEM = Section(
     key="system", title="System", order=7, settings=(VERSIONS, DATABASE, REDIS, MODEL_SERVER)
 )
 
-CATALOGUE = Catalogue(sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, REGISTRY, SYSTEM))
+WIENER_ENV = ReadOnlyHere(why="Wiener reads this from its own .env")
+
+CONTAINER_RUNTIME = _reported(
+    "running.runtime", "Container runtime",
+    "What runs each step's container: docker or singularity. WIENER_CONTAINER_PROFILE.", WIENER_ENV,
+)
+LOST_AFTER = _reported(
+    "running.lost_after", "Call a run lost after",
+    "How long a run may say nothing before it is called lost. Longer than the slowest step.",
+    WIENER_ENV,
+)
+EXECUTOR = Setting.choice(
+    key="running.executor", label="Where runs execute",
+    help="This machine, a Kubernetes cluster or AWS Batch. Only this machine launches today.",
+    options=[("local", "This machine"), ("k8s", "Kubernetes"), ("awsbatch", "AWS Batch")],
+    default="local",
+    unavailable=Designed(where="k8s and awsbatch profiles are emitted, not launched"),
+)
+API_TOKEN = _reported(
+    "running.token", "Who may submit runs",
+    "Whether Wiener asks for a token. Open is fine on a laptop; anything reachable needs one.",
+    WIENER_ENV,
+)
+TELEMETRY = _reported(
+    "running.telemetry", "Telemetry",
+    "Whether run traces and metrics are sent anywhere. Off unless WIENER_OTLP_ENDPOINT is set; "
+    "a privacy matter, kept here because Wiener is what sends them.",
+    WIENER_ENV,
+)
+RUNNING = Section(
+    key="running", title="Running", order=5, served_by="wiener",
+    settings=(EXECUTOR, CONTAINER_RUNTIME, LOST_AFTER, API_TOKEN, TELEMETRY),
+)
+
+CATALOGUE = Catalogue(
+    sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RUNNING, REGISTRY, SYSTEM)
+)
