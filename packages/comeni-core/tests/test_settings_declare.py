@@ -1,7 +1,7 @@
 """Settings: declarations, and the reasons a setting is greyed out (spec §4, §5)."""
 
 import pytest
-from comeni_core.settings.declare import IllegalValue, Kind, Setting, Where
+from comeni_core.settings.declare import FROM_ENV, EnvItem, IllegalValue, Kind, Setting, Where
 from comeni_core.settings.reasons import (
     REASON_KINDS,
     Designed,
@@ -166,3 +166,73 @@ def test_sections_come_back_in_their_order():
     later = _section("zeta", 9, _pacing(key="zeta.pacing", env=None))
     catalogue = Catalogue(sections=(later, _section()))
     assert [s.key for s in catalogue.sections] == ["building", "zeta"]
+
+
+NAME = Setting.text(key="connection.name", label="Name", help=HELP)
+ENDPOINT = Setting.text(key="connection.endpoint", label="Endpoint", help=HELP)
+SECRET = Setting.secret(key="connection.key", label="Key", help=HELP)
+
+
+def _connections(**over):
+    return Setting.collection(
+        key="models.connections", label="Connections", help=HELP,
+        fields=(NAME, ENDPOINT, SECRET), actions=("test",), **over,
+    )
+
+
+def test_a_collection_holds_records_with_unique_names():
+    connections = _connections()
+    assert connections.default == []
+    good = [{"name": "Local", "endpoint": "http://ollama:11434", "key": None}]
+    assert connections.check(good) == good
+    with pytest.raises(IllegalValue, match="twice"):
+        connections.check(good + good)
+
+
+def test_a_record_with_an_unknown_field_is_refused():
+    with pytest.raises(IllegalValue, match="colour"):
+        _connections().check([{"name": "Local", "colour": "red"}])
+
+
+def test_a_record_needs_a_name():
+    with pytest.raises(IllegalValue, match="name"):
+        _connections().check([{"name": "", "endpoint": "x"}])
+
+
+def test_a_missing_field_takes_its_default():
+    assert _connections().check([{"name": "Local"}]) == [
+        {"name": "Local", "endpoint": "", "key": None}
+    ]
+
+
+def test_a_collection_names_its_record_field():
+    with pytest.raises(ValidationError, match="name"):
+        Setting.collection(
+            key="models.connections", label="C", help=HELP, fields=(ENDPOINT,)
+        )
+
+
+def test_a_model_is_the_default_or_a_connection_and_a_model():
+    want = Setting.model(
+        key="models.want", label="Want", help=HELP, of="models.connections",
+        env="COMENI_AI_MODEL_WANT",
+    )
+    assert want.check(None) is None
+    assert want.check({"connection": "Local", "model": "ollama_chat/gemma3:4b"})
+    with pytest.raises(IllegalValue):
+        want.check({"connection": "Local"})
+    assert want.parse_env("ollama_chat/gemma3:4b") == {
+        "connection": FROM_ENV, "model": "ollama_chat/gemma3:4b",
+    }
+
+
+def test_a_model_says_which_collection_it_picks_from():
+    with pytest.raises(ValidationError, match="of"):
+        Setting.model(key="models.want", label="Want", help=HELP)
+
+
+def test_an_env_record_names_fields_the_collection_has():
+    with pytest.raises(ValidationError, match="colour"):
+        _connections(from_env=EnvItem(
+            name=FROM_ENV, present_when="COMENI_AI_MODEL", fields={"colour": "X"}
+        ))

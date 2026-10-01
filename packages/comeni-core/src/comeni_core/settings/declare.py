@@ -49,6 +49,10 @@ class Kind(StrEnum):
     TOGGLE = "toggle"
     SECRET = "secret"
     READONLY = "readonly"
+    MODEL = "model"
+    """`None` — the default model — or `{"connection": name, "model": id}`."""
+    COLLECTION = "collection"
+    """A list of records, each keyed by field name. Connections are one."""
 
 
 class Where(StrEnum):
@@ -64,6 +68,24 @@ class ChoiceOption(BaseModel):
 
     value: str
     label: str
+
+
+FROM_ENV = "From .env"
+"""The name of the record `.env` supplies. Locked: it is changed in `.env`, never in the menu."""
+
+
+class EnvItem(BaseModel):
+    """A record built from the environment, shown first and locked (spec §6).
+
+    `fields` maps a record field to the variable that fills it; the record exists when
+    `present_when` is set. Declared, so the facade needs no code that knows about models.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    present_when: str
+    fields: dict[str, str]
 
 
 class Setting(BaseModel):
@@ -83,6 +105,18 @@ class Setting(BaseModel):
     unavailable: Reason | None = None
     """Declared greyed out, with its reason — `Designed` until something reads it."""
     where: Where = Where.INSTALLATION
+    fields: tuple["Setting", ...] = ()
+    """A collection's record fields. Each is a declaration; its key's last segment is the name."""
+    item_name: str = "name"
+    from_env: EnvItem | None = None
+    actions: tuple[str, ...] = ()
+    """What a record can be asked to do — `test`, `models`. Served by the API, drawn as buttons."""
+    of: str | None = None
+    """For a model: the key of the collection whose records it picks from."""
+
+    @property
+    def field_name(self) -> str:
+        return self.key.rsplit(".", 1)[1]
 
     @field_validator("key")
     @classmethod
@@ -110,6 +144,19 @@ class Setting(BaseModel):
             raise ValueError("a secret has no default: a default secret is a published one")
         if self.where is Where.BROWSER and self.env is not None:
             raise ValueError("a browser setting cannot be pinned by the server's .env")
+        if self.kind is Kind.COLLECTION:
+            names = [f.field_name for f in self.fields]
+            if self.item_name not in names:
+                raise ValueError(f"a collection's records need a {self.item_name!r} field")
+            if self.from_env and set(self.from_env.fields) - set(names):
+                raise ValueError(
+                    f"from_env names fields the records do not have: "
+                    f"{sorted(set(self.from_env.fields) - set(names))}"
+                )
+        elif self.fields or self.from_env or self.actions:
+            raise ValueError("fields, from_env and actions belong to a collection only")
+        if self.kind is Kind.MODEL and not self.of:
+            raise ValueError("a model setting says which collection it picks from, as `of`")
         if self.kind not in (Kind.SECRET, Kind.READONLY):
             try:
                 self.check(self.default)
@@ -140,6 +187,15 @@ class Setting(BaseModel):
             case Kind.SECRET:
                 if not isinstance(value, str) or not value.strip():
                     raise IllegalValue("a secret cannot be empty")
+            case Kind.MODEL:
+                if value is not None and (
+                    not isinstance(value, dict)
+                    or set(value) != {"connection", "model"}
+                    or not all(isinstance(v, str) and v.strip() for v in value.values())
+                ):
+                    raise IllegalValue("a model is a connection and a model id, or the default")
+            case Kind.COLLECTION:
+                return self._records(value)
             case Kind.READONLY:
                 raise IllegalValue("this setting is read-only here")
         return value
@@ -159,7 +215,36 @@ class Setting(BaseModel):
             except ValueError:
                 raise IllegalValue(f"{raw!r} is not a number") from None
             return int(number) if number.is_integer() else number
+        if self.kind is Kind.MODEL:
+            return {"connection": FROM_ENV, "model": raw}
         return raw
+
+    def _records(self, value: Any) -> list[dict[str, Any]]:
+        if not isinstance(value, list) or not all(isinstance(r, dict) for r in value):
+            raise IllegalValue("a list of records")
+        by_name = {f.field_name: f for f in self.fields}
+        records, seen = [], set()
+        for record in value:
+            unknown = set(record) - set(by_name)
+            if unknown:
+                raise IllegalValue(f"no field called {', '.join(sorted(unknown))}")
+            name = record.get(self.item_name)
+            if not isinstance(name, str) or not name.strip():
+                raise IllegalValue(f"every record needs a {self.item_name}")
+            if name in seen:
+                raise IllegalValue(f"{name!r} is named twice")
+            seen.add(name)
+            clean = {}
+            for field_name, field in by_name.items():
+                raw = record.get(field_name, field.default)
+                if field.kind is Kind.SECRET:
+                    if raw is not None and not isinstance(raw, str):
+                        raise IllegalValue(f"{field_name} is text")
+                    clean[field_name] = raw
+                else:
+                    clean[field_name] = field.check(raw)
+            records.append(clean)
+        return records
 
     # ── factories ────────────────────────────────────────────────────────────────────────
 
@@ -190,3 +275,11 @@ class Setting(BaseModel):
     @classmethod
     def readonly(cls, **fields: Any) -> "Setting":
         return cls(kind=Kind.READONLY, **fields)
+
+    @classmethod
+    def model(cls, **fields: Any) -> "Setting":
+        return cls(kind=Kind.MODEL, **fields)
+
+    @classmethod
+    def collection(cls, **fields: Any) -> "Setting":
+        return cls(kind=Kind.COLLECTION, **{"default": [], **fields})

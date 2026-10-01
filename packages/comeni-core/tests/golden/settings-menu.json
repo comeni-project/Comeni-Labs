@@ -31,7 +31,12 @@
             "minimum": null,
             "maximum": null,
             "unavailable": null,
-            "where": "browser"
+            "where": "browser",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
           },
           "shown": {
             "value": "system",
