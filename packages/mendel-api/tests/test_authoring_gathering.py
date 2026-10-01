@@ -215,7 +215,9 @@ def _typed(monkeypatch, sid: str, text: str, reply: dict) -> None:
             return json.dumps(reply)
 
     monkeypatch.setattr(
-        authoring_jobs, "_client", lambda *_: Client(ModelAccess(model="fake/test"), transport=Once())
+        authoring_jobs,
+        "_client",
+        lambda *_: Client(ModelAccess(model="fake/test"), transport=Once()),
     )
     seq = authoring.say(sid, text)
     asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))

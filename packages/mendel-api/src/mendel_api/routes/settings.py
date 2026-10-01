@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from mendel_api.identity import default_author
 from mendel_api.refusals import LOCKED, REFUSES
 from mendel_api.services.installation import installation
+from mendel_api.services.settings_actions import ACTIONS, ActionResult
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -44,3 +45,19 @@ def write_setting(
         return inst.put(key, change.value, by=default_author())
     except IllegalValue as refused:
         raise ValueError(coded("MI0302", f"{key}: {refused}")) from None
+@router.post(
+    "/{key}/items/{name}/{action}",
+    operation_id="runSettingAction",
+    summary="Ask one record of a setting to do something: test a connection, list its models",
+    responses=REFUSES,
+)
+async def run_setting_action(
+    key: str, name: str, action: str, inst: Annotated[Installation, Depends(installation)]
+) -> ActionResult:
+    setting = inst.catalogue.setting(key)
+    if action not in setting.actions or (key, action) not in ACTIONS:
+        raise KeyError(f"{key} has no action {action}")
+    record = inst.record(setting, name)
+    if record is None:
+        raise KeyError(f"{key} has no record {name}")
+    return await ACTIONS[(key, action)](record)

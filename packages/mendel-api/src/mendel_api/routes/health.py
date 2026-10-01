@@ -6,7 +6,6 @@ do real work, which is how a health check starts failing for reasons that have n
 with health.
 """
 
-import asyncio
 import contextlib
 from datetime import datetime
 
@@ -19,6 +18,7 @@ from mendel_api.db import session_scope
 from mendel_api.jobs import AI_QUEUE
 from mendel_api.models import SourceCheck
 from mendel_api.services import registry
+from mendel_api.services.probe import PROBE_SECONDS, answers
 from mendel_api.settings import model_access, settings
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -84,13 +84,6 @@ def registry_health() -> Strip:
 
 # ── the AI lane ───────────────────────────────────────────────────────────────────────
 
-PROBE_SECONDS = 2.0
-"""How long the model probe waits before saying *did not answer*.
-
-**Short on purpose.** This is a health endpoint, not a request: a model that takes twelve
-seconds to accept a connection is a model an operator needs told about, and a probe that waited
-for it would make the page that reports the problem hang on the problem.
-"""
 
 
 class AiHealth(BaseModel):
@@ -170,29 +163,6 @@ async def _worker_and_depth() -> tuple[bool, int]:
                 await pool.aclose()
 
 
-async def _model_answers(base_url: str) -> bool:
-    """Open a socket to the configured endpoint. **No request, and no model name.**
-
-    A `GET /` would be an Ollama-shaped assumption and a completion would cost a generation;
-    what is being asked is *is anything listening there*, and a TCP connect answers exactly
-    that without knowing whose server it is.
-    """
-    from urllib.parse import urlsplit
-
-    parts = urlsplit(base_url if "//" in base_url else f"//{base_url}")
-    if not parts.hostname:
-        return False
-    port = parts.port or (443 if parts.scheme == "https" else 80)
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(parts.hostname, port), timeout=PROBE_SECONDS
-        )
-    except (TimeoutError, OSError):
-        return False
-    writer.close()
-    with contextlib.suppress(Exception):
-        await writer.wait_closed()
-    return True
 
 
 @router.get(
@@ -214,7 +184,7 @@ async def ai_health() -> AiHealth:
         model=access.model if access else "",
         # A hosted provider is deliberately not probed — see the field.
         model_available=(
-            await _model_answers(access.base_url)
+            await answers(access.base_url)
             if access is not None and access.base_url
             else None
         ),

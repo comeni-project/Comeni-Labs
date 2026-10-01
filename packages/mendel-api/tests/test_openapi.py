@@ -118,6 +118,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/health/registry", "get"): "registryHealth",
         ("/api/settings", "get"): "readSettings",
         ("/api/settings/{key}", "put"): "writeSetting",
+        ("/api/settings/{key}/items/{name}/{action}", "post"): "runSettingAction",
     }
 
 

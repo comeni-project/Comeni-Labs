@@ -1245,6 +1245,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/{key}/items/{name}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask one record of a setting to do something: test a connection, list its models */
+        post: operations["runSettingAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1274,6 +1291,18 @@ export interface components {
             branch: string;
             /** Commit */
             commit: string;
+        };
+        /** ActionResult */
+        ActionResult: {
+            /** Ok */
+            ok: boolean | null;
+            /** Says */
+            says: string;
+            /**
+             * Values
+             * @default []
+             */
+            values: string[];
         };
         /**
          * Adaptation
@@ -2654,6 +2683,23 @@ export interface components {
             setting: components["schemas"]["Setting"];
             shown: components["schemas"]["Shown"];
         };
+        /**
+         * EnvItem
+         * @description A record built from the environment, shown first and locked (spec §6).
+         *
+         *     `fields` maps a record field to the variable that fills it; the record exists when
+         *     `present_when` is set. Declared, so the facade needs no code that knows about models.
+         */
+        EnvItem: {
+            /** Name */
+            name: string;
+            /** Present When */
+            present_when: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+        };
         /** Event */
         Event: {
             /** Kind */
@@ -3081,7 +3127,7 @@ export interface components {
          * Kind
          * @enum {string}
          */
-        Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly";
+        Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly" | "model" | "collection";
         /**
          * Level
          * @enum {string}
@@ -3988,6 +4034,24 @@ export interface components {
             unavailable?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
             /** @default installation */
             where: components["schemas"]["Where"];
+            /**
+             * Fields
+             * @default []
+             */
+            fields: components["schemas"]["Setting"][];
+            /**
+             * Item Name
+             * @default name
+             */
+            item_name: string;
+            from_env?: components["schemas"]["EnvItem"] | null;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: string[];
+            /** Of */
+            of?: string | null;
         };
         /**
          * SettingRequest
@@ -4076,7 +4140,7 @@ export interface components {
          * Source
          * @enum {string}
          */
-        Source: "default" | "installation" | "environment";
+        Source: "default" | "installation" | "environment" | "reported";
         /**
          * SourceCapabilities
          * @description What a source can prove, as opposed to what a tool happens to have.
@@ -6621,6 +6685,48 @@ export interface operations {
             };
             /** @description `MI0300`: the setting is locked; the detail says why. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    runSettingAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                name: string;
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResult"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
