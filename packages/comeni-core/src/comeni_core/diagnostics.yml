@@ -31,6 +31,7 @@
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: the forge workflow's durable state, and the workers that move it
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
+#   MI0300-MI0399  the API: settings — what the menu may change
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
@@ -3643,3 +3644,38 @@ MI0212:
     A retry leaves `failed` for the phase that failed, and only where the authoring protocol
     draws a return edge (`mendel_api/authoring/protocol.py`). Resuming anywhere else would enter a
     phase whose preconditions nobody checked: a build against a goal nobody confirmed.
+MI0300:
+  emitted_by: api
+  concern: settings
+  says: "this setting is locked and cannot be changed here"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Read the reason beside the setting. If it is pinned by .env, change the variable there and
+    restart; if it is not built yet, it cannot be changed anywhere.
+  explanation: |
+    A value in .env beats the menu, so a deployment's files stay the truth. A setting that is
+    designed but not built is shown so the menu says what is coming, and refuses a change
+    because nothing would read it.
+MI0301:
+  emitted_by: api
+  concern: settings
+  says: "a setting was saved with no value"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Send {"value": ...}. To go back to the default, choose the default value.
+  explanation: |
+    An empty save would store nothing a person chose, and the menu would then report a value
+    nobody set.
+MI0302:
+  emitted_by: api
+  concern: settings
+  says: "this value is not one this setting can hold"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Choose one of the values the setting offers, or a number inside its bounds.
+  explanation: |
+    Every setting declares what it can hold, and a value outside that is refused before it is
+    stored, so the code that reads the setting never meets one.

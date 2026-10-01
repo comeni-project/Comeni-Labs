@@ -268,6 +268,14 @@ decline to curate one.
 | `MA0005` | the model picked a value it was not offered |
 | `MA0006` | the model's answer was longer than the field allows |
 
+## Settings — what the menu may change
+
+| Code | Says |
+|---|---|
+| `MI0300` | this setting is locked and cannot be changed here |
+| `MI0301` | a setting was saved with no value |
+| `MI0302` | this value is not one this setting can hold |
+
 ## Wiener — what may enter
 
 | Code | Says |

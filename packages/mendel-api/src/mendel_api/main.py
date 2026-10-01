@@ -16,9 +16,10 @@ mount and `mendel_forge.http` were both removed in phase 6 —
 `docs/notes/specs/2026-08-19-sources-and-drafting.md` §3.2 is the argument and what was lost.
 """
 
+from comeni_core.settings import SettingLocked
 from fastapi import FastAPI
 
-from mendel_api.refusals import missing_handler, refusal_handler
+from mendel_api.refusals import locked_handler, missing_handler, refusal_handler
 from mendel_api.routes import attention as attention_routes
 from mendel_api.routes import authoring as authoring_routes
 from mendel_api.routes import build as build_routes
@@ -27,6 +28,7 @@ from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
 from mendel_api.routes import registry as registry_routes
+from mendel_api.routes import settings as settings_routes
 from mendel_api.routes import sources as sources_routes
 from mendel_api.routes import tools as tools_routes
 
@@ -37,6 +39,10 @@ TAGS = [
     {"name": "contracts", "description": "What has landed. Read only."},
     {"name": "sources", "description": "What can be read, and starting a draft."},
     {"name": "attention", "description": "What needs a person, across both halves."},
+    {
+        "name": "settings",
+        "description": "What this installation may change, and where each value came from.",
+    },
     {
         "name": "forge",
         "description": (
@@ -67,6 +73,8 @@ def create_app() -> FastAPI:
     # A `KeyError` is *this id names nothing*, and it was a 500 until 2026-09-05 —
     # `refusals.missing_handler` records why that mattered.
     app.add_exception_handler(KeyError, missing_handler)
+    # A setting that is locked (pinned by .env, or not built) is a 409 with its reason, `MI0300`.
+    app.add_exception_handler(SettingLocked, locked_handler)
 
     @app.get(
         "/api/health", operation_id="liveness", summary="Is the service up", tags=["health"]
@@ -100,6 +108,8 @@ def create_app() -> FastAPI:
     # The living pipeline. `/pipeline/authoring` sits under the build router's own prefix and
     # declares no path parameter at its root, so it cannot be swallowed by anything above it.
     app.include_router(authoring_routes.router, prefix="/api")
+    # Settings for the whole installation (spec 2026-10-01).
+    app.include_router(settings_routes.router, prefix="/api")
     return app
 
 

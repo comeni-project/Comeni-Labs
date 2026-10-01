@@ -2,7 +2,7 @@
 changed. Spec: `docs/superpowers/specs/2026-10-01-settings-design.md`."""
 
 from comeni_core.settings.catalogue import CATALOGUE
-from comeni_core.settings.declare import IllegalValue, Kind, Option, Setting, Where
+from comeni_core.settings.declare import ChoiceOption, IllegalValue, Kind, Setting, Where
 from comeni_core.settings.installation import (
     Entry,
     Installation,
@@ -18,8 +18,29 @@ from comeni_core.settings.resolve import SETTINGS_KEY_ENV, Resolved, Source, res
 from comeni_core.settings.sections import Catalogue, Section
 
 __all__ = [
-    "CATALOGUE", "SETTINGS_KEY_ENV", "Catalogue", "Designed", "Entry", "IllegalValue",
-    "Installation", "Kind", "Menu", "MenuSection", "Needs", "Option", "Pinned", "ReadOnlyHere",
-    "Reason", "Resolved", "SecretCodec", "Section", "Setting", "SettingLocked", "SettingsStore",
-    "Shown", "Source", "Where", "resolve",
+    "CATALOGUE",
+    "SETTINGS_KEY_ENV",
+    "Catalogue",
+    "ChoiceOption",
+    "Designed",
+    "Entry",
+    "IllegalValue",
+    "Installation",
+    "Kind",
+    "Menu",
+    "MenuSection",
+    "Needs",
+    "Pinned",
+    "ReadOnlyHere",
+    "Reason",
+    "Resolved",
+    "SecretCodec",
+    "Section",
+    "Setting",
+    "SettingLocked",
+    "SettingsStore",
+    "Shown",
+    "Source",
+    "Where",
+    "resolve",
 ]

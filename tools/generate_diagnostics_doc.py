@@ -81,6 +81,7 @@ HEADINGS: dict[str, str] = {
     "landing": "The forge — landing a draft into a registry",
     "model-access": "Reaching a model",
     "model-output": "What a model answered",
+    "settings": "Settings — what the menu may change",
     "ingest": "Wiener — what may enter",
     "vendoring": "comeni-vendor — a tool's source in a layer",
 }

@@ -73,3 +73,15 @@ REFUSES: dict[int | str, dict[str, Any]] = {
         ),
     }
 }
+async def locked_handler(request: Request, exc: Exception) -> JSONResponse:
+    """A setting that is locked is a 409: the request was well formed and the resource's state
+    refuses it. The detail is coded and carries the reason a person reads beside the field."""
+    from comeni_core.diagnostics import coded
+
+    return JSONResponse(status_code=409, content={"detail": coded("MI0300", str(exc))})
+
+
+#: Attach to an operation that can meet a locked setting.
+LOCKED: dict[int | str, dict[str, Any]] = {
+    409: {"model": Refusal, "description": "`MI0300`: the setting is locked; the detail says why."}
+}

@@ -116,6 +116,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/forge/adaptations/{adaptation_id}/archive", "post"): "forgeArchiveAdaptation",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
+        ("/api/settings", "get"): "readSettings",
+        ("/api/settings/{key}", "put"): "writeSetting",
     }
 
 

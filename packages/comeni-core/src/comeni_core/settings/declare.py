@@ -59,7 +59,7 @@ class Where(StrEnum):
     BROWSER = "browser"
 
 
-class Option(BaseModel):
+class ChoiceOption(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     value: str
@@ -77,7 +77,7 @@ class Setting(BaseModel):
     default: JsonValue = None
     env: str | None = None
     """The variable that pins it. **Set means locked**: `.env` is the operator's last word."""
-    options: tuple[Option, ...] = ()
+    options: tuple[ChoiceOption, ...] = ()
     minimum: float | None = None
     maximum: float | None = None
     unavailable: Reason | None = None
@@ -167,7 +167,7 @@ class Setting(BaseModel):
     def choice(cls, *, options: list[tuple[str, str]], **fields: Any) -> "Setting":
         return cls(
             kind=Kind.CHOICE,
-            options=tuple(Option(value=v, label=label) for v, label in options),
+            options=tuple(ChoiceOption(value=v, label=label) for v, label in options),
             **fields,
         )
 
