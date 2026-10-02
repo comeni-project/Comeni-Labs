@@ -19,6 +19,7 @@ rot references that are still being read.
 | `./Forge*.dc.html` (flat) | the Forge MVP §8 boards — the Registry section, nine artboards. **Current** | [51526cef](https://claude.ai/code/artifact/51526cef-d6a5-4a33-acc8-7273b975f814) |
 | [`living-pipeline/`](living-pipeline/) | the conversational builder — eleven artboards. **Current** | [0877ba13](https://claude.ai/code/artifact/0877ba13-690f-44cc-9ba8-d92036441653) |
 | (published only) | the settings overlay, 2026-10-01 — three artboards: Models and Building on a desk, Privacy on a phone. **Current** | [WLLBS69h](https://claude.ai/artifact/WLLBS69h6NMfSnEULja7Jj) |
+| (published only) | uploading a sample, 2026-10-02 — eleven artboards: the gap card's upload states on a desk and a phone, and the goal card's measured label. Approved as the MVP's look; a clarity and design pass comes at the MVP's last step. **Current** | [DEhSpA4k](https://claude.ai/artifact/DEhSpA4kEZPvq9soyapJTM) |
 
 **Only one canvas owns `Main.dc.html`.** The 2026-08-29
 redesign has it and the Forge boards deliberately have none: that file is cited by path from
