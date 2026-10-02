@@ -27,7 +27,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import NamedTuple
 
-from comeni_core.declared.measurement import MeasurementKind
+from comeni_core.declared.measurement import MeasuredEntry, MeasurementKind
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import GoalInput
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
@@ -1448,7 +1448,7 @@ def compose_goal(session_id: str) -> Goal:
             "constraints": wanted.get("constraints") or {},
             "profile": stack.measurements.profile_of(
                 [
-                    (f.subject, f.value, _SOURCE[f.source], None)
+                    MeasuredEntry(f.subject, f.value, _SOURCE[f.source])
                     for f in facts
                     if f.kind is FactKind.MEASUREMENT and f.source is not FactSource.OPEN
                 ]

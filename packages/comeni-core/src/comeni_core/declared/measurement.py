@@ -14,6 +14,7 @@ over it be checked for exhaustiveness.
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -28,7 +29,7 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.diagnostics import coded
-from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.goal.profile import DataProfile, Evidence, Measured
 from comeni_core.plan.tiers import ValueSource
 from comeni_core.spell.marks import MeasurementId, ParamValue, TypeId
 
@@ -262,6 +263,17 @@ def _merge_measurement(
     return old.model_copy(update={"values": [*old.values, *new.add_values]})
 
 
+class MeasuredEntry(NamedTuple):
+    """One fact for `profile_of`: its value, who settled it, and what measured it (#134)."""
+
+    measurement: str
+    value: ParamValue | list[ParamValue]
+    source: ValueSource
+    by: str | None = None
+    pieces: tuple[str, ...] = ()
+    evidence: Evidence | None = None
+
+
 class MeasurementRegistry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -387,24 +399,32 @@ class MeasurementRegistry(BaseModel):
         path skipping validation would produce an unchecked profile flowing straight into
         routing, which is the class of bug that left `subject: aligner` dead for months.
         """
-        return self.profile_of([(k, v, source, by) for k, v in mapping.items()])
+        return self.profile_of([MeasuredEntry(k, v, source, by) for k, v in mapping.items()])
 
-    def profile_of(
-        self,
-        entries: Sequence[tuple[str, ParamValue | list[ParamValue], ValueSource, str | None]],
-    ) -> DataProfile:
+    def profile_of(self, entries: Sequence["MeasuredEntry | tuple"]) -> DataProfile:
         """`profile()` for entries that do not share a source.
 
         Gathering folds facts from a person, an inspector and a model into one goal, and
         `profile()` stamps a single source on every entry. This is the one other validating
         constructor, in the same file `tests/guards/test_construction.py` already allows.
+
+        A bare `(measurement, value, source, by)` tuple is still accepted: it is a
+        `MeasuredEntry` with no pieces and no evidence.
         """
-        for measurement_id, value, _source, _by in entries:
-            self.check(measurement_id, value)
+        given = [MeasuredEntry(*entry) for entry in entries]
+        for entry in given:
+            self.check(entry.measurement, entry.value)
         return DataProfile(
             measurements=[
-                Measured(measurement=m, value=v, source=s, by=b)
-                for m, v, s, b in sorted(entries, key=lambda e: e[0])
+                Measured(
+                    measurement=entry.measurement,
+                    value=entry.value,
+                    source=entry.source,
+                    by=entry.by,
+                    pieces=list(entry.pieces),
+                    evidence=entry.evidence,
+                )
+                for entry in sorted(given, key=lambda entry: entry.measurement)
             ]
         )
 
