@@ -14,6 +14,16 @@ const SOURCE: Record<Fact["source"], string> = {
   open: "left open",
 };
 
+/** `fastq@1.0.0` → `fastq 1.0.0`: the format that read the file, which a person recognises. */
+const piece = (ref: string) => ref.replace("@", " ");
+
+/** A fact's source, and **what measured it** when a sample did (issue 134). *From 1 sample* is
+ *  a constant on purpose: one sample is all the conversation accepts (issue 218 changes that). */
+const sourceLabel = (f: Fact) =>
+  f.source === "measured" && f.pieces?.length
+    ? `measured · ${piece(f.pieces[0])} · from 1 sample`
+    : SOURCE[f.source];
+
 /** The goal read back — the plain-language summary, and the typed goal it stands for, editable.
  *
  * **Editing a structured field needs no model call.** A person who removes `qc.report` or adds
@@ -66,7 +76,7 @@ export function GoalCard({
   // **Each input once, its source on its chip** (issue 172); the facts list below is for
   // measurements.
   const sourceOf = new Map(
-    facts.filter((f) => f.kind === "input").map((f) => [f.subject, SOURCE[f.source]] as const));
+    facts.filter((f) => f.kind === "input").map((f) => [f.subject, sourceLabel(f)] as const));
   const measured = facts.filter((f) => f.kind === "measurement");
 
   const confirm = () => {
@@ -256,7 +266,10 @@ function Facts({ facts }: { facts: Fact[] }) {
       <ul aria-label="what the engine knows" className="m-0 p-0">
         {known.map((f) => (
           <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink">
-            {said(f)} <span className="text-ink-3">· {SOURCE[f.source]}</span>
+            {said(f)}{" "}
+            <span className={f.source === "measured" ? "text-[var(--measured)]" : "text-ink-3"}>
+              · {sourceLabel(f)}
+            </span>
           </li>
         ))}
       </ul>

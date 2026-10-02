@@ -114,6 +114,33 @@ describe("the goal card", () => {
     expect(onConfirm.mock.calls[0][0].want).toEqual(["counts.matrix", "qc.report"]);
   });
 
+  it("says which pieces measured a fact, and from one sample (issue 134)", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "fastq.reads", source: "measured", states: [], pieces: [] },
+      { kind: "measurement", subject: "read_length", source: "measured", states: [], value: 151,
+        pieces: ["fastq@1.0.0", "read_length@1.0.0"], evidence: { records: 8412 } },
+      { kind: "measurement", subject: "strandedness", source: "person_said", states: [],
+        value: "reverse", pieces: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/read_length: 151/))
+      .toHaveTextContent("measured · fastq 1.0.0 · from 1 sample");
+    expect(within(said).getByText(/strandedness: reverse/)).toHaveTextContent("you said");
+  });
+
+  it("says measured, plainly, for a measured fact with no pieces", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "measurement", subject: "read_length", source: "measured", states: [], value: 150,
+        pieces: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/read_length: 150/).textContent).toMatch(/· measured$/);
+  });
+
   it("lists each input with where it came from, and what was left open", () => {
     // 14.7.3: the card is composed from gathered facts, so it can say who each one came from.
     const facts: AuthoringSession["facts"] = [
