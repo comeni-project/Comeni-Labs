@@ -68,7 +68,7 @@
 **Interfaces:**
 - Produces: `ChoiceOption.designed: str | None = None` (why the option is not built); `protection.Crossing` (`UPLOAD`, `CHARACTERISE`, `DOOR_6`); `protection.level() -> str`; `protection.allows(crossing) -> bool`; `protection.refuse(crossing) -> str` (the coded MI0213 message).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/comeni-core/tests/test_settings_catalogue.py (add)
@@ -130,12 +130,12 @@ it("draws a designed option greyed, with why", () => {
 
 (Read `SettingRow.test.tsx` first and use its existing render helper and entry builder; the names above stand for them.)
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_settings_catalogue.py packages/comeni-core/tests/test_settings_installation.py packages/mendel-api/tests/test_protection.py -q; cd frontend && npx vitest run src/preferences/SettingRow.test.tsx`
 Expected: FAIL on each.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `declare.py`: `ChoiceOption.designed: str | None = None`; `Setting.choice(..., designed: dict[str, str] | None = None)` sets it per option; the validator refuses a default whose option is designed (*"a default must be built"*).
 
@@ -209,12 +209,12 @@ Declare `MI0213` (*"the protection level does not allow this crossing"*, `refuse
 
 `SettingRow.tsx`: in the segmented radiogroup, an option with `designed` is `disabled`, drawn with the greyed token, and its reason shown under the group (one line per designed option, or one joined line). `make client` first so the type carries `designed`.
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: the Step 2 commands, then `uv run python tools/generate_diagnostics_doc.py`.
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core packages/mendel-api/src/mendel_api/services/protection.py packages/mendel-api/tests/test_protection.py frontend docs/handbook/reference/diagnostics.md
@@ -240,7 +240,7 @@ git commit -m "feat(settings): protection level 0 is built; the others say they 
   - `measurers.index(stack) -> list[Measurer]` sorted by `(measurement, kind, by)`; `measurers.usable_pieces(stack) -> InspectionCatalogue` (trusted only).
   - `AuthoringVocabulary.measurers: list[MeasurerView]` (same fields).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/mendel-api/tests/test_measurers.py
@@ -271,12 +271,12 @@ def test_the_vocabulary_serves_the_index(client):
 
 (`client` is the API test client fixture the route tests use; read `test_authoring_routes.py` for its name.)
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_measurers.py -q`
 Expected: FAIL — no module `measurers`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `inspection.py`: `InspectionCatalogue.origin: dict[str, int] = {}`, filled in `layers.py` from the three `Stacked.origin` maps when the catalogue is built (and carried through `check`).
 
@@ -284,12 +284,12 @@ Expected: FAIL — no module `measurers`.
 
 Route: add `measurers: list[MeasurerView]` to `AuthoringVocabulary` and fill it in `vocabulary()`. `make client`.
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `uv run pytest packages/mendel-api/tests/test_measurers.py packages/mendel-api/tests/test_openapi.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/declared/inspection.py packages/mendel-resolver/src/mendel_resolver/layers.py packages/mendel-api frontend/src/api frontend/openapi.json
@@ -314,7 +314,7 @@ git commit -m "feat(api): who measures what, and inspector pieces only from trus
   - `launch(request, payloads) -> wire.Report`.
   - `inspect_sample(files: list[tuple[str, bytes]], stack) -> Inspection`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/mendel-api/tests/test_inspect.py
@@ -376,12 +376,12 @@ def test_the_steps_taken_are_returned():
     assert got.steps[0].startswith("read the first") and any("FASTQ" in s for s in got.steps)
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_inspect.py -q`
 Expected: FAIL — no module `inspect` in `mendel_api.services`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 def _command() -> list[str]:
@@ -422,12 +422,12 @@ def launch(request: wire.Request, payloads: list[bytes]) -> wire.Report:
 3. For each candidate format, build a `Request` with every trusted measure whose `record` matches (`PieceRef.path` = the absolute entry path in the layer: `settings.registry_root / "inspectors/formats/<id>" / entry`), `cap_bytes=CAP_BYTES`, and `launch`. Append `"unpacked gzip"` when a codec ran and `f"confirmed {fmt.id.upper()}"` when the report is not unreadable.
 4. Exactly one confirms → `measured`, `type_id = fmt.reads[0]`, facts from the report, `steps.append(f"measured {n} fact(s)")`. None → the first report's `unreadable` reason. Several → `tie`, reason naming them.
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `uv run pytest packages/mendel-api/tests/test_inspect.py -q`
 Expected: PASS. Then record the measured wall time of `test_a_gzipped_pair_is_measured` in the execution record.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/services/inspect.py packages/mendel-api/tests/test_inspect.py
@@ -448,7 +448,7 @@ git commit -m "feat(api): inspect a sample in its own process, every failure an 
 - Consumes: `inspect.Inspection`; `measurers.index`; part 3's `MeasuredEntry`, `Evidence`.
 - Produces: `Fact.pieces: list[str] = []`, `Fact.evidence: dict | None = None`; option id `upload` on a gap whose subject a trusted inspector measures (measurement) or reads (input), replacing `not_sure` there; `authoring.answer_with_sample(proposal_id: str, inspection: Inspection, *, by: str) -> SampleAnswer(phase, recorded: list[str], kept: list[str], disagreed: list[str])`.
 
-- [ ] **Step 1: Write the failing tests** (database tests, in `test_authoring_gathering.py`'s style; copy its `clean` fixture and `_gathering` helper)
+- [x] **Step 1: Write the failing tests** (database tests, in `test_authoring_gathering.py`'s style; copy its `clean` fixture and `_gathering` helper)
 
 ```python
 # packages/mendel-api/tests/test_authoring_samples.py
@@ -514,12 +514,12 @@ def test_compose_goal_carries_the_pieces(clean):
 
 Write the helpers `_pending(sid)` (the session's pending gap proposal id), `_pending_for(sid, subject)` (answer each offered gap that is not `subject` with its first option until `subject` is offered), `_facts(sid)` and `_say_fact(sid, subject, value)` from `test_authoring_gathering.py`'s own helpers; reuse them where they exist.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run (throwaway Postgres): `MENDEL_DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5442/postgres uv run pytest packages/mendel-api/tests/test_authoring_samples.py -q`
 Expected: FAIL — no `answer_with_sample`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `types.py` `Fact`: `pieces: list[str] = []` and `evidence: dict[str, int | float] | None = None` (stored session state, not a door payload; the goal gets the typed `Evidence`).
 
@@ -544,12 +544,12 @@ Inside one `session_scope`: load the proposal (MI0205 if not a gap, as `answer_g
 
 Declare **MI0214** (*"an upload was refused: one file or a pair, nothing else"*) for Task 5.
 
-- [ ] **Step 4: Run them, and the gathering suite**
+- [x] **Step 4: Run them, and the gathering suite**
 
 Run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_authoring_samples.py packages/mendel-api/tests/test_authoring_gathering.py -q`
 Expected: PASS. If a gathering test pinned `not_sure` on a measurement an inspector now measures, update it to `upload` here: the option changed on purpose.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/mendel-api packages/comeni-core/src/comeni_core/diagnostics.yml docs/handbook/reference/diagnostics.md
@@ -568,7 +568,7 @@ git commit -m "feat(api): an uploaded sample answers a gap, the person's word st
 **Interfaces:**
 - Produces: `POST /api/pipeline/authoring/{session_id}/samples` (`operation_id="uploadAuthoringSample"`), multipart: `proposal_id` (form field) and `files` (1 or 2). Response `SampleInspected(outcome, type_id, facts: list[InspectedFactView], reason, steps, recorded, kept, disagreed, session: AuthoringSessionView)`. Refusals: MI0213 (403, protection), MI0214 (422, file count), MI0205/MI0203 as `decide` returns them.
 
-- [ ] **Step 1: Write the failing tests** (route tests use the module's client and database fixtures)
+- [x] **Step 1: Write the failing tests** (route tests use the module's client and database fixtures)
 
 ```python
 def test_an_upload_is_inspected_and_answers_the_gap(client, clean):
@@ -612,12 +612,12 @@ def test_only_the_head_is_read(client, clean, monkeypatch):
 
 `_gathering_at(client, subject)`: begin a session through the service helper the route tests already use, move it to gathering, and answer gaps until `subject` is offered; return `(session_id, proposal_id)`.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_authoring_routes.py -q -k "upload or files or level_0 or head"`
 Expected: FAIL — 404/405 on the route.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 @router.post(
@@ -644,12 +644,12 @@ async def upload_sample(
 
 Map `ValueError` from `answer_with_sample` the way `decide` maps its refusals (read `decide`'s handler and reuse it). `make client`.
 
-- [ ] **Step 4: Run them, the routes suite and the OpenAPI pin**
+- [x] **Step 4: Run them, the routes suite and the OpenAPI pin**
 
 Run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_authoring_routes.py packages/mendel-api/tests/test_openapi.py -q`
 Expected: PASS (add `("/api/pipeline/authoring/{session_id}/samples", "post"): "uploadAuthoringSample"` to the OpenAPI pin if it lists operations).
 
-- [ ] **Step 5: Commit, then `make check` separately**
+- [x] **Step 5: Commit, then `make check` separately**
 
 ```bash
 git add packages/mendel-api frontend/src/api frontend/openapi.json uv.lock
@@ -663,3 +663,8 @@ Expected: PASS.
 ## Execution record
 
 *(Filled in while executing: rulings, measurements, deviations.)*
+
+- **Measured:** a gzipped pair (`pair_150`) inspected through a real child process takes 0.11 s.
+- **The two rulings against the spec held:** sample bytes are not stored, and the steps come back with the answer.
+- **A third, found executing:** FastAPI's `UploadFile` spools every upload past 1 MB to a temporary file after receiving all of it. That broke the first ruling and review focus 2, so the route streams the multipart body itself (`services/sample_upload.py`): each file's first 4 MB in memory, the rest read through and dropped.
+- **Rulings:** a designed option is a `DesignedOption` (a `SettingLocked`), coded MI0303 by the API; for an input, `upload` comes after *I have it*; clicking `upload` is not an answer (MI0205); the duplicate check runs before anything is recorded; a fact's stored evidence keeps numbers only; `mendel-api` declares `comeni-inspect` and `python-multipart`; the request-body guard reads every content type; CLAUDE.md's invariant 15 says what level 0 reads.
