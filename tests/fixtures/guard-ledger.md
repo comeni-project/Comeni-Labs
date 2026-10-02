@@ -5038,3 +5038,12 @@ rest.
 | 2026-10-01 | `…::test_a_tool_yml_that_declares_something_else_is_refused` | — (written before the fix) | failed before MD0022 read the file's kind; passed after | `assert 'MD0022' in ['MD0014', 'MD0023']` |
 | 2026-10-01 | `…::test_a_type_loose_under_tools_is_refused` | — (written before the fix) | failed before MD0023 covered loose types; passed after | `assert 'MD0023' in []` |
 | 2026-10-01 | `…::test_a_tools_own_type_used_by_another_tool_is_refused` | — (written before MD0024 existed) | failed; passed after | `assert 'MD0024' in []` |
+
+## 2026-10-02 — inspector pieces (14.7.6.2)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-02 | `tests/guards/test_inspector_pieces.py::test_a_piece_imports_only_the_allowlist` | `import socket` added to `fastq.py` | failed; restored, passed | `fastq.py reaches past the allowlist: ['socket']` |
+| 2026-10-02 | same | `x = open("/etc/passwd")` added to `fastq.py` | failed; restored, passed | `fastq.py reaches past the allowlist: ['<open()>']` |
+| 2026-10-02 | `…::test_a_piece_has_its_declaration_code_and_tests` | `test_fastq.py` renamed `check_fastq.py` | failed (and the allowlist test, which now read it as piece code); restored, passed | `assert []` |
+| 2026-10-02 | `tests/registry/test_inspection_conformance.py::test_a_case_matches_its_golden_report` | — (written before the goldens) | 15 failed with no `expected.json`; passed once each golden was generated and read against spec §5 | `FileNotFoundError: …/expected.json` |

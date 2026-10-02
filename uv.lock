@@ -519,10 +519,14 @@ version = "0.1.0"
 source = { editable = "packages/comeni-inspect" }
 dependencies = [
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.9" }]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [[package]]
 name = "comeni-labs"

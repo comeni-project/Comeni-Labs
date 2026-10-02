@@ -18,10 +18,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# Pydantic for the wire shapes, and nothing of ours: a piece imports only this package, and this
-# package needs nothing else, so an inspection process loads no resolver, no registry, no API.
+# Pydantic for the wire shapes, PyYAML for the harness reading a piece's declaration, and
+# nothing of ours: a piece imports only this package, so an inspection process loads no
+# resolver, no registry, no API.
 dependencies = [
   "pydantic>=2.9",
+  "pyyaml>=6.0",
 ]
 
 [project.urls]
