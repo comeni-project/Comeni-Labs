@@ -65,7 +65,7 @@
   - `DeclaredKind.CODECS="codecs"`, `FORMATS="formats"`, `MEASURES="measures"`; singulars `codec`, `format`, `measure`; `layered.PIECE_DIR = "piece"`; `Layers.inspection: InspectionCatalogue` (already checked: refused pieces are absent, and `Layers.refused_pieces: list[str]` holds the messages).
 - A piece's `id` is its folder name; its identity on a fact is `f"{id}@{version}"`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/comeni-core/tests/test_inspection_kinds.py
@@ -120,12 +120,12 @@ def test_a_piece_naming_an_unknown_id_is_refused_and_the_rest_stay(tmp_path):
     assert len(refused) == 1 and "MD0317" in refused[0] and "gc_content" in refused[0]
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_inspection_kinds.py -q`
 Expected: FAIL — no module `comeni_core.declared.inspection`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `layered.py`: add `CODECS`, `FORMATS`, `MEASURES` to `DeclaredKind` (one-line docstrings: *"A piece of an inspection — `comeni_core.declared.inspection` (#134)."*), the singulars to `_KIND_OF`, and generalise the source rule:
 
@@ -177,12 +177,12 @@ Rename `_in_module` to `_in_source` at its call sites (grep `_in_module`), keepi
 
 `layers.py`: stack the three kinds with the shared `buckets`, then `inspection, refused = InspectionCatalogue.of(...).check(set(vocabulary.types), set(measurements.measurements))` (read the attribute names of `Vocabulary` and `MeasurementRegistry` first), and add `inspection: InspectionCatalogue` and `refused_pieces: list[str] = []` to `Layers`. Displacements of the three kinds join the list.
 
-- [ ] **Step 4: Run them, the loader's tests and the diagnostics page**
+- [x] **Step 4: Run them, the loader's tests and the diagnostics page**
 
 Run: `uv run python tools/generate_diagnostics_doc.py && uv run pytest packages/comeni-core tests/registry -q`
 Expected: PASS. If a test pins `len(DeclaredKind)`, update its number here.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core packages/mendel-resolver/src/mendel_resolver/layers.py docs/handbook/reference/diagnostics.md
@@ -205,7 +205,7 @@ git commit -m "feat(core): codecs, formats and measures as declared kinds, code 
   - `outcome.Value(value: int | float | bool | str, evidence: dict)`; `outcome.Undetermined(reason: str, evidence: dict)`; `outcome.Accumulator` (`Protocol`: `__init__(self, decided: dict, files: list[str])` — `files` are the sample's file names, which a measure may quote in a reason but never decide on, `add(self, row: tuple[SequenceRecord, ...]) -> None`, `result(self) -> Value | Undetermined`).
   - `wire.Request(format: PieceRef, codec: PieceRef | None, measures: list[PieceRef], files: list[FileHead], cap_bytes: int)` where `PieceRef(id, version, path: str, decided: dict = {})` (`path` is the piece's entry file, absolute) and `FileHead(name: str, length: int)`; `wire.write_request(stream, request, payloads: list[bytes])`, `wire.read_request(stream) -> tuple[Request, list[bytes]]`; `wire.Report(type_id: str | None, facts: dict[str, Fact], unreadable: str | None)` with `Fact(by: list[str], value=None, undetermined: str | None = None, evidence: dict)`; `Report.to_json() -> str` (keys sorted, so goldens compare bytes).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/comeni-inspect/tests/test_wire.py
@@ -239,12 +239,12 @@ def test_a_report_serialises_in_a_stable_order():
     assert wire.Report.model_validate_json(text) == report
 ```
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 Run: `uv sync && uv run pytest packages/comeni-inspect -q`
 Expected: FAIL (the package does not exist yet; `uv sync` may also fail until Step 3 adds it — then run after Step 3's `pyproject` only).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `pyproject.toml`: copy `comeni-vendor`'s and change `name = "comeni-inspect"`, the description (*"Measure an uploaded sample's head: the records, the accumulators, the wire protocol and the runner"*), `dependencies = ["pydantic>=2.9"]` (no `comeni-core`: a piece imports only this package, and this package needs nothing of ours), `[project.scripts] comeni-inspect = "comeni_inspect.run:main"`, `packages = ["src/comeni_inspect"]`, and drop `[tool.uv.sources]`. Root `pyproject.toml`: add `"comeni-inspect"` to `dependencies` and `comeni-inspect = { workspace = true }` to `[tool.uv.sources]`.
 
@@ -266,12 +266,12 @@ def read_request(stream) -> tuple[Request, list[bytes]]:
 
 `PROTOCOL.md`: the request line's fields, the payloads, the report's fields, exit codes (0 with a report on stdout; anything else, or nothing in time, is `Unreadable` on the caller's side), and *"an implementation in any language is valid if `comeni_inspect.harness` reproduces every golden report byte for byte against it"*. `README.md`: what the package is, in three paragraphs, leading with what a reader gets.
 
-- [ ] **Step 4: Run it to see it pass**
+- [x] **Step 4: Run it to see it pass**
 
 Run: `uv sync && uv run pytest packages/comeni-inspect -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-inspect pyproject.toml uv.lock
@@ -294,7 +294,7 @@ git commit -m "feat(inspect): records, outcomes and the wire protocol (#134)"
   - format: `def confirms(first: bytes) -> bool` (given up to the first 4 KiB after the codec) and `def records(stream: BinaryIO) -> Iterator[SequenceRecord]`.
   - measure: `class Accumulator` per `outcome.Accumulator`.
 
-- [ ] **Step 1: Write the failing tests, over toy pieces written into `tmp_path`**
+- [x] **Step 1: Write the failing tests, over toy pieces written into `tmp_path`**
 
 ```python
 # packages/comeni-inspect/tests/test_run.py
@@ -385,12 +385,12 @@ def test_a_piece_that_raises_is_unreadable(tmp_path):
     assert report.unreadable and "count" in report.unreadable
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/comeni-inspect/tests/test_run.py -q`
 Expected: FAIL — no module `comeni_inspect.run`.
 
-- [ ] **Step 3: Implement `stream.py`**
+- [x] **Step 3: Implement `stream.py`**
 
 ```python
 class TooLarge(Exception):
@@ -423,7 +423,7 @@ class Capped(io.RawIOBase):
         return len(chunk)
 ```
 
-- [ ] **Step 4: Implement `run.py`**
+- [x] **Step 4: Implement `run.py`**
 
 ```python
 def _load(ref: wire.PieceRef):
@@ -478,12 +478,12 @@ def _inspect(request, payloads):
 
 **When the files have different record counts**, `zip` stops at the shorter one; add `"rows": rows` to every fact's evidence so a truncated R2 is visible in the report (Review Focus 1).
 
-- [ ] **Step 5: Run them to see them pass**
+- [x] **Step 5: Run them to see them pass**
 
 Run: `uv run pytest packages/comeni-inspect -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-inspect
@@ -503,7 +503,7 @@ git commit -m "feat(inspect): the runner — one pass, every measure fed, every 
 - Consumes: Task 3's piece contract.
 - Produces: format `fastq@1.0.0` (`reads: [fastq.reads]`, `extensions: [.fastq, .fq]`, `record: sequence`, `runs: server`); codec `gzip@1.0.0` (`extensions: [.gz]`, `magic: ["1f8b"]`).
 
-- [ ] **Step 1: Generate the fixtures, deterministically**
+- [x] **Step 1: Generate the fixtures, deterministically**
 
 Write `inspectors/formats/fastq/piece/fixtures/make.py` (kept, so the fixtures can be regenerated and reviewed) producing, with `random.Random(134)`:
 
@@ -527,7 +527,7 @@ Write `inspectors/formats/fastq/piece/fixtures/make.py` (kept, so the fixtures c
 
 No `.yml` anywhere under `fixtures/` (the loader would try to parse it). Run: `cd registry && uv run --project .. python inspectors/formats/fastq/piece/fixtures/make.py && ls inspectors/formats/fastq/piece/fixtures`.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # inspectors/formats/fastq/piece/test_fastq.py
@@ -578,12 +578,12 @@ for piece in sorted(pathlib.Path(__file__).parent.glob("*/*/piece")):
 
 Add `"registry/inspectors"` to `testpaths` in the root `pyproject.toml`.
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `uv run pytest registry/inspectors -q`
 Expected: FAIL — `ModuleNotFoundError: fastq`.
 
-- [ ] **Step 4: Implement the pieces**
+- [x] **Step 4: Implement the pieces**
 
 `codec.yml`: `declares: codec`, `id: gzip`, `version: 1.0.0`, `extensions: [.gz]`, `magic: ["1f8b"]`, `entry: piece/gzip_codec.py`. Code: `def open(raw): return gzip.GzipFile(fileobj=io.BytesIO(raw))`.
 
@@ -616,12 +616,12 @@ def records(stream):
 
 (The name keeps any `/1` `/2` suffix: stripping it is the `paired` measure's business, which is where the rule is declared.)
 
-- [ ] **Step 5: Run them to see them pass**
+- [x] **Step 5: Run them to see them pass**
 
 Run: `uv run pytest registry/inspectors -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit in the registry**
+- [x] **Step 6: Commit in the registry**
 
 ```bash
 cd registry && git add inspectors && git commit -m "Inspectors: the gzip codec and the FASTQ format (comeni-labs #134)"
@@ -646,7 +646,7 @@ The rules are spec §5's table, exactly:
 
 Each accumulator receives the sample's file names (Task 2's contract) only to word the `names say R1/R2` reason; a test below pins that file names alone never decide.
 
-- [ ] **Step 1: Write the failing tests, one file per measure, over the fixtures**
+- [x] **Step 1: Write the failing tests, one file per measure, over the fixtures**
 
 ```python
 # inspectors/measures/read_length/piece/test_read_length.py
@@ -711,21 +711,21 @@ def test_overlap_is_undetermined():
 
 Add `inspectors/support_pieces.py`, which `request_for(case, measures)` builds a `wire.Request` from `formats/fastq/piece/fixtures/<case>/` (sorted file names; the `gzip` codec when a name ends in `.gz`; each measure's `decided` read from its `measure.yml` with `yaml.safe_load`; `cap_bytes = 16 * 2**20`) and returns `(request, payloads)`.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest registry/inspectors -q`
 Expected: FAIL — the measure pieces do not exist.
 
-- [ ] **Step 3: Implement the three accumulators and their `measure.yml`, by the rules above**
+- [x] **Step 3: Implement the three accumulators and their `measure.yml`, by the rules above**
 
 Use `collections.Counter` for lengths and agreement; keep counts, never records.
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `uv run pytest registry/inspectors packages/comeni-inspect -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit, in the registry and here**
+- [x] **Step 5: Commit, in the registry and here**
 
 ```bash
 cd registry && git add inspectors && git commit -m "Inspectors: read length, pairing and quality encoding (comeni-labs #134)" && cd ..
@@ -745,7 +745,7 @@ git add registry && git commit -m "chore(registry): the three measures (#134)"
 **Interfaces:**
 - Produces: `harness.cases(registry: Path) -> list[Case]` (every fixture folder of every format, with its request built as `support_pieces` does, all of that format's measures); `harness.run_case(case, command: list[str] | None = None) -> str` — the report JSON, from `run.inspect` in-process when `command` is None, else by piping the request into `command` (any implementation, any language).
 
-- [ ] **Step 1: Write the guards**
+- [x] **Step 1: Write the guards**
 
 ```python
 # tests/guards/test_inspector_pieces.py
@@ -794,11 +794,11 @@ def test_a_piece_imports_only_the_allowlist(code):
 
 (`open` the builtin is banned: a piece reads only the stream it is handed. The codec's own function is also called `open`; that is a definition, not a call, and is not matched.)
 
-- [ ] **Step 2: Watch each guard fail (A14)**
+- [x] **Step 2: Watch each guard fail (A14)**
 
 Add `import socket` to `fastq.py`; run `uv run pytest tests/guards/test_inspector_pieces.py -q`; see the allowlist test FAIL naming `socket`; revert. Rename `test_fastq.py` to `check_fastq.py`; see the declaration test FAIL; revert. Record both in `tests/fixtures/guard-ledger.md`.
 
-- [ ] **Step 3: Write the conformance test**
+- [x] **Step 3: Write the conformance test**
 
 ```python
 # tests/registry/test_inspection_conformance.py
@@ -854,24 +854,24 @@ def test_the_speed_budget():
 
 `harness.request_for_bytes(registry, name, raw)` builds a request for one file the way `cases` does. Move `support_pieces.request_for`'s logic into `harness` and make `support_pieces` a two-line wrapper over it, so the piece tests and the conformance test build requests one way.
 
-- [ ] **Step 4: Generate the goldens once, read them, then commit them**
+- [x] **Step 4: Generate the goldens once, read them, then commit them**
 
 Run: `uv run python -c "from comeni_inspect import harness; from pathlib import Path; [ (c.folder/'expected.json').write_text(harness.run_case(c)+'\n') for c in harness.cases(Path('registry')) ]"`
 Then **read every `expected.json`** against spec §5's table and the case's description in Task 4; a golden that encodes a wrong answer is a wrong contract. Fix the piece, not the golden, if one is wrong.
 
-- [ ] **Step 5: Run everything**
+- [x] **Step 5: Run everything**
 
 Run: `uv run pytest tests/guards/test_inspector_pieces.py tests/registry/test_inspection_conformance.py registry/inspectors packages/comeni-inspect -q`
 Expected: PASS; the speed budget's elapsed time recorded in the execution record.
 
-- [ ] **Step 6: Commit, in the registry and here**
+- [x] **Step 6: Commit, in the registry and here**
 
 ```bash
 cd registry && git add inspectors && git commit -m "Inspectors: golden reports for every FASTQ case (comeni-labs #134)" && cd ..
 git add tests packages/comeni-inspect registry && git commit -m "test(inspect): guards over every piece, the conformance goldens, the speed budget (#134)"
 ```
 
-- [ ] **Step 7: Run `make check`, separately**
+- [x] **Step 7: Run `make check`, separately**
 
 Run: `make check > /tmp/claude-1000/check.log 2>&1; tail -20 /tmp/claude-1000/check.log`
 Expected: PASS.
@@ -881,3 +881,7 @@ Expected: PASS.
 ## Execution record
 
 *(Filled in while executing: rulings, measurements, deviations.)*
+
+- **Measured:** a 4 MB gzipped FASTQ head takes 0.21 s in one pass with three measures (budget 1 s).
+- **Registry:** pieces on comeni-registry branch `inspectors` (from `main` after `one-folder-per-tool` merged). `quality_encoding` joined the measurements: MD0317 refused the piece without it. It stays assertion-only until plan 3 counts pieces as producers.
+- **Rulings:** an entry must stay inside `piece/`; the lint skips `piece/` like `module/`; a payload shorter than declared is refused; the format's own iteration is guarded and an empty file says so; the cut-gzip test uses varied records (identical ones compress to nothing decodable); fixtures that must pass 1,000 reads are gzipped (1.7 MB in all); `paired` reports `{pairs, agreeing}` because the runner owns `rows`; `comeni-inspect` is classified impure and depends on PyYAML for its harness; forge goldens gained `measurement.quality_encoding`.
