@@ -11,6 +11,8 @@ the format's declared `reads` (part 4), not something a piece reports about itse
 import gzip
 import importlib.util
 import io
+import json
+import math
 import sys
 import zlib
 from collections.abc import Callable, Iterator
@@ -18,8 +20,8 @@ from collections.abc import Callable, Iterator
 from pydantic import ValidationError
 
 from comeni_inspect import wire
-from comeni_inspect.outcome import Value
-from comeni_inspect.stream import Capped, TooLarge
+from comeni_inspect.outcome import Undetermined, Value
+from comeni_inspect.stream import Capped, Prefixed, SourceFailed, TooLarge
 
 _CONFIRM_BYTES = 4096
 
@@ -29,11 +31,17 @@ class _PieceFailed(Exception):
 
 
 def _load(ref: wire.PieceRef):
+    """Import a piece by path, **writing no bytecode**: the piece lives in a registry layer, and
+    a `__pycache__` beside it is a file nobody wrote in a tree a pipeline pins."""
     spec = importlib.util.spec_from_file_location(f"piece_{ref.id}", ref.path)
     if spec is None or spec.loader is None:
         raise ImportError(f"no piece at {ref.path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    before, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = before
     return module
 
 
@@ -48,9 +56,11 @@ def _guarded(ref: wire.PieceRef | str, call: Callable):
     name = ref.id if isinstance(ref, wire.PieceRef) else ref
     try:
         return call(ref)
-    except (TooLarge, zlib.error, gzip.BadGzipFile):
+    except (TooLarge, SourceFailed, zlib.error, gzip.BadGzipFile):
         raise
-    except Exception as error:  # noqa: BLE001 — see the docstring
+    # `SystemExit` too: a piece can raise it without importing anything, and it must not end
+    # the process before it has answered.
+    except (Exception, SystemExit) as error:  # noqa: BLE001 — see the docstring
         raise _PieceFailed(f"{name} failed: {type(error).__name__}") from error
 
 
@@ -66,25 +76,58 @@ def inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
         return _unreadable("too large unpacked")
     except (zlib.error, gzip.BadGzipFile, OSError) as error:
         return _unreadable(f"could not be unpacked: {error}")
-    except _PieceFailed as failed:
+    except (_PieceFailed, SourceFailed) as failed:
         return _unreadable(str(failed))
+    # **The last resort**, and the promise in this function's docstring rests on it: whatever
+    # the runner itself got wrong is still one inspection's answer, never a crashed process.
+    except Exception as error:  # noqa: BLE001
+        return _unreadable(f"inspection failed: {type(error).__name__}")
 
 
-def _rows(fmt, ref: wire.PieceRef, streams: list) -> Iterator[tuple]:
+def _rows(fmt, ref: wire.PieceRef, streams: list, ended: dict) -> Iterator[tuple]:
     """Side by side; stops at the shorter file. A format's own failure is guarded here, since
-    its generator runs only as it is read."""
+    its generator runs only as it is read.
+
+    **Says which file was shorter** (review focus 1): when one file ends while another still
+    has a record, `ended["shorter"]` is its index, so the report shows a cut R2 as a cut R2.
+    """
     iterators = [_guarded(ref, lambda _, s=s: iter(fmt.records(s))) for s in streams]
     while True:
         row = []
-        for iterator in iterators:
+        for index, iterator in enumerate(iterators):
             record = _guarded(ref, lambda _, it=iterator: next(it, None))
             if record is None:
+                rest = iterators[index + 1 :]
+                if row or any(
+                    _guarded(ref, lambda _, it=it: next(it, None)) is not None for it in rest
+                ):
+                    ended["shorter"] = index
                 return
             row.append(record)
         yield tuple(row)
 
 
+def _fact(outcome, by: list[str], rows: int, shorter: str | None) -> wire.Fact:
+    """What a measure answered, held to the report's shape. **Inside the guard**: a measure
+    returning `None`, a list, bytes in its evidence or `nan` is that measure's failure."""
+    if not isinstance(outcome, Value | Undetermined):
+        raise TypeError(f"result() gave {type(outcome).__name__}")
+    # **`rows` on every fact** (review focus 1): a pair whose R2 the head cut short is read up
+    # to the shorter file, and the report must show how far that was.
+    evidence = {**outcome.evidence, "rows": rows}
+    if shorter is not None:
+        evidence["shorter_file"] = shorter
+    json.dumps(evidence, allow_nan=False)
+    if isinstance(outcome, Undetermined):
+        return wire.Fact(by=by, undetermined=str(outcome.reason), evidence=evidence)
+    if isinstance(outcome.value, float) and not math.isfinite(outcome.value):
+        raise ValueError("a value that is not a finite number")
+    return wire.Fact(by=by, value=outcome.value, evidence=evidence)
+
+
 def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
+    if len(request.files) != len(payloads):
+        return _unreadable(f"broken request: {len(request.files)} files, {len(payloads)} payloads")
     fmt = _guarded(request.format, _load)
     codec = _guarded(request.codec, _load) if request.codec else None
     streams = []
@@ -93,8 +136,11 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
             opened = io.BytesIO(raw)
         else:
             opened = _guarded(request.codec, lambda _, r=raw: codec.open(r))
-        stream = io.BufferedReader(Capped(opened, request.cap_bytes))
-        first = stream.peek(_CONFIRM_BYTES)[:_CONFIRM_BYTES]
+        source = request.codec.id if request.codec else "the file"
+        capped = io.BufferedReader(Capped(opened, request.cap_bytes, source))
+        # `read`, not `peek`: a peek is one raw read and may show less than the window.
+        first = capped.read(_CONFIRM_BYTES)
+        stream = io.BufferedReader(Prefixed(first, capped))
         if not first:
             return _unreadable(f"{head.name} is empty")
         if not _guarded(request.format, lambda _, f=first: fmt.confirms(f)):
@@ -108,22 +154,19 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
         for m in request.measures
     }
     rows = 0
-    for row in _rows(fmt, request.format, streams):
+    ended: dict[str, int] = {}
+    for row in _rows(fmt, request.format, streams, ended):
         rows += 1
         for ref in request.measures:
             _guarded(ref, lambda _, a=accumulators[ref.id], r=row: a.add(r))
     by_format = f"{request.format.id}@{request.format.version}"
     facts = {}
+    shorter = names[ended["shorter"]] if "shorter" in ended else None
     for ref in request.measures:
-        outcome = _guarded(ref, lambda _, a=accumulators[ref.id]: a.result())
         by = [by_format, f"{ref.id}@{ref.version}"]
-        # **`rows` on every fact** (review focus 1): a pair whose R2 the head cut short is read
-        # up to the shorter file, and the report must show how far that was.
-        evidence = {**outcome.evidence, "rows": rows}
-        if isinstance(outcome, Value):
-            facts[ref.id] = wire.Fact(by=by, value=outcome.value, evidence=evidence)
-        else:
-            facts[ref.id] = wire.Fact(by=by, undetermined=outcome.reason, evidence=evidence)
+        facts[ref.id] = _guarded(
+            ref, lambda _, a=accumulators[ref.id], b=by: _fact(a.result(), b, rows, shorter)
+        )
     return wire.Report(type_id=None, facts=facts, unreadable=None)
 
 

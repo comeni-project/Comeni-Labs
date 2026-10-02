@@ -98,6 +98,12 @@ def _declared(path: Path, root: Path) -> bool:
     arriving a second time by a different route. Where a layer sits cannot decide what it
     contains.
     """
+    if "__pycache__" in path.relative_to(root).parts or path.suffix == ".pyc":
+        # **Bytecode is never layer data**, inside `piece/` or anywhere (review of #134). Running
+        # a piece writes `__pycache__/*.pyc`, which embeds the source's mtime and the
+        # interpreter's version in its name: the layer digest would move on every test run and
+        # differ between clones — issue #46's machine-dependent digest by a third route.
+        return False
     if _in_source(path, root):
         # **Before the dot rule, not after it, and running `comeni-vendor add` is what found
         # that.** nf-core ships `.conda-lock/linux_amd64-….txt` inside a module — the pinned

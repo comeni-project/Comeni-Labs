@@ -61,3 +61,14 @@ def test_an_entry_outside_piece_is_refused():
             {"id": "x", "version": "1.0.0", "measures": "x", "record": "sequence",
              "decided": {}, "entry": "../elsewhere.py"}
         )
+
+
+def test_bytecode_beside_piece_code_is_not_in_the_layer_digest(tmp_path):
+    """Review of #134: running a piece writes `piece/__pycache__/*.pyc`, which embeds the
+    source's mtime and the interpreter's version — the layer digest would move on every test
+    run and differ between clones (issue #46 by another route)."""
+    _write(tmp_path, "inspectors/formats/fastq/piece/fastq.py", "x = 1\n")
+    pyc = _write(tmp_path, "inspectors/formats/fastq/piece/__pycache__/fastq.cpython-312.pyc")
+    stray = _write(tmp_path, "inspectors/formats/fastq/piece/old.pyc")
+    entries = declared_entries(tmp_path)
+    assert pyc not in entries and stray not in entries

@@ -105,6 +105,12 @@ def test_a_short_second_file_stops_at_the_shorter_and_says_how_many_rows(tmp_pat
     report = run.inspect(*_with(_request(tmp_path), b">a\n>b\n>c\n", b">a\n"))
     fact = report.facts["count"]
     assert fact.value == 2 and fact.evidence["rows"] == 1
+    assert fact.evidence["shorter_file"] == "f1"
+
+
+def test_files_of_equal_length_name_no_shorter_file(tmp_path):
+    report = run.inspect(*_with(_request(tmp_path), b">a\n", b">a\n"))
+    assert "shorter_file" not in report.facts["count"].evidence
 
 
 def test_the_process_answers_a_broken_request_with_a_report():
@@ -117,3 +123,73 @@ def test_the_process_answers_a_broken_request_with_a_report():
     )
     assert done.returncode == 0
     assert wire.Report.model_validate_json(done.stdout).unreadable.startswith("broken request")
+
+
+def test_an_inspection_writes_no_bytecode_beside_the_pieces(tmp_path):
+    """The pieces live in a registry layer whose digest a pipeline pins."""
+    run.inspect(*_with(_request(tmp_path), b">a\n"))
+    assert not list(tmp_path.rglob("__pycache__"))
+
+
+def _measure_returning(tmp_path, body: str):
+    request = _request(tmp_path)
+    (tmp_path / "count.py").write_text(
+        "from comeni_inspect.outcome import Value\n"
+        "class Accumulator:\n"
+        "    def __init__(self, d, f): pass\n"
+        "    def add(self, row): pass\n"
+        f"    def result(self): {body}\n"
+    )
+    return run.inspect(*_with(request, b">a\n"))
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "return None",
+        "return Value(value=[1], evidence={})",
+        "return Value(value=1, evidence={'raw': b'x'})",
+        "return Value(value=float('nan'), evidence={})",
+        "raise SystemExit(3)",
+    ],
+)
+def test_a_measure_answering_badly_is_unreadable_not_a_crash(tmp_path, body):
+    """Review of #134: what `result()` returns was used outside the guard."""
+    report = _measure_returning(tmp_path, body)
+    assert report.unreadable and "count" in report.unreadable
+    report.to_json()
+
+
+def test_a_codec_that_returns_no_stream_is_unreadable(tmp_path):
+    request = _request(tmp_path, codec=True)
+    (tmp_path / "gz.py").write_text("def open(raw):\n    return raw\n")
+    report = run.inspect(*_with(request, b">a\n"))
+    assert report.unreadable and "gzip" in report.unreadable
+
+
+def test_more_payloads_than_files_is_unreadable(tmp_path):
+    request, payloads = _with(_request(tmp_path), b">a\n")
+    report = run.inspect(request, [*payloads, b">b\n"])
+    assert report.unreadable
+
+
+def test_the_format_is_shown_a_full_window_even_through_a_codec(tmp_path):
+    """`peek` is one raw read and may return less than asked; the window is read whole."""
+    request = _request(tmp_path, codec=True)
+    (tmp_path / "fmt.py").write_text(
+        "def confirms(first):\n    return len(first) == 4096\n"
+        "def records(stream):\n    return iter(())\n"
+    )
+    (tmp_path / "gz.py").write_text(
+        "import io\nclass Slow(io.RawIOBase):\n"
+        "    def __init__(self, raw): self.raw = io.BytesIO(raw)\n"
+        "    def readable(self): return True\n"
+        "    def readinto(self, b):\n"
+        "        data = self.raw.read(min(len(b), 100)); b[:len(data)] = data; return len(data)\n"
+        "def open(raw):\n    return Slow(raw)\n"
+    )
+    report = run.inspect(*_with(request, b">" * 10_000))
+    assert report.unreadable is None
