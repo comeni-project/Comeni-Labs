@@ -11,7 +11,7 @@ Started 2026-09-28 from #105 and #114, during Living Pipeline Plan 2.
 
 ## The loop
 
-**The diagram is [generated from the code](authoring-protocol-diagram.md)**: solid is built,
+**The diagram is [generated from the code](diagrams/authoring-protocol.md)**: solid is built,
 dashed is designed and not built yet. The same object is where the running state machine comes
 from, so the picture and the machine cannot disagree.
 

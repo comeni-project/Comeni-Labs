@@ -1,11 +1,11 @@
 """The authoring protocol as one declarative object: who acts, in which stage, and what moves.
 
 **This is the only definition.** `state.TRANSITIONS` and `state.RETRY_TARGETS` are computed from
-the built edges here, and `docs/design/authoring-protocol-diagram.md` is generated from the whole
-object, so the picture a person argues about and the machine that runs cannot drift apart. The
-design lives here too, **planned** (`built=False`) and drawn dashed; each substep that builds a
-part flips it. The rules' prose stays on the protocol page: this object holds structure, not
-argument.
+the built edges here, and `docs/design/diagrams/` is generated from the whole object (a general
+diagram, and one per node that carries a detail), so the picture a person argues about and the
+machine that runs cannot drift apart. The design lives here too, **planned** (`built=False`) and
+drawn dashed; each substep that builds a part flips it. The rules' prose stays on the protocol
+page: this object holds structure, not argument.
 
 Because a drawing mistake is now a behaviour mistake, `Protocol` refuses to exist when it is
 inconsistent (spec §5, *Checked when it loads*).
@@ -204,7 +204,10 @@ _OPEN = {
 
 def _node(node: Node) -> str:
     left, right = _OPEN[node.shape]
-    return f"        {node.id}{left}{node.label}{right}:::{node.actor.value}"
+    # GitHub's Mermaid does not follow `click` links, so a node with a detail says so in its
+    # label, and the diagrams' index lists the detail.
+    marker = f"<br/>▸ detailed diagram: {node.detail.title}" if node.detail is not None else ""
+    return f"        {node.id}{left}{node.label}{marker}{right}:::{node.actor.value}"
 
 
 def _edge(edge: Edge) -> str:
