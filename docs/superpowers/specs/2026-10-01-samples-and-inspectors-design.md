@@ -243,8 +243,10 @@ say *measured by an inspector*, *measured when the pipeline runs*, or *nothing m
 **Inspecting** (`services/inspect.py`) follows the detailed diagram (§11): match, launch the
 runner with its limits, read the report.
 
-**Admitting** (`comeni-core`): `ValueSource.INSPECTED`; `Measured.by` naming the pieces and
-versions; `MeasurementRegistry.profile_of(entries)` for a profile whose entries carry their own
+**Admitting** (`comeni-core`): `ValueSource.MEASURED`, which already meant *a tool looked at the
+data and named itself* (built as 14.7.6.3: a second member `INSPECTED` would have split one
+meaning across two names); `Measured.pieces` naming the pieces and versions, and
+`Measured.evidence` how much they read, where a profiler's value names its contract in `by`; `MeasurementRegistry.profile_of(entries)` for a profile whose entries carry their own
 sources (the construction guard forbids building a `DataProfile` anywhere else). Each value is
 checked with `MeasurementRegistry.check`; one that fails is dropped with a reason shown to the
 person. An undetermined fact is not admitted, and the measurement stays open.
@@ -307,7 +309,7 @@ So diagrams split, **one general and several detailed**:
 |---|---|---|
 | **14.7.6.1** | The registry reorganised (#216): the engine learns the layout, `tool.yml` for every tool (operator approves the descriptions), docs into tool folders, `vocabulary/`, `profilers/`, the lint, the metadata signature; then the registry moves and the submodule is bumped | — |
 | **14.7.6.2** | `comeni-inspect`: the piece types, the wire protocol and runner, the conformance harness, the guards; in the registry, gzip, the FASTQ format and the three measures, with the speed budget | 1 |
-| **14.7.6.3** | `comeni-core`: `INSPECTED`, `Measured.by` and evidence, `profile_of`; `paired` loses `assertion_only` | — |
+| **14.7.6.3** | `comeni-core`: `Measured.pieces` and evidence (under `MEASURED`), `profile_of`; `paired` loses `assertion_only` | — |
 | **14.7.6.4** | `mendel-api`: loading pieces, trusted layers, the who-measures-what index, the inspection service and its limits, the upload route, protection level 0 built | 2, 3 |
 | **14.7.6.5** | Protocol: `detail` on a node, `docs/design/diagrams/`, the inspection diagram, the upload branch built | 4 |
 | **14.7.6.6** | Design pass, then the gap card's upload states and the goal card's measured label | 4 |
@@ -344,5 +346,5 @@ undetermined fact are **answers**, not errors: shown with their reason, never a 
   head stored here is the same bytes; 14.7.7 decides whether it reads from this store.
 - **Pushing to `comeni-registry`:** the move is a commit there; the operator authorises pushing
   it, as for this repository's branch.
-- **The `comeni-core` version:** `INSPECTED` and `profile_of` are features; the bump is judged at
+- **The `comeni-core` version:** `Measured.pieces`, `Evidence` and `MeasuredEntry` are features; the bump is judged at
   release time (`docs/internals/releasing.md`).

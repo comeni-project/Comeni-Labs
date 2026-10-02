@@ -41,13 +41,20 @@ from typing import Literal, overload
 from pydantic import BaseModel
 
 from comeni_core.plan.tiers import ValueSource
-from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue
+from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
+
+class Evidence(BaseModel):
+    records: int | None
+    rows: int | None
+    share: float | None
 
 class Measured(BaseModel):
     measurement: MeasurementId
     value: ParamValue | list[ParamValue]
     source: ValueSource
     by: ContractId | None
+    pieces: list[PieceRef]
+    evidence: Evidence | None
 
 class DataProfile(BaseModel):
     measurements: list[Measured]

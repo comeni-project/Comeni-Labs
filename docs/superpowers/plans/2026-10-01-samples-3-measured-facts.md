@@ -58,12 +58,12 @@ The spec (§9) names a new `ValueSource.INSPECTED`. The code already has `ValueS
 **Interfaces:**
 - Produces: `PieceRef = Annotated[str, Mark.PIECE_REF, AfterValidator(_piece_ref)]` (`^[a-z0-9_]+@\d+\.\d+\.\d+$`); `Evidence(records: int | None = None, rows: int | None = None, share: float | None = None)` (frozen, `extra="forbid"`, all `ge=0`, `share ≤ 1`); `Measured.pieces: list[PieceRef] = []`, `Measured.evidence: Evidence | None = None`.
 
-- [ ] **Step 1: Read how `Mark` members are registered and checked**
+- [x] **Step 1: Read how `Mark` members are registered and checked**
 
 Run: `grep -n "CONTRACT_ID\|_contract_id" packages/comeni-core/src/comeni_core/spell/marks.py tests/guards/*.py | head -20`
 Note every place a new `Mark` must also be named (a docstring table, a guard's list); the new member goes in each.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # packages/comeni-core/tests/test_measured_pieces.py
@@ -110,12 +110,12 @@ def test_a_share_above_one_is_refused():
 
 (Run `grep -rn "source:" docs/handbook/reference/pipeline-schema.md` first: if the serialised `source` value differs from `"goal"`, use what the file shows.)
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_measured_pieces.py -q`
 Expected: FAIL — `cannot import name 'Evidence'`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `marks.py`: `PIECE_REF = "piece-ref"` in `Mark` with a docstring (*"An inspector piece and its version, `fastq@1.0.0`: what a measured fact names when no contract measured it (#134)."*), and:
 
@@ -172,12 +172,12 @@ On `Measured`, after `by`:
         return data
 ```
 
-- [ ] **Step 5: Run them, then the egress and construction guards**
+- [x] **Step 5: Run them, then the egress and construction guards**
 
 Run: `uv run pytest packages/comeni-core/tests/test_measured_pieces.py tests/guards -q`
 Expected: PASS. If the egress guard reports the new alias as unknown, add `Mark.PIECE_REF` wherever it lists declared aliases (that is a declared id, not free text: `FREE_TEXT_FIELDS` stays unchanged).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/spell/marks.py packages/comeni-core/src/comeni_core/goal/profile.py packages/comeni-core/tests/test_measured_pieces.py tests/guards
@@ -197,7 +197,7 @@ git commit -m "feat(core): a measured fact names its inspector pieces and how mu
 - Consumes: Task 1's `Measured.pieces`, `Evidence`.
 - Produces: `MeasuredEntry(measurement: str, value: ParamValue | list[ParamValue], source: ValueSource, by: str | None = None, pieces: tuple[str, ...] = (), evidence: Evidence | None = None)` — a `NamedTuple` in `measurement.py`; `MeasurementRegistry.profile_of(entries: Sequence[MeasuredEntry]) -> DataProfile`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from comeni_core.declared.measurement import MeasuredEntry, MeasurementRegistry
@@ -230,12 +230,12 @@ def test_profile_of_still_checks_every_value():
 
 (If `packages/comeni-core/tests` cannot import `mendel_resolver` or `support`, put these two tests in `tests/registry/test_measured_entries.py` instead — `comeni-core`'s own tests may not depend on the resolver.)
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest tests/registry/test_measured_entries.py packages/comeni-core/tests/test_measured_pieces.py -q`
 Expected: FAIL — `cannot import name 'MeasuredEntry'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 class MeasuredEntry(NamedTuple):
@@ -253,12 +253,12 @@ class MeasuredEntry(NamedTuple):
 
 In `authoring.py`'s `compose_goal`, build `MeasuredEntry(f.subject, f.value, _SOURCE[f.source])` in place of the 4-tuple, unchanged in meaning; part 4 adds the pieces and evidence it learns from an inspection.
 
-- [ ] **Step 4: Run them, and every caller's tests**
+- [x] **Step 4: Run them, and every caller's tests**
 
 Run: `uv run pytest tests/registry packages/comeni-core packages/mendel-api -q -x`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/declared/measurement.py packages/mendel-api/src/mendel_api/services/authoring.py tests/registry/test_measured_entries.py packages/comeni-core/tests/test_measured_pieces.py
@@ -356,3 +356,7 @@ git commit -m "feat(core): a reader sees which pieces measured a value; paired i
 ## Execution record
 
 *(Filled in while executing: rulings, measurements, deviations.)*
+
+- **Ruling against the spec, carried out:** `ValueSource.MEASURED`, not a new `INSPECTED`; spec §9 and §12 now say so.
+- **Rulings:** `exclude_if` on `pieces` and `evidence` rather than a `@model_serializer`, which the egress guard forbids on a payload (and should); `PieceRef` validated with string methods (`re` is not on `comeni-core`'s allowlist) and argued onto door 1; `profile_of` still accepts a bare 4-tuple; `quality_encoding` lost `assertion_only` here too; `Evidence` joined the generated `profile.pyi`, the goal models' blame list and the goal schema page.
+- **Goldens:** none changed, which is the proof that an empty `Measured` serialises as before.

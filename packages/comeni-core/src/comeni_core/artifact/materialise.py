@@ -165,7 +165,11 @@ def _meta_entry(key: str, measurement, value, profile) -> MetaEntry:
     by = entry.by if entry is not None else None
 
     if source is ValueSource.MEASURED:
-        reason = f"measured by {by}" if by else "measured"
+        # An inspector names its pieces, a profiler its contract (#134): one measurer either way.
+        measurer = " + ".join(entry.pieces) if entry is not None and entry.pieces else by
+        reason = f"measured by {measurer}" if measurer else "measured"
+        if entry is not None and entry.evidence is not None and entry.evidence.records:
+            reason = f"{reason}, on {entry.evidence.records:,} reads"
     else:
         reason = "asserted in the goal; no profiling run established it"
     if measurement.cite:

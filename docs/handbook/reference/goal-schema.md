@@ -108,6 +108,8 @@ Model: `comeni_core.goal.profile.Measured`
 | `value` | int \| float \| bool \| string | *required* | the value |
 | `source` | enum | asserted | how it was obtained |
 | `by` | string \| null | `null` | the contract that measured it, when something did |
+| `pieces` | [string] | `[]` | the inspector pieces that measured an uploaded sample, e.g. `[fastq@1.0.0, read_length@1.0.0]`; left out when empty, and never set together with `by` |
+| `evidence` | object \| null | `null` | how much the pieces read: `records`, `rows`, `share` (counts only); left out when there is none |
 
 Written as a mapping, as in the example at the top. **Only declared measurements are accepted** —
 an unknown key is refused, which is what stops `profile: {sample_name: ...}` from ever building.

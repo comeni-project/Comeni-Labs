@@ -1115,7 +1115,7 @@ def test_every_pipeline_model_blames_the_pipeline_file():
 
 _GOAL_MODELS = frozenset(
     {"Goal", "GoalInput", "Constraints", "RequiredStates", "ParamOverride",
-     "DataProfile", "Measured", "ParamDecision", "ProducerDecision", "SourceDecision",
+     "DataProfile", "Measured", "Evidence", "ParamDecision", "ProducerDecision", "SourceDecision",
      "Displacement"}
 )
 """Models `Pipeline` carries that are genuinely the goal's or a decision's, so blaming the

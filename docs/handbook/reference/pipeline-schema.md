@@ -185,6 +185,20 @@ are already materialised into `channels[].meta`.
 
 To change the goal, edit it and run `mendel upgrade`, which re-resolves against a registry.
 
+Each entry under `profile.measurements` says where its value came from: `source: goal` for
+something a person said, `source: measured` for something measured from the data. A measured
+value names what measured it, in one of two ways:
+
+- `by:` a contract, when a profiling step in a pipeline measured it.
+- `pieces:` the inspector pieces, when an uploaded sample was measured, e.g.
+  `[fastq@1.0.0, read_length@1.0.0]`, with `evidence:` saying how much was read
+  (`records`, `rows`, `share`). Both are left out when nothing was inspected.
+
+```yaml
+      - {measurement: read_length, value: 151, source: measured, by: null,
+         pieces: [fastq@1.0.0, read_length@1.0.0], evidence: {records: 8412, share: 0.97}}
+```
+
 ### `registry` — provenance, not a dependency
 
 Which layers built this, by name and content digest; what an overlay displaced; and which
