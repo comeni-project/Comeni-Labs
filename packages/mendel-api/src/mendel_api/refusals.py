@@ -79,8 +79,9 @@ async def locked_handler(request: Request, exc: Exception) -> JSONResponse:
     from comeni_core.diagnostics import coded
     from comeni_core.settings.installation import DesignedOption
 
-    code = "MI0303" if isinstance(exc, DesignedOption) else "MI0300"
-    return JSONResponse(status_code=409, content={"detail": coded(code, str(exc))})
+    if isinstance(exc, DesignedOption):
+        return JSONResponse(status_code=409, content={"detail": coded("MI0303", str(exc))})
+    return JSONResponse(status_code=409, content={"detail": coded("MI0300", str(exc))})
 
 
 #: Attach to an operation that can meet a locked setting.

@@ -22,9 +22,10 @@ from comeni_core.artifact.pipeline import AiProvenance
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
 from comeni_core.spell.marks import HumanParamValue, OptionId
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, Request, status
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
 from mendel_api.authoring.types import (
@@ -599,3 +600,99 @@ def _ai_for(mode: Mode, provenance: DraftProvenance) -> AiProvenance:
     """`authoring.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
     del mode
     return authoring.ai_for(provenance)
+
+
+class InspectedFactView(BaseModel):
+    model_config = _FROZEN
+
+    measurement: str
+    value: HumanParamValue | None = None
+    undetermined: str | None = None
+    pieces: list[str] = []
+    evidence: dict[str, int | float | bool | str] = {}
+
+
+class SampleInspected(BaseModel):
+    """What one uploaded sample measured, and what that settled (14.7.6.4)."""
+
+    model_config = _FROZEN
+
+    outcome: Literal["measured", "unreadable", "no_inspector", "tie"]
+    type_id: str | None
+    facts: list[InspectedFactView]
+    reason: str | None
+    steps: list[str]
+    """What was done, in order: returned with the answer, not streamed."""
+    recorded: list[str]
+    kept: list[str]
+    disagreed: list[str]
+    session: AuthoringSessionView
+
+
+_UPLOAD_BODY = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["proposal_id", "files"],
+                    "properties": {
+                        "proposal_id": {"type": "string"},
+                        "files": {
+                            "type": "array",
+                            "items": {"type": "string", "format": "binary"},
+                            "minItems": 1,
+                            "maxItems": 2,
+                        },
+                    },
+                }
+            }
+        },
+    }
+}
+
+
+@router.post(
+    "/{session_id}/samples",
+    operation_id="uploadAuthoringSample",
+    summary="Answer a question about your data with a sample: one file, or a pair",
+    responses={**REFUSES, 403: {"description": "`MI0213`: the protection level refuses it."}},
+    openapi_extra=_UPLOAD_BODY,
+)
+async def upload_sample(session_id: str, request: Request) -> SampleInspected:
+    """**Only the first 4 MB of each file is kept**, in memory; the rest is read through and
+    dropped, and nothing is written to disk (14.7.6's ruling: nothing deletes a session yet, so
+    nothing about a sample is kept). The protection level is asked before a byte is read."""
+    from mendel_api.services import inspect, protection, registry, sample_upload
+
+    if not protection.allows(protection.Crossing.UPLOAD):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, protection.refuse(protection.Crossing.UPLOAD)
+        )
+    try:
+        heads = await sample_upload.read_heads(request, head=inspect.HEAD_BYTES)
+    except ValueError as refused:
+        raise ValueError(coded("MI0214", str(refused))) from None
+    if not 1 <= heads.count <= 2:
+        raise ValueError(coded("MI0214", f"{heads.count} files: upload one file, or a pair"))
+    proposal_id = heads.fields.get("proposal_id")
+    if not proposal_id or _kind_in(session_id, proposal_id) != authoring.GAP:
+        raise ValueError(coded("MI0205", "a sample answers a question about your data"))
+    inspection = await run_in_threadpool(inspect.inspect_sample, heads.files, registry.stack())
+    answer = authoring.answer_with_sample(
+        proposal_id, inspection, by=identity.default_author()
+    )
+    if answer.recorded:
+        await authoring_jobs.enqueue_phrasing(session_id)
+    return SampleInspected(
+        outcome=inspection.outcome,
+        type_id=inspection.type_id,
+        facts=[InspectedFactView(**f.model_dump()) for f in inspection.facts],
+        reason=inspection.reason,
+        steps=inspection.steps,
+        recorded=answer.recorded,
+        kept=answer.kept,
+        disagreed=answer.disagreed,
+        session=_view(session_id),
+    )

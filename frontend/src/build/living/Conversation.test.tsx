@@ -117,9 +117,9 @@ describe("the goal card", () => {
   it("lists each input with where it came from, and what was left open", () => {
     // 14.7.3: the card is composed from gathered facts, so it can say who each one came from.
     const facts: AuthoringSession["facts"] = [
-      { kind: "input", subject: "genome.fasta", source: "person_said", states: [] },
-      { kind: "measurement", subject: "paired", source: "person_said", states: [], value: true },
-      { kind: "measurement", subject: "read_length", source: "open", states: [] },
+      { kind: "input", subject: "genome.fasta", source: "person_said", states: [], pieces: [] },
+      { kind: "measurement", subject: "paired", source: "person_said", states: [], pieces: [], value: true },
+      { kind: "measurement", subject: "read_length", source: "open", states: [], pieces: [] },
     ];
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
                     onReject={vi.fn()} facts={facts} />);

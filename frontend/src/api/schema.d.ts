@@ -1211,6 +1211,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a question about your data with a sample: one file, or a pair
+         * @description **Only the first 4 MB of each file is kept**, in memory; the rest is read through and
+         *     dropped, and nothing is written to disk (14.7.6's ruling: nothing deletes a session yet, so
+         *     nothing about a sample is kept). The protection level is asked before a byte is read.
+         */
+        post: operations["uploadAuthoringSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -2789,6 +2811,15 @@ export interface components {
             source: components["schemas"]["FactSource"];
             /** Sample */
             sample?: string | null;
+            /**
+             * Pieces
+             * @default []
+             */
+            pieces: string[];
+            /** Evidence */
+            evidence?: {
+                [key: string]: number;
+            } | null;
         };
         /**
          * FactKind
@@ -3107,6 +3138,27 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /** InspectedFactView */
+        InspectedFactView: {
+            /** Measurement */
+            measurement: string;
+            /** Value */
+            value?: number | boolean | string | null;
+            /** Undetermined */
+            undetermined?: string | null;
+            /**
+             * Pieces
+             * @default []
+             */
+            pieces: string[];
+            /**
+             * Evidence
+             * @default {}
+             */
+            evidence: {
+                [key: string]: number | boolean | string;
+            };
+        };
         /**
          * IoGraph
          * @description Inputs on the left, one process node, outputs on the right.
@@ -4052,6 +4104,32 @@ export interface components {
          * @enum {string}
          */
         RowKind: "question" | "drift";
+        /**
+         * SampleInspected
+         * @description What one uploaded sample measured, and what that settled (14.7.6.4).
+         */
+        SampleInspected: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "measured" | "unreadable" | "no_inspector" | "tie";
+            /** Type Id */
+            type_id: string | null;
+            /** Facts */
+            facts: components["schemas"]["InspectedFactView"][];
+            /** Reason */
+            reason: string | null;
+            /** Steps */
+            steps: string[];
+            /** Recorded */
+            recorded: string[];
+            /** Kept */
+            kept: string[];
+            /** Disagreed */
+            disagreed: string[];
+            session: components["schemas"]["AuthoringSessionView"];
+        };
         /**
          * SayToAuthoring
          * @description A follow-up. **No revision**: saying something proposes no change, so it cannot conflict.
@@ -6660,6 +6738,60 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthoringPreview"];
                 };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    uploadAuthoringSample: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    proposal_id: string;
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleInspected"];
+                };
+            };
+            /** @description `MI0213`: the protection level refuses it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description The id in the path names nothing. */
             404: {

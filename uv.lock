@@ -1505,6 +1505,7 @@ dependencies = [
     { name = "arq" },
     { name = "comeni-ai" },
     { name = "comeni-core" },
+    { name = "comeni-inspect" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "mendel-compiler" },
@@ -1512,6 +1513,7 @@ dependencies = [
     { name = "mendel-resolver" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
+    { name = "python-multipart" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1522,6 +1524,7 @@ requires-dist = [
     { name = "arq", specifier = ">=0.26" },
     { name = "comeni-ai", editable = "packages/comeni-ai" },
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-inspect", editable = "packages/comeni-inspect" },
     { name = "cryptography", specifier = ">=42" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
@@ -1529,6 +1532,7 @@ requires-dist = [
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic-settings", specifier = ">=2.4" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]

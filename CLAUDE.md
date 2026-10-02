@@ -132,8 +132,8 @@ Violating any of these breaks the product claim, not just a test. Each is argued
 14. **Data leaves through declared doors only** (`DOORS`, `DoorPath`), each with one typed payload;
     `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count. Publication has no undo.
 15. **Mendel does not receive patient data.** `DataProfile` is built only by
-    `MeasurementRegistry.profile()`. The designed protection level 0 would loosen this for an
-    uploaded sample; that is not built.
+    `MeasurementRegistry.profile()`. Protection level 0 (built, 14.7.6) loosens this for an
+    uploaded sample: its first 4 MB is read in memory by an inspection process, never stored.
 
 ## The system, briefly
 
@@ -142,8 +142,8 @@ structural (silent), **2** convention (green), **3** data-profiled, a declared r
 measured fact (yellow: *check the premise*), **4** ambiguous (red, review required).
 
 **Protection profiles** (`open`, `guarded`, `sealed`) are designed and **none is built** (#71); do
-not start them on privacy grounds alone. The consultant's design adds a level **0** (a sample
-uploaded, a model may read it) as the MVP's setting; it arrives with substep 14.7.6.
+not start them on privacy grounds alone. Level **0** (a sample may be uploaded and measured; a
+model reading it is 14.7.7) is the MVP's setting, built in 14.7.6; every crossing asks it first.
 
 **Packages** (`packages/`): `comeni-core` (types, schema, IR, registry; pure), `mendel-resolver`
 (four-tier ladder, rules, routing; pure), `mendel-compiler` (IR → Nextflow, gates; pure),

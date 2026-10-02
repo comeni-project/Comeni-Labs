@@ -47,20 +47,31 @@ def test_no_request_body_accepts_a_filesystem_path():
     schema = create_app().openapi()
     defined = schema["components"]["schemas"]
 
+    # **Every content type, and inline schemas too** (#134): an uploaded sample is a
+    # multipart body declared inline, and a check that read only `application/json` `$ref`s
+    # would skip exactly the body that carries a person's file.
     bodies = {}
     for path, methods in schema["paths"].items():
         for verb, operation in methods.items():
             body = operation.get("requestBody")
             if body is None:
                 continue
-            ref = body["content"]["application/json"]["schema"].get("$ref", "")
-            bodies[f"{verb.upper()} {path}"] = ref.rsplit("/", 1)[-1]
+            for kind, content in body["content"].items():
+                shape = content["schema"]
+                ref = shape.get("$ref", "")
+                fields = (
+                    defined.get(ref.rsplit("/", 1)[-1], {}).get("properties", {})
+                    if ref
+                    else shape.get("properties", {})
+                )
+                bodies[f"{verb.upper()} {path} ({kind})"] = list(fields)
 
-    assert len(bodies) >= 6, f"the scan found {len(bodies)} request bodies — it is not scanning"
+    assert len(bodies) >= 7, f"the scan found {len(bodies)} request bodies — it is not scanning"
+    assert any("multipart" in where for where in bodies), "the upload body was not scanned"
     offenders = [
-        f"{where} {model}.{field}"
-        for where, model in bodies.items()
-        for field in defined.get(model, {}).get("properties", {})
+        f"{where} {field}"
+        for where, fields in bodies.items()
+        for field in fields
         if field.endswith("_root") or field.endswith("_path")
     ]
     assert offenders == [], f"a request body takes a filesystem path: {offenders}"
