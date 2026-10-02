@@ -402,6 +402,7 @@ function DecisionEntry({
       ?? block.options.find((o) => o.id === decision.chosen_option)?.label
       ?? decision.chosen_option ?? "";
     const model = decision.by === "model";
+    const sampled = decision.chosen_option === "upload";
     return (
       <Turn tick={model ? "model" : "person"}>
         <div className="flex items-baseline gap-[9px] py-[5px]">
@@ -409,7 +410,7 @@ function DecisionEntry({
           <span data-testid={`gap-answer-${decision.id}`}
                 className="font-data text-[11px] text-ink-2 shrink-0">{answer}</span>
           <span className="ml-auto font-data text-[9px] text-ink-4 shrink-0">
-            {model ? "read by AI" : "you said"}
+            {model ? "read by AI" : sampled ? "measured from your sample" : "you said"}
           </span>
         </div>
       </Turn>

@@ -205,3 +205,13 @@ def test_upload_is_offered_only_when_the_person_has_an_input_an_inspector_reads(
     reads = Fact(kind=FactKind.INPUT, subject="fastq.reads", source=FactSource.PERSON_SAID)
     with_reads = authoring._gap_options(gap, stack, [reads])
     assert "upload" in with_reads and "not_sure" not in with_reads
+
+
+def test_the_log_says_what_a_sample_measured_not_the_options_label(clean):
+    """Found screenshotting 14.7.6.6: the history read *Not sure: upload a sample and I'll
+    measure it* for a question the sample had answered with 150."""
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "read_length")
+    authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
+    history = {d["id"]: d for d in authoring.read(sid)["history"]}
+    assert history[pid]["chosen_option"] == "upload" and history[pid]["answer"] == "150"

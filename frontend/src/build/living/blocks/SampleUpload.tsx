@@ -102,7 +102,7 @@ export function SampleUpload({
   return (
     <div className="flex flex-col gap-[10px] w-full">
       {(stage.at === "offered" || stage.at === "done" || stage.at === "failed") && (
-        <div className="flex flex-col gap-[6px]">
+        <div className="flex flex-col gap-[6px] md:items-start">
           {picker}
           <p className="m-0 font-data text-[10px] text-ink-3">
             {PAIR} · only the first 4 MB is read, on this server

@@ -253,6 +253,19 @@ describe("an answered gap on the log (issue 169)", () => {
     expect(whole).toHaveTextContent("I have it, but can't share it");
     expect(whole.className).not.toContain("truncate");
   });
+
+  it("says a question a sample answered was measured, with the value it measured (issue 134)", () => {
+    const question = { kind: "question", id: "gap-5", asks: "Sequenced read length?",
+      why_open: "a step reads it to decide", options: [], exhaustive: true };
+    surface(with_({ phase: "gathering", pending_proposal: null, history: [
+      { id: "h1", kind: "gap", state: "accepted", by: "person", chosen_option: "upload",
+        chosen_contract: null, answer: "150", at: "2026-09-28T10:02:00Z", block: question },
+    ] } as Partial<AuthoringSession>));
+    const line = screen.getByTestId("gap-answer-h1").closest("div")!;
+    expect(screen.getByTestId("gap-answer-h1")).toHaveTextContent(/^150$/);
+    expect(line).toHaveTextContent("measured from your sample");
+    expect(line).not.toHaveTextContent("you said");
+  });
 });
 
 describe("a goal composed by gathering, once confirmed (issue 173)", () => {

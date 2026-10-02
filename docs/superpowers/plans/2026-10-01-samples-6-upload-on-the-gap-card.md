@@ -50,11 +50,11 @@
 
 **Files:** the design canvas (published); `.design/README.md`.
 
-- [ ] **Step 1: Start from the Design type**
+- [x] **Step 1: Start from the Design type**
 
 Call `Artifact` with `action: "quickstart"`, `intent: "design"`, and follow its result: create the Artifact from the Design type with title *Uploading a sample*, read the instructions it returns, and use the project's design system it lists (the same one the settings overlay used). Read `.design/living-pipeline/LivingCollect.dc.html` and the current `GapCard.tsx` first so the artboards continue the living pipeline's look, not a new one.
 
-- [ ] **Step 2: Draw the artboards**
+- [x] **Step 2: Draw the artboards**
 
 On one canvas, with the gap *Read length* as the example:
 
@@ -70,11 +70,11 @@ On one canvas, with the gap *Read length* as the example:
 
 Render each with `_prev.py` or headless Chrome and read the PNGs before calling it done.
 
-- [ ] **Step 3: STOP — the operator approves the artboards**
+- [x] **Step 3: STOP — the operator approves the artboards**
 
 Give the operator the link and wait. Apply their changes and republish to the same URL until they say it is right.
 
-- [ ] **Step 4: Record it**
+- [x] **Step 4: Record it**
 
 Add a row to `.design/README.md`'s table: `| (published only) | uploading a sample, 2026-10 — gap card states on a desk and a phone, and the goal card's measured label. **Current** | [<id>](<url>) |`. Run `make links doc-paths`.
 
@@ -95,7 +95,7 @@ git add .design/README.md && git commit -m "docs(design): the canvas for uploadi
 - Consumes: the generated `SampleInspected` schema (`make client` after part 4).
 - Produces: `postForm<T>(path: string, form: FormData): Promise<T>` (same error handling as `post`: a refusal is a `Refused` with the coded detail); `useAuthoringSession(...).upload(proposal: AuthoringProposal, files: File[]) => Promise<SampleInspected>`; `uploading: boolean`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 it("uploads the files with the proposal and re-reads the session", async () => {
@@ -118,12 +118,12 @@ it("uploads the files with the proposal and re-reads the session", async () => {
 
 (Use the test module's existing fetch stub, wrapper, `SESSION` and gap fixtures; the names above stand for them.)
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 Run: `cd frontend && npx vitest run src/build/living/useAuthoringSession.test.tsx`
 Expected: FAIL — `upload` is not a function.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `client.ts`: `postForm` beside `post`, sending `FormData` with no `Content-Type` header (the browser sets the boundary), sharing `post`'s response handling (extract it into one function both call if it is inline).
 
@@ -143,12 +143,12 @@ Expected: FAIL — `upload` is not a function.
 
 and return `upload: (proposal, files) => upload.mutateAsync({ proposal, files })`, `uploading: upload.isPending`.
 
-- [ ] **Step 4: Run it to see it pass**
+- [x] **Step 4: Run it to see it pass**
 
 Run: `cd frontend && npx vitest run src/build/living/useAuthoringSession.test.tsx && npx tsc -b`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/api/client.ts frontend/src/build/living/useAuthoringSession.ts frontend/src/build/living/useAuthoringSession.test.tsx
@@ -170,7 +170,7 @@ git commit -m "feat(living): upload a sample from the conversation (#134)"
 
 States, matching the approved artboards: `offered` (the option's label as the control) → `picked` (names and sizes, *Measure*, *Change*) → `inspecting` (the steps, then the result) → `measured` | `undetermined` | `unreadable` | `no_inspector` | `failed` (network). Every state but `measured`-with-this-gap-closed shows the gap's other answers below it again.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```tsx
 // frontend/src/build/living/SampleUpload.test.tsx
@@ -249,23 +249,23 @@ it("opens the picker from the upload answer instead of sending it", async () => 
 
 with `LENGTH_WITH_UPLOAD` = the file's `LENGTH` fixture whose options are `value`, `upload` (*Not sure: upload a sample and I'll measure it*) and `cant_share`.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `cd frontend && npx vitest run src/build/living/SampleUpload.test.tsx src/build/living/GapCard.test.tsx`
 Expected: FAIL — no `SampleUpload`.
 
-- [ ] **Step 3: Implement, to the artboards**
+- [x] **Step 3: Implement, to the artboards**
 
 `SampleUpload.tsx`: a visually hidden `<input type="file" multiple accept=".fastq,.fq,.gz">` labelled with `label`, behind a styled `<label>` acting as the button (`min-h-[44px]` on a phone); a drop zone only at `md:` and up; the picked list with sizes (`format.ts` has a size formatter if one exists — else add `bytes(n)`); *Measure* calls `onUpload`; while pending, the steps list (`inspecting…` until the answer, then the returned `steps`); then the result by `outcome`. A fact line: `${measurement} ${value} · measured · ${piece(pieces[0])} · ${evidence.records.toLocaleString("en")} reads, ${Math.round(share*100)}% at ${value}` (drop each part whose data is absent). When the result recorded this gap's subject, call `onDone()` (the session re-reads and the next gap arrives); otherwise keep the result visible above the gap's other answers.
 
 `GapCard.tsx`: an option with id `upload` renders `<SampleUpload label={option.label} … />` in place of a button, when `onUpload` is given; the other buttons stay. `DecisionLog.tsx`: pass `onUpload={(files) => upload(pending, files)}` from the session hook (thread `upload` through the props the way `onAccept` is threaded).
 
-- [ ] **Step 4: Run them to see them pass, and the whole frontend**
+- [x] **Step 4: Run them to see them pass, and the whole frontend**
 
 Run: `cd frontend && npx vitest run && npx tsc -b && npx oxlint`
 Expected: PASS, clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/build/living
@@ -280,7 +280,7 @@ git commit -m "feat(living): the gap card takes a sample — picked, inspected, 
 - Modify: `frontend/src/build/living/blocks/GoalCard.tsx:10-14, 244-270`
 - Test: the GoalCard tests (`grep -ln "GoalCard" frontend/src/build/living/*.test.tsx`)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```tsx
 it("says which pieces measured a fact, and from one sample", () => {
@@ -300,12 +300,12 @@ it("says measured, plainly, for a fact with no pieces", () => {
 
 (`renderGoal` stands for the test module's render helper.)
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `cd frontend && npx vitest run src/build/living/<GoalCard test file>`
 Expected: FAIL — the label is `measured` only.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```tsx
 /** `fastq@1.0.0` → `fastq 1.0.0`: the format that read the file, which is what a person recognises. */
@@ -319,12 +319,12 @@ const sourceLabel = (f: Fact) =>
 
 Use `sourceLabel(f)` in `Facts` and for the input chips (`sourceOf`). *From 1 sample* is a constant on purpose: one sample is all 14.7.6 accepts (issue 218 is where that changes).
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `cd frontend && npx vitest run && npx tsc -b`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/build/living
@@ -357,3 +357,8 @@ cd frontend && npx vitest run && npx tsc -b && npx oxlint
 ## Execution record
 
 *(Filled in while executing: rulings, measurements, deviations.)*
+
+- **Design:** the canvas [Uploading a sample](https://claude.ai/artifact/DEhSpA4kEZPvq9soyapJTM), approved 2026-10-02 as the MVP's look; a clarity and design pass comes at the MVP's last step. An eighth state, *differs from what you said*, joined the plan's seven: part 4 keeps the person's word and reports the difference.
+- **Looked at:** the API from this checkout on the throwaway database, Vite, headless Chrome at 1280 and 390, every state driven with the real fixtures: offered, picked, measured (the log keeps the result above the next question), undetermined (`trimmed/t.fq.gz`, which also showed a difference from *paired: yes*), unreadable (`x.fastq`), nothing reads `.bam`, the phone, and the goal card.
+- **Mistakes found and fixed:** the log's line for a question a sample answered showed the option's label (*Not sure: upload a sample…*) and *you said*; it now shows the measured value and *measured from your sample* (API and card, each with a test that failed first). The upload control stretched across the card on a desk; it sits inline now, full width only on a phone.
+- **Deliberate differences, for the operator:** the inspecting state is one live line, not a ticking list (the steps arrive with the answer); there is no separate *Try another sample* button (the picker stays, under the result); on a phone the log scrolls to the next question, so the *Measured* block sits just above it.
