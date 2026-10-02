@@ -26,9 +26,17 @@ class Evidence(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    records: int | None = Field(default=None, ge=0)
-    rows: int | None = Field(default=None, ge=0)
-    share: float | None = Field(default=None, ge=0, le=1)
+    records: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
+    rows: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
+    share: float | None = Field(default=None, ge=0, le=1, exclude_if=lambda share: share is None)
+    """Each count is written only when known: `paired` has rows and no share, and a `null` in
+    every pipeline.yml would say nothing a reader can use."""
+
+    @model_validator(mode="after")
+    def _says_something(self) -> "Evidence":
+        if self.records is None and self.rows is None and self.share is None:
+            raise ValueError("evidence with no count says nothing; leave it out instead")
+        return self
 
 
 class Measured(BaseModel):
@@ -47,7 +55,8 @@ class Measured(BaseModel):
     is what enforces that, since the declaration lives there and not here."""
     source: ValueSource = ValueSource.GOAL
     by: ContractId | None = None
-    """Which contract produced this value. `None` for anything a person asserted."""
+    """Which contract produced this value. `None` for anything a person asserted, and for
+    anything inspector pieces measured (they are `pieces`)."""
     pieces: list[PieceRef] = Field(default_factory=list, exclude_if=lambda pieces: not pieces)
     """The inspector pieces that measured this, `fastq@1.0.0` then `read_length@1.0.0` (#134).
     Empty for a profiler (it is `by`) and for anything a person asserted.
@@ -63,6 +72,12 @@ class Measured(BaseModel):
             raise ValueError(
                 "a measured value has one measurer: a contract (`by`) or inspector pieces, "
                 "not both"
+            )
+        if (self.pieces or self.evidence is not None) and self.source is not ValueSource.MEASURED:
+            # Its reason would say *asserted* while its own entry names what measured it.
+            raise ValueError(
+                f"pieces and evidence belong to a measured value, and this one is "
+                f"{self.source.value}"
             )
         return self
 

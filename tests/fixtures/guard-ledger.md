@@ -5050,3 +5050,12 @@ rest.
 | 2026-10-02 | `tests/guards/test_inspector_pieces.py::test_a_piece_imports_only_the_allowlist` (tightened after review) | added to `fastq.py`, one at a time: `from comeni_inspect import harness`, `io.open(...)`, `getattr(__builtins__, "open")`, `().__class__.__subclasses__()`, `from . import x`; and `import socket` in `piece/sub/x.py` | **passed — inert** for the first four and the subfolder, before; each failed after the allowlist became module-exact, `open` was banned as a method, the dunder names were banned and `piece/**` was scanned | `fastq.py reaches past the allowlist: [...]` |
 | 2026-10-02 | `packages/comeni-core/tests/test_inspection_kinds.py::test_bytecode_beside_piece_code_is_not_in_the_layer_digest` | — (written before the fix) | failed: `piece/__pycache__/*.pyc` was in `declared_entries`; passed after `_declared` refused bytecode | `assert pyc not in entries` |
 | 2026-10-02 | `packages/comeni-inspect/tests/test_run.py::test_a_measure_answering_badly_is_unreadable_not_a_crash` (5 cases) | — (written before the fix) | each raised out of `inspect()` (AttributeError, ValidationError, TypeError, `NaN` in JSON, SystemExit); passed after `_fact` ran inside the guard | — |
+
+## 2026-10-02 — measured facts name their pieces (14.7.6.3)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-02 | `packages/comeni-core/tests/test_measured_pieces.py::test_an_empty_measured_serialises_exactly_as_before` | `exclude_if` removed from `Measured.pieces` and `.evidence` | failed; restored, passed | the dump gained `pieces: []` and `evidence: null` |
+| 2026-10-02 | `…::test_a_contract_and_pieces_together_are_refused`, `…::test_a_piece_ref_that_is_not_one_is_refused` | — (written before `_one_measurer` and `_piece_ref`) | failed on import of `Evidence`; passed after | — |
+| 2026-10-02 | `tests/registry/test_measurement_vocabulary.py::test_every_measurement_declares_whether_a_tool_can_produce_it` (now counting pieces) | `assertion_only: true` put back on `paired.yml` | failed; restored, passed | `paired: declares assertion_only and a contract or an inspector piece produces it` |
+| 2026-10-02 | `…test_measured_pieces.py::test_evidence_writes_only_the_counts_it_has`, `…::test_evidence_that_says_nothing_is_refused`, `…::test_pieces_or_evidence_on_a_value_nobody_measured_are_refused` | — (written from the final review, before the fix) | failed; passed after | — |
