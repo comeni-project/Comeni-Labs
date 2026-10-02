@@ -868,6 +868,7 @@ def test_the_only_unfrozen_payload_models_are_the_ir_builders():
         ("Subject", "dx: carcinoma\nnotes: /mnt/phi/4471.pdf", "a newline"),
         ("DecisionKey", "a\nb", "a newline"),
         ("LayerName", "x\ny", "a newline"),
+        ("PieceRef", "fastq@1.0.0 PT-4471023", "a patient id after a piece"),
     ],
 )
 def test_a_declared_id_alias_refuses_free_text(alias, bad, why):
@@ -899,6 +900,7 @@ def test_a_declared_id_alias_refuses_free_text(alias, bad, why):
         ("Subject", "seq_platform"),
         ("DecisionKey", "star_align.seq_platform"),
         ("LayerName", "comeni-registry-examples"),
+        ("PieceRef", "read_length@1.0.0"),
     ],
 )
 def test_a_declared_id_alias_accepts_what_the_repository_writes(alias, good):
@@ -1003,6 +1005,9 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
         Mark.PORT_NAME,
         Mark.CHANNEL_NAME,
         Mark.DIGEST,
+        # Through `Goal.profile`: a fact an inspector measured names its pieces, `fastq@1.0.0`
+        # (#134). A declared id with a validated shape, never prose.
+        Mark.PIECE_REF,
         Mark.MEASUREMENT_ID,
         Mark.PARAM_LITERAL,
     }, f"door 1 reaches a mark nobody argued for: {sorted(m.value for m in marks)}"

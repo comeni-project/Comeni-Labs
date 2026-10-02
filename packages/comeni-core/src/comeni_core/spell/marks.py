@@ -50,6 +50,9 @@ class Mark(StrEnum):
     RESOLVER_ID = "resolver-id"
     MEASUREMENT_ID = "measurement-id"
     DIGEST = "digest"
+    PIECE_REF = "piece-ref"
+    """An inspector piece and its version, `fastq@1.0.0`: what a measured fact names when no
+    contract measured it (#134)."""
     LAYER_NAME = "layer-name"
     TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
@@ -558,6 +561,30 @@ def _digest(value: str) -> str:
     return value
 
 
+_PIECE_CHARACTERS = set("abcdefghijklmnopqrstuvwxyz0123456789_")
+
+
+def _piece_ref(value: str) -> str:
+    """`<piece>@<major>.<minor>.<patch>` — an inspector piece, as a fact records it.
+
+    By string methods rather than a pattern: `re` is not on `comeni-core`'s import allowlist.
+    """
+    piece, separator, version = value.partition("@")
+    parts = version.split(".")
+    if (
+        not separator
+        or not piece
+        or not set(piece) <= _PIECE_CHARACTERS
+        or len(parts) != 3
+        or not all(part.isascii() and part.isdigit() for part in parts)
+    ):
+        raise ValueError(
+            f"{value!r} is not a piece ref. They are `<piece>@<version>`, e.g. `fastq@1.0.0`."
+        )
+    return value
+
+
+PieceRef = Annotated[str, Mark.PIECE_REF, AfterValidator(_piece_ref)]
 ContractId = Annotated[str, Mark.CONTRACT_ID, AfterValidator(_contract_id)]
 TypeId = Annotated[str, Mark.TYPE_ID, AfterValidator(_type_id)]
 NodeId = Annotated[str, Mark.NODE_ID, AfterValidator(_identifier("node id"))]
