@@ -489,6 +489,13 @@ The laboratory runs it and fills the values in, and the file is the same shape a
 back, so the round trip is one test rather than a hope. Reporting a number Mendel has never
 looked at is precisely what invariant 15 exists to prevent.
 
+**Inspectors are the other measurer.** An inspector measures an uploaded sample's head on this
+server, during the conversation, before anything is built; a profiler measures all the data on
+the lab's machine when the pipeline runs. Both produce the same measurement ids, and a fact
+records which one measured it: `Measured.by` names a profiler's contract, `Measured.pieces` an
+inspector's format and measure. Where each runs, and what crosses, is
+[the protocol page's table](docs/design/authoring-protocol.md#where-each-measurer-runs).
+
 A hand-written profile records no tool, and that absence *is* the provenance:
 `ValueSource.GOAL` means a person asserted it. `ValueSource.MEASURED` is what a `sealed`
 policy will check a tier-3 decision against, once Plan 2 builds `ProfilePolicy` — issue #2.

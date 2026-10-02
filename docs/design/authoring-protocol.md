@@ -35,7 +35,8 @@ protection profile. The facts' labels in the diagram (*you said*, *measured*, *r
 3. **Every fact carries its source:** `MEASURED` (an inspector), `MODEL-READ` (the characteriser),
    `PERSON-SAID` (an answer). The goal card shows all three.
 4. **No data type is refused for lacking an inspector.** It gets the characteriser, and a weaker
-   label. Which types have an inspector is declared, so the lost flexibility is visible.
+   label. Which types have an inspector is declared, so the lost flexibility is visible; the
+   vocabulary lists, for every measurement, what measures it and where that runs.
 5. **Nothing is guessed. A fact comes from the person or from a file** (decided 2026-09-28).
    *Don't know* is always answered by asking for a file, never by a model proposing a likely
    value. There is no setting for this in the MVP.
@@ -91,6 +92,22 @@ the tier-3 colour already asks a reader to check.
 | `MODEL-READ`: the characteriser read it | 3, data-profiled | yellow border, premise marked *read by AI* (decided 2026-09-28) |
 | open: nobody knows | **4**, ambiguous | red border: always flagged, a person answers |
 | no rule reads it | 1 or 2 as today | — |
+
+## Where each measurer runs
+
+Every measurer declares where it runs (`runs:`), so moving one is a change to that field and a
+runner, never a redesign. A protection level can refuse anything that runs on this server.
+
+| Measurer | Reads | Runs on | What crosses | Allowed at |
+|---|---|---|---|---|
+| **Inspector** (a format and its measures) | the first 4 MB of one uploaded sample, a file or a pair | **this server**, in its own process, with time, memory and size limits | the sample's head reaches this server, and only the head leaves the browser; nothing is stored. The facts go into the goal | level 0 only |
+| **Profiler** (a tool used to measure) | all the data | **the lab's machine**, inside the pipeline the lab runs | nothing reaches this server; the lab reads the profile back in | every level |
+| **Characteriser** (a model; designed, 14.7.7) | the sample's head | a model, through a declared door | the head reaches the model | level 0 only |
+| *Later:* an inspector in **the browser** | the head | the person's browser | only the facts | designed for `guarded` |
+
+**At level 0 a sample's head reaches this server.** That is the loosening recorded below; the
+other levels are written so that tightening is filling in a row. The vocabulary lists, for every
+measurement, what measures it and where that runs.
 
 ## The protocol is code
 
