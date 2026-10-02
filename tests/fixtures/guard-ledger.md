@@ -5077,3 +5077,12 @@ rest.
 | 2026-10-02 | `…::test_a_stage_and_a_node_cannot_share_an_id` | — (written before the check, after Mermaid refused `admit` as its own parent) | failed; passed after | `both a stage and a node` |
 | 2026-10-02 | `…::test_a_built_detail_under_a_planned_node_is_refused`, `…::test_a_detail_edge_cannot_move_the_session`, `…::test_a_detail_step_is_in_its_parents_phase`, `…::test_a_detail_cannot_take_the_general_diagrams_name_or_another_details` | — (written before each check) | failed; passed after | — |
 | 2026-10-02 | `tests/repo/test_protocol_doc.py::test_check_fails_on_an_orphan`, `…::test_a_hand_written_page_is_never_deleted` | — (written before the folder generator; the second from the final review) | failed; passed after | — |
+
+## 2026-10-02 — uploading a sample, on the gap card (14.7.6.6)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-02 | `frontend/src/build/living/useAuthoringSession.test.tsx` "sends only the first 4 MB of each file" | — (written from the final review, before the slice) | failed: the whole 6 MB was sent; passed after | the card's *the rest never leaves your computer* was false until then |
+| 2026-10-02 | `frontend/src/build/living/LivingSurface.test.tsx` "keeps what it measured above the next question, and drops it once that is answered", "holds the question's other answers while a sample is out" | — (written before each fix) | failed: the block lingered past the next question; *I can't share it* stayed live while measuring; passed after | — |
+| 2026-10-02 | `frontend/src/build/living/SampleUpload.test.tsx` "takes files dropped on it…", "stops the browser opening a file dragged over it", "keeps a fact whose undetermined reason is empty" | — (written before each fix) | failed; passed after | — |
+| 2026-10-02 | `packages/mendel-api/tests/test_authoring_samples.py::test_the_log_says_what_a_sample_measured_not_the_options_label`, `LivingSurface.test.tsx` "says a question a sample answered was measured…" | — (found by screenshot) | failed; passed after | `"Not sure: up...ll measure it" == '150'` |

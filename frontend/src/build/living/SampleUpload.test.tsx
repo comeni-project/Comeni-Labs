@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -125,5 +125,46 @@ describe("what a sample measured", () => {
     ] })} files={["s_R1.fq.gz", "s_R2.fq.gz"]} />);
     expect(screen.getByText(/the sample reads it as yes/)).toBeTruthy();
     expect(screen.getByText(/what you said stands/i)).toBeTruthy();
+  });
+});
+
+describe("dropping and waiting", () => {
+  it("takes files dropped on it, and refuses three dropped", async () => {
+    const { onUpload } = setup();
+    const target = screen.getByLabelText(LABEL).closest("label")!;
+    const drop = (files: File[]) =>
+      fireEvent.drop(target, { dataTransfer: { files, types: ["Files"] } });
+    drop([fq("a.fq"), fq("b.fq"), fq("c.fq")]);
+    expect(screen.getByRole("alert").textContent).toMatch(/3 files/);
+    drop([fq("s_R1.fq")]);
+    expect(screen.getByText("s_R1.fq")).toBeTruthy();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it("stops the browser opening a file dragged over it", () => {
+    setup();
+    const target = screen.getByLabelText(LABEL).closest("label")!;
+    const event = createEvent.dragOver(target);
+    fireEvent(target, event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("says it is measuring while the request is out", async () => {
+    let finish: (r: SampleInspected) => void = () => {};
+    const onMeasuring = vi.fn();
+    render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false}
+      onUpload={() => new Promise((r) => { finish = r; })} onAnswered={vi.fn()}
+      onMeasuring={onMeasuring} />);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(onMeasuring).toHaveBeenLastCalledWith(true);
+    finish(result());
+    await waitFor(() => expect(onMeasuring).toHaveBeenLastCalledWith(false));
+  });
+
+  it("keeps a fact whose undetermined reason is empty", () => {
+    render(<SampleResult result={result({ facts: [{ measurement: "read_length", value: null,
+      undetermined: "", pieces: [], evidence: {} }] })} files={["a.fq"]} />);
+    expect(screen.getByText(/undetermined/)).toBeTruthy();
   });
 });

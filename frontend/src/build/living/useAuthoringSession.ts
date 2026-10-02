@@ -42,6 +42,9 @@ const key = (sessionId: string) => ["authoring", sessionId] as const;
  * **Nothing here touches `localStorage`.** The transcript and the prompt are durable on the
  * server; a half-typed message is component state and is allowed to vanish on reload.
  */
+/** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
+export const HEAD_BYTES = 4 * 2 ** 20;
+
 export function useAuthoringSession(sessionId: string, options: { pollMs?: number } = {}) {
   const pollMs = options.pollMs ?? POLL_MS;
   const client = useQueryClient();
@@ -157,7 +160,12 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     mutationFn: (input: { proposal: AuthoringProposal; files: File[] }) => {
       const form = new FormData();
       form.append("proposal_id", input.proposal.id);
-      for (const file of input.files) form.append("files", file);
+      // **Only the head leaves the browser** (review of issue 134): the server reads the first
+      // 4 MB and no more, so sending the rest would move a person's whole file for nothing,
+      // and the card says the rest never leaves their computer.
+      for (const file of input.files) {
+        form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
+      }
       return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
     },
     // Whatever it settled, the session moved: re-read it, success or not.

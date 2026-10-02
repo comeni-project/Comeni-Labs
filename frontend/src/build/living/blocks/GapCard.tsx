@@ -28,6 +28,8 @@ export function GapCard({
   onAnswered?: (result: SampleInspected, files: string[]) => void;
 }) {
   const field = useId();
+  // While a sample is out, the other answers wait: an answer and a sample must not race.
+  const [measuring, setMeasuring] = useState(false);
   const block = proposal.block;
   // **A suggestion pre-fills, the person sends** (issues 170 and 171): a value the person stated,
   // or a model read from their reply, starts in the field and goes nowhere until they press.
@@ -73,7 +75,7 @@ export function GapCard({
             style={{ borderColor: "var(--line-2)" }}
           />
           <Primary
-            disabled={busy || number === null || Number.isNaN(number)}
+            disabled={busy || measuring || number === null || Number.isNaN(number)}
             onClick={() => number !== null && onAnswer("value", number)}
           >
             Use this
@@ -88,17 +90,18 @@ export function GapCard({
             busy={busy}
             onUpload={onUpload}
             onAnswered={onAnswered}
+            onMeasuring={setMeasuring}
           />
         </div>
       )}
       <div className="flex flex-wrap gap-2">
         {buttons.map((option) =>
           quiet.has(option.id) || typedOption || (suggested && suggested.id !== option.id) ? (
-            <Secondary key={option.id} disabled={busy} onClick={() => onAnswer(option.id, undefined)}>
+            <Secondary key={option.id} disabled={busy || measuring} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Secondary>
           ) : (
-            <Primary key={option.id} disabled={busy} onClick={() => onAnswer(option.id, undefined)}>
+            <Primary key={option.id} disabled={busy || measuring} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Primary>
           ),

@@ -77,8 +77,10 @@ export function DecisionLog({
   const end = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
   // **The sample that answered the last question**, kept above the next one: the answer moves
-  // the session on, so the card that showed it is gone the moment it arrives (issue 134).
-  const [sampled, setSampled] = useState<{ result: SampleInspected; files: string[] } | null>(null);
+  // the session on, so the card that showed it is gone the moment it arrives (issue 134). Kept
+  // only while that next card is the one on offer: past it, it would sit out of order.
+  const [sampled, setSampled] = useState<
+    { result: SampleInspected; files: string[]; above: string | null } | null>(null);
 
   const entries: Entry[] = [
     ...session.turns.map((turn, i) => ({ at: turn.at, order: i, kind: "turn" as const, turn })),
@@ -175,7 +177,7 @@ export function DecisionLog({
             />
           </Turn>
         )}
-        {sampled && (
+        {sampled && pending && sampled.above === pending.id && (
           <Turn tick="person">
             <section aria-label="what your sample measured" className="border"
               style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}>
@@ -195,12 +197,10 @@ export function DecisionLog({
               key={pending.id}
               proposal={pending}
               busy={busy(pending.id)}
-              onAnswer={(option, value) => {
-                setSampled(null);
-                onAccept(pending, option, undefined, value);
-              }}
+              onAnswer={(option, value) => onAccept(pending, option, undefined, value)}
               onUpload={onUpload && ((files) => onUpload(pending, files))}
-              onAnswered={(result, files) => setSampled({ result, files })}
+              onAnswered={(result, files) =>
+                setSampled({ result, files, above: result.session.pending_proposal?.id ?? null })}
             />
           </Turn>
         )}

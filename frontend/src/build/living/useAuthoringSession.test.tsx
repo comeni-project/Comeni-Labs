@@ -169,3 +169,25 @@ describe("uploading a sample", () => {
     await waitFor(() => expect(reads()).toBeGreaterThan(before));
   });
 });
+
+describe("what an upload sends", () => {
+  it("sends only the first 4 MB of each file, under its own name", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : url.endsWith("/samples") ? ok({ outcome: "measured", session: view("answered") })
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(result.current.session).not.toBeNull());
+    const big = new File([new Uint8Array(6 * 2 ** 20)], "big_R1.fq.gz");
+    await act(async () => {
+      await result.current.upload({ id: "p1", kind: "gap" } as never, [big]);
+    });
+    const [, init] = fetch.mock.calls.find(([u]) => String(u).endsWith("/samples"))! as unknown as [string, RequestInit];
+    const sent = (init.body as FormData).get("files") as File;
+    expect(sent.name).toBe("big_R1.fq.gz");
+    expect(sent.size).toBe(4 * 2 ** 20);
+  });
+});

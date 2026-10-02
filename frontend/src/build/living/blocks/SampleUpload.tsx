@@ -29,6 +29,7 @@ export function SampleUpload({
   busy,
   onUpload,
   onAnswered,
+  onMeasuring = () => {},
 }: {
   proposalId: string;
   label: string;
@@ -36,6 +37,8 @@ export function SampleUpload({
   onUpload: (files: File[]) => Promise<SampleInspected>;
   /** The sample answered this question: the log keeps the result above the next one. */
   onAnswered: (result: SampleInspected, files: string[]) => void;
+  /** While a sample is out, the question's other answers wait: two answers must not race. */
+  onMeasuring?: (measuring: boolean) => void;
 }) {
   const field = useId();
   const [stage, setStage] = useState<Stage>({ at: "offered" });
@@ -55,6 +58,7 @@ export function SampleUpload({
 
   const measure = async (files: File[]) => {
     setStage({ at: "measuring", files });
+    onMeasuring(true);
     try {
       const result = await onUpload(files);
       const names = files.map((f) => f.name);
@@ -66,6 +70,8 @@ export function SampleUpload({
         files,
         why: error instanceof Refused ? error.message : "The sample could not be sent. Try again.",
       });
+    } finally {
+      onMeasuring(false);
     }
   };
 
@@ -73,6 +79,13 @@ export function SampleUpload({
     <>
       <label
         htmlFor={field}
+        // **A drop is a pick** at any width: without it a file dropped on this dashed control is
+        // opened by the browser, which leaves the builder (review of issue 134).
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (!busy) pick(e.dataTransfer.files);
+        }}
         className="inline-flex items-center justify-center gap-[8px] min-h-[44px] md:min-h-0
                    px-[14px] py-[7px] text-[12.5px] font-semibold cursor-pointer border border-dashed
                    text-link bg-[var(--link-soft)] has-[:focus-visible]:shadow-[var(--ring)]"
@@ -191,8 +204,8 @@ function Outcome({ result, files }: { result: SampleInspected; files: string[] }
 
 /** The facts a sample measured, one line each, and any difference from what was said. */
 export function SampleResult({ result, files }: { result: SampleInspected; files: string[] }) {
-  const decided = result.facts.filter((f) => f.undetermined === null || f.undetermined === undefined);
-  const open = result.facts.filter((f) => f.undetermined);
+  const open = result.facts.filter((f) => f.undetermined !== null && f.undetermined !== undefined);
+  const decided = result.facts.filter((f) => !open.includes(f));
   return (
     <div className="flex flex-col gap-[8px]">
       <p className="m-0 font-data text-[10px] text-ink-3">from {files.join(" + ")}</p>

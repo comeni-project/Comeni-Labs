@@ -316,3 +316,62 @@ describe("the composer's invitation follows the phase", () => {
     expect(screen.getByPlaceholderText(/answer the question above/i)).toBeInTheDocument();
   });
 });
+
+describe("a sample that answered a question (issue 134)", () => {
+  const question = (id: string, options: [string, string][]) => ({
+    id, kind: "gap", draft_revision: 0, options: options.map(([o]) => o).sort(), edges: [],
+    block: { kind: "question", id: `q-${id}`, asks: `asks ${id}`, why_open: "w",
+      options: options.map(([o, label]) => ({ id: o, label, recommended: false })),
+      exhaustive: true, phrasing: "none" },
+  });
+  const LENGTH = question("p-len", [["value", "Type it (bp)"],
+    ["upload", "Not sure: upload a sample and I'll measure it"], ["cant_share", "I can't share it"]]);
+  const STRAND = question("p-strand", [["forward", "forward"], ["reverse", "reverse"]]);
+  const answered = {
+    outcome: "measured", type_id: "fastq.reads", reason: null, recorded: ["read_length"], kept: [],
+    disagreed: [], steps: [],
+    facts: [{ measurement: "read_length", value: 151, undetermined: null,
+      pieces: ["fastq@1.0.0", "read_length@1.0.0"], evidence: { records: 8412 } }],
+    session: { pending_proposal: { id: "p-strand" } },
+  };
+
+  function shown(pending: unknown, onUpload = vi.fn().mockResolvedValue(answered)) {
+    const props = {
+      graph: FAKE_SESSION.graph, steps: FAKE_STEPS, preview: null, busy: () => false,
+      onAccept: vi.fn(), onReject: vi.fn(), onPreviewOption: vi.fn(), onSelect: vi.fn(),
+      onCompose: vi.fn(), onSay: vi.fn(), onRetry: vi.fn(), onAddStep: vi.fn(),
+      onDismiss: vi.fn(), onSetParam: vi.fn(), onApplyChange: vi.fn(), onEdit: vi.fn(), onUpload,
+    };
+    const at = (p: unknown) => {
+      const session = with_({ phase: "gathering", pending_proposal: p as never });
+      return (
+        <QueryClientProvider client={new QueryClient()}>
+          <LivingSurface {...props} session={session}
+            state={{ ...initialAuthoring, snapshot: session }} />
+        </QueryClientProvider>
+      );
+    };
+    const view = render(at(pending));
+    return { ...view, at, onUpload };
+  }
+
+  it("keeps what it measured above the next question, and drops it once that is answered", async () => {
+    const { rerender, at } = shown(LENGTH);
+    const input = screen.getByLabelText(/upload a sample/i);
+    fireEvent.change(input, { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
+    fireEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(at(STRAND));
+    expect(await screen.findByRole("region", { name: "what your sample measured" })).toBeInTheDocument();
+    expect(screen.getByText(/read_length 151/)).toBeInTheDocument();
+    rerender(at({ ...STRAND, id: "p-after" }));
+    expect(screen.queryByRole("region", { name: "what your sample measured" })).toBeNull();
+  });
+
+  it("holds the question's other answers while a sample is out", async () => {
+    shown(LENGTH, vi.fn(() => new Promise(() => {})));
+    const input = screen.getByLabelText(/upload a sample/i);
+    fireEvent.change(input, { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
+    fireEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByRole("button", { name: "I can't share it" })).toBeDisabled();
+  });
+});
