@@ -40,16 +40,23 @@ def test_the_process_gives_the_same_report_as_in_process():
 
 def test_the_speed_budget():
     """A 4 MB gzipped FASTQ head in under a second (spec §4): says when Python stops being
-    enough."""
+    enough. **A real 4 MB head**: the first version's gzip was 2 MB, so its slice cut nothing,
+    and it never met the unpacked cap an ordinary head reaches (issue 221)."""
     rng = random.Random(134)
-    lines = []
-    for n in range(40_000):
-        seq = "".join(rng.choice("ACGT") for _ in range(150))
-        lines.append(f"@r{n}/1\n{seq}\n+\n{'I' * 150}\n")
-    raw = gzip.compress("".join(lines).encode())[: 4 * 2**20]
+    bases = bytes.maketrans(bytes(range(256)), b"ACGT" * 64)
+    quals = bytes.maketrans(bytes(range(256)), bytes(range(35, 75)) * 6 + bytes(range(35, 51)))
+    reads = b"".join(
+        b"@r%d/1\n%s\n+\n%s\n"
+        % (n, rng.randbytes(150).translate(bases), rng.randbytes(150).translate(quals))
+        for n in range(30_000)
+    )
+    whole = gzip.compress(reads)
+    assert len(whole) > 4 * 2**20, "the head must be cut, or this measures less than a head"
+    raw = whole[: 4 * 2**20]
     request, payloads = harness.request_for_bytes(ROOT / "registry", "x_R1.fq.gz", raw)
     start = time.perf_counter()
     report = run.inspect(request, payloads)
     elapsed = time.perf_counter() - start
     assert report.unreadable is None
+    assert report.facts["read_length"].value == 150
     assert elapsed < 1.0, f"{elapsed:.2f}s for a 4 MB head"

@@ -193,3 +193,25 @@ def test_the_format_is_shown_a_full_window_even_through_a_codec(tmp_path):
     )
     report = run.inspect(*_with(request, b">" * 10_000))
     assert report.unreadable is None
+
+
+def test_a_head_that_unpacks_past_the_cap_is_measured_up_to_it(tmp_path):
+    """Issue 221: an ordinary gzipped head unpacks 4-6x, past the cap. Reaching the cap is the
+    end of the head, said in the evidence, not a refusal."""
+    import random
+
+    rng = random.Random(221)
+    raw = gzip.compress(
+        b"".join(
+            b">r%d %s\n" % (n, bytes(rng.choice(b"ACGT") for _ in range(40))) for n in range(40_000)
+        )
+    )
+    report = run.inspect(*_with(_request(tmp_path, codec=True, cap=2**20), raw))
+    assert report.unreadable is None
+    fact = report.facts["count"]
+    assert fact.value > 0 and fact.evidence["capped"] is True
+
+
+def test_a_head_inside_the_cap_is_not_marked_capped(tmp_path):
+    report = run.inspect(*_with(_request(tmp_path), b">a\n>b\n"))
+    assert "capped" not in report.facts["count"].evidence

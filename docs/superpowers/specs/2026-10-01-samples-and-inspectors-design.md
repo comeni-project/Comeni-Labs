@@ -186,7 +186,7 @@ below it returns **undetermined, with the reason**, never a value:
 |---|---|---|
 | `read_length` | ≥ 1,000 records and the modal length covers ≥ 80% of them | *lengths vary: 139–151, trimmed?* / *only 12 reads* |
 | `paired` | **yes:** two files whose read names match record by record (after stripping `/1` `/2` and the comment), or one interleaved file whose consecutive records share a name. **No:** one file whose names do not pair. File names (`_R1`/`_R2`) only ever corroborate, never decide | *names say R1/R2, read names don't match* |
-| `quality_encoding` | every quality character in the head falls in one encoding's range | *characters fit both Phred+33 and Phred+64* |
+| `quality_encoding` | every quality character in the head falls in one encoding's range. **Phred+33:** any character below `;` or above `h` (Phred+64 never passes `h`; long reads write Phred+33 above `J`). **Phred+64:** everything in `@`–`h` and something above `J` (issue 222) | *characters fit both Phred+33 and Phred+64* |
 
 The thresholds live in each measure's declaration, visible and tunable (rules are tuned, never
 forced). **An undetermined fact stays open**: the gap is asked again with the reason, or the
@@ -221,9 +221,11 @@ One inspection is one process (§8). Request on stdin, one report on stdout, as 
 ## 8. Safety: a separate process with hard limits
 
 Each inspection runs in **its own short-lived process**, with a time limit (a few seconds), a
-memory limit, and a decompressed-size cap (16 MB), and receives its bytes on stdin. A hang, a
-crash or a bomb costs one inspection, which is `Unreadable: took too long` (or *too large
-unpacked*), never a 500. The guards in §3 keep pieces off the network and the filesystem.
+memory limit, and a decompressed-size cap (16 MB), and receives its bytes on stdin. **Reaching
+the cap is the end of the head** (issue 221): an ordinary 4 MB gzipped FASTQ head unpacks 4–6×,
+so it is measured up to the cap and its facts say `capped`. Only an input that reaches the cap
+at 100× or more of its own size is a bomb, *too large unpacked*. A hang, a crash or a bomb costs
+one inspection, which is `Unreadable: took too long` (or *too large unpacked*), never a 500. The guards in §3 keep pieces off the network and the filesystem.
 **Container isolation per inspection** is the next step, when outside contributors or native
 pieces arrive; the protocol is the same, only the launch changes.
 

@@ -107,7 +107,7 @@ def _rows(fmt, ref: wire.PieceRef, streams: list, ended: dict) -> Iterator[tuple
         yield tuple(row)
 
 
-def _fact(outcome, by: list[str], rows: int, shorter: str | None) -> wire.Fact:
+def _fact(outcome, by: list[str], rows: int, shorter: str | None, capped: bool) -> wire.Fact:
     """What a measure answered, held to the report's shape. **Inside the guard**: a measure
     returning `None`, a list, bytes in its evidence or `nan` is that measure's failure."""
     if not isinstance(outcome, Value | Undetermined):
@@ -117,6 +117,9 @@ def _fact(outcome, by: list[str], rows: int, shorter: str | None) -> wire.Fact:
     evidence = {**outcome.evidence, "rows": rows}
     if shorter is not None:
         evidence["shorter_file"] = shorter
+    if capped:
+        # The head ended at the unpacked cap rather than at its own end (issue 221).
+        evidence["capped"] = True
     json.dumps(evidence, allow_nan=False)
     if isinstance(outcome, Undetermined):
         return wire.Fact(by=by, undetermined=str(outcome.reason), evidence=evidence)
@@ -131,13 +134,16 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
     fmt = _guarded(request.format, _load)
     codec = _guarded(request.codec, _load) if request.codec else None
     streams = []
+    limits: list[Capped] = []
     for head, raw in zip(request.files, payloads, strict=True):
         if codec is None:
             opened = io.BytesIO(raw)
         else:
             opened = _guarded(request.codec, lambda _, r=raw: codec.open(r))
         source = request.codec.id if request.codec else "the file"
-        capped = io.BufferedReader(Capped(opened, request.cap_bytes, source))
+        limit = Capped(opened, request.cap_bytes, source, given=len(raw))
+        limits.append(limit)
+        capped = io.BufferedReader(limit)
         # `read`, not `peek`: a peek is one raw read and may show less than the window.
         first = capped.read(_CONFIRM_BYTES)
         stream = io.BufferedReader(Prefixed(first, capped))
@@ -162,10 +168,11 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
     by_format = f"{request.format.id}@{request.format.version}"
     facts = {}
     shorter = names[ended["shorter"]] if "shorter" in ended else None
+    capped = any(limit.capped for limit in limits)
     for ref in request.measures:
         by = [by_format, f"{ref.id}@{ref.version}"]
         facts[ref.id] = _guarded(
-            ref, lambda _, a=accumulators[ref.id], b=by: _fact(a.result(), b, rows, shorter)
+            ref, lambda _, a=accumulators[ref.id], b=by: _fact(a.result(), b, rows, shorter, capped)
         )
     return wire.Report(type_id=None, facts=facts, unreadable=None)
 
