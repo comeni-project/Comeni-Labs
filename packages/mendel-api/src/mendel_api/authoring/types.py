@@ -218,6 +218,12 @@ class Fact(_Shape):
     states: list[str] = []
     source: FactSource
     sample: str | None = Field(default=None, max_length=64)
+    pieces: list[str] = []
+    """The inspector pieces that measured it, `fastq@1.0.0` then `read_length@1.0.0` (#134).
+    Empty for anything a person said."""
+    evidence: dict[str, int | float] | None = None
+    """How much they read, counts only. Session state, not a door payload: the goal gets the
+    typed `Evidence`, which holds only the counts it declares."""
 
     @model_validator(mode="after")
     def _open_has_no_value(self) -> Self:

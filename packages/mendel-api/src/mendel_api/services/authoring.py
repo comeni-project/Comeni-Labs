@@ -30,6 +30,7 @@ from typing import NamedTuple
 from comeni_core.declared.measurement import MeasuredEntry, MeasurementKind
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import GoalInput
+from comeni_core.goal.profile import Evidence
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.review.answer import ValueSource
 from mendel_resolver.goal import Goal
@@ -1349,9 +1350,27 @@ _INPUT_OPTIONS = {
 }
 _UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
 
-_SOURCE = {FactSource.PERSON_SAID: ValueSource.GOAL, FactSource.MODEL_READ: ValueSource.MODEL}
-"""A fact's source as the profile records it. `MEASURED` arrives with 14.7.6's inspector and
-`INSPECTED`; an `OPEN` fact never reaches the profile, which is what makes it tier 4."""
+_SOURCE = {
+    FactSource.PERSON_SAID: ValueSource.GOAL,
+    FactSource.MODEL_READ: ValueSource.MODEL,
+    FactSource.MEASURED: ValueSource.MEASURED,
+}
+"""A fact's source as the profile records it. An `OPEN` fact never reaches the profile, which is
+what makes it tier 4."""
+
+UPLOAD = "upload"
+"""The option that opens an upload. **The click is not an answer**: the sample is (#134)."""
+
+
+def _inspectable(stack) -> tuple[set[str], set[str]]:
+    """The measurements a trusted inspector measures, and the input types one reads."""
+    from mendel_api.services import measurers
+
+    measured = {
+        m.measurement for m in measurers.index(stack) if m.kind == "inspector" and m.trusted
+    }
+    read = {t for fmt in measurers.usable_pieces(stack).formats.values() for t in fmt.reads}
+    return measured, read
 
 
 def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | None:
@@ -1368,7 +1387,11 @@ def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | 
 
 def _gap_options(gap: gaps.Gap, stack) -> dict[str, str]:
     """The closed answers to one gap, as option id → label. The engine mints every id."""
+    measured, read = _inspectable(stack)
     if gap.kind is FactKind.INPUT:
+        if gap.subject in read:
+            have, *rest = _INPUT_OPTIONS.items()
+            return dict([have, (UPLOAD, "I have it, and I'll upload a sample"), *rest])
         return dict(_INPUT_OPTIONS)
     measurement = stack.measurements.get(gap.subject)
     if measurement.kind is MeasurementKind.ENUM:
@@ -1378,6 +1401,14 @@ def _gap_options(gap: gaps.Gap, stack) -> dict[str, str]:
     else:
         unit = f" ({measurement.unit})" if measurement.unit else ""
         options = {"value": f"Type it{unit}"}
+    if gap.subject in measured:
+        # **Not sure becomes measurable**: a person who does not know can upload a sample and
+        # have it measured, so *not sure* is offered as that (spec §1).
+        return {
+            **options,
+            UPLOAD: "Not sure: upload a sample and I'll measure it",
+            "cant_share": _UNSURE["cant_share"],
+        }
     return {**options, **_UNSURE}
 
 
@@ -1429,6 +1460,14 @@ def as_goal(stored: dict | None) -> Goal | None:
     )
 
 
+def _goal_evidence(evidence: dict | None) -> Evidence | None:
+    """Only the counts the goal's `Evidence` declares. A measure's other evidence (`min`,
+    `max`, `pairs`) stays on the session's fact and the card; the goal is reachable from the
+    doors and carries counts only."""
+    counts = {k: evidence[k] for k in ("records", "rows", "share") if k in (evidence or {})}
+    return Evidence(**counts) if counts else None
+
+
 def compose_goal(session_id: str) -> Goal:
     """The want, and everything gathering learned, as the `Goal` the resolver runs on.
 
@@ -1448,7 +1487,13 @@ def compose_goal(session_id: str) -> Goal:
             "constraints": wanted.get("constraints") or {},
             "profile": stack.measurements.profile_of(
                 [
-                    MeasuredEntry(f.subject, f.value, _SOURCE[f.source])
+                    MeasuredEntry(
+                        f.subject,
+                        f.value,
+                        _SOURCE[f.source],
+                        pieces=tuple(f.pieces),
+                        evidence=_goal_evidence(f.evidence),
+                    )
                     for f in facts
                     if f.kind is FactKind.MEASUREMENT and f.source is not FactSource.OPEN
                 ]
@@ -1843,6 +1888,10 @@ def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
                 coded("MI0205", "that is not one of the answers this question offered")
                 + f"\n  it offered: {', '.join(payload['options'])}"
             )
+        if option == UPLOAD:
+            raise ValueError(
+                coded("MI0205", "upload a sample to answer this; the click is not one")
+            )
         kind, subject = FactKind(payload["kind"]), payload["subject"]
         if option == "value":
             try:
@@ -1887,3 +1936,105 @@ def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
         return target
     offer_next_gap(session_id)
     return current_phase(session_id)
+
+
+class SampleAnswer(NamedTuple):
+    """What one inspected sample settled, for the card."""
+
+    phase: Phase
+    recorded: list[str]
+    """Subjects recorded from the sample, as measured."""
+    kept: list[str]
+    """Subjects the session already knew: what was said stands."""
+    disagreed: list[str]
+    """Of `kept`, those the sample measured differently. Shown, never written over."""
+
+
+def _counts(evidence: dict) -> dict[str, int | float]:
+    """Numbers only: a file name (`shorter_file`) never enters a fact (spec §9)."""
+    return {
+        k: v for k, v in evidence.items() if isinstance(v, int | float) and not isinstance(v, bool)
+    }
+
+
+def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer:
+    """What one inspected sample settles, recorded the way a click records an answer.
+
+    **The person's word stands.** A measurement the session already knows is not overwritten; a
+    disagreement is reported back. **An undetermined fact is not recorded**, so if it was the gap
+    being answered, the gap stays open with its reason on the card. The proposal is settled only
+    when the inspection decided its subject (or, for an input gap, read the type). A gap already
+    settled refuses the sample before anything is recorded (MI0203), as a duplicate click does.
+    """
+    stack = registry.stack()
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        if proposal is None:
+            raise KeyError(proposal_id)
+        if proposal.kind != GAP or UPLOAD not in proposal.payload["options"]:
+            raise ValueError(coded("MI0205", "that question does not take a sample"))
+        settled = st.settle(
+            current=ProposalState(proposal.state),
+            proposal_revision=proposal.draft_revision,
+            draft_revision=proposal.draft_revision,
+            expected_revision=proposal.draft_revision,
+            decision=ProposalState.ACCEPTED,
+        )
+        if settled.refusal is not None:
+            raise ValueError(settled.refusal)
+
+        session_id = proposal.session_id
+        subject = proposal.payload["subject"]
+        row = db.get(PipelineAuthoringSession, session_id)
+        facts = list(row.facts or [])
+        known = {f["subject"]: f for f in facts}
+        recorded, kept, disagreed = [], [], []
+        if inspection.outcome == "measured" and inspection.type_id:
+            if inspection.type_id in known:
+                kept.append(inspection.type_id)
+            else:
+                facts.append(
+                    Fact(
+                        kind=FactKind.INPUT, subject=inspection.type_id, source=FactSource.MEASURED
+                    ).model_dump(mode="json")
+                )
+                recorded.append(inspection.type_id)
+        for found in inspection.facts if inspection.outcome == "measured" else []:
+            if found.undetermined is not None or found.value is None:
+                continue
+            try:
+                stack.measurements.check(found.measurement, found.value)
+            except (ValueError, KeyError):
+                continue
+            if found.measurement in known:
+                kept.append(found.measurement)
+                if known[found.measurement].get("value") != found.value:
+                    disagreed.append(found.measurement)
+                continue
+            facts.append(
+                Fact(
+                    kind=FactKind.MEASUREMENT,
+                    subject=found.measurement,
+                    value=found.value,
+                    source=FactSource.MEASURED,
+                    pieces=found.pieces,
+                    evidence=_counts(found.evidence) or None,
+                ).model_dump(mode="json")
+            )
+            recorded.append(found.measurement)
+
+        answered = subject in recorded
+        target = Phase(row.phase)
+        if answered:
+            proposal.state = ProposalState.ACCEPTED.value
+            proposal.by = by
+            proposal.chosen_option = UPLOAD
+            proposal.settled_at = _now()
+            target = st.advance(target, st.Event.FACT_ADDED)
+        _swap(db, session_id, row.row_version, phase=target, facts=facts)
+
+    if answered:
+        offer_next_gap(session_id)
+    return SampleAnswer(
+        phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
+    )

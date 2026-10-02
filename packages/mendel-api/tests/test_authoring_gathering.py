@@ -64,7 +64,7 @@ def _payload(pid: str) -> dict:
 def _pending_for(sid: str, subject: str) -> str:
     """Answer every earlier gap with its first ordinary option until `subject` is offered."""
     while (pid := authoring.pending_id(sid)) and _payload(pid)["subject"] != subject:
-        skip = ("dont_have", "value", "not_sure")
+        skip = ("dont_have", "value", "not_sure", "upload")
         options = [o for o in _payload(pid)["options"] if o not in skip]
         authoring.answer_gap(pid, options[0], None, by="ana")
     return authoring.pending_id(sid)
@@ -101,7 +101,7 @@ def test_answering_every_gap_reaches_the_card_with_a_goal_that_builds(clean):
 def test_the_card_offered_after_gathering_carries_the_composed_goal(clean):
     sid = _gathering(want=["counts.matrix"])
     while (pid := authoring.pending_id(sid)) and "subject" in _payload(pid):
-        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value")]
+        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value", "upload")]
         authoring.answer_gap(pid, options[0], None, by="ana")
     card = _payload(authoring.pending_id(sid))
     assert card["block"]["kind"] == "goal_summary"
@@ -357,7 +357,7 @@ def test_the_models_constraints_are_suggestions_never_in_the_goal(clean):
     authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring.offer_next_gap(sid)
     while (pid := authoring.pending_id(sid)) and "subject" in _payload(pid):
-        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value")]
+        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value", "upload")]
         authoring.answer_gap(pid, options[0], None, by="ana")
     assert not authoring.compose_goal(sid).constraints.required_states
     card = _payload(authoring.pending_id(sid))["block"]
@@ -477,7 +477,7 @@ def test_a_question_waiting_for_its_words_counts_as_in_flight(clean, monkeypatch
 
 def _to_card(sid):
     while (pid := authoring.pending_id(sid)) and "subject" in _payload(pid):
-        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value")]
+        options = [o for o in _payload(pid)["options"] if o not in ("dont_have", "value", "upload")]
         authoring.answer_gap(pid, options[0], None, by="ana")
     return authoring.pending_id(sid)
 
