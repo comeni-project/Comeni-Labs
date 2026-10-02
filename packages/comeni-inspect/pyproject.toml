@@ -1,0 +1,40 @@
+[project]
+name = "comeni-inspect"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Measure an uploaded sample's head: the records, the accumulators, the wire protocol and the runner"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [{name = "Rafael Correia"}]
+keywords = ["bioinformatics", "fastq", "sequencing", "quality-control"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
+
+# Pydantic for the wire shapes, and nothing of ours: a piece imports only this package, and this
+# package needs nothing else, so an inspection process loads no resolver, no registry, no API.
+dependencies = [
+  "pydantic>=2.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/comeni-project/Comeni-Labs"
+Repository = "https://github.com/comeni-project/Comeni-Labs"
+Issues = "https://github.com/comeni-project/Comeni-Labs/issues"
+
+[project.scripts]
+comeni-inspect = "comeni_inspect.run:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/comeni_inspect"]
