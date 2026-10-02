@@ -215,3 +215,22 @@ def test_a_head_that_unpacks_past_the_cap_is_measured_up_to_it(tmp_path):
 def test_a_head_inside_the_cap_is_not_marked_capped(tmp_path):
     report = run.inspect(*_with(_request(tmp_path), b">a\n>b\n"))
     assert "capped" not in report.facts["count"].evidence
+
+
+def test_the_runner_limits_its_own_memory():
+    """The limit is set by the child itself, so the parent needs no `preexec_fn` (#134)."""
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import resource; from comeni_inspect import run; run._limit_memory(300 * 2**20); "
+            "print(resource.getrlimit(resource.RLIMIT_AS)[0])",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert int(done.stdout) == 300 * 2**20

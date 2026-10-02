@@ -167,3 +167,24 @@ def test_compose_goal_carries_the_pieces_and_only_declared_counts(clean):
     m = next(m for m in goal.profile.measurements if m.measurement == "read_length")
     assert m.source.value == "measured" and m.pieces == ["fastq@1.0.0", "read_length@1.0.0"]
     assert m.evidence.model_dump(mode="json") == {"records": 2000, "rows": 1000}
+
+
+def test_a_model_reading_cannot_prefill_upload(clean):
+    """Review of #134: a model's reading of typed words picked `upload`, and the person's
+    confirming click was then refused. A reading is a value or an answer, never an upload."""
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "read_length")
+    with pytest.raises(ValueError, match="MI0205"):
+        authoring.prefill_gap(pid, "upload", None, note=authoring.READ_NOTE)
+
+
+def test_a_sample_measures_what_the_person_could_not_share(clean):
+    """Review of #134: *can't share* is a fact nobody knows. The person's own sample then
+    measures it, and that is recorded, never reported as a disagreement with a value nobody gave."""
+    sid = _gathering(["counts.matrix"])
+    authoring.answer_gap(_pending_for(sid, "paired"), "cant_share", None, by="ana")
+    pid = _pending_for(sid, "read_length")
+    answer = authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
+    assert answer.disagreed == [] and "paired" in answer.recorded
+    paired = [f for f in _facts(sid) if f["subject"] == "paired"]
+    assert len(paired) == 1 and paired[0]["source"] == "measured" and paired[0]["value"] is True

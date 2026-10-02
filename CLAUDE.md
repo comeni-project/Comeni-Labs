@@ -133,7 +133,8 @@ Violating any of these breaks the product claim, not just a test. Each is argued
     `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count. Publication has no undo.
 15. **Mendel does not receive patient data.** `DataProfile` is built only by
     `MeasurementRegistry.profile()`. Protection level 0 (built, 14.7.6) loosens this for an
-    uploaded sample: its first 4 MB is read in memory by an inspection process, never stored.
+    uploaded sample: each file's first 4 MB is held in memory and piped to an inspection process;
+    only the measured facts are kept.
 
 ## The system, briefly
 

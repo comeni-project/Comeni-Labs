@@ -11,7 +11,7 @@ reason and is not recorded by anyone downstream.
 """
 
 import io
-import resource
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -55,13 +55,17 @@ class Inspection(BaseModel):
 
 
 def _command() -> list[str]:
-    """The runner. A seam: the tests put a sleeping or crashing process here."""
-    return [sys.executable, "-m", "comeni_inspect.run"]
+    """The runner, which caps its own memory (a parser that allocates past it dies, alone). A
+    seam: the tests put a sleeping or crashing process here."""
+    return [sys.executable, "-m", "comeni_inspect.run", "--memory-bytes", str(MEMORY_BYTES)]
 
 
-def _limit_memory() -> None:
-    """Run in the child before exec: a parser that allocates past this dies, alone (spec §8)."""
-    resource.setrlimit(resource.RLIMIT_AS, (MEMORY_BYTES, MEMORY_BYTES))
+def _environment() -> dict[str, str]:
+    """**What the child may see: nothing of this server's.** A piece is code from a registry
+    layer, run on a person's bytes; trusting the layer to bring code is not handing that code the
+    database URL, the model keys or `WIENER_API_TOKEN`, the boundary in front of a root-equivalent
+    Docker socket (review of #134)."""
+    return {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8"}
 
 
 def _unreadable(reason: str) -> wire.Report:
@@ -78,7 +82,8 @@ def launch(request: wire.Request, payloads: list[bytes]) -> wire.Report:
             input=buffer.getvalue(),
             capture_output=True,
             timeout=TIMEOUT_S,
-            preexec_fn=_limit_memory,
+            env=_environment(),
+            cwd="/",
             check=False,
         )
     except subprocess.TimeoutExpired:

@@ -1651,6 +1651,10 @@ def prefill_gap(proposal_id: str, option: str, value, *, note: str) -> None:
                 coded("MI0205", "that is not one of the answers this question offered")
                 + f"\n  it offered: {', '.join(payload['options'])}"
             )
+        if option == UPLOAD:
+            # A reading of words is a value or an answer, never an upload: the person's
+            # confirming click would then be refused (review of #134).
+            raise ValueError(coded("MI0205", "a reading cannot answer with an upload"))
         if option == "value":
             try:
                 stack.measurements.check(payload["subject"], value)
@@ -1986,7 +1990,19 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
         session_id = proposal.session_id
         subject = proposal.payload["subject"]
         row = db.get(PipelineAuthoringSession, session_id)
-        facts = list(row.facts or [])
+        # **An open fact is not known**: *can't share* or *not sure* is nobody's value, and the
+        # person's own sample measuring it is recorded in its place, never reported as
+        # disagreeing with a value nobody gave (review of #134).
+        decided = {
+            found.measurement
+            for found in inspection.facts
+            if found.undetermined is None and found.value is not None
+        }
+        facts = [
+            f
+            for f in row.facts or []
+            if not (f.get("source") == FactSource.OPEN.value and f["subject"] in decided)
+        ]
         known = {f["subject"]: f for f in facts}
         recorded, kept, disagreed = [], [], []
         if inspection.outcome == "measured" and inspection.type_id:

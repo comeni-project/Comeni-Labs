@@ -5059,3 +5059,11 @@ rest.
 | 2026-10-02 | `…::test_a_contract_and_pieces_together_are_refused`, `…::test_a_piece_ref_that_is_not_one_is_refused` | — (written before `_one_measurer` and `_piece_ref`) | failed on import of `Evidence`; passed after | — |
 | 2026-10-02 | `tests/registry/test_measurement_vocabulary.py::test_every_measurement_declares_whether_a_tool_can_produce_it` (now counting pieces) | `assertion_only: true` put back on `paired.yml` | failed; restored, passed | `paired: declares assertion_only and a contract or an inspector piece produces it` |
 | 2026-10-02 | `…test_measured_pieces.py::test_evidence_writes_only_the_counts_it_has`, `…::test_evidence_that_says_nothing_is_refused`, `…::test_pieces_or_evidence_on_a_value_nobody_measured_are_refused` | — (written from the final review, before the fix) | failed; passed after | — |
+
+## 2026-10-02 — inspection in the API (14.7.6.4)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-02 | `packages/mendel-api/tests/test_inspect.py::test_a_hang_is_unreadable_and_the_process_is_gone` | `subprocess.run` replaced by a `Popen` + `communicate(timeout=…)` that does not kill | failed; restored, passed | `the runner was left behind` |
+| 2026-10-02 | `packages/mendel-api/tests/test_authoring_upload_route.py::test_only_the_head_is_kept_and_nothing_is_spooled_to_disk` | the streaming reader replaced by `await request.form()` | **passed — inert** while it patched only `tempfile`; after it also patched `starlette.formparsers.SpooledTemporaryFile`, failed; restored, passed | `an upload was written to disk` |
+| 2026-10-02 | `…test_inspect.py::test_the_child_gets_no_secrets_and_no_preexec`, `…test_authoring_upload_route.py::test_many_form_fields_are_refused_not_held`, `…::test_a_body_cut_before_its_end_is_refused`, `…test_authoring_samples.py::test_a_model_reading_cannot_prefill_upload`, `…::test_a_sample_measures_what_the_person_could_not_share` | — (written from the final review, before each fix) | each failed; passed after | the cut-body test first passed for the wrong reason (the cut fell in a header); moved into the file's data, it failed |

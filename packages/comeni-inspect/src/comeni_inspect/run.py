@@ -177,8 +177,21 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
     return wire.Report(type_id=None, facts=facts, unreadable=None)
 
 
+def _limit_memory(limit: int) -> None:
+    """Cap this process's address space: a parser that allocates past it dies, alone (spec §8).
+
+    **Set by the child itself**, from `--memory-bytes`, rather than by the parent's
+    `preexec_fn`, which is unsafe in a process with threads (the API calls from a thread pool).
+    """
+    import resource
+
+    resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+
+
 def main() -> int:
     """stdin → one report on stdout, exit 0. A broken request is a report too."""
+    if "--memory-bytes" in sys.argv:
+        _limit_memory(int(sys.argv[sys.argv.index("--memory-bytes") + 1]))
     try:
         request, payloads = wire.read_request(sys.stdin.buffer)
     except (ValueError, ValidationError) as error:

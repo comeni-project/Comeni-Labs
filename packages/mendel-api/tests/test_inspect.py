@@ -97,3 +97,22 @@ def test_the_steps_taken_are_returned():
     assert got.steps[0] == "read the first 4 MB of 2 file(s)"
     assert "unpacked gzip" in got.steps and "confirmed FASTQ" in got.steps
     assert got.steps[-1].startswith("measured ")
+
+
+def test_the_child_gets_no_secrets_and_no_preexec(monkeypatch):
+    """Review of #134: the child ran with the API's whole environment (database URL, model keys,
+    WIENER_API_TOKEN), and `preexec_fn` is unsafe from the thread pool the route calls it from."""
+    seen = {}
+    real = inspect.subprocess.run
+
+    def spy(command, **kwargs):
+        seen.update(kwargs, command=command)
+        return real(command, **kwargs)
+
+    monkeypatch.setenv("WIENER_API_TOKEN", "secret-token")
+    monkeypatch.setattr(inspect.subprocess, "run", spy)
+    got = inspect.inspect_sample(_files("few"), registry.stack())
+    assert got.outcome == "measured"
+    assert "preexec_fn" not in seen
+    assert "WIENER_API_TOKEN" not in seen["env"] and set(seen["env"]) <= {"PATH", "LANG", "LC_ALL"}
+    assert "--memory-bytes" in seen["command"]

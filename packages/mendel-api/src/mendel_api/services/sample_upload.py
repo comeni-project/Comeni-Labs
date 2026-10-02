@@ -15,6 +15,9 @@ from starlette.requests import Request
 
 FIELD_CAP = 256
 """A form field (the proposal id) is an id, never prose: more than this is dropped."""
+FIELDS = frozenset({"proposal_id"})
+"""The only form field this route reads. **Any other is refused**, not held: a body of 100,000
+distinct field names held 200 MB before this (review of #134)."""
 
 
 class BadUpload(ValueError):
@@ -62,6 +65,8 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
         if part["filename"] is not None:
             heads.count += 1
             part["cap"] = head if heads.count <= keep else 0
+        elif part["name"] not in FIELDS:
+            raise BadUpload(f"the form has a field this route does not read: {part['name']!r}")
 
     def on_part_data(data: bytes, start: int, end: int) -> None:
         room = part["cap"] - len(part["data"])
@@ -69,6 +74,7 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
             part["data"] += data[start : min(end, start + room)]
 
     def on_part_end() -> None:
+        part["ended"] = True
         if part.get("filename") is not None:
             if heads.count <= keep:
                 heads.files.append((part["filename"] or "sample", bytes(part["data"])))
@@ -90,4 +96,8 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
     async for chunk in request.stream():
         parser.write(chunk)
     parser.finalize()
+    # **A body cut before its closing boundary** ends with a part that never ended: its bytes
+    # are not a file, and answering *nothing reads this type* would be untrue (review of #134).
+    if part and not part.get("ended"):
+        raise BadUpload("the upload stopped before it finished; send it again")
     return heads
