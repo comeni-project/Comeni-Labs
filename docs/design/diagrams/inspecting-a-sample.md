@@ -19,16 +19,16 @@ flowchart LR
         level{{"Does the protection level<br/>allow an upload?"}}:::safety
         refused["Refused, and says why"]:::stop
         head["Keep the first 4 MB of each, in memory<br/>(longer files are cut, never refused)"]:::engine
-        claim{"Which formats claim<br/>the extension?"}:::engine
+        claim{"Which trusted formats claim<br/>the extension? (every file agreeing)"}:::engine
         nothing["Nothing reads this type yet:<br/>the question stays"]:::stop
         characterise["The characteriser reads it<br/>(14.7.7)"]:::ai
     end
     style receiving fill:transparent,stroke:#555
     subgraph processing ["On our server: in its own process, with limits"]
         direction TB
-        unpack["Unpack, up to 16 MB"]:::engine
+        unpack["Unpack if compressed, up to 16 MB"]:::engine
         confirm{"Does the content<br/>confirm the format?"}:::engine
-        unreadable["Unreadable, with the reason<br/>(a bomb, too slow, not this format)"]:::stop
+        unreadable["Unreadable, with the reason<br/>(a bomb, too slow, a crash, not this format)"]:::stop
         tie{"Several formats confirm:<br/>you choose"}:::you
         measure["Measure: one pass,<br/>every measure fed"]:::engine
     end
@@ -46,24 +46,28 @@ flowchart LR
     level -- "above level 0" --> refused
     level -- "level 0" --> head
     head -- "one file or a pair" --> claim
-    head -- "any other count" --> refused
+    head -- "any other count, a form it can't read, or cut short" --> refused
     claim -- "none" --> nothing
     claim -. "none, at 14.7.7" .-> characterise
     claim -- "one or more" --> unpack
     unpack -- "a bomb" --> unreadable
     unpack --> confirm
-    confirm -- "no" --> unreadable
-    confirm -. "several" .-> tie
+    confirm -- "none of them" --> unreadable
+    confirm -- "several: the question stays" --> back
+    confirm -. "several, at a later step" .-> tie
     confirm -- "exactly one" --> measure
     measure -- "took too long" --> unreadable
     measure -- "not enough to say" --> undetermined
     measure -- "decided" --> admit
+    admit -- "already answered, or this question takes no sample" --> refused
+    admit -- "the registry refuses a value: dropped" --> back
     admit -- "you already said it" --> kept
     admit -- "new" --> stamped
     stamped --> back
     kept --> back
     undetermined --> back
     nothing --> back
+    unreadable --> back
     style characterise stroke-dasharray:6 4,opacity:0.55
     style tie stroke:#ff5050,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
     style undetermined stroke:#ff5050,stroke-width:4px

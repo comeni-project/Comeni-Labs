@@ -100,7 +100,7 @@ flowchart LR
     left_open --> next_gap
     next_gap -- "nothing unknown" --> card
     list_needs -- "nothing makes it: it asks you" --> say
-    reply -- "upload a sample" --> upload
+    reply -- "upload a sample (when something here reads it)" --> upload
     upload -- "uploaded" --> safety
     safety -- "level 0" --> read_engine
     safety -. "it doesn't" .-> read_ai

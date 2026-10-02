@@ -56,6 +56,15 @@ def test_check_fails_on_a_stale_page(tmp_path, monkeypatch):
 def test_writing_removes_a_page_nothing_generates(tmp_path, monkeypatch):
     gen = _generator()
     monkeypatch.setattr(gen, "DIAGRAMS", tmp_path)
-    (tmp_path / "gone.md").write_text("x")
-    gen.main([])
+    (tmp_path / "gone.md").write_text(gen.BANNER + "# A detail that was deleted\n")
+    assert gen.main([]) == 0
     assert not (tmp_path / "gone.md").exists()
+
+
+def test_a_hand_written_page_is_never_deleted(tmp_path, monkeypatch):
+    """Review of #134: writing deleted any page it did not generate, a hand-written one too."""
+    gen = _generator()
+    monkeypatch.setattr(gen, "DIAGRAMS", tmp_path)
+    (tmp_path / "notes.md").write_text("# my notes\n")
+    assert gen.main([]) == 1
+    assert (tmp_path / "notes.md").exists()

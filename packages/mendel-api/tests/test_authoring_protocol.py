@@ -210,10 +210,31 @@ def test_the_protection_level_is_asked_before_a_byte_is_kept():
     assert ("got", "level") in order and ("level", "head") in order
 
 
+_MACHINE = {
+    (Phase.BUILDING, Event.GOAL_ACCEPTED): Phase.RESOLVING,
+    (Phase.BUILDING, Event.NOTHING_LEFT): Phase.COMPLETE,
+    (Phase.BUILDING, Event.PROPOSAL_SETTLED): Phase.BUILDING,
+    (Phase.COMPLETE, Event.GOAL_ACCEPTED): Phase.RESOLVING,
+    (Phase.GATHERING, Event.FACT_ADDED): Phase.GATHERING,
+    (Phase.GATHERING, Event.INPUT_UNAVAILABLE): Phase.STOPPED,
+    (Phase.GATHERING, Event.NOTHING_MISSING): Phase.GOAL_REVIEW,
+    (Phase.GATHERING, Event.WANT_UNREACHABLE): Phase.UNDERSTANDING,
+    (Phase.GOAL_REVIEW, Event.GOAL_ACCEPTED): Phase.RESOLVING,
+    (Phase.GOAL_REVIEW, Event.GOAL_REVISED): Phase.UNDERSTANDING,
+    (Phase.RESOLVING, Event.BLUEPRINT_STORED): Phase.BUILDING,
+    (Phase.RESOLVING, Event.BUILD_FAILED): Phase.FAILED,
+    (Phase.RESOLVING, Event.PROVIDER_FAILED): Phase.FAILED,
+    (Phase.UNDERSTANDING, Event.PROVIDER_FAILED): Phase.FAILED,
+    (Phase.UNDERSTANDING, Event.WANT_RETURNED): Phase.GATHERING,
+}
+"""The machine as it stood before 14.7.6.5, printed then and pinned here. **A literal**: the
+first version compared `st.TRANSITIONS` with `PROTOCOL.transitions()`, which is the same value,
+so it could not fail (review of #134)."""
+
+
 def test_the_machine_did_not_change():
     """Review focus 5: the upload's edges carry no events of their own."""
-    assert p.PROTOCOL.transitions() == st.TRANSITIONS
-    assert (Phase.GATHERING, Event.FACT_ADDED) in st.TRANSITIONS
+    assert p.PROTOCOL.transitions() == _MACHINE
 
 
 def test_a_stage_and_a_node_cannot_share_an_id():
@@ -225,3 +246,43 @@ def test_a_stage_and_a_node_cannot_share_an_id():
             nodes=(Node(id="admit", stage="admit", actor=Actor.ENGINE, label="A"),),
             edges=(),
         )
+
+
+def test_a_detail_cannot_take_the_general_diagrams_name_or_another_details():
+    """Review of #134: a detail with the default slug would have replaced the general page."""
+    unnamed = Protocol(
+        stages=(Stage(id="s", title="S"),),
+        nodes=(Node(id="a", stage="s", actor=Actor.ENGINE, label="A"),),
+        edges=(),
+    )
+    with pytest.raises(ValueError, match="slug"):
+        _with(unnamed)
+    named_readme = unnamed.model_copy(update={"slug": "README"})
+    with pytest.raises(ValueError, match="slug"):
+        _with(named_readme)
+
+
+def test_node_ids_may_repeat_between_a_diagram_and_its_detail():
+    """Review focus 3: each diagram is its own Mermaid document."""
+    inner = Protocol(
+        title="Inside", slug="inside",
+        stages=(Stage(id="s", title="S"),),
+        nodes=(Node(id="p", stage="s", actor=Actor.ENGINE, label="P inside"),),
+        edges=(),
+    )
+    outer = Protocol(
+        stages=(Stage(id="g", title="G"),),
+        nodes=(Node(id="p", stage="g", actor=Actor.ENGINE, label="P", detail=inner),),
+        edges=(),
+    )
+    assert "p[" in p.to_mermaid(outer) and "p[" in p.to_mermaid(inner)
+
+
+def test_every_way_out_of_an_upload_is_drawn():
+    """Review of #134: the tie, a refusal after the inspection, an unreadable sample and a
+    value the registry refuses all leave the question open today, and each is drawn so."""
+    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
+    built = {(e.source, e.target) for e in detail.edges if e.built}
+    assert {("confirm", "back"), ("admit", "refused"), ("unreadable", "back")} <= built
+    assert any(e.source == "admit" and e.target == "back" and "dropped" in e.label
+               for e in detail.edges)

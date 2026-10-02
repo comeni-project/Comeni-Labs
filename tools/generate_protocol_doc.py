@@ -92,11 +92,19 @@ def main(argv: list[str] | None = None) -> int:
             )
         return 1 if wrong or orphaned else 0
     DIAGRAMS.mkdir(parents=True, exist_ok=True)
+    kept = []
     for name in sorted(have - set(want)):
-        (DIAGRAMS / name).unlink()
+        # **Only a page this generator wrote is removed**: one without the banner is somebody's
+        # own writing, left where it is and reported (review of #134).
+        if (DIAGRAMS / name).read_text().startswith(BANNER):
+            (DIAGRAMS / name).unlink()
+            print(f"removed docs/design/diagrams/{name}: nothing generates it any more")
+        else:
+            kept.append(name)
+            print(f"docs/design/diagrams/{name} is not generated and was left alone; move it")
     for name, text in want.items():
         (DIAGRAMS / name).write_text(text)
-    return 0
+    return 1 if kept else 0
 
 
 if __name__ == "__main__":

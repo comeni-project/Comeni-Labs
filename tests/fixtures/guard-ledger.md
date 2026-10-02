@@ -5068,3 +5068,12 @@ rest.
 | 2026-10-02 | `packages/mendel-api/tests/test_authoring_upload_route.py::test_only_the_head_is_kept_and_nothing_is_spooled_to_disk` | the streaming reader replaced by `await request.form()` | **passed — inert** while it patched only `tempfile`; after it also patched `starlette.formparsers.SpooledTemporaryFile`, failed; restored, passed | `an upload was written to disk` |
 | 2026-10-02 | `…test_inspect.py::test_the_child_gets_no_secrets_and_no_preexec`, `…test_authoring_upload_route.py::test_many_form_fields_are_refused_not_held`, `…::test_a_body_cut_before_its_end_is_refused`, `…test_authoring_samples.py::test_a_model_reading_cannot_prefill_upload`, `…::test_a_sample_measures_what_the_person_could_not_share` | — (written from the final review, before each fix) | each failed; passed after | the cut-body test first passed for the wrong reason (the cut fell in a header); moved into the file's data, it failed |
 | 2026-10-02 | `packages/mendel-api/tests/test_authoring_samples.py::test_upload_is_offered_only_when_the_person_has_an_input_an_inspector_reads` (issue 227) | the condition put back to `gap.subject in measured` | failed; restored, passed | `'upload' not in …` |
+
+## 2026-10-02 — the diagrams folder (14.7.6.5)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-02 | `packages/mendel-api/tests/test_authoring_protocol.py::test_the_machine_did_not_change` | `read_engine → next_gap` given `event=GOAL_ACCEPTED` | failed; restored, passed | a new `(gathering, goal_accepted)` transition. **The first version compared `st.TRANSITIONS` with `PROTOCOL.transitions()`, the same value, and could not fail**; now a literal snapshot |
+| 2026-10-02 | `…::test_a_stage_and_a_node_cannot_share_an_id` | — (written before the check, after Mermaid refused `admit` as its own parent) | failed; passed after | `both a stage and a node` |
+| 2026-10-02 | `…::test_a_built_detail_under_a_planned_node_is_refused`, `…::test_a_detail_edge_cannot_move_the_session`, `…::test_a_detail_step_is_in_its_parents_phase`, `…::test_a_detail_cannot_take_the_general_diagrams_name_or_another_details` | — (written before each check) | failed; passed after | — |
+| 2026-10-02 | `tests/repo/test_protocol_doc.py::test_check_fails_on_an_orphan`, `…::test_a_hand_written_page_is_never_deleted` | — (written before the folder generator; the second from the final review) | failed; passed after | — |

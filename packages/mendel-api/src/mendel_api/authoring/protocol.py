@@ -127,6 +127,11 @@ class Protocol(_Frozen):
                     f"{key[0]} on {key[1]} leads to both {seen[key]} and {nodes[edge.target].phase}"
                 )
             seen[key] = nodes[edge.target].phase
+        slugs = [self.slug, *(d.slug for d in self.details())]
+        if len(set(slugs)) != len(slugs) or "README" in slugs:
+            # Each slug is a page in `docs/design/diagrams/`: a repeat would overwrite one, and
+            # `README` is the index (review of #134).
+            raise ValueError(f"every diagram needs its own slug, never README: {slugs}")
         for node in self.nodes:
             if node.detail is None:
                 continue
@@ -318,7 +323,7 @@ INSPECTING = Protocol(
             "claim",
             "receiving",
             _ENGINE,
-            "Which formats claim<br/>the extension?",
+            "Which trusted formats claim<br/>the extension? (every file agreeing)",
             _G,
             shape=Shape.CHOICE,
         ),
@@ -326,7 +331,7 @@ INSPECTING = Protocol(
             "nothing", "receiving", _STOP, "Nothing reads this type yet:<br/>the question stays", _G
         ),
         _n("characterise", "receiving", _AI, "The characteriser reads it<br/>(14.7.7)"),
-        _built("unpack", "processing", _ENGINE, "Unpack, up to 16 MB", _G),
+        _built("unpack", "processing", _ENGINE, "Unpack if compressed, up to 16 MB", _G),
         _built(
             "confirm",
             "processing",
@@ -339,7 +344,7 @@ INSPECTING = Protocol(
             "unreadable",
             "processing",
             _STOP,
-            "Unreadable, with the reason<br/>(a bomb, too slow, not this format)",
+            "Unreadable, with the reason<br/>(a bomb, too slow, a crash, not this format)",
             _G,
         ),
         _n(
@@ -382,24 +387,28 @@ INSPECTING = Protocol(
         _e("level", "refused", "above level 0", built=True),
         _e("level", "head", "level 0", built=True),
         _e("head", "claim", "one file or a pair", built=True),
-        _e("head", "refused", "any other count", built=True),
+        _e("head", "refused", "any other count, a form it can't read, or cut short", built=True),
         _e("claim", "nothing", "none", built=True),
         _e("claim", "characterise", "none, at 14.7.7"),
         _e("claim", "unpack", "one or more", built=True),
         _e("unpack", "unreadable", "a bomb", built=True),
         _e("unpack", "confirm", built=True),
-        _e("confirm", "unreadable", "no", built=True),
-        _e("confirm", "tie", "several"),
+        _e("confirm", "unreadable", "none of them", built=True),
+        _e("confirm", "back", "several: the question stays", built=True),
+        _e("confirm", "tie", "several, at a later step"),
         _e("confirm", "measure", "exactly one", built=True),
         _e("measure", "unreadable", "took too long", built=True),
         _e("measure", "undetermined", "not enough to say", built=True),
         _e("measure", "admit", "decided", built=True),
+        _e("admit", "refused", "already answered, or this question takes no sample", built=True),
+        _e("admit", "back", "the registry refuses a value: dropped", built=True),
         _e("admit", "kept", "you already said it", built=True),
         _e("admit", "stamped", "new", built=True),
         _e("stamped", "back", built=True),
         _e("kept", "back", built=True),
         _e("undetermined", "back", built=True),
         _e("nothing", "back", built=True),
+        _e("unreadable", "back", built=True),
     ),
 )
 
@@ -616,7 +625,7 @@ PROTOCOL = Protocol(
         _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
         # a file answers it: built in 14.7.6; the characteriser stays planned (14.7.7). No event
         # of its own: what the sample settles moves the session as a click does.
-        _e("reply", "upload", "upload a sample", built=True),
+        _e("reply", "upload", "upload a sample (when something here reads it)", built=True),
         _e("upload", "safety", "uploaded", built=True),
         _e("safety", "read_engine", "level 0", built=True),
         _e("safety", "read_ai", "it doesn't"),
