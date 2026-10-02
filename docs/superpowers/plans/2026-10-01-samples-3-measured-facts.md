@@ -279,7 +279,7 @@ git commit -m "feat(core): profile_of takes entries that say what measured them 
 **Interfaces:**
 - Consumes: `Measured.pieces`, `Measured.evidence`; `Layers.inspection.measures` (part 2) — each `MeasurePiece.measures` is a measurement id.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/registry/test_measured_entries.py` (Task 2's file; `_meta_entry` has no unit test of its own today, only the pipeline goldens):
 
@@ -316,12 +316,12 @@ def test_paired_is_measured_by_an_inspector_piece():
     assert not loaded.measurements.get("paired").assertion_only
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest tests/registry/test_measurement_vocabulary.py tests/registry/test_measured_entries.py -q`
 Expected: FAIL — `paired` is `assertion_only`; the reason says `measured` only.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `test_measurement_vocabulary.py`: where `measurable` is computed from contracts producing `measurement.*`, add `| {p.measures for p in loaded.inspection.measures.values()}` and change the message to *"a contract or an inspector piece produces it"*.
 
@@ -339,12 +339,12 @@ Registry: in `vocabulary/measurements/paired.yml`, delete `assertion_only: true`
 
 `pipeline-schema.md`: beside the profile example, document `pieces` and `evidence` (one sentence each: present only when an inspector measured the value).
 
-- [ ] **Step 4: Run them, then `make verify`** (`materialise.py` and the goal feed every artifact)
+- [x] **Step 4: Run them, then `make verify`** (`materialise.py` and the goal feed every artifact)
 
 Run: `uv run pytest tests/registry -q && make verify > /tmp/claude-1000/verify.log 2>&1; tail -20 /tmp/claude-1000/verify.log`
 Expected: PASS; no golden changes (no shipped goal has pieces). If any golden changed, stop: the omission in Task 1 is not working.
 
-- [ ] **Step 5: Commit, separately from the checks**
+- [x] **Step 5: Commit, separately from the checks**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/artifact/materialise.py tests/registry/test_measurement_vocabulary.py docs/handbook/reference/pipeline-schema.md registry tests/registry/test_measured_entries.py
