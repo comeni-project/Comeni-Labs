@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MENDEL_", extra="forbid")
 
     workspace_root: Path = Path("./workspace")
+    trusted_layers: list[int] = [0]
+    """Layer indexes whose inspector pieces may run on this server (spec §2). **The base layer
+    by default**: a piece is code, and only a layer the operator trusts may bring code. A lab
+    overlay's pieces are listed and not run until its index is named here, as a JSON list in
+    `MENDEL_TRUSTED_LAYERS`."""
     registry_root: Path = Path("./registry")
     """The layer. **One root** since Plan 5A — it used to be two, `registry_root` for the
     declarations and `source_root` for the module code they describe, on two release cadences

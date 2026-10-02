@@ -90,6 +90,9 @@ class InspectionCatalogue(BaseModel):
     codecs: dict[str, CodecPiece] = Field(default_factory=dict)
     formats: dict[str, FormatPiece] = Field(default_factory=dict)
     measures: dict[str, MeasurePiece] = Field(default_factory=dict)
+    origin: dict[str, int] = Field(default_factory=dict)
+    """`"codec:<id>"`, `"format:<id>"`, `"measure:<id>"` → the index of the layer that supplied
+    it. Pieces run only from trusted layers (spec §2), and trust is per layer."""
 
     @staticmethod
     def kinds() -> tuple[Kind, Kind, Kind]:
@@ -105,10 +108,16 @@ class InspectionCatalogue(BaseModel):
 
     @classmethod
     def of(cls, codecs: Stacked, formats: Stacked, measures: Stacked) -> "InspectionCatalogue":
+        origin = {
+            f"{kind}:{key}": index
+            for kind, stacked in (("codec", codecs), ("format", formats), ("measure", measures))
+            for key, index in stacked.origin.items()
+        }
         return cls(
             codecs=dict(codecs.entries),
             formats=dict(formats.entries),
             measures=dict(measures.entries),
+            origin=origin,
         )
 
     @classmethod
@@ -151,5 +160,7 @@ class InspectionCatalogue(BaseModel):
                 )
             else:
                 measures[key] = piece
-        usable = InspectionCatalogue(codecs=self.codecs, formats=formats, measures=measures)
+        usable = InspectionCatalogue(
+            codecs=self.codecs, formats=formats, measures=measures, origin=self.origin
+        )
         return usable, refused

@@ -265,12 +265,26 @@ class AuthoringEdited(BaseModel):
     """A pending step proposal made stale by the edit and offered again at the new revision."""
 
 
+class MeasurerView(BaseModel):
+    """One way a measurement can be measured, and where that runs (#134)."""
+
+    model_config = _FROZEN
+
+    measurement: str
+    kind: Literal["inspector", "profiler"]
+    by: str
+    runs: Literal["server", "lab", "browser"]
+    trusted: bool
+
+
 class AuthoringVocabulary(BaseModel):
-    """Every declared type and its states — what a goal card may be edited to say."""
+    """Every declared type and its states — what a goal card may be edited to say — and who
+    can measure each measurement."""
 
     model_config = _FROZEN
 
     types: dict[str, list[str]]
+    measurers: list[MeasurerView] = []
 
 
 class AuthoringPreview(BaseModel):
@@ -314,10 +328,15 @@ def vocabulary() -> AuthoringVocabulary:
     """Declared, public registry data — the same list a model is shown, served to the card that
     lets a person correct what the model wrote. Registered before `/{session_id}`, which would
     otherwise read `vocabulary` as a session id."""
+    from mendel_api.services import measurers
     from mendel_api.services import registry as registry_service
 
-    types = registry_service.stack().vocabulary.types
-    return AuthoringVocabulary(types={t: sorted(types[t]) for t in sorted(types)})
+    stack = registry_service.stack()
+    types = stack.vocabulary.types
+    return AuthoringVocabulary(
+        types={t: sorted(types[t]) for t in sorted(types)},
+        measurers=[MeasurerView(**m.model_dump()) for m in measurers.index(stack)],
+    )
 
 
 @router.get(

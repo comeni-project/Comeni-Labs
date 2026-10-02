@@ -1790,13 +1790,19 @@ export interface components {
         };
         /**
          * AuthoringVocabulary
-         * @description Every declared type and its states — what a goal card may be edited to say.
+         * @description Every declared type and its states — what a goal card may be edited to say — and who
+         *     can measure each measurement.
          */
         AuthoringVocabulary: {
             /** Types */
             types: {
                 [key: string]: string[];
             };
+            /**
+             * Measurers
+             * @default []
+             */
+            measurers: components["schemas"]["MeasurerView"][];
         };
         /**
          * Band
@@ -3168,6 +3174,28 @@ export interface components {
             /** Pieces */
             pieces?: string[];
             evidence?: components["schemas"]["Evidence"] | null;
+        };
+        /**
+         * MeasurerView
+         * @description One way a measurement can be measured, and where that runs (#134).
+         */
+        MeasurerView: {
+            /** Measurement */
+            measurement: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "inspector" | "profiler";
+            /** By */
+            by: string;
+            /**
+             * Runs
+             * @enum {string}
+             */
+            runs: "server" | "lab" | "browser";
+            /** Trusted */
+            trusted: boolean;
         };
         /** Menu */
         Menu: {
