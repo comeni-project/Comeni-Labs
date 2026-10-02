@@ -127,3 +127,59 @@ def test_a_want_nothing_makes_asks_rather_than_fails():
     edges = {(e.source, e.target, e.event) for e in p.PROTOCOL.edges}
     assert ("list_needs", "say", Event.WANT_UNREACHABLE) in edges
     assert not any(s == "list_needs" and t == "failed" for s, t, _ in edges)
+
+
+# ── a node may carry a detailed diagram of its own steps (14.7.6.5) ──────────────────────────
+
+Actor, Edge, Node, Protocol, Stage = p.Actor, p.Edge, p.Node, p.Protocol, p.Stage
+
+
+def _detail(phase=Phase.GATHERING, built=True, event=None):
+    return Protocol(
+        title="Inside",
+        slug="inside",
+        stages=(Stage(id="s", title="On our server"),),
+        nodes=(
+            Node(id="a", stage="s", actor=Actor.ENGINE, label="A", phase=phase, built=built),
+            Node(id="b", stage="s", actor=Actor.ENGINE, label="B", phase=phase, built=built),
+        ),
+        edges=(Edge(source="a", target="b", event=event, built=built),),
+    )
+
+
+def _with(detail, parent_built=True):
+    return Protocol(
+        stages=(Stage(id="g", title="G"),),
+        nodes=(
+            Node(
+                id="p", stage="g", actor=Actor.ENGINE, label="P",
+                phase=Phase.GATHERING if parent_built else None, built=parent_built,
+                detail=detail,
+            ),
+        ),
+        edges=(),
+    )
+
+
+def test_a_node_may_carry_a_detail():
+    assert [d.slug for d in _with(_detail()).details()] == ["inside"]
+
+
+def test_a_detail_edge_cannot_move_the_session():
+    with pytest.raises(ValueError, match="cannot move the session"):
+        _with(_detail(event=Event.FACT_ADDED))
+
+
+def test_a_detail_step_is_in_its_parents_phase():
+    with pytest.raises(ValueError, match="phase"):
+        _with(_detail(phase=Phase.BUILDING))
+
+
+def test_a_built_detail_under_a_planned_node_is_refused():
+    """Review focus 1."""
+    with pytest.raises(ValueError, match="planned"):
+        _with(_detail(), parent_built=False)
+
+
+def test_the_machine_ignores_details():
+    assert _with(_detail()).transitions() == {}

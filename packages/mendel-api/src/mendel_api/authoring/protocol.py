@@ -65,6 +65,9 @@ class Node(_Frozen):
     border: Border = Border.NONE
     shape: Shape = Shape.BOX
     built: bool = False
+    detail: "Protocol | None" = None
+    """The steps inside this node, as a diagram of their own (14.7.6.5). Its steps share this
+    node's phase and its edges carry no events: a detail draws, it never moves the session."""
 
 
 class Edge(_Frozen):
@@ -80,6 +83,9 @@ class Edge(_Frozen):
 
 
 class Protocol(_Frozen):
+    title: str = "The authoring protocol"
+    slug: str = "authoring-protocol"
+    """The diagram's file name in `docs/design/diagrams/`, without `.md`."""
     stages: tuple[Stage, ...]
     nodes: tuple[Node, ...]
     edges: tuple[Edge, ...]
@@ -117,7 +123,33 @@ class Protocol(_Frozen):
                     f"{key[0]} on {key[1]} leads to both {seen[key]} and {nodes[edge.target].phase}"
                 )
             seen[key] = nodes[edge.target].phase
+        for node in self.nodes:
+            if node.detail is None:
+                continue
+            for step in node.detail.nodes:
+                if step.built and not node.built:
+                    raise ValueError(
+                        f"{node.id}'s detail has built step {step.id!r} under a planned node"
+                    )
+                if step.built and step.phase is not node.phase:
+                    raise ValueError(
+                        f"{node.id}'s detail step {step.id!r} is not in its phase {node.phase}"
+                    )
+            for edge in node.detail.edges:
+                if edge.event is not None:
+                    raise ValueError(
+                        f"{node.id}'s detail edge {edge.source}→{edge.target} cannot move the "
+                        "session"
+                    )
         return self
+
+    def details(self) -> list["Protocol"]:
+        """Every detail, depth first, in declaration order: what the generator writes."""
+        found: list[Protocol] = []
+        for node in self.nodes:
+            if node.detail is not None:
+                found += [node.detail, *node.detail.details()]
+        return found
 
     def _phase(self, node_id: str) -> Phase:
         return next(n.phase for n in self.nodes if n.id == node_id)
@@ -133,6 +165,9 @@ class Protocol(_Frozen):
     def retry_targets(self) -> frozenset[Phase]:
         """The phases a retry out of `failed` may resume."""
         return frozenset(self._phase(e.target) for e in self.edges if e.built and e.returns)
+
+
+Node.model_rebuild()
 
 
 _FILL = {
