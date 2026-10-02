@@ -188,3 +188,20 @@ def test_a_sample_measures_what_the_person_could_not_share(clean):
     assert answer.disagreed == [] and "paired" in answer.recorded
     paired = [f for f in _facts(sid) if f["subject"] == "paired"]
     assert len(paired) == 1 and paired[0]["source"] == "measured" and paired[0]["value"] is True
+
+
+def test_upload_is_offered_only_when_the_person_has_an_input_an_inspector_reads():
+    """Issue 227 (decided A): with no FASTQ said, *not sure* stays, since an upload of what the
+    person has would end in *nothing reads this type yet*."""
+    from mendel_api.authoring.types import Fact, FactKind, FactSource
+    from mendel_api.services import gaps, registry
+
+    stack = registry.stack()
+    gap = gaps.Gap(kind=FactKind.MEASUREMENT, subject="read_length", why="w")
+    without = authoring._gap_options(gap, stack, [])
+    assert "not_sure" in without and "upload" not in without
+    bam = Fact(kind=FactKind.INPUT, subject="alignment.bam", source=FactSource.PERSON_SAID)
+    assert "upload" not in authoring._gap_options(gap, stack, [bam])
+    reads = Fact(kind=FactKind.INPUT, subject="fastq.reads", source=FactSource.PERSON_SAID)
+    with_reads = authoring._gap_options(gap, stack, [reads])
+    assert "upload" in with_reads and "not_sure" not in with_reads

@@ -1362,14 +1362,18 @@ UPLOAD = "upload"
 """The option that opens an upload. **The click is not an answer**: the sample is (#134)."""
 
 
-def _inspectable(stack) -> tuple[set[str], set[str]]:
-    """The measurements a trusted inspector measures, and the input types one reads."""
+def _inspectable(stack) -> tuple[dict[str, set[str]], set[str]]:
+    """Each measurement a trusted inspector measures, with the input types its formats read;
+    and every input type a trusted format reads."""
     from mendel_api.services import measurers
 
-    measured = {
-        m.measurement for m in measurers.index(stack) if m.kind == "inspector" and m.trusted
-    }
-    read = {t for fmt in measurers.usable_pieces(stack).formats.values() for t in fmt.reads}
+    pieces = measurers.usable_pieces(stack)
+    measured: dict[str, set[str]] = {}
+    for measure in pieces.measures.values():
+        for fmt in pieces.formats.values():
+            if fmt.record == measure.record:
+                measured.setdefault(measure.measures, set()).update(fmt.reads)
+    read = {t for fmt in pieces.formats.values() for t in fmt.reads}
     return measured, read
 
 
@@ -1385,7 +1389,7 @@ def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | 
     return (proposal.payload.get("options") or {}).get(proposal.chosen_option)
 
 
-def _gap_options(gap: gaps.Gap, stack) -> dict[str, str]:
+def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
     """The closed answers to one gap, as option id → label. The engine mints every id."""
     measured, read = _inspectable(stack)
     if gap.kind is FactKind.INPUT:
@@ -1401,9 +1405,14 @@ def _gap_options(gap: gaps.Gap, stack) -> dict[str, str]:
     else:
         unit = f" ({measurement.unit})" if measurement.unit else ""
         options = {"value": f"Type it{unit}"}
-    if gap.subject in measured:
+    has = {f.subject for f in facts if f.kind is FactKind.INPUT}
+    # Keyed on what the measuring formats read, not on the measurement's `describes:`, which
+    # `read_length` leaves unset.
+    if measured.get(gap.subject, set()) & has:
         # **Not sure becomes measurable**: a person who does not know can upload a sample and
-        # have it measured, so *not sure* is offered as that (spec §1).
+        # have it measured, so *not sure* is offered as that (spec §1). **Only when what they
+        # have is something an inspector reads** (issue 227, decided A): an upload of a BAM
+        # would end in *nothing reads this type yet*, and *not sure* stays.
         return {
             **options,
             UPLOAD: "Not sure: upload a sample and I'll measure it",
@@ -1569,7 +1578,7 @@ def offer_next_gap(session_id: str) -> str | None:
         )
 
     gap = found[0]
-    options = _gap_options(gap, stack)
+    options = _gap_options(gap, stack, facts)
     question = _gap_question(gap, options, stack, version)
     heard = next(
         (
@@ -1831,7 +1840,7 @@ def gap_context(session_id: str, subject: str) -> dict | None:
     gap = next((g for g in found if g.subject == subject), None)
     if gap is None:
         return None
-    options = _gap_options(gap, stack)
+    options = _gap_options(gap, stack, facts)
     described = (
         stack.measurements.get(subject).description
         if gap.kind is FactKind.MEASUREMENT
