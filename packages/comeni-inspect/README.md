@@ -14,3 +14,6 @@ a piece to its golden reports.
 One inspection runs per process: a request goes in on stdin, one JSON report comes out on
 stdout. [`PROTOCOL.md`](PROTOCOL.md) describes both, so a faster implementation in another
 language can take a piece's place and be checked against the same reports.
+
+To add a format or a measure, follow the five steps in the registry's
+[`inspectors/README.md`](../../registry/inspectors/README.md).
