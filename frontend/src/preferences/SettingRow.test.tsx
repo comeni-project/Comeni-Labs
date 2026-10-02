@@ -37,6 +37,17 @@ describe("a setting row", () => {
     expect(screen.getByText(/Change it there and restart/)).toBeTruthy();
   });
 
+  it("draws a designed option greyed, with why", () => {
+    render(<SettingRow entry={entry({ options: [
+      { value: "together", label: "Together", designed: null },
+      { value: "ask", label: "Ask", designed: null },
+      { value: "sealed", label: "Sealed", designed: "designed, not built (issue 71)" },
+    ] })} onWrite={vi.fn()} />);
+    expect((screen.getByLabelText("Sealed") as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Ask") as HTMLInputElement).disabled).toBe(false);
+    expect(screen.getByText(/Sealed: designed, not built \(issue 71\)/)).toBeTruthy();
+  });
+
   it("marks a designed setting as not built", () => {
     const reason = { kind: "designed", where: "arrives with the consultant build", says: "Designed, not built yet: arrives with the consultant build." };
     render(<SettingRow entry={entry({}, { locked: true, reason })} onWrite={vi.fn()} />);

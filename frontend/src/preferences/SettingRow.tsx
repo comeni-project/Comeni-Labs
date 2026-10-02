@@ -115,8 +115,12 @@ function Control({
     case "choice":
       // **A segmented control** (the design's Building rows). The radio sits inside each
       // segment's label, so a keyboard and a screen reader meet a plain radio group; a greyed
-      // setting is drawn dashed rather than only faded.
+      // setting is drawn dashed rather than only faded. **An option that is designed and not
+      // built** is drawn the same way, alone, with why under the group: the menu says what is
+      // coming without offering a choice nothing would honour.
+      const designed = (setting.options ?? []).filter((option) => option.designed);
       return (
+        <div className="flex flex-col gap-[4px] max-w-full">
         <div
           role="radiogroup"
           aria-label={setting.label}
@@ -126,15 +130,16 @@ function Control({
         >
           {(setting.options ?? []).map((option) => {
             const on = value === option.value;
+            const off = disabled || Boolean(option.designed);
             return (
               <label
                 key={option.value}
                 className={`px-[12px] py-[8px] min-h-[44px] md:min-h-0 flex items-center
                             text-[12px] border-b last:border-b-0 md:border-b-0 md:border-r
                             md:last:border-r-0 border-line-2
-                            ${disabled ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
-                            ${on ? "bg-hover text-ink" : "text-ink-3"}
-                            ${!disabled && !on ? "hover:text-ink" : ""}
+                            ${off ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
+                            ${on ? "bg-hover text-ink" : option.designed ? "text-ink-4" : "text-ink-3"}
+                            ${!off && !on ? "hover:text-ink" : ""}
                             has-[:focus-visible]:shadow-[var(--ring)]`}
               >
                 <input
@@ -143,13 +148,19 @@ function Control({
                   name={setting.key}
                   value={option.value}
                   checked={on}
-                  disabled={disabled}
+                  disabled={off}
                   onChange={() => onWrite(option.value)}
                 />
                 {option.label}
               </label>
             );
           })}
+        </div>
+        {designed.map((option) => (
+          <p key={option.value} className="text-[11px] text-ink-4">
+            {option.label}: {option.designed}
+          </p>
+        ))}
         </div>
       );
     case "toggle":

@@ -2144,6 +2144,8 @@ export interface components {
             value: string;
             /** Label */
             label: string;
+            /** Designed */
+            designed?: string | null;
         };
         /**
          * Citation
@@ -2716,6 +2718,19 @@ export interface components {
             at: string;
         };
         /**
+         * Evidence
+         * @description How much an inspector read to decide a fact. Counts only: the goal is reachable from the
+         *     doors, so this carries no prose (the reason a fact was undetermined never reaches a goal).
+         */
+        Evidence: {
+            /** Records */
+            records?: number | null;
+            /** Rows */
+            rows?: number | null;
+            /** Share */
+            share?: number | null;
+        };
+        /**
          * Excerpt
          * @description A span of source text and a resolvable pointer to it.
          *
@@ -3150,6 +3165,9 @@ export interface components {
             source: components["schemas"]["ValueSource"];
             /** By */
             by?: string | null;
+            /** Pieces */
+            pieces?: string[];
+            evidence?: components["schemas"]["Evidence"] | null;
         };
         /** Menu */
         Menu: {
@@ -6688,7 +6706,7 @@ export interface operations {
                     "application/json": components["schemas"]["Refusal"];
                 };
             };
-            /** @description `MI0300`: the setting is locked; the detail says why. */
+            /** @description `MI0300`: the setting is locked; `MI0303`: the option is designed, not built. The detail says why. */
             409: {
                 headers: {
                     [name: string]: unknown;

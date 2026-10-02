@@ -226,6 +226,8 @@ decline to curate one.
 | `MI0208` | that value does not fit what this measurement can be |
 | `MI0209` | the analysis cannot be built: nothing can make what it asks for |
 | `MI0212` | a failed authoring session cannot resume into this phase |
+| `MI0213` | the protection level does not allow this crossing |
+| `MI0214` | an upload was refused: one file or a pair, nothing else |
 
 ## The forge — what a model is told, and what it cites
 
@@ -280,6 +282,7 @@ decline to curate one.
 | `MI0300` | this setting is locked and cannot be changed here |
 | `MI0301` | a setting was saved with no value |
 | `MI0302` | this value is not one this setting can hold |
+| `MI0303` | a setting's option is designed and cannot be chosen yet |
 
 ## Wiener — what may enter
 

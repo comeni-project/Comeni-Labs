@@ -68,3 +68,24 @@ def test_every_section_says_in_a_line_what_it_holds():
     assert CATALOGUE.sections, "no section is declared — this test is measuring nothing"
     for section in CATALOGUE.sections:
         assert 20 <= len(section.lede) <= 140, section.key
+
+
+def test_protection_level_0_is_built_and_the_others_are_designed():
+    from comeni_core.settings.catalogue import PROTECTION
+
+    assert PROTECTION.unavailable is None
+    assert PROTECTION.env == "COMENI_PROTECTION_LEVEL"
+    designed = {o.value for o in PROTECTION.options if o.designed}
+    assert designed == {"open", "guarded", "sealed"}
+    assert PROTECTION.default == "level_0"
+
+
+def test_a_default_cannot_be_a_designed_option():
+    import pytest
+    from comeni_core.settings.declare import Setting
+
+    with pytest.raises(ValueError, match="must be built"):
+        Setting.choice(
+            key="x.y", label="Y", help="Which of two things this setting picks.", default="b",
+            options=[("a", "A"), ("b", "B")], designed={"b": "issue 1"},
+        )

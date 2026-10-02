@@ -195,20 +195,21 @@ PROTECTION = Setting.choice(
     key="privacy.protection",
     label="Protection level",
     help=(
-        "How much of your data a model may see. Level 0 lets a model read an uploaded sample. "
-        "Open, guarded and sealed send less, down to nothing at all."
+        "How much of your data a model may see. Level 0 lets you upload a sample, measured on "
+        "this server, and a model may read it. Open, guarded and sealed send less, down to "
+        "nothing at all."
     ),
+    env="COMENI_PROTECTION_LEVEL",
     options=[
-        ("level_0", "Level 0: a model may read an uploaded sample"),
+        ("level_0", "Level 0: a sample may be uploaded and read"),
         ("open", "Open"),
         ("guarded", "Guarded"),
         ("sealed", "Sealed"),
     ],
+    # **Level 0 is built (14.7.6); the others are designed** (issue 71). They are offered
+    # greyed, so the menu says what is coming without a choice nothing would honour.
+    designed={o: "designed, not built (issue 71)" for o in ("open", "guarded", "sealed")},
     default="level_0",
-    unavailable=Designed(
-        where="level 0 arrives with samples (14.7.6); open, guarded and sealed are designed "
-        "(issue 71)"
-    ),
 )
 
 

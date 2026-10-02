@@ -43,13 +43,17 @@ THEME = Setting.choice(
     key="appearance.theme", label="Theme", help=HELP, options=[("dark", "Dark")],
     default="dark", where=Where.BROWSER,
 )
+LEVEL = Setting.choice(
+    key="building.level", label="Level", help=HELP, default="zero",
+    options=[("zero", "Zero"), ("sealed", "Sealed")], designed={"sealed": "designed (issue 71)"},
+)
 LATER = Setting.toggle(
     key="building.later", label="Later", help=HELP, default=False,
     unavailable=Designed(where="arrives with 14.7.8"),
 )
 CATALOGUE = Catalogue(
     sections=(
-        Section(key="building", title="Building", order=2, settings=(PACING, LATER)),
+        Section(key="building", title="Building", order=2, settings=(PACING, LATER, LEVEL)),
         Section(key="models", title="Models", order=3, settings=(KEY,)),
         Section(key="appearance", title="Appearance", order=1, settings=(THEME,)),
     )
@@ -294,3 +298,12 @@ def test_a_reporter_that_raises_is_a_row_that_says_so():
     got = inst.resolved(WHERE)
     assert got.locked and got.value == "could not be read (ConnectionError)"
     assert "6379" not in str(got.value)
+
+
+def test_putting_a_designed_option_is_refused_and_a_built_one_is_not():
+    from comeni_core.settings.installation import DesignedOption
+
+    inst = _installation()
+    with pytest.raises(DesignedOption, match="designed \\(issue 71\\)"):
+        inst.put("building.level", "sealed", by="ana")
+    assert inst.put("building.level", "zero", by="ana").value == "zero"

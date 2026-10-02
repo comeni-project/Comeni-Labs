@@ -477,6 +477,8 @@ export interface components {
             value: string;
             /** Label */
             label: string;
+            /** Designed */
+            designed?: string | null;
         };
         /** Curve */
         Curve: {

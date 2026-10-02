@@ -68,6 +68,9 @@ class ChoiceOption(BaseModel):
 
     value: str
     label: str
+    designed: str | None = None
+    """Why this option cannot be chosen yet, when it is designed and not built. The menu draws
+    it greyed with this line, so the menu says what is coming without offering it (#134)."""
 
 
 FROM_ENV = "From .env"
@@ -145,6 +148,8 @@ class Setting(BaseModel):
             values = [o.value for o in self.options]
             if not values or len(set(values)) != len(values):
                 raise ValueError("a choice needs options, each value once")
+            if any(o.value == self.default and o.designed for o in self.options):
+                raise ValueError("a default must be built: a designed option cannot be one")
         elif self.options:
             raise ValueError("options belong to a choice only")
         if self.kind is Kind.SECRET and self.default is not None:
@@ -256,10 +261,23 @@ class Setting(BaseModel):
     # ── factories ────────────────────────────────────────────────────────────────────────
 
     @classmethod
-    def choice(cls, *, options: list[tuple[str, str]], **fields: Any) -> "Setting":
+    def choice(
+        cls,
+        *,
+        options: list[tuple[str, str]],
+        designed: dict[str, str] | None = None,
+        **fields: Any,
+    ) -> "Setting":
+        """`designed` maps an option's value to why it is not built yet."""
+        designed = designed or {}
+        unknown = set(designed) - {v for v, _ in options}
+        if unknown:
+            raise ValueError(f"designed names options that do not exist: {sorted(unknown)}")
         return cls(
             kind=Kind.CHOICE,
-            options=tuple(ChoiceOption(value=v, label=label) for v, label in options),
+            options=tuple(
+                ChoiceOption(value=v, label=label, designed=designed.get(v)) for v, label in options
+            ),
             **fields,
         )
 

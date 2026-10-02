@@ -13,9 +13,13 @@ PACING = Setting.choice(
     options=[("together", "Together"), ("ask", "Ask")], default="ask", env="COMENI_BUILD_PACING",
 )
 KEY = Setting.secret(key="models.key", label="Key", help=HELP)
+LEVEL = Setting.choice(
+    key="building.level", label="Level", help=HELP, default="zero",
+    options=[("zero", "Zero"), ("sealed", "Sealed")], designed={"sealed": "designed (issue 71)"},
+)
 CATALOGUE = Catalogue(
     sections=(
-        Section(key="building", title="Building", order=1, settings=(PACING,)),
+        Section(key="building", title="Building", order=1, settings=(PACING, LEVEL)),
         Section(key="models", title="Models", order=2, settings=(KEY,)),
     )
 )
@@ -102,3 +106,10 @@ def test_a_secret_comes_back_as_set_and_last_four(client, made):
     assert answer.json()["value"] is None and answer.json()["last4"] == "1234"
     assert "sk-abcdef1234" not in client.get("/api/settings").text
     assert made["store"].rows["models.key"] != "sk-abcdef1234"
+
+
+def test_a_designed_option_answers_409_with_mi0303(client, made):
+    answer = client.put("/api/settings/building.level", json={"value": "sealed"})
+    assert answer.status_code == 409
+    assert answer.json()["detail"].startswith("MI0303")
+    assert "issue 71" in answer.json()["detail"]

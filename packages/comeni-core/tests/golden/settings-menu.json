@@ -18,15 +18,18 @@
             "options": [
               {
                 "value": "system",
-                "label": "Match the system"
+                "label": "Match the system",
+                "designed": null
               },
               {
                 "value": "light",
-                "label": "Light"
+                "label": "Light",
+                "designed": null
               },
               {
                 "value": "dark",
-                "label": "Dark"
+                "label": "Dark",
+                "designed": null
               }
             ],
             "minimum": null,
@@ -68,15 +71,18 @@
             "options": [
               {
                 "value": "together",
-                "label": "Go through it together"
+                "label": "Go through it together",
+                "designed": null
               },
               {
                 "value": "stop_where_needed",
-                "label": "Set it up, stop only where you need me"
+                "label": "Set it up, stop only where you need me",
+                "designed": null
               },
               {
                 "value": "ask",
-                "label": "Ask me every time"
+                "label": "Ask me every time",
+                "designed": null
               }
             ],
             "minimum": null,
@@ -117,11 +123,13 @@
             "options": [
               {
                 "value": "stop",
-                "label": "Always stop for me"
+                "label": "Always stop for me",
+                "designed": null
               },
               {
                 "value": "model",
-                "label": "Let a model answer, flagged"
+                "label": "Let a model answer, flagged",
+                "designed": null
               }
             ],
             "minimum": null,
@@ -202,15 +210,18 @@
                 "options": [
                   {
                     "value": "ollama",
-                    "label": "Ollama"
+                    "label": "Ollama",
+                    "designed": null
                   },
                   {
                     "value": "openai_compatible",
-                    "label": "Another OpenAI-compatible server (vLLM, LM Studio)"
+                    "label": "Another OpenAI-compatible server (vLLM, LM Studio)",
+                    "designed": null
                   },
                   {
                     "value": "hosted",
-                    "label": "A hosted provider"
+                    "label": "A hosted provider",
+                    "designed": null
                   }
                 ],
                 "minimum": null,
@@ -472,35 +483,35 @@
           "setting": {
             "key": "privacy.protection",
             "label": "Protection level",
-            "help": "How much of your data a model may see. Level 0 lets a model read an uploaded sample. Open, guarded and sealed send less, down to nothing at all.",
+            "help": "How much of your data a model may see. Level 0 lets you upload a sample, measured on this server, and a model may read it. Open, guarded and sealed send less, down to nothing at all.",
             "kind": "choice",
             "default": "level_0",
-            "env": null,
+            "env": "COMENI_PROTECTION_LEVEL",
             "options": [
               {
                 "value": "level_0",
-                "label": "Level 0: a model may read an uploaded sample"
+                "label": "Level 0: a sample may be uploaded and read",
+                "designed": null
               },
               {
                 "value": "open",
-                "label": "Open"
+                "label": "Open",
+                "designed": "designed, not built (issue 71)"
               },
               {
                 "value": "guarded",
-                "label": "Guarded"
+                "label": "Guarded",
+                "designed": "designed, not built (issue 71)"
               },
               {
                 "value": "sealed",
-                "label": "Sealed"
+                "label": "Sealed",
+                "designed": "designed, not built (issue 71)"
               }
             ],
             "minimum": null,
             "maximum": null,
-            "unavailable": {
-              "kind": "designed",
-              "where": "level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)",
-              "says": "Designed, not built yet: level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)."
-            },
+            "unavailable": null,
             "where": "installation",
             "fields": [],
             "item_name": "name",
@@ -511,12 +522,8 @@
           "shown": {
             "value": "level_0",
             "source": "default",
-            "locked": true,
-            "reason": {
-              "kind": "designed",
-              "where": "level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)",
-              "says": "Designed, not built yet: level 0 arrives with samples (14.7.6); open, guarded and sealed are designed (issue 71)."
-            },
+            "locked": false,
+            "reason": null,
             "set": null,
             "last4": null
           }

@@ -17,7 +17,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, JsonValue, SecretStr
 
 from comeni_core.settings.declare import IllegalValue, Kind, Setting, Where
-from comeni_core.settings.reasons import Needs, ReadOnlyHere, Reason
+from comeni_core.settings.reasons import Designed, Needs, ReadOnlyHere, Reason
 from comeni_core.settings.resolve import SETTINGS_KEY_ENV, Resolved, Source, resolve
 from comeni_core.settings.sections import Catalogue
 
@@ -41,6 +41,10 @@ class SettingLocked(Exception):
         super().__init__(f"{setting.key} is locked: {reason.says}")
         self.setting = setting
         self.reason = reason
+
+
+class DesignedOption(SettingLocked):
+    """A put of a choice's option that is designed and not built. The API codes it MI0303."""
 
 
 BROWSER_ONLY = ReadOnlyHere(why="this one is kept by your browser, not the server")
@@ -269,6 +273,9 @@ class Installation:
         if got.locked:
             assert got.reason is not None  # resolve() never locks without a reason
             raise SettingLocked(setting, got.reason)
+        option = next((o for o in setting.options if o.value == value and o.designed), None)
+        if option is not None:
+            raise DesignedOption(setting, Designed(where=f"{value} is {option.designed}"))
         if setting.kind is Kind.COLLECTION:
             checked = self._sealed_records(setting, value)
         else:
