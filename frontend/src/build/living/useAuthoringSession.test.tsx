@@ -131,3 +131,41 @@ describe("a refused decision", () => {
     await waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(before));
   });
 });
+
+describe("uploading a sample", () => {
+  it("sends the files with the proposal, as a form, and re-reads the session", async () => {
+    const inspected = {
+      outcome: "measured", type_id: "fastq.reads", facts: [], reason: null,
+      steps: ["read the first 4 MB of 1 file(s)"], recorded: ["read_length"], kept: [],
+      disagreed: [], session: view("answered"),
+    };
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : url.endsWith("/samples") ? ok(inspected)
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(result.current.session).not.toBeNull());
+    const reads = () => fetch.mock.calls.filter(([u]) => String(u).endsWith("/authoring/s1")).length;
+    const before = reads();
+
+    const gap = { id: "p1", kind: "gap" } as never;
+    const file = new File(["@r\nA\n+\nI\n"], "s_R1.fq");
+    let got: { outcome: string } | undefined;
+    await act(async () => {
+      got = await result.current.upload(gap, [file]);
+    });
+    expect(got?.outcome).toBe("measured");
+
+    const [url, init] = fetch.mock.calls.find(([u]) => String(u).endsWith("/samples"))! as unknown as [string, RequestInit];
+    expect(url).toBe("/api/pipeline/authoring/s1/samples");
+    expect(init.method).toBe("POST");
+    expect(init.headers).toBeUndefined();
+    const body = init.body as FormData;
+    expect(body.get("proposal_id")).toBe("p1");
+    expect((body.getAll("files")[0] as File).name).toBe("s_R1.fq");
+    await waitFor(() => expect(reads()).toBeGreaterThan(before));
+  });
+});

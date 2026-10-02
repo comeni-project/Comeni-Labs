@@ -57,15 +57,33 @@ export async function put<T>(path: string, payload: unknown): Promise<T> {
   return send<T>("PUT", path, payload);
 }
 
+/** A multipart form — today, an uploaded sample (issue 134).
+ *
+ * **No `Content-Type` header**: the browser writes it, with the boundary the body needs. The
+ * answer goes through `answered`, so a coded refusal is a `Refused` here as everywhere. */
+export async function postForm<T>(path: string, form: FormData): Promise<T> {
+  return answered<T>(path, await fetch(ROOT + path, { method: "POST", body: form }));
+}
+
 async function send<T>(method: string, path: string, payload: unknown): Promise<T> {
   const r = await fetch(ROOT + path, {
     method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  return answered<T>(path, r);
+}
+
+async function answered<T>(path: string, r: Response): Promise<T> {
   // **409 as well as 422**: a setting locked between reading and saving answers 409 with a
   // coded reason (`MI0300`), and the person needs that sentence, not a status code.
   if (r.status === 422 || r.status === 409) {
+    const detail = (await body(r)) as Refusal | null;
+    throw new Refused(detail?.detail ?? "refused, with no reason given");
+  }
+  // **403 is a refusal too**: the protection level refuses an upload with a coded reason
+  // (`MI0213`), and the card shows that sentence.
+  if (r.status === 403) {
     const detail = (await body(r)) as Refusal | null;
     throw new Refused(detail?.detail ?? "refused, with no reason given");
   }

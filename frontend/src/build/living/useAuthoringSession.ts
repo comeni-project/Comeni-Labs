@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useState } from "react";
 
-import { get, post, Refused } from "../../api/client";
+import { get, post, postForm, Refused } from "../../api/client";
 import type {
   AuthoringDecided,
   AuthoringEdited,
@@ -13,6 +13,7 @@ import type {
   AuthoringVocabulary,
   DraftGraph,
   GoalIn,
+  SampleInspected,
 } from "../../api/types";
 import {
   authoringReducer,
@@ -152,6 +153,17 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     },
   });
 
+  const upload = useMutation({
+    mutationFn: (input: { proposal: AuthoringProposal; files: File[] }) => {
+      const form = new FormData();
+      form.append("proposal_id", input.proposal.id);
+      for (const file of input.files) form.append("files", file);
+      return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
+    },
+    // Whatever it settled, the session moved: re-read it, success or not.
+    onSettled: () => void refresh(),
+  });
+
   const retry = useMutation({
     mutationFn: () => post<AuthoringRetried>(`/pipeline/authoring/${sessionId}/retry`, {}),
     onSuccess: () => void refresh(),
@@ -194,6 +206,10 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     accept,
     reject,
     say: (text: string) => say.mutate(text),
+    /** Answer a gap with a sample: one file, or a pair. Resolves with what it measured. */
+    upload: (proposal: AuthoringProposal, files: File[]) =>
+      upload.mutateAsync({ proposal, files }),
+    uploading: upload.isPending,
     retry: () => retry.mutate(),
     /** A direct edit, recorded as the person's with a receipt the server composes. */
     edit: (graph: DraftGraph) => edit.mutate(graph),
