@@ -175,6 +175,7 @@ IMPURE_PACKAGES: list[str] = [
     "mendel-api",
     "wiener-api",
     "comeni-vendor",
+    "comeni-inspect",
 ]
 """Packages this file deliberately does not guard, named so that *not* guarding them is a
 decision rather than an omission.
@@ -187,6 +188,12 @@ packages, and `test_no_pure_package_imports_an_impure_one` is what holds that di
 module from GitHub is a network client, and `mendel` is `mendel_compiler.cli:main`. Putting the
 verb in its own package is what lets this file keep rejecting the import in the package that
 must not have it, rather than carving an exemption into the guard.
+
+`comeni-inspect` (#134) runs code it is handed: an inspector piece's entry file, loaded by path,
+and, in its harness, another implementation's command. It reaches no network itself, but a
+module that executes registry code cannot be held to an import allowlist by this file. Its
+guards are `tests/guards/test_inspector_pieces.py` (the pieces' own closed allowlist) and, from
+14.7.6.4, the process it runs in: memory, time and output capped, every failure a report.
 
 `mendel-ai` arrived with forge Phase 2 and is where the network lives — it is the package
 the purity guards exist to keep the pure three away from. `mendel-api` is still absent, and

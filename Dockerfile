@@ -36,6 +36,7 @@ COPY packages/wiener-api/pyproject.toml ./packages/wiener-api/
 # `dag-core` and before it `mendel-ai` — a hand-maintained list of every workspace member,
 # with nothing checking it against the directory. `tests/test_dockerfile.py` checks it now.
 COPY packages/comeni-vendor/pyproject.toml packages/comeni-vendor/README.md packages/comeni-vendor/LICENSE ./packages/comeni-vendor/
+COPY packages/comeni-inspect/pyproject.toml packages/comeni-inspect/README.md packages/comeni-inspect/LICENSE ./packages/comeni-inspect/
 
 # **`--package mendel-api`, not the root project.** The root depends on `mendel-ai`, and the
 # served API cannot reach the model path — invariant 3's three runtime AI points are all
