@@ -50,7 +50,7 @@
 **Interfaces:**
 - Produces: `Protocol.title: str = "The authoring protocol"`, `Protocol.slug: str = "authoring-protocol"`; `Node.detail: Protocol | None = None`; `Protocol.details() -> list[Protocol]` (every detail, depth-first, declaration order).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from mendel_api.authoring.protocol import Actor, Edge, Node, Protocol, Stage
@@ -101,12 +101,12 @@ def test_the_machine_ignores_details():
     assert _with(_detail()).transitions() == {}
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_authoring_protocol.py -q`
 Expected: FAIL — `Protocol` has no `title`/`slug`; `Node` has no `detail`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `Node.detail: "Protocol | None" = None` (and `Node.model_rebuild()` after `Protocol` is defined). `Protocol.title`, `Protocol.slug` with the defaults above. In `_consistent`, after the existing checks:
 
@@ -136,12 +136,12 @@ Expected: FAIL — `Protocol` has no `title`/`slug`; `Node` has no `detail`.
 
 The detail's own `_consistent` runs when it is constructed, so its stages, nodes and edges are checked by the same code.
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `uv run pytest packages/mendel-api/tests/test_authoring_protocol.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/authoring/protocol.py packages/mendel-api/tests/test_authoring_protocol.py
@@ -162,7 +162,7 @@ git commit -m "feat(protocol): a node may carry a detailed diagram of its own st
 **Interfaces:**
 - Produces: `generate_protocol_doc.pages() -> dict[str, str]` (file name → content: `README.md`, `<slug>.md` for the main protocol and every detail); `DIAGRAMS = docs/design/diagrams/`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/repo/test_protocol_doc.py
@@ -205,12 +205,12 @@ def test_check_fails_on_a_stale_page(tmp_path, monkeypatch):
     assert gen.main(["--check"]) == 1
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest tests/repo/test_protocol_doc.py -q`
 Expected: FAIL — no `pages`.
 
-- [ ] **Step 3: Implement the generator**
+- [x] **Step 3: Implement the generator**
 
 ```python
 DIAGRAMS = Path(__file__).parent.parent / "docs" / "design" / "diagrams"
@@ -251,12 +251,12 @@ In `to_mermaid`, a node with a detail gets `<br/>▸ detailed diagram: {detail.t
 
 Run `uv run python tools/generate_protocol_doc.py`, `git rm docs/design/authoring-protocol-diagram.md`, and change `Makefile:105` to `uv run python tools/generate_protocol_doc.py --check` (unchanged command; confirm it still runs from `make docs`).
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `uv run pytest tests/repo/test_protocol_doc.py -q && uv run python tools/generate_protocol_doc.py --check`
 Expected: PASS, exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/generate_protocol_doc.py packages/mendel-api/src/mendel_api/authoring/protocol.py docs/design/diagrams tests/repo/test_protocol_doc.py Makefile
@@ -391,3 +391,7 @@ make check > /tmp/claude-1000/check.log 2>&1; tail -20 /tmp/claude-1000/check.lo
 ## Execution record
 
 *(Filled in while executing: rulings, measurements, deviations.)*
+
+- **The machine:** `PROTOCOL.transitions()` printed identically before and after Task 3.
+- **Rulings:** the protection level is asked before the head is kept (got → level → head), as part 4 built it; *no format claims it* is a built stop (*nothing reads this type yet*) beside the planned characteriser; a built *already said: your word stands* step under *admit*; a stage and a node may not share an id (found rendering: Mermaid refused `admit` as its own parent), so the detail's stages are `receiving`, `processing`, `admitting`; the general page links the protocol page as `../authoring-protocol.md`.
+- **Looked at:** both diagrams rendered with mermaid-cli; every arrow labelled, stops red, planned dashed, the three stage boxes *On our server*, the detail marked on *Engine reads it exactly*.

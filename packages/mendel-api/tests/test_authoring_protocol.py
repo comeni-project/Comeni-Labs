@@ -183,3 +183,45 @@ def test_a_built_detail_under_a_planned_node_is_refused():
 
 def test_the_machine_ignores_details():
     assert _with(_detail()).transitions() == {}
+
+
+# ── the upload, built (14.7.6.5) ─────────────────────────────────────────────────────────────
+
+
+def test_the_upload_branch_is_built_and_the_characteriser_is_not():
+    nodes = {n.id: n for n in p.PROTOCOL.nodes}
+    assert nodes["upload"].built and nodes["safety"].built and nodes["read_engine"].built
+    assert not nodes["read_ai"].built
+
+
+def test_reading_a_sample_has_its_detailed_diagram():
+    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
+    assert detail is not None and detail.slug == "inspecting-a-sample"
+    labels = " ".join(n.label for n in detail.nodes).lower()
+    for step in ("4 mb", "protection", "extension", "unpack", "confirm", "measure",
+                 "undetermined", "admit", "nothing reads"):
+        assert step in labels, f"the detail does not draw {step!r}"
+    assert detail.stages and all(s.title.startswith("On our server") for s in detail.stages)
+
+
+def test_the_protection_level_is_asked_before_a_byte_is_kept():
+    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
+    order = [(e.source, e.target) for e in detail.edges]
+    assert ("got", "level") in order and ("level", "head") in order
+
+
+def test_the_machine_did_not_change():
+    """Review focus 5: the upload's edges carry no events of their own."""
+    assert p.PROTOCOL.transitions() == st.TRANSITIONS
+    assert (Phase.GATHERING, Event.FACT_ADDED) in st.TRANSITIONS
+
+
+def test_a_stage_and_a_node_cannot_share_an_id():
+    """Found drawing *Inspecting a sample*: a stage and a node both called `admit` made Mermaid
+    refuse the diagram (*setting admit as parent of admit would create a cycle*)."""
+    with pytest.raises(ValueError, match="both a stage and a node"):
+        Protocol(
+            stages=(Stage(id="admit", title="A"),),
+            nodes=(Node(id="admit", stage="admit", actor=Actor.ENGINE, label="A"),),
+            edges=(),
+        )

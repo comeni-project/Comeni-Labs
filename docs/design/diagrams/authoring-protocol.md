@@ -27,7 +27,7 @@ flowchart LR
         suggest["AI reads your words<br/>into a suggestion you confirm"]:::ai
         upload(["You upload a file"]):::you
         safety{{"Safety level decides<br/>what the AI may see"}}:::safety
-        read_engine["Engine reads it exactly<br/>→ measured"]:::engine
+        read_engine["Engine reads it exactly<br/>→ measured<br/>▸ detailed diagram: Inspecting a sample"]:::engine
         read_ai["AI reads it<br/>(types the engine can't)<br/>→ read by AI"]:::ai
         said["→ you said"]:::engine
         left_open["Left open<br/>→ you choose in the build"]:::engine
@@ -100,20 +100,17 @@ flowchart LR
     left_open --> next_gap
     next_gap -- "nothing unknown" --> card
     list_needs -- "nothing makes it: it asks you" --> say
-    reply -. "not sure" .-> upload
-    upload -. "uploaded" .-> safety
-    safety -. "engine knows the type" .-> read_engine
+    reply -- "upload a sample" --> upload
+    upload -- "uploaded" --> safety
+    safety -- "level 0" --> read_engine
     safety -. "it doesn't" .-> read_ai
-    read_engine -.-> next_gap
+    read_engine --> next_gap
     read_ai -.-> next_gap
     resolve -.-> plan
     plan -.-> pace
     pace -.-> offer
     done -.-> wrap
     ask_any -.-> explain
-    style upload stroke-dasharray:6 4,opacity:0.55
-    style safety stroke-dasharray:6 4,opacity:0.55
-    style read_engine stroke-dasharray:6 4,opacity:0.55
     style read_ai stroke-dasharray:6 4,opacity:0.55
     style step_settled stroke:#6fbf8f
     style step_rule stroke:#f0d040,stroke-width:4px

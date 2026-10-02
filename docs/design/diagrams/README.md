@@ -3,3 +3,4 @@
 # Diagrams
 
 - [The authoring protocol](authoring-protocol.md): the whole conversation, from what you want to what is built
+- [Inspecting a sample](inspecting-a-sample.md): the steps inside *Engine reads it exactly → measured*

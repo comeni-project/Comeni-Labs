@@ -13,7 +13,9 @@ Started 2026-09-28 from #105 and #114, during Living Pipeline Plan 2.
 
 **The diagram is [generated from the code](diagrams/authoring-protocol.md)**: solid is built,
 dashed is designed and not built yet. The same object is where the running state machine comes
-from, so the picture and the machine cannot disagree.
+from, so the picture and the machine cannot disagree. Detailed diagrams, beginning with
+[Inspecting a sample](diagrams/inspecting-a-sample.md), are listed in
+[the diagrams folder](diagrams/README.md).
 
 **Fill is who acts, border is the tier**, and every colour is named in the diagram's key. Red
 *fill* means only one thing (a stop); a tier-4 choice is the person's, so it is blue with a red

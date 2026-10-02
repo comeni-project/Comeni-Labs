@@ -94,6 +94,10 @@ class Protocol(_Frozen):
     def _consistent(self) -> Self:
         stages = {s.id for s in self.stages}
         nodes = {n.id: n for n in self.nodes}
+        shared = sorted(stages & set(nodes))
+        if shared:
+            # Mermaid draws a stage as a subgraph with the same namespace as its nodes.
+            raise ValueError(f"{shared} is both a stage and a node")
         for node in self.nodes:
             if node.stage not in stages:
                 raise ValueError(f"node {node.id!r} is in an undeclared stage {node.stage!r}")
@@ -277,6 +281,128 @@ def _move(source: str, target: str, event: Event, label: str = "", **kw) -> Edge
 _YOU, _ENGINE, _AI, _SAFETY, _STOP = Actor.YOU, Actor.ENGINE, Actor.AI, Actor.SAFETY, Actor.STOP
 _P, _E = Phase, Event
 
+# ── inspecting a sample: the steps inside *Engine reads it exactly* (14.7.6) ─────────────────
+#
+# All on our server, all in `gathering`, and none moves the session: what an inspection settles
+# reaches the session through the gap's own `FACT_ADDED`, as a click does.
+
+_G = _P.GATHERING
+
+INSPECTING = Protocol(
+    title="Inspecting a sample",
+    slug="inspecting-a-sample",
+    stages=(
+        Stage(id="receiving", title="On our server: receiving it"),
+        Stage(id="processing", title="On our server: in its own process, with limits"),
+        Stage(id="admitting", title="On our server: admitting what it measured"),
+    ),
+    nodes=(
+        _built("got", "receiving", _YOU, "You upload one file or a pair", _G, shape=Shape.ROUND),
+        _built(
+            "level",
+            "receiving",
+            _SAFETY,
+            "Does the protection level<br/>allow an upload?",
+            _G,
+            shape=Shape.GATE,
+        ),
+        _built("refused", "receiving", _STOP, "Refused, and says why", _G),
+        _built(
+            "head",
+            "receiving",
+            _ENGINE,
+            "Keep the first 4 MB of each, in memory<br/>(longer files are cut, never refused)",
+            _G,
+        ),
+        _built(
+            "claim",
+            "receiving",
+            _ENGINE,
+            "Which formats claim<br/>the extension?",
+            _G,
+            shape=Shape.CHOICE,
+        ),
+        _built(
+            "nothing", "receiving", _STOP, "Nothing reads this type yet:<br/>the question stays", _G
+        ),
+        _n("characterise", "receiving", _AI, "The characteriser reads it<br/>(14.7.7)"),
+        _built("unpack", "processing", _ENGINE, "Unpack, up to 16 MB", _G),
+        _built(
+            "confirm",
+            "processing",
+            _ENGINE,
+            "Does the content<br/>confirm the format?",
+            _G,
+            shape=Shape.CHOICE,
+        ),
+        _built(
+            "unreadable",
+            "processing",
+            _STOP,
+            "Unreadable, with the reason<br/>(a bomb, too slow, not this format)",
+            _G,
+        ),
+        _n(
+            "tie",
+            "processing",
+            _YOU,
+            "Several formats confirm:<br/>you choose",
+            shape=Shape.CHOICE,
+            border=Border.TIER4,
+        ),
+        _built("measure", "processing", _ENGINE, "Measure: one pass,<br/>every measure fed", _G),
+        _built(
+            "undetermined",
+            "admitting",
+            _ENGINE,
+            "Below its threshold:<br/>undetermined, left open",
+            _G,
+            border=Border.TIER4,
+        ),
+        _built("admit", "admitting", _ENGINE, "Admit each value<br/>against the registry", _G),
+        _built(
+            "kept",
+            "admitting",
+            _ENGINE,
+            "Already said: your word stands,<br/>a difference is shown",
+            _G,
+        ),
+        _built(
+            "stamped",
+            "admitting",
+            _ENGINE,
+            "Stamped: measured by<br/>its pieces and versions",
+            _G,
+            border=Border.TIER3,
+        ),
+        _built("back", "admitting", _ENGINE, "Back to the questions", _G, shape=Shape.ROUND),
+    ),
+    edges=(
+        _e("got", "level", built=True),
+        _e("level", "refused", "above level 0", built=True),
+        _e("level", "head", "level 0", built=True),
+        _e("head", "claim", "one file or a pair", built=True),
+        _e("head", "refused", "any other count", built=True),
+        _e("claim", "nothing", "none", built=True),
+        _e("claim", "characterise", "none, at 14.7.7"),
+        _e("claim", "unpack", "one or more", built=True),
+        _e("unpack", "unreadable", "a bomb", built=True),
+        _e("unpack", "confirm", built=True),
+        _e("confirm", "unreadable", "no", built=True),
+        _e("confirm", "tie", "several"),
+        _e("confirm", "measure", "exactly one", built=True),
+        _e("measure", "unreadable", "took too long", built=True),
+        _e("measure", "undetermined", "not enough to say", built=True),
+        _e("measure", "admit", "decided", built=True),
+        _e("admit", "kept", "you already said it", built=True),
+        _e("admit", "stamped", "new", built=True),
+        _e("stamped", "back", built=True),
+        _e("kept", "back", built=True),
+        _e("undetermined", "back", built=True),
+        _e("nothing", "back", built=True),
+    ),
+)
+
 PROTOCOL = Protocol(
     stages=(
         Stage(id="describe", title="① You describe it"),
@@ -337,15 +463,23 @@ PROTOCOL = Protocol(
             "AI reads your words<br/>into a suggestion you confirm",
             _P.GATHERING,
         ),
-        _n("upload", "gather", _YOU, "You upload a file", shape=Shape.ROUND),
-        _n(
+        _built("upload", "gather", _YOU, "You upload a file", _P.GATHERING, shape=Shape.ROUND),
+        _built(
             "safety",
             "gather",
             _SAFETY,
             "Safety level decides<br/>what the AI may see",
+            _P.GATHERING,
             shape=Shape.GATE,
         ),
-        _n("read_engine", "gather", _ENGINE, "Engine reads it exactly<br/>→ measured"),
+        _built(
+            "read_engine",
+            "gather",
+            _ENGINE,
+            "Engine reads it exactly<br/>→ measured",
+            _P.GATHERING,
+            detail=INSPECTING,
+        ),
         _n("read_ai", "gather", _AI, "AI reads it<br/>(types the engine can't)<br/>→ read by AI"),
         _built("said", "gather", _ENGINE, "→ you said", _P.GATHERING),
         _built(
@@ -480,12 +614,13 @@ PROTOCOL = Protocol(
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
         _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
-        # planned: a file answers it (14.7.6, 14.7.7)
-        _e("reply", "upload", "not sure"),
-        _e("upload", "safety", "uploaded"),
-        _e("safety", "read_engine", "engine knows the type"),
+        # a file answers it: built in 14.7.6; the characteriser stays planned (14.7.7). No event
+        # of its own: what the sample settles moves the session as a click does.
+        _e("reply", "upload", "upload a sample", built=True),
+        _e("upload", "safety", "uploaded", built=True),
+        _e("safety", "read_engine", "level 0", built=True),
         _e("safety", "read_ai", "it doesn't"),
-        _e("read_engine", "next_gap"),
+        _e("read_engine", "next_gap", built=True),
         _e("read_ai", "next_gap"),
         # planned: the consultant build (14.7.8)
         _e("resolve", "plan"),
