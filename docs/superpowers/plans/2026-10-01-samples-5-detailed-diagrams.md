@@ -278,7 +278,7 @@ git commit -m "docs(protocol): the diagrams live in one generated folder, with a
 - Consumes: Task 1's `detail`; part 4's built behaviour (upload, protection, inspection, admission).
 - Produces: `INSPECTING: Protocol` (slug `inspecting-a-sample`) on node `read_engine`; nodes `upload`, `safety`, `read_engine` built in `GATHERING`; `read_ai` stays planned.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from mendel_api.authoring.protocol import PROTOCOL
@@ -308,12 +308,12 @@ def test_the_machine_did_not_change():
 
 Before Step 3, copy the current `PROTOCOL.transitions()` into the execution record (`uv run python -c "from mendel_api.authoring.protocol import PROTOCOL; print(sorted(PROTOCOL.transitions().items()))"`); after Step 3 it must print the same.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_authoring_protocol.py -q`
 Expected: FAIL — `upload` is planned; `read_engine` has no detail.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 The detail, declared above `PROTOCOL`:
 
@@ -369,16 +369,16 @@ In `PROTOCOL`'s gather stage: `upload`, `safety` and `read_engine` become `_buil
 
 Regenerate: `uv run python tools/generate_protocol_doc.py`. Update `docs/design/authoring-protocol.md:14` to link `diagrams/authoring-protocol.md`, and add one sentence there: *"Detailed diagrams, beginning with [Inspecting a sample](diagrams/inspecting-a-sample.md), are listed in [the diagrams folder](diagrams/README.md)."* Fix the module docstring's path in `protocol.py`.
 
-- [ ] **Step 4: Run them, the docs checks, and compare the machine**
+- [x] **Step 4: Run them, the docs checks, and compare the machine**
 
 Run: `uv run pytest packages/mendel-api/tests/test_authoring_protocol.py tests/repo/test_protocol_doc.py -q && make docs links doc-paths`
 Expected: PASS; `make links` reports 0 broken; the transitions print matches the one recorded before Step 3.
 
-- [ ] **Step 5: Look at it**
+- [x] **Step 5: Look at it**
 
 Open `docs/design/diagrams/inspecting-a-sample.md` rendered (GitHub preview, or `npx -y @mermaid-js/mermaid-cli -i <extracted .mmd> -o /tmp/claude-1000/inspect.png` and read the PNG). Check every arrow has its label, the stop nodes read red, planned parts are dashed, and the three stage boxes say *On our server*. Fix and regenerate if not.
 
-- [ ] **Step 6: Commit, then `make check` separately**
+- [x] **Step 6: Commit, then `make check` separately**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/authoring/protocol.py packages/mendel-api/tests/test_authoring_protocol.py docs/design
