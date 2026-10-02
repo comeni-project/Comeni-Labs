@@ -6,6 +6,7 @@ import type {
   AuthoringSession,
   DraftGraph,
   GoalIn,
+  SampleInspected,
   Step,
 } from "../../api/types";
 import type { components } from "../../api/schema";
@@ -44,6 +45,7 @@ export function LivingSurface({
   onCompose,
   onSay,
   onRetry,
+  onUpload,
   onAddStep,
   onDismiss,
   vocabulary = null,
@@ -68,6 +70,8 @@ export function LivingSurface({
   onCompose: (text: string) => void;
   onSay: (text: string) => void;
   onRetry: () => void;
+  /** Answer a gap with a sample (issue 134). Absent where nothing can be uploaded. */
+  onUpload?: (proposal: AuthoringProposal, files: File[]) => Promise<SampleInspected>;
   onAddStep: (contractId: string) => void;
   onDismiss: () => void;
   vocabulary?: Record<string, string[]> | null;
@@ -214,6 +218,7 @@ export function LivingSurface({
               onPreview={onPreviewOption}
               onSelect={onSelect}
               onRetry={onRetry}
+              onUpload={onUpload}
               onSay={onSay}
               saying={state.saying}
               vocabulary={vocabulary}

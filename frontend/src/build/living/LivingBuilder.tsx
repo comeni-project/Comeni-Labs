@@ -115,6 +115,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onCompose={living.compose}
       onSay={living.say}
       onRetry={living.retry}
+      onUpload={living.upload}
       onDismiss={living.dismiss}
       // **Every direct edit goes through the session's edit verb**, which saves the draft, stamps
       // it as the person's and writes the receipt the server composes. A plain draft `PUT` would

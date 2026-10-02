@@ -1,7 +1,8 @@
 import { useId, useState } from "react";
 
-import type { AuthoringProposal } from "../../../api/types";
+import type { AuthoringProposal, SampleInspected } from "../../../api/types";
 import { BlockFrame, Primary, Secondary } from "./parts";
+import { SampleUpload } from "./SampleUpload";
 
 /** One thing the analysis needs that nobody has said yet, asked by the engine (14.7.3).
  *
@@ -15,10 +16,16 @@ export function GapCard({
   proposal,
   busy,
   onAnswer,
+  onUpload,
+  onAnswered = () => {},
 }: {
   proposal: AuthoringProposal;
   busy: boolean;
   onAnswer: (option: string, value?: number) => void;
+  /** Answer with a sample (issue 134). Without it the `upload` answer is not drawn at all: a
+   *  button that sent it would be refused, since the click is not an answer, the sample is. */
+  onUpload?: (files: File[]) => Promise<SampleInspected>;
+  onAnswered?: (result: SampleInspected, files: string[]) => void;
 }) {
   const field = useId();
   const block = proposal.block;
@@ -31,7 +38,8 @@ export function GapCard({
   const suggested = block.options.find((o) => o.recommended && o.note);
 
   const typedOption = block.options.find((o) => o.id === "value");
-  const buttons = block.options.filter((o) => o.id !== "value");
+  const uploadOption = block.options.find((o) => o.id === "upload");
+  const buttons = block.options.filter((o) => o.id !== "value" && o.id !== "upload");
   // **Only the question's ordinary answers are primary.** Deferring, withholding, and the one that
   // ends the session (*I don't have one*) are secondary: an answer that stops everything must not
   // look like the recommended one (issue 168).
@@ -70,6 +78,17 @@ export function GapCard({
           >
             Use this
           </Primary>
+        </div>
+      )}
+      {uploadOption && onUpload && (
+        <div className="mb-3">
+          <SampleUpload
+            proposalId={proposal.id}
+            label={uploadOption.label}
+            busy={busy}
+            onUpload={onUpload}
+            onAnswered={onAnswered}
+          />
         </div>
       )}
       <div className="flex flex-wrap gap-2">

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   AuthoringBlock,
@@ -6,12 +6,14 @@ import type {
   AuthoringSession,
   DraftGraph,
   GoalIn,
+  SampleInspected,
   Step,
 } from "../../api/types";
 import { Block, NoticeLine, Primary } from "./blocks/Block";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { GapCard } from "./blocks/GapCard";
 import { GoalCard } from "./blocks/GoalCard";
+import { SampleResult } from "./blocks/SampleUpload";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepProposalCard } from "./blocks/StepProposalCard";
 import { StepTools } from "./blocks/StepTools";
@@ -41,6 +43,7 @@ export function DecisionLog({
   onPreview,
   onSelect,
   onRetry,
+  onUpload,
   onSay,
   saying = null,
   vocabulary = null,
@@ -58,6 +61,7 @@ export function DecisionLog({
   onPreview: (option: string | null) => void;
   onSelect: (node: string | null) => void;
   onRetry: () => void;
+  onUpload?: (proposal: AuthoringProposal, files: File[]) => Promise<SampleInspected>;
   onSay: (text: string) => void;
   /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
   saying?: string | null;
@@ -72,6 +76,9 @@ export function DecisionLog({
 }) {
   const end = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
+  // **The sample that answered the last question**, kept above the next one: the answer moves
+  // the session on, so the card that showed it is gone the moment it arrives (issue 134).
+  const [sampled, setSampled] = useState<{ result: SampleInspected; files: string[] } | null>(null);
 
   const entries: Entry[] = [
     ...session.turns.map((turn, i) => ({ at: turn.at, order: i, kind: "turn" as const, turn })),
@@ -168,13 +175,32 @@ export function DecisionLog({
             />
           </Turn>
         )}
+        {sampled && (
+          <Turn tick="person">
+            <section aria-label="what your sample measured" className="border"
+              style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}>
+              <header className="px-3 py-[9px] font-data text-[9.5px] tracking-[.15em] uppercase
+                                 text-ink-3" style={{ borderBottom: "1px solid var(--line)" }}>
+                Measured from your sample
+              </header>
+              <div className="px-3 py-[11px]">
+                <SampleResult result={sampled.result} files={sampled.files} />
+              </div>
+            </section>
+          </Turn>
+        )}
         {pending && pending.kind === "gap" && (
           <Turn tick="wait">
             <GapCard
               key={pending.id}
               proposal={pending}
               busy={busy(pending.id)}
-              onAnswer={(option, value) => onAccept(pending, option, undefined, value)}
+              onAnswer={(option, value) => {
+                setSampled(null);
+                onAccept(pending, option, undefined, value);
+              }}
+              onUpload={onUpload && ((files) => onUpload(pending, files))}
+              onAnswered={(result, files) => setSampled({ result, files })}
             />
           </Turn>
         )}

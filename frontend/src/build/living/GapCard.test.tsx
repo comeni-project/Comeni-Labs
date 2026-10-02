@@ -119,3 +119,26 @@ describe("a gap card", () => {
     expect(screen.getByRole("button", { name: "Use this" })).toBeDisabled();
   });
 });
+
+describe("a gap card that takes a sample", () => {
+  const LENGTH_WITH_UPLOAD = gap(
+    [["value", "Type it (bp)"], ["upload", "Not sure: upload a sample and I'll measure it"],
+     ["cant_share", "I can't share it"]],
+    "Sequenced read length?",
+  );
+
+  it("draws the upload answer as a file picker, never a button that sends it", () => {
+    const onAnswer = vi.fn();
+    render(<GapCard proposal={LENGTH_WITH_UPLOAD} busy={false} onAnswer={onAnswer}
+      onUpload={vi.fn()} />);
+    expect(screen.getByLabelText(/upload a sample/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /upload a sample/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "I can't share it" })).toBeTruthy();
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("without an upload handler, leaves the upload answer out rather than send it", () => {
+    render(<GapCard proposal={LENGTH_WITH_UPLOAD} busy={false} onAnswer={vi.fn()} />);
+    expect(screen.queryByText(/upload a sample/i)).toBeNull();
+  });
+});
