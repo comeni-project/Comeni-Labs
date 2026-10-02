@@ -335,17 +335,17 @@ git commit -m "feat(living): the goal card says what measured a fact (#134)"
 
 ### Task 5: Look at it against the artboards
 
-- [ ] **Step 1: Bring the stack up**
+- [x] **Step 1: Bring the stack up**
 
 `docker compose up -d` and Vite (`cd frontend && setsid npm run dev >/tmp/claude-1000/vite.log 2>&1 &`), the throwaway-free dev database the stack uses. Start a session (*paired-end RNA-seq to gene counts*) and answer gaps until *read length* is asked.
 
-- [ ] **Step 2: Screenshot each state at 1280 and 390**
+- [x] **Step 2: Screenshot each state at 1280 and 390**
 
 Headless Chrome with `--force-prefers-reduced-motion` and a throwaway `--user-data-dir`, upload `registry/inspectors/formats/fastq/piece/fixtures/pair_150/*` (measured), `trimmed/t.fq` (undetermined), `fasta_named_fastq/x.fastq` (unreadable), and any `.bam`-named file (nothing reads it). Save to the scratchpad `shots/`.
 
-- [ ] **Step 3: Compare each to its artboard in one viewport** (`.design/_compare.html`), never by reading markup. List every difference; fix the ones that are mistakes; record the deliberate ones in the execution record for the operator.
+- [x] **Step 3: Compare each to its artboard in one viewport** (`.design/_compare.html`), never by reading markup. List every difference; fix the ones that are mistakes; record the deliberate ones in the execution record for the operator.
 
-- [ ] **Step 4: Commit any fixes, then run the frontend checks separately**
+- [x] **Step 4: Commit any fixes, then run the frontend checks separately**
 
 ```bash
 git add frontend && git commit -m "fix(living): the upload states match their artboards (#134)"
