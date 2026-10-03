@@ -38,6 +38,10 @@ class Premise(BaseModel):
     id: str
     value: Any
     origin: PremiseOrigin
+    by: str | None = None
+    """A profiler's contract, when one measured it."""
+    pieces: list[str] = Field(default_factory=list)
+    """Inspector pieces, when they measured it (issue 233)."""
     because: str = ""
     cite: str = ""
     derived_from: list[str] = Field(default_factory=list)
@@ -89,6 +93,8 @@ def build_premises(
             id=entry.measurement,
             value=entry.value,
             origin=_BY_SOURCE[entry.source],
+            by=entry.by,
+            pieces=list(entry.pieces),
         )
     # `required_states` is the goal's own shape rather than a measurement, so it cannot
     # collide with one: `MeasurementRegistry.profile()` would have refused an undeclared key,

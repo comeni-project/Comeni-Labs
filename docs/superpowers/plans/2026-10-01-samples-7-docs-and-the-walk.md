@@ -49,7 +49,7 @@
 - Modify: `docs/design/authoring-protocol.md`, `ARCHITECTURE.md` (§6)
 - Test: `tests/repo/test_where_it_runs.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/repo/test_where_it_runs.py
@@ -72,12 +72,12 @@ def test_the_table_names_every_place_a_piece_runs():
     assert "level 0" in table and "head" in table
 ```
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 Run: `uv run pytest tests/repo/test_where_it_runs.py -q`
 Expected: FAIL — no such section.
 
-- [ ] **Step 3: Write the section**
+- [x] **Step 3: Write the section**
 
 In `docs/design/authoring-protocol.md`, after *How a fact's source reaches the tiers*:
 
@@ -100,12 +100,12 @@ other levels are written so that tightening is filling in a row.
 
 Rule 4's sentence *"Which types have an inspector is declared"* gains: *"; the vocabulary lists, for every measurement, what measures it and where that runs."* In `ARCHITECTURE.md` §6, add a paragraph: *Inspectors measure a sample's head on this server before the build; profilers measure all the data on the lab's machine when the pipeline runs. Both produce the same measurement ids, and a fact records which one measured it (`Measured.by` for a profiler, `Measured.pieces` for an inspector). Where each runs is the protocol page's table.* (link it).
 
-- [ ] **Step 4: Run it, and the doc checks**
+- [x] **Step 4: Run it, and the doc checks**
 
 Run: `uv run pytest tests/repo/test_where_it_runs.py -q && make docs links doc-paths doc-sizes`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/design/authoring-protocol.md ARCHITECTURE.md tests/repo/test_where_it_runs.py
@@ -120,7 +120,7 @@ git commit -m "docs: where each measurer runs, and what crosses (#134)"
 - Modify (registry): `inspectors/README.md`
 - Modify: `packages/comeni-inspect/README.md`
 
-- [ ] **Step 1: Write the guide**
+- [x] **Step 1: Write the guide**
 
 `registry/inspectors/README.md`, leading with what a contributor gets:
 
@@ -163,11 +163,11 @@ byte for byte (`comeni-inspect`'s `PROTOCOL.md`).
 
 Link it from `packages/comeni-inspect/README.md`.
 
-- [ ] **Step 2: Follow it, as a newcomer would**
+- [x] **Step 2: Follow it, as a newcomer would**
 
 In a scratch copy of the registry (`cp -r registry /tmp/claude-1000/reg-try`), follow *Add a measure* for a toy `gc_content` (declare the measurement first, `kind: number`, `per_sample: true`, a cite), writing only what the guide says. Run the step-5 command against the copy (`--rootdir`, or point `support.paths` at it through the env var the tests read, if any). Every place the guide was missing a step is a fix to the guide, made now. Delete the copy.
 
-- [ ] **Step 3: Commit, in the registry and here**
+- [x] **Step 3: Commit, in the registry and here**
 
 ```bash
 cd registry && git add inspectors/README.md && git commit -m "Inspectors: how to add a format or a measure (comeni-labs #134)" && cd ..

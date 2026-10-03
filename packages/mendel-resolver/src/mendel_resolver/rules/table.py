@@ -370,7 +370,13 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
         if premise is None:
             continue
         read.append(
-            PremiseRecord(id=premise.id, value=premise.value, origin=premise.origin)
+            PremiseRecord(
+                id=premise.id,
+                value=premise.value,
+                origin=premise.origin,
+                by=premise.by,
+                pieces=premise.pieces,
+            )
         )
     return read
 

@@ -841,6 +841,11 @@ SERIALISED_SHAPE = {
     "ParamDecision": ["key", "subject", "reason", "confidence", "resolved_by", "tier",
                       "model_override_by", "kind", "candidates", "chosen", "model_override",
                       "human_override", "override_reason"],
+    # Watched since issue 233 added what measured a premise; the goal's `Measured` and
+    # `Evidence` gained theirs in 14.7.6.3 within the same unreleased version.
+    "PremiseRecord": ["id", "value", "origin", "by", "pieces"],
+    "Measured": ["measurement", "value", "source", "by", "pieces", "evidence"],
+    "Evidence": ["records", "rows", "share"],
 }
 """The artifact's serialised field order, as of `SCHEMA_VERSION = 5`.
 
@@ -872,6 +877,8 @@ def test_a_schema_change_bumps_the_version():
         Pipeline,
         Step,
     )
+    from comeni_core.goal.premise import PremiseRecord
+    from comeni_core.goal.profile import Evidence, Measured
     from comeni_core.plan.decision import ParamDecision
 
     actual = {
@@ -884,6 +891,9 @@ def test_a_schema_change_bumps_the_version():
         "MetaEntry": list(MetaEntry.model_fields),
         "Emitted": list(Emitted.model_fields),
         "ParamDecision": list(ParamDecision.model_fields),
+        "PremiseRecord": list(PremiseRecord.model_fields),
+        "Measured": list(Measured.model_fields),
+        "Evidence": list(Evidence.model_fields),
     }
     assert actual == SERIALISED_SHAPE, (
         "the artifact's shape moved. Every archived pipeline's `emitted.from_digest` just "

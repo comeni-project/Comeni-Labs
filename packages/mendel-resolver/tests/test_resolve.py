@@ -479,3 +479,27 @@ def test_a_replayed_override_backed_by_its_record_is_still_honoured():
     assert value.value == "illumina"
     assert ir.needs_review() == [], "an answered question was re-flagged"
     assert ir.overrides(), "the answer vanished from overrides()"
+
+
+def test_a_tier_3_reason_names_what_measured_its_premise(setup):
+    """Issue 233 (decided A): *check the premise* needs to say what to check."""
+    from comeni_core.declared.measurement import MeasuredEntry
+    from comeni_core.plan.tiers import ValueSource
+
+    registry, rules, measurements, vocabulary = setup
+    for entry, says in [
+        (MeasuredEntry("strandedness", "reverse", ValueSource.MEASURED,
+                       pieces=("fastq@1.0.0", "strandedness@1.0.0")),
+         "measured by fastq@1.0.0 + strandedness@1.0.0"),
+        (MeasuredEntry("strandedness", "reverse", ValueSource.MEASURED,
+                       by="comeni/profile/rseqc@5.0.1"),
+         "measured by comeni/profile/rseqc@5.0.1"),
+    ]:
+        goal = Goal(
+            have=[GoalInput(type_id="alignment.bam")],
+            want=["counts.matrix"],
+            profile=measurements.profile_of([entry]),
+        )
+        ir = resolve(goal, registry, rules, measurements, vocabulary=vocabulary)
+        param = next(n for n in ir.nodes if n.id == "featurecounts").param("strandedness")
+        assert param.reason.endswith(f"strandedness is reverse, {says}"), param.reason
