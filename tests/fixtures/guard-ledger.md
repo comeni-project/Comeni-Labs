@@ -5087,3 +5087,12 @@ rest.
 | 2026-10-02 | `frontend/src/build/living/SampleUpload.test.tsx` "takes files dropped on it…", "stops the browser opening a file dragged over it", "keeps a fact whose undetermined reason is empty" | — (written before each fix) | failed; passed after | — |
 | 2026-10-02 | `packages/mendel-api/tests/test_authoring_samples.py::test_the_log_says_what_a_sample_measured_not_the_options_label`, `LivingSurface.test.tsx` "says a question a sample answered was measured…" | — (found by screenshot) | failed; passed after | `"Not sure: up...ll measure it" == '150'` |
 | 2026-10-03 | `packages/mendel-api/tests/test_authoring_samples.py::test_an_input_answered_by_upload_logs_i_have_it` (issue 232) | — (written from the walk, before the fix) | failed (`None`); passed after | — |
+
+## 2026-10-03 — docs and the walk (14.7.6.7)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-03 | `tests/repo/test_where_it_runs.py` (both tests) | *this server* → *the host*, *head reaches* → *head goes to*, in the section; then the Inspector row deleted | both failed; then, from the final review, **the first passed with the Inspector row gone**, because it matched *this server* in the prose; now it reads each row's *Runs on* cell and fails | `no row says what runs on this server` |
+| 2026-10-03 | `packages/comeni-core/tests/test_measured_pieces.py::test_a_premise_an_inspector_measured_names_its_pieces`, `…::test_a_premise_a_profiler_measured_names_its_contract`, `packages/mendel-resolver/tests/test_resolve.py::test_a_tier_3_reason_names_what_measured_its_premise` (issue 233) | `prose()` returns the reason without *by …* | all three failed; restored, passed | — |
+| 2026-10-03 | `frontend/src/home/Home.test.tsx` "offers a conversation above the work once the lab has pipelines" (issue 229) | `<Describe />` removed from home | failed; restored, passed | — |
+| 2026-10-03 | `registry/inspectors/test_support_pieces.py` (both) | — (written from the final review, before `format=`) | failed; passed after | — |

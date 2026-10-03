@@ -16,13 +16,22 @@ def _table() -> str:
     return page.split("## Where each measurer runs", 1)[1].split("\n## ", 1)[0]
 
 
+def _runs_on() -> list[str]:
+    """The *Runs on* cell of every row, so a place named only in the prose around it is missed."""
+    rows = [line for line in _table().splitlines() if line.startswith("| **")]
+    assert rows, "the where-it-runs table has no rows"
+    return [row.split("|")[3] for row in rows]
+
+
 def test_the_table_names_every_place_a_piece_runs():
     loaded = layers.load(ROOT / "registry")
     places = {f.runs for f in loaded.inspection.formats.values()} | {"lab"}
     assert places, "no measurer declares where it runs"
-    table = _table()
+    cells = _runs_on()
     for place in sorted(places):
-        assert WORDS[place] in table, f"the table does not say what runs on {WORDS[place]}"
+        assert any(WORDS[place] in cell for cell in cells), (
+            f"no row says what runs on {WORDS[place]}"
+        )
 
 
 def test_the_table_says_a_samples_head_reaches_this_server_at_level_0():
