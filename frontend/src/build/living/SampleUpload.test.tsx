@@ -108,6 +108,29 @@ describe("uploading a sample", () => {
     expect(screen.getByLabelText(LABEL)).toBeTruthy();
   });
 
+  // Issue 228: the sentence said *Try again* and offered nothing to try again with.
+  it("measures the same files again after the request failed", async () => {
+    const onUpload = vi.fn().mockRejectedValueOnce(new Error("Failed to fetch"))
+      .mockResolvedValue(result());
+    setup(onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Measure again" }));
+    expect(onUpload).toHaveBeenCalledTimes(2);
+    expect(onUpload.mock.calls[1][0][0].name).toBe("a.fq");
+    expect(await screen.findByText(/read_length 151/)).toBeTruthy();
+  });
+
+  it("does not look pickable while the card is busy", () => {
+    render(
+      <SampleUpload proposalId="p-gap" label={LABEL} busy onUpload={vi.fn()}
+        onAnswered={vi.fn()} />,
+    );
+    const label = screen.getByText(LABEL).closest("label")!;
+    expect(label.className).toContain("cursor-not-allowed");
+    expect(label.getAttribute("aria-disabled")).toBe("true");
+  });
+
   it("shows a refusal's own sentence", async () => {
     setup(vi.fn().mockRejectedValue(new Refused("MI0213: the protection level is sealed")));
     await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);

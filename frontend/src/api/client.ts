@@ -75,17 +75,14 @@ async function send<T>(method: string, path: string, payload: unknown): Promise<
 }
 
 async function answered<T>(path: string, r: Response): Promise<T> {
-  // **409 as well as 422**: a setting locked between reading and saving answers 409 with a
-  // coded reason (`MI0300`), and the person needs that sentence, not a status code.
-  if (r.status === 422 || r.status === 409) {
+  // **422, 409 and 403 are refusals with a coded reason**: a setting locked between reading
+  // and saving (409, `MI0300`), the protection level refusing an upload (403, `MI0213`). The
+  // person needs that sentence, not a status code. **A 403 with no reason is not ours**: a
+  // proxy's own page stays an error naming the path (issue 228).
+  if (r.status === 422 || r.status === 409 || r.status === 403) {
     const detail = (await body(r)) as Refusal | null;
-    throw new Refused(detail?.detail ?? "refused, with no reason given");
-  }
-  // **403 is a refusal too**: the protection level refuses an upload with a coded reason
-  // (`MI0213`), and the card shows that sentence.
-  if (r.status === 403) {
-    const detail = (await body(r)) as Refusal | null;
-    throw new Refused(detail?.detail ?? "refused, with no reason given");
+    if (detail?.detail) throw new Refused(detail.detail);
+    if (r.status !== 403) throw new Refused("refused, with no reason given");
   }
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;

@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 
 import type { AuthoringProposal, AuthoringSession, GoalIn } from "../../../api/types";
 import { BlockFrame, Primary, Secondary } from "./parts";
+import { piece } from "./piece";
 
 type Chosen = { have: string[]; want: string[] };
 type Fact = AuthoringSession["facts"][number];
@@ -14,8 +15,6 @@ const SOURCE: Record<Fact["source"], string> = {
   open: "left open",
 };
 
-/** `fastq@1.0.0` → `fastq 1.0.0`: the format that read the file, which a person recognises. */
-const piece = (ref: string) => ref.replace("@", " ");
 
 /** A fact's source, and **what measured it** when a sample did (issue 134). *From 1 sample* is
  *  a constant on purpose: one sample is all the conversation accepts (issue 218 changes that). */

@@ -133,11 +133,13 @@ describe("a refused decision", () => {
 });
 
 describe("uploading a sample", () => {
-  it("sends the files with the proposal, as a form, and re-reads the session", async () => {
+  // Issue 228: the answer carries the session as it now is; reading it again was a round-trip
+  // for nothing.
+  it("sends the files with the proposal, as a form, and takes the session it answered with", async () => {
     const inspected = {
       outcome: "measured", type_id: "fastq.reads", facts: [], reason: null,
       steps: ["read the first 4 MB of 1 file(s)"], recorded: ["read_length"], kept: [],
-      disagreed: [], session: view("answered"),
+      disagreed: [], session: view("answered", { row_version: 9 }),
     };
     const fetch = vi.fn(async (url: string) =>
       url.endsWith("/preview") ? ok({ revision: 0, text: "" })
@@ -166,6 +168,26 @@ describe("uploading a sample", () => {
     const body = init.body as FormData;
     expect(body.get("proposal_id")).toBe("p1");
     expect((body.getAll("files")[0] as File).name).toBe("s_R1.fq");
+    await waitFor(() => expect(result.current.session?.row_version).toBe(9));
+    expect(reads()).toBe(before);
+  });
+
+  it("re-reads the session when the upload failed", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : url.endsWith("/samples") ? { ok: false, status: 502, json: async () => null }
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(result.current.session).not.toBeNull());
+    const reads = () => fetch.mock.calls.filter(([u]) => String(u).endsWith("/authoring/s1")).length;
+    const before = reads();
+    await act(async () => {
+      await result.current.upload({ id: "p1", kind: "gap" } as never,
+        [new File(["x"], "a.fq")]).catch(() => undefined);
+    });
     await waitFor(() => expect(reads()).toBeGreaterThan(before));
   });
 });

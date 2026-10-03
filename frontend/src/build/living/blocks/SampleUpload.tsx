@@ -4,6 +4,7 @@ import { Refused } from "../../../api/client";
 import type { InspectedFact, SampleInspected } from "../../../api/types";
 import { bytes } from "../../../runs/units";
 import { Primary, Secondary } from "./parts";
+import { piece } from "./piece";
 
 /** Answering a gap with a sample: one file, or a pair (issue 134, the canvas *Uploading a sample*).
  *
@@ -79,6 +80,7 @@ export function SampleUpload({
     <>
       <label
         htmlFor={field}
+        aria-disabled={busy || undefined}
         // **A drop is a pick** at any width: without it a file dropped on this dashed control is
         // opened by the browser, which leaves the builder (review of issue 134).
         onDragOver={(e) => e.preventDefault()}
@@ -86,9 +88,12 @@ export function SampleUpload({
           e.preventDefault();
           if (!busy) pick(e.dataTransfer.files);
         }}
-        className="inline-flex items-center justify-center gap-[8px] min-h-[44px] md:min-h-0
-                   px-[14px] py-[7px] text-[12.5px] font-semibold cursor-pointer border border-dashed
-                   text-link bg-[var(--link-soft)] has-[:focus-visible]:shadow-[var(--ring)]"
+        // **Busy looks busy** (issue 228): the input is disabled, so the label must not invite a
+        // click it cannot take.
+        className={`inline-flex items-center justify-center gap-[8px] min-h-[44px] md:min-h-0
+                   px-[14px] py-[7px] text-[12.5px] font-semibold border border-dashed
+                   text-link bg-[var(--link-soft)] has-[:focus-visible]:shadow-[var(--ring)]
+                   ${busy ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
         style={{ borderColor: "var(--link)" }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -151,7 +156,14 @@ export function SampleUpload({
         <Outcome result={stage.result} files={stage.files.map((f) => f.name)} />
       )}
       {stage.at === "failed" && (
-        <p role="alert" className="m-0 text-[11.5px] text-[var(--undecided)]">{stage.why}</p>
+        <div className="flex flex-col gap-[8px] md:items-start">
+          <p role="alert" className="m-0 text-[11.5px] text-[var(--undecided)]">{stage.why}</p>
+          {/* The same files, again: the sentence says *try again* (issue 228). A sample the
+              server did record answers with its own refusal, which says so. */}
+          <Secondary disabled={busy} onClick={() => void measure(stage.files)}>
+            Measure again
+          </Secondary>
+        </div>
       )}
     </div>
   );
@@ -251,8 +263,6 @@ export function SampleResult({ result, files }: { result: SampleInspected; files
 const shown = (value: InspectedFact["value"] | undefined) =>
   value === true ? "yes" : value === false ? "no" : String(value ?? "");
 
-/** `fastq@1.0.0` → `fastq 1.0.0`: the format that read the file, which a person recognises. */
-const piece = (ref: string) => ref.replace("@", " ");
 
 /** How much was read, from the counts the measure reported; each part only when it is there. */
 function how(f: InspectedFact): string {

@@ -168,8 +168,11 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       }
       return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
     },
-    // Whatever it settled, the session moved: re-read it, success or not.
-    onSettled: () => void refresh(),
+    // **The answer carries the session as it now is** (issue 228): taken as it is, rather than
+    // read again. A failure re-reads it, since the server may have recorded the sample before
+    // the answer was lost.
+    onSuccess: (inspected) => client.setQueryData(key(sessionId), inspected.session),
+    onError: () => void refresh(),
   });
 
   const retry = useMutation({
@@ -217,7 +220,6 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     /** Answer a gap with a sample: one file, or a pair. Resolves with what it measured. */
     upload: (proposal: AuthoringProposal, files: File[]) =>
       upload.mutateAsync({ proposal, files }),
-    uploading: upload.isPending,
     retry: () => retry.mutate(),
     /** A direct edit, recorded as the person's with a receipt the server composes. */
     edit: (graph: DraftGraph) => edit.mutate(graph),
