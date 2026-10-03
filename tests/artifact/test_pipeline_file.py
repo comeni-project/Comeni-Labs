@@ -847,7 +847,7 @@ SERIALISED_SHAPE = {
     "Measured": ["measurement", "value", "source", "by", "pieces", "evidence"],
     "Evidence": ["records", "rows", "share"],
 }
-"""The artifact's serialised field order, as of `SCHEMA_VERSION = 5`.
+"""The artifact's serialised field order, as of `SCHEMA_VERSION = 6`.
 
 **This is a fingerprint, not a specification.** It exists to fail when somebody adds a field
 without bumping the version — which is exactly what happened in Plan 1.13 and is why Task 0
