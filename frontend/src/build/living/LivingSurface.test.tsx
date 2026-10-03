@@ -367,6 +367,31 @@ describe("a sample that answered a question (issue 134)", () => {
     expect(screen.queryByRole("region", { name: "what your sample measured" })).toBeNull();
   });
 
+  // Issue 231: with a pair picked, *Measure* and *I have it* were both drawn primary.
+  it("draws one primary action while a sample is picked", () => {
+    const READS = question("p-reads", [["upload", "I have it, and I'll upload a sample"],
+      ["have", "I have it"], ["dont_have", "I don't have one"]]);
+    shown(READS);
+    const primaries = () => within(screen.getByRole("region", { name: "a question about your data" }))
+      .getAllByRole("button")
+      .filter((b) => b.className.includes("bg-[var(--link)]")).map((b) => b.textContent);
+    expect(primaries()).toEqual(["I have it"]);
+    fireEvent.change(screen.getByLabelText(/upload a sample/i),
+      { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
+    expect(primaries()).toEqual(["Measure"]);
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(primaries()).toEqual(["I have it"]);
+  });
+
+  it("draws the typed value's button secondary while a sample is picked", () => {
+    shown(LENGTH);
+    const card = () => within(screen.getByRole("region", { name: "a question about your data" }));
+    fireEvent.change(screen.getByLabelText(/upload a sample/i),
+      { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
+    expect(card().getByRole("button", { name: "Use this" }).className)
+      .not.toContain("bg-[var(--link)]");
+  });
+
   it("holds the question's other answers while a sample is out", async () => {
     shown(LENGTH, vi.fn(() => new Promise(() => {})));
     const input = screen.getByLabelText(/upload a sample/i);

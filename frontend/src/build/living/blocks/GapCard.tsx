@@ -30,6 +30,8 @@ export function GapCard({
   const field = useId();
   // While a sample is out, the other answers wait: an answer and a sample must not race.
   const [measuring, setMeasuring] = useState(false);
+  // While files are picked, *Measure* is the one primary: the others are drawn secondary.
+  const [picked, setPicked] = useState(false);
   const block = proposal.block;
   // **A suggestion pre-fills, the person sends** (issues 170 and 171): a value the person stated,
   // or a model read from their reply, starts in the field and goes nowhere until they press.
@@ -47,6 +49,7 @@ export function GapCard({
   // look like the recommended one (issue 168).
   const quiet = new Set(["not_sure", "cant_share", "dont_have"]);
   const number = typed.trim() === "" ? null : Number(typed);
+  const Send = picked ? Secondary : Primary;
 
   return (
     <BlockFrame label="a question about your data" title="What it needs" aside="asked by the engine">
@@ -74,12 +77,12 @@ export function GapCard({
             className="w-[140px] font-data text-[12px] bg-transparent text-ink border px-2 py-[5px]"
             style={{ borderColor: "var(--line-2)" }}
           />
-          <Primary
+          <Send
             disabled={busy || measuring || number === null || Number.isNaN(number)}
             onClick={() => number !== null && onAnswer("value", number)}
           >
             Use this
-          </Primary>
+          </Send>
         </div>
       )}
       {uploadOption && onUpload && (
@@ -91,12 +94,13 @@ export function GapCard({
             onUpload={onUpload}
             onAnswered={onAnswered}
             onMeasuring={setMeasuring}
+            onPicked={setPicked}
           />
         </div>
       )}
       <div className="flex flex-wrap gap-2">
         {buttons.map((option) =>
-          quiet.has(option.id) || typedOption || (suggested && suggested.id !== option.id) ? (
+          picked || quiet.has(option.id) || typedOption || (suggested && suggested.id !== option.id) ? (
             <Secondary key={option.id} disabled={busy || measuring} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Secondary>

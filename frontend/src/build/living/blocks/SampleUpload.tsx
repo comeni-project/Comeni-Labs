@@ -31,6 +31,7 @@ export function SampleUpload({
   onUpload,
   onAnswered,
   onMeasuring = () => {},
+  onPicked = () => {},
 }: {
   proposalId: string;
   label: string;
@@ -40,9 +41,15 @@ export function SampleUpload({
   onAnswered: (result: SampleInspected, files: string[]) => void;
   /** While a sample is out, the question's other answers wait: two answers must not race. */
   onMeasuring?: (measuring: boolean) => void;
+  /** Files are picked or out: *Measure* is the card's one primary action (issue 231). */
+  onPicked?: (picked: boolean) => void;
 }) {
   const field = useId();
-  const [stage, setStage] = useState<Stage>({ at: "offered" });
+  const [stage, setStageOnly] = useState<Stage>({ at: "offered" });
+  const setStage = (next: Stage) => {
+    setStageOnly(next);
+    onPicked(next.at === "picked" || next.at === "measuring");
+  };
   const [refusal, setRefusal] = useState<string | null>(null);
 
   const pick = (list: FileList | null) => {
