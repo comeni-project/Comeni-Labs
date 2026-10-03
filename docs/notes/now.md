@@ -72,7 +72,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **A measured fact is `MEASURED`**, naming its pieces and evidence (*measured · fastq 1.1.0 ·
   from 1 sample*). Adding a piece: `registry/inspectors/README.md`. (2026-10-03)
 - **The registry is one folder per tool**, the path is the id; a request's registry time fell
-  from 10.69 to 1.55 ms. **Open:** registry branch `inspectors` unmerged (#216). (2026-10-03)
+  from 10.69 to 1.55 ms. Its inspectors merged to the registry's `main` (PR 15). (2026-10-03)
 
 ## Settings (Settings → behind the gear)
 
