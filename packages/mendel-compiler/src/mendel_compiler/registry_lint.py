@@ -235,7 +235,10 @@ def _tool_types_are_namespaced(root: Path) -> list[Diagnostic]:
                         f"sits under ({tool})"
                     ),
                     detail="",
-                    fix=f"move it to types/ if several tools touch it, or name it for {tool}",
+                    fix=(
+                        "move it to vocabulary/types/ if several tools touch it, "
+                        f"or name it for {tool}"
+                    ),
                 )
             )
     return found

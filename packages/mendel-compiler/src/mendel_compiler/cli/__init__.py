@@ -160,6 +160,8 @@ def _build(argv: list[str] | None = None) -> int:
     if args.command == "docs":
         if args.out is None and not args.in_place:
             parser.error("docs needs --out, or --in-place to write into the layer itself")
+        if args.out is not None and args.in_place:
+            parser.error("docs takes --out or --in-place, not both: --in-place writes the layer")
         if not args.registry:
             parser.error("docs needs at least one --registry")
         return layer_verbs._docs_verb(args.registry, args.out, args.check, args.in_place)

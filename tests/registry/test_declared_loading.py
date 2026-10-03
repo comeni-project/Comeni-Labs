@@ -110,8 +110,13 @@ def test_the_manifest_is_read_once(monkeypatch):
 
 
 def test_the_shipped_registry_loads_its_tools():
-    """Empty until the registry moves (Task 6); every tool directory has one after."""
+    """Every tool folder's `tool.yml` loads, under the id its path gives (issue 223: this
+    asserted only that a dict came back, which an empty registry passes)."""
     from mendel_resolver import layers
 
-    loaded = layers.load(REGISTRY)
-    assert isinstance(loaded.tools.tools, dict)
+    folders = {
+        str(path.parent.relative_to(REGISTRY / "tools"))
+        for path in (REGISTRY / "tools").rglob("tool.yml")
+    }
+    assert folders, "the shipped registry has no tool.yml"
+    assert set(layers.load(REGISTRY).tools.tools) == folders

@@ -262,7 +262,9 @@ uv run mendel docs --registry ../comeni-registry --in-place        # each page a
 
 `--in-place` writes each page into the one layer given, as `README.md` in the folder holding the
 tool's contracts, and opens it with the tool's own `tool.yml` description. `--check` with it
-also refuses a generated README whose tool is gone.
+also refuses a generated README whose tool is gone. It reads that layer alone, so an overlay whose
+tools use types declared only in its base cannot be documented in place: use `--out` with both
+`--registry` flags. `--out` and `--in-place` together are refused.
 
 One Markdown page per **tool**, rendered from a layer's declared data and nothing else — each
 contract's process, ports, parameters and provenance, plus two facts no single file holds:

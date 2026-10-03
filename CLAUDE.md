@@ -158,7 +158,7 @@ never the reverse.
 
 **The registry** is a git submodule at `registry/` (`comeni-registry`) holding five things:
 tools, profilers, inspectors, vocabulary and rules. One folder per tool, with its `tool.yml`, its
-page and its module beside its contract (`registry/tools/<org>/<tool>/module/`); the path is the id. `git clone
+page and its module beside its contract (`registry/tools/<org>/<tool>[/<subtool>]/module/`); the path is the id. `git clone
 --recurse-submodules`, or `git submodule update --init`. `pipeline.yml` is the pipeline: every
 step and setting with a `why:`, contracts pinned by digest, no paths or timestamps.
 

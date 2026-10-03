@@ -39,36 +39,46 @@ def _load(digest: str) -> Layers:
     return layers.load(settings.registry_root)
 
 
-def signature() -> tuple[tuple[str, int, int], ...]:
+def signature() -> tuple[tuple[str, int, int, int, int], ...]:
     """Every file's size and modification time under the layer, never its bytes (#216).
 
     **What a request pays to learn nothing changed.** The digest read every byte of the layer,
     module sources included, on every request: 10.7ms measured on 2026-10-01, and growing with
     each tool. `stat` is enough to know whether to look again; the exact digest is still what a
-    pipeline pins, computed only when this moves. Nanoseconds, so an edit that keeps a file's
-    size is still seen.
+    pipeline pins, computed only when this moves. Nanoseconds, the inode and the change time, so
+    an edit that keeps a file's size, even within one modification-time tick, is still seen.
 
     **Every file, not `declared_entries`.** That allowlist cost 6ms of the 10.7 on its own,
     pathlib per file. A superset of what the digest covers is safe — a README edit costs one
-    needless re-hash, never a stale answer — so this walks with `os.walk` and skips only
-    `.git`: a submodule's `.git` file names the checkout (issue #46), and a clone's `.git`
-    directory would make its object store the most expensive thing here.
+    needless re-hash, never a stale answer — so this walks with `os.walk` and skips only the
+    root's `.git`: a submodule's `.git` file names the checkout (issue #46), and a clone's `.git`
+    directory would make its object store the most expensive thing here. A `.git` deeper down is
+    the layer's own content, and the digest covers it. A symlinked folder is recorded, not
+    followed, so adding one is seen and the load decides what it means (issue 223).
     """
     root = str(settings.registry_root)
     found = []
+
+    def entry(path: str) -> tuple[str, int, int, int, int]:
+        status = os.lstat(path)
+        return (
+            os.path.relpath(path, root),
+            status.st_size,
+            status.st_mtime_ns,
+            status.st_ctime_ns,
+            status.st_ino,
+        )
+
     for folder, folders, files in os.walk(root):
-        folders[:] = sorted(name for name in folders if name != ".git")
+        at_root = folder == root
+        folders[:] = sorted(name for name in folders if not (at_root and name == ".git"))
+        for name in folders:
+            if os.path.islink(os.path.join(folder, name)):
+                found.append(entry(os.path.join(folder, name)))
         for name in sorted(files):
-            if name == ".git":
+            if at_root and name == ".git":
                 continue
-            status = os.lstat(os.path.join(folder, name))
-            found.append(
-                (
-                    os.path.relpath(os.path.join(folder, name), root),
-                    status.st_size,
-                    status.st_mtime_ns,
-                )
-            )
+            found.append(entry(os.path.join(folder, name)))
     return tuple(found)
 
 

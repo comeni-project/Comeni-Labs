@@ -96,6 +96,16 @@ def test_a_shared_type_hidden_inside_a_tool_is_refused(layer):
     assert "MD0017" in codes(lint(layer))
 
 
+def test_md0017_says_where_shared_types_live_now(layer):
+    """Issue 223: the inline fix said *move it to types/*, a folder the new layout does not have."""
+    (layer / "tools" / "nf-core" / "star" / "alignment.bam.yml").write_text(
+        "declares: vocabulary\nid: alignment.bam\nstates: []\n"
+    )
+    found = [f for f in lint(layer) if f.code == "MD0017"]
+    assert found, "MD0017 did not fire"
+    assert all("vocabulary/types/" in f.fix for f in found), [f.fix for f in found]
+
+
 def test_a_type_namespaced_by_its_tool_is_fine(layer):
     """The other half — `genome.index.star` under `tools/nf-core/star/types/` is the arrangement
     this layout exists to produce, and it must not fire on it."""

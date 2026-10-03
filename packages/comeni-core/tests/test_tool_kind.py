@@ -1,4 +1,3 @@
-# packages/comeni-core/tests/test_tools.py
 """The `tool` kind: what a tool is, in one file beside its contracts (#216).
 
 Stacked like every kind (invariant 11): an overlay may describe a tool the base lacks, or

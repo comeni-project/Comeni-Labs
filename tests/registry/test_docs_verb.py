@@ -86,6 +86,18 @@ def test_docs_needs_an_out(capsys):
     assert "--out" in capsys.readouterr().err
 
 
+def test_docs_refuses_out_with_in_place(tmp_path, capsys):
+    """Issue 223: given both, `--out` was silently ignored and the layer written instead."""
+    code = None
+    try:
+        main(["docs", "--registry", REGISTRY, "--out", str(tmp_path), "--in-place"])
+    except SystemExit as exit_:
+        code = exit_.code
+    assert code == 2
+    assert "--in-place" in capsys.readouterr().err
+    assert not any(tmp_path.iterdir())
+
+
 def test_docs_needs_a_registry(tmp_path, capsys):
     code = None
     try:

@@ -10,6 +10,8 @@ a cache serves worst, because its tests mutate registries in temporary directori
 packages got faster instead: 244ms to 17.8ms.
 """
 
+import os
+
 from mendel_api.services import registry
 
 
@@ -114,8 +116,9 @@ def test_an_edit_of_the_same_size_is_still_seen(monkeypatch, broken_registry_cop
 
 
 def test_a_copy_with_the_same_times_is_hashed_on_its_own(monkeypatch, tmp_path):
-    """`copytree` keeps modification times, so a copy's signature can equal the original's:
-    the root is part of the key, or one registry answers for another."""
+    """`copytree` keeps modification times, so a copy's signature could equal the original's:
+    the root is part of the key, or one registry answers for another. The signature now carries
+    inodes too, so two signatures are made equal here to keep the root's part watched."""
     import shutil
 
     from mendel_api.settings import settings
@@ -128,13 +131,54 @@ def test_a_copy_with_the_same_times_is_hashed_on_its_own(monkeypatch, tmp_path):
         return real(root)
 
     monkeypatch.setattr(registry, "digest_of_directory", counting)
+    monkeypatch.setattr(registry, "signature", lambda: ("the same",))
     registry._digest_for.cache_clear()
     registry.digest()
-    original = registry.signature()
     copy = tmp_path / "registry"
     shutil.copytree(settings.registry_root, copy, ignore=shutil.ignore_patterns(".git"))
     monkeypatch.setattr(settings, "registry_root", copy)
-    assert registry.signature() == original
     registry.digest()
     assert len(hashed) == 2
     registry._digest_for.cache_clear()
+
+
+# ── what `signature()` must see (issue 223) ───────────────────────────────────────────────
+
+
+def _layer(tmp_path, monkeypatch):
+    from mendel_api.settings import settings
+
+    root = tmp_path / "layer"
+    (root / "tools" / "a").mkdir(parents=True)
+    (root / "tools" / "a" / "tool.yml").write_text("declares: tool\n")
+    monkeypatch.setattr(settings, "registry_root", root)
+    return root
+
+
+def test_a_symlinked_folder_added_to_the_layer_is_seen(tmp_path, monkeypatch):
+    root = _layer(tmp_path, monkeypatch)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "tool.yml").write_text("declares: tool\n")
+    before = registry.signature()
+    (root / "tools" / "b").symlink_to(elsewhere, target_is_directory=True)
+    assert registry.signature() != before
+
+
+def test_a_git_file_below_the_root_is_seen(tmp_path, monkeypatch):
+    """Only the root's `.git` names the checkout; a `module/.git` is covered by the digest."""
+    root = _layer(tmp_path, monkeypatch)
+    (root / "tools" / "a" / "module").mkdir()
+    before = registry.signature()
+    (root / "tools" / "a" / "module" / ".git").write_text("gitdir: x\n")
+    assert registry.signature() != before
+
+
+def test_a_same_size_edit_within_one_tick_is_seen(tmp_path, monkeypatch):
+    root = _layer(tmp_path, monkeypatch)
+    path = root / "tools" / "a" / "tool.yml"
+    status = path.stat()
+    before = registry.signature()
+    path.write_text("declares: tooL\n")
+    os.utime(path, ns=(status.st_atime_ns, status.st_mtime_ns))
+    assert registry.signature() != before
