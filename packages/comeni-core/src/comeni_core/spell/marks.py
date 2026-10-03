@@ -568,6 +568,7 @@ def _piece_ref(value: str) -> str:
     """`<piece>@<major>.<minor>.<patch>` — an inspector piece, as a fact records it.
 
     By string methods rather than a pattern: `re` is not on `comeni-core`'s import allowlist.
+    The id half is capped at 64, as a piece's id is, and each version part at nine digits.
     """
     piece, separator, version = value.partition("@")
     parts = version.split(".")
@@ -575,8 +576,9 @@ def _piece_ref(value: str) -> str:
         not separator
         or not piece
         or not set(piece) <= _PIECE_CHARACTERS
+        or len(piece) > 64
         or len(parts) != 3
-        or not all(part.isascii() and part.isdigit() for part in parts)
+        or not all(part.isascii() and part.isdigit() and len(part) <= 9 for part in parts)
     ):
         raise ValueError(
             f"{value!r} is not a piece ref. They are `<piece>@<version>`, e.g. `fastq@1.0.0`."

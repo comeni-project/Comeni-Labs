@@ -413,6 +413,12 @@ class MeasurementRegistry(BaseModel):
         """
         given = [MeasuredEntry(*entry) for entry in entries]
         for entry in given:
+            if isinstance(entry.pieces, str):
+                # A string is iterable, so it was read letter by letter (issue 225).
+                raise ValueError(
+                    f"{entry.measurement}: pieces is a tuple of piece refs, not one string "
+                    f"({entry.pieces!r}); write ({entry.pieces!r},)"
+                )
             self.check(entry.measurement, entry.value)
         return DataProfile(
             measurements=[

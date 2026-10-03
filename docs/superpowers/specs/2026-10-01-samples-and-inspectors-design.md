@@ -246,7 +246,8 @@ runner with its limits, read the report.
 **Admitting** (`comeni-core`): `ValueSource.MEASURED`, which already meant *a tool looked at the
 data and named itself* (built as 14.7.6.3: a second member `INSPECTED` would have split one
 meaning across two names); `Measured.pieces` naming the pieces and versions, and
-`Measured.evidence` how much they read, where a profiler's value names its contract in `by`; `MeasurementRegistry.profile_of(entries)` for a profile whose entries carry their own
+`Measured.evidence` how much they read, where a profiler's value names its contract in `by`;
+`MeasurementRegistry.profile_of(entries)` for a profile whose entries carry their own
 sources (the construction guard forbids building a `DataProfile` anywhere else). Each value is
 checked with `MeasurementRegistry.check`; one that fails is dropped with a reason shown to the
 person. An undetermined fact is not admitted, and the measurement stays open.

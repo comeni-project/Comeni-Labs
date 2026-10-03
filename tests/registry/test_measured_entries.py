@@ -69,3 +69,31 @@ def test_a_profiled_meta_value_still_names_its_contract():
     )
     entry = _meta_entry("read_length", measurements.get("read_length"), 151, profile)
     assert entry.why.reason.startswith("measured by comeni/profile/fastqc@0.12.1")
+
+
+def _reason(entry_evidence, measurement="read_length", value=151):
+    from comeni_core.artifact.materialise import _meta_entry
+
+    measurements = _measurements()
+    profile = measurements.profile_of(
+        [MeasuredEntry(measurement, value, ValueSource.MEASURED, pieces=PIECES,
+                       evidence=entry_evidence)]
+    )
+    return _meta_entry(measurement, measurements.get(measurement), value, profile).why.reason
+
+
+def test_paireds_rows_are_cited_when_it_counted_no_records():
+    """Issue 225: `paired` counts rows, not records, and its count never showed."""
+    assert ", on 50,000 rows of reads" in _reason(Evidence(rows=50000), "paired", True)
+
+
+def test_a_count_of_zero_is_cited_not_dropped():
+    assert ", on 0 reads" in _reason(Evidence(records=0))
+
+
+def test_pieces_given_as_one_string_are_refused_by_name():
+    """Issue 225: `"fastq@1.0.0"` was read letter by letter: `'f' is not a piece ref`."""
+    with pytest.raises(ValueError, match="pieces .* a tuple of piece refs, not one string"):
+        _measurements().profile_of(
+            [MeasuredEntry("read_length", 151, ValueSource.MEASURED, pieces="fastq@1.0.0")]
+        )

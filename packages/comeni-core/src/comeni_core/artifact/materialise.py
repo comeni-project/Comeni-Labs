@@ -168,8 +168,12 @@ def _meta_entry(key: str, measurement, value, profile) -> MetaEntry:
         # An inspector names its pieces, a profiler its contract (#134): one measurer either way.
         measurer = " + ".join(entry.pieces) if entry is not None and entry.pieces else by
         reason = f"measured by {measurer}" if measurer else "measured"
-        if entry is not None and entry.evidence is not None and entry.evidence.records:
-            reason = f"{reason}, on {entry.evidence.records:,} reads"
+        evidence = entry.evidence if entry is not None else None
+        # Records when counted, rows when only rows were (`paired`), zero said as zero (#225).
+        if evidence is not None and evidence.records is not None:
+            reason = f"{reason}, on {evidence.records:,} reads"
+        elif evidence is not None and evidence.rows is not None:
+            reason = f"{reason}, on {evidence.rows:,} rows of reads"
     else:
         reason = "asserted in the goal; no profiling run established it"
     if measurement.cite:

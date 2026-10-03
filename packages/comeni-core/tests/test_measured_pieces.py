@@ -19,7 +19,12 @@ def test_a_measured_fact_names_its_pieces_and_evidence():
     assert m.pieces == PIECES and m.evidence.records == 8412
 
 
-@pytest.mark.parametrize("bad", ["fastq", "fastq@1", "Fastq@1.0.0", "fastq@1.0.0\nx", "a/b@1.0.0"])
+@pytest.mark.parametrize(
+    "bad",
+    # A piece's id is capped at 64 (issue 225), and so is its ref's id half.
+    ["fastq", "fastq@1", "Fastq@1.0.0", "fastq@1.0.0\nx", "a/b@1.0.0", "a" * 65 + "@1.0.0",
+     "fastq@1.0." + "9" * 40],
+)
 def test_a_piece_ref_that_is_not_one_is_refused(bad):
     with pytest.raises(ValidationError):
         Measured(measurement="read_length", value=151, source=ValueSource.MEASURED, pieces=[bad])
