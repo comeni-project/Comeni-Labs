@@ -25,7 +25,7 @@ def test_a_gzipped_pair_is_measured():
     assert got.outcome == "measured" and got.type_id == "fastq.reads"
     facts = {f.measurement: f for f in got.facts}
     assert facts["paired"].value is True and facts["read_length"].value == 150
-    assert facts["read_length"].pieces == ["fastq@1.0.0", "read_length@1.0.0"]
+    assert facts["read_length"].pieces == ["fastq@1.1.0", "read_length@1.0.0"]
     assert facts["read_length"].evidence["records"] == 4000
 
 
@@ -43,6 +43,17 @@ def test_an_unknown_extension_has_no_inspector():
 def test_files_of_two_kinds_have_no_inspector():
     got = inspect.inspect_sample([("a.fq", b"@r\nA\n+\nI\n"), ("b.bam", b"BAM")], registry.stack())
     assert got.outcome == "no_inspector"
+
+
+def test_more_files_than_the_format_reads_are_unreadable_and_never_launched(monkeypatch):
+    """Issue 224: a format's `files: 1..2` was never enforced, and `paired` read three-file rows
+    as single files. Refused before a process is started."""
+    launched = []
+    monkeypatch.setattr(inspect, "launch", lambda *a: launched.append(a))
+    three = [(f"s_{n}.fq", b"@r\nACGT\n+\nIIII\n") for n in (1, 2, 3)]
+    got = inspect.inspect_sample(three, registry.stack())
+    assert got.outcome == "unreadable" and "1 to 2 files" in got.reason
+    assert launched == []
 
 
 def test_fasta_named_fastq_is_unreadable_with_why():

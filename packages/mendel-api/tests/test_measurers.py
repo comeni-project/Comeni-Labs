@@ -10,7 +10,7 @@ def test_read_length_is_measured_by_an_inspector_and_a_profiler():
     kinds = {(m.kind, m.runs) for m in found}
     assert ("inspector", "server") in kinds and ("profiler", "lab") in kinds
     inspector = next(m for m in found if m.kind == "inspector")
-    assert inspector.by == "fastq@1.0.0 + read_length@1.0.0" and inspector.trusted
+    assert inspector.by == "fastq@1.1.0 + read_length@1.0.0" and inspector.trusted
 
 
 def test_a_piece_from_an_untrusted_layer_is_listed_and_not_usable(monkeypatch):

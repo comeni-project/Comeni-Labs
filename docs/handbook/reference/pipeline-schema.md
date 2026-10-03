@@ -191,12 +191,12 @@ value names what measured it, in one of two ways:
 
 - `by:` a contract, when a profiling step in a pipeline measured it.
 - `pieces:` the inspector pieces, when an uploaded sample was measured, e.g.
-  `[fastq@1.0.0, read_length@1.0.0]`, with `evidence:` saying how much was read
+  `[fastq@1.1.0, read_length@1.0.0]`, with `evidence:` saying how much was read
   (`records`, `rows`, `share`). Both are left out when nothing was inspected.
 
 ```yaml
       - {measurement: read_length, value: 151, source: measured, by: null,
-         pieces: [fastq@1.0.0, read_length@1.0.0], evidence: {records: 8412, share: 0.97}}
+         pieces: [fastq@1.1.0, read_length@1.0.0], evidence: {records: 8412, share: 0.97}}
 ```
 
 ### `registry` — provenance, not a dependency

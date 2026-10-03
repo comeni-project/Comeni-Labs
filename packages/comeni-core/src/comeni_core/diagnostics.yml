@@ -991,6 +991,19 @@ MD0317:
     contract is. **The piece is not loaded; the others are.** One bad piece does not stop a
     sample's other files from being inspected, and its files go to the characteriser like any
     type nothing reads.
+MD0318:
+  emitted_by: core
+  concern: loading
+  says: "an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Put the piece's code where `entry:` says, inside its `piece/` folder; name the folder for
+    the piece's `id`; and list in `needs:` only pieces some layer declares.
+  explanation: |
+    A piece is selected by its folder and labelled on every fact by its id, so the two must
+    agree, and a declaration whose code is missing would load and then fail every inspection
+    it was matched to. **The piece is not loaded; the others are**, as for MD0317.
 MD0303:
   emitted_by: resolver
   concern: routing

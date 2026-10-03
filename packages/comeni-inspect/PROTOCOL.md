@@ -27,6 +27,10 @@ One line of JSON, keys sorted, `null` fields left out.
 | `facts` | by measure id: `by` (the pieces, `fastq@1.0.0` then the measure), and either `value` or `undetermined` (a reason), with `evidence` |
 | `unreadable` | why nothing could be measured, when nothing could |
 
+Every fact's `evidence` carries `rows`, how many rows of records it read, and, when they apply:
+`shorter_file` (one file of a pair ended first), `capped` (the head ended at `cap_bytes`) and
+`stopped` (the format stopped at a malformed record: `malformed record 3: …`).
+
 ## Exit codes
 
 `0` with a report on stdout. Anything else, or nothing within the caller's time limit, is

@@ -120,3 +120,12 @@ def test_the_shipped_registry_loads_its_tools():
     }
     assert folders, "the shipped registry has no tool.yml"
     assert set(layers.load(REGISTRY).tools.tools) == folders
+
+
+def test_the_shipped_registry_refuses_none_of_its_inspector_pieces():
+    """MD0317 and MD0318 drop a piece quietly from what runs; the shipped layer has none."""
+    from mendel_resolver import layers
+
+    loaded = layers.load(REGISTRY)
+    assert loaded.inspection.formats, "the shipped registry has no inspector formats"
+    assert loaded.refused_pieces == []

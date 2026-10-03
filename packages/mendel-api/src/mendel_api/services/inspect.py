@@ -173,6 +173,14 @@ def inspect_sample(files: list[tuple[str, bytes]], stack) -> Inspection:
     confirmed: list[tuple[FormatPiece, wire.Report]] = []
     refused: list[wire.Report] = []
     for fmt in formats:
+        least, most = fmt.file_counts
+        if not least <= len(files) <= most:
+            # Refused here, where the declaration is at hand: the runner is handed pieces by
+            # reference and never sees `files:` (issue 224).
+            refused.append(
+                _unreadable(f"{fmt.id} reads {least} to {most} files, and {len(files)} were given")
+            )
+            continue
         request = wire.Request(
             format=_ref("formats", fmt),
             codec=_ref("codecs", codec) if codec else None,

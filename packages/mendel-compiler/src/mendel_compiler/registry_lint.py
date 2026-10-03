@@ -21,7 +21,13 @@ from pathlib import Path
 
 from comeni_core import yaml_strict
 from comeni_core.declared.layer import LayerManifest
-from comeni_core.declared.layered import _KIND_OF, MANIFEST, MODULE_DIR, PIECE_DIR, declared_kind
+from comeni_core.declared.layered import (
+    _KIND_OF,
+    MANIFEST,
+    MODULE_DIR,
+    declared_kind,
+    in_piece,
+)
 from comeni_core.diagnostics import coded
 
 from mendel_compiler.conformance import Diagnostic
@@ -76,13 +82,14 @@ def lint(root: Path) -> list[Diagnostic]:
 def _declared_files(root: Path) -> Iterable[tuple[Path, str]]:
     """Every file that declares a kind, with the singular it declares.
 
-    Skips anything under a `module/` or a `piece/` — that is code the layer carries, not layer data;
+    Skips anything under a `module/`, or a `piece/` beside a piece's declaration — that is code
+    the layer carries, not layer data;
     upstream ships its own `meta.yml` with no `declares:` line.
     """
     for path in sorted({*root.rglob("*.yml"), *root.rglob("*.yaml")}):
         rel = path.relative_to(root)
         hidden = any(part.startswith(".") for part in rel.parts)
-        if hidden or {MODULE_DIR, PIECE_DIR} & set(rel.parts):
+        if hidden or MODULE_DIR in rel.parts or in_piece(path, root):
             continue
         if path.name == MANIFEST and path.parent == root:
             continue

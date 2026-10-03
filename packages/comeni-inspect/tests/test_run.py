@@ -234,3 +234,28 @@ def test_the_runner_limits_its_own_memory():
         check=True,
     )
     assert int(done.stdout) == 300 * 2**20
+
+
+def test_a_format_stopping_at_a_malformed_record_says_so_on_every_fact(tmp_path):
+    """Issue 224: FASTQ stopped quietly at a bad record mid-head, so a file corrupt at record 3
+    reported facts on 2 records with no reason. A format raises `Malformed`; the runner keeps
+    what came before and says where it stopped."""
+    request = _request(tmp_path)
+    bad = (
+        '        if line == b"!":\n'
+        "            from comeni_inspect.records import Malformed\n"
+        '            raise Malformed("record 3: no name")\n'
+    )
+    named = '        if line.startswith(b">"):'
+    marked = FORMAT.replace(named, bad + named)
+    assert marked != FORMAT
+    (tmp_path / "fmt.py").write_text(marked)
+    report = run.inspect(*_with(request, b">a\n>b\n!\n>d\n"))
+    fact = report.facts["count"]
+    assert report.unreadable is None and fact.value == 2
+    assert fact.evidence["stopped"] == "malformed record 3: no name"
+
+
+def test_a_head_that_ends_well_names_no_stop(tmp_path):
+    report = run.inspect(*_with(_request(tmp_path), b">a\n>b\n"))
+    assert "stopped" not in report.facts["count"].evidence

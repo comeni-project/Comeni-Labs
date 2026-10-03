@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from comeni_core import yaml_strict
 from comeni_core.declared.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
@@ -42,6 +42,20 @@ class _Piece(BaseModel):
     entry: str = Field(pattern=_ENTRY)
     """The code, relative to the declaration, always inside `piece/`."""
     needs: list[str] = Field(default_factory=list)
+    """Other pieces, by id, that must be loaded for this one to run."""
+    _folder: Path | None = PrivateAttr(default=None)
+    """The folder its declaration was read from: set by the loader, never declared."""
+
+    def problems(self) -> list[str]:
+        """What would stop this piece running, read from where it was loaded (issue 224)."""
+        if self._folder is None:
+            return []
+        found = []
+        if self._folder.name != self.id:
+            found.append(f"its id is {self.id!r} but its folder is {self._folder.name!r}")
+        if not (self._folder / self.entry).is_file():
+            found.append(f"its entry {self.entry} is not there")
+        return found
 
 
 class CodecPiece(_Piece):
@@ -62,6 +76,21 @@ class FormatPiece(_Piece):
     runs: Literal["server", "lab", "browser"] = "server"
     """Where it runs. Only `server` is built; the others are where a heavier one will go."""
     files: str = "1..2"
+    """How many files one sample of this format is, as `<least>..<most>`: `1..2`, a file or a
+    pair. The runner refuses a sample outside it."""
+
+    @field_validator("files")
+    @classmethod
+    def _a_range(cls, files: str) -> str:
+        least, _, most = files.partition("..")
+        if not (least.isdigit() and most.isdigit() and 1 <= int(least) <= int(most)):
+            raise ValueError(f"files is {files!r}; write it as <least>..<most>, like 1..2")
+        return files
+
+    @property
+    def file_counts(self) -> tuple[int, int]:
+        least, _, most = self.files.partition("..")
+        return int(least), int(most)
 
 
 class MeasurePiece(_Piece):
@@ -79,7 +108,9 @@ def _parser(model: type[_Piece]):
         """One piece per file. `declares:` is accepted and ignored, as `_parse_family` does."""
         data = yaml_strict.load(path) or {}
         data.pop("declares", None)
-        return [model.model_validate(data)]
+        piece = model.model_validate(data)
+        piece._folder = path.parent
+        return [piece]
 
     return parse
 
@@ -135,8 +166,25 @@ class InspectionCatalogue(BaseModel):
         so its files go to the characteriser like any type nothing reads.
         """
         refused: list[str] = []
+        known = set(self.codecs) | set(self.formats) | set(self.measures)
+
+        def runnable(kind: str, key: str, piece: _Piece) -> bool:
+            problems = piece.problems() + [
+                f"it needs {need}, which no layer declares"
+                for need in piece.needs
+                if need not in known
+            ]
+            for problem in problems:
+                refused.append(
+                    coded("MD0318", f"{kind} {key}@{piece.version} cannot run: {problem}")
+                )
+            return not problems
+
+        codecs = {k: p for k, p in self.codecs.items() if runnable("codec", k, p)}
         formats = {}
         for key, piece in self.formats.items():
+            if not runnable("format", key, piece):
+                continue
             unknown = sorted(set(piece.reads) - type_ids)
             if unknown:
                 refused.append(
@@ -150,6 +198,8 @@ class InspectionCatalogue(BaseModel):
                 formats[key] = piece
         measures = {}
         for key, piece in self.measures.items():
+            if not runnable("measure", key, piece):
+                continue
             if piece.measures not in measurement_ids:
                 refused.append(
                     coded(
@@ -161,6 +211,6 @@ class InspectionCatalogue(BaseModel):
             else:
                 measures[key] = piece
         usable = InspectionCatalogue(
-            codecs=self.codecs, formats=formats, measures=measures, origin=self.origin
+            codecs=codecs, formats=formats, measures=measures, origin=self.origin
         )
         return usable, refused

@@ -267,3 +267,13 @@ def test_a_tools_own_type_used_by_that_tool_is_fine(tmp_path):
         "tools/nf-core/x/align/contract.yml": _contract("nf-core/x/align", "genome.index.x"),
     })
     assert "MD0024" not in _codes(root)
+
+
+def test_a_tools_own_piece_folder_is_linted_as_data(tmp_path):
+    """Issue 224: only a `piece/` beside a codec, format or measure declaration is code."""
+    from mendel_compiler.registry_lint import _declared_files
+
+    declared = tmp_path / "tools" / "acme" / "piece" / "types" / "acme.piece.yml"
+    declared.parent.mkdir(parents=True)
+    declared.write_text("declares: vocabulary\nid: acme.piece\nstates: []\n")
+    assert declared in [path for path, _ in _declared_files(tmp_path)]

@@ -21,6 +21,7 @@ from pydantic import ValidationError
 
 from comeni_inspect import wire
 from comeni_inspect.outcome import Undetermined, Value
+from comeni_inspect.records import Malformed
 from comeni_inspect.stream import Capped, Prefixed, SourceFailed, TooLarge
 
 _CONFIRM_BYTES = 4096
@@ -56,7 +57,7 @@ def _guarded(ref: wire.PieceRef | str, call: Callable):
     name = ref.id if isinstance(ref, wire.PieceRef) else ref
     try:
         return call(ref)
-    except (TooLarge, SourceFailed, zlib.error, gzip.BadGzipFile):
+    except (TooLarge, SourceFailed, zlib.error, gzip.BadGzipFile, Malformed):
         raise
     # `SystemExit` too: a piece can raise it without importing anything, and it must not end
     # the process before it has answered.
@@ -92,6 +93,14 @@ def _rows(fmt, ref: wire.PieceRef, streams: list, ended: dict) -> Iterator[tuple
     has a record, `ended["shorter"]` is its index, so the report shows a cut R2 as a cut R2.
     """
     iterators = [_guarded(ref, lambda _, s=s: iter(fmt.records(s))) for s in streams]
+    try:
+        yield from _side_by_side(ref, iterators, ended)
+    except Malformed as malformed:
+        # The rows before it stand; every fact says where the format stopped (issue 224).
+        ended["stopped"] = f"malformed {malformed}"
+
+
+def _side_by_side(ref: wire.PieceRef, iterators: list, ended: dict) -> Iterator[tuple]:
     while True:
         row = []
         for index, iterator in enumerate(iterators):
@@ -107,7 +116,9 @@ def _rows(fmt, ref: wire.PieceRef, streams: list, ended: dict) -> Iterator[tuple
         yield tuple(row)
 
 
-def _fact(outcome, by: list[str], rows: int, shorter: str | None, capped: bool) -> wire.Fact:
+def _fact(
+    outcome, by: list[str], rows: int, shorter: str | None, capped: bool, stopped: str | None
+) -> wire.Fact:
     """What a measure answered, held to the report's shape. **Inside the guard**: a measure
     returning `None`, a list, bytes in its evidence or `nan` is that measure's failure."""
     if not isinstance(outcome, Value | Undetermined):
@@ -120,6 +131,8 @@ def _fact(outcome, by: list[str], rows: int, shorter: str | None, capped: bool) 
     if capped:
         # The head ended at the unpacked cap rather than at its own end (issue 221).
         evidence["capped"] = True
+    if stopped is not None:
+        evidence["stopped"] = stopped
     json.dumps(evidence, allow_nan=False)
     if isinstance(outcome, Undetermined):
         return wire.Fact(by=by, undetermined=str(outcome.reason), evidence=evidence)
@@ -160,19 +173,23 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
         for m in request.measures
     }
     rows = 0
-    ended: dict[str, int] = {}
+    ended: dict[str, int | str] = {}
     for row in _rows(fmt, request.format, streams, ended):
         rows += 1
         for ref in request.measures:
             _guarded(ref, lambda _, a=accumulators[ref.id], r=row: a.add(r))
     by_format = f"{request.format.id}@{request.format.version}"
     facts = {}
-    shorter = names[ended["shorter"]] if "shorter" in ended else None
+    shorter = names[int(ended["shorter"])] if "shorter" in ended else None
     capped = any(limit.capped for limit in limits)
+    stopped = ended.get("stopped")
     for ref in request.measures:
         by = [by_format, f"{ref.id}@{ref.version}"]
         facts[ref.id] = _guarded(
-            ref, lambda _, a=accumulators[ref.id], b=by: _fact(a.result(), b, rows, shorter, capped)
+            ref,
+            lambda _, a=accumulators[ref.id], b=by: _fact(
+                a.result(), b, rows, shorter, capped, stopped
+            ),
         )
     return wire.Report(type_id=None, facts=facts, unreadable=None)
 

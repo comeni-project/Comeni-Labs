@@ -127,6 +127,19 @@ MODULE_DIR = "module"
 """The directory a tool's own source lives in, beside the `module.yml` that declares it."""
 
 PIECE_DIR = "piece"
+PIECE_DECLARATIONS = ("codec.yml", "format.yml", "measure.yml")
+"""A `piece/` is code only beside one of these (issue 224): a tool may name a folder `piece`."""
+
+
+def in_piece(path: Path, root: Path) -> bool:
+    """Is this under a `piece/` that sits beside a codec, format or measure declaration?"""
+    rel = path.relative_to(root)
+    for depth, part in enumerate(rel.parts[:-1]):
+        if part == PIECE_DIR:
+            beside = root.joinpath(*rel.parts[:depth])
+            if any((beside / name).is_file() for name in PIECE_DECLARATIONS):
+                return True
+    return False
 """An inspector piece's own code, tests and fixtures, beside the declaration that names it."""
 
 
@@ -161,10 +174,9 @@ def _in_source(path: Path, root: Path) -> bool:
 
     **`piece/` too, since #134**: an inspector piece's code, tests and fixtures. Same two
     answers for the same two callers: the digest covers everything here, the loader parses
-    nothing here.
+    nothing here. Only a `piece/` beside a piece's declaration (`in_piece`, issue 224).
     """
-    parts = path.relative_to(root).parts
-    return MODULE_DIR in parts or PIECE_DIR in parts
+    return MODULE_DIR in path.relative_to(root).parts or in_piece(path, root)
 
 
 class DeclaredKind(StrEnum):

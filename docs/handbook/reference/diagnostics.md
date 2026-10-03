@@ -48,6 +48,7 @@ decline to curate one.
 | `MD0020` | a layer declares a registry format this Mendel does not understand |
 | `MD0228` | a type names a param literally in its `entry_channel` |
 | `MD0317` | an inspector piece names a type or measurement no layer declares |
+| `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
 
 ## A contract disagrees with its module
 
