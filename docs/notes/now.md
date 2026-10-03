@@ -5,7 +5,7 @@ The consolidated state of the project. **Read this first**; then any entry still
 [the compaction rules](compaction.md). Each line cites the entry it came from; the long form of any
 line is in [the archive](journal/archive/).
 
-**Compacted through: 2026-10-01.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
+**Compacted through: 2026-10-03.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
 history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim in
 `tests/fixtures/claude-md-2026-09-28.md`.
 
@@ -15,13 +15,14 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). Round 1 of the walk found
   and fixed #106–#116. (2026-09-28)
 - **Order of work, in #119's own order** (renumbered 2026-09-28 so the tree reads as done):
-  14.7.3 gathering, 14.7.4 the consultant's words and 14.7.5 settings are **done** →
-  **14.7.6** samples (#134, next) → **14.7.7** the characteriser → **14.7.8** the consultant build
+  14.7.3 gathering, 14.7.4 the consultant's words, 14.7.5 settings and 14.7.6 samples are
+  **done** → **14.7.7** the characteriser (#135, next) → **14.7.8** the consultant build
   (it also reads pacing, #117) → **14.7.9** tune what the walks found (#210) → **14.7.10** the nine
   scenarios. **MVP first, then tune:** a defect found on the way joins #210 unless it blocks the
-  loop. (2026-09-28, 2026-09-30, 2026-10-01)
-- **Scenario 1 builds end to end with `gemma3:12b`** after gathering; the aligner is tier 3 with a
-  read length, tier 4 without. (2026-09-28)
+  loop. (2026-09-28, 2026-09-30, 2026-10-01, 2026-10-03)
+- **Scenario 1 builds end to end with `gemma3:12b`**, started from home and answered by uploading
+  the real pair SRR6357070; the aligner is tier 3 with a read length, tier 4 without, and its reason
+  names what measured it. (2026-09-28, 2026-10-03)
 
 ## How work is done now
 
@@ -35,9 +36,9 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 ## The living pipeline (describe → build)
 
-- A researcher types a sentence, chooses Build or Spawn, and builds beside a conversation at
-  `/build?session=<id>`; `/build` and `/build?draft=<id>` are still the manual builder, which also
-  offers the conversation from its Assistant tab. (2026-09-13, 2026-09-28)
+- A researcher types a sentence (on an empty home, or the describe bar above the work once there is
+  some), chooses Build or Spawn, and builds beside a conversation at `/build?session=<id>`;
+  `/build` and `/build?draft=<id>` are the manual builder. (2026-09-13, 2026-09-28, 2026-10-03)
 - **The authoring protocol** is `docs/design/authoring-protocol.md`: the engine decides what is
   missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
   to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
@@ -57,6 +58,21 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **Open:** `MD0225` does not cover step selections (the keep route closes it for the product);
   whether `comeni-core` needs a version bump for `DraftProvenance`, MI0207 and door 1's payload.
   (2026-09-13, 2026-09-28)
+
+## Samples (protection level 0)
+
+- **A gap can be answered with a sample**, one file or a pair: the browser sends each file's first
+  4 MB, the server holds it in memory, measures it in a child process with no secrets and hard
+  limits, and keeps facts, never bytes. Upload is offered only where a trusted format reads one of
+  the person's inputs; the person's word always stands over a sample's. (2026-10-03)
+- **Inspectors are composed pieces** in the registry (`registry/inspectors/`: codecs, formats, measures,
+  code beside each), run only from trusted layers (`MENDEL_TRUSTED_LAYERS`), one pass over the
+  head; below a threshold a measure says *undetermined* and why. FASTQ measures read length,
+  pairing and quality encoding (0.21 s for a 4 MB head, budget 1 s). (2026-10-03)
+- **A measured fact is `MEASURED`**, naming its pieces and evidence (*measured · fastq 1.0.0 ·
+  from 1 sample*). Adding a piece: `registry/inspectors/README.md`. (2026-10-03)
+- **The registry is one folder per tool**, the path is the id; a request's registry time fell
+  from 10.69 to 1.55 ms. **Open:** registry branch `inspectors` unmerged (#216). (2026-10-03)
 
 ## Settings (Settings → behind the gear)
 
@@ -111,12 +127,9 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - The canvas flows **left to right** (`dag-core` serves both); **absence is absence**: a region
   with nothing to say is not drawn. (2026-08-29, 2026-08-30)
-- Motion: five movements, one curve; numbers never tween; `grow-x` is first paint only.
-  (2026-08-29)
+- Motion: five movements, one curve; numbers never tween. (2026-08-29)
 - The forge's durable state lives in `mendel-api`, namespaced `forge_*`. (2026-09-04)
-- `Comeni-Code` is a separate repository; nothing here grows toward it. (2026-09-01)
-- What a model server does (keep-alive, slots) is the deployment's business, not the app's.
-  (2026-09-29)
+- A model server's keep-alive and slots are the deployment's business. (2026-09-29)
 
 ## Known traps
 
@@ -130,21 +143,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   ~70 s cold load; a hidden Chrome tab does not poll. (2026-09-29, 2026-09-30)
 - **A `grep` at the end of an `&&` chain hides a failing test.** Run the suite alone, then commit.
   (2026-10-01)
-- **Ollama's default context is 2048 tokens and truncates silently**; the goal prompt is ~4,300.
-  Set `OLLAMA_CONTEXT_LENGTH` in `.env`. (2026-09-28)
-- **Database tests need their own Postgres**: the Makefile `-include`s `.env`, which beats the
-  environment, and the authoring fixtures truncate. Use a throwaway on `127.0.0.1:5442`, with the URL
-  on make's command line. (2026-09-13)
 - **Five tests fail on this branch's base:** `test_forge_jobs.py` ×4 (`MF0001`) and
   `test_full_cycle.py::test_the_loop_closes` (`MF0008`). (2026-09-13)
-- **`npx tsc -b` is the typecheck**, not `tsc --noEmit`. (2026-08-25, 2026-09-13)
-- **Layout bugs are invisible to jsdom:** `flex-1` with no flex parent, Tailwind classes built by
-  concatenation, `position: fixed` inside a `transform`. Screenshot the page. (2026-08-25)
-- **An unmapped Tailwind colour generates no CSS**; `tokens.test.ts` refuses one. Frontend comments
-  cite issues as *issue 110*, since `#110` reads as a hex colour. (2026-09-13, 2026-09-28)
 - **Headless Chrome** freezes `settle` at its first frame (`--force-prefers-reduced-motion`), and
   stands in when the extension is not connected (throwaway `--user-data-dir`). (2026-09-13, 2026-10-01)
-- **Never `git submodule deinit` inside a worktree:** the config is shared, and it de-initialises
-  the main checkout's `registry`. (2026-09-28)
-- **Defence in depth is usually one mechanism and one decoration:** delete each half and watch
-  what fails. (2026-09-04)

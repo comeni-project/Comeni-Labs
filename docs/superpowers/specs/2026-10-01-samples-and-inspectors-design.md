@@ -265,14 +265,17 @@ file's bytes and name never enter the goal or `pipeline.yml`.
   opening a picker for **one file or one pair**. **An input gap's** *I have it, and will upload it*
   opens the same picker. One upload closes every gap it answers, each marked measured.
 - **While it is inspected,** the card shows the detailed diagram's steps as they happen
-  (*reading the head… confirming it's FASTQ… measuring*), never a silent spinner.
+  (*reading the head… confirming it's FASTQ… measuring*), never a silent spinner. *Built as
+  14.7.6.4–6: an inspection takes well under a second, so the steps are returned with the
+  report rather than streamed, and the card says what it is doing while it waits.*
 - **Unreadable** shows its reason and offers the gap's other answers again.
 - **The route:** `POST /api/pipeline/authoring/{id}/samples`, multipart. It asks the protection
-  level first and refuses above level 0 with a declared code. It keeps **only the first 4 MB**
-  of each file (a longer file is cut to its head, never refused for size) under
-  `workspace/samples/<session>/<sample>/`, **deleted with the session**; nothing is kept beyond
-  it. It runs the inspection, returns the report, and the session records the facts it admitted
-  (`FACT_ADDED`, as a click does).
+  level first and refuses above level 0 with a declared code. It reads **only the first 4 MB**
+  of each file (a longer file is cut to its head, never refused for size). *Built as 14.7.6.4:
+  the head is held in memory and piped to the inspection process, and **no bytes are stored**,
+  not even under the session; the browser sends only the head (14.7.6.6).* It runs the
+  inspection, returns the report, and the session records the facts it admitted (`FACT_ADDED`,
+  as a click does).
 - **The protection level setting:** *Level 0* is built and stops showing *Not built*; open,
   guarded and sealed stay designed (#71).
 - **The goal card** shows *measured · fastq 1.0.0 · from 1 sample* where *you said* and *read by

@@ -180,15 +180,15 @@ git add registry packages/comeni-inspect/README.md && git commit -m "docs(inspec
 
 **Files:** none planned; each finding is an issue, and a mechanical fix gets its own test-first commit.
 
-- [ ] **Step 1: A real pair**
+- [x] **Step 1: A real pair**
 
 Fetch one real paired-end RNA-seq pair's heads: the nf-core test dataset the RNA-seq pipeline uses (`https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357070_1.fastq.gz` and `_2`). Keep them in the scratchpad, never in the repository. If the URL has moved, find the current path in `nf-core/test-datasets`' `rnaseq` branch README.
 
-- [ ] **Step 2: The stack and a local model**
+- [x] **Step 2: The stack and a local model**
 
 `make dev`; `make ai-up OLLAMA_GPU=rocm`; the want on `gemma3:12b` (decided for #187). Check the settings menu shows *Protection level: Level 0* as built.
 
-- [ ] **Step 3: Walk it**
+- [x] **Step 3: Walk it**
 
 In the browser at `http://localhost:5173`: *Paired-end RNA-seq to gene counts*. At each gap:
 - **reads**: *I have it, and I'll upload a sample* → the pair;
@@ -202,21 +202,21 @@ Also walk the failure states once each: a FASTA named `.fastq`, a `.bam`, three 
 
 Write every finding down as it happens; **do not stop to fix**.
 
-- [ ] **Step 4: An issue for every finding**
+- [x] **Step 4: An issue for every finding**
 
 For each, open an issue with the *Walk: mechanical* or *Walk: protocol* template (lead with what happened and what was expected; then the evidence), as a sub-issue of #134. Mechanical: fix test-first, close citing the commit. Protocol: STOP and bring it to the operator as a choice with its costs.
 
-- [ ] **Step 5: Re-walk** once every issue is closed or decided. The round ends when scenario 1 passes by uploading.
+- [x] **Step 5: Re-walk** once every issue is closed or decided. The round ends when scenario 1 passes by uploading.
 
 ---
 
 ### Task 4: Close the step
 
-- [ ] **Step 1: The journal entry**
+- [x] **Step 1: The journal entry**
 
 `docs/notes/journal/<date>-samples.md` in the README's order: where things stand (with the commands that verify them: the guards, the conformance goldens, the speed budget's number, the per-request registry time before and after), what changed (commit hashes for every part, and the registry branch's commits), decisions and why (one registry for tools, profilers and inspectors; composed pieces; one pass; undetermined; a separate process; bytes not stored; `MEASURED` not `INSPECTED`; steps returned not streamed), what is next (14.7.7 the characteriser, which fills the *no inspector* branch), open questions (the registry branch merged to `main`?).
 
-- [ ] **Step 2: Compact**
+- [x] **Step 2: Compact**
 
 By `docs/notes/compaction.md`: fold the step into `now.md` (14.7.6 done; 14.7.7 next), move the entry to `archive/`, keep `now.md` ≤ 150 lines (`make doc-sizes`).
 
