@@ -215,3 +215,14 @@ def test_the_log_says_what_a_sample_measured_not_the_options_label(clean):
     authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
     history = {d["id"]: d for d in authoring.read(sid)["history"]}
     assert history[pid]["chosen_option"] == "upload" and history[pid]["answer"] == "150"
+
+
+def test_an_input_answered_by_upload_logs_i_have_it(clean):
+    """Issue 232: the log read *I have it, and I'll upload a sample* beside *measured from your
+    sample*; the long label squeezed out the question and overflowed the conversation."""
+    sid = _gathering(["counts.matrix"])
+    pid = authoring.pending_id(sid)
+    assert _payload(pid)["subject"] == "fastq.reads"
+    authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
+    history = {d["id"]: d for d in authoring.read(sid)["history"]}
+    assert history[pid]["chosen_option"] == "upload" and history[pid]["answer"] == "I have it"

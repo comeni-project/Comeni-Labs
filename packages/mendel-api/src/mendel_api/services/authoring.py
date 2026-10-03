@@ -1382,6 +1382,10 @@ def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | 
     `None` for anything that is not a gap (issue 169)."""
     if proposal.kind != GAP or proposal.chosen_option is None:
         return None
+    if proposal.chosen_option == UPLOAD and proposal.payload.get("kind") == FactKind.INPUT.value:
+        # An input a sample answered: the person has it, and the sample showed what it is. The
+        # option's label would crowd the question out of its line (issue 232).
+        return _INPUT_OPTIONS["have_it"]
     if proposal.chosen_option in ("value", UPLOAD):
         # A sample's answer is what it measured, never the label of the option that opened it.
         subject = proposal.payload.get("subject")
