@@ -208,12 +208,14 @@ def test_the_loop_closes(world, catalogued):
             update={"holes": [*scaffold.holes, Hole(subject=field, closed=False)]}
         ).fill(field, value, ValueSource.DERIVED, by="nf-core", why="read from meta.yml")
 
-    Workspace(root=workspace).save(Draft(name=row.id, scaffold=scaffold, module=None))
     # **The bundle too, because the review page reads it and the draft is not it.** The draft
     # is the contract being filled; the bundle is what upstream said — the evidence a citation
     # points at and the holes a curator answers. Saving only the draft is the shape of defect
-    # this walk exists to find: every unit test passes and the review page 404s.
+    # this walk exists to find: every unit test passes and the review page 404s. The bundle
+    # first, because it is immutable and refuses a directory that already exists (MF0010); the
+    # draft beside it, where `read_draft` looks — `save` is the CLI's layout (issue 219).
     _write_bundle(Workspace(root=workspace), row.id, catalogued)
+    Workspace(root=workspace).write_draft(Draft(name=row.id, scaffold=scaffold, module=None))
 
     forge_state.move(
         row.id,
@@ -227,7 +229,7 @@ def test_the_loop_closes(world, catalogued):
     # 3. The AI lane answers what is left, bounded to the candidate sets.
     forge_state.claim(row.id, row_version=2, worker="worker:walk")
     answered = _answer_every_hole(scaffold, by="a-model")
-    Workspace(root=workspace).save(Draft(name=row.id, scaffold=answered, module=None))
+    Workspace(root=workspace).write_draft(Draft(name=row.id, scaffold=answered, module=None))
 
     revision = forge_state.add_revision(row.id, state=RevisionState.VALIDATED, manifest={})
     forge_state.move(
@@ -399,7 +401,7 @@ def test_a_candidate_can_become_approvable_through_the_front_door(world, catalog
             update={"holes": [*scaffold.holes, Hole(subject=field, closed=False)]}
         ).fill(field, value, ValueSource.DERIVED, by="nf-core", why="read from meta.yml")
     answered = _answer_every_hole(scaffold, by="a-model")
-    Workspace(root=workspace).save(Draft(name=row.id, scaffold=answered, module=None))
+    Workspace(root=workspace).write_draft(Draft(name=row.id, scaffold=answered, module=None))
 
     verdicts = verify.verify(answered, registry_root=registry, source_root=registry, module=None)
     assert verdicts, "the ladder produced no verdicts at all"

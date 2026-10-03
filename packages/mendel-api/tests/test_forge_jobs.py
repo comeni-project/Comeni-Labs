@@ -210,13 +210,16 @@ def _snapshot(*refs: str):
 
 @pytest.fixture
 def adapter(monkeypatch):
-    """Install a fake adapter under the name `fake`, through the same table the job reads."""
+    """Install a fake adapter under the name `fake`, in `sources.adapters()`: the one table both
+    the job's check and `sources.open_adapter` read (issue 219: patching `forge_jobs._adapters`
+    left `open_adapter` refusing `fake`, MF0001)."""
+    from mendel_forge import sources
 
     def install(**kwargs):
-        def build(client):
+        def build(client, *, credentials=None):
             return _Adapter(client, **kwargs)
 
-        monkeypatch.setattr(forge_jobs, "_adapters", lambda: {"fake": build})
+        monkeypatch.setattr(sources, "adapters", lambda: {"fake": build})
 
     return install
 
