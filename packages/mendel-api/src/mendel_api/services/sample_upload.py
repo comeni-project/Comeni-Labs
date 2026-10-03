@@ -8,13 +8,19 @@ nothing about a sample is kept), and it buffers a 2 GB file to keep 4 MB of it. 
 streams the body through `python-multipart` and holds at most `head` bytes per file.
 """
 
+import asyncio
 from dataclasses import dataclass, field
 
 from python_multipart.multipart import MultipartParser, parse_options_header
-from starlette.requests import Request
+from starlette.requests import ClientDisconnect, Request
 
+READ_TIMEOUT_S = 30.0
+"""The longest the body may go without a byte arriving before the upload is given up on: a body
+that never finishes held its request open for ever (issue 226)."""
 FIELD_CAP = 256
 """A form field (the proposal id) is an id, never prose: more than this is dropped."""
+FILES = "files"
+"""The one field a file is read from."""
 FIELDS = frozenset({"proposal_id"})
 """The only form field this route reads. **Any other is refused**, not held: a body of 100,000
 distinct field names held 200 MB before this (review of #134)."""
@@ -62,10 +68,16 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
         part["name"] = disposition.get(b"name", b"").decode(errors="replace")
         filename = disposition.get(b"filename")
         part["filename"] = None if filename is None else filename.decode(errors="replace")
-        if part["filename"] is not None:
+        if part["filename"] == "":
+            # An empty file input in a browser form: no file was chosen (issue 226).
+            part["filename"], part["skip"], part["cap"] = None, True, 0
+        elif part["filename"] is not None:
+            if part["name"] != FILES:
+                raise BadUpload(f"a file was sent under a field this route does not read: "
+                                f"{part['name']!r}; send it as {FILES!r}")
             heads.count += 1
             part["cap"] = head if heads.count <= keep else 0
-        elif part["name"] not in FIELDS:
+        elif not part.get("skip") and part["name"] not in FIELDS:
             raise BadUpload(f"the form has a field this route does not read: {part['name']!r}")
 
     def on_part_data(data: bytes, start: int, end: int) -> None:
@@ -75,6 +87,8 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
 
     def on_part_end() -> None:
         part["ended"] = True
+        if part.get("skip"):
+            return
         if part.get("filename") is not None:
             if heads.count <= keep:
                 heads.files.append((part["filename"] or "sample", bytes(part["data"])))
@@ -93,7 +107,16 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
             "on_part_end": on_part_end,
         },
     )
-    async for chunk in request.stream():
+    chunks = request.stream().__aiter__()
+    while True:
+        try:
+            chunk = await asyncio.wait_for(anext(chunks), READ_TIMEOUT_S)
+        except StopAsyncIteration:
+            break
+        except TimeoutError:
+            raise BadUpload("the upload stopped arriving; send it again") from None
+        except ClientDisconnect:
+            raise BadUpload("the upload stopped before it finished; send it again") from None
         parser.write(chunk)
     parser.finalize()
     # **A body cut before its closing boundary** ends with a part that never ended: its bytes

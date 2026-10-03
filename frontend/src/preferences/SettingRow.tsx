@@ -121,46 +121,46 @@ function Control({
       const designed = (setting.options ?? []).filter((option) => option.designed);
       return (
         <div className="flex flex-col gap-[4px] max-w-full">
-        <div
-          role="radiogroup"
-          aria-label={setting.label}
-          // Stacked rows on a phone, one segmented line on a desk (the design's phone artboard).
-          className={`flex flex-col md:inline-flex md:flex-row md:flex-wrap max-w-full
-                      rounded-[3px] border border-line-2 ${disabled ? "border-dashed" : ""}`}
-        >
-          {(setting.options ?? []).map((option) => {
-            const on = value === option.value;
-            const off = disabled || Boolean(option.designed);
-            return (
-              <label
-                key={option.value}
-                className={`px-[12px] py-[8px] min-h-[44px] md:min-h-0 flex items-center
-                            text-[12px] border-b last:border-b-0 md:border-b-0 md:border-r
-                            md:last:border-r-0 border-line-2
-                            ${off ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
-                            ${on ? "bg-hover text-ink" : option.designed ? "text-ink-4" : "text-ink-3"}
-                            ${!off && !on ? "hover:text-ink" : ""}
-                            has-[:focus-visible]:shadow-[var(--ring)]`}
-              >
-                <input
-                  type="radio"
-                  className="sr-only"
-                  name={setting.key}
-                  value={option.value}
-                  checked={on}
-                  disabled={off}
-                  onChange={() => onWrite(option.value)}
-                />
-                {option.label}
-              </label>
-            );
-          })}
-        </div>
-        {designed.map((option) => (
-          <p key={option.value} className="text-[11px] text-ink-4">
-            {option.label}: {option.designed}
-          </p>
-        ))}
+          <div
+            role="radiogroup"
+            aria-label={setting.label}
+            // Stacked rows on a phone, one segmented line on a desk (the design's phone artboard).
+            className={`flex flex-col md:inline-flex md:flex-row md:flex-wrap max-w-full
+                        rounded-[3px] border border-line-2 ${disabled ? "border-dashed" : ""}`}
+          >
+            {(setting.options ?? []).map((option) => {
+              const on = value === option.value;
+              const off = disabled || Boolean(option.designed);
+              return (
+                <label
+                  key={option.value}
+                  className={`px-[12px] py-[8px] min-h-[44px] md:min-h-0 flex items-center
+                              text-[12px] border-b last:border-b-0 md:border-b-0 md:border-r
+                              md:last:border-r-0 border-line-2
+                              ${off ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
+                              ${on ? "bg-hover text-ink" : option.designed ? "text-ink-4" : "text-ink-3"}
+                              ${!off && !on ? "hover:text-ink" : ""}
+                              has-[:focus-visible]:shadow-[var(--ring)]`}
+                >
+                  <input
+                    type="radio"
+                    className="sr-only"
+                    name={setting.key}
+                    value={option.value}
+                    checked={on}
+                    disabled={off}
+                    onChange={() => onWrite(option.value)}
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
+          {designed.map((option) => (
+            <p key={option.value} className="text-[11px] text-ink-4">
+              {option.label}: {option.designed}
+            </p>
+          ))}
         </div>
       );
     case "toggle":

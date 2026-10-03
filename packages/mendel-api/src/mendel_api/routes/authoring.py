@@ -677,14 +677,19 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     if not 1 <= heads.count <= 2:
         raise ValueError(coded("MI0214", f"{heads.count} files: upload one file, or a pair"))
     proposal_id = heads.fields.get("proposal_id")
-    if not proposal_id or _kind_in(session_id, proposal_id) != authoring.GAP:
+    # **Every database call off the event loop** (issue 226): a slow answer here would hold
+    # every other request.
+    kind = await run_in_threadpool(_kind_in, session_id, proposal_id) if proposal_id else None
+    if kind != authoring.GAP:
         raise ValueError(coded("MI0205", "a sample answers a question about your data"))
+    await run_in_threadpool(authoring.check_sample_question, proposal_id)
     inspection = await run_in_threadpool(inspect.inspect_sample, heads.files, registry.stack())
-    answer = authoring.answer_with_sample(
-        proposal_id, inspection, by=identity.default_author()
+    answer = await run_in_threadpool(
+        authoring.answer_with_sample, proposal_id, inspection, by=identity.default_author()
     )
     if answer.recorded:
         await authoring_jobs.enqueue_phrasing(session_id)
+    view = await run_in_threadpool(_view, session_id)
     return SampleInspected(
         outcome=inspection.outcome,
         type_id=inspection.type_id,
@@ -694,5 +699,5 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
         recorded=answer.recorded,
         kept=answer.kept,
         disagreed=answer.disagreed,
-        session=_view(session_id),
+        session=view,
     )

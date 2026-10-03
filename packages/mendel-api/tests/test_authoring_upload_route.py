@@ -147,3 +147,72 @@ def test_a_body_cut_before_its_end_is_refused(client, clean):  # noqa: F811
     )
     got = _raw(client, sid, body)  # no closing boundary: the file part never ends
     assert got.status_code == 422 and "MI0214" in got.text
+
+
+@needs_db
+def test_an_empty_file_input_is_not_a_file(client, clean, monkeypatch):  # noqa: F811
+    """Issue 226: a browser form's empty second file input (`filename=""`, no bytes) counted
+    as a file named *sample*."""
+    seen = []
+    monkeypatch.setattr(
+        inspect, "inspect_sample", lambda files, stack: seen.append(files) or _nothing()
+    )
+    sid, pid = _at("read_length")
+    body = _multipart([("proposal_id", None, pid.encode()), ("files", "a.fq", b"@r\nA\n+\nI\n"),
+                       ("files", "", b"")])
+    got = _raw(client, sid, body)
+    assert got.status_code == 200, got.text
+    assert [name for name, _ in seen[0]] == ["a.fq"]
+
+
+@needs_db
+def test_a_file_under_another_field_name_is_refused(client, clean):  # noqa: F811
+    sid, pid = _at("read_length")
+    body = _multipart([("proposal_id", None, pid.encode()), ("other", "a.fq", b"@r\nA\n+\nI\n")])
+    got = _raw(client, sid, body)
+    assert got.status_code == 422 and "MI0214" in got.text and "other" in got.text
+
+
+@needs_db
+def test_a_refused_second_upload_is_never_inspected(client, clean, monkeypatch):  # noqa: F811
+    """Issue 226 (from 14.7.6.5's review): the gap was asked about only after inspecting."""
+    sid, pid = _at("paired")
+    files = [("files", (p.name, p.read_bytes())) for p in sorted(PAIR.glob("*.gz"))]
+    assert _post(client, sid, pid, files).status_code == 200
+    monkeypatch.setattr(
+        inspect, "inspect_sample", lambda *a: pytest.fail("a settled gap's sample was inspected")
+    )
+    again = _post(client, sid, pid, files)
+    assert again.status_code == 422 and "MI0203" in again.text
+
+
+def _nothing():
+    return inspect.Inspection(outcome="no_inspector", reason="nothing reads this type yet",
+                              steps=[])
+
+
+@needs_db
+def test_the_upload_does_its_database_work_off_the_event_loop(client, clean, monkeypatch):  # noqa: F811
+    """Issue 226: `answer_with_sample` and the session view ran on the event loop, holding every
+    other request while the database answered."""
+    import asyncio
+
+    on_loop = []
+
+    def where(real):
+        def wrapped(*args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                on_loop.append(real.__name__)
+            except RuntimeError:
+                pass
+            return real(*args, **kwargs)
+
+        return wrapped
+
+    monkeypatch.setattr(authoring, "answer_with_sample", where(authoring.answer_with_sample))
+    monkeypatch.setattr(authoring, "read", where(authoring.read))
+    sid, pid = _at("paired")
+    files = [("files", (p.name, p.read_bytes())) for p in sorted(PAIR.glob("*.gz"))]
+    assert _post(client, sid, pid, files).status_code == 200
+    assert on_loop == []

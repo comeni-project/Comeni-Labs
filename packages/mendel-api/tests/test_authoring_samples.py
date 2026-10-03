@@ -226,3 +226,54 @@ def test_an_input_answered_by_upload_logs_i_have_it(clean):
     authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
     history = {d["id"]: d for d in authoring.read(sid)["history"]}
     assert history[pid]["chosen_option"] == "upload" and history[pid]["answer"] == "I have it"
+
+
+def _version(sid: str) -> int:
+    with session_scope() as db:
+        return db.get(PipelineAuthoringSession, sid).row_version
+
+
+def test_an_upload_that_records_nothing_leaves_the_session_where_it_was(clean):
+    """Issue 226: an all-undetermined sample still bumped `row_version`, so a click the person
+    had already made on the card failed with MI0201."""
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "read_length")
+    before = _version(sid)
+    nothing = inspect.Inspection(outcome="unreadable", reason="does not start like fastq",
+                                 steps=[])
+    assert authoring.answer_with_sample(pid, nothing, by="ana").recorded == []
+    assert _version(sid) == before
+
+
+def test_two_uploads_at_once_are_refused_like_a_duplicate_click(clean, monkeypatch):
+    """Issue 226: the second of two truly concurrent uploads got MI0201 from the version swap;
+    it is a second answer to a settled question, MI0203."""
+    import contextlib
+    import threading
+
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "read_length")
+    real = st.settle
+    meet = threading.Barrier(2, timeout=1.0)
+
+    def settle_together(**kwargs):
+        # Both read the proposal open, unless one waits on the other's lock.
+        with contextlib.suppress(threading.BrokenBarrierError):
+            meet.wait()
+        return real(**kwargs)
+
+    monkeypatch.setattr(authoring.st, "settle", settle_together)
+    errors: list[str] = []
+
+    def upload():
+        try:
+            authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
+        except ValueError as refused:
+            errors.append(str(refused))
+
+    threads = [threading.Thread(target=upload) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+    assert len(errors) == 1 and "MI0203" in errors[0], errors

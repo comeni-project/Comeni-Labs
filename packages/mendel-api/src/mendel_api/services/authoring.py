@@ -1977,6 +1977,32 @@ def _counts(evidence: dict) -> dict[str, int | float]:
     }
 
 
+def _sample_refusal(proposal) -> str | None:
+    """Why this proposal cannot take a sample now, or `None` (MI0205, then MI0203)."""
+    if proposal.kind != GAP or UPLOAD not in proposal.payload["options"]:
+        return coded("MI0205", "that question does not take a sample")
+    return st.settle(
+        current=ProposalState(proposal.state),
+        proposal_revision=proposal.draft_revision,
+        draft_revision=proposal.draft_revision,
+        expected_revision=proposal.draft_revision,
+        decision=ProposalState.ACCEPTED,
+    ).refusal
+
+
+def check_sample_question(proposal_id: str) -> None:
+    """Refuse a sample before it is inspected: a settled gap, or one that takes no sample, is
+    told so without its bytes being read (issue 226). `answer_with_sample` asks again, under
+    the row's lock, since a second tab may settle it in between."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        if proposal is None:
+            raise KeyError(proposal_id)
+        refusal = _sample_refusal(proposal)
+    if refusal is not None:
+        raise ValueError(refusal)
+
+
 def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer:
     """What one inspected sample settles, recorded the way a click records an answer.
 
@@ -1988,20 +2014,15 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
     """
     stack = registry.stack()
     with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        # **Locked**: two tabs uploading at once take turns here, so the second reads the
+        # proposal settled and is refused as a duplicate click (MI0203), not by the version
+        # swap below (MI0201, issue 226).
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
         if proposal is None:
             raise KeyError(proposal_id)
-        if proposal.kind != GAP or UPLOAD not in proposal.payload["options"]:
-            raise ValueError(coded("MI0205", "that question does not take a sample"))
-        settled = st.settle(
-            current=ProposalState(proposal.state),
-            proposal_revision=proposal.draft_revision,
-            draft_revision=proposal.draft_revision,
-            expected_revision=proposal.draft_revision,
-            decision=ProposalState.ACCEPTED,
-        )
-        if settled.refusal is not None:
-            raise ValueError(settled.refusal)
+        refusal = _sample_refusal(proposal)
+        if refusal is not None:
+            raise ValueError(refusal)
 
         session_id = proposal.session_id
         subject = proposal.payload["subject"]
@@ -2063,7 +2084,10 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
             proposal.chosen_option = UPLOAD
             proposal.settled_at = _now()
             target = st.advance(target, st.Event.FACT_ADDED)
-        _swap(db, session_id, row.row_version, phase=target, facts=facts)
+        # A sample that changed nothing leaves the session's version alone, so a click the
+        # person made meanwhile is not refused as stale (issue 226).
+        if answered or facts != (row.facts or []):
+            _swap(db, session_id, row.row_version, phase=target, facts=facts)
 
     if answered:
         offer_next_gap(session_id)

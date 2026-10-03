@@ -64,15 +64,17 @@ def index(stack) -> list[Measurer]:
 
 
 def usable_pieces(stack) -> InspectionCatalogue:
-    """The pieces this server may run: those from trusted layers only."""
+    """The pieces this server may run: from trusted layers, and formats that run on a server."""
     pieces = stack.inspection
 
     def keep(kind: str, entries: dict) -> dict:
         return {key: piece for key, piece in entries.items() if _trusted(pieces, f"{kind}:{key}")}
 
+    # Only a format that runs on this server runs here; `lab` and `browser` are elsewhere.
+    formats = {k: f for k, f in keep("format", pieces.formats).items() if f.runs == "server"}
     return InspectionCatalogue(
         codecs=keep("codec", pieces.codecs),
-        formats=keep("format", pieces.formats),
+        formats=formats,
         measures=keep("measure", pieces.measures),
         origin=pieces.origin,
     )

@@ -1532,7 +1532,7 @@ requires-dist = [
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic-settings", specifier = ">=2.4" },
-    { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "python-multipart", specifier = ">=0.0.27" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]

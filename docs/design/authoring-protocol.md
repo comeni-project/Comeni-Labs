@@ -36,7 +36,8 @@ protection profile. The facts' labels in the diagram (*you said*, *measured*, *r
    `PERSON-SAID` (an answer). The goal card shows all three.
 4. **No data type is refused for lacking an inspector.** It gets the characteriser, and a weaker
    label. Which types have an inspector is declared, so the lost flexibility is visible; the
-   vocabulary lists, for every measurement, what measures it and where that runs.
+   vocabulary endpoint (`GET /api/pipeline/authoring/vocabulary`, its `measurers`) lists, for
+   every measurement, what measures it and where that runs.
 5. **Nothing is guessed. A fact comes from the person or from a file** (decided 2026-09-28).
    *Don't know* is always answered by asking for a file, never by a model proposing a likely
    value. There is no setting for this in the MVP.
@@ -47,6 +48,10 @@ protection profile. The facts' labels in the diagram (*you said*, *measured*, *r
 7. **A missing input is different, because nothing can be left open.** No genome means nothing
    aligns. *I have it but won't upload it* records it as `PERSON-SAID`; *I don't have one* is an
    honest stop naming the input, never a pipeline built around the gap.
+8. **A sample says what it is as well as what it measures.** A sample uploaded on a measurement's
+   gap is a file of some type; once a format confirms it, that type is recorded as an input the
+   person has (`MEASURED`), unless they already said so, so the reads question is not asked
+   after the person has shown the reads (decided 2026-10-03, issue 226).
 
 ## The build, as a consultant (stage ④)
 
@@ -106,8 +111,7 @@ runner, never a redesign. A protection level can refuse anything that runs on th
 | *Later:* an inspector in **the browser** | the head | the person's browser | only the facts | designed for `guarded` |
 
 **At level 0 a sample's head reaches this server.** That is the loosening recorded below; the
-other levels are written so that tightening is filling in a row. The vocabulary lists, for every
-measurement, what measures it and where that runs.
+other levels are written so that tightening is filling in a row.
 
 ## The protocol is code
 
@@ -168,7 +172,8 @@ tightening is filling in a row, not rewiring.
 
 ## Open questions
 
-- Where do uploaded samples live, how big may one be, and when are they deleted?
+- When several samples are allowed (#218), are they inspected one by one or as a set? One sample
+  is built: its first 4 MB per file, held in memory, never stored.
 - Does a per-sample fact (`read_length` differs between two files) become a per-sample measurement
   or a question?
 - #113: should *New pipeline* open this loop rather than the manual canvas?

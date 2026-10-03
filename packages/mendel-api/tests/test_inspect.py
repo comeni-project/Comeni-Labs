@@ -127,3 +127,82 @@ def test_the_child_gets_no_secrets_and_no_preexec(monkeypatch):
     assert "preexec_fn" not in seen
     assert "WIENER_API_TOKEN" not in seen["env"] and set(seen["env"]) <= {"PATH", "LANG", "LC_ALL"}
     assert "--memory-bytes" in seen["command"]
+
+
+# ── issue 226: the codec, where a piece runs, and where its code is ──────────────────────
+
+
+def _pieces(tmp_path, codecs: dict[str, list[str]], runs: str = "server"):
+    from comeni_core.declared.inspection import InspectionCatalogue
+
+    layer = tmp_path / "layer"
+    for cid, extensions in codecs.items():
+        folder = layer / "inspectors" / "codecs" / cid
+        (folder / "piece").mkdir(parents=True)
+        (folder / "codec.yml").write_text(
+            f"declares: codec\nid: {cid}\nversion: 1.0.0\nextensions: {extensions}\n"
+            f"entry: piece/{cid}.py\n"
+        )
+    folder = layer / "inspectors" / "formats" / "tar"
+    (folder / "piece").mkdir(parents=True)
+    (folder / "format.yml").write_text(
+        "declares: format\nid: tar\nversion: 1.0.0\nreads: [fastq.reads]\nextensions: [.tar, .fq]\n"
+        f"record: sequence\nruns: {runs}\nentry: piece/tar.py\n"
+    )
+    return InspectionCatalogue.load(layer), layer
+
+
+def test_the_longest_codec_extension_wins_across_codecs(tmp_path):
+    pieces, _ = _pieces(tmp_path, {"gzip": [".gz"], "targz": [".tar.gz"]})
+    codec, _ = inspect.match(["x.fq.tar.gz"], pieces)
+    assert codec is not None and codec.id == "targz"
+
+
+def test_a_format_that_runs_elsewhere_is_not_usable_here(tmp_path, monkeypatch):
+    from mendel_api.services import measurers
+
+    pieces, _ = _pieces(tmp_path, {}, runs="browser")
+    origin = {key: 0 for key in pieces.origin}
+    monkeypatch.setattr(measurers.settings, "trusted_layers", {0})
+
+    class Stack:
+        inspection = pieces.model_copy(update={"origin": origin})
+
+    assert measurers.usable_pieces(Stack()).formats == {}
+
+
+def test_a_pieces_code_is_found_in_its_own_layer(tmp_path):
+    """Not under `settings.registry_root`, which is wrong the day a second layer is trusted."""
+    pieces, layer = _pieces(tmp_path, {})
+    ref = inspect._ref("formats", pieces.formats["tar"])
+    assert ref.path == str((layer / "inspectors/formats/tar/piece/tar.py").resolve())
+
+
+def test_inspections_run_at_most_a_few_at_once(monkeypatch):
+    """Issue 226: each upload started a child of up to 512 MB, with no bound on how many."""
+    import threading
+    import time
+
+    running, most = [0], [0]
+    lock = threading.Lock()
+
+    def slow(*args, **kwargs):
+        with lock:
+            running[0] += 1
+            most[0] = max(most[0], running[0])
+        time.sleep(0.2)
+        with lock:
+            running[0] -= 1
+        raise OSError("not really started")
+
+    monkeypatch.setattr(inspect.subprocess, "run", slow)
+    request = inspect.wire.Request.model_validate(
+        {"format": {"id": "f", "version": "1.0.0", "path": "/x"}, "codec": None, "measures": [],
+         "files": [], "cap_bytes": 1}
+    )
+    threads = [threading.Thread(target=inspect.launch, args=(request, [])) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+    assert 1 <= most[0] <= inspect.AT_ONCE < 8

@@ -14,6 +14,7 @@ import io
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Literal
 
@@ -30,6 +31,10 @@ CAP_BYTES = 16 * 2**20
 """What a file may unpack to; reaching it ends the head (issue 221)."""
 TIMEOUT_S = 5.0
 MEMORY_BYTES = 512 * 2**20
+AT_ONCE = 2
+"""How many inspections run at once; the rest wait their turn (issue 226). Each is a child of up
+to `MEMORY_BYTES`, and an inspection takes well under a second, so waiting is short."""
+_TURNS = threading.BoundedSemaphore(AT_ONCE)
 
 
 class InspectedFact(BaseModel):
@@ -77,15 +82,16 @@ def launch(request: wire.Request, payloads: list[bytes]) -> wire.Report:
     buffer = io.BytesIO()
     wire.write_request(buffer, request, payloads)
     try:
-        done = subprocess.run(
-            _command(),
-            input=buffer.getvalue(),
-            capture_output=True,
-            timeout=TIMEOUT_S,
-            env=_environment(),
-            cwd="/",
-            check=False,
-        )
+        with _TURNS:
+            done = subprocess.run(
+                _command(),
+                input=buffer.getvalue(),
+                capture_output=True,
+                timeout=TIMEOUT_S,
+                env=_environment(),
+                cwd="/",
+                check=False,
+            )
     except subprocess.TimeoutExpired:
         # `run` kills the child on a timeout and waits for it before raising, so nothing is
         # left behind (review focus 5, pinned by a test that looks for it).
@@ -113,8 +119,11 @@ def match(
     """The codec and the candidate formats, by extension. **Every file must agree**, else none."""
     answers = set()
     for name in names:
-        codec = next(
-            (c for c in pieces.codecs.values() if _ends(name, c.extensions)), None
+        # The longest extension across every codec, not the first codec that matches:
+        # `.tar.gz` beats `.gz` (issue 226).
+        matched = [c for c in pieces.codecs.values() if _ends(name, c.extensions)]
+        codec = max(
+            matched, key=lambda c: (len(_ends(name, c.extensions) or ""), c.id), default=None
         )
         rest = name[: len(name) - len(_ends(name, codec.extensions))] if codec else name
         formats = tuple(
@@ -133,7 +142,13 @@ def match(
 
 
 def _ref(kind: str, piece) -> wire.PieceRef:
-    folder = Path(settings.registry_root).resolve() / "inspectors" / kind / piece.id
+    """The piece's code in the layer it was loaded from (issue 226); a piece built by hand,
+    with no folder, is looked for under the registry root as before."""
+    folder = (
+        piece.folder.resolve()
+        if piece.folder is not None
+        else Path(settings.registry_root).resolve() / "inspectors" / kind / piece.id
+    )
     return wire.PieceRef(
         id=piece.id,
         version=piece.version,

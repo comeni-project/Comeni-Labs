@@ -46,6 +46,11 @@ class _Piece(BaseModel):
     _folder: Path | None = PrivateAttr(default=None)
     """The folder its declaration was read from: set by the loader, never declared."""
 
+    @property
+    def folder(self) -> Path | None:
+        """Where the declaration was read from, when it was read from a file."""
+        return self._folder
+
     def problems(self) -> list[str]:
         """What would stop this piece running, read from where it was loaded (issue 224)."""
         if self._folder is None:

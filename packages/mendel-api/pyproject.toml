@@ -18,9 +18,10 @@ dependencies = [
     "pydantic-settings>=2.4",
     "cryptography>=42",
     # An uploaded sample is inspected in a child process running `comeni_inspect.run`, and its
-    # body is streamed through python-multipart so only each file's head is ever held (#134).
+    # body is streamed through python-multipart so only each file's head is ever held (#134);
+    # 0.0.27 is the first release whose parser caps a part's header count and size (#226).
     "comeni-inspect>=0.1.0",
-    "python-multipart>=0.0.20",
+    "python-multipart>=0.0.27",
 ]
 
 [build-system]
