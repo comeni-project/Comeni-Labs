@@ -220,11 +220,11 @@ For each, open an issue with the *Walk: mechanical* or *Walk: protocol* template
 
 By `docs/notes/compaction.md`: fold the step into `now.md` (14.7.6 done; 14.7.7 next), move the entry to `archive/`, keep `now.md` ≤ 150 lines (`make doc-sizes`).
 
-- [ ] **Step 3: Update the spec and the task tree**
+- [x] **Step 3: Update the spec and the task tree**
 
 Mark the spec's §9 and §10 with the two rulings (MEASURED; bytes not stored), comment on #134 with the commits and close it; close #216 if the registry branch has merged.
 
-- [ ] **Step 4: Commit, and run `make check` separately**
+- [x] **Step 4: Commit, and run `make check` separately**
 
 ```bash
 git add docs && git commit -m "docs(notes): samples built — 14.7.6 closes (#134)"
@@ -235,4 +235,19 @@ make check > /tmp/claude-1000/check.log 2>&1; tail -20 /tmp/claude-1000/check.lo
 
 ## Execution record
 
-*(Filled in while executing: rulings, measurements, deviations.)*
+- **Task 1** (60b29d9..d327068): the table also says *only the head leaves the browser; nothing is
+  stored*, and marks the characteriser designed.
+- **Task 2** (d327068..6fe04ed): followed for a toy `gc_content` measure in the real registry
+  checkout, removed after (the guards read `ROOT/registry`); five failures in Comeni Labs taught
+  the guide's note on what a new measurement moves.
+- **Task 3:** walked with the real pair SRR6357070 (Chrome, `gemma3:12b`). Findings #229–#233:
+  #232 fixed (e152db8); #233 decided A by the operator, built (d9e3d6e); #229 A, built (f7f489c).
+  The first walk began its session through the API because of #229; the re-walk began on home
+  and passed by uploading.
+- **Task 4:** the journal entry was compacted in the same commit (29fd0a5); `now.md` stayed at 150
+  lines by dropping traps `CLAUDE.md` already holds. Spec §10 carries the two built rulings (§9
+  already had `MEASURED`). **Deviation:** #134 closes after the step's open sub-issues are done
+  (operator, 2026-10-03), not in this task; #216 closes when the registry branch merges.
+- **Final review** (opus, fresh context): no Critical. Fixed: `test_where_it_runs` passed with the
+  Inspector row deleted (now reads each row's cell), and *Add a format* ran a new format's tests on
+  FASTQ's fixtures (`request_for(..., format=)`, registry 8ddbbd5) — 3915a75. Five minors → #234.
