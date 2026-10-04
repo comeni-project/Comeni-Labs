@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from comeni_ai import Client, ModelAccess, ModelUnavailableError
-from mendel_api.authoring.types import CharacteriseReply, ReadMeasurement
+from mendel_api.authoring.types import CharacteriseReply, ReadMeasurement, StateRead
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal
 from mendel_api.services import authoring, characterise, protection
@@ -132,7 +132,10 @@ def test_a_reading_answers_an_input_gap_and_is_marked_read_by_ai(clean, readable
 def test_a_reading_of_another_type_is_recorded_and_the_question_stays(clean, readable):  # noqa: F811
     sid, pid = _at("genome.fasta")
     attempt = authoring.start_reading(pid)
-    reply = CharacteriseReply(type_id="alignment.bam", states=["coordinate_sorted"])
+    reply = CharacteriseReply(
+        type_id="alignment.bam",
+        states=[StateRead(id="coordinate_sorted", evidence="SO:coordinate")],
+    )
     answer = authoring.answer_with_reading(pid, attempt, reply, by="ana", handed_back=False)
     assert answer.recorded == ["alignment.bam"]
     bam = next(f for f in _facts(sid) if f["subject"] == "alignment.bam")

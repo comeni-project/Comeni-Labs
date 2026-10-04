@@ -536,7 +536,7 @@ def characterise(
         prompt_id=prompts.CHARACTERISE,
         shape=CharacteriseReply,
         values={"types": _types_text(stack, shown), **_excerpt_values(request)},
-        admit=lambda reply: _admit_characterised(reply, shown, stack),
+        admit=lambda reply: _admit_characterised(reply, shown, stack, request.excerpt),
         client=client,
         session_id=session_id,
         # **Every id list held at the server** (issue 243): walked live, a model wrote free-text
@@ -551,11 +551,26 @@ def characterise(
     )
 
 
+EVIDENCE_FLOOR = 3
+"""The shortest quote that can prove anything (#244). A single character is in every file."""
+
+
+def _evidenced(quote: str, excerpt: str) -> bool:
+    """Whether `quote` is in the excerpt, runs of whitespace compared as one space (#244)."""
+
+    def squash(text: str) -> str:
+        return " ".join(text.split())
+
+    found = squash(quote)
+    return len(found) >= EVIDENCE_FLOOR and found in squash(excerpt)
+
+
 def _admit_characterised(
-    reply: CharacteriseReply, shown: Sequence[str], stack
+    reply: CharacteriseReply, shown: Sequence[str], stack, excerpt: str
 ) -> CharacteriseReply:
     """MI0204 for a type not shown; MI0205 for a state or measurement that type does not offer.
-    A value outside its declaration is dropped, never refused (spec §7)."""
+    A value outside its declaration is dropped, never refused (spec §7). **A property whose
+    quoted line is not in the excerpt is dropped**, and the rest stands (spec §14, #244)."""
     if reply.type_id is None:
         return reply.model_copy(update={"states": [], "measurements": [], "undetermined": []})
     if reply.type_id not in shown:
@@ -566,11 +581,7 @@ def _admit_characterised(
     read = [m.id for m in reply.measurements]
     # **Each list against its own set** (issue 237): a measurement id is not a state, and one
     # reply cannot read a measurement twice.
-    foreign = sorted(
-        (set(reply.states) - states)
-        | (set(read) - measured)
-        | (set(reply.undetermined) - measured)
-    )
+    foreign = sorted(({s.id for s in reply.states} - states) | (set(read) - measured))
     if foreign:
         raise ValueError(
             coded("MI0205", f"{reply.type_id} offers none of these there: {', '.join(foreign)}")
@@ -578,15 +589,21 @@ def _admit_characterised(
     twice = sorted({m for m in read if read.count(m) > 1})
     if twice:
         raise ValueError(coded("MI0205", f"the answer reads {', '.join(twice)} more than once"))
-    undetermined = [m for m in reply.undetermined if m not in read]
+    # What records nothing is dropped, never refused (#244): an `undetermined` id nothing
+    # offered, or one that was read.
+    undetermined = [m for m in reply.undetermined if m in measured and m not in read]
+    proven = [s for s in reply.states if _evidenced(s.evidence, excerpt)]
     kept = []
     for m in reply.measurements:
         try:
             stack.measurements.check(m.id, m.value)
         except (ValueError, KeyError):
             continue
-        kept.append(m)
-    return reply.model_copy(update={"measurements": kept, "undetermined": undetermined})
+        if _evidenced(m.evidence, excerpt):
+            kept.append(m)
+    return reply.model_copy(
+        update={"states": proven, "measurements": kept, "undetermined": undetermined}
+    )
 
 
 def _admit_asked(asked: AskedGap, gap: dict, stack) -> AskedGap:

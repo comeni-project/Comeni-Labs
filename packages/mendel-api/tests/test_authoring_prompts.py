@@ -409,3 +409,11 @@ def test_the_characteriser_reads_only_what_the_excerpt_states():
     body = prompts.template(prompts.CHARACTERISE).body
     assert "would need the whole file" in body
     assert "`undetermined`" in body and "`unmatched`" in body
+
+
+def test_the_characteriser_asks_each_property_to_quote_its_line():
+    """#244: v2 asks for the line that states each property; the engine checks it."""
+    body = prompts.template(prompts.CHARACTERISE).body
+    assert prompts.CHARACTERISE == "builder.characterise.v2"
+    assert "`evidence`" in body and "quoted exactly" in body
+    assert "builder.characterise.v1" in prompts.RETIRED

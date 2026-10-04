@@ -569,11 +569,20 @@ class CharacteriseFamilies(_Shape):
     families: list[str] = []
 
 
+class StateRead(_Shape):
+    """A declared state a sample's start states, and the line that states it (#244)."""
+
+    id: str
+    evidence: Prose
+
+
 class ReadMeasurement(_Shape):
-    """One declared measurement a sample's start states, as a model read it."""
+    """One declared measurement a sample's start states, as a model read it, and the line that
+    states it (#244)."""
 
     id: str
     value: HumanParamValue
+    evidence: Prose = ""
 
 
 class Unmatched(_Shape):
@@ -590,7 +599,7 @@ class CharacteriseReply(_Shape):
     type's declarations before anything reads it."""
 
     type_id: str | None = None
-    states: list[str] = []
+    states: list[StateRead] = []
     measurements: list[ReadMeasurement] = []
     undetermined: list[str] = []
     unmatched: list[Unmatched] = []

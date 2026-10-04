@@ -62,9 +62,14 @@ def _request(text=BAM_HEAD, binary_before=True):
 
 
 def _reply(**over):
+    """A v2 reply. A state given as a bare id quotes `SO:coordinate`, which `BAM_HEAD` holds."""
     body = {"type_id": "alignment.bam", "states": ["coordinate_sorted"], "measurements": [],
-            "undetermined": [], "unmatched": []}
-    return json.dumps(body | over)
+            "undetermined": [], "unmatched": []} | over
+    body["states"] = [
+        s if isinstance(s, dict) else {"id": s, "evidence": "SO:coordinate"}
+        for s in body["states"]
+    ]
+    return json.dumps(body)
 
 
 # ── call 1: the families ──────────────────────────────────────────────────────────────
@@ -109,12 +114,12 @@ def test_the_type_call_is_shown_only_the_chosen_families_types(stack, clean_forg
     client = Choosing(_reply())
     outcome = ai.characterise(_request(), stack=stack, families=["alignment"], client=client)
     assert outcome.admitted and outcome.reply.type_id == "alignment.bam"
-    assert outcome.reply.states == ["coordinate_sorted"]
+    assert [s.id for s in outcome.reply.states] == ["coordinate_sorted"]
     shown = sorted(t for t in stack.vocabulary.types if t.startswith("alignment."))
     assert client.choices[0]["type_id"] == shown
     sent = _text(client.answers.sent[0])
     assert "alignment.bam" in sent and "fastq.reads" not in sent
-    assert _rows()[0].prompt_id == "builder.characterise.v1"
+    assert _rows()[0].prompt_id == "builder.characterise.v2"
 
 
 def test_with_the_family_step_off_every_type_is_shown(stack, clean_forge):
@@ -152,8 +157,8 @@ def test_a_value_outside_its_declaration_is_dropped_and_the_rest_admitted(stack,
     # so a model is never offered it (spec §2's rule A, as the registry stands).
     assert {"paired", "quality_encoding"} <= ai.offered(stack, "fastq.reads")[1]
     reply = _reply(type_id="fastq.reads", states=[],
-                   measurements=[{"id": "quality_encoding", "value": "phred99"},
-                                 {"id": "paired", "value": True}])
+                   measurements=[{"id": "quality_encoding", "value": "phred99", "evidence": "@r1"},
+                                 {"id": "paired", "value": True, "evidence": "@r1"}])
     outcome = ai.characterise(
         _request("@r1\nACGT\n+\nIIII\n", binary_before=False), stack=stack,
         families=["fastq"], client=Choosing(reply),
@@ -245,3 +250,69 @@ def test_states_and_measurement_ids_are_held_to_what_was_offered(stack, clean_fo
     assert held["states"] == states
     assert held["undetermined"] == measured
     assert held["measurements.id"] == measured
+
+
+# ── evidence, checked against the excerpt (#244) ──────────────────────────────────────
+
+
+def test_a_state_proven_by_a_line_of_the_file_is_admitted(stack, clean_forge):
+    reply = _reply(states=[{"id": "coordinate_sorted", "evidence": "@HD VN:1.6 SO:coordinate"}])
+    outcome = ai.characterise(
+        _request(), stack=stack, families=["alignment"], client=Choosing(reply)
+    )
+    assert outcome.admitted and [s.id for s in outcome.reply.states] == ["coordinate_sorted"]
+
+
+def test_a_state_whose_quote_is_not_in_the_file_is_dropped_and_the_type_stands(stack, clean_forge):
+    reply = _reply(states=[{"id": "coordinate_sorted", "evidence": "SO:coordinate"},
+                           {"id": "deduplicated", "evidence": "@PG ID:picard MarkDuplicates"}])
+    outcome = ai.characterise(
+        _request(), stack=stack, families=["alignment"], client=Choosing(reply)
+    )
+    assert outcome.admitted and outcome.reply.type_id == "alignment.bam"
+    assert [s.id for s in outcome.reply.states] == ["coordinate_sorted"]
+
+
+def test_a_quote_too_short_to_prove_anything_is_dropped(stack, clean_forge):
+    reply = _reply(states=[{"id": "coordinate_sorted", "evidence": "SO"}])
+    outcome = ai.characterise(
+        _request(), stack=stack, families=["alignment"], client=Choosing(reply)
+    )
+    assert outcome.admitted and outcome.reply.states == []
+
+
+def test_a_measurement_whose_quote_is_not_in_the_file_is_dropped(stack, clean_forge):
+    outcome = _fastq(measurements=[{"id": "paired", "value": True, "evidence": "R1 and R2"}])
+    assert outcome.admitted and outcome.reply.measurements == []
+
+
+def test_undetermined_ids_nothing_offered_are_dropped_not_refused(stack, clean_forge):
+    reply = _reply(undetermined=["deduplicated", "chromosome_length"])
+    outcome = ai.characterise(
+        _request(), stack=stack, families=["alignment"], client=Choosing(reply)
+    )
+    assert outcome.admitted and outcome.reply.undetermined == []
+
+
+def test_a_state_on_a_type_that_declares_none_is_still_refused(stack, clean_forge):
+    reply = _reply(type_id="genome.fasta",
+                   states=[{"id": "sorted by coordinate", "evidence": ">chr1"}])
+    outcome = ai.characterise(
+        _request(">chr1 test\nACGT\n" * 20, binary_before=False),
+        stack=stack, families=["genome"], client=Choosing(reply),
+    )
+    assert not outcome.admitted and outcome.code == "MI0205"
+
+
+def test_nothing_offered_is_nothing_the_server_allows(stack, clean_forge):
+    client = Choosing(_reply(type_id="genome.fasta", states=[]))
+    ai.characterise(
+        _request(">chr1\nACGT\n" * 30, binary_before=False),
+        stack=stack, families=["genome"], client=client,
+    )
+    assert client.choices[0]["states"] == []
+
+
+def test_evidence_is_compared_with_whitespace_as_one_space():
+    assert ai._evidenced("@HD VN:1.6  SO:coordinate", "@HD\tVN:1.6\tSO:coordinate\n")
+    assert not ai._evidenced("SO:queryname", "@HD\tVN:1.6\tSO:coordinate\n")

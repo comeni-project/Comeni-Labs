@@ -2261,20 +2261,20 @@ def answer_with_reading(
         if handed_back:
             _set_reading(db, proposal, SampleReading(
                 state="hand_back", attempt=attempt, type_id=reply.type_id,
-                states=list(reply.states),
+                states=[s.id for s in reply.states],
             ))
             recorded, kept, disagreed, answered = [], [], [], False
         else:
             found = [_Found(m.id, m.value) for m in reply.measurements]
             recorded, kept, disagreed, answered = _record_found(
-                db, proposal, row, type_id=reply.type_id, states=list(reply.states),
+                db, proposal, row, type_id=reply.type_id, states=[s.id for s in reply.states],
                 found=found, source=FactSource.MODEL_READ, by=by, stack=stack,
             )
             # `read` whether or not it answered (issue 241): a settled question's reading is
             # in its history, and must not spin there.
             _set_reading(db, proposal, SampleReading(
                 state="read", attempt=attempt, type_id=reply.type_id,
-                states=list(reply.states), recorded=recorded, kept=kept,
+                states=[s.id for s in reply.states], recorded=recorded, kept=kept,
                 disagreed=disagreed,
             ))
     if answered:

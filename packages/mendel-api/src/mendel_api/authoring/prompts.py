@@ -54,6 +54,7 @@ RETIRED: tuple[PromptId, ...] = (
     "builder.tier4.v1",
     "builder.family.v1",
     "builder.family.v2",
+    "builder.characterise.v1",
 )
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
@@ -100,9 +101,11 @@ CHARACTERISE_FAMILY: PromptId = "builder.characterise-family.v1"
 """The start of a sample in, the families it could belong to out (14.7.7). Egress door 6.
 The first of the characteriser's two calls, the family step goal extraction takes (#194)."""
 
-CHARACTERISE: PromptId = "builder.characterise.v1"
+CHARACTERISE: PromptId = "builder.characterise.v2"
 """The start of a sample in, its declared type, the states and measurements it states, and
-what it states that nothing declares (`unmatched`, stored only) out (14.7.7). Egress door 6."""
+what it states that nothing declares (`unmatched`, stored only) out (14.7.7). Egress door 6.
+**v2 (#244):** each state and measurement quotes the line that states it, and the engine checks
+the quote; walked live, v1's model listed states no line showed."""
 
 TEMPLATES: tuple[PromptId, ...] = (
     GOAL,
