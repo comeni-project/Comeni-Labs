@@ -57,21 +57,20 @@ flowchart LR
     level -- "level 0" --> head
     head -- "one file or a pair" --> claim
     head -- "any other count, a form it can't read, or cut short" --> refused
-    claim -- "none" --> nothing
-    claim -. "none, at 14.7.7" .-> door
-    door -. "above level 0" .-> nothing
-    door -. "level 0" .-> excerpt
-    excerpt -. "too little text, or no model" .-> nothing
-    excerpt -. "queued for the AI" .-> families
-    families -. "none fits: the AI couldn't tell" .-> back
-    families -. "one or more" .-> types
-    types -.-> ai_admit
-    ai_admit -. "an id nothing declares: refused, the question stays" .-> back
-    ai_admit -. "you already said it" .-> kept
-    ai_admit -. "nothing here reads that type" .-> ai_stamped
-    ai_admit -. "the engine reads that type" .-> hand_back
-    hand_back -. "claimed by the type the AI named" .-> confirm
-    ai_stamped -.-> back
+    claim -- "none" --> door
+    door -- "above level 0" --> nothing
+    door -- "level 0" --> excerpt
+    excerpt -- "too little text, or no model" --> nothing
+    excerpt -- "queued for the AI" --> families
+    families -- "none fits: the AI couldn't tell" --> back
+    families -- "one or more" --> types
+    types --> ai_admit
+    ai_admit -- "an id nothing declares: refused, the question stays" --> back
+    ai_admit -- "you already said it" --> kept
+    ai_admit -- "nothing here reads that type" --> ai_stamped
+    ai_admit -- "the engine reads that type" --> hand_back
+    hand_back -- "claimed by the type the AI named" --> confirm
+    ai_stamped --> back
     claim -- "one or more" --> unpack
     unpack -- "a bomb" --> unreadable
     unpack --> confirm
@@ -91,13 +90,7 @@ flowchart LR
     undetermined --> back
     nothing --> back
     unreadable --> back
-    style door stroke-dasharray:6 4,opacity:0.55
-    style excerpt stroke-dasharray:6 4,opacity:0.55
-    style families stroke-dasharray:6 4,opacity:0.55
-    style types stroke-dasharray:6 4,opacity:0.55
-    style ai_admit stroke-dasharray:6 4,opacity:0.55
-    style ai_stamped stroke:#f0d040,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
-    style hand_back stroke-dasharray:6 4,opacity:0.55
+    style ai_stamped stroke:#f0d040,stroke-width:4px
     style tie stroke:#ff5050,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
     style undetermined stroke:#ff5050,stroke-width:4px
     style stamped stroke:#f0d040,stroke-width:4px

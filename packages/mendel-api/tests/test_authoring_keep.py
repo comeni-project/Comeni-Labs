@@ -160,7 +160,12 @@ def test_a_kept_spawn_draft_says_a_model_was_available_and_used(clean, monkeypat
     kept = TestClient(create_app()).post(f"/api/pipeline/drafts/{draft_id}/keep")
     assert kept.status_code == 200, kept.text
     artifact = yaml.safe_load(drafts.artifact_path(draft_id).read_text())
-    assert artifact["ai"] == {"available": ["prompt", "tier-4"], "used": ["prompt", "tier-4"]}
+    # At level 0 with a model, the characteriser is available too (14.7.7); nothing here read
+    # a sample, so it was not used.
+    assert artifact["ai"] == {
+        "available": ["prompt", "tier-4", "characterise"],
+        "used": ["prompt", "tier-4"],
+    }
 
     unguarded = yaml.safe_load(drafts.keep(draft_id).read_text())
     assert unguarded["ai"]["available"] == [], "the gap this docstring records has closed"

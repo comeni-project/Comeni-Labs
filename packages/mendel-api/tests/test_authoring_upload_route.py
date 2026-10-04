@@ -1,12 +1,15 @@
 """`POST /api/pipeline/authoring/{session_id}/samples`: one file or a pair, only the head read,
 nothing written to disk, the protection level asked first (14.7.6.4)."""
 
+import gzip
+import struct
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from mendel_api.authoring.types import CharacteriseReply
 from mendel_api.main import create_app
-from mendel_api.services import authoring, inspect
+from mendel_api.services import authoring, authoring_jobs, characterise, inspect
 from test_authoring_samples import (  # noqa: F401
     _database_is_reachable,
     _gathering,
@@ -88,7 +91,9 @@ def test_only_the_head_is_kept_and_nothing_is_spooled_to_disk(client, clean, mon
     monkeypatch.setattr(
         inspect,
         "inspect_sample",
-        lambda files, stack: seen.extend(len(b) for _, b in files) or real(files, stack),
+        lambda files, stack, claimed=None: (
+            seen.extend(len(b) for _, b in files) or real(files, stack, claimed)
+        ),
     )
     sid, pid = _at("read_length")
     big = b"@r\n" + b"A" * (10 * 2**20)
@@ -155,7 +160,9 @@ def test_an_empty_file_input_is_not_a_file(client, clean, monkeypatch):  # noqa:
     as a file named *sample*."""
     seen = []
     monkeypatch.setattr(
-        inspect, "inspect_sample", lambda files, stack: seen.append(files) or _nothing()
+        inspect,
+        "inspect_sample",
+        lambda files, stack, claimed=None: seen.append(files) or _nothing(),
     )
     sid, pid = _at("read_length")
     body = _multipart([("proposal_id", None, pid.encode()), ("files", "a.fq", b"@r\nA\n+\nI\n"),
@@ -216,3 +223,97 @@ def test_the_upload_does_its_database_work_off_the_event_loop(client, clean, mon
     files = [("files", (p.name, p.read_bytes())) for p in sorted(PAIR.glob("*.gz"))]
     assert _post(client, sid, pid, files).status_code == 200
     assert on_loop == []
+
+
+@pytest.fixture
+def readable(monkeypatch):
+    monkeypatch.setattr(characterise, "available", lambda: True)
+    queued = []
+
+    async def enqueue(session_id, proposal_id, attempt, excerpt):
+        queued.append((session_id, proposal_id, attempt, excerpt))
+        return True
+
+    monkeypatch.setattr(authoring_jobs, "enqueue_characterise", enqueue)
+    return queued
+
+
+def _bam():
+    header = "@HD\tVN:1.6\tSO:coordinate\n" + "@SQ\tSN:chr1\tLN:1000\n" * 20
+    return gzip.compress(b"BAM\x01" + struct.pack("<i", len(header)) + header.encode())
+
+
+@needs_db
+def test_a_type_nothing_reads_is_queued_for_the_ai(client, clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    got = _post(client, sid, pid, [("files", ("x.bam", _bam()))])
+    assert got.status_code == 200, got.text
+    assert got.json()["outcome"] == "reading"
+    [(q_sid, q_pid, attempt, excerpt)] = readable
+    assert (q_sid, q_pid, attempt) == (sid, pid, 1)
+    assert excerpt.binary_before and excerpt.text.startswith("@HD")
+    block = got.json()["session"]["pending_proposal"]["block"]
+    assert block["reading"]["state"] == "pending"
+
+
+@needs_db
+def test_without_the_ai_a_type_nothing_reads_is_as_today(client, clean, monkeypatch):  # noqa: F811
+    sid, pid = _at("paired")
+    monkeypatch.setattr(characterise, "available", lambda: False)
+    got = _post(client, sid, pid, [("files", ("x.bam", _bam()))])
+    assert got.json()["outcome"] == "no_inspector"
+
+
+@needs_db
+def test_a_file_with_no_text_is_never_queued(client, clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    got = _post(client, sid, pid, [("files", ("x.bin", bytes(range(256)) * 50))])
+    assert got.json()["outcome"] == "no_inspector" and readable == []
+
+
+@needs_db
+def test_a_second_upload_while_reading_is_refused(client, clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    _post(client, sid, pid, [("files", ("x.bam", _bam()))])
+    again = _post(client, sid, pid, [("files", ("x.bam", _bam()))])
+    assert again.status_code == 422 and "MI0215" in again.text
+    assert len(readable) == 1
+
+
+@needs_db
+def test_a_hand_back_is_claimed_by_the_recorded_type_and_measured(client, clean, readable):  # noqa: F811
+    sid, pid = _at("paired")
+    attempt = authoring.start_reading(pid)
+    authoring.answer_with_reading(
+        pid, attempt, CharacteriseReply(type_id="fastq.reads"), by="ana", handed_back=True
+    )
+    files = [("files", (p.name.replace(".fq.gz", ".txt.gz"), p.read_bytes()))
+             for p in sorted(PAIR.glob("*.gz"))]
+    got = _post(client, sid, pid, files)
+    assert got.json()["outcome"] == "measured", got.text
+    assert "paired" in got.json()["recorded"]
+
+
+@needs_db
+def test_a_browser_cannot_claim_a_type_the_session_did_not_record(client, clean, readable):  # noqa: F811
+    sid, pid = _at("paired")
+    files = [("files", (p.name.replace(".fq.gz", ".txt.gz"), p.read_bytes()))
+             for p in sorted(PAIR.glob("*.gz"))]
+    got = client.post(
+        f"/api/pipeline/authoring/{sid}/samples",
+        data={"proposal_id": pid, "claimed": "fastq.reads"}, files=files,
+    )
+    # Refused outright (a form field nobody declared), or inspected without the claim.
+    assert got.status_code != 200 or got.json()["outcome"] != "measured"
+
+
+@needs_db
+def test_a_hand_back_that_fails_the_content_check_drops_the_type(client, clean, readable):  # noqa: F811
+    sid, pid = _at("paired")
+    attempt = authoring.start_reading(pid)
+    authoring.answer_with_reading(
+        pid, attempt, CharacteriseReply(type_id="fastq.reads"), by="ana", handed_back=True
+    )
+    got = _post(client, sid, pid, [("files", ("x.txt", b">not a fastq\nACGT\n" * 50))])
+    assert got.json()["outcome"] == "unreadable"
+    assert authoring.reading_of(pid) is None

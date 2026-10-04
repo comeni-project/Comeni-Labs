@@ -503,7 +503,8 @@ def preview(session_id: str) -> AuthoringPreview:
         draft_id, mode = row.draft_id, Mode(row.mode)
         stored = db.get(PipelineDraft, draft_id)
         provenance = DraftProvenance.model_validate(stored.provenance or {})
-    shown = drafts.preview(draft_id, ai=_ai_for(mode, provenance))
+        read_by_ai = authoring.characterised(row.facts)
+    shown = drafts.preview(draft_id, ai=_ai_for(mode, provenance, characterised=read_by_ai))
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
     )
@@ -596,10 +597,12 @@ def _view(session_id: str) -> AuthoringSessionView:
     )
 
 
-def _ai_for(mode: Mode, provenance: DraftProvenance) -> AiProvenance:
+def _ai_for(
+    mode: Mode, provenance: DraftProvenance, *, characterised: bool = False
+) -> AiProvenance:
     """`authoring.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
     del mode
-    return authoring.ai_for(provenance)
+    return authoring.ai_for(provenance, characterised=characterised)
 
 
 class InspectedFactView(BaseModel):
@@ -617,7 +620,7 @@ class SampleInspected(BaseModel):
 
     model_config = _FROZEN
 
-    outcome: Literal["measured", "unreadable", "no_inspector", "tie"]
+    outcome: Literal["measured", "unreadable", "no_inspector", "tie", "reading"]
     type_id: str | None
     facts: list[InspectedFactView]
     reason: str | None
@@ -664,7 +667,7 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     """**Only the first 4 MB of each file is kept**, in memory; the rest is read through and
     dropped, and nothing is written to disk (14.7.6's ruling: nothing deletes a session yet, so
     nothing about a sample is kept). The protection level is asked before a byte is read."""
-    from mendel_api.services import inspect, protection, registry, sample_upload
+    from mendel_api.services import characterise, inspect, protection, registry, sample_upload
 
     if not protection.allows(protection.Crossing.UPLOAD):
         raise HTTPException(
@@ -683,7 +686,37 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     if kind != authoring.GAP:
         raise ValueError(coded("MI0205", "a sample answers a question about your data"))
     await run_in_threadpool(authoring.check_sample_question, proposal_id)
-    inspection = await run_in_threadpool(inspect.inspect_sample, heads.files, registry.stack())
+    # **A hand-back** (14.7.7): only the type the session recorded may claim the file, never
+    # anything the browser sent.
+    reading = await run_in_threadpool(authoring.reading_of, proposal_id)
+    claimed = reading.type_id if reading is not None and reading.state == "hand_back" else None
+    inspection = await run_in_threadpool(
+        inspect.inspect_sample, heads.files, registry.stack(), claimed
+    )
+    if claimed is not None:
+        await run_in_threadpool(
+            lambda: authoring.end_hand_back(
+                proposal_id, confirmed=inspection.outcome == "measured"
+            )
+        )
+    if inspection.outcome == "no_inspector" and characterise.available():
+        # Nothing here reads its type: the AI reads its first 8 KB of text (14.7.7).
+        found = characterise.excerpt(heads.files[0][1])
+        if found is not None:
+            attempt = await run_in_threadpool(authoring.start_reading, proposal_id)
+            await authoring_jobs.enqueue_characterise(session_id, proposal_id, attempt, found)
+            view = await run_in_threadpool(_view, session_id)
+            return SampleInspected(
+                outcome="reading",
+                type_id=None,
+                facts=[],
+                reason=None,
+                steps=[*inspection.steps, "nothing here reads its type: the AI is reading it"],
+                recorded=[],
+                kept=[],
+                disagreed=[],
+                session=view,
+            )
     answer = await run_in_threadpool(
         authoring.answer_with_sample, proposal_id, inspection, by=identity.default_author()
     )

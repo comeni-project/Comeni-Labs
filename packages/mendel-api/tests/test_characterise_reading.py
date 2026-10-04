@@ -302,3 +302,23 @@ def test_the_job_keeps_no_result_so_the_excerpt_leaves_redis_with_it():
     [entry] = [f for f in ai_worker.AIWorkerSettings.functions
                if getattr(f, "name", None) == authoring_jobs.CHARACTERISE]
     assert entry.keep_result_s == 0 and not entry.keep_result_forever
+
+
+def test_a_session_with_a_fact_read_by_ai_says_characterise_was_used(clean, readable, monkeypatch):  # noqa: F811
+    """Spec §7: `Pipeline.ai` records the characteriser, for the preview and for Keep alike."""
+    from comeni_core.artifact.pipeline import AiPoint
+    from mendel_api.models import PipelineAuthoringSession
+
+    monkeypatch.setenv("COMENI_AI_MODEL", "fake/test")
+    sid, pid = _at("genome.fasta")
+    before = authoring.ai_for_draft(authoring.read(sid)["draft_id"])
+    assert AiPoint.CHARACTERISE in before.available
+    assert AiPoint.CHARACTERISE not in before.used
+    attempt = authoring.start_reading(pid)
+    authoring.answer_with_reading(
+        pid, attempt, CharacteriseReply(type_id="genome.fasta"), by="ana", handed_back=False
+    )
+    with session_scope() as db:
+        draft_id = db.get(PipelineAuthoringSession, sid).draft_id
+    after = authoring.ai_for_draft(draft_id)
+    assert AiPoint.CHARACTERISE in after.used

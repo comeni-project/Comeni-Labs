@@ -104,15 +104,14 @@ flowchart LR
     upload -- "uploaded" --> safety
     safety -- "level 0" --> read_engine
     read_engine --> next_gap
-    read_engine -. "nothing here reads its type" .-> read_ai
-    read_ai -. "a type the engine reads" .-> read_engine
-    read_ai -.-> next_gap
+    read_engine -- "nothing here reads its type" --> read_ai
+    read_ai -- "a type the engine reads" --> read_engine
+    read_ai --> next_gap
     resolve -.-> plan
     plan -.-> pace
     pace -.-> offer
     done -.-> wrap
     ask_any -.-> explain
-    style read_ai stroke-dasharray:6 4,opacity:0.55
     style step_settled stroke:#6fbf8f
     style step_rule stroke:#f0d040,stroke-width:4px
     style step_choice stroke:#ff5050,stroke-width:4px

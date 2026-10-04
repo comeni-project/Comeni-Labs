@@ -331,41 +331,46 @@ INSPECTING = Protocol(
         _built(
             "nothing", "receiving", _STOP, "Nothing reads this type yet:<br/>the question stays", _G
         ),
-        # The characteriser (14.7.7): planned here, built part by part.
-        _n(
+        # The characteriser (14.7.7): built in 14.7.7.2.
+        _built(
             "door",
             "receiving",
             _SAFETY,
             "Does the protection level<br/>let a model read it?",
+            _G,
             shape=Shape.GATE,
         ),
-        _n(
+        _built(
             "excerpt",
             "receiving",
             _ENGINE,
             "Keep up to 8 KB of its text<br/>(gzip unpacked by its first bytes)",
+            _G,
         ),
-        _n("families", "reading", _AI, "AI: which families<br/>could it be?"),
-        _n("types", "reading", _AI, "AI: which type,<br/>which states and facts?"),
-        _n(
+        _built("families", "reading", _AI, "AI: which families<br/>could it be?", _G),
+        _built("types", "reading", _AI, "AI: which type,<br/>which states and facts?", _G),
+        _built(
             "ai_admit",
             "admitting",
             _ENGINE,
             "Admit every id<br/>against the registry",
+            _G,
             shape=Shape.CHOICE,
         ),
-        _n(
+        _built(
             "ai_stamped",
             "admitting",
             _ENGINE,
             "Stamped: read by AI<br/>(check the premise)",
+            _G,
             border=Border.TIER3,
         ),
-        _n(
+        _built(
             "hand_back",
             "admitting",
             _ENGINE,
             "A type the engine reads:<br/>your browser sends it again",
+            _G,
         ),
         _built("unpack", "processing", _ENGINE, "Unpack if compressed, up to 16 MB", _G),
         _built(
@@ -424,21 +429,20 @@ INSPECTING = Protocol(
         _e("level", "head", "level 0", built=True),
         _e("head", "claim", "one file or a pair", built=True),
         _e("head", "refused", "any other count, a form it can't read, or cut short", built=True),
-        _e("claim", "nothing", "none", built=True),
-        _e("claim", "door", "none, at 14.7.7"),
-        _e("door", "nothing", "above level 0"),
-        _e("door", "excerpt", "level 0"),
-        _e("excerpt", "nothing", "too little text, or no model"),
-        _e("excerpt", "families", "queued for the AI"),
-        _e("families", "back", "none fits: the AI couldn't tell"),
-        _e("families", "types", "one or more"),
-        _e("types", "ai_admit"),
-        _e("ai_admit", "back", "an id nothing declares: refused, the question stays"),
-        _e("ai_admit", "kept", "you already said it"),
-        _e("ai_admit", "ai_stamped", "nothing here reads that type"),
-        _e("ai_admit", "hand_back", "the engine reads that type"),
-        _e("hand_back", "confirm", "claimed by the type the AI named"),
-        _e("ai_stamped", "back"),
+        _e("claim", "door", "none", built=True),
+        _e("door", "nothing", "above level 0", built=True),
+        _e("door", "excerpt", "level 0", built=True),
+        _e("excerpt", "nothing", "too little text, or no model", built=True),
+        _e("excerpt", "families", "queued for the AI", built=True),
+        _e("families", "back", "none fits: the AI couldn't tell", built=True),
+        _e("families", "types", "one or more", built=True),
+        _e("types", "ai_admit", built=True),
+        _e("ai_admit", "back", "an id nothing declares: refused, the question stays", built=True),
+        _e("ai_admit", "kept", "you already said it", built=True),
+        _e("ai_admit", "ai_stamped", "nothing here reads that type", built=True),
+        _e("ai_admit", "hand_back", "the engine reads that type", built=True),
+        _e("hand_back", "confirm", "claimed by the type the AI named", built=True),
+        _e("ai_stamped", "back", built=True),
         _e("claim", "unpack", "one or more", built=True),
         _e("unpack", "unreadable", "a bomb", built=True),
         _e("unpack", "confirm", built=True),
@@ -538,7 +542,13 @@ PROTOCOL = Protocol(
             _P.GATHERING,
             detail=INSPECTING,
         ),
-        _n("read_ai", "gather", _AI, "AI reads it<br/>(types the engine can't)<br/>→ read by AI"),
+        _built(
+            "read_ai",
+            "gather",
+            _AI,
+            "AI reads it<br/>(types the engine can't)<br/>→ read by AI",
+            _P.GATHERING,
+        ),
         _built("said", "gather", _ENGINE, "→ you said", _P.GATHERING),
         _built(
             "left_open", "gather", _ENGINE, "Left open<br/>→ you choose in the build", _P.GATHERING
@@ -680,10 +690,10 @@ PROTOCOL = Protocol(
         _e("safety", "read_engine", "level 0", built=True),
         _e("read_engine", "next_gap", built=True),
         # The characteriser (14.7.7): a type nothing reads goes to the AI; a type the engine
-        # reads comes back to it. Planned until 14.7.7.2 builds the job.
-        _e("read_engine", "read_ai", "nothing here reads its type"),
-        _e("read_ai", "read_engine", "a type the engine reads"),
-        _e("read_ai", "next_gap"),
+        # reads comes back to it.
+        _e("read_engine", "read_ai", "nothing here reads its type", built=True),
+        _e("read_ai", "read_engine", "a type the engine reads", built=True),
+        _e("read_ai", "next_gap", built=True),
         # planned: the consultant build (14.7.8)
         _e("resolve", "plan"),
         _e("plan", "pace"),

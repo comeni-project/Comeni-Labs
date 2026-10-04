@@ -188,10 +188,10 @@ def test_the_machine_ignores_details():
 # ── the upload, built (14.7.6.5) ─────────────────────────────────────────────────────────────
 
 
-def test_the_upload_branch_is_built_and_the_characteriser_is_not():
+def test_the_upload_branch_and_the_characteriser_are_built():
     nodes = {n.id: n for n in p.PROTOCOL.nodes}
     assert nodes["upload"].built and nodes["safety"].built and nodes["read_engine"].built
-    assert not nodes["read_ai"].built
+    assert nodes["read_ai"].built
 
 
 def test_reading_a_sample_has_its_detailed_diagram():
@@ -297,13 +297,13 @@ def test_every_way_out_of_an_upload_is_drawn():
 CHARACTERISER = {"door", "excerpt", "families", "types", "ai_admit", "ai_stamped", "hand_back"}
 
 
-def test_the_characteriser_is_drawn_step_by_step_and_planned():
+def test_the_characteriser_is_drawn_step_by_step_and_built():
     detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
     nodes = {n.id: n for n in detail.nodes}
     missing = CHARACTERISER - set(nodes)
     assert not missing, missing
     assert "characterise" not in nodes, "the single placeholder node is replaced, not kept"
-    assert not any(nodes[n].built for n in CHARACTERISER)
+    assert all(nodes[n].built for n in CHARACTERISER)
     edges = {(e.source, e.target) for e in detail.edges}
     for edge in [
         ("claim", "door"), ("door", "nothing"), ("door", "excerpt"), ("excerpt", "nothing"),
@@ -324,6 +324,6 @@ def test_the_model_reads_in_a_stage_that_names_its_door():
 
 def test_the_overview_hands_a_type_nothing_reads_to_the_ai_and_back():
     edges = {(e.source, e.target): e for e in p.PROTOCOL.edges}
-    assert ("read_engine", "read_ai") in edges and not edges[("read_engine", "read_ai")].built
+    assert ("read_engine", "read_ai") in edges and edges[("read_engine", "read_ai")].built
     assert ("read_ai", "read_engine") in edges, "a type the engine reads goes back to it"
     assert ("safety", "read_ai") not in edges, "the level is asked inside the detail now"

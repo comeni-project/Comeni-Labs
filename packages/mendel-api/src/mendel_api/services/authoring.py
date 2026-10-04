@@ -1301,7 +1301,7 @@ def pending_id(session_id: str) -> str | None:
         )
 
 
-def ai_for(provenance: DraftProvenance):
+def ai_for(provenance: DraftProvenance, *, characterised: bool = False):
     """What AI points this installation offers, and which this draft used. For `pipeline.yml`.
 
     **One function for the preview and for Keep**, so the two cannot disagree about the `ai`
@@ -1320,24 +1320,37 @@ def ai_for(provenance: DraftProvenance):
         entry.selection is not None and entry.selection.source is ValueSource.MODEL
         for entry in provenance.nodes
     ) or any(entry.settled.source is ValueSource.MODEL for entry in provenance.params)
+    # The characteriser (14.7.7): available where a model may read a sample here; used when a
+    # fact the session gathered was read by it (`characterised`, from the session's facts).
+    reads = _characterisable()
     return AiProvenance(
-        available=[AiPoint.PROMPT, AiPoint.TIER_4],
-        used=[AiPoint.PROMPT] + ([AiPoint.TIER_4] if modelled else []),
+        available=[AiPoint.PROMPT, AiPoint.TIER_4] + ([AiPoint.CHARACTERISE] if reads else []),
+        used=[AiPoint.PROMPT]
+        + ([AiPoint.TIER_4] if modelled else [])
+        + ([AiPoint.CHARACTERISE] if reads and characterised else []),
     )
+
+
+def characterised(facts: list[dict] | None) -> bool:
+    """Whether any fact a session gathered was read by the AI (14.7.7)."""
+    return any(f.get("source") == FactSource.MODEL_READ.value for f in facts or [])
 
 
 def ai_for_draft(draft_id: str):
     """`ai_for` for a draft an authoring session owns, or `None` for a hand-drawn one."""
     with session_scope() as db:
         owned = db.scalar(
-            select(PipelineAuthoringSession.id).where(
+            select(PipelineAuthoringSession).where(
                 PipelineAuthoringSession.draft_id == draft_id
             )
         )
         if owned is None:
             return None
         draft = db.get(PipelineDraft, draft_id)
-        return ai_for(DraftProvenance.model_validate(draft.provenance or {}))
+        return ai_for(
+            DraftProvenance.model_validate(draft.provenance or {}),
+            characterised=characterised(owned.facts),
+        )
 
 
 # ── gathering: the engine asks for what the want needs (14.7.3) ──────────────────────────
@@ -2254,3 +2267,20 @@ def answer_with_reading(
     return SampleAnswer(
         phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
     )
+
+
+def end_hand_back(proposal_id: str, *, confirmed: bool) -> None:
+    """After the re-sent file was inspected (spec §8): `handed` when its format confirmed it,
+    and the recorded type dropped when not, so nothing the AI said stays."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        if proposal is None or proposal.state != ProposalState.PENDING.value:
+            return
+        reading = (proposal.payload.get("block") or {}).get("reading") or {}
+        if reading.get("state") != "hand_back":
+            return
+        _set_reading(
+            db,
+            proposal,
+            SampleReading.model_validate({**reading, "state": "handed"}) if confirmed else None,
+        )

@@ -114,9 +114,13 @@ def _ends(name: str, extensions: list[str]) -> str | None:
 
 
 def match(
-    names: list[str], pieces: InspectionCatalogue
+    names: list[str], pieces: InspectionCatalogue, claimed: str | None = None
 ) -> tuple[CodecPiece | None, list[FormatPiece]]:
-    """The codec and the candidate formats, by extension. **Every file must agree**, else none."""
+    """The codec and the candidate formats, by extension. **Every file must agree**, else none.
+
+    `claimed` is a type the session recorded the AI naming (14.7.7): when no extension claims
+    a file, the formats that read that type may. Their `confirms()` still decides.
+    """
     answers = set()
     for name in names:
         # The longest extension across every codec, not the first codec that matches:
@@ -128,6 +132,8 @@ def match(
         rest = name[: len(name) - len(_ends(name, codec.extensions))] if codec else name
         formats = tuple(
             sorted(f.id for f in pieces.formats.values() if _ends(rest, f.extensions))
+        ) or tuple(
+            sorted(f.id for f in pieces.formats.values() if claimed and claimed in f.reads)
         )
         answers.add((codec.id if codec else None, formats))
     if len(answers) != 1:
@@ -174,11 +180,15 @@ def _facts(report: wire.Report, pieces: InspectionCatalogue) -> list[InspectedFa
     return found
 
 
-def inspect_sample(files: list[tuple[str, bytes]], stack) -> Inspection:
-    """Inspect one sample: one file, or a pair. **Never raises.**"""
+def inspect_sample(
+    files: list[tuple[str, bytes]], stack, claimed: str | None = None
+) -> Inspection:
+    """Inspect one sample: one file, or a pair. **Never raises.** `claimed`: see `match`."""
     steps = [f"read the first {HEAD_BYTES // 2**20} MB of {len(files)} file(s)"]
+    if claimed is not None:
+        steps.append(f"claimed as {claimed}, the type the AI named")
     pieces = measurers.usable_pieces(stack)
-    codec, formats = match([name for name, _ in files], pieces)
+    codec, formats = match([name for name, _ in files], pieces, claimed)
     if not formats:
         return Inspection(outcome="no_inspector", reason="nothing reads this type yet", steps=steps)
     if codec is not None:

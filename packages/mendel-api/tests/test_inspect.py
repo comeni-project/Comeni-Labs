@@ -206,3 +206,33 @@ def test_inspections_run_at_most_a_few_at_once(monkeypatch):
     for thread in threads:
         thread.join(10)
     assert 1 <= most[0] <= inspect.AT_ONCE < 8
+
+
+# ── a type the AI named claims a file (14.7.7) ─────────────────────────────────────────
+
+
+def _usable():
+    from mendel_api.services import measurers
+
+    return measurers.usable_pieces(registry.stack())
+
+
+def test_a_type_recorded_for_the_file_claims_it_when_no_extension_does():
+    codec, formats = inspect.match(["reads.txt"], _usable(), claimed="fastq.reads")
+    assert [f.id for f in formats] == ["fastq"] and codec is None
+
+
+def test_a_gzipped_file_keeps_its_codec_when_claimed_by_type():
+    codec, formats = inspect.match(["reads.txt.gz"], _usable(), claimed="fastq.reads")
+    assert codec is not None and codec.id == "gzip" and [f.id for f in formats] == ["fastq"]
+
+
+def test_without_a_claim_an_unknown_extension_is_claimed_by_nothing():
+    assert inspect.match(["reads.txt"], _usable()) == (None, [])
+
+
+def test_a_claimed_pair_is_measured_and_says_how_it_was_claimed():
+    files = [(name.replace(".fq.gz", ".txt.gz"), data) for name, data in _files("pair_150")]
+    got = inspect.inspect_sample(files, registry.stack(), claimed="fastq.reads")
+    assert got.outcome == "measured"
+    assert "claimed as fastq.reads, the type the AI named" in got.steps
