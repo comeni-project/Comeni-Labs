@@ -662,4 +662,12 @@ The cycle test expects the limit's number in the message: `{limit}` is there.
 
 ## Execution record
 
-*(Filled in while executing.)*
+Executed 2026-10-04, in one hand.
+
+- **Task 1** (256fab57): the package, on the closed allowlist and in the runtime guard; the guard watched failing on `import fastapi`. *Ruling:* the test file is `test_the_core.py`, because `test_package.py` clashes with `comeni-ai`'s at collection. *Ruling:* the Dockerfile copies the new package (`tests/repo/test_dockerfile.py` demands every member).
+- **Task 2** (9ab829d8): `protocol.py`, `state.py` and `test_protocol.py` moved; `Phase`, `Event` and `ProposalState` live in `mendel_authoring.types`, re-exported by the shell. *Ruling:* a new `EmittedBy.AUTHORING`, and MI0202 and MI0212 now say `emitted_by: authoring`, because the ownership test requires the package that raises a code to own it. *Ruling:* `state.py`'s docstring no longer names `mendel_forge`, because the impure-arrow guard greps text.
+- **Task 3** (cb5e8f9d): one diagram; `INSPECTING`, `detail=` and the second page are gone; the generator writes one page and the index. *Ruling:* the four sample stages are one section, per spec §7, and the two steps where a model reads now say *through door 6* in their labels, pinned by a test, instead of in a stage title.
+- **Task 4** (d8dbe9ef): `Command`, `Node.acts`/`waits`, `Edge.on`, and the validator rules.
+- **Task 5** (62083376): `interpret.follow`/`run`, MI0216 (`emitted_by: authoring`); an added test that a planned arrow is never followed.
+- **Task 6** (e49fddb6): invariant 1, the packages paragraph and table, `invariants.md` §1 (retitled *The pure packages do not reach the network*), the protocol page, MI0212's pointer.
+- **Final review** (fresh reviewer): no criticals. One important finding was fixed test-first: a named arrow out of a node that neither acts nor waits now refuses to load. Its test is `test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused`. The minors are in #248. `make check`: exit 0, 3446 passed.

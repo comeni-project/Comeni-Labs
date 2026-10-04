@@ -152,6 +152,12 @@ class Protocol(_Frozen):
             twice = sorted({n for n in named if named.count(n) > 1})
             if twice:
                 raise ValueError(f"{node.id}: {twice} names two arrows out — twice is ambiguous")
+            if named and not (node.acts or node.waits) and node.built:
+                # Nothing could take a named arrow: no handler returns an outcome here, and no
+                # session rests here for a command (final review of 1a).
+                raise ValueError(
+                    f"{node.id} neither acts nor waits, so {sorted(named)} is never taken"
+                )
             if node.waits and not node.acts and node.built:
                 # Only a command leaves a node that rests and does nothing: an outcome would
                 # need a handler to return it.

@@ -309,3 +309,12 @@ def test_the_commands_are_the_specs():
         "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
         "choose_pacing", "continue", "answer_fact", "choose", "ask", "keep", "retry",
     }
+
+
+def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
+    """Final review of 1a: nothing could take it, and a session run there would rest on a node
+    no command leaves. A forgotten `acts=True` is a drawing mistake, so it refuses to load."""
+    with pytest.raises(ValueError, match="neither acts nor waits"):
+        _proto([_taking("a", waits=True), _taking("b"), _taking("c", waits=True)],
+               [p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True),
+                p.Edge(source="b", target="c", on="done", built=True)])
