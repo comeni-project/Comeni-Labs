@@ -25,6 +25,7 @@ COPY packages/comeni-ai/pyproject.toml packages/comeni-ai/README.md packages/com
 # still a workspace member, and `--all-packages` resolves every member, so it needs its
 # line here for exactly as long as it exists.
 COPY packages/mendel-ai/pyproject.toml packages/mendel-ai/README.md packages/mendel-ai/LICENSE ./packages/mendel-ai/
+COPY packages/mendel-authoring/pyproject.toml packages/mendel-authoring/README.md packages/mendel-authoring/LICENSE ./packages/mendel-authoring/
 COPY packages/mendel-api/pyproject.toml ./packages/mendel-api/
 # The four that arrived with Wiener on 2026-08-24. `dag-core` is not optional for
 # `mendel-api`: `mendel-compiler` depends on it, so a missing line here fails the

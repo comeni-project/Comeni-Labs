@@ -34,7 +34,7 @@ import pytest
 import yaml
 from support.paths import ROOT
 
-_PACKAGES = ("comeni-core", "mendel-resolver", "mendel-compiler")
+_PACKAGES = ("comeni-core", "mendel-resolver", "mendel-compiler", "mendel-authoring")
 PURE = [ROOT / "packages" / p / "src" for p in _PACKAGES]
 
 WATCHED = frozenset(

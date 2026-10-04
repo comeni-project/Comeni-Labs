@@ -79,6 +79,10 @@ CLOSED_PACKAGES = {
         "collections", "collections.abc", "datetime", "enum", "typing",
         "pydantic", "comeni_core", "dag_core", "wiener_core",
     },
+    "mendel-authoring": {
+        "collections", "collections.abc", "enum", "typing", "pydantic", "comeni_core",
+        "mendel_authoring",
+    },
 }
 # `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note
 # exists because the guard is supposed to make an addition something somebody argues for.
@@ -165,6 +169,12 @@ CLOSED_PACKAGES = {
 # The alternative considered and rejected: leave the layout in `mendel-compiler` and let Wiener
 # import it. Rejected because `test_the_two_halves_share_only_comeni_core` forbids exactly that,
 # and correctly — a run graph is not a reason for Wiener to depend on Mendel's compiler.
+
+# `mendel-authoring` was added 2026-10-04 as a whole package (14.7.8, the consultant build), and
+# this is the sixth such note. It holds the authoring protocol — the diagram the engine runs —
+# and its interpreter. **It allows nothing new**: every name on its line is on another pure
+# package's line already. A protocol that knows a database, a queue or a model is a shell
+# wearing the core's name, and this line is where that is refused rather than reviewed.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 

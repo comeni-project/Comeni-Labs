@@ -5098,3 +5098,9 @@ rest.
 | 2026-10-03 | `registry/inspectors/test_support_pieces.py` (both) | — (written from the final review, before `format=`) | failed; passed after | — |
 | 2026-10-04 | `tests/guards/test_egress.py::test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file`, `…::test_free_text_lives_only_where_declared` (issue 135) | `note: Text` added to `CharacteriseRequest` | both failed, naming `note`; reverted, passed | — |
 | 2026-10-04 | `tests/guards/test_egress.py::test_sample_data_lives_only_where_declared`, `…::test_only_the_characterisation_door_can_reach_a_sample` (issue 135) | `sample: SampleText` added to `AuthoringRequest` (door 1) | both failed, naming `AuthoringRequest` / `goal_extraction`; reverted, passed | — |
+
+## 2026-10-04 — the consultant build, 1a: the core (14.7.8.1)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-04 | `tests/guards/test_purity.py::test_pure_packages_import_nothing_impure` (issue 136, `mendel-authoring` on the closed list) | `import fastapi` added to `mendel_authoring/__init__.py` | failed, naming `fastapi`; reverted, passed | `imports fastapi, which is not on this package's allowlist` |

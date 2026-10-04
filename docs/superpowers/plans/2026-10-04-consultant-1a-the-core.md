@@ -68,7 +68,7 @@
 **Interfaces:**
 - Produces: the importable package `mendel_authoring`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `packages/mendel-authoring/tests/test_package.py`:
 
@@ -103,12 +103,12 @@ and a note above the dict's closing, in the file's own style:
 
 In `tests/guards/test_purity_runtime.py:37`: `_PACKAGES = ("comeni-core", "mendel-resolver", "mendel-compiler", "mendel-authoring")`.
 
-- [ ] **Step 2: Run them; expected FAIL**
+- [x] **Step 2: Run them; expected FAIL**
 
 `uv run pytest packages/mendel-authoring tests/guards/test_purity.py tests/guards/test_purity_runtime.py -q`
 Expected: `ModuleNotFoundError: mendel_authoring`, and the purity guard's `test_each_guarded_package_has_source_to_scan` failing for the missing `src/`.
 
-- [ ] **Step 3: Create the package**
+- [x] **Step 3: Create the package**
 
 `packages/mendel-authoring/pyproject.toml`:
 
@@ -155,11 +155,11 @@ to `packages/mendel-api/pyproject.toml`'s `dependencies`.
 
 Run `uv sync`.
 
-- [ ] **Step 4: Run them; expected PASS.** Then watch the guard fail: add `import fastapi` to
+- [x] **Step 4: Run them; expected PASS.** Then watch the guard fail: add `import fastapi` to
 `__init__.py`, run `uv run pytest tests/guards/test_purity.py -q -k mendel`. Expected: FAIL
 naming `fastapi`. Revert, and add a row to `tests/fixtures/guard-ledger.md`.
 
-- [ ] **Step 5: `make verify`, then commit.** `feat(authoring): mendel-authoring, the protocol's pure package (#136)`
+- [x] **Step 5: `make verify`, then commit.** `feat(authoring): mendel-authoring, the protocol's pure package (#136)`
 
 ---
 
