@@ -248,3 +248,42 @@ def test_retry_returns_to_the_phase_that_failed(sid, monkeypatch):
         authoring.start_building(sid)
     phase, seq = authoring.retry(sid)
     assert (phase, seq, _row(sid)[0]) == (Phase.RESOLVING, None, "resolve")
+
+
+# ── from the final review of 1b ─────────────────────────────────────────────────────────────
+
+
+def test_a_resolver_refusing_with_a_value_error_still_lands_on_failed(sid, monkeypatch):
+    """Final review, finding 1: `NoCandidatesError` is a `ValueError`, and is the resolver's own
+    failure, not a refusal of the request: the session fails, and retry is offered."""
+    from mendel_api.services import blueprint
+    from mendel_resolver.ports import NoCandidatesError
+
+    def no_candidates(*args, **kwargs):
+        raise NoCandidatesError("nothing to choose from")
+
+    _confirmed(sid)
+    monkeypatch.setattr(blueprint, "resolve", no_candidates)
+    with pytest.raises(NoCandidatesError):
+        authoring.start_building(sid)
+    assert _row(sid)[:2] == ("failed", Phase.FAILED.value)
+
+
+def test_a_row_from_before_at_takes_its_first_answer(sid):
+    """Final review, finding 2: the node is derived before the answer is recorded, not after."""
+    _gathering(sid)
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, sid).at = None
+    pending = authoring.pending_id(sid)
+    options = authoring.read(sid)["pending_proposal"]["payload"]["options"]
+    authoring.answer_gap(pending, next(iter(options)), None, by="tester")
+    assert _row(sid)[0] in {"reply", "card"}
+    assert authoring.pending_id(sid) not in {None, pending}
+
+
+def test_pinning_writes_the_derived_node_once(sid):
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, sid).at = None
+    before = _row(sid)
+    assert session.pin(sid) == "say"
+    assert _row(sid) == ("say", *before[1:])

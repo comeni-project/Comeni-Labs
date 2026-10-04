@@ -484,6 +484,22 @@ def propose(session_id: str, *, kind: str, payload: dict, turn_id: int | None = 
     return proposal_id
 
 
+def _settlement(proposal_id: str, decision: ProposalState, expected_revision: int):
+    """What `decide` would say, written nowhere: its refusals, checked before the diagram."""
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringProposal, proposal_id)
+        if row is None:
+            raise KeyError(proposal_id)
+        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, row.session_id).draft_id)
+        return st.settle(
+            current=ProposalState(row.state),
+            proposal_revision=row.draft_revision,
+            draft_revision=draft.revision if draft else 0,
+            expected_revision=expected_revision,
+            decision=decision,
+        )
+
+
 def decide(
     proposal_id: str,
     decision: ProposalState,
@@ -549,6 +565,10 @@ class StepOutcome(NamedTuple):
     phase: Phase
 
 
+class ResolverFailed(Exception):
+    """The resolver raised: `resolve` takes the `cant_build` arrow, then raises the cause."""
+
+
 def pending_step_tier(session_id: str) -> int | None:
     """The pending step's tier, which card it is (`offer`, 14.7.8.1), or `None` at the end."""
     with session_scope() as db:
@@ -611,9 +631,12 @@ def build_blueprint(session_id: str, *, client=None) -> str:
         # person as a toast and nowhere else, and a reload lost the reason entirely.
         _note(session_id, _unbuildable(unroutable), code="MI0207")
         return "cant_build"
-    except Exception:
+    except Exception as failure:
+        # **The resolver's own failure, whatever its type** (final review of 1b):
+        # `NoCandidatesError` and the rule errors are `ValueError`s, and are not a refusal of
+        # the request. `resolve` lands the session on `failed`, then raises it.
         log.exception("resolving the blueprint for %s failed", session_id)
-        raise
+        raise ResolverFailed(failure) from failure
     if calls and client is not None:
         authoring_ai.record_calls(
             calls, client=client, registry=blueprint.registry, session_id=session_id
@@ -1064,7 +1087,10 @@ def decide_goal(
 
     accepted = decision is ProposalState.ACCEPTED
     command = Command.CONFIRM_GOAL if accepted else Command.REVISE_GOAL
-    session_mod.check(session_id, command.value)
+    # **The proposal's own refusal first** (ruling 8; final review of 1b): a duplicate is MI0203
+    # and an old picture of the draft MI0201, before the diagram is asked.
+    if _settlement(proposal_id, decision, expected_revision).refusal is None:
+        session_mod.check(session_id, command.value)
     outcome = decide(proposal_id, decision, expected_revision=expected_revision, by=by)
     if outcome.refusal is not None:
         return outcome, current_phase(session_id)
@@ -2187,6 +2213,15 @@ def _record_found(
     return recorded, kept, disagreed, answered
 
 
+def _pin_proposals_session(proposal_id: str) -> None:
+    """Pin the node of the session a sample answers before it records (`session.pin`)."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        session_id = proposal.session_id if proposal is not None else None
+    if session_id is not None:
+        session_mod.pin(session_id)
+
+
 def _sample_moves(session_id: str, answered: bool) -> None:
     """A sample's way out of section ②a (14.7.8.1): on to the next question when it answered
     this one, or staying on it. **The session moved on meanwhile** (spec §8): what it measured
@@ -2205,6 +2240,7 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
     settled refuses the sample before anything is recorded (MI0203), as a duplicate click does.
     """
     stack = registry.stack()
+    _pin_proposals_session(proposal_id)
     with session_scope() as db:
         # **Locked**: two tabs uploading at once take turns here, so the second reads the
         # proposal settled and is refused as a duplicate click (MI0203), not by the version
@@ -2323,6 +2359,7 @@ def answer_with_reading(
     is recorded and the browser sends the file again (spec §8).
     """
     stack = registry.stack()
+    _pin_proposals_session(proposal_id)
     with session_scope() as db:
         proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
         if proposal is None or proposal.state != ProposalState.PENDING.value:

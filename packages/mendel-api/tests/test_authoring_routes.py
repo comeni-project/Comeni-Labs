@@ -22,7 +22,7 @@ from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import AiInvocation
 from mendel_api.routes import authoring as routes
-from mendel_api.services import authoring_jobs
+from mendel_api.services import authoring, authoring_jobs
 from sqlalchemy import select, text
 
 
@@ -742,3 +742,51 @@ def test_after_a_dead_end_the_next_reply_is_read_from_the_top(client, clean, que
     conversation = read.split("# The conversation so far")[-1]
     assert "What result do you want?" in conversation, "the reply is read with its question"
     assert "annotation.gtf" not in conversation, "the model's guess is not handed back as said"
+
+
+# ── from the final review of 14.7.8.1b ──────────────────────────────────────────────────────
+
+
+@needs_db
+def test_accepting_a_goal_twice_is_a_duplicate_not_an_illegal_move(
+    client, clean, queue, monkeypatch
+):
+    """Final review, finding 3: the proposal's own refusal (MI0203) comes before the diagram's."""
+    session = _goal_review(client, queue, monkeypatch)
+    proposal = session["pending_proposal"]
+    url = f"/api/pipeline/authoring/{session['id']}/proposals/{proposal['id']}/decide"
+    body = {"decision": "accepted", "expected_revision": session["revision"]}
+    assert client.post(url, json=body).status_code == 200
+    again = client.post(url, json=body)
+    assert again.status_code == 422
+    assert again.json()["detail"].startswith("MI0203"), again.json()
+
+
+@needs_db
+def test_a_correction_in_words_after_the_goal_was_accepted_does_not_withdraw_the_step(
+    client, clean, queue, monkeypatch
+):
+    """Final review, finding 4: the correction is typed on the card, and the card is accepted
+    while the model reads it. The job read its grounding first (`goal_review`); the revision has
+    no arrow from where the session now is, so the first step stays offered and the goal is not
+    re-read."""
+    session = _goal_review(client, queue, monkeypatch)
+    said = client.post(
+        f"/api/pipeline/authoring/{session['id']}/messages", json={"text": "make it a BAM"}
+    )
+    seq = said.json()["seq"]
+    grounding = authoring.turn_context(session["id"], seq)  # read before the click lands
+    proposal = session["pending_proposal"]
+    client.post(
+        f"/api/pipeline/authoring/{session['id']}/proposals/{proposal['id']}/decide",
+        json={"decision": "accepted", "expected_revision": session["revision"]},
+    )
+    step = _session(client, session["id"])["pending_proposal"]
+    assert step is not None and step["kind"] == "step"
+
+    transport = _model(monkeypatch, json.dumps({"revise": "an aligned, sorted BAM"}))
+    authoring_jobs._follow_up(session["id"], seq, grounding)
+    after = _session(client, session["id"])
+    assert after["phase"] == "building"
+    assert after["pending_proposal"] is not None and after["pending_proposal"]["id"] == step["id"]
+    assert len(transport.sent) == 1, "the goal was re-read: a second model call"

@@ -14,11 +14,10 @@ def resolve(ctx: Ctx) -> str | None:
         return None
     try:
         return authoring.build_blueprint(ctx.session_id, client=ctx.payload.get("client"))
-    except ValueError:
-        raise  # a coded refusal: nothing moves
-    except Exception as failure:  # the resolver itself: `failed`, then raised, as before
-        ctx.raised = failure
+    except authoring.ResolverFailed as failed:  # the resolver itself: `failed`, then raised
+        ctx.raised = failed.__cause__
         return "cant_build"
+    # Anything else raised here (MI0200, MI0201) is a refusal of the request: nothing moves.
 
 
 @handles("offer")

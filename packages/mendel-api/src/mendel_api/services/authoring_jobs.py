@@ -425,7 +425,13 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         return
 
     intent: AuthoringIntent = outcome.reply
-    if intent.revise and context.phase is Phase.GOAL_REVIEW:
+    # **Only where the diagram still draws the revision** (final review of 1b): the card may have
+    # been accepted while the model read, and then nothing is withdrawn and nothing re-read.
+    if (
+        intent.revise
+        and context.phase is Phase.GOAL_REVIEW
+        and session_mod.allows(session_id, Command.REVISED.value)
+    ):
         # A goal revision re-enters understanding with the person's corrected words, and the
         # summary they were correcting is withdrawn rather than left pending beside the new one.
         authoring.withdraw_pending(session_id, by="person")

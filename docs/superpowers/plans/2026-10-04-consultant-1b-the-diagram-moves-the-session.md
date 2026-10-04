@@ -1603,4 +1603,23 @@ Add a changelog line for 14.7.8.1b.
 
 ## Execution record
 
-*(Filled in while executing.)*
+Executed 2026-10-04, in one hand.
+
+- **Task 1** (a35192d9): retry chooses by the failure, a within-request section is one step, `run(command=None)` resumes. *Ruling:* nodes inside a within-request section are exempt from 1a's *a named arrow needs an acting or waiting node*, because the section's ways out are taken by its entry node.
+- **Task 2** (e8c03355): every built node marked and every arrow named. The edge set was diffed against the one before, and only the six redraws changed. The machine pin holds.
+- **Task 3** (cc655852): `at`, migration `c9e4b2d71a38`, `rests_at`.
+  - *Ruling:* `test_models.py`'s declared-columns guard gains `at`.
+  - **`MENDEL_DATABASE_URL=… make migrate` with the URL as an environment prefix migrated the operator's dev database from `.env`.** It added one nullable column, the one this plan adds. The test database was then migrated with the URL on make's command line.
+- **Tasks 5–7** (da52dbf8, one commit): *Ruling:* a command in ① runs into ②'s and ④'s handlers, so no intermediate commit could pass the suite.
+  - `offer_next_gap` splits into `need_listed` and `offer_gap_or_card`.
+  - `start_building` keeps its MI0200 guard before resuming.
+  - Tasks 6–7's tests were written after their code; each was watched failing by reverting `ctx.raised` and the dispatcher's no-move guard.
+- **Task 8** (8bb95584): the binding test and three guards, each watched failing. *Ruling:* the `advance` and `move` guards skip the body of the test-only `move`, scoped by function.
+- **Task 9** (80898c5b): the protocol page and its changelog. `ARCHITECTURE.md` needed nothing.
+- **Final review** (fresh reviewer): no criticals. Four important findings, each fixed test-first:
+  1. a resolver `ValueError` (`NoCandidatesError`) now lands on `failed` (`ResolverFailed`);
+  2. a row from before `at` has its node pinned before the step records (`session.pin`);
+  3. a duplicate goal accept is MI0203 again;
+  4. a correction in words that arrives after the card was accepted withdraws nothing and re-reads nothing.
+
+  The minors are in #249. `make check`: exit 0, 3500 passed.

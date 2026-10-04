@@ -108,6 +108,28 @@ def _where(session_id: str) -> tuple[str, str | None, Phase, Phase | None]:
         return rests_at(db, row), row.at, Phase(row.phase), came_from
 
 
+def pin(session_id: str) -> str:
+    """Write the derived node of a row from before `at`, and return where the session rests.
+
+    **Called before a step records anything** (final review of 1b): a row's derived node reads
+    what is pending, and the step about to run settles exactly that, so deriving it afterwards
+    would find the session somewhere it never was. Compare-and-swap on `at IS NULL`; the version
+    is not moved, since nothing about the session changed."""
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        if row.at is not None:
+            return row.at
+        derived = rests_at(db, row)
+        db.execute(
+            update(PipelineAuthoringSession)
+            .where(PipelineAuthoringSession.id == session_id, PipelineAuthoringSession.at.is_(None))
+            .values(at=derived)
+        )
+        return derived
+
+
 def allows(session_id: str, command: str, *, protocol: Protocol = PROTOCOL) -> bool:
     try:
         check(session_id, command, protocol=protocol)
@@ -117,7 +139,9 @@ def allows(session_id: str, command: str, *, protocol: Protocol = PROTOCOL) -> b
 
 
 def check(session_id: str, command: str, *, protocol: Protocol = PROTOCOL) -> None:
-    """Refuse (MI0216) a command that names no arrow from where the session rests."""
+    """Refuse (MI0216) a command that names no arrow from where the session rests. Pins a
+    derived node first, since the step that checks is about to record."""
+    pin(session_id)
     at, _, _, came_from = _where(session_id)
     interpret.follow(protocol, at, command, returning_to=came_from)
 
