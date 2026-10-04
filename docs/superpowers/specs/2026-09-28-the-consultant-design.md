@@ -292,6 +292,10 @@ candidate*; rule 5 (*nothing is guessed*) is unchanged, because a candidate is n
 
 ### The characteriser: the fourth AI point
 
+> **Designed in full in `2026-10-04-the-characteriser-design.md` (2026-10-04)**, which corrects
+> one line below: types declare no extensions, so door 6 carries no extension candidates and no
+> file name; the candidates are the declared families, then their types.
+
 - `AiPoint.CHARACTERISE` joins the enum, and `tests/artifact/test_ai_provenance.py` is updated to
   say so out loud, which is what that test exists for.
 - **A sixth door**, `DoorPath.PIPELINE`, payload `CharacteriseRequest`: the sample head (a new
