@@ -264,3 +264,10 @@ Executed 2026-10-04, in one hand.
   - BAM: `alignment.bam` and `coordinate_sorted`, quoting `@HD VN:1.6 SO:coordinate`.
   - FASTQ: handed back and measured. Its three claimed states quoted the prompt's own example (`SO:coordinate`), which is not in the file, so all three were dropped. The check works as designed.
   - Two readings took 10–20 s, and the hand-back 33–54 s including the re-send.
+
+**Final review** (one fresh reviewer for plans 3 and 5, opus):
+- **Fixed in 97bc0554 (#246)**, with five tests that failed first:
+  - two Important findings: a hand-back re-send could loop without end, and a failed re-send said *measuring…* for ever;
+  - one Minor re-graded to Important, because the check is the safety mechanism: evidence now must fall within one line and be at least 8 characters.
+- **Deferred minors → #247.**
+

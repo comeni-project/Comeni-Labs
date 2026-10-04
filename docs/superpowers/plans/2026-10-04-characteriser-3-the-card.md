@@ -358,3 +358,10 @@ Executed 2026-10-04, in one hand. The artboards were approved by the operator ("
   - Matches: A1, A2, A3, A4, A5 (the hand-back, shown as the log row once the question closes, a deliberate difference from A5's in-card line), A8, and on a phone A10 and A11.
   - Not reached live and pinned by vitest only: A6 (files gone after a reload), A7 (couldn't tell), A9 (no answer).
   - Mid-walk the machine restarted. The stack was brought back up, and the throwaway test database recreated (`postgres:17-alpine` on :5442) and migrated.
+
+**Final review** (one fresh reviewer for plans 3 and 5, opus):
+- **Fixed in 97bc0554 (#246)**, with five tests that failed first:
+  - two Important findings: a hand-back re-send could loop without end, and a failed re-send said *measuring…* for ever;
+  - one Minor re-graded to Important, because the check is the safety mechanism: evidence now must fall within one line and be at least 8 characters.
+- **Deferred minors → #247.**
+
