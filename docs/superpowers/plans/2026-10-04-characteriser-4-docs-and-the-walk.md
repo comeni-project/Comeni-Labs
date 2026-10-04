@@ -42,7 +42,7 @@
 - Modify: `docs/handbook/builder.md`
 - Modify: `ARCHITECTURE.md`, if it names `AiPoint` members or the doors
 
-- [ ] **Step 1: Find every stale sentence**
+- [x] **Step 1: Find every stale sentence**
 
 Run:
 
@@ -52,7 +52,7 @@ git grep -n -i -E "three (declared|runtime)? ?(ai )?points|five (declared )?door
 
 Expected: a list. Every line is either fixed below or left with a reason in the execution record.
 
-- [ ] **Step 2: The invariants**
+- [x] **Step 2: The invariants**
 
 `CLAUDE.md`:
 - Invariant 3: *Runtime AI is confined to four declared points (`AiPoint`): goal extraction, tier-4 resolution, compiler repair (declared, not built), and characterisation, at protection level 0 only (`docs/design/authoring-protocol.md`).*
@@ -65,7 +65,7 @@ Expected: a list. Every line is either fixed below or left with a reason in the 
 - §14: retitle to *Data leaves through declared doors only, on two paths*, without a number. Add a paragraph on door 6: the first payload holding data from a person's file, bounded by its type, with `SAMPLE_FIELDS` counted apart.
 - §15: the excerpt as a second level-0 loosening.
 
-- [ ] **Step 3: The protocol page**
+- [x] **Step 3: The protocol page**
 
 `docs/design/authoring-protocol.md`:
 - *Where each measurer runs*, the characteriser row: *a model, through door 6* | *at most 8 KB of the sample's text, from the start of its decoded head* | *the excerpt reaches the model; nothing is stored by us* | *level 0 only*. Drop *designed, 14.7.7*.
@@ -74,7 +74,7 @@ Expected: a list. Every line is either fixed below or left with a reason in the 
 - Rules 3 and 4: *the characteriser* now links to how it reads (families then types, closed vocabulary, *read by AI*), and rule 4 says what happens when the AI cannot tell.
 - The changelog line for 14.7.7.
 
-- [ ] **Step 4: The reader's pages**
+- [x] **Step 4: The reader's pages**
 
 `glossary.md`, a *read by AI* entry: *A fact a model read from the start of a file you uploaded, because nothing here measures that kind of file. Shown in yellow: check it before you build.*
 
@@ -87,7 +87,7 @@ Expected: a list. Every line is either fixed below or left with a reason in the 
 
 No issue numbers, no internal names.
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 Expected: green, including `doc-paths` and `doc-sizes`.
@@ -102,11 +102,11 @@ git add CLAUDE.md ARCHITECTURE.md docs && git commit -m "docs: the characteriser
 
 **Files:** screenshots and the session's notes, in the scratchpad; issues on GitHub.
 
-- [ ] **Step 1: A local model, level 0**
+- [x] **Step 1: A local model, level 0**
 
 `make ai-up` (with `OLLAMA_GPU=rocm` on this machine) and the model the walk used last (`gemma3:12b` unless now.md names another). Rebuild `ai-worker` (it is baked). Set the Ollama context above 2048, because Ollama's default silently truncates. Confirm in Settings → Models that the builder's chat model is this local one, so no excerpt leaves the machine. `make dev`.
 
-- [ ] **Step 2: Make the files**
+- [x] **Step 2: Make the files**
 
 In the scratchpad:
 - a small FASTA (`ref.fa.gz`): two chromosomes, 2 KB;
@@ -117,7 +117,7 @@ In the scratchpad:
 
 Nothing is downloaded.
 
-- [ ] **Step 3: Drive it**
+- [x] **Step 3: Drive it**
 
 *Gene counts from paired RNA-seq*, then gather:
 - **reads:** upload the `.txt.gz` pair. Expect *being read by AI…*, then *read by AI: fastq.reads → measuring…*, then the measured result with *type read by AI*.
@@ -129,7 +129,7 @@ Confirm the goal card shows *read by AI* on each such input, then build. Open `p
 
 Also open the session's call panel: two calls per reading, purposes `characterise_family` and `characterise`, and no file name in any rendered prompt.
 
-- [ ] **Step 4: Every defect is an issue first**
+- [x] **Step 4: Every defect is an issue first**
 
 File each finding (`walk` label, then `mechanical` or `protocol`). Fix mechanical ones test-first and close them citing the commit. Put protocol questions to the operator as choices with costs. Re-walk until the walk passes.
 
@@ -137,7 +137,7 @@ File each finding (`walk` label, then `mechanical` or `protocol`). Fix mechanica
 
 ### Task 3: Close the step
 
-- [ ] **Step 1: The journal entry**
+- [x] **Step 1: The journal entry**
 
 `docs/notes/journal/<date>-characteriser.md`, in the journal README's order:
 - **where things stand**, with the commands that verify it: the egress guards, the excerpt tests, the walk's reading times;
@@ -146,15 +146,15 @@ File each finding (`walk` label, then `mechanical` or `protocol`). Fix mechanica
 - **what is next**: 14.7.8 the consultant build; #236 vocabulary proposals;
 - **open questions**.
 
-- [ ] **Step 2: Compact**
+- [x] **Step 2: Compact**
 
 Follow `docs/notes/compaction.md`: fold the step into `now.md` (14.7.7 done; 14.7.8 next), move the entry to `archive/`, and keep `now.md` ≤ 150 lines.
 
-- [ ] **Step 3: Close the issue**
+- [x] **Step 3: Close the issue**
 
 Comment on #135 with the commits and the walk's result, and close it. Tick 14.7.7 on #126 if that issue keeps a checklist.
 
-- [ ] **Step 4: Check, then commit**
+- [x] **Step 4: Check, then commit**
 
 ```bash
 git add docs && git commit -m "docs(notes): the characteriser built — 14.7.7 closes (#135)"
@@ -164,4 +164,15 @@ git add docs && git commit -m "docs(notes): the characteriser built — 14.7.7 c
 
 ## Execution record
 
-*(Filled in while executing: rulings, deviations, and what each task's tests printed.)*
+Executed 2026-10-04, in one hand.
+
+- **Task 1** (8ac6d687): CLAUDE.md invariants 3, 14 and 15, and the protection paragraph; `invariants.md` §3, §14 and §15; the protocol page (rule 4, the measurer row, the protection table, the loosening for the excerpt in Redis, the changelog); `ARCHITECTURE.md`; the schema reference; the builder page's *When you're not sure: answer with a file*. *Ruling:* there is no glossary entry, because the glossary is held by a test to the on-screen `<Term>` words.
+- **Task 2:** walked live with gemma3:12b across plans 3 and 5 (#243, #244, #245, #246). The last walk passed:
+  - FASTA → `genome.fasta`;
+  - BAM → `alignment.bam` and `coordinate_sorted`, quoting its header line;
+  - FASTQ `.txt` → handed back and measured;
+  - random bytes → *nothing reads this type yet*;
+  - `ai_for_draft` → `characterise` available and used.
+
+  Not walked: a build through to Keep with a fact the AI read. In this registry a read fact can only be an input's type, and a premise comes only from measurements, which the AI may read only where a measurement declares `describes:` a type with no inspector (none does today). The end-to-end file is pinned by `test_a_premise_read_by_ai_says_so_in_the_file`.
+- **Task 3** (fa381cf6, 4cf641e4): the journal entry, compacted; `now.md` is 149 lines.
