@@ -277,7 +277,9 @@ describe("an answered gap on the log (issue 169)", () => {
         block: question },
     ] } as Partial<AuthoringSession>));
     const line = screen.getByTestId("gap-answer-h1").closest("div")!;
-    expect(line).toHaveTextContent("read by AI from your sample");
+    // Said once, in the answer; the label says where it came from (walked live: twice read).
+    expect(line.textContent?.match(/read by AI/g)).toHaveLength(1);
+    expect(line).toHaveTextContent("from your sample");
     expect(line).not.toHaveTextContent("measured");
   });
 });

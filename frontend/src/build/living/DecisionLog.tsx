@@ -412,7 +412,7 @@ function DecisionEntry({
           <span data-testid={`gap-answer-${decision.id}`}
                 className="font-data text-[11px] text-ink-2 shrink-0">{answer}</span>
           <span className="ml-auto font-data text-[9px] text-ink-4 shrink-0">
-            {model ? "read by AI" : aiRead ? "read by AI from your sample"
+            {model ? "read by AI" : aiRead ? "from your sample"
               : sampled ? "measured from your sample" : "you said"}
           </span>
         </div>
