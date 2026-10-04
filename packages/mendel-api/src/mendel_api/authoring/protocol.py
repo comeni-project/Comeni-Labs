@@ -672,8 +672,9 @@ PROTOCOL = Protocol(
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
         _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
-        # a file answers it: built in 14.7.6; the characteriser is planned step by step inside the detail (14.7.7). No event
-        # of its own: what the sample settles moves the session as a click does.
+        # a file answers it: built in 14.7.6; the characteriser is planned step by step inside
+        # the detail (14.7.7). No event of its own: what the sample settles moves the session as
+        # a click does.
         _e("reply", "upload", "upload a sample (when something here reads it)", built=True),
         _e("upload", "safety", "uploaded", built=True),
         _e("safety", "read_engine", "level 0", built=True),

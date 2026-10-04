@@ -300,7 +300,8 @@ CHARACTERISER = {"door", "excerpt", "families", "types", "ai_admit", "ai_stamped
 def test_the_characteriser_is_drawn_step_by_step_and_planned():
     detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
     nodes = {n.id: n for n in detail.nodes}
-    assert CHARACTERISER <= set(nodes), CHARACTERISER - set(nodes)
+    missing = CHARACTERISER - set(nodes)
+    assert not missing, missing
     assert "characterise" not in nodes, "the single placeholder node is replaced, not kept"
     assert not any(nodes[n].built for n in CHARACTERISER)
     edges = {(e.source, e.target) for e in detail.edges}
