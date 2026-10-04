@@ -75,7 +75,7 @@
 **Interfaces:**
 - Produces: detail node ids `door`, `excerpt`, `families`, `types`, `ai_admit`, `ai_stamped`, `hand_back`, and stage `reading`, which plans 2 and 4 mark built. The overview node `read_ai` stays, with new edges.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/mendel-api/tests/test_authoring_protocol.py`:
 
@@ -132,12 +132,12 @@ with:
     )
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_protocol.py -q`
 Expected: the three new tests FAIL (`door` etc. are not nodes; `('read_engine', 'read_ai')` is not drawn).
 
-- [ ] **Step 3: Draw the branch**
+- [x] **Step 3: Draw the branch**
 
 In `INSPECTING`, add a stage after `receiving`:
 
@@ -234,7 +234,7 @@ with:
 
 and change the comment above `_e("reply", "upload", …)` from *the characteriser stays planned (14.7.7)* to *the characteriser is planned step by step inside the detail (14.7.7)*.
 
-- [ ] **Step 4: Run the tests and regenerate the diagrams**
+- [x] **Step 4: Run the tests and regenerate the diagrams**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_protocol.py -q`
 Expected: PASS, including `test_the_machine_did_not_change`: no edge here carries an event.
@@ -242,7 +242,7 @@ Expected: PASS, including `test_the_machine_did_not_change`: no edge here carrie
 Run: `uv run python tools/generate_protocol_doc.py && uv run python tools/generate_protocol_doc.py --check`
 Expected: the two diagram pages change and the check passes. Open `docs/design/diagrams/inspecting-a-sample.md` and read the mermaid: the new nodes are dashed, and `reading` is its own subgraph.
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 Expected: green.
@@ -268,7 +268,7 @@ git commit -m "docs(protocol): the characteriser's branch, step by step, planned
 **Interfaces:**
 - Produces: `AiPoint.CHARACTERISE = "characterise"`; `PremiseOrigin.MODEL_READ = "model_read"`; a value with `ValueSource.MODEL` in a profile becomes a premise with origin `MODEL_READ`, whose sentence is `"<id> is <value>, read by AI"`. In `pipeline.yml`, its `Why.reason` begins `read by AI from the start of a sample`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/artifact/test_ai_provenance.py`, change line 94 to:
 
@@ -318,12 +318,12 @@ def _why_for_measured(*, source):
 
 Then make the existing MEASURED test call `_why_for_measured(source=ValueSource.MEASURED)`, so there is only one copy of the setup.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest tests/artifact/test_ai_provenance.py packages/mendel-resolver/tests/test_premises.py tests/artifact/test_pipeline_file.py -q`
 Expected: FAIL. `AiPoint` has three members; `_BY_SOURCE` has no `MODEL` (`KeyError`); `PremiseOrigin` has no `MODEL_READ`.
 
-- [ ] **Step 3: Declare them**
+- [x] **Step 3: Declare them**
 
 `pipeline.py`, in `AiPoint`, change the docstring's first line to *The four declared runtime AI points. Invariant 3 says there are exactly these.* and add after `REPAIR`:
 
@@ -371,13 +371,13 @@ and add one line to its docstring: *`MODEL` is the characteriser (14.7.7): a mod
         reason = "read by AI from the start of a sample; check it"
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run the Step 2 command.
 Expected: PASS. Then run `MENDEL_DATABASE_URL=… uv run pytest tests/artifact packages/mendel-resolver -q`.
 Expected: PASS, including `test_a_schema_change_bumps_the_version` (no field moved: ruling 3).
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make verify`. `make verify` is required here: `comeni_core/artifact/pipeline.py` is on CLAUDE.md's list.
 Expected: green.
@@ -400,7 +400,7 @@ git commit -m "feat(core): the fourth AI point, characterise; a premise read by 
 **Interfaces:**
 - Produces: `comeni_core.spell.marks.Mark.SAMPLE`, `SampleText`, `EXCERPT_BYTES = 8192`, `EXCERPT_LINES = 200`; `comeni_core.artifact.egress.CharacteriseRequest(excerpt: SampleText, binary_before: bool = False, registry: Digest | None = None)`; `egress.DOORS["characterisation"] is CharacteriseRequest`, on `DoorPath.PIPELINE`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/guards/test_egress.py`:
 
@@ -480,12 +480,12 @@ def test_an_excerpt_at_its_bound_is_accepted():
 
 5. Change the module docstring's first line to *Invariant 14: data leaves through six declared doors and no others.* and its first paragraph's *Five since 2026-09-05* to *Six since 2026-10-04 (door 6, the characteriser); five since 2026-09-05*.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest tests/guards/test_egress.py -q`
 Expected: FAIL. `Mark` has no `SAMPLE`; `egress` has no `CharacteriseRequest`; `DOORS` lacks `characterisation`.
 
-- [ ] **Step 3: Declare the mark, the type and the door**
+- [x] **Step 3: Declare the mark, the type and the door**
 
 `marks.py`, in `Mark`, after `FREE_TEXT`:
 
@@ -552,12 +552,12 @@ In `DECLARED`, after `"publication"`:
 
 In the module docstring, change *There are **five**, on **two paths**. Four carry …* to: *There are **six**, on **two paths**. Five carry pipeline data — goal extraction, tier-4 resolution, compiler repair, publication and, since 14.7.7, characterisation, the one door that carries part of a person's file — and the sixth carries forge review*. Also update `DoorPath`'s *four doors* sentence to *the pipeline's doors*.
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run: `uv run pytest tests/guards/test_egress.py -q`
 Expected: PASS. If `test_every_mark_carries_a_validator_or_is_listed_as_a_label` fails, `SampleText` lost its validator; fix the alias, not the list.
 
-- [ ] **Step 5: Watch the guard fail against the defect it guards**
+- [x] **Step 5: Watch the guard fail against the defect it guards**
 
 Temporarily add `note: Text = ""` to `CharacteriseRequest` and run `uv run pytest tests/guards/test_egress.py -q -k "characterisation_door_carries or free_text_lives"`.
 Expected: both FAIL, naming `note`.
@@ -567,7 +567,7 @@ Expected: both FAIL, naming `AuthoringRequest`/`goal_extraction`.
 
 Revert both, then append a row to `tests/fixtures/guard-ledger.md` in its format, naming the four tests, the two reverts and their failures.
 
-- [ ] **Step 6: Check, then commit**
+- [x] **Step 6: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 Expected: green. If `make types` regenerates `.pyi` files, include them.
@@ -601,7 +601,7 @@ git commit -m "feat(core): door 6, characterisation — the first payload holdin
   - `offered(stack, type_id: str) -> tuple[set[str], set[str]]`: the states and measurement ids a type offers.
 - Produces, in `mendel_api.authoring.types`: `CharacteriseFamilies(families: list[str])`, `ReadMeasurement(id: str, value: HumanParamValue)`, `Unmatched(kind: Literal["type", "state", "measurement"], name: str, cite: str)`, `CharacteriseReply(type_id: str | None, states: list[str], measurements: list[ReadMeasurement], undetermined: list[str], unmatched: list[Unmatched])`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `packages/mendel-api/tests/test_authoring_characterise.py`:
 
@@ -814,12 +814,12 @@ def test_the_characteriser_reads_only_what_the_excerpt_states():
     assert "`undetermined`" in body and "`unmatched`" in body
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_characterise.py packages/mendel-api/tests/test_authoring_prompts.py -q`
 Expected: FAIL (`compose_characterise` and `prompts.CHARACTERISE` do not exist).
 
-- [ ] **Step 3: Write the prompts**
+- [x] **Step 3: Write the prompts**
 
 `builder.characterise-family.v1.md`:
 
@@ -921,7 +921,7 @@ what it states that nothing declares (`unmatched`, stored only) out (14.7.7). Eg
 
 and add both to `TEMPLATES`.
 
-- [ ] **Step 4: Declare the replies**
+- [x] **Step 4: Declare the replies**
 
 In `authoring/types.py`, after `FamilyChoice`:
 
@@ -960,7 +960,7 @@ class CharacteriseReply(_Shape):
     unmatched: list[Unmatched] = []
 ```
 
-- [ ] **Step 5: Write the calls**
+- [x] **Step 5: Write the calls**
 
 In `authoring_ai.py`:
 
@@ -1112,7 +1112,7 @@ In `services/models.py`, add to `PURPOSES`:
     ("builder", "characterise"): c.MODEL_TALK,
 ```
 
-- [ ] **Step 6: Run them to verify they pass**
+- [x] **Step 6: Run them to verify they pass**
 
 Run the Step 2 command.
 Expected: PASS. If `client.choices[0]["type_id"]` holds the ids in a different order, the server-side `choices` list is sorted; `shown` comes from `types_of` sorted. Sort it in `characterise` and keep the test.
@@ -1120,7 +1120,7 @@ Expected: PASS. If `client.choices[0]["type_id"]` holds the ids in a different o
 Then run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api -q`
 Expected: PASS. If a test holds `Purpose` to the `PURPOSES` map or to the settings catalogue, follow what it says. A purpose with no setting is a call nobody can route.
 
-- [ ] **Step 7: Check, then commit**
+- [x] **Step 7: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 Expected: green.
@@ -1134,4 +1134,12 @@ git commit -m "feat(api): the characteriser's two calls — families, then the t
 
 ## Execution record
 
-*(Filled in while executing: rulings, deviations, and what each task's tests printed.)*
+Executed 2026-10-04, in one hand.
+
+- **Task 1** (1b0376ec, lint fixed in acec32a6): the branch drawn as planned nodes; 31 protocol tests. *Lint was not read before the commit*: the background job's exit status was `echo`'s, not `make`'s. Fixed in its own commit; since then `make`'s own code is read.
+- **Task 2** (a07c6978): `AiPoint.CHARACTERISE`, `PremiseOrigin.MODEL_READ`, `_BY_SOURCE[MODEL]` (the build died on `KeyError: model` before it), the `meta` reason. `make verify` green.
+  - *Ruling:* the planned test *every value source has a premise origin* was dropped. `_BY_SOURCE` was never total: `DERIVED` is absent and no profile carries it.
+  - *Ruling:* the materialise reason belongs to a `meta` entry, not `Why.reason`. The file test asserts both the premise sentence and `single_end`'s reason; `_build_measured` gained `source` and `paired` parameters. Watched failing without the new branch.
+- **Task 3** (9289c9ba): door 6, `Mark.SAMPLE`, `SampleText`, `SAMPLE_FIELDS`. Both guards watched failing (recorded in the guard ledger). 59 egress tests.
+- **Task 4** (8f2b116b): two prompts, the reply shapes and the two admitted calls. 43 tests; `make check` 3353 passed.
+  - *Ruling:* test fixtures corrected. A digest needs `sha256:`, and the transport receives chat messages, so `_text()` joins them. The plan's `in sent[0]` checks would have passed vacuously on a list.
