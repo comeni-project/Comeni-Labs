@@ -544,7 +544,8 @@ def characterise(
         # holds each to the chosen type's own. An empty list is left unconstrained by `_call`.
         choices={
             "type_id": list(shown),
-            "states": sorted({s for t in shown for s in offered(stack, t)[0]}),
+            # On a state's `id`, never on the state itself (issue 245).
+            "states.id": sorted({s for t in shown for s in offered(stack, t)[0]}),
             "undetermined": measured,
             "measurements.id": measured,
         },

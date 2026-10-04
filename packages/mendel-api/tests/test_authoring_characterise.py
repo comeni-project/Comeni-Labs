@@ -247,7 +247,7 @@ def test_states_and_measurement_ids_are_held_to_what_was_offered(stack, clean_fo
     states = sorted({s for t in shown for s in ai.offered(stack, t)[0]})
     measured = sorted({m for t in shown for m in ai.offered(stack, t)[1]})
     assert states and measured, "a loop over nothing asserts nothing"
-    assert held["states"] == states
+    assert held["states.id"] == states
     assert held["undetermined"] == measured
     assert held["measurements.id"] == measured
 
@@ -310,9 +310,23 @@ def test_nothing_offered_is_nothing_the_server_allows(stack, clean_forge):
         _request(">chr1\nACGT\n" * 30, binary_before=False),
         stack=stack, families=["genome"], client=client,
     )
-    assert client.choices[0]["states"] == []
+    assert client.choices[0]["states.id"] == []
 
 
 def test_evidence_is_compared_with_whitespace_as_one_space():
     assert ai._evidenced("@HD VN:1.6  SO:coordinate", "@HD\tVN:1.6\tSO:coordinate\n")
     assert not ai._evidenced("SO:queryname", "@HD\tVN:1.6\tSO:coordinate\n")
+
+
+def test_the_schema_sent_keeps_each_state_an_object_with_its_evidence(stack, clean_forge):
+    """Issue 245: the enum goes on a state's `id`, never on the state; walked live, a schema
+    saying a state is a string got strings back, and every reply failed its shape."""
+    from comeni_ai.formats import with_choices
+    from mendel_api.authoring.types import CharacteriseReply
+
+    client = Choosing(_reply())
+    ai.characterise(_request(), stack=stack, families=["alignment"], client=client)
+    sent = with_choices(CharacteriseReply.model_json_schema(), client.choices[0])
+    state = sent["$defs"]["StateRead"]
+    assert "enum" not in state and "coordinate_sorted" in state["properties"]["id"]["enum"]
+    assert "evidence" in state["properties"]
