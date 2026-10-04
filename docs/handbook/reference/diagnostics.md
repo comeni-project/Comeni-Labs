@@ -229,6 +229,7 @@ decline to curate one.
 | `MI0212` | a failed authoring session cannot resume into this phase |
 | `MI0213` | the protection level does not allow this crossing |
 | `MI0214` | an upload was refused: one file or a pair, nothing else |
+| `MI0215` | a sample is already being read for this question |
 
 ## The forge — what a model is told, and what it cites
 

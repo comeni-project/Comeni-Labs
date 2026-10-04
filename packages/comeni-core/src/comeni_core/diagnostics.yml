@@ -3747,6 +3747,19 @@ MI0214:
   explanation: |
     A sample answers a question about the data, and one file or one pair is what a question
     about the data can be answered from. Nothing is read before the count is checked.
+MI0215:
+  emitted_by: api
+  concern: workflow
+  says: "a sample is already being read for this question"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Wait for the AI's reading to arrive on the card. If it says the AI didn't answer, measure
+    again.
+  explanation: |
+    A sample nothing here reads is read by the AI on the AI worker, which takes a while. One
+    reading per question at a time keeps two answers from racing, as a sample being measured
+    holds the question's other answers.
 MI0300:
   emitted_by: api
   concern: settings

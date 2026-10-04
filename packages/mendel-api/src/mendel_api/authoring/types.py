@@ -21,6 +21,7 @@ phases are that section's state diagram, and they are transcribed rather than in
 diagram stays the specification.
 """
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal, Self, get_args
 
@@ -284,6 +285,29 @@ class GoalSummary(_Block):
     ones reach the goal, through the card's edited goal."""
 
 
+class SampleReading(_Shape):
+    """The AI reading a sample nothing here reads (14.7.7), as the question's card shows it.
+
+    `pending` while the job is out; `read` when what it admitted was recorded; `could_not_tell`
+    when it named no family or no type; `refused` when an id it named is undeclared (`code`);
+    `no_answer` when no model answered, or the job never came back; `hand_back` when it named a
+    type the engine reads, so the browser sends the file again; `handed` once it has.
+    `attempt` keys the job, so a retry is a new job and a late answer to an old one is ignored.
+    """
+
+    state: Literal[
+        "pending", "read", "could_not_tell", "refused", "no_answer", "hand_back", "handed"
+    ]
+    attempt: int = 1
+    started_at: datetime | None = None
+    type_id: str | None = None
+    states: list[str] = []
+    recorded: list[str] = []
+    kept: list[str] = []
+    disagreed: list[str] = []
+    code: str | None = None
+
+
 class Question(_Block):
     """One typed question with a closed set of answers, or a declared open one.
 
@@ -304,6 +328,9 @@ class Question(_Block):
     """Whether a model is phrasing this question for the person (#167): `pending` while it is,
     `done` once `asks` is its words, `none` when the engine's words stand (no model, or it
     failed). The page keeps its one poll running while a pending question is `pending`."""
+    reading: SampleReading | None = None
+    """The AI reading a sample for this question (14.7.7). The page keeps its one poll running
+    while it is `pending`."""
 
 
 class StepProposal(_Block):

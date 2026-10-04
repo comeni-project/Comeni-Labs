@@ -50,6 +50,7 @@ from mendel_api.authoring.types import (
     Phase,
     ProposalState,
     Question,
+    SampleReading,
     TurnState,
 )
 from mendel_api.db import session_scope
@@ -226,7 +227,7 @@ def read(session_id: str) -> dict:
                 else {
                     "id": pending.id,
                     "kind": pending.kind,
-                    "payload": pending.payload,
+                    "payload": _aged(pending.payload),
                     "draft_revision": pending.draft_revision,
                 }
             ),
@@ -239,7 +240,12 @@ def _words_coming(pending) -> bool:
     if pending is None:
         return False
     block = pending.payload.get("block") or {}
-    return block.get("phrasing") == "pending" or bool(block.get("readback_pending"))
+    reading = _reading(block) or {}
+    return (
+        block.get("phrasing") == "pending"
+        or bool(block.get("readback_pending"))
+        or reading.get("state") == "pending"
+    )
 
 
 def calls(session_id: str) -> list[dict]:
@@ -1400,7 +1406,9 @@ def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
     """The closed answers to one gap, as option id → label. The engine mints every id."""
     measured, read = _inspectable(stack)
     if gap.kind is FactKind.INPUT:
-        if gap.subject in read:
+        # A sample nothing here reads is read by the AI (14.7.7), so the upload is offered
+        # wherever the AI may read one — not only where a format reads the type.
+        if gap.subject in read or _characterisable():
             have, *rest = _INPUT_OPTIONS.items()
             return dict([have, (UPLOAD, "I have it, and I'll upload a sample"), *rest])
         return dict(_INPUT_OPTIONS)
@@ -1686,6 +1694,13 @@ def prefill_gap(proposal_id: str, option: str, value, *, note: str) -> None:
 
 ALREADY_NOTE = "from what you said earlier"
 """The note on an option a phrasing call heard the person already give (#167)."""
+
+
+def _characterisable() -> bool:
+    """Whether the AI may read a sample here (14.7.7). The seam is `characterise.available`."""
+    from mendel_api.services import characterise
+
+    return characterise.available()
 
 
 def _model_configured() -> bool:
@@ -1981,6 +1996,9 @@ def _sample_refusal(proposal) -> str | None:
     """Why this proposal cannot take a sample now, or `None` (MI0205, then MI0203)."""
     if proposal.kind != GAP or UPLOAD not in proposal.payload["options"]:
         return coded("MI0205", "that question does not take a sample")
+    reading = _reading((proposal.payload or {}).get("block") or {}) or {}
+    if reading.get("state") == "pending":
+        return coded("MI0215", "a sample is already being read for this question")
     return st.settle(
         current=ProposalState(proposal.state),
         proposal_revision=proposal.draft_revision,
@@ -2094,3 +2112,75 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
     return SampleAnswer(
         phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
     )
+
+
+# ── the AI reading a sample (14.7.7) ─────────────────────────────────────────────────────────
+
+STALE_AFTER = settings.ai_job_timeout_seconds + 60
+"""A reading older than the job could run reads as `no_answer` (ruling 4 of 14.7.7.2's plan):
+a worker killed mid-job never writes back, and the card must not wait forever."""
+
+
+def _reading(block: dict) -> dict | None:
+    """The block's reading as it should be read now: a pending one past `STALE_AFTER` is
+    `no_answer`. Nothing is written."""
+    reading = block.get("reading")
+    if not reading or reading.get("state") != "pending" or not reading.get("started_at"):
+        return reading
+    started = datetime.fromisoformat(reading["started_at"])
+    if (_now() - started).total_seconds() > STALE_AFTER:
+        return {**reading, "state": "no_answer", "code": "MA0007"}
+    return reading
+
+
+def _aged(payload: dict) -> dict:
+    """The payload with a reading the job never finished shown as `no_answer` (nothing written)."""
+    block = payload.get("block") or {}
+    if not block.get("reading"):
+        return payload
+    return {**payload, "block": {**block, "reading": _reading(block)}}
+
+
+def _set_reading(db, proposal, reading: SampleReading | None) -> None:
+    payload = dict(proposal.payload)
+    block = dict(payload["block"])
+    block["reading"] = None if reading is None else reading.model_dump(mode="json")
+    payload["block"] = block
+    proposal.payload = payload
+
+
+def reading_of(proposal_id: str) -> SampleReading | None:
+    """The question's reading as it should be read now, or `None`."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        found = _reading((proposal.payload or {}).get("block") or {}) if proposal else None
+    return None if found is None else SampleReading.model_validate(found)
+
+
+def start_reading(proposal_id: str) -> int:
+    """Mark the question as being read by the AI; the attempt that keys the job."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        if proposal is None:
+            raise KeyError(proposal_id)
+        before = (proposal.payload.get("block") or {}).get("reading") or {}
+        attempt = int(before.get("attempt", 0)) + 1
+        _set_reading(
+            db, proposal, SampleReading(state="pending", attempt=attempt, started_at=_now())
+        )
+    return attempt
+
+
+def reading_failed(proposal_id: str, attempt: int, state: str, code: str | None) -> None:
+    """End a reading without recording anything, if it is still this attempt's."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        if proposal is None:
+            return
+        reading = (proposal.payload.get("block") or {}).get("reading") or {}
+        if reading.get("attempt") != attempt or reading.get("state") != "pending":
+            return
+        _set_reading(
+            db, proposal,
+            SampleReading.model_validate({**reading, "state": state, "code": code}),
+        )

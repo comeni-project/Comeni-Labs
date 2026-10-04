@@ -24,6 +24,18 @@ class Excerpt(NamedTuple):
     """Binary bytes came before the text: a BAM's header, not a SAM file."""
 
 
+def available() -> bool:
+    """Whether a model may read a sample here: the level allows it, and a model answers it.
+    The one seam a test replaces."""
+    from mendel_api.services import protection
+    from mendel_api.settings import model_access
+
+    return (
+        protection.allows(protection.Crossing.CHARACTERISE)
+        and model_access("builder", "characterise") is not None
+    )
+
+
 def _decoded(head: bytes) -> bytes:
     """The head, gunzipped when its first bytes say gzip — through every member, never past
     `DECODED_CAP`, and as far as a truncated member goes."""
