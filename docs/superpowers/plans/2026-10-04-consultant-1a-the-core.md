@@ -479,7 +479,7 @@ In `_consistent`, after the existing loop over edges:
   - `interpret.run(protocol: Protocol, at: str, command: str, enter: Callable[[str], str | None], *, limit: int = 64) -> Ran`: follows `command` out of `at`, then, for each node entered, calls `enter(node_id)` if it `acts`, taking the arrow its outcome names, or resting there on `None`. A node that does not act is passed straight through if it has one way on and does not `wait`; otherwise the session rests there.
   - `interpret.Ran(at: str, path: list[str])`: where it rests, and every node entered, in order.
 
-- [ ] **Step 1: Write the failing tests** (`test_interpret.py`)
+- [x] **Step 1: Write the failing tests** (`test_interpret.py`)
 
 ```python
 """The interpreter: the protocol run as a program (14.7.8.1). Pure — `enter` is the shell's."""
@@ -553,9 +553,9 @@ def test_a_cycle_stops_at_the_limit_and_says_so():
         run(loop, "a", Command.CONTINUE.value, lambda node: "on")
 ```
 
-- [ ] **Step 2: Run them; expected FAIL** (`ModuleNotFoundError`).
+- [x] **Step 2: Run them; expected FAIL** (`ModuleNotFoundError`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `diagnostics.yml`, after MI0215:
 
@@ -642,9 +642,9 @@ def _one_way_on(protocol: Protocol, at: str) -> bool:
 
 The cycle test expects the limit's number in the message: `{limit}` is there.
 
-- [ ] **Step 4: Run them; expected PASS.** `uv run pytest packages/mendel-authoring -q`.
+- [x] **Step 4: Run them; expected PASS.** `uv run pytest packages/mendel-authoring -q`.
 
-- [ ] **Step 5: `make check`, then commit.** `feat(authoring): the interpreter — the protocol run as a program (#136)`
+- [x] **Step 5: `make check`, then commit.** `feat(authoring): the interpreter — the protocol run as a program (#136)`
 
 ---
 

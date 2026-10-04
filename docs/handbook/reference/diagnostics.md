@@ -230,6 +230,7 @@ decline to curate one.
 | `MI0213` | the protection level does not allow this crossing |
 | `MI0214` | an upload was refused: one file or a pair, nothing else |
 | `MI0215` | a sample is already being read for this question |
+| `MI0216` | that is not possible from here |
 
 ## The forge — what a model is told, and what it cites
 

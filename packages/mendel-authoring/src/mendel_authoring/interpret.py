@@ -1,0 +1,68 @@
+"""Run the protocol (14.7.8.1): where a session rests, and the nodes it passes on the way.
+
+**Pure.** `enter` is the shell's: it runs an acting node's handler and returns its outcome, or
+`None` to rest. Everything else — which arrow, when to stop, what to refuse — is here, read off
+the protocol, so the diagram is the program and not a picture of it.
+"""
+
+from collections.abc import Callable
+from typing import NamedTuple
+
+from comeni_core.diagnostics import coded
+
+from mendel_authoring.protocol import Edge, Node, Protocol
+
+
+class Refused(ValueError):
+    """MI0216: no arrow from here is named by what arrived."""
+
+
+class Ran(NamedTuple):
+    at: str
+    """Where the session rests."""
+    path: list[str]
+    """Every node entered, in order, ending at `at`."""
+
+
+def follow(protocol: Protocol, at: str, on: str | None) -> Edge:
+    """The built arrow out of `at` that `on` names; `None` names the one way straight on."""
+    found = [e for e in protocol.edges if e.built and e.source == at and e.on == on]
+    if not found:
+        named = "the way straight on" if on is None else repr(on)
+        raise Refused(coded("MI0216", f"from {at!r}, nothing leads on by {named}"))
+    return found[0]
+
+
+def run(
+    protocol: Protocol,
+    at: str,
+    command: str,
+    enter: Callable[[str], str | None],
+    *,
+    limit: int = 64,
+) -> Ran:
+    """Follow `command` out of `at`, then on through every node until the session rests.
+
+    An acting node is entered, and its outcome names the arrow on (`None`: rest there). A node
+    that neither acts nor waits, with one way on, is passed straight through. Anything else is
+    where the session rests. More than `limit` nodes without resting is a cycle, refused.
+    """
+    nodes: dict[str, Node] = {n.id: n for n in protocol.nodes}
+    node = nodes[follow(protocol, at, command).target]
+    path = [node.id]
+    while len(path) <= limit:
+        if node.acts:
+            outcome = enter(node.id)
+            if outcome is None:
+                return Ran(node.id, path)
+            node = nodes[follow(protocol, node.id, outcome).target]
+        elif not node.waits and _one_way_on(protocol, node.id):
+            node = nodes[follow(protocol, node.id, None).target]
+        else:
+            return Ran(node.id, path)
+        path.append(node.id)
+    raise Refused(coded("MI0216", f"ran {limit} nodes from {at!r} without resting: a cycle"))
+
+
+def _one_way_on(protocol: Protocol, at: str) -> bool:
+    return sum(1 for e in protocol.edges if e.built and e.source == at and e.on is None) == 1

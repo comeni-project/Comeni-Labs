@@ -3760,6 +3760,18 @@ MI0215:
     A sample nothing here reads is read by the AI on the AI worker, which takes a while. One
     reading per question at a time keeps two answers from racing, as a sample being measured
     holds the question's other answers.
+MI0216:
+  emitted_by: authoring
+  concern: workflow
+  says: "that is not possible from here"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Read where the conversation is: the action named is not one of the ways on from there.
+  explanation: |
+    The authoring protocol is the program the builder runs (docs/design/diagrams/). From each
+    place in it, only the arrows drawn lead on; an action or an outcome that names no arrow from
+    where the session is, is refused here rather than half-done.
 MI0300:
   emitted_by: api
   concern: settings
