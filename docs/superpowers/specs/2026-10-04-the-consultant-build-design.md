@@ -223,7 +223,7 @@ the later plans would name.
    - one sectioned protocol;
    - `at` and its migration;
    - commands, the dispatcher-interpreter, handlers and the binding test;
-   - the stage modules and the facade;
+   - the stage modules and the facade (§11, plan 1c);
    - **behaviour unchanged.**
 2. **14.7.8.2 The build plan:** the pure core of §4.
 3. **14.7.8.3 Stage ④:**
@@ -236,3 +236,59 @@ the later plans would name.
 
 The `comeni-core` version bump (a family's optional `stage` label), and `mendel-authoring`'s first
 release, are judged at release time.
+
+## 11. Part 1's second half: how the shell is put together (14.7.8.1c)
+
+**Decided** by the operator on 2026-10-04, in a brainstorm held after 1b landed. Part 1 is two
+plans: 1b made the diagram move every session; 1c moves the code behind it into the stage
+modules, and makes one person's action one transaction. Behaviour is unchanged.
+
+### 11.1 What moves, and what is fenced off for part 3
+
+| Code | Goes to |
+|---|---|
+| ① describing: opening a session, the model's reading stored, words said | `stages/describe.py` |
+| ② gathering: the needs listed, the next question offered, an answer recorded, phrasing | `stages/gathering.py` |
+| ②a a sample: the upload, the reading, the hand-back | `stages/samples.py` |
+| ③ the goal card: confirm, *not quite*, a correction in words, the read-back | `stages/goal.py` (new) |
+| ④ what part 3 **keeps**: resolve the blueprint, offer a step, commit a step into the draft, re-resolve when the registry moved (MI0206), the *can't build* note (MI0207) | `stages/building.py`, as small functions part 3 calls |
+| ④ what part 3 **deletes**: `Mode`, `spawn_forward`, `SpawnStop`, the Spawn branches of the routes and the build job | `services/spawn.py`, as is, marked for deletion |
+| the read model (`read`, `calls`, `pending_id`) and the facade | `services/session.py` |
+| the shared row helpers (`_now`, `_id`, `_swap`, the engine's turn) | `stages/_rows.py` |
+
+`settle_step` stays only as a thin wrapper over the kept functions, until part 3 replaces it.
+`services/authoring.py` is deleted.
+
+### 11.2 One action, one transaction
+
+- **Nothing that calls a model runs inside a transaction.** A model is called only in a job on
+  the AI worker; the job's result is its own command with its own transaction. Resolving without
+  a model is computation and runs inside the action's transaction, so a failure between
+  resolving and storing leaves nothing half-written. Spawn's build job, which resolves with a
+  model, stays as it is in `spawn.py` until part 3 deletes it.
+- **An exception rolls back; a refusal commits.** A handler that raises leaves the session on its
+  node with nothing written (§8). A handler that *returns* a refusal (a stale step re-offered,
+  MI0206; a duplicate marked, MI0203; the resolver failing onto `failed`) commits what it
+  recorded, and the refusal then reaches the person.
+- **Jobs are queued after the commit.** A handler adds the jobs it wants to its context; the
+  facade queues them once the transaction has committed, so a job never reads data that is not
+  yet saved, nor runs for an action that rolled back. The nodes whose only work was to queue a
+  job (`family`, `ask`, `suggest`, `readback`) become acting nodes that queue it and wait, and
+  the binding test grows by them; `upload` queues the sample's reading. Spawn's `resolve`, which
+  queues its build job, stays as it is until part 3.
+- **The transaction is ambient.** The facade opens it; every `session_scope()` beneath joins it
+  rather than committing, and only the outermost commits. Moved code keeps its shape, so the move
+  can be read as a move.
+
+### 11.3 What calls what
+
+- **The routes and the jobs call only the facade:** `session.perform(session_id, command)` and
+  `session.read(session_id)`. `perform` is async: it runs the transaction off the event loop,
+  then queues.
+- **The tests move to the same names**, by a script, in one commit that changes call sites and
+  imports only, no assertion. The tests that monkeypatch a moved helper are fixed in that commit.
+  `authoring.move` becomes a test helper.
+- **Commands are typed:** a frozen dataclass per command in `mendel_authoring.commands`, holding
+  exactly its fields, whose name the interpreter reads. 1c types the commands the shell performs
+  today; parts 3 and 4 add theirs as types from the start. The shell still checks what only the
+  rows know: an option never offered (MI0205), a value that does not fit (MI0208).
