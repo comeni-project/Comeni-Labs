@@ -254,7 +254,7 @@ protocol's purity is now guarded: `uv run pytest tests/guards -q`.
 **Interfaces:**
 - Produces: `Stage.within_request: bool`, and the section `sample` whose node ids are prefixed `sample_`.
 
-- [ ] **Step 1: Write the failing tests** (in `test_protocol.py`, replacing the block of detail tests from `# ── a node may carry a detailed diagram` through `test_the_machine_ignores_details`, and the three 14.7.6 and 14.7.7 tests that read `read_engine`'s detail)
+- [x] **Step 1: Write the failing tests** (in `test_protocol.py`, replacing the block of detail tests from `# ── a node may carry a detailed diagram` through `test_the_machine_ignores_details`, and the three 14.7.6 and 14.7.7 tests that read `read_engine`'s detail)
 
 ```python
 # ── one diagram, with sections (14.7.8.1) ───────────────────────────────────────────────────
@@ -299,9 +299,9 @@ def test_there_is_one_diagram():
 
 Keep `test_the_protection_level_is_asked_before_a_byte_is_kept` and `test_every_way_out_of_an_upload_is_drawn` by rewriting their lookups from `…["read_engine"].detail` to `p.PROTOCOL`, with ids prefixed `sample_` (`("sample_level", "sample_head")`, `("sample_confirm", "sample_back")` and so on).
 
-- [ ] **Step 2: Run them; expected FAIL.**
+- [x] **Step 2: Run them; expected FAIL.**
 
-- [ ] **Step 3: Fold the section in**
+- [x] **Step 3: Fold the section in**
 
 In `protocol.py`:
 1. `Stage` gains `within_request: bool = False`, documented: *its nodes are the steps one request takes and reports; none moves the session, and the validator refuses an event on an edge inside it.*
@@ -326,11 +326,11 @@ branch and the index of details go. The index page `docs/design/diagrams/README.
 diagram. `git rm docs/design/diagrams/inspecting-a-sample.md`. Fix every link to it
 (`git grep -n "inspecting-a-sample"`).
 
-- [ ] **Step 4: Run them; expected PASS.** `uv run python tools/generate_protocol_doc.py &&
+- [x] **Step 4: Run them; expected PASS.** `uv run python tools/generate_protocol_doc.py &&
 uv run python tools/generate_protocol_doc.py --check`, then `make links doc-paths`. Read the
 generated mermaid: the `sample` subgraph sits after `gather`, and nothing is drawn twice.
 
-- [ ] **Step 5: `make check`, then commit.** `refactor(authoring): one diagram, with sections — the sample's inside is a section (#136)`
+- [x] **Step 5: `make check`, then commit.** `refactor(authoring): one diagram, with sections — the sample's inside is a section (#136)`
 
 ---
 

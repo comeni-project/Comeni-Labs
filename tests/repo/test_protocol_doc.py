@@ -68,3 +68,11 @@ def test_a_hand_written_page_is_never_deleted(tmp_path, monkeypatch):
     (tmp_path / "notes.md").write_text("# my notes\n")
     assert gen.main([]) == 1
     assert (tmp_path / "notes.md").exists()
+
+
+def test_one_diagram_with_sections_and_its_index():
+    """14.7.8.1: the sample's inside is a section of the one diagram, not a page of its own."""
+    pages = _generator().pages()
+    assert set(pages) == {"README.md", "authoring-protocol.md"}
+    assert 'subgraph sample ["②a Inside: reading a sample"]' in pages["authoring-protocol.md"]
+    assert "mendel_authoring/protocol.py" in pages["authoring-protocol.md"]

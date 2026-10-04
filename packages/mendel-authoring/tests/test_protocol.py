@@ -7,6 +7,7 @@ inconsistent. Each refusal below is watched failing against a deliberately broke
 import pytest
 from mendel_authoring import protocol as p
 from mendel_authoring import state as st
+from mendel_authoring.protocol import Actor, Node, Protocol, Stage
 from mendel_authoring.types import Event, Phase
 
 S = (p.Stage(id="s", title="S"),)
@@ -129,88 +130,59 @@ def test_a_want_nothing_makes_asks_rather_than_fails():
     assert not any(s == "list_needs" and t == "failed" for s, t, _ in edges)
 
 
-# ── a node may carry a detailed diagram of its own steps (14.7.6.5) ──────────────────────────
-
-Actor, Edge, Node, Protocol, Stage = p.Actor, p.Edge, p.Node, p.Protocol, p.Stage
+# ── one diagram, with sections (14.7.8.1) ───────────────────────────────────────────────────
 
 
-def _detail(phase=Phase.GATHERING, built=True, event=None):
-    return Protocol(
-        title="Inside",
-        slug="inside",
-        stages=(Stage(id="s", title="On our server"),),
-        nodes=(
-            Node(id="a", stage="s", actor=Actor.ENGINE, label="A", phase=phase, built=built),
-            Node(id="b", stage="s", actor=Actor.ENGINE, label="B", phase=phase, built=built),
-        ),
-        edges=(Edge(source="a", target="b", event=event, built=built),),
-    )
+def _sample():
+    return [n for n in p.PROTOCOL.nodes if n.stage == "sample"]
 
 
-def _with(detail, parent_built=True):
-    return Protocol(
-        stages=(Stage(id="g", title="G"),),
-        nodes=(
-            Node(
-                id="p", stage="g", actor=Actor.ENGINE, label="P",
-                phase=Phase.GATHERING if parent_built else None, built=parent_built,
-                detail=detail,
-            ),
-        ),
-        edges=(),
-    )
-
-
-def test_a_node_may_carry_a_detail():
-    assert [d.slug for d in _with(_detail()).details()] == ["inside"]
-
-
-def test_a_detail_edge_cannot_move_the_session():
-    with pytest.raises(ValueError, match="cannot move the session"):
-        _with(_detail(event=Event.FACT_ADDED))
-
-
-def test_a_detail_step_is_in_its_parents_phase():
-    with pytest.raises(ValueError, match="phase"):
-        _with(_detail(phase=Phase.BUILDING))
-
-
-def test_a_built_detail_under_a_planned_node_is_refused():
-    """Review focus 1."""
-    with pytest.raises(ValueError, match="planned"):
-        _with(_detail(), parent_built=False)
-
-
-def test_the_machine_ignores_details():
-    assert _with(_detail()).transitions() == {}
-
-
-# ── the upload, built (14.7.6.5) ─────────────────────────────────────────────────────────────
-
-
-def test_the_upload_branch_and_the_characteriser_are_built():
-    nodes = {n.id: n for n in p.PROTOCOL.nodes}
-    assert nodes["upload"].built and nodes["safety"].built and nodes["read_engine"].built
-    assert nodes["read_ai"].built
-
-
-def test_reading_a_sample_has_its_detailed_diagram():
-    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
-    assert detail is not None and detail.slug == "inspecting-a-sample"
-    labels = " ".join(n.label for n in detail.nodes).lower()
+def test_the_sample_inside_is_a_section_of_the_one_protocol():
+    stages = {s.id: s for s in p.PROTOCOL.stages}
+    assert stages["sample"].within_request
+    assert _sample(), "a loop over no nodes asserts nothing"
+    labels = " ".join(n.label for n in _sample()).lower()
     for step in ("4 mb", "protection", "extension", "unpack", "confirm", "measure",
-                 "undetermined", "admit", "nothing reads"):
-        assert step in labels, f"the detail does not draw {step!r}"
-    # Every stage says where it happens: on our server, or through the door the excerpt leaves by.
-    assert detail.stages and all(
-        s.title.startswith(("On our server", "Through door 6")) for s in detail.stages
-    )
+                 "undetermined", "admit", "nothing reads", "8 kb", "families", "read by ai"):
+        assert step in labels, f"the section does not draw {step!r}"
+    assert all(n.id.startswith("sample_") for n in _sample())
+
+
+def test_the_sample_section_sits_after_gathering():
+    order = [s.id for s in p.PROTOCOL.stages]
+    assert order.index("sample") == order.index("gather") + 1
+
+
+def test_a_section_within_a_request_never_moves_the_session():
+    inside = {n.id for n in _sample()}
+    moving = [e for e in p.PROTOCOL.edges if e.event is not None
+              and e.source in inside and e.target in inside]
+    assert moving == []
+
+
+def test_the_validator_refuses_an_event_inside_a_within_request_section():
+    with pytest.raises(ValueError, match="never moves the session"):
+        p.Protocol(
+            stages=(p.Stage(id="w", title="W", within_request=True),),
+            nodes=(_node("a", stage="w"), _node("b", stage="w")),
+            edges=(p.Edge(source="a", target="b", event=Event.FACT_ADDED, built=True),),
+        )
+
+
+def test_the_upload_enters_the_section_and_the_section_returns_to_the_questions():
+    edges = {(e.source, e.target) for e in p.PROTOCOL.edges}
+    assert ("upload", "sample_level") in edges and ("sample_back", "next_gap") in edges
+    assert not {"safety", "read_engine", "read_ai"} & {n.id for n in p.PROTOCOL.nodes}
+
+
+def test_there_is_one_diagram():
+    assert not hasattr(p.PROTOCOL, "details") and not hasattr(p, "INSPECTING")
+    assert "detail" not in p.Node.model_fields
 
 
 def test_the_protection_level_is_asked_before_a_byte_is_kept():
-    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
-    order = [(e.source, e.target) for e in detail.edges]
-    assert ("got", "level") in order and ("level", "head") in order
+    order = [(e.source, e.target) for e in p.PROTOCOL.edges]
+    assert ("upload", "sample_level") in order and ("sample_level", "sample_head") in order
 
 
 _MACHINE = {
@@ -251,79 +223,38 @@ def test_a_stage_and_a_node_cannot_share_an_id():
         )
 
 
-def test_a_detail_cannot_take_the_general_diagrams_name_or_another_details():
-    """Review of #134: a detail with the default slug would have replaced the general page."""
-    unnamed = Protocol(
-        stages=(Stage(id="s", title="S"),),
-        nodes=(Node(id="a", stage="s", actor=Actor.ENGINE, label="A"),),
-        edges=(),
-    )
-    with pytest.raises(ValueError, match="slug"):
-        _with(unnamed)
-    named_readme = unnamed.model_copy(update={"slug": "README"})
-    with pytest.raises(ValueError, match="slug"):
-        _with(named_readme)
-
-
-def test_node_ids_may_repeat_between_a_diagram_and_its_detail():
-    """Review focus 3: each diagram is its own Mermaid document."""
-    inner = Protocol(
-        title="Inside", slug="inside",
-        stages=(Stage(id="s", title="S"),),
-        nodes=(Node(id="p", stage="s", actor=Actor.ENGINE, label="P inside"),),
-        edges=(),
-    )
-    outer = Protocol(
-        stages=(Stage(id="g", title="G"),),
-        nodes=(Node(id="p", stage="g", actor=Actor.ENGINE, label="P", detail=inner),),
-        edges=(),
-    )
-    assert "p[" in p.to_mermaid(outer) and "p[" in p.to_mermaid(inner)
-
-
 def test_every_way_out_of_an_upload_is_drawn():
     """Review of #134: the tie, a refusal after the inspection, an unreadable sample and a
     value the registry refuses all leave the question open today, and each is drawn so."""
-    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
-    built = {(e.source, e.target) for e in detail.edges if e.built}
-    assert {("confirm", "back"), ("admit", "refused"), ("unreadable", "back")} <= built
-    assert any(e.source == "admit" and e.target == "back" and "dropped" in e.label
-               for e in detail.edges)
+    built = {(e.source, e.target) for e in p.PROTOCOL.edges if e.built}
+    assert {("sample_confirm", "sample_back"), ("sample_admit", "sample_refused"),
+            ("sample_unreadable", "sample_back")} <= built
+    assert any(e.source == "sample_admit" and e.target == "sample_back" and "dropped" in e.label
+               for e in p.PROTOCOL.edges)
 
 
-# ── the characteriser, planned (14.7.7.1) ───────────────────────────────────────────────────
+# ── the characteriser (14.7.7) ──────────────────────────────────────────────────────────────
 
 
 CHARACTERISER = {"door", "excerpt", "families", "types", "ai_admit", "ai_stamped", "hand_back"}
 
 
 def test_the_characteriser_is_drawn_step_by_step_and_built():
-    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
-    nodes = {n.id: n for n in detail.nodes}
-    missing = CHARACTERISER - set(nodes)
-    assert not missing, missing
-    assert "characterise" not in nodes, "the single placeholder node is replaced, not kept"
-    assert all(nodes[n].built for n in CHARACTERISER)
-    edges = {(e.source, e.target) for e in detail.edges}
-    for edge in [
+    nodes = {n.id: n for n in p.PROTOCOL.nodes}
+    for step in CHARACTERISER:
+        assert nodes[f"sample_{step}"].built, step
+    edges = {(e.source, e.target) for e in p.PROTOCOL.edges}
+    for a, b in [
         ("claim", "door"), ("door", "nothing"), ("door", "excerpt"), ("excerpt", "nothing"),
         ("excerpt", "families"), ("families", "back"), ("families", "types"),
         ("types", "ai_admit"), ("ai_admit", "back"), ("ai_admit", "kept"),
         ("ai_admit", "ai_stamped"), ("ai_admit", "hand_back"), ("hand_back", "confirm"),
         ("ai_stamped", "back"),
     ]:
-        assert edge in edges, f"{edge} is not drawn"
+        assert (f"sample_{a}", f"sample_{b}") in edges, f"{a}→{b} is not drawn"
 
 
-def test_the_model_reads_in_a_stage_that_names_its_door():
-    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
-    stages = {s.id: s.title for s in detail.stages}
-    assert "door 6" in stages["reading"].lower()
-    assert {n.stage for n in detail.nodes if n.id in {"families", "types"}} == {"reading"}
-
-
-def test_the_overview_hands_a_type_nothing_reads_to_the_ai_and_back():
-    edges = {(e.source, e.target): e for e in p.PROTOCOL.edges}
-    assert ("read_engine", "read_ai") in edges and edges[("read_engine", "read_ai")].built
-    assert ("read_ai", "read_engine") in edges, "a type the engine reads goes back to it"
-    assert ("safety", "read_ai") not in edges, "the level is asked inside the detail now"
+def test_the_model_reads_through_a_door_the_diagram_names():
+    nodes = {n.id: n for n in p.PROTOCOL.nodes}
+    for step in ("families", "types"):
+        assert "door 6" in nodes[f"sample_{step}"].label.lower(), step

@@ -1,9 +1,9 @@
 """The authoring protocol as one declarative object: who acts, in which stage, and what moves.
 
 **This is the only definition.** `state.TRANSITIONS` and `state.RETRY_TARGETS` are computed from
-the built edges here, and `docs/design/diagrams/` is generated from the whole object (a general
-diagram, and one per node that carries a detail), so the picture a person argues about and the
-machine that runs cannot drift apart. The design lives here too, **planned** (`built=False`) and
+the built edges here, and `docs/design/diagrams/` is generated from the whole object (one
+diagram, with sections), so the picture a person argues about and the machine that runs cannot
+drift apart. The design lives here too, **planned** (`built=False`) and
 drawn dashed; each substep that builds a part flips it. The rules' prose stays on the protocol
 page: this object holds structure, not argument.
 
@@ -52,6 +52,9 @@ class _Frozen(BaseModel):
 class Stage(_Frozen):
     id: str
     title: str
+    within_request: bool = False
+    """Its nodes are the steps one request takes and reports (14.7.8.1): none moves the session,
+    and the validator refuses an event on an edge inside it."""
 
 
 class Node(_Frozen):
@@ -65,9 +68,6 @@ class Node(_Frozen):
     border: Border = Border.NONE
     shape: Shape = Shape.BOX
     built: bool = False
-    detail: "Protocol | None" = None
-    """The steps inside this node, as a diagram of their own (14.7.6.5). Its steps share this
-    node's phase and its edges carry no events: a detail draws, it never moves the session."""
 
 
 class Edge(_Frozen):
@@ -127,38 +127,17 @@ class Protocol(_Frozen):
                     f"{key[0]} on {key[1]} leads to both {seen[key]} and {nodes[edge.target].phase}"
                 )
             seen[key] = nodes[edge.target].phase
-        slugs = [self.slug, *(d.slug for d in self.details())]
-        if len(set(slugs)) != len(slugs) or "README" in slugs:
-            # Each slug is a page in `docs/design/diagrams/`: a repeat would overwrite one, and
-            # `README` is the index (review of #134).
-            raise ValueError(f"every diagram needs its own slug, never README: {slugs}")
-        for node in self.nodes:
-            if node.detail is None:
-                continue
-            for step in node.detail.nodes:
-                if step.built and not node.built:
-                    raise ValueError(
-                        f"{node.id}'s detail has built step {step.id!r} under a planned node"
-                    )
-                if step.built and step.phase is not node.phase:
-                    raise ValueError(
-                        f"{node.id}'s detail step {step.id!r} is not in its phase {node.phase}"
-                    )
-            for edge in node.detail.edges:
-                if edge.event is not None:
-                    raise ValueError(
-                        f"{node.id}'s detail edge {edge.source}→{edge.target} cannot move the "
-                        "session"
-                    )
+        within = {s.id for s in self.stages if s.within_request}
+        for edge in self.edges:
+            if (
+                edge.event is not None
+                and {nodes[edge.source].stage, nodes[edge.target].stage} <= within
+            ):
+                raise ValueError(
+                    f"{edge.source}→{edge.target} carries {edge.event}, and a within-request "
+                    "section never moves the session"
+                )
         return self
-
-    def details(self) -> list["Protocol"]:
-        """Every detail, depth first, in declaration order: what the generator writes."""
-        found: list[Protocol] = []
-        for node in self.nodes:
-            if node.detail is not None:
-                found += [node.detail, *node.detail.details()]
-        return found
 
     def _phase(self, node_id: str) -> Phase:
         return next(n.phase for n in self.nodes if n.id == node_id)
@@ -174,9 +153,6 @@ class Protocol(_Frozen):
     def retry_targets(self) -> frozenset[Phase]:
         """The phases a retry out of `failed` may resume."""
         return frozenset(self._phase(e.target) for e in self.edges if e.built and e.returns)
-
-
-Node.model_rebuild()
 
 
 _FILL = {
@@ -213,10 +189,7 @@ _OPEN = {
 
 def _node(node: Node) -> str:
     left, right = _OPEN[node.shape]
-    # GitHub's Mermaid does not follow `click` links, so a node with a detail says so in its
-    # label, and the diagrams' index lists the detail.
-    marker = f"<br/>▸ detailed diagram: {node.detail.title}" if node.detail is not None else ""
-    return f"        {node.id}{left}{node.label}{marker}{right}:::{node.actor.value}"
+    return f"        {node.id}{left}{node.label}{right}:::{node.actor.value}"
 
 
 def _edge(edge: Edge) -> str:
@@ -286,189 +259,204 @@ def _move(source: str, target: str, event: Event, label: str = "", **kw) -> Edge
 _YOU, _ENGINE, _AI, _SAFETY, _STOP = Actor.YOU, Actor.ENGINE, Actor.AI, Actor.SAFETY, Actor.STOP
 _P, _E = Phase, Event
 
-# ── inspecting a sample: the steps inside *Engine reads it exactly* (14.7.6) ─────────────────
+# ── ②a inside: reading a sample (14.7.6, 14.7.7) ─────────────────────────────────────────────
 #
-# All on our server, all in `gathering`, and none moves the session: what an inspection settles
-# reaches the session through the gap's own `FACT_ADDED`, as a click does.
+# One request's steps, all in `gathering`, and none moves the session: what an inspection settles
+# reaches the session through the gap's own `FACT_ADDED`, as a click does. Everything here runs on
+# our server, in the request or the sample's own process, except the two steps whose labels name
+# door 6, where a model reads the start of the file.
 
 _G = _P.GATHERING
 
-INSPECTING = Protocol(
-    title="Inspecting a sample",
-    slug="inspecting-a-sample",
-    stages=(
-        Stage(id="receiving", title="On our server: receiving it"),
-        Stage(id="reading", title="Through door 6: a model reads the start of it"),
-        Stage(id="processing", title="On our server: in its own process, with limits"),
-        Stage(id="admitting", title="On our server: admitting what it measured"),
+_SAMPLE_NODES = (
+    _built(
+        "sample_level",
+        "sample",
+        _SAFETY,
+        "Does the protection level<br/>allow an upload?",
+        _G,
+        shape=Shape.GATE,
     ),
-    nodes=(
-        _built("got", "receiving", _YOU, "You upload one file or a pair", _G, shape=Shape.ROUND),
-        _built(
-            "level",
-            "receiving",
-            _SAFETY,
-            "Does the protection level<br/>allow an upload?",
-            _G,
-            shape=Shape.GATE,
-        ),
-        _built("refused", "receiving", _STOP, "Refused, and says why", _G),
-        _built(
-            "head",
-            "receiving",
-            _ENGINE,
-            "Keep the first 4 MB of each, in memory<br/>(longer files are cut, never refused)",
-            _G,
-        ),
-        _built(
-            "claim",
-            "receiving",
-            _ENGINE,
-            "Which trusted formats claim<br/>the extension? (every file agreeing)",
-            _G,
-            shape=Shape.CHOICE,
-        ),
-        _built(
-            "nothing", "receiving", _STOP, "Nothing reads this type yet:<br/>the question stays", _G
-        ),
-        # The characteriser (14.7.7): built in 14.7.7.2.
-        _built(
-            "door",
-            "receiving",
-            _SAFETY,
-            "Does the protection level<br/>let a model read it?",
-            _G,
-            shape=Shape.GATE,
-        ),
-        _built(
-            "excerpt",
-            "receiving",
-            _ENGINE,
-            "Keep up to 8 KB of its text<br/>(gzip unpacked by its first bytes)",
-            _G,
-        ),
-        _built("families", "reading", _AI, "AI: which families<br/>could it be?", _G),
-        _built("types", "reading", _AI, "AI: which type,<br/>which states and facts?", _G),
-        _built(
-            "ai_admit",
-            "admitting",
-            _ENGINE,
-            "Admit every id<br/>against the registry",
-            _G,
-            shape=Shape.CHOICE,
-        ),
-        _built(
-            "ai_stamped",
-            "admitting",
-            _ENGINE,
-            "Stamped: read by AI<br/>(check the premise)",
-            _G,
-            border=Border.TIER3,
-        ),
-        _built(
-            "hand_back",
-            "admitting",
-            _ENGINE,
-            "A type the engine reads:<br/>your browser sends it again",
-            _G,
-        ),
-        _built("unpack", "processing", _ENGINE, "Unpack if compressed, up to 16 MB", _G),
-        _built(
-            "confirm",
-            "processing",
-            _ENGINE,
-            "Does the content<br/>confirm the format?",
-            _G,
-            shape=Shape.CHOICE,
-        ),
-        _built(
-            "unreadable",
-            "processing",
-            _STOP,
-            "Unreadable, with the reason<br/>(a bomb, too slow, a crash, not this format)",
-            _G,
-        ),
-        _n(
-            "tie",
-            "processing",
-            _YOU,
-            "Several formats confirm:<br/>you choose",
-            shape=Shape.CHOICE,
-            border=Border.TIER4,
-        ),
-        _built("measure", "processing", _ENGINE, "Measure: one pass,<br/>every measure fed", _G),
-        _built(
-            "undetermined",
-            "admitting",
-            _ENGINE,
-            "Below its threshold:<br/>undetermined, left open",
-            _G,
-            border=Border.TIER4,
-        ),
-        _built("admit", "admitting", _ENGINE, "Admit each value<br/>against the registry", _G),
-        _built(
-            "kept",
-            "admitting",
-            _ENGINE,
-            "Already said: your word stands,<br/>a difference is shown",
-            _G,
-        ),
-        _built(
-            "stamped",
-            "admitting",
-            _ENGINE,
-            "Stamped: measured by<br/>its pieces and versions",
-            _G,
-            border=Border.TIER3,
-        ),
-        _built("back", "admitting", _ENGINE, "Back to the questions", _G, shape=Shape.ROUND),
+    _built("sample_refused", "sample", _STOP, "Refused, and says why", _G),
+    _built(
+        "sample_head",
+        "sample",
+        _ENGINE,
+        "Keep the first 4 MB of each, in memory<br/>(longer files are cut, never refused)",
+        _G,
     ),
-    edges=(
-        _e("got", "level", built=True),
-        _e("level", "refused", "above level 0", built=True),
-        _e("level", "head", "level 0", built=True),
-        _e("head", "claim", "one file or a pair", built=True),
-        _e("head", "refused", "any other count, a form it can't read, or cut short", built=True),
-        _e("claim", "door", "none", built=True),
-        _e("door", "nothing", "above level 0", built=True),
-        _e("door", "excerpt", "level 0", built=True),
-        _e("excerpt", "nothing", "too little text, or no model", built=True),
-        _e("excerpt", "families", "queued for the AI", built=True),
-        _e("families", "back", "none fits: the AI couldn't tell", built=True),
-        _e("families", "types", "one or more", built=True),
-        _e("types", "ai_admit", built=True),
-        _e("ai_admit", "back", "an id nothing declares: refused, the question stays", built=True),
-        _e("ai_admit", "kept", "you already said it", built=True),
-        _e("ai_admit", "ai_stamped", "nothing here reads that type", built=True),
-        _e("ai_admit", "hand_back", "the engine reads that type", built=True),
-        _e("hand_back", "confirm", "claimed by the type the AI named", built=True),
-        _e("ai_stamped", "back", built=True),
-        _e("claim", "unpack", "one or more", built=True),
-        _e("unpack", "unreadable", "a bomb", built=True),
-        _e("unpack", "confirm", built=True),
-        _e("confirm", "unreadable", "none of them", built=True),
-        _e("confirm", "back", "several: the question stays", built=True),
-        _e("confirm", "tie", "several, at a later step"),
-        _e("confirm", "measure", "exactly one", built=True),
-        _e("measure", "unreadable", "took too long", built=True),
-        _e("measure", "undetermined", "not enough to say", built=True),
-        _e("measure", "admit", "decided", built=True),
-        _e("admit", "refused", "already answered, or this question takes no sample", built=True),
-        _e("admit", "back", "the registry refuses a value: dropped", built=True),
-        _e("admit", "kept", "you already said it", built=True),
-        _e("admit", "stamped", "new", built=True),
-        _e("stamped", "back", built=True),
-        _e("kept", "back", built=True),
-        _e("undetermined", "back", built=True),
-        _e("nothing", "back", built=True),
-        _e("unreadable", "back", built=True),
+    _built(
+        "sample_claim",
+        "sample",
+        _ENGINE,
+        "Which trusted formats claim<br/>the extension? (every file agreeing)",
+        _G,
+        shape=Shape.CHOICE,
     ),
+    _built(
+        "sample_nothing", "sample", _STOP, "Nothing reads this type yet:<br/>the question stays", _G
+    ),
+    # The characteriser (14.7.7): built in 14.7.7.2.
+    _built(
+        "sample_door",
+        "sample",
+        _SAFETY,
+        "Does the protection level<br/>let a model read it?",
+        _G,
+        shape=Shape.GATE,
+    ),
+    _built(
+        "sample_excerpt",
+        "sample",
+        _ENGINE,
+        "Keep up to 8 KB of its text<br/>(gzip unpacked by its first bytes)",
+        _G,
+    ),
+    _built(
+        "sample_families", "sample", _AI, "AI, through door 6:<br/>which families could it be?", _G
+    ),
+    _built(
+        "sample_types",
+        "sample",
+        _AI,
+        "AI, through door 6: which type,<br/>which states and facts?",
+        _G,
+    ),
+    _built(
+        "sample_ai_admit",
+        "sample",
+        _ENGINE,
+        "Admit every id<br/>against the registry",
+        _G,
+        shape=Shape.CHOICE,
+    ),
+    _built(
+        "sample_ai_stamped",
+        "sample",
+        _ENGINE,
+        "Stamped: read by AI<br/>(check the premise)",
+        _G,
+        border=Border.TIER3,
+    ),
+    _built(
+        "sample_hand_back",
+        "sample",
+        _ENGINE,
+        "A type the engine reads:<br/>your browser sends it again",
+        _G,
+    ),
+    _built("sample_unpack", "sample", _ENGINE, "Unpack if compressed, up to 16 MB", _G),
+    _built(
+        "sample_confirm",
+        "sample",
+        _ENGINE,
+        "Does the content<br/>confirm the format?",
+        _G,
+        shape=Shape.CHOICE,
+    ),
+    _built(
+        "sample_unreadable",
+        "sample",
+        _STOP,
+        "Unreadable, with the reason<br/>(a bomb, too slow, a crash, not this format)",
+        _G,
+    ),
+    _n(
+        "sample_tie",
+        "sample",
+        _YOU,
+        "Several formats confirm:<br/>you choose",
+        shape=Shape.CHOICE,
+        border=Border.TIER4,
+    ),
+    _built("sample_measure", "sample", _ENGINE, "Measure: one pass,<br/>every measure fed", _G),
+    _built(
+        "sample_undetermined",
+        "sample",
+        _ENGINE,
+        "Below its threshold:<br/>undetermined, left open",
+        _G,
+        border=Border.TIER4,
+    ),
+    _built("sample_admit", "sample", _ENGINE, "Admit each value<br/>against the registry", _G),
+    _built(
+        "sample_kept",
+        "sample",
+        _ENGINE,
+        "Already said: your word stands,<br/>a difference is shown",
+        _G,
+    ),
+    _built(
+        "sample_stamped",
+        "sample",
+        _ENGINE,
+        "Stamped: measured by<br/>its pieces and versions",
+        _G,
+        border=Border.TIER3,
+    ),
+    _built("sample_back", "sample", _ENGINE, "Back to the questions", _G, shape=Shape.ROUND),
+)
+
+_SAMPLE_EDGES = (
+    _e("sample_level", "sample_refused", "above level 0", built=True),
+    _e("sample_level", "sample_head", "level 0", built=True),
+    _e("sample_head", "sample_claim", "one file or a pair", built=True),
+    _e(
+        "sample_head",
+        "sample_refused",
+        "any other count, a form it can't read, or cut short",
+        built=True,
+    ),
+    _e("sample_claim", "sample_door", "none", built=True),
+    _e("sample_door", "sample_nothing", "above level 0", built=True),
+    _e("sample_door", "sample_excerpt", "level 0", built=True),
+    _e("sample_excerpt", "sample_nothing", "too little text, or no model", built=True),
+    _e("sample_excerpt", "sample_families", "queued for the AI", built=True),
+    _e("sample_families", "sample_back", "none fits: the AI couldn't tell", built=True),
+    _e("sample_families", "sample_types", "one or more", built=True),
+    _e("sample_types", "sample_ai_admit", built=True),
+    _e(
+        "sample_ai_admit",
+        "sample_back",
+        "an id nothing declares: refused, the question stays",
+        built=True,
+    ),
+    _e("sample_ai_admit", "sample_kept", "you already said it", built=True),
+    _e("sample_ai_admit", "sample_ai_stamped", "nothing here reads that type", built=True),
+    _e("sample_ai_admit", "sample_hand_back", "the engine reads that type", built=True),
+    _e("sample_hand_back", "sample_confirm", "claimed by the type the AI named", built=True),
+    _e("sample_ai_stamped", "sample_back", built=True),
+    _e("sample_claim", "sample_unpack", "one or more", built=True),
+    _e("sample_unpack", "sample_unreadable", "a bomb", built=True),
+    _e("sample_unpack", "sample_confirm", built=True),
+    _e("sample_confirm", "sample_unreadable", "none of them", built=True),
+    _e("sample_confirm", "sample_back", "several: the question stays", built=True),
+    _e("sample_confirm", "sample_tie", "several, at a later step"),
+    _e("sample_confirm", "sample_measure", "exactly one", built=True),
+    _e("sample_measure", "sample_unreadable", "took too long", built=True),
+    _e("sample_measure", "sample_undetermined", "not enough to say", built=True),
+    _e("sample_measure", "sample_admit", "decided", built=True),
+    _e(
+        "sample_admit",
+        "sample_refused",
+        "already answered, or this question takes no sample",
+        built=True,
+    ),
+    _e("sample_admit", "sample_back", "the registry refuses a value: dropped", built=True),
+    _e("sample_admit", "sample_kept", "you already said it", built=True),
+    _e("sample_admit", "sample_stamped", "new", built=True),
+    _e("sample_stamped", "sample_back", built=True),
+    _e("sample_kept", "sample_back", built=True),
+    _e("sample_undetermined", "sample_back", built=True),
+    _e("sample_nothing", "sample_back", built=True),
+    _e("sample_unreadable", "sample_back", built=True),
 )
 
 PROTOCOL = Protocol(
     stages=(
         Stage(id="describe", title="① You describe it"),
         Stage(id="gather", title="② The engine gathers what it needs"),
+        Stage(id="sample", title="②a Inside: reading a sample", within_request=True),
         Stage(id="check", title="③ You check the goal"),
         Stage(id="build", title="④ Your consultant builds it with you"),
         Stage(id="anytime", title="Any time"),
@@ -526,29 +514,7 @@ PROTOCOL = Protocol(
             _P.GATHERING,
         ),
         _built("upload", "gather", _YOU, "You upload a file", _P.GATHERING, shape=Shape.ROUND),
-        _built(
-            "safety",
-            "gather",
-            _SAFETY,
-            "Safety level decides<br/>what the AI may see",
-            _P.GATHERING,
-            shape=Shape.GATE,
-        ),
-        _built(
-            "read_engine",
-            "gather",
-            _ENGINE,
-            "Engine reads it exactly<br/>→ measured",
-            _P.GATHERING,
-            detail=INSPECTING,
-        ),
-        _built(
-            "read_ai",
-            "gather",
-            _AI,
-            "AI reads it<br/>(types the engine can't)<br/>→ read by AI",
-            _P.GATHERING,
-        ),
+        *_SAMPLE_NODES,
         _built("said", "gather", _ENGINE, "→ you said", _P.GATHERING),
         _built(
             "left_open", "gather", _ENGINE, "Left open<br/>→ you choose in the build", _P.GATHERING
@@ -682,18 +648,12 @@ PROTOCOL = Protocol(
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
         _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
-        # a file answers it: built in 14.7.6; the characteriser is planned step by step inside
-        # the detail (14.7.7). No event of its own: what the sample settles moves the session as
-        # a click does.
+        # a file answers it (14.7.6, 14.7.7): the request runs section ②a and comes back. No event
+        # of its own: what the sample settles moves the session as a click does.
         _e("reply", "upload", "upload a sample (when something here reads it)", built=True),
-        _e("upload", "safety", "uploaded", built=True),
-        _e("safety", "read_engine", "level 0", built=True),
-        _e("read_engine", "next_gap", built=True),
-        # The characteriser (14.7.7): a type nothing reads goes to the AI; a type the engine
-        # reads comes back to it.
-        _e("read_engine", "read_ai", "nothing here reads its type", built=True),
-        _e("read_ai", "read_engine", "a type the engine reads", built=True),
-        _e("read_ai", "next_gap", built=True),
+        _e("upload", "sample_level", "uploaded", built=True),
+        *_SAMPLE_EDGES,
+        _e("sample_back", "next_gap", built=True),
         # planned: the consultant build (14.7.8)
         _e("resolve", "plan"),
         _e("plan", "pace"),

@@ -2,7 +2,7 @@
 
 # The authoring protocol
 
-**Generated from `mendel_api/authoring/protocol.py`**, which is also where the running state machine comes from, so this picture is the machine. Solid is built; dashed is designed and not built yet. The rules, the argument and the changelog are on [the protocol page](../authoring-protocol.md).
+**Generated from `mendel_authoring/protocol.py`**, which is also where the running state machine comes from, so this picture is the machine. Solid is built; dashed is designed and not built yet. A section marked *inside* is the steps one request takes; it never moves the conversation on by itself. The rules, the argument and the changelog are on [the protocol page](../authoring-protocol.md).
 
 ```mermaid
 flowchart LR
@@ -26,14 +26,37 @@ flowchart LR
         reply{"You answer"}:::you
         suggest["AI reads your words<br/>into a suggestion you confirm"]:::ai
         upload(["You upload a file"]):::you
-        safety{{"Safety level decides<br/>what the AI may see"}}:::safety
-        read_engine["Engine reads it exactly<br/>→ measured<br/>▸ detailed diagram: Inspecting a sample"]:::engine
-        read_ai["AI reads it<br/>(types the engine can't)<br/>→ read by AI"]:::ai
         said["→ you said"]:::engine
         left_open["Left open<br/>→ you choose in the build"]:::engine
         stopped(["Stop: can't build without it<br/>(e.g. no genome)"]):::stop
     end
     style gather fill:transparent,stroke:#555
+    subgraph sample ["②a Inside: reading a sample"]
+        direction TB
+        sample_level{{"Does the protection level<br/>allow an upload?"}}:::safety
+        sample_refused["Refused, and says why"]:::stop
+        sample_head["Keep the first 4 MB of each, in memory<br/>(longer files are cut, never refused)"]:::engine
+        sample_claim{"Which trusted formats claim<br/>the extension? (every file agreeing)"}:::engine
+        sample_nothing["Nothing reads this type yet:<br/>the question stays"]:::stop
+        sample_door{{"Does the protection level<br/>let a model read it?"}}:::safety
+        sample_excerpt["Keep up to 8 KB of its text<br/>(gzip unpacked by its first bytes)"]:::engine
+        sample_families["AI, through door 6:<br/>which families could it be?"]:::ai
+        sample_types["AI, through door 6: which type,<br/>which states and facts?"]:::ai
+        sample_ai_admit{"Admit every id<br/>against the registry"}:::engine
+        sample_ai_stamped["Stamped: read by AI<br/>(check the premise)"]:::engine
+        sample_hand_back["A type the engine reads:<br/>your browser sends it again"]:::engine
+        sample_unpack["Unpack if compressed, up to 16 MB"]:::engine
+        sample_confirm{"Does the content<br/>confirm the format?"}:::engine
+        sample_unreadable["Unreadable, with the reason<br/>(a bomb, too slow, a crash, not this format)"]:::stop
+        sample_tie{"Several formats confirm:<br/>you choose"}:::you
+        sample_measure["Measure: one pass,<br/>every measure fed"]:::engine
+        sample_undetermined["Below its threshold:<br/>undetermined, left open"]:::engine
+        sample_admit["Admit each value<br/>against the registry"]:::engine
+        sample_kept["Already said: your word stands,<br/>a difference is shown"]:::engine
+        sample_stamped["Stamped: measured by<br/>its pieces and versions"]:::engine
+        sample_back(["Back to the questions"]):::engine
+    end
+    style sample fill:transparent,stroke:#555
     subgraph check ["③ You check the goal"]
         direction TB
         card["Goal card: every fact<br/>and where it came from"]:::you
@@ -101,17 +124,54 @@ flowchart LR
     next_gap -- "nothing unknown" --> card
     list_needs -- "nothing makes it: it asks you" --> say
     reply -- "upload a sample (when something here reads it)" --> upload
-    upload -- "uploaded" --> safety
-    safety -- "level 0" --> read_engine
-    read_engine --> next_gap
-    read_engine -- "nothing here reads its type" --> read_ai
-    read_ai -- "a type the engine reads" --> read_engine
-    read_ai --> next_gap
+    upload -- "uploaded" --> sample_level
+    sample_level -- "above level 0" --> sample_refused
+    sample_level -- "level 0" --> sample_head
+    sample_head -- "one file or a pair" --> sample_claim
+    sample_head -- "any other count, a form it can't read, or cut short" --> sample_refused
+    sample_claim -- "none" --> sample_door
+    sample_door -- "above level 0" --> sample_nothing
+    sample_door -- "level 0" --> sample_excerpt
+    sample_excerpt -- "too little text, or no model" --> sample_nothing
+    sample_excerpt -- "queued for the AI" --> sample_families
+    sample_families -- "none fits: the AI couldn't tell" --> sample_back
+    sample_families -- "one or more" --> sample_types
+    sample_types --> sample_ai_admit
+    sample_ai_admit -- "an id nothing declares: refused, the question stays" --> sample_back
+    sample_ai_admit -- "you already said it" --> sample_kept
+    sample_ai_admit -- "nothing here reads that type" --> sample_ai_stamped
+    sample_ai_admit -- "the engine reads that type" --> sample_hand_back
+    sample_hand_back -- "claimed by the type the AI named" --> sample_confirm
+    sample_ai_stamped --> sample_back
+    sample_claim -- "one or more" --> sample_unpack
+    sample_unpack -- "a bomb" --> sample_unreadable
+    sample_unpack --> sample_confirm
+    sample_confirm -- "none of them" --> sample_unreadable
+    sample_confirm -- "several: the question stays" --> sample_back
+    sample_confirm -. "several, at a later step" .-> sample_tie
+    sample_confirm -- "exactly one" --> sample_measure
+    sample_measure -- "took too long" --> sample_unreadable
+    sample_measure -- "not enough to say" --> sample_undetermined
+    sample_measure -- "decided" --> sample_admit
+    sample_admit -- "already answered, or this question takes no sample" --> sample_refused
+    sample_admit -- "the registry refuses a value: dropped" --> sample_back
+    sample_admit -- "you already said it" --> sample_kept
+    sample_admit -- "new" --> sample_stamped
+    sample_stamped --> sample_back
+    sample_kept --> sample_back
+    sample_undetermined --> sample_back
+    sample_nothing --> sample_back
+    sample_unreadable --> sample_back
+    sample_back --> next_gap
     resolve -.-> plan
     plan -.-> pace
     pace -.-> offer
     done -.-> wrap
     ask_any -.-> explain
+    style sample_ai_stamped stroke:#f0d040,stroke-width:4px
+    style sample_tie stroke:#ff5050,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
+    style sample_undetermined stroke:#ff5050,stroke-width:4px
+    style sample_stamped stroke:#f0d040,stroke-width:4px
     style step_settled stroke:#6fbf8f
     style step_rule stroke:#f0d040,stroke-width:4px
     style step_choice stroke:#ff5050,stroke-width:4px
