@@ -115,3 +115,28 @@ def test_a_nullable_field_keeps_null_as_its_way_out():
 def test_an_unknown_path_raises_rather_than_constraining_nothing():
     with pytest.raises(KeyError, match="nope"):
         with_choices(_schema(), {"nope": ["x"]})
+
+
+# ── nothing offered is nothing allowed (#244) ─────────────────────────────────────────
+
+
+class _Value(BaseModel):
+    id: str
+    value: int
+
+
+class _Read(BaseModel):
+    type_id: str | None = None
+    states: list[str] = []
+    measurements: list[_Value] = []
+
+
+def test_an_empty_list_on_an_array_allows_no_items():
+    out = with_choices(_Read.model_json_schema(), {"states": [], "measurements.id": []})
+    assert out["properties"]["states"]["maxItems"] == 0
+    assert out["properties"]["measurements"]["maxItems"] == 0
+
+
+def test_an_empty_list_on_a_scalar_leaves_it_unconstrained():
+    out = with_choices(_Read.model_json_schema(), {"type_id": []})
+    assert "enum" not in str(out["properties"]["type_id"])

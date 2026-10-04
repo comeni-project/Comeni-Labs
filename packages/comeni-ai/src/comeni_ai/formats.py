@@ -151,6 +151,13 @@ def with_choices(schema: dict, choices: dict[str, list]) -> dict:
     """
     out = copy.deepcopy(schema)
     for path, values in choices.items():
+        if not values:
+            # **Nothing offered is nothing allowed** (#244): an array gets `maxItems: 0`. An enum
+            # of nothing is a schema a server may reject, so a scalar is left as it was.
+            array = _array_on(out, out, path.split("."))
+            if array is not None:
+                array["maxItems"] = 0
+            continue
         for target in _targets(out, out, path.split("."), path):
             target["enum"] = list(values)
     return out
@@ -173,6 +180,23 @@ def _targets(root: dict, node: dict, parts: list[str], path: str) -> list[dict]:
     if parts[0] not in properties:
         raise KeyError(f"{path}: no field {parts[0]!r} here")
     return _targets(root, properties[parts[0]], parts[1:], path)
+
+
+def _array_on(root: dict, node: dict, parts: list[str], found: dict | None = None):
+    """The nearest array along a path, or `None`: where *no items* can be said (#244)."""
+    node = _deref(root, node)
+    if node.get("type") == "array":
+        found = node
+        node = _deref(root, node["items"])
+    if "anyOf" in node:
+        branches = [b for b in node["anyOf"] if b.get("type") != "null"]
+        return _array_on(root, branches[0], parts, found) if branches else found
+    if not parts:
+        return found
+    properties = node.get("properties", {})
+    if parts[0] not in properties:
+        raise KeyError(f"{'.'.join(parts)}: no field {parts[0]!r} here")
+    return _array_on(root, properties[parts[0]], parts[1:], found)
 
 
 def _deref(root: dict, node: dict) -> dict:

@@ -650,9 +650,10 @@ def _call(
     started = datetime.now(UTC)
 
     try:
-        # An empty list is dropped rather than sent: an `enum` of nothing is a schema a server
-        # may reject, and admission refuses any id that was not offered either way.
-        held = {field: values for field, values in (choices or {}).items() if values} or None
+        # An empty list is sent too (#244): `with_choices` turns it into *no items* on an array,
+        # and leaves a scalar unconstrained, since an `enum` of nothing is a schema a server may
+        # reject. Admission refuses any id that was not offered either way.
+        held = dict(choices) if choices else None
         reply = client.chat(system, user, shape, choices=held)
     except (ModelUnavailableError, TimeoutError) as failure:
         # The provider is broken rather than the answer being wrong, and the two are separate

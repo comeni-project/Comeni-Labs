@@ -585,7 +585,14 @@ def test_an_empty_list_is_not_sent_as_an_enum_of_nothing(clean_forge):
     """A gap offering no option ids: the reply may still be a value or `unsure`."""
     replied = _Choosing(json.dumps({"unsure": True}))
     ai.read_gap_reply(ai.compose(prompt="p", options=[]), question="How long?", client=replied)
-    assert replied.choices == [None]
+    # The empty list now reaches the transport (#244), and `with_choices` is what keeps it from
+    # becoming an enum of nothing: a scalar is left unconstrained.
+    from comeni_ai.formats import with_choices
+    from mendel_api.authoring.types import GapReply
+
+    [held] = replied.choices
+    assert held and all(values == [] for values in held.values())
+    assert "enum" not in str(with_choices(GapReply.model_json_schema(), held))
 
 
 # ── choosing the type by family (#194) ────────────────────────────────────────────────────
