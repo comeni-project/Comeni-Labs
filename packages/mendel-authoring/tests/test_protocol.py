@@ -5,9 +5,9 @@ inconsistent. Each refusal below is watched failing against a deliberately broke
 """
 
 import pytest
-from mendel_api.authoring import protocol as p
-from mendel_api.authoring import state as st
-from mendel_api.authoring.types import Event, Phase
+from mendel_authoring import protocol as p
+from mendel_authoring import state as st
+from mendel_authoring.types import Event, Phase
 
 S = (p.Stage(id="s", title="S"),)
 

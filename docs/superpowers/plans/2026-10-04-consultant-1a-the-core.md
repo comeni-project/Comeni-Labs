@@ -175,7 +175,7 @@ naming `fastapi`. Revert, and add a row to `tests/fixtures/guard-ledger.md`.
 **Interfaces:**
 - Produces: `mendel_authoring.types.{Phase, Event, ProposalState}`, `mendel_authoring.protocol.{PROTOCOL, Protocol, Node, Edge, Stage, Actor, Border, Shape, to_mermaid}` and `mendel_authoring.state.{advance, TRANSITIONS, RETRY_TARGETS, …}`, unchanged in behaviour.
 
-- [ ] **Step 1: Write the failing test** (`packages/mendel-authoring/tests/test_package.py`)
+- [x] **Step 1: Write the failing test** (`packages/mendel-authoring/tests/test_package.py`)
 
 ```python
 def test_the_core_owns_the_protocol_the_machine_and_the_vocabulary():
@@ -207,9 +207,9 @@ def test_the_generator_needs_nothing_from_the_shell():
 `support_paths` is not on this package's path. Use `ROOT = Path(__file__).resolve().parents[3]`,
 as the shell's tests do.
 
-- [ ] **Step 2: Run them; expected FAIL** (`ImportError` on `mendel_authoring.protocol`).
+- [x] **Step 2: Run them; expected FAIL** (`ImportError` on `mendel_authoring.protocol`).
 
-- [ ] **Step 3: Move**
+- [x] **Step 3: Move**
 
 1. Cut `Phase`, `Event` and `ProposalState` (with their docstrings) from
    `mendel_api/authoring/types.py` into `mendel_authoring/types.py`. In their place in the shell:
@@ -234,11 +234,11 @@ as the shell's tests do.
 5. `tools/generate_protocol_doc.py:14`: `from mendel_authoring.protocol import PROTOCOL,
    Protocol, to_mermaid`.
 
-- [ ] **Step 4: Run them; expected PASS.** Then the whole suite:
+- [x] **Step 4: Run them; expected PASS.** Then the whole suite:
 `MENDEL_DATABASE_URL=… uv run pytest -q -x` (from the root). Expected: as before this task. The
 protocol's purity is now guarded: `uv run pytest tests/guards -q`.
 
-- [ ] **Step 5: `make check`, then commit.** `refactor(authoring): the protocol, its machine and the session's vocabulary move into the core (#136)`
+- [x] **Step 5: `make check`, then commit.** `refactor(authoring): the protocol, its machine and the session's vocabulary move into the core (#136)`
 
 ---
 

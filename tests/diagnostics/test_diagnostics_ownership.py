@@ -31,6 +31,7 @@ PACKAGE_OF = {
     "forge": "mendel-forge",
     "ai": "comeni-ai",
     "api": "mendel-api",
+    "authoring": "mendel-authoring",
     "wiener": "wiener-core",
     "vendor": "comeni-vendor",
 }

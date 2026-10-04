@@ -64,6 +64,10 @@ class EmittedBy(StrEnum):
     and **output** (an answer that will not fit the shape it was asked for). Neither is about a
     pipeline, which is why they are their own concern rather than an extension of routing."""
     API = "api"
+    AUTHORING = "authoring"
+    """`mendel-authoring` — the conversation's protocol: which move is legal from where a session
+    is. Split from `api` on 2026-10-04 (14.7.8.1), when the state machine moved into its own pure
+    package, so the codes it raises name the package that raises them."""
     WIENER = "wiener"
     """`wiener-core` — run management: what may enter, and what a run is doing.
 

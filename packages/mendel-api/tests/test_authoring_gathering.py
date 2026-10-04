@@ -6,12 +6,12 @@ needs none (protocol rule 5), and the gap list is the engine's (rule 1).
 
 import pytest
 from comeni_core.plan.draft import DraftGraph
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import Mode, Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
 from mendel_api.services import authoring, drafts
 from mendel_api.services import blueprint as bp
+from mendel_authoring import state as st
 from sqlalchemy import text
 
 

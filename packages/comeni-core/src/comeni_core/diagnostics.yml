@@ -3569,7 +3569,7 @@ MI0201:
     clock tick are indistinguishable by time, which is precisely when this matters.
 
 MI0202:
-  emitted_by: api
+  emitted_by: authoring
   concern: workflow
   says: "this proposal was made against an older draft and can no longer be applied"
   fires_on: [authoring]
@@ -3710,7 +3710,7 @@ MI0209:
     When nothing can make the thing you asked for, every question it could ask would be wasted,
     so it stops here instead of showing you a goal it already knows cannot be built.
 MI0212:
-  emitted_by: api
+  emitted_by: authoring
   concern: workflow
   says: "a failed authoring session cannot resume into this phase"
   fires_on: [authoring]

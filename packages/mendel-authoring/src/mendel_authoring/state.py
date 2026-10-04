@@ -4,7 +4,7 @@
 situation in, an outcome out. `services/authoring.py` is what reads rows and writes them, and it
 holds none of these rules.
 
-That split is `mendel_forge.workflow`'s, and it is worth restating why it earns its file. The
+That split is the forge's workflow's, and it is worth restating why it earns its file. The
 rules here are the ones that are easy to get right in one caller and wrong in the next: what may
 follow what, and whether a decision made a moment ago still applies. Encoded in a service, each
 becomes an `if` somebody remembers — and the second caller is where the memory fails.
@@ -17,8 +17,8 @@ from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
 
-from mendel_api.authoring.protocol import PROTOCOL
-from mendel_api.authoring.types import Event, Phase, ProposalState
+from mendel_authoring.protocol import PROTOCOL
+from mendel_authoring.types import Event, Phase, ProposalState
 
 TRANSITIONS: dict[tuple[Phase, Event], Phase] = PROTOCOL.transitions()
 """Every legal move, **derived** from the built event edges of `protocol.PROTOCOL`: change the

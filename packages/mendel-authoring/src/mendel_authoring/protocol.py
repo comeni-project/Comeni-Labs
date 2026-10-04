@@ -16,7 +16,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from mendel_api.authoring.types import Event, Phase
+from mendel_authoring.types import Event, Phase
 
 
 class Actor(StrEnum):

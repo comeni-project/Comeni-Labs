@@ -14,11 +14,11 @@ import secrets
 from datetime import UTC, datetime
 
 import pytest
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import Mode, Phase, ProposalState, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringTurn, PipelineDraft
 from mendel_api.services import authoring
+from mendel_authoring import state as st
 from sqlalchemy import select, text
 
 

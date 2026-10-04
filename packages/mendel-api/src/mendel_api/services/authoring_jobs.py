@@ -19,9 +19,9 @@ leave the turn spinning.
 import logging
 
 from comeni_ai import Client
+from mendel_authoring import state as st
 
 from mendel_api import jobs
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
     AuthoringIntent,
     Narrative,

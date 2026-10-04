@@ -10,8 +10,8 @@ here is an arrow drawn there, and an arrow that is not drawn is refused.
 """
 
 import pytest
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import Phase, ProposalState
+from mendel_authoring import state as st
 
 # ── the diagram, arrow by arrow ───────────────────────────────────────────────────────────
 

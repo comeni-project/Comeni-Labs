@@ -7,11 +7,11 @@ inspection itself is `test_inspect.py`'s.
 
 import pytest
 from comeni_core.plan.draft import DraftGraph
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import Mode
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
 from mendel_api.services import authoring, drafts, inspect
+from mendel_authoring import state as st
 from sqlalchemy import text
 
 

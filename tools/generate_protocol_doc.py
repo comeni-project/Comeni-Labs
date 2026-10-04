@@ -11,7 +11,7 @@ detail that was deleted) all fail `--check`.
 import sys
 from pathlib import Path
 
-from mendel_api.authoring.protocol import PROTOCOL, Protocol, to_mermaid
+from mendel_authoring.protocol import PROTOCOL, Protocol, to_mermaid
 
 DIAGRAMS = Path(__file__).parent.parent / "docs" / "design" / "diagrams"
 

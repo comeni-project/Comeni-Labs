@@ -17,13 +17,13 @@ from comeni_core.artifact.pipeline import AiProvenance
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.plan.tiers import ValueSource
 from fastapi.testclient import TestClient
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import Mode, Phase, ProposalState
 from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.routes import authoring as routes
 from mendel_api.services import authoring, authoring_jobs, drafts
+from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import text
 

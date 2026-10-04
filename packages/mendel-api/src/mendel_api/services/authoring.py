@@ -33,11 +33,11 @@ from comeni_core.goal.asked import GoalInput
 from comeni_core.goal.profile import Evidence
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.review.answer import ValueSource
+from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
 from sqlalchemy import func, select, update
 
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import (
     AskedGap,
     Fact,

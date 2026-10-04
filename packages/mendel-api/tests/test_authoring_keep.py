@@ -14,12 +14,12 @@ import pytest
 from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph
 from fastapi.testclient import TestClient
-from mendel_api.authoring import state as st
 from mendel_api.authoring.types import Mode, ProposalState
 from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import PipelineAuthoringSession
 from mendel_api.services import authoring, drafts
+from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import text
 

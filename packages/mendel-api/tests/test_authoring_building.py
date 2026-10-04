@@ -13,7 +13,6 @@ from comeni_ai import Client, ModelAccess
 from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.plan.tiers import ValueSource
-from mendel_api.authoring import state as st
 from mendel_api.authoring.resolver import Call
 from mendel_api.authoring.types import Mode, Phase, ProposalState
 from mendel_api.db import session_scope
@@ -25,6 +24,7 @@ from mendel_api.models import (
 )
 from mendel_api.services import authoring, authoring_ai, drafts
 from mendel_api.services import blueprint as bp
+from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import select, text
 
