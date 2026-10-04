@@ -381,7 +381,7 @@ def test_a_waiting_node_is_left_only_by_a_declared_command():
 
 def test_a_node_has_at_most_one_way_straight_through():
     with pytest.raises(ValueError, match="straight through"):
-        _proto([_node("a"), _node("b"), _node("c")],
+        _proto([_node("a", waits=True), _node("b"), _node("c")],
                [Edge(source="a", target="b", built=True), Edge(source="a", target="c", built=True)])
 
 
