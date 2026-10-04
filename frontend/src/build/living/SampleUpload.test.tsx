@@ -229,6 +229,18 @@ describe("the AI reading a sample (issue 135)", () => {
     expect(screen.getAllByText(/read by AI/).length).toBeGreaterThanOrEqual(2);
   });
 
+  it("says which file it read and why the question stays (issue 135, artboard A4)", async () => {
+    const onUpload = vi.fn().mockResolvedValue(result({ outcome: "reading", facts: [], recorded: [] }));
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("ali.bam")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={reading("read", { type_id: "alignment.bam",
+        states: ["coordinate_sorted"], recorded: ["alignment.bam"] })} />);
+    expect(await screen.findByText("from ali.bam")).toBeTruthy();
+    expect(screen.getByText(/kept as something you have, and this question stays/)).toBeTruthy();
+  });
+
   it("says when the AI couldn't tell, when it was refused, and when it didn't answer", () => {
     const { rerender } = setupReading({ reading: reading("could_not_tell") });
     expect(screen.getByText(/the AI couldn't tell what this file is/)).toBeTruthy();

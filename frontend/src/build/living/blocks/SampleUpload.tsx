@@ -155,7 +155,7 @@ export function SampleUpload({
           measuring…
         </p>
       ) : (
-        <ReadingSaid reading={reading} />
+        <ReadingSaid reading={reading} files={held} />
       )}
       {reading?.state !== "pending" && !(reading?.state === "hand_back" && held) &&
         (stage.at === "offered" || stage.at === "done" || stage.at === "failed" ||
@@ -243,12 +243,17 @@ function Reading({ files }: { files: File[] | null }) {
 }
 
 /** What the AI's reading said, once it is over: what it read, or why nothing was recorded. */
-function ReadingSaid({ reading }: { reading: SampleReading | null }) {
+function ReadingSaid({ reading, files }: { reading: SampleReading | null; files: File[] | null }) {
   if (!reading) return null;
   if (reading.state === "read") {
     const lines = [reading.type_id, ...(reading.states ?? [])].filter(Boolean) as string[];
     return (
       <div className="flex flex-col gap-[8px]">
+        {files && (
+          <p className="m-0 font-data text-[10px] text-ink-3">
+            from {files.map((f) => f.name).join(" + ")}
+          </p>
+        )}
         <ul className="m-0 p-0 list-none flex flex-col gap-[7px] font-data text-[12px]">
           {lines.map((line) => (
             <li key={line}>
@@ -257,6 +262,11 @@ function ReadingSaid({ reading }: { reading: SampleReading | null }) {
             </li>
           ))}
         </ul>
+        {/* The card is still here, so the reading did not answer it (artboard A4). */}
+        <p className="m-0 text-[11.5px] text-ink-2">
+          Read and kept as something you have, and this question stays: answer it below, or try
+          another file.
+        </p>
         {(reading.disagreed ?? []).map((subject) => (
           <p key={subject} className="m-0 px-[10px] py-[9px] text-[11px] text-ink-2 border"
             style={{ borderColor: "var(--line-2)" }}>

@@ -266,6 +266,20 @@ describe("an answered gap on the log (issue 169)", () => {
     expect(line).toHaveTextContent("measured from your sample");
     expect(line).not.toHaveTextContent("you said");
   });
+
+  it("says a question the AI's reading answered was read by AI, never measured (issue 135)", () => {
+    const question = { kind: "question", id: "gap-6", asks: "This analysis needs genome.fasta.",
+      why_open: "the pipeline needs it", options: [], exhaustive: true,
+      reading: { state: "read", attempt: 1, type_id: "genome.fasta", recorded: ["genome.fasta"] } };
+    surface(with_({ phase: "gathering", pending_proposal: null, history: [
+      { id: "h1", kind: "gap", state: "accepted", by: "ana", chosen_option: "upload",
+        chosen_contract: null, answer: "I have it · read by AI", at: "2026-10-04T10:02:00Z",
+        block: question },
+    ] } as Partial<AuthoringSession>));
+    const line = screen.getByTestId("gap-answer-h1").closest("div")!;
+    expect(line).toHaveTextContent("read by AI from your sample");
+    expect(line).not.toHaveTextContent("measured");
+  });
 });
 
 describe("a goal composed by gathering, once confirmed (issue 173)", () => {
