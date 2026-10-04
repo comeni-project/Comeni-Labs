@@ -1499,7 +1499,7 @@ Expected: as before 1b, plus this plan's new tests.
 - Create: `packages/mendel-api/tests/test_authoring_binding.py`
 - Modify: `tests/fixtures/guard-ledger.md`
 
-- [ ] **Step 1: Write the tests**
+- [x] **Step 1: Write the tests**
 
 ```python
 """The diagram and the shell agree (spec §3.2, §9): every acting node has one handler, every
@@ -1571,7 +1571,7 @@ def test_only_the_dispatcher_writes_the_phase():
 
 `forge_state.py` has its own `move`. The `startswith` keeps it out of the second guard: it moves a forge adaptation, not a session.
 
-- [ ] **Step 2: Run them; expected PASS.** Then **watch each fail**:
+- [x] **Step 2: Run them; expected PASS.** Then **watch each fail**:
 1. Delete `@handles("offer")`. Expected: the binding test fails, naming `offer`. Restore it.
 2. Add `@handles("say")` to a stub in `stages/describe.py`. Expected: it fails naming `say`. Remove it.
 3. Add `st.advance(Phase.BUILDING, st.Event.NOTHING_LEFT)` at the end of `pending_step_tier`'s body, after its return. Expected: `test_nothing_in_the_shell_calls_advance` fails. Remove it.
@@ -1579,7 +1579,7 @@ def test_only_the_dispatcher_writes_the_phase():
 
 Record the four in `tests/fixtures/guard-ledger.md` under a new heading *2026-10-04 — the consultant build, 1b*, in the table's columns.
 
-- [ ] **Step 3: `make check`, then commit.** `test(authoring): the binding test — the diagram's acting nodes and the shell's handlers agree (#136)`
+- [x] **Step 3: `make check`, then commit.** `test(authoring): the binding test — the diagram's acting nodes and the shell's handlers agree (#136)`
 
 ---
 

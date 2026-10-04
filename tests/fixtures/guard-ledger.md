@@ -5104,3 +5104,12 @@ rest.
 | date | guard | what was reverted | what happened | message |
 |---|---|---|---|---|
 | 2026-10-04 | `tests/guards/test_purity.py::test_pure_packages_import_nothing_impure` (issue 136, `mendel-authoring` on the closed list) | `import fastapi` added to `mendel_authoring/__init__.py` | failed, naming `fastapi`; reverted, passed | `imports fastapi, which is not on this package's allowlist` |
+
+## 2026-10-04 — the consultant build, 1b: the diagram moves the session (14.7.8.1)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-04 | `packages/mendel-api/tests/test_authoring_binding.py::test_every_acting_node_has_a_handler_and_every_handler_a_node` (issue 136) | `@handles("offer")` removed; then a stub `@handles("say")` added | failed both times, the sets differing by `offer`, then by `say`; restored, passed | — |
+| 2026-10-04 | `…::test_nothing_in_the_shell_calls_advance` (issue 136) | `st.advance(Phase.BUILDING, st.Event.NOTHING_LEFT)` added to `pending_step_tier` | failed, naming `services/authoring.py`; restored, passed | — |
+| 2026-10-04 | `…::test_only_the_dispatcher_writes_the_phase` (issue 136) | `phase="building"` passed to `settle_step`'s `_swap` | failed, three writers in `services/authoring.py`; restored, passed | — |
+| 2026-10-04 | `packages/mendel-api/tests/test_authoring_dispatch.py::test_a_resolver_that_crashes_lands_on_failed_and_raises`, `…::test_retry_returns_to_the_phase_that_failed`, the three *moves nothing* tests (issue 136) | `ctx.raised = failure` removed from `resolve`; the dispatcher's `if ran.at != start` made always true | all five failed; restored, passed | — |
