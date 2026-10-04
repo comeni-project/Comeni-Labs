@@ -24,6 +24,7 @@ flowchart LR
         next_gap{"Anything on the list<br/>still unknown?"}:::engine
         ask["AI phrases each question<br/>in plain words"]:::ai
         reply{"You answer"}:::you
+        answered{"Your answer:<br/>said, open, or missing?"}:::engine
         suggest["AI reads your words<br/>into a suggestion you confirm"]:::ai
         upload(["You upload a file"]):::you
         said["→ you said"]:::engine
@@ -91,38 +92,19 @@ flowchart LR
     family -- "each family, whole" --> read_goal
     family -- "none fits: it asks you" --> say
     family -- "model failed" --> failed
-    read_goal -- "model failed" --> failed
-    readback -- "in the AI's words" --> card
-    card -- "that's right" --> resolve
-    card -- "not quite" --> family
-    resolve --> offer
-    resolve -- "can't build it" --> failed
-    resolve -- "model failed" --> failed
-    offer -- "settled" --> step_settled
-    offer -- "a rule decided" --> step_rule
-    offer -- "no rule could" --> step_choice
-    step_settled --> offer
-    step_rule --> offer
-    step_choice -- "you choose" --> offer
-    offer -- "nothing left" --> done
-    offer -- "the goal changed" --> resolve
-    done -- "the goal changed" --> resolve
-    failed -- "retry" --> family
-    failed -- "retry" --> resolve
     read_goal --> list_needs
+    list_needs -- "nothing makes it: it asks you" --> say
     list_needs --> next_gap
     next_gap -- "yes" --> ask
     ask --> reply
-    read_goal -- "you mentioned it" --> suggest
     reply -- "typed in your words" --> suggest
     suggest -- "you confirm with a click" --> reply
-    reply -- "I know it" --> said
-    reply -- "can't share it" --> left_open
-    reply -- "I don't have that input" --> stopped
+    reply --> answered
+    answered -- "I know it" --> said
+    answered -- "can't share it" --> left_open
+    answered -- "I don't have that input" --> stopped
     said --> next_gap
     left_open --> next_gap
-    next_gap -- "nothing unknown" --> card
-    list_needs -- "nothing makes it: it asks you" --> say
     reply -- "upload a sample (when something here reads it)" --> upload
     upload -- "uploaded" --> sample_level
     sample_level -- "above level 0" --> sample_refused
@@ -162,7 +144,27 @@ flowchart LR
     sample_undetermined --> sample_back
     sample_nothing --> sample_back
     sample_unreadable --> sample_back
-    sample_back --> next_gap
+    sample_back -- "answered" --> next_gap
+    sample_back -- "the question stays" --> reply
+    next_gap -- "nothing unknown" --> readback
+    readback -- "in the AI's words" --> card
+    card -- "that's right" --> resolve
+    card -- "not quite" --> say
+    card -- "corrected in your words" --> family
+    resolve --> offer
+    resolve -- "can't build it" --> failed
+    resolve -- "model failed" --> failed
+    offer -- "settled" --> step_settled
+    offer -- "a rule decided" --> step_rule
+    offer -- "no rule could" --> step_choice
+    step_settled --> offer
+    step_rule --> offer
+    step_choice -- "you choose" --> offer
+    offer -- "nothing left" --> done
+    offer -- "the goal changed" --> resolve
+    done -- "the goal changed" --> resolve
+    failed -- "retry" --> family
+    failed -- "retry" --> resolve
     resolve -.-> plan
     plan -.-> pace
     pace -.-> offer

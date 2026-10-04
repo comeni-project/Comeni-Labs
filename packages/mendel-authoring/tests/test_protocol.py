@@ -333,3 +333,71 @@ def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
         _proto([_taking("a", waits=True), _taking("b"), _taking("c", waits=True)],
                [p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True),
                 p.Edge(source="b", target="c", on="done", built=True)])
+
+
+# ── the protocol, marked (14.7.8.1b) ────────────────────────────────────────────────────────
+
+WAITS = {"say", "family", "reply", "card", "resolve", "step_settled", "step_rule",
+         "step_choice", "done", "failed"}
+ACTS = {"read_goal", "list_needs", "next_gap", "answered", "upload", "resolve", "offer"}
+
+
+def _main():
+    return {n.id: n for n in p.PROTOCOL.nodes if n.built and n.stage != "sample"}
+
+
+def test_each_built_node_acts_waits_or_passes_as_drawn():
+    nodes = _main()
+    assert {i for i, n in nodes.items() if n.waits} == WAITS
+    assert {i for i, n in nodes.items() if n.acts} == ACTS
+
+
+def test_every_named_arrow_is_taken_by_its_name():
+    """Spec §9: every arrow of the protocol taken once, in a table."""
+    from mendel_authoring.interpret import follow
+
+    named = [e for e in p.PROTOCOL.edges if e.built and e.on is not None
+             and not e.source.startswith("sample_")]
+    assert len(named) > 30, "the table is suspiciously short"
+    phase = {n.id: n.phase for n in p.PROTOCOL.nodes}
+    for edge in named:
+        back = phase[edge.target] if edge.returns else None
+        assert follow(p.PROTOCOL, edge.source, edge.on, returning_to=back) is edge, edge
+
+
+def test_a_sample_leaves_its_section_answered_or_stays_on_the_question():
+    from mendel_authoring.interpret import follow
+
+    assert follow(p.PROTOCOL, "upload", "answered").target == "next_gap"
+    assert follow(p.PROTOCOL, "upload", "stays").target == "reply"
+
+
+def test_every_other_command_is_refused_where_a_session_waits():
+    from mendel_authoring.interpret import Refused, follow
+
+    for node in WAITS:
+        drawn = {e.on for e in p.PROTOCOL.edges if e.built and e.source == node}
+        for command in Command:
+            if command.value not in drawn:
+                with pytest.raises(Refused, match="MI0216"):
+                    follow(p.PROTOCOL, node, command.value)
+
+
+def test_a_node_that_neither_acts_nor_waits_passes_straight_on_or_ends():
+    for node in _main().values():
+        if node.acts or node.waits:
+            continue
+        out = [e for e in p.PROTOCOL.edges if e.built and e.source == node.id]
+        assert len(out) <= 1 and all(e.on is None for e in out), node.id
+
+
+def test_the_redrawn_arrows():
+    edges = {(e.source, e.target, e.on) for e in p.PROTOCOL.edges if e.built}
+    assert ("reply", "answered", "answer_gap") in edges
+    assert {("answered", "said", "said"), ("answered", "left_open", "left_open"),
+            ("answered", "stopped", "no_input")} <= edges
+    assert ("card", "say", "revise_goal") in edges and ("card", "family", "revised") in edges
+    assert ("next_gap", "readback", "nothing_missing") in edges
+    assert ("sample_back", "reply", "stays") in edges
+    assert not {(s, t) for s, t, _ in edges} & {("read_goal", "suggest"),
+                                                ("read_goal", "failed"), ("next_gap", "card")}

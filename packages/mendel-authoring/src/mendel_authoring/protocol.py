@@ -539,6 +539,7 @@ PROTOCOL = Protocol(
             "You say what you want<br/>(files optional)",
             _P.UNDERSTANDING,
             shape=Shape.ROUND,
+            waits=True,
         ),
         # The type in two steps (14.7.4, #194): the family from a short list, then the goal from
         # each chosen family shown whole.
@@ -548,6 +549,7 @@ PROTOCOL = Protocol(
             _AI,
             "AI picks the kind of result<br/>from a short list",
             _P.UNDERSTANDING,
+            waits=True,
         ),
         _built(
             "read_goal",
@@ -555,6 +557,7 @@ PROTOCOL = Protocol(
             _AI,
             "AI reads it into a typed goal,<br/>from each chosen family whole",
             _P.UNDERSTANDING,
+            acts=True,
         ),
         # ② built in 14.7.3; the upload branch stays planned (14.7.6, 14.7.7)
         _built(
@@ -563,6 +566,7 @@ PROTOCOL = Protocol(
             _ENGINE,
             "Engine lists what the target needs<br/>inputs, and facts rules will read",
             _P.GATHERING,
+            acts=True,
         ),
         _built(
             "next_gap",
@@ -571,9 +575,19 @@ PROTOCOL = Protocol(
             "Anything on the list<br/>still unknown?",
             _P.GATHERING,
             shape=Shape.CHOICE,
+            acts=True,
         ),
         _built("ask", "gather", _AI, "AI phrases each question<br/>in plain words", _P.GATHERING),
-        _built("reply", "gather", _YOU, "You answer", _P.GATHERING, shape=Shape.CHOICE),
+        _built("reply", "gather", _YOU, "You answer", _P.GATHERING, shape=Shape.CHOICE, waits=True),
+        _built(
+            "answered",
+            "gather",
+            _ENGINE,
+            "Your answer:<br/>said, open, or missing?",
+            _P.GATHERING,
+            shape=Shape.CHOICE,
+            acts=True,
+        ),
         _built(
             "suggest",
             "gather",
@@ -581,7 +595,15 @@ PROTOCOL = Protocol(
             "AI reads your words<br/>into a suggestion you confirm",
             _P.GATHERING,
         ),
-        _built("upload", "gather", _YOU, "You upload a file", _P.GATHERING, shape=Shape.ROUND),
+        _built(
+            "upload",
+            "gather",
+            _YOU,
+            "You upload a file",
+            _P.GATHERING,
+            shape=Shape.ROUND,
+            acts=True,
+        ),
         *_SAMPLE_NODES,
         _built("said", "gather", _ENGINE, "→ you said", _P.GATHERING),
         _built(
@@ -602,6 +624,7 @@ PROTOCOL = Protocol(
             _YOU,
             "Goal card: every fact<br/>and where it came from",
             _P.GOAL_REVIEW,
+            waits=True,
         ),
         _built(
             "readback",
@@ -611,7 +634,15 @@ PROTOCOL = Protocol(
             _P.GOAL_REVIEW,
         ),
         # ④ built
-        _built("resolve", "build", _ENGINE, "Engine resolves the pipeline", _P.RESOLVING),
+        _built(
+            "resolve",
+            "build",
+            _ENGINE,
+            "Engine resolves the pipeline",
+            _P.RESOLVING,
+            acts=True,
+            waits=True,
+        ),
         _built(
             "offer",
             "build",
@@ -619,6 +650,7 @@ PROTOCOL = Protocol(
             "Next step:<br/>does it need you?",
             _P.BUILDING,
             shape=Shape.CHOICE,
+            acts=True,
         ),
         _built(
             "step_settled",
@@ -627,6 +659,7 @@ PROTOCOL = Protocol(
             "Tier 1–2 · placed, one obvious answer",
             _P.BUILDING,
             border=Border.TIER12,
+            waits=True,
         ),
         _built(
             "step_rule",
@@ -635,11 +668,26 @@ PROTOCOL = Protocol(
             "Tier 3 · placed by a rule<br/>check its fact",
             _P.BUILDING,
             border=Border.TIER3,
+            waits=True,
         ),
         _built(
-            "step_choice", "build", _YOU, "Tier 4 · you choose", _P.BUILDING, border=Border.TIER4
+            "step_choice",
+            "build",
+            _YOU,
+            "Tier 4 · you choose",
+            _P.BUILDING,
+            border=Border.TIER4,
+            waits=True,
         ),
-        _built("done", "build", _ENGINE, "Pipeline complete", _P.COMPLETE, shape=Shape.ROUND),
+        _built(
+            "done",
+            "build",
+            _ENGINE,
+            "Pipeline complete",
+            _P.COMPLETE,
+            shape=Shape.ROUND,
+            waits=True,
+        ),
         # ④ planned
         _n("plan", "build", _AI, "The plan, in plain stages", _P.BUILDING),
         _n(
@@ -675,53 +723,76 @@ PROTOCOL = Protocol(
             "Failed: say why,<br/>offer a retry",
             _P.FAILED,
             shape=Shape.ROUND,
+            waits=True,
         ),
     ),
     edges=(
-        # built: today's loop
-        _e("say", "family", built=True),
-        _e("family", "read_goal", "each family, whole", built=True),
-        _e("family", "say", "none fits: it asks you", built=True),
-        _move("family", "failed", _E.PROVIDER_FAILED, "model failed"),
-        _move("read_goal", "failed", _E.PROVIDER_FAILED, "model failed"),
-        _e("readback", "card", "in the AI's words", built=True),
-        _move("card", "resolve", _E.GOAL_ACCEPTED, "that's right"),
-        _move("card", "family", _E.GOAL_REVISED, "not quite"),
-        _move("resolve", "offer", _E.BLUEPRINT_STORED),
-        _move("resolve", "failed", _E.BUILD_FAILED, "can't build it"),
-        _move("resolve", "failed", _E.PROVIDER_FAILED, "model failed"),
-        _e("offer", "step_settled", "settled", built=True),
-        _e("offer", "step_rule", "a rule decided", built=True),
-        _e("offer", "step_choice", "no rule could", built=True),
-        _move("step_settled", "offer", _E.PROPOSAL_SETTLED),
-        _move("step_rule", "offer", _E.PROPOSAL_SETTLED),
-        _move("step_choice", "offer", _E.PROPOSAL_SETTLED, "you choose"),
-        _move("offer", "done", _E.NOTHING_LEFT, "nothing left"),
-        _move("offer", "resolve", _E.GOAL_ACCEPTED, "the goal changed"),
-        _move("done", "resolve", _E.GOAL_ACCEPTED, "the goal changed"),
-        _move("failed", "family", _E.RETRY, "retry", returns=True),
-        _move("failed", "resolve", _E.RETRY, "retry", returns=True),
-        # built: gathering (14.7.3)
-        _move("read_goal", "list_needs", _E.WANT_RETURNED),
-        _e("list_needs", "next_gap", built=True),
-        _e("next_gap", "ask", "yes", built=True),
+        # **Every arrow a session takes is named** (14.7.8.1): a command out of a waiting node,
+        # an outcome out of an acting one. `offer → resolve` (the goal changed) is drawn and is
+        # returned by no handler today: a goal card cannot be pending while a step is.
+        # ① describe
+        _e("say", "family", on="describe", built=True),
+        _e("family", "read_goal", "each family, whole", on="understood", built=True),
+        _e("family", "say", "none fits: it asks you", on="asked_back", built=True),
+        _move("family", "failed", _E.PROVIDER_FAILED, "model failed", on="provider_failed"),
+        _move("read_goal", "list_needs", _E.WANT_RETURNED, on="want_returned"),
+        _move(
+            "list_needs",
+            "say",
+            _E.WANT_UNREACHABLE,
+            "nothing makes it: it asks you",
+            on="unreachable",
+        ),
+        # ② gather
+        _e("list_needs", "next_gap", on="listed", built=True),
+        _e("next_gap", "ask", "yes", on="a_gap", built=True),
         _e("ask", "reply", built=True),
-        _e("read_goal", "suggest", "you mentioned it", built=True),
-        _e("reply", "suggest", "typed in your words", built=True),
+        _e("reply", "suggest", "typed in your words", on="reply_in_words", built=True),
         _e("suggest", "reply", "you confirm with a click", built=True),
-        _e("reply", "said", "I know it", built=True),
-        _e("reply", "left_open", "can't share it", built=True),
-        _move("reply", "stopped", _E.INPUT_UNAVAILABLE, "I don't have that input"),
+        _e("reply", "answered", on="answer_gap", built=True),
+        _e("answered", "said", "I know it", on="said", built=True),
+        _e("answered", "left_open", "can't share it", on="left_open", built=True),
+        _move(
+            "answered", "stopped", _E.INPUT_UNAVAILABLE, "I don't have that input", on="no_input"
+        ),
         _move("said", "next_gap", _E.FACT_ADDED),
         _move("left_open", "next_gap", _E.FACT_ADDED),
-        _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
-        _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
-        # a file answers it (14.7.6, 14.7.7): the request runs section ②a and comes back. No event
-        # of its own: what the sample settles moves the session as a click does.
-        _e("reply", "upload", "upload a sample (when something here reads it)", built=True),
+        # a file answers it (14.7.6, 14.7.7): the request runs section ②a, one step for the
+        # interpreter, and the section's way out is the upload's outcome. No event of its own:
+        # what the sample settles moves the session as a click does.
+        _e(
+            "reply",
+            "upload",
+            "upload a sample (when something here reads it)",
+            on="upload_sample",
+            built=True,
+        ),
         _e("upload", "sample_level", "uploaded", built=True),
         *_SAMPLE_EDGES,
-        _e("sample_back", "next_gap", built=True),
+        _e("sample_back", "next_gap", "answered", on="answered", built=True),
+        _e("sample_back", "reply", "the question stays", on="stays", built=True),
+        # ③ check
+        _move("next_gap", "readback", _E.NOTHING_MISSING, "nothing unknown", on="nothing_missing"),
+        _e("readback", "card", "in the AI's words", built=True),
+        _move("card", "resolve", _E.GOAL_ACCEPTED, "that's right", on="confirm_goal"),
+        _move("card", "say", _E.GOAL_REVISED, "not quite", on="revise_goal"),
+        _move("card", "family", _E.GOAL_REVISED, "corrected in your words", on="revised"),
+        # ④ build
+        _move("resolve", "offer", _E.BLUEPRINT_STORED, on="stored"),
+        _move("resolve", "failed", _E.BUILD_FAILED, "can't build it", on="cant_build"),
+        _move("resolve", "failed", _E.PROVIDER_FAILED, "model failed", on="provider_failed"),
+        _e("offer", "step_settled", "settled", on="settled", built=True),
+        _e("offer", "step_rule", "a rule decided", on="a_rule", built=True),
+        _e("offer", "step_choice", "no rule could", on="no_rule", built=True),
+        _move("step_settled", "offer", _E.PROPOSAL_SETTLED, on="settle_step"),
+        _move("step_rule", "offer", _E.PROPOSAL_SETTLED, on="settle_step"),
+        _move("step_choice", "offer", _E.PROPOSAL_SETTLED, "you choose", on="settle_step"),
+        _move("offer", "done", _E.NOTHING_LEFT, "nothing left", on="nothing_left"),
+        _move("offer", "resolve", _E.GOAL_ACCEPTED, "the goal changed", on="goal_changed"),
+        _move("done", "resolve", _E.GOAL_ACCEPTED, "the goal changed", on="confirm_goal"),
+        # when it goes wrong
+        _move("failed", "family", _E.RETRY, "retry", returns=True, on="retry"),
+        _move("failed", "resolve", _E.RETRY, "retry", returns=True, on="retry"),
         # planned: the consultant build (14.7.8)
         _e("resolve", "plan"),
         _e("plan", "pace"),

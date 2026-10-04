@@ -333,7 +333,7 @@ Update `run`'s docstring: *`command=None` resumes: `at` itself is entered.*
     - `resolve`: `stored`, `cant_build`
     - `offer`: `settled`, `a_rule`, `no_rule`, `nothing_left`, `goal_changed`
 
-- [ ] **Step 1: Write the failing tests** (append to `test_protocol.py`)
+- [x] **Step 1: Write the failing tests** (append to `test_protocol.py`)
 
 ```python
 from mendel_authoring.interpret import Refused, follow
@@ -400,9 +400,9 @@ def test_the_redrawn_arrows():
 
 `test_the_machine_did_not_change` stays as it is. The redraw keeps every (phase, event) pair.
 
-- [ ] **Step 2: Run them; expected FAIL** (no node acts or waits yet).
+- [x] **Step 2: Run them; expected FAIL** (no node acts or waits yet).
 
-- [ ] **Step 3: Mark `PROTOCOL`**
+- [x] **Step 3: Mark `PROTOCOL`**
 
 In `PROTOCOL.nodes`:
 
@@ -476,7 +476,7 @@ If the validator refuses the result, read its message. It names the node and the
 
 Above the edges, a comment: *Every arrow a session takes is named: a command out of a waiting node, an outcome out of an acting one (14.7.8.1). `offer → resolve` (the goal changed) is drawn and is returned by no handler today: a goal card cannot be pending while a step is.*
 
-- [ ] **Step 4: Run them; expected PASS.**
+- [x] **Step 4: Run them; expected PASS.**
 
 ```bash
 uv run pytest packages/mendel-authoring -q
@@ -489,7 +489,7 @@ In the generated mermaid:
 - the card has two arrows back;
 - nothing is drawn twice.
 
-- [ ] **Step 5: `make check`, then commit.** `feat(authoring): every arrow a session takes is named, and the diagram is redrawn where an arrow was not a move (#136)`
+- [x] **Step 5: `make check`, then commit.** `feat(authoring): every arrow a session takes is named, and the diagram is redrawn where an arrow was not a move (#136)`
 
 ---
 
