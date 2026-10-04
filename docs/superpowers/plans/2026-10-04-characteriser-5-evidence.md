@@ -38,7 +38,7 @@
 **Interfaces:**
 - Produces: `with_choices(schema, {"states": []})` sets `maxItems: 0` on the nearest array along the path. For a path with no array on it, an empty list leaves the field unconstrained.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 class _Read(BaseModel):
@@ -60,11 +60,11 @@ def test_an_empty_list_on_a_scalar_leaves_it_unconstrained():
 
 Declare `_Value(BaseModel): id: str; value: int` beside it, and import `BaseModel` if the file does not already.
 
-- [ ] **Step 2: Run them; expected FAIL** (`KeyError`/no `maxItems`).
+- [x] **Step 2: Run them; expected FAIL** (`KeyError`/no `maxItems`).
 
 `uv run pytest packages/comeni-ai/tests/test_formats.py -q`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `with_choices`, before the targets loop:
 
@@ -103,9 +103,9 @@ def _array_on(root: dict, node: dict, parts: list[str], found: dict | None = Non
 
 In `authoring_ai._call`, `held` keeps empty lists. Change it to `held = dict(choices) if choices else None`, and update the comment above it: an empty list now reaches `with_choices`, which allows no items on an array and leaves a scalar unconstrained.
 
-- [ ] **Step 4: Run them; expected PASS.** Then run `uv run pytest packages/comeni-ai -q` and `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api -q`.
+- [x] **Step 4: Run them; expected PASS.** Then run `uv run pytest packages/comeni-ai -q` and `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api -q`.
 
-- [ ] **Step 5: `make check`, then commit.** `feat(ai): an empty allowed list on an array allows nothing (#244)`
+- [x] **Step 5: `make check`, then commit.** `feat(ai): an empty allowed list on an array allows nothing (#244)`
 
 ---
 
@@ -126,7 +126,7 @@ In `authoring_ai._call`, `held` keeps empty lists. Change it to `held = dict(cho
   - `CharacteriseReply.states: list[StateRead]`;
   - `authoring_ai._evidenced(quote: str, excerpt: str) -> bool`.
 
-- [ ] **Step 1: Write the failing tests** (in `test_authoring_characterise.py`; `_reply` builds states as `[{"id": s, "evidence": "SO:coordinate"}]` from now on, so update it and every call that passes `states=` as a list of ids)
+- [x] **Step 1: Write the failing tests** (in `test_authoring_characterise.py`; `_reply` builds states as `[{"id": s, "evidence": "SO:coordinate"}]` from now on, so update it and every call that passes `states=` as a list of ids)
 
 ```python
 def test_a_state_proven_by_a_line_of_the_file_is_admitted(stack, clean_forge):
@@ -181,9 +181,9 @@ def test_evidence_is_compared_with_whitespace_as_one_space():
 
 In `test_characterise_reading.py`, update every `CharacteriseReply(…, states=[…])` to `StateRead` objects (`StateRead(id="coordinate_sorted", evidence="SO:coordinate")`), and make the `_read` helper's type replies carry `"states": []`. In `test_authoring_prompts.py`, add `"builder.characterise.v1"` to nothing new (it carries the block), and assert v2's body says `"evidence"` and `"quote"`.
 
-- [ ] **Step 2: Run them; expected FAIL.**
+- [x] **Step 2: Run them; expected FAIL.**
 
-- [ ] **Step 3: The prompt v2**
+- [x] **Step 3: The prompt v2**
 
 Copy `builder.characterise.v1.md` to `v2`, and replace its *What to write* list with:
 
@@ -202,7 +202,7 @@ Copy `builder.characterise.v1.md` to `v2`, and replace its *What to write* list 
 
 In `prompts.py`, `CHARACTERISE = "builder.characterise.v2"`, with a docstring line: *v2 (#244): each state and measurement quotes the line that states it, and the engine checks the quote.* Add `"builder.characterise.v1"` to `RETIRED`.
 
-- [ ] **Step 4: The shapes, admission and recording**
+- [x] **Step 4: The shapes, admission and recording**
 
 `types.py`:
 
@@ -238,21 +238,29 @@ def _evidenced(quote: str, excerpt: str) -> bool:
 
 `authoring.py`, in `answer_with_reading`: `states=[s.id for s in reply.states]` wherever `list(reply.states)` was. The reading and the fact hold ids, never evidence.
 
-- [ ] **Step 5: Run them; expected PASS**, then the whole `packages/mendel-api` suite.
+- [x] **Step 5: Run them; expected PASS**, then the whole `packages/mendel-api` suite.
 
-- [ ] **Step 6: `make check`, then commit.** `feat(api): the characteriser's reply v2 — each property quotes its line, and the engine checks it (#244)`
+- [x] **Step 6: `make check`, then commit.** `feat(api): the characteriser's reply v2 — each property quotes its line, and the engine checks it (#244)`
 
 ---
 
 ### Task 3: Walk it again
 
-- [ ] Rebuild `ai-worker`; make four sessions as plan 3's Task 4 did; run `scratchpad/pp/ai.mjs`.
-- [ ] Expected: FASTA → `genome.fasta · read by AI`, and the question closes. BAM on the genome question → `alignment.bam`, `coordinate_sorted · read by AI`, and the question stays. FASTQ `.txt` → handed back and measured.
-- [ ] Read each reply in `ai_invocation`: the evidence quoted, and what was dropped. File any new defect as an issue first.
-- [ ] Return to plan 3, Task 4: screenshots of A3, A4, A11, then the comparison with the artboards.
+- [x] Rebuild `ai-worker`; make four sessions as plan 3's Task 4 did; run `scratchpad/pp/ai.mjs`.
+- [x] Expected: FASTA → `genome.fasta · read by AI`, and the question closes. BAM on the genome question → `alignment.bam`, `coordinate_sorted · read by AI`, and the question stays. FASTQ `.txt` → handed back and measured.
+- [x] Read each reply in `ai_invocation`: the evidence quoted, and what was dropped. File any new defect as an issue first.
+- [x] Return to plan 3, Task 4: screenshots of A3, A4, A11, then the comparison with the artboards.
 
 ---
 
 ## Execution record
 
-*(Filled in while executing.)*
+Executed 2026-10-04, in one hand.
+
+- **Task 1** (b880faa0): an empty allowed list on an array becomes `maxItems: 0`. *Ruling:* the old test of `_call` dropping empty lists now checks that `with_choices` leaves a scalar unconstrained.
+- **Task 2** (d574bcc0): reply v2 with `evidence`, `_evidenced` (whitespace normalised, 3-character floor), and stray `undetermined` dropped.
+- **Task 3 (the walk)** found #245: the state choices still sat on the whole state object, so the model wrote bare strings (MA0004). Fixed in that issue's commit. With it, all four live readings are admitted:
+  - FASTA: `genome.fasta`.
+  - BAM: `alignment.bam` and `coordinate_sorted`, quoting `@HD VN:1.6 SO:coordinate`.
+  - FASTQ: handed back and measured. Its three claimed states quoted the prompt's own example (`SO:coordinate`), which is not in the file, so all three were dropped. The check works as designed.
+  - Two readings took 10–20 s, and the hand-back 33–54 s including the re-send.
