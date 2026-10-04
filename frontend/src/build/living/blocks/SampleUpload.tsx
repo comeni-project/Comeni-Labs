@@ -96,12 +96,17 @@ export function SampleUpload({
   const held = "files" in stage ? stage.files : null;
   const resent = useRef<number | null>(null);
   useEffect(() => {
-    if (reading?.state !== "hand_back" || !held || resent.current === reading.attempt) return;
+    // Never while an upload is already out (issue 246): that one's answer comes first.
+    if (reading?.state !== "hand_back" || !held || stage.at === "measuring") return;
+    if (resent.current === reading.attempt) return;
     resent.current = reading.attempt ?? 1;
     void measure(held);
     // Keyed on the reading alone, on purpose: once per attempt, whatever else re-renders.
   }, [reading?.state, reading?.attempt]);
   const handBackGone = reading?.state === "hand_back" && !held;
+  // *Measuring* only while the re-send is out (issue 246): a failed one, or files picked again
+  // after a reload, must not say so.
+  const resending = reading?.state === "hand_back" && stage.at === "measuring";
   const pickLabel = handBackGone ? `Measure as ${reading?.type_id}` : label;
 
   const picker = (
@@ -148,7 +153,7 @@ export function SampleUpload({
     <div className="flex flex-col gap-[10px] w-full">
       {reading?.state === "pending" ? (
         <Reading files={held} />
-      ) : reading?.state === "hand_back" && held ? (
+      ) : resending ? (
         <p className="m-0 font-data text-[11.5px] text-ink-2" aria-live="polite">
           read by AI: {reading.type_id}{" "}
           <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">→</span>{" "}
@@ -157,7 +162,7 @@ export function SampleUpload({
       ) : (
         <ReadingSaid reading={reading} files={held} />
       )}
-      {reading?.state !== "pending" && !(reading?.state === "hand_back" && held) &&
+      {reading?.state !== "pending" && !resending &&
         (stage.at === "offered" || stage.at === "done" || stage.at === "failed" ||
           (stage.at === "reading" && reading?.state !== undefined)) && (
         <div className="flex flex-col gap-[6px] md:items-start">

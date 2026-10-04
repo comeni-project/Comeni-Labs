@@ -699,7 +699,9 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
                 proposal_id, confirmed=inspection.outcome == "measured"
             )
         )
-    if inspection.outcome == "no_inspector" and characterise.available():
+    # **A hand-back never starts another reading** (issue 246): a re-sent file nothing claims,
+    # even by the type the AI named, ends here, or the card would re-send it without end.
+    if inspection.outcome == "no_inspector" and claimed is None and characterise.available():
         # Nothing here reads its type: the AI reads its first 8 KB of text (14.7.7).
         found = characterise.excerpt(heads.files[0][1])
         if found is not None:

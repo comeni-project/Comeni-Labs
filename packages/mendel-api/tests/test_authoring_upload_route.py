@@ -333,3 +333,20 @@ def test_a_reading_never_queued_ends_at_once_and_frees_the_question(client, clea
     assert got.status_code == 200, got.text
     assert got.json()["session"]["pending_proposal"]["block"]["reading"]["state"] == "no_answer"
     authoring.check_sample_question(pid)
+
+
+@needs_db
+def test_a_hand_back_never_starts_another_reading(client, clean, readable):  # noqa: F811
+    """Issue 246: a pair whose files disagree is claimed by nothing, even by type; the re-send
+    must not start a new reading, or the card re-sends without end."""
+    sid, pid = _at("paired")
+    attempt = authoring.start_reading(pid)
+    authoring.answer_with_reading(
+        pid, attempt, CharacteriseReply(type_id="fastq.reads"), by="ana", handed_back=True
+    )
+    r1 = next(iter(sorted(PAIR.glob("*.gz"))))
+    files = [("files", ("x_R1.fq.gz", r1.read_bytes())),
+             ("files", ("x_R2.txt", gzip.decompress(r1.read_bytes())))]
+    got = _post(client, sid, pid, files)
+    assert got.status_code == 200, got.text
+    assert got.json()["outcome"] != "reading" and readable == []

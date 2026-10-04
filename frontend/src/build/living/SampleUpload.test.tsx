@@ -271,6 +271,26 @@ describe("the AI reading a sample (issue 135)", () => {
     expect(await screen.findByText(/type read by AI/)).toBeTruthy();
   });
 
+  it("a re-send that fails says why, never measuring (issue 246)", async () => {
+    const onUpload = vi.fn()
+      .mockResolvedValueOnce(result({ outcome: "reading", facts: [], recorded: [] }))
+      .mockRejectedValueOnce(new Refused("MI0213: the protection level is sealed"));
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("reads.txt")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={reading("hand_back", { type_id: "fastq.reads" })} />);
+    expect(await screen.findByText(/MI0213/)).toBeTruthy();
+    expect(screen.queryByText(/measuring…/)).toBeNull();
+  });
+
+  it("files picked again after a reload are not said to be measuring before Measure (issue 246)",
+    async () => {
+      setupReading({ reading: reading("hand_back", { type_id: "fastq.reads" }) });
+      await userEvent.upload(screen.getByLabelText(/Measure as fastq\.reads/), [fq("reads.txt")]);
+      expect(screen.queryByText(/measuring…/)).toBeNull();
+    });
+
   it("offers Measure as … when the files are gone", () => {
     setupReading({ reading: reading("hand_back", { type_id: "fastq.reads" }) });
     expect(screen.getByText(/looks like fastq\.reads/)).toBeTruthy();

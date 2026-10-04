@@ -552,18 +552,22 @@ def characterise(
     )
 
 
-EVIDENCE_FLOOR = 3
-"""The shortest quote that can prove anything (#244). A single character is in every file."""
+EVIDENCE_FLOOR = 8
+"""The shortest quote that can prove anything (#244, raised in #246): `@HD` is in every BAM and
+`@r1` in many FASTQs, so a quote must be long enough to tell one file from another."""
 
 
 def _evidenced(quote: str, excerpt: str) -> bool:
-    """Whether `quote` is in the excerpt, runs of whitespace compared as one space (#244)."""
+    """Whether `quote` is within **one line** of the excerpt, runs of whitespace compared as one
+    space (#244). One line, because squashing newlines let a quote join two (#246)."""
 
     def squash(text: str) -> str:
         return " ".join(text.split())
 
     found = squash(quote)
-    return len(found) >= EVIDENCE_FLOOR and found in squash(excerpt)
+    return len(found) >= EVIDENCE_FLOOR and any(
+        found in squash(line) for line in excerpt.splitlines()
+    )
 
 
 def _admit_characterised(

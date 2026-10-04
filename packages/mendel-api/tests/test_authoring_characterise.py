@@ -157,10 +157,12 @@ def test_a_value_outside_its_declaration_is_dropped_and_the_rest_admitted(stack,
     # so a model is never offered it (spec §2's rule A, as the registry stands).
     assert {"paired", "quality_encoding"} <= ai.offered(stack, "fastq.reads")[1]
     reply = _reply(type_id="fastq.reads", states=[],
-                   measurements=[{"id": "quality_encoding", "value": "phred99", "evidence": "@r1"},
-                                 {"id": "paired", "value": True, "evidence": "@r1"}])
+                   measurements=[
+                       {"id": "quality_encoding", "value": "phred99", "evidence": "@r1 pair 1/1"},
+                       {"id": "paired", "value": True, "evidence": "@r1 pair 1/1"},
+                   ])
     outcome = ai.characterise(
-        _request("@r1\nACGT\n+\nIIII\n", binary_before=False), stack=stack,
+        _request("@r1 pair 1/1\nACGT\n+\nIIII\n", binary_before=False), stack=stack,
         families=["fastq"], client=Choosing(reply),
     )
     assert outcome.admitted
@@ -316,6 +318,16 @@ def test_nothing_offered_is_nothing_the_server_allows(stack, clean_forge):
 def test_evidence_is_compared_with_whitespace_as_one_space():
     assert ai._evidenced("@HD VN:1.6  SO:coordinate", "@HD\tVN:1.6\tSO:coordinate\n")
     assert not ai._evidenced("SO:queryname", "@HD\tVN:1.6\tSO:coordinate\n")
+
+
+def test_evidence_too_short_to_tell_one_file_from_another_proves_nothing():
+    """Issue 246: `@HD` is in every BAM; a quote must be long enough to say something."""
+    assert not ai._evidenced("@HD VN", "@HD\tVN:1.6\tSO:coordinate\n")
+
+
+def test_evidence_must_fall_within_one_line():
+    """Issue 246: squashed whitespace let a quote join the end of one line to the next."""
+    assert not ai._evidenced("coordinate @SQ SN:chr1", "@HD\tSO:coordinate\n@SQ\tSN:chr1\n")
 
 
 def test_the_schema_sent_keeps_each_state_an_object_with_its_evidence(stack, clean_forge):
