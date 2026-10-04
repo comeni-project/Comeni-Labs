@@ -381,7 +381,7 @@ decline a pipeline that never ran the gate which checks wiring.
 
 ```yaml
 ai:
-  available: []      # which of the three declared AI points had an adapter
+  available: []      # which of the four declared AI points had an adapter
   used: []           # which of them actually answered
 ```
 

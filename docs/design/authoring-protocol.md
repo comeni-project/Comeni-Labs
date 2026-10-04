@@ -35,7 +35,12 @@ protection profile. The facts' labels in the diagram (*you said*, *measured*, *r
 3. **Every fact carries its source:** `MEASURED` (an inspector), `MODEL-READ` (the characteriser),
    `PERSON-SAID` (an answer). The goal card shows all three.
 4. **No data type is refused for lacking an inspector.** It gets the characteriser, and a weaker
-   label. Which types have an inspector is declared, so the lost flexibility is visible; the
+   label: a model reads its first 8 KB of text, chooses a family and then a type from the closed
+   vocabulary, and may name only the declared states and measurements a line of the file states,
+   quoting that line. The engine checks each quote is in the file. When the model cannot tell,
+   the question stays and the person answers. A type an inspector reads goes back to that
+   inspector, which measures it. Which types have an inspector is declared, so the lost
+   flexibility is visible; the
    vocabulary endpoint (`GET /api/pipeline/authoring/vocabulary`, its `measurers`) lists, for
    every measurement, what measures it and where that runs.
 5. **Nothing is guessed. A fact comes from the person or from a file** (decided 2026-09-28).
@@ -107,7 +112,7 @@ runner, never a redesign. A protection level can refuse anything that runs on th
 |---|---|---|---|---|
 | **Inspector** (a format and its measures) | the first 4 MB of one uploaded sample, a file or a pair | **this server**, in its own process, with time, memory and size limits | the sample's head reaches this server, and only the head leaves the browser; nothing is stored. The facts go into the goal | level 0 only |
 | **Profiler** (a tool used to measure) | all the data | **the lab's machine**, inside the pipeline the lab runs | nothing reaches this server; the lab reads the profile back in | every level |
-| **Characteriser** (a model; designed, 14.7.7) | the sample's head | a model, through a declared door | the head reaches the model | level 0 only |
+| **Characteriser** (a model, 14.7.7) | at most 8 KB of the sample's text, from the start of its decoded head | a model, through door 6, on the AI worker | the excerpt reaches the model; nothing about it is stored by us beyond the model's reply | level 0 only |
 | *Later:* an inspector in **the browser** | the head | the person's browser | only the facts | designed for `guarded` |
 
 **At level 0 a sample's head reaches this server.** That is the loosening recorded below; the
@@ -138,8 +143,8 @@ tightening is filling in a row, not rewiring.
 
 | Node | **0 (MVP)** | `guarded` (later) | `sealed` (later) |
 |---|---|---|---|
-| files | uploaded, stored with the session | read in the browser, facts only | none |
-| characteriser receives | the sample's head | derived facts, after confirmation | not run |
+| files | uploaded; each file's first 4 MB held in memory, never stored | read in the browser, facts only | none |
+| characteriser receives | at most 8 KB of the sample's text | derived facts, after confirmation | not run |
 | main agent receives | typed facts + the conversation | same | typed goal only |
 | a fact's sample reaches a provider | yes | no | no |
 | a model's reply is stored (`ai_invocation.response`) | yes, whole | decided with the level | decided with the level |
@@ -169,6 +174,14 @@ tightening is filling in a row, not rewiring.
   (#198) says it is worth its extra call**.
 - **The typed payload stays.** Every agent answers in a declared shape. What loosens is *what the
   input may contain*, never the output's type.
+- **A model reads part of a person's file** (14.7.7, 2026-10-04). When nothing here reads a
+  sample's type, up to 8 KB of its text crosses door 6 to the configured model, which may be
+  outside this server. **The excerpt waits in Redis** inside the AI job's arguments until the
+  worker takes it, and no longer than the card waits (the job expires with the reading). The job
+  keeps no result. One path keeps it longer: a job ARQ fails after its retries is kept for the
+  worker's default hour (#242). The excerpt is never logged (its `repr` is sealed). What the
+  model *quotes* as evidence is kept in its reply (`ai_invocation.response`), which is #238's
+  question. Each later level decides whether a reading happens at all.
 
 ## Open questions
 
@@ -194,3 +207,4 @@ tightening is filling in a row, not rewiring.
 | 2026-09-29 | the consultant's words: an acknowledgement, each question phrased by a model, a read-back from the composed goal, the model's constraints as suggestions | 14.7.4 (#167, #176, #186), operator's brainstorm |
 | 2026-09-29 | the type chosen by family first: a *family* step before the goal call; a revision and a retry re-run both; replies enforced in shape by the model server where it can | 14.7.4 (#194), operator's brainstorm: *we aim to have hundreds if not thousands of tools* |
 | 2026-09-30 | a request nothing fits asks, never fails: the family call's verdict first; a want nothing can make returns to the person | 14.7.4 (#202), operator's decision |
+| 2026-10-04 | the characteriser built: door 6, a fourth AI point, *read by AI*; each property quotes the line that states it and the engine checks the quote; a type an inspector reads goes back to it | 14.7.7 (#135, #244), operator's brainstorm and decision |

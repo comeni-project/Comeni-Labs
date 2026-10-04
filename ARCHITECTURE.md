@@ -591,9 +591,10 @@ That is why `--no-ai` is still not a flag. There is nothing to switch off, and n
 be left accidentally on. When the tier-4 resolver lands, the flag becomes meaningful and becomes
 the mode CI runs in.
 
-Runtime AI stays confined to three declared points — goal extraction, tier-4 resolution,
-compiler repair — and tier 3 remains a pure lookup whose miss demotes to tier 4 rather than
-reaching for a model.
+Runtime AI stays confined to four declared points — goal extraction, tier-4 resolution,
+compiler repair, and characterisation (a model reading the start of an uploaded sample nothing
+here reads, at protection level 0) — and tier 3 remains a pure lookup whose miss demotes to tier
+4 rather than reaching for a model.
 
 ---
 

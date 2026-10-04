@@ -113,9 +113,9 @@ Violating any of these breaks the product claim, not just a test. Each is argued
    `test_purity_runtime.py`), `ctypes` banned, no `datetime.now` in `wiener-core`.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** Nothing writes to a
    registry layer automatically.
-3. **Runtime AI is confined to three declared points** (`AiPoint`): goal extraction, tier-4
-   resolution, compiler repair (declared, not built). A fourth, characterisation at protection
-   level 0, is **designed, not built** (`docs/design/authoring-protocol.md`).
+3. **Runtime AI is confined to four declared points** (`AiPoint`): goal extraction, tier-4
+   resolution, compiler repair (declared, not built), and characterisation, at protection level 0
+   only (built, 14.7.7; `docs/design/authoring-protocol.md`).
 4. **A tier-3 rule miss demotes to tier 4.** It never calls a model inside tier 3.
 5. **Repair patches the IR and re-emits**, never the generated `.nf` text.
 6. **Tier 4 is always flagged**, even at high model confidence.
@@ -130,11 +130,13 @@ Violating any of these breaks the product claim, not just a test. Each is argued
 12. **No subscription OAuth.** API keys or local models only.
 13. **Self-hosted is not a degraded tier:** same registry, same resolver, byte-identical output.
 14. **Data leaves through declared doors only** (`DOORS`, `DoorPath`), each with one typed payload;
-    `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count. Publication has no undo.
+    `FREE_TEXT_FIELDS` and `SAMPLE_FIELDS` in `tests/guards/test_egress.py` are the counts.
+    Publication has no undo.
 15. **Mendel does not receive patient data.** `DataProfile` is built only by
     `MeasurementRegistry.profile()`. Protection level 0 (built, 14.7.6) loosens this for an
     uploaded sample: each file's first 4 MB is held in memory and piped to an inspection process;
-    only the measured facts are kept.
+    only the measured facts are kept. When nothing reads its type, a model reads up to 8 KB of its
+    text through door 6 (14.7.7), and each property it reads must quote the line that states it.
 
 ## The system, briefly
 
@@ -143,8 +145,9 @@ structural (silent), **2** convention (green), **3** data-profiled, a declared r
 measured fact (yellow: *check the premise*), **4** ambiguous (red, review required).
 
 **Protection profiles** (`open`, `guarded`, `sealed`) are designed and **none is built** (#71); do
-not start them on privacy grounds alone. Level **0** (a sample may be uploaded and measured; a
-model reading it is 14.7.7) is the MVP's setting, built in 14.7.6; every crossing asks it first.
+not start them on privacy grounds alone. Level **0** (a sample may be uploaded and measured, and
+read by a model when nothing here reads its type) is the MVP's setting, built in 14.7.6 and
+14.7.7; every crossing asks it first.
 
 **Packages** (`packages/`): `comeni-core` (types, schema, IR, registry; pure), `mendel-resolver`
 (four-tier ladder, rules, routing; pure), `mendel-compiler` (IR → Nextflow, gates; pure),

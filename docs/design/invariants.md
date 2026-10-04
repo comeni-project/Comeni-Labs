@@ -44,11 +44,19 @@ The forge drafts
 contracts, rules and vocabulary states — a person approves them into the registry layer.
 Nothing writes there automatically.
 
-### 3. Runtime AI is confined to three declared points
+### 3. Runtime AI is confined to four declared points
 
 They are prompt → goal extraction (user
 corrects the result before anything runs), tier-4 resolution (always flagged, always
-recorded), and compiler repair (bounded to 3 attempts). Nothing else calls a model.
+recorded), compiler repair (bounded to 3 attempts), and characterisation. Nothing else calls a
+model.
+**Characterisation is the fourth, since 2026-10-04 (14.7.7), and it is a recorded loosening**
+(`docs/design/authoring-protocol.md`, *Loosenings*). At protection level 0 only, a model reads
+the start of an uploaded sample that nothing here reads, and names its declared type, and the
+declared states and measurements a line of it states. Each id is admitted against the
+vocabulary. Each property must quote its line, which the engine checks is really in the file
+before anything is recorded. What it reads is labelled *read by AI* at tier 3. It is declared
+like the others: an `AiPoint`, a door, a prompt file and an `ai_invocation` row.
 
 ### 4. A tier-3 rule miss demotes to tier 4. It never calls a model inside tier 3
 
@@ -131,11 +139,11 @@ Same registry, same resolver, byte-identical
 output. The hosted instance sells convenience, never capability. Anything that would only
 work on our infrastructure is a design error.
 
-### 14. Data leaves through five declared doors and no others, on two paths
+### 14. Data leaves through declared doors only, on two paths
 
-Four carry
-**pipeline** data — goal extraction, tier-4 resolution, compiler repair, publication — and
-the fifth carries **forge review**. `DoorPath` is the distinction and `doors_on()` is how
+Five carry
+**pipeline** data — goal extraction, tier-4 resolution, compiler repair, publication and
+characterisation — and one carries **forge review**. `DoorPath` is the distinction and `doors_on()` is how
 each half stays separately checkable.
 **Why this exists, in the order the reasons actually hold** — restated 2026-09-05, because
 the first reason below is the one that survives whether or not anybody is talking about
@@ -163,8 +171,15 @@ no prompt, takes no `Goal`, and writes no `pipeline.yml`. A **review chat breaks
 — `ReviewTurn.content` is a string a curator types, at request time, and it goes to a
 provider, which is exactly what `AuthoringRequest.prompt` is on the pipeline side. The other
 two legs still hold, and `DoorPath.FORGE` is what records that. `AiPoint` is unchanged and
-still corroborates the rest: invariant 3 declares three runtime AI points and the forge is
+still corroborates the rest: invariant 3 declares its runtime AI points and the forge is
 not one of them.
+**Door 6, characterisation (2026-10-04, 14.7.7), is the first whose payload holds data from a
+person's file**: up to 8 KB and 200 lines of a sample's text, bounded by its own type
+(`marks.SampleText`), at protection level 0 only. That is why it is counted apart:
+`SAMPLE_FIELDS` sits beside `FREE_TEXT_FIELDS`, and a guard holds door 6 to be the only door
+that can reach a `Mark.SAMPLE`. The payload carries no file name, extension, session or
+conversation. The vocabulary the model chooses from is the public registry, rendered into the
+prompt as door 1's is.
 **Generating a proposal is deliberately not a door**, and the line drawn is *who authored
 the string* rather than *how much text crosses*: a dossier is composed entirely from
 vendored modules and registry files, the same public bound that keeps `Excerpt` honest.
@@ -260,6 +275,15 @@ the guard moved rather than weakened: `MeasurementRegistry.profile()` is the onl
 constructor, `tests/guards/test_construction.py` enforces that nothing else builds a `DataProfile`,
 and `mendel build` re-routes every goal's profile through it. Delete that one call and
 `profile: {sample_name: ...}` builds cleanly — which is how it was watched failing.
+**Protection level 0 loosens this twice, both recorded** (`docs/design/authoring-protocol.md`,
+*Loosenings*):
+- since 14.7.6, an uploaded sample's first 4 MB is held in memory and measured on this
+  server, and only the measured facts are kept;
+- since 14.7.7, when nothing reads its type, up to 8 KB of its text goes to a model through
+  door 6, waiting in the AI queue until the worker takes it, and only the ids it admits are
+  kept.
+
+`guarded` and `sealed` will hold the invariant (#71).
 
 ## The four tiers
 

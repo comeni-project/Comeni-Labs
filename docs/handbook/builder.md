@@ -37,6 +37,28 @@ change the draft; use the artifact view when you need the exact record of what w
 5. Use **Artifact** to see the materialized pipeline record.
 6. Press **Run** when the status line is clean enough for the gate you intend to run.
 
+## When you're not sure: answer with a file
+
+When the builder asks something about your data you can't answer, such as how long the reads
+are, or whether you have a reference genome, you can answer with a file instead: one file, or a
+pair (R1 and R2).
+
+- **Only the first 4 MB of each file is read**, on this server, in memory. Nothing is stored, and
+  the rest of the file never leaves your computer.
+- **A file this server knows how to read is measured.** FASTQ, plain or gzipped, is measured for
+  read length, pairing and quality encoding. Each fact says *measured*, by what, and on how many
+  reads.
+- **A file nothing here reads goes to the AI**, as about 8 KB of its text, and only at the
+  protection level that allows it. The AI says which kind of file it is, from the kinds this
+  registry knows. It may name only properties that a line of the file states, quoting that line,
+  and each quote is checked against the file. Everything it reads is labelled **read by AI**.
+  When it names a kind of file this server measures (a FASTQ named `.txt`, say), the file is sent
+  again by itself and measured.
+- **What you said yourself always stands.** If a file disagrees with you, the difference is
+  shown, and nothing is written over.
+- **A fact read by AI or measured is a premise you check.** The steps that rest on it are yellow:
+  *check the premise* before you build.
+
 ## Worked example: inspect STAR
 
 Using the shared [RNA-seq example](rnaseq-example.md), select the aligner step. In the current
