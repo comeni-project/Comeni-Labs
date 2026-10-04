@@ -1403,8 +1403,14 @@ def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | 
         return None
     if proposal.chosen_option == UPLOAD and proposal.payload.get("kind") == FactKind.INPUT.value:
         # An input a sample answered: the person has it, and the sample showed what it is. The
-        # option's label would crowd the question out of its line (issue 232).
-        return _INPUT_OPTIONS["have_it"]
+        # option's label would crowd the question out of its line (issue 232). The AI reading
+        # it says so (14.7.7).
+        subject = proposal.payload.get("subject")
+        read_by_ai = any(
+            f.get("subject") == subject and f.get("source") == FactSource.MODEL_READ.value
+            for f in facts
+        )
+        return _INPUT_OPTIONS["have_it"] + (" · read by AI" if read_by_ai else "")
     if proposal.chosen_option in ("value", UPLOAD):
         # A sample's answer is what it measured, never the label of the option that opened it.
         subject = proposal.payload.get("subject")

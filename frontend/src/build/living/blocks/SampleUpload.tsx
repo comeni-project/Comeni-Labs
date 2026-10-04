@@ -1,7 +1,7 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Refused } from "../../../api/client";
-import type { InspectedFact, SampleInspected } from "../../../api/types";
+import type { InspectedFact, SampleInspected, SampleReading } from "../../../api/types";
 import { bytes } from "../../../runs/units";
 import { Primary, Secondary } from "./parts";
 import { piece } from "./piece";
@@ -19,10 +19,14 @@ type Stage =
   | { at: "offered" }
   | { at: "picked"; files: File[] }
   | { at: "measuring"; files: File[] }
+  | { at: "reading"; files: File[] }
   | { at: "done"; files: File[]; result: SampleInspected }
   | { at: "failed"; files: File[]; why: string };
 
 const PAIR = "one file, or a pair (R1 and R2)";
+/** What may leave, said before anything does (issue 135): a sample nothing here reads goes, as
+ *  about 8 KB of its text, to the AI. */
+const TO_AI = "if nothing here reads its type, about 8 KB of its text goes to the AI to read";
 
 export function SampleUpload({
   proposalId,
@@ -32,6 +36,7 @@ export function SampleUpload({
   onAnswered,
   onMeasuring = () => {},
   onPicked = () => {},
+  reading = null,
 }: {
   proposalId: string;
   label: string;
@@ -43,12 +48,14 @@ export function SampleUpload({
   onMeasuring?: (measuring: boolean) => void;
   /** Files are picked or out: *Measure* is the card's one primary action (issue 231). */
   onPicked?: (picked: boolean) => void;
+  /** The AI reading this question's sample (issue 135), as the server keeps it. */
+  reading?: SampleReading | null;
 }) {
   const field = useId();
   const [stage, setStageOnly] = useState<Stage>({ at: "offered" });
   const setStage = (next: Stage) => {
     setStageOnly(next);
-    onPicked(next.at === "picked" || next.at === "measuring");
+    onPicked(next.at === "picked" || next.at === "measuring" || next.at === "reading");
   };
   const [refusal, setRefusal] = useState<string | null>(null);
 
@@ -70,7 +77,8 @@ export function SampleUpload({
     try {
       const result = await onUpload(files);
       const names = files.map((f) => f.name);
-      if (result.session.pending_proposal?.id !== proposalId) onAnswered(result, names);
+      if (result.outcome === "reading") setStage({ at: "reading", files });
+      else if (result.session.pending_proposal?.id !== proposalId) onAnswered(result, names);
       else setStage({ at: "done", files, result });
     } catch (error) {
       setStage({
@@ -82,6 +90,19 @@ export function SampleUpload({
       onMeasuring(false);
     }
   };
+
+  // **The AI's reading drives the card** (issue 135). A type the engine reads comes back as
+  // `hand_back`: the files this card still holds are sent again, once per attempt.
+  const held = "files" in stage ? stage.files : null;
+  const resent = useRef<number | null>(null);
+  useEffect(() => {
+    if (reading?.state !== "hand_back" || !held || resent.current === reading.attempt) return;
+    resent.current = reading.attempt ?? 1;
+    void measure(held);
+    // Keyed on the reading alone, on purpose: once per attempt, whatever else re-renders.
+  }, [reading?.state, reading?.attempt]);
+  const handBackGone = reading?.state === "hand_back" && !held;
+  const pickLabel = handBackGone ? `Measure as ${reading?.type_id}` : label;
 
   const picker = (
     <>
@@ -107,12 +128,11 @@ export function SampleUpload({
           strokeWidth="2" strokeLinecap="square" aria-hidden="true">
           <path d="M12 16V4M6 10l6-6 6 6M4 20h16" />
         </svg>
-        {label}
+        {pickLabel}
         <input
           id={field}
           type="file"
           multiple
-          accept=".fastq,.fq,.gz"
           className="sr-only"
           disabled={busy}
           onChange={(e) => {
@@ -126,11 +146,26 @@ export function SampleUpload({
 
   return (
     <div className="flex flex-col gap-[10px] w-full">
-      {(stage.at === "offered" || stage.at === "done" || stage.at === "failed") && (
+      {reading?.state === "pending" ? (
+        <Reading files={held} />
+      ) : reading?.state === "hand_back" && held ? (
+        <p className="m-0 font-data text-[11.5px] text-ink-2" aria-live="polite">
+          read by AI: {reading.type_id}{" "}
+          <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">→</span>{" "}
+          measuring…
+        </p>
+      ) : (
+        <ReadingSaid reading={reading} />
+      )}
+      {reading?.state !== "pending" && !(reading?.state === "hand_back" && held) &&
+        (stage.at === "offered" || stage.at === "done" || stage.at === "failed" ||
+          (stage.at === "reading" && reading?.state !== undefined)) && (
         <div className="flex flex-col gap-[6px] md:items-start">
           {picker}
           <p className="m-0 font-data text-[10px] text-ink-3">
-            {PAIR} · only the first 4 MB is read, on this server
+            {handBackGone
+              ? "only the first 4 MB is read, on this server"
+              : `${PAIR} · only the first 4 MB is read, on this server · ${TO_AI}`}
           </p>
         </div>
       )}
@@ -143,7 +178,7 @@ export function SampleUpload({
             <>
               <p className="m-0 font-data text-[10px] text-ink-3">
                 only the first 4 MB of each is read, on this server · the rest never leaves your
-                computer
+                computer · {TO_AI.replace(" to read", "")}
               </p>
               <div className="flex items-center gap-[8px]">
                 <Primary disabled={busy} onClick={() => void measure(stage.files)}>Measure</Primary>
@@ -159,8 +194,21 @@ export function SampleUpload({
         </div>
       )}
 
+      {stage.at === "done" && (reading?.state === "hand_back" || reading?.state === "handed") &&
+        stage.result.outcome === "measured" && (
+        <p className="m-0 font-data text-[12px]">
+          <span className="text-ink">{stage.result.type_id ?? reading.type_id}</span>{" "}
+          <span className="text-[var(--measured)]">· type read by AI</span>
+        </p>
+      )}
       {stage.at === "done" && (
         <Outcome result={stage.result} files={stage.files.map((f) => f.name)} />
+      )}
+      {stage.at === "reading" && held && (reading?.state === "no_answer" ||
+        reading?.state === "refused") && (
+        <div className="flex md:items-start">
+          <Secondary disabled={busy} onClick={() => void measure(held)}>Measure again</Secondary>
+        </div>
       )}
       {stage.at === "failed" && (
         <div className="flex flex-col gap-[8px] md:items-start">
@@ -172,6 +220,73 @@ export function SampleUpload({
           </Secondary>
         </div>
       )}
+    </div>
+  );
+}
+
+/** The AI is reading the sample (issue 135): the card waits, and says what went where. */
+function Reading({ files }: { files: File[] | null }) {
+  return (
+    <div className="flex flex-col gap-[6px]">
+      {files && (
+        <p className="m-0 font-data text-[11px] text-ink-2">{files.map((f) => f.name).join(" + ")}</p>
+      )}
+      <p className="m-0 font-data text-[11.5px] text-ink" aria-live="polite">
+        <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">●</span>{" "}
+        being read by AI…
+      </p>
+      <p className="m-0 text-[11.5px] text-ink-3">
+        About 8 KB of its text went to the AI. It names a type and facts from this registry only.
+      </p>
+    </div>
+  );
+}
+
+/** What the AI's reading said, once it is over: what it read, or why nothing was recorded. */
+function ReadingSaid({ reading }: { reading: SampleReading | null }) {
+  if (!reading) return null;
+  if (reading.state === "read") {
+    const lines = [reading.type_id, ...(reading.states ?? [])].filter(Boolean) as string[];
+    return (
+      <div className="flex flex-col gap-[8px]">
+        <ul className="m-0 p-0 list-none flex flex-col gap-[7px] font-data text-[12px]">
+          {lines.map((line) => (
+            <li key={line}>
+              <span className="text-ink">{line}</span>{" "}
+              <span className="text-[var(--measured)]">· read by AI</span>
+            </li>
+          ))}
+        </ul>
+        {(reading.disagreed ?? []).map((subject) => (
+          <p key={subject} className="m-0 px-[10px] py-[9px] text-[11px] text-ink-2 border"
+            style={{ borderColor: "var(--line-2)" }}>
+            {subject} — you said otherwise. What you said stands.
+          </p>
+        ))}
+      </div>
+    );
+  }
+  if (reading.state === "hand_back")
+    return (
+      <Said head={<>looks like {reading.type_id} <span className="text-[var(--measured)]">· read by AI</span></>}
+        sub="This server measures that type. Pick the same files again and it measures them; nothing else is sent to the AI." />
+    );
+  const said: Record<string, [string, string]> = {
+    could_not_tell: ["the AI couldn't tell what this file is", "Nothing was recorded. Answer below, or try another file."],
+    refused: ["the AI's answer named something this registry doesn't declare · nothing was recorded",
+      reading.code ?? ""],
+    no_answer: ["the AI didn't answer", "No model answered in time. Nothing was recorded; the same file can be read again."],
+  };
+  const found = said[reading.state];
+  return found ? <Said head={found[0]} sub={found[1]} alert={reading.state === "refused"} /> : null;
+}
+
+function Said({ head, sub, alert = false }: { head: React.ReactNode; sub: string; alert?: boolean }) {
+  return (
+    <div className="px-[10px] py-[9px] border" role={alert ? "alert" : undefined}
+      style={{ borderColor: "var(--line-2)", background: alert ? "var(--undecided-soft)" : "var(--surface)" }}>
+      <p className="m-0 font-data text-[12px] text-ink">{head}</p>
+      {sub && <p className="m-0 mt-[6px] text-[11px] text-ink-2">{sub}</p>}
     </div>
   );
 }

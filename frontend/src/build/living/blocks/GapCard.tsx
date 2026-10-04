@@ -39,6 +39,8 @@ export function GapCard({
     block.kind === "question" && block.value !== null && block.value !== undefined
       ? String(block.value) : "");
   if (block.kind !== "question") return null;
+  // While the AI reads a sample, the other answers wait too (issue 135): two answers must not race.
+  const waiting = measuring || block.reading?.state === "pending";
   const suggested = block.options.find((o) => o.recommended && o.note);
 
   const typedOption = block.options.find((o) => o.id === "value");
@@ -78,7 +80,7 @@ export function GapCard({
             style={{ borderColor: "var(--line-2)" }}
           />
           <Send
-            disabled={busy || measuring || number === null || Number.isNaN(number)}
+            disabled={busy || waiting || number === null || Number.isNaN(number)}
             onClick={() => number !== null && onAnswer("value", number)}
           >
             Use this
@@ -95,17 +97,18 @@ export function GapCard({
             onAnswered={onAnswered}
             onMeasuring={setMeasuring}
             onPicked={setPicked}
+            reading={block.reading ?? null}
           />
         </div>
       )}
       <div className="flex flex-wrap gap-2">
         {buttons.map((option) =>
           picked || quiet.has(option.id) || typedOption || (suggested && suggested.id !== option.id) ? (
-            <Secondary key={option.id} disabled={busy || measuring} onClick={() => onAnswer(option.id, undefined)}>
+            <Secondary key={option.id} disabled={busy || waiting} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Secondary>
           ) : (
-            <Primary key={option.id} disabled={busy || measuring} onClick={() => onAnswer(option.id, undefined)}>
+            <Primary key={option.id} disabled={busy || waiting} onClick={() => onAnswer(option.id, undefined)}>
               {option.label}
             </Primary>
           ),

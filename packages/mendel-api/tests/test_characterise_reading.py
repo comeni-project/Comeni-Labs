@@ -405,3 +405,13 @@ def test_the_excerpt_never_reaches_a_log_and_leaves_redis_with_the_reading(monke
     assert "PATIENT" not in repr(sent["args"]), "ARQ logs a job's args by their repr"
     assert any(str(a) == found.text for a in sent["args"]), "the worker still gets the text"
     assert sent["kwargs"]["expires"] == authoring.STALE_AFTER
+
+
+def test_the_log_says_an_answer_came_from_the_ai(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    attempt = authoring.start_reading(pid)
+    authoring.answer_with_reading(
+        pid, attempt, CharacteriseReply(type_id="genome.fasta"), by="ana", handed_back=False
+    )
+    row = next(h for h in authoring.read(sid)["history"] if h["id"] == pid)
+    assert row["answer"] == "I have it · read by AI"

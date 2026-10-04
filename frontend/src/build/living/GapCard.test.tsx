@@ -141,4 +141,13 @@ describe("a gap card that takes a sample", () => {
     render(<GapCard proposal={LENGTH_WITH_UPLOAD} busy={false} onAnswer={vi.fn()} />);
     expect(screen.queryByText(/upload a sample/i)).toBeNull();
   });
+
+  it("holds the other answers while the AI reads a sample (issue 135)", () => {
+    const reading = { ...LENGTH_WITH_UPLOAD, block: { ...LENGTH_WITH_UPLOAD.block,
+      reading: { state: "pending", attempt: 1 } } } as AuthoringProposal;
+    render(<GapCard proposal={reading} busy={false} onAnswer={vi.fn()} onUpload={vi.fn()} />);
+    expect((screen.getByRole("button", { name: "I can't share it" }) as HTMLButtonElement)
+      .disabled).toBe(true);
+    expect(screen.getByText(/being read by AI/)).toBeTruthy();
+  });
 });

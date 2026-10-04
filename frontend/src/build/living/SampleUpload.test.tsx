@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { Refused } from "../../api/client";
-import type { SampleInspected } from "../../api/types";
+import type { SampleInspected, SampleReading } from "../../api/types";
 import { SampleResult, SampleUpload } from "./blocks/SampleUpload";
 
 /** Issue 134: a person who is not sure uploads one file or a pair and sees what it measured. */
@@ -189,5 +189,88 @@ describe("dropping and waiting", () => {
     render(<SampleResult result={result({ facts: [{ measurement: "read_length", value: null,
       undetermined: "", pieces: [], evidence: {} }] })} files={["a.fq"]} />);
     expect(screen.getByText(/undetermined/)).toBeTruthy();
+  });
+});
+
+const reading = (state: string, extra = {}) => ({ state, attempt: 1, type_id: null, states: [],
+  recorded: [], kept: [], disagreed: [], code: null, ...extra }) as SampleReading;
+
+function setupReading(props: Record<string, unknown> = {}, onUpload = vi.fn()) {
+  const view = render(
+    <SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} {...props} />,
+  );
+  return { onUpload, ...view };
+}
+
+describe("the AI reading a sample (issue 135)", () => {
+  it("accepts any file and says what may go to the AI", () => {
+    setupReading();
+    const input = screen.getByLabelText(LABEL) as HTMLInputElement;
+    expect(input.accept).toBe("");
+    expect(screen.getByText(/if nothing here reads its type, about 8 KB of its text goes to the AI to read/)).toBeTruthy();
+  });
+
+  it("waits while the AI reads", async () => {
+    const onUpload = vi.fn().mockResolvedValue(result({ outcome: "reading", facts: [], recorded: [] }));
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("x.bam")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={reading("pending")} />);
+    expect(await screen.findByText(/being read by AI/)).toBeTruthy();
+  });
+
+  it("shows what the AI read, each line read by AI", () => {
+    setupReading({ reading: reading("read", { type_id: "alignment.bam",
+      states: ["coordinate_sorted"], recorded: ["alignment.bam"] }) });
+    expect(screen.getByText("alignment.bam")).toBeTruthy();
+    expect(screen.getByText("coordinate_sorted")).toBeTruthy();
+    expect(screen.getAllByText(/read by AI/).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("says when the AI couldn't tell, when it was refused, and when it didn't answer", () => {
+    const { rerender } = setupReading({ reading: reading("could_not_tell") });
+    expect(screen.getByText(/the AI couldn't tell what this file is/)).toBeTruthy();
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
+      onAnswered={vi.fn()} reading={reading("refused", { code: "MI0204" })} />);
+    expect(screen.getByText(/named something this registry doesn't declare · nothing was recorded/)).toBeTruthy();
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
+      onAnswered={vi.fn()} reading={reading("no_answer", { code: "MA0007" })} />);
+    expect(screen.getByText(/the AI didn't answer/)).toBeTruthy();
+  });
+
+  it("re-sends the same files once when the AI names a type the engine reads", async () => {
+    const onUpload = vi.fn()
+      .mockResolvedValueOnce(result({ outcome: "reading", facts: [], recorded: [] }))
+      .mockResolvedValueOnce(result());
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("reads.txt")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    const handBack = reading("hand_back", { type_id: "fastq.reads" });
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={handBack} />);
+    await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(2));
+    expect(onUpload.mock.calls[1][0][0].name).toBe("reads.txt");
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={{ ...handBack }} />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onUpload).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/type read by AI/)).toBeTruthy();
+  });
+
+  it("offers Measure as … when the files are gone", () => {
+    setupReading({ reading: reading("hand_back", { type_id: "fastq.reads" }) });
+    expect(screen.getByText(/looks like fastq\.reads/)).toBeTruthy();
+    expect(screen.getByLabelText(/Measure as fastq\.reads/)).toBeTruthy();
+  });
+
+  it("keeps a refusal's sentence and stays usable", async () => {
+    const onUpload = vi.fn().mockRejectedValue(new Refused("MI0215: a sample is already being read for this question"));
+    setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("x.bam")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByText(/MI0215/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Measure again" })).toBeTruthy();
   });
 });
