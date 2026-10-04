@@ -39,11 +39,33 @@ At any time the person may ask anything; the AI answers in its own words, marked
 | Step cards' words | **the curated and engine text as is, no AI rewording** (option a) | decide on data: the walk checks readability (#210) |
 | The architecture | **the diagram runs the engine**: sessions sit on a node, commands are edges, entering a node runs its handler | updating the flow means updating the diagram |
 | Diagrams | **one protocol diagram, with sections**; the sample's inside is a section, not a page | one source of truth |
+| Where it lives | **a new pure package, `mendel-authoring`**: the protocol, the interpreter, the commands, the build plan, the strategies, the ports; `mendel-api` keeps only the shell | the wiring has one direction a test can hold; *we are moving in a hairball direction* |
 
 ## 3. The architecture: the diagram runs the engine
 
-**The protocol is the program.** `protocol.py` declares one `Protocol`, whose sections are the
-stages. The engine interprets it:
+### 3.1 Two packages, one direction
+
+| `mendel-authoring` (new, **pure**) | `mendel-api` (the shell) |
+|---|---|
+| the protocol: sections, nodes, edges (the diagram's only source) | the handlers, one stage module per section |
+| the interpreter: node + command → edge, or a refusal | the facade: `perform`, `read` |
+| the commands, phases, events, outcomes and blocks, as types | the rows, the migrations |
+| the build plan; the `Pacing` and `Tier4Answers` strategies | the jobs, the routes, the model calls |
+| **ports**: what a handler is, what the interpreter needs from the shell | the binding of its handlers to the protocol's nodes |
+
+- **The arrow points shell → core**, as `mendel-api` → `mendel-resolver` does. `mendel-authoring`
+  never imports `mendel-api`, FastAPI, SQLAlchemy, ARQ or a model client. It depends on
+  `comeni-core`, and on `mendel-resolver` only if a blueprint type needs it.
+- **It joins invariant 1**: the packages that do not reach the network. `test_purity.py` and
+  `test_purity_runtime.py` list it.
+- **The diagram's generator imports only `mendel-authoring`.**
+- **The binding test lives in the shell's tests**, since only the shell knows its handlers. It
+  holds the core's acting nodes and the shell's registered handlers to the same set.
+
+### 3.2 How the protocol runs
+
+**The protocol is the program.** `mendel_authoring.protocol` declares one `Protocol`, whose
+sections are the stages. The engine interprets it:
 
 - **A session sits on a node.** `pipeline_authoring_session.at` holds the node id; the phase is
   read off the node (each node declares its phase). A migration derives `at` for existing
@@ -64,17 +86,19 @@ stages. The engine interprets it:
   the AI reading, the hand-back) does not move the session. Its nodes name the steps a request
   takes and reports, so the card's steps and the picture share ids.
 
-**Stage modules behind one facade.** `services/authoring.py` (2,300 lines today) splits by
-section: `describe`, `gathering`, `samples`, `goal`, `building`. A thin `services/session.py`
-holds the dispatcher and the read model (`read()`); the routes call only it.
+**Stage modules behind one facade, in the shell.** `mendel_api/services/authoring.py` (2,300
+lines today) splits by section into `mendel_api/stages/`: `describe`, `gathering`, `samples`,
+`goal`, `building`. A thin `mendel_api/services/session.py` holds the dispatcher (which runs the
+core's interpreter and the shell's handlers in one transaction) and the read model (`read()`).
+The routes call only it.
 
 **Policies are strategies.** `Pacing`: *together* or *only where needed*. `Tier4Answers`: *stop
 for the person*, or *a model, flagged* (off; designed). Both are read from the Settings menu; a
 Pacing of *ask me every time* asks. They replace `Mode`.
 
-**Pure core, impure shell.** The interpreter's rules (edges, refusals), the build plan and the
-strategies are pure: no database, clock or model; golden-tested. Only handlers and the facade
-touch rows, the queue or a model.
+**Pure core, impure shell.** Everything in `mendel-authoring` is pure: no database, clock,
+network or model; golden-tested. Only the shell's handlers and facade touch rows, the queue or a
+model.
 
 **What is reused.** The blueprint (resolved once, revealed in order, final positions known),
 `committed` (placing a step in the draft), the declared alternatives, Keep, and the chat route
@@ -154,7 +178,8 @@ command that card's node accepts. A recorded transport tests it; no live model i
 | ④ Your consultant builds it with you | §5 |
 | Any time | ask → answer, retry from a failure |
 
-`tools/generate_protocol_doc.py` writes one page; `INSPECTING` and `detail=` go. If the one page
+`tools/generate_protocol_doc.py` imports only `mendel-authoring` and writes one page; `INSPECTING`
+and `detail=` go. If the one page
 is too dense on screen, the generator draws a section at a time, never a second source.
 
 ## 8. When it fails
@@ -171,9 +196,12 @@ is too dense on screen, the generator draws a section at a time, never a second 
 
 ## 9. Testing
 
-- **The binding test**, both directions; watched failing, recorded in the guard ledger.
+- **The binding test**, both directions, in the shell's tests; watched failing, recorded in the
+  guard ledger.
 - **The interpreter:** every edge of the protocol taken once in a table test; every other
   command refused by name.
+- **Purity:** `mendel-authoring` in both purity guards; a test that it imports nothing from the
+  shell.
 - **Behaviour unchanged after 14.7.8.1:** the whole existing suite, untouched, through the
   dispatcher.
 - **Goldens:** the plan, the overview and the wrap-up from scenario 1's blueprint, with read
@@ -186,9 +214,12 @@ is too dense on screen, the generator draws a section at a time, never a second 
 
 ## 10. Built in five parts
 
-Each part gets its own plan.
+Each part gets its own plan, written when the part before it has landed: part 1 moves the files
+the later plans would name.
 
 1. **14.7.8.1 The diagram runs the engine:**
+   - the pure package `mendel-authoring`: the protocol, the state machine and the session types
+     move into it from `mendel-api`, and it joins the purity guards;
    - one sectioned protocol;
    - `at` and its migration;
    - commands, the dispatcher-interpreter, handlers and the binding test;
@@ -203,4 +234,5 @@ Each part gets its own plan.
 5. **14.7.8.5 The cards and the walk:** artboards first, approved by the operator; the cards;
    the walk.
 
-The `comeni-core` version bump (a family's optional `stage` label) is judged at release time.
+The `comeni-core` version bump (a family's optional `stage` label), and `mendel-authoring`'s first
+release, are judged at release time.
