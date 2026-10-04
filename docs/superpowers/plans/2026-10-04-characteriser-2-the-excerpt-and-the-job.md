@@ -1415,3 +1415,10 @@ Executed 2026-10-04, in one hand. The fixes from plan 1's review (#237) landed f
   - *Ruling:* MI0215 maps to 422, as MI0203 does.
   - *Ruling:* the upload reader refuses an extra form field outright.
   - *Ruling:* a Keep test's `available` list gained `characterise`.
+
+**Final review** (a fresh reviewer, opus):
+- **Fixed in cc2a9d55 (#241)**, with eight tests that failed first:
+  - three Important findings: a click did not stop the job; an answered reading stayed pending; a failed enqueue or a crashed job locked the question;
+  - two Minors re-graded to Important because they concern a person's data: the excerpt reached ARQ's start log (it is now a `Sealed` string, whose `repr` is redacted), and the excerpt outlived the reading in Redis (the job now expires at `STALE_AFTER`).
+- **Deferred minors → #242.**
+
