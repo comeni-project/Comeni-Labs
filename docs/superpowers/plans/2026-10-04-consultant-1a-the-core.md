@@ -652,11 +652,11 @@ The cycle test expects the limit's number in the message: `{limit}` is there.
 
 **Files:** `CLAUDE.md` (invariant 1; *Packages*), `docs/design/invariants.md` §1, `ARCHITECTURE.md` (the package list), `docs/notes/now.md` only if a line there names `mendel_api/authoring/protocol.py`.
 
-- [ ] **Step 1:** `git grep -n "mendel_api/authoring/protocol\|authoring/protocol.py\|dag-core\` do not" -- CLAUDE.md docs ARCHITECTURE.md`, and update each:
+- [x] **Step 1:** `git grep -n "mendel_api/authoring/protocol\|authoring/protocol.py\|dag-core\` do not" -- CLAUDE.md docs ARCHITECTURE.md`, and update each:
   - **Invariant 1:** *`comeni-core`, `mendel-resolver`, `mendel-compiler`, `mendel-authoring`, `wiener-core` and `dag-core` do not reach the network.*
   - **The *Packages* paragraph:** `mendel-authoring` (the authoring protocol, the diagram the builder runs, and its interpreter; pure).
   - **Every pointer to `mendel_api/authoring/protocol.py`** becomes `mendel_authoring/protocol.py`, including the diagram page's banner (it is generated: regenerate).
-- [ ] **Step 2:** `make check` (including `doc-paths` and `doc-sizes`), then commit. `docs: mendel-authoring joins invariant 1; the protocol's new home (#136)`
+- [x] **Step 2:** `make check` (including `doc-paths` and `doc-sizes`), then commit. `docs: mendel-authoring joins invariant 1; the protocol's new home (#136)`
 
 ---
 

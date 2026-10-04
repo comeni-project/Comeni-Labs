@@ -3720,7 +3720,7 @@ MI0212:
     anything else is a client or a stored session asking to skip a step.
   explanation: |
     A retry leaves `failed` for the phase that failed, and only where the authoring protocol
-    draws a return edge (`mendel_api/authoring/protocol.py`). Resuming anywhere else would enter a
+    draws a return edge (`mendel_authoring/protocol.py`). Resuming anywhere else would enter a
     phase whose preconditions nobody checked: a build against a goal nobody confirmed.
 MI0213:
   emitted_by: api

@@ -108,8 +108,8 @@ each written because it was broken:
 Violating any of these breaks the product claim, not just a test. Each is argued in
 [`docs/design/invariants.md`](docs/design/invariants.md).
 
-1. **`comeni-core`, `mendel-resolver`, `mendel-compiler`, `wiener-core` and `dag-core` do not reach
-   the network.** Say *do not*, never *cannot*: two partial guards (`test_purity.py`,
+1. **`comeni-core`, `mendel-resolver`, `mendel-compiler`, `mendel-authoring`, `wiener-core` and
+   `dag-core` do not reach the network.** Say *do not*, never *cannot*: two partial guards (`test_purity.py`,
    `test_purity_runtime.py`), `ctypes` banned, no `datetime.now` in `wiener-core`.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** Nothing writes to a
    registry layer automatically.
@@ -151,6 +151,8 @@ read by a model when nothing here reads its type) is the MVP's setting, built in
 
 **Packages** (`packages/`): `comeni-core` (types, schema, IR, registry; pure), `mendel-resolver`
 (four-tier ladder, rules, routing; pure), `mendel-compiler` (IR → Nextflow, gates; pure),
+`mendel-authoring` (the conversation's protocol: the diagram the builder runs, and its
+interpreter; pure),
 `dag-core` (graph layout for both canvases; pure), `wiener-core` (the run-state fold; pure),
 `comeni-ai` and `mendel-ai` (model transport), `mendel-forge` (sources, scaffolds, holes),
 `mendel-api` and `wiener-api` (FastAPI), `comeni-vendor` (fetch a module into a layer). Pure

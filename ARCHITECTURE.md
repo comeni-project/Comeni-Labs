@@ -19,6 +19,7 @@ summary of a twelve-thousand-word design record is a second copy that drifts.
 | `comeni-core` | types, contract schema, the IR, the artifact | **pure** | this page |
 | `mendel-resolver` | the four-tier ladder, rules, routing, ports | **pure** | this page |
 | `mendel-compiler` | IR → Nextflow, the gates, the CLI | **pure** | this page |
+| `mendel-authoring` | the conversation's protocol: the diagram the builder runs, its machine and its interpreter | **pure** | `docs/design/authoring-protocol.md` |
 | `mendel-forge` | drafting registry data from sources | impure | §10 below |
 | `comeni-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
 | `mendel-api` | the HTTP surface, drafts, the builder's backend | impure | `docs/design/forge-review.md`, `dashboard.md` |
@@ -509,7 +510,7 @@ broken by someone who meant well.
 
 | Guard | Asserts | Broken by |
 |---|---|---|
-| `tests/guards/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core` and `mendel-resolver`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
+| `tests/guards/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core`, `mendel-resolver`, `wiener-core`, `dag-core` and `mendel-authoring`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
 | `tests/guards/test_egress.py` | the declared doors and which path each is on, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
 | `tests/guards/test_construction.py` | a `DataProfile` is built in exactly one place, and that place validates it | — new; watched failing by adding `DataProfile()` to `router.py` |
 

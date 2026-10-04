@@ -120,7 +120,7 @@ other levels are written so that tightening is filling in a row.
 ## The protocol is code
 
 The diagram is **generated, not drawn** (14.7.2). One declarative object in the code
-(`mendel_api/authoring/protocol.py`) holds the stages, every node (who acts: *you*, *engine*,
+(`mendel_authoring/protocol.py`, in its own pure package) holds the stages, every node (who acts: *you*, *engine*,
 *AI*, *safety*, *stop*; its tier border; its session phase) and every edge (its label and, where
 it moves the session, its event). The design lives in the same object, marked planned. From it:
 

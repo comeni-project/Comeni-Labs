@@ -12,7 +12,7 @@ file as it was.
 
 Violating any of these breaks the product claim, not just a test.
 
-### 1. `comeni-core`, `mendel-resolver`, `mendel-compiler` and `wiener-core` do not reach the network
+### 1. The pure packages do not reach the network
 
 Two partial guards, and the claim is their union — say *do not*, never *cannot*. A
 static AST scan (`tests/guards/test_purity.py`) rejects the imports, the dynamic import forms, bare
@@ -37,6 +37,12 @@ remember. What it does **not** yet cover is a clock: `datetime` is on that packa
 allowlist for the class and must never be `datetime.now`, because §6.1's claim — same events
 in, same decisions out — dies the first week one is read inside the fold. The allowlist
 cannot express *this name but not that attribute*, so a separate scan holds it.
+
+**`mendel-authoring` joined on 2026-10-04** (14.7.8, the consultant build). It holds the
+conversation's protocol, the diagram the builder runs, and the interpreter that runs it; the
+shell (`mendel-api`) binds handlers to it and stores where each session rests. Its allowlist adds
+no name another pure package does not already have: a protocol that knew a database, a queue or a
+model would be the shell under the core's name, and the guard is where that is refused.
 
 ### 2. AI authors artifacts offline; humans approve; runtime is pure lookup
 
