@@ -35,6 +35,7 @@ from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.tiers import (
     InputForm,
+    PremiseOrigin,
     ReviewLevel,
     Scope,
     Tier,
@@ -927,11 +928,27 @@ class Pipeline(EgressPayload):
         # A130. `== []` and not falsy: `None` means the file predates the question and makes
         # no claim, so it cannot contradict one. Only an explicit "nothing was wired" can.
         if self.ai.available == []:
+            # Settings, and since #239 also a premise or a `meta` value a model read: each says a
+            # model was consulted, which `available: []` denies.
             claimed = sorted(
-                f"{step.id}.{setting.name}"
-                for step in self.steps
-                for setting in step.settings
-                if setting.why.source is ValueSource.MODEL
+                {
+                    f"{step.id}.{setting.name}"
+                    for step in self.steps
+                    for setting in step.settings
+                    if setting.why.source is ValueSource.MODEL
+                }
+                | {
+                    f"{step.id}.premise.{premise.id}"
+                    for step in self.steps
+                    for premise in step.why.premise
+                    if premise.origin is PremiseOrigin.MODEL_READ
+                }
+                | {
+                    f"{channel.name}.meta.{entry.key}"
+                    for channel in self.channels
+                    for entry in channel.meta
+                    if entry.why.source is ValueSource.MODEL
+                }
             )
             if claimed:
                 raise ValueError(

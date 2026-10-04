@@ -18,6 +18,7 @@ behind it.
 from comeni_core.artifact.load import _param_refs
 from comeni_core.artifact.lockfile import Lockfile
 from comeni_core.artifact.pipeline import (
+    AiPoint,
     AiProvenance,
     CallArg,
     Channel,
@@ -113,7 +114,7 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None) -> P
         # settled it would certify that a model was available to settle it, which is the
         # adapter marking its own homework. The default keeps every existing caller writing
         # exactly the bytes it wrote before.
-        ai=ai or AiProvenance(available=[], used=[]),
+        ai=_read_upstream(ai or AiProvenance(available=[], used=[]), ir.profile),
         steps=steps,
         channels=channels,
         # **Derived, never authored.** One sample-scoped channel is a glob; two or more is a
@@ -528,4 +529,24 @@ def _default_entry() -> str:
     """
     return (
         "Channel.fromPath(params.{param}, checkIfExists: true).map { f -> [ [:], f ] }"
+    )
+
+
+def _read_upstream(ai: AiProvenance, profile) -> AiProvenance:
+    """`ai` with the characteriser added when the profile carries a value a model read (#239).
+
+    **Not the circularity the comment above `ai=` forbids.** That one is a *decision* certifying
+    the model that made it. This is the goal's own profile, read by the characteriser before the
+    build began: the file then says the AI point was used, upstream, and `available` means
+    *offered to this pipeline*, the operator's reading on #239.
+    """
+    if profile is None or not any(m.source is ValueSource.MODEL for m in profile.measurements):
+        return ai
+    point = AiPoint.CHARACTERISE
+
+    def with_point(points: list[AiPoint] | None) -> list[AiPoint]:
+        return [*(points or []), *([] if point in (points or []) else [point])]
+
+    return ai.model_copy(
+        update={"available": with_point(ai.available), "used": with_point(ai.used)}
     )

@@ -1038,6 +1038,21 @@ def test_a_premise_read_by_ai_says_so_in_the_file(tmp_path):
         m for channel in _load(out).channels for m in channel.meta if m.key == "single_end"
     )
     assert single_end.why.reason.startswith("read by AI from the start of a sample")
+    # #239 (a): the file says the characteriser was used, upstream of this build.
+    ai = _load(out).ai
+    assert "characterise" in ai.available and "characterise" in ai.used
+
+
+def test_MD0225_a_premise_read_by_ai_cannot_claim_no_ai_was_available(tmp_path):
+    """#239: MD0225 covered settings only, so a premise or a `meta` value read by a model sat
+    beside `ai.available: []`, the contradiction A130 refuses."""
+    out = _build_measured(tmp_path, "read-by-ai", source="source: model", paired="source: model")
+    raw = _load(out).model_dump(mode="json")
+    raw["ai"] = {"available": [], "used": []}
+    with pytest.raises(ValidationError) as caught:
+        Pipeline.model_validate(raw)
+    assert "MD0225" in str(caught.value)
+    assert "star_align" in str(caught.value) and "single_end" in str(caught.value)
 
 
 def test_the_premise_is_a_list_of_records_rather_than_a_mapping(tmp_path):
