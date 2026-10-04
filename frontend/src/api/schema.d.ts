@@ -3917,6 +3917,7 @@ export interface components {
              * @enum {string}
              */
             phrasing: "pending" | "done" | "none";
+            reading?: components["schemas"]["SampleReading"] | null;
         };
         /** QueueResponse */
         QueueResponse: {
@@ -4113,7 +4114,7 @@ export interface components {
              * Outcome
              * @enum {string}
              */
-            outcome: "measured" | "unreadable" | "no_inspector" | "tie";
+            outcome: "measured" | "unreadable" | "no_inspector" | "tie" | "reading";
             /** Type Id */
             type_id: string | null;
             /** Facts */
@@ -4129,6 +4130,54 @@ export interface components {
             /** Disagreed */
             disagreed: string[];
             session: components["schemas"]["AuthoringSessionView"];
+        };
+        /**
+         * SampleReading
+         * @description The AI reading a sample nothing here reads (14.7.7), as the question's card shows it.
+         *
+         *     `pending` while the job is out; `read` when what it admitted was recorded; `could_not_tell`
+         *     when it named no family or no type; `refused` when an id it named is undeclared (`code`);
+         *     `no_answer` when no model answered, or the job never came back; `hand_back` when it named a
+         *     type the engine reads, so the browser sends the file again; `handed` once it has.
+         *     `attempt` keys the job, so a retry is a new job and a late answer to an old one is ignored.
+         */
+        SampleReading: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "read" | "could_not_tell" | "refused" | "no_answer" | "hand_back" | "handed";
+            /**
+             * Attempt
+             * @default 1
+             */
+            attempt: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Type Id */
+            type_id?: string | null;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            /**
+             * Recorded
+             * @default []
+             */
+            recorded: string[];
+            /**
+             * Kept
+             * @default []
+             */
+            kept: string[];
+            /**
+             * Disagreed
+             * @default []
+             */
+            disagreed: string[];
+            /** Code */
+            code?: string | null;
         };
         /**
          * SayToAuthoring
