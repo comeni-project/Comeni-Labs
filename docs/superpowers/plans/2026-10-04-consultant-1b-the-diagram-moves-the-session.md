@@ -732,7 +732,7 @@ MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv 
   - `session.perform_now(session_id, command, *, protocol=PROTOCOL, handlers=None, **payload) -> Ran`.
   - `session.resume(session_id, *, protocol=PROTOCOL, handlers=None, **payload) -> Ran`.
 
-- [ ] **Step 1: Write the failing tests** (`test_authoring_dispatch.py`)
+- [x] **Step 1: Write the failing tests** (`test_authoring_dispatch.py`)
 
 Use Task 3's `sid` fixture, copied (a test file may not import another's fixtures here). The toy protocol below is the dispatcher's, not the product's. The dispatcher is checked against it so that no handler of the real one is involved.
 
@@ -852,9 +852,9 @@ def test_allows_and_check_read_the_diagram(sid):
 
 `authoring.open_session` sets `at="say"` and `row_version=1`, so the toy can start from the real one.
 
-- [ ] **Step 2: Run them; expected FAIL** (`AttributeError: module 'mendel_api.services.session' has no attribute 'perform_now'`).
+- [x] **Step 2: Run them; expected FAIL** (`AttributeError: module 'mendel_api.services.session' has no attribute 'perform_now'`).
 
-- [ ] **Step 3: Implement** (append to `session.py`; the imports join the existing ones)
+- [x] **Step 3: Implement** (append to `session.py`; the imports join the existing ones)
 
 ```python
 from collections.abc import Callable
@@ -997,11 +997,11 @@ Two cautions:
 - The race test's handler writes `at` inside the dispatch, so the CAS sees a changed `at`. If `is_not_distinct_from` is not available on the column in this SQLAlchemy, use `(PipelineAuthoringSession.at == stored) if stored is not None else PipelineAuthoringSession.at.is_(None)`.
 - **A stored `None`, with a derived start, is still the CAS's value**: two racers on a derived row are told apart by the first one writing a node.
 
-- [ ] **Step 4: Run them; expected PASS.**
+- [x] **Step 4: Run them; expected PASS.**
 
 `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_authoring_dispatch.py -q`
 
-- [ ] **Step 5: `make check`, then commit.** `feat(authoring): the dispatcher — a session moves only by an arrow of the diagram (#136)`
+- [x] **Step 5: `make check`, then commit.** `feat(authoring): the dispatcher — a session moves only by an arrow of the diagram (#136)`
 
 ---
 
