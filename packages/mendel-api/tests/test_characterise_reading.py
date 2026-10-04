@@ -322,3 +322,86 @@ def test_a_session_with_a_fact_read_by_ai_says_characterise_was_used(clean, read
         draft_id = db.get(PipelineAuthoringSession, sid).draft_id
     after = authoring.ai_for_draft(draft_id)
     assert AiPoint.CHARACTERISE in after.used
+
+
+# ── the job against clicks, races and failures (issue 241) ────────────────────────────
+
+
+def test_after_a_click_the_job_spends_no_call(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    client_for, answers = _clients(json.dumps({"families": ["genome"]}))
+    attempt = authoring.start_reading(pid)
+    authoring.answer_gap(pid, "have_it", None, by="ana")
+    state = characterise.read_sample(sid, pid, attempt, FASTA, False, client_for=client_for)
+    assert state == "stale" and answers.sent == []
+
+
+def test_a_click_ends_the_reading_it_overtook(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    authoring.start_reading(pid)
+    authoring.answer_gap(pid, "have_it", None, by="ana")
+    row = next(h for h in authoring.read(sid)["history"] if h["id"] == pid)
+    assert (row["block"] or {}).get("reading") is None
+
+
+def test_a_reading_cannot_start_on_a_settled_question(clean, readable):  # noqa: F811
+    _, pid = _at("genome.fasta")
+    authoring.answer_gap(pid, "have_it", None, by="ana")
+    with pytest.raises(ValueError, match="MI0203"):
+        authoring.start_reading(pid)
+
+
+def test_a_second_reading_cannot_start_while_one_is_out(clean, readable):  # noqa: F811
+    _, pid = _at("genome.fasta")
+    authoring.start_reading(pid)
+    with pytest.raises(ValueError, match="MI0215"):
+        authoring.start_reading(pid)
+
+
+def test_a_reading_that_answered_its_question_says_read(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    attempt = authoring.start_reading(pid)
+    authoring.answer_with_reading(
+        pid, attempt, CharacteriseReply(type_id="genome.fasta"), by="ana", handed_back=False
+    )
+    row = next(h for h in authoring.read(sid)["history"] if h["id"] == pid)
+    assert row["block"]["reading"]["state"] == "read"
+    assert row["block"]["reading"]["recorded"] == ["genome.fasta"]
+
+
+def test_a_job_that_crashes_ends_the_reading_as_no_answer(clean, readable, monkeypatch):  # noqa: F811
+    import asyncio
+
+    from mendel_api.services import authoring_jobs
+
+    sid, pid = _at("genome.fasta")
+    attempt = authoring.start_reading(pid)
+
+    def boom(*a, **k):
+        raise RuntimeError("the database went away")
+
+    monkeypatch.setattr(characterise, "read_sample", boom)
+    asyncio.run(authoring_jobs.characterise_sample({}, sid, pid, attempt, FASTA, False))
+    reading = authoring.reading_of(pid)
+    assert reading.state == "no_answer" and reading.code == "MA0007"
+    authoring.check_sample_question(pid)  # the person may try again at once
+
+
+def test_the_excerpt_never_reaches_a_log_and_leaves_redis_with_the_reading(monkeypatch):
+    import asyncio
+
+    from mendel_api import jobs
+    from mendel_api.services import authoring_jobs
+
+    sent = {}
+
+    async def enqueue(name, *args, **kwargs):
+        sent.update(args=args, kwargs=kwargs)
+        return True
+
+    monkeypatch.setattr(jobs, "enqueue", enqueue)
+    found = characterise.Excerpt(text="@HD\tSO:coordinate PATIENT_0042", binary_before=True)
+    asyncio.run(authoring_jobs.enqueue_characterise("s" * 32, "p" * 32, 1, found))
+    assert "PATIENT" not in repr(sent["args"]), "ARQ logs a job's args by their repr"
+    assert any(str(a) == found.text for a in sent["args"]), "the worker still gets the text"
+    assert sent["kwargs"]["expires"] == authoring.STALE_AFTER

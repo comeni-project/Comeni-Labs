@@ -18,6 +18,17 @@ MIN_TEXT = 200
 _GZIP = b"\x1f\x8b"
 
 
+class Sealed(str):
+    """The excerpt's text, as it rides in a job's arguments. **Its `repr` says nothing of it**:
+    ARQ logs a job's arguments by their `repr` when the job starts (issue 241)."""
+
+    def __repr__(self) -> str:
+        return f"<excerpt, {len(self.encode())} bytes>"
+
+    def __reduce__(self):
+        return (Sealed, (str(self),))
+
+
 class Excerpt(NamedTuple):
     text: str
     binary_before: bool
@@ -122,9 +133,10 @@ def read_sample(
     from mendel_api.services import authoring, authoring_ai, protection, registry
     from mendel_api.settings import settings
 
-    current = authoring.reading_of(proposal_id)
-    if current is None or current.attempt != attempt or current.state != "pending":
-        return "stale"  # a second delivery, or a reading that already ended: no call is spent
+    if not authoring.reading_open(proposal_id, attempt):
+        # A second delivery, a reading that already ended, or a question answered meanwhile:
+        # no call is spent (issue 241).
+        return "stale"
     if not protection.allows(protection.Crossing.DOOR_6):
         # Refused before the payload is built (spec §4): above level 0 nothing composes.
         authoring.reading_failed(proposal_id, attempt, "refused", "MI0213")

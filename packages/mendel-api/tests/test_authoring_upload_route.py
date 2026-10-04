@@ -317,3 +317,19 @@ def test_a_hand_back_that_fails_the_content_check_drops_the_type(client, clean, 
     got = _post(client, sid, pid, [("files", ("x.txt", b">not a fastq\nACGT\n" * 50))])
     assert got.json()["outcome"] == "unreadable"
     assert authoring.reading_of(pid) is None
+
+
+@needs_db
+def test_a_reading_never_queued_ends_at_once_and_frees_the_question(client, clean, monkeypatch):  # noqa: F811
+    """Issue 241: Redis refused, or the job id was already taken."""
+    monkeypatch.setattr(characterise, "available", lambda: True)
+
+    async def refused(*args):
+        return False
+
+    monkeypatch.setattr(authoring_jobs, "enqueue_characterise", refused)
+    sid, pid = _at("genome.fasta")
+    got = _post(client, sid, pid, [("files", ("x.bam", _bam()))])
+    assert got.status_code == 200, got.text
+    assert got.json()["session"]["pending_proposal"]["block"]["reading"]["state"] == "no_answer"
+    authoring.check_sample_question(pid)

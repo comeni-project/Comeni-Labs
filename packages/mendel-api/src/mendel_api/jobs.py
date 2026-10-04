@@ -62,6 +62,7 @@ async def enqueue(
     *args: object,
     job_id: str | None = None,
     queue: str = DEFAULT_QUEUE,
+    expires: float | None = None,
 ) -> bool:
     """Queue a job by its worker function name. `False` when the id was already queued.
 
@@ -72,7 +73,9 @@ async def enqueue(
     person must not.
     """
     pool = await _pool(queue)
-    return await pool.enqueue_job(name, *args, _job_id=job_id) is not None
+    # `expires` only when given: every other job keeps ARQ's own expiry, unchanged.
+    extra = {"_expires": expires} if expires is not None else {}
+    return await pool.enqueue_job(name, *args, _job_id=job_id, **extra) is not None
 
 
 def job_id_for(*parts: str) -> str:

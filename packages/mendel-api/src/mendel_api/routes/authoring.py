@@ -704,7 +704,18 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
         found = characterise.excerpt(heads.files[0][1])
         if found is not None:
             attempt = await run_in_threadpool(authoring.start_reading, proposal_id)
-            await authoring_jobs.enqueue_characterise(session_id, proposal_id, attempt, found)
+            try:
+                queued = await authoring_jobs.enqueue_characterise(
+                    session_id, proposal_id, attempt, found
+                )
+            except Exception:
+                queued = False
+            if not queued:
+                # Never queued (issue 241): the reading ends now, rather than locking the
+                # question until it ages out.
+                await run_in_threadpool(
+                    authoring.reading_failed, proposal_id, attempt, "no_answer", "MA0007"
+                )
             view = await run_in_threadpool(_view, session_id)
             return SampleInspected(
                 outcome="reading",

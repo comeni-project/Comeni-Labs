@@ -264,15 +264,19 @@ async def enqueue_characterise(session_id: str, proposal_id: str, attempt: int, 
     """Queue the AI reading a sample (14.7.7). **The excerpt rides in the job's arguments**,
     in Redis until the worker takes it, and the job keeps no result (`ai_worker`). Keyed on the
     attempt, so a retry is a new job and a double delivery of one is the same."""
+    from mendel_api.services import characterise
+
     return await jobs.enqueue(
         CHARACTERISE,
         session_id,
         proposal_id,
         attempt,
-        excerpt.text,
+        characterise.Sealed(excerpt.text),  # its repr never reaches ARQ's log (issue 241)
         excerpt.binary_before,
         job_id=jobs.job_id_for("builder", "characterise", proposal_id, str(attempt)),
         queue=jobs.AI_QUEUE,
+        # Gone from Redis when the card stops waiting for it (issue 241).
+        expires=authoring.STALE_AFTER,
     )
 
 
@@ -282,9 +286,16 @@ async def characterise_sample(
     """Read a sample nothing here reads, through door 6 (14.7.7). A failure is a reading state."""
     from mendel_api.services import characterise
 
-    state = characterise.read_sample(
-        session_id, proposal_id, attempt, text, binary_before, client_for=_client
-    )
+    try:
+        state = characterise.read_sample(
+            session_id, proposal_id, attempt, str(text), binary_before, client_for=_client
+        )
+    except Exception:
+        # **Never left pending** (issue 241): whatever broke, the card says the AI didn't
+        # answer and the person may try again. `reading_failed` checks the attempt.
+        log.exception("reading %s:%s failed", proposal_id, attempt)
+        authoring.reading_failed(proposal_id, attempt, "no_answer", "MA0007")
+        state = "no_answer"
     return f"{proposal_id}:{attempt}:{state}"
 
 

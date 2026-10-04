@@ -1960,6 +1960,9 @@ def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
         )
         if settled.refusal is not None:
             raise ValueError(settled.refusal)
+        if ((payload.get("block") or {}).get("reading") or {}).get("state") == "pending":
+            # The person answered while the AI read (issue 241): the reading ends, unspent.
+            _set_reading(db, proposal, None)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = by
         proposal.chosen_option = option
@@ -2202,6 +2205,11 @@ def start_reading(proposal_id: str) -> int:
         proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
         if proposal is None:
             raise KeyError(proposal_id)
+        # **Asked again under the lock** (issue 241): a click mid-inspection, or a second upload
+        # at the same moment, is refused here rather than queueing a job for a settled question.
+        refusal = _sample_refusal(proposal)
+        if refusal is not None:
+            raise ValueError(refusal)
         before = (proposal.payload.get("block") or {}).get("reading") or {}
         attempt = int(before.get("attempt", 0)) + 1
         _set_reading(
@@ -2256,12 +2264,13 @@ def answer_with_reading(
                 db, proposal, row, type_id=reply.type_id, states=list(reply.states),
                 found=found, source=FactSource.MODEL_READ, by=by, stack=stack,
             )
-            if not answered:
-                _set_reading(db, proposal, SampleReading(
-                    state="read", attempt=attempt, type_id=reply.type_id,
-                    states=list(reply.states), recorded=recorded, kept=kept,
-                    disagreed=disagreed,
-                ))
+            # `read` whether or not it answered (issue 241): a settled question's reading is
+            # in its history, and must not spin there.
+            _set_reading(db, proposal, SampleReading(
+                state="read", attempt=attempt, type_id=reply.type_id,
+                states=list(reply.states), recorded=recorded, kept=kept,
+                disagreed=disagreed,
+            ))
     if answered:
         offer_next_gap(session_id)
     return SampleAnswer(
@@ -2284,3 +2293,14 @@ def end_hand_back(proposal_id: str, *, confirmed: bool) -> None:
             proposal,
             SampleReading.model_validate({**reading, "state": "handed"}) if confirmed else None,
         )
+
+
+def reading_open(proposal_id: str, attempt: int) -> bool:
+    """Whether this attempt's reading is still worth a model call: the question is pending and
+    the reading is this attempt's, pending (issue 241)."""
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id)
+        if proposal is None or proposal.state != ProposalState.PENDING.value:
+            return False
+        reading = _reading((proposal.payload or {}).get("block") or {}) or {}
+    return reading.get("attempt") == attempt and reading.get("state") == "pending"
