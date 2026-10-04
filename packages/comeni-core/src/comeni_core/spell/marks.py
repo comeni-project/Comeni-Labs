@@ -112,6 +112,11 @@ class Mark(StrEnum):
     FREE_TEXT = "free-text"
     """Text a human typed or a tool printed. Unbounded, and the thing the egress boundary
     exists to contain. Only the fields named in the guard's allowlist may carry it."""
+    SAMPLE = "sample"
+    """**Data from a person's file.** The start of a sample, decoded to text, for the
+    characteriser (14.7.7). Not `FREE_TEXT`: nobody typed it, and it is the one thing this
+    system holds that came from inside someone's data. Bounded by its type (`SampleText`), and
+    reachable from door 6 only (`tests/guards/test_egress.py`)."""
 
     OPTION_ID = "option-id"
     """One answer a person may pick, addressed by id rather than by value.
@@ -307,6 +312,25 @@ Line = Annotated[str, Mark.FREE_TEXT, AfterValidator(_single_line)]
 """Free prose that reaches a generated file. **The same `Mark.FREE_TEXT`**, so root A's
 `FREE_TEXT_FIELDS` allowlist and its count are unaffected: the split is by destination, not
 by prose-ness."""
+
+EXCERPT_BYTES = 8 * 1024
+"""The most of a sample a model may be shown, in bytes of UTF-8 (14.7.7, spec §5)."""
+EXCERPT_LINES = 200
+"""…and in lines, whichever comes first."""
+
+
+def _sample_text(value: str) -> str:
+    """At most `EXCERPT_BYTES` and `EXCERPT_LINES`. **A bound, not a shape**: what a sample says
+    is not this code's to check, but how much of it may leave is."""
+    if len(value.encode()) > EXCERPT_BYTES:
+        raise ValueError(f"an excerpt is at most {EXCERPT_BYTES} bytes")
+    if len(value.splitlines()) > EXCERPT_LINES:
+        raise ValueError(f"an excerpt is at most {EXCERPT_LINES} lines")
+    return value
+
+
+SampleText = Annotated[str, Mark.SAMPLE, AfterValidator(_sample_text)]
+"""The start of a sample, as door 6 carries it (14.7.7)."""
 
 def _edge_ref(value: str) -> str:
     """`<node>.<port>`, both Groovy identifiers.

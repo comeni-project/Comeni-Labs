@@ -1,10 +1,11 @@
-"""Invariant 14: data leaves through five declared doors and no others.
+"""Invariant 14: data leaves through six declared doors and no others.
 
 The doors are listed here, literally, on purpose. Adding one means editing a file
 whose contents say "these are all the ways data leaves this building" — which is
 the moment a person should be thinking, and this test is what makes them.
 
-**Five since 2026-09-05, on two paths.** Four carry pipeline data along one prompt-taint path;
+**Six since 2026-10-04 (door 6, the characteriser); five since 2026-09-05, on two
+paths.** Five carry pipeline data along one prompt-taint path, door 6 the start of a sample;
 `forge_review` carries a curator's message to a model about a candidate the forge proposed.
 The forge stayed off this list for as long as it had no prompt — one of the three legs the
 2026-08-17 exemption stood on, beside taking no `Goal` and writing no `pipeline.yml` — and a
@@ -26,9 +27,17 @@ from comeni_core.spell.marks import Mark
 from pydantic import BaseModel, ValidationError, computed_field
 from support.walk import reachable
 
-PIPELINE_DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
-"""Invariant 14's original four, and the sentence *pipeline data leaves through four doors*
-stays checkable against this set rather than against the whole list."""
+PIPELINE_DOORS = {
+    "goal_extraction",
+    "tier4_resolution",
+    "compiler_repair",
+    "publication",
+    # Door 6, 14.7.7: the characteriser. The first door that carries data from a person's file,
+    # at protection level 0 only. On the pipeline path because what it reads becomes the goal.
+    "characterisation",
+}
+"""The pipeline path's doors, and *pipeline data leaves through these* stays checkable against
+this set rather than against the whole list."""
 
 FORGE_DOORS = {"forge_review"}
 """Registry authoring. Public tool documentation in, reviewed registry data out, and no `Goal`
@@ -162,6 +171,16 @@ FREE_TEXT_FIELDS = {
     # sentence of the same conversation `prompt` already carries.
     ("AuthoringTurn", "content"),
 }
+
+
+SAMPLE_FIELDS = {
+    # The first, 14.7.7: the start of a sample, decoded to text, for the characteriser. **Not
+    # free text, and counted apart on purpose**: free text is what a person typed or a tool
+    # printed, and this is what a person's *file* holds. At most 8 KB and 200 lines, which the
+    # type enforces (`marks.SampleText`), and only at protection level 0.
+    ("CharacteriseRequest", "excerpt"),
+}
+"""Every field that may hold data from a person's file. This set is the count."""
 
 
 def _payload_types() -> set[type[BaseModel]]:
@@ -413,12 +432,13 @@ def test_the_doors_are_exactly_the_ones_listed_here():
     assert set(egress.DOORS) == DOORS
 
 
-def test_pipeline_data_still_leaves_through_exactly_four():
+def test_pipeline_data_leaves_through_exactly_the_pipeline_doors():
     """**Invariant 14's original sentence, kept checkable.**
 
     Adding door 5 could have made *pipeline data leaves through four doors* untestable, which
     is the real cost of a fifth entry and the reason `DoorPath` exists. It does not: the claim
-    is now about a subset, and this is that subset.
+    is now about a subset, and this is that subset. Door 6 joined on 2026-10-04 (14.7.7); the
+    sentence is now the set's.
 
     A forge door mis-tagged as `PIPELINE` fails here, which is the failure mode a separate
     `FORGE_DOORS` list would have hidden — there, the mistake is putting a pipeline door on the
@@ -492,6 +512,46 @@ def test_free_text_lives_only_where_declared():
     for payload in _payload_types():
         found |= _fields(payload, Mark.FREE_TEXT)
     assert found == FREE_TEXT_FIELDS
+
+
+def test_sample_data_lives_only_where_declared():
+    found: set[tuple[str, str]] = set()
+    for payload in _payload_types():
+        found |= _fields(payload, Mark.SAMPLE)
+    assert found == SAMPLE_FIELDS
+
+
+def test_only_the_characterisation_door_can_reach_a_sample():
+    """A sample field nested in any other door's payload, through any path, fails here."""
+    reaching = {
+        name
+        for name, payload in egress.DOORS.items()
+        for model in reachable(payload)
+        if _fields(model, Mark.SAMPLE)
+    }
+    assert reaching == {"characterisation"}
+
+
+def test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file():
+    """Spec §6: no file name, no extension, no session, no question, no conversation."""
+    door = egress.DOORS["characterisation"]
+    assert list(door.model_fields) == ["excerpt", "binary_before", "registry"]
+    assert reachable(door) == {door}, "the payload holds no nested model that could grow a field"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["x" * 8193, "a\n" * 201, "é" * 4097],
+    ids=["bytes", "lines", "bytes-as-utf8"],
+)
+def test_an_excerpt_over_its_bound_is_refused_by_its_type(text):
+    with pytest.raises(ValidationError):
+        egress.CharacteriseRequest(excerpt=text)
+
+
+def test_an_excerpt_at_its_bound_is_accepted():
+    assert egress.CharacteriseRequest(excerpt="a\n" * 199 + "a").excerpt
+    assert egress.CharacteriseRequest(excerpt="x" * 8192).excerpt
 
 
 def test_payloads_forbid_unknown_fields():

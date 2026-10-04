@@ -1,9 +1,10 @@
 """The doors data may leave through, and the types that may pass them.
 
-Invariant 14. There are **five**, on **two paths**. Four carry pipeline data along one
-prompt-taint path — goal extraction, tier-4 resolution, compiler repair, publication — and the
-fifth carries forge review, which is a different path with a different author and the same
-rules. Each carries one declared payload type.
+Invariant 14. There are **six**, on **two paths**. Five carry pipeline data — goal extraction,
+tier-4 resolution, compiler repair, publication and, since 14.7.7, characterisation, the one
+door that carries part of a person's file — and the sixth carries forge review, which is a
+different path with a different author and the same rules. Each carries one declared payload
+type.
 
 **Why one list rather than two.** The forge is not on the pipeline path and never was
 (`notes/specs/2026-08-17-forge-phase-2.md` §1), so a separate `FORGE_DOORS` was the tidy
@@ -41,6 +42,7 @@ from comeni_core.spell.marks import (
     NfPath,
     NodeId,
     OptionId,
+    SampleText,
     StateName,
     Subject,
     Text,
@@ -241,6 +243,25 @@ class RepairRequest(EgressPayload):
     failure: GateFailure
 
 
+class CharacteriseRequest(EgressPayload):
+    """Door 6 — the characteriser (14.7.7). **The first door carrying data from a person's file.**
+
+    The start of one sample, decoded to text, so a model can say which declared type it is and
+    which declared states and facts it states. Open at protection level 0 only; above it the
+    job refuses before this is built.
+
+    **What is deliberately absent**: the file's name and extension (a name can carry a patient
+    identifier, and a piece never decides on a name), the session, the question it answers, the
+    conversation. The vocabulary the model chooses from is the public registry, rendered into the
+    prompt as door 1's is; it is not here because nobody's data is in it.
+    """
+
+    excerpt: SampleText
+    binary_before: bool = False
+    """Binary bytes came before the text: a BAM's header, not a SAM file."""
+    registry: Digest | None = None
+
+
 class EmittedFile(BaseModel):
     """One generated file, and the digest of what was written."""
 
@@ -383,8 +404,8 @@ class DoorPath(StrEnum):
     path with free text entering at exactly one point. `FORGE` is registry authoring: public
     tool documentation in, reviewed registry data out, and no `Goal` anywhere in it.
 
-    They are distinguished rather than separated, so *pipeline data leaves through four doors*
-    stays a checkable sentence while every door still lives in one list.
+    They are distinguished rather than separated, so *pipeline data leaves through the
+    pipeline's doors* stays a checkable sentence while every door still lives in one list.
     """
 
     PIPELINE = "pipeline"
@@ -421,6 +442,10 @@ DECLARED: dict[str, Door] = {
     # Imported inside the mapping to keep this module's import graph acyclic:
     # `comeni_core.artifact.pipeline` imports `Emitted` from here.
     "publication": Door(_publication_payload(), DoorPath.PIPELINE),
+    # Door 6, 2026-10-04 (14.7.7). The characteriser: a model reads the start of a sample
+    # nothing here reads. **The first door whose payload holds data from a person's file**
+    # (`Mark.SAMPLE`), bounded to 8 KB and 200 lines, at protection level 0 only.
+    "characterisation": Door(CharacteriseRequest, DoorPath.PIPELINE),
     # Door 5, 2026-09-05. **The first string a person types into the forge.**
     #
     # The forge stayed off this list for as long as it had no prompt — that was one of the
@@ -449,5 +474,5 @@ PATHS: dict[str, DoorPath] = {name: door.path for name, door in DECLARED.items()
 
 
 def doors_on(path: DoorPath) -> dict[str, type[BaseModel]]:
-    """The doors of one flow. `doors_on(DoorPath.PIPELINE)` is invariant 14's original four."""
+    """The doors of one flow. `doors_on(DoorPath.PIPELINE)` is the pipeline's doors."""
     return {name: door.payload for name, door in DECLARED.items() if door.path is path}
