@@ -554,12 +554,22 @@ def _admit_characterised(
             coded("MI0204", f"the answer names a type it was not shown: {reply.type_id}")
         )
     states, measured = offered(stack, reply.type_id)
-    named = set(reply.states) | {m.id for m in reply.measurements} | set(reply.undetermined)
-    foreign = sorted(named - states - measured)
+    read = [m.id for m in reply.measurements]
+    # **Each list against its own set** (issue 237): a measurement id is not a state, and one
+    # reply cannot read a measurement twice.
+    foreign = sorted(
+        (set(reply.states) - states)
+        | (set(read) - measured)
+        | (set(reply.undetermined) - measured)
+    )
     if foreign:
         raise ValueError(
-            coded("MI0205", f"{reply.type_id} offers none of: {', '.join(foreign)}")
+            coded("MI0205", f"{reply.type_id} offers none of these there: {', '.join(foreign)}")
         )
+    twice = sorted({m for m in read if read.count(m) > 1})
+    if twice:
+        raise ValueError(coded("MI0205", f"the answer reads {', '.join(twice)} more than once"))
+    undetermined = [m for m in reply.undetermined if m not in read]
     kept = []
     for m in reply.measurements:
         try:
@@ -567,7 +577,7 @@ def _admit_characterised(
         except (ValueError, KeyError):
             continue
         kept.append(m)
-    return reply.model_copy(update={"measurements": kept})
+    return reply.model_copy(update={"measurements": kept, "undetermined": undetermined})
 
 
 def _admit_asked(asked: AskedGap, gap: dict, stack) -> AskedGap:

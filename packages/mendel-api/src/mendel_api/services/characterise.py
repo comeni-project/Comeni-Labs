@@ -65,7 +65,10 @@ def _first_text(data: bytes) -> tuple[int, bytes] | None:
 def _bounded(text: bytes) -> str:
     """Whole lines while they fit; a first line longer than the bound is cut at it."""
     kept, size = [], 0
-    for line in text.splitlines(keepends=True)[:EXCERPT_LINES]:
+    # Lines are what `\n` separates, as `marks.SampleText` counts them (issue 237).
+    lines = [part + b"\n" for part in text.split(b"\n")]
+    lines[-1] = lines[-1][:-1]
+    for line in [line for line in lines if line][:EXCERPT_LINES]:
         if size + len(line) > EXCERPT_BYTES:
             if not kept:
                 kept.append(line[:EXCERPT_BYTES])

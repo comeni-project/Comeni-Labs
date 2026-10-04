@@ -324,7 +324,10 @@ def _sample_text(value: str) -> str:
     is not this code's to check, but how much of it may leave is."""
     if len(value.encode()) > EXCERPT_BYTES:
         raise ValueError(f"an excerpt is at most {EXCERPT_BYTES} bytes")
-    if len(value.splitlines()) > EXCERPT_LINES:
+    # Lines are what `\n` separates, as the cutter counts them (issue 237): `splitlines` also
+    # breaks on U+2028 and friends, and refused excerpts the cutter had kept to 200 lines.
+    lines = value.count("\n") + (1 if value and not value.endswith("\n") else 0)
+    if lines > EXCERPT_LINES:
         raise ValueError(f"an excerpt is at most {EXCERPT_LINES} lines")
     return value
 

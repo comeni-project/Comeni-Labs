@@ -549,6 +549,13 @@ def test_an_excerpt_over_its_bound_is_refused_by_its_type(text):
         egress.CharacteriseRequest(excerpt=text)
 
 
+@pytest.mark.parametrize("separator", ["\u2028", "\x85", "\x0c"], ids=["u2028", "nel", "ff"])
+def test_an_excerpt_counts_lines_as_the_cutter_does(separator):
+    """Issue 237: 200 newline-separated lines are 200 lines, whatever else they hold."""
+    text = "\n".join(f"a{separator}b" for _ in range(200))
+    assert egress.CharacteriseRequest(excerpt=text).excerpt
+
+
 def test_an_excerpt_at_its_bound_is_accepted():
     assert egress.CharacteriseRequest(excerpt="a\n" * 199 + "a").excerpt
     assert egress.CharacteriseRequest(excerpt="x" * 8192).excerpt

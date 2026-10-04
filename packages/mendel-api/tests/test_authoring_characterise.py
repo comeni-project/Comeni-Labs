@@ -94,7 +94,7 @@ def test_a_family_nothing_declares_is_refused(stack, clean_forge):
     assert not outcome.admitted and outcome.code == "MI0204"
 
 
-def test_the_excerpt_reaches_the_model_and_the_name_never_does(stack, clean_forge):
+def test_the_excerpt_and_whether_binary_came_first_reach_the_model(stack, clean_forge):
     client = Choosing(json.dumps({"families": ["alignment"]}))
     ai.characterise_families(_request(), stack=stack, client=client)
     sent = _text(client.answers.sent[0])
@@ -189,6 +189,44 @@ def test_a_provider_that_does_not_answer_is_recorded_as_failed(stack, clean_forg
 
 
 def test_states_and_measurements_offered_come_from_the_registry(stack):
-    states, measurements = ai.offered(stack, "alignment.bam")
+    states, _ = ai.offered(stack, "alignment.bam")
     assert "coordinate_sorted" in states
-    assert all(stack.measurements.get(m).describes == "alignment.bam" for m in measurements)
+    _, measurements = ai.offered(stack, "fastq.reads")
+    assert measurements, "a loop over nothing asserts nothing"
+    assert all(stack.measurements.get(m).describes == "fastq.reads" for m in measurements)
+
+
+# ── each list against its own set (issue 237) ─────────────────────────────────────────
+
+
+def _fastq(**over):
+    return ai.characterise(
+        _request("@r1\nACGT\n+\nIIII\n", binary_before=False), stack=registry.stack(),
+        families=["fastq"],
+        client=Choosing(_reply(**({"type_id": "fastq.reads", "states": []} | over))),
+    )
+
+
+def test_a_measurement_id_named_as_a_state_is_refused(clean_forge):
+    outcome = _fastq(states=["paired"])
+    assert not outcome.admitted and outcome.code == "MI0205"
+
+
+def test_a_state_named_as_a_measurement_is_refused(clean_forge):
+    reply = _reply(measurements=[{"id": "coordinate_sorted", "value": True}])
+    outcome = ai.characterise(
+        _request(), stack=registry.stack(), families=["alignment"], client=Choosing(reply)
+    )
+    assert not outcome.admitted and outcome.code == "MI0205"
+
+
+def test_a_measurement_read_twice_is_refused(clean_forge):
+    outcome = _fastq(measurements=[{"id": "paired", "value": True},
+                                   {"id": "paired", "value": False}])
+    assert not outcome.admitted and outcome.code == "MI0205"
+
+
+def test_a_measurement_read_is_not_also_undetermined(clean_forge):
+    outcome = _fastq(measurements=[{"id": "paired", "value": True}],
+                     undetermined=["paired", "quality_encoding"])
+    assert outcome.admitted and outcome.reply.undetermined == ["quality_encoding"]
