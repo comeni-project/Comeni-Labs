@@ -179,9 +179,11 @@ tightening is filling in a row, not rewiring.
   outside this server. **The excerpt waits in Redis** inside the AI job's arguments until the
   worker takes it, and no longer than the card waits (the job expires with the reading). The job
   keeps no result. One path keeps it longer: a job ARQ fails after its retries is kept for the
-  worker's default hour (#242). The excerpt is never logged (its `repr` is sealed). What the
-  model *quotes* as evidence is kept in its reply (`ai_invocation.response`), which is #238's
-  question. Each later level decides whether a reading happens at all.
+  worker's default hour (#242). The excerpt is never logged (its `repr` is sealed). **What the
+  model quotes as evidence is kept**, whole, in its reply (`ai_invocation.response`), with
+  `unmatched` and refused replies (#238, operator, 2026-10-04: *level 0 is not really protected,
+  but the easiest to work with*). Each later level decides whether a reading happens at all, and
+  what of its reply is kept.
 
 ## Open questions
 
