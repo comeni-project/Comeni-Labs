@@ -24,6 +24,8 @@ PURPOSES: dict[tuple[str, str], Setting] = {
     ("builder", "ask"): c.MODEL_TALK,
     ("builder", "tier4"): c.MODEL_TIER4,
     ("builder", "readback"): c.MODEL_READBACK,
+    ("builder", "characterise_family"): c.MODEL_TALK,
+    ("builder", "characterise"): c.MODEL_TALK,
     ("forge", "analysis"): c.MODEL_FORGE,
     ("forge", "implementation"): c.MODEL_FORGE,
     ("forge", "repair"): c.MODEL_FORGE,

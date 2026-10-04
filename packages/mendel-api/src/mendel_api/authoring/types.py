@@ -535,6 +535,40 @@ class FamilyChoice(_Shape):
     """One short question, when the verdict is not `yes`."""
 
 
+class CharacteriseFamilies(_Shape):
+    """The characteriser's first call (14.7.7): the families a sample could belong to. Empty
+    means *none fits, or it cannot tell* — an answer, never a refusal."""
+
+    families: list[str] = []
+
+
+class ReadMeasurement(_Shape):
+    """One declared measurement a sample's start states, as a model read it."""
+
+    id: str
+    value: HumanParamValue
+
+
+class Unmatched(_Shape):
+    """Something a sample states that no declared id can hold (14.7.7). **Stored only**:
+    never admitted, never shown, never queued. #236 reads these to propose vocabulary."""
+
+    kind: Literal["type", "state", "measurement"]
+    name: Prose
+    cite: Prose
+
+
+class CharacteriseReply(_Shape):
+    """The characteriser's second call (14.7.7). Every id is admitted against the chosen
+    type's declarations before anything reads it."""
+
+    type_id: str | None = None
+    states: list[str] = []
+    measurements: list[ReadMeasurement] = []
+    undetermined: list[str] = []
+    unmatched: list[Unmatched] = []
+
+
 class WantUnderstanding(_Shape):
     """The first call's answer under `builder.goal.v3`: what the person wants, and nothing else.
 

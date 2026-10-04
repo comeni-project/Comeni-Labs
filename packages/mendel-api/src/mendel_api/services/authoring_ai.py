@@ -38,6 +38,7 @@ from comeni_core.artifact.egress import (
     AuthoringRequest,
     AuthoringRole,
     AuthoringTurn,
+    CharacteriseRequest,
     KnownStep,
 )
 from comeni_core.diagnostics import coded
@@ -49,6 +50,8 @@ from mendel_api.authoring.types import (
     CHAT_TAIL,
     AskedGap,
     AuthoringIntent,
+    CharacteriseFamilies,
+    CharacteriseReply,
     FactKind,
     FamilyChoice,
     GapReply,
@@ -93,6 +96,8 @@ class Purpose(StrEnum):
     GAP = "gap"
     ASK = "ask"
     READBACK = "readback"
+    CHARACTERISE_FAMILY = "characterise_family"
+    CHARACTERISE = "characterise"
 
 
 class Outcome(NamedTuple):
@@ -109,7 +114,7 @@ class Outcome(NamedTuple):
 
     reply: (
         WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | AskedGap | ReadBack
-        | None
+        | CharacteriseFamilies | CharacteriseReply | None
     )
     invocation_id: str | None
     refusal: str | None
@@ -264,7 +269,7 @@ def _families_text(stack) -> str:
     )
 
 
-def _admit_families(reply: FamilyChoice, stack) -> FamilyChoice:
+def _admit_families(reply: FamilyChoice | CharacteriseFamilies, stack):
     """Every family id declared, or `MI0204` — the vocabulary check, one level up."""
     unknown = sorted(set(reply.families) - set(stack.families.families))
     if unknown:
@@ -438,6 +443,133 @@ def read_back(
     )
 
 
+# ── the characteriser (14.7.7) ─────────────────────────────────────────────────────────────
+
+
+def compose_characterise(
+    excerpt: str, *, binary_before: bool, registry: str | None
+) -> CharacteriseRequest:
+    """Door 6's payload. The excerpt is bounded by its own type (`marks.SampleText`)."""
+    return CharacteriseRequest(excerpt=excerpt, binary_before=binary_before, registry=registry)
+
+
+def _excerpt_values(request: CharacteriseRequest) -> dict[str, str]:
+    return {
+        "excerpt": request.excerpt,
+        "binary_before": (
+            "binary bytes came before this text"
+            if request.binary_before
+            else "no binary bytes before this text"
+        ),
+    }
+
+
+def offered(stack, type_id: str) -> tuple[set[str], set[str]]:
+    """The states a type declares, and the measurements whose `describes:` names it (spec §2:
+    the registry decides which facts a model may read; a bench fact can never be offered)."""
+    states = set(stack.vocabulary.types.get(type_id, ()))
+    measurements = {
+        m_id for m_id, m in stack.measurements.measurements.items() if m.describes == type_id
+    }
+    return states, measurements
+
+
+def _types_text(stack, types: Sequence[str]) -> str:
+    """Each type with its states, then the measurements describing it. **Each family whole.**"""
+    lines = []
+    for type_id in sorted(types):
+        states, measured = offered(stack, type_id)
+        lines.append(f"  {type_id} — states: {', '.join(sorted(states)) or '(none)'}")
+        for m_id in sorted(measured):
+            m = stack.measurements.get(m_id)
+            holds = ", ".join(str(v) for v in m.values) if m.values else m.kind.value
+            unit = f" {m.unit}" if m.unit else ""
+            lines.append(f"      {m_id} ({holds}{unit}) — {m.description}")
+    return "\n".join(lines)
+
+
+def characterise_families(
+    request: CharacteriseRequest,
+    *,
+    stack,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """The start of a sample in, the families it could be out (14.7.7). An empty list is an
+    answer: none fits, or the model cannot tell."""
+    return _call(
+        request,
+        purpose=Purpose.CHARACTERISE_FAMILY,
+        prompt_id=prompts.CHARACTERISE_FAMILY,
+        shape=CharacteriseFamilies,
+        values={"families": _families_text(stack), **_excerpt_values(request)},
+        admit=lambda reply: _admit_families(reply, stack),
+        client=client,
+        session_id=session_id,
+        choices={"families": sorted(stack.families.families)},
+    )
+
+
+def characterise(
+    request: CharacteriseRequest,
+    *,
+    stack,
+    families: Sequence[str] | None,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """The start of a sample in, its type, states and facts out, admitted (14.7.7).
+
+    `families` from the first call shows each family whole; `None`, with the family step off,
+    shows every type. A value outside its declaration is dropped, as an inspector's would be;
+    an id outside what was offered refuses the whole reply.
+    """
+    shown = sorted(
+        stack.vocabulary.types
+        if families is None
+        else stack.families.types_of(families, stack.vocabulary.types)
+    )
+    return _call(
+        request,
+        purpose=Purpose.CHARACTERISE,
+        prompt_id=prompts.CHARACTERISE,
+        shape=CharacteriseReply,
+        values={"types": _types_text(stack, shown), **_excerpt_values(request)},
+        admit=lambda reply: _admit_characterised(reply, shown, stack),
+        client=client,
+        session_id=session_id,
+        choices={"type_id": list(shown)},
+    )
+
+
+def _admit_characterised(
+    reply: CharacteriseReply, shown: Sequence[str], stack
+) -> CharacteriseReply:
+    """MI0204 for a type not shown; MI0205 for a state or measurement that type does not offer.
+    A value outside its declaration is dropped, never refused (spec §7)."""
+    if reply.type_id is None:
+        return reply.model_copy(update={"states": [], "measurements": [], "undetermined": []})
+    if reply.type_id not in shown:
+        raise ValueError(
+            coded("MI0204", f"the answer names a type it was not shown: {reply.type_id}")
+        )
+    states, measured = offered(stack, reply.type_id)
+    named = set(reply.states) | {m.id for m in reply.measurements} | set(reply.undetermined)
+    foreign = sorted(named - states - measured)
+    if foreign:
+        raise ValueError(
+            coded("MI0205", f"{reply.type_id} offers none of: {', '.join(foreign)}")
+        )
+    kept = []
+    for m in reply.measurements:
+        try:
+            stack.measurements.check(m.id, m.value)
+        except (ValueError, KeyError):
+            continue
+        kept.append(m)
+    return reply.model_copy(update={"measurements": kept})
+
+
 def _admit_asked(asked: AskedGap, gap: dict, stack) -> AskedGap:
     """`asks` is prose and kept; an `already` the gap did not offer, or a value its measurement
     refuses, is **dropped, not refused** — the phrasing is still worth having (#167)."""
@@ -455,7 +587,7 @@ def _admit_asked(asked: AskedGap, gap: dict, stack) -> AskedGap:
 
 
 def _call(
-    request: AuthoringRequest,
+    request: AuthoringRequest | CharacteriseRequest,
     *,
     purpose: Purpose,
     prompt_id: str,
@@ -765,7 +897,7 @@ def _record(
     *,
     purpose: Purpose,
     rendered,
-    request: AuthoringRequest,
+    request: AuthoringRequest | CharacteriseRequest,
     client: Client,
     state: InvocationState,
     failure_code: str,

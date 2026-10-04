@@ -62,7 +62,7 @@ def test_the_invariant_block_is_at_the_top_of_each_one():
 
 def test_there_are_templates_to_check():
     """A loop is not an assertion: every test above passes over an empty tuple."""
-    assert len(prompts.TEMPLATES) == 7
+    assert len(prompts.TEMPLATES) == 9
 
 
 # ── the gap-reply prompt ──────────────────────────────────────────────────────────────
@@ -337,6 +337,11 @@ PER_CALL = {  # two different sessions' values for every per-call placeholder
     "first_sentence": ("gene counts", "variant calls"),
     "facts": ("paired: yes", "(none)"),
     "goal": ("have: fastq.reads", "have: nothing"),
+    "excerpt": ("@HD\tSO:coordinate", ">chr1"),
+    "binary_before": (
+        "binary bytes came before this text",
+        "no binary bytes before this text",
+    ),
 }
 
 
@@ -346,7 +351,11 @@ def test_every_builder_prompt_has_a_system_part_identical_across_sessions():
     for prompt_id in prompts.TEMPLATES:
         template = prompts.template(prompt_id)
         wanted = template.placeholders()
-        fixed = {"vocabulary": "types: a, b", "families": "counts — a counts table"}
+        fixed = {
+            "vocabulary": "types: a, b",
+            "families": "counts — a counts table",
+            "types": "alignment.bam — coordinate_sorted",
+        }
         one = {k: v[0] for k, v in PER_CALL.items()} | fixed
         two = {k: v[1] for k, v in PER_CALL.items()} | fixed
         system_one, user_one = template.render_split({k: one[k] for k in wanted})
@@ -389,3 +398,14 @@ def test_the_family_prompt_means_the_result_itself_and_does_not_steer():
     assert "the result itself" in body
     assert "never a step on the way" in body
     assert "A few questions first" not in body
+
+
+def test_the_characteriser_reads_only_what_the_excerpt_states():
+    """Spec §6: never what would need the whole file; *none* and *undetermined* are answers."""
+    for prompt_id in (prompts.CHARACTERISE_FAMILY, prompts.CHARACTERISE):
+        body = prompts.template(prompt_id).body
+        assert "only what the excerpt states" in body, prompt_id
+        assert "{{excerpt}}" in body.split("<!-- then, per call -->")[1], prompt_id
+    body = prompts.template(prompts.CHARACTERISE).body
+    assert "would need the whole file" in body
+    assert "`undetermined`" in body and "`unmatched`" in body

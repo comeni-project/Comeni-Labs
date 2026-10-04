@@ -96,7 +96,25 @@ READBACK: PromptId = "builder.readback.v1"
 """The composed goal in, one or two plain sentences out, for the goal card (#176). Written from
 what will be built, never from the first sentence."""
 
-TEMPLATES: tuple[PromptId, ...] = (GOAL, FAMILY, CHAT, TIER4, GAP, ASK, READBACK)
+CHARACTERISE_FAMILY: PromptId = "builder.characterise-family.v1"
+"""The start of a sample in, the families it could belong to out (14.7.7). Egress door 6.
+The first of the characteriser's two calls, the family step goal extraction takes (#194)."""
+
+CHARACTERISE: PromptId = "builder.characterise.v1"
+"""The start of a sample in, its declared type, the states and measurements it states, and
+what it states that nothing declares (`unmatched`, stored only) out (14.7.7). Egress door 6."""
+
+TEMPLATES: tuple[PromptId, ...] = (
+    GOAL,
+    FAMILY,
+    CHAT,
+    TIER4,
+    GAP,
+    ASK,
+    READBACK,
+    CHARACTERISE_FAMILY,
+    CHARACTERISE,
+)
 """**Every current template is split** at `comeni_ai.prompts.DIVIDER` (14.7.4, #183): what never
 changes between calls first, as a system message a provider caches, and what does after it.
 The v4/v1 files they replace stay loadable, whole, through `RETIRED`."""
