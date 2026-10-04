@@ -4,7 +4,7 @@
 
 **Generated from `mendel_api/authoring/protocol.py`**, which is also where the running state machine comes from, so this picture is the machine. Solid is built; dashed is designed and not built yet. The rules, the argument and the changelog are on [the protocol page](../authoring-protocol.md).
 
-A detail of [the authoring protocol](authoring-protocol.md). Everything here happens on our server.
+A detail of [the authoring protocol](authoring-protocol.md).
 
 ```mermaid
 flowchart LR
@@ -21,9 +21,16 @@ flowchart LR
         head["Keep the first 4 MB of each, in memory<br/>(longer files are cut, never refused)"]:::engine
         claim{"Which trusted formats claim<br/>the extension? (every file agreeing)"}:::engine
         nothing["Nothing reads this type yet:<br/>the question stays"]:::stop
-        characterise["The characteriser reads it<br/>(14.7.7)"]:::ai
+        door{{"Does the protection level<br/>let a model read it?"}}:::safety
+        excerpt["Keep up to 8 KB of its text<br/>(gzip unpacked by its first bytes)"]:::engine
     end
     style receiving fill:transparent,stroke:#555
+    subgraph reading ["Through door 6: a model reads the start of it"]
+        direction TB
+        families["AI: which families<br/>could it be?"]:::ai
+        types["AI: which type,<br/>which states and facts?"]:::ai
+    end
+    style reading fill:transparent,stroke:#555
     subgraph processing ["On our server: in its own process, with limits"]
         direction TB
         unpack["Unpack if compressed, up to 16 MB"]:::engine
@@ -35,6 +42,9 @@ flowchart LR
     style processing fill:transparent,stroke:#555
     subgraph admitting ["On our server: admitting what it measured"]
         direction TB
+        ai_admit{"Admit every id<br/>against the registry"}:::engine
+        ai_stamped["Stamped: read by AI<br/>(check the premise)"]:::engine
+        hand_back["A type the engine reads:<br/>your browser sends it again"]:::engine
         undetermined["Below its threshold:<br/>undetermined, left open"]:::engine
         admit["Admit each value<br/>against the registry"]:::engine
         kept["Already said: your word stands,<br/>a difference is shown"]:::engine
@@ -48,7 +58,20 @@ flowchart LR
     head -- "one file or a pair" --> claim
     head -- "any other count, a form it can't read, or cut short" --> refused
     claim -- "none" --> nothing
-    claim -. "none, at 14.7.7" .-> characterise
+    claim -. "none, at 14.7.7" .-> door
+    door -. "above level 0" .-> nothing
+    door -. "level 0" .-> excerpt
+    excerpt -. "too little text, or no model" .-> nothing
+    excerpt -. "queued for the AI" .-> families
+    families -. "none fits: the AI couldn't tell" .-> back
+    families -. "one or more" .-> types
+    types -.-> ai_admit
+    ai_admit -. "an id nothing declares: refused, the question stays" .-> back
+    ai_admit -. "you already said it" .-> kept
+    ai_admit -. "nothing here reads that type" .-> ai_stamped
+    ai_admit -. "the engine reads that type" .-> hand_back
+    hand_back -. "claimed by the type the AI named" .-> confirm
+    ai_stamped -.-> back
     claim -- "one or more" --> unpack
     unpack -- "a bomb" --> unreadable
     unpack --> confirm
@@ -68,7 +91,13 @@ flowchart LR
     undetermined --> back
     nothing --> back
     unreadable --> back
-    style characterise stroke-dasharray:6 4,opacity:0.55
+    style door stroke-dasharray:6 4,opacity:0.55
+    style excerpt stroke-dasharray:6 4,opacity:0.55
+    style families stroke-dasharray:6 4,opacity:0.55
+    style types stroke-dasharray:6 4,opacity:0.55
+    style ai_admit stroke-dasharray:6 4,opacity:0.55
+    style ai_stamped stroke:#f0d040,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
+    style hand_back stroke-dasharray:6 4,opacity:0.55
     style tie stroke:#ff5050,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
     style undetermined stroke:#ff5050,stroke-width:4px
     style stamped stroke:#f0d040,stroke-width:4px

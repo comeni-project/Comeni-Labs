@@ -201,7 +201,10 @@ def test_reading_a_sample_has_its_detailed_diagram():
     for step in ("4 mb", "protection", "extension", "unpack", "confirm", "measure",
                  "undetermined", "admit", "nothing reads"):
         assert step in labels, f"the detail does not draw {step!r}"
-    assert detail.stages and all(s.title.startswith("On our server") for s in detail.stages)
+    # Every stage says where it happens: on our server, or through the door the excerpt leaves by.
+    assert detail.stages and all(
+        s.title.startswith(("On our server", "Through door 6")) for s in detail.stages
+    )
 
 
 def test_the_protection_level_is_asked_before_a_byte_is_kept():
@@ -286,3 +289,40 @@ def test_every_way_out_of_an_upload_is_drawn():
     assert {("confirm", "back"), ("admit", "refused"), ("unreadable", "back")} <= built
     assert any(e.source == "admit" and e.target == "back" and "dropped" in e.label
                for e in detail.edges)
+
+
+# ── the characteriser, planned (14.7.7.1) ───────────────────────────────────────────────────
+
+
+CHARACTERISER = {"door", "excerpt", "families", "types", "ai_admit", "ai_stamped", "hand_back"}
+
+
+def test_the_characteriser_is_drawn_step_by_step_and_planned():
+    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
+    nodes = {n.id: n for n in detail.nodes}
+    assert CHARACTERISER <= set(nodes), CHARACTERISER - set(nodes)
+    assert "characterise" not in nodes, "the single placeholder node is replaced, not kept"
+    assert not any(nodes[n].built for n in CHARACTERISER)
+    edges = {(e.source, e.target) for e in detail.edges}
+    for edge in [
+        ("claim", "door"), ("door", "nothing"), ("door", "excerpt"), ("excerpt", "nothing"),
+        ("excerpt", "families"), ("families", "back"), ("families", "types"),
+        ("types", "ai_admit"), ("ai_admit", "back"), ("ai_admit", "kept"),
+        ("ai_admit", "ai_stamped"), ("ai_admit", "hand_back"), ("hand_back", "confirm"),
+        ("ai_stamped", "back"),
+    ]:
+        assert edge in edges, f"{edge} is not drawn"
+
+
+def test_the_model_reads_in_a_stage_that_names_its_door():
+    detail = {n.id: n for n in p.PROTOCOL.nodes}["read_engine"].detail
+    stages = {s.id: s.title for s in detail.stages}
+    assert "door 6" in stages["reading"].lower()
+    assert {n.stage for n in detail.nodes if n.id in {"families", "types"}} == {"reading"}
+
+
+def test_the_overview_hands_a_type_nothing_reads_to_the_ai_and_back():
+    edges = {(e.source, e.target): e for e in p.PROTOCOL.edges}
+    assert ("read_engine", "read_ai") in edges and not edges[("read_engine", "read_ai")].built
+    assert ("read_ai", "read_engine") in edges, "a type the engine reads goes back to it"
+    assert ("safety", "read_ai") not in edges, "the level is asked inside the detail now"

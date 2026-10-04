@@ -298,6 +298,7 @@ INSPECTING = Protocol(
     slug="inspecting-a-sample",
     stages=(
         Stage(id="receiving", title="On our server: receiving it"),
+        Stage(id="reading", title="Through door 6: a model reads the start of it"),
         Stage(id="processing", title="On our server: in its own process, with limits"),
         Stage(id="admitting", title="On our server: admitting what it measured"),
     ),
@@ -330,7 +331,42 @@ INSPECTING = Protocol(
         _built(
             "nothing", "receiving", _STOP, "Nothing reads this type yet:<br/>the question stays", _G
         ),
-        _n("characterise", "receiving", _AI, "The characteriser reads it<br/>(14.7.7)"),
+        # The characteriser (14.7.7): planned here, built part by part.
+        _n(
+            "door",
+            "receiving",
+            _SAFETY,
+            "Does the protection level<br/>let a model read it?",
+            shape=Shape.GATE,
+        ),
+        _n(
+            "excerpt",
+            "receiving",
+            _ENGINE,
+            "Keep up to 8 KB of its text<br/>(gzip unpacked by its first bytes)",
+        ),
+        _n("families", "reading", _AI, "AI: which families<br/>could it be?"),
+        _n("types", "reading", _AI, "AI: which type,<br/>which states and facts?"),
+        _n(
+            "ai_admit",
+            "admitting",
+            _ENGINE,
+            "Admit every id<br/>against the registry",
+            shape=Shape.CHOICE,
+        ),
+        _n(
+            "ai_stamped",
+            "admitting",
+            _ENGINE,
+            "Stamped: read by AI<br/>(check the premise)",
+            border=Border.TIER3,
+        ),
+        _n(
+            "hand_back",
+            "admitting",
+            _ENGINE,
+            "A type the engine reads:<br/>your browser sends it again",
+        ),
         _built("unpack", "processing", _ENGINE, "Unpack if compressed, up to 16 MB", _G),
         _built(
             "confirm",
@@ -389,7 +425,20 @@ INSPECTING = Protocol(
         _e("head", "claim", "one file or a pair", built=True),
         _e("head", "refused", "any other count, a form it can't read, or cut short", built=True),
         _e("claim", "nothing", "none", built=True),
-        _e("claim", "characterise", "none, at 14.7.7"),
+        _e("claim", "door", "none, at 14.7.7"),
+        _e("door", "nothing", "above level 0"),
+        _e("door", "excerpt", "level 0"),
+        _e("excerpt", "nothing", "too little text, or no model"),
+        _e("excerpt", "families", "queued for the AI"),
+        _e("families", "back", "none fits: the AI couldn't tell"),
+        _e("families", "types", "one or more"),
+        _e("types", "ai_admit"),
+        _e("ai_admit", "back", "an id nothing declares: refused, the question stays"),
+        _e("ai_admit", "kept", "you already said it"),
+        _e("ai_admit", "ai_stamped", "nothing here reads that type"),
+        _e("ai_admit", "hand_back", "the engine reads that type"),
+        _e("hand_back", "confirm", "claimed by the type the AI named"),
+        _e("ai_stamped", "back"),
         _e("claim", "unpack", "one or more", built=True),
         _e("unpack", "unreadable", "a bomb", built=True),
         _e("unpack", "confirm", built=True),
@@ -623,13 +672,16 @@ PROTOCOL = Protocol(
         _move("left_open", "next_gap", _E.FACT_ADDED),
         _move("next_gap", "card", _E.NOTHING_MISSING, "nothing unknown"),
         _move("list_needs", "say", _E.WANT_UNREACHABLE, "nothing makes it: it asks you"),
-        # a file answers it: built in 14.7.6; the characteriser stays planned (14.7.7). No event
+        # a file answers it: built in 14.7.6; the characteriser is planned step by step inside the detail (14.7.7). No event
         # of its own: what the sample settles moves the session as a click does.
         _e("reply", "upload", "upload a sample (when something here reads it)", built=True),
         _e("upload", "safety", "uploaded", built=True),
         _e("safety", "read_engine", "level 0", built=True),
-        _e("safety", "read_ai", "it doesn't"),
         _e("read_engine", "next_gap", built=True),
+        # The characteriser (14.7.7): a type nothing reads goes to the AI; a type the engine
+        # reads comes back to it. Planned until 14.7.7.2 builds the job.
+        _e("read_engine", "read_ai", "nothing here reads its type"),
+        _e("read_ai", "read_engine", "a type the engine reads"),
         _e("read_ai", "next_gap"),
         # planned: the consultant build (14.7.8)
         _e("resolve", "plan"),

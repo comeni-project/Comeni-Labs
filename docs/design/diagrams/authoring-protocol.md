@@ -103,8 +103,9 @@ flowchart LR
     reply -- "upload a sample (when something here reads it)" --> upload
     upload -- "uploaded" --> safety
     safety -- "level 0" --> read_engine
-    safety -. "it doesn't" .-> read_ai
     read_engine --> next_gap
+    read_engine -. "nothing here reads its type" .-> read_ai
+    read_ai -. "a type the engine reads" .-> read_engine
     read_ai -.-> next_gap
     resolve -.-> plan
     plan -.-> pace
