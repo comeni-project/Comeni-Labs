@@ -2021,6 +2021,83 @@ def check_sample_question(proposal_id: str) -> None:
         raise ValueError(refusal)
 
 
+class _Found(NamedTuple):
+    """One measurement a sample settled, from an inspector or from a model."""
+
+    measurement: str
+    value: object
+    pieces: list[str] = []
+    evidence: dict | None = None
+
+
+def _record_found(
+    db, proposal, row, *, type_id: str | None, states: list[str], found: list[_Found],
+    source: FactSource, by: str, stack,
+) -> tuple[list[str], list[str], list[str], bool]:
+    """Record a sample's type and facts as `source`, the person's word standing; settle the
+    proposal when its subject was recorded. Returns `(recorded, kept, disagreed, answered)`.
+
+    **An open fact is not known**: *can't share* or *not sure* is nobody's value, and the
+    person's own sample settling it is recorded in its place, never reported as disagreeing
+    with a value nobody gave (review of #134).
+    """
+    session_id = proposal.session_id
+    subject = proposal.payload["subject"]
+    decided = {f.measurement for f in found if f.value is not None}
+    facts = [
+        f
+        for f in row.facts or []
+        if not (f.get("source") == FactSource.OPEN.value and f["subject"] in decided)
+    ]
+    known = {f["subject"]: f for f in facts}
+    recorded, kept, disagreed = [], [], []
+    if type_id:
+        if type_id in known:
+            kept.append(type_id)
+        else:
+            facts.append(
+                Fact(kind=FactKind.INPUT, subject=type_id, states=sorted(states), source=source)
+                .model_dump(mode="json")
+            )
+            recorded.append(type_id)
+    for item in found:
+        if item.value is None:
+            continue
+        try:
+            stack.measurements.check(item.measurement, item.value)
+        except (ValueError, KeyError):
+            continue
+        if item.measurement in known:
+            kept.append(item.measurement)
+            if known[item.measurement].get("value") != item.value:
+                disagreed.append(item.measurement)
+            continue
+        facts.append(
+            Fact(
+                kind=FactKind.MEASUREMENT,
+                subject=item.measurement,
+                value=item.value,
+                source=source,
+                pieces=item.pieces,
+                evidence=_counts(item.evidence or {}) or None,
+            ).model_dump(mode="json")
+        )
+        recorded.append(item.measurement)
+    answered = subject in recorded
+    target = Phase(row.phase)
+    if answered:
+        proposal.state = ProposalState.ACCEPTED.value
+        proposal.by = by
+        proposal.chosen_option = UPLOAD
+        proposal.settled_at = _now()
+        target = st.advance(target, st.Event.FACT_ADDED)
+    # A sample that changed nothing leaves the session's version alone, so a click the person
+    # made meanwhile is not refused as stale (issue 226).
+    if answered or facts != (row.facts or []):
+        _swap(db, session_id, row.row_version, phase=target, facts=facts)
+    return recorded, kept, disagreed, answered
+
+
 def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer:
     """What one inspected sample settles, recorded the way a click records an answer.
 
@@ -2042,70 +2119,19 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
         if refusal is not None:
             raise ValueError(refusal)
 
-        session_id = proposal.session_id
-        subject = proposal.payload["subject"]
-        row = db.get(PipelineAuthoringSession, session_id)
-        # **An open fact is not known**: *can't share* or *not sure* is nobody's value, and the
-        # person's own sample measuring it is recorded in its place, never reported as
-        # disagreeing with a value nobody gave (review of #134).
-        decided = {
-            found.measurement
-            for found in inspection.facts
-            if found.undetermined is None and found.value is not None
-        }
-        facts = [
-            f
-            for f in row.facts or []
-            if not (f.get("source") == FactSource.OPEN.value and f["subject"] in decided)
+        row = db.get(PipelineAuthoringSession, proposal.session_id)
+        measured = inspection.outcome == "measured"
+        found = [
+            _Found(f.measurement, f.value, f.pieces, f.evidence)
+            for f in (inspection.facts if measured else [])
+            if f.undetermined is None
         ]
-        known = {f["subject"]: f for f in facts}
-        recorded, kept, disagreed = [], [], []
-        if inspection.outcome == "measured" and inspection.type_id:
-            if inspection.type_id in known:
-                kept.append(inspection.type_id)
-            else:
-                facts.append(
-                    Fact(
-                        kind=FactKind.INPUT, subject=inspection.type_id, source=FactSource.MEASURED
-                    ).model_dump(mode="json")
-                )
-                recorded.append(inspection.type_id)
-        for found in inspection.facts if inspection.outcome == "measured" else []:
-            if found.undetermined is not None or found.value is None:
-                continue
-            try:
-                stack.measurements.check(found.measurement, found.value)
-            except (ValueError, KeyError):
-                continue
-            if found.measurement in known:
-                kept.append(found.measurement)
-                if known[found.measurement].get("value") != found.value:
-                    disagreed.append(found.measurement)
-                continue
-            facts.append(
-                Fact(
-                    kind=FactKind.MEASUREMENT,
-                    subject=found.measurement,
-                    value=found.value,
-                    source=FactSource.MEASURED,
-                    pieces=found.pieces,
-                    evidence=_counts(found.evidence) or None,
-                ).model_dump(mode="json")
-            )
-            recorded.append(found.measurement)
-
-        answered = subject in recorded
-        target = Phase(row.phase)
-        if answered:
-            proposal.state = ProposalState.ACCEPTED.value
-            proposal.by = by
-            proposal.chosen_option = UPLOAD
-            proposal.settled_at = _now()
-            target = st.advance(target, st.Event.FACT_ADDED)
-        # A sample that changed nothing leaves the session's version alone, so a click the
-        # person made meanwhile is not refused as stale (issue 226).
-        if answered or facts != (row.facts or []):
-            _swap(db, session_id, row.row_version, phase=target, facts=facts)
+        recorded, kept, disagreed, answered = _record_found(
+            db, proposal, row,
+            type_id=inspection.type_id if measured else None, states=[], found=found,
+            source=FactSource.MEASURED, by=by, stack=stack,
+        )
+        session_id = proposal.session_id
 
     if answered:
         offer_next_gap(session_id)
@@ -2184,3 +2210,47 @@ def reading_failed(proposal_id: str, attempt: int, state: str, code: str | None)
             db, proposal,
             SampleReading.model_validate({**reading, "state": state, "code": code}),
         )
+
+
+def answer_with_reading(
+    proposal_id: str, attempt: int, reply, *, by: str, handed_back: bool
+) -> SampleAnswer | None:
+    """What the AI read of a sample, recorded as *read by AI* (14.7.7), or handed back.
+
+    `None` when the reading is no longer this attempt's or the question was settled meanwhile:
+    a late answer records nothing. `handed_back`: the type is one the engine reads, so nothing
+    is recorded and the browser sends the file again (spec §8).
+    """
+    stack = registry.stack()
+    with session_scope() as db:
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        if proposal is None or proposal.state != ProposalState.PENDING.value:
+            return None
+        reading = (proposal.payload.get("block") or {}).get("reading") or {}
+        if reading.get("attempt") != attempt or reading.get("state") != "pending":
+            return None
+        row = db.get(PipelineAuthoringSession, proposal.session_id)
+        session_id = proposal.session_id
+        if handed_back:
+            _set_reading(db, proposal, SampleReading(
+                state="hand_back", attempt=attempt, type_id=reply.type_id,
+                states=list(reply.states),
+            ))
+            recorded, kept, disagreed, answered = [], [], [], False
+        else:
+            found = [_Found(m.id, m.value) for m in reply.measurements]
+            recorded, kept, disagreed, answered = _record_found(
+                db, proposal, row, type_id=reply.type_id, states=list(reply.states),
+                found=found, source=FactSource.MODEL_READ, by=by, stack=stack,
+            )
+            if not answered:
+                _set_reading(db, proposal, SampleReading(
+                    state="read", attempt=attempt, type_id=reply.type_id,
+                    states=list(reply.states), recorded=recorded, kept=kept,
+                    disagreed=disagreed,
+                ))
+    if answered:
+        offer_next_gap(session_id)
+    return SampleAnswer(
+        phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
+    )
