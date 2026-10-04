@@ -5,7 +5,7 @@ The consolidated state of the project. **Read this first**; then any entry still
 [the compaction rules](compaction.md). Each line cites the entry it came from; the long form of any
 line is in [the archive](journal/archive/).
 
-**Compacted through: 2026-10-03.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
+**Compacted through: 2026-10-04.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
 history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim in
 `tests/fixtures/claude-md-2026-09-28.md`.
 
@@ -15,11 +15,10 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). Round 1 of the walk found
   and fixed #106–#116. (2026-09-28)
 - **Order of work, in #119's own order** (renumbered 2026-09-28 so the tree reads as done):
-  14.7.3 gathering, 14.7.4 the consultant's words, 14.7.5 settings and 14.7.6 samples are
-  **done** → **14.7.7** the characteriser (#135, next) → **14.7.8** the consultant build
-  (it also reads pacing, #117) → **14.7.9** tune what the walks found (#210) → **14.7.10** the nine
-  scenarios. **MVP first, then tune:** a defect found on the way joins #210 unless it blocks the
-  loop. (2026-09-28, 2026-09-30, 2026-10-01, 2026-10-03)
+  14.7.3 gathering through 14.7.7 the characteriser are **done** → **14.7.8** the consultant
+  build (next; it also reads pacing, #117) → **14.7.9** tune what the walks found (#210) →
+  **14.7.10** the nine scenarios. **MVP first, then tune:** a defect found on the way joins #210
+  unless it blocks the loop. (2026-09-28, 2026-09-30, 2026-10-01, 2026-10-04)
 - **Scenario 1 builds end to end with `gemma3:12b`**, started from home and answered by uploading
   the real pair SRR6357070; the aligner is tier 3 with a read length, tier 4 without, and its reason
   names what measured it. (2026-09-28, 2026-10-03)
@@ -43,7 +42,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
   to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
 - **Protection level 0** (everything open) is the MVP; invariant 15 does not hold at level 0 and
-  characterisation becomes a fourth AI point, both recorded loosenings. (2026-09-28)
+  characterisation is a fourth AI point, both recorded loosenings. (2026-09-28, 2026-10-04)
 - **The want is two calls:** `builder.family.v3` answers `fits` first, then `builder.goal.v7`
   reads the chosen families whole; `goal.v6` is the one-step path (`MENDEL_FAMILY_STEP_FROM`). A
   want nothing can make asks the person instead of failing (`WANT_UNREACHABLE`). (2026-09-29,
@@ -63,8 +62,11 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - **A gap can be answered with a sample**, one file or a pair: the browser sends each file's first
   4 MB, the server holds it in memory, measures it in a child process with no secrets and hard
-  limits, and keeps facts, never bytes. Upload is offered only where a trusted format reads one of
-  the person's inputs; the person's word always stands over a sample's. (2026-10-03)
+  limits, and keeps facts, never bytes. Upload is offered on every input question while the AI may
+  read; the person's word always stands over a sample's. (2026-10-03, 2026-10-04)
+- **A sample nothing reads is read by the AI** (door 6): up to 8 KB of text; a family, then a
+  type; each property **quotes its line**, checked (one line, ≥ 8 chars), then *read by AI*. A
+  type an inspector reads is handed back and measured. Open: #238 (stored replies), #239. (2026-10-04)
 - **Inspectors are composed pieces** in the registry (`registry/inspectors/`: codecs, formats, measures,
   code beside each), run only from trusted layers (`MENDEL_TRUSTED_LAYERS`), one pass over the
   head; below a threshold a measure says *undetermined* and why. FASTQ measures read length,
