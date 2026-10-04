@@ -230,3 +230,18 @@ def test_a_measurement_read_is_not_also_undetermined(clean_forge):
     outcome = _fastq(measurements=[{"id": "paired", "value": True}],
                      undetermined=["paired", "quality_encoding"])
     assert outcome.admitted and outcome.reply.undetermined == ["quality_encoding"]
+
+
+def test_states_and_measurement_ids_are_held_to_what_was_offered(stack, clean_forge):
+    """Issue 243: walked live, a model wrote free-text states and states into `undetermined`.
+    Every id list is held at the server to the offered ids of the types shown, as `type_id` is."""
+    client = Choosing(_reply())
+    ai.characterise(_request(), stack=stack, families=["alignment", "fastq"], client=client)
+    [held] = client.choices
+    shown = stack.families.types_of(["alignment", "fastq"], stack.vocabulary.types)
+    states = sorted({s for t in shown for s in ai.offered(stack, t)[0]})
+    measured = sorted({m for t in shown for m in ai.offered(stack, t)[1]})
+    assert states and measured, "a loop over nothing asserts nothing"
+    assert held["states"] == states
+    assert held["undetermined"] == measured
+    assert held["measurements.id"] == measured

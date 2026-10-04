@@ -529,6 +529,7 @@ def characterise(
         if families is None
         else stack.families.types_of(families, stack.vocabulary.types)
     )
+    measured = sorted({m for t in shown for m in offered(stack, t)[1]})
     return _call(
         request,
         purpose=Purpose.CHARACTERISE,
@@ -538,7 +539,15 @@ def characterise(
         admit=lambda reply: _admit_characterised(reply, shown, stack),
         client=client,
         session_id=session_id,
-        choices={"type_id": list(shown)},
+        # **Every id list held at the server** (issue 243): walked live, a model wrote free-text
+        # states and states into `undetermined`. The union over the types shown; admission still
+        # holds each to the chosen type's own. An empty list is left unconstrained by `_call`.
+        choices={
+            "type_id": list(shown),
+            "states": sorted({s for t in shown for s in offered(stack, t)[0]}),
+            "undetermined": measured,
+            "measurements.id": measured,
+        },
     )
 
 
