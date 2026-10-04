@@ -1018,7 +1018,7 @@ Two cautions:
 - Consumes: `session.perform_now`, `allows`, `check`, `handles`, `Ctx` from Task 4.
 - Produces: the `read_goal` handler. `say` performs `describe` or `reply_in_words` where the diagram draws one.
 
-- [ ] **Step 1: Write the failing tests** (append; reuse `sid` and `_row`)
+- [x] **Step 1: Write the failing tests** (append; reuse `sid` and `_row`)
 
 ```python
 from mendel_api.services import authoring, authoring_jobs
@@ -1053,9 +1053,9 @@ def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
 
 `counts.matrix` is a placeholder want: replace it with a type id this registry's gathering tests use. Read `test_authoring_gathering.py`'s `_gathering` call sites. The second and third tests need it to have at least one gap. This is a value to look up, not a decision.
 
-- [ ] **Step 2: Run them; expected FAIL** (the session stays at `say`; `_failed` does not exist).
+- [x] **Step 2: Run them; expected FAIL** (the session stays at `say`; `_failed` does not exist).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `stages/describe.py`:
 
@@ -1155,7 +1155,7 @@ Delete the `_version` helper once nothing uses it.
 
 `stages/__init__.py`: add `from mendel_api.stages import describe  # noqa: F401`.
 
-- [ ] **Step 4: Run them; expected PASS**, then the authoring suites:
+- [x] **Step 4: Run them; expected PASS**, then the authoring suites:
 
 `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests -q -k "authoring or characteris or inspect"`
 
@@ -1163,7 +1163,7 @@ Expected: as before this task. A failure is either:
 - a moved refusal order, which goes to the command's own checks (ruling 8); or
 - a test relying on a hand-written move, which is a defect in this task, not in the test.
 
-- [ ] **Step 5: `make check`, then commit.** `refactor(authoring): ① and ③ move by the diagram — typed words, the model's reading, the card (#136)`
+- [x] **Step 5: `make check`, then commit.** `refactor(authoring): ① and ③ move by the diagram — typed words, the model's reading, the card (#136)`
 
 ---
 
@@ -1179,7 +1179,7 @@ Expected: as before this task. A failure is either:
   - handlers `list_needs`, `next_gap`, `answered` and `upload`;
   - `offer_next_gap(session_id)` is `session.resume` and returns the pending proposal's id, or `None`, as before.
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
 
 ```python
 def _gathering(sid):
@@ -1215,9 +1215,9 @@ def test_a_sample_that_answered_nothing_moves_nothing(sid):
 
 Use the same want as Task 5. If its first gap is not an input, use that gap's first option instead of `have_it`: read it from `authoring.read(sid)["pending_proposal"]["payload"]["options"]`.
 
-- [ ] **Step 2: Run them; expected FAIL** (no `answered` or `list_needs` handler: `KeyError`).
+- [x] **Step 2: Run them; expected FAIL** (no `answered` or `list_needs` handler: `KeyError`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 **Split `offer_next_gap`** into two functions in `services/authoring.py`, without changing any line of what they write:
 
@@ -1317,13 +1317,13 @@ Keep the `stops` note after it, as today, and replace the trailing `offer_next_g
         pass
 ```
 
-- [ ] **Step 4: Run them; expected PASS**, then:
+- [x] **Step 4: Run them; expected PASS**, then:
 
 `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests -q -k "authoring or characteris or inspect or upload"`
 
 Expected: as before.
 
-- [ ] **Step 5: `make check`, then commit.** `refactor(authoring): ② moves by the diagram — the answers, the questions, a sample's way out (#136)`
+- [x] **Step 5: `make check`, then commit.** `refactor(authoring): ② moves by the diagram — the answers, the questions, a sample's way out (#136)`
 
 ---
 
@@ -1339,7 +1339,7 @@ Expected: as before.
   - handlers `resolve` and `offer`;
   - `start_building` is `session.resume`, and returns the first proposal's id as before.
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
 
 ```python
 def _confirmed(sid):
@@ -1398,9 +1398,9 @@ def test_retry_returns_to_the_phase_that_failed(sid, monkeypatch):
 
 `goal=` must be a goal `Goal.model_validate` accepts. Copy one from `test_authoring_building.py`'s `move(…GOAL_ACCEPTED…, goal=…)`. `start_building` imports `bp` (`blueprint` as `bp`): patch the module attribute it calls, `mendel_api.services.blueprint.resolve`, since `bp.resolve` is read at call time.
 
-- [ ] **Step 2: Run them; expected FAIL** (no `resolve` handler).
+- [x] **Step 2: Run them; expected FAIL** (no `resolve` handler).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 **`start_building`** becomes two parts.
 1. **`build_blueprint(session_id, *, client) -> str`** holds today's body, from the first `with` block to the end, with these changes:
@@ -1483,13 +1483,13 @@ def offer(ctx: Ctx) -> str:
 
 `stages/__init__.py`: import `building`.
 
-- [ ] **Step 4: Run them; expected PASS**, then the whole suite:
+- [x] **Step 4: Run them; expected PASS**, then the whole suite:
 
 `MENDEL_DATABASE_URL=… uv run pytest -q -p no:cacheprovider > /tmp/claude-1000/1b-t7.log; tail -3 /tmp/claude-1000/1b-t7.log`
 
 Expected: as before 1b, plus this plan's new tests.
 
-- [ ] **Step 5: `make check`, then commit.** `refactor(authoring): ④ and retry move by the diagram — resolving, steps, failure (#136)`
+- [x] **Step 5: `make check`, then commit.** `refactor(authoring): ④ and retry move by the diagram — resolving, steps, failure (#136)`
 
 ---
 

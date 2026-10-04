@@ -19,7 +19,8 @@ leave the turn spinning.
 import logging
 
 from comeni_ai import Client
-from mendel_authoring import state as st
+from mendel_authoring.interpret import Refused
+from mendel_authoring.types import Command
 
 from mendel_api import jobs
 from mendel_api.authoring.types import (
@@ -32,9 +33,8 @@ from mendel_api.authoring.types import (
     Question,
     WantUnderstanding,
 )
-from mendel_api.db import session_scope
-from mendel_api.models import PipelineAuthoringSession
 from mendel_api.services import authoring, authoring_ai, registry
+from mendel_api.services import session as session_mod
 from mendel_api.settings import model_access, settings
 
 log = logging.getLogger(__name__)
@@ -191,15 +191,15 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         # **An ambiguous want waits for the person's reply**, still in `understanding`, and that
         # reply is read again from the top. Gathering for a want nobody settled would ask about
         # inputs to an analysis they may not want.
+        _perform(session_id, Command.ASKED_BACK)
         return
 
     # **The engine takes over from here, in both modes** (14.7.3). What the want needs is
     # computed, not asked of a model, and each gap needs a person: nothing is guessed, so Spawn
     # has nothing it could fill in on their behalf (protocol rule 5).
-    authoring.move(
+    _perform(
         session_id,
-        st.Event.WANT_RETURNED,
-        row_version=_version(session_id),
+        Command.UNDERSTOOD,
         goal={
             "want": list(understood.want),
             # **The model's constraints are suggestions, never the goal's** (#176): the card offers
@@ -208,8 +208,7 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
             "suggested": understood.constraints.model_dump(mode="json"),
             "stated": [c.model_dump(mode="json") for c in understood.stated],
         },
-    )
-    authoring.offer_next_gap(session_id)
+    )  # `understood` runs on to the first question (`list_needs`, `next_gap`): 14.7.8.1
 
 
 def _ask_which_result(
@@ -232,6 +231,7 @@ def _ask_which_result(
         base_revision=context.revision,
         invocation_id=invocation_id,
     )
+    _perform(session_id, Command.ASKED_BACK)
 
 
 async def enqueue_phrasing(session_id: str) -> None:
@@ -429,7 +429,7 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         # A goal revision re-enters understanding with the person's corrected words, and the
         # summary they were correcting is withdrawn rather than left pending beside the new one.
         authoring.withdraw_pending(session_id, by="person")
-        authoring.move(session_id, st.Event.GOAL_REVISED, row_version=_version(session_id))
+        _perform(session_id, Command.REVISED)
         _understand(session_id, seq, context, intent.revise)
         return
 
@@ -498,14 +498,21 @@ def _refused(session_id: str, seq: int, context, outcome) -> None:
         invocation_id=outcome.invocation_id,
     )
     if code in UNREACHABLE:
-        phase = authoring.current_phase(session_id)
-        if (phase, st.Event.PROVIDER_FAILED) in st.TRANSITIONS:
-            authoring.move(session_id, st.Event.PROVIDER_FAILED, row_version=_version(session_id))
+        _failed(session_id)
 
 
-def _version(session_id: str) -> int:
-    with session_scope() as db:
-        return db.get(PipelineAuthoringSession, session_id).row_version
+def _perform(session_id: str, command: Command, **payload) -> None:
+    """A job's completion is a command (spec §3.2). **Refused means the session moved on**
+    while the model worked, and the completion is ignored (spec §8), never a failed job."""
+    try:
+        session_mod.perform_now(session_id, command.value, **payload)
+    except Refused as refused:
+        log.info("%s for %s ignored: %s", command.value, session_id, str(refused).splitlines()[0])
+
+
+def _failed(session_id: str) -> None:
+    """The model could not be reached. The session fails only where the diagram draws it."""
+    _perform(session_id, Command.PROVIDER_FAILED)
 
 
 # ── a Spawn blueprint ─────────────────────────────────────────────────────────────────────

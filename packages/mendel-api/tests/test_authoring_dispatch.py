@@ -2,6 +2,7 @@
 
 import secrets
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from mendel_api.authoring.types import Mode, Phase
@@ -127,3 +128,123 @@ def test_allows_and_check_read_the_diagram(sid):
     assert not session.allows(sid, "done", protocol=TOY)
     with pytest.raises(Refused, match="MI0216"):
         session.check(sid, "done", protocol=TOY)
+
+
+# ── ① and ③ through the diagram (Task 5) ────────────────────────────────────────────────────
+
+from mendel_api.services import authoring_jobs  # noqa: E402
+from mendel_authoring.types import Command  # noqa: E402
+
+WANT = {"want": ["counts.matrix"], "constraints": {}, "suggested": {}, "stated": []}
+
+
+def test_saying_what_you_want_moves_to_where_the_model_works(sid):
+    authoring.say(sid, "RNA-seq counts")
+    assert _row(sid)[:2] == ("family", Phase.UNDERSTANDING.value)
+
+
+def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
+    authoring.say(sid, "RNA-seq counts")
+    ran = session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
+    assert ran.path[:3] == ["read_goal", "list_needs", "next_gap"]
+    assert _row(sid)[:2] == ("reply", Phase.GATHERING.value)
+
+
+def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
+    """Review focus 1: the job's command has no arrow from the question; nothing moves."""
+    authoring.say(sid, "RNA-seq counts")
+    session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
+    before = _row(sid)
+    authoring_jobs._failed(sid)
+    assert _row(sid) == before
+
+
+# ── ② gathering and samples (Task 6) ────────────────────────────────────────────────────────
+
+
+def _gathering(sid):
+    authoring.say(sid, "RNA-seq counts")
+    session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
+
+
+def test_an_answer_runs_through_answered_to_the_next_question(sid):
+    _gathering(sid)
+    pending = authoring.pending_id(sid)
+    options = authoring.read(sid)["pending_proposal"]["payload"]["options"]
+    authoring.answer_gap(pending, next(iter(options)), None, by="tester")
+    assert _row(sid)[0] in {"reply", "card"}
+    assert authoring.pending_id(sid) != pending
+
+
+def test_typed_words_on_a_question_leave_the_session_and_its_version(sid):
+    """Review focus 4: `reply_in_words` passes through `suggest` back to `reply`."""
+    _gathering(sid)
+    before = _row(sid)
+    authoring.say(sid, "I have them")
+    assert _row(sid) == before
+
+
+def test_a_sample_that_answered_nothing_moves_nothing(sid):
+    """Review focus 4, issue 226."""
+    _gathering(sid)
+    before = _row(sid)
+    session.perform_now(sid, Command.UPLOAD_SAMPLE.value, answered=False)
+    assert _row(sid) == before
+
+
+# ── ④ and retry (Task 7) ────────────────────────────────────────────────────────────────────
+
+
+def _confirmed(sid):
+    from comeni_core import yaml_strict
+    from mendel_authoring import state as st
+    from mendel_resolver.goal import Goal
+
+    root = Path(__file__).resolve().parents[3]
+    goal = Goal.model_validate(yaml_strict.load(root / "examples" / "rnaseq-goal.yml"))
+    authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
+    authoring.move(sid, st.Event.NOTHING_MISSING, row_version=2)
+    authoring.move(sid, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json"))
+
+
+def test_a_command_arriving_at_resolve_rests_there(sid):
+    """Ruling 9: accepting a goal and building it are two calls."""
+    from mendel_api.stages import building
+
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, sid).at = "card"
+    calls = []
+
+    def spy(ctx):
+        calls.append(ctx.command)
+        return building.resolve(ctx)
+
+    session.perform_now(sid, Command.CONFIRM_GOAL.value,
+                        handlers={**session._bound(), "resolve": spy})
+    assert _row(sid)[0] == "resolve" and calls == ["confirm_goal"]
+
+
+def _broken(*args, **kwargs):
+    raise RuntimeError("resolver broke")
+
+
+def test_a_resolver_that_crashes_lands_on_failed_and_raises(sid, monkeypatch):
+    """Review focus 5."""
+    from mendel_api.services import blueprint
+
+    _confirmed(sid)
+    monkeypatch.setattr(blueprint, "resolve", _broken)
+    with pytest.raises(RuntimeError, match="resolver broke"):
+        authoring.start_building(sid)
+    assert _row(sid)[:2] == ("failed", Phase.FAILED.value)
+
+
+def test_retry_returns_to_the_phase_that_failed(sid, monkeypatch):
+    from mendel_api.services import blueprint
+
+    _confirmed(sid)
+    monkeypatch.setattr(blueprint, "resolve", _broken)
+    with pytest.raises(RuntimeError):
+        authoring.start_building(sid)
+    phase, seq = authoring.retry(sid)
+    assert (phase, seq, _row(sid)[0]) == (Phase.RESOLVING, None, "resolve")

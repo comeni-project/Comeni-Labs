@@ -21,6 +21,7 @@ can reach a provider is `start_building` in Spawn mode, and only through a `Clie
 passes — so every test here runs against a database and, unless it hands one over, no model.
 """
 
+import contextlib
 import logging
 import secrets
 from collections.abc import Callable
@@ -34,6 +35,8 @@ from comeni_core.goal.profile import Evidence
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.review.answer import ValueSource
 from mendel_authoring import state as st
+from mendel_authoring.interpret import Refused
+from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
 from sqlalchemy import func, select, update
@@ -63,6 +66,7 @@ from mendel_api.models import (
 )
 from mendel_api.services import authoring_ai, gaps, registry
 from mendel_api.services import blueprint as bp
+from mendel_api.services import session as session_mod
 from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)
@@ -370,7 +374,13 @@ def say(session_id: str, text: str) -> int:
                 at=now,
             )
         )
-        return seq + 1
+    # **Typed words are a command only where the diagram draws one** (14.7.8.1): what you want
+    # at `say`, an answer at `reply`. Anywhere else they are a chat turn, which moves nothing.
+    for typed in (Command.DESCRIBE, Command.REPLY_IN_WORDS):
+        if session_mod.allows(session_id, typed.value):
+            session_mod.perform_now(session_id, typed.value)
+            break
+    return seq + 1
 
 
 def _next_seq(db, session_id: str) -> int:
@@ -539,23 +549,52 @@ class StepOutcome(NamedTuple):
     phase: Phase
 
 
+def pending_step_tier(session_id: str) -> int | None:
+    """The pending step's tier, which card it is (`offer`, 14.7.8.1), or `None` at the end."""
+    with session_scope() as db:
+        pending = db.scalar(
+            select(PipelineAuthoringProposal).where(
+                PipelineAuthoringProposal.session_id == session_id,
+                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+                PipelineAuthoringProposal.kind == STEP,
+            )
+        )
+        return None if pending is None else int(pending.payload["block"]["tier"])
+
+
 def start_building(session_id: str, *, client=None) -> str | None:
-    """Resolve the whole blueprint, store it, and offer its first step. `resolving → building`.
+    """Resolve the whole blueprint, store it, and offer its first step, by resuming the session
+    at `resolve` (14.7.8.1). Returns the first proposal's id, or `None` for an empty blueprint
+    (or one that could not be built: the session is then `failed`)."""
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        if session_mod.rests_at(db, row) != "resolve":
+            # Resuming anywhere else would rest there quietly: a build asked for from the wrong
+            # place is refused by name, as it always was.
+            raise ValueError(
+                coded("MI0200", f"there is nothing to build from {row.phase}")
+                + "\n  a blueprint is resolved only once a goal is confirmed"
+            )
+    session_mod.resume(session_id, client=client)
+    return pending_id(session_id)
+
+
+def build_blueprint(session_id: str, *, client=None) -> str:
+    """`resolve`'s work: the blueprint resolved, stored, and its first step offered (`stored`),
+    or the goal found unbuildable (`cant_build`). Any other failure is raised.
 
     **The resolve happens outside any transaction**, because it can take most of a second and in
     Spawn may reach a provider — and a row lock held across a model call is a lock held for as
     long as a provider feels like. The session's `row_version` is read first and compared when
     the blueprint is written, so a session that moved while the resolver ran is refused rather
     than overwritten.
-
-    Returns the first proposal's id, or `None` for a blueprint with nothing in it.
     """
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
-        # Refuses with `MI0200` naming what the session can do instead.
-        st.advance(Phase(row.phase), st.Event.BLUEPRINT_STORED)
         if row.goal is None:
             raise ValueError(
                 coded("MI0200", "this session has no confirmed goal to build from")
@@ -570,11 +609,10 @@ def start_building(session_id: str, *, client=None) -> str | None:
     except UnroutableError as unroutable:
         # **A fact about the goal, so it goes in the conversation** (#115). Raised, it reached a
         # person as a toast and nowhere else, and a reload lost the reason entirely.
-        move(session_id, st.Event.BUILD_FAILED, row_version=version)
         _note(session_id, _unbuildable(unroutable), code="MI0207")
-        return None
+        return "cant_build"
     except Exception:
-        move(session_id, st.Event.BUILD_FAILED, row_version=version)
+        log.exception("resolving the blueprint for %s failed", session_id)
         raise
     if calls and client is not None:
         authoring_ai.record_calls(
@@ -587,7 +625,6 @@ def start_building(session_id: str, *, client=None) -> str | None:
             db,
             session_id,
             version,
-            phase=Phase.BUILDING,
             blueprint=blueprint.model_dump(mode="json"),
             registry_digest=blueprint.registry,
             cursor=0,
@@ -601,10 +638,9 @@ def start_building(session_id: str, *, client=None) -> str | None:
             draft.graph = DraftGraph(profile=goal.profile).model_dump(mode="json")
 
         first = blueprint.after(None)
-        if first is None:
-            _swap(db, session_id, version + 1, phase=Phase.COMPLETE)
-            return None
-        return _offer(db, session_id, blueprint, first, revision=draft.revision, registry=contracts)
+        if first is not None:
+            _offer(db, session_id, blueprint, first, revision=draft.revision, registry=contracts)
+        return "stored"
 
 
 def settle_step(
@@ -671,6 +707,7 @@ def settle_step(
 
             options: dict[str, str] = proposal.payload["options"]
             option = chosen_option or bp.KEEP
+            session_mod.check(session_row.id, Command.SETTLE_STEP.value)
             if decision is ProposalState.ACCEPTED:
                 if option not in options:
                     return StepOutcome(
@@ -706,24 +743,19 @@ def settle_step(
             db.flush()
 
             following = blueprint.after(node)
-            target = st.advance(
-                phase,
-                st.Event.PROPOSAL_SETTLED if following else st.Event.NOTHING_LEFT,
-            )
-            _swap(
-                db,
-                session_row.id,
-                session_row.row_version,
-                phase=target,
-                cursor=session_row.cursor + 1,
-            )
+            _swap(db, session_row.id, session_row.row_version, cursor=session_row.cursor + 1)
             offered = (
                 _offer(db, session_row.id, blueprint, following, revision=draft.revision,
                        registry=contracts)
                 if following
                 else None
             )
-            return StepOutcome(outcome, draft.revision, offered, target)
+            settled_in, revision_now = session_row.id, draft.revision
+
+    if not moved:
+        # The next step was offered inside the transaction (`_offer`), so `offer` finds it.
+        session_mod.perform_now(settled_in, Command.SETTLE_STEP.value)
+        return StepOutcome(outcome, revision_now, offered, current_phase(settled_in))
 
     # The registry moved. Resolve again outside the transaction, for `start_building`'s reason.
     fresh, calls = bp.resolve(goal, mode=mode, client=client)
@@ -736,7 +768,6 @@ def settle_step(
             db,
             session_id,
             version,
-            phase=Phase.BUILDING,
             blueprint=fresh.model_dump(mode="json"),
             registry_digest=fresh.registry,
         )
@@ -804,11 +835,11 @@ def _engine_turn(session_id: str, blocks: Callable[[int], list[dict]]) -> None:
         )
 
 
-def _swap(db, session_id: str, version: int, *, phase: Phase, **values: object) -> None:
-    """Move a session inside an open transaction, compare-and-swap on its version.
+def _swap(db, session_id: str, version: int, **values: object) -> None:
+    """Write a session's values inside an open transaction, compare-and-swap on its version.
 
-    `move` opens its own transaction, which is right for a lone phase change and wrong here,
-    where the phase is one of several writes that must land together.
+    **Never its phase or node**: the dispatcher moves a session (`services/session.py`,
+    14.7.8.1), and this writes what a step recorded — facts, a blueprint, the cursor.
     """
     done = db.execute(
         update(PipelineAuthoringSession)
@@ -817,8 +848,6 @@ def _swap(db, session_id: str, version: int, *, phase: Phase, **values: object) 
             PipelineAuthoringSession.row_version == version,
         )
         .values(
-            phase=phase.value,
-            failed_from=None,
             row_version=version + 1,
             updated_at=_now(),
             **values,
@@ -1033,15 +1062,29 @@ def decide_goal(
         authoring_ai.admit_goal(edited, registry.stack())
         goal = edited.model_dump(mode="json")
 
+    accepted = decision is ProposalState.ACCEPTED
+    command = Command.CONFIRM_GOAL if accepted else Command.REVISE_GOAL
+    session_mod.check(session_id, command.value)
     outcome = decide(proposal_id, decision, expected_revision=expected_revision, by=by)
     if outcome.refusal is not None:
         return outcome, current_phase(session_id)
 
+    if accepted:
+        store_goal(session_id, goal)
+    session_mod.perform_now(session_id, command.value)
+    return outcome, current_phase(session_id)
+
+
+def store_goal(session_id: str, goal: dict | None) -> None:
+    """The session's goal: the want the model read until the card composes one (14.7.3), then the
+    confirmed goal. No move: the dispatcher moves the session (14.7.8.1)."""
     with session_scope() as db:
-        version = db.get(PipelineAuthoringSession, session_id).row_version
-    if decision is ProposalState.ACCEPTED:
-        return outcome, move(session_id, st.Event.GOAL_ACCEPTED, row_version=version, goal=goal)
-    return outcome, move(session_id, st.Event.GOAL_REVISED, row_version=version)
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        row.goal = goal
+        row.row_version += 1
+        row.updated_at = _now()
 
 
 def retry(session_id: str) -> tuple[Phase, int | None]:
@@ -1052,13 +1095,8 @@ def retry(session_id: str) -> tuple[Phase, int | None]:
     call failed — its notice says why — and overwriting it would erase the one thing a person
     trying to understand a flaky provider needs to see.
     """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        version = row.row_version
-
-    target = move(session_id, st.Event.RETRY, row_version=version)
+    session_mod.perform_now(session_id, Command.RETRY.value)
+    target = current_phase(session_id)
     if target is not Phase.UNDERSTANDING:
         return target, None
 
@@ -1557,11 +1595,19 @@ the type was the model's guess, not the person's word, and types declare no desc
 
 
 def offer_next_gap(session_id: str) -> str | None:
-    """Offer the next thing the want needs, or the goal card when nothing is missing.
+    """Offer the next thing the want needs, or the goal card when nothing is missing — by
+    resuming the session where it rests (`list_needs` or `next_gap`, 14.7.8.1).
 
     Returns the pending proposal's id, or `None` when nothing can make the want and the person
     was asked again (#202).
     """
+    ran = session_mod.resume(session_id)
+    return pending_id(session_id) if ran.at in {"reply", "card"} else None
+
+
+def need_listed(session_id: str) -> bool:
+    """`list_needs`: can anything make the want? **A dead end asks** (#202): the person is asked
+    what they want, and the want is cleared so their reply is read from the top."""
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
     found = gaps.gaps(wanted.get("want", []), facts, stack)
@@ -1591,8 +1637,18 @@ def offer_next_gap(session_id: str) -> str | None:
                 ).model_dump(mode="json"),
             ],
         )
-        move(session_id, st.Event.WANT_UNREACHABLE, row_version=version, goal=None)
-        return None
+        store_goal(session_id, None)
+        return False
+
+    return True
+
+
+def offer_gap_or_card(session_id: str) -> str:
+    """`next_gap`: offer the next thing the want needs (`a_gap`), or the goal card
+    (`nothing_missing`)."""
+    wanted, facts, version = _gathered(session_id)
+    stack = registry.stack()
+    found = gaps.gaps(wanted.get("want", []), facts, stack)
 
     if not found:
         goal = compose_goal(session_id)
@@ -1606,8 +1662,7 @@ def offer_next_gap(session_id: str) -> str | None:
             suggested=(wanted.get("suggested") or {}).get("required_states") or [],
             get=f"You get: {', '.join(goal.want)}.",
         )
-        move(session_id, st.Event.NOTHING_MISSING, row_version=version)
-        return propose(
+        propose(
             session_id,
             kind=GOAL,
             payload={
@@ -1616,6 +1671,7 @@ def offer_next_gap(session_id: str) -> str | None:
                 "options": {"accept": "accept"},
             },
         )
+        return "nothing_missing"
 
     gap = found[0]
     options = _gap_options(gap, stack, facts)
@@ -1636,7 +1692,7 @@ def offer_next_gap(session_id: str) -> str | None:
         question = _phrased(question, AskedGap.model_validate(phrased), gap.kind, options)
     elif _model_configured() and gap.subject not in settled:  # a recorded refusal is `none`
         question = question.model_copy(update={"phrasing": "pending"})
-    return propose(
+    propose(
         session_id,
         kind=GAP,
         payload={
@@ -1647,6 +1703,7 @@ def offer_next_gap(session_id: str) -> str | None:
             "block": question.model_dump(mode="json"),
         },
     )
+    return "a_gap"
 
 
 STATED_NOTE = "you mentioned it"
@@ -1972,6 +2029,7 @@ def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
         )
         if settled.refusal is not None:
             raise ValueError(settled.refusal)
+        session_mod.check(proposal.session_id, Command.ANSWER_GAP.value)
         if ((payload.get("block") or {}).get("reading") or {}).get("state") == "pending":
             # The person answered while the AI read (issue 241): the reading ends, unspent.
             _set_reading(db, proposal, None)
@@ -1983,21 +2041,26 @@ def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
         session_id = proposal.session_id
         row = db.get(PipelineAuthoringSession, session_id)
         stops = kind is FactKind.INPUT and option == "dont_have"
-        event = st.Event.INPUT_UNAVAILABLE if stops else st.Event.FACT_ADDED
-        target = st.advance(Phase(row.phase), event)
         facts = list(row.facts or [])
         if not stops:
             facts.append(_fact_for(kind, subject, option, value).model_dump(mode="json"))
-        _swap(db, session_id, row.row_version, phase=target, facts=facts)
+        _swap(db, session_id, row.row_version, facts=facts)
 
+    # `_fact_for` decides what an answer means, so it decides the arrow too: *I have it, but
+    # can't share it* is still having the input (`said`), *not sure* is `left_open`.
+    if stops:
+        kind_of = "no_input"
+    elif _fact_for(kind, subject, option, value).source is FactSource.OPEN:
+        kind_of = "left_open"
+    else:
+        kind_of = "said"
+    session_mod.perform_now(session_id, Command.ANSWER_GAP.value, answered=kind_of)
     if stops:
         _say(
             session_id,
             f"This analysis needs {subject}, and without one it cannot be built. Nothing was "
             "built. Start again when you have one, or describe a different analysis.",
         )
-        return target
-    offer_next_gap(session_id)
     return current_phase(session_id)
 
 
@@ -2112,18 +2175,24 @@ def _record_found(
         )
         recorded.append(item.measurement)
     answered = subject in recorded
-    target = Phase(row.phase)
     if answered:
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = by
         proposal.chosen_option = UPLOAD
         proposal.settled_at = _now()
-        target = st.advance(target, st.Event.FACT_ADDED)
     # A sample that changed nothing leaves the session's version alone, so a click the person
     # made meanwhile is not refused as stale (issue 226).
     if answered or facts != (row.facts or []):
-        _swap(db, session_id, row.row_version, phase=target, facts=facts)
+        _swap(db, session_id, row.row_version, facts=facts)
     return recorded, kept, disagreed, answered
+
+
+def _sample_moves(session_id: str, answered: bool) -> None:
+    """A sample's way out of section ②a (14.7.8.1): on to the next question when it answered
+    this one, or staying on it. **The session moved on meanwhile** (spec §8): what it measured
+    stands, and nothing moves."""
+    with contextlib.suppress(Refused):
+        session_mod.perform_now(session_id, Command.UPLOAD_SAMPLE.value, answered=answered)
 
 
 def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer:
@@ -2161,8 +2230,7 @@ def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer
         )
         session_id = proposal.session_id
 
-    if answered:
-        offer_next_gap(session_id)
+    _sample_moves(session_id, answered)
     return SampleAnswer(
         phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
     )
@@ -2283,8 +2351,7 @@ def answer_with_reading(
                 states=[s.id for s in reply.states], recorded=recorded, kept=kept,
                 disagreed=disagreed,
             ))
-    if answered:
-        offer_next_gap(session_id)
+    _sample_moves(session_id, answered)
     return SampleAnswer(
         phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
     )
