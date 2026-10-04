@@ -1587,7 +1587,7 @@ Record the four in `tests/fixtures/guard-ledger.md` under a new heading *2026-10
 
 **Files:** `docs/design/authoring-protocol.md` (*The protocol is code*), `ARCHITECTURE.md` (the `mendel-api` row and the authoring section, if it names `move`), `docs/notes/now.md` (only if it names `move` or `advance`).
 
-- [ ] **Step 1:** In *The protocol is code*, replace the bullet *the state machine is derived* with:
+- [x] **Step 1:** In *The protocol is code*, replace the bullet *the state machine is derived* with:
 
 > - **the session moves by it**: a session stores the node it rests on (`at`). Everything a person or a job does is a command naming an arrow out of that node, refused (MI0216) where none is drawn. Entering an acting node runs its handler (`mendel_api/stages/`), whose outcome names the next arrow. The phase is read off the node a session reaches. `services/session.py` is the only code that writes either.
 
@@ -1595,9 +1595,9 @@ Then update the sentence *To change the protocol, edit `PROTOCOL`*. It now ends:
 
 Add a changelog line for 14.7.8.1b.
 
-- [ ] **Step 2:** `git grep -n "authoring.move\|st.advance\|\.advance(" -- docs ARCHITECTURE.md CLAUDE.md`, and fix each sentence that describes the shell as moving by event. Leave the journal and archived plans as they are.
+- [x] **Step 2:** `git grep -n "authoring.move\|st.advance\|\.advance(" -- docs ARCHITECTURE.md CLAUDE.md`, and fix each sentence that describes the shell as moving by event. Leave the journal and archived plans as they are.
 
-- [ ] **Step 3:** `make check`, then commit. `docs: a session moves by the diagram — at, commands, handlers (#136)`
+- [x] **Step 3:** `make check`, then commit. `docs: a session moves by the diagram — at, commands, handlers (#136)`
 
 ---
 

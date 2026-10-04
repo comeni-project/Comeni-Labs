@@ -124,15 +124,20 @@ The diagram is **generated, not drawn** (14.7.2). One declarative object in the 
 *AI*, *safety*, *stop*; its tier border; its session phase) and every edge (its label and, where
 it moves the session, its event). The design lives in the same object, marked planned. From it:
 
-- **the state machine is derived**: `state.TRANSITIONS` is computed from the built edges that
-  carry events, and a retry out of `failed` may resume only where a return edge is drawn
-  (anything else is refused, MI0212). The object refuses to load when it is inconsistent;
+- **the session moves by it**: a session stores the node it rests on (`at`). Everything a person
+  or a job does is a command naming an arrow out of that node, refused (MI0216) where none is
+  drawn; a retry out of `failed` takes the return arrow back to the phase that failed. Entering an
+  acting node runs its handler (`mendel_api/stages/`), whose outcome names the next arrow. The
+  phase is read off the node a session reaches, and `services/session.py` is the only code that
+  writes either. A section within a request (reading a sample) is one step: its entry node's
+  outcome names the section's way out. The object refuses to load when it is inconsistent;
 - **the diagram is generated**, as a whole file, with `make docs` failing when it is stale;
 - later, **the agents' wiring**: which prompt a node sends and what evidence it receives, per
   protection level, read from the same object instead of scattered through services.
 
 **To change the protocol, edit `PROTOCOL`**, never the state machine: a substep that builds a
-planned part gives its nodes phases and flips `built`.
+planned part gives its nodes phases and flips `built`, and an acting node needs a handler, which
+the binding test demands.
 
 ## Protection profiles: what may cross, per node
 
@@ -208,4 +213,5 @@ tightening is filling in a row, not rewiring.
 | 2026-09-29 | the consultant's words: an acknowledgement, each question phrased by a model, a read-back from the composed goal, the model's constraints as suggestions | 14.7.4 (#167, #176, #186), operator's brainstorm |
 | 2026-09-29 | the type chosen by family first: a *family* step before the goal call; a revision and a retry re-run both; replies enforced in shape by the model server where it can | 14.7.4 (#194), operator's brainstorm: *we aim to have hundreds if not thousands of tools* |
 | 2026-09-30 | a request nothing fits asks, never fails: the family call's verdict first; a want nothing can make returns to the person | 14.7.4 (#202), operator's decision |
+| 2026-10-04 | the diagram moves the session: `at`, a command per arrow, a handler per acting node; redrawn where an arrow was a hand-off (*your answer*, *not quite* back to you, a sample's two ways out) | 14.7.8.1 (#136), operator: *updating the flow means updating the diagram* |
 | 2026-10-04 | the characteriser built: door 6, a fourth AI point, *read by AI*; each property quotes the line that states it and the engine checks the quote; a type an inspector reads goes back to it | 14.7.7 (#135, #244), operator's brainstorm and decision |
