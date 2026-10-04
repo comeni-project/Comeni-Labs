@@ -425,7 +425,8 @@ def test_starting_a_session_accepts_prose_and_a_mode_and_nothing_else():
 
 def test_the_authoring_jobs_run_on_the_ai_worker_and_nowhere_else():
     """`AIWorkerSettings.functions` is the allowlist of what may reach a provider."""
-    ai = set(ai_worker.AIWorkerSettings.functions)
+    # A job may be listed as an ARQ `Function` (one that keeps no result, 14.7.7): unwrap it.
+    ai = {getattr(f, "coroutine", f) for f in ai_worker.AIWorkerSettings.functions}
     ordinary = set(worker.WorkerSettings.functions)
 
     for job in (authoring_jobs.answer_authoring_turn, authoring_jobs.build_authoring_blueprint):

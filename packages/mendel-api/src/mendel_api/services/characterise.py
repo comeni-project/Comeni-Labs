@@ -98,3 +98,79 @@ def excerpt(head: bytes) -> Excerpt | None:
         return None
     start, text = found
     return Excerpt(text=_bounded(text), binary_before=start > 0)
+
+
+_NO_ANSWER = frozenset({"MI0106", "MA0002", "MA0003", "MA0007"})
+"""Codes meaning *no answer could be had*: `authoring_jobs.UNREACHABLE`'s set."""
+
+
+def read_sample(
+    session_id: str,
+    proposal_id: str,
+    attempt: int,
+    text: str,
+    binary_before: bool,
+    *,
+    client_for,
+) -> str:
+    """Read one sample through door 6: families, then the type; record what was admitted.
+    **Never raises for a refusal**; every way out is a reading state the card shows. Returns it.
+
+    `client_for(purpose)` is the job's model seam, `authoring_jobs._client`.
+    """
+    from mendel_api import identity
+    from mendel_api.services import authoring, authoring_ai, protection, registry
+    from mendel_api.settings import settings
+
+    current = authoring.reading_of(proposal_id)
+    if current is None or current.attempt != attempt or current.state != "pending":
+        return "stale"  # a second delivery, or a reading that already ended: no call is spent
+    if not protection.allows(protection.Crossing.DOOR_6):
+        # Refused before the payload is built (spec §4): above level 0 nothing composes.
+        authoring.reading_failed(proposal_id, attempt, "refused", "MI0213")
+        return "refused"
+
+    stack = registry.stack()
+    request = authoring_ai.compose_characterise(
+        text, binary_before=binary_before, registry=registry.digest()
+    )
+    families = None
+    if len(stack.vocabulary.types) >= settings.family_step_from:
+        first = authoring_ai.characterise_families(
+            request,
+            stack=stack,
+            session_id=session_id,
+            client=client_for(authoring_ai.Purpose.CHARACTERISE_FAMILY),
+        )
+        if not first.admitted:
+            return _failed(proposal_id, attempt, first)
+        if not first.reply.families:
+            authoring.reading_failed(proposal_id, attempt, "could_not_tell", None)
+            return "could_not_tell"
+        families = first.reply.families
+    second = authoring_ai.characterise(
+        request,
+        stack=stack,
+        families=families,
+        session_id=session_id,
+        client=client_for(authoring_ai.Purpose.CHARACTERISE),
+    )
+    if not second.admitted:
+        return _failed(proposal_id, attempt, second)
+    if second.reply.type_id is None:
+        authoring.reading_failed(proposal_id, attempt, "could_not_tell", None)
+        return "could_not_tell"
+    _, read_by_engine = authoring._inspectable(stack)
+    handed = second.reply.type_id in read_by_engine
+    authoring.answer_with_reading(
+        proposal_id, attempt, second.reply, by=identity.default_author(), handed_back=handed
+    )
+    return "hand_back" if handed else "read"
+
+
+def _failed(proposal_id: str, attempt: int, outcome) -> str:
+    from mendel_api.services import authoring
+
+    state = "no_answer" if outcome.code in _NO_ANSWER or outcome.code is None else "refused"
+    authoring.reading_failed(proposal_id, attempt, state, outcome.code)
+    return state

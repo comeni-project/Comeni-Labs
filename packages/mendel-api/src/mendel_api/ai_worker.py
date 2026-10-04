@@ -24,6 +24,7 @@ visible rather than silent.
 import logging
 
 from arq.connections import RedisSettings
+from arq.worker import func
 
 from mendel_api.jobs import AI_QUEUE
 from mendel_api.services import authoring_jobs, forge_jobs
@@ -67,6 +68,10 @@ class AIWorkerSettings:
         authoring_jobs.build_authoring_blueprint,
         authoring_jobs.phrase_authoring_gap,
         authoring_jobs.read_back_authoring_goal,
+        # The characteriser (14.7.7) crosses door 6 carrying part of a person's file. **It keeps
+        # no result**: ARQ stores a job's arguments with its result, and the excerpt must leave
+        # Redis when the job does.
+        func(authoring_jobs.characterise_sample, keep_result=0),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE

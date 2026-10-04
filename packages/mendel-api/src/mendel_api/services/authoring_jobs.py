@@ -43,8 +43,9 @@ ANSWER = "answer_authoring_turn"
 BUILD = "build_authoring_blueprint"
 PHRASE = "phrase_authoring_gap"
 READ_BACK = "read_back_authoring_goal"
+CHARACTERISE = "characterise_sample"
 
-AI_JOBS = frozenset({ANSWER, BUILD, PHRASE, READ_BACK})
+AI_JOBS = frozenset({ANSWER, BUILD, PHRASE, READ_BACK, CHARACTERISE})
 """The builder's jobs that reach a provider — `forge_jobs.AI_JOBS`, one agent over.
 
 **Declared by the module that owns them**, and the AI worker's allowlist is held equal to the
@@ -257,6 +258,34 @@ async def enqueue_phrasing(session_id: str) -> None:
             ),
             queue=jobs.AI_QUEUE,
         )
+
+
+async def enqueue_characterise(session_id: str, proposal_id: str, attempt: int, excerpt) -> bool:
+    """Queue the AI reading a sample (14.7.7). **The excerpt rides in the job's arguments**,
+    in Redis until the worker takes it, and the job keeps no result (`ai_worker`). Keyed on the
+    attempt, so a retry is a new job and a double delivery of one is the same."""
+    return await jobs.enqueue(
+        CHARACTERISE,
+        session_id,
+        proposal_id,
+        attempt,
+        excerpt.text,
+        excerpt.binary_before,
+        job_id=jobs.job_id_for("builder", "characterise", proposal_id, str(attempt)),
+        queue=jobs.AI_QUEUE,
+    )
+
+
+async def characterise_sample(
+    ctx: dict, session_id: str, proposal_id: str, attempt: int, text: str, binary_before: bool
+) -> str:
+    """Read a sample nothing here reads, through door 6 (14.7.7). A failure is a reading state."""
+    from mendel_api.services import characterise
+
+    state = characterise.read_sample(
+        session_id, proposal_id, attempt, text, binary_before, client_for=_client
+    )
+    return f"{proposal_id}:{attempt}:{state}"
 
 
 async def read_back_authoring_goal(ctx: dict, session_id: str) -> str:

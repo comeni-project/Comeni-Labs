@@ -694,7 +694,9 @@ def test_no_job_on_a_worker_list_is_an_unimplemented_stub():
 
     listed = [*AIWorkerSettings.functions, *WorkerSettings.functions]
     assert listed, "an empty list would make this assert nothing"
-    for function in listed:
+    for listed_as in listed:
+        # A job may be listed as an ARQ `Function` (one that keeps no result, 14.7.7): unwrap it.
+        function = getattr(listed_as, "coroutine", listed_as)
         source = (function.__doc__ or "") + repr(function.__code__.co_consts)
         assert "NotImplementedError" not in source, f"{function.__name__} is a stub on a queue"
 
@@ -712,8 +714,8 @@ def test_the_two_worker_function_lists_are_disjoint():
     from mendel_api.ai_worker import AIWorkerSettings
     from mendel_api.worker import WorkerSettings
 
-    ai = {f.__name__ for f in AIWorkerSettings.functions}
-    ordinary = {f.__name__ for f in WorkerSettings.functions}
+    ai = {getattr(f, "coroutine", f).__name__ for f in AIWorkerSettings.functions}
+    ordinary = {getattr(f, "coroutine", f).__name__ for f in WorkerSettings.functions}
     assert ai, "an empty list would make the check below assert nothing"
     assert ai & ordinary == set()
     # **Every owner's declared set, and nothing else.** The builder became the second agent on

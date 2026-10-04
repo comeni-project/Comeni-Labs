@@ -1,12 +1,14 @@
 """A reading on a question (14.7.7): started, waited on, refused while out, aged, offered."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from comeni_ai import Client, ModelAccess, ModelUnavailableError
 from mendel_api.authoring.types import CharacteriseReply, ReadMeasurement
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal
-from mendel_api.services import authoring, characterise
+from mendel_api.services import authoring, characterise, protection
 from test_authoring_samples import (  # noqa: F401
     _database_is_reachable,
     _gathering,
@@ -22,6 +24,11 @@ pytestmark = pytest.mark.skipif(not _database_is_reachable(), reason="no databas
 def readable(monkeypatch):
     """Level 0 and a model configured: the characteriser is available."""
     monkeypatch.setattr(characterise, "available", lambda: True)
+    # `conftest` switches the family step off for every test; the characteriser's two calls are
+    # what is under test here, so it is switched back on (production's `0`).
+    from mendel_api.settings import settings
+
+    monkeypatch.setattr(settings, "family_step_from", 0)
 
 
 def _at(subject):
@@ -185,3 +192,113 @@ def test_a_reading_after_the_question_was_answered_by_a_click_records_nothing(cl
         pid, attempt, CharacteriseReply(type_id="genome.fasta"), by="ana", handed_back=False
     )
     assert late is None
+
+
+class _Answers:
+    def __init__(self, *bodies):
+        self.bodies, self.sent = list(bodies), []
+
+    def send(self, access, prompt):
+        self.sent.append(prompt)
+        body = self.bodies.pop(0)
+        if isinstance(body, Exception):
+            raise body
+        return body
+
+
+def _clients(*bodies):
+    answers = _Answers(*bodies)
+    client = Client(ModelAccess(model="fake/test", base_url="http://localhost:1"),
+                    transport=answers)
+    return (lambda purpose: client), answers
+
+
+FASTA = ">chr1 a reference\n" + "ACGT" * 60 + "\n"
+
+
+def _read(pid, sid, *bodies):
+    client_for, answers = _clients(*bodies)
+    attempt = authoring.start_reading(pid)
+    state = characterise.read_sample(sid, pid, attempt, FASTA, False, client_for=client_for)
+    return state, answers
+
+
+def test_the_job_reads_families_then_the_type_and_records_it(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    state, answers = _read(
+        pid, sid,
+        json.dumps({"families": ["genome"]}),
+        json.dumps({"type_id": "genome.fasta", "states": [], "measurements": [],
+                    "undetermined": [], "unmatched": []}),
+    )
+    assert state == "read" and len(answers.sent) == 2
+    assert authoring.pending_id(sid) != pid
+
+
+def test_no_family_ends_as_could_not_tell_with_one_call(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    state, answers = _read(pid, sid, json.dumps({"families": []}))
+    assert state == "could_not_tell" and len(answers.sent) == 1
+    assert authoring.reading_of(pid).state == "could_not_tell"
+
+
+def test_an_undeclared_id_ends_as_refused_with_its_code(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    _read(pid, sid, json.dumps({"families": ["variants"]}))
+    reading = authoring.reading_of(pid)
+    assert reading.state == "refused" and reading.code == "MI0204"
+
+
+def test_a_provider_that_does_not_answer_ends_as_no_answer(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    state, _ = _read(pid, sid, ModelUnavailableError("down"))
+    assert state == "no_answer" and authoring.reading_of(pid).code == "MA0007"
+
+
+def test_a_type_the_engine_reads_is_handed_back(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    state, _ = _read(
+        pid, sid,
+        json.dumps({"families": ["fastq"]}),
+        json.dumps({"type_id": "fastq.reads", "states": [], "measurements": [],
+                    "undetermined": [], "unmatched": []}),
+    )
+    assert state == "hand_back"
+
+
+def test_above_level_0_door_6_refuses_before_composing(clean, readable, monkeypatch):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    monkeypatch.setattr(protection, "allows", lambda crossing: False)
+    state, answers = _read(pid, sid, json.dumps({"families": ["genome"]}))
+    assert state == "refused" and answers.sent == []
+    assert authoring.reading_of(pid).code == "MI0213"
+
+
+def test_a_stale_delivery_spends_no_call(clean, readable):  # noqa: F811
+    sid, pid = _at("genome.fasta")
+    client_for, answers = _clients(json.dumps({"families": ["genome"]}))
+    authoring.start_reading(pid)
+    authoring.reading_failed(pid, 1, "no_answer", "MA0007")
+    characterise.read_sample(sid, pid, 1, FASTA, False, client_for=client_for)
+    assert answers.sent == []
+
+
+def test_with_the_family_step_off_one_call_reads_the_type(clean, readable, monkeypatch):  # noqa: F811
+    from mendel_api.settings import settings
+    monkeypatch.setattr(settings, "family_step_from", 10_000)
+    sid, pid = _at("genome.fasta")
+    state, answers = _read(
+        pid, sid,
+        json.dumps({"type_id": "genome.fasta", "states": [], "measurements": [],
+                    "undetermined": [], "unmatched": []}),
+    )
+    assert state == "read" and len(answers.sent) == 1
+
+
+def test_the_job_keeps_no_result_so_the_excerpt_leaves_redis_with_it():
+    from mendel_api import ai_worker
+    from mendel_api.services import authoring_jobs
+
+    [entry] = [f for f in ai_worker.AIWorkerSettings.functions
+               if getattr(f, "name", None) == authoring_jobs.CHARACTERISE]
+    assert entry.keep_result_s == 0 and not entry.keep_result_forever
