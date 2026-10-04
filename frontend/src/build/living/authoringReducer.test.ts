@@ -285,4 +285,9 @@ describe("waiting for a model's words (issues 167 and 176)", () => {
   it("polls while a card's read-back is being written", () => {
     expect(isWaiting(offered({ readback_pending: true }))).toBe(true);
   });
+
+  it("waits while the AI reads a sample, and stops once its reading arrived (issue 135)", () => {
+    expect(isWaiting(offered({ reading: { state: "pending", attempt: 1 } }))).toBe(true);
+    expect(isWaiting(offered({ reading: { state: "read", attempt: 1 } }))).toBe(false);
+  });
 });

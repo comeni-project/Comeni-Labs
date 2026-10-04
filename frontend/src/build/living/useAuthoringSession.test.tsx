@@ -213,3 +213,25 @@ describe("what an upload sends", () => {
     expect(sent.size).toBe(4 * 2 ** 20);
   });
 });
+
+
+describe("coming back to the page (issue 230)", () => {
+  it("asks again when the page is shown, so a reading that landed while hidden appears", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const sessionReads = () =>
+      fetch.mock.calls.filter(([url]) => String(url).endsWith("/authoring/s1")).length;
+    renderHook(() => useAuthoringSession("s1", { pollMs: 100 }), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(sessionReads()).toBe(1));
+    act(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => expect(sessionReads()).toBe(2));
+  });
+});

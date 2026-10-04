@@ -233,8 +233,11 @@ export function isWaiting(session: AuthoringSession | null | undefined): boolean
   // A question being phrased, or a card's read-back being written: the model's words are on
   // their way, and this poll is how they arrive — no second timer (issues 167 and 176).
   const block = session.pending_proposal?.block as
-    { phrasing?: string; readback_pending?: boolean } | undefined;
+    { phrasing?: string; readback_pending?: boolean; reading?: { state?: string } | null }
+    | undefined;
   if (block?.phrasing === "pending" || block?.readback_pending) return true;
+  // The AI reading a sample (issue 135): its answer arrives on this poll, like a phrasing.
+  if (block?.reading?.state === "pending") return true;
   // A Spawn blueprint resolves on the AI worker; the session sits in `resolving` until it lands.
   return session.phase === "resolving";
 }
