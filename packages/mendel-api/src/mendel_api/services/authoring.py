@@ -111,6 +111,7 @@ def open_session(draft_id: str, *, mode: Mode, who: str) -> str:
                 draft_id=draft_id,
                 mode=mode.value,
                 phase=Phase.UNDERSTANDING.value,
+                at="say",
                 failed_from=None,
                 goal=None,
                 facts=[],
@@ -282,6 +283,10 @@ def calls(session_id: str) -> list[dict]:
 def move(session_id: str, event: st.Event, *, row_version: int, **values: object) -> Phase:
     """One phase change, compare-and-swap on the session's own version.
 
+    **Setup for tests only** (ruling 5 of 14.7.8.1b): nothing under `src/` calls it, which
+    `test_authoring_binding.py` holds. It clears `at`, so the node is derived from the phase it
+    sets (`session.rests_at`).
+
     `state.advance` decides *whether* and `UPDATE … WHERE row_version` decides *whether it is
     still ours*. Both are needed and they catch different mistakes — the first an illegal move,
     the second a legal move applied to a session somebody else already moved.
@@ -309,6 +314,7 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
             .values(
                 phase=target.value,
                 failed_from=failed,
+                at=None,
                 row_version=row_version + 1,
                 updated_at=_now(),
                 **values,

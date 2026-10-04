@@ -507,7 +507,7 @@ In the generated mermaid:
   - `PipelineAuthoringSession.at: str | None`.
   - `session.rests_at(db, row) -> str`: the stored node, or the node derived from the phase, the pending proposal and the pending turn.
 
-- [ ] **Step 1: Write the failing tests** (`test_authoring_at.py`)
+- [x] **Step 1: Write the failing tests** (`test_authoring_at.py`)
 
 ```python
 """Where a session rests (14.7.8.1): `at`, and the node derived for a row from before it."""
@@ -606,13 +606,13 @@ def test_a_test_moving_by_event_leaves_the_node_to_be_derived(sid):
 
 Check the `PipelineDraft` column names against `models.py` before running. Copy them from `test_authoring_service.py`'s `draft` fixture, which writes the same row.
 
-- [ ] **Step 2: Run them; expected FAIL.**
+- [x] **Step 2: Run them; expected FAIL.**
 
 `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_at.py -q`
 
 Expected: `ImportError` on `session` (cannot import name). Apply the migration to the test database once with `MENDEL_DATABASE_URL=… make migrate` after Step 3.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `models.py`, after `failed_from`:
 
@@ -702,14 +702,14 @@ def rests_at(db, row: PipelineAuthoringSession) -> str:
 - add `at=None` to its `.values(...)`;
 - give its docstring a first paragraph: *Setup for tests only (ruling 5 of 14.7.8.1b): nothing under `src/` calls it, which `test_authoring_binding.py` holds. It clears `at`, so the node is derived from the phase it sets.*
 
-- [ ] **Step 4: Run them; expected PASS.**
+- [x] **Step 4: Run them; expected PASS.**
 
 ```bash
 MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make migrate
 MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_at.py packages/mendel-api/tests/test_migrations.py -q
 ```
 
-- [ ] **Step 5: `make verify`, then commit.** `feat(authoring): a session stores the node it rests on (#136)`
+- [x] **Step 5: `make verify`, then commit.** `feat(authoring): a session stores the node it rests on (#136)`
 
 ---
 

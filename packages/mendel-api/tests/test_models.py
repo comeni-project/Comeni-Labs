@@ -252,6 +252,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             # `sample` label is filled only at protection level 0 (14.7.6), a loosening of
             # invariant 15 recorded in docs/design/authoring-protocol.md.
             "facts",
+            # 14.7.8.1: the protocol node the session rests on — a node id, nothing of a file.
+            "at",
         },
         "pipeline_authoring_turn": {
             "id", "session_id", "seq", "role", "state", "blocks", "text", "base_revision",

@@ -632,6 +632,13 @@ class PipelineAuthoringSession(Base):
 
     Nullable, and null is not a sentinel: a session that has never failed has no such phase, and
     `""` would be a phase name that is not one."""
+    at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    """The protocol node this session rests on (14.7.8.1): `mendel_authoring.protocol`'s id,
+    written only by the dispatcher (`services/session.py`). The phase is read off that node.
+
+    **Null on a row from before it existed**, and on a row a test moved by event: the node is
+    then derived from the phase, the pending proposal and the pending turn
+    (`session.rests_at`), and the first move writes it."""
     goal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     """The confirmed `Goal`, mirrored onto `pipeline_draft.goal` when the person accepts it.
 
