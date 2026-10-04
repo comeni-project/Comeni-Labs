@@ -16,7 +16,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from mendel_authoring.types import Event, Phase
+from mendel_authoring.types import Command, Event, Phase
 
 
 class Actor(StrEnum):
@@ -68,6 +68,11 @@ class Node(_Frozen):
     border: Border = Border.NONE
     shape: Shape = Shape.BOX
     built: bool = False
+    acts: bool = False
+    """A handler runs when a session enters this node (14.7.8.1). It returns the outcome that
+    names the arrow on, or nothing, and the session rests here."""
+    waits: bool = False
+    """A session may rest here, until a command names an arrow out."""
 
 
 class Edge(_Frozen):
@@ -80,6 +85,9 @@ class Edge(_Frozen):
     """A retry out of `failed`, resuming where the failure happened. Its target is chosen by
     `failed_from`, so return edges are exempt from one-target-per-event."""
     built: bool = False
+    on: str | None = None
+    """What takes this arrow: a `Command` out of a waiting node, an outcome out of an acting one;
+    `None` for the one way straight on (14.7.8.1)."""
 
 
 class Protocol(_Frozen):
@@ -137,6 +145,24 @@ class Protocol(_Frozen):
                     f"{edge.source}→{edge.target} carries {edge.event}, and a within-request "
                     "section never moves the session"
                 )
+        commands = {c.value for c in Command}
+        for node in self.nodes:
+            out = [e for e in self.edges if e.source == node.id and e.built]
+            named = [e.on for e in out if e.on is not None]
+            twice = sorted({n for n in named if named.count(n) > 1})
+            if twice:
+                raise ValueError(f"{node.id}: {twice} names two arrows out — twice is ambiguous")
+            if node.waits and not node.acts and node.built:
+                # Only a command leaves a node that rests and does nothing: an outcome would
+                # need a handler to return it.
+                strays = sorted(set(named) - commands)
+                if strays:
+                    raise ValueError(f"{node.id} waits, and {strays} is not a command")
+            # A node that takes no part yet (today's whole protocol) may fan out unnamed; 1b marks
+            # each node and the rule then holds everywhere.
+            takes_part = node.acts or node.waits or bool(named)
+            if takes_part and sum(1 for e in out if e.on is None) > 1:
+                raise ValueError(f"{node.id} has more than one way straight through")
         return self
 
     def _phase(self, node_id: str) -> Phase:

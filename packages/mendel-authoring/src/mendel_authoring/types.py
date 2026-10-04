@@ -82,3 +82,21 @@ class ProposalState(StrEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     STALE = "stale"
+
+
+class Command(StrEnum):
+    """What a person (or, from 1b, a job) can do to a session: each is an arrow out of a
+    waiting node (spec §3.2). Refused with MI0216 wherever no arrow names it."""
+
+    DESCRIBE = "describe"
+    ANSWER_GAP = "answer_gap"
+    UPLOAD_SAMPLE = "upload_sample"
+    CONFIRM_GOAL = "confirm_goal"
+    REVISE_GOAL = "revise_goal"
+    CHOOSE_PACING = "choose_pacing"
+    CONTINUE = "continue"
+    ANSWER_FACT = "answer_fact"
+    CHOOSE = "choose"
+    ASK = "ask"
+    KEEP = "keep"
+    RETRY = "retry"

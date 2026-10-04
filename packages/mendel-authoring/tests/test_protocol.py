@@ -8,7 +8,7 @@ import pytest
 from mendel_authoring import protocol as p
 from mendel_authoring import state as st
 from mendel_authoring.protocol import Actor, Node, Protocol, Stage
-from mendel_authoring.types import Event, Phase
+from mendel_authoring.types import Command, Event, Phase
 
 S = (p.Stage(id="s", title="S"),)
 
@@ -258,3 +258,54 @@ def test_the_model_reads_through_a_door_the_diagram_names():
     nodes = {n.id: n for n in p.PROTOCOL.nodes}
     for step in ("families", "types"):
         assert "door 6" in nodes[f"sample_{step}"].label.lower(), step
+
+
+# ── a node acts or waits; an arrow names what takes it (14.7.8.1) ───────────────────────────
+
+
+def _proto(nodes, edges):
+    return Protocol(stages=(Stage(id="s", title="s"),), nodes=tuple(nodes), edges=tuple(edges))
+
+
+def _taking(id, **kw):
+    return Node(id=id, stage="s", actor=Actor.ENGINE, label=id, phase=Phase.GATHERING,
+                built=True, **kw)
+
+
+def test_two_arrows_out_of_one_node_cannot_answer_to_the_same_name():
+    with pytest.raises(ValueError, match="twice"):
+        _proto([_taking("a", acts=True), _taking("b"), _taking("c")],
+               [p.Edge(source="a", target="b", on="yes", built=True),
+                p.Edge(source="a", target="c", on="yes", built=True)])
+
+
+def test_a_waiting_node_is_left_only_by_a_declared_command():
+    with pytest.raises(ValueError, match="not a command"):
+        _proto([_taking("a", waits=True), _taking("b")],
+               [p.Edge(source="a", target="b", on="whatever", built=True)])
+    _proto([_taking("a", waits=True), _taking("b")],
+           [p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True)])
+
+
+def test_a_node_has_at_most_one_way_straight_through():
+    with pytest.raises(ValueError, match="straight through"):
+        _proto([_taking("a", waits=True), _taking("b"), _taking("c")],
+               [p.Edge(source="a", target="b", built=True),
+                p.Edge(source="a", target="c", built=True)])
+
+
+def test_a_node_that_takes_no_part_may_still_fan_out_unnamed():
+    """Today's protocol: no node marked, no arrow named. 1b turns the rule on as it marks each."""
+    _proto([_taking("a"), _taking("b"), _taking("c")],
+           [p.Edge(source="a", target="b", built=True), p.Edge(source="a", target="c", built=True)])
+
+
+def test_the_real_protocol_still_loads():
+    assert p.PROTOCOL.nodes
+
+
+def test_the_commands_are_the_specs():
+    assert {c.value for c in Command} == {
+        "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
+        "choose_pacing", "continue", "answer_fact", "choose", "ask", "keep", "retry",
+    }

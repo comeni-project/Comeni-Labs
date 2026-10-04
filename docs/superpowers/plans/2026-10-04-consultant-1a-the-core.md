@@ -348,7 +348,7 @@ generated mermaid: the `sample` subgraph sits after `gather`, and nothing is dra
   - `Node.waits: bool = False` (the session may rest here for a command).
   - `Edge.on: str | None = None` (from a waiting node, a `Command` value; from an acting node, an outcome the handler returns; `None`, the one way on from a node that passes straight through).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from mendel_authoring.protocol import Edge, Node, Protocol, Stage
@@ -395,9 +395,9 @@ protocol is drawn today. **So the *straight through* rule applies only once a no
 when it `acts` or `waits`, or any of its arrows has an `on`. 1b turns the rule on everywhere as it
 marks each node.
 
-- [ ] **Step 2: Run them; expected FAIL.**
+- [x] **Step 2: Run them; expected FAIL.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `types.py`:
 
@@ -460,9 +460,9 @@ In `_consistent`, after the existing loop over edges:
         return self
 ```
 
-- [ ] **Step 4: Run them; expected PASS**, and the whole `packages/mendel-authoring` suite.
+- [x] **Step 4: Run them; expected PASS**, and the whole `packages/mendel-authoring` suite.
 
-- [ ] **Step 5: `make check`, then commit.** `feat(authoring): a node acts or waits, and an arrow names what takes it (#136)`
+- [x] **Step 5: `make check`, then commit.** `feat(authoring): a node acts or waits, and an arrow names what takes it (#136)`
 
 ---
 
