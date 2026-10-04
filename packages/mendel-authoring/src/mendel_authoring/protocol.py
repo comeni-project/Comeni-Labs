@@ -145,16 +145,33 @@ class Protocol(_Frozen):
                     f"{edge.source}→{edge.target} carries {edge.event}, and a within-request "
                     "section never moves the session"
                 )
+        for stage in self.stages:
+            if not stage.within_request:
+                continue
+            leaving = [
+                e.on
+                for e in self.edges
+                if e.built
+                and nodes[e.source].stage == stage.id
+                and nodes[e.target].stage != stage.id
+            ]
+            if any(on is not None for on in leaving) and (
+                None in leaving or len(set(leaving)) != len(leaving)
+            ):
+                raise ValueError(f"the ways out of section {stage.id} need a name each, once")
         commands = {c.value for c in Command}
         for node in self.nodes:
             out = [e for e in self.edges if e.source == node.id and e.built]
-            named = [e.on for e in out if e.on is not None]
+            # Return arrows may share a name: the failure (`failed_from`) chooses between them.
+            named = [e.on for e in out if e.on is not None and not e.returns]
             twice = sorted({n for n in named if named.count(n) > 1})
             if twice:
                 raise ValueError(f"{node.id}: {twice} names two arrows out — twice is ambiguous")
-            if named and not (node.acts or node.waits) and node.built:
+            inside = node.stage in {st.id for st in self.stages if st.within_request}
+            if named and not (node.acts or node.waits or inside) and node.built:
                 # Nothing could take a named arrow: no handler returns an outcome here, and no
-                # session rests here for a command (final review of 1a).
+                # session rests here for a command (final review of 1a). A section's ways out
+                # are the exception: the node entering the section takes them (`exits`).
                 raise ValueError(
                     f"{node.id} neither acts nor waits, so {sorted(named)} is never taken"
                 )
@@ -170,6 +187,25 @@ class Protocol(_Frozen):
             if takes_part and sum(1 for e in out if e.on is None) > 1:
                 raise ValueError(f"{node.id} has more than one way straight through")
         return self
+
+    def exits(self, node_id: str) -> list[Edge]:
+        """The ways out of the within-request section `node_id` leads into, if it leads into one.
+
+        **A section within a request is one step** (14.7.8.1): the node entering it acts, runs
+        the section's steps inside its request, and its outcome names a way *out* of the
+        section. The steps inside are drawn so the card and the picture share ids, and are never
+        run by the interpreter."""
+        within = {s.id for s in self.stages if s.within_request}
+        stage_of = {n.id: n.stage for n in self.nodes}
+        into = {stage_of[e.target] for e in self.edges if e.built and e.source == node_id}
+        if len(into) != 1 or not into <= within or stage_of.get(node_id) in into:
+            return []
+        (section,) = into
+        return [
+            e
+            for e in self.edges
+            if e.built and stage_of[e.source] == section and stage_of[e.target] != section
+        ]
 
     def _phase(self, node_id: str) -> Phase:
         return next(n.phase for n in self.nodes if n.id == node_id)

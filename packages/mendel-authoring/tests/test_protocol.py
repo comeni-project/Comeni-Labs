@@ -304,11 +304,26 @@ def test_the_real_protocol_still_loads():
     assert p.PROTOCOL.nodes
 
 
-def test_the_commands_are_the_specs():
+def test_the_commands_are_the_specs_and_1bs():
     assert {c.value for c in Command} == {
         "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
         "choose_pacing", "continue", "answer_fact", "choose", "ask", "keep", "retry",
+        "reply_in_words", "settle_step", "understood", "asked_back", "revised",
+        "provider_failed",
     }
+
+
+def test_the_ways_out_of_a_section_are_named_once_each():
+    with pytest.raises(ValueError, match="ways out of section"):
+        Protocol(
+            stages=(Stage(id="s", title="s"), Stage(id="w", title="w", within_request=True)),
+            nodes=(_taking("a", acts=True), _taking("b"), _taking("c"),
+                   Node(id="w1", stage="w", actor=Actor.ENGINE, label="w1",
+                        phase=Phase.GATHERING, built=True)),
+            edges=(p.Edge(source="a", target="w1", built=True),
+                   p.Edge(source="w1", target="b", on="answered", built=True),
+                   p.Edge(source="w1", target="c", built=True)),
+        )
 
 
 def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():

@@ -120,7 +120,7 @@ There is no `goal.py` stage module: the card's two commands have no acting node 
   - `interpret.follow(protocol, at, on, *, returning_to: Phase | None = None) -> Edge`
   - `interpret.run(protocol, at, command: str | None, enter, *, returning_to: Phase | None = None, limit=64) -> Ran`. `command=None` resumes: it enters `at` itself.
 
-- [ ] **Step 1: Write the failing tests** (append to `test_interpret.py`)
+- [x] **Step 1: Write the failing tests** (append to `test_interpret.py`)
 
 ```python
 from mendel_authoring.types import Event
@@ -197,7 +197,7 @@ def test_the_ways_out_of_a_section_are_named_once_each():
 
 In `test_protocol.py`, update `test_the_commands_are_the_specs` to the eighteen values: the twelve, plus `reply_in_words`, `settle_step`, `understood`, `asked_back`, `revised` and `provider_failed`. Rename it `test_the_commands_are_the_specs_and_1bs`.
 
-- [ ] **Step 2: Run them; expected FAIL**
+- [x] **Step 2: Run them; expected FAIL**
 
 `uv run pytest packages/mendel-authoring -q`
 
@@ -208,7 +208,7 @@ Expected:
 - no ValueError for the unnamed way out;
 - the command set differing.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `types.py`, at the end of `Command`:
 
@@ -307,9 +307,9 @@ In `run`, take `command: str | None` and `returning_to: Phase | None = None`, an
 
 Update `run`'s docstring: *`command=None` resumes: `at` itself is entered.*
 
-- [ ] **Step 4: Run them; expected PASS.** `uv run pytest packages/mendel-authoring -q`. The real protocol still loads: no node in it takes part yet.
+- [x] **Step 4: Run them; expected PASS.** `uv run pytest packages/mendel-authoring -q`. The real protocol still loads: no node in it takes part yet.
 
-- [ ] **Step 5: `make check`, then commit.** `feat(authoring): retry chooses by the failure, a section is one step, and a session can be resumed (#136)`
+- [x] **Step 5: `make check`, then commit.** `feat(authoring): retry chooses by the failure, a section is one step, and a session can be resumed (#136)`
 
 ---
 

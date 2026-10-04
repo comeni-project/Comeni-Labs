@@ -11,6 +11,7 @@ from typing import NamedTuple
 from comeni_core.diagnostics import coded
 
 from mendel_authoring.protocol import Edge, Node, Protocol
+from mendel_authoring.types import Phase
 
 
 class Refused(ValueError):
@@ -24,9 +25,19 @@ class Ran(NamedTuple):
     """Every node entered, in order, ending at `at`."""
 
 
-def follow(protocol: Protocol, at: str, on: str | None) -> Edge:
-    """The built arrow out of `at` that `on` names; `None` names the one way straight on."""
+def follow(
+    protocol: Protocol, at: str, on: str | None, *, returning_to: Phase | None = None
+) -> Edge:
+    """The built arrow out of `at` that `on` names; `None` names the one way straight on.
+
+    Out of a node that enters a within-request section, the section's ways out are its own. Of
+    several return arrows, the one back to `returning_to`, the phase that failed, is taken."""
     found = [e for e in protocol.edges if e.built and e.source == at and e.on == on]
+    if not found:
+        found = [e for e in protocol.exits(at) if e.on == on]
+    if len(found) > 1 and returning_to is not None:
+        phase = {n.id: n.phase for n in protocol.nodes}
+        found = [e for e in found if not e.returns or phase[e.target] is returning_to]
     if not found:
         named = "the way straight on" if on is None else repr(on)
         raise Refused(coded("MI0216", f"from {at!r}, nothing leads on by {named}"))
@@ -36,9 +47,10 @@ def follow(protocol: Protocol, at: str, on: str | None) -> Edge:
 def run(
     protocol: Protocol,
     at: str,
-    command: str,
+    command: str | None,
     enter: Callable[[str], str | None],
     *,
+    returning_to: Phase | None = None,
     limit: int = 64,
 ) -> Ran:
     """Follow `command` out of `at`, then on through every node until the session rests.
@@ -46,9 +58,14 @@ def run(
     An acting node is entered, and its outcome names the arrow on (`None`: rest there). A node
     that neither acts nor waits, with one way on, is passed straight through. Anything else is
     where the session rests. More than `limit` nodes without resting is a cycle, refused.
+    `command=None` resumes: `at` itself is entered.
     """
     nodes: dict[str, Node] = {n.id: n for n in protocol.nodes}
-    node = nodes[follow(protocol, at, command).target]
+    if command is None:
+        # **Resuming** (14.7.8.1): the session is entered where it rests, as if just arrived.
+        node = nodes[at]
+    else:
+        node = nodes[follow(protocol, at, command, returning_to=returning_to).target]
     path = [node.id]
     while len(path) <= limit:
         if node.acts:

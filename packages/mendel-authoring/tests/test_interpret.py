@@ -3,7 +3,7 @@
 import pytest
 from mendel_authoring.interpret import Refused, follow, run
 from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
-from mendel_authoring.types import Command, Phase
+from mendel_authoring.types import Command, Event, Phase
 
 
 def _n(id, **kw):
@@ -77,3 +77,56 @@ def test_a_planned_arrow_is_never_followed():
     )
     with pytest.raises(Refused, match="MI0216"):
         follow(planned, "a", Command.CONTINUE.value)
+
+
+def _phased(id, phase, **kw):
+    return Node(id=id, stage="s", actor=Actor.ENGINE, label=id, phase=phase, built=True, **kw)
+
+
+RETRYING = Protocol(
+    stages=(Stage(id="s", title="s"),),
+    nodes=(
+        _phased("failed", Phase.FAILED, waits=True),
+        _phased("family", Phase.UNDERSTANDING, waits=True),
+        _phased("resolve", Phase.RESOLVING, waits=True),
+    ),
+    edges=(
+        Edge(source="failed", target="family", on="retry", event=Event.RETRY, returns=True,
+             built=True),
+        Edge(source="failed", target="resolve", on="retry", event=Event.RETRY, returns=True,
+             built=True),
+    ),
+)
+
+
+def test_two_return_arrows_share_the_retry_name_and_the_failure_chooses():
+    assert follow(RETRYING, "failed", "retry", returning_to=Phase.RESOLVING).target == "resolve"
+    assert follow(RETRYING, "failed", "retry", returning_to=Phase.UNDERSTANDING).target == "family"
+
+
+SECTIONED = Protocol(
+    stages=(Stage(id="s", title="s"), Stage(id="w", title="w", within_request=True)),
+    nodes=(
+        _n("reply", waits=True), _n("upload", acts=True), _n("next"),
+        Node(id="w_in", stage="w", actor=Actor.ENGINE, label="in", phase=Phase.GATHERING,
+             built=True),
+        Node(id="w_back", stage="w", actor=Actor.ENGINE, label="back", phase=Phase.GATHERING,
+             built=True),
+    ),
+    edges=(
+        _e("reply", "upload", Command.UPLOAD_SAMPLE.value), _e("upload", "w_in"),
+        _e("w_in", "w_back"), _e("w_back", "next", "answered"), _e("w_back", "reply", "stays"),
+    ),
+)
+
+
+def test_a_section_within_a_request_is_one_step_and_its_ways_out_are_the_entry_nodes():
+    ran = run(SECTIONED, "reply", Command.UPLOAD_SAMPLE.value, lambda node: "answered")
+    assert ran.at == "next" and ran.path == ["upload", "next"]
+    stays = run(SECTIONED, "reply", Command.UPLOAD_SAMPLE.value, lambda node: "stays")
+    assert stays.at == "reply"
+
+
+def test_resuming_enters_where_the_session_rests():
+    ran = run(GATHER, "next_gap", None, lambda node: {"next_gap": "a_gap"}.get(node))
+    assert ran.at == "ask" and ran.path == ["next_gap", "ask"]
