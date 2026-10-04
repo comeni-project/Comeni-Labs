@@ -160,6 +160,19 @@ describe("the goal card", () => {
     expect(within(open).getByText("read_length")).toBeInTheDocument();
   });
 
+  it("labels an input and a fact the AI read as read by AI (issue 135)", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "genome.fasta", source: "model_read", states: [], pieces: [] },
+      { kind: "measurement", subject: "paired", source: "model_read", states: [], pieces: [], value: true },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByText(/genome\.fasta/).closest("li")).toHaveTextContent("read by AI");
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/paired/)).toHaveTextContent("read by AI");
+  });
+
   it("shows the engine's sentence until the read-back lands, then the AI's words, labelled", () => {
     // Issue 176: the read-back is written from the composed goal, and says whose words it is.
     const waiting = { ...goal, block: { ...goal.block, readback_pending: true } } as typeof goal;
