@@ -67,7 +67,7 @@
 - Consumes: `comeni_core.spell.marks.EXCERPT_BYTES`, `EXCERPT_LINES` (plan 1, Task 3).
 - Produces: `characterise.Excerpt(text: str, binary_before: bool)` (a `NamedTuple`); `characterise.excerpt(head: bytes) -> Excerpt | None`; `DECODED_CAP = 64 * 1024`; `MIN_TEXT = 200`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The excerpt a model is shown (spec §5): readable text, bounded, never more."""
@@ -169,12 +169,12 @@ def test_never_more_than_the_cap_is_decoded():
     assert calls and all(0 < n <= DECODED_CAP for n in calls)
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_characterise_excerpt.py -q`
 Expected: FAIL with `ModuleNotFoundError: mendel_api.services.characterise`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 """The characteriser (14.7.7): what a model is shown of a sample, whether one may read it, and
@@ -266,12 +266,12 @@ def excerpt(head: bytes) -> Excerpt | None:
     return Excerpt(text=_bounded(text), binary_before=start > 0)
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run the Step 2 command.
 Expected: PASS. If `test_many_lines_are_cut_at_the_line_bound` gets fewer than 200 lines, the byte bound came first; lengthen nothing and shorten the test's line instead. The bounds are the spec's.
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 
@@ -301,7 +301,7 @@ git commit -m "feat(api): the excerpt — readable text from a sample's head, gz
   - `authoring.reading_of(proposal_id: str) -> SampleReading | None`;
   - `authoring.STALE_AFTER` (seconds).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `packages/mendel-api/tests/test_characterise_reading.py`:
 
@@ -409,12 +409,12 @@ def test_available_needs_the_level_and_a_model(monkeypatch):
     assert not characterise.available()
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_characterise_reading.py -q`
 Expected: FAIL (`available` and `start_reading` do not exist).
 
-- [ ] **Step 3: Declare MI0215**
+- [x] **Step 3: Declare MI0215**
 
 In `diagnostics.yml`, after MI0214:
 
@@ -436,7 +436,7 @@ MI0215:
 
 Run `uv run python tools/generate_diagnostics_doc.py`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `types.py`, before `Question`:
 
@@ -601,12 +601,12 @@ def _aged(payload: dict) -> dict:
     return {**payload, "block": {**block, "reading": _reading(block)}}
 ```
 
-- [ ] **Step 5: Run them to verify they pass**
+- [x] **Step 5: Run them to verify they pass**
 
 Run the Step 2 command, then `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api -q`.
 Expected: PASS. If an existing test asserts an input gap's options exactly, that test ran with no model: `characterise.available()` is false there, and the options are unchanged. If one fails, it had a model configured; monkeypatch `available` to `False` in it and say why in a comment.
 
-- [ ] **Step 6: Check, then commit**
+- [x] **Step 6: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 
@@ -627,7 +627,7 @@ git commit -m "feat(api): a reading on the question — pending, refused while o
 - Consumes: `CharacteriseReply` (plan 1); `SampleReading`, `start_reading` (Task 2).
 - Produces: `authoring.answer_with_reading(proposal_id: str, attempt: int, reply: CharacteriseReply, *, by: str, handed_back: bool) -> SampleAnswer | None`. `None` means the attempt is no longer current and nothing was recorded. `handed_back=True` records nothing and sets the reading to `hand_back` with the type.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test_characterise_reading.py`:
 
@@ -720,12 +720,12 @@ def test_a_reading_after_the_question_was_answered_by_a_click_records_nothing(cl
 
 If `answer_gap` refuses because the reading is pending (MI0215 now guards samples only, not clicks, so it should not), keep the test: a click while the AI reads is allowed, and the reading then lands on a settled question and is ignored.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_characterise_reading.py -q`
 Expected: the new tests FAIL (`answer_with_reading` does not exist).
 
-- [ ] **Step 3: Extract the shared recording, then use it twice**
+- [x] **Step 3: Extract the shared recording, then use it twice**
 
 In `answer_with_sample`, the block from `decided = {…}` to the `_swap(…)` call records an input and measurements. Move it into:
 
@@ -867,12 +867,12 @@ def answer_with_reading(
     )
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run the Step 2 command, then the whole `packages/mendel-api` suite.
 Expected: PASS.
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 ```bash
 git add packages/mendel-api
@@ -898,7 +898,7 @@ git commit -m "feat(api): what the AI read is recorded as read by AI, the person
   - `authoring_jobs.enqueue_characterise(session_id, proposal_id, attempt, excerpt: characterise.Excerpt) -> bool`;
   - `async authoring_jobs.characterise_sample(ctx, session_id, proposal_id, attempt, text, binary_before) -> str`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test_characterise_reading.py`:
 
@@ -1021,12 +1021,12 @@ def test_the_job_keeps_no_result_so_the_excerpt_leaves_redis_with_it():
 
 In `test_forge_jobs.py` and `test_authoring_routes.py`, wherever a test reads `f.__name__` or `f.__code__` from a worker's `functions`, unwrap first with `fn = getattr(f, "coroutine", f)`. That makes `test_the_two_worker_function_lists_are_disjoint` and the stub test read a `Function` correctly.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_characterise_reading.py -q`
 Expected: the new tests FAIL (`read_sample`, `CHARACTERISE`).
 
-- [ ] **Step 3: Implement the reading**
+- [x] **Step 3: Implement the reading**
 
 In `characterise.py`:
 
@@ -1142,12 +1142,12 @@ async def characterise_sample(
         func(authoring_jobs.characterise_sample, keep_result=0),
 ```
 
-- [ ] **Step 4: Run them to verify they pass**
+- [x] **Step 4: Run them to verify they pass**
 
 Run the Step 2 command, then `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api -q`.
 Expected: PASS. `test_the_two_worker_function_lists_are_disjoint` now also holds `characterise_sample` to `authoring_jobs.AI_JOBS`.
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 ```bash
 git add packages/mendel-api
@@ -1172,7 +1172,7 @@ git commit -m "feat(api): the characteriser's job — two calls through door 6, 
   - `SampleInspected.outcome` gains `"reading"`;
   - `authoring.end_hand_back(proposal_id: str, *, confirmed: bool) -> None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test_inspect.py`, using its existing catalogue fixture (read the file first; use the same `pieces`/`stack` it builds):
 
@@ -1299,12 +1299,12 @@ def test_a_hand_back_that_fails_the_content_check_drops_the_type(client, clean, 
 
 Read how the route maps a `ValueError` with MI0215 to a status today: `check_sample_question`'s MI0203 maps through the app's coded-error handler. Assert whatever status MI0203 gets in `test_a_sample_on_a_settled_gap_is_refused`, so the two match.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `MENDEL_DATABASE_URL=… uv run pytest packages/mendel-api/tests/test_inspect.py packages/mendel-api/tests/test_authoring_upload_route.py -q`
 Expected: the new tests FAIL.
 
-- [ ] **Step 3: Claim by type in `inspect`**
+- [x] **Step 3: Claim by type in `inspect`**
 
 In `match`, add the parameter `claimed: str | None = None`, and change the per-file formats line to:
 
@@ -1320,7 +1320,7 @@ In `match`, add the parameter `claimed: str | None = None`, and change the per-f
 
 In `inspect_sample`, add `claimed: str | None = None` and pass it to `match`. When `claimed` is given, add the step `f"claimed as {claimed}, the type the AI named"` after the first step.
 
-- [ ] **Step 4: Start a reading, and take a hand-back, in the route**
+- [x] **Step 4: Start a reading, and take a hand-back, in the route**
 
 `SampleInspected.outcome`: `Literal["measured", "unreadable", "no_inspector", "tie", "reading"]`.
 
@@ -1377,18 +1377,18 @@ If the proposal was settled by the measured answer, the reading is on a settled 
 
 `ai_for`: when `characterise.available()` is true, `available` gains `AiPoint.CHARACTERISE`. Determine `used` from the draft's session: `ai_for_draft` has the draft id. Add a parameter `characterised: bool = False` to `ai_for`, have `ai_for_draft` pass `any(f.get("source") == "model_read" for f in row.facts or [])` for the session owning the draft, and append `AiPoint.CHARACTERISE` to `used` when true. Add a test beside the existing `ai_for` test (`grep -n "def test.*ai_for" packages/mendel-api/tests/*.py`) asserting a session with a `model_read` fact yields `characterise` in `used`.
 
-- [ ] **Step 5: Run them to verify they pass**
+- [x] **Step 5: Run them to verify they pass**
 
 Run the Step 2 command, then the whole `packages/mendel-api` suite.
 Expected: PASS.
 
-- [ ] **Step 6: Mark the branch built**
+- [x] **Step 6: Mark the branch built**
 
 In `protocol.py`, change each of `door`, `excerpt`, `families`, `types`, `ai_admit`, `ai_stamped`, `hand_back` from `_n(…)` to `_built(…, _G)`, and each new edge from Plan 1 Task 1 to `built=True`. Remove `", at 14.7.7"` from the `claim → door` label. Delete the now-superseded built edge `_e("claim", "nothing", "none", built=True)`: a file no extension claims goes to `door` now, and `door → nothing` and `excerpt → nothing` draw today's outcome. In `PROTOCOL`, mark `read_ai` `_built(…, _P.GATHERING)` and its three edges `built=True`.
 
 In `test_authoring_protocol.py`, rename `test_the_upload_branch_is_built_and_the_characteriser_is_not` to `test_the_upload_branch_and_the_characteriser_are_built` and assert `nodes["read_ai"].built`. Change `test_the_characteriser_is_drawn_step_by_step_and_planned` to assert that every node in `CHARACTERISER` is built. Run the protocol tests and `uv run python tools/generate_protocol_doc.py`, then `--check`.
 
-- [ ] **Step 7: Check, then commit**
+- [x] **Step 7: Check, then commit**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel make check`
 
@@ -1403,4 +1403,15 @@ Then regenerate the client for plan 3: `make client`. Commit `frontend/src/api/s
 
 ## Execution record
 
-*(Filled in while executing: rulings, deviations, and what each task's tests printed.)*
+Executed 2026-10-04, in one hand. The fixes from plan 1's review (#237) landed first, in c4dc07d7. They include line counting, which `excerpt()` follows: lines are what `\n` separates.
+
+- **Task 1** (bd3efdb3): `excerpt()`; 11 tests. *Ruling:* the zlib spy takes keyword arguments, and the dead re-trim loop was removed.
+- **Task 2** (33503329): `SampleReading` on the question, MI0215, readings past `STALE_AFTER` shown as *the AI didn't answer*, and the upload offered wherever the AI may read. 8 tests.
+- **Task 3** (4167bbd9): `_record_found` extracted, with the 28 existing sample tests unchanged before anything was added; `answer_with_reading`. 14 tests.
+- **Task 4** (f179d17f): `read_sample`, the job, and `func(…, keep_result=0)`. 23 tests.
+  - *Ruling:* `conftest` switches the family step off for every test, and the `readable` fixture switches it back on.
+  - *Ruling:* ARQ's field is `keep_result_s`. A job that exhausts its tries goes through `finish_failed_job`, which keeps the result, with the excerpt among its arguments, for the worker's default of an hour. This is rare (retries happen only on cancellation), and it is recorded for plan 4's loosening text.
+- **Task 5** (a7d1ca55, client 5db75701): claim by recorded type, the `reading` outcome, `end_hand_back`, `ai_for` with `characterised`, and the branch marked built. `make check` 3406 passed.
+  - *Ruling:* MI0215 maps to 422, as MI0203 does.
+  - *Ruling:* the upload reader refuses an extra form field outright.
+  - *Ruling:* a Keep test's `available` list gained `characterise`.
