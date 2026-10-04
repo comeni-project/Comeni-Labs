@@ -55,10 +55,11 @@ class PremiseRecord(BaseModel):
 
 _ORIGIN_PROSE = {
     PremiseOrigin.MEASURED: "measured",
+    PremiseOrigin.MODEL_READ: "read by AI",
     PremiseOrigin.ASSERTED: "asserted, not measured",
     PremiseOrigin.GOAL: "declared in the goal",
     PremiseOrigin.DERIVED: "inferred — nothing measured it",
     PremiseOrigin.UNMEASURED: "not measured",
 }
-"""Total over `PremiseOrigin` and read with `[]`, so a sixth member forces somebody to write
+"""Total over `PremiseOrigin` and read with `[]`, so a new member forces somebody to write
 its sentence rather than defaulting into silence. A38's tripwire, in a third place."""

@@ -174,6 +174,10 @@ def _meta_entry(key: str, measurement, value, profile) -> MetaEntry:
             reason = f"{reason}, on {evidence.records:,} reads"
         elif evidence is not None and evidence.rows is not None:
             reason = f"{reason}, on {evidence.rows:,} rows of reads"
+    elif source is ValueSource.MODEL:
+        # 14.7.7: a model read it from the sample's first 8 KB. Never *asserted*: something
+        # looked at the data, and the reader is told what.
+        reason = "read by AI from the start of a sample; check it"
     else:
         reason = "asserted in the goal; no profiling run established it"
     if measurement.cite:

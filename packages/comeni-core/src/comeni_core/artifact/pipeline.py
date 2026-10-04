@@ -648,7 +648,7 @@ class RegistryProvenance(BaseModel):
 
 
 class AiPoint(StrEnum):
-    """The three declared runtime AI points. Invariant 3 says there are exactly these.
+    """The four declared runtime AI points. Invariant 3 says there are exactly these.
 
     Adding a fourth is not a schema change to wave through — it is a change to invariant 3,
     and `tests/artifact/test_ai_provenance.py` asserts this list so somebody has to say so out loud.
@@ -666,6 +666,11 @@ class AiPoint(StrEnum):
     """Resolution of an ambiguity the ladder could not settle. Always flagged (invariant 6)."""
     REPAIR = "repair"
     """Compiler repair, bounded to three attempts. Patches the IR, never the `.nf` text."""
+    CHARACTERISE = "characterise"
+    """A model reads the start of a sample nothing here reads (14.7.7), at protection level 0
+    only: which declared type it is, and which declared states and facts it states. Every id
+    it names is admitted against the vocabulary, and every fact it reads is marked *read by
+    AI*. Door 6 is the only way its payload leaves."""
 
 
 class AiProvenance(BaseModel):
@@ -698,7 +703,7 @@ class AiProvenance(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     available: list[AiPoint] | None = None
-    """Which of the three declared points had an adapter. `[]` = none were wired."""
+    """Which of the four declared points had an adapter. `[]` = none were wired."""
     used: list[AiPoint] | None = None
     """Which actually answered. A subset of `available`, and empty whenever that is."""
 

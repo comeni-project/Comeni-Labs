@@ -49,6 +49,7 @@ class Premise(BaseModel):
 
 _BY_SOURCE = {
     ValueSource.MEASURED: PremiseOrigin.MEASURED,
+    ValueSource.MODEL: PremiseOrigin.MODEL_READ,
     ValueSource.GOAL: PremiseOrigin.ASSERTED,
     ValueSource.HUMAN: PremiseOrigin.ASSERTED,
     ValueSource.RESOLVER: PremiseOrigin.ASSERTED,
@@ -64,6 +65,9 @@ answer. That is A38's `Via` tripwire, which earned itself two plans after it was
 `RESOLVER` cannot currently reach a profile — nothing constructs a `Measured` with it — and it
 is mapped rather than refused because a resolver default is an assertion by the registry in
 exactly the sense that matters here: no tool looked at the data.
+
+`MODEL` is the characteriser (14.7.7): a model looked at the data, so it is not an assertion,
+and it is not a measurement either.
 """
 
 _RESERVED = "required_states"

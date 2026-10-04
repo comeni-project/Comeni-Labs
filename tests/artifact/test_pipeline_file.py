@@ -80,7 +80,12 @@ laboratory archived — see the README beside it.
 """
 
 
-def _build_measured(tmp_path, name="measured"):
+def _build_measured(
+    tmp_path,
+    name="measured",
+    source="source: measured, by: comeni/profile-fastqc@0.1.0",
+    paired="source: goal",
+):
     """The same goal, with `read_length` recorded as **measured** rather than asserted.
 
     The mapping shorthand a goal file usually uses defaults every entry to `source: goal`, so
@@ -100,11 +105,10 @@ def _build_measured(tmp_path, name="measured"):
         "    counts.matrix: [gene_level]\n"
         "profile:\n"
         "  measurements:\n"
-        "    - {measurement: read_length, value: 150, source: measured, "
-        "by: comeni/profile-fastqc@0.1.0}\n"
+        f"    - {{measurement: read_length, value: 150, {source}}}\n"
         "    - {measurement: strandedness, value: reverse, source: goal}\n"
         "    - {measurement: n_samples, value: 12, source: goal}\n"
-        "    - {measurement: paired, value: true, source: goal}\n")
+        f"    - {{measurement: paired, value: true, {paired}}}\n")
     )
     out = tmp_path / name
     assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(ROOT)]) == 0
@@ -1022,6 +1026,18 @@ def test_a_measured_build_and_an_asserted_one_are_not_byte_identical(tmp_path):
         if step.why.premise
     }
     assert origins["star_align"] == [PremiseOrigin.MEASURED]
+
+
+def test_a_premise_read_by_ai_says_so_in_the_file(tmp_path):
+    """14.7.7: the reason a reader checks says who read it, and never *asserted in the goal*."""
+    out = _build_measured(tmp_path, "read-by-ai", source="source: model", paired="source: model")
+    why = _star_why(out)
+    assert why.premise[0].origin is PremiseOrigin.MODEL_READ
+    assert "read_length is 150, read by AI" in why.reason
+    single_end = next(
+        m for channel in _load(out).channels for m in channel.meta if m.key == "single_end"
+    )
+    assert single_end.why.reason.startswith("read by AI from the start of a sample")
 
 
 def test_the_premise_is_a_list_of_records_rather_than_a_mapping(tmp_path):

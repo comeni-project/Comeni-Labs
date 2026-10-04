@@ -101,6 +101,10 @@ class PremiseOrigin(StrEnum):
     """
 
     MEASURED = "measured"
+    MODEL_READ = "model_read"
+    """A model read it from the start of a sample (14.7.7). Better evidence than an assertion,
+    because something looked at the data; weaker than a measurement, because what looked was a
+    model reading at most 8 KB. A tier-3 decision on it says *check the premise*."""
     ASSERTED = "asserted"
     GOAL = "goal"
     DERIVED = "derived"
