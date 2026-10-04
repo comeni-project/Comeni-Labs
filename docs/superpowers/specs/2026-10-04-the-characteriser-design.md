@@ -262,3 +262,47 @@ Each part gets its own plan.
 
 The `comeni-core` version bump (a new AI point, a new door, a changed invariant) is judged at
 release time.
+
+## 14. Amendment, 2026-10-04: every property the AI reads carries its evidence (#244)
+
+**Why.** Walked live with gemma3:12b (#243, #244), the model named the right type every time
+and padded the rest of its answer:
+- a free-text state on a type that declares none;
+- states in `undetermined`;
+- on FASTQ, every offered state, none of which 8 KB can show.
+
+§7 refused the whole reply for any of it, so a FASTA or a BAM was never read. The operator's idea
+is to keep the value closed and let the reason be free, as `pipeline.yml`'s `reason:` already is.
+
+**The rule.** The value is an id from the offered list; its evidence is free text; **the engine
+checks the evidence**.
+
+- **Reply v2** (`builder.characterise.v2`, `CharacteriseReply` v2):
+  - `type_id`;
+  - `states: [{id, evidence}]`;
+  - `measurements: [{id, value, evidence}]`;
+  - `undetermined: [id]`;
+  - `unmatched: [{kind, name, cite}]`.
+
+  `evidence` is the line of the excerpt that states the property, quoted.
+- **An empty list offers nothing.** Where the shown types declare no states (or no measurements),
+  the server's schema allows none: `maxItems: 0`. The model cannot invent one there.
+- **Admission:**
+  - A family or type nothing offered is still **MI0204**. It is the reading.
+  - A state or measurement id that was not offered is still **MI0205**. The server's enum makes
+    this a provider that ignored the schema.
+  - **The evidence check.** Each state and measurement's `evidence` must appear in the excerpt,
+    with runs of whitespace compared as one space, and must be at least 3 characters. If it does
+    not, that property is **dropped, not refused**: it records nothing, and the rest stands.
+  - `undetermined` ids not offered are dropped, never refused: they record nothing.
+  - What the prompt says it saw but cannot place goes to `unmatched` (stored only, for #236).
+- **What the check is, and is not.** It proves the quoted line is in the file. It does not prove
+  the line means what the model says. That second part is what tier 3's *check the premise* and
+  the label *read by AI* are for.
+- **Where evidence goes.** It is checked in the job and kept only where the reply already is
+  (`ai_invocation.response`, #238's question). **It never enters a fact, the session's reading,
+  or `pipeline.yml`**: those keep the id and *read by AI*. Showing the quote on the card would
+  store a person's file content in the session, which is a decision for #238, not made here.
+
+This replaces options (a), (b) and (d) on #244. It is built by
+`docs/superpowers/plans/2026-10-04-characteriser-5-evidence.md`, before plan 3's last task.
