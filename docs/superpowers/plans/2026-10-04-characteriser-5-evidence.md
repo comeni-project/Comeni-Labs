@@ -14,7 +14,7 @@
 
 - **Evidence never enters a fact, a `SampleReading`, or `pipeline.yml`**: those keep ids (spec §14).
 - **A type or family not offered is still MI0204; a state or measurement id not offered is still MI0205.** Only an unproven or undetermined id is dropped.
-- **Evidence matches** when it is at least 3 characters and appears in the excerpt once runs of whitespace (spaces, tabs, newlines) are compared as one space. The match is case-sensitive.
+- **Evidence matches** when it is at least 3 characters and appears in the excerpt once runs of whitespace (spaces, tabs, newlines) are compared as one space. The match is case-sensitive. *(Tightened by #246: at least 8 characters, within one line.)*
 - A new prompt is a new file (`v2`), and `v1` is retired, kept loadable.
 - Python tests always run with `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`; `make check` on its own before each commit.
 

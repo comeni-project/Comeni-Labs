@@ -291,8 +291,9 @@ checks the evidence**.
   - A family or type nothing offered is still **MI0204**. It is the reading.
   - A state or measurement id that was not offered is still **MI0205**. The server's enum makes
     this a provider that ignored the schema.
-  - **The evidence check.** Each state and measurement's `evidence` must appear in the excerpt,
-    with runs of whitespace compared as one space, and must be at least 3 characters. If it does
+  - **The evidence check.** Each state and measurement's `evidence` must appear within one line
+    of the excerpt, with runs of whitespace compared as one space, and must be at least 8
+    characters (#246: `@HD` is in every BAM, and a quote must not join two lines). If it does
     not, that property is **dropped, not refused**: it records nothing, and the rest stands.
   - `undetermined` ids not offered are dropped, never refused: they record nothing.
   - What the prompt says it saw but cannot place goes to `unmatched` (stored only, for #236).
