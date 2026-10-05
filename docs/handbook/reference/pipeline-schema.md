@@ -326,6 +326,10 @@ value is refused (`MD0218`) rather than silently preferred by whichever verb rea
 that claims `why.source: human` must have a matching non-null `human_override` — a review cleared
 by assertion, with no recorded answer behind it, is refused (`MD0220`).
 
+`unknown` (producer decisions only, absent when empty) names the facts a rule needed and nobody
+knew: the question is open because of them, and answering one (`read_length: 150`) lets the rule
+decide on the next resolve. Absent means not waiting on a fact, or written before the field.
+
 **So answering a tier-4 question is two edits and neither of them is `human_override`.** Change
 `settings[].value`, and change the `why.reason` beside it to say why you chose that — then
 re-emit. `upgrade` promotes the answer, sets `source: human`, and **keeps the sentence you

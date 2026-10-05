@@ -14,7 +14,7 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 - **ambiguous** — nothing distinguished them. Invariant 8: demote, record, flag.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
@@ -426,6 +426,7 @@ def _choose(
             ],
             candidates=[c.id for c in ruled],
             summary=f"{decision.key()} could not apply ({', '.join(unknown)} unknown)",
+            unknown=unknown,
         )
 
     if len(ordered) == 1:
@@ -523,6 +524,7 @@ def _ask(
     evidence: list[Excerpt],
     candidates: list[str],
     summary: str,
+    unknown: Sequence[str] = (),
 ) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None, ValueSource]:
     """A tier-4 producer question, answered by the resolver and recorded. Shared by a tie
     (invariant 8) and a rule that cannot apply (invariant 4, #174): the two differ only in why
@@ -561,6 +563,7 @@ def _ask(
             reason=resolution.why,
             confidence=resolution.confidence,
             resolved_by=resolution.by,
+            unknown=list(unknown),
         )
     )
     # What actually happened, not what happens by default. It read "chosen by id order"

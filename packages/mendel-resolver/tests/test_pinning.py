@@ -146,3 +146,31 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
     chosen = ir.nodes[0]
     assert chosen.selection.tier is Tier.AMBIGUOUS
     assert ir.needs_review() != []
+
+
+def test_a_rule_that_cannot_apply_records_the_facts_it_lacked(spine):
+    """The facts reach the record typed, so the build plan can ask for them; until now they
+    reached it only as prose in the reason."""
+    ir = spine(want=["alignment.bam"], profile={})
+    asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
+    assert len(asked) == 1
+    assert asked[0].unknown == ["read_length"]
+
+
+def test_an_empty_unknown_is_left_out_of_the_dump():
+    """Every pipeline.yml written before this field stays byte-identical."""
+    from comeni_core.plan.decision import ProducerDecision
+
+    record = ProducerDecision(
+        key="producer:alignment.bam",
+        subject="producer:alignment.bam",
+        candidates=["nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.2"],
+        chosen="nf-core/star/align@1.11.0",
+        reason="r",
+        resolved_by="flag-only",
+        unknown=[],
+    )
+    assert "unknown" not in record.model_dump(mode="json")
+    assert record.model_copy(update={"unknown": ["read_length"]}).model_dump(mode="json")[
+        "unknown"
+    ] == ["read_length"]
