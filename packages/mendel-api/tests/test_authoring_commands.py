@@ -166,3 +166,49 @@ def test_accepting_the_goal_is_one_transaction(monkeypatch):
     with pytest.raises(RuntimeError):
         session.perform(c.DecideGoal(card["id"], "accepted", revision, "t"))
     assert session.read(sid)["pending_proposal"]["id"] == card["id"]
+
+
+def _sample_question(monkeypatch):
+    """A session on the first question that takes a sample, the AI allowed to read one: with the
+    characteriser available, every input question offers an upload."""
+    from mendel_api.services import characterise
+    from mendel_api.stages import gathering
+
+    monkeypatch.setattr(characterise, "available", lambda: True)
+    sid, _ = _gathering(monkeypatch, configured=False)
+    while gathering.UPLOAD not in (pending := session.read(sid)["pending_proposal"])["payload"].get(
+        "options", {}
+    ):
+        assert pending["kind"] == "gap", "no question takes a sample"
+        options = pending["payload"]["options"]
+        ordinary = [o for o in options if o not in ("dont_have", "value", "not_sure", "upload")]
+        option = ordinary[0] if ordinary else "not_sure"
+        session.perform(c.AnswerGap(pending["id"], option, None, "t"))
+    return sid, pending
+
+
+def test_a_sample_nothing_reads_starts_a_reading_with_an_ending_if_unqueued(monkeypatch):
+    sid, pending = _sample_question(monkeypatch)
+    done = session.perform(c.UploadSample(
+        sid, pending["id"], (("notes.txt", b"just words, nothing reads this\n" * 40),), "t"))
+    assert done.result.reading
+    [job] = done.jobs
+    assert job.name == _jobs.CHARACTERISE
+    assert isinstance(job.unqueued, c.ReadingFailed) and job.unqueued.code == "MA0007"
+
+
+def test_a_reading_whose_job_never_queued_ends_as_no_answer(monkeypatch):
+    """Review Focus 2."""
+    import asyncio
+
+    from mendel_api.stages import samples
+
+    sid, pending = _sample_question(monkeypatch)
+
+    async def refuse(job):
+        return False
+
+    monkeypatch.setattr(session, "_enqueue", refuse)
+    asyncio.run(session.act(c.UploadSample(
+        sid, pending["id"], (("notes.txt", b"just words, nothing reads this\n" * 40),), "t")))
+    assert samples.reading_of(pending["id"]).state == "no_answer"

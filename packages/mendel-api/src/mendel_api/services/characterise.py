@@ -129,17 +129,20 @@ def read_sample(
 
     `client_for(purpose)` is the job's model seam, `authoring_jobs._client`.
     """
-    from mendel_api import identity
-    from mendel_api.services import authoring, authoring_ai, protection, registry
-    from mendel_api.settings import settings
+    from mendel_authoring import commands as c
 
-    if not authoring.reading_open(proposal_id, attempt):
+    from mendel_api import identity
+    from mendel_api.services import authoring_ai, protection, registry, session
+    from mendel_api.settings import settings
+    from mendel_api.stages import gathering, samples
+
+    if not samples.reading_open(proposal_id, attempt):
         # A second delivery, a reading that already ended, or a question answered meanwhile:
         # no call is spent (issue 241).
         return "stale"
     if not protection.allows(protection.Crossing.DOOR_6):
         # Refused before the payload is built (spec §4): above level 0 nothing composes.
-        authoring.reading_failed(proposal_id, attempt, "refused", "MI0213")
+        session.perform(c.ReadingFailed(proposal_id, attempt, "refused", "MI0213"))
         return "refused"
 
     stack = registry.stack()
@@ -157,7 +160,7 @@ def read_sample(
         if not first.admitted:
             return _failed(proposal_id, attempt, first)
         if not first.reply.families:
-            authoring.reading_failed(proposal_id, attempt, "could_not_tell", None)
+            session.perform(c.ReadingFailed(proposal_id, attempt, "could_not_tell", None))
             return "could_not_tell"
         families = first.reply.families
     second = authoring_ai.characterise(
@@ -170,19 +173,27 @@ def read_sample(
     if not second.admitted:
         return _failed(proposal_id, attempt, second)
     if second.reply.type_id is None:
-        authoring.reading_failed(proposal_id, attempt, "could_not_tell", None)
+        session.perform(c.ReadingFailed(proposal_id, attempt, "could_not_tell", None))
         return "could_not_tell"
-    _, read_by_engine = authoring._inspectable(stack)
+    _, read_by_engine = gathering._inspectable(stack)
     handed = second.reply.type_id in read_by_engine
-    authoring.answer_with_reading(
-        proposal_id, attempt, second.reply, by=identity.default_author(), handed_back=handed
+    session.perform(
+        c.ReadingAnswered(
+            proposal_id,
+            attempt,
+            second.reply.model_dump(mode="json"),
+            identity.default_author(),
+            handed,
+        )
     )
     return "hand_back" if handed else "read"
 
 
 def _failed(proposal_id: str, attempt: int, outcome) -> str:
-    from mendel_api.services import authoring
+    from mendel_authoring import commands as c
+
+    from mendel_api.services import session
 
     state = "no_answer" if outcome.code in _NO_ANSWER or outcome.code is None else "refused"
-    authoring.reading_failed(proposal_id, attempt, state, outcome.code)
+    session.perform(c.ReadingFailed(proposal_id, attempt, state, outcome.code))
     return state

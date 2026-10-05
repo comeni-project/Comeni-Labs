@@ -21,29 +21,23 @@ can reach a provider is `start_building` in Spawn mode, and only through a `Clie
 passes — so every test here runs against a database and, unless it hands one over, no model.
 """
 
-import contextlib
 import logging
-from datetime import datetime
 from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
-from mendel_authoring.interpret import Refused
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
 from sqlalchemy import select, update
 
 from mendel_api.authoring.types import (
-    Fact,
-    FactKind,
     FactSource,
     Mode,
     Phase,
     ProposalState,
-    SampleReading,
     TurnState,
 )
 from mendel_api.db import session_scope
@@ -57,7 +51,7 @@ from mendel_api.services import authoring_ai, registry
 from mendel_api.services import blueprint as bp
 from mendel_api.services import session as session_mod
 from mendel_api.settings import settings
-from mendel_api.stages import describe, gathering, goal
+from mendel_api.stages import describe, gathering, goal, samples
 from mendel_api.stages._rows import (  # noqa: F401 — the old names, until Task 10 (plan 1c)
     GAP,
     GOAL,
@@ -151,6 +145,29 @@ def decide_goal(proposal_id, decision, *, expected_revision, by, edited=None):
 withdraw_pending = goal.withdraw_pending
 store_readback, readback_failed = goal.store_readback, goal.readback_failed
 wants_readback, readback_context = goal.wants_readback, goal.readback_context
+
+
+def answer_with_sample(proposal_id: str, inspection, *, by: str):
+    return session_mod.perform(
+        c.SampleInspected(proposal_id, inspection.model_dump(mode="json"), by)
+    ).result
+
+
+def answer_with_reading(proposal_id, attempt, reply, *, by, handed_back):
+    return session_mod.perform(
+        c.ReadingAnswered(proposal_id, attempt, reply.model_dump(mode="json"), by, handed_back)
+    ).result
+
+
+def reading_failed(proposal_id, attempt, state, code) -> None:
+    session_mod.perform(c.ReadingFailed(proposal_id, attempt, state, code))
+
+
+reading_of, start_reading = samples.reading_of, samples.start_reading
+check_sample_question, end_hand_back = samples.check_sample_question, samples.end_hand_back
+reading_open, STALE_AFTER = samples.reading_open, samples.STALE_AFTER
+SampleAnswer = samples.SampleAnswer
+_reading, _aged, _set_reading = samples._reading, samples._aged, samples._set_reading
 
 
 def move(session_id: str, event: st.Event, *, row_version: int, **values: object) -> Phase:
@@ -779,333 +796,5 @@ def ai_for_draft(draft_id: str):
 # ── gathering: the engine asks for what the want needs (14.7.3) ──────────────────────────
 
 
-class SampleAnswer(NamedTuple):
-    """What one inspected sample settled, for the card."""
-
-    phase: Phase
-    recorded: list[str]
-    """Subjects recorded from the sample, as measured."""
-    kept: list[str]
-    """Subjects the session already knew: what was said stands."""
-    disagreed: list[str]
-    """Of `kept`, those the sample measured differently. Shown, never written over."""
-
-
-def _counts(evidence: dict) -> dict[str, int | float]:
-    """Numbers only: a file name (`shorter_file`) never enters a fact (spec §9)."""
-    return {
-        k: v for k, v in evidence.items() if isinstance(v, int | float) and not isinstance(v, bool)
-    }
-
-
-def _sample_refusal(proposal) -> str | None:
-    """Why this proposal cannot take a sample now, or `None` (MI0205, then MI0203)."""
-    if proposal.kind != GAP or UPLOAD not in proposal.payload["options"]:
-        return coded("MI0205", "that question does not take a sample")
-    reading = _reading((proposal.payload or {}).get("block") or {}) or {}
-    if reading.get("state") == "pending":
-        return coded("MI0215", "a sample is already being read for this question")
-    return st.settle(
-        current=ProposalState(proposal.state),
-        proposal_revision=proposal.draft_revision,
-        draft_revision=proposal.draft_revision,
-        expected_revision=proposal.draft_revision,
-        decision=ProposalState.ACCEPTED,
-    ).refusal
-
-
-def check_sample_question(proposal_id: str) -> None:
-    """Refuse a sample before it is inspected: a settled gap, or one that takes no sample, is
-    told so without its bytes being read (issue 226). `answer_with_sample` asks again, under
-    the row's lock, since a second tab may settle it in between."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id)
-        if proposal is None:
-            raise KeyError(proposal_id)
-        refusal = _sample_refusal(proposal)
-    if refusal is not None:
-        raise ValueError(refusal)
-
-
-class _Found(NamedTuple):
-    """One measurement a sample settled, from an inspector or from a model."""
-
-    measurement: str
-    value: object
-    pieces: list[str] = []
-    evidence: dict | None = None
-
-
-def _record_found(
-    db, proposal, row, *, type_id: str | None, states: list[str], found: list[_Found],
-    source: FactSource, by: str, stack,
-) -> tuple[list[str], list[str], list[str], bool]:
-    """Record a sample's type and facts as `source`, the person's word standing; settle the
-    proposal when its subject was recorded. Returns `(recorded, kept, disagreed, answered)`.
-
-    **An open fact is not known**: *can't share* or *not sure* is nobody's value, and the
-    person's own sample settling it is recorded in its place, never reported as disagreeing
-    with a value nobody gave (review of #134).
-    """
-    session_id = proposal.session_id
-    subject = proposal.payload["subject"]
-    decided = {f.measurement for f in found if f.value is not None}
-    facts = [
-        f
-        for f in row.facts or []
-        if not (f.get("source") == FactSource.OPEN.value and f["subject"] in decided)
-    ]
-    known = {f["subject"]: f for f in facts}
-    recorded, kept, disagreed = [], [], []
-    if type_id:
-        if type_id in known:
-            kept.append(type_id)
-        else:
-            facts.append(
-                Fact(kind=FactKind.INPUT, subject=type_id, states=sorted(states), source=source)
-                .model_dump(mode="json")
-            )
-            recorded.append(type_id)
-    for item in found:
-        if item.value is None:
-            continue
-        try:
-            stack.measurements.check(item.measurement, item.value)
-        except (ValueError, KeyError):
-            continue
-        if item.measurement in known:
-            kept.append(item.measurement)
-            if known[item.measurement].get("value") != item.value:
-                disagreed.append(item.measurement)
-            continue
-        facts.append(
-            Fact(
-                kind=FactKind.MEASUREMENT,
-                subject=item.measurement,
-                value=item.value,
-                source=source,
-                pieces=item.pieces,
-                evidence=_counts(item.evidence or {}) or None,
-            ).model_dump(mode="json")
-        )
-        recorded.append(item.measurement)
-    answered = subject in recorded
-    if answered:
-        proposal.state = ProposalState.ACCEPTED.value
-        proposal.by = by
-        proposal.chosen_option = UPLOAD
-        proposal.settled_at = _now()
-    # A sample that changed nothing leaves the session's version alone, so a click the person
-    # made meanwhile is not refused as stale (issue 226).
-    if answered or facts != (row.facts or []):
-        _swap(db, session_id, row.row_version, facts=facts)
-    return recorded, kept, disagreed, answered
-
-
-def _pin_proposals_session(proposal_id: str) -> None:
-    """Pin the node of the session a sample answers before it records (`session.pin`)."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id)
-        session_id = proposal.session_id if proposal is not None else None
-    if session_id is not None:
-        session_mod.pin(session_id)
-
-
-def _sample_moves(session_id: str, answered: bool) -> None:
-    """A sample's way out of section ②a (14.7.8.1): on to the next question when it answered
-    this one, or staying on it. **The session moved on meanwhile** (spec §8): what it measured
-    stands, and nothing moves."""
-    with contextlib.suppress(Refused):
-        session_mod.perform_now(session_id, Command.UPLOAD_SAMPLE.value, answered=answered)
-
-
-def answer_with_sample(proposal_id: str, inspection, *, by: str) -> SampleAnswer:
-    """What one inspected sample settles, recorded the way a click records an answer.
-
-    **The person's word stands.** A measurement the session already knows is not overwritten; a
-    disagreement is reported back. **An undetermined fact is not recorded**, so if it was the gap
-    being answered, the gap stays open with its reason on the card. The proposal is settled only
-    when the inspection decided its subject (or, for an input gap, read the type). A gap already
-    settled refuses the sample before anything is recorded (MI0203), as a duplicate click does.
-    """
-    stack = registry.stack()
-    _pin_proposals_session(proposal_id)
-    with session_scope() as db:
-        # **Locked**: two tabs uploading at once take turns here, so the second reads the
-        # proposal settled and is refused as a duplicate click (MI0203), not by the version
-        # swap below (MI0201, issue 226).
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
-        if proposal is None:
-            raise KeyError(proposal_id)
-        refusal = _sample_refusal(proposal)
-        if refusal is not None:
-            raise ValueError(refusal)
-
-        row = db.get(PipelineAuthoringSession, proposal.session_id)
-        measured = inspection.outcome == "measured"
-        found = [
-            _Found(f.measurement, f.value, f.pieces, f.evidence)
-            for f in (inspection.facts if measured else [])
-            if f.undetermined is None
-        ]
-        recorded, kept, disagreed, answered = _record_found(
-            db, proposal, row,
-            type_id=inspection.type_id if measured else None, states=[], found=found,
-            source=FactSource.MEASURED, by=by, stack=stack,
-        )
-        session_id = proposal.session_id
-
-    _sample_moves(session_id, answered)
-    return SampleAnswer(
-        phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
-    )
-
-
 # ── the AI reading a sample (14.7.7) ─────────────────────────────────────────────────────────
 
-STALE_AFTER = settings.ai_job_timeout_seconds + 60
-"""A reading older than the job could run reads as `no_answer` (ruling 4 of 14.7.7.2's plan):
-a worker killed mid-job never writes back, and the card must not wait forever."""
-
-
-def _reading(block: dict) -> dict | None:
-    """The block's reading as it should be read now: a pending one past `STALE_AFTER` is
-    `no_answer`. Nothing is written."""
-    reading = block.get("reading")
-    if not reading or reading.get("state") != "pending" or not reading.get("started_at"):
-        return reading
-    started = datetime.fromisoformat(reading["started_at"])
-    if (_now() - started).total_seconds() > STALE_AFTER:
-        return {**reading, "state": "no_answer", "code": "MA0007"}
-    return reading
-
-
-def _aged(payload: dict) -> dict:
-    """The payload with a reading the job never finished shown as `no_answer` (nothing written)."""
-    block = payload.get("block") or {}
-    if not block.get("reading"):
-        return payload
-    return {**payload, "block": {**block, "reading": _reading(block)}}
-
-
-def _set_reading(db, proposal, reading: SampleReading | None) -> None:
-    payload = dict(proposal.payload)
-    block = dict(payload["block"])
-    block["reading"] = None if reading is None else reading.model_dump(mode="json")
-    payload["block"] = block
-    proposal.payload = payload
-
-
-def reading_of(proposal_id: str) -> SampleReading | None:
-    """The question's reading as it should be read now, or `None`."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id)
-        found = _reading((proposal.payload or {}).get("block") or {}) if proposal else None
-    return None if found is None else SampleReading.model_validate(found)
-
-
-def start_reading(proposal_id: str) -> int:
-    """Mark the question as being read by the AI; the attempt that keys the job."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
-        if proposal is None:
-            raise KeyError(proposal_id)
-        # **Asked again under the lock** (issue 241): a click mid-inspection, or a second upload
-        # at the same moment, is refused here rather than queueing a job for a settled question.
-        refusal = _sample_refusal(proposal)
-        if refusal is not None:
-            raise ValueError(refusal)
-        before = (proposal.payload.get("block") or {}).get("reading") or {}
-        attempt = int(before.get("attempt", 0)) + 1
-        _set_reading(
-            db, proposal, SampleReading(state="pending", attempt=attempt, started_at=_now())
-        )
-    return attempt
-
-
-def reading_failed(proposal_id: str, attempt: int, state: str, code: str | None) -> None:
-    """End a reading without recording anything, if it is still this attempt's."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
-        if proposal is None:
-            return
-        reading = (proposal.payload.get("block") or {}).get("reading") or {}
-        if reading.get("attempt") != attempt or reading.get("state") != "pending":
-            return
-        _set_reading(
-            db, proposal,
-            SampleReading.model_validate({**reading, "state": state, "code": code}),
-        )
-
-
-def answer_with_reading(
-    proposal_id: str, attempt: int, reply, *, by: str, handed_back: bool
-) -> SampleAnswer | None:
-    """What the AI read of a sample, recorded as *read by AI* (14.7.7), or handed back.
-
-    `None` when the reading is no longer this attempt's or the question was settled meanwhile:
-    a late answer records nothing. `handed_back`: the type is one the engine reads, so nothing
-    is recorded and the browser sends the file again (spec §8).
-    """
-    stack = registry.stack()
-    _pin_proposals_session(proposal_id)
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
-        if proposal is None or proposal.state != ProposalState.PENDING.value:
-            return None
-        reading = (proposal.payload.get("block") or {}).get("reading") or {}
-        if reading.get("attempt") != attempt or reading.get("state") != "pending":
-            return None
-        row = db.get(PipelineAuthoringSession, proposal.session_id)
-        session_id = proposal.session_id
-        if handed_back:
-            _set_reading(db, proposal, SampleReading(
-                state="hand_back", attempt=attempt, type_id=reply.type_id,
-                states=[s.id for s in reply.states],
-            ))
-            recorded, kept, disagreed, answered = [], [], [], False
-        else:
-            found = [_Found(m.id, m.value) for m in reply.measurements]
-            recorded, kept, disagreed, answered = _record_found(
-                db, proposal, row, type_id=reply.type_id, states=[s.id for s in reply.states],
-                found=found, source=FactSource.MODEL_READ, by=by, stack=stack,
-            )
-            # `read` whether or not it answered (issue 241): a settled question's reading is
-            # in its history, and must not spin there.
-            _set_reading(db, proposal, SampleReading(
-                state="read", attempt=attempt, type_id=reply.type_id,
-                states=[s.id for s in reply.states], recorded=recorded, kept=kept,
-                disagreed=disagreed,
-            ))
-    _sample_moves(session_id, answered)
-    return SampleAnswer(
-        phase=current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
-    )
-
-
-def end_hand_back(proposal_id: str, *, confirmed: bool) -> None:
-    """After the re-sent file was inspected (spec §8): `handed` when its format confirmed it,
-    and the recorded type dropped when not, so nothing the AI said stays."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
-        if proposal is None or proposal.state != ProposalState.PENDING.value:
-            return
-        reading = (proposal.payload.get("block") or {}).get("reading") or {}
-        if reading.get("state") != "hand_back":
-            return
-        _set_reading(
-            db,
-            proposal,
-            SampleReading.model_validate({**reading, "state": "handed"}) if confirmed else None,
-        )
-
-
-def reading_open(proposal_id: str, attempt: int) -> bool:
-    """Whether this attempt's reading is still worth a model call: the question is pending and
-    the reading is this attempt's, pending (issue 241)."""
-    with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id)
-        if proposal is None or proposal.state != ProposalState.PENDING.value:
-            return False
-        reading = _reading((proposal.payload or {}).get("block") or {}) or {}
-    return reading.get("attempt") == attempt and reading.get("state") == "pending"

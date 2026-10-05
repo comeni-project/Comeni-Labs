@@ -1592,7 +1592,7 @@ git commit -m "refactor(authoring): stage ③ behind the facade — the card in 
   - moved verbatim: `SampleAnswer`, `_counts`, `_sample_refusal`, `check_sample_question`, `_Found`, `_record_found`, `STALE_AFTER`, `_reading`, `_aged`, `_set_reading`, `reading_of`, `start_reading`, `reading_failed`, `end_hand_back`, `reading_open`.
   - `Uploaded(NamedTuple)`: `inspection: Inspection`, `answer: SampleAnswer | None` (`None` while the AI reads), `reading: bool`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test_authoring_commands.py`:
 
@@ -1641,12 +1641,12 @@ def test_a_reading_whose_job_never_queued_ends_as_no_answer(monkeypatch):
     assert samples.reading_of(pending["id"]).state == "no_answer"
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_commands.py -q -k "sample or reading"`
 Expected: FAIL with `KeyError` for `UploadSample`.
 
-- [ ] **Step 3: Move stage ②a, and the route's sequence into the recorder**
+- [x] **Step 3: Move stage ②a, and the route's sequence into the recorder**
 
 Move the functions listed under Produces into `stages/samples.py`, verbatim. `_pin_proposals_session` goes, because the recorders below call `session.pin` directly. `_sample_moves` becomes:
 
@@ -1718,7 +1718,7 @@ In `services/characterise.py`:
 - `authoring.reading_failed(p, a, s, code)` becomes `session.perform(c.ReadingFailed(p, a, s, code))`;
 - `authoring.answer_with_reading(...)` becomes `session.perform(c.ReadingAnswered(proposal_id, attempt, second.reply.model_dump(mode="json"), identity.default_author(), handed))`.
 
-- [ ] **Step 4: Forward the old names**
+- [x] **Step 4: Forward the old names**
 
 ```python
 def answer_with_sample(proposal_id: str, inspection, *, by: str):
@@ -1737,12 +1737,12 @@ def reading_failed(proposal_id, attempt, state, code) -> None:
 
 The read and setup names (`reading_of`, `start_reading`, `check_sample_question`, `end_hand_back`, `reading_open`, `STALE_AFTER`, `SampleAnswer`) are re-bound to `samples`. The route keeps its own sequence until Task 9.
 
-- [ ] **Step 5: Run everything once**
+- [x] **Step 5: Run everything once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api -q > .superpowers/sdd/1c-task7.log 2>&1; tail -30 .superpowers/sdd/1c-task7.log`
 Expected: all passed. `test_authoring_upload_route.py` patches `authoring.answer_with_sample` and `authoring.read` on the route's path, and the route still calls those names, so it holds until Task 9.
 
-- [ ] **Step 6: Check, then commit**
+- [x] **Step 6: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0.

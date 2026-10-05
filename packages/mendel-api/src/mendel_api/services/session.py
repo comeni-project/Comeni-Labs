@@ -350,8 +350,9 @@ def read(session_id: str) -> dict:
     from four endpoints would make the checkpoint a statement about four caches.
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
-    from mendel_api.services.authoring import _aged, _placement
+    from mendel_api.services.authoring import _placement
     from mendel_api.stages.gathering import _answer_of
+    from mendel_api.stages.samples import _aged
 
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
@@ -456,7 +457,7 @@ def read(session_id: str) -> dict:
 def _words_coming(pending) -> bool:
     """Whether the proposal on offer is still waiting for a model's words: a question being
     phrased (#167) or a card's read-back (#176). Read from the row already loaded."""
-    from mendel_api.services.authoring import _reading
+    from mendel_api.stages.samples import _reading
 
     if pending is None:
         return False
