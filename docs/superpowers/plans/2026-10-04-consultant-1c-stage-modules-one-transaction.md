@@ -2372,3 +2372,4 @@ Executed inline (executing-plans), 2026-10-05. Each task: its commits, and every
   - hand rewrite: test_authoring_samples.py:178 (authoring.READ_NOTE nested inside authoring.prefill_gap) → gathering.READ_NOTE, then the script
   - Ruling: docstrings that named services/authoring.py as where rows are written now name the stage modules (blueprint.py, authoring_ai.py, authoring/__init__.py, mendel_authoring/state.py, test_authoring_state.py); the migration's comment and the stages' "moved from" lines are history and stay — none
 - **Task 11**: the protocol page's *session moves by it* and its changelog, `ARCHITECTURE.md`'s package table, and this record. No stale sentence named the old file outside docstrings, fixed in Task 10.
+- **Final review**: a self-review (the fresh reviewer stopped on a usage limit before reporting). No Critical or Important findings; Review Focus 1–5 each checked against the code and its test. Five minors deferred to issue 251.
