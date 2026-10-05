@@ -8,11 +8,14 @@ or the phase: the phase is read off the node the session reaches.
 
 import logging
 from collections.abc import Callable
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
 from comeni_core.diagnostics import coded
+from comeni_core.plan.draft import DraftProvenance
 from mendel_authoring import interpret
 from mendel_authoring import state as st
 from mendel_authoring.protocol import PROTOCOL, Protocol
@@ -20,7 +23,7 @@ from sqlalchemy import func, select, update
 
 from mendel_api import db as db_mod
 from mendel_api import jobs
-from mendel_api.authoring.types import Mode, Phase, ProposalState, TurnState
+from mendel_api.authoring.types import FactSource, Mode, Phase, ProposalState, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     AiInvocation,
@@ -300,9 +303,16 @@ def perform(command: object, *, recorders: dict[type, Recorder] | None = None) -
     ctx = Ctx(getattr(command, "session_id", None), None)
     with db_mod.transaction():
         result = bound[type(command)](ctx, command)
+    if (collecting := _collected.get()) is not None and not _acting.get():
+        collecting.extend(ctx.jobs)
     if ctx.raised is not None:
         raise ctx.raised
     return Performed(result, tuple(ctx.jobs))
+
+
+_collected: ContextVar[list[Job] | None] = ContextVar("authoring_collected", default=None)
+"""The jobs a background job's commands asked for, queued when its work ends (`queued_after`)."""
+_acting: ContextVar[bool] = ContextVar("authoring_acting", default=False)
 
 
 async def act(command: object, *, recorders: dict[type, Recorder] | None = None) -> Performed:
@@ -310,14 +320,43 @@ async def act(command: object, *, recorders: dict[type, Recorder] | None = None)
     reads what is not saved, nor runs for an action that rolled back."""
     from starlette.concurrency import run_in_threadpool
 
-    done = await run_in_threadpool(lambda: perform(command, recorders=recorders))
+    def performed() -> Performed:
+        token = _acting.set(True)
+        try:
+            return perform(command, recorders=recorders)
+        finally:
+            _acting.reset(token)
+
+    done = await run_in_threadpool(performed)
+    return replace(done, queued=await _queue(done.jobs, recorders))
+
+
+@asynccontextmanager
+async def queued_after(*, recorders: dict[type, Recorder] | None = None):
+    """**A background job's commands, queued once its work is done** (plan 1c). A job performs
+    each command as it goes, in its own transaction; what they asked for (a question's phrasing,
+    a card's read-back) is queued here, after every one of them committed, even if the job's work
+    then raised."""
+    token = _collected.set([])
+    try:
+        yield
+    finally:
+        wanted = _collected.get() or []
+        _collected.reset(token)
+        await _queue(tuple(wanted), recorders)
+
+
+async def _queue(wanted: tuple[Job, ...], recorders) -> tuple[bool, ...]:
+    """Each job through the queue; one it refused, or could not take, runs its ending."""
+    from starlette.concurrency import run_in_threadpool
+
     queued = []
-    for job in done.jobs:
+    for job in wanted:
         ok = await _enqueue(job)
         if not ok and job.unqueued is not None:
             await run_in_threadpool(lambda j=job: perform(j.unqueued, recorders=recorders))
         queued.append(ok)
-    return replace(done, queued=tuple(queued))
+    return tuple(queued)
 
 
 async def _enqueue(job: Job) -> bool:
@@ -518,5 +557,59 @@ def pending_id(session_id: str) -> str | None:
                 PipelineAuthoringProposal.session_id == session_id,
                 PipelineAuthoringProposal.state == ProposalState.PENDING.value,
             )
+        )
+
+
+def ai_for(provenance: DraftProvenance, *, characterised: bool = False):
+    """What AI points this installation offers, and which this draft used. For `pipeline.yml`.
+
+    **One function for the preview and for Keep**, so the two cannot disagree about the `ai`
+    block — which would make the preview and the kept file differ for a reason nobody edited.
+    `available` follows the installation, never the mode (Task 12); `used` is read from the
+    sidecar, because it answers which points this draft actually exercised.
+    """
+    from comeni_core.artifact.pipeline import AiPoint, AiProvenance
+    from comeni_core.plan.tiers import ValueSource
+
+    from mendel_api.settings import model_access
+
+    if model_access() is None:
+        return AiProvenance(available=[], used=[])
+    modelled = any(
+        entry.selection is not None and entry.selection.source is ValueSource.MODEL
+        for entry in provenance.nodes
+    ) or any(entry.settled.source is ValueSource.MODEL for entry in provenance.params)
+    # The characteriser (14.7.7): available where a model may read a sample here; used when a
+    # fact the session gathered was read by it (`characterised`, from the session's facts).
+    from mendel_api.stages.gathering import _characterisable
+
+    reads = _characterisable()
+    return AiProvenance(
+        available=[AiPoint.PROMPT, AiPoint.TIER_4] + ([AiPoint.CHARACTERISE] if reads else []),
+        used=[AiPoint.PROMPT]
+        + ([AiPoint.TIER_4] if modelled else [])
+        + ([AiPoint.CHARACTERISE] if reads and characterised else []),
+    )
+
+
+def characterised(facts: list[dict] | None) -> bool:
+    """Whether any fact a session gathered was read by the AI (14.7.7)."""
+    return any(f.get("source") == FactSource.MODEL_READ.value for f in facts or [])
+
+
+def ai_for_draft(draft_id: str):
+    """`ai_for` for a draft an authoring session owns, or `None` for a hand-drawn one."""
+    with session_scope() as db:
+        owned = db.scalar(
+            select(PipelineAuthoringSession).where(
+                PipelineAuthoringSession.draft_id == draft_id
+            )
+        )
+        if owned is None:
+            return None
+        draft = db.get(PipelineDraft, draft_id)
+        return ai_for(
+            DraftProvenance.model_validate(draft.provenance or {}),
+            characterised=characterised(owned.facts),
         )
 

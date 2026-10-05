@@ -24,20 +24,17 @@ passes — so every test here runs against a database and, unless it hands one o
 import logging
 
 from comeni_core.diagnostics import coded
-from comeni_core.plan.draft import DraftProvenance
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
-from sqlalchemy import select, update
+from sqlalchemy import update
 
 from mendel_api.authoring.types import (
-    FactSource,
     Mode,
     Phase,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import (
     PipelineAuthoringSession,
-    PipelineDraft,
 )
 from mendel_api.services import session as session_mod
 from mendel_api.services import spawn
@@ -182,6 +179,8 @@ StepOutcome, ResolverFailed = building.StepOutcome, building.ResolverFailed
 pending_step_tier = building.pending_step_tier
 build_blueprint, describe_edit = building.resolve_blueprint, building.describe_edit
 _placement = building._placement
+ai_for, characterised = session_mod.ai_for, session_mod.characterised
+ai_for_draft = session_mod.ai_for_draft
 
 
 def move(session_id: str, event: st.Event, *, row_version: int, **values: object) -> Phase:
@@ -240,58 +239,6 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
 
 
 # ── Spawn: the same proposals, accepted by policy where that is safe ──────────────────────
-
-
-def ai_for(provenance: DraftProvenance, *, characterised: bool = False):
-    """What AI points this installation offers, and which this draft used. For `pipeline.yml`.
-
-    **One function for the preview and for Keep**, so the two cannot disagree about the `ai`
-    block — which would make the preview and the kept file differ for a reason nobody edited.
-    `available` follows the installation, never the mode (Task 12); `used` is read from the
-    sidecar, because it answers which points this draft actually exercised.
-    """
-    from comeni_core.artifact.pipeline import AiPoint, AiProvenance
-    from comeni_core.plan.tiers import ValueSource
-
-    from mendel_api.settings import model_access
-
-    if model_access() is None:
-        return AiProvenance(available=[], used=[])
-    modelled = any(
-        entry.selection is not None and entry.selection.source is ValueSource.MODEL
-        for entry in provenance.nodes
-    ) or any(entry.settled.source is ValueSource.MODEL for entry in provenance.params)
-    # The characteriser (14.7.7): available where a model may read a sample here; used when a
-    # fact the session gathered was read by it (`characterised`, from the session's facts).
-    reads = _characterisable()
-    return AiProvenance(
-        available=[AiPoint.PROMPT, AiPoint.TIER_4] + ([AiPoint.CHARACTERISE] if reads else []),
-        used=[AiPoint.PROMPT]
-        + ([AiPoint.TIER_4] if modelled else [])
-        + ([AiPoint.CHARACTERISE] if reads and characterised else []),
-    )
-
-
-def characterised(facts: list[dict] | None) -> bool:
-    """Whether any fact a session gathered was read by the AI (14.7.7)."""
-    return any(f.get("source") == FactSource.MODEL_READ.value for f in facts or [])
-
-
-def ai_for_draft(draft_id: str):
-    """`ai_for` for a draft an authoring session owns, or `None` for a hand-drawn one."""
-    with session_scope() as db:
-        owned = db.scalar(
-            select(PipelineAuthoringSession).where(
-                PipelineAuthoringSession.draft_id == draft_id
-            )
-        )
-        if owned is None:
-            return None
-        draft = db.get(PipelineDraft, draft_id)
-        return ai_for(
-            DraftProvenance.model_validate(draft.provenance or {}),
-            characterised=characterised(owned.facts),
-        )
 
 
 # ── gathering: the engine asks for what the want needs (14.7.3) ──────────────────────────

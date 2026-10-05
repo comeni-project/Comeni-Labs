@@ -23,6 +23,7 @@ from mendel_api.main import create_app
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.routes import authoring as routes
 from mendel_api.services import authoring, authoring_jobs, drafts
+from mendel_api.services import session as session_service
 from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import text
@@ -243,10 +244,10 @@ def _spawn_turn(monkeypatch, answer: dict) -> tuple[str, Answers]:
     monkeypatch.setattr(authoring_jobs, "_client",
                         lambda *_: Client(ModelAccess(model="fake/test"), transport=transport))
 
-    async def queued(*args):
+    async def queued(job):
         return True
 
-    monkeypatch.setattr(authoring_jobs, "enqueue_turn", queued)
+    monkeypatch.setattr(session_service, "_enqueue", queued)
     client = TestClient(create_app())
     started = client.post(
         "/api/pipeline/authoring", json={"prompt": "gene counts", "mode": "spawn"}

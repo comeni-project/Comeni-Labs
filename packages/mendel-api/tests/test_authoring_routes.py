@@ -5,9 +5,10 @@ queued job, reload immediately and see it pending, run the job, reload, and see 
 assistant blocks exactly once — then deliver the job a second time and see nothing change, not
 even a second model call.
 
-The queue is replaced at `authoring_jobs.enqueue_*` and the model at `authoring_jobs._client`,
-the two seams those modules name for it. Redis and a provider are not what this file is about;
-`test_forge_jobs.py` covers the queue and `test_authoring_ai.py` covers the calls.
+The queue is replaced at `session._enqueue` (Spawn's build at `authoring_jobs.enqueue_build`)
+and the model at `authoring_jobs._client`, the seams those modules name for it. Redis and a
+provider are not what this file is about; `test_forge_jobs.py` covers the queue and
+`test_authoring_ai.py` covers the calls.
 """
 
 import asyncio
@@ -23,6 +24,8 @@ from mendel_api.main import create_app
 from mendel_api.models import AiInvocation
 from mendel_api.routes import authoring as routes
 from mendel_api.services import authoring, authoring_jobs
+from mendel_api.services import session as session_service
+from mendel_api.stages import _jobs
 from sqlalchemy import select, text
 
 
@@ -65,15 +68,16 @@ def queue(monkeypatch):
     """Every enqueue answers `True` and is remembered."""
     queued: list[tuple] = []
 
-    async def turn(session_id, seq):
-        queued.append(("turn", session_id, seq))
+    async def enqueue(job):  # every job an action asks for, after its commit (plan 1c)
+        if job.name == _jobs.ANSWER:
+            queued.append(("turn", *job.args))
         return True
 
     async def build(session_id, row_version):
         queued.append(("build", session_id, row_version))
         return True
 
-    monkeypatch.setattr(authoring_jobs, "enqueue_turn", turn)
+    monkeypatch.setattr(session_service, "_enqueue", enqueue)
     monkeypatch.setattr(authoring_jobs, "enqueue_build", build)
     return queued
 
@@ -212,12 +216,12 @@ def test_the_turn_job_is_named_by_its_session_and_turn(monkeypatch):
     collide at the queue."""
     seen = {}
 
-    async def enqueue(name, *args, job_id=None, queue=jobs.DEFAULT_QUEUE):
+    async def enqueue(name, *args, job_id=None, queue=jobs.DEFAULT_QUEUE, expires=None):
         seen.update(name=name, args=args, job_id=job_id, queue=queue)
         return True
 
     monkeypatch.setattr(jobs, "enqueue", enqueue)
-    asyncio.run(authoring_jobs.enqueue_turn("abc123", 3))
+    asyncio.run(session_service._enqueue(_jobs.turn("abc123", 3)))
 
     assert seen == {
         "name": "answer_authoring_turn",

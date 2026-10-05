@@ -76,3 +76,28 @@ def test_only_the_dispatcher_writes_the_phase():
                                                    "services/authoring.py",
                                                    "stages/describe.py"}, writers
     assert len([w for w in writers if w.startswith("services/authoring.py")]) == 1, writers
+
+
+CALLERS = ("routes/authoring.py", "services/authoring_jobs.py", "services/characterise.py")
+
+
+def test_routes_and_jobs_change_a_session_only_through_the_facade():
+    """Spec §11.3; ruling 2 of plan 1c: they may call `session`, `spawn` (until part 3) and a
+    stage's declared `READS`; nothing else under `mendel_api.stages`, and no `authoring.`."""
+    import mendel_api.stages as stages_pkg
+
+    reads = {name for mod in ("describe", "goal", "gathering", "samples", "building")
+             for name in getattr(getattr(stages_pkg, mod), "READS", ())}
+    found = []
+    for rel in CALLERS:
+        tree = ast.parse((SRC / rel).read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                owner, name = node.value.id, node.attr
+                if owner == "authoring":
+                    found.append(f"{rel}:{node.lineno} authoring.{name}")
+                if owner in {"describe", "goal", "gathering", "samples", "building"} and (
+                    name not in reads and not name.isupper()
+                ):
+                    found.append(f"{rel}:{node.lineno} {owner}.{name}")
+    assert found == []

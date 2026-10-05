@@ -9,7 +9,9 @@ import pytest
 from fastapi.testclient import TestClient
 from mendel_api.authoring.types import CharacteriseReply
 from mendel_api.main import create_app
-from mendel_api.services import authoring, authoring_jobs, characterise, inspect
+from mendel_api.services import authoring, characterise, inspect
+from mendel_api.services import session as session_service
+from mendel_api.stages import _jobs, samples
 from test_authoring_samples import (  # noqa: F401
     _database_is_reachable,
     _gathering,
@@ -217,8 +219,8 @@ def test_the_upload_does_its_database_work_off_the_event_loop(client, clean, mon
 
         return wrapped
 
-    monkeypatch.setattr(authoring, "answer_with_sample", where(authoring.answer_with_sample))
-    monkeypatch.setattr(authoring, "read", where(authoring.read))
+    monkeypatch.setattr(samples, "record_inspection", where(samples.record_inspection))
+    monkeypatch.setattr(session_service, "read", where(session_service.read))
     sid, pid = _at("paired")
     files = [("files", (p.name, p.read_bytes())) for p in sorted(PAIR.glob("*.gz"))]
     assert _post(client, sid, pid, files).status_code == 200
@@ -230,11 +232,15 @@ def readable(monkeypatch):
     monkeypatch.setattr(characterise, "available", lambda: True)
     queued = []
 
-    async def enqueue(session_id, proposal_id, attempt, excerpt):
-        queued.append((session_id, proposal_id, attempt, excerpt))
+    async def enqueue(job):  # what the upload asked for, after its commit (plan 1c)
+        if job.name == _jobs.CHARACTERISE:
+            session_id, proposal_id, attempt, sealed, binary_before = job.args
+            queued.append(
+                (session_id, proposal_id, attempt, characterise.Excerpt(str(sealed), binary_before))
+            )
         return True
 
-    monkeypatch.setattr(authoring_jobs, "enqueue_characterise", enqueue)
+    monkeypatch.setattr(session_service, "_enqueue", enqueue)
     return queued
 
 
@@ -324,10 +330,10 @@ def test_a_reading_never_queued_ends_at_once_and_frees_the_question(client, clea
     """Issue 241: Redis refused, or the job id was already taken."""
     monkeypatch.setattr(characterise, "available", lambda: True)
 
-    async def refused(*args):
+    async def refused(job):
         return False
 
-    monkeypatch.setattr(authoring_jobs, "enqueue_characterise", refused)
+    monkeypatch.setattr(session_service, "_enqueue", refused)
     sid, pid = _at("genome.fasta")
     got = _post(client, sid, pid, [("files", ("x.bam", _bam()))])
     assert got.status_code == 200, got.text

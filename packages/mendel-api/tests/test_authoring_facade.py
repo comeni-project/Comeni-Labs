@@ -128,3 +128,23 @@ def test_a_kind_has_one_recorder():
             session.records(Undo)(first)
     finally:
         del session.RECORDERS[Undo]
+
+
+def test_a_jobs_commands_queue_their_jobs_once_its_work_is_done(draft_id, monkeypatch):
+    """A job performs its commands as it goes (`perform`); what they asked for is queued when
+    the job's work ends, after every commit, and a refused one runs its ending (plan 1c)."""
+    queued = []
+
+    async def enqueue(job):
+        queued.append((job.job_id, _seen(job.args[0])))
+        return False
+
+    monkeypatch.setattr(session, "_enqueue", enqueue)
+
+    async def job():
+        async with session.queued_after(recorders={Write: _write, Undo: _undo}):
+            session.perform(Write(draft_id), recorders={Write: _write})
+            assert queued == []
+
+    asyncio.run(job())
+    assert queued == [(f"noted:{draft_id}", True)] and not _seen(draft_id)

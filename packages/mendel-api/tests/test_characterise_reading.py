@@ -394,7 +394,8 @@ def test_the_excerpt_never_reaches_a_log_and_leaves_redis_with_the_reading(monke
     import asyncio
 
     from mendel_api import jobs
-    from mendel_api.services import authoring_jobs
+    from mendel_api.services import session
+    from mendel_api.stages import _jobs
 
     sent = {}
 
@@ -404,7 +405,9 @@ def test_the_excerpt_never_reaches_a_log_and_leaves_redis_with_the_reading(monke
 
     monkeypatch.setattr(jobs, "enqueue", enqueue)
     found = characterise.Excerpt(text="@HD\tSO:coordinate PATIENT_0042", binary_before=True)
-    asyncio.run(authoring_jobs.enqueue_characterise("s" * 32, "p" * 32, 1, found))
+    job = _jobs.characterise("s" * 32, "p" * 32, 1, found, unqueued=None,
+                             expires=authoring.STALE_AFTER)
+    asyncio.run(session._enqueue(job))
     assert "PATIENT" not in repr(sent["args"]), "ARQ logs a job's args by their repr"
     assert any(str(a) == found.text for a in sent["args"]), "the worker still gets the text"
     assert sent["kwargs"]["expires"] == authoring.STALE_AFTER

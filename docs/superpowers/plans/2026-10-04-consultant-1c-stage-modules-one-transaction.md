@@ -1921,7 +1921,7 @@ git commit -m "refactor(authoring): stage ④ split — what part 3 keeps in bui
 - Consumes: every recorder (Tasks 4–8); `session.act`.
 - Produces: routes that call `session.act(command)` for every change and `session.read` for the view; jobs that call `session.perform(command)` for every write, through `_perform` and `_perform_typed`, both ignoring `Refused`; `authoring_jobs.enqueue_turn`, `enqueue_phrasing`, `enqueue_characterise` deleted; `enqueue_build` kept (Spawn, ruling 3).
 
-- [ ] **Step 1: Write the failing guard**
+- [x] **Step 1: Write the failing guard**
 
 Append to `test_authoring_binding.py`:
 
@@ -1953,12 +1953,12 @@ def test_routes_and_jobs_change_a_session_only_through_the_facade():
 
 `name.isupper()` lets constants through (`GAP`, `STALE_AFTER`).
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_binding.py -q`
 Expected: FAIL listing every `authoring.` call in the three files.
 
-- [ ] **Step 3: Move the routes onto the facade**
+- [x] **Step 3: Move the routes onto the facade**
 
 Each route becomes its command through `act`. The response shapes are unchanged.
 
@@ -2004,7 +2004,7 @@ In `_after_goal`, Build calls `await session.act(c.StartBuilding(session_id))` i
 
 The early MI0205 for a non-gap proposal stays in the route, before the command. `_view`, `preview` and `list_calls` call `session.read`, `session.calls` and `session.characterised`.
 
-- [ ] **Step 4: Move the jobs onto the facade**
+- [x] **Step 4: Move the jobs onto the facade**
 
 In `authoring_jobs.py`:
 - `authoring.answer(...)` becomes `session.perform(c.AnswerTurn(...)).result`;
@@ -2017,16 +2017,16 @@ In `authoring_jobs.py`:
 
 Delete `enqueue_turn`, `enqueue_phrasing` and `enqueue_characterise`, and `_perform`, now that `_perform_typed` replaces it. Rename `_perform_typed` to `_perform`.
 
-- [ ] **Step 5: Fix the three route tests' monkeypatches**
+- [x] **Step 5: Fix the three route tests' monkeypatches**
 
 Each `monkeypatch.setattr(authoring_jobs, "enqueue_turn", fake)` becomes a fake `session._enqueue(job)` that records `job.name` and `job.args`, and returns what the old fake returned. Each test's assertions read what the old fake recorded, so the new fake records the same: `(session_id, seq)` for a turn. `monkeypatch.setattr(authoring_jobs, "enqueue_build", …)` stays (Spawn). In `test_authoring_upload_route.py`, `answer_with_sample` and `read` are patched where the route now reaches them: `samples.record_inspection` and `session.read`. `enqueue_characterise` is replaced by a `session._enqueue` fake. List each edited line in the ledger as `Task 9: test seam moved: <file>:<line>`.
 
-- [ ] **Step 6: Run the guard and everything once**
+- [x] **Step 6: Run the guard and everything once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api -q > .superpowers/sdd/1c-task9.log 2>&1; tail -30 .superpowers/sdd/1c-task9.log`
 Expected: all passed, the facade guard included. Then watch the guard fail: add `authoring.read(session_id)` to one route, run it, see it named, and remove it. Record it in the ledger.
 
-- [ ] **Step 7: Check, then commit**
+- [x] **Step 7: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`, and `make client` to confirm the generated client does not change (`git status frontend/src/api` is clean).
 Expected: exit 0; no client diff.

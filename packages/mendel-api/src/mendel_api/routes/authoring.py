@@ -23,6 +23,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
 from comeni_core.spell.marks import HumanParamValue, OptionId
 from fastapi import APIRouter, HTTPException, Request, status
+from mendel_authoring import commands as c
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -40,8 +41,9 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
-from mendel_api.services import authoring, authoring_jobs, drafts
+from mendel_api.services import authoring_jobs, drafts, session, spawn
 from mendel_api.settings import model_access
+from mendel_api.stages import gathering, goal
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
 
@@ -315,9 +317,9 @@ class AuthoringPreview(BaseModel):
 async def begin(body: BeginAuthoring) -> AuthoringStarted:
     """An empty draft, a session, the first turn, and one queued model call — the pending reply
     is visible in the response, so the page never shows a blank while the worker starts."""
-    session_id, seq = authoring.begin(body.prompt, mode=body.mode, who=identity.default_author())
-    queued = await authoring_jobs.enqueue_turn(session_id, seq)
-    return AuthoringStarted(session=_view(session_id), queued=queued)
+    done = await session.act(c.Begin(body.prompt, body.mode.value, identity.default_author()))
+    session_id, _ = done.result
+    return AuthoringStarted(session=_view(session_id), queued=all(done.queued))
 
 
 @router.get(
@@ -358,7 +360,7 @@ def read(session_id: str) -> AuthoringSessionView:
 )
 def list_calls(session_id: str) -> list[AuthoringCallView]:
     """Fetched when the call panel opens, and again only when the session's call count moves."""
-    return [AuthoringCallView(**call) for call in authoring.calls(session_id)]
+    return [AuthoringCallView(**call) for call in session.calls(session_id)]
 
 
 @router.post(
@@ -369,8 +371,8 @@ def list_calls(session_id: str) -> list[AuthoringCallView]:
     responses=REFUSES,
 )
 async def say(session_id: str, body: SayToAuthoring) -> AuthoringSaid:
-    seq = authoring.say(session_id, body.text)
-    return AuthoringSaid(seq=seq, queued=await authoring_jobs.enqueue_turn(session_id, seq))
+    done = await session.act(c.Say(session_id, body.text))
+    return AuthoringSaid(seq=done.result, queued=all(done.queued))
 
 
 @router.post(
@@ -390,24 +392,24 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     decision = ProposalState(body.decision)
     who = identity.default_author()
 
-    if kind == authoring.GAP:
+    if kind == gathering.GAP:
         if decision is not ProposalState.ACCEPTED or body.option is None:
             raise ValueError(
                 coded("MI0205", "a question about your data is answered with one of its options")
             )
-        authoring.answer_gap(proposal_id, body.option, body.value, by=who)
-        # The next question and the one after, phrased while the person reads (#186). Queued,
-        # never called here: a button click is not put behind a model.
-        await authoring_jobs.enqueue_phrasing(session_id)
+        # The next question and the one after are phrased while the person reads (#186): `ask`
+        # queued them, after the commit. A button click is not put behind a model.
+        await session.act(c.AnswerGap(proposal_id, body.option, body.value, who))
         after = _view(session_id)
         card = after.pending_proposal
-        if after.mode is Mode.SPAWN and card is not None and card.kind == authoring.GOAL:
+        if after.mode is Mode.SPAWN and card is not None and card.kind == goal.GOAL:
             # **Spawn shows the goal and proceeds** (§1.2), as it did before gathering: every
             # fact in it came from the person a moment ago, so the policy confirms the card and
             # the blueprint is built on the AI queue.
-            outcome, phase = authoring.decide_goal(
-                card.id, ProposalState.ACCEPTED, expected_revision=after.revision, by="model"
+            done = await session.act(
+                c.DecideGoal(card.id, ProposalState.ACCEPTED.value, after.revision, "model")
             )
+            outcome, phase = done.result
             if outcome.refusal is not None:
                 raise ValueError(outcome.refusal)
             return await _after_goal(session_id, phase)
@@ -418,31 +420,32 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
             queued=False,
         )
 
-    if kind == authoring.GOAL:
-        outcome, phase = authoring.decide_goal(
-            proposal_id,
-            decision,
-            expected_revision=body.expected_revision,
-            by=who,
-            edited=body.goal,
+    if kind == goal.GOAL:
+        done = await session.act(
+            c.DecideGoal(
+                proposal_id,
+                decision.value,
+                body.expected_revision,
+                who,
+                None if body.goal is None else body.goal.model_dump(mode="json"),
+            )
         )
+        outcome, phase = done.result
         if outcome.refusal is not None:
             raise ValueError(outcome.refusal)
         return await _after_goal(session_id, phase)
 
-    stepped = authoring.settle_step(
-        proposal_id,
-        decision,
-        expected_revision=body.expected_revision,
-        by=who,
-        chosen_option=body.option,
-    )
+    stepped = (
+        await session.act(
+            c.SettleStep(proposal_id, decision.value, body.expected_revision, who, body.option)
+        )
+    ).result
     if stepped.settlement.refusal is not None:
         raise ValueError(stepped.settlement.refusal)
     if _view(session_id).mode is Mode.SPAWN:
         # A person answered the card Spawn stopped on; the policy carries on from there. Every
         # step it takes is settled — no model call — so it runs in the request.
-        authoring.spawn_forward(session_id)
+        spawn.spawn_forward(session_id)
         after = _view(session_id)
         return AuthoringDecided(
             phase=after.phase,
@@ -465,11 +468,10 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     responses=REFUSES,
 )
 async def retry(session_id: str) -> AuthoringRetried:
-    phase, seq = authoring.retry(session_id)
+    done = await session.act(c.Retry(session_id))
+    phase, seq = done.result
     if seq is not None:
-        return AuthoringRetried(
-            phase=phase, queued=await authoring_jobs.enqueue_turn(session_id, seq)
-        )
+        return AuthoringRetried(phase=phase, queued=all(done.queued))
     decided = await _after_goal(session_id, phase)
     return AuthoringRetried(phase=decided.phase, queued=decided.queued)
 
@@ -483,9 +485,9 @@ async def retry(session_id: str) -> AuthoringRetried:
 def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
     """A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
     receipt the server composes — never narrated by a model."""
-    revision, reoffered = authoring.record_edit(
-        session_id, body.graph, by=identity.default_author()
-    )
+    revision, reoffered = session.perform(
+        c.RecordEdit(session_id, body.graph.model_dump(mode="json"), identity.default_author())
+    ).result
     return AuthoringEdited(revision=revision, reoffered=reoffered)
 
 
@@ -503,7 +505,7 @@ def preview(session_id: str) -> AuthoringPreview:
         draft_id, mode = row.draft_id, Mode(row.mode)
         stored = db.get(PipelineDraft, draft_id)
         provenance = DraftProvenance.model_validate(stored.provenance or {})
-        read_by_ai = authoring.characterised(row.facts)
+        read_by_ai = session.characterised(row.facts)
     shown = drafts.preview(draft_id, ai=_ai_for(mode, provenance, characterised=read_by_ai))
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
@@ -526,7 +528,7 @@ async def _after_goal(session_id: str, phase: Phase) -> AuthoringDecided:
             phase=phase, revision=view.revision, next_proposal=None, queued=queued
         )
     try:
-        first = authoring.start_building(session_id)
+        first = (await session.act(c.StartBuilding(session_id))).result
     except Exception as failure:
         if isinstance(failure, ValueError):
             raise  # a coded refusal — 422 with its code
@@ -551,7 +553,7 @@ def _kind_in(session_id: str, proposal_id: str) -> str:
 
 
 def _view(session_id: str) -> AuthoringSessionView:
-    picture = authoring.read(session_id)
+    picture = session.read(session_id)
     pending = picture["pending_proposal"]
     return AuthoringSessionView(
         id=picture["id"],
@@ -560,7 +562,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         mode=Mode(picture["mode"]),
         phase=Phase(picture["phase"]),
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
-        goal=authoring.as_goal(picture["goal"]),
+        goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
         usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
@@ -600,9 +602,9 @@ def _view(session_id: str) -> AuthoringSessionView:
 def _ai_for(
     mode: Mode, provenance: DraftProvenance, *, characterised: bool = False
 ) -> AiProvenance:
-    """`authoring.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
+    """`session.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
     del mode
-    return authoring.ai_for(provenance, characterised=characterised)
+    return session.ai_for(provenance, characterised=characterised)
 
 
 class InspectedFactView(BaseModel):
@@ -667,7 +669,7 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     """**Only the first 4 MB of each file is kept**, in memory; the rest is read through and
     dropped, and nothing is written to disk (14.7.6's ruling: nothing deletes a session yet, so
     nothing about a sample is kept). The protection level is asked before a byte is read."""
-    from mendel_api.services import characterise, inspect, protection, registry, sample_upload
+    from mendel_api.services import inspect, protection, sample_upload
 
     if not protection.allows(protection.Crossing.UPLOAD):
         raise HTTPException(
@@ -683,67 +685,35 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     # **Every database call off the event loop** (issue 226): a slow answer here would hold
     # every other request.
     kind = await run_in_threadpool(_kind_in, session_id, proposal_id) if proposal_id else None
-    if kind != authoring.GAP:
+    if kind != gathering.GAP:
         raise ValueError(coded("MI0205", "a sample answers a question about your data"))
-    await run_in_threadpool(authoring.check_sample_question, proposal_id)
-    # **A hand-back** (14.7.7): only the type the session recorded may claim the file, never
-    # anything the browser sent.
-    reading = await run_in_threadpool(authoring.reading_of, proposal_id)
-    claimed = reading.type_id if reading is not None and reading.state == "hand_back" else None
-    inspection = await run_in_threadpool(
-        inspect.inspect_sample, heads.files, registry.stack(), claimed
+    # The rest is one action (plan 1c): refused before a byte is inspected, a hand-back claimed
+    # by the recorded type only, and a type nothing here reads handed to the AI.
+    done = await session.act(
+        c.UploadSample(session_id, proposal_id, tuple(heads.files), identity.default_author())
     )
-    if claimed is not None:
-        await run_in_threadpool(
-            lambda: authoring.end_hand_back(
-                proposal_id, confirmed=inspection.outcome == "measured"
-            )
-        )
-    # **A hand-back never starts another reading** (issue 246): a re-sent file nothing claims,
-    # even by the type the AI named, ends here, or the card would re-send it without end.
-    if inspection.outcome == "no_inspector" and claimed is None and characterise.available():
-        # Nothing here reads its type: the AI reads its first 8 KB of text (14.7.7).
-        found = characterise.excerpt(heads.files[0][1])
-        if found is not None:
-            attempt = await run_in_threadpool(authoring.start_reading, proposal_id)
-            try:
-                queued = await authoring_jobs.enqueue_characterise(
-                    session_id, proposal_id, attempt, found
-                )
-            except Exception:
-                queued = False
-            if not queued:
-                # Never queued (issue 241): the reading ends now, rather than locking the
-                # question until it ages out.
-                await run_in_threadpool(
-                    authoring.reading_failed, proposal_id, attempt, "no_answer", "MA0007"
-                )
-            view = await run_in_threadpool(_view, session_id)
-            return SampleInspected(
-                outcome="reading",
-                type_id=None,
-                facts=[],
-                reason=None,
-                steps=[*inspection.steps, "nothing here reads its type: the AI is reading it"],
-                recorded=[],
-                kept=[],
-                disagreed=[],
-                session=view,
-            )
-    answer = await run_in_threadpool(
-        authoring.answer_with_sample, proposal_id, inspection, by=identity.default_author()
-    )
-    if answer.recorded:
-        await authoring_jobs.enqueue_phrasing(session_id)
+    up = done.result
     view = await run_in_threadpool(_view, session_id)
+    if up.reading:
+        return SampleInspected(
+            outcome="reading",
+            type_id=None,
+            facts=[],
+            reason=None,
+            steps=[*up.inspection.steps, "nothing here reads its type: the AI is reading it"],
+            recorded=[],
+            kept=[],
+            disagreed=[],
+            session=view,
+        )
     return SampleInspected(
-        outcome=inspection.outcome,
-        type_id=inspection.type_id,
-        facts=[InspectedFactView(**f.model_dump()) for f in inspection.facts],
-        reason=inspection.reason,
-        steps=inspection.steps,
-        recorded=answer.recorded,
-        kept=answer.kept,
-        disagreed=answer.disagreed,
+        outcome=up.inspection.outcome,
+        type_id=up.inspection.type_id,
+        facts=[InspectedFactView(**f.model_dump()) for f in up.inspection.facts],
+        reason=up.inspection.reason,
+        steps=up.inspection.steps,
+        recorded=up.answer.recorded,
+        kept=up.answer.kept,
+        disagreed=up.answer.disagreed,
         session=view,
     )

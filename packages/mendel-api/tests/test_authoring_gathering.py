@@ -423,11 +423,19 @@ def test_a_refused_prefetch_leaves_the_engines_words_when_its_gap_is_offered(cle
     assert "strandedness" not in authoring.to_phrase(sid)
 
 
+async def _queue_phrasing(sid: str) -> None:
+    """What `ask` queues on entering a question (plan 1c), through the facade's queue seam."""
+    from mendel_api.services import session
+    from mendel_api.stages import _jobs
+
+    for subject in gathering.to_phrase(sid):
+        await session._enqueue(_jobs.phrase(sid, subject))
+
+
 def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeypatch):
     import asyncio
 
     from mendel_api import jobs
-    from mendel_api.services import authoring_jobs
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: False)
     queued: list = []
@@ -439,7 +447,7 @@ def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeyp
     monkeypatch.setattr(jobs, "enqueue", enqueue)
     sid = _gathering(want=["counts.matrix"])
     assert _payload(authoring.pending_id(sid))["block"]["phrasing"] == "none"
-    asyncio.run(authoring_jobs.enqueue_phrasing(sid))
+    asyncio.run(_queue_phrasing(sid))
     assert queued == []
 
 
@@ -447,7 +455,6 @@ def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, m
     import asyncio
 
     from mendel_api import jobs
-    from mendel_api.services import authoring_jobs
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     queued: list = []
@@ -458,8 +465,8 @@ def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, m
 
     monkeypatch.setattr(jobs, "enqueue", enqueue)
     sid = _gathering(want=["counts.matrix"])
-    asyncio.run(authoring_jobs.enqueue_phrasing(sid))
-    asyncio.run(authoring_jobs.enqueue_phrasing(sid))
+    asyncio.run(_queue_phrasing(sid))
+    asyncio.run(_queue_phrasing(sid))
     ids = [kw["job_id"] for _, kw in queued]
     assert len(set(ids)) == 2 and all(":phrase:" in i for i in ids)
     assert [args[2] for args, _ in queued[:2]] == ["fastq.reads", "genome.fasta"]
