@@ -103,27 +103,26 @@ def test_an_answer_and_the_next_question_are_one_transaction(monkeypatch):
 
 def test_a_racing_second_answer_leaves_nothing_behind(monkeypatch):
     """Review Focus 3: the second tab's answer is refused, and its recording rolls back too."""
-    from mendel_api.services import session as s
-
     sid, _ = _gathering(monkeypatch, configured=False)
     pending = session.read(sid)["pending_proposal"]
     facts = session.read(sid)["facts"]
-    real = s._where
-    calls = []
+    from mendel_authoring import interpret
 
-    def moved_meanwhile(session_id):
-        read = real(session_id)
-        calls.append(read)
-        if len(calls) == 2:  # the dispatcher's read, after `check`'s: then another request moves it
-            with session_scope() as db:
-                db.execute(text("UPDATE pipeline_authoring_session SET at = 'card' WHERE id = :i"),
-                           {"i": sid})
-        return read
+    real = interpret.run
 
-    monkeypatch.setattr(s, "_where", moved_meanwhile)
+    def moved_meanwhile(*a, **k):
+        # Between the dispatcher reading where the session rests and writing where it comes to
+        # rest: another request moves it (issue 251, a named seam rather than a call count).
+        ran = real(*a, **k)
+        with session_scope() as db:
+            db.execute(text("UPDATE pipeline_authoring_session SET at = 'card' WHERE id = :i"),
+                       {"i": sid})
+        return ran
+
+    monkeypatch.setattr(interpret, "run", moved_meanwhile)
     with pytest.raises(ValueError, match="MI0201"):
         session.perform(c.AnswerGap(pending["id"], "have_it", None, "t"))
-    monkeypatch.setattr(s, "_where", real)
+    monkeypatch.setattr(interpret, "run", real)
     after = session.read(sid)
     assert after["facts"] == facts and after["pending_proposal"]["id"] == pending["id"]
 
@@ -268,3 +267,18 @@ def test_spawn_lives_in_one_file_and_no_stage_reaches_it():
     files = sorted(stages.glob("*.py"))
     assert files
     assert not [f.name for f in files if "spawn" in f.read_text()]
+
+
+def test_a_sample_whose_session_moved_on_queues_no_phrasing(monkeypatch):
+    """Issue 251: the arrow refused (the session moved on), so nothing is phrased for it."""
+    from mendel_api import db
+    from mendel_api.stages import samples
+
+    sid, _ = _gathering(monkeypatch)
+    with session_scope() as s:  # another request moved the session meanwhile
+        s.execute(text("UPDATE pipeline_authoring_session SET at = 'card' WHERE id = :i"),
+                  {"i": sid})
+    ctx = session.Ctx(sid, None)
+    with db.transaction():
+        samples._moves(ctx, False, ["read_length"])
+    assert ctx.jobs == []

@@ -148,3 +148,23 @@ def test_a_jobs_commands_queue_their_jobs_once_its_work_is_done(draft_id, monkey
 
     asyncio.run(job())
     assert queued == [(f"noted:{draft_id}", True)] and not _seen(draft_id)
+
+
+def test_a_failing_ending_never_hides_the_jobs_own_error(draft_id, monkeypatch):
+    """Issue 251: queuing after a job that raised must not replace its error with its own."""
+
+    async def refuse(job):
+        return False
+
+    def ending_breaks(ctx, cmd):
+        raise LookupError("the ending broke too")
+
+    monkeypatch.setattr(session, "_enqueue", refuse)
+
+    async def job():
+        async with session.queued_after(recorders={Write: _write, Undo: ending_breaks}):
+            session.perform(Write(draft_id), recorders={Write: _write})
+            raise RuntimeError("the job's own failure")
+
+    with pytest.raises(RuntimeError, match="own failure"):
+        asyncio.run(job())

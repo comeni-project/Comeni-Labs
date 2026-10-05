@@ -2,7 +2,6 @@
 (the upload's, or the reading's job); `upload` is the one step the interpreter sees, and its
 outcome is the section's way out. Moved from `services/authoring.py`, with the route's sequence."""
 
-import contextlib
 from datetime import datetime
 from typing import NamedTuple
 
@@ -24,6 +23,7 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
 from mendel_api.services import registry, session
+from mendel_api.services.inspect import Inspection
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.settings import settings
 from mendel_api.stages import _jobs, gathering
@@ -274,10 +274,13 @@ def _pin(proposal_id: str) -> None:
 def _moves(ctx: Ctx, answered: bool, recorded: list[str]) -> None:
     """A sample's way out of section ②a: on to the next question, or staying on this one. **The
     session moved on meanwhile** (spec §8): what it measured stands, and nothing moves — the
-    refusal is swallowed inside its own savepoint (Task 1 of plan 1c). A sample that recorded
-    facts but left its question open queues the phrasing the route used to (ruling 6)."""
-    with contextlib.suppress(Refused):
+    arrow is refused before anything is written, so there is nothing to undo. A sample that
+    recorded facts but left its question open queues the phrasing the route used to (ruling 6),
+    only when the session is still on that question (issue 251)."""
+    try:
         session.take(ctx, Command.UPLOAD_SAMPLE.value, answered=answered)
+    except Refused:
+        return
     if recorded and not answered:
         gathering.queue_phrasing(ctx)
 
@@ -373,7 +376,7 @@ def record_reading(
 class Uploaded(NamedTuple):
     """What one upload did: the inspection, and what it settled (`None` while the AI reads)."""
 
-    inspection: object
+    inspection: Inspection
     answer: SampleAnswer | None
     reading: bool
 
@@ -420,8 +423,6 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
 
 @records(c.SampleInspected)
 def _inspected(ctx: Ctx, cmd: c.SampleInspected) -> SampleAnswer:
-    from mendel_api.services.inspect import Inspection
-
     inspection = Inspection.model_validate(cmd.inspection)
     return record_inspection(ctx, cmd.proposal_id, inspection, by=cmd.by)
 

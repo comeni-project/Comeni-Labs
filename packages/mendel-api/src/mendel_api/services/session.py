@@ -338,12 +338,23 @@ async def queued_after(*, recorders: dict[type, Recorder] | None = None):
     a card's read-back) is queued here, after every one of them committed, even if the job's work
     then raised."""
     token = _collected.set([])
+    failed = False
     try:
         yield
+    except BaseException:
+        failed = True
+        raise
     finally:
         wanted = _collected.get() or []
         _collected.reset(token)
-        await _queue(tuple(wanted), recorders)
+        try:
+            await _queue(tuple(wanted), recorders)
+        except Exception:
+            if not failed:
+                raise
+            # **The job's own error is the one raised** (issue 251): an ending that broke while
+            # the job was already failing is logged, never put in its place.
+            log.exception("queueing after a failed job")
 
 
 async def _queue(wanted: tuple[Job, ...], recorders) -> tuple[bool, ...]:
