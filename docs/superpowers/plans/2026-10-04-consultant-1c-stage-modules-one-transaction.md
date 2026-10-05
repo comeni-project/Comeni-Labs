@@ -1776,7 +1776,7 @@ git commit -m "refactor(authoring): stage ②a behind the facade — an upload i
   - recorders for `StartBuilding` (result `str | None`), `SettleStep` (result `StepOutcome`) and `RecordEdit` (result `(int, str | None)`); handlers `resolve` and `offer`, as in 1b, now calling `resolve_blueprint` and `pending_step_tier` in this module.
 - Produces, in `services/spawn.py`, moved verbatim and marked for deletion: `SPAWN_STOP`, `SpawnStop`, `spawn_forward`, `mode_of`; `start(session_id, *, client) -> str | None`, the outside-a-transaction path; and `build(session_id, client)`, which is the body of `authoring_jobs.build_authoring_blueprint`'s `try`. `spawn_forward` calls `session.perform(c.SettleStep(...))` once per step. `build` calls `building.start(session.Ctx(session_id, None), session_id, client=client)` **outside any transaction** (ruling 3), and raises `ctx.raised` itself.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test_authoring_commands.py`:
 
@@ -1835,12 +1835,12 @@ def test_spawn_lives_in_one_file_and_no_stage_reaches_it():
     assert not [f.name for f in files if "spawn" in f.read_text()]
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_commands.py -q -k "resolver or settling or spawn"`
 Expected: the first two FAIL with `KeyError` for `StartBuilding`. The third PASSES already. Watch it fail by adding `# spawn` to `stages/building.py`, then remove that line, and record it in the ledger.
 
-- [ ] **Step 3: Split stage ④**
+- [x] **Step 3: Split stage ④**
 
 Move the functions under Produces into `stages/building.py`. `settle_step`'s body is split as named: the accept branch becomes `commit_step`, the `moved` branch after the first transaction becomes `reresolve`, and what is left is `settle`. `session_mod.check(...)` and `session_mod.perform_now(settled_in, SETTLE_STEP)` become `session.check(...)` and `session.take(ctx, Command.SETTLE_STEP.value)`. The `if not moved:` block keeps its order.
 
@@ -1866,7 +1866,7 @@ def _edit(ctx: Ctx, cmd: c.RecordEdit) -> tuple[int, str | None]:
 
 Move Spawn into `services/spawn.py` with a module docstring that begins: *Deleted in part 3 of the consultant build (spec §11.1): Build/Spawn and `Mode` are retired.* In `authoring_jobs.build_authoring_blueprint`, the `try` body becomes `spawn.build(session_id, _client(authoring_ai.Purpose.TIER4))`.
 
-- [ ] **Step 4: Forward the old names**
+- [x] **Step 4: Forward the old names**
 
 ```python
 def start_building(session_id: str, *, client=None) -> str | None:
@@ -1892,12 +1892,12 @@ build_blueprint, describe_edit = building.resolve_blueprint, building.describe_e
 
 `spawn.start(session_id, *, client)` is the outside-a-transaction path `build` uses: `building.start(Ctx(session_id, None), session_id, client=client)`, then it raises `ctx.raised` if set.
 
-- [ ] **Step 5: Run everything once**
+- [x] **Step 5: Run everything once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api -q > .superpowers/sdd/1c-task8.log 2>&1; tail -30 .superpowers/sdd/1c-task8.log`
 Expected: all passed, `test_authoring_spawn.py` included.
 
-- [ ] **Step 6: Check, then commit**
+- [x] **Step 6: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`, then `make verify MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel` (resolving moved).
 Expected: exit 0 for both.

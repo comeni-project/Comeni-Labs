@@ -212,3 +212,59 @@ def test_a_reading_whose_job_never_queued_ends_as_no_answer(monkeypatch):
     asyncio.run(session.act(c.UploadSample(
         sid, pending["id"], (("notes.txt", b"just words, nothing reads this\n" * 40),), "t")))
     assert samples.reading_of(pending["id"]).state == "no_answer"
+
+
+def _confirmed(monkeypatch):
+    from mendel_api.stages import gathering
+
+    monkeypatch.setattr(gathering, "_model_configured", lambda: False)
+    sid, _ = session.perform(c.Begin("gene counts", "build", "t")).result
+    session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
+    while (pending := session.read(sid)["pending_proposal"])["kind"] == "gap":
+        options = pending["payload"]["options"]
+        ordinary = [o for o in options if o not in ("dont_have", "value", "not_sure", "upload")]
+        option = ordinary[0] if ordinary else "not_sure"
+        session.perform(c.AnswerGap(pending["id"], option, None, "t"))
+    session.perform(c.DecideGoal(pending["id"], "accepted", session.read(sid)["revision"], "t"))
+    return sid
+
+
+def test_a_resolver_failure_through_the_facade_lands_on_failed_and_stays(monkeypatch):
+    """Review Focus 4: committed before it is raised."""
+    from mendel_api.services import blueprint as bp
+
+    sid = _confirmed(monkeypatch)
+
+    def crash(*a, **k):
+        raise LookupError("the resolver broke")
+
+    monkeypatch.setattr(bp, "resolve", crash)
+    with pytest.raises(LookupError):
+        session.perform(c.StartBuilding(sid))
+    assert _at(sid)[0] == "failed"
+
+
+def test_settling_a_step_is_one_transaction(monkeypatch):
+    from mendel_api.stages import building
+
+    sid = _confirmed(monkeypatch)
+    first = session.perform(c.StartBuilding(sid)).result
+    revision = session.read(sid)["revision"]
+
+    def broke(*a, **k):
+        raise RuntimeError("offering the next step failed")
+
+    monkeypatch.setattr(building, "offer_step", broke)
+    with pytest.raises(RuntimeError):
+        session.perform(c.SettleStep(first, "accepted", revision, "t"))
+    after = session.read(sid)
+    assert after["revision"] == revision and after["pending_proposal"]["id"] == first
+
+
+def test_spawn_lives_in_one_file_and_no_stage_reaches_it():
+    from pathlib import Path
+
+    stages = Path(session.__file__).resolve().parents[1] / "stages"
+    files = sorted(stages.glob("*.py"))
+    assert files
+    assert not [f.name for f in files if "spawn" in f.read_text()]

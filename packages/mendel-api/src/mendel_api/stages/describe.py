@@ -21,9 +21,9 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
-from mendel_api.services import authoring, session
+from mendel_api.services import session
 from mendel_api.services.session import Ctx, handles, records
-from mendel_api.stages import _jobs
+from mendel_api.stages import _jobs, gathering
 from mendel_api.stages._rows import GOAL, new_id, next_seq, store_goal
 from mendel_api.stages._rows import now as _now
 
@@ -264,7 +264,7 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
             prompt=person.text if person is not None else "",
             tail=[(role, text) for role, text in tail if text],
             revision=draft.revision if draft else 0,
-            goal=authoring.as_goal(goal),
+            goal=gathering.as_goal(goal),
             steps=[
                 (node.id, node.contract_id)
                 for node in DraftGraph.model_validate(draft.graph).nodes

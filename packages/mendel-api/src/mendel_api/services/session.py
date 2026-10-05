@@ -208,6 +208,8 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
     own = ctx is None
     if own:
         ctx = Ctx(session_id, command, dict(payload))
+    else:
+        ctx.command, ctx.payload = command, dict(payload)
     ran = interpret.run(
         protocol, start, command, lambda node: bound[node](ctx), returning_to=came_from
     )
@@ -350,7 +352,7 @@ def read(session_id: str) -> dict:
     from four endpoints would make the checkpoint a statement about four caches.
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
-    from mendel_api.services.authoring import _placement
+    from mendel_api.stages.building import _placement
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
 

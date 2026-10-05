@@ -32,7 +32,7 @@ from mendel_api.models import (
     PipelineAuthoringSession,
     PipelineAuthoringTurn,
 )
-from mendel_api.services import authoring, gaps, registry, session
+from mendel_api.services import gaps, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows
 from mendel_api.stages._rows import GOAL, propose, store_goal
@@ -610,7 +610,9 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
         session.check(proposal.session_id, Command.ANSWER_GAP.value)
         if ((payload.get("block") or {}).get("reading") or {}).get("state") == "pending":
             # The person answered while the AI read (issue 241): the reading ends, unspent.
-            authoring._set_reading(db, proposal, None)
+            from mendel_api.stages import samples  # samples imports this module
+
+            samples._set_reading(db, proposal, None)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = by
         proposal.chosen_option = option

@@ -34,7 +34,7 @@ from mendel_api.authoring.types import (
     Question,
     WantUnderstanding,
 )
-from mendel_api.services import authoring, authoring_ai, registry
+from mendel_api.services import authoring, authoring_ai, registry, spawn
 from mendel_api.services import session as session_mod
 from mendel_api.settings import model_access, settings
 from mendel_api.stages._jobs import ANSWER, CHARACTERISE, PHRASE, READ_BACK
@@ -538,8 +538,7 @@ async def build_authoring_blueprint(ctx: dict, session_id: str) -> str:
     moves the session to `failed` inside `start_building`, where `retry` picks it up.
     """
     try:
-        authoring.start_building(session_id, client=_client(authoring_ai.Purpose.TIER4))
-        authoring.spawn_forward(session_id)
+        spawn.build(session_id, _client(authoring_ai.Purpose.TIER4))
     except ValueError as refused:
         log.warning("blueprint for %s refused: %s", session_id, str(refused).splitlines()[0])
     return session_id
