@@ -36,14 +36,11 @@ from mendel_api.authoring.types import (
 from mendel_api.services import authoring, authoring_ai, registry
 from mendel_api.services import session as session_mod
 from mendel_api.settings import model_access, settings
+from mendel_api.stages._jobs import ANSWER, CHARACTERISE, PHRASE, READ_BACK
 
 log = logging.getLogger(__name__)
 
-ANSWER = "answer_authoring_turn"
 BUILD = "build_authoring_blueprint"
-PHRASE = "phrase_authoring_gap"
-READ_BACK = "read_back_authoring_goal"
-CHARACTERISE = "characterise_sample"
 
 AI_JOBS = frozenset({ANSWER, BUILD, PHRASE, READ_BACK, CHARACTERISE})
 """The builder's jobs that reach a provider — `forge_jobs.AI_JOBS`, one agent over.

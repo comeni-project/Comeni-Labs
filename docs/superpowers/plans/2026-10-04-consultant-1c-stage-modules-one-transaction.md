@@ -663,7 +663,7 @@ git commit -m "feat(authoring): typed commands in the core; an acting node that 
   - `perform_now` and `resume` keep their 1b signatures, for 1b's tests. They gain `ctx: Ctx | None = None`, and raise `ctx.raised` only when they made the context themselves.
 - Produces, in `stages/_jobs.py`: `ANSWER`, `PHRASE`, `READ_BACK`, `CHARACTERISE` (the job function names, moved from `authoring_jobs`, which re-imports them) and `turn(session_id, seq) -> Job`, `phrase(session_id, subject) -> Job`, `readback(session_id, proposal_id) -> Job`, `characterise(session_id, proposal_id, attempt, excerpt, *, unqueued, expires) -> Job`, each with the job id and queue `authoring_jobs.enqueue_*` uses today.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The facade (spec §11): one command, one transaction, jobs after the commit."""
@@ -798,12 +798,12 @@ def test_a_kind_has_one_recorder():
         del session.RECORDERS[Undo]
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_facade.py -q`
 Expected: FAIL at collection with `ImportError: cannot import name 'Job'`.
 
-- [ ] **Step 3: Write the facade**
+- [x] **Step 3: Write the facade**
 
 In `services/session.py`, extend `Ctx` and add, after `resume`:
 
@@ -964,12 +964,12 @@ def characterise(session_id: str, proposal_id: str, attempt: int, excerpt, *, un
 
 In `authoring_jobs.py`, replace the four name constants with `from mendel_api.stages._jobs import ANSWER, CHARACTERISE, PHRASE, READ_BACK`. `BUILD` stays there: it is Spawn's job.
 
-- [ ] **Step 4: Run the facade and 1b's dispatcher tests**
+- [x] **Step 4: Run the facade and 1b's dispatcher tests**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_facade.py packages/mendel-api/tests/test_authoring_dispatch.py -q`
 Expected: all passed. 1b's dispatch tests are unchanged.
 
-- [ ] **Step 5: Check, then commit**
+- [x] **Step 5: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0.
