@@ -8,6 +8,7 @@ this file is for.
 
 from pathlib import Path
 
+import authoring_setup
 import pytest
 from comeni_ai import Client, ModelAccess
 from comeni_core import yaml_strict
@@ -22,8 +23,10 @@ from mendel_api.models import (
     PipelineAuthoringSession,
     PipelineDraft,
 )
-from mendel_api.services import authoring, authoring_ai, drafts
+from mendel_api.services import authoring_ai, drafts
 from mendel_api.services import blueprint as bp
+from mendel_api.services import session as facade
+from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import select, text
@@ -67,10 +70,10 @@ def _goal() -> Goal:
 def _resolving(mode: Mode = Mode.BUILD) -> str:
     """A session whose goal has been confirmed, sitting in `resolving`."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = authoring.open_session(draft_id, mode=mode, who="ana")
-    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
-    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
-    authoring.move(
+    session_id = facade.perform(commands.OpenSession(draft_id, mode.value, "ana")).result
+    authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
+    authoring_setup.move(
         session_id,
         st.Event.GOAL_ACCEPTED,
         row_version=3,
@@ -107,7 +110,7 @@ def _phase(session_id: str) -> Phase:
 
 def test_building_stores_the_blueprint_and_offers_its_first_step(clean):
     session_id = _resolving()
-    first = authoring.start_building(session_id)
+    first = authoring_setup.start_building(session_id)
 
     assert _phase(session_id) is Phase.BUILDING
     assert _proposal(first).payload["node"] == "star_genomegenerate"
@@ -121,9 +124,9 @@ def test_building_stores_the_blueprint_and_offers_its_first_step(clean):
 
 def test_building_cannot_start_from_any_phase_but_resolving(clean):
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
+    session_id = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
     with pytest.raises(ValueError, match="MI0200"):
-        authoring.start_building(session_id)
+        authoring_setup.start_building(session_id)
 
 
 def test_a_goal_missing_an_input_fails_into_the_log_with_its_code(clean):
@@ -132,19 +135,19 @@ def test_a_goal_missing_an_input_fails_into_the_log_with_its_code(clean):
     422 to a toast, written nowhere, with the session in `failed` and no way to read why after a
     reload. A resolver refusal is a fact about the goal, so it belongs in the conversation."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
-    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
-    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
+    session_id = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
+    authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     only_reads = Goal.model_validate(
         {"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]}
     )
-    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3,
+    authoring_setup.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3,
                    goal=only_reads.model_dump(mode="json"))
 
-    assert authoring.start_building(session_id) is None
+    assert authoring_setup.start_building(session_id) is None
     assert _phase(session_id) is Phase.FAILED
 
-    last = authoring.read(session_id)["turns"][-1]
+    last = facade.read(session_id)["turns"][-1]
     assert last["role"] == "assistant"
     [notice] = last["blocks"]
     assert notice["kind"] == "notice" and notice["code"] == "MI0207"
@@ -160,19 +163,21 @@ def _answer_all(session_id: str, first: str, *, reject: set[str] = frozenset()) 
     while proposal_id is not None:
         node = _proposal(proposal_id).payload["node"]
         _, _, revision = _draft(session_id)
-        outcome = authoring.settle_step(
-            proposal_id,
-            ProposalState.REJECTED if node in reject else ProposalState.ACCEPTED,
-            expected_revision=revision,
-            by="ana",
-        )
+        outcome = facade.perform(
+            commands.SettleStep(
+                proposal_id,
+                ProposalState.REJECTED if node in reject else ProposalState.ACCEPTED.value,
+                revision,
+                "ana",
+            )
+        ).result
         assert outcome.settlement.refusal is None, outcome.settlement.refusal
         proposal_id = outcome.next_proposal
 
 
 def test_accepting_every_step_completes_the_session_with_the_whole_spine(clean):
     session_id = _resolving()
-    _answer_all(session_id, authoring.start_building(session_id))
+    _answer_all(session_id, authoring_setup.start_building(session_id))
     graph, provenance, revision = _draft(session_id)
 
     assert _phase(session_id) is Phase.COMPLETE
@@ -189,7 +194,7 @@ def test_accepting_every_step_completes_the_session_with_the_whole_spine(clean):
 
 def test_a_rejected_step_is_never_wired_to_and_does_not_move_the_revision(clean):
     session_id = _resolving()
-    _answer_all(session_id, authoring.start_building(session_id), reject={"trimgalore"})
+    _answer_all(session_id, authoring_setup.start_building(session_id), reject={"trimgalore"})
     graph, _, revision = _draft(session_id)
 
     assert "trimgalore" not in {n.id for n in graph.nodes}
@@ -199,23 +204,19 @@ def test_a_rejected_step_is_never_wired_to_and_does_not_move_the_revision(clean)
 
 def test_choosing_an_alternative_commits_it_as_a_persons_choice(clean):
     session_id = _resolving()
-    proposal_id = authoring.start_building(session_id)
+    proposal_id = authoring_setup.start_building(session_id)
     while _proposal(proposal_id).payload["node"] != "star_align":
         _, _, revision = _draft(session_id)
-        proposal_id = authoring.settle_step(
-            proposal_id, ProposalState.ACCEPTED, expected_revision=revision, by="ana"
-        ).next_proposal
+        proposal_id = facade.perform(
+            commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, revision, "ana")
+        ).result.next_proposal
 
     options = _proposal(proposal_id).payload["options"]
     chosen = next(option for option, contract in options.items() if contract == HISAT2)
     _, _, revision = _draft(session_id)
-    outcome = authoring.settle_step(
-        proposal_id,
-        ProposalState.ACCEPTED,
-        expected_revision=revision,
-        by="ana",
-        chosen_option=chosen,
-    )
+    outcome = facade.perform(
+        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, revision, "ana", chosen)
+    ).result
     graph, provenance, _ = _draft(session_id)
 
     assert outcome.settlement.refusal is None
@@ -229,14 +230,10 @@ def test_choosing_an_alternative_commits_it_as_a_persons_choice(clean):
 
 def test_an_option_that_was_never_offered_is_refused_and_changes_nothing(clean):
     session_id = _resolving()
-    proposal_id = authoring.start_building(session_id)
-    outcome = authoring.settle_step(
-        proposal_id,
-        ProposalState.ACCEPTED,
-        expected_revision=0,
-        by="ana",
-        chosen_option="alt_99",
-    )
+    proposal_id = authoring_setup.start_building(session_id)
+    outcome = facade.perform(
+        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, 0, "ana", "alt_99")
+    ).result
     graph, _, revision = _draft(session_id)
 
     assert "MI0205" in outcome.settlement.refusal
@@ -247,10 +244,10 @@ def test_an_option_that_was_never_offered_is_refused_and_changes_nothing(clean):
 def test_acting_on_an_old_picture_of_the_draft_is_refused(clean):
     """The two-tab case, through the step path rather than the generic one."""
     session_id = _resolving()
-    proposal_id = authoring.start_building(session_id)
-    outcome = authoring.settle_step(
-        proposal_id, ProposalState.ACCEPTED, expected_revision=7, by="ana"
-    )
+    proposal_id = authoring_setup.start_building(session_id)
+    outcome = facade.perform(
+        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, 7, "ana")
+    ).result
 
     assert "MI0201" in outcome.settlement.refusal
     assert _draft(session_id)[2] == 0
@@ -261,13 +258,13 @@ def test_a_registry_that_moved_marks_the_proposal_stale_and_re_resolves(clean, m
     write a choice nobody made. Nothing reaches the draft, the proposal is `stale` rather than
     `rejected`, and a fresh proposal for the same step is waiting against the new digest."""
     session_id = _resolving()
-    proposal_id = authoring.start_building(session_id)
+    proposal_id = authoring_setup.start_building(session_id)
 
     moved = "sha256:" + "0" * 64
     monkeypatch.setattr(bp, "registry_digest", lambda roots: moved)
-    outcome = authoring.settle_step(
-        proposal_id, ProposalState.ACCEPTED, expected_revision=0, by="ana"
-    )
+    outcome = facade.perform(
+        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, 0, "ana")
+    ).result
 
     assert "MI0206" in outcome.settlement.refusal
     assert _proposal(proposal_id).state == ProposalState.STALE.value
@@ -276,9 +273,9 @@ def test_a_registry_that_moved_marks_the_proposal_stale_and_re_resolves(clean, m
     with session_scope() as db:
         assert db.get(PipelineAuthoringSession, session_id).registry_digest == moved
 
-    retried = authoring.settle_step(
-        outcome.next_proposal, ProposalState.ACCEPTED, expected_revision=0, by="ana"
-    )
+    retried = facade.perform(
+        commands.SettleStep(outcome.next_proposal, ProposalState.ACCEPTED.value, 0, "ana")
+    ).result
     assert retried.settlement.refusal is None
     assert _draft(session_id)[2] == 1
 

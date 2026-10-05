@@ -2,9 +2,9 @@
 
 **This file is the whole of the builder's side of egress door 1.** Every call composes an
 `AuthoringRequest`, renders it into a committed template, sends it, and admits the answer against
-the vocabulary and the ids the engine itself issued. `services/authoring.py` next door holds rows
-and knows nothing about providers; that split is what lets its tests run against a database with
-no model, and this file's tests run against a fake transport with no database.
+the vocabulary and the ids the engine itself issued. The stage modules (`mendel_api/stages/`)
+hold rows and know nothing about providers; that split is what lets their tests run against a
+database with no model, and this file's tests run against a fake transport with no database.
 
 **Three things are checked on the way back in, and they are different checks.** The shape is
 checked by `comeni-ai`, which will not hand over an answer that does not validate. The

@@ -10,6 +10,7 @@ import asyncio
 import json
 from pathlib import Path
 
+import authoring_setup
 import pytest
 from comeni_ai import Client, ModelAccess
 from comeni_core import yaml_strict
@@ -22,8 +23,11 @@ from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.routes import authoring as routes
-from mendel_api.services import authoring, authoring_jobs, drafts
+from mendel_api.services import authoring_jobs, drafts
+from mendel_api.services import session as facade
 from mendel_api.services import session as session_service
+from mendel_api.services import spawn as spawn_service
+from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import text
@@ -65,10 +69,10 @@ def _goal() -> Goal:
 
 def _resolving(mode: Mode) -> str:
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = authoring.open_session(draft_id, mode=mode, who="ana")
-    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
-    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
-    authoring.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3,
+    session_id = facade.perform(commands.OpenSession(draft_id, mode.value, "ana")).result
+    authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
+    authoring_setup.move(session_id, st.Event.GOAL_ACCEPTED, row_version=3,
                    goal=_goal().model_dump(mode="json"))
     return session_id
 
@@ -86,12 +90,12 @@ def _draft(session_id: str) -> tuple[DraftGraph, DraftProvenance, int, str]:
 
 
 def _build_by_hand(session_id: str) -> None:
-    proposal = authoring.start_building(session_id)
+    proposal = authoring_setup.start_building(session_id)
     while proposal is not None:
         revision = _draft(session_id)[2]
-        proposal = authoring.settle_step(
-            proposal, ProposalState.ACCEPTED, expected_revision=revision, by="ana"
-        ).next_proposal
+        proposal = facade.perform(
+            commands.SettleStep(proposal, ProposalState.ACCEPTED.value, revision, "ana")
+        ).result.next_proposal
 
 
 def _shape(graph: DraftGraph):
@@ -128,11 +132,11 @@ def test_build_and_spawn_converge_on_one_draft_and_one_yaml(clean):
     build = _resolving(Mode.BUILD)
     _build_by_hand(build)
     spawn = _resolving(Mode.SPAWN)
-    authoring.start_building(spawn)
-    stop = authoring.spawn_forward(spawn)
+    authoring_setup.start_building(spawn)
+    stop = spawn_service.spawn_forward(spawn)
 
     assert stop.node is None, stop.reason
-    assert authoring.current_phase(spawn) is Phase.COMPLETE
+    assert facade.current_phase(spawn) is Phase.COMPLETE
 
     b_graph, b_prov, _, b_draft = _draft(build)
     s_graph, s_prov, _, s_draft = _draft(spawn)
@@ -142,8 +146,8 @@ def test_build_and_spawn_converge_on_one_draft_and_one_yaml(clean):
     assert drafts.preview(b_draft, ai=ai)[1] == drafts.preview(s_draft, ai=ai)[1]
 
     # The histories differ: a person answered Build; Spawn recorded the author it relied on.
-    b_by = {d["by"] for d in authoring.read(build)["history"]}
-    s_by = {d["by"] for d in authoring.read(spawn)["history"]}
+    b_by = {d["by"] for d in facade.read(build)["history"]}
+    s_by = {d["by"] for d in facade.read(spawn)["history"]}
     assert b_by == {"ana"}
     assert s_by == {"resolver"}
 
@@ -151,8 +155,8 @@ def test_build_and_spawn_converge_on_one_draft_and_one_yaml(clean):
 def test_spawn_calls_a_step_the_resolver_settled_the_resolvers(clean):
     """*Spawn is not permission to label the whole graph AI-authored.*"""
     spawn = _resolving(Mode.SPAWN)
-    authoring.start_building(spawn)
-    authoring.spawn_forward(spawn)
+    authoring_setup.start_building(spawn)
+    spawn_service.spawn_forward(spawn)
     _, provenance, _, _ = _draft(spawn)
 
     assert provenance.nodes, "nothing was stamped, so this asserted nothing"
@@ -166,11 +170,11 @@ def test_spawn_stops_on_a_tier_four_choice_no_model_made(clean):
     """A missing model, a refusal, no candidate the model could take — all arrive as a tier-4 step
     the flag settled, and Spawn leaves it for the card Build would have shown."""
     spawn = _resolving(Mode.SPAWN)
-    authoring.start_building(spawn)
+    authoring_setup.start_building(spawn)
     _rewrite_step(spawn, "star_align", tier=4, source="resolver")
 
-    stop = authoring.spawn_forward(spawn)
-    view = authoring.read(spawn)
+    stop = spawn_service.spawn_forward(spawn)
+    view = facade.read(spawn)
 
     assert stop.node == "star_align"
     assert view["phase"] == "building"
@@ -180,10 +184,10 @@ def test_spawn_stops_on_a_tier_four_choice_no_model_made(clean):
 def test_author_differs_only_at_the_step_a_model_chose(clean):
     """The tier-4 half of the checkpoint: the model authored its choice and nothing else."""
     spawn = _resolving(Mode.SPAWN)
-    authoring.start_building(spawn)
+    authoring_setup.start_building(spawn)
     _rewrite_step(spawn, "star_align", tier=4, source="model")
 
-    stop = authoring.spawn_forward(spawn)
+    stop = spawn_service.spawn_forward(spawn)
     _, provenance, _, _ = _draft(spawn)
     authors = {entry.node: entry.selection for entry in provenance.nodes}
 
@@ -197,18 +201,18 @@ def test_a_moved_registry_stops_spawn_rather_than_applying_across_it(clean, monk
     from mendel_api.services import blueprint as bp
 
     spawn = _resolving(Mode.SPAWN)
-    authoring.start_building(spawn)
+    authoring_setup.start_building(spawn)
     monkeypatch.setattr(bp, "registry_digest", lambda roots: "sha256:" + "0" * 64)
 
-    stop = authoring.spawn_forward(spawn)
+    stop = spawn_service.spawn_forward(spawn)
     assert stop.reason == "MI0206"
     assert _draft(spawn)[2] == 0
 
 
 def test_a_build_session_is_never_advanced_by_the_policy(clean):
     build = _resolving(Mode.BUILD)
-    authoring.start_building(build)
-    assert authoring.spawn_forward(build).node is None
+    authoring_setup.start_building(build)
+    assert spawn_service.spawn_forward(build).node is None
     assert _draft(build)[2] == 0
 
 
@@ -260,7 +264,7 @@ def _spawn_turn(monkeypatch, answer: dict) -> tuple[str, Answers]:
 
 def _gather(client, session_id: str, built: list) -> None:
     """Answer every gap as the person would; the last answer confirms the card in Spawn."""
-    while (pending := authoring.read(session_id)["pending_proposal"]) and pending["kind"] == "gap":
+    while (pending := facade.read(session_id)["pending_proposal"]) and pending["kind"] == "gap":
         option, value = ANSWERS.get(pending["payload"]["subject"], ("have_it", None))
         response = client.post(
             f"/api/pipeline/authoring/{session_id}/proposals/{pending['id']}/decide",
@@ -275,7 +279,7 @@ def test_a_spawn_session_gathers_from_the_person_then_builds_on_its_own(clean, m
     """Since 14.7.3 Spawn gathers too: nothing is guessed, so each gap is the person's. Once the
     last is answered, the policy confirms the card and the blueprint builds with no more calls."""
     session_id, transport = _spawn_turn(monkeypatch, GOAL_ANSWER)
-    assert authoring.read(session_id)["phase"] == "gathering"
+    assert facade.read(session_id)["phase"] == "gathering"
 
     async def build(session_id, row_version):
         await authoring_jobs.build_authoring_blueprint({}, session_id)
@@ -285,7 +289,7 @@ def test_a_spawn_session_gathers_from_the_person_then_builds_on_its_own(clean, m
     decided: list = []
     _gather(TestClient(create_app()), session_id, decided)
 
-    view = authoring.read(session_id)
+    view = facade.read(session_id)
     assert decided[-1]["queued"] is True
     assert view["phase"] == "complete"
     assert len(transport.sent) == 1, "a model call for a step the resolver settled"
@@ -300,8 +304,8 @@ def test_a_spawn_want_with_an_open_question_pauses_for_a_person(clean, monkeypat
         "choices": ["gene", "transcript"], "exhaustive": False,
     }]}
     session_id, _ = _spawn_turn(monkeypatch, asking)
-    assert authoring.read(session_id)["phase"] == "understanding"
-    assert authoring.read(session_id)["pending_proposal"] is None
+    assert facade.read(session_id)["phase"] == "understanding"
+    assert facade.read(session_id)["pending_proposal"] is None
 
 
 def test_available_ai_points_follow_the_installation_not_the_mode(monkeypatch):

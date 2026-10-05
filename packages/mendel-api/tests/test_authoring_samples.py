@@ -5,12 +5,16 @@ Driven through the service against the throwaway database, with inspections buil
 inspection itself is `test_inspect.py`'s.
 """
 
+import authoring_setup
 import pytest
 from comeni_core.plan.draft import DraftGraph
 from mendel_api.authoring.types import Mode
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
-from mendel_api.services import authoring, drafts, inspect
+from mendel_api.services import drafts, inspect
+from mendel_api.services import session as facade
+from mendel_api.stages import gathering
+from mendel_authoring import commands
 from mendel_authoring import state as st
 from sqlalchemy import text
 
@@ -43,11 +47,11 @@ def clean():
 
 def _gathering(want: list[str]) -> str:
     draft_id = drafts.create(DraftGraph(), "t", "ana")
-    sid = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
+    sid = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
     with session_scope() as db:
         db.get(PipelineAuthoringSession, sid).goal = {"want": want, "constraints": {}, "stated": []}
-    authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
-    authoring.offer_next_gap(sid)
+    authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.offer_next_gap(sid)
     return sid
 
 
@@ -57,11 +61,11 @@ def _payload(pid: str) -> dict:
 
 
 def _pending_for(sid: str, subject: str) -> str:
-    while (pid := authoring.pending_id(sid)) and _payload(pid)["subject"] != subject:
+    while (pid := facade.pending_id(sid)) and _payload(pid)["subject"] != subject:
         skip = ("dont_have", "value", "not_sure", "upload")
         options = [o for o in _payload(pid)["options"] if o not in skip]
-        authoring.answer_gap(pid, options[0], None, by="ana")
-    return authoring.pending_id(sid)
+        facade.perform(commands.AnswerGap(pid, options[0], None, "ana"))
+    return facade.pending_id(sid)
 
 
 def _facts(sid: str) -> list[dict]:
@@ -109,13 +113,17 @@ def test_clicking_upload_records_nothing(clean):
     sid = _gathering(["counts.matrix"])
     pid = _pending_for(sid, "read_length")
     with pytest.raises(ValueError, match="MI0205"):
-        authoring.answer_gap(pid, "upload", None, by="ana")
+        facade.perform(commands.AnswerGap(pid, "upload", None, "ana"))
 
 
 def test_an_upload_records_every_decided_fact_as_measured(clean):
     sid = _gathering(["counts.matrix"])
     pid = _pending_for(sid, "paired")  # gaps come inputs, paired, read_length, strandedness
-    answer = authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
+    answer = facade.perform(
+        commands.SampleInspected(
+            pid, _measured(read_length=150, paired=True).model_dump(mode="json"), "ana"
+        )
+    ).result
     facts = _facts(sid)
     rl = next(f for f in facts if f["subject"] == "read_length")
     assert rl["source"] == "measured" and rl["value"] == 150
@@ -129,9 +137,13 @@ def test_an_upload_records_every_decided_fact_as_measured(clean):
 def test_what_the_person_said_is_kept_and_the_difference_reported(clean):
     """Review focus 4: the person said single-end; the file reads as a pair."""
     sid = _gathering(["counts.matrix"])
-    authoring.answer_gap(_pending_for(sid, "paired"), "no", None, by="ana")
+    facade.perform(commands.AnswerGap(_pending_for(sid, "paired"), "no", None, "ana"))
     pid = _pending_for(sid, "read_length")
-    answer = authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
+    answer = facade.perform(
+        commands.SampleInspected(
+            pid, _measured(read_length=150, paired=True).model_dump(mode="json"), "ana"
+        )
+    ).result
     assert answer.disagreed == ["paired"] and "read_length" in answer.recorded
     assert next(f for f in _facts(sid) if f["subject"] == "paired")["value"] is False
 
@@ -143,8 +155,8 @@ def test_an_undetermined_answer_leaves_the_gap_open(clean):
     undecided.facts.append(
         inspect.InspectedFact(measurement="read_length", undetermined="lengths vary: 100–151")
     )
-    authoring.answer_with_sample(pid, undecided, by="ana")
-    assert authoring.pending_id(sid) == pid
+    facade.perform(commands.SampleInspected(pid, undecided.model_dump(mode='json'), "ana"))
+    assert facade.pending_id(sid) == pid
     assert next(f for f in _facts(sid) if f["subject"] == "paired")["value"] is True
 
 
@@ -152,18 +164,24 @@ def test_a_second_upload_to_an_answered_gap_is_refused(clean):
     """Review focus 3: two tabs. The second is refused like a duplicate click."""
     sid = _gathering(["counts.matrix"])
     pid = _pending_for(sid, "read_length")
-    authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
+    facade.perform(
+        commands.SampleInspected(pid, _measured(read_length=150).model_dump(mode="json"), "ana")
+    )
     before = _facts(sid)
     with pytest.raises(ValueError, match="MI0203"):
-        authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
+        facade.perform(
+            commands.SampleInspected(pid, _measured(read_length=150).model_dump(mode="json"), "ana")
+        )
     assert _facts(sid) == before
 
 
 def test_compose_goal_carries_the_pieces_and_only_declared_counts(clean):
     sid = _gathering(["counts.matrix"])
     pid = _pending_for(sid, "read_length")
-    authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
-    goal = authoring.compose_goal(sid)
+    facade.perform(
+        commands.SampleInspected(pid, _measured(read_length=150).model_dump(mode="json"), "ana")
+    )
+    goal = gathering.compose_goal(sid)
     m = next(m for m in goal.profile.measurements if m.measurement == "read_length")
     assert m.source.value == "measured" and m.pieces == ["fastq@1.0.0", "read_length@1.0.0"]
     assert m.evidence.model_dump(mode="json") == {"records": 2000, "rows": 1000}
@@ -175,16 +193,20 @@ def test_a_model_reading_cannot_prefill_upload(clean):
     sid = _gathering(["counts.matrix"])
     pid = _pending_for(sid, "read_length")
     with pytest.raises(ValueError, match="MI0205"):
-        authoring.prefill_gap(pid, "upload", None, note=authoring.READ_NOTE)
+        facade.perform(commands.PrefillGap(pid, "upload", None, gathering.READ_NOTE))
 
 
 def test_a_sample_measures_what_the_person_could_not_share(clean):
     """Review of #134: *can't share* is a fact nobody knows. The person's own sample then
     measures it, and that is recorded, never reported as a disagreement with a value nobody gave."""
     sid = _gathering(["counts.matrix"])
-    authoring.answer_gap(_pending_for(sid, "paired"), "cant_share", None, by="ana")
+    facade.perform(commands.AnswerGap(_pending_for(sid, "paired"), "cant_share", None, "ana"))
     pid = _pending_for(sid, "read_length")
-    answer = authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
+    answer = facade.perform(
+        commands.SampleInspected(
+            pid, _measured(read_length=150, paired=True).model_dump(mode="json"), "ana"
+        )
+    ).result
     assert answer.disagreed == [] and "paired" in answer.recorded
     paired = [f for f in _facts(sid) if f["subject"] == "paired"]
     assert len(paired) == 1 and paired[0]["source"] == "measured" and paired[0]["value"] is True
@@ -198,12 +220,12 @@ def test_upload_is_offered_only_when_the_person_has_an_input_an_inspector_reads(
 
     stack = registry.stack()
     gap = gaps.Gap(kind=FactKind.MEASUREMENT, subject="read_length", why="w")
-    without = authoring._gap_options(gap, stack, [])
+    without = gathering._gap_options(gap, stack, [])
     assert "not_sure" in without and "upload" not in without
     bam = Fact(kind=FactKind.INPUT, subject="alignment.bam", source=FactSource.PERSON_SAID)
-    assert "upload" not in authoring._gap_options(gap, stack, [bam])
+    assert "upload" not in gathering._gap_options(gap, stack, [bam])
     reads = Fact(kind=FactKind.INPUT, subject="fastq.reads", source=FactSource.PERSON_SAID)
-    with_reads = authoring._gap_options(gap, stack, [reads])
+    with_reads = gathering._gap_options(gap, stack, [reads])
     assert "upload" in with_reads and "not_sure" not in with_reads
 
 
@@ -212,8 +234,10 @@ def test_the_log_says_what_a_sample_measured_not_the_options_label(clean):
     measure it* for a question the sample had answered with 150."""
     sid = _gathering(["counts.matrix"])
     pid = _pending_for(sid, "read_length")
-    authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
-    history = {d["id"]: d for d in authoring.read(sid)["history"]}
+    facade.perform(
+        commands.SampleInspected(pid, _measured(read_length=150).model_dump(mode="json"), "ana")
+    )
+    history = {d["id"]: d for d in facade.read(sid)["history"]}
     assert history[pid]["chosen_option"] == "upload" and history[pid]["answer"] == "150"
 
 
@@ -221,10 +245,14 @@ def test_an_input_answered_by_upload_logs_i_have_it(clean):
     """Issue 232: the log read *I have it, and I'll upload a sample* beside *measured from your
     sample*; the long label squeezed out the question and overflowed the conversation."""
     sid = _gathering(["counts.matrix"])
-    pid = authoring.pending_id(sid)
+    pid = facade.pending_id(sid)
     assert _payload(pid)["subject"] == "fastq.reads"
-    authoring.answer_with_sample(pid, _measured(read_length=150, paired=True), by="ana")
-    history = {d["id"]: d for d in authoring.read(sid)["history"]}
+    facade.perform(
+        commands.SampleInspected(
+            pid, _measured(read_length=150, paired=True).model_dump(mode="json"), "ana"
+        )
+    )
+    history = {d["id"]: d for d in facade.read(sid)["history"]}
     assert history[pid]["chosen_option"] == "upload" and history[pid]["answer"] == "I have it"
 
 
@@ -241,7 +269,12 @@ def test_an_upload_that_records_nothing_leaves_the_session_where_it_was(clean):
     before = _version(sid)
     nothing = inspect.Inspection(outcome="unreadable", reason="does not start like fastq",
                                  steps=[])
-    assert authoring.answer_with_sample(pid, nothing, by="ana").recorded == []
+    assert (
+        facade.perform(
+            commands.SampleInspected(pid, nothing.model_dump(mode="json"), "ana")
+        ).result.recorded
+        == []
+    )
     assert _version(sid) == before
 
 
@@ -262,12 +295,16 @@ def test_two_uploads_at_once_are_refused_like_a_duplicate_click(clean, monkeypat
             meet.wait()
         return real(**kwargs)
 
-    monkeypatch.setattr(authoring.st, "settle", settle_together)
+    monkeypatch.setattr(st, "settle", settle_together)
     errors: list[str] = []
 
     def upload():
         try:
-            authoring.answer_with_sample(pid, _measured(read_length=150), by="ana")
+            facade.perform(
+                commands.SampleInspected(
+                    pid, _measured(read_length=150).model_dump(mode="json"), "ana"
+                )
+            )
         except ValueError as refused:
             errors.append(str(refused))
 

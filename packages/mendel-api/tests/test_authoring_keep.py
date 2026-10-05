@@ -10,6 +10,7 @@ stated the draft's AI points.
 import json
 from pathlib import Path
 
+import authoring_setup
 import pytest
 from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph
@@ -18,7 +19,10 @@ from mendel_api.authoring.types import Mode, ProposalState
 from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import PipelineAuthoringSession
-from mendel_api.services import authoring, drafts
+from mendel_api.services import drafts
+from mendel_api.services import session as facade
+from mendel_api.services import spawn as spawn_service
+from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
 from sqlalchemy import text
@@ -57,21 +61,21 @@ def clean(monkeypatch, tmp_path):
 
 def _complete(mode: Mode = Mode.BUILD) -> tuple[str, str]:
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = authoring.open_session(draft_id, mode=mode, who="ana")
-    authoring.move(session_id, st.Event.WANT_RETURNED, row_version=1)
-    authoring.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
+    session_id = facade.perform(commands.OpenSession(draft_id, mode.value, "ana")).result
+    authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     goal = Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
-    authoring.move(
+    authoring_setup.move(
         session_id, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json")
     )
-    proposal = authoring.start_building(session_id)
+    proposal = authoring_setup.start_building(session_id)
     if mode is Mode.SPAWN:
         return session_id, draft_id
     while proposal is not None:
-        revision = authoring.read(session_id)["revision"]
-        proposal = authoring.settle_step(
-            proposal, ProposalState.ACCEPTED, expected_revision=revision, by="ana"
-        ).next_proposal
+        revision = facade.read(session_id)["revision"]
+        proposal = facade.perform(
+            commands.SettleStep(proposal, ProposalState.ACCEPTED.value, revision, "ana")
+        ).result.next_proposal
     return session_id, draft_id
 
 
@@ -111,17 +115,21 @@ def test_keeping_an_authored_draft_makes_no_second_draft(clean):
 
 def test_an_empty_draft_previews_as_empty_and_not_as_yaml(clean):
     draft_id = drafts.create(DraftGraph(), "empty", "ana")
-    session_id = authoring.open_session(draft_id, mode=Mode.BUILD, who="ana")
+    session_id = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
     shown = TestClient(create_app()).get(f"/api/pipeline/authoring/{session_id}/preview").json()
     assert shown == {"revision": 0, "state": "empty", "text": "", "findings": []}
 
 
 def test_an_illegal_partial_graph_previews_its_findings_and_not_fake_yaml(clean):
     session_id, draft_id = _complete()
-    graph = authoring.read(session_id)["graph"]
+    graph = facade.read(session_id)["graph"]
     graph["edges"].append({"from_node": "samtools_sort", "from_port": "bam",
                            "to_node": "star_genomegenerate", "to_port": "fasta"})
-    authoring.record_edit(session_id, DraftGraph.model_validate(graph), by="ana")
+    facade.perform(
+        commands.RecordEdit(
+            session_id, DraftGraph.model_validate(graph).model_dump(mode="json"), "ana"
+        )
+    )
 
     shown = TestClient(create_app()).get(f"/api/pipeline/authoring/{session_id}/preview").json()
     assert shown["state"] == "illegal"
@@ -155,7 +163,7 @@ def test_a_kept_spawn_draft_says_a_model_was_available_and_used(clean, monkeypat
             "chosen": step["module"]["contract_id"], "candidates": [step["module"]["contract_id"]],
         })
         row.blueprint = blueprint
-    authoring.spawn_forward(session_id)
+    spawn_service.spawn_forward(session_id)
 
     kept = TestClient(create_app()).post(f"/api/pipeline/drafts/{draft_id}/keep")
     assert kept.status_code == 200, kept.text

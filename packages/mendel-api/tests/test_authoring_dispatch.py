@@ -4,11 +4,14 @@ import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 
+import authoring_setup
 import pytest
 from mendel_api.authoring.types import Mode, Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
-from mendel_api.services import authoring, session
+from mendel_api.services import session
+from mendel_api.services import session as facade
+from mendel_authoring import commands
 from mendel_authoring.interpret import Refused
 from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
 from mendel_authoring.types import Event
@@ -28,7 +31,7 @@ def sid():
         db.add(PipelineDraft(id=draft_id, who="tester", name="d",
                              graph={"nodes": [], "edges": []}, updated_at=datetime.now(UTC),
                              goal=None, provenance={}, revision=0))
-    return authoring.open_session(draft_id, mode=Mode.BUILD, who="tester")
+    return facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "tester")).result
 
 
 def _n(id, phase, **kw):
@@ -139,12 +142,12 @@ WANT = {"want": ["counts.matrix"], "constraints": {}, "suggested": {}, "stated":
 
 
 def test_saying_what_you_want_moves_to_where_the_model_works(sid):
-    authoring.say(sid, "RNA-seq counts")
+    facade.perform(commands.Say(sid, "RNA-seq counts"))
     assert _row(sid)[:2] == ("family", Phase.UNDERSTANDING.value)
 
 
 def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
-    authoring.say(sid, "RNA-seq counts")
+    facade.perform(commands.Say(sid, "RNA-seq counts"))
     ran = session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
     assert ran.path[:3] == ["read_goal", "list_needs", "next_gap"]
     assert _row(sid)[:2] == ("reply", Phase.GATHERING.value)
@@ -152,7 +155,7 @@ def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
 
 def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
     """Review focus 1: the job's command has no arrow from the question; nothing moves."""
-    authoring.say(sid, "RNA-seq counts")
+    facade.perform(commands.Say(sid, "RNA-seq counts"))
     session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
     before = _row(sid)
     authoring_jobs._failed(sid)
@@ -163,24 +166,24 @@ def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
 
 
 def _gathering(sid):
-    authoring.say(sid, "RNA-seq counts")
+    facade.perform(commands.Say(sid, "RNA-seq counts"))
     session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
 
 
 def test_an_answer_runs_through_answered_to_the_next_question(sid):
     _gathering(sid)
-    pending = authoring.pending_id(sid)
-    options = authoring.read(sid)["pending_proposal"]["payload"]["options"]
-    authoring.answer_gap(pending, next(iter(options)), None, by="tester")
+    pending = facade.pending_id(sid)
+    options = facade.read(sid)["pending_proposal"]["payload"]["options"]
+    facade.perform(commands.AnswerGap(pending, next(iter(options)), None, "tester"))
     assert _row(sid)[0] in {"reply", "card"}
-    assert authoring.pending_id(sid) != pending
+    assert facade.pending_id(sid) != pending
 
 
 def test_typed_words_on_a_question_leave_the_session_and_its_version(sid):
     """Review focus 4: `reply_in_words` passes through `suggest` back to `reply`."""
     _gathering(sid)
     before = _row(sid)
-    authoring.say(sid, "I have them")
+    facade.perform(commands.Say(sid, "I have them"))
     assert _row(sid) == before
 
 
@@ -202,9 +205,11 @@ def _confirmed(sid):
 
     root = Path(__file__).resolve().parents[3]
     goal = Goal.model_validate(yaml_strict.load(root / "examples" / "rnaseq-goal.yml"))
-    authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
-    authoring.move(sid, st.Event.NOTHING_MISSING, row_version=2)
-    authoring.move(sid, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json"))
+    authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.move(sid, st.Event.NOTHING_MISSING, row_version=2)
+    authoring_setup.move(
+        sid, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json")
+    )
 
 
 def test_a_command_arriving_at_resolve_rests_there(sid):
@@ -235,7 +240,7 @@ def test_a_resolver_that_crashes_lands_on_failed_and_raises(sid, monkeypatch):
     _confirmed(sid)
     monkeypatch.setattr(blueprint, "resolve", _broken)
     with pytest.raises(RuntimeError, match="resolver broke"):
-        authoring.start_building(sid)
+        authoring_setup.start_building(sid)
     assert _row(sid)[:2] == ("failed", Phase.FAILED.value)
 
 
@@ -245,8 +250,8 @@ def test_retry_returns_to_the_phase_that_failed(sid, monkeypatch):
     _confirmed(sid)
     monkeypatch.setattr(blueprint, "resolve", _broken)
     with pytest.raises(RuntimeError):
-        authoring.start_building(sid)
-    phase, seq = authoring.retry(sid)
+        authoring_setup.start_building(sid)
+    phase, seq = facade.perform(commands.Retry(sid)).result
     assert (phase, seq, _row(sid)[0]) == (Phase.RESOLVING, None, "resolve")
 
 
@@ -265,7 +270,7 @@ def test_a_resolver_refusing_with_a_value_error_still_lands_on_failed(sid, monke
     _confirmed(sid)
     monkeypatch.setattr(blueprint, "resolve", no_candidates)
     with pytest.raises(NoCandidatesError):
-        authoring.start_building(sid)
+        authoring_setup.start_building(sid)
     assert _row(sid)[:2] == ("failed", Phase.FAILED.value)
 
 
@@ -274,11 +279,11 @@ def test_a_row_from_before_at_takes_its_first_answer(sid):
     _gathering(sid)
     with session_scope() as db:
         db.get(PipelineAuthoringSession, sid).at = None
-    pending = authoring.pending_id(sid)
-    options = authoring.read(sid)["pending_proposal"]["payload"]["options"]
-    authoring.answer_gap(pending, next(iter(options)), None, by="tester")
+    pending = facade.pending_id(sid)
+    options = facade.read(sid)["pending_proposal"]["payload"]["options"]
+    facade.perform(commands.AnswerGap(pending, next(iter(options)), None, "tester"))
     assert _row(sid)[0] in {"reply", "card"}
-    assert authoring.pending_id(sid) not in {None, pending}
+    assert facade.pending_id(sid) not in {None, pending}
 
 
 def test_pinning_writes_the_derived_node_once(sid):

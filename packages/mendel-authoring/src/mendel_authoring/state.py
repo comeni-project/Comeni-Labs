@@ -1,8 +1,8 @@
 """How an authoring session moves, and when a proposal may still be applied.
 
 **Pure.** No database, no clock, no model. A phase and an event in, a phase out; a proposal's
-situation in, an outcome out. `services/authoring.py` is what reads rows and writes them, and it
-holds none of these rules.
+situation in, an outcome out. The shell's stage modules (`mendel_api/stages/`) read rows and
+write them, and hold none of these rules.
 
 That split is the forge's workflow's, and it is worth restating why it earns its file. The
 rules here are the ones that are easy to get right in one caller and wrong in the next: what may

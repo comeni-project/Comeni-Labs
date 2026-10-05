@@ -2050,7 +2050,7 @@ git commit -m "refactor(authoring): the routes and jobs act only through the fac
 - Consumes: everything above.
 - Produces: `authoring_setup.move(session_id, event, *, row_version, **values) -> Phase` (verbatim from `authoring.move`), `authoring_setup.offer_next_gap(session_id) -> str | None` and `authoring_setup.start_building(session_id) -> str | None`, each a one-line `session.perform`.
 
-- [ ] **Step 1: Write the failing binding tests**
+- [x] **Step 1: Write the failing binding tests**
 
 Replace 1b's `test_nothing_in_the_shell_moves_a_session_by_event` and `_outside_move` (now that `move` lives in the tests), and append:
 
@@ -2075,12 +2075,12 @@ def test_the_old_service_is_gone():
 
 `_calls` drops its `_outside_move` filter and walks every node. `test_only_the_dispatcher_writes_the_phase` expects `{"services/session.py", "stages/describe.py"}`.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_binding.py -q`
 Expected: `test_the_old_service_is_gone` FAILS, and the phase-writer test FAILS naming `services/authoring.py`.
 
-- [ ] **Step 3: Write the setup helpers**
+- [x] **Step 3: Write the setup helpers**
 
 `authoring_setup.py`: a module docstring (*Setup for the authoring tests: a session put in a phase by event, and the two resumes tests drive by hand. Nothing under `src/` may call these.*), then `move` verbatim from `services/authoring.py` with its imports, and:
 
@@ -2096,7 +2096,7 @@ def start_building(session_id: str, *, client=None) -> str | None:
     return session.perform(c.StartBuilding(session_id)).result
 ```
 
-- [ ] **Step 4: Rename the call sites by script**
+- [x] **Step 4: Rename the call sites by script**
 
 Save this as `.superpowers/sdd/1c-rename.py`, in the workspace and not committed: the commit's diff is the record.
 
@@ -2242,7 +2242,7 @@ Then, per file:
 
 The forwarding functions took enums (`Mode`, `ProposalState`) and models (`Goal`, `AskedGap`, `Inspection`, `DraftGraph`), which the `how` column converts with `.value` and `.model_dump(mode='json')`. Where a test passed a plain string already, `.value` fails: fix that call by hand and list it in the ledger.
 
-- [ ] **Step 5: Delete the old service**
+- [x] **Step 5: Delete the old service**
 
 ```bash
 git rm packages/mendel-api/src/mendel_api/services/authoring.py
@@ -2251,7 +2251,7 @@ grep -rn "services import authoring\b\|services\.authoring\b\|import authoring$"
 
 Expected: no matches outside `authoring_ai`, `authoring_jobs` and `mendel_api.authoring.types`. Fix any that remain to the owners in `MOVED`.
 
-- [ ] **Step 6: Read the diff for assertions**
+- [x] **Step 6: Read the diff for assertions**
 
 ```bash
 git diff -U0 -- packages/mendel-api/tests | grep -E "^[-+]\s*assert" | head -40
@@ -2259,16 +2259,16 @@ git diff -U0 -- packages/mendel-api/tests | grep -E "^[-+]\s*assert" | head -40
 
 Expected: every `-assert` line has a `+assert` twin that differs only in a renamed call. Any other assertion change is a behaviour change: undo it, find the cause in the code, and fix it there.
 
-- [ ] **Step 7: Run everything once**
+- [x] **Step 7: Run everything once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api -q > .superpowers/sdd/1c-task10.log 2>&1; tail -30 .superpowers/sdd/1c-task10.log`
 Expected: all passed.
 
-- [ ] **Step 8: Watch the recorder binding fail**
+- [x] **Step 8: Watch the recorder binding fail**
 
 Temporarily comment out `@records(c.RecordEdit)` in `stages/building.py`. Expected: `test_every_command_has_one_recorder_and_every_recorder_a_command` FAILS naming `RecordEdit`. Restore. Then temporarily drop `acts=True` from `ask` in `protocol.py`. Expected: `test_every_acting_node_has_a_handler_and_every_handler_a_node` FAILS naming `ask`. Restore. Record both in the ledger.
 
-- [ ] **Step 9: Check, then commit**
+- [x] **Step 9: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`, then `make verify MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`.
 Expected: exit 0 for both.

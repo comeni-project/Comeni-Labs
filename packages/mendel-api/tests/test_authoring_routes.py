@@ -23,9 +23,9 @@ from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import AiInvocation
 from mendel_api.routes import authoring as routes
-from mendel_api.services import authoring, authoring_jobs
+from mendel_api.services import authoring_jobs
 from mendel_api.services import session as session_service
-from mendel_api.stages import _jobs
+from mendel_api.stages import _jobs, describe
 from sqlalchemy import select, text
 
 
@@ -779,7 +779,7 @@ def test_a_correction_in_words_after_the_goal_was_accepted_does_not_withdraw_the
         f"/api/pipeline/authoring/{session['id']}/messages", json={"text": "make it a BAM"}
     )
     seq = said.json()["seq"]
-    grounding = authoring.turn_context(session["id"], seq)  # read before the click lands
+    grounding = describe.turn_context(session["id"], seq)  # read before the click lands
     proposal = session["pending_proposal"]
     client.post(
         f"/api/pipeline/authoring/{session['id']}/proposals/{proposal['id']}/decide",

@@ -16,8 +16,8 @@ the port it feeds, in the router's order. Neither list is authored — both are 
 data, and a plausible-sounding alternative nobody declared cannot appear.
 
 **This module holds no rows.** It turns a goal into a `Blueprint`, a `Blueprint` into proposals,
-and an accepted proposal into a graph and a sidecar. `services/authoring.py` is what reads and
-writes them inside one transaction.
+and an accepted proposal into a graph and a sidecar. The building stage (`stages/building.py`)
+is what reads and writes them inside one transaction.
 """
 
 import hashlib

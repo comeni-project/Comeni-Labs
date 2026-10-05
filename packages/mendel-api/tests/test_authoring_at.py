@@ -3,11 +3,16 @@
 import secrets
 from datetime import UTC, datetime
 
+import authoring_setup
 import pytest
 from mendel_api.authoring.types import Mode, Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
-from mendel_api.services import authoring, session
+from mendel_api.services import session
+from mendel_api.services import session as facade
+from mendel_api.stages import _rows, gathering
+from mendel_api.stages import building as building_stage
+from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_authoring.protocol import PROTOCOL
 from sqlalchemy import text
@@ -26,7 +31,7 @@ def sid():
         db.add(PipelineDraft(id=draft_id, who="tester", name="d",
                              graph={"nodes": [], "edges": []}, updated_at=datetime.now(UTC),
                              goal=None, provenance={}, revision=0))
-    return authoring.open_session(draft_id, mode=Mode.BUILD, who="tester")
+    return facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "tester")).result
 
 
 def _at(sid):
@@ -62,14 +67,14 @@ def test_every_phase_has_a_derived_node():
 
 
 def test_a_pending_turn_in_understanding_rests_where_the_model_works(sid):
-    authoring.say(sid, "RNA-seq counts")
+    facade.perform(commands.Say(sid, "RNA-seq counts"))
     _old(sid, Phase.UNDERSTANDING)
     assert _at(sid) == "family"
 
 
 def test_a_pending_question_rests_on_the_reply(sid):
     _old(sid, Phase.GATHERING)
-    authoring.propose(sid, kind=authoring.GAP, payload={"subject": "x", "kind": "input",
+    _rows.propose(sid, kind=gathering.GAP, payload={"subject": "x", "kind": "input",
                                                         "why": "", "options": {}, "block": {}})
     assert _at(sid) == "reply"
 
@@ -78,7 +83,7 @@ def test_a_pending_question_rests_on_the_reply(sid):
                                         (3, "step_rule"), (4, "step_choice")])
 def test_a_pending_step_rests_on_its_tiers_card(sid, tier, node):
     _old(sid, Phase.BUILDING)
-    authoring.propose(sid, kind=authoring.STEP, payload={"node": "n", "options": {},
+    _rows.propose(sid, kind=building_stage.STEP, payload={"node": "n", "options": {},
                                                          "block": {"tier": tier}})
     assert _at(sid) == node
 
@@ -91,7 +96,7 @@ def test_a_stored_node_wins_over_the_phase(sid):
 
 def test_a_test_moving_by_event_leaves_the_node_to_be_derived(sid):
     """Ruling 5: `move` is setup for tests, and clears `at`."""
-    authoring.move(sid, st.Event.WANT_RETURNED, row_version=1)
+    authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     with session_scope() as db:
         assert db.get(PipelineAuthoringSession, sid).at is None
     assert _at(sid) == "list_needs"

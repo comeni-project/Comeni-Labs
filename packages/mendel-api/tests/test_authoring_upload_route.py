@@ -9,9 +9,11 @@ import pytest
 from fastapi.testclient import TestClient
 from mendel_api.authoring.types import CharacteriseReply
 from mendel_api.main import create_app
-from mendel_api.services import authoring, characterise, inspect
+from mendel_api.services import characterise, inspect
+from mendel_api.services import session as facade
 from mendel_api.services import session as session_service
 from mendel_api.stages import _jobs, samples
+from mendel_authoring import commands
 from test_authoring_samples import (  # noqa: F401
     _database_is_reachable,
     _gathering,
@@ -60,7 +62,7 @@ def test_any_count_but_one_or_two_is_refused(client, clean, count):  # noqa: F81
     files = [("files", (f"f{i}.fq", b"@r\nA\n+\nI\n")) for i in range(count)]
     got = _post(client, sid, pid, files)
     assert got.status_code == 422 and "MI0214" in got.text
-    assert authoring.pending_id(sid) == pid
+    assert facade.pending_id(sid) == pid
 
 
 @needs_db
@@ -289,9 +291,15 @@ def test_a_second_upload_while_reading_is_refused(client, clean, readable):  # n
 @needs_db
 def test_a_hand_back_is_claimed_by_the_recorded_type_and_measured(client, clean, readable):  # noqa: F811
     sid, pid = _at("paired")
-    attempt = authoring.start_reading(pid)
-    authoring.answer_with_reading(
-        pid, attempt, CharacteriseReply(type_id="fastq.reads"), by="ana", handed_back=True
+    attempt = samples.start_reading(pid)
+    facade.perform(
+        commands.ReadingAnswered(
+            pid,
+            attempt,
+            CharacteriseReply(type_id="fastq.reads").model_dump(mode="json"),
+            "ana",
+            True,
+        )
     )
     files = [("files", (p.name.replace(".fq.gz", ".txt.gz"), p.read_bytes()))
              for p in sorted(PAIR.glob("*.gz"))]
@@ -316,13 +324,19 @@ def test_a_browser_cannot_claim_a_type_the_session_did_not_record(client, clean,
 @needs_db
 def test_a_hand_back_that_fails_the_content_check_drops_the_type(client, clean, readable):  # noqa: F811
     sid, pid = _at("paired")
-    attempt = authoring.start_reading(pid)
-    authoring.answer_with_reading(
-        pid, attempt, CharacteriseReply(type_id="fastq.reads"), by="ana", handed_back=True
+    attempt = samples.start_reading(pid)
+    facade.perform(
+        commands.ReadingAnswered(
+            pid,
+            attempt,
+            CharacteriseReply(type_id="fastq.reads").model_dump(mode="json"),
+            "ana",
+            True,
+        )
     )
     got = _post(client, sid, pid, [("files", ("x.txt", b">not a fastq\nACGT\n" * 50))])
     assert got.json()["outcome"] == "unreadable"
-    assert authoring.reading_of(pid) is None
+    assert samples.reading_of(pid) is None
 
 
 @needs_db
@@ -338,7 +352,7 @@ def test_a_reading_never_queued_ends_at_once_and_frees_the_question(client, clea
     got = _post(client, sid, pid, [("files", ("x.bam", _bam()))])
     assert got.status_code == 200, got.text
     assert got.json()["session"]["pending_proposal"]["block"]["reading"]["state"] == "no_answer"
-    authoring.check_sample_question(pid)
+    samples.check_sample_question(pid)
 
 
 @needs_db
@@ -346,9 +360,15 @@ def test_a_hand_back_never_starts_another_reading(client, clean, readable):  # n
     """Issue 246: a pair whose files disagree is claimed by nothing, even by type; the re-send
     must not start a new reading, or the card re-sends without end."""
     sid, pid = _at("paired")
-    attempt = authoring.start_reading(pid)
-    authoring.answer_with_reading(
-        pid, attempt, CharacteriseReply(type_id="fastq.reads"), by="ana", handed_back=True
+    attempt = samples.start_reading(pid)
+    facade.perform(
+        commands.ReadingAnswered(
+            pid,
+            attempt,
+            CharacteriseReply(type_id="fastq.reads").model_dump(mode="json"),
+            "ana",
+            True,
+        )
     )
     r1 = next(iter(sorted(PAIR.glob("*.gz"))))
     files = [("files", ("x_R1.fq.gz", r1.read_bytes())),
