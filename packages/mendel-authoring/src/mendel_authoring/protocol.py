@@ -579,7 +579,14 @@ PROTOCOL = Protocol(
             shape=Shape.CHOICE,
             acts=True,
         ),
-        _built("ask", "gather", _AI, "AI phrases each question<br/>in plain words", _P.GATHERING),
+        _built(
+            "ask",
+            "gather",
+            _AI,
+            "AI phrases each question<br/>in plain words",
+            _P.GATHERING,
+            acts=True,  # queues the phrasing, and goes on (plan 1c)
+        ),
         _built("reply", "gather", _YOU, "You answer", _P.GATHERING, shape=Shape.CHOICE, waits=True),
         _built(
             "answered",
@@ -596,6 +603,7 @@ PROTOCOL = Protocol(
             _AI,
             "AI reads your words<br/>into a suggestion you confirm",
             _P.GATHERING,
+            acts=True,  # queues the reading, and goes back (plan 1c)
         ),
         _built(
             "upload",

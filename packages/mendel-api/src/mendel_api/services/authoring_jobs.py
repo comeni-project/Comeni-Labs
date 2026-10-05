@@ -112,9 +112,8 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
         _gap_reply(session_id, seq, context)
     else:
         _follow_up(session_id, seq, context)
-    if authoring.current_phase(session_id) is Phase.GATHERING:
-        # The question now on offer and the next one, phrased while the person reads (#186).
-        await enqueue_phrasing(session_id)
+    # **No phrasing here** (ruling 6 of plan 1c): entering `ask` queued the question on offer
+    # and the next, keyed by subject, so this one was a duplicate the queue refused.
     return f"{session_id}:{seq}"
 
 

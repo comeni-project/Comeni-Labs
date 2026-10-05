@@ -11,6 +11,7 @@ from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
 from mendel_api.services import authoring, drafts
 from mendel_api.services import blueprint as bp
+from mendel_api.stages import gathering
 from mendel_authoring import state as st
 from sqlalchemy import text
 
@@ -413,7 +414,7 @@ def test_a_prefetched_phrasing_is_used_when_its_gap_is_offered(clean):
 def test_a_refused_prefetch_leaves_the_engines_words_when_its_gap_is_offered(clean, monkeypatch):
     """#196: refused while it was the *next* question, it used to wait `pending` for ever —
     its job id spent, nothing left to settle it."""
-    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
     authoring.phrasing_failed(sid, "strandedness")
     assert "strandedness" not in authoring.to_phrase(sid)
@@ -428,7 +429,7 @@ def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeyp
     from mendel_api import jobs
     from mendel_api.services import authoring_jobs
 
-    monkeypatch.setattr(authoring, "_model_configured", lambda: False)
+    monkeypatch.setattr(gathering, "_model_configured", lambda: False)
     queued: list = []
 
     async def enqueue(*args, **kwargs):
@@ -448,7 +449,7 @@ def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, m
     from mendel_api import jobs
     from mendel_api.services import authoring_jobs
 
-    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     queued: list = []
 
     async def enqueue(*args, **kwargs):
@@ -465,7 +466,7 @@ def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, m
 
 
 def test_a_question_waiting_for_its_words_counts_as_in_flight(clean, monkeypatch):
-    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
     assert authoring.read(sid)["usage"]["in_flight"] is True
     authoring.phrasing_failed(sid, "fastq.reads")
@@ -493,7 +494,7 @@ def test_the_read_back_is_written_from_the_composed_goal(clean):
 def test_a_read_back_lands_on_the_card_and_a_failed_one_leaves_the_engines_sentence(
     clean, monkeypatch
 ):
-    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
     card = _to_card(sid)
     assert _payload(card)["block"]["readback_pending"] is True
@@ -504,7 +505,7 @@ def test_a_read_back_lands_on_the_card_and_a_failed_one_leaves_the_engines_sente
 
 
 def test_a_failed_read_back_clears_the_wait(clean, monkeypatch):
-    monkeypatch.setattr(authoring, "_model_configured", lambda: True)
+    monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
     card = _to_card(sid)
     authoring.readback_failed(sid)

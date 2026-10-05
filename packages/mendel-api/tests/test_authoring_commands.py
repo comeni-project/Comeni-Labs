@@ -56,3 +56,73 @@ def test_a_late_reading_is_refused_and_writes_nothing():
     with pytest.raises(Refused):
         session.perform(c.Understood(sid, {"want": ["counts.gene"]}))
     assert _at(sid) == before
+
+
+def _gathering(monkeypatch, configured=True):
+    from mendel_api.stages import gathering
+
+    monkeypatch.setattr(gathering, "_model_configured", lambda: configured)
+    sid, _ = session.perform(c.Begin("gene counts", "build", "t")).result
+    done = session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
+    return sid, done
+
+
+def test_offering_a_question_queues_its_phrasing_and_the_next_ones(monkeypatch):
+    """Review Focus 5 (ruling 6): entering `ask` queues the question on offer and the next."""
+    from mendel_api.stages import gathering
+
+    sid, done = _gathering(monkeypatch)
+    wanted = {_jobs.phrase(sid, s).job_id for s in gathering.to_phrase(sid)}
+    assert wanted and wanted <= {j.job_id for j in done.jobs}
+
+
+def test_typed_words_on_a_question_queue_their_reading_and_move_nothing(monkeypatch):
+    sid, _ = _gathering(monkeypatch)
+    before = _at(sid)
+    done = session.perform(c.Say(sid, "paired, 150 bp"))
+    assert _at(sid) == before
+    assert [j.job_id for j in done.jobs] == [_jobs.turn(sid, done.result).job_id]
+
+
+def test_an_answer_and_the_next_question_are_one_transaction(monkeypatch):
+    from mendel_api.stages import gathering
+
+    sid, _ = _gathering(monkeypatch, configured=False)
+    pending = session.read(sid)["pending_proposal"]
+    facts = session.read(sid)["facts"]
+
+    def broke(session_id):
+        raise RuntimeError("offering the next question failed")
+
+    monkeypatch.setattr(gathering, "offer_gap_or_card", broke)
+    with pytest.raises(RuntimeError):
+        session.perform(c.AnswerGap(pending["id"], "have_it", None, "t"))
+    after = session.read(sid)
+    assert after["pending_proposal"]["id"] == pending["id"] and after["facts"] == facts
+
+
+def test_a_racing_second_answer_leaves_nothing_behind(monkeypatch):
+    """Review Focus 3: the second tab's answer is refused, and its recording rolls back too."""
+    from mendel_api.services import session as s
+
+    sid, _ = _gathering(monkeypatch, configured=False)
+    pending = session.read(sid)["pending_proposal"]
+    facts = session.read(sid)["facts"]
+    real = s._where
+    calls = []
+
+    def moved_meanwhile(session_id):
+        read = real(session_id)
+        calls.append(read)
+        if len(calls) == 2:  # the dispatcher's read, after `check`'s: then another request moves it
+            with session_scope() as db:
+                db.execute(text("UPDATE pipeline_authoring_session SET at = 'card' WHERE id = :i"),
+                           {"i": sid})
+        return read
+
+    monkeypatch.setattr(s, "_where", moved_meanwhile)
+    with pytest.raises(ValueError, match="MI0201"):
+        session.perform(c.AnswerGap(pending["id"], "have_it", None, "t"))
+    monkeypatch.setattr(s, "_where", real)
+    after = session.read(sid)
+    assert after["facts"] == facts and after["pending_proposal"]["id"] == pending["id"]

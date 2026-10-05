@@ -1237,7 +1237,7 @@ git commit -m "refactor(authoring): stage ① behind the facade — saying it, t
   - `READS = ("to_phrase", "gap_context", "compose_goal", "as_goal", "_inspectable")`;
   - re-bound: `GAP = _rows.GAP`; moved verbatim: `UPLOAD`, `STATED_NOTE`, `READ_NOTE`, `ALREADY_NOTE`, `UNREACHABLE_ASK`, `_INPUT_OPTIONS`, `_UNSURE`, `_SOURCE`, `_NOT_GOAL`, `_inspectable`, `_answer_of`, `_gap_options`, `_gap_question`, `_gathered`, `as_goal`, `_goal_evidence`, `compose_goal`, `need_listed`, `offer_gap_or_card`, `_candidate_option`, `_prefilled`, `prefill_gap`, `_characterisable`, `_model_configured`, `_phrased`, `store_phrasing`, `phrasing_failed`, `_pending_gap`, `to_phrase`, `gap_context`, `_fact_for`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test_authoring_commands.py`:
 
@@ -1310,12 +1310,12 @@ def test_a_racing_second_answer_leaves_nothing_behind(monkeypatch):
 
 The race test writes through a scope **joined** to the action's transaction. That makes the compare-and-swap see a node it did not read, which is the condition MI0201 refuses, and the whole action rolls back. If the dispatcher reads `at` after the patch point rather than before, adjust the patch to wrap `_where` instead, and record the ruling.
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_commands.py -q`
 Expected: the four new tests FAIL with `KeyError` for `AnswerGap`, or with no phrasing job.
 
-- [ ] **Step 3: Move stage ②**
+- [x] **Step 3: Move stage ②**
 
 Move the functions listed under Produces into `stages/gathering.py`, verbatim. `GAP = _rows.GAP`; `need_listed` calls `_rows.store_goal`; `offer_gap_or_card` proposes `kind=_rows.GOAL`. Then:
 
@@ -1373,7 +1373,7 @@ The `_answer_gap` body is the whole of today's `answer_gap`, not the docstring s
 
 In `authoring_jobs.answer_authoring_turn`, delete the trailing `if authoring.current_phase(session_id) is Phase.GATHERING: await enqueue_phrasing(session_id)` (ruling 6). `enqueue_phrasing` stays until Task 9; the routes still call it.
 
-- [ ] **Step 4: Forward the old names**
+- [x] **Step 4: Forward the old names**
 
 ```python
 def answer_gap(proposal_id: str, option: str, value, *, by: str) -> Phase:
@@ -1399,16 +1399,16 @@ def offer_next_gap(session_id: str) -> str | None:
 
 The remaining gathering names (`GAP`, `UPLOAD`, `READ_NOTE`, `compose_goal`, `as_goal`, `to_phrase`, `gap_context`, `_gap_options`, `_inspectable`, `characterised`'s helper `_characterisable`, `need_listed`, `offer_gap_or_card`) are re-bound: `GAP = gathering.GAP`, and so on.
 
-- [ ] **Step 5: Fix the monkeypatches that follow the move**
+- [x] **Step 5: Fix the monkeypatches that follow the move**
 
 Edit `test_authoring_gathering.py` as the Files block says. Run it and watch it pass.
 
-- [ ] **Step 6: Run everything once**
+- [x] **Step 6: Run everything once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api -q > .superpowers/sdd/1c-task5.log 2>&1; tail -30 .superpowers/sdd/1c-task5.log`
 Expected: all passed. A test asserting the end-of-turn phrasing enqueue (ruling 6) is a behaviour change. Rule on it in the ledger before touching it.
 
-- [ ] **Step 7: Check, then commit**
+- [x] **Step 7: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0.

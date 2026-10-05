@@ -211,30 +211,42 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
     ran = interpret.run(
         protocol, start, command, lambda node: bound[node](ctx), returning_to=came_from
     )
+    held = (
+        PipelineAuthoringSession.at.is_(None)
+        if stored is None
+        else PipelineAuthoringSession.at == stored
+    )
+    write = None
     if ran.at != start:
-        # **Written last, compare-and-swap on the node read** (ruling 3 of 14.7.8.1b): each step
-        # before this kept its own transaction, and a session another request moved meanwhile is
-        # refused rather than overwritten.
+        # **Written last, compare-and-swap on the node read** (ruling 3 of 14.7.8.1b): a session
+        # another request moved meanwhile is refused rather than overwritten, and the whole action
+        # with it (plan 1c).
         node = next(n for n in protocol.nodes if n.id == ran.at)
         failed = st.failed_from(phase).value if node.phase is Phase.FAILED else None
-        held = (
-            PipelineAuthoringSession.at.is_(None)
-            if stored is None
-            else PipelineAuthoringSession.at == stored
-        )
-        with session_scope() as db:
-            done = db.execute(
-                update(PipelineAuthoringSession)
-                .where(PipelineAuthoringSession.id == session_id, held)
-                .values(
-                    at=ran.at,
-                    phase=node.phase.value,
-                    failed_from=failed,
-                    row_version=PipelineAuthoringSession.row_version + 1,
-                    updated_at=datetime.now(UTC),
-                )
+        write = (
+            update(PipelineAuthoringSession)
+            .where(PipelineAuthoringSession.id == session_id, held)
+            .values(
+                at=ran.at,
+                phase=node.phase.value,
+                failed_from=failed,
+                row_version=PipelineAuthoringSession.row_version + 1,
+                updated_at=datetime.now(UTC),
             )
-            if done.rowcount != 1:
+        )
+    elif stored is not None:
+        # **Resting where it started still holds the node** (Review Focus 3 of plan 1c): an
+        # answer that offers the next question comes back to `reply`, and what it recorded on
+        # the way stands only if no other request moved the session meanwhile. Nothing moved, so
+        # nothing is bumped; the write is the check, and holds the row to the commit.
+        write = (
+            update(PipelineAuthoringSession)
+            .where(PipelineAuthoringSession.id == session_id, held)
+            .values(at=stored)
+        )
+    if write is not None:
+        with session_scope() as db:
+            if db.execute(write).rowcount != 1:
                 raise ValueError(
                     coded("MI0201", "this session moved while you were looking at it")
                     + f"\n  it was at {start} when {command or 'resuming'} arrived"
@@ -338,7 +350,8 @@ def read(session_id: str) -> dict:
     from four endpoints would make the checkpoint a statement about four caches.
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
-    from mendel_api.services.authoring import _aged, _answer_of, _placement
+    from mendel_api.services.authoring import _aged, _placement
+    from mendel_api.stages.gathering import _answer_of
 
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
