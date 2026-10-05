@@ -70,7 +70,8 @@ class Node(_Frozen):
     built: bool = False
     acts: bool = False
     """A handler runs when a session enters this node (14.7.8.1). It returns the outcome that
-    names the arrow on, or nothing, and the session rests here."""
+    names the arrow on, or nothing: then the session rests here if the node waits, and otherwise
+    goes on by its one way straight on (`ask` queues a job and asks: plan 1c)."""
     waits: bool = False
     """A session may rest here, until a command names an arrow out."""
 

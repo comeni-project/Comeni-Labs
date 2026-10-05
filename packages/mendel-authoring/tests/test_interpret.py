@@ -130,3 +130,29 @@ def test_a_section_within_a_request_is_one_step_and_its_ways_out_are_the_entry_n
 def test_resuming_enters_where_the_session_rests():
     ran = run(GATHER, "next_gap", None, lambda node: {"next_gap": "a_gap"}.get(node))
     assert ran.at == "ask" and ran.path == ["next_gap", "ask"]
+
+
+PASSING = Protocol(
+    stages=(Stage(id="s", title="s"),),
+    nodes=(_n("next_gap", acts=True), _n("ask", acts=True), _n("reply", waits=True),
+           _n("family", acts=True, waits=True)),
+    edges=(_e("next_gap", "ask", "a_gap"), _e("ask", "reply"),
+           _e("reply", "family", Command.DESCRIBE.value), _e("family", "reply", "understood")),
+)
+
+
+def test_an_acting_node_that_does_not_wait_passes_straight_on_when_its_work_names_nothing():
+    """`ask` queues the phrasing and the session goes on to the question (plan 1c)."""
+    entered = []
+
+    def enter(node):
+        entered.append(node)
+        return {"next_gap": "a_gap"}.get(node)
+
+    ran = run(PASSING, "next_gap", None, enter)
+    assert ran.at == "reply" and entered == ["next_gap", "ask"]
+
+
+def test_an_acting_node_that_waits_still_rests_when_its_work_names_nothing():
+    ran = run(PASSING, "reply", Command.DESCRIBE.value, lambda node: None)
+    assert ran.at == "family"

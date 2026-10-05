@@ -103,7 +103,7 @@
 **Interfaces:**
 - Produces: `db.transaction() -> ContextManager[Session]`; `db.in_transaction() -> bool`. `session_scope()` is unchanged outside a transaction. Inside one, it yields the open `Session` within a savepoint (`begin_nested`): an exception escaping the scope rolls back only that savepoint, and nothing commits until `transaction()` exits.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """One transaction per action (spec §11.2): every scope beneath it joins it."""
@@ -188,12 +188,12 @@ def test_a_transaction_does_not_open_inside_another():
             pass
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_db_transaction.py -q`
 Expected: the first passes, the other four fail with `AttributeError: module 'mendel_api.db' has no attribute 'transaction'`.
 
-- [ ] **Step 3: Write the transaction**
+- [x] **Step 3: Write the transaction**
 
 Replace `session_scope` in `packages/mendel-api/src/mendel_api/db.py` with:
 
@@ -250,18 +250,18 @@ def session_scope() -> Iterator[Session]:
 
 Add `from contextvars import ContextVar` to the imports.
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_db_transaction.py -q`
 Expected: 5 passed.
 
-- [ ] **Step 5: Watch the join fail**
+- [x] **Step 5: Watch the join fail**
 
 Temporarily change `if joined is not None:` to `if False:` in `session_scope`. Re-run the file.
 Expected: `test_inside_a_transaction_nothing_is_seen_until_it_commits` and `test_an_exception_out_of_the_transaction_rolls_back_every_scope` FAIL. Restore. Then replace `with joined.begin_nested():` with a plain `if True:`, and re-run.
 Expected: `test_an_exception_caught_inside_rolls_back_only_its_own_scope` FAILS. Restore. Add a `## 1c` section to `tests/fixtures/guard-ledger.md` with one row per revert: the test, the revert, and what failed.
 
-- [ ] **Step 6: Check, then commit**
+- [x] **Step 6: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0. Nothing opens a transaction yet, so nothing else changes.
@@ -285,7 +285,7 @@ git commit -m "feat(db): one transaction per action — scopes beneath it join a
 - Produces: `interpret.run` passes an acting node that does not wait, and has one way straight on, straight on when its handler names nothing. That is how `ask`, `suggest` and `readback` can act (queue a job) without resting there (Tasks 5 and 6). An acting node that waits (`resolve`, `family`) still rests on `None`.
 - Produces: the dataclasses below, each with `takes: ClassVar[frozenset[Command]]`, and `COMMANDS: tuple[type, ...]`, every one of them. Field names and order are what Task 10's rename script relies on: **each command's fields are in the same order as the parameters of the function it replaces.**
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The commands a person or a job performs (spec §11.3): typed, plain, and naming their arrows."""
@@ -336,12 +336,12 @@ def test_a_command_cannot_be_changed_once_made():
         said.text = "other"  # type: ignore[misc]
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `uv run pytest packages/mendel-authoring/tests/test_commands.py -q`
 Expected: FAIL at collection with `ImportError: cannot import name 'commands'`.
 
-- [ ] **Step 3: Write the commands**
+- [x] **Step 3: Write the commands**
 
 ```python
 """What a person or a job does to an authoring session, typed (spec §11.3 of the consultant
@@ -558,16 +558,16 @@ COMMANDS: tuple[type, ...] = (
 )
 ```
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `uv run pytest packages/mendel-authoring/tests/test_commands.py -q`
 Expected: 4 passed. If `test_every_arrow_a_built_edge_names_is_taken_by_some_command` names an arrow, a built edge carries a command this list misses: add the command, not an exemption.
 
-- [ ] **Step 5: Watch the arrow guard fail**
+- [x] **Step 5: Watch the arrow guard fail**
 
 Temporarily drop `Command.REPLY_IN_WORDS` from `Say.takes`. Expected: the arrow test FAILS naming `reply_in_words`. Restore, and add a ledger row.
 
-- [ ] **Step 6: Write the failing interpreter test**
+- [x] **Step 6: Write the failing interpreter test**
 
 Append to `packages/mendel-authoring/tests/test_interpret.py`:
 
@@ -601,7 +601,7 @@ def test_an_acting_node_that_waits_still_rests_when_its_work_names_nothing():
 Run: `uv run pytest packages/mendel-authoring/tests/test_interpret.py -q`
 Expected: the first FAILS (`ran.at == "ask"`); the second passes. The existing `GATHER` protocol's `ask` both acts and waits, so 1b's tests keep their meaning.
 
-- [ ] **Step 7: Pass straight on**
+- [x] **Step 7: Pass straight on**
 
 In `interpret.run`, replace
 
@@ -631,7 +631,7 @@ Update `run`'s docstring (*An acting node is entered, and its outcome names the 
 Run: `uv run pytest packages/mendel-authoring -q`
 Expected: all passed.
 
-- [ ] **Step 8: Check, then commit**
+- [x] **Step 8: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel` (the purity guards read the new module).
 Expected: exit 0.

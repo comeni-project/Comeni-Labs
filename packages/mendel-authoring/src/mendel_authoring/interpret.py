@@ -55,7 +55,8 @@ def run(
 ) -> Ran:
     """Follow `command` out of `at`, then on through every node until the session rests.
 
-    An acting node is entered, and its outcome names the arrow on (`None`: rest there). A node
+    An acting node is entered, and its outcome names the arrow on; `None` rests there if it waits
+    or has no single way on, and otherwise goes straight on. A node
     that neither acts nor waits, with one way on, is passed straight through. Anything else is
     where the session rests. More than `limit` nodes without resting is a cycle, refused.
     `command=None` resumes: `at` itself is entered.
@@ -71,8 +72,13 @@ def run(
         if node.acts:
             outcome = enter(node.id)
             if outcome is None:
-                return Ran(node.id, path)
-            node = nodes[follow(protocol, node.id, outcome).target]
+                # **Work that names nothing**: a node that waits rests here (`resolve`); one that
+                # does not, with one way on, goes on (`ask` queues a job and asks: plan 1c).
+                if node.waits or not _one_way_on(protocol, node.id):
+                    return Ran(node.id, path)
+                node = nodes[follow(protocol, node.id, None).target]
+            else:
+                node = nodes[follow(protocol, node.id, outcome).target]
         elif not node.waits and _one_way_on(protocol, node.id):
             node = nodes[follow(protocol, node.id, None).target]
         else:

@@ -5113,3 +5113,11 @@ rest.
 | 2026-10-04 | `…::test_nothing_in_the_shell_calls_advance` (issue 136) | `st.advance(Phase.BUILDING, st.Event.NOTHING_LEFT)` added to `pending_step_tier` | failed, naming `services/authoring.py`; restored, passed | — |
 | 2026-10-04 | `…::test_only_the_dispatcher_writes_the_phase` (issue 136) | `phase="building"` passed to `settle_step`'s `_swap` | failed, three writers in `services/authoring.py`; restored, passed | — |
 | 2026-10-04 | `packages/mendel-api/tests/test_authoring_dispatch.py::test_a_resolver_that_crashes_lands_on_failed_and_raises`, `…::test_retry_returns_to_the_phase_that_failed`, the three *moves nothing* tests (issue 136) | `ctx.raised = failure` removed from `resolve`; the dispatcher's `if ran.at != start` made always true | all five failed; restored, passed | — |
+
+## 2026-10-05 — the consultant build, 1c: stage modules, one transaction per action (14.7.8.1)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-05 | `packages/mendel-api/tests/test_db_transaction.py::test_inside_a_transaction_nothing_is_seen_until_it_commits`, `…::test_an_exception_out_of_the_transaction_rolls_back_every_scope` (issue 136) | `session_scope`'s `if joined is not None:` made `if False:` (scopes stop joining) | both failed; restored, passed | — |
+| 2026-10-05 | `…::test_an_exception_caught_inside_rolls_back_only_its_own_scope` (issue 136) | `with joined.begin_nested():` made `if True:` (a plain join, no savepoint) | failed; restored, passed | — |
+| 2026-10-05 | `packages/mendel-authoring/tests/test_commands.py::test_every_arrow_a_built_edge_names_is_taken_by_some_command` (issue 136) | `Command.REPLY_IN_WORDS` dropped from `Say.takes` | failed, naming `reply_in_words`; restored, passed | — |

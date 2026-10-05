@@ -80,8 +80,8 @@ CLOSED_PACKAGES = {
         "pydantic", "comeni_core", "dag_core", "wiener_core",
     },
     "mendel-authoring": {
-        "collections", "collections.abc", "enum", "typing", "pydantic", "comeni_core",
-        "mendel_authoring",
+        "collections", "collections.abc", "dataclasses", "enum", "typing", "pydantic",
+        "comeni_core", "mendel_authoring",
     },
 }
 # `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note
@@ -175,6 +175,10 @@ CLOSED_PACKAGES = {
 # and its interpreter. **It allows nothing new**: every name on its line is on another pure
 # package's line already. A protocol that knows a database, a queue or a model is a shell
 # wearing the core's name, and this line is where that is refused rather than reviewed.
+#
+# `dataclasses` was added to it 2026-10-05 (plan 1c of the consultant build) for
+# `mendel_authoring.commands`: each command is a frozen dataclass of plain values. Stdlib, no
+# I/O, and already on other pure packages' lines; a command is a record, not a behaviour.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
