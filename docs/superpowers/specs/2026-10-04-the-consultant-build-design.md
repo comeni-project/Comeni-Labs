@@ -11,15 +11,16 @@ were made for testing the early MVP, and nothing here is designed around them.
 
 ## 1. What a person gets
 
-After *that's right* on the goal card, the build opens with its shape, in stages a researcher
-recognises, counted by the engine:
+After *that's right* on the goal card, the build opens with its size, counted by the engine:
 
 ```
-Five stages, eleven steps; two need you.
-  the reads, cleaned · the reference, prepared · reads placed on the genome ·
-  reads per gene · the quality report
+Eleven steps; two need you.
 Go through it together, or set it up and stop only where I need you?
 ```
+
+The walk follows the pipeline's own graph, a step at a time, in the blueprint's order: the steps
+the person sees on the canvas are the steps the conversation talks about. (Revised 2026-10-05:
+the stages this section first opened with are gone; see §4.)
 
 Each step is a card carrying four things, from declared data only: what it does, why it is
 here, what it makes, and what to check. A step whose rule lacks a fact asks for the fact first
@@ -34,7 +35,7 @@ At any time the person may ask anything; the AI answers in its own words, marked
 | Ask anything (rule 13) | **in, as free chat**, given the build's facts as context | it changes nothing in the pipeline; only a confirmed typed action does |
 | Rule 12, *only from sources* | **loosened for chat only**; step cards stay sourced | the cards read as the pipeline's own explanation |
 | Every message's source | **one minimal mark: AI, engine, or curated** | the project is complex enough |
-| Overview stages | **the family of what each step makes**, with an optional `stage` label on a family | nothing new to declare per tool; scales to thousands of tools |
+| Overview stages | ~~the family of what each step makes~~ **no stages** (revised 2026-10-05): the walk follows the blueprint's order and the overview is a count | a grouping the canvas does not show is a second system the person has to infer; every grouping rule tried either reordered the walk past a step's inputs or fragmented across parallel branches |
 | Build and Spawn | **retired**: one consultant build, with pacing as a strategy | they were test-era policies welded into `Mode` |
 | Step cards' words | **the curated and engine text as is, no AI rewording** (option a) | decide on data: the walk checks readability (#210) |
 | The architecture | **the diagram runs the engine**: sessions sit on a node, commands are edges, entering a node runs its handler | updating the flow means updating the diagram |
@@ -107,33 +108,94 @@ hand-written `advance(phase, event)` call.
 
 ## 4. The build plan (pure)
 
-`plan_of(blueprint, registry, facts) → BuildPlan`. Same input, same plan.
+**Revised 2026-10-05** in the 14.7.8.2 brainstorm (operator). What changed from the 2026-10-04
+draft: no stages; `plan_of` takes the blueprint and a narrow port, not a registry and facts;
+`Blueprint` moves into `mendel-authoring`; the resolver records which facts a rule lacked.
 
-- **Stages:** steps grouped, in reveal order, by the family of what they make. The title is the
-  family's optional `stage` label, else its description. Marked **curated**.
-- **A step's brief:**
+**Where it sits.** After the goal is confirmed and the blueprint resolved, and before **Keep**:
+the build plan is the content of the walk, one card per step. It runs in the build conversation,
+not at compile time or run time, and **no model is involved**: every word comes from declared
+data or from the resolver's own record.
 
-  | Field | From | Mark |
-  |---|---|---|
-  | does | the tool's declared description | curated |
-  | why | the rule and its citation (tier 3), the convention (tier 2), *the only tool that makes this* (tier 1), *no rule could decide* (tier 4) | engine |
-  | makes | its output types, in their families' words | curated |
-  | check | tier 3: the premise and its source (*read length 150 · measured*); tier 4: the open choice; tiers 1–2: nothing | engine |
+### 4.1 The pieces
 
-- **What a step needs:** nothing; **a fact**, when a rule would decide it and its premise is
-  unknown (#174, decided 2026-09-28); or **a choice** (tier 4), from the resolver's declared
-  candidates with their descriptions.
-- **The overview:** stages, steps, and how many need the person, counted from the plan.
-- **Pacing:** `waits(plan, pacing)`. *Together*: every step. *Only where needed*: the steps that
-  need a fact or a choice; the rest are placed at once, their briefs on the canvas.
-- **A fact answered** is recorded as gathering records one, the blueprint is re-resolved, and
-  the plan is rebuilt from that step on. Steps are revealed in order, so only steps after the
-  stop can change, and what the person accepted stays. *Choose a tool instead* turns a fact
-  into a choice: tier 4, *you chose*.
-- **The wrap-up:**
-  - what you'll get (the wanted outputs);
-  - what you need to run it (the inputs and settings left to the run);
-  - who decided what (counts by tier and source: engine, rule, you, AI).
+All in `mendel-authoring`, one job each, composed at the top:
+
+| Module | Holds |
+|---|---|
+| `ports.py` | `Declared`: what the plan reads from the registry (a contract by id, a tool by id, a family by id). The shell adapts its loaded layers to it; the pure side never imports a loader |
+| `blueprint.py` | `Blueprint` (moved from `mendel_api/services/blueprint.py`, **without `mode`**, which nothing read) and `committed`, with its helpers |
+| `brief.py` | `brief_of(step, declared) → Brief`: the four fields of a step's card |
+| `needs.py` | `need_of(step, decisions) → Need`: nothing, a fact, or a choice |
+| `wrapup.py` | `wrap_up(blueprint, declared) → WrapUp` |
+| `pacing.py` | `Pacing` (*together*, *only where needed*) and `waits(plan, pacing)` |
+| `plan.py` | `plan_of(blueprint, declared) → BuildPlan`: one entry per step, in the blueprint's order (its brief and its need), and the wrap-up |
+
+The shell keeps `resolve` (the compiler and the model resolver build a `Blueprint` and hand it
+over), and `alternatives` and `proposal` until part 3 deletes them: a choice's candidates come
+from the resolver's decision record from then on.
+
+### 4.2 A step's card (`brief_of`)
+
+Every field is used **as written**, never reworded, and carries its source, `engine` or
+`curated`, for part 4's marks.
+
+| Field | From | Source | When there is none |
+|---|---|---|---|
+| does | the tool's declared `description` (`tool.yml`; the tool id is the contract id's first two segments, `nf-core/star`) | curated | left out; nothing is invented |
+| why | the step's `why.reason`, and `why.axis_reason` when there is one (the rule and its citation, at tier 3) | engine | always present |
+| makes | each output type of the step's contract, in its family's description (types carry no description of their own) | curated | none |
+| check | tier 3: each premise's own sentence (`PremiseRecord.prose()`: *read_length is 150, measured by …*); tier 4: the open question; tiers 1 and 2: nothing | engine | left out |
+
+### 4.3 What a step needs (`need_of`)
+
+- **A fact**, when the step's `ProducerDecision` names facts in `unknown`: the rule would decide,
+  and its premise is unknown (#174). It carries the facts and the decision's candidates, so
+  *choose a tool instead* turns it into a choice (tier 4, *you chose*).
+- **A choice**, when any decision on the step, its tool or a setting, is tier 4 and waits on no
+  fact. It carries the decision's candidates, each with its tool's description.
+- **Nothing**, otherwise.
+
+**`ProducerDecision.unknown`** (`comeni-core`): `list[MeasurementId]`, empty by default and left
+out of the dump when empty, so every existing `pipeline.yml` loads and serialises byte for byte
+as before. The router writes it where it already holds the list (`unapplied_implementation`'s
+second value, through `_ask`); until now it reached the record only as prose (*"…could not apply
+(read_length unknown)"*), and a plan cannot parse prose. Empty means *not waiting on a fact* or
+*recorded before this field*, as `Why.premise` reads.
+
+### 4.4 The wrap-up (`wrap_up`)
+
+- **What you'll get:** the goal's wanted types, in their families' words.
+- **What you need to run it:** the pipeline's input channels, and any setting left to the run.
+- **Who decided what:** every step's selection and every setting, counted by tier and source
+  (engine, rule, you, AI).
+
+### 4.5 The walk, and pacing
+
+- **The overview** is a count read off the plan: steps, and how many need the person.
+- **The walk follows the blueprint's order**, which is the layout's, so every step comes after
+  its inputs for any pipeline, branches included.
+- **`waits(plan, pacing)`**: *together*, every step; *only where needed*, the steps whose need is
+  not nothing. The shell places the rest at once, their briefs on the canvas.
+- **A fact answered** is recorded as gathering records one; the shell re-resolves and calls
+  `plan_of` again. The plan is recomputed whole and holds no history: which steps the person
+  already accepted is the draft's, which the shell already keeps.
+
+### 4.6 Testing
+
+- **Goldens** in `packages/mendel-authoring/tests/`, over small hand-written blueprints (the pure
+  package's tests do not run the resolver): the RNA-seq shape without a read length (the aligner
+  needs `read_length`, nothing else needs anything), and with one (the aligner is tier 3, its
+  check the measured premise); one tier-4 setting, a choice that is not about a tool.
+- **Each module:** `brief_of` leaves *does* out for a tool with no `tool.yml`; `need_of`'s three
+  cases; `waits` under both pacings; `wrap_up`'s counts.
+- **Determinism:** `plan_of` twice, byte-identical JSON.
+- **The real thing**, in `mendel-api`'s tests: the RNA-seq goal resolved against the registry with
+  no read length, then `plan_of`; the aligner needs `read_length`. **Watched failing** before the
+  router writes `unknown`.
+- **The router:** `unknown` recorded where the rule cannot apply, empty where it can; `make verify`.
+- **The migration:** a stored blueprint holding `"mode"` loads once it has run.
+- **`committed`'s tests** move with it, unchanged.
 
 ## 5. Stage ④, as the diagram runs it
 
@@ -150,7 +212,7 @@ any time: ask ──Ask──▶ answer   (AI, marked; moves nothing; a suggeste
 | Node | Kind | What happens |
 |---|---|---|
 | resolve | acting, engine | resolve the blueprint, build the plan |
-| overview | showing | the stages and counts, curated and engine |
+| overview | showing | the counts: steps, and how many need the person (engine) |
 | pace? | acting | read the Pacing setting; *ask me every time* shows the question |
 | step | acting | the next step's card; placed on the canvas, or held until *continue* |
 | fact | showing | the fact-first card; answering re-resolves from this step |
@@ -204,8 +266,8 @@ is too dense on screen, the generator draws a section at a time, never a second 
   shell.
 - **Behaviour unchanged after 14.7.8.1:** the whole existing suite, untouched, through the
   dispatcher.
-- **Goldens:** the plan, the overview and the wrap-up from scenario 1's blueprint, with read
-  length known and unknown.
+- **Goldens:** the plan and the wrap-up from scenario 1's blueprint, with read length known and
+  unknown (§4.6).
 - **Pacing:** which steps wait, per strategy.
 - **The fact-first card:** answering re-resolves the step to tier 3; choosing keeps tier 4.
 - **Ask:** recorded transports; an answer moves the session nowhere.
@@ -225,7 +287,8 @@ the later plans would name.
    - commands, the dispatcher-interpreter, handlers and the binding test;
    - the stage modules and the facade (§11, plan 1c);
    - **behaviour unchanged.**
-2. **14.7.8.2 The build plan:** the pure core of §4.
+2. **14.7.8.2 The build plan:** the pure core of §4, `Blueprint` and `committed` moved into
+   `mendel-authoring`, and `ProducerDecision.unknown`.
 3. **14.7.8.3 Stage ④:**
    - the handlers of §5;
    - `Mode`, Build/Spawn and the old step proposals removed;
@@ -234,8 +297,8 @@ the later plans would name.
 5. **14.7.8.5 The cards and the walk:** artboards first, approved by the operator; the cards;
    the walk.
 
-The `comeni-core` version bump (a family's optional `stage` label), and `mendel-authoring`'s first
-release, are judged at release time.
+The `comeni-core` version bump (`ProducerDecision.unknown`), and `mendel-authoring`'s first
+release, are judged at release time. No `stage` label is added to `Family` (§4).
 
 ## 11. Part 1's second half: how the shell is put together (14.7.8.1c)
 
