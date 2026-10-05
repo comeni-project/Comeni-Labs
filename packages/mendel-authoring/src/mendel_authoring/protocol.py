@@ -642,6 +642,7 @@ PROTOCOL = Protocol(
             _AI,
             "AI reads the goal back<br/>in its own words",
             _P.GOAL_REVIEW,
+            acts=True,  # queues the read-back, and goes on (plan 1c)
         ),
         # ④ built
         _built(

@@ -126,3 +126,43 @@ def test_a_racing_second_answer_leaves_nothing_behind(monkeypatch):
     monkeypatch.setattr(s, "_where", real)
     after = session.read(sid)
     assert after["facts"] == facts and after["pending_proposal"]["id"] == pending["id"]
+
+
+def _to_card(monkeypatch):
+    """Answer every question until the card is on offer. Returns the session, the card, and the
+    last answer's `Performed` (whose action offered the card)."""
+    from mendel_api.stages import gathering
+
+    monkeypatch.setattr(gathering, "_model_configured", lambda: True)
+    sid, _ = session.perform(c.Begin("gene counts", "build", "t")).result
+    session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
+    done = None
+    while (pending := session.read(sid)["pending_proposal"])["kind"] == "gap":
+        # The first ordinary option, as `test_authoring_gathering._pending_for` answers.
+        options = pending["payload"]["options"]
+        ordinary = [o for o in options if o not in ("dont_have", "value", "not_sure", "upload")]
+        option = ordinary[0] if ordinary else "not_sure"
+        done = session.perform(c.AnswerGap(pending["id"], option, None, "t"))
+    assert pending["kind"] == "goal" and done is not None
+    return sid, pending, done
+
+
+def test_the_card_offered_queues_its_read_back(monkeypatch):
+    sid, card, done = _to_card(monkeypatch)
+    assert _jobs.readback(sid, card["id"]).job_id in [j.job_id for j in done.jobs]
+
+
+def test_accepting_the_goal_is_one_transaction(monkeypatch):
+    """If storing the goal breaks, the card is still pending: the decision rolled back with it."""
+    from mendel_api.stages import goal
+
+    sid, card, _ = _to_card(monkeypatch)
+    revision = session.read(sid)["revision"]
+
+    def broke(*a, **k):
+        raise RuntimeError("store failed")
+
+    monkeypatch.setattr(goal, "store_goal", broke)
+    with pytest.raises(RuntimeError):
+        session.perform(c.DecideGoal(card["id"], "accepted", revision, "t"))
+    assert session.read(sid)["pending_proposal"]["id"] == card["id"]

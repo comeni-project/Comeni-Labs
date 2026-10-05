@@ -1431,7 +1431,7 @@ git commit -m "refactor(authoring): stage ② behind the facade — an answer an
 - Consumes: `_rows.settlement`, `_rows.decide`, `_rows.store_goal`, `_rows.GOAL` (Task 4); the `AnswerGap` recorder (Task 5); `_jobs.readback` (Task 3).
 - Produces: in `stages/goal.py`, recorders for `DecideGoal` (result `(Settlement, Phase)`), `Revised`, `StoreReadback` and `ReadbackFailed`; handler `readback`; `READS = ("wants_readback", "readback_context")`; re-bound `GOAL = _rows.GOAL` and `store_goal = _rows.store_goal`; moved verbatim: `withdraw_pending`, `wants_readback`, `readback_context`, `_pending_card`, `_set_card`, `store_readback`, `readback_failed`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test_authoring_commands.py`:
 
@@ -1473,12 +1473,12 @@ def test_accepting_the_goal_is_one_transaction(monkeypatch):
     assert session.read(sid)["pending_proposal"]["id"] == card["id"]
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_commands.py -q -k "card or goal"`
 Expected: the read-back test FAILS (no `readback` job: `readback` does not act yet), and the transaction test FAILS with `KeyError` for `DecideGoal`.
 
-- [ ] **Step 3: Move stage ③**
+- [x] **Step 3: Move stage ③**
 
 Move into `stages/goal.py` the functions under Produces, verbatim, and re-bind `GOAL` and `store_goal` from `_rows`. The decide recorder calls `store_goal` through this module's name, so the transaction test's monkeypatch reaches it. Then:
 
@@ -1545,7 +1545,7 @@ Mark `readback` `acts=True` in `protocol.py`. Its single unnamed arrow stays the
 
 In `authoring_jobs._follow_up`, replace the three lines `authoring.withdraw_pending(...)`, `_perform(session_id, Command.REVISED)` with `_perform_typed(c.Revised(session_id, "person"))`. Here `_perform_typed(command)` is `session.perform(command)`, ignoring `Refused` exactly as `_perform` does, and returning whether it ran. Keep the `allows` check that guards the branch.
 
-- [ ] **Step 4: Forward the old names**
+- [x] **Step 4: Forward the old names**
 
 ```python
 def decide_goal(proposal_id, decision, *, expected_revision, by, edited=None):
@@ -1560,12 +1560,12 @@ store_readback, readback_failed = goal.store_readback, goal.readback_failed
 wants_readback, readback_context = goal.wants_readback, goal.readback_context
 ```
 
-- [ ] **Step 5: Run the whole suite once**
+- [x] **Step 5: Run the whole suite once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api -q > .superpowers/sdd/1c-task6.log 2>&1; tail -30 .superpowers/sdd/1c-task6.log`
 Expected: all passed.
 
-- [ ] **Step 6: Check, then commit**
+- [x] **Step 6: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0.

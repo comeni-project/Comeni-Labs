@@ -57,7 +57,7 @@ from mendel_api.services import authoring_ai, registry
 from mendel_api.services import blueprint as bp
 from mendel_api.services import session as session_mod
 from mendel_api.settings import settings
-from mendel_api.stages import describe, gathering
+from mendel_api.stages import describe, gathering, goal
 from mendel_api.stages._rows import (  # noqa: F401 — the old names, until Task 10 (plan 1c)
     GAP,
     GOAL,
@@ -70,7 +70,6 @@ from mendel_api.stages._rows import new_id as _id
 from mendel_api.stages._rows import next_seq as _next_seq
 from mendel_api.stages._rows import note as _note
 from mendel_api.stages._rows import now as _now
-from mendel_api.stages._rows import settlement as _settlement
 from mendel_api.stages._rows import swap as _swap
 
 log = logging.getLogger(__name__)
@@ -135,6 +134,23 @@ gap_context, need_listed = gathering.gap_context, gathering.need_listed
 offer_gap_or_card = gathering.offer_gap_or_card
 _characterisable, _gathered = gathering._characterisable, gathering._gathered
 _gap_options, _inspectable = gathering._gap_options, gathering._inspectable
+
+
+def decide_goal(proposal_id, decision, *, expected_revision, by, edited=None):
+    return session_mod.perform(
+        c.DecideGoal(
+            proposal_id,
+            decision.value,
+            expected_revision,
+            by,
+            None if edited is None else edited.model_dump(mode="json"),
+        )
+    ).result
+
+
+withdraw_pending = goal.withdraw_pending
+store_readback, readback_failed = goal.store_readback, goal.readback_failed
+wants_readback, readback_context = goal.wants_readback, goal.readback_context
 
 
 def move(session_id: str, event: st.Event, *, row_version: int, **values: object) -> Phase:
@@ -491,64 +507,6 @@ def _offer(db, session_id: str, blueprint, node_id: str, *, revision: int, regis
 # ── the transport's verbs: starting, grounding a turn, goals, retrying ────────────────────
 
 
-def withdraw_pending(session_id: str, *, by: str) -> None:
-    """Reject whatever is pending — a goal summary the person has just corrected in prose."""
-    with session_scope() as db:
-        pending = db.scalar(
-            select(PipelineAuthoringProposal).where(
-                PipelineAuthoringProposal.session_id == session_id,
-                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-            )
-        )
-        if pending is not None:
-            pending.state = ProposalState.REJECTED.value
-            pending.by = by
-            pending.settled_at = _now()
-
-
-def decide_goal(
-    proposal_id: str,
-    decision: ProposalState,
-    *,
-    expected_revision: int,
-    by: str,
-    edited: Goal | None = None,
-) -> tuple[st.Settlement, Phase]:
-    """Accept or reject a goal summary. Accepting stores it as the confirmed goal.
-
-    `goal_review → resolving` on accept, `goal_review → understanding` on reject — §2's two
-    arrows out of that phase, through `move` so the diagram is enforced where every other move is.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringProposal, proposal_id)
-        if row is None:
-            raise KeyError(proposal_id)
-        session_id = row.session_id
-        goal = row.payload.get("goal")
-
-    if edited is not None and decision is ProposalState.ACCEPTED:
-        # **A structured edit needs no model call** — §Task 10. It is held to the same vocabulary
-        # a model's goal is, before anything is recorded, so an invented type id typed into the
-        # card is refused exactly as one a model wrote would be.
-        authoring_ai.admit_goal(edited, registry.stack())
-        goal = edited.model_dump(mode="json")
-
-    accepted = decision is ProposalState.ACCEPTED
-    command = Command.CONFIRM_GOAL if accepted else Command.REVISE_GOAL
-    # **The proposal's own refusal first** (ruling 8; final review of 1b): a duplicate is MI0203
-    # and an old picture of the draft MI0201, before the diagram is asked.
-    if _settlement(proposal_id, decision, expected_revision).refusal is None:
-        session_mod.check(session_id, command.value)
-    outcome = decide(proposal_id, decision, expected_revision=expected_revision, by=by)
-    if outcome.refusal is not None:
-        return outcome, current_phase(session_id)
-
-    if accepted:
-        store_goal(session_id, goal)
-    session_mod.perform_now(session_id, command.value)
-    return outcome, current_phase(session_id)
-
-
 def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pending) -> dict:
     """Blueprint positions for the steps a person can see — accepted ones and the one on offer.
 
@@ -819,67 +777,6 @@ def ai_for_draft(draft_id: str):
 
 
 # ── gathering: the engine asks for what the want needs (14.7.3) ──────────────────────────
-
-
-def readback_context(session_id: str) -> str:
-    """The composed goal as the read-back call is given it: every input and fact with its
-    source, the want, and the constraints kept so far — never the first sentence (#176)."""
-    wanted, facts, _ = _gathered(session_id)
-    goal = compose_goal(session_id)
-    said = {FactSource.PERSON_SAID: "you said", FactSource.MEASURED: "measured",
-            FactSource.MODEL_READ: "read by AI", FactSource.OPEN: "left open"}
-    lines = [
-        "have: " + (", ".join(
-            f"{f.subject} ({said[f.source]})" for f in facts if f.kind is FactKind.INPUT
-        ) or "nothing"),
-        "facts: " + ("; ".join(
-            f"{f.subject} = {f.value if f.value is not None else 'unknown'} ({said[f.source]})"
-            for f in facts if f.kind is FactKind.MEASUREMENT
-        ) or "none"),
-        "want: " + ", ".join(goal.want),
-    ]
-    kept = goal.constraints.required_states
-    if kept:
-        lines.append("required: " + "; ".join(
-            f"{r.type_id} [{', '.join(r.states)}]" for r in kept
-        ))
-    return "\n".join(lines)
-
-
-def _pending_card(db, session_id: str):
-    pending = db.scalar(
-        select(PipelineAuthoringProposal).where(
-            PipelineAuthoringProposal.session_id == session_id,
-            PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-        )
-    )
-    return pending if pending is not None and pending.kind == GOAL else None
-
-
-def _set_card(session_id: str, **changes) -> None:
-    with session_scope() as db:
-        card = _pending_card(db, session_id)
-        if card is None:
-            return
-        payload = dict(card.payload)
-        payload["block"] = {**payload["block"], **changes}
-        card.payload = payload
-
-
-def store_readback(session_id: str, text: str) -> None:
-    """The read-back on the card on offer; nothing if the card was already answered (#176)."""
-    _set_card(session_id, readback=text, readback_pending=False)
-
-
-def readback_failed(session_id: str) -> None:
-    """A read-back that failed or was refused: the engine's sentence stands."""
-    _set_card(session_id, readback_pending=False)
-
-
-def wants_readback(session_id: str) -> bool:
-    with session_scope() as db:
-        card = _pending_card(db, session_id)
-        return card is not None and bool(card.payload["block"].get("readback_pending"))
 
 
 class SampleAnswer(NamedTuple):

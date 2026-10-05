@@ -19,6 +19,7 @@ leave the turn spinning.
 import logging
 
 from comeni_ai import Client
+from mendel_authoring import commands as c
 from mendel_authoring.interpret import Refused
 from mendel_authoring.types import Command
 
@@ -430,8 +431,7 @@ def _follow_up(session_id: str, seq: int, context) -> None:
     ):
         # A goal revision re-enters understanding with the person's corrected words, and the
         # summary they were correcting is withdrawn rather than left pending beside the new one.
-        authoring.withdraw_pending(session_id, by="person")
-        _perform(session_id, Command.REVISED)
+        _perform_typed(c.Revised(session_id, "person"))
         _understand(session_id, seq, context, intent.revise)
         return
 
@@ -510,6 +510,16 @@ def _perform(session_id: str, command: Command, **payload) -> None:
         session_mod.perform_now(session_id, command.value, **payload)
     except Refused as refused:
         log.info("%s for %s ignored: %s", command.value, session_id, str(refused).splitlines()[0])
+
+
+def _perform_typed(command: object) -> bool:
+    """`_perform` for a typed command, through the facade (plan 1c): whether it ran."""
+    try:
+        session_mod.perform(command)
+    except Refused as refused:
+        log.info("%s ignored: %s", type(command).__name__, str(refused).splitlines()[0])
+        return False
+    return True
 
 
 def _failed(session_id: str) -> None:
