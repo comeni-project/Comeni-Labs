@@ -999,7 +999,7 @@ git commit -m "feat(authoring): the facade — perform in one transaction, act q
   - `stages/describe.py`: recorders for the eight commands, and handlers `read_goal` (as in 1b) and `family` (new); `READS = ("turn_context",)`; `turn_context`, `TurnContext`, `UNTITLED`.
   - Results: `OpenSession` → the session id; `Begin` → `(session_id, seq)`; `Say` → the pending turn's seq; `AnswerTurn` → `bool`; `Retry` → `(Phase, seq | None)`; the job commands → `None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The commands, through the facade (plan 1c): what each records, and the jobs it asks for."""
@@ -1062,16 +1062,16 @@ def test_a_late_reading_is_refused_and_writes_nothing():
     assert _at(sid) == before
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_commands.py -q`
 Expected: FAIL with `KeyError: <class 'mendel_authoring.commands.Begin'>` (no recorder yet).
 
-- [ ] **Step 3: Move the shared rows**
+- [x] **Step 3: Move the shared rows**
 
 Create `stages/_rows.py`. Move the functions listed under Produces verbatim, renamed as listed. In `services/authoring.py`, import them back under their old names (`from mendel_api.stages._rows import now as _now, new_id as _id, …`), so every caller still in that file is unchanged. `propose` and `decide` keep their public names in `authoring`.
 
-- [ ] **Step 4: Move stage ①**
+- [x] **Step 4: Move stage ①**
 
 Move from `services/authoring.py` into `stages/describe.py`, verbatim: `open_session`, `UNTITLED`, `begin`, `say`, `answer`, `TurnContext`, `turn_context`, `_spoken`. Then register their recorders:
 
@@ -1161,7 +1161,7 @@ def family(ctx: Ctx) -> None:
 
 **The read model moves into `services/session.py` now**, since every later task's tests read through it: `read`, `_words_coming`, `calls`, `pending_id` and `current_phase`, verbatim. `read`'s helpers (`_placement`, `_answer_of`, `_aged`, `_reading`) have not moved yet. Import them inside `read` from `mendel_api.services.authoring` until their own tasks (5, 7, 8) move them, and switch the import in each of those tasks. A function-level import is what keeps this from being circular.
 
-- [ ] **Step 5: Forward the old names**
+- [x] **Step 5: Forward the old names**
 
 In `services/authoring.py`, each moved public function becomes one line, for Tasks 5–9 (ruling 9):
 
@@ -1195,11 +1195,11 @@ UNTITLED = describe.UNTITLED
 
 `authoring_jobs._perform(session_id, command, **payload)` keeps calling `perform_now` until Task 9.
 
-- [ ] **Step 6: Update the phase-writer guard**
+- [x] **Step 6: Update the phase-writer guard**
 
 `open_session`'s constructor now writes `phase=` from `stages/describe.py`. In `test_only_the_dispatcher_writes_the_phase`, the expected file set becomes `{"services/session.py", "services/authoring.py", "stages/describe.py"}`, with exactly one writer in `services/authoring.py` (`move`'s `.values()`). Run it once before the edit and watch it fail naming `stages/describe.py`.
 
-- [ ] **Step 7: Run the stage, then everything once**
+- [x] **Step 7: Run the stage, then everything once**
 
 Run: `MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/test_authoring_commands.py -q`
 Expected: 4 passed.
@@ -1210,7 +1210,7 @@ Expected: all passed. A failure here is a behaviour that relied on a write commi
 - **A stale attribute.** One transaction shares one identity map, and a row loaded before the dispatcher's `update()` may still show the old phase. SQLAlchemy 2's `synchronize_session="auto"` normally keeps it current; where it does not, `db.expire_all()` at the top of the reading scope is the fix, recorded as a ruling.
 - **`RuntimeError: a command never performs another`.** Code still in `services/authoring.py` called a forwarding function from inside a recorder. Call the stage's function instead.
 
-- [ ] **Step 8: Check, then commit**
+- [x] **Step 8: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0.

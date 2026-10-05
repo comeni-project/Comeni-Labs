@@ -16,16 +16,18 @@ from comeni_core.diagnostics import coded
 from mendel_authoring import interpret
 from mendel_authoring import state as st
 from mendel_authoring.protocol import PROTOCOL, Protocol
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from mendel_api import db as db_mod
 from mendel_api import jobs
-from mendel_api.authoring.types import Phase, ProposalState, TurnState
+from mendel_api.authoring.types import Mode, Phase, ProposalState, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
+    AiInvocation,
     PipelineAuthoringProposal,
     PipelineAuthoringSession,
     PipelineAuthoringTurn,
+    PipelineDraft,
 )
 
 log = logging.getLogger(__name__)
@@ -322,3 +324,183 @@ def take(
     sharing `ctx`."""
     ctx.command, ctx.payload = arrow, dict(payload)
     return _dispatch(ctx.session_id, arrow, payload, protocol, None, ctx=ctx)
+
+
+# ── the read model: what a browser and a job read (plan 1c) ──────────────────────────────
+
+
+def read(session_id: str) -> dict:
+    """Everything a browser needs to draw the session, in one read.
+
+    **The checkpoint's shape.** Task 3 asks that restarting the API between writing and reading
+    changes nothing, and that is only checkable if one call returns the whole picture: phase,
+    transcript, the pending proposal, the confirmed goal, and the draft's revision. Assembling it
+    from four endpoints would make the checkpoint a statement about four caches.
+    """
+    # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
+    from mendel_api.services.authoring import _aged, _answer_of, _placement
+
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        draft = db.get(PipelineDraft, row.draft_id)
+
+        turns = db.scalars(
+            select(PipelineAuthoringTurn)
+            .where(PipelineAuthoringTurn.session_id == session_id)
+            .order_by(PipelineAuthoringTurn.seq)
+        ).all()
+        pending = db.scalar(
+            select(PipelineAuthoringProposal).where(
+                PipelineAuthoringProposal.session_id == session_id,
+                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+            )
+        )
+        spent = db.execute(
+            select(
+                func.coalesce(func.sum(AiInvocation.input_tokens), 0),
+                func.coalesce(func.sum(AiInvocation.output_tokens), 0),
+                func.coalesce(func.sum(AiInvocation.cached_tokens), 0),
+                func.count(AiInvocation.id),
+            ).where(AiInvocation.session_id == session_id)
+        ).one()
+        return {
+            # **The token total rides the read every poll already makes** (#191; the operator's
+            # constraint for 14.7.4: nothing chatty). A provider that reported no usage counts
+            # as zero here and stays null on its row.
+            "usage": {
+                "input": int(spent[0]),
+                "output": int(spent[1]),
+                "cached": int(spent[2]),
+                "calls": int(spent[3]),
+                "in_flight": any(t.state == TurnState.PENDING.value for t in turns)
+                or (row.mode == Mode.SPAWN.value and row.phase == Phase.RESOLVING.value)
+                or _words_coming(pending),
+            },
+            "id": row.id,
+            "draft_id": row.draft_id,
+            "mode": row.mode,
+            "phase": row.phase,
+            "failed_from": row.failed_from,
+            "goal": row.goal,
+            "facts": list(row.facts or []),
+            "cursor": row.cursor,
+            "row_version": row.row_version,
+            "revision": draft.revision if draft else 0,
+            "graph": draft.graph if draft else {},
+            "placement": _placement(row, draft, pending),
+            # **A count, not the plan.** How many steps the blueprint holds lets the header say
+            # `4 of 7`; which steps they are stays private until each is offered.
+            "steps_total": len((row.blueprint or {}).get("order") or []),
+            "turns": [
+                {
+                    "seq": t.seq,
+                    "role": t.role,
+                    "state": t.state,
+                    "text": t.text,
+                    "blocks": t.blocks,
+                    "base_revision": t.base_revision,
+                    "at": t.at.isoformat(),
+                }
+                for t in turns
+            ],
+            "name": draft.name if draft else "",
+            "history": [
+                {
+                    "id": p.id,
+                    "kind": p.kind,
+                    "state": p.state,
+                    "block": p.payload.get("block"),
+                    "by": p.by,
+                    "chosen_option": p.chosen_option,
+                    "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
+                    "answer": _answer_of(p, row.facts or []),
+                    "at": (p.settled_at or p.created_at).isoformat(),
+                }
+                for p in db.scalars(
+                    select(PipelineAuthoringProposal)
+                    .where(
+                        PipelineAuthoringProposal.session_id == session_id,
+                        PipelineAuthoringProposal.state != ProposalState.PENDING.value,
+                    )
+                    .order_by(PipelineAuthoringProposal.created_at)
+                ).all()
+            ],
+            "pending_proposal": (
+                None
+                if pending is None
+                else {
+                    "id": pending.id,
+                    "kind": pending.kind,
+                    "payload": _aged(pending.payload),
+                    "draft_revision": pending.draft_revision,
+                }
+            ),
+        }
+
+
+def _words_coming(pending) -> bool:
+    """Whether the proposal on offer is still waiting for a model's words: a question being
+    phrased (#167) or a card's read-back (#176). Read from the row already loaded."""
+    from mendel_api.services.authoring import _reading
+
+    if pending is None:
+        return False
+    block = pending.payload.get("block") or {}
+    reading = _reading(block) or {}
+    return (
+        block.get("phrasing") == "pending"
+        or bool(block.get("readback_pending"))
+        or reading.get("state") == "pending"
+    )
+
+
+def calls(session_id: str) -> list[dict]:
+    """The session's model calls, oldest first, with each reply (#182, #191).
+
+    Fetched only when the page opens its call panel, never on the poll.
+    """
+    with session_scope() as db:
+        if db.get(PipelineAuthoringSession, session_id) is None:
+            raise KeyError(session_id)
+        rows = db.scalars(
+            select(AiInvocation)
+            .where(AiInvocation.session_id == session_id)
+            .order_by(AiInvocation.started_at)
+        ).all()
+        return [
+            {
+                "id": r.id,
+                "purpose": r.purpose,
+                "model": r.model,
+                "input": r.input_tokens,
+                "output": r.output_tokens,
+                "cached": r.cached_tokens,
+                "duration_ms": r.duration_ms,
+                "state": r.state,
+                "response": r.response,
+                "reply_format": r.reply_format,
+                "at": r.started_at.isoformat(),
+            }
+            for r in rows
+        ]
+
+
+def current_phase(session_id: str) -> Phase:
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        return Phase(row.phase)
+
+
+def pending_id(session_id: str) -> str | None:
+    with session_scope() as db:
+        return db.scalar(
+            select(PipelineAuthoringProposal.id).where(
+                PipelineAuthoringProposal.session_id == session_id,
+                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
+            )
+        )
+

@@ -550,6 +550,7 @@ PROTOCOL = Protocol(
             _AI,
             "AI picks the kind of result<br/>from a short list",
             _P.UNDERSTANDING,
+            acts=True,  # queues the reading (plan 1c)
             waits=True,
         ),
         _built(

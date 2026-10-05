@@ -23,9 +23,7 @@ passes — so every test here runs against a database and, unless it hands one o
 
 import contextlib
 import logging
-import secrets
-from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import NamedTuple
 
 from comeni_core.declared.measurement import MeasuredEntry, MeasurementKind
@@ -34,12 +32,13 @@ from comeni_core.goal.asked import GoalInput
 from comeni_core.goal.profile import Evidence
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.review.answer import ValueSource
+from mendel_authoring import commands as c
 from mendel_authoring import state as st
 from mendel_authoring.interpret import Refused
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 
 from mendel_api.authoring.types import (
     AskedGap,
@@ -48,7 +47,6 @@ from mendel_api.authoring.types import (
     FactSource,
     GoalSummary,
     Mode,
-    Narrative,
     Option,
     Phase,
     ProposalState,
@@ -58,7 +56,6 @@ from mendel_api.authoring.types import (
 )
 from mendel_api.db import session_scope
 from mendel_api.models import (
-    AiInvocation,
     PipelineAuthoringProposal,
     PipelineAuthoringSession,
     PipelineAuthoringTurn,
@@ -68,220 +65,56 @@ from mendel_api.services import authoring_ai, gaps, registry
 from mendel_api.services import blueprint as bp
 from mendel_api.services import session as session_mod
 from mendel_api.settings import settings
+from mendel_api.stages import describe
+from mendel_api.stages._rows import (  # noqa: F401 — the old names, until Task 10 (plan 1c)
+    GAP,
+    GOAL,
+    STEP,
+    decide,
+    propose,
+    store_goal,
+)
+from mendel_api.stages._rows import engine_turn as _engine_turn
+from mendel_api.stages._rows import new_id as _id
+from mendel_api.stages._rows import next_seq as _next_seq
+from mendel_api.stages._rows import note as _note
+from mendel_api.stages._rows import now as _now
+from mendel_api.stages._rows import say_engine as _say
+from mendel_api.stages._rows import settlement as _settlement
+from mendel_api.stages._rows import swap as _swap
 
 log = logging.getLogger(__name__)
 
 
-def _now() -> datetime:
-    return datetime.now(UTC)
-
-
-def _id() -> str:
-    """`secrets.token_hex(16)`, exactly as `PipelineDraft` uses.
-
-    Opaque rather than serial for `routes/build.py`'s reason: the API may not take a path, and a
-    guessable id is the next-worst thing.
-    """
-    return secrets.token_hex(16)
+# ── forwarding, until the tests call the facade (ruling 9 of plan 1c; gone in Task 10) ─────
 
 
 def open_session(draft_id: str, *, mode: Mode, who: str) -> str:
-    """Start a conversation about a draft, or refuse if one is already open.
-
-    **One session per draft**, which the unique index enforces and this refuses first — the same
-    two-mechanism arrangement `forge_state.begin` uses, so a person reads a sentence rather than
-    a constraint violation.
-    """
-    with session_scope() as session:
-        if session.get(PipelineDraft, draft_id) is None:
-            raise KeyError(draft_id)
-
-        existing = session.scalar(
-            select(PipelineAuthoringSession).where(
-                PipelineAuthoringSession.draft_id == draft_id
-            )
-        )
-        if existing is not None:
-            raise ValueError(
-                coded("MI0200", "this draft already has an authoring session")
-                + f"\n  it is {existing.id}, in phase {existing.phase}"
-            )
-
-        session_id = _id()
-        now = _now()
-        session.add(
-            PipelineAuthoringSession(
-                id=session_id,
-                draft_id=draft_id,
-                mode=mode.value,
-                phase=Phase.UNDERSTANDING.value,
-                at="say",
-                failed_from=None,
-                goal=None,
-                facts=[],
-                blueprint={},
-                registry_digest="",
-                cursor=0,
-                row_version=1,
-                who=who,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-    return session_id
+    return session_mod.perform(c.OpenSession(draft_id, mode.value, who)).result
 
 
-def read(session_id: str) -> dict:
-    """Everything a browser needs to draw the session, in one read.
-
-    **The checkpoint's shape.** Task 3 asks that restarting the API between writing and reading
-    changes nothing, and that is only checkable if one call returns the whole picture: phase,
-    transcript, the pending proposal, the confirmed goal, and the draft's revision. Assembling it
-    from four endpoints would make the checkpoint a statement about four caches.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        draft = db.get(PipelineDraft, row.draft_id)
-
-        turns = db.scalars(
-            select(PipelineAuthoringTurn)
-            .where(PipelineAuthoringTurn.session_id == session_id)
-            .order_by(PipelineAuthoringTurn.seq)
-        ).all()
-        pending = db.scalar(
-            select(PipelineAuthoringProposal).where(
-                PipelineAuthoringProposal.session_id == session_id,
-                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-            )
-        )
-        spent = db.execute(
-            select(
-                func.coalesce(func.sum(AiInvocation.input_tokens), 0),
-                func.coalesce(func.sum(AiInvocation.output_tokens), 0),
-                func.coalesce(func.sum(AiInvocation.cached_tokens), 0),
-                func.count(AiInvocation.id),
-            ).where(AiInvocation.session_id == session_id)
-        ).one()
-        return {
-            # **The token total rides the read every poll already makes** (#191; the operator's
-            # constraint for 14.7.4: nothing chatty). A provider that reported no usage counts
-            # as zero here and stays null on its row.
-            "usage": {
-                "input": int(spent[0]),
-                "output": int(spent[1]),
-                "cached": int(spent[2]),
-                "calls": int(spent[3]),
-                "in_flight": any(t.state == TurnState.PENDING.value for t in turns)
-                or (row.mode == Mode.SPAWN.value and row.phase == Phase.RESOLVING.value)
-                or _words_coming(pending),
-            },
-            "id": row.id,
-            "draft_id": row.draft_id,
-            "mode": row.mode,
-            "phase": row.phase,
-            "failed_from": row.failed_from,
-            "goal": row.goal,
-            "facts": list(row.facts or []),
-            "cursor": row.cursor,
-            "row_version": row.row_version,
-            "revision": draft.revision if draft else 0,
-            "graph": draft.graph if draft else {},
-            "placement": _placement(row, draft, pending),
-            # **A count, not the plan.** How many steps the blueprint holds lets the header say
-            # `4 of 7`; which steps they are stays private until each is offered.
-            "steps_total": len((row.blueprint or {}).get("order") or []),
-            "turns": [
-                {
-                    "seq": t.seq,
-                    "role": t.role,
-                    "state": t.state,
-                    "text": t.text,
-                    "blocks": t.blocks,
-                    "base_revision": t.base_revision,
-                    "at": t.at.isoformat(),
-                }
-                for t in turns
-            ],
-            "name": draft.name if draft else "",
-            "history": [
-                {
-                    "id": p.id,
-                    "kind": p.kind,
-                    "state": p.state,
-                    "block": p.payload.get("block"),
-                    "by": p.by,
-                    "chosen_option": p.chosen_option,
-                    "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
-                    "answer": _answer_of(p, row.facts or []),
-                    "at": (p.settled_at or p.created_at).isoformat(),
-                }
-                for p in db.scalars(
-                    select(PipelineAuthoringProposal)
-                    .where(
-                        PipelineAuthoringProposal.session_id == session_id,
-                        PipelineAuthoringProposal.state != ProposalState.PENDING.value,
-                    )
-                    .order_by(PipelineAuthoringProposal.created_at)
-                ).all()
-            ],
-            "pending_proposal": (
-                None
-                if pending is None
-                else {
-                    "id": pending.id,
-                    "kind": pending.kind,
-                    "payload": _aged(pending.payload),
-                    "draft_revision": pending.draft_revision,
-                }
-            ),
-        }
+def begin(prompt: str, *, mode: Mode, who: str) -> tuple[str, int]:
+    return session_mod.perform(c.Begin(prompt, mode.value, who)).result
 
 
-def _words_coming(pending) -> bool:
-    """Whether the proposal on offer is still waiting for a model's words: a question being
-    phrased (#167) or a card's read-back (#176). Read from the row already loaded."""
-    if pending is None:
-        return False
-    block = pending.payload.get("block") or {}
-    reading = _reading(block) or {}
-    return (
-        block.get("phrasing") == "pending"
-        or bool(block.get("readback_pending"))
-        or reading.get("state") == "pending"
-    )
+def say(session_id: str, text: str) -> int:
+    return session_mod.perform(c.Say(session_id, text)).result
 
 
-def calls(session_id: str) -> list[dict]:
-    """The session's model calls, oldest first, with each reply (#182, #191).
+def answer(session_id, seq, *, blocks, base_revision, invocation_id=None) -> bool:
+    return session_mod.perform(
+        c.AnswerTurn(session_id, seq, blocks, base_revision, invocation_id)
+    ).result
 
-    Fetched only when the page opens its call panel, never on the poll.
-    """
-    with session_scope() as db:
-        if db.get(PipelineAuthoringSession, session_id) is None:
-            raise KeyError(session_id)
-        rows = db.scalars(
-            select(AiInvocation)
-            .where(AiInvocation.session_id == session_id)
-            .order_by(AiInvocation.started_at)
-        ).all()
-        return [
-            {
-                "id": r.id,
-                "purpose": r.purpose,
-                "model": r.model,
-                "input": r.input_tokens,
-                "output": r.output_tokens,
-                "cached": r.cached_tokens,
-                "duration_ms": r.duration_ms,
-                "state": r.state,
-                "response": r.response,
-                "reply_format": r.reply_format,
-                "at": r.started_at.isoformat(),
-            }
-            for r in rows
-        ]
+
+def retry(session_id: str) -> tuple[Phase, int | None]:
+    return session_mod.perform(c.Retry(session_id)).result
+
+
+read, calls = session_mod.read, session_mod.calls
+current_phase, pending_id = session_mod.current_phase, session_mod.pending_id
+turn_context, TurnContext = describe.turn_context, describe.TurnContext
+UNTITLED = describe.UNTITLED
 
 
 def move(session_id: str, event: st.Event, *, row_version: int, **values: object) -> Phase:
@@ -333,223 +166,7 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
     return target
 
 
-def say(session_id: str, text: str) -> int:
-    """Record what a person said, and the pending turn that will answer it.
-
-    **Two rows, written together.** The assistant's turn exists as `pending` from the moment the
-    person's is accepted, so the transcript can draw the waiting. A browser inventing that
-    placeholder locally would lose it on reload, which is the defect this closes rather than the
-    tidiness it looks like.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        draft = db.get(PipelineDraft, row.draft_id)
-        revision = draft.revision if draft else 0
-
-        seq = _next_seq(db, session_id)
-        now = _now()
-        db.add(
-            PipelineAuthoringTurn(
-                session_id=session_id,
-                seq=seq,
-                role="person",
-                state=TurnState.ANSWERED.value,
-                blocks=[],
-                text=text,
-                base_revision=revision,
-                at=now,
-            )
-        )
-        db.add(
-            PipelineAuthoringTurn(
-                session_id=session_id,
-                seq=seq + 1,
-                role="assistant",
-                state=TurnState.PENDING.value,
-                blocks=[],
-                text="",
-                base_revision=revision,
-                at=now,
-            )
-        )
-    # **Typed words are a command only where the diagram draws one** (14.7.8.1): what you want
-    # at `say`, an answer at `reply`. Anywhere else they are a chat turn, which moves nothing.
-    for typed in (Command.DESCRIBE, Command.REPLY_IN_WORDS):
-        if session_mod.allows(session_id, typed.value):
-            session_mod.perform_now(session_id, typed.value)
-            break
-    return seq + 1
-
-
-def _next_seq(db, session_id: str) -> int:
-    """The next position in the transcript.
-
-    Derived from the rows rather than counted on the session, because a counter on the session is
-    a second source of truth for the same fact. The unique index on `(session_id, seq)` is what
-    makes a race here a refusal rather than two turns at one position.
-    """
-    highest = db.scalar(
-        select(PipelineAuthoringTurn.seq)
-        .where(PipelineAuthoringTurn.session_id == session_id)
-        .order_by(PipelineAuthoringTurn.seq.desc())
-        .limit(1)
-    )
-    return 0 if highest is None else highest + 1
-
-
-def answer(
-    session_id: str,
-    seq: int,
-    *,
-    blocks: list,
-    base_revision: int,
-    invocation_id: str | None = None,
-) -> bool:
-    """Fill in a pending assistant turn, unless the draft has moved under it.
-
-    **Returns `False` rather than raising when the answer is late.** A model call that finishes
-    after the person revised their goal has not failed — it answered a question that is no longer
-    being asked — and the turn is marked `failed` so the transcript says so. Raising would make
-    the worker's ordinary case an exception path.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        draft = db.get(PipelineDraft, row.draft_id)
-        current = draft.revision if draft else 0
-
-        late = current != base_revision
-        done = db.execute(
-            update(PipelineAuthoringTurn)
-            .where(
-                PipelineAuthoringTurn.session_id == session_id,
-                PipelineAuthoringTurn.seq == seq,
-                PipelineAuthoringTurn.state == TurnState.PENDING.value,
-            )
-            .values(
-                state=TurnState.FAILED.value if late else TurnState.ANSWERED.value,
-                blocks=[] if late else blocks,
-                ai_invocation_id=invocation_id,
-                at=_now(),
-            )
-        )
-        # rowcount 0 is a duplicate delivery: the turn is already answered, and re-answering it
-        # would overwrite one account of what happened with another.
-        return done.rowcount == 1 and not late
-
-
-def propose(session_id: str, *, kind: str, payload: dict, turn_id: int | None = None) -> str:
-    """Offer something, against the draft as it stands now.
-
-    Refuses a second pending proposal rather than letting the partial unique index do it, so the
-    caller reads a sentence. §2's MVP rule is one pending mutation proposal per session.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        draft = db.get(PipelineDraft, row.draft_id)
-
-        outstanding = db.scalar(
-            select(PipelineAuthoringProposal).where(
-                PipelineAuthoringProposal.session_id == session_id,
-                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-            )
-        )
-        if outstanding is not None:
-            raise ValueError(
-                coded("MI0203", "this session already has a proposal waiting for an answer")
-                + f"\n  it is {outstanding.id}"
-            )
-
-        proposal_id = _id()
-        db.add(
-            PipelineAuthoringProposal(
-                id=proposal_id,
-                session_id=session_id,
-                turn_id=turn_id,
-                kind=kind,
-                payload=payload,
-                state=ProposalState.PENDING.value,
-                chosen_option=None,
-                by=None,
-                draft_revision=draft.revision if draft else 0,
-                created_at=_now(),
-                settled_at=None,
-            )
-        )
-    return proposal_id
-
-
-def _settlement(proposal_id: str, decision: ProposalState, expected_revision: int):
-    """What `decide` would say, written nowhere: its refusals, checked before the diagram."""
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringProposal, proposal_id)
-        if row is None:
-            raise KeyError(proposal_id)
-        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, row.session_id).draft_id)
-        return st.settle(
-            current=ProposalState(row.state),
-            proposal_revision=row.draft_revision,
-            draft_revision=draft.revision if draft else 0,
-            expected_revision=expected_revision,
-            decision=decision,
-        )
-
-
-def decide(
-    proposal_id: str,
-    decision: ProposalState,
-    *,
-    expected_revision: int,
-    by: str,
-    chosen_option: str | None = None,
-) -> st.Settlement:
-    """Accept or reject a proposal, or say why it cannot be settled.
-
-    Every refusal path leaves the draft untouched, which is the property Task 3 asks for: *a
-    stale proposal never applies to a newer draft*. A stale one is additionally **marked** stale,
-    because the person needs to see that the engine withdrew it rather than that they declined
-    it — and that write is the one case where a refusal still changes a row.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringProposal, proposal_id)
-        if row is None:
-            raise KeyError(proposal_id)
-        session_row = db.get(PipelineAuthoringSession, row.session_id)
-        draft = db.get(PipelineDraft, session_row.draft_id)
-        revision = draft.revision if draft else 0
-
-        outcome = st.settle(
-            current=ProposalState(row.state),
-            proposal_revision=row.draft_revision,
-            draft_revision=revision,
-            expected_revision=expected_revision,
-            decision=decision,
-        )
-
-        if outcome.state is not ProposalState(row.state):
-            row.state = outcome.state.value
-            row.settled_at = _now()
-            if outcome.applies:
-                row.by = by
-                row.chosen_option = chosen_option
-
-        if outcome.bumps_revision and draft is not None:
-            draft.revision = revision + 1
-            draft.updated_at = _now()
-
-    return outcome
-
-
 # ── the blueprint: resolved once, revealed a step at a time ───────────────────────────────
-
-
-STEP = "step"
-"""The proposal `kind` for a step offered from a blueprint."""
 
 
 class StepOutcome(NamedTuple):
@@ -826,64 +443,6 @@ def _unbuildable(unroutable: UnroutableError) -> str:
     )
 
 
-def _note(session_id: str, text: str, *, code: str) -> None:
-    """An answered assistant turn holding one refusal notice — something the engine says that
-    no model call produced, the same shape `_refused` writes for one that did."""
-    _engine_turn(
-        session_id,
-        lambda seq: [{"kind": "notice", "id": f"notice-{seq}", "notice": "refusal",
-                      "text": text[:2000], "code": code}],
-    )
-
-
-def _engine_turn(session_id: str, blocks: Callable[[int], list[dict]]) -> None:
-    """An answered assistant turn holding blocks the engine wrote — no model call.
-
-    `blocks` is given the turn's seq, which is known only inside the transaction, so each block
-    is built, and validated, with its real id."""
-    with session_scope() as db:
-        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
-        seq = _next_seq(db, session_id)
-        db.add(
-            PipelineAuthoringTurn(
-                session_id=session_id,
-                seq=seq,
-                role="assistant",
-                state=TurnState.ANSWERED.value,
-                blocks=blocks(seq),
-                text="",
-                base_revision=draft.revision if draft else 0,
-                at=_now(),
-            )
-        )
-
-
-def _swap(db, session_id: str, version: int, **values: object) -> None:
-    """Write a session's values inside an open transaction, compare-and-swap on its version.
-
-    **Never its phase or node**: the dispatcher moves a session (`services/session.py`,
-    14.7.8.1), and this writes what a step recorded — facts, a blueprint, the cursor.
-    """
-    done = db.execute(
-        update(PipelineAuthoringSession)
-        .where(
-            PipelineAuthoringSession.id == session_id,
-            PipelineAuthoringSession.row_version == version,
-        )
-        .values(
-            row_version=version + 1,
-            updated_at=_now(),
-            **values,
-        )
-    )
-    if done.rowcount != 1:
-        raise ValueError(
-            coded("MI0201", "this session moved while the blueprint was being resolved")
-            + f"\n  it was at version {version} when the work started"
-            + "\n  re-read it before acting on it"
-        )
-
-
 def _offer(db, session_id: str, blueprint, node_id: str, *, revision: int, registry) -> str:
     """Store one step proposal as `pending`, against the draft as it stands now."""
     proposal_id = _id()
@@ -910,137 +469,6 @@ def _offer(db, session_id: str, blueprint, node_id: str, *, revision: int, regis
 
 
 # ── the transport's verbs: starting, grounding a turn, goals, retrying ────────────────────
-
-
-UNTITLED = "Untitled analysis"
-"""What an authored draft is called until somebody names it.
-
-**Not derived from the prompt.** A first sentence is the likeliest place for a sample name or a
-cohort label to appear, and a draft's name is shown in lists and carried into a kept artifact's
-directory — §2 already excludes draft labels from what a model is shown, and a name *made from*
-the prompt would put the prompt somewhere that exclusion was never meant to reach.
-"""
-
-
-def begin(prompt: str, *, mode: Mode, who: str) -> tuple[str, int]:
-    """An empty draft, a session about it, and the first turn — returns the session and the
-    pending assistant turn's `seq`.
-
-    Three writes that are one act for a person, and they are made in order so that a failure
-    part-way leaves nothing a person could open: the draft exists before the session that points
-    at it, and the turn is written last.
-    """
-    from mendel_api.services import drafts
-
-    draft_id = drafts.create(DraftGraph(), UNTITLED, who)
-    session_id = open_session(draft_id, mode=mode, who=who)
-    return session_id, say(session_id, prompt)
-
-
-class TurnContext(NamedTuple):
-    """What one model call is grounded on, read in one transaction so the parts agree.
-
-    §2: *ground every authoring call on the confirmed goal, current known step ids and
-    contracts, current pending options, registry digest, and bounded tail — not on the transcript
-    alone.* Each of those is a field here, and nothing else is, which is why a draft's label is
-    not among them.
-    """
-
-    phase: Phase
-    prompt: str
-    tail: list[tuple[str, str]]
-    revision: int
-    goal: Goal | None
-    steps: list[tuple[str, str]]
-    options: list[str]
-    registry: str | None
-
-
-def turn_context(session_id: str, seq: int) -> TurnContext | None:
-    """The grounding for assistant turn `seq`, or `None` when that turn is not pending.
-
-    `None` is how a duplicate delivery is recognised **before** a model call is spent, which the
-    queue's job id alone cannot promise once Redis has forgotten the id.
-    """
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        turns = db.scalars(
-            select(PipelineAuthoringTurn)
-            .where(PipelineAuthoringTurn.session_id == session_id)
-            .order_by(PipelineAuthoringTurn.seq)
-        ).all()
-        target = next((t for t in turns if t.seq == seq), None)
-        if target is None or target.role != "assistant" or target.state != TurnState.PENDING.value:
-            return None
-
-        earlier = [t for t in turns if t.seq < seq]
-        person = next((t for t in reversed(earlier) if t.role == "person"), None)
-        tail = [
-            ("person" if t.role == "person" else "model", _spoken(t))
-            for t in earlier
-            if t is not person and (t.role == "person" or t.state == TurnState.ANSWERED.value)
-        ]
-        draft = db.get(PipelineDraft, row.draft_id)
-        pending = db.scalar(
-            select(PipelineAuthoringProposal).where(
-                PipelineAuthoringProposal.session_id == session_id,
-                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-            )
-        )
-        # The card's composed goal while it is on offer: `row.goal` holds only the want until the
-        # person confirms it (14.7.3).
-        card = pending.payload.get("goal") if pending is not None and pending.kind == GOAL else None
-        goal = card or row.goal
-        return TurnContext(
-            phase=Phase(row.phase),
-            prompt=person.text if person is not None else "",
-            tail=[(role, text) for role, text in tail if text],
-            revision=draft.revision if draft else 0,
-            goal=as_goal(goal),
-            steps=[
-                (node.id, node.contract_id)
-                for node in DraftGraph.model_validate(draft.graph).nodes
-            ]
-            if draft
-            else [],
-            options=sorted(pending.payload.get("options", {})) if pending is not None else [],
-            registry=row.registry_digest or None,
-        )
-
-
-def _spoken(turn: PipelineAuthoringTurn) -> str:
-    """What an assistant turn *said*, for the tail — the prose of its blocks, never their ids.
-
-    A goal summary is its three sentences; a narrative or a notice is its text; a question is
-    what it asks. Structured
-    blocks — a step proposal, a question's options — are the engine's own vocabulary and reach
-    the model through `steps` and `options`, where they are held to admission, rather than as
-    prose it could quote back as if it had authored them.
-    """
-    if turn.role == "person":
-        return turn.text
-    said = []
-    for block in turn.blocks or []:
-        if block.get("kind") == "goal_summary":
-            said.append(f"{block['have']} {block['do']} {block['get']}")
-        elif block.get("kind") in ("narrative", "notice"):
-            said.append(block.get("text", ""))
-        elif block.get("kind") == "question":
-            # **What was asked, so the reply is read with it** (#202): a short answer to the
-            # engine's *what result do you want?* means nothing without the question. The prose
-            # only; the options stay out, as above.
-            said.append(block.get("asks", ""))
-    return " ".join(part for part in said if part)
-
-
-def current_phase(session_id: str) -> Phase:
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        return Phase(row.phase)
 
 
 def withdraw_pending(session_id: str, *, by: str) -> None:
@@ -1099,49 +527,6 @@ def decide_goal(
         store_goal(session_id, goal)
     session_mod.perform_now(session_id, command.value)
     return outcome, current_phase(session_id)
-
-
-def store_goal(session_id: str, goal: dict | None) -> None:
-    """The session's goal: the want the model read until the card composes one (14.7.3), then the
-    confirmed goal. No move: the dispatcher moves the session (14.7.8.1)."""
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        row.goal = goal
-        row.row_version += 1
-        row.updated_at = _now()
-
-
-def retry(session_id: str) -> tuple[Phase, int | None]:
-    """Leave `failed` for whichever phase failed. Returns the phase, and a new pending turn's
-    `seq` when the retry needs a model to answer again.
-
-    **A new turn rather than re-opening the failed one.** The failed turn is the record that the
-    call failed — its notice says why — and overwriting it would erase the one thing a person
-    trying to understand a flaky provider needs to see.
-    """
-    session_mod.perform_now(session_id, Command.RETRY.value)
-    target = current_phase(session_id)
-    if target is not Phase.UNDERSTANDING:
-        return target, None
-
-    with session_scope() as db:
-        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
-        seq = _next_seq(db, session_id)
-        db.add(
-            PipelineAuthoringTurn(
-                session_id=session_id,
-                seq=seq,
-                role="assistant",
-                state=TurnState.PENDING.value,
-                blocks=[],
-                text="",
-                base_revision=draft.revision if draft else 0,
-                at=_now(),
-            )
-        )
-    return target, seq
 
 
 def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pending) -> dict:
@@ -1361,16 +746,6 @@ def mode_of(session_id: str) -> Mode:
         return Mode(row.mode)
 
 
-def pending_id(session_id: str) -> str | None:
-    with session_scope() as db:
-        return db.scalar(
-            select(PipelineAuthoringProposal.id).where(
-                PipelineAuthoringProposal.session_id == session_id,
-                PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-            )
-        )
-
-
 def ai_for(provenance: DraftProvenance, *, characterised: bool = False):
     """What AI points this installation offers, and which this draft used. For `pipeline.yml`.
 
@@ -1425,12 +800,6 @@ def ai_for_draft(draft_id: str):
 
 # ── gathering: the engine asks for what the want needs (14.7.3) ──────────────────────────
 
-
-GOAL = "goal"
-"""The proposal `kind` for a goal summary awaiting confirmation."""
-
-GAP = "gap"
-"""The proposal `kind` for one thing the want needs that no fact settles yet."""
 
 _INPUT_OPTIONS = {
     "have_it": "I have it",
@@ -1538,14 +907,6 @@ def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Qu
         why_open=gap.why,
         options=[Option(id=key, label=label) for key, label in options.items()],
         exhaustive=True,
-    )
-
-
-def _say(session_id: str, text: str) -> None:
-    """An answered assistant turn holding one narrative the engine wrote — no model call."""
-    _engine_turn(
-        session_id,
-        lambda seq: [Narrative(id=f"said-{seq}", text=text[:2000]).model_dump(mode="json")],
     )
 
 

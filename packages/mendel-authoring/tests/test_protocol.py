@@ -339,7 +339,7 @@ def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
 
 WAITS = {"say", "family", "reply", "card", "resolve", "step_settled", "step_rule",
          "step_choice", "done", "failed"}
-ACTS = {"read_goal", "list_needs", "next_gap", "answered", "upload", "resolve", "offer"}
+ACTS = {"family", "read_goal", "list_needs", "next_gap", "answered", "upload", "resolve", "offer"}
 
 
 def _main():

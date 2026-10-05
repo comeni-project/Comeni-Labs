@@ -70,7 +70,9 @@ def test_only_the_dispatcher_writes_the_phase():
             if called in _WRITES and any(k.arg == "phase" for k in node.keywords):
                 writers.append(f"{path.relative_to(SRC)}:{node.lineno}")
     assert writers, "no writer at all: the scan reads the wrong thing"
-    # The dispatcher; `open_session`'s constructor and `move`'s `.values()` (test setup, ruling 5).
+    # The dispatcher; `open_session`'s constructor (stage ①, plan 1c); `move`'s `.values()`
+    # (test setup, ruling 5 of 1b).
     assert {w.split(":")[0] for w in writers} == {"services/session.py",
-                                                   "services/authoring.py"}, writers
-    assert len([w for w in writers if w.startswith("services/authoring.py")]) == 2, writers
+                                                   "services/authoring.py",
+                                                   "stages/describe.py"}, writers
+    assert len([w for w in writers if w.startswith("services/authoring.py")]) == 1, writers
