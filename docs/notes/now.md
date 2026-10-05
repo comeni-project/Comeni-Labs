@@ -5,33 +5,29 @@ The consolidated state of the project. **Read this first**; then any entry still
 [the compaction rules](compaction.md). Each line cites the entry it came from; the long form of any
 line is in [the archive](journal/archive/).
 
-**Compacted through: 2026-10-04.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
+**Compacted through: 2026-10-05.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
 history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim in
 `tests/fixtures/claude-md-2026-09-28.md`.
 
 ## Where the work is
 
 - **Task 14 of the living pipeline, step 14.7: walking it with a real model.** The tree is GitHub
-  issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). Round 1 of the walk found
-  and fixed #106–#116. (2026-09-28)
-- **Order of work, in #119's own order** (renumbered 2026-09-28 so the tree reads as done):
-  14.7.3 gathering through 14.7.7 the characteriser are **done** → **14.7.8** the consultant
-  build (next; it also reads pacing, #117) → **14.7.9** tune what the walks found (#210) →
-  **14.7.10** the nine scenarios. **MVP first, then tune:** a defect found on the way joins #210
-  unless it blocks the loop. (2026-09-28, 2026-09-30, 2026-10-01, 2026-10-04)
-- **Scenario 1 builds end to end with `gemma3:12b`**, started from home and answered by uploading
-  the real pair SRR6357070; the aligner is tier 3 with a read length, tier 4 without, and its reason
-  names what measured it. (2026-09-28, 2026-10-03)
+  issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
+- **Next: 14.7.8.2, the build plan** (#136; spec `2026-10-04-the-consultant-build-design.md`
+  §4, §10): a pure `plan_of(blueprint, registry, facts)`. Brainstorm first, then a spec section,
+  then plan 2. Open: where it lives and how the `Blueprint` (a `mendel-api` model) reaches it;
+  whether a family's `stage` label (`Family` has none) is a `comeni-core` change now. Then parts
+  3–5 (④ with Build/Spawn gone and pacing live #117; *ask anything*; cards and the walk) →
+  **14.7.9** tune (#210) → **14.7.10** the nine scenarios. A defect found on the way joins #210
+  unless it blocks the loop. (2026-09-28, 2026-10-05)
+- **Scenario 1 builds end to end with `gemma3:12b`** from home, answered by uploading the pair
+  SRR6357070; the aligner is tier 3 with a read length, tier 4 without. (2026-09-28, 2026-10-03)
 
 ## How work is done now
 
 - **Every defect gets a GitHub issue first.** Mechanical ones are fixed test-first and closed citing
   the commit; a rule or protocol question is brainstormed, the operator chooses, the choice is
   commented on the issue, then implemented. (2026-09-28)
-- **Rules are tuned, never forced.** The thesis under test is the balance between flexibility and
-  restraint: loosen what is too strict to function, tighten what is too loose. (2026-09-28)
-- **Walk it, and look at it:** every driven session found defects no suite could; compare a
-  screen to its artboard (`.design/_compare.html`), never by reading markup. (2026-09-01, 2026-09-28)
 
 ## The living pipeline (describe → build)
 
@@ -41,14 +37,19 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **The authoring protocol** is `docs/design/authoring-protocol.md`: the engine decides what is
   missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
   to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
+- **The diagram runs the engine** (14.7.8.1): protocol, interpreter and typed commands are the
+  pure `mendel-authoring`; a session stores its node (`at`) and moves only by a drawn arrow. Each
+  action is one command through `mendel_api/services/session.py`, in **one transaction**, jobs
+  queued after the commit; one module per stage (`mendel_api/stages/`); Spawn waits in
+  `mendel_api/services/spawn.py` for part 3 to delete it. (2026-10-05)
 - **Protection level 0** (everything open) is the MVP; invariant 15 does not hold at level 0 and
   characterisation is a fourth AI point, both recorded loosenings. (2026-09-28, 2026-10-04)
 - **The want is two calls:** `builder.family.v3` answers `fits` first, then `builder.goal.v7`
   reads the chosen families whole; `goal.v6` is the one-step path (`MENDEL_FAMILY_STEP_FROM`). A
   want nothing can make asks the person instead of failing (`WANT_UNREACHABLE`). (2026-09-29,
   2026-09-30)
-- **The model only phrases:** `builder.ask.v1` words each gap (prefetched), `builder.readback.v1`
-  reads the goal back; a fact the person stated wins over the model's guess. Prompts are sent as a
+- **The model only phrases:** `builder.ask.v1` words each gap (queued on entering `ask`),
+  `builder.readback.v1` reads the goal back; a fact the person stated wins over the model's guess. Prompts are sent as a
   fixed system part and a per-call part. A prompt change is always a new version file. (2026-09-29)
 - **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider; Ollama on), so a
   shape is never refused: 0 of 27 calls against 4 of 18 when the schema sat in the prompt. Showing
