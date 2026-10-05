@@ -149,7 +149,6 @@ def test_spawn_with_no_configured_model_resolves_exactly_as_build_does():
 
     assert calls == []
     assert spawned.pipeline == built.pipeline
-    assert spawned.mode is Mode.SPAWN
 
 
 # ── alternatives ──────────────────────────────────────────────────────────────────────────

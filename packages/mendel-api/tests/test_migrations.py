@@ -163,3 +163,8 @@ def test_no_foreign_key_cascades(ddl):
     """
     cascades = re.findall(r"FOREIGN KEY\((\w+)\)[^,\n]*ON DELETE CASCADE", ddl)
     assert cascades == [], f"these foreign keys cascade: {cascades}"
+
+
+def test_stored_blueprints_lose_their_mode(ddl):
+    """14.7.8.2: `Blueprint` has no `mode`, so a stored one holding it would fail to load."""
+    assert "blueprint::jsonb - 'mode'" in ddl
