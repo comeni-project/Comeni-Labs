@@ -2285,7 +2285,7 @@ git commit -m "refactor(authoring): the tests call the facade and the stages; se
 **Files:**
 - Modify: `docs/design/authoring-protocol.md`, `ARCHITECTURE.md`, `docs/superpowers/plans/2026-10-04-consultant-1c-stage-modules-one-transaction.md` (the execution record)
 
-- [ ] **Step 1: Find every stale sentence**
+- [x] **Step 1: Find every stale sentence**
 
 ```bash
 git grep -n -E "services/authoring\.py|authoring\.(say|answer_gap|decide_goal|settle_step|start_building|retry|move)\b|perform_now" -- ARCHITECTURE.md CLAUDE.md docs/design docs/handbook docs/internals
@@ -2293,7 +2293,7 @@ git grep -n -E "services/authoring\.py|authoring\.(say|answer_gap|decide_goal|se
 
 Expected: a list. Each line is fixed below, or left with a reason in the execution record.
 
-- [ ] **Step 2: Write what is true now**
+- [x] **Step 2: Write what is true now**
 
 `docs/design/authoring-protocol.md`:
 - the *session moves by it* bullet gains a sentence: *Every action is a typed command, performed in one transaction through `services/session.py`; its jobs are queued after the commit.*
@@ -2306,11 +2306,11 @@ Expected: a list. Each line is fixed below, or left with a reason in the executi
 
 No counts, and no issue numbers on a task page.
 
-- [ ] **Step 3: Fill in the execution record**
+- [x] **Step 3: Fill in the execution record**
 
 Under `## Execution record`: one bullet per task, with its commit(s) and every `Ruling:` from the ledger, each with what it costs if wrong.
 
-- [ ] **Step 4: Check, then commit**
+- [x] **Step 4: Check, then commit**
 
 Run: `make check MENDEL_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel`
 Expected: exit 0, including `doc-paths` and `doc-sizes`.
@@ -2324,4 +2324,51 @@ git commit -m "docs: the stage modules behind one facade, one transaction per ac
 
 ## Execution record
 
-(Filled in as the plan executes.)
+Executed inline (executing-plans), 2026-10-05. Each task: its commits, and every ruling made against the plan, with what it costs if wrong.
+
+- **Task 1** (`aa053695..6c055f55,`).
+  - Ruling: test_outside_a_transaction_each_scope_commits_on_its_own failed RED too (it asserts db.in_transaction) — plan's Expected said it passes; harmless — none
+- **Task 2** (`6c055f55..3bd2ce09,`).
+  - Ruling: purity allowlist for mendel-authoring gains dataclasses (tests/guards/test_purity.py, with a note) — plan missed that commands.py imports it; stdlib, no I/O — cost if wrong: a namedtuple rewrite of 24 commands
+  - Ruling: guard-ledger 1c section committed with Task 2 (Task 1's rows rode along) — one commit carries both tasks' ledger rows — none
+- **Task 3** (`3bd2ce09..6264dd24,`).
+  - Ruling: session.py imports db as db_mod (the file uses db as the Session variable throughout) — plan wrote db.transaction — none
+  - Ruling: make check split once: full suite ran green (3519) with lint failing on import order; ruff --fix, then the non-test check targets rerun green — import order changes no behaviour — none
+- **Task 4** (`6264dd24..6d090a1a,`).
+  - Ruling: family queues only on describe and retry; resuming (command None) and revised queue nothing — plan's handler would queue _jobs.turn(sid, None) on a resume with no pending turn; the turn waiting was queued when written — cost if wrong: a resumed session at family waits for a job never queued
+  - Ruling: describe keeps _rows.now imported as _now (verbatim bodies use a local named now) — none
+  - Ruling: packages/mendel-authoring/tests/test_protocol.py ACTS gains family — plan missed the pure package's pin on acting nodes — none
+  - Ruling: TurnContext also forwarded from authoring (tests import it) — none
+- **Task 5** (`6d090a1a..f9cb304d,`).
+  - Ruling: the test helper's want is counts.matrix, not counts.gene — nothing produces counts.gene, so the session went back to say — none
+  - Ruling: ask queues from _unphrased (to_phrase without the phase check); to_phrase keeps it — the dispatcher writes the phase only once the session rests, so inside ask the phase was still understanding and nothing queued — cost if wrong: none; the model check stays
+  - Ruling: the race test wraps _where (second call: the dispatcher's read), not _dispatch — as the plan allowed — none
+  - Ruling: the dispatcher, resting where it started with at stored, runs UPDATE at=at WHERE at=stored (no version bump) and refuses MI0201 on rowcount 0 — a session that came back to its node (reply → … → ask → reply) skipped the compare-and-swap entirely, so Review Focus 3 could not hold; no version bump keeps 1b's moves-nothing tests — cost if wrong: one extra UPDATE per no-move command, and a row lock to commit
+- **Task 6** (`f9cb304d..326462c6,`).
+  - Ruling: _to_card answers with the first ordinary option (as test_authoring_gathering does) and wants counts.matrix — the plan's have_it/not_sure were not offered — none
+  - Ruling: _follow_up keeps going after a refused Revised, as it did after a refused _perform — behaviour unchanged — none
+  - Ruling: authoring keeps store_goal from _rows (already imported) rather than re-binding goal.store_goal — same object — none
+- **Task 7** (`326462c6..c2228308,`).
+  - Ruling: _moves queues phrasing when a sample recorded facts but its question stays, for a reading too (record_reading), not only an upload — ruling 6's rule applied to both ways a sample records; the route queued it only for an upload — cost if wrong: a phrasing job the queue may refuse as a duplicate
+  - Ruling: _sample_question answers with the first ordinary option (same as Tasks 5–6) — none
+  - Ruling: authoring also re-binds _reading, _aged, _set_reading (still used by its building code and gathering's lazy attribute) — none
+- **Task 8** (`c2228308..dcc1c496,`).
+  - Ruling: _dispatch sets ctx.command and ctx.payload on a given ctx (resume(ctx=…, client=…) dropped the payload, so Spawn's client never reached resolve) — none
+  - Ruling: the stages no longer import services.authoring (describe uses gathering.as_goal, gathering imports samples lazily for _set_reading) — importing stages first was circular once building stopped importing authoring — none
+  - Ruling: building's docstring says "a service of its own", not the file name — the fence test reads any "spawn" in a stage file — none
+  - Ruling: the _confirmed helper wants counts.matrix and answers with the first ordinary option, as in Tasks 5–7 — none
+- **Task 9** (`dcc1c496..e8dd05f0,`).
+  - Ruling: session.queued_after() collects the jobs of every perform inside a background job and queues them when its work ends (act's own performs are not collected) — the plan had jobs call perform, which returns jobs unqueued, so a model reply moving the session (Understood → ask; a reading recording facts) would never queue its phrasing; that gap opened at Task 5 when the end-of-turn prefetch went — cost if wrong: one context var and a wrapper around three jobs
+  - Ruling: routes/build.py keep_draft reads ai_for_draft from session — authoring.py is deleted in Task 10 — none
+  - Ruling: test_authoring_gathering's two enqueue_phrasing tests queue gathering.to_phrase's jobs through session._enqueue (a test helper) — enqueue_phrasing is deleted; what they check (which subjects, the job ids) is unchanged — none
+  - test seam moved: test_authoring_routes.py queue fixture (enqueue_turn → session._enqueue, recording ANSWER jobs as ("turn", sid, seq)); test_the_turn_job_is_named… calls session._enqueue(_jobs.turn(...)), its fake taking expires=None
+  - test seam moved: test_authoring_spawn.py _spawn_turn (enqueue_turn → session._enqueue)
+  - test seam moved: test_authoring_upload_route.py readable fixture and test_a_reading_never_queued… (enqueue_characterise → session._enqueue); the off-the-loop test patches samples.record_inspection and session.read
+  - test seam moved: test_characterise_reading.py test_the_excerpt_never_reaches_a_log… builds _jobs.characterise and calls session._enqueue
+- **Task 10** (`e8dd05f0..84b3722d,`).
+  - Ruling: the rename imports the colliding owners under aliases — session as facade, commands (not c), goal as goal_stage, building as building_stage, spawn as spawn_service — the tests already bind session, goal, building, spawn and c as locals (with session_scope() as session, goal = …), which would shadow the modules — cost if wrong: aliases a reader learns once
+  - Ruling: the script also maps SPAWN_STOP, _placement, _characterisable, _gathered, _reading, _aged, _set_reading, need_listed, offer_gap_or_card; it puts the owners' imports in place of the authoring import itself; duplicate import lines removed after — the plan's map missed names the forwarders exposed — none
+  - Ruling: a rewritten call used as a statement drops its .result (ruff B018); the 43 statements the rename pushed past 100 columns were each formatted alone with ruff format at their indentation, never a whole file — files here are hand-wrapped on purpose — none
+  - hand rewrite: test_authoring_samples.py:178 (authoring.READ_NOTE nested inside authoring.prefill_gap) → gathering.READ_NOTE, then the script
+  - Ruling: docstrings that named services/authoring.py as where rows are written now name the stage modules (blueprint.py, authoring_ai.py, authoring/__init__.py, mendel_authoring/state.py, test_authoring_state.py); the migration's comment and the stages' "moved from" lines are history and stay — none
+- **Task 11**: the protocol page's *session moves by it* and its changelog, `ARCHITECTURE.md`'s package table, and this record. No stale sentence named the old file outside docstrings, fixed in Task 10.

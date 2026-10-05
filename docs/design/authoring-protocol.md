@@ -130,7 +130,11 @@ it moves the session, its event). The design lives in the same object, marked pl
   acting node runs its handler (`mendel_api/stages/`), whose outcome names the next arrow. The
   phase is read off the node a session reaches, and `services/session.py` is the only code that
   writes either. A section within a request (reading a sample) is one step: its entry node's
-  outcome names the section's way out. The object refuses to load when it is inconsistent;
+  outcome names the section's way out. **Every action is a typed command**
+  (`mendel_authoring.commands`), performed in one transaction through `services/session.py`;
+  an exception rolls all of it back, and the jobs it asked for (a model's reading, a question's
+  phrasing) are queued only after it commits. Nothing that calls a model runs inside one. The
+  object refuses to load when it is inconsistent;
 - **the diagram is generated**, as a whole file, with `make docs` failing when it is stale;
 - later, **the agents' wiring**: which prompt a node sends and what evidence it receives, per
   protection level, read from the same object instead of scattered through services.
@@ -215,3 +219,4 @@ tightening is filling in a row, not rewiring.
 | 2026-09-30 | a request nothing fits asks, never fails: the family call's verdict first; a want nothing can make returns to the person | 14.7.4 (#202), operator's decision |
 | 2026-10-04 | the diagram moves the session: `at`, a command per arrow, a handler per acting node; redrawn where an arrow was a hand-off (*your answer*, *not quite* back to you, a sample's two ways out) | 14.7.8.1 (#136), operator: *updating the flow means updating the diagram* |
 | 2026-10-04 | the characteriser built: door 6, a fourth AI point, *read by AI*; each property quotes the line that states it and the engine checks the quote; a type an inspector reads goes back to it | 14.7.7 (#135, #244), operator's brainstorm and decision |
+| 2026-10-05 | the stage modules behind one facade: each action a typed command in one transaction, its jobs queued after the commit; the steps that only queue a model's work (`family`, `ask`, `suggest`, `readback`) act, and pass straight on | 14.7.8.1c (#136), spec §11, operator's brainstorm |

@@ -19,10 +19,10 @@ summary of a twelve-thousand-word design record is a second copy that drifts.
 | `comeni-core` | types, contract schema, the IR, the artifact | **pure** | this page |
 | `mendel-resolver` | the four-tier ladder, rules, routing, ports | **pure** | this page |
 | `mendel-compiler` | IR → Nextflow, the gates, the CLI | **pure** | this page |
-| `mendel-authoring` | the conversation's protocol: the diagram the builder runs, its machine and its interpreter | **pure** | `docs/design/authoring-protocol.md` |
+| `mendel-authoring` | the conversation's protocol: the diagram the builder runs, its machine, its interpreter, and the typed commands a person or a job performs | **pure** | `docs/design/authoring-protocol.md` |
 | `mendel-forge` | drafting registry data from sources | impure | §10 below |
 | `comeni-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
-| `mendel-api` | the HTTP surface, drafts, the builder's backend | impure | `docs/design/forge-review.md`, `dashboard.md` |
+| `mendel-api` | the HTTP surface, drafts, the builder's backend: one module per stage of the conversation (`stages/`) behind one facade (`services/session.py`); Spawn alone in `services/spawn.py`, deleted in the consultant build's part 3 | impure | `docs/design/forge-review.md`, `dashboard.md` |
 | `wiener-core` | run state: admit, fold, decide, spans | **pure** | `docs/design/wiener.md` |
 | `wiener-api` | launch, ingest, project, stream | impure | `docs/design/wiener.md` |
 | `dag-core` | where to draw a graph. Both canvases, one arithmetic | **pure** | `docs/design/dashboard.md` |
