@@ -14,7 +14,8 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 - **ambiguous** — nothing distinguished them. Invariant 8: demote, record, flag.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
@@ -23,7 +24,6 @@ from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDec
 from comeni_core.plan.ir import Tier
 from comeni_core.plan.tiers import ValueSource
 from comeni_core.review import Excerpt
-from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, Field
 
 from mendel_resolver.goal import Goal
@@ -231,9 +231,8 @@ def route(
                 missing=(type_id, frozenset(states)),
             )
 
-        chosen, tier, reason, pinned_by, pin, source = _choose(
-            type_id, states, candidates, goal, rules, resolver, plan, premises
-        )
+        choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises)
+        chosen, pin = choice.contract, choice.pin
 
         for port in chosen.consumes:
             try:
@@ -247,11 +246,11 @@ def route(
             except UnroutablePinError:
                 raise
             except UnroutableError as exc:
-                if pinned_by is None:
+                if choice.pinned is None:
                     raise
                 raise UnroutablePinError(
-                    f"a rule pins {chosen.id} to produce {type_id}, but its inputs are "
-                    f"unreachable from this goal ({exc}). Rule condition: {pinned_by}"
+                    f"{chosen.id} is pinned to produce {type_id}, but its inputs are "
+                    f"unreachable from this goal ({exc}). Pinned by {choice.pinned}"
                 ) from exc
         if chosen.id not in emitted:
             emitted.add(chosen.id)
@@ -260,8 +259,8 @@ def route(
                     contract_id=chosen.id,
                     node_id=_node_id(chosen),
                     satisfies=type_id,
-                    selection_tier=tier,
-                    selection_reason=reason,
+                    selection_tier=choice.tier,
+                    selection_reason=choice.reason,
                     presence_tier=Tier.STRUCTURAL,
                     presence_reason=because,
                     # Two sources, because there are two ways a selection acquires an axis.
@@ -275,7 +274,7 @@ def route(
                     selection_axis_reason=(
                         pin.axis_because() if pin is not None else chosen.priority_because
                     ),
-                    selection_source=source,
+                    selection_source=choice.source,
                     # A rule that fired decided this, so the rule's layer is the answer —
                     # not the layer the winning contract happens to sit in. Those differ
                     # whenever an overlay reroutes to a base-layer module, which is A22's
@@ -333,24 +332,64 @@ def _satisfy_port(
     )
 
 
-def _choose(
+@dataclass(frozen=True)
+class Choice:
+    """Which contract fills a site, at which tier, why, and on whose say-so.
+
+    Was a six-tuple whose own docstring called it "one past what a tuple should carry"; the sixth
+    element, `source`, is here for the reason the parameter ladder gained one — an overridden
+    *producer* would otherwise stay in `needs_review()` for ever, so the count never reaches zero
+    and the CLI says REVIEW on a question already settled.
+    """
+
+    contract: ModuleContract
+    tier: Tier
+    reason: str
+    source: ValueSource = ValueSource.RESOLVER
+    pinned: str | None = None
+    """Who pinned it, as `UnroutablePinError` says it: a rule's condition, or a person."""
+    pin: Pin | None = None
+
+
+@dataclass(frozen=True)
+class Asked:
+    """A tier-4 site, its question not yet answered: a tie (invariant 8) or a rule that cannot
+    apply (invariant 4, #174). The two differ only in why the question is open, what evidence it
+    carries, and the order its candidates are offered in. Answering is `_answer`'s, so **deciding
+    never writes to the plan** (§14.9 of the consultant build)."""
+
+    question: ProducerAsked
+    tied: list[ModuleContract]
+    summary: str
+    unknown: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Here:
+    """One site, everything its deciders read, computed once."""
+
+    type_id: str
+    states: frozenset[str]
+    candidates: list[ModuleContract]
+    ordered: list[ModuleContract]
+    roles: list[str]
+    rules: RuleTable | None
+    premises: dict[str, object]
+    rule_pin: Pin | None
+
+    def rank(self, contract: ModuleContract) -> tuple[int, int, str]:
+        return (_surplus(contract, self.type_id, self.states), -contract.priority, contract.id)
+
+
+def _here(
     type_id: str,
     states: frozenset[str],
     candidates: list[ModuleContract],
+    *,
     goal: Goal,
     rules: RuleTable | None,
-    resolver: AmbiguityResolver,
-    plan: RoutePlan,
     premises: dict[str, object],
-) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None, ValueSource]:
-    """Which contract produces `type_id` here, at which tier, why, and on whose say-so.
-
-    Six elements is one past what a tuple should carry and this is overdue for a record; the
-    sixth is `source`, and it is here for the same reason the parameter ladder gained one.
-    An overridden *producer* is the identical defect one field over — a module choice a human
-    answered would otherwise stay in `needs_review()` for ever, so the count never reaches
-    zero and the CLI says REVIEW on a question already settled.
-    """
+) -> _Here:
     # A decision names a **role**, not a type. The roles in play here are the ones the
     # candidates declare, so a rule about which aligner to use is asked only where aligners
     # compete — and a rule about duplicate handling, which used to key on the same
@@ -358,123 +397,133 @@ def _choose(
     #
     # Sorted so two candidates declaring different roles cannot make the answer depend on
     # registry iteration order, which is invariant 10.
-    roles_here = sorted({role for c in candidates for role in c.roles})
-    pinned = next(
-        (p for p in (rules.implementation_for(r, premises) for r in roles_here) if p),
+    roles = sorted({role for c in candidates for role in c.roles})
+    rule_pin = next(
+        (p for p in (rules.implementation_for(r, premises) for r in roles) if p),
         None,
     ) if rules else None
-    if pinned is not None:
-        match = [c for c in candidates if c.id == pinned.value]
-        if match:
-            return (
-                match[0],
-                Tier.DATA_PROFILED,
-                pinned.reason_line(pinned.row.when),
-                pinned.row.when,
-                pinned,
-                ValueSource.RESOLVER,
-            )
-        # The pinned contract is not a candidate *here*. Load-time validation already
-        # proved it exists and produces this type, so the only way to arrive is that it
-        # cannot produce the requested *states* — this site is asking for something the
-        # rule was not about. `alignment.bam[coordinate_sorted]` has exactly one producer,
-        # the sorter; the aligner rule applies one level down, on the sorter's own input,
-        # where the aligners genuinely compete. Raising here instead would make every
-        # state-refining step in the spine unroutable the moment a producer rule exists.
+    here = _Here(type_id, states, candidates, [], roles, rules, premises, rule_pin)
+    return replace(here, ordered=sorted(candidates, key=here.rank))
 
-    def rank(contract: ModuleContract) -> tuple[int, int, str]:
-        return (_surplus(contract, type_id, states), -contract.priority, contract.id)
 
-    ordered = sorted(candidates, key=rank)
-    best = rank(ordered[0])
+# ── the deciders, in order: each answers its site or passes (`None`) ─────────────────────
 
+
+def _by_rule(here: _Here) -> Choice | None:
+    pinned = here.rule_pin
+    if pinned is None:
+        return None
+    match = [c for c in here.candidates if c.id == pinned.value]
+    if match:
+        return Choice(
+            match[0],
+            Tier.DATA_PROFILED,
+            pinned.reason_line(pinned.row.when),
+            pinned=f"rule condition: {pinned.row.when}",
+            pin=pinned,
+        )
+    # The pinned contract is not a candidate *here*. Load-time validation already
+    # proved it exists and produces this type, so the only way to arrive is that it
+    # cannot produce the requested *states* — this site is asking for something the
+    # rule was not about. `alignment.bam[coordinate_sorted]` has exactly one producer,
+    # the sorter; the aligner rule applies one level down, on the sorter's own input,
+    # where the aligners genuinely compete. Raising here instead would make every
+    # state-refining step in the spine unroutable the moment a producer rule exists.
+    return None
+
+
+def _by_unapplied_rule(here: _Here) -> Asked | None:
     # **A rule that cannot apply is a question, not a priority win** (#174, invariant 4). The
     # alignment rule reads `read_length`; with nobody knowing it, falling through to `priority`
     # took the decision the person deferred, silently, at tier 2. Asked only where the rule
     # actually chooses between two contracts present here — a rule about aligners says nothing
     # at the sorter's site.
-    unapplied = (
-        rules.unapplied_implementation(roles_here, premises) if rules and pinned is None else None
+    if here.rules is None or here.rule_pin is not None:
+        return None
+    unapplied = here.rules.unapplied_implementation(here.roles, here.premises)
+    if unapplied is None:
+        return None
+    decision, unknown = unapplied
+    named = {row.then for row in decision.rows}
+    if sum(1 for c in here.ordered if c.id in named) < 2:
+        return None
+    best = here.rank(here.ordered[0])
+    # The rule's contracts **and** anything tied at the top of the ranking, which the
+    # rule does not know about (A125's minimap2), in rank order: the flag-only placement
+    # is then the registry's priority pick rather than the first id alphabetically.
+    ruled = [c for c in here.ordered if c.id in named or here.rank(c)[:2] == best[:2]]
+    return _asked(
+        here, ruled,
+        why_open=(
+            f"the {decision.key()} rule reads {', '.join(unknown) or 'a fact'}, and nobody "
+            f"knows it; invariant 4 says a rule that cannot apply is a question, not a default"
+        ),
+        evidence=[
+            Excerpt(
+                locator=decision.key(),
+                text=(
+                    f"when {', '.join(f'{k} {v}' for k, v in row.when.items())}: {row.then}"
+                    + (f" — {row.because}" if row.because else "")
+                    + (f" ({row.cite or decision.cite})" if row.cite or decision.cite else "")
+                )[:500],
+            )
+            for row in decision.rows
+        ],
+        candidates=[c.id for c in ruled],
+        summary=f"{decision.key()} could not apply ({', '.join(unknown)} unknown)",
+        unknown=tuple(unknown),
     )
-    ruled: list[ModuleContract] = []
-    if unapplied is not None:
-        named = {row.then for row in unapplied[0].rows}
-        if sum(1 for c in ordered if c.id in named) >= 2:
-            # The rule's contracts **and** anything tied at the top of the ranking, which the
-            # rule does not know about (A125's minimap2), in rank order: the flag-only placement
-            # is then the registry's priority pick rather than the first id alphabetically.
-            ruled = [c for c in ordered if c.id in named or rank(c)[:2] == best[:2]]
 
-    if ruled:
-        decision, unknown = unapplied
-        return _ask(
-            plan, resolver, type_id, states, ruled,
-            why_open=(
-                f"the {decision.key()} rule reads {', '.join(unknown) or 'a fact'}, and nobody "
-                f"knows it; invariant 4 says a rule that cannot apply is a question, not a default"
-            ),
-            evidence=[
-                Excerpt(
-                    locator=decision.key(),
-                    text=(
-                        f"when {', '.join(f'{k} {v}' for k, v in row.when.items())}: {row.then}"
-                        + (f" — {row.because}" if row.because else "")
-                        + (f" ({row.cite or decision.cite})" if row.cite or decision.cite else "")
-                    )[:500],
-                )
-                for row in decision.rows
-            ],
-            candidates=[c.id for c in ruled],
-            summary=f"{decision.key()} could not apply ({', '.join(unknown)} unknown)",
-            unknown=unknown,
-        )
 
-    if len(ordered) == 1:
-        # **Tier 2, not tier 1.** A113: "this stack holds one contract that can do it" is a
-        # fact about registry contents, not about the inputs — install a second sorter
-        # tomorrow and the same pipeline becomes a real choice. Tier 1 is reserved for a
-        # choice the inputs genuinely remove, and calling this one tier 1 made the ladder's
-        # top rung mean "the code took the short branch".
-        #
-        # The step's *presence* is still tier 1, and is recorded separately. That is what
-        # makes this a split rather than a demotion: nothing about why the step exists has
-        # changed, only the claim about why this contract fills it.
-        role = ", ".join(sorted(ordered[0].roles)) or "this role"
-        return (
-            ordered[0],
-            Tier.CONVENTION,
-            f"uncontested — nothing else in this stack fills {role}",
-            None,
-            None,
-            ValueSource.RESOLVER,
-        )
-    if best[0] < rank(ordered[1])[0]:
-        return (
-            ordered[0],
-            Tier.STRUCTURAL,
-            f"the only contract producing {type_id} with exactly the required states",
-            None,
-            None,
-            ValueSource.RESOLVER,
-        )
-    if best[:2] < rank(ordered[1])[:2]:
-        return (
-            ordered[0],
-            Tier.CONVENTION,
-            f"registry priority {ordered[0].priority}, over "
-            f"{', '.join(c.id for c in ordered[1:])}",
-            None,
-            None,
-            ValueSource.RESOLVER,
-        )
+def _uncontested(here: _Here) -> Choice | None:
+    if len(here.ordered) != 1:
+        return None
+    # **Tier 2, not tier 1.** A113: "this stack holds one contract that can do it" is a
+    # fact about registry contents, not about the inputs — install a second sorter
+    # tomorrow and the same pipeline becomes a real choice. Tier 1 is reserved for a
+    # choice the inputs genuinely remove, and calling this one tier 1 made the ladder's
+    # top rung mean "the code took the short branch".
+    #
+    # The step's *presence* is still tier 1, and is recorded separately. That is what
+    # makes this a split rather than a demotion: nothing about why the step exists has
+    # changed, only the claim about why this contract fills it.
+    only = here.ordered[0]
+    role = ", ".join(sorted(only.roles)) or "this role"
+    return Choice(only, Tier.CONVENTION, f"uncontested — nothing else in this stack fills {role}")
 
+
+def _exact_states(here: _Here) -> Choice | None:
+    first, second = here.ordered[0], here.ordered[1]
+    if not here.rank(first)[0] < here.rank(second)[0]:
+        return None
+    return Choice(
+        first,
+        Tier.STRUCTURAL,
+        f"the only contract producing {here.type_id} with exactly the required states",
+    )
+
+
+def _by_priority(here: _Here) -> Choice | None:
+    first, second = here.ordered[0], here.ordered[1]
+    if not here.rank(first)[:2] < here.rank(second)[:2]:
+        return None
+    return Choice(
+        first,
+        Tier.CONVENTION,
+        f"registry priority {first.priority}, over "
+        f"{', '.join(c.id for c in here.ordered[1:])}",
+    )
+
+
+def _tie(here: _Here) -> Asked:
+    best = here.rank(here.ordered[0])
     # Only the candidates that actually tied. `ordered` is *every* candidate ranked by
     # (surplus, -priority, id), and handing all of them to a resolver that takes
     # `candidates[0]` let a contract the registry ranked **last** win on alphabetical order:
     # adding one aligner at STAR's priority installed HISAT2 at priority 0, which was not in
     # the tie at all. The artifact then said "nothing distinguishes" three contracts that
     # `priority` distinguishes deliberately. Audit A125.
-    tied = [contract for contract in ordered if rank(contract)[:2] == best[:2]]
+    tied = [contract for contract in here.ordered if here.rank(contract)[:2] == best[:2]]
     # `what`, `why_open` and `evidence` are inherited from `Question` (Plan 2.5). Until then
     # a tier-4 producer question handed a reviewer a list of contract ids and nothing to judge
     # them on, while the forge had quoted evidence on every hole from its first day — the
@@ -487,12 +536,10 @@ def _choose(
     # honest report.
     #
     # The locator names the contract rather than the *layer* it came from. `_layer_name`
-    # exists and would be better, but it needs the `Registry`, and `_choose` does not take
-    # one — threading a ninth parameter into a function whose own docstring calls its return
-    # "one past what a tuple should carry" is a refactor this did not authorise. Recorded as
-    # a known gap rather than done badly.
-    return _ask(
-        plan, resolver, type_id, states, tied,
+    # exists and would be better, but it needs the `Registry`, and the deciders do not take
+    # one. Recorded as a known gap rather than done badly.
+    return _asked(
+        here, tied,
         why_open=(
             f"{len(tied)} contracts produce it and nothing distinguishes them; "
             f"invariant 8 says a tie is ambiguity, not a coin flip"
@@ -509,36 +556,79 @@ def _choose(
             for contract in sorted(tied, key=lambda c: c.id)
         ],
         candidates=sorted(c.id for c in tied),
-        summary=f"nothing distinguishes {', '.join(c.id for c in ordered)}",
+        summary=f"nothing distinguishes {', '.join(c.id for c in here.ordered)}",
     )
 
 
-def _ask(
-    plan: "RoutePlan",
-    resolver: AmbiguityResolver,
+_CHAIN: tuple[Callable[[_Here], Choice | Asked | None], ...] = (
+    _by_rule,
+    _by_unapplied_rule,
+    _uncontested,
+    _exact_states,
+    _by_priority,
+    _tie,
+)
+
+
+def _decide(here: _Here) -> Choice | Asked:
+    """The first decider that answers. `_tie` always does, so this never falls through."""
+    for decider in _CHAIN:
+        decided = decider(here)
+        if decided is not None:
+            return decided
+    raise AssertionError("_tie answers every site")
+
+
+def _choose(
     type_id: str,
     states: frozenset[str],
+    candidates: list[ModuleContract],
+    goal: Goal,
+    rules: RuleTable | None,
+    resolver: AmbiguityResolver,
+    plan: RoutePlan,
+    premises: dict[str, object],
+) -> Choice:
+    """Which contract produces `type_id` here: decided by the chain, and an open question
+    answered here — the one place a record is appended to the plan."""
+    here = _here(type_id, states, candidates, goal=goal, rules=rules, premises=premises)
+    decided = _decide(here)
+    if isinstance(decided, Asked):
+        choice, record = _answer(decided, resolver)
+        plan.decisions.append(record)
+        return choice
+    return decided
+
+
+def _asked(
+    here: _Here,
     tied: list[ModuleContract],
     *,
     why_open: str,
     evidence: list[Excerpt],
     candidates: list[str],
     summary: str,
-    unknown: Sequence[str] = (),
-) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None, ValueSource]:
-    """A tier-4 producer question, answered by the resolver and recorded. Shared by a tie
-    (invariant 8) and a rule that cannot apply (invariant 4, #174): the two differ only in why
-    the question is open, what evidence it carries, and the order its candidates are offered in.
-    """
-    ambiguity = ProducerAsked(
-        node_id=_node_id(tied[0]),
-        subject=f"producer:{type_id}",
-        what=f"which contract produces {type_id}",
-        why_open=why_open,
-        candidates=candidates,
-        evidence=evidence,
-        states=sorted(states),
+    unknown: tuple[str, ...] = (),
+) -> Asked:
+    return Asked(
+        question=ProducerAsked(
+            node_id=_node_id(tied[0]),
+            subject=f"producer:{here.type_id}",
+            what=f"which contract produces {here.type_id}",
+            why_open=why_open,
+            candidates=candidates,
+            evidence=evidence,
+            states=sorted(here.states),
+        ),
+        tied=tied,
+        summary=summary,
+        unknown=unknown,
     )
+
+
+def _answer(asked: Asked, resolver: AmbiguityResolver) -> tuple[Choice, ProducerDecision]:
+    """A tier-4 producer question, answered by the resolver, with the record to append."""
+    ambiguity, tied = asked.question, asked.tied
     resolution = resolver.resolve(ambiguity)
     # The answer must *select*, not merely be recorded. Until 2026-08-06 this returned
     # `ordered[0]` and the resolver was consulted afterwards, at the bottom of `resolve()`,
@@ -551,20 +641,18 @@ def _ask(
     # posture `ReplayResolver._still_applies` already takes towards a record whose options
     # have moved: a forged or stale answer is not trusted, it is ignored.
     chosen = next((c for c in tied if c.id == resolution.value), tied[0])
-    plan.decisions.append(
-        ProducerDecision(
-            key=ambiguity.key(),
-            subject=ambiguity.subject,
-            candidates=ambiguity.candidates,
-            # What was built, not what was asked for. Recording `resolution.value` here
-            # would let the record drift from the pipeline again the moment the fallback
-            # above fires, which is the defect one level down.
-            chosen=chosen.id,
-            reason=resolution.why,
-            confidence=resolution.confidence,
-            resolved_by=resolution.by,
-            unknown=list(unknown),
-        )
+    record = ProducerDecision(
+        key=ambiguity.key(),
+        subject=ambiguity.subject,
+        candidates=ambiguity.candidates,
+        # What was built, not what was asked for. Recording `resolution.value` here
+        # would let the record drift from the pipeline again the moment the fallback
+        # above fires, which is the defect one level down.
+        chosen=chosen.id,
+        reason=resolution.why,
+        confidence=resolution.confidence,
+        resolved_by=resolution.by,
+        unknown=list(asked.unknown),
     )
     # What actually happened, not what happens by default. It read "chosen by id order"
     # unconditionally — true when the fallback fires, and false when a resolver answered,
@@ -576,15 +664,16 @@ def _ask(
         else f"chosen by {resolution.by}: {resolution.why}"
     )
     return (
-        chosen,
-        Tier.AMBIGUOUS,
-        f"{summary}; {how}",
-        None,
-        None,
-        # A replayed human override keeps tier 4 and clears the *review*, never the tier.
-        # The fallback above means `chosen` may not be what the resolver named, so this
-        # asks whether the answer was actually taken: crediting a person with a choice the
-        # router made instead is the mirror of A8, where a record stated a choice the
-        # pipeline did not make.
-        resolution.how if chosen.id == resolution.value else ValueSource.RESOLVER,
+        Choice(
+            chosen,
+            Tier.AMBIGUOUS,
+            f"{asked.summary}; {how}",
+            # A replayed human override keeps tier 4 and clears the *review*, never the tier.
+            # The fallback above means `chosen` may not be what the resolver named, so this
+            # asks whether the answer was actually taken: crediting a person with a choice the
+            # router made instead is the mirror of A8, where a record stated a choice the
+            # pipeline did not make.
+            resolution.how if chosen.id == resolution.value else ValueSource.RESOLVER,
+        ),
+        record,
     )

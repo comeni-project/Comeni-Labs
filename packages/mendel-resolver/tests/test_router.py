@@ -193,3 +193,36 @@ def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
     assert plan.decisions[0].chosen == plan.steps[0].contract_id, (
         "the record must name the contract the plan actually stepped to"
     )
+
+
+def _tied_registry(tmp_path) -> Registry:
+    """Two aligners at one priority producing `alignment.bam`: a tie (invariant 8)."""
+    vocab_dir = tmp_path / "vocabularies"
+    vocab_dir.mkdir()
+    for type_id in ("fastq.reads", "alignment.bam"):
+        path = vocab_dir / f"{type_id}.yml"
+        path.write_text(_declared(path, "states: []\n"))
+    contracts = tmp_path / "contracts"
+    contracts.mkdir()
+    star = ALIGN.replace("state_required: [trimmed]", "state_required: []")
+    hisat2 = star.replace("nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.1").replace(
+        "STAR_ALIGN", "HISAT2_ALIGN"
+    )
+    for name, body in (("a", star), ("b", hisat2)):
+        (contracts / f"{name}.yml").write_text(_declared(contracts / f"{name}.yml", body))
+    return Registry.load(tmp_path, Vocabulary.load(tmp_path))
+
+
+def test_deciding_a_tie_writes_nothing_until_it_is_answered(tmp_path):
+    """§14.9 of the consultant build: a decider returns the open question; only `_choose`, once
+    it is answered, appends the record — so a person's pin can wrap the chain without a record
+    of a choice that never happened."""
+    from mendel_resolver import router
+
+    tied = _tied_registry(tmp_path).producers_of("alignment.bam", frozenset())
+    here = router._here(
+        "alignment.bam", frozenset(), tied, goal=Goal(), rules=None, premises={}
+    )
+    decided = router._decide(here)
+    assert isinstance(decided, router.Asked)
+    assert decided.question.candidates == sorted(c.id for c in tied)
