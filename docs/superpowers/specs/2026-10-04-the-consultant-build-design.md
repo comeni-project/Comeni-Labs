@@ -426,3 +426,100 @@ It is stage ④'s second fork, after Pacing.
 - Each load-time refusal of §12.3, by a protocol that breaks it.
 - `SettingSubject.of` over a choice, a toggle and a text setting.
 - The drawing: a fork is a diamond with its subject's title, its edges labelled with their cases.
+
+## 13. Stage ④ built (14.7.8.3b)
+
+**Decided** by the operator on 2026-10-06, in the 14.7.8.3b brainstorm. It builds §5 on the forks
+of §12 and the build plan of §4. Where it differs from §5, this section wins.
+
+### 13.1 The decisions
+
+| Decision | Choice | Why |
+|---|---|---|
+| What the browser shows before part 5 | **the existing block kinds**: a step is a `StepProposal` carrying its brief and need; a fact is a `Question` on the gap card (so a sample can answer it); the pacing question is a `Question`; the overview a `Narrative`; the wrap-up a `Receipt` | the loop keeps working with the least throwaway work; part 5 redesigns the cards |
+| Spawn's model answer at tier 4 | **tier 4 always stops in 3b**; `ModelResolver` kept, unwired, for a later Tier-4 answers fork | nothing that works is lost but a test-era toggle |
+| Sessions from before 3b | **dropped**: no migration of old nodes, no shims for old proposal kinds or stored shapes | not even the MVP yet (operator); the journal says to clear the dev database's authoring sessions once |
+| Keep | **unchanged**: the draft's Keep (`POST /drafts/{id}/keep`); `wrap` rests | one fewer moving part |
+| The Dev setting | `dev.mode`, a toggle, off, in a new **Developer** section | §12.4 |
+
+### 13.2 The flow
+
+```
+card ─that's right→ resolve ──stored──→ overview ──→ ◇ Pacing?
+                       └─can't build→ failed           ├ together → together ───────────┐
+                                                       ├ stop_where_needed → quiet ─────┤ records the pacing
+                                                       └ ask → pace_q ─ChoosePacing→ chosen
+                                                                                        ↓
+     step ─placed→ step            a step that does not wait: placed with its brief, straight on
+     step ─held→ continue? ─Continue→ step
+     step ─needs a fact→ fact ─AnswerFact→ reresolve → step
+     step ─needs a choice→ choice ─Choose→ step
+     step ─a registry gap→ ◇ Dev mode?  ├ on → gap ─Continue→ step
+                                         └ off → route_around → step
+     step ─none left→ wrap              (Keep is the draft's, as today)
+     wrap ─that's right (goal changed)→ resolve
+```
+
+| Node | Kind | What happens |
+|---|---|---|
+| resolve | acting, waits | resolve the blueprint (the shell), store it; outcomes as today |
+| overview | acting | posts a `Narrative`: *Eleven steps; two need you.* |
+| ◇ Pacing? | fork | on `building.pacing` |
+| together, quiet | acting | record the pacing on the session |
+| pace_q | showing, waits | the pacing `Question`; `ChoosePacing` carries the answer |
+| chosen | acting | records the chosen pacing |
+| step | acting | the next step by `cursor` in the blueprint's order: gap first (if not seen), then need, then `waits` |
+| continue? | showing, waits | the step's `StepProposal`; `Continue` places it |
+| fact | showing, waits | the gap card (`Question`, upload offered); answered as gathering records a fact |
+| reresolve | acting | re-resolve, rebuild the plan, keep the cursor |
+| choice | showing, waits | the `StepProposal` with the resolver's candidates; `Choose` places the choice |
+| ◇ Dev mode? | fork | on `dev.mode` |
+| gap | showing, waits | a marked card naming what is missing and the file to fix; `Continue` |
+| route_around | acting | records the gap as seen |
+| wrap | acting, waits | posts the wrap-up as a `Receipt` |
+
+**Removed:** `offer`, `step_settled`, `step_rule`, `step_choice`, `done`; `Mode` and the Build/Spawn
+toggle (API and browser); `services/spawn.py`; `alternatives` and `proposal` in
+`services/blueprint.py`; the old step proposal flow.
+
+### 13.3 Stored and computed
+
+- **Session row** (one migration): `mode` dropped; `pacing` added (nullable string); `cursor` is
+  the walk's position (index of the next step in `blueprint.order`); `gaps_seen` added (a list of
+  step ids).
+- **`gaps_of(step, pipeline, declared)`** (pure, `mendel-authoring`), a `gaps` field on each
+  planned step; each gap names what is missing and the file to fix:
+  - a tier-4 setting with no declared domain (its decision's candidates are `[null]`) →
+    `registry/tools/<module key>/contract.yml`;
+  - a tool with no description → `registry/tools/<tool id>/tool.yml`;
+  - a contract in the pipeline's `registry.unverified` → its `contract.yml`.
+- **`need_of` no longer counts a no-domain setting as a choice**: it is a gap, and the wrap-up
+  already lists it as left to the run (#252).
+- **The snapshot**: the dispatcher (`services/session.py`) resolves, through
+  `comeni_core.settings.resolve`, each key `PROTOCOL.fork_keys()` names, so a `.env` lock, a
+  designed option and a stale stored value are all handled, and passes it to `interpret.run`.
+- **The Dev setting**'s help: *Show registry gaps in the build — missing descriptions, settings
+  with no list of values, unverified contracts — as cards naming the file to fix.* **Pacing** stops
+  being greyed as designed.
+
+### 13.4 Testing
+
+- The protocol loads with its two forks covering every option; the diagram regenerates.
+- Pure: `gaps_of` per kind; `need_of` leaves a no-domain setting out; `fork_keys()`.
+- The interpreter over the real protocol with a fake `enter`: each Pacing case reaches `step`; Dev
+  on rests on `gap`, off passes `route_around`; a fact runs through `reresolve` to `step`; none
+  left reaches `wrap`.
+- The shell (Postgres): scenario 1 without a read length rests on the fact, and answering it
+  places the aligner at tier 3; with one, *stop where needed* places everything and reaches
+  `wrap`; *together* rests at every step.
+- The snapshot: a `.env`-locked Pacing wins over a stored one; a designed option falls back to the
+  default.
+- The binding test over the new acting nodes.
+- Removal: `Mode`, `spawn.py`, `alternatives` and `proposal` gone; no Build/Spawn in the browser;
+  `make client`, `npx vitest run`, `npx tsc -b`.
+- The walk: scenario 1 both ways in the browser, looked at.
+
+### 13.5 Not in 3b
+
+Ask anything (part 4); the designed cards and the walk with a model (part 5); the Tier-4 answers
+fork; STAR's `seq_platform` domain (a registry change, landed right after 3b).
