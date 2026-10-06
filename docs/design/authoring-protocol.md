@@ -89,6 +89,17 @@ necessarily what a BAM is. Stage ④ is written for them.
     what*) is answered by the engine; the AI phrases it.
 14. **It ends with a wrap-up**: what you'll get, what you need to run it, and who decided what.
 
+**As built (14.7.8.3b).** Where the rules above and the build differ, the build is
+`docs/superpowers/specs/2026-10-04-the-consultant-build-design.md` §13. The overview is a count
+(*eleven steps; two need you*), not stages. Pacing is a setting the protocol forks on — *together*,
+*stop only where needed*, or *ask me every time*, which asks. The walk goes in the blueprint's
+order: a step that needs nothing is placed; one whose rule lacks a fact asks for the fact first,
+asked once (*not sure* turns it into a choice); one no rule settles is a choice between the
+resolver's own tools; tier 4 always stops. A **registry gap** (a setting with no declared values, a
+tool with no description, an unverified contract) forks on Dev mode: on, the step's card names the
+file to fix; off, the gap is not shown and the pacing decides as for any step. The cards are the
+existing ones, carrying their brief, need and gaps; part 5 designs them.
+
 ## How a fact's source reaches the tiers
 
 The four tiers are unchanged. What this protocol adds is **where the premise came from**, which
@@ -226,3 +237,4 @@ tightening is filling in a row, not rewiring.
 | 2026-10-04 | the characteriser built: door 6, a fourth AI point, *read by AI*; each property quotes the line that states it and the engine checks the quote; a type an inspector reads goes back to it | 14.7.7 (#135, #244), operator's brainstorm and decision |
 | 2026-10-05 | the stage modules behind one facade: each action a typed command in one transaction, its jobs queued after the commit; the steps that only queue a model's work (`family`, `ask`, `suggest`, `readback`) act, and pass straight on | 14.7.8.1c (#136), spec §11, operator's brainstorm |
 | 2026-10-06 | forks: a node whose arrows are the cases of a pluggable subject, taken by the interpreter from a snapshot; every option covered, checked when the protocol loads | 14.7.8.3a (#136, #252), operator's brainstorm |
+| 2026-10-06 | stage ④ built: overview count, the Pacing and Dev forks, the walk on the build plan (fact first, asked once; choices from the resolver's tools; tier 4 stops; gaps shown or routed around), the wrap-up; Build/Spawn and `Mode` retired | 14.7.8.3b (#136, #117, #252), operator's brainstorm |

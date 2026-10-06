@@ -478,6 +478,10 @@ card ─that's right→ resolve ──stored──→ overview ──→ ◇ Pac
 | route_around | acting | records the gap as seen |
 | wrap | acting, waits | posts the wrap-up as a `Receipt` |
 
+**Corrected while building (3b run 2):** the need is decided before the gaps (a step that needs a
+fact stops on it whatever Dev mode says), and `route_around` hides the gap, not the step — it
+applies the pacing (`held` under *together*, `placed` otherwise), so the protocol draws both arrows.
+
 **Removed:** `offer`, `step_settled`, `step_rule`, `step_choice`, `done`; `Mode` and the Build/Spawn
 toggle (API and browser); `services/spawn.py`; `alternatives` and `proposal` in
 `services/blueprint.py`; the old step proposal flow.
