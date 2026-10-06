@@ -26,7 +26,8 @@
         "kind": "nothing",
         "facts": [],
         "choices": []
-      }
+      },
+      "gaps": []
     },
     {
       "node": "star_align",
@@ -63,7 +64,8 @@
         "kind": "nothing",
         "facts": [],
         "choices": []
-      }
+      },
+      "gaps": []
     },
     {
       "node": "featurecounts",
@@ -91,7 +93,8 @@
         "kind": "nothing",
         "facts": [],
         "choices": []
-      }
+      },
+      "gaps": []
     },
     {
       "node": "multiqc",
@@ -116,7 +119,14 @@
         "kind": "nothing",
         "facts": [],
         "choices": []
-      }
+      },
+      "gaps": [
+        {
+          "kind": "no_description",
+          "subject": "nf-core/multiqc",
+          "fix": "registry/tools/nf-core/multiqc/tool.yml"
+        }
+      ]
     }
   ],
   "wrap_up": {

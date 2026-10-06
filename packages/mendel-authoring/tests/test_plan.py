@@ -78,3 +78,10 @@ def test_ask_is_a_question_not_a_pacing():
     """Review Focus 4: the setting's third option is resolved by the shell before `waits`."""
     with pytest.raises(ValueError):
         Pacing("ask")
+
+
+def test_each_planned_step_carries_its_gaps(rnaseq, declared):
+    plan = plan_of(rnaseq(150), declared)
+    by_node = {s.node: [g.kind.value for g in s.gaps] for s in plan.steps}
+    assert by_node["multiqc"] == ["no_description"]
+    assert by_node["fastqc"] == []

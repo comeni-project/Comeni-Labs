@@ -526,3 +526,8 @@ def test_a_designed_case_of_a_built_fork_is_drawn_dashed_and_loads():
         p.Edge(source="pace", target="b", case="stop_where_needed"),
     )
     assert p.Protocol(stages=S, nodes=nodes, edges=edges)
+
+
+def test_the_protocol_names_the_settings_its_forks_read():
+    assert _forked(_PACE, ["together", "stop_where_needed"]).fork_keys() == {"building.pacing"}
+    assert p.Protocol(stages=S, nodes=(_node("a"),), edges=()).fork_keys() == frozenset()

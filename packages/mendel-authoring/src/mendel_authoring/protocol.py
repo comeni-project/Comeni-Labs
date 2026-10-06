@@ -16,7 +16,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from mendel_authoring.forks import DEFAULT, Subject
+from mendel_authoring.forks import DEFAULT, SettingSubject, Subject
 from mendel_authoring.types import Command, Event, Phase
 
 
@@ -230,6 +230,10 @@ class Protocol(_Frozen):
             if extra:
                 raise ValueError(f"{node.id}: {extra} is not a case of {node.fork.title!r}")
         return self
+
+    def fork_keys(self) -> frozenset[str]:
+        """The settings this protocol's forks read: what the shell resolves into a snapshot."""
+        return frozenset(n.fork.key for n in self.nodes if isinstance(n.fork, SettingSubject))
 
     def exits(self, node_id: str) -> list[Edge]:
         """The ways out of the within-request section `node_id` leads into, if it leads into one.

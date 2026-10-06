@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from mendel_authoring.blueprint import Blueprint
 from mendel_authoring.brief import Brief, brief_of
+from mendel_authoring.gaps import Gap, gaps_of
 from mendel_authoring.needs import Need, NeedKind, need_of
 from mendel_authoring.ports import Declared
 from mendel_authoring.wrapup import WrapUp, wrap_up
@@ -22,6 +23,8 @@ class PlannedStep(BaseModel):
     contract: str
     brief: Brief
     need: Need
+    gaps: list[Gap] = []
+    """What its declared data lacks (spec §13.3); shown when Dev mode is on."""
 
 
 class BuildPlan(BaseModel):
@@ -46,6 +49,7 @@ def plan_of(blueprint: Blueprint, declared: Declared) -> BuildPlan:
                 contract=step.module.contract_id,
                 brief=brief_of(step, declared),
                 need=need_of(step, decisions, declared),
+                gaps=gaps_of(step, blueprint.pipeline, declared),
             )
         )
     return BuildPlan(steps=steps, wrap_up=wrap_up(blueprint, declared))

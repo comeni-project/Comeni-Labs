@@ -5,6 +5,8 @@
   tool instead* is possible.
 - **A choice**, when a decision on the step — its tool or a setting — is tier 4 and waits on no
   fact. Candidates are the resolver's own, never authored.
+- **Nothing** for a setting with no declared domain: there is nothing to choose between (issue
+  252). It is a registry gap, and the wrap-up lists it as left to the run.
 - **Nothing**, otherwise; a question a person already answered (its value's `why.source` is
   `human`) is not asked again.
 """
@@ -19,6 +21,7 @@ from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, ConfigDict
 
 from mendel_authoring.brief import tool_of
+from mendel_authoring.gaps import no_domain
 from mendel_authoring.ports import Declared
 
 
@@ -69,7 +72,9 @@ def need_of(step: Step, decisions: Sequence[DecisionRecord], declared: Declared)
     open_ = [
         record
         for record in decisions_of(step, decisions)
-        if record.tier is Tier.AMBIGUOUS and not _answered(step, record)
+        if record.tier is Tier.AMBIGUOUS
+        and not _answered(step, record)
+        and not no_domain(record)
     ]
     if not open_:
         return Need(kind=NeedKind.NOTHING)

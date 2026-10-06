@@ -100,3 +100,16 @@ def test_a_setting_a_person_answered_is_not_asked_again(rnaseq, declared):
     )
     assert answered.settings
     assert need_of(answered, blueprint.pipeline.decisions, declared).kind is NeedKind.NOTHING
+
+
+def test_a_setting_with_no_declared_domain_is_not_a_choice(rnaseq, declared):
+    """Issue 252: no list to choose from; it is a registry gap, and left to the run."""
+    from comeni_core.plan.decision import ParamDecision
+
+    blueprint = rnaseq(150)
+    record = ParamDecision(
+        key="star_align.seq_platform", subject="seq_platform", candidates=[None],
+        chosen=None, reason="flag-only", resolved_by="flag-only",
+    )
+    need = need_of(blueprint.step("star_align"), [record], declared)
+    assert need.kind is NeedKind.NOTHING
