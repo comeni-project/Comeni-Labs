@@ -204,6 +204,18 @@ export function DecisionLog({
             />
           </Turn>
         )}
+        {pending && pending.kind === "pacing" && (
+          // How the walk paces itself (spec §13 of the consultant build): a question with a
+          // closed set of answers, so the gap card draws it; there is nothing to upload.
+          <Turn tick="wait">
+            <GapCard
+              key={pending.id}
+              proposal={pending}
+              busy={busy(pending.id)}
+              onAnswer={(option, value) => onAccept(pending, option, undefined, value)}
+            />
+          </Turn>
+        )}
         {pending && pending.kind === "goal" && (
           <Turn tick="wait">
             <GoalCard
@@ -395,7 +407,7 @@ function DecisionEntry({
     );
   }
   const block = decision.block;
-  if (decision.kind === "gap" && block.kind === "question") {
+  if ((decision.kind === "gap" || decision.kind === "pacing") && block.kind === "question") {
     // One quiet line per answered gap. **The answer is never the part cut short** (issue 169): a
     // long question truncates, and a typed value is shown as the value, not the field's label.
     const answer = decision.answer

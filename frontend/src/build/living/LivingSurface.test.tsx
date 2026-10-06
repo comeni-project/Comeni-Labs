@@ -154,6 +154,22 @@ describe("the states a session can be in", () => {
   });
 });
 
+describe("the pacing question (spec §13)", () => {
+  it("asks how to go through the build, and sends the pace chosen", () => {
+    const pacing = {
+      id: "pq", kind: "pacing", draft_revision: 0, options: ["stop_where_needed", "together"],
+      edges: [],
+      block: { kind: "question", id: "pacing-s1", asks: "How should we go through the build?",
+        why_open: "Pacing is set to ask me every time.", exhaustive: true,
+        options: [{ id: "together", label: "Go through it together" },
+                  { id: "stop_where_needed", label: "Set it up, stop only where you need me" }] },
+    };
+    const props = surface(with_({ phase: "building", pending_proposal: pacing } as Partial<AuthoringSession>));
+    fireEvent.click(screen.getByRole("button", { name: "Go through it together" }));
+    expect(props.onAccept).toHaveBeenCalledWith(pacing, "together", undefined, undefined);
+  });
+});
+
 describe("the proposal card", () => {
   it("accepts the option that is selected, and the recommended one is said in words", () => {
     const props = surface();

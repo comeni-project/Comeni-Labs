@@ -1613,7 +1613,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step" | "gap";
+            kind: "goal" | "step" | "gap" | "pacing";
             state: components["schemas"]["ProposalState"];
             /** Block */
             block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
@@ -1670,7 +1670,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step" | "gap";
+            kind: "goal" | "step" | "gap" | "pacing";
             /** Draft Revision */
             draft_revision: number;
             /** Block */
@@ -1901,6 +1901,19 @@ export interface components {
         Body_forgeSyncSources: {
             /** Source */
             source: string;
+        };
+        /** Brief */
+        Brief: {
+            does?: components["schemas"]["Said"] | null;
+            /** Why */
+            why: components["schemas"]["Said"][];
+            /** Makes */
+            makes: components["schemas"]["Said"][];
+            /**
+             * Check
+             * @default []
+             */
+            check: components["schemas"]["Said"][];
         };
         /** BuiltPipeline */
         BuiltPipeline: {
@@ -2163,6 +2176,13 @@ export interface components {
             states: string[];
             /** Ports */
             ports: string[];
+        };
+        /** Choice */
+        Choice: {
+            /** Key */
+            key: string;
+            /** Candidates */
+            candidates: components["schemas"]["Offered"][];
         };
         /** ChoiceOption */
         ChoiceOption: {
@@ -2902,6 +2922,19 @@ export interface components {
          * @enum {string}
          */
         Freshness: "unadapted" | "in_progress" | "current" | "outdated" | "unsupported";
+        /** Gap */
+        Gap: {
+            kind: components["schemas"]["GapKind"];
+            /** Subject */
+            subject: string;
+            /** Fix */
+            fix: string;
+        };
+        /**
+         * GapKind
+         * @enum {string}
+         */
+        GapKind: "no_domain" | "no_description" | "unverified";
         /**
          * Gate
          * @description Cheapest first. Each is strictly more evidence than the one above it.
@@ -3366,6 +3399,25 @@ export interface components {
              */
             refers_to: string[];
         };
+        /** Need */
+        Need: {
+            kind: components["schemas"]["NeedKind"];
+            /**
+             * Facts
+             * @default []
+             */
+            facts: string[];
+            /**
+             * Choices
+             * @default []
+             */
+            choices: components["schemas"]["Choice"][];
+        };
+        /**
+         * NeedKind
+         * @enum {string}
+         */
+        NeedKind: "nothing" | "fact" | "choice";
         /**
          * Needs
          * @description Something else has to be set first.
@@ -3466,6 +3518,13 @@ export interface components {
              * @default prose
              */
             kind: string;
+        };
+        /** Offered */
+        Offered: {
+            /** Value */
+            value: number | boolean | string | null;
+            /** Does */
+            does?: string | null;
         };
         /**
          * OpenHole
@@ -4091,6 +4150,12 @@ export interface components {
          * @enum {string}
          */
         RowKind: "question" | "drift";
+        /** Said */
+        Said: {
+            /** Text */
+            text: string;
+            source: components["schemas"]["TextSource"];
+        };
         /**
          * SampleInspected
          * @description What one uploaded sample measured, and what that settled (14.7.6.4).
@@ -4508,6 +4573,13 @@ export interface components {
              * @default []
              */
             alternatives: components["schemas"]["Option"][];
+            brief?: components["schemas"]["Brief"] | null;
+            need?: components["schemas"]["Need"] | null;
+            /**
+             * Gaps
+             * @default []
+             */
+            gaps: components["schemas"]["Gap"][];
         };
         /**
          * StepView
@@ -4552,6 +4624,11 @@ export interface components {
             /** Checked At */
             checked_at: string | null;
         };
+        /**
+         * TextSource
+         * @enum {string}
+         */
+        TextSource: "engine" | "curated";
         /**
          * TierCard
          * @description One tier, as an interface needs to say it.

@@ -85,6 +85,23 @@ export function StepProposalCard({
           {(block.consumes ?? []).join(", ") || "nothing"} → {block.produces.join(", ") || "nothing"}
         </span>
       </button>
+      {block.brief && <Brief brief={block.brief} />}
+      {(block.gaps ?? []).length > 0 && (
+        <div data-testid="step-gaps" className="mb-3 px-[10px] py-2 border"
+             style={{ borderColor: "var(--line-2)" }}>
+          <p className="m-0 mb-1 font-data text-[10px] tracking-[.12em] uppercase text-ink-2">
+            Registry gap
+          </p>
+          <ul className="m-0 p-0 list-none">
+            {(block.gaps ?? []).map((gap) => (
+              <li key={`${gap.kind}-${gap.subject}`} className="text-[12px] text-ink-2">
+                {gap.kind.replace("_", " ")}: {gap.subject}{" "}
+                <span className="font-data text-[11px] text-ink-3">— fix {gap.fix}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div role="radiogroup" aria-label={`options for step ${position}`}>
         {options.map((option) => {
           const picked = chosen === option.id;
@@ -155,5 +172,36 @@ export function StepProposalCard({
         })}
       </div>
     </BlockFrame>
+  );
+}
+
+
+type StepBrief = NonNullable<Extract<AuthoringProposal["block"], { kind: "step_proposal" }>["brief"]>;
+
+/** The card's four fields (spec §4.2), each line as the engine wrote it — part 5 designs them. */
+function Brief({ brief }: { brief: StepBrief }) {
+  const rows: [string, { text: string }[]][] = [
+    ["What it does", brief.does ? [brief.does] : []],
+    ["Why it's here", brief.why],
+    ["What it makes", brief.makes],
+    ["Check", brief.check ?? []],
+  ];
+  return (
+    <dl data-testid="step-brief" className="m-0 mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+      {rows
+        .filter(([, lines]) => lines.length > 0)
+        .map(([label, lines]) => (
+          <div key={label} className="contents">
+            <dt className="font-data text-[10px] tracking-[.08em] uppercase text-ink-3 pt-[2px]">
+              {label}
+            </dt>
+            <dd className="m-0 text-[12.5px] leading-[1.5] text-ink-2">
+              {lines.map((line, i) => (
+                <span key={i} className="block">{line.text}</span>
+              ))}
+            </dd>
+          </div>
+        ))}
+    </dl>
   );
 }
