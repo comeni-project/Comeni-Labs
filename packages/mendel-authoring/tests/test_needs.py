@@ -1,8 +1,12 @@
 """What a step needs from the person: nothing, a fact a rule lacks, or a choice no rule settles."""
 
 from comeni_core.plan.decision import ProducerDecision
-from conftest import HISAT2, STAR
 from mendel_authoring.needs import NeedKind, need_of
+
+# Spelled here rather than imported from `conftest`: a `conftest` import resolves to whichever
+# package's conftest was collected first, so it broke the moment this ran beside another suite.
+STAR = "nf-core/star/align@1.11.0"
+HISAT2 = "nf-core/hisat2/align@2.2.2"
 
 
 def _need(blueprint, node, declared):
