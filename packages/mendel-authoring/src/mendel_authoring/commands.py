@@ -190,7 +190,15 @@ class SettleStep:
     expected_revision: int
     by: str
     chosen_option: str | None = None
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.SETTLE_STEP})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CONTINUE, Command.CHOOSE})
+
+
+@dataclass(frozen=True, slots=True)
+class ChoosePacing:
+    proposal_id: str
+    option: str
+    by: str
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CHOOSE_PACING})
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,5 +214,5 @@ COMMANDS: tuple[type, ...] = (
     DecideGoal, Revised, StoreReadback, ReadbackFailed,
     Resume, AnswerGap, PrefillGap, StorePhrasing, PhrasingFailed,
     UploadSample, SampleInspected, ReadingAnswered, ReadingFailed,
-    StartBuilding, SettleStep, RecordEdit,
+    StartBuilding, SettleStep, ChoosePacing, RecordEdit,
 )

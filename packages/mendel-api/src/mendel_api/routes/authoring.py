@@ -42,7 +42,7 @@ from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSessio
 from mendel_api.refusals import REFUSES
 from mendel_api.services import drafts, session
 from mendel_api.settings import model_access
-from mendel_api.stages import gathering, goal
+from mendel_api.stages import building, gathering, goal
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
 
@@ -122,7 +122,7 @@ class AuthoringDecisionView(BaseModel):
     model_config = _FROZEN
 
     id: str
-    kind: Literal["goal", "step", "gap"]
+    kind: Literal["goal", "step", "gap", "pacing"]
     state: ProposalState
     block: Block
     by: str | None
@@ -138,7 +138,7 @@ class AuthoringProposalView(BaseModel):
     model_config = _FROZEN
 
     id: str
-    kind: Literal["goal", "step", "gap"]
+    kind: Literal["goal", "step", "gap", "pacing"]
     draft_revision: int
     block: Block
     options: list[str]
@@ -398,6 +398,20 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
         # The next question and the one after are phrased while the person reads (#186): `ask`
         # queued them, after the commit. A button click is not put behind a model.
         await session.act(c.AnswerGap(proposal_id, body.option, body.value, who))
+        after = _view(session_id)
+        return AuthoringDecided(
+            phase=after.phase,
+            revision=after.revision,
+            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
+            queued=False,
+        )
+
+    if kind == building.PACING_PROPOSAL:
+        if decision is not ProposalState.ACCEPTED or body.option is None:
+            raise ValueError(
+                coded("MI0205", "the pacing question is answered with one of its paces")
+            )
+        await session.act(c.ChoosePacing(proposal_id, body.option, who))
         after = _view(session_id)
         return AuthoringDecided(
             phase=after.phase,

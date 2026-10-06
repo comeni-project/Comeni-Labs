@@ -18,7 +18,7 @@ from mendel_authoring.ports import Declared
 OPEN_STEP = "no rule could decide which tool fills this step"
 
 
-class Source(StrEnum):
+class TextSource(StrEnum):
     ENGINE = "engine"
     CURATED = "curated"
 
@@ -27,7 +27,7 @@ class Said(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     text: str
-    source: Source
+    source: TextSource
 
 
 class Brief(BaseModel):
@@ -47,13 +47,13 @@ def tool_of(contract_id: str) -> str:
 def family_said(type_id: str, declared: Declared) -> Said | None:
     """A type in its family's words; types carry no description of their own."""
     described = declared.family(family_of(type_id))
-    return Said(text=described, source=Source.CURATED) if described else None
+    return Said(text=described, source=TextSource.CURATED) if described else None
 
 
 def brief_of(step: Step, declared: Declared) -> Brief:
     described = declared.tool(tool_of(step.module.contract_id))
     return Brief(
-        does=Said(text=described, source=Source.CURATED) if described else None,
+        does=Said(text=described, source=TextSource.CURATED) if described else None,
         why=_why(step.why),
         makes=_unique(
             family_said(type_id, declared) for type_id in declared.outputs(step.module.contract_id)
@@ -63,9 +63,9 @@ def brief_of(step: Step, declared: Declared) -> Brief:
 
 
 def _why(why: Why) -> list[Said]:
-    said = [Said(text=why.reason, source=Source.ENGINE)]
+    said = [Said(text=why.reason, source=TextSource.ENGINE)]
     if why.axis_reason:
-        said.append(Said(text=why.axis_reason, source=Source.ENGINE))
+        said.append(Said(text=why.axis_reason, source=TextSource.ENGINE))
     return said
 
 
@@ -74,10 +74,10 @@ def _checks(step: Step):
     for why, name in [(step.why, None), *((s.why, s.name) for s in step.settings)]:
         if why.tier is Tier.DATA_PROFILED:
             for premise in why.premise:
-                yield Said(text=premise.prose(), source=Source.ENGINE)
+                yield Said(text=premise.prose(), source=TextSource.ENGINE)
         elif why.tier is Tier.AMBIGUOUS:
             text = OPEN_STEP if name is None else f"no rule decided {name}"
-            yield Said(text=text, source=Source.ENGINE)
+            yield Said(text=text, source=TextSource.ENGINE)
 
 
 def _unique(said) -> list[Said]:

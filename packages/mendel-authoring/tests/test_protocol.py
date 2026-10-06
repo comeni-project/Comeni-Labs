@@ -187,9 +187,7 @@ def test_the_protection_level_is_asked_before_a_byte_is_kept():
 
 
 _MACHINE = {
-    (Phase.BUILDING, Event.GOAL_ACCEPTED): Phase.RESOLVING,
     (Phase.BUILDING, Event.NOTHING_LEFT): Phase.COMPLETE,
-    (Phase.BUILDING, Event.PROPOSAL_SETTLED): Phase.BUILDING,
     (Phase.COMPLETE, Event.GOAL_ACCEPTED): Phase.RESOLVING,
     (Phase.GATHERING, Event.FACT_ADDED): Phase.GATHERING,
     (Phase.GATHERING, Event.INPUT_UNAVAILABLE): Phase.STOPPED,
@@ -205,7 +203,9 @@ _MACHINE = {
 }
 """The machine as it stood before 14.7.6.5, printed then and pinned here. **A literal**: the
 first version compared `st.TRANSITIONS` with `PROTOCOL.transitions()`, which is the same value,
-so it could not fail (review of #134)."""
+so it could not fail (review of #134). **Changed by 14.7.8.3b**, stage ④ redrawn: a step settled
+moves nothing (it stays in `building`), and the old *goal changed* arrow out of a pending step is
+gone; a changed goal leaves the wrap-up."""
 
 
 def test_the_machine_did_not_change():
@@ -308,8 +308,8 @@ def test_the_real_protocol_still_loads():
 def test_the_commands_are_the_specs_and_1bs():
     assert {c.value for c in Command} == {
         "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
-        "choose_pacing", "continue", "answer_fact", "choose", "ask", "keep", "retry",
-        "reply_in_words", "settle_step", "understood", "asked_back", "revised",
+        "choose_pacing", "continue", "choose", "ask", "keep", "retry",
+        "reply_in_words", "understood", "asked_back", "revised",
         "provider_failed",
     }
 
@@ -338,10 +338,11 @@ def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
 
 # ── the protocol, marked (14.7.8.1b) ────────────────────────────────────────────────────────
 
-WAITS = {"say", "family", "reply", "card", "resolve", "step_settled", "step_rule",
-         "step_choice", "done", "failed"}
+WAITS = {"say", "family", "reply", "card", "resolve", "pace_q", "held", "fact", "choice",
+         "wrap", "failed"}
 ACTS = {"family", "read_goal", "list_needs", "next_gap", "ask", "answered", "suggest", "upload",
-        "readback", "resolve", "offer"}
+        "readback", "resolve", "overview", "together", "quiet", "ask_pacing", "step", "reresolve",
+        "show_gap", "route_around", "wrap"}
 
 
 def _main():
@@ -387,7 +388,7 @@ def test_every_other_command_is_refused_where_a_session_waits():
 
 def test_a_node_that_neither_acts_nor_waits_passes_straight_on_or_ends():
     for node in _main().values():
-        if node.acts or node.waits:
+        if node.acts or node.waits or node.fork is not None:  # a fork's cases: spec §12
             continue
         out = [e for e in p.PROTOCOL.edges if e.built and e.source == node.id]
         assert len(out) <= 1 and all(e.on is None for e in out), node.id

@@ -18,6 +18,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftProvenance
 from mendel_authoring import interpret
 from mendel_authoring import state as st
+from mendel_authoring.forks import Snapshot
 from mendel_authoring.protocol import PROTOCOL, Protocol
 from sqlalchemy import func, select, update
 
@@ -40,15 +41,12 @@ _BY_PHASE = {
     Phase.GATHERING: "list_needs",
     Phase.GOAL_REVIEW: "card",
     Phase.RESOLVING: "resolve",
-    Phase.BUILDING: "offer",
-    Phase.COMPLETE: "done",
+    Phase.BUILDING: "step",
+    Phase.COMPLETE: "wrap",
     Phase.FAILED: "failed",
     Phase.STOPPED: "stopped",
 }
 """The node a row from before `at` rests on, when nothing pending says more (ruling 4)."""
-
-_BY_TIER = {1: "step_settled", 2: "step_settled", 3: "step_rule", 4: "step_choice"}
-
 
 def rests_at(db, row: PipelineAuthoringSession) -> str:
     """The node `row` rests on: stored, or derived from its phase and what is pending."""
@@ -72,8 +70,6 @@ def rests_at(db, row: PipelineAuthoringSession) -> str:
     )
     if phase is Phase.GATHERING and pending is not None and pending.kind == "gap":
         return "reply"
-    if phase is Phase.BUILDING and pending is not None and pending.kind == "step":
-        return _BY_TIER[int(pending.payload["block"]["tier"])]
     return _BY_PHASE[phase]
 
 
@@ -203,6 +199,21 @@ def resume(
     return _dispatch(session_id, None, payload, protocol, handlers, ctx=ctx)
 
 
+def snapshot(protocol: Protocol = PROTOCOL) -> Snapshot:
+    """The settings the protocol's forks read, **resolved** — a `.env` lock, a designed option and
+    a stale stored value all handled by the settings resolver — never the raw stored rows (spec
+    §13.3; the final review of 14.7.8.3a)."""
+    from comeni_core.settings import CATALOGUE
+
+    from mendel_api.services.installation import installation
+
+    keys = protocol.fork_keys()
+    if not keys:
+        return interpret.NO_SNAPSHOT
+    found = installation()
+    return Snapshot(settings={key: found.get(CATALOGUE.setting(key)) for key in sorted(keys)})
+
+
 def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> interpret.Ran:
     """Given a `ctx` (`take`), its `raised` is left for `perform` to raise after the commit;
     without one, raised here, as in 1b."""
@@ -214,7 +225,12 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
     else:
         ctx.command, ctx.payload = command, dict(payload)
     ran = interpret.run(
-        protocol, start, command, lambda node: bound[node](ctx), returning_to=came_from
+        protocol,
+        start,
+        command,
+        lambda node: bound[node](ctx),
+        returning_to=came_from,
+        snapshot=snapshot(protocol),
     )
     held = (
         PipelineAuthoringSession.at.is_(None)

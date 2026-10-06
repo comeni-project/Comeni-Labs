@@ -11,7 +11,6 @@ from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import session
 from mendel_api.services import session as facade
 from mendel_api.stages import _rows, gathering
-from mendel_api.stages import building as building_stage
 from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_authoring.protocol import PROTOCOL
@@ -52,8 +51,8 @@ def test_a_new_session_rests_where_you_say_what_you_want(sid):
 
 @pytest.mark.parametrize("phase, node", [
     (Phase.UNDERSTANDING, "say"), (Phase.GATHERING, "list_needs"),
-    (Phase.GOAL_REVIEW, "card"), (Phase.RESOLVING, "resolve"), (Phase.BUILDING, "offer"),
-    (Phase.COMPLETE, "done"), (Phase.FAILED, "failed"), (Phase.STOPPED, "stopped"),
+    (Phase.GOAL_REVIEW, "card"), (Phase.RESOLVING, "resolve"), (Phase.BUILDING, "step"),
+    (Phase.COMPLETE, "wrap"), (Phase.FAILED, "failed"), (Phase.STOPPED, "stopped"),
 ])
 def test_a_row_from_before_at_rests_on_its_phases_node(sid, phase, node):
     """Spec §8: every old phase has a derived node, and each is a built one."""
@@ -77,15 +76,6 @@ def test_a_pending_question_rests_on_the_reply(sid):
     _rows.propose(sid, kind=gathering.GAP, payload={"subject": "x", "kind": "input",
                                                         "why": "", "options": {}, "block": {}})
     assert _at(sid) == "reply"
-
-
-@pytest.mark.parametrize("tier, node", [(1, "step_settled"), (2, "step_settled"),
-                                        (3, "step_rule"), (4, "step_choice")])
-def test_a_pending_step_rests_on_its_tiers_card(sid, tier, node):
-    _old(sid, Phase.BUILDING)
-    _rows.propose(sid, kind=building_stage.STEP, payload={"node": "n", "options": {},
-                                                         "block": {"tier": tier}})
-    assert _at(sid) == node
 
 
 def test_a_stored_node_wins_over_the_phase(sid):

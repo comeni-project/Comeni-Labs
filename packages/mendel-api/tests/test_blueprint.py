@@ -62,14 +62,14 @@ def contracts():
 # ── the shapes Task 6 names ───────────────────────────────────────────────────────────────
 
 
-def test_a_one_step_pipeline_is_one_proposal_with_nothing_else_to_choose(contracts):
+def test_a_one_step_pipeline_is_one_card_with_nothing_else_to_choose():
     """**Also a regression.** MultiQC produces `qc.report` and consumes it, and the first run of
     this test offered it as FastQC's alternative — the same self-loop as the sorter, in a shape
     that had no consuming step to exclude, which is why the rule became one about types."""
     blueprint, _ = bp.resolve(_one_step())
     assert blueprint.order == ["fastqc"]
 
-    offered = bp.proposal(blueprint, "fastqc", registry=contracts)
+    offered = _payload(blueprint, "fastqc")
     assert offered["block"]["tier"] == 1
     assert offered["options"] == {bp.KEEP: "nf-core/fastqc@0.12.1"}
     assert blueprint.after("fastqc") is None
@@ -115,51 +115,29 @@ def test_a_blueprint_survives_being_stored_and_read_back(spine):
 # ── alternatives ──────────────────────────────────────────────────────────────────────────
 
 
-def test_an_aligner_is_offered_the_other_aligner_and_never_the_step_that_consumes_it(
-    spine, contracts
-):
-    """**A regression, found by the first smoke run.** `samtools/sort` produces `alignment.bam`
-    and consumes it, so the candidate service lists it — and it was offered as an alternative to
-    the STAR aligner feeding it. That is the self-loop the router excludes by construction."""
-    offered = bp.alternatives(spine, "star_align", registry=contracts)
-
-    assert HISAT2 in offered
-    assert SORT not in offered, "the consuming step was offered as its own producer"
-    assert STAR not in offered
-
-
-def test_a_decision_supplies_its_own_candidates_before_the_candidate_service(spine, contracts):
-    """The resolver's record wins, because it is the resolver saying what it chose between. The
-    candidate here exists nowhere in the registry, so only the decision could have supplied it."""
-    invented_by_the_record = "nf-core/bwa/mem@0.7.18"
-    decided = spine.model_copy(
-        update={
-            "pipeline": spine.pipeline.model_copy(
-                update={
-                    "decisions": [
-                        ProducerDecision(
-                            key="producer:alignment.bam",
-                            subject="producer:alignment.bam",
-                            reason="two aligners and no rule",
-                            resolved_by="flag-only",
-                            chosen=STAR,
-                            candidates=[STAR, invented_by_the_record],
-                        )
-                    ]
-                }
-            )
-        }
-    )
-    assert bp.alternatives(decided, "star_align", registry=contracts) == [invented_by_the_record]
-
-
-def test_every_offered_option_id_maps_to_a_contract_the_server_holds(spine, contracts):
-    """The block the browser renders and the set the server enforces are written together."""
-    offered = bp.proposal(spine, "star_align", registry=contracts)
+def test_every_offered_option_id_maps_to_a_contract_the_server_holds():
+    """The block the browser renders and the set the server enforces are written together. A
+    choice offers the producer decision's candidates (spec §13.6), so the aligner without a read
+    length is the step with alternatives."""
+    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data["profile"].pop("read_length")
+    blueprint, _ = bp.resolve(Goal.model_validate(data))
+    offered = _payload(blueprint, "star_align")
     shown = {option["id"] for option in offered["block"]["alternatives"]}
 
     assert shown, "the aligner offered no alternatives, so this asserted nothing"
     assert shown | {bp.KEEP} == set(offered["options"])
+
+
+def _payload(blueprint, node: str, present: frozenset[str] = frozenset()) -> dict:
+    """The step's card as the building stage stores it (`step_payload`, spec §13.6)."""
+    from mendel_api.services import declared
+    from mendel_api.stages.building import step_payload
+    from mendel_authoring.plan import plan_of
+
+    plan = plan_of(blueprint, declared.of(registry.stack()))
+    planned = next(s for s in plan.steps if s.node == node)
+    return step_payload(blueprint, planned, present)
 
 
 # ── committing ────────────────────────────────────────────────────────────────────────────
@@ -301,13 +279,11 @@ def test_accepting_every_step_rebuilds_the_blueprint_through_ir_of(spine, contra
     assert shape(rebuilt) == shape(spine.pipeline)
 
 
-def test_a_proposal_carries_exactly_the_wires_accepting_it_would_add(spine, contracts):
+def test_a_step_card_carries_exactly_the_wires_accepting_it_would_add(spine, contracts):
     """What the browser draws optimistically must be what the server commits. The aligner's
     proposal, offered after only the index is in the draft, carries the index wire and not the
     trimmer's — and `committed` adds the same one."""
-    offered = bp.proposal(
-        spine, "star_align", registry=contracts, present=frozenset({"star_genomegenerate"})
-    )
+    offered = _payload(spine, "star_align", present=frozenset({"star_genomegenerate"}))
     graph, _ = _accept(spine, DraftGraph(nodes=[{"id": "star_genomegenerate",
         "contract_id": "nf-core/star/genomegenerate@1.11.0"}]), DraftProvenance(),
         "star_align", contracts)

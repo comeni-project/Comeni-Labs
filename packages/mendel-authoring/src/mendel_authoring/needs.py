@@ -31,7 +31,7 @@ class NeedKind(StrEnum):
     CHOICE = "choice"
 
 
-class Candidate(BaseModel):
+class Offered(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     value: ParamValue
@@ -43,7 +43,7 @@ class Choice(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str
-    candidates: list[Candidate]
+    candidates: list[Offered]
 
 
 class Need(BaseModel):
@@ -108,7 +108,7 @@ def _answered(step: Step, record: DecisionRecord) -> bool:
     return setting is not None and setting.why.source is ValueSource.HUMAN
 
 
-def _candidate(record: DecisionRecord, value: ParamValue, declared: Declared) -> Candidate:
+def _candidate(record: DecisionRecord, value: ParamValue, declared: Declared) -> Offered:
     if isinstance(record, ProducerDecision):
-        return Candidate(value=value, does=declared.tool(tool_of(str(value))))
-    return Candidate(value=value)
+        return Offered(value=value, does=declared.tool(tool_of(str(value))))
+    return Offered(value=value)

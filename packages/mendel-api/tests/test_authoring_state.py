@@ -26,9 +26,7 @@ from mendel_authoring import state as st
         (Phase.GOAL_REVIEW, st.Event.GOAL_REVISED, Phase.UNDERSTANDING),
         (Phase.RESOLVING, st.Event.BLUEPRINT_STORED, Phase.BUILDING),
         (Phase.RESOLVING, st.Event.BUILD_FAILED, Phase.FAILED),
-        (Phase.BUILDING, st.Event.PROPOSAL_SETTLED, Phase.BUILDING),
         (Phase.BUILDING, st.Event.NOTHING_LEFT, Phase.COMPLETE),
-        (Phase.BUILDING, st.Event.GOAL_ACCEPTED, Phase.RESOLVING),
         (Phase.COMPLETE, st.Event.GOAL_ACCEPTED, Phase.RESOLVING),
     ],
 )

@@ -95,16 +95,12 @@ class Command(StrEnum):
     REVISE_GOAL = "revise_goal"
     CHOOSE_PACING = "choose_pacing"
     CONTINUE = "continue"
-    ANSWER_FACT = "answer_fact"
     CHOOSE = "choose"
     ASK = "ask"
     KEEP = "keep"
     RETRY = "retry"
     REPLY_IN_WORDS = "reply_in_words"
     """Typed words answering a question: a model reads them into a suggestion. Nothing moves."""
-    SETTLE_STEP = "settle_step"
-    """Accept or reject a step's proposal, as today. Part 3 replaces it with `continue`,
-    `choose` and `answer_fact`."""
     # **A job's completion is a command** (spec §3.2): each names an arrow out of where the job's
     # session waits, and is refused, so ignored, once the session has moved on.
     UNDERSTOOD = "understood"

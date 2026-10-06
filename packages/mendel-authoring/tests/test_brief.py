@@ -1,6 +1,6 @@
 """A step's card: four fields, each from declared data or the resolver's record, as written."""
 
-from mendel_authoring.brief import OPEN_STEP, Source, brief_of, tool_of
+from mendel_authoring.brief import OPEN_STEP, TextSource, brief_of, tool_of
 
 
 def _step(blueprint, node):
@@ -16,7 +16,7 @@ def test_does_is_the_tools_own_description(rnaseq, declared):
     brief = brief_of(_step(rnaseq(150), "star_align"), declared)
     assert brief.does is not None
     assert brief.does.text == "STAR aligns RNA-seq reads to a genome, splice-aware."
-    assert brief.does.source is Source.CURATED
+    assert brief.does.source is TextSource.CURATED
 
 
 def test_a_tool_with_no_description_gets_no_does(rnaseq, declared):
@@ -29,7 +29,7 @@ def test_why_is_the_resolvers_reason_then_the_rule_behind_it(rnaseq, declared):
         "read length 150 ≥ 100: STAR",
         "read length decides which aligner is appropriate (Dobin et al. 2013)",
     ]
-    assert {w.source for w in why} == {Source.ENGINE}
+    assert {w.source for w in why} == {TextSource.ENGINE}
 
 
 def test_why_without_a_rule_is_the_reason_alone(rnaseq, declared):
@@ -41,7 +41,7 @@ def test_makes_names_each_family_once(rnaseq, declared):
     """STAR makes alignment.bam and alignment.bai: one family, said once."""
     makes = brief_of(_step(rnaseq(150), "star_align"), declared).makes
     assert [m.text for m in makes] == ["reads placed on a reference"]
-    assert makes[0].source is Source.CURATED
+    assert makes[0].source is TextSource.CURATED
 
 
 def test_tier_three_checks_the_measured_premise(rnaseq, declared):

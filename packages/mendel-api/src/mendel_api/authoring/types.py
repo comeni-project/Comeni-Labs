@@ -31,6 +31,9 @@ from typing import Annotated, Literal, Self, get_args
 
 from comeni_core.goal.asked import Constraints, Goal, RequiredStates
 from comeni_core.spell.marks import ContractId, HumanParamValue, NodeId, OptionId, TypeId
+from mendel_authoring.brief import Brief
+from mendel_authoring.gaps import Gap
+from mendel_authoring.needs import Need
 from mendel_authoring.types import Event, Phase, ProposalState  # noqa: F401 (re-exported)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -266,6 +269,12 @@ class StepProposal(_Block):
     reason: Prose
     tier: int = Field(ge=1, le=4)
     alternatives: list[Option] = []
+    brief: Brief | None = None
+    """The card's four fields, from declared data (spec §4.2), as written."""
+    need: Need | None = None
+    """What the step needs from the person: nothing, a fact, or a choice (spec §4.3)."""
+    gaps: list[Gap] = []
+    """Registry gaps, shown when Dev mode is on (spec §13)."""
 
 
 class SettingRequest(_Block):

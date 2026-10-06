@@ -67,7 +67,13 @@ def _goal() -> Goal:
     return Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
 
 
-def _resolving() -> str:
+def _without_read_length() -> Goal:
+    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data["profile"].pop("read_length")
+    return Goal.model_validate(data)
+
+
+def _resolving(goal: Goal | None = None) -> str:
     """A session whose goal has been confirmed, sitting in `resolving`."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
     session_id = facade.perform(commands.OpenSession(draft_id, "ana")).result
@@ -77,7 +83,7 @@ def _resolving() -> str:
         session_id,
         st.Event.GOAL_ACCEPTED,
         row_version=3,
-        goal=_goal().model_dump(mode="json"),
+        goal=(goal or _goal()).model_dump(mode="json"),
     )
     return session_id
 
@@ -203,13 +209,19 @@ def test_a_rejected_step_is_never_wired_to_and_does_not_move_the_revision(clean)
 
 
 def test_choosing_an_alternative_commits_it_as_a_persons_choice(clean):
-    session_id = _resolving()
+    """With no read length the aligner asks for the fact first; *I can't share it* leaves it
+    open, and the step then asks as a choice between the rule's own aligners (spec §13.6)."""
+    session_id = _resolving(_without_read_length())
     proposal_id = authoring_setup.start_building(session_id)
-    while _proposal(proposal_id).payload["node"] != "star_align":
+    while _proposal(proposal_id).kind != "gap":
         _, _, revision = _draft(session_id)
         proposal_id = facade.perform(
             commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, revision, "ana")
         ).result.next_proposal
+    assert _proposal(proposal_id).payload["subject"] == "read_length"
+    facade.perform(commands.AnswerGap(proposal_id, "cant_share", None, "ana"))
+    proposal_id = facade.pending_id(session_id)
+    assert _proposal(proposal_id).payload["node"] == "star_align"
 
     options = _proposal(proposal_id).payload["options"]
     chosen = next(option for option, contract in options.items() if contract == HISAT2)
