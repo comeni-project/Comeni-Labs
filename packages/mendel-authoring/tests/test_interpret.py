@@ -218,3 +218,23 @@ def test_a_fork_is_never_entered():
     entered = []
     run(PACED, "go", Command.ANSWER_GAP.value, lambda node: entered.append(node))
     assert entered == []
+
+
+def test_a_case_whose_edge_is_still_planned_is_refused():
+    nodes = (
+        _n("go", waits=True),
+        Node(id="pace", stage="s", actor=Actor.ENGINE, label="Pacing",
+             phase=Phase.GATHERING, built=True, fork=SettingSubject.of(_PACING)),
+        _n("walk", waits=True),
+        Node(id="quiet", stage="s", actor=Actor.ENGINE, label="quiet"),
+    )
+    edges = (
+        _e("go", "pace", Command.ANSWER_GAP.value),
+        Edge(source="pace", target="walk", case="together", built=True),
+        Edge(source="pace", target="quiet", case="stop_where_needed"),
+    )
+    half = Protocol(stages=(Stage(id="s", title="s"),), nodes=nodes, edges=edges)
+    with pytest.raises(Refused, match="MI0216") as caught:
+        run(half, "go", Command.ANSWER_GAP.value, lambda node: None,
+            snapshot=Snapshot(settings={"building.pacing": "stop_where_needed"}))
+    assert "pace" in str(caught.value) and "stop_where_needed" in str(caught.value)

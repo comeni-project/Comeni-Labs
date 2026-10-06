@@ -485,7 +485,11 @@ def test_only_an_edge_out_of_a_fork_has_a_case():
 
 
 def test_case_edges_are_not_read_as_several_ways_straight_on():
-    """Review Focus 3: case edges carry `on=None`; that is not a fan of unnamed ways on."""
+    """Review Focus 3: case edges carry `on=None`; that is not a fan of unnamed ways on.
+
+    **Inert today** (final review): a valid fork neither acts nor waits, so the "one way straight
+    through" rule never reaches it, and this passes with or without the `e.case is None`
+    exclusions. It guards the day that rule holds for every node (1b's note in `_consistent`)."""
     assert _forked(_PACE, ["together", "stop_where_needed"])
 
 
@@ -494,3 +498,31 @@ def test_a_fork_is_drawn_as_a_diamond_with_its_cases_on_its_edges():
     assert 'pace{"Pacing"}' in rendered
     assert 'pace -- "together" --> a' in rendered
     assert 'pace -- "stop_where_needed" --> b' in rendered
+
+
+def test_a_planned_fork_is_drawn_dashed_and_loads():
+    """Final review: coverage counted only built edges, so a designed fork could not be drawn."""
+    nodes = (
+        _node("pace", fork=_PACE, shape=p.Shape.CHOICE, label=_PACE.title, built=False),
+        _node("a", built=False),
+        _node("b", built=False),
+    )
+    edges = (
+        p.Edge(source="pace", target="a", case="together"),
+        p.Edge(source="pace", target="b", case="stop_where_needed"),
+    )
+    assert p.Protocol(stages=S, nodes=nodes, edges=edges)
+
+
+def test_a_designed_case_of_a_built_fork_is_drawn_dashed_and_loads():
+    """A designed option is a path not built yet: its edge is planned, and still covers it."""
+    nodes = (
+        _node("pace", fork=_PACE, shape=p.Shape.CHOICE, label=_PACE.title),
+        _node("a", waits=True),
+        _node("b", built=False),
+    )
+    edges = (
+        p.Edge(source="pace", target="a", case="together", built=True),
+        p.Edge(source="pace", target="b", case="stop_where_needed"),
+    )
+    assert p.Protocol(stages=S, nodes=nodes, edges=edges)

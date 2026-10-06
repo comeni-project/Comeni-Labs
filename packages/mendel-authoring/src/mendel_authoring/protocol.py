@@ -206,7 +206,10 @@ class Protocol(_Frozen):
                 continue
             if node.acts or node.waits:
                 raise ValueError(f"fork {node.id} acts or waits; the interpreter decides it")
-            out = [e for e in self.edges if e.source == node.id and e.built]
+            # Built or planned (final review): a designed option is a path not built yet, drawn
+            # dashed, and it still covers its case. The interpreter takes only built edges, so a
+            # run reaching a planned case is refused (MI0216).
+            out = [e for e in self.edges if e.source == node.id]
             if any(e.case is None for e in out):
                 raise ValueError(f"{node.id}: every edge out of a fork names a case")
             cases = [e.case for e in out]

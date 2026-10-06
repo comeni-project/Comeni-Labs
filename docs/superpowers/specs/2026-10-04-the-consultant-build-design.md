@@ -398,7 +398,10 @@ kind of subject as they arrive. The shell builds it; the interpreter never reads
 `Protocol` already refuses to exist when inconsistent; forks add:
 
 - a fork does not act (the interpreter decides it) and does not wait;
-- every built edge out of a fork names a `case`, and only edges out of a fork do;
+- every edge out of a fork, **built or planned**, names a `case`, and only edges out of a fork do;
+  coverage counts planned edges too, so a designed option is drawn dashed and still covers its
+  case (revised 2026-10-06, final review); the interpreter takes only built edges, so a run
+  reaching a planned case is refused (MI0216);
 - a subject with **closed** options has **exactly one** edge per option, and no other case;
 - a subject with an **open** domain has a `DEFAULT` edge (`case="*"`);
 - no case twice.
