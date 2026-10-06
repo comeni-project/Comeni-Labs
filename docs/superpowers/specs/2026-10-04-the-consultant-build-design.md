@@ -523,3 +523,32 @@ toggle (API and browser); `services/spawn.py`; `alternatives` and `proposal` in
 
 Ask anything (part 4); the designed cards and the walk with a model (part 5); the Tier-4 answers
 fork; STAR's `seq_platform` domain (a registry change, landed right after 3b).
+
+### 13.6 Amended while planning (2026-10-06), against the code
+
+Each found reading the code the plan is written against; each makes the flow smaller.
+
+- **The step handler places every step that does not wait, in one entry**, and leaves only on a
+  stop (`held`, `needs_fact`, `needs_choice`, `a_gap`) or `none_left`. A `placed → step` loop
+  would pass the interpreter once per step and be refused after 64 nodes (its cycle limit) on a
+  large pipeline.
+- **No `gap` node and no `gaps_seen`.** Dev on: `show_gap` offers the step's card with its gaps
+  marked and rests on `continue?`, so *Continue* places it and the cursor moves on. Dev off:
+  `route_around` places the step quietly. Either way the cursor passing the step is what makes a
+  gap raised once.
+- **The pacing question**: the fork's `ask` case goes to `ask_pacing` (acting: posts the
+  `Question`), which rests on `pace_q`; `ChoosePacing` records the answer and goes on to `step`.
+  No `chosen` node.
+- **A fact is answered by typing or choosing, not by a sample, in 3b.** A sample upload is a
+  section entered from gathering's question and leaving to gathering's nodes; reusing it from
+  stage ④ is its own design (part 5). The fact card is the gap card with *upload* left out; it is
+  answered through `AnswerGap` (arrow `answer_gap` out of `fact`). A fact answered *not sure* is
+  recorded open, and the step then asks as a choice, so the walk never asks for the same fact
+  twice.
+- **`continue?` and `choice` are answered by the existing `SettleStep`**, whose arrow is
+  `continue` or `choose` by where the session rests; rejecting a step still skips it.
+- **A choice offers tools**: its candidates are the producer decision's. A tier-4 setting that
+  has a declared domain is shown on the card and kept at its value; a value picker for settings is
+  part 5.
+- **The session row**: `mode` dropped, `pacing` added; `cursor` is the walk's position. No
+  `gaps_seen`.
