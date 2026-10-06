@@ -156,3 +156,65 @@ def test_an_acting_node_that_does_not_wait_passes_straight_on_when_its_work_name
 def test_an_acting_node_that_waits_still_rests_when_its_work_names_nothing():
     ran = run(PASSING, "reply", Command.DESCRIBE.value, lambda node: None)
     assert ran.at == "family"
+
+
+# ── forks (spec §12) ─────────────────────────────────────────────────────────────────────────
+
+from comeni_core.settings.declare import Setting  # noqa: E402
+from mendel_authoring.forks import DEFAULT, SettingSubject, Snapshot  # noqa: E402
+
+_PACING = Setting.choice(
+    key="building.pacing", label="Pacing", help="A setting used by the fork tests.",
+    options=[("together", "T"), ("stop_where_needed", "S")], default="together",
+)
+_NAME = Setting.text(
+    key="dev.name", label="A name", help="A setting used by the fork tests.", default=""
+)
+
+
+def _forking(subject, cases):
+    nodes = (
+        _n("go", waits=True),
+        Node(id="pace", stage="s", actor=Actor.ENGINE, label=subject.title,
+             phase=Phase.GATHERING, built=True, fork=subject),
+        *[_n(target, waits=True) for target in dict.fromkeys(cases.values())],
+    )
+    edges = (
+        _e("go", "pace", Command.ANSWER_GAP.value),
+        *[Edge(source="pace", target=t, case=c, built=True) for c, t in cases.items()],
+    )
+    return Protocol(stages=(Stage(id="s", title="s"),), nodes=nodes, edges=edges)
+
+
+PACED = _forking(SettingSubject.of(_PACING), {"together": "walk", "stop_where_needed": "quiet"})
+
+
+def test_a_fork_takes_the_case_its_setting_is_in():
+    ran = run(PACED, "go", Command.ANSWER_GAP.value, lambda node: None,
+              snapshot=Snapshot(settings={"building.pacing": "stop_where_needed"}))
+    assert ran.at == "quiet" and ran.path == ["pace", "quiet"]
+
+
+def test_a_fork_with_no_snapshot_takes_its_settings_default():
+    """Review Focus 5: until 3b passes one, the shell passes none."""
+    assert run(PACED, "go", Command.ANSWER_GAP.value, lambda node: None).at == "walk"
+
+
+def test_an_open_subject_takes_its_default_for_an_unlisted_value():
+    named = _forking(SettingSubject.of(_NAME), {"alice": "walk", DEFAULT: "quiet"})
+    ran = run(named, "go", Command.ANSWER_GAP.value, lambda node: None,
+              snapshot=Snapshot(settings={"dev.name": "bob"}))
+    assert ran.at == "quiet"
+
+
+def test_a_value_no_edge_takes_is_refused_naming_the_fork_and_the_value():
+    with pytest.raises(Refused, match="MI0216") as caught:
+        run(PACED, "go", Command.ANSWER_GAP.value, lambda node: None,
+            snapshot=Snapshot(settings={"building.pacing": "sometimes"}))
+    assert "pace" in str(caught.value) and "sometimes" in str(caught.value)
+
+
+def test_a_fork_is_never_entered():
+    entered = []
+    run(PACED, "go", Command.ANSWER_GAP.value, lambda node: entered.append(node))
+    assert entered == []

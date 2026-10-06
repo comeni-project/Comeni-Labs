@@ -10,8 +10,12 @@ from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
 
+from mendel_authoring.forks import DEFAULT, Snapshot
 from mendel_authoring.protocol import Edge, Node, Protocol
 from mendel_authoring.types import Phase
+
+NO_SNAPSHOT = Snapshot()
+"""What a run reads when the shell passes nothing: every subject takes its declared default."""
 
 
 class Refused(ValueError):
@@ -52,6 +56,7 @@ def run(
     *,
     returning_to: Phase | None = None,
     limit: int = 64,
+    snapshot: Snapshot = NO_SNAPSHOT,
 ) -> Ran:
     """Follow `command` out of `at`, then on through every node until the session rests.
 
@@ -59,7 +64,8 @@ def run(
     or has no single way on, and otherwise goes straight on. A node
     that neither acts nor waits, with one way on, is passed straight through. Anything else is
     where the session rests. More than `limit` nodes without resting is a cycle, refused.
-    `command=None` resumes: `at` itself is entered.
+    `command=None` resumes: `at` itself is entered. A fork is never entered: it takes the edge
+    for the case `snapshot` is in (spec §12).
     """
     nodes: dict[str, Node] = {n.id: n for n in protocol.nodes}
     if command is None:
@@ -69,7 +75,9 @@ def run(
         node = nodes[follow(protocol, at, command, returning_to=returning_to).target]
     path = [node.id]
     while len(path) <= limit:
-        if node.acts:
+        if node.fork is not None:
+            node = nodes[_case(protocol, node, snapshot).target]
+        elif node.acts:
             outcome = enter(node.id)
             if outcome is None:
                 # **Work that names nothing**: a node that waits rests here (`resolve`); one that
@@ -96,3 +104,15 @@ def _one_way_on(protocol: Protocol, at: str) -> bool:
         )
         == 1
     )
+
+
+def _case(protocol: Protocol, node: Node, snapshot: Snapshot) -> Edge:
+    """The edge out of fork `node` for the case `snapshot` is in, or its `DEFAULT`."""
+    value = node.fork.value(snapshot)
+    out = {e.case: e for e in protocol.edges if e.built and e.source == node.id}
+    found = out.get(value) or out.get(DEFAULT)
+    if found is None:
+        raise Refused(
+            coded("MI0216", f"fork {node.id!r} has no edge for {value!r}, and no default")
+        )
+    return found
