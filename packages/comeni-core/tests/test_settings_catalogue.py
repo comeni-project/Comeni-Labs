@@ -51,10 +51,12 @@ def test_building_sits_between_appearance_and_models():
     assert BUILDING.settings == (PACING, TIER4_ANSWERS)
 
 
-def test_pacing_says_designed_even_when_env_and_a_stored_value_are_set():
-    got = resolve(PACING, {"building.pacing": "together"}, {"COMENI_BUILD_PACING": "together"})
-    assert (got.value, got.source, got.locked) == ("ask", Source.DEFAULT, True)
-    assert isinstance(got.reason, Designed)
+def test_pacing_is_live_and_an_env_pin_wins_over_the_stored_value():
+    """14.7.8.3b: the Pacing fork reads it, so it is no longer designed."""
+    got = resolve(
+        PACING, {"building.pacing": "together"}, {"COMENI_BUILD_PACING": "stop_where_needed"}
+    )
+    assert (got.value, got.source, got.locked) == ("stop_where_needed", Source.ENVIRONMENT, True)
 
 
 def test_tier4_shows_todays_behaviour_designed():

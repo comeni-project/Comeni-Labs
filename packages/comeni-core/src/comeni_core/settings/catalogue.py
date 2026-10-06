@@ -2,8 +2,9 @@
 
 **Each section arrived with its consumer.** Appearance came first (the theme, read by
 `frontend/src/app/Shell.tsx`); Models and Privacy & data with 14.7.5.4, which made every model
-call read its purpose's model. Building arrived with 14.7.5.5, declared `Designed` until the
-consultant build (14.7.8) reads it; the read-only ones arrive in 14.7.5.6.
+call read its purpose's model. Building arrived with 14.7.5.5; Pacing is read by the consultant
+build's fork (14.7.8.3b), Tier-4 answers still designed; Developer (Dev mode) arrived with
+14.7.8.3b; the read-only ones arrive in 14.7.5.6.
 """
 
 from comeni_core.settings.declare import FROM_ENV, EnvItem, Setting, Where
@@ -30,8 +31,6 @@ APPEARANCE = Section(
     settings=(THEME,),
 )
 
-CONSULTANT = "arrives with the consultant build (14.7.8)"
-
 PACING = Setting.choice(
     key="building.pacing",
     label="Pacing",
@@ -46,7 +45,6 @@ PACING = Setting.choice(
     ],
     default="ask",
     env="COMENI_BUILD_PACING",
-    unavailable=Designed(where=CONSULTANT),
 )
 
 TIER4_ANSWERS = Setting.choice(
@@ -322,4 +320,24 @@ RUNNING = Section(
     settings=(EXECUTOR, CONTAINER_RUNTIME, LOST_AFTER, API_TOKEN, TELEMETRY),
 )
 
-CATALOGUE = Catalogue(sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RUNNING, REGISTRY, SYSTEM))
+DEV_MODE = Setting.toggle(
+    key="dev.mode",
+    label="Dev mode",
+    help=(
+        "Show registry gaps in the build — missing descriptions, settings with no list of "
+        "values, unverified contracts — as cards naming the file to fix."
+    ),
+    default=False,
+    env="COMENI_DEV_MODE",
+)
+DEVELOPER = Section(
+    key="dev",
+    title="Developer",
+    lede="For the people fixing the registry: what the build would otherwise route around.",
+    order=99,
+    settings=(DEV_MODE,),
+)
+
+CATALOGUE = Catalogue(
+    sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RUNNING, REGISTRY, SYSTEM, DEVELOPER)
+)

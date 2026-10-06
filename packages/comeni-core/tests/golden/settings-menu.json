@@ -87,11 +87,7 @@
             ],
             "minimum": null,
             "maximum": null,
-            "unavailable": {
-              "kind": "designed",
-              "where": "arrives with the consultant build (14.7.8)",
-              "says": "Designed, not built yet: arrives with the consultant build (14.7.8)."
-            },
+            "unavailable": null,
             "where": "installation",
             "fields": [],
             "item_name": "name",
@@ -102,12 +98,8 @@
           "shown": {
             "value": "ask",
             "source": "default",
-            "locked": true,
-            "reason": {
-              "kind": "designed",
-              "where": "arrives with the consultant build (14.7.8)",
-              "says": "Designed, not built yet: arrives with the consultant build (14.7.8)."
-            },
+            "locked": false,
+            "reason": null,
             "set": null,
             "last4": null
           }
@@ -902,6 +894,43 @@
               "why": "reported by the server; not changed here",
               "says": "Shown here, set elsewhere: reported by the server; not changed here."
             },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "dev",
+      "title": "Developer",
+      "lede": "For the people fixing the registry: what the build would otherwise route around.",
+      "order": 99,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "dev.mode",
+            "label": "Dev mode",
+            "help": "Show registry gaps in the build — missing descriptions, settings with no list of values, unverified contracts — as cards naming the file to fix.",
+            "kind": "toggle",
+            "default": false,
+            "env": "COMENI_DEV_MODE",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": false,
+            "source": "default",
+            "locked": false,
+            "reason": null,
             "set": null,
             "last4": null
           }
