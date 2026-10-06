@@ -53,7 +53,7 @@ describe("the two surfaces", () => {
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "conversation" })).toBeInTheDocument();
     expect(screen.getByTestId("living-header")).toHaveTextContent("rnaseq-counts");
-    expect(screen.getByTestId("mode")).toHaveTextContent("build");
+    expect(screen.queryByTestId("mode")).toBeNull();
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).toBeNull();
   });

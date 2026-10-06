@@ -6,7 +6,7 @@ from pathlib import Path
 
 import authoring_setup
 import pytest
-from mendel_api.authoring.types import Mode, Phase
+from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import session
@@ -31,7 +31,7 @@ def sid():
         db.add(PipelineDraft(id=draft_id, who="tester", name="d",
                              graph={"nodes": [], "edges": []}, updated_at=datetime.now(UTC),
                              goal=None, provenance={}, revision=0))
-    return facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "tester")).result
+    return facade.perform(commands.OpenSession(draft_id, "tester")).result
 
 
 def _n(id, phase, **kw):

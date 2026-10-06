@@ -5,7 +5,7 @@ from comeni_core.diagnostics import coded
 from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession
-from mendel_api.services import session, spawn
+from mendel_api.services import session
 from mendel_api.stages._rows import now as _now
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
@@ -68,7 +68,5 @@ def offer_next_gap(session_id: str) -> str | None:
     return session.pending_id(session_id) if ran.at in {"reply", "card"} else None
 
 
-def start_building(session_id: str, *, client=None) -> str | None:
-    if client is not None:  # Spawn's path, outside any transaction (ruling 3 of plan 1c)
-        return spawn.start(session_id, client=client)
+def start_building(session_id: str) -> str | None:
     return session.perform(c.StartBuilding(session_id)).result

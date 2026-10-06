@@ -6,9 +6,9 @@ dead-ends three steps later — and the browser knows where every node will fina
 of them appears. Build still presents one step at a time; keeping the blueprint private in the
 session is not the same as spawning it into the draft.
 
-**Nothing here asks a model to enumerate modules.** The resolver already did. A model is reached
-only through `ModelResolver`, only in Spawn, and only for a question the resolver itself declared
-tier 4 — so tiers 1 to 3 cost no call at all, which is the checkpoint this file is held to.
+**Nothing here asks a model.** The resolver enumerated the modules, and tier 4 is resolved with
+the flag: a person answers it in the walk (spec §13.1 of the consultant build). `ModelResolver`
+stays in `authoring/resolver.py`, unwired, for a later Tier-4 answers fork.
 
 **Alternatives are the resolver's, never a model's.** A step backed by a `ProducerDecision`
 offers that decision's own candidates; any other step offers what the candidate service ranks for
@@ -25,7 +25,6 @@ import hashlib
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_ai import Client
 from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.artifact.pipeline import Step
 from comeni_core.plan.decision import ProducerDecision
@@ -40,8 +39,7 @@ from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
 
-from mendel_api.authoring.resolver import Call, ModelResolver
-from mendel_api.authoring.types import Mode, Option, StepProposal
+from mendel_api.authoring.types import Option, StepProposal
 from mendel_api.settings import settings
 
 __all__ = [
@@ -77,28 +75,13 @@ def registry_digest(roots: Sequence[Path]) -> str:
     return "sha256:" + hashlib.sha256("\n".join(digests).encode()).hexdigest()
 
 
-def resolve(
-    goal: Goal,
-    *,
-    mode: Mode,
-    client: Client | None = None,
-    roots: Sequence[Path] | None = None,
-) -> tuple[Blueprint, list[Call]]:
-    """Resolve `goal` once, under `mode`'s policy, and fix the reveal order.
-
-    **Build resolves tier 4 with the flag and Spawn with the model** — §1.2, and the only place
-    the two modes differ in this file. Spawn with no configured model resolves exactly as Build
-    does: the questions stay open, visibly, rather than the session failing or anything being
-    guessed. The returned calls are what the caller writes to `ai_invocation`; this function
-    writes nothing.
-    """
+def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Blueprint, list]:
+    """Resolve `goal` once and fix the reveal order. **Tier 4 is resolved with the flag**: the
+    questions stay open, visibly, for a person in the walk; nothing is guessed. The second value
+    is the model calls made, always none now, kept so a later Tier-4 answers fork can return
+    them for `ai_invocation`."""
     stack = list(roots or [settings.registry_root])
-    adapter = ModelResolver(client) if mode is Mode.SPAWN and client is not None else None
-    built = orchestrate.build(
-        goal,
-        registry_roots=stack,
-        resolver=adapter if adapter is not None else FlagOnlyResolver(),
-    )
+    built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver())
     placed = layout.of(built.ir)
     order = [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))]
     blueprint = Blueprint(
@@ -107,7 +90,7 @@ def resolve(
         placed={node.id: (node.x, node.y) for node in placed.nodes},
         pipeline=built.pipeline,
     )
-    return blueprint, list(adapter.calls) if adapter is not None else []
+    return blueprint, []
 
 
 # ── proposals ─────────────────────────────────────────────────────────────────────────────

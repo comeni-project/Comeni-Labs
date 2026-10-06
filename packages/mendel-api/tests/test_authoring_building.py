@@ -15,7 +15,7 @@ from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.plan.tiers import ValueSource
 from mendel_api.authoring.resolver import Call
-from mendel_api.authoring.types import Mode, Phase, ProposalState
+from mendel_api.authoring.types import Phase, ProposalState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     AiInvocation,
@@ -67,10 +67,10 @@ def _goal() -> Goal:
     return Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
 
 
-def _resolving(mode: Mode = Mode.BUILD) -> str:
+def _resolving() -> str:
     """A session whose goal has been confirmed, sitting in `resolving`."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = facade.perform(commands.OpenSession(draft_id, mode.value, "ana")).result
+    session_id = facade.perform(commands.OpenSession(draft_id, "ana")).result
     authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     authoring_setup.move(
@@ -124,7 +124,7 @@ def test_building_stores_the_blueprint_and_offers_its_first_step(clean):
 
 def test_building_cannot_start_from_any_phase_but_resolving(clean):
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
+    session_id = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with pytest.raises(ValueError, match="MI0200"):
         authoring_setup.start_building(session_id)
 
@@ -135,7 +135,7 @@ def test_a_goal_missing_an_input_fails_into_the_log_with_its_code(clean):
     422 to a toast, written nowhere, with the session in `failed` and no way to read why after a
     reload. A resolver refusal is a fact about the goal, so it belongs in the conversation."""
     draft_id = drafts.create(DraftGraph(), "rnaseq", "ana")
-    session_id = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
+    session_id = facade.perform(commands.OpenSession(draft_id, "ana")).result
     authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
     only_reads = Goal.model_validate(

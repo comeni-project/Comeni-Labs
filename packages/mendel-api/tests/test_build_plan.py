@@ -7,7 +7,6 @@ blueprint that already carries `unknown`; only this one proves the resolver writ
 from pathlib import Path
 
 from comeni_core import yaml_strict
-from mendel_api.authoring.types import Mode
 from mendel_api.services import blueprint as bp
 from mendel_api.services import declared, registry
 from mendel_authoring.needs import NeedKind
@@ -26,7 +25,7 @@ def _rnaseq(**profile_without) -> Goal:
 
 
 def _aligner(goal: Goal):
-    blueprint, _ = bp.resolve(goal, mode=Mode.BUILD)
+    blueprint, _ = bp.resolve(goal)
     plan = plan_of(blueprint, declared.of(registry.stack()))
     assert plan.steps, "the resolver built nothing: the test reads the wrong goal"
     return next(step for step in plan.steps if step.contract == STAR)

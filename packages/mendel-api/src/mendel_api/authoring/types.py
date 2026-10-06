@@ -54,20 +54,6 @@ egress guard's allowlist meaningless by flooding it.
 """
 
 
-class Mode(StrEnum):
-    """How much the person is asked.
-
-    **Two policies over one engine**, which is §1.2 and the reason this is an enum rather than
-    two services. Spawn is not "Build with the questions skipped by a different code path" — it
-    is the same proposal stream with every safe proposal auto-accepted and the declared tier-4
-    resolver answering what remains. If the two ever need different engines, that is a design
-    change and this enum is where it surfaces.
-    """
-
-    BUILD = "build"
-    SPAWN = "spawn"
-
-
 class TurnState(StrEnum):
     """Whether an assistant turn has landed.
 

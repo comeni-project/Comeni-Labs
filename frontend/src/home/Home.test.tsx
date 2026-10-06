@@ -180,7 +180,7 @@ describe("the front door", () => {
     expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0);
     fireEvent.change(within(form).getByRole("textbox"), { target: { value: "  variants from WGS " } });
     fireEvent.click(within(form).getByRole("button", { name: "Start" }));
-    await waitFor(() => expect(begin).toHaveBeenCalledWith({ prompt: "variants from WGS", mode: "build" }));
+    await waitFor(() => expect(begin).toHaveBeenCalledWith({ prompt: "variants from WGS" }));
   });
 
   it("offers no conversation on home without a model, and still the canvas", async () => {

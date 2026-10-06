@@ -40,8 +40,8 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **The diagram runs the engine** (14.7.8.1): protocol, interpreter and typed commands are the
   pure `mendel-authoring`; a session stores its node (`at`) and moves only by a drawn arrow. Each
   action is one command through `mendel_api/services/session.py`, in **one transaction**, jobs
-  queued after the commit; one module per stage (`mendel_api/stages/`); Spawn waits in
-  `mendel_api/services/spawn.py` for part 3 to delete it. (2026-10-05)
+  queued after the commit; one module per stage (`mendel_api/stages/`). Build/Spawn and `Mode`
+  are retired: one build, tier 4 always stops (14.7.8.3b). (2026-10-05, 2026-10-06)
 - **Protection level 0** (everything open) is the MVP; invariant 15 does not hold at level 0 and
   characterisation is a fourth AI point, both recorded loosenings. (2026-09-28, 2026-10-04)
 - **The want is two calls:** `builder.family.v3` answers `fits` first, then `builder.goal.v7`

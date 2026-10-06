@@ -18,7 +18,6 @@ _NONE: frozenset[Command] = frozenset()
 @dataclass(frozen=True, slots=True)
 class OpenSession:
     draft_id: str
-    mode: str
     who: str
     takes: ClassVar[frozenset[Command]] = _NONE
 
@@ -26,7 +25,6 @@ class OpenSession:
 @dataclass(frozen=True, slots=True)
 class Begin:
     prompt: str
-    mode: str
     who: str
     takes: ClassVar[frozenset[Command]] = frozenset({Command.DESCRIBE})
 

@@ -10,7 +10,7 @@ import { Assistant } from "./Rail";
  *
  * **It is the only way into a living session on an installation that has any pipeline**: `Home`
  * draws the first-run prompt only while the lab has none, and *New pipeline* opens this builder.
- * So the tab stops promising the door and becomes it — the same sentence and mode `First` sends,
+ * So the tab stops promising the door and becomes it — the same sentence `First` sends,
  * to the same verb.
  */
 
@@ -47,7 +47,7 @@ describe("the Assistant tab", () => {
     expect(screen.getByTestId("ask").textContent).not.toMatch(/not wired yet/i);
   });
 
-  it("starts a Build session from the rail and opens it", async () => {
+  it("starts a session from the rail and opens it", async () => {
     const { router, begin } = rail(true);
     const input = await screen.findByRole("textbox", { name: /what do you want to make/i });
     await waitFor(() => expect(input).toBeEnabled());
@@ -56,17 +56,7 @@ describe("the Assistant tab", () => {
     fireEvent.click(screen.getByTestId("ask-start"));
 
     await waitFor(() => expect(router.state.location.search).toBe("?session=s42"));
-    expect(begin).toHaveBeenCalledWith({ prompt: "gene counts from paired-end RNA-seq", mode: "build" });
-  });
-
-  it("sends Spawn when Spawn is chosen", async () => {
-    const { begin } = rail(true);
-    const input = await screen.findByRole("textbox", { name: /what do you want to make/i });
-    await waitFor(() => expect(input).toBeEnabled());
-    fireEvent.click(screen.getByRole("radio", { name: /spawn/i }));
-    fireEvent.change(input, { target: { value: "count genes" } });
-    fireEvent.click(screen.getByTestId("ask-start"));
-    await waitFor(() => expect(begin).toHaveBeenCalledWith({ prompt: "count genes", mode: "spawn" }));
+    expect(begin).toHaveBeenCalledWith({ prompt: "gene counts from paired-end RNA-seq" });
   });
 
   it("says plainly when no model is configured, and offers nothing that would start", async () => {

@@ -3,8 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 
 import { get } from "../api/client";
-import type { AiHealth, BeginAuthoring } from "../api/types";
-import { MODES } from "../home/modes";
+import type { AiHealth } from "../api/types";
 import { useBegin } from "../home/useBegin";
 import type { Answered, AnsweredStep } from "./useBuilder";
 import { open as isOpen } from "./useBuilder";
@@ -103,14 +102,13 @@ export function StepChoice({
  * is **the only way into a living session once a lab has any pipeline**: `Home` draws the
  * first-run prompt only while there are none, and *New pipeline* opens this builder.
  *
- * So it sends exactly what `First` sends — a sentence and a mode, nothing that could carry a
+ * So it sends exactly what `First` sends — a sentence, nothing that could carry a
  * filename — and opens the session it started. What the model writes is still a goal the person
  * confirms before anything is built; that seam now lives on the goal card in the conversation.
  */
 export function Assistant() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
-  const [mode, setMode] = useState<BeginAuthoring["mode"]>("build");
   const health = useQuery({
     queryKey: ["health", "ai"],
     queryFn: () => get<AiHealth>("/health/ai"),
@@ -126,7 +124,7 @@ export function Assistant() {
         aria-label="describe an analysis"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready) begin.mutate({ prompt: prompt.trim(), mode });
+          if (ready) begin.mutate({ prompt: prompt.trim() });
         }}
         className="flex flex-col gap-3"
       >
@@ -145,25 +143,6 @@ export function Assistant() {
                      disabled:cursor-not-allowed placeholder:text-[color:var(--ink-4)]"
           style={{ borderColor: "var(--link-line)" }}
         />
-        {live && (
-          <div role="radiogroup" aria-label="how to build it" className="flex flex-col gap-1.5">
-            {MODES.map((option) => (
-              <button
-                key={option.mode}
-                type="button"
-                role="radio"
-                aria-checked={mode === option.mode}
-                onClick={() => setMode(option.mode)}
-                className="text-left px-2.5 py-2 border bg-transparent cursor-pointer lift
-                           focus-visible:shadow-[var(--ring)]"
-                style={{ borderColor: mode === option.mode ? "var(--link-line)" : "var(--line)" }}
-              >
-                <span className="block text-body text-ink">{option.title}</span>
-                <span className="block text-secondary text-ink-3">{option.short}</span>
-              </button>
-            ))}
-          </div>
-        )}
         {live ? (
           <button
             type="submit"

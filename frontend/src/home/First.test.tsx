@@ -59,7 +59,7 @@ describe("with no model configured", () => {
 });
 
 describe("with a model configured", () => {
-  it("starts a Build session from the sentence and opens it", async () => {
+  it("starts a session from the sentence and opens it", async () => {
     const { router, begin } = first(true);
     const input = await screen.findByRole("textbox", { name: /what do you want to make/i });
     await waitFor(() => expect(input).toBeEnabled());
@@ -69,23 +69,20 @@ describe("with a model configured", () => {
     fireEvent.click(screen.getByTestId("start-building"));
 
     await waitFor(() => expect(router.state.location.search).toBe("?session=s42"));
-    expect(begin).toHaveBeenCalledWith({ prompt: "gene counts from paired-end RNA-seq", mode: "build" });
+    expect(begin).toHaveBeenCalledWith({ prompt: "gene counts from paired-end RNA-seq" });
   });
 
-  it("sends the mode it was given, and nothing but the sentence beside it", async () => {
+  it("sends the sentence and nothing beside it — no mode to choose", async () => {
     const { begin } = first(true);
     const input = await screen.findByRole("textbox", { name: /what do you want to make/i });
     await waitFor(() => expect(input).toBeEnabled());
 
-    fireEvent.click(screen.getByTestId("mode-spawn"));
-    expect(screen.getByTestId("mode-spawn")).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByTestId("mode-build")).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("radiogroup", { name: "how to build it" })).toBeNull();
     fireEvent.change(input, { target: { value: "  count genes  " } });
     fireEvent.submit(screen.getByRole("form", { name: "describe an analysis" }));
 
     await waitFor(() => expect(begin).toHaveBeenCalledOnce());
-    expect(Object.keys(begin.mock.calls[0][0]).sort()).toEqual(["mode", "prompt"]);
-    expect(begin.mock.calls[0][0]).toEqual({ prompt: "count genes", mode: "spawn" });
+    expect(begin.mock.calls[0][0]).toEqual({ prompt: "count genes" });
   });
 
   it("will not start from a blank sentence", async () => {

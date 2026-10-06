@@ -142,7 +142,7 @@ export function useFirstArrival(sessionId: string, session: AuthoringSession | n
     : [];
 
   if (plan.current === null && session !== null) {
-    const seen = session.mode === "spawn" ? (lastSeen(sessionId) ?? 0) : accepted.length;
+    const seen = lastSeen(sessionId) ?? 0;
     const fresh = accepted
       .slice(seen)
       .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""))

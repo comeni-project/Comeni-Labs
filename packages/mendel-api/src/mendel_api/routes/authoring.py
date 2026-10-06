@@ -32,7 +32,6 @@ from mendel_api import identity
 from mendel_api.authoring.types import (
     Block,
     Fact,
-    Mode,
     Phase,
     ProposalState,
     Prose,
@@ -41,7 +40,7 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
-from mendel_api.services import authoring_jobs, drafts, session, spawn
+from mendel_api.services import drafts, session
 from mendel_api.settings import model_access
 from mendel_api.stages import gathering, goal
 
@@ -54,9 +53,10 @@ _FROZEN = ConfigDict(extra="forbid", frozen=True)
 
 
 class BeginAuthoring(BaseModel):
-    """What somebody wants, in their own words, and how much they want to be asked.
+    """What somebody wants, in their own words.
 
-    **Prose and a mode, and nothing else.** No name, no path, no registry, no model id — a body
+    **Prose, and nothing else.** No mode (Build and Spawn are retired, spec §13.1), no name,
+    no path, no registry, no model id — a body
     that accepted a model id would let a browser choose what a provider is sent to, and that is
     the operator's decision, made in the environment.
     """
@@ -64,7 +64,6 @@ class BeginAuthoring(BaseModel):
     model_config = _FROZEN
 
     prompt: Prose = Field(min_length=1)
-    mode: Mode = Mode.BUILD
 
 
 class SayToAuthoring(BaseModel):
@@ -190,7 +189,6 @@ class AuthoringSessionView(BaseModel):
     id: str
     draft_id: str
     name: str
-    mode: Mode
     phase: Phase
     failed_from: Phase | None
     goal: Goal | None
@@ -208,7 +206,7 @@ class AuthoringSessionView(BaseModel):
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
-    Build and Spawn need one, and why, rather than spinning on a turn nobody will answer."""
+    the builder needs one, and why, rather than spinning on a turn nobody will answer."""
     turns: list[AuthoringTurnView]
     history: list[AuthoringDecisionView] = []
     """Every answered proposal, oldest first — the pipeline's provenance, made navigable."""
@@ -239,8 +237,8 @@ class AuthoringDecided(BaseModel):
     revision: int
     next_proposal: str | None
     queued: bool
-    """Whether a Spawn blueprint was handed to the AI worker. Always `False` for Build, which
-    resolves inline and has its first step waiting in `next_proposal`."""
+    """Always `False` now: a blueprint is resolved inline, its first stop waiting in
+    `next_proposal`. Kept for the client until the response is next reshaped."""
 
 
 class AuthoringRetried(BaseModel):
@@ -317,7 +315,7 @@ class AuthoringPreview(BaseModel):
 async def begin(body: BeginAuthoring) -> AuthoringStarted:
     """An empty draft, a session, the first turn, and one queued model call — the pending reply
     is visible in the response, so the page never shows a blank while the worker starts."""
-    done = await session.act(c.Begin(body.prompt, body.mode.value, identity.default_author()))
+    done = await session.act(c.Begin(body.prompt, identity.default_author()))
     session_id, _ = done.result
     return AuthoringStarted(session=_view(session_id), queued=all(done.queued))
 
@@ -401,18 +399,6 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
         # queued them, after the commit. A button click is not put behind a model.
         await session.act(c.AnswerGap(proposal_id, body.option, body.value, who))
         after = _view(session_id)
-        card = after.pending_proposal
-        if after.mode is Mode.SPAWN and card is not None and card.kind == goal.GOAL:
-            # **Spawn shows the goal and proceeds** (§1.2), as it did before gathering: every
-            # fact in it came from the person a moment ago, so the policy confirms the card and
-            # the blueprint is built on the AI queue.
-            done = await session.act(
-                c.DecideGoal(card.id, ProposalState.ACCEPTED.value, after.revision, "model")
-            )
-            outcome, phase = done.result
-            if outcome.refusal is not None:
-                raise ValueError(outcome.refusal)
-            return await _after_goal(session_id, phase)
         return AuthoringDecided(
             phase=after.phase,
             revision=after.revision,
@@ -442,17 +428,6 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     ).result
     if stepped.settlement.refusal is not None:
         raise ValueError(stepped.settlement.refusal)
-    if _view(session_id).mode is Mode.SPAWN:
-        # A person answered the card Spawn stopped on; the policy carries on from there. Every
-        # step it takes is settled — no model call — so it runs in the request.
-        spawn.spawn_forward(session_id)
-        after = _view(session_id)
-        return AuthoringDecided(
-            phase=after.phase,
-            revision=after.revision,
-            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
-            queued=False,
-        )
     return AuthoringDecided(
         phase=stepped.phase,
         revision=stepped.revision,
@@ -502,11 +477,11 @@ def preview(session_id: str) -> AuthoringPreview:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
-        draft_id, mode = row.draft_id, Mode(row.mode)
+        draft_id = row.draft_id
         stored = db.get(PipelineDraft, draft_id)
         provenance = DraftProvenance.model_validate(stored.provenance or {})
         read_by_ai = session.characterised(row.facts)
-    shown = drafts.preview(draft_id, ai=_ai_for(mode, provenance, characterised=read_by_ai))
+    shown = drafts.preview(draft_id, ai=_ai_for(provenance, characterised=read_by_ai))
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
     )
@@ -516,16 +491,11 @@ def preview(session_id: str) -> AuthoringPreview:
 
 
 async def _after_goal(session_id: str, phase: Phase) -> AuthoringDecided:
-    """A confirmed goal starts the blueprint: inline for Build, on the AI queue for Spawn."""
+    """A confirmed goal starts the blueprint, inline: resolving it calls no model."""
     view = _view(session_id)
     if phase is not Phase.RESOLVING:
         return AuthoringDecided(
             phase=phase, revision=view.revision, next_proposal=None, queued=False
-        )
-    if view.mode is Mode.SPAWN:
-        queued = await authoring_jobs.enqueue_build(session_id, view.row_version)
-        return AuthoringDecided(
-            phase=phase, revision=view.revision, next_proposal=None, queued=queued
         )
     try:
         first = (await session.act(c.StartBuilding(session_id))).result
@@ -559,7 +529,6 @@ def _view(session_id: str) -> AuthoringSessionView:
         id=picture["id"],
         draft_id=picture["draft_id"],
         name=picture["name"],
-        mode=Mode(picture["mode"]),
         phase=Phase(picture["phase"]),
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=gathering.as_goal(picture["goal"]),
@@ -599,11 +568,8 @@ def _view(session_id: str) -> AuthoringSessionView:
     )
 
 
-def _ai_for(
-    mode: Mode, provenance: DraftProvenance, *, characterised: bool = False
-) -> AiProvenance:
-    """`session.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
-    del mode
+def _ai_for(provenance: DraftProvenance, *, characterised: bool = False) -> AiProvenance:
+    """`session.ai_for`, kept under this name for its Task 12 test."""
     return session.ai_for(provenance, characterised=characterised)
 
 

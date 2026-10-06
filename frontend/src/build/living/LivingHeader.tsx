@@ -41,13 +41,6 @@ export function LivingHeader({
       <h1 className="m-0 text-title font-semibold tracking-[-.03em] text-ink">
         {session.name || "Untitled analysis"}
       </h1>
-      <span
-        data-testid="mode"
-        className="font-data text-[9.5px] tracking-[.12em] uppercase text-ink-2 px-2 py-[3px] border"
-        style={{ borderColor: "var(--line-2)" }}
-      >
-        {session.mode}
-      </span>
       <span className="font-data text-[11px] text-ink-3" data-testid="living-status">
         <span style={{ color: waiting ? "var(--measured)" : undefined }}>{phaseWords(session)}</span>
         {progress && <> · {progress}</>}

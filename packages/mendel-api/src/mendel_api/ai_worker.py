@@ -62,10 +62,9 @@ class AIWorkerSettings:
     functions = [
         forge_jobs.generate_forge_revision,
         forge_jobs.answer_forge_review_message,
-        # The builder's two model calls. Answering a turn crosses door 1; resolving a Spawn
-        # blueprint may cross door 2. Accepting a step is neither and is not on this list.
+        # The builder's model calls. Answering a turn crosses door 1. Resolving a blueprint and
+        # accepting a step make none and are not on this list.
         authoring_jobs.answer_authoring_turn,
-        authoring_jobs.build_authoring_blueprint,
         authoring_jobs.phrase_authoring_gap,
         authoring_jobs.read_back_authoring_goal,
         # The characteriser (14.7.7) crosses door 6 carrying part of a person's file. **It keeps

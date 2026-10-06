@@ -1707,7 +1707,6 @@ export interface components {
             draft_id: string;
             /** Name */
             name: string;
-            mode: components["schemas"]["Mode"];
             phase: components["schemas"]["Phase"];
             failed_from: components["schemas"]["Phase"] | null;
             goal: components["schemas"]["Goal-Output"] | null;
@@ -1839,17 +1838,16 @@ export interface components {
         Band: "drift" | "routing" | "cosmetic" | "prose" | "blocked";
         /**
          * BeginAuthoring
-         * @description What somebody wants, in their own words, and how much they want to be asked.
+         * @description What somebody wants, in their own words.
          *
-         *     **Prose and a mode, and nothing else.** No name, no path, no registry, no model id — a body
+         *     **Prose, and nothing else.** No mode (Build and Spawn are retired, spec §13.1), no name,
+         *     no path, no registry, no model id — a body
          *     that accepted a model id would let a browser choose what a provider is sent to, and that is
          *     the operator's decision, made in the environment.
          */
         BeginAuthoring: {
             /** Prompt */
             prompt: string;
-            /** @default build */
-            mode: components["schemas"]["Mode"];
         };
         /** Board */
         Board: {
@@ -3290,18 +3288,6 @@ export interface components {
          * @enum {string}
          */
         MessageState: "pending" | "answered" | "failed";
-        /**
-         * Mode
-         * @description How much the person is asked.
-         *
-         *     **Two policies over one engine**, which is §1.2 and the reason this is an enum rather than
-         *     two services. Spawn is not "Build with the questions skipped by a different code path" — it
-         *     is the same proposal stream with every safe proposal auto-accepted and the declared tier-4
-         *     resolver answering what remains. If the two ever need different engines, that is a design
-         *     change and this enum is where it surfaces.
-         * @enum {string}
-         */
-        Mode: "build" | "spawn";
         /** ModulePage */
         ModulePage: {
             /** Id */

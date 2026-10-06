@@ -1,7 +1,6 @@
 """④ Your consultant builds it with you (14.7.8.1; plan 1c). **What part 3 keeps**: resolving
 the blueprint, offering a step, committing one, re-resolving when the registry moved, and the
-canvas's own edits, as small functions part 3 calls. Part 3 replaces this stage's handlers;
-Spawn lives in a service of its own until then."""
+canvas's own edits, as small functions part 3 calls. Part 3 replaces this stage's handlers."""
 
 import logging
 from typing import NamedTuple
@@ -15,7 +14,7 @@ from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
 from sqlalchemy import select
 
-from mendel_api.authoring.types import Mode, Phase, ProposalState, TurnState
+from mendel_api.authoring.types import Phase, ProposalState, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     PipelineAuthoringProposal,
@@ -91,10 +90,9 @@ def resolve_blueprint(session_id: str, *, client=None) -> str:
 
     **Through the facade (Build) the resolver runs inside the action's transaction**: it is
     computation, and a failure between resolving and storing leaves nothing half-written (spec
-    §11.2 of the consultant build). Spawn calls it outside any transaction, because its resolver
-    may reach a model, and a row lock held across a model call is held for as long as a provider
-    feels like. The session's `row_version` is read first and compared when the blueprint is
-    written, so a session that moved while the resolver ran is refused rather than overwritten.
+    §11.2 of the consultant build). The session's `row_version` is read first and compared when
+    the blueprint is written, so a session that moved while the resolver ran is refused rather
+    than overwritten.
     """
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
@@ -106,11 +104,10 @@ def resolve_blueprint(session_id: str, *, client=None) -> str:
                 + "\n  accept a goal first; a blueprint resolved from nothing is not a pipeline"
             )
         goal = Goal.model_validate(row.goal)
-        mode = Mode(row.mode)
         version = row.row_version
 
     try:
-        blueprint, calls = bp.resolve(goal, mode=mode, client=client)
+        blueprint, calls = bp.resolve(goal)
     except UnroutableError as unroutable:
         # **A fact about the goal, so it goes in the conversation** (#115). Raised, it reached a
         # person as a toast and nowhere else, and a reload lost the reason entirely.
@@ -199,12 +196,12 @@ def commit_step(db, proposal, draft, blueprint, node, *, option, by, registry) -
 
 
 def reresolve(
-    session_id: str, *, node, accepted, was, goal, mode, version, revision, client=None
+    session_id: str, *, node, accepted, was, goal, version, revision, client=None
 ) -> StepOutcome:
     """The registry moved under a step (MI0206): resolve again, and offer the same step, or the
     next one the draft does not hold. Nothing about the draft changes."""
     contracts = registry.stack().registry
-    fresh, calls = bp.resolve(goal, mode=mode, client=client)
+    fresh, calls = bp.resolve(goal)
     if calls and client is not None:
         authoring_ai.record_calls(
             calls, client=client, registry=fresh.registry, session_id=session_id
@@ -282,7 +279,6 @@ def settle(
                 accepted={n.id for n in DraftGraph.model_validate(draft.graph).nodes},
                 was=session_row.registry_digest,
                 goal=Goal.model_validate(session_row.goal),
-                mode=Mode(session_row.mode),
                 version=session_row.row_version,
                 revision=draft.revision,
             )
@@ -520,7 +516,7 @@ def _edit(ctx: Ctx, cmd: c.RecordEdit) -> tuple[int, str | None]:
 @handles("resolve")
 def resolve(ctx: Ctx) -> str | None:
     """**A command arriving rests here; resuming resolves** (ruling 9 of 14.7.8.1b). Build
-    resumes in the same action (`start`), Spawn in its build job."""
+    resumes in the same action (`start`)."""
     if ctx.command is not None:
         return None
     try:

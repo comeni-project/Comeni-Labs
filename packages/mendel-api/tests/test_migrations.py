@@ -168,3 +168,8 @@ def test_no_foreign_key_cascades(ddl):
 def test_stored_blueprints_lose_their_mode(ddl):
     """14.7.8.2: `Blueprint` has no `mode`, so a stored one holding it would fail to load."""
     assert "blueprint::jsonb - 'mode'" in ddl
+
+
+def test_the_session_row_loses_mode_and_gains_pacing(ddl):
+    assert "ALTER TABLE pipeline_authoring_session DROP COLUMN mode" in ddl
+    assert "pacing" in _added(ddl, "pipeline_authoring_session")

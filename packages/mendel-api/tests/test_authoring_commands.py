@@ -25,14 +25,14 @@ def _at(sid):
 
 
 def test_beginning_queues_the_reading_of_what_you_said_after_the_commit():
-    done = session.perform(c.Begin("gene counts from paired reads", "build", "t"))
+    done = session.perform(c.Begin("gene counts from paired reads", "t"))
     sid, seq = done.result
     assert _at(sid)[0] == "family"
     assert [j.job_id for j in done.jobs] == [_jobs.turn(sid, seq).job_id]
 
 
 def test_a_chat_turn_queues_its_answer_and_moves_nothing():
-    sid, _ = session.perform(c.Begin("x", "build", "t")).result
+    sid, _ = session.perform(c.Begin("x", "t")).result
     before = _at(sid)
     done = session.perform(c.Say(sid, "and another thing"))
     assert _at(sid) == before
@@ -40,7 +40,7 @@ def test_a_chat_turn_queues_its_answer_and_moves_nothing():
 
 
 def test_retry_into_understanding_writes_a_turn_and_queues_it():
-    sid, _ = session.perform(c.Begin("x", "build", "t")).result
+    sid, _ = session.perform(c.Begin("x", "t")).result
     session.perform(c.ProviderFailed(sid))
     done = session.perform(c.Retry(sid))
     phase, seq = done.result
@@ -50,7 +50,7 @@ def test_retry_into_understanding_writes_a_turn_and_queues_it():
 
 def test_a_late_reading_is_refused_and_writes_nothing():
     """Spec §8: the model's reading for a session that moved on is ignored."""
-    sid, _ = session.perform(c.Begin("x", "build", "t")).result
+    sid, _ = session.perform(c.Begin("x", "t")).result
     session.perform(c.ProviderFailed(sid))
     before = _at(sid)
     with pytest.raises(Refused):
@@ -62,7 +62,7 @@ def _gathering(monkeypatch, configured=True):
     from mendel_api.stages import gathering
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: configured)
-    sid, _ = session.perform(c.Begin("gene counts", "build", "t")).result
+    sid, _ = session.perform(c.Begin("gene counts", "t")).result
     done = session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
     return sid, done
 
@@ -133,7 +133,7 @@ def _to_card(monkeypatch):
     from mendel_api.stages import gathering
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: True)
-    sid, _ = session.perform(c.Begin("gene counts", "build", "t")).result
+    sid, _ = session.perform(c.Begin("gene counts", "t")).result
     session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
     done = None
     while (pending := session.read(sid)["pending_proposal"])["kind"] == "gap":
@@ -217,7 +217,7 @@ def _confirmed(monkeypatch):
     from mendel_api.stages import gathering
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: False)
-    sid, _ = session.perform(c.Begin("gene counts", "build", "t")).result
+    sid, _ = session.perform(c.Begin("gene counts", "t")).result
     session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
     while (pending := session.read(sid)["pending_proposal"])["kind"] == "gap":
         options = pending["payload"]["options"]

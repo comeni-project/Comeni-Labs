@@ -15,13 +15,11 @@ the resolver produced. Every smaller test passes on a commit that quietly drops 
 from pathlib import Path
 
 import pytest
-from comeni_ai import Client, ModelAccess, ModelUnavailableError
 from comeni_core import yaml_strict
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.decision import ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.plan.tiers import Tier, ValueSource
-from mendel_api.authoring.types import Mode
 from mendel_api.services import blueprint as bp
 from mendel_api.services import registry
 from mendel_resolver.goal import Goal
@@ -53,7 +51,7 @@ def _gathered() -> Goal:
 
 @pytest.fixture(scope="module")
 def spine() -> bp.Blueprint:
-    return bp.resolve(_rnaseq(), mode=Mode.BUILD)[0]
+    return bp.resolve(_rnaseq())[0]
 
 
 @pytest.fixture(scope="module")
@@ -68,7 +66,7 @@ def test_a_one_step_pipeline_is_one_proposal_with_nothing_else_to_choose(contrac
     """**Also a regression.** MultiQC produces `qc.report` and consumes it, and the first run of
     this test offered it as FastQC's alternative — the same self-loop as the sorter, in a shape
     that had no consuming step to exclude, which is why the rule became one about types."""
-    blueprint, _ = bp.resolve(_one_step(), mode=Mode.BUILD)
+    blueprint, _ = bp.resolve(_one_step())
     assert blueprint.order == ["fastqc"]
 
     offered = bp.proposal(blueprint, "fastqc", registry=contracts)
@@ -92,7 +90,7 @@ def test_the_rnaseq_spine_is_revealed_in_layout_order(spine):
 def test_a_per_item_flow_and_a_gatherer_keep_their_cardinality(contracts):
     """N→N and N→1. FastQC runs once per item and MultiQC once for all of them, and the
     blueprint has to carry that so the canvas can draw `×N` into one node rather than N wires."""
-    blueprint, _ = bp.resolve(_gathered(), mode=Mode.BUILD)
+    blueprint, _ = bp.resolve(_gathered())
     assert blueprint.order == ["fastqc", "multiqc"]
 
     per_item = blueprint.step("fastqc").inputs[0]
@@ -103,8 +101,8 @@ def test_a_per_item_flow_and_a_gatherer_keep_their_cardinality(contracts):
 
 def test_the_same_goal_and_registry_and_policy_give_the_same_blueprint():
     """The checkpoint, stated as bytes rather than as a similar-looking object."""
-    first, _ = bp.resolve(_rnaseq(), mode=Mode.BUILD)
-    second, _ = bp.resolve(_rnaseq(), mode=Mode.BUILD)
+    first, _ = bp.resolve(_rnaseq())
+    second, _ = bp.resolve(_rnaseq())
     assert first.model_dump_json() == second.model_dump_json()
 
 
@@ -112,43 +110,6 @@ def test_a_blueprint_survives_being_stored_and_read_back(spine):
     """It lives in a JSON column. `admit()` dropping fields and a record that did not survive a
     read-back are both on this project's list of defects found by running rather than testing."""
     assert bp.Blueprint.model_validate_json(spine.model_dump_json()) == spine
-
-
-# ── the model is reached only for tier 4 ──────────────────────────────────────────────────
-
-
-class Refusing:
-    def __init__(self) -> None:
-        self.sent: list[str] = []
-
-    def send(self, access, prompt: str) -> str:
-        self.sent.append(prompt)
-        raise ModelUnavailableError("MA0007: fake/test: connection refused")
-
-
-def test_spawn_calls_no_model_for_anything_the_resolver_settled():
-    """**The checkpoint's second sentence.** The spine has one tier-4 question, and its only
-    candidate is null — so nothing is put to the model, and the transport is never touched. A
-    per-module call would show up as a prompt in `sent`."""
-    transport = Refusing()
-    spawned, calls = bp.resolve(
-        _rnaseq(), mode=Mode.SPAWN, client=Client(ModelAccess(model="fake/test"), transport)
-    )
-    built, _ = bp.resolve(_rnaseq(), mode=Mode.BUILD)
-
-    assert transport.sent == []
-    assert calls == []
-    assert spawned.pipeline.model_dump_json() == built.pipeline.model_dump_json()
-
-
-def test_spawn_with_no_configured_model_resolves_exactly_as_build_does():
-    """*Also wait; never fabricate.* No model is not an error and not a guess — the questions
-    stay open, the same way Build leaves them."""
-    spawned, calls = bp.resolve(_rnaseq(), mode=Mode.SPAWN, client=None)
-    built, _ = bp.resolve(_rnaseq(), mode=Mode.BUILD)
-
-    assert calls == []
-    assert spawned.pipeline == built.pipeline
 
 
 # ── alternatives ──────────────────────────────────────────────────────────────────────────

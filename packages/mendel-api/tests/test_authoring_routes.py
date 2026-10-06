@@ -5,7 +5,7 @@ queued job, reload immediately and see it pending, run the job, reload, and see 
 assistant blocks exactly once — then deliver the job a second time and see nothing change, not
 even a second model call.
 
-The queue is replaced at `session._enqueue` (Spawn's build at `authoring_jobs.enqueue_build`)
+The queue is replaced at `session._enqueue`
 and the model at `authoring_jobs._client`, the seams those modules name for it. Redis and a
 provider are not what this file is about; `test_forge_jobs.py` covers the queue and
 `test_authoring_ai.py` covers the calls.
@@ -73,12 +73,7 @@ def queue(monkeypatch):
             queued.append(("turn", *job.args))
         return True
 
-    async def build(session_id, row_version):
-        queued.append(("build", session_id, row_version))
-        return True
-
     monkeypatch.setattr(session_service, "_enqueue", enqueue)
-    monkeypatch.setattr(authoring_jobs, "enqueue_build", build)
     return queued
 
 
@@ -127,10 +122,10 @@ def _run(session_id: str, seq: int) -> str:
     return asyncio.run(authoring_jobs.answer_authoring_turn({}, session_id, seq))
 
 
-def _begin(client, queue, mode: str = "build") -> tuple[str, int]:
+def _begin(client, queue) -> tuple[str, int]:
     response = client.post(
         "/api/pipeline/authoring",
-        json={"prompt": "I have RNA-seq reads and want gene counts", "mode": mode},
+        json={"prompt": "I have RNA-seq reads and want gene counts"},
     )
     assert response.status_code == 201, response.text
     session_id = response.json()["session"]["id"]
@@ -170,8 +165,8 @@ def _subject(session_id: str, proposal_id: str) -> str:
         return db.get(PipelineAuthoringProposal, proposal_id).payload["subject"]
 
 
-def _goal_review(client, queue, monkeypatch, mode: str = "build") -> dict:
-    session_id, seq = _begin(client, queue, mode)
+def _goal_review(client, queue, monkeypatch) -> dict:
+    session_id, seq = _begin(client, queue)
     _model(monkeypatch, GOAL)
     _run(session_id, seq)
     return _gather(client, session_id)
@@ -307,23 +302,6 @@ def test_accepting_the_goal_builds_inline_and_offers_the_first_step(
 
 
 @needs_db
-def test_a_spawn_goal_is_resolved_on_the_ai_worker(client, clean, queue, monkeypatch):
-    """Spawn gathers from the person (14.7.3); the last answer confirms the card by policy and
-    the blueprint is resolved on the AI worker, never inline in the request."""
-    session_id, seq = _begin(client, queue, "spawn")
-    _model(monkeypatch, GOAL)
-    _run(session_id, seq)
-    session = _gather(client, session_id)
-
-    assert session["phase"] == "resolving"
-    assert [q for q in queue if q[0] == "build"] == [("build", session_id, session["row_version"])]
-    asyncio.run(authoring_jobs.build_authoring_blueprint({}, session_id))
-    # Spawn does not stop at the first step: the policy accepts every settled one, so the RNA-seq
-    # blueprint — no tier-4 step choice — is complete by the end of the job.
-    assert _session(client, session_id)["phase"] == "complete"
-
-
-@needs_db
 def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
     client, clean, queue, monkeypatch
 ):
@@ -417,10 +395,10 @@ def test_a_follow_up_while_gathering_is_answered_not_crashed(client, clean, queu
 # ── what the boundary will not accept ─────────────────────────────────────────────────────
 
 
-def test_starting_a_session_accepts_prose_and_a_mode_and_nothing_else():
+def test_starting_a_session_accepts_prose_and_nothing_else():
     """No name, no path, no model id. Listed literally, as `test_forge_routes.py` lists its own:
     every one of those would be a `str`, so no rule could tell them apart."""
-    assert set(routes.BeginAuthoring.model_fields) == {"prompt", "mode"}
+    assert set(routes.BeginAuthoring.model_fields) == {"prompt"}
     assert set(routes.SayToAuthoring.model_fields) == {"text"}
     assert set(routes.DecideProposal.model_fields) == {
         "decision", "expected_revision", "goal", "option", "value"
@@ -433,7 +411,7 @@ def test_the_authoring_jobs_run_on_the_ai_worker_and_nowhere_else():
     ai = {getattr(f, "coroutine", f) for f in ai_worker.AIWorkerSettings.functions}
     ordinary = set(worker.WorkerSettings.functions)
 
-    for job in (authoring_jobs.answer_authoring_turn, authoring_jobs.build_authoring_blueprint):
+    for job in (authoring_jobs.answer_authoring_turn, authoring_jobs.phrase_authoring_gap):
         assert job in ai, f"{job.__name__} is not on the AI worker"
         assert job not in ordinary, f"{job.__name__} would run beside a source sync"
     assert not ai & ordinary

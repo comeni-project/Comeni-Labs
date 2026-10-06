@@ -13,13 +13,7 @@ import pytest
 from mendel_api.authoring import types as t
 from pydantic import ValidationError
 
-# ── modes and phases ──────────────────────────────────────────────────────────────────────
-
-
-def test_the_two_modes_are_closed():
-    """Build and Spawn are policies over one engine (§1.2), so they are two members of one
-    enum and not two code paths. A third mode is a design change, and it fails here first."""
-    assert {m.value for m in t.Mode} == {"build", "spawn"}
+# ── phases ──────────────────────────────────────────────────────────────────────
 
 
 def test_every_phase_in_the_state_diagram_exists():

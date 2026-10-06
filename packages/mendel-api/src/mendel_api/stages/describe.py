@@ -13,7 +13,7 @@ from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from sqlalchemy import select, update
 
-from mendel_api.authoring.types import Mode, Phase, ProposalState, TurnState
+from mendel_api.authoring.types import Phase, ProposalState, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     PipelineAuthoringProposal,
@@ -39,7 +39,7 @@ directory — §2 already excludes draft labels from what a model is shown, and 
 the prompt would put the prompt somewhere that exclusion was never meant to reach.
 """
 
-def open_session(draft_id: str, *, mode: Mode, who: str) -> str:
+def open_session(draft_id: str, *, who: str) -> str:
     """Start a conversation about a draft, or refuse if one is already open.
 
     **One session per draft**, which the unique index enforces and this refuses first — the same
@@ -67,7 +67,6 @@ def open_session(draft_id: str, *, mode: Mode, who: str) -> str:
             PipelineAuthoringSession(
                 id=session_id,
                 draft_id=draft_id,
-                mode=mode.value,
                 phase=Phase.UNDERSTANDING.value,
                 at="say",
                 failed_from=None,
@@ -305,7 +304,7 @@ def _spoken(turn: PipelineAuthoringTurn) -> str:
 
 @records(c.OpenSession)
 def _open(ctx: Ctx, cmd: c.OpenSession) -> str:
-    ctx.session_id = open_session(cmd.draft_id, mode=Mode(cmd.mode), who=cmd.who)
+    ctx.session_id = open_session(cmd.draft_id, who=cmd.who)
     return ctx.session_id
 
 
@@ -316,7 +315,7 @@ def _begin(ctx: Ctx, cmd: c.Begin) -> tuple[str, int]:
     from mendel_api.services import drafts
 
     ctx.session_id = open_session(
-        drafts.create(DraftGraph(), UNTITLED, cmd.who), mode=Mode(cmd.mode), who=cmd.who
+        drafts.create(DraftGraph(), UNTITLED, cmd.who), who=cmd.who
     )
     return ctx.session_id, _said(ctx, cmd.prompt)
 

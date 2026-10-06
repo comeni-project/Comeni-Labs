@@ -23,7 +23,7 @@ from sqlalchemy import func, select, update
 
 from mendel_api import db as db_mod
 from mendel_api import jobs
-from mendel_api.authoring.types import FactSource, Mode, Phase, ProposalState, TurnState
+from mendel_api.authoring.types import FactSource, Phase, ProposalState, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     AiInvocation,
@@ -441,12 +441,10 @@ def read(session_id: str) -> dict:
                 "cached": int(spent[2]),
                 "calls": int(spent[3]),
                 "in_flight": any(t.state == TurnState.PENDING.value for t in turns)
-                or (row.mode == Mode.SPAWN.value and row.phase == Phase.RESOLVING.value)
                 or _words_coming(pending),
             },
             "id": row.id,
             "draft_id": row.draft_id,
-            "mode": row.mode,
             "phase": row.phase,
             "failed_from": row.failed_from,
             "goal": row.goal,

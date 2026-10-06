@@ -614,10 +614,9 @@ class PipelineAuthoringSession(Base):
     §2 gives a session one phase and one cursor, so two sessions on one draft would be two
     answers to *where are we* with nothing to arbitrate between them. A second conversation is
     a second draft."""
-    mode: Mapped[str] = mapped_column(String(8))
-    """A `Mode` value — `build` or `spawn`. A plain column rather than a native Postgres enum,
-    for the reason `GateRun.state` records: adding a member to a Postgres enum is a migration,
-    and `authoring.types.Mode` is already the closed vocabulary that matters."""
+    pacing: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    """The walk's pacing, recorded when the Pacing fork or its question is passed (spec §13 of
+    the consultant build). `None` until then."""
     phase: Mapped[str] = mapped_column(String(16), index=True)
     """A `Phase` value. Indexed because sweeping for sessions stuck in `understanding` is how a
     job that never came back is found — `forge_jobs` already sweeps that way."""

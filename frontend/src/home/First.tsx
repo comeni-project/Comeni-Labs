@@ -3,8 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { get } from "../api/client";
-import type { AiHealth, BeginAuthoring } from "../api/types";
-import { MODES } from "./modes";
+import type { AiHealth } from "../api/types";
 import { useBegin } from "./useBegin";
 
 /** The first run: one question, one field. **Drawn against `OverviewFirst.dc.html`, measurement
@@ -37,19 +36,18 @@ import { useBegin } from "./useBegin";
  * disabled with that sentence under it**, because a laboratory that sets no model has chosen the
  * no-AI lane and `draw it yourself` is still the whole of what works for them.
  *
- * The two cards are `LivingOpen`'s: **one choice, two policies over one engine.** The mode is the
- * only thing it sends beside the sentence — it selects no different route or component.
+ * **One build** (spec §13.1 of the consultant build): the Build/Spawn choice is retired, and how
+ * the walk paces itself is the Pacing setting's.
  *
  * **What must not happen is the model producing a pipeline.** The assistant writes a GOAL,
  * never a graph, and the person corrects the goal card before anything is built.
  *
  * *Sends* is the artboard's last row and it is a promise the payload keeps: `BeginAuthoring` has a
- * prompt and a mode, and no field that could carry a filename.
+ * prompt, and no field that could carry a filename.
  */
 export function First() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
-  const [mode, setMode] = useState<BeginAuthoring["mode"]>("build");
   const health = useQuery({
     queryKey: ["health", "ai"],
     queryFn: () => get<AiHealth>("/health/ai"),
@@ -65,7 +63,7 @@ export function First() {
         aria-label="describe an analysis"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready) begin.mutate({ prompt: prompt.trim(), mode });
+          if (ready) begin.mutate({ prompt: prompt.trim() });
         }}
         className="relative min-h-full flex flex-col items-center justify-center gap-[30px] gutter pb-20"
       >
@@ -118,34 +116,6 @@ export function First() {
           <span aria-hidden className="font-data text-[15px] blink"
                 style={{ color: "var(--link)" }}>▮</span>
         </label>
-
-        {live && (
-          <div role="radiogroup" aria-label="how to build it" className="settle w-[min(660px,100%)] flex flex-wrap gap-3"
-               style={{ animationDelay: "180ms" }}>
-            {MODES.map((option) => {
-              const chosen = mode === option.mode;
-              return (
-                <button key={option.mode} type="button" role="radio" aria-checked={chosen}
-                        data-testid={`mode-${option.mode}`}
-                        onClick={() => setMode(option.mode)}
-                        className="lift flex-1 min-w-[240px] flex gap-[11px] px-[17px] py-[15px] text-left cursor-pointer
-                                   focus-visible:shadow-[var(--ring)]"
-                        style={{ border: `1px solid ${chosen ? "var(--link-line)" : "var(--line)"}`,
-                                 background: chosen ? "var(--paper-2)" : "transparent" }}>
-                  <span aria-hidden className="w-[9px] h-[9px] flex-none mt-[3px]"
-                        style={{ border: `1px solid ${chosen ? "var(--link)" : "var(--line-2)"}`,
-                                 background: chosen ? "var(--link)" : "transparent",
-                                 boxShadow: chosen ? "inset 0 0 0 2px var(--paper)" : undefined }} />
-                  <span>
-                    <span className="block text-[14px] font-semibold tracking-[-.01em] text-ink">{option.title}</span>
-                    <span className="block text-[12px] text-ink-3 pt-[3px]">{option.short}</span>
-                    <span className="block text-[12px] text-ink-2 leading-[1.5] pt-[6px]">{option.long}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         <div className="settle w-[min(660px,100%)] flex flex-wrap items-center gap-4"
              style={{ animationDelay: "240ms" }}>

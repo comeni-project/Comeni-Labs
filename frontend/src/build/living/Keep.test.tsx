@@ -76,7 +76,7 @@ describe("the preview is asked for once the revision settles", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let revision = 0;
     const session = () => ({
-      id: "s1", draft_id: "d1", mode: "spawn", phase: "building", failed_from: null, goal: null,
+      id: "s1", draft_id: "d1", phase: "building", failed_from: null, goal: null,
       revision, graph: { nodes: [], edges: [] }, row_version: 1, model_configured: true,
       turns: [{ seq: 0, role: "assistant", state: revision < 5 ? "pending" : "answered", text: "",
                 blocks: [], base_revision: 0 }],

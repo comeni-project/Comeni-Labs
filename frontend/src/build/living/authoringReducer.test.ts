@@ -47,7 +47,6 @@ function session(overrides: Partial<AuthoringSession> = {}): AuthoringSession {
   return {
     id: "s1",
     draft_id: "d1",
-    mode: "build",
     phase: "building",
     failed_from: null,
     goal: null,

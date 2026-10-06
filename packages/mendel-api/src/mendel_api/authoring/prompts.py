@@ -79,8 +79,8 @@ CHAT: PromptId = "builder.chat.v2"
 TIER4: PromptId = "builder.tier4.v2"
 """One tier-4 ambiguity in, one of its own candidates out. Egress door 2.
 
-**Spawn only.** Build mode resolves tier 4 with the flag-only path so the question stays visible
-and unanswered; this is the template for the mode that answers it. `choose_one` appends the
+**Unwired since 14.7.8.3b**: tier 4 stops for a person; this is the template a later *Tier-4
+answers* fork will send. `choose_one` appends the
 candidate list and the reply schema, so what is committed here is the framing and nothing else —
 the options are the engine's and are never written into a file.
 """

@@ -1,9 +1,9 @@
-"""The builder's AI-queue jobs: answering a turn, and resolving a Spawn blueprint.
+"""The builder's AI-queue jobs: answering a turn, phrasing, reading back, characterising.
 
 **Only what calls a provider lives here, and only the AI worker runs it.** Accepting a step, a
 goal, or a retry into Build is an ordinary request — §2: *do not put a button click behind the
-slow queue*. What is queued is a model call: understanding prose, answering a follow-up, and
-resolving a Spawn blueprint whose tier-4 questions a model answers.
+slow queue*. What is queued is a model call: understanding prose, answering a follow-up,
+phrasing a question, reading a goal back, reading a sample.
 
 **Every enqueue names its job by what the work is about.** `builder:turn:<session>:<seq>`, so a
 redeploy re-delivering a job collides at the queue rather than producing a second answer — and
@@ -23,7 +23,6 @@ from mendel_authoring import commands as c
 from mendel_authoring.interpret import Refused
 from mendel_authoring.types import Command
 
-from mendel_api import jobs
 from mendel_api.authoring.types import (
     AuthoringIntent,
     Narrative,
@@ -34,7 +33,7 @@ from mendel_api.authoring.types import (
     Question,
     WantUnderstanding,
 )
-from mendel_api.services import authoring_ai, registry, spawn
+from mendel_api.services import authoring_ai, registry
 from mendel_api.services import session as session_mod
 from mendel_api.settings import model_access, settings
 from mendel_api.stages import describe, gathering, goal
@@ -42,9 +41,8 @@ from mendel_api.stages._jobs import ANSWER, CHARACTERISE, PHRASE, READ_BACK
 
 log = logging.getLogger(__name__)
 
-BUILD = "build_authoring_blueprint"
 
-AI_JOBS = frozenset({ANSWER, BUILD, PHRASE, READ_BACK, CHARACTERISE})
+AI_JOBS = frozenset({ANSWER, PHRASE, READ_BACK, CHARACTERISE})
 """The builder's jobs that reach a provider — `forge_jobs.AI_JOBS`, one agent over.
 
 **Declared by the module that owns them**, and the AI worker's allowlist is held equal to the
@@ -71,17 +69,6 @@ def _client(purpose: "authoring_ai.Purpose") -> Client | None:
     answers it."""
     access = model_access("builder", purpose)
     return Client(access) if access is not None else None
-
-
-async def enqueue_build(session_id: str, row_version: int) -> bool:
-    """Keyed on the session's version, so a retry after a failure is a new job and a double
-    click on one version is the same one."""
-    return await jobs.enqueue(
-        BUILD,
-        session_id,
-        job_id=jobs.job_id_for("builder", "build", session_id, str(row_version)),
-        queue=jobs.AI_QUEUE,
-    )
 
 
 # ── answering a turn ──────────────────────────────────────────────────────────────────────
@@ -472,21 +459,4 @@ def _answered(session_id: str, seq: int, *, blocks, base_revision, invocation_id
 def _failed(session_id: str) -> None:
     """The model could not be reached. The session fails only where the diagram draws it."""
     _perform(c.ProviderFailed(session_id))
-
-
-# ── a Spawn blueprint ─────────────────────────────────────────────────────────────────────
-
-
-async def build_authoring_blueprint(ctx: dict, session_id: str) -> str:
-    """Resolve a Spawn session's blueprint, with its tier-4 questions put to the model.
-
-    Queued rather than run in the request because a model call can take minutes; a Build
-    blueprint makes no call and is resolved inline by the route instead. A resolver failure
-    moves the session to `failed` inside `start_building`, where `retry` picks it up.
-    """
-    try:
-        spawn.build(session_id, _client(authoring_ai.Purpose.TIER4))
-    except ValueError as refused:
-        log.warning("blueprint for %s refused: %s", session_id, str(refused).splitlines()[0])
-    return session_id
 

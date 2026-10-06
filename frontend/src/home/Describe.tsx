@@ -31,7 +31,7 @@ export function Describe() {
       aria-label="describe a new analysis"
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready) begin.mutate({ prompt: prompt.trim(), mode: "build" });
+        if (ready) begin.mutate({ prompt: prompt.trim() });
       }}
       className="mt-7 flex flex-col gap-2"
     >

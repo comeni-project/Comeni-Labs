@@ -22,7 +22,6 @@ function view(turnState: "pending" | "answered", overrides: Record<string, unkno
   return {
     id: "s1",
     draft_id: "d1",
-    mode: "build",
     phase: "understanding",
     failed_from: null,
     goal: null,

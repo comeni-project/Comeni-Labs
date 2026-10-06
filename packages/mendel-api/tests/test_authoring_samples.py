@@ -8,7 +8,6 @@ inspection itself is `test_inspect.py`'s.
 import authoring_setup
 import pytest
 from comeni_core.plan.draft import DraftGraph
-from mendel_api.authoring.types import Mode
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
 from mendel_api.services import drafts, inspect
@@ -47,7 +46,7 @@ def clean():
 
 def _gathering(want: list[str]) -> str:
     draft_id = drafts.create(DraftGraph(), "t", "ana")
-    sid = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
+    sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with session_scope() as db:
         db.get(PipelineAuthoringSession, sid).goal = {"want": want, "constraints": {}, "stated": []}
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)

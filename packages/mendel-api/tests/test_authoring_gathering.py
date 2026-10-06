@@ -7,7 +7,7 @@ needs none (protocol rule 5), and the gap list is the engine's (rule 1).
 import authoring_setup
 import pytest
 from comeni_core.plan.draft import DraftGraph
-from mendel_api.authoring.types import Mode, Phase
+from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
 from mendel_api.services import blueprint as bp
@@ -49,7 +49,7 @@ def clean():
 def _gathering(want: list[str], stated: list[dict] | None = None) -> str:
     """A session moved to GATHERING with a want and no facts, its first gap offered."""
     draft_id = drafts.create(DraftGraph(), "t", "ana")
-    sid = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
+    sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with session_scope() as db:
         db.get(PipelineAuthoringSession, sid).goal = {
             "want": want,
@@ -100,7 +100,7 @@ def test_answering_every_gap_reaches_the_card_with_a_goal_that_builds(clean):
     goal = gathering.compose_goal(sid)
     assert {h.type_id for h in goal.have} == {"fastq.reads", "genome.fasta", "annotation.gtf"}
     assert {m.measurement: m.value for m in goal.profile.measurements}["read_length"] == 150
-    bp.resolve(goal, mode=Mode.BUILD)  # does not raise: #114's defect, closed
+    bp.resolve(goal)  # does not raise: #114's defect, closed
 
 
 def test_the_card_offered_after_gathering_carries_the_composed_goal(clean):
@@ -350,7 +350,7 @@ def test_the_calls_route_lists_them_and_refuses_an_unknown_session(clean):
 def test_the_models_constraints_are_suggestions_never_in_the_goal(clean):
     """#176: *gene_level, normalised* arrived in the typed goal unasked; now the card offers."""
     draft_id = drafts.create(DraftGraph(), "t", "ana")
-    sid = facade.perform(commands.OpenSession(draft_id, Mode.BUILD.value, "ana")).result
+    sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with session_scope() as db:
         db.get(PipelineAuthoringSession, sid).goal = {
             "want": ["counts.matrix"],

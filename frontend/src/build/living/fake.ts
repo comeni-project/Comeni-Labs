@@ -19,7 +19,6 @@ export const FAKE_SESSION = {
   id: "fake",
   draft_id: "fake-draft",
   name: "rnaseq-counts",
-  mode: "build",
   phase: "building",
   failed_from: null,
   goal: null,
