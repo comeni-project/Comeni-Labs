@@ -355,3 +355,71 @@ modules, and makes one person's action one transaction. Behaviour is unchanged.
   exactly its fields, whose name the interpreter reads. 1c types the commands the shell performs
   today; parts 3 and 4 add theirs as types from the start. The shell still checks what only the
   rows know: an option never offered (MI0205), a value that does not fit (MI0208).
+
+## 12. Forks: the diagram switches on a setting (14.7.8.3a)
+
+**Decided** by the operator on 2026-10-06, in the 14.7.8.3 brainstorm, and built **before stage
+④** because stage ④ is its first user. Part 3 is split: **3a** forks (this section), **3b** stage
+④ (§5, the Dev setting of §12.4, `Mode` removed, Pacing live). Later part numbers are unchanged.
+
+### 12.1 What a fork is
+
+A **fork** is a node that switches on a **subject**; its outgoing edges are the **cases**. The
+pure interpreter reads the subject's current case from a **snapshot** the shell passes in, and
+takes that edge. No handler runs, and no `if` in a handler decides the path: the branch is in the
+diagram, drawn as a diamond labelled with its subject (*Pacing?*, *Dev mode?*), each edge
+labelled with its case.
+
+```python
+fork("pace", on=SettingSubject.of(PACING))
+_e("pace", "step", case="together", built=True)
+_e("pace", "step_quiet", case="stop_where_needed", built=True)
+_e("pace", "ask_pacing", case="ask", built=True)
+```
+
+### 12.2 The subject is pluggable
+
+A subject is a small frozen model in `mendel_authoring/forks.py`, subclassing `Subject`:
+
+- `options() -> frozenset[str] | None`: the closed set of cases, or `None` for an open domain;
+- `value(snapshot) -> str`: the current case, read from the snapshot;
+- `title`: what the diamond says.
+
+**Today: `SettingSubject`**, made from a setting's own declaration (`SettingSubject.of(setting)`),
+so its cases cannot drift from the menu: a choice's option values; a toggle's `on` / `off`; any
+other kind is open. **Later**, without touching the interpreter: a parameter, a fact, a property
+of the plan. Adding one is one class.
+
+**The snapshot** (`Snapshot`) is plain data: `settings: dict[str, JsonValue]` today, a field per
+kind of subject as they arrive. The shell builds it; the interpreter never reads a store.
+
+### 12.3 Checked when the protocol loads
+
+`Protocol` already refuses to exist when inconsistent; forks add:
+
+- a fork does not act (the interpreter decides it) and does not wait;
+- every built edge out of a fork names a `case`, and only edges out of a fork do;
+- a subject with **closed** options has **exactly one** edge per option, and no other case;
+- a subject with an **open** domain has a `DEFAULT` edge (`case="*"`);
+- no case twice.
+
+So a new Pacing option without its branch, or a fork on an open value with no fallback, fails
+when the protocol is imported, which is every test run, not a session.
+
+**At run time**, a case with no edge (a snapshot holding a value the subject does not list, and no
+`DEFAULT`) is refused with MI0216, naming the fork and the value.
+
+### 12.4 The Dev setting (built in 3b)
+
+A toggle, off by default. On: the walk shows **registry gaps** as marked cards naming the file to
+fix (a tier-4 setting with no declared domain, a tool with no `tool.yml`, a contract marked
+`unverified`). Off: the engine routes around them (a value with no domain is left to the run, #252).
+It is stage ④'s second fork, after Pacing.
+
+### 12.5 Testing (3a)
+
+- Over a small test protocol, not the real one (whose first fork arrives in 3b): each case taken
+  from its snapshot; `DEFAULT` taken for an unlisted value; a missing case refused (MI0216).
+- Each load-time refusal of §12.3, by a protocol that breaks it.
+- `SettingSubject.of` over a choice, a toggle and a text setting.
+- The drawing: a fork is a diamond with its subject's title, its edges labelled with their cases.
