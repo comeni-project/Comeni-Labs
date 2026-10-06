@@ -126,7 +126,7 @@ All in `mendel-authoring`, one job each, composed at the top:
 | `ports.py` | `Declared`: what the plan reads from the registry (a contract by id, a tool by id, a family by id). The shell adapts its loaded layers to it; the pure side never imports a loader |
 | `blueprint.py` | `Blueprint` (moved from `mendel_api/services/blueprint.py`, **without `mode`**, which nothing read) and `committed`, with its helpers |
 | `brief.py` | `brief_of(step, declared) → Brief`: the four fields of a step's card |
-| `needs.py` | `need_of(step, decisions) → Need`: nothing, a fact, or a choice |
+| `needs.py` | `need_of(step, decisions, declared) → Need`: nothing, a fact, or a choice |
 | `wrapup.py` | `wrap_up(blueprint, declared) → WrapUp` |
 | `pacing.py` | `Pacing` (*together*, *only where needed*) and `waits(plan, pacing)` |
 | `plan.py` | `plan_of(blueprint, declared) → BuildPlan`: one entry per step, in the blueprint's order (its brief and its need), and the wrap-up |
