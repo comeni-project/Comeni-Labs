@@ -1,0 +1,59 @@
+"""What changed between two blueprints, by step id (§14.9 of the consultant build).
+
+Computed once and read three times: by an alternative's card (*adds hisat2_build; removes
+star_genomegenerate*), by the receipt of an amendment, and by the receipt of a hand edit.
+"""
+
+from comeni_core.plan.draft import DraftGraph
+from pydantic import BaseModel, ConfigDict
+
+from mendel_authoring.blueprint import Blueprint
+
+
+class BlueprintDiff(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    added: list[str] = []
+    removed: list[str] = []
+    swapped: list[tuple[str, str]] = []
+    """The same step id, another contract: `(step id, its new contract)`."""
+
+    @property
+    def empty(self) -> bool:
+        return not (self.added or self.removed or self.swapped)
+
+    def sentence(self) -> str:
+        parts = []
+        if self.added:
+            parts.append("adds " + ", ".join(self.added))
+        if self.removed:
+            parts.append("removes " + ", ".join(self.removed))
+        if self.swapped:
+            parts.append("changes " + ", ".join(f"{n} to {c}" for n, c in self.swapped))
+        return "; ".join(parts) or "changes nothing"
+
+
+def _between(
+    before: dict[str, str], before_order: list[str], after: dict[str, str], after_order: list[str]
+) -> BlueprintDiff:
+    return BlueprintDiff(
+        added=[n for n in after_order if n not in before],
+        removed=[n for n in before_order if n not in after],
+        swapped=[(n, after[n]) for n in after_order if n in before and before[n] != after[n]],
+    )
+
+
+def diff_of(before: Blueprint, after: Blueprint) -> BlueprintDiff:
+    def tools(blueprint: Blueprint) -> dict[str, str]:
+        return {step.id: step.module.contract_id for step in blueprint.pipeline.steps}
+
+    return _between(tools(before), before.order, tools(after), after.order)
+
+
+def graph_diff(before: DraftGraph, after: DraftGraph) -> BlueprintDiff:
+    def tools(graph: DraftGraph) -> dict[str, str]:
+        return {node.id: node.contract_id for node in graph.nodes}
+
+    return _between(
+        tools(before), [n.id for n in before.nodes], tools(after), [n.id for n in after.nodes]
+    )

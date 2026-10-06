@@ -6,6 +6,7 @@ hands it here; nothing in this module reaches a row, a queue or a model. Moved f
 """
 
 from comeni_core.artifact.pipeline import Pipeline, Step
+from comeni_core.goal.asked import Site
 from comeni_core.plan.decision import ProducerDecision
 from comeni_core.plan.draft import (
     DraftEdge,
@@ -48,6 +49,10 @@ class Blueprint(BaseModel):
     rather than running a layout of its own: one implementation for both canvases, which is why
     `dag-core` exists. Empty for a blueprint stored before this field did."""
     pipeline: Pipeline
+    sites: dict[str, Site] = {}
+    """Where each step's tool was chosen (§14.3 of the consultant build): a step's alternatives
+    are the router's candidates at its site, and a person's pin names it. Empty for a step the
+    router did not choose (none today) and for a blueprint stored before this field."""
 
     def step(self, node_id: str) -> Step:
         found = next((step for step in self.pipeline.steps if step.id == node_id), None)

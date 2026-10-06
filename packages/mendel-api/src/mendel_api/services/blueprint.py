@@ -41,6 +41,7 @@ __all__ = [
     "PRESENCE_AXIS",
     "SELECTION_AXIS",
     "Blueprint",
+    "candidates",
     "committed",
     "registry_digest",
     "resolve",
@@ -81,5 +82,18 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Bluepri
         order=order,
         placed={node.id: (node.x, node.y) for node in placed.nodes},
         pipeline=built.pipeline,
+        sites={node.id: node.site for node in built.ir.nodes if node.site is not None},
     )
     return blueprint, []
+
+
+def candidates(blueprint: Blueprint, node_id: str) -> list[str]:
+    """The router's own candidates at the site `node_id`'s tool was chosen at (§14.3 of the
+    consultant build), in the registry's order. One that would cycle or fill an absent role
+    shows up in `alternatives_of` as a refusal or as no change, never as a silent option."""
+    from mendel_api.services import registry
+
+    site = blueprint.sites.get(node_id)
+    if site is None:
+        return []
+    return [c.id for c in registry.stack().registry.producers_of(site.type_id, site.states)]

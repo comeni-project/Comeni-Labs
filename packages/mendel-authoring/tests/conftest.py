@@ -159,3 +159,22 @@ def rnaseq():
         return Blueprint(registry=DIGEST, order=[s.id for s in steps], pipeline=pipeline)
 
     return build
+
+
+@pytest.fixture
+def blueprint_of():
+    """`blueprint_of({"node": "contract", …}, sites={"node": Site(…)})`: a blueprint of those
+    steps in that order, at tier 2 — for tests about which steps exist, not why."""
+    def build(tools: dict[str, str], sites: dict | None = None) -> Blueprint:
+        steps = [
+            _step(node, contract, _why(Tier.CONVENTION, "x")) for node, contract in tools.items()
+        ]
+        pipeline = Pipeline(
+            goal=Goal.model_validate(
+                {"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]}
+            ),
+            steps=steps,
+        )
+        return Blueprint(registry=DIGEST, order=list(tools), pipeline=pipeline, sites=sites or {})
+
+    return build

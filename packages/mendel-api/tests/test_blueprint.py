@@ -291,3 +291,13 @@ def test_a_step_card_carries_exactly_the_wires_accepting_it_would_add(spine, con
     drawn = {(e["from_node"], e["to_node"]) for e in offered["edges"]}
     assert drawn == {("star_genomegenerate", "star_align")}
     assert drawn == {(e.from_node, e.to_node) for e in graph.edges}
+
+
+def test_each_step_knows_its_site_and_its_candidates():
+    """§14.3 of the consultant build: a step's alternatives are the router's candidates at the
+    site where its tool was chosen."""
+    blueprint, _ = bp.resolve(_rnaseq())
+    assert set(blueprint.sites) == set(blueprint.order)
+    assert blueprint.sites["star_align"].type_id == "alignment.bam"
+    assert "nf-core/hisat2/align@2.2.2" in bp.candidates(blueprint, "star_align")
+    assert bp.candidates(blueprint, "no_such_step") == []
