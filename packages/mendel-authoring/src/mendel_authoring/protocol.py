@@ -16,6 +16,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from mendel_authoring.forks import DEFAULT, Subject
 from mendel_authoring.types import Command, Event, Phase
 
 
@@ -74,6 +75,9 @@ class Node(_Frozen):
     goes on by its one way straight on (`ask` queues a job and asks: plan 1c)."""
     waits: bool = False
     """A session may rest here, until a command names an arrow out."""
+    fork: Subject | None = None
+    """A **fork** (spec §12): its outgoing edges are the cases of this subject, and the
+    interpreter takes the one the snapshot is in. A fork neither acts nor waits."""
 
 
 class Edge(_Frozen):
@@ -89,6 +93,9 @@ class Edge(_Frozen):
     on: str | None = None
     """What takes this arrow: a `Command` out of a waiting node, an outcome out of an acting one;
     `None` for the one way straight on (14.7.8.1)."""
+    case: str | None = None
+    """Out of a fork only: the case of the fork's subject that takes this edge (`DEFAULT` for
+    an open subject's fallback)."""
 
 
 class Protocol(_Frozen):
@@ -185,8 +192,40 @@ class Protocol(_Frozen):
             # A node that takes no part yet (today's whole protocol) may fan out unnamed; 1b marks
             # each node and the rule then holds everywhere.
             takes_part = node.acts or node.waits or bool(named)
-            if takes_part and sum(1 for e in out if e.on is None) > 1:
+            # A fork's case edges carry no `on`, and are not ways straight through (spec §12).
+            if takes_part and sum(1 for e in out if e.on is None and e.case is None) > 1:
                 raise ValueError(f"{node.id} has more than one way straight through")
+        for edge in self.edges:
+            if edge.case is not None and nodes[edge.source].fork is None:
+                raise ValueError(
+                    f"{edge.source}→{edge.target} names case {edge.case!r}, and its source "
+                    "is not a fork"
+                )
+        for node in self.nodes:
+            if node.fork is None:
+                continue
+            if node.acts or node.waits:
+                raise ValueError(f"fork {node.id} acts or waits; the interpreter decides it")
+            out = [e for e in self.edges if e.source == node.id and e.built]
+            if any(e.case is None for e in out):
+                raise ValueError(f"{node.id}: every edge out of a fork names a case")
+            cases = [e.case for e in out]
+            twice = sorted({c for c in cases if cases.count(c) > 1})
+            if twice:
+                raise ValueError(f"{node.id}: case {twice} twice")
+            options = node.fork.options()
+            if options is None:
+                if DEFAULT not in cases:
+                    raise ValueError(
+                        f"{node.id} switches on an open subject and has no DEFAULT ({DEFAULT!r})"
+                    )
+                continue
+            missing = sorted(options - set(cases))
+            extra = sorted(set(cases) - options)
+            if missing:
+                raise ValueError(f"{node.id}: no edge for {missing}")
+            if extra:
+                raise ValueError(f"{node.id}: {extra} is not a case of {node.fork.title!r}")
         return self
 
     def exits(self, node_id: str) -> list[Edge]:
@@ -262,10 +301,11 @@ def _node(node: Node) -> str:
 
 
 def _edge(edge: Edge) -> str:
+    label = edge.label or (edge.case or "")
     if edge.built:
-        arrow = f' -- "{edge.label}" --> ' if edge.label else " --> "
+        arrow = f' -- "{label}" --> ' if label else " --> "
     else:
-        arrow = f' -. "{edge.label}" .-> ' if edge.label else " -.-> "
+        arrow = f' -. "{label}" .-> ' if label else " -.-> "
     return f"    {edge.source}{arrow}{edge.target}"
 
 
@@ -315,6 +355,14 @@ def _n(id: str, stage: str, actor: Actor, label: str, phase: Phase | None = None
 
 def _built(id: str, stage: str, actor: Actor, label: str, phase: Phase, **kw) -> Node:
     return _n(id, stage, actor, label, phase, built=True, **kw)
+
+
+def _fork(id: str, stage: str, subject: Subject, phase: Phase, **kw) -> Node:
+    """A built fork: a diamond labelled with what it switches on (spec §12)."""
+    return _n(
+        id, stage, Actor.ENGINE, subject.title, phase, built=True, shape=Shape.CHOICE,
+        fork=subject, **kw,
+    )
 
 
 def _e(source: str, target: str, label: str = "", **kw) -> Edge:

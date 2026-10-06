@@ -13,8 +13,9 @@ from mendel_authoring.types import Command, Event, Phase
 S = (p.Stage(id="s", title="S"),)
 
 
-def _node(id, phase=Phase.UNDERSTANDING, *, built=True, stage="s"):
-    return p.Node(id=id, stage=stage, actor=p.Actor.ENGINE, label=id, phase=phase, built=built)
+def _node(id, phase=Phase.UNDERSTANDING, *, built=True, stage="s", **kw):
+    kw.setdefault("label", id)
+    return p.Node(id=id, stage=stage, actor=p.Actor.ENGINE, phase=phase, built=built, **kw)
 
 
 def test_the_real_protocol_loads_and_has_built_and_planned_parts():
@@ -402,3 +403,94 @@ def test_the_redrawn_arrows():
     assert ("sample_back", "reply", "stays") in edges
     assert not {(s, t) for s, t, _ in edges} & {("read_goal", "suggest"),
                                                 ("read_goal", "failed"), ("next_gap", "card")}
+
+
+# ── forks (spec §12) ─────────────────────────────────────────────────────────────────────────
+
+from comeni_core.settings.declare import Setting  # noqa: E402
+from mendel_authoring.forks import DEFAULT, SettingSubject  # noqa: E402
+
+_PACE = SettingSubject.of(
+    Setting.choice(
+        key="building.pacing", label="Pacing", help="A setting used by the fork tests.",
+        options=[("together", "T"), ("stop_where_needed", "S")], default="together",
+    )
+)
+_OPEN = SettingSubject.of(
+    Setting.text(key="dev.name", label="A name", help="A setting used by the fork tests.")
+)
+
+
+def _forked(subject, cases, **fork_kw):
+    nodes = (
+        _node("pace", fork=subject, shape=p.Shape.CHOICE, label=subject.title, **fork_kw),
+        _node("a", waits=True),
+        _node("b", waits=True),
+    )
+    targets = ["a", "b", "a", "b"]
+    edges = tuple(
+        p.Edge(source="pace", target=targets[i], case=case, built=True)
+        for i, case in enumerate(cases)
+    )
+    return p.Protocol(stages=S, nodes=nodes, edges=edges)
+
+
+def test_a_fork_covering_every_option_loads():
+    assert _forked(_PACE, ["together", "stop_where_needed"]).nodes[0].fork == _PACE
+
+
+def test_a_fork_missing_an_option_is_refused():
+    with pytest.raises(ValueError, match="pace.*stop_where_needed"):
+        _forked(_PACE, ["together"])
+
+
+def test_a_fork_naming_a_case_its_subject_lacks_is_refused():
+    with pytest.raises(ValueError, match="pace.*'sometimes'"):
+        _forked(_PACE, ["together", "stop_where_needed", "sometimes"])
+
+
+def test_a_case_twice_is_refused():
+    with pytest.raises(ValueError, match="pace.*twice"):
+        _forked(_PACE, ["together", "together", "stop_where_needed"])
+
+
+def test_an_open_subject_needs_a_default():
+    with pytest.raises(ValueError, match="pace.*DEFAULT"):
+        _forked(_OPEN, ["alice"])
+    assert _forked(_OPEN, ["alice", DEFAULT])
+
+
+def test_a_fork_does_not_act_or_wait():
+    with pytest.raises(ValueError, match="fork pace"):
+        _forked(_PACE, ["together", "stop_where_needed"], acts=True)
+    with pytest.raises(ValueError, match="fork pace"):
+        _forked(_PACE, ["together", "stop_where_needed"], waits=True)
+
+
+def test_an_edge_out_of_a_fork_needs_a_case():
+    nodes = (_node("pace", fork=_PACE), _node("a", waits=True))
+    edges = (
+        p.Edge(source="pace", target="a", case="together", built=True),
+        p.Edge(source="pace", target="a", case="stop_where_needed", built=True),
+        p.Edge(source="pace", target="a", built=True),
+    )
+    with pytest.raises(ValueError, match="pace.*case"):
+        p.Protocol(stages=S, nodes=nodes, edges=edges)
+
+
+def test_only_an_edge_out_of_a_fork_has_a_case():
+    nodes = (_node("a", waits=True), _node("b", waits=True))
+    with pytest.raises(ValueError, match="a→b.*not a fork"):
+        p.Protocol(stages=S, nodes=nodes, edges=(p.Edge(source="a", target="b", case="x"),))
+
+
+def test_case_edges_are_not_read_as_several_ways_straight_on():
+    """Review Focus 3: case edges carry `on=None`; that is not a fan of unnamed ways on."""
+    assert _forked(_PACE, ["together", "stop_where_needed"])
+
+
+def test_a_fork_is_drawn_as_a_diamond_with_its_cases_on_its_edges():
+    rendered = p.to_mermaid(_forked(_PACE, ["together", "stop_where_needed"]))
+    assert 'pace{"Pacing"}' in rendered
+    assert 'pace -- "together" --> a' in rendered
+    assert 'pace -- "stop_where_needed" --> b' in rendered

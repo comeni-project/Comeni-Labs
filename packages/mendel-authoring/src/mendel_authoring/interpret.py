@@ -88,4 +88,11 @@ def run(
 
 
 def _one_way_on(protocol: Protocol, at: str) -> bool:
-    return sum(1 for e in protocol.edges if e.built and e.source == at and e.on is None) == 1
+    return (
+        sum(
+            1
+            for e in protocol.edges
+            if e.built and e.source == at and e.on is None and e.case is None
+        )
+        == 1
+    )
