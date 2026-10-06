@@ -1,0 +1,102 @@
+"""A person's pin in the goal, over the shipped registry (§14.3, §14.9 of the consultant build).
+
+The rnaseq example: with a read length of 150 the alignment rule picks STAR (tier 3); without
+one the aligner site is a question. A pin names a tool for a site and wins over both, recorded as
+the person's at tier 4 with the engine's own pick kept beside it.
+"""
+
+from pathlib import Path
+
+import pytest
+from comeni_core import yaml_strict
+from comeni_core.goal.asked import ProducerPin, Site
+from comeni_core.plan.ir import Tier
+from comeni_core.plan.tiers import ValueSource
+from mendel_resolver.goal import Goal
+from mendel_resolver.ports import FlagOnlyResolver
+from mendel_resolver.resolve import resolve
+
+ROOT = Path(__file__).resolve().parents[3]
+HISAT2_ALIGN = "nf-core/hisat2/align@2.2.2"
+
+
+@pytest.fixture
+def resolve_rnaseq(stack):
+    def run(*, read_length=True, pins=(), resolver=None):
+        data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+        if not read_length:
+            data["profile"].pop("read_length")
+        data.setdefault("constraints", {})["producers"] = [
+            p.model_dump(mode="json") for p in pins
+        ]
+        return resolve(
+            Goal.model_validate(data),
+            stack.registry,
+            stack.rules,
+            stack.measurements,
+            vocabulary=stack.vocabulary,
+            resolver=resolver,
+        )
+
+    return run
+
+
+def _node(ir, node_id):
+    return next(n for n in ir.nodes if n.id == node_id)
+
+
+def test_every_step_knows_its_site(resolve_rnaseq):
+    star = _node(resolve_rnaseq(), "star_align")
+    assert star.site == Site(type_id="alignment.bam", states=star.site.states)
+
+
+def test_a_pin_equal_to_the_engines_pick_changes_nothing(resolve_rnaseq):
+    """Review Focus 2."""
+    plain = resolve_rnaseq()
+    star = _node(plain, "star_align")
+    pinned = resolve_rnaseq(pins=[ProducerPin(site=star.site, contract=star.contract_id)])
+    assert pinned.model_dump(mode="json") == plain.model_dump(mode="json")
+
+
+def test_a_pin_against_the_rule_is_tier_four_and_yours(resolve_rnaseq):
+    plain = resolve_rnaseq()
+    star = _node(plain, "star_align")
+    assert star.selection.tier is Tier.DATA_PROFILED
+    ir = resolve_rnaseq(pins=[ProducerPin(site=star.site, contract=HISAT2_ALIGN)])
+    ids = {n.id for n in ir.nodes}
+    assert {"hisat2_align", "hisat2_build"} <= ids
+    assert not ids & {"star_align", "star_genomegenerate"}
+    aligner = _node(ir, "hisat2_align")
+    assert aligner.selection.tier is Tier.AMBIGUOUS
+    assert aligner.selection.source is ValueSource.HUMAN
+    assert star.contract_id in aligner.selection.reason, "the engine's pick is kept beside it"
+    [record] = [d for d in ir.decisions if getattr(d, "human_override", None) == HISAT2_ALIGN]
+    assert record.chosen == HISAT2_ALIGN
+
+
+def test_a_pin_at_an_open_site_asks_no_resolver(resolve_rnaseq):
+    """Review Focus 3: without a read length the aligner site is a question; the pin answers
+    it, the resolver is never asked about it, and exactly one record is written."""
+    asked = []
+
+    class Watching(FlagOnlyResolver):
+        def resolve(self, ambiguity):
+            asked.append(ambiguity.subject)
+            return super().resolve(ambiguity)
+
+    star = _node(resolve_rnaseq(read_length=False), "star_align")
+    subject = f"producer:{star.site.type_id}"
+    ir = resolve_rnaseq(
+        read_length=False,
+        resolver=Watching(),
+        pins=[ProducerPin(site=star.site, contract=HISAT2_ALIGN)],
+    )
+    assert subject not in asked
+    records = [d for d in ir.decisions if d.subject == subject]
+    assert len(records) == 1 and records[0].human_override == HISAT2_ALIGN
+    assert "read_length" in records[0].unknown
+
+
+def test_a_pin_that_matches_no_site_is_inert(resolve_rnaseq):
+    ghost = ProducerPin(site=Site(type_id="variants.vcf"), contract="x/y@1")
+    assert resolve_rnaseq(pins=[ghost]).nodes == resolve_rnaseq().nodes

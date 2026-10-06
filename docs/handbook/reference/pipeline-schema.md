@@ -53,6 +53,8 @@ goal:                          # what was asked for
   have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
   want: [counts.matrix]
   constraints: {required_states: [{type_id: counts.matrix, states: [gene_level]}]}
+                               # producers: [{site: {type_id: alignment.bam, states: []},
+                               #   contract: nf-core/hisat2/align@2.2.2}]  — a tool you chose
   profile:
     measurements:
       - {measurement: strandedness, value: reverse, source: goal, by: null}
@@ -184,6 +186,11 @@ needs the measurement registry, and `emit` has no registry by design. The facts 
 are already materialised into `channels[].meta`.
 
 To change the goal, edit it and run `mendel upgrade`, which re-resolves against a registry.
+
+`constraints.producers` holds the tools a person chose: each names a `site` (the type a step
+makes, with its states) and the `contract` to use there. The resolver uses it in place of its
+own pick, at tier 4 with your name on it and the engine's pick in the reason, and `upgrade`
+keeps it. It is left out of the file when you chose none.
 
 Each entry under `profile.measurements` says where its value came from: `source: goal` for
 something a person said, `source: measured` for something measured from the data. A measured

@@ -66,13 +66,15 @@ def test_a22_a_route_step_cannot_omit_where_it_came_from():
     `None` remains a legal answer, for the single-layer build that is the normal case. It
     has to be given rather than assumed.
     """
+    from comeni_core.goal.asked import Site
     from mendel_resolver.router import RouteStep
 
+    site = Site(type_id="alignment.bam")
     with pytest.raises(ValidationError, match="from_layer"):
-        RouteStep(contract_id="x@1", node_id="x", satisfies="alignment.bam")
+        RouteStep(contract_id="x@1", node_id="x", satisfies="alignment.bam", site=site)
 
     assert RouteStep(
-        contract_id="x@1", node_id="x", satisfies="alignment.bam", from_layer=None
+        contract_id="x@1", node_id="x", satisfies="alignment.bam", site=site, from_layer=None
     ).from_layer is None
 
 

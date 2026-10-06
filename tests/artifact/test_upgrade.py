@@ -772,3 +772,24 @@ def test_a111_an_answered_question_does_not_ask_for_review_of_itself(tmp_path):
     assert why["source"] == "human"
     assert "without judgement" not in why["reason"], why["reason"]
     assert "please review" not in why["reason"], why["reason"]
+
+
+def test_a_pipeline_with_a_persons_tool_upgrades_unchanged(tmp_path, capsys):
+    """§14 of the consultant build: a person's tool lives in the goal (`constraints.producers`),
+    so re-resolving reproduces it. Its decision record is the goal's answer, not an edit to
+    replay — counting it as an orphaned override (MD0203) refused every pinned pipeline."""
+    goal = yaml.safe_load(GOAL.read_text())
+    goal.setdefault("constraints", {})["producers"] = [
+        {"site": {"type_id": "alignment.bam", "states": []},
+         "contract": "nf-core/hisat2/align@2.2.2"}
+    ]
+    pinned = tmp_path / "goal.yml"
+    pinned.write_text(yaml.safe_dump(goal))
+    out = tmp_path / "built"
+    assert main(["build", "--goal", str(pinned), "--out", str(out), "--root", str(ROOT)]) == 0
+    capsys.readouterr()
+    code = main(["upgrade", str(out / "pipeline.yml"), "--out", str(tmp_path / "up"),
+                 "--root", str(ROOT)])
+    err = capsys.readouterr().err
+    assert code == 0, err
+    assert "the generated pipeline is byte-identical to the one recorded" in err

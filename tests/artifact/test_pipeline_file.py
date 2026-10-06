@@ -1155,7 +1155,7 @@ def test_every_pipeline_model_blames_the_pipeline_file():
 
 
 _GOAL_MODELS = frozenset(
-    {"Goal", "GoalInput", "Constraints", "RequiredStates", "ParamOverride",
+    {"Goal", "GoalInput", "Constraints", "RequiredStates", "ParamOverride", "ProducerPin", "Site",
      "DataProfile", "Measured", "Evidence", "ParamDecision", "ProducerDecision", "SourceDecision",
      "Displacement"}
 )

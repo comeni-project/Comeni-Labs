@@ -271,6 +271,8 @@ CARRIED_AS: dict[str, str] = {
     "PipelineIR.unverified": "registry.unverified",
     "IRNode.id": "steps.id",
     "IRNode.contract_id": "steps.module.contract_id",
+    # Written only where a person pinned a tool: the site is excluded from the IR's own dump.
+    "IRNode.site": "goal.constraints.producers.site",
     "IREdge.type_id": "channels.type_id",
     "IREdge.states": "steps.inputs.states",
     "ParamBinding.name": "steps.settings.name",

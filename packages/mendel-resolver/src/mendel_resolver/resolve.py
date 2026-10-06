@@ -121,6 +121,7 @@ def resolve(
         node = IRNode(
             id=step.node_id,
             contract_id=contract.id,
+            site=step.site,
             selection=ResolvedValue(
                 value=contract.id,
                 tier=step.selection_tier,
@@ -396,6 +397,8 @@ def _resolve_param(
     # tier 4 stays flagged, and demoting restores exactly that. Raising would let a broken or
     # hostile adapter halt a laboratory's build instead — a denial of service in exchange for
     # a guarantee demotion already gives.
+    # A person's *tool* (a pin in `goal.constraints.producers`) never reaches here: the router
+    # honours it before the resolver is asked, and the goal itself is its evidence.
     override = backed.get(ambiguity.key())
     honoured = resolution.how is ValueSource.HUMAN and override == resolution.value
     decisions.append(

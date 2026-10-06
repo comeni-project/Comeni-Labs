@@ -15,10 +15,11 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from typing import NamedTuple
 
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
+from comeni_core.goal.asked import ProducerPin, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.plan.ir import Tier
@@ -55,6 +56,9 @@ class RouteStep(BaseModel):
     contract_id: str
     node_id: str
     satisfies: str
+    site: Site
+    """Where this step's tool was chosen: `satisfies` with the states asked of it there. A
+    person's pin names a site, and the authoring blueprint offers a step's alternatives from it."""
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
 
@@ -259,6 +263,7 @@ def route(
                     contract_id=chosen.id,
                     node_id=_node_id(chosen),
                     satisfies=type_id,
+                    site=Site(type_id=type_id, states=states),
                     selection_tier=choice.tier,
                     selection_reason=choice.reason,
                     presence_tier=Tier.STRUCTURAL,
@@ -332,8 +337,7 @@ def _satisfy_port(
     )
 
 
-@dataclass(frozen=True)
-class Choice:
+class Choice(NamedTuple):
     """Which contract fills a site, at which tier, why, and on whose say-so.
 
     Was a six-tuple whose own docstring called it "one past what a tuple should carry"; the sixth
@@ -351,8 +355,7 @@ class Choice:
     pin: Pin | None = None
 
 
-@dataclass(frozen=True)
-class Asked:
+class Asked(NamedTuple):
     """A tier-4 site, its question not yet answered: a tie (invariant 8) or a rule that cannot
     apply (invariant 4, #174). The two differ only in why the question is open, what evidence it
     carries, and the order its candidates are offered in. Answering is `_answer`'s, so **deciding
@@ -364,8 +367,7 @@ class Asked:
     unknown: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class _Here:
+class _Here(NamedTuple):
     """One site, everything its deciders read, computed once."""
 
     type_id: str
@@ -403,7 +405,7 @@ def _here(
         None,
     ) if rules else None
     here = _Here(type_id, states, candidates, [], roles, rules, premises, rule_pin)
-    return replace(here, ordered=sorted(candidates, key=here.rank))
+    return here._replace(ordered=sorted(candidates, key=here.rank))
 
 
 # ── the deciders, in order: each answers its site or passes (`None`) ─────────────────────
@@ -589,15 +591,67 @@ def _choose(
     plan: RoutePlan,
     premises: dict[str, object],
 ) -> Choice:
-    """Which contract produces `type_id` here: decided by the chain, and an open question
-    answered here — the one place a record is appended to the plan."""
+    """Which contract produces `type_id` here: decided by the chain, a person's pin wrapping it,
+    and an open question answered here — the one place a record is appended to the plan."""
     here = _here(type_id, states, candidates, goal=goal, rules=rules, premises=premises)
     decided = _decide(here)
+    pin = goal.constraints.producer_at(Site(type_id=type_id, states=states))
+    by_person = _by_person(here, decided, pin) if pin is not None else None
+    if by_person is not None:
+        choice, record = by_person
+        plan.decisions.append(record)
+        return choice
     if isinstance(decided, Asked):
         choice, record = _answer(decided, resolver)
         plan.decisions.append(record)
         return choice
     return decided
+
+
+def _by_person(
+    here: _Here, decided: Choice | Asked, pin: ProducerPin
+) -> tuple[Choice, ProducerDecision] | None:
+    """A person's pin (§14.3 and §14.9 of the consultant build): it **wraps** the chain.
+
+    `None` — the engine's choice stands — when the pinned tool is not a candidate here (the pin
+    is inert at this site) or is the engine's own pick (a pin that agrees changes nothing, so
+    the same bytes come out). Otherwise the pinned tool, at tier 4 with source person and the
+    engine's pick and its reason kept beside it, and one `ProducerDecision` whose
+    `human_override` is the pin. **The resolver is never asked**: at an open site the person's
+    answer is the answer, and asking a model what it would have chosen is a charge for nothing.
+    """
+    match = next((c for c in here.candidates if c.id == pin.contract), None)
+    engine = decided.contract.id if isinstance(decided, Choice) else None
+    if match is None or engine == pin.contract:
+        return None
+    if isinstance(decided, Choice):
+        reason = f"you chose {pin.contract} over {engine}, the engine's pick: {decided.reason}"
+        why_open = "a person chose another tool than the engine's"
+        unknown: tuple[str, ...] = ()
+    else:
+        reason = f"you chose {pin.contract}; {decided.question.why_open}"
+        why_open, unknown = decided.question.why_open, decided.unknown
+    question = ProducerAsked(
+        node_id=_node_id(match),
+        subject=f"producer:{here.type_id}",
+        what=f"which contract produces {here.type_id}",
+        why_open=why_open,
+        candidates=sorted(c.id for c in here.candidates),
+        states=sorted(here.states),
+    )
+    record = ProducerDecision(
+        key=question.key(),
+        subject=question.subject,
+        candidates=question.candidates,
+        chosen=pin.contract,
+        human_override=pin.contract,
+        reason=reason,
+        confidence=1.0,
+        resolved_by="person",
+        unknown=list(unknown),
+    )
+    choice = Choice(match, Tier.AMBIGUOUS, reason, ValueSource.HUMAN, pinned="your choice")
+    return choice, record
 
 
 def _asked(

@@ -1137,7 +1137,8 @@ class Pipeline(EgressPayload):
         }
 
     def replayable_decisions(self) -> list[DecisionRecord]:
-        """Decisions with a parameter's human answer taken from `settings[].value`.
+        """Decisions with a parameter's human answer taken from `settings[].value`, and without
+        the records a person's pin in the goal answers (the goal reproduces those).
 
         `settings[].value` is the writable home of a tier-4 answer — the field `emit` reads and
         the file tells a person to edit. A `ParamDecision`'s `human_override` is synced from it
@@ -1192,9 +1193,22 @@ class Pipeline(EgressPayload):
                         }
                     )
                 )
+            elif self._pinned_by_goal(record):
+                # A person's tool lives in the goal (`constraints.producers`), and the
+                # re-resolution reproduces it from there without asking anyone; its record is
+                # the goal's answer, not an edit to replay. Replaying it would leave an
+                # override no question asked for — MD0203 refused every pinned pipeline.
+                continue
             else:
                 replayable.append(record)
         return replayable
+
+    def _pinned_by_goal(self, record: DecisionRecord) -> bool:
+        return getattr(record, "kind", None) is DecisionKind.PRODUCER and any(
+            record.subject == f"producer:{pin.site.type_id}"
+            and record.human_override == pin.contract
+            for pin in self.goal.constraints.producers
+        )
 
     def content_digest(self) -> str:
         """The digest `emitted.from_digest` records, over everything **but** `emitted`.
