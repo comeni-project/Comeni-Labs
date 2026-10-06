@@ -203,8 +203,8 @@ export function LivingSurface({
             <div data-testid="no-model" className="mx-5 mt-4">
               <p className="m-0 text-[13px] text-ink">No model is configured here</p>
               <p className="m-0 mt-1 text-[12.5px] text-ink-2">
-                Build and Spawn need one. Everything else works: draw the pipeline yourself, and the
-                engine settles every step it can prove.
+                The builder needs one to read what you describe. Everything else works: draw the
+                pipeline yourself, and the engine settles every step it can prove.
               </p>
             </div>
           )}

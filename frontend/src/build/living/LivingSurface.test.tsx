@@ -123,6 +123,8 @@ describe("the states a session can be in", () => {
   it("says plainly when no model is configured", () => {
     surface(with_({ model_configured: false }));
     expect(screen.getByTestId("no-model")).toHaveTextContent("No model is configured here");
+    // Build and Spawn are retired (spec §13.1): the notice names neither (final review of 3b run 1).
+    expect(screen.getByTestId("no-model").textContent).not.toMatch(/Build and Spawn|Spawn/);
   });
 
   it("offers retry on an unreachable model only while the session has failed", () => {
