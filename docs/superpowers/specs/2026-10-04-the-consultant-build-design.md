@@ -588,7 +588,8 @@ drifting apart.
 ### 14.3 The pieces
 
 **The goal gains producer pins** (`comeni-core`, pure). `Constraints.producers: list[ProducerPin]`,
-`ProducerPin(type_id, states, contract)`: at the router's site producing `type_id` with `states`,
+`ProducerPin(site, contract)`, where `Site(type_id, states)` is the one identity of a place a tool
+is chosen (used by the pin, the blueprint's per-step candidates and `ChooseTool`): at that site,
 take `contract` if it is a candidate there. **Honoured in `router._choose` before rules.** If it is
 the tool the router would have chosen, the step is recorded exactly as without the pin; otherwise
 it is tier 4 with source `HUMAN` and a reason naming the engine's pick and its reason. A pin whose
@@ -598,9 +599,10 @@ when non-empty**, so an existing goal emits byte-identical output (invariant 10)
 
 **Amendments** (`mendel-authoring`, pure), each a frozen value with `apply(goal) -> Goal`:
 
-- `ChooseTool(type_id, states, contract)` adds or replaces the pin at that site;
-- `SetFact(measurement, value)` adds a measured entry to `goal.profile`, built through
-  `profile_of` (the construction guard; invariant 15);
+- `ChooseTool(pin)` adds or replaces the pin at its site;
+- `SetFact(measured)` adds a measured entry to `goal.profile`. The shell builds `measured` through
+  the measurement registry before the amendment exists (invariant 15), so every `apply(goal)` is
+  pure and has the same signature;
 - `SetSetting(...)`: the type is named; it is part 5's.
 
 A person's answer, a swap on a card and (part 4) a model's proposal are all amendments; the shell
@@ -636,10 +638,8 @@ card ─that's right→ resolve ──stored──→ overview → ◇ Pacing? (
                                                              ├ on → show_gaps ──┐  records whether
                                                              └ off → hide_gaps ─┤  gaps stop the walk
                                                                                 ↓
-     step ─held→ card ─Continue→ step
-                      └─Amend→ amend ─→ step         (a swap, or a fact)
-     step ─needs you→ choice ─Continue (keep, flagged)→ step
-                             └─Amend→ amend ─→ step
+     step ─stops→ card ─Continue→ step               (why it stopped is data on the card:
+                      └─Amend→ amend ─→ step          tier 4, a gap, or *together*)
      amend ─can't build→ failed
      step ─none left→ wrap
 ```
@@ -647,17 +647,18 @@ card ─that's right→ resolve ──stored──→ overview → ◇ Pacing? (
 - **The Dev fork moves before the walk**, beside Pacing, and is recorded on the session like the
   pacing. The `step` handler then places every step that does not stop — routed-around gaps
   included — in one entry, so a pipeline of any size passes the interpreter in a fixed number of
-  nodes (258). `route_around` and `show_gap` go; a gap shown under Dev on is a marked card at
-  `held`.
-- **`step` stops** on: a tier-4 step (`choice`), a gap under Dev on (`held`, marked), or every
-  step under *together* (`held`). Under *stop where needed* nothing else stops.
-- **The card** (`held` or `choice`) offers *Continue* and its alternatives, each with its
+  nodes (258). `route_around` and `show_gap` go; a gap shown under Dev on is a marked card.
+- **`step` stops** where `stops(step, policy)` says (pure, `mendel-authoring`; it replaces
+  `waits`): a tier-4 step, a gap under Dev on, or every step under *together*. `policy` is one
+  stored value, pacing and show-gaps together. One waiting node, `card`, replaces `held` and
+  `choice`.
+- **The card** offers *Continue* and its alternatives, each with its
   difference; a step whose rule lacked a fact also offers *tell me* for that fact. *Continue* on a
   tier-4 step keeps the engine's pick, flagged.
 - **`amend`** (acting) applies the amendment, re-resolves, stores the blueprint, the goal and the
   projected draft, and goes to `step`. A blueprint that cannot be built goes to `failed`, as
   `resolve` does (259).
-- **Removed:** `fact`, `reresolve`, `show_gap`, `route_around`; `AnswerGap` in stage ④;
+- **Removed:** `fact`, `reresolve`, `show_gap`, `route_around`, `held`, `choice`; `AnswerGap` in stage ④;
   `with_facts`; the session's `cursor`; `committed`; rejecting a step (the projection has no
   hole to leave; removing a step is a structural edit, after the walk).
 
@@ -669,6 +670,7 @@ card ─that's right→ resolve ──stored──→ overview → ◇ Pacing? (
   id**: an alternative (`alt_1` → its `ChooseTool`) or a fact (`fact:read_length`, with the
   `value`, checked by the measurement registry). Nothing outside the card's offered set can be
   sent, which is the door part 4's model will use too.
+- `Amend` keeps the registry-moved check (MI0206) `SettleStep` has.
 - Both, and `ChoosePacing`, refuse a proposal that is not pending (MI0203) or is of the wrong kind
   (259).
 - `RecordEdit` during the walk is refused with a coded sentence: *editing opens when the walk is
@@ -676,8 +678,8 @@ card ─that's right→ resolve ──stored──→ overview → ◇ Pacing? (
 
 ### 14.6 Stored
 
-- **Session row:** `reviewed` (list of step ids) replaces `cursor`; `show_gaps` (bool, nullable)
-  beside `pacing`; `facts` stays gathering's and is not read in stage ④. One migration; old
+- **Session row:** `reviewed` (list of step ids) replaces `cursor`; `policy` (pacing and
+  show-gaps, one JSON value) replaces `pacing`; `facts` stays gathering's and is not read in stage ④. One migration; old
   sessions are dropped, as in 3b.
 - **The goal row** is the amended goal; the draft's `goal` and graph `profile` follow it.
 
@@ -705,7 +707,30 @@ inert pin. Unchanged otherwise.
   swap added, marked. `make client`, vitest, `tsc -b`.
 - **Walk it** in the browser: scenario 1 both ways, a swap, each Pacing, Dev on.
 
-### 14.9 Not here
+- **The orphan class as a property:** for any blueprint, reviewed set and amendment, the draft
+  holds only the blueprint's steps and only edges between them.
+
+### 14.9 The shape of the code (quality pass, 2026-10-06)
+
+- **The router decides through a chain.** `_choose`'s six-tuple becomes a record, `Choice`
+  (contract, tier, reason, rule pin, source, and the `DecisionRecord` to emit, if any), and each
+  way of deciding becomes one small function in an ordered list: rule pin → a rule that cannot
+  apply → the only candidate → exact states → priority → tie. **No link writes to the plan**: the
+  record rides on the `Choice` and the caller appends it once. The goal's pin **wraps** the
+  chain: it asks the chain for the engine's choice (free of side effects), and, where the pin
+  differs, returns tier 4 `HUMAN` with a `ProducerDecision` (`human_override` set) carrying both
+  reasons. Guarded by byte-identical goldens and `make verify`.
+- **A pin wins over replay.** `ReplayResolver`'s `human_override` records stay for `mendel
+  upgrade` of older pipelines; where the goal pins a site, the pin decides.
+- **One `BlueprintDiff`** (added, removed, kept, tool changed) — computed once, read by the
+  alternative's card, the canvas's *added by your choice* marking and the turn's receipt;
+  `describe_edit` uses it too.
+- **`stages/building.py` splits** into the walk's handlers, the card payloads (step and
+  alternatives) and the amendments, since this rewrites most of it.
+- **A goal changed after hand edits** says so before rebuilding — *this replaces your 3 hand
+  edits* — and can be cancelled. Keeping them over a new blueprint is a later design.
+
+### 14.10 Not here
 
 Settings' values (part 5, with the picker); the AI as guide (part 4); structural edits during the
 walk; pins keyed other than by site.
