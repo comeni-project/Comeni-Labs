@@ -58,3 +58,45 @@ def test_a_question_a_person_already_answered_needs_nothing(rnaseq, declared):
 
 def test_another_steps_decision_is_not_this_steps_need(rnaseq, declared):
     assert _need(rnaseq(None), "fastqc", declared).kind is NeedKind.NOTHING
+
+
+def test_a_tool_a_person_chose_is_not_asked_again(rnaseq, declared):
+    """Review Focus 1, on the shape the router writes: a replayed person's answer is `chosen`
+    plus the step's `why.source = human`; the router never sets `human_override` on a producer
+    record. Found by the final review: the first fix keyed on `human_override` alone."""
+    from comeni_core.artifact.pipeline import ModuleRef
+    from comeni_core.plan.tiers import ValueSource
+
+    blueprint = rnaseq(None)
+    star = blueprint.step("star_align")
+    chosen = star.model_copy(
+        update={
+            "module": ModuleRef(contract_id=HISAT2, digest=star.module.digest),
+            "why": star.why.model_copy(update={"source": ValueSource.HUMAN}),
+        }
+    )
+    record = blueprint.pipeline.decisions[0].model_copy(update={"chosen": HISAT2})
+    assert record.human_override is None and record.unknown == ["read_length"]
+    assert need_of(chosen, [record], declared).kind is NeedKind.NOTHING
+
+
+def test_a_setting_a_person_answered_is_not_asked_again(rnaseq, declared):
+    from comeni_core.plan.tiers import ValueSource
+
+    blueprint = rnaseq(150, strandedness_open=True)
+    counts = blueprint.step("featurecounts")
+    answered = counts.model_copy(
+        update={
+            "settings": [
+                s.model_copy(
+                    update={
+                        "value": 2,
+                        "why": s.why.model_copy(update={"source": ValueSource.HUMAN}),
+                    }
+                )
+                for s in counts.settings
+            ]
+        }
+    )
+    assert answered.settings
+    assert need_of(answered, blueprint.pipeline.decisions, declared).kind is NeedKind.NOTHING

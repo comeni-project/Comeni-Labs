@@ -5,7 +5,8 @@
   tool instead* is possible.
 - **A choice**, when a decision on the step — its tool or a setting — is tier 4 and waits on no
   fact. Candidates are the resolver's own, never authored.
-- **Nothing**, otherwise; a question a person already answered is not asked again.
+- **Nothing**, otherwise; a question a person already answered (its value's `why.source` is
+  `human`) is not asked again.
 """
 
 from collections.abc import Sequence
@@ -13,7 +14,7 @@ from enum import StrEnum
 
 from comeni_core.artifact.pipeline import Step
 from comeni_core.plan.decision import DecisionRecord, ProducerDecision
-from comeni_core.plan.tiers import Tier
+from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, ConfigDict
 
@@ -68,7 +69,7 @@ def need_of(step: Step, decisions: Sequence[DecisionRecord], declared: Declared)
     open_ = [
         record
         for record in decisions_of(step, decisions)
-        if record.tier is Tier.AMBIGUOUS and record.human_override is None
+        if record.tier is Tier.AMBIGUOUS and not _answered(step, record)
     ]
     if not open_:
         return Need(kind=NeedKind.NOTHING)
@@ -83,6 +84,23 @@ def need_of(step: Step, decisions: Sequence[DecisionRecord], declared: Declared)
             for r in open_
         ],
     )
+
+
+def _answered(step: Step, record: DecisionRecord) -> bool:
+    """Whether a person already settled this question, so the walk does not ask it again.
+
+    **Read off the value the record governs, not only the record.** The router writes a replayed
+    person's tool as `chosen` plus the step's `why.source = human` and never sets a producer
+    record's `human_override`; and a setting's `human_override` cannot tell *answered null* from
+    *unanswered*. `why.source` is the signal `needs_review()` already reads.
+    """
+    if record.human_override is not None:
+        return True
+    if isinstance(record, ProducerDecision):
+        return step.why.source is ValueSource.HUMAN
+    name = record.key.split(".", 1)[1] if "." in record.key else ""
+    setting = next((s for s in step.settings if s.name == name), None)
+    return setting is not None and setting.why.source is ValueSource.HUMAN
 
 
 def _candidate(record: DecisionRecord, value: ParamValue, declared: Declared) -> Candidate:
