@@ -430,7 +430,8 @@ It is stage ④'s second fork, after Pacing.
 ## 13. Stage ④ built (14.7.8.3b)
 
 **Decided** by the operator on 2026-10-06, in the 14.7.8.3b brainstorm. It builds §5 on the forks
-of §12 and the build plan of §4. Where it differs from §5, this section wins.
+of §12 and the build plan of §4. Where it differs from §5, this section wins. **§14 replaces its
+walk** (the fact, the cursor, the draft built step by step).
 
 ### 13.1 The decisions
 
@@ -556,3 +557,155 @@ Each found reading the code the plan is written against; each makes the flow sma
   part 5.
 - **The session row**: `mode` dropped, `pacing` added; `cursor` is the walk's position. No
   `gaps_seen`.
+
+## 14. The blueprint decides, the walk reviews (14.7.8.3c)
+
+**Decided** by the operator on 2026-10-06, after the review of 3b's second run (issues 253–259).
+Where it differs from §13, this section wins; §13's forks, pacing, gaps, overview and wrap-up stay.
+
+### 14.1 Why
+
+3b's walk **built** the draft: each step was appended as the walk passed it, and a fact answered
+mid-walk re-resolved the blueprint under a draft already half-built from the old one. Answering
+*read length 50* switched STAR to HISAT2 with STAR's index left orphaned and HISAT2's never
+offered (253); choosing HISAT2 on STAR's card kept STAR's index wired in (257); the kept draft
+lost the fact (254); the wrap-up credited the resolver for the person's choice (256). Each is one
+cause: three copies of "what has been decided" — the session's facts, its cursor, the draft —
+drifting apart.
+
+### 14.2 The decisions
+
+| Decision | Choice | Why |
+|---|---|---|
+| Where a decision lives | **in the goal, and only there.** A person's answer is an `Amendment` applied to the goal; the blueprint is `resolve(goal)`; the draft is a projection of the blueprint | same goal in → same pipeline out, with every decision included; nothing drifts because nothing is held twice |
+| What a person can change on a step | **its tool, for any compatible tool** — the router's own candidates at that step's site — whether or not a rule covers it; and, where a rule lacks a fact, the fact | the engine is a guide, not a gate (operator); the candidate list keeps it inside what can be built |
+| How a change is shown | **as a whole pipeline**: each alternative is `resolve(goal + amendment)`, shown as its difference from the current blueprint | nobody computes by hand what a swap drags with it |
+| A person's tool against the engine's | **tier 4, source person**, with the engine's own reason kept beside it: *the rule picks STAR for reads ≥ 100 bp; you chose HISAT2*. A pin naming the tool the engine would pick anyway changes nothing | the step is no longer proven from the data, and the reader sees who decided (invariant 6) |
+| Structural hand edits (add, remove, rewire) | **after the walk**, on the kept draft, as today; refused during the walk with a sentence saying so | a projection has nowhere to keep them; the walk stays simple |
+| Settings (a value for a tier-4 setting) | **part 5**, with the value picker; the amendment type is designed for it here and not built | no setting has a declared domain to pick from until the registry fix |
+| The AI as guide | **part 4**, proposing only these amendments, by id, previewed like any other | a model touches the pipeline only through the typed questions |
+
+### 14.3 The pieces
+
+**The goal gains producer pins** (`comeni-core`, pure). `Constraints.producers: list[ProducerPin]`,
+`ProducerPin(type_id, states, contract)`: at the router's site producing `type_id` with `states`,
+take `contract` if it is a candidate there. **Honoured in `router._choose` before rules.** If it is
+the tool the router would have chosen, the step is recorded exactly as without the pin; otherwise
+it is tier 4 with source `HUMAN` and a reason naming the engine's pick and its reason. A pin whose
+contract cannot reach its inputs raises `UnroutablePinError`, as a rule pin does. A pin that
+matches no site is inert and is listed in the wrap-up as *no longer applies*. **Serialised only
+when non-empty**, so an existing goal emits byte-identical output (invariant 10).
+
+**Amendments** (`mendel-authoring`, pure), each a frozen value with `apply(goal) -> Goal`:
+
+- `ChooseTool(type_id, states, contract)` adds or replaces the pin at that site;
+- `SetFact(measurement, value)` adds a measured entry to `goal.profile`, built through
+  `profile_of` (the construction guard; invariant 15);
+- `SetSetting(...)`: the type is named; it is part 5's.
+
+A person's answer, a swap on a card and (part 4) a model's proposal are all amendments; the shell
+records each as a turn (who, what, the difference it made) and stores only the amended goal.
+
+**The site** of each step: the blueprint carries, per step, the `type_id` and `states` it was
+chosen to produce and the router's candidate list there (after cycles and absent roles are
+removed). Carried on the `Blueprint` (`mendel-authoring`), not on `pipeline.yml`: the artifact is
+unchanged.
+
+**Alternatives** (`alternatives_of(blueprint, node, resolve) -> list[Alternative]`, pure, with
+`resolve` a port): for each other candidate at the step's site, the amendment, the blueprint it
+gives, and its difference — steps added, removed and kept, by id — or the reason it cannot be
+built (`UnroutablePinError`'s sentence), shown and not offered. Computed when the step's card is
+offered, so the card's options are fixed when the person reads it.
+
+**The draft is a projection** (`drafted(blueprint, reviewed) -> (DraftGraph, DraftProvenance)`,
+pure): the blueprint's steps the person has reviewed, with their edges, and each node's
+provenance read from its step's source. It replaces appending through `committed`; it is
+recomputed after every amendment and every review. The goal and the graph's profile are written
+to the draft with it (254).
+
+**The walk's place** is a set of reviewed step ids, not a cursor: the next step is the first in
+the blueprint's order not yet reviewed. After a swap, the chosen tool's step is reviewed (the
+person just decided it) and any step the swap added before it — HISAT2's index — comes next,
+marked *added by your choice*. A reviewed step the new blueprint no longer has simply leaves the
+set.
+
+### 14.4 The flow
+
+```
+card ─that's right→ resolve ──stored──→ overview → ◇ Pacing? (as §13) → ◇ Dev mode?
+                                                             ├ on → show_gaps ──┐  records whether
+                                                             └ off → hide_gaps ─┤  gaps stop the walk
+                                                                                ↓
+     step ─held→ card ─Continue→ step
+                      └─Amend→ amend ─→ step         (a swap, or a fact)
+     step ─needs you→ choice ─Continue (keep, flagged)→ step
+                             └─Amend→ amend ─→ step
+     amend ─can't build→ failed
+     step ─none left→ wrap
+```
+
+- **The Dev fork moves before the walk**, beside Pacing, and is recorded on the session like the
+  pacing. The `step` handler then places every step that does not stop — routed-around gaps
+  included — in one entry, so a pipeline of any size passes the interpreter in a fixed number of
+  nodes (258). `route_around` and `show_gap` go; a gap shown under Dev on is a marked card at
+  `held`.
+- **`step` stops** on: a tier-4 step (`choice`), a gap under Dev on (`held`, marked), or every
+  step under *together* (`held`). Under *stop where needed* nothing else stops.
+- **The card** (`held` or `choice`) offers *Continue* and its alternatives, each with its
+  difference; a step whose rule lacked a fact also offers *tell me* for that fact. *Continue* on a
+  tier-4 step keeps the engine's pick, flagged.
+- **`amend`** (acting) applies the amendment, re-resolves, stores the blueprint, the goal and the
+  projected draft, and goes to `step`. A blueprint that cannot be built goes to `failed`, as
+  `resolve` does (259).
+- **Removed:** `fact`, `reresolve`, `show_gap`, `route_around`; `AnswerGap` in stage ④;
+  `with_facts`; the session's `cursor`; `committed`; rejecting a step (the projection has no
+  hole to leave; removing a step is a structural edit, after the walk).
+
+### 14.5 Commands
+
+- **`SettleStep(proposal, takes: continue)`** is *Continue* only: keep this step as it is. It loses
+  its option and its *choose* arrow; rejecting is gone (§14.4).
+- **`Amend(proposal, option, value=None)`** picks one of the amendments the card offered, **by
+  id**: an alternative (`alt_1` → its `ChooseTool`) or a fact (`fact:read_length`, with the
+  `value`, checked by the measurement registry). Nothing outside the card's offered set can be
+  sent, which is the door part 4's model will use too.
+- Both, and `ChoosePacing`, refuse a proposal that is not pending (MI0203) or is of the wrong kind
+  (259).
+- `RecordEdit` during the walk is refused with a coded sentence: *editing opens when the walk is
+  done* (255); after `wrap`, unchanged.
+
+### 14.6 Stored
+
+- **Session row:** `reviewed` (list of step ids) replaces `cursor`; `show_gaps` (bool, nullable)
+  beside `pacing`; `facts` stays gathering's and is not read in stage ④. One migration; old
+  sessions are dropped, as in 3b.
+- **The goal row** is the amended goal; the draft's `goal` and graph `profile` follow it.
+
+### 14.7 The wrap-up
+
+Read from the final blueprint, which now carries the person's choices as `HUMAN` (256), plus any
+inert pin. Unchanged otherwise.
+
+### 14.8 Testing
+
+- Pure: `ProducerPin` honoured before a rule; a pin equal to the engine's pick changes nothing;
+  a pin against it is tier 4 `HUMAN` with both reasons; an empty `producers` serialises to the
+  same bytes as before (a golden). `ChooseTool` and `SetFact` `apply`. `alternatives_of` on
+  STAR: HISAT2's difference adds `hisat2_build`, removes `star_genomegenerate`.
+  `drafted` from a reviewed set; a step the blueprint lost leaves it.
+- The interpreter: each Pacing × Dev case reaches `step`; a card's `Amend` passes `amend` to
+  `step`; a large fake plan of 100 gap steps under *stop where needed*, Dev off, reaches `wrap`
+  within the node limit (258).
+- The shell (Postgres): scenario 1 without a read length stops at STAR as a choice; *tell me 50*
+  re-resolves to HISAT2 **with its index and without STAR's** (253); swapping STAR for HISAT2 on
+  the card does the same (257); the kept draft's goal has the fact (254); the wrap-up credits the
+  person (256); a `RecordEdit` mid-walk is refused (255); a replayed pacing proposal is refused
+  (259).
+- The browser: a card shows its alternatives with their differences; the canvas shows the steps a
+  swap added, marked. `make client`, vitest, `tsc -b`.
+- **Walk it** in the browser: scenario 1 both ways, a swap, each Pacing, Dev on.
+
+### 14.9 Not here
+
+Settings' values (part 5, with the picker); the AI as guide (part 4); structural edits during the
+walk; pins keyed other than by site.
