@@ -69,8 +69,8 @@ CLOSED_PACKAGES = {
         "typing", "pydantic", "yaml", "comeni_core",
     },
     "mendel-resolver": {
-        "collections", "collections.abc", "enum", "math", "operator", "pathlib", "re",
-        "typing", "pydantic", "yaml", "comeni_core", "mendel_resolver",
+        "collections", "collections.abc", "dataclasses", "enum", "math", "operator", "pathlib",
+        "re", "typing", "pydantic", "yaml", "comeni_core", "mendel_resolver",
     },
     "dag-core": {
         "__future__", "collections", "collections.abc", "dataclasses", "typing", "dag_core",
@@ -179,6 +179,11 @@ CLOSED_PACKAGES = {
 # `dataclasses` was added to it 2026-10-05 (plan 1c of the consultant build) for
 # `mendel_authoring.commands`: each command is a frozen dataclass of plain values. Stdlib, no
 # I/O, and already on other pure packages' lines; a command is a record, not a behaviour.
+#
+# `dataclasses` was added to `mendel-resolver` 2026-10-07 (operator, after 14.7.8.3c): the router's
+# records had to be `NamedTuple`s only because the line never listed it — an omission, not a
+# decision. Stdlib, no I/O, on three other pure packages' lines; an allowlist closes the door
+# on the network, not on plain records.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
