@@ -499,24 +499,28 @@ def ask_pacing(ctx: Ctx) -> None:
 @handles("step")
 def step(ctx: Ctx) -> str:
     """Place every step that does not stop, **in this one entry**, whatever the pipeline's length
-    (issue 258), then project the draft once; leave on the first stop, or at the end."""
+    (issue 258), then project the draft once; leave on the first stop, or at the end.
+
+    **The card is offered after the projection** (issue 263): it records the draft's revision and
+    wires against its graph, so both must already hold the steps placed quietly before it."""
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         blueprint, plan = cards.plan_of_row(row)
         policy = Policy.model_validate(row.policy or {"pacing": Pacing.TOGETHER.value})
         reviewed = reviewed_of(row)
         by_node = {planned.node: planned for planned in plan.steps}
-        left = "none_left"
+        stop = None
         while (node := next_step(blueprint, reviewed)) is not None:
             stop = stops(by_node[node], policy)
             if stop is not None:
-                cards.offer(db, row, blueprint, plan, node, stop)
-                left = "stops"
                 break
             reviewed.append(Reviewed(node=node, by=ENGINE))
         row.reviewed = [r.model_dump(mode="json") for r in reviewed]
         project(db, row, blueprint)
-        return left
+        if stop is None:
+            return "none_left"
+        cards.offer(db, row, blueprint, plan, node, stop)
+        return "stops"
 
 
 @handles("wrap")

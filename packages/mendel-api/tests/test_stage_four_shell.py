@@ -271,6 +271,21 @@ def test_stop_where_needed_with_a_read_length_reaches_the_wrap_up(clean, monkeyp
     _no_orphan(session_id)
 
 
+def test_stop_where_needed_offers_its_first_card_against_the_quiet_steps(clean, monkeypatch):
+    """Issue 263: the card was offered before the quiet steps were projected, so it held the
+    draft's old revision (Continue answered `MI0202`) and wired only to the old graph."""
+    monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
+    session_id = _built(_goal(read_length=False))
+    card = _pending(session_id)
+    assert card is not None and card["payload"]["node"] == "star_align"
+    present = _ids(session_id)
+    wired = {e["from_node"] for e in card["payload"]["edges"]}
+    assert wired and wired <= present
+    assert "star_align" not in present
+    _continue(session_id)
+    assert "star_align" in _ids(session_id), "Continue was refused: the card was stale"
+
+
 def test_ask_puts_the_pacing_question_and_the_answer_walks_on(clean, monkeypatch):
     monkeypatch.delenv("COMENI_BUILD_PACING", raising=False)
     session_id = _built(_goal())
