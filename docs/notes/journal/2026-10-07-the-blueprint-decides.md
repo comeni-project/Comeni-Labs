@@ -44,12 +44,28 @@
 
 ## What is next
 
-1. **Walk it**: rebuild the baked images, clear the dev database's authoring sessions once
-   (`DELETE FROM pipeline_authoring_turn; DELETE FROM pipeline_authoring_proposal; DELETE FROM
-   pipeline_authoring_session;`), `make migrate`, `make dev`; scenario 1 without a read length:
-   *tell me 50*, then a swap on the card; each Pacing; Dev mode on.
+1. **Walk it, on the operator's main PC** (its `.env` holds the model; Ollama on the AMD card).
+   Start Claude with `claude --chrome` so the walk can be driven in the browser.
+   - Get the branch: `git fetch && git checkout stage-four-the-consultant-build && git pull`,
+     then `git submodule update --init` and `uv sync`.
+   - Bring the model up if it is not: `make ai-up OLLAMA_GPU=rocm` (`.env` already names it).
+   - Rebuild and start: `make dev` (rebuilds `api`, `ai-worker`, `wiener-api`; the `api`
+     container applies migration `b8d4f0e2a613` itself).
+   - Clear the old authoring sessions once — they rest on nodes that no longer exist:
+     `docker compose exec postgres psql -U mendel -d mendel -c "DELETE FROM
+     pipeline_authoring_turn; DELETE FROM pipeline_authoring_proposal; DELETE FROM
+     pipeline_authoring_session;"`
+   - Walk at http://localhost:5173/ (or http://localhost/): describe the RNA-seq analysis
+     **without saying the read length**, then:
+     - Pacing *together*: at STAR's card, *tell me* the read length `50` — the canvas should
+       become HISAT2 with its own index, no STAR step left; walk to the wrap-up.
+     - Again, and on STAR's card choose HISAT2 instead — the next card is HISAT2's index; the
+       wrap-up credits you.
+     - Pacing *stop only where needed*, and *ask me every time*; then Dev mode on (gap cards).
+     - Look at it against the artboard (`.design/_compare.html`). File each defect as an issue
+       (the `walk` label), then `make slow` (Docker) for the router change.
 2. The registry fix: STAR's `seq_platform` gets the SAM `PL` domain.
-3. Part 4, ask anything.
+3. Part 4, ask anything. Deferred minors of 3c: issue 260.
 
 ## Open questions
 
