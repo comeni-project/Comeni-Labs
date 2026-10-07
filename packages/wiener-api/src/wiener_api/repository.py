@@ -283,18 +283,12 @@ def events(session: Session, lab_id: str, run_id: str) -> list[RunEventRow]:
     ))
 
 
-def next_seq(session: Session, lab_id: str, run_id: str) -> int:
-    """The order Wiener received things in, which is the honest claim — §6.2.
-
-    Not the order Nextflow emitted them in, which nothing can promise over a network.
-    """
-    highest = session.scalar(
-        select(RunEventRow.seq)
-        .where(RunEventRow.lab_id == lab_id, RunEventRow.run_id == run_id)
-        .order_by(RunEventRow.seq.desc())
-        .limit(1)
-    )
-    return 0 if highest is None else highest + 1
+def tasks(session: Session, lab_id: str, run_id: str) -> list[RunTask]:
+    """Every task of one run, in one query: what `projection.restored` rebuilds from."""
+    return list(session.scalars(
+        select(RunTask).where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
+        .order_by(RunTask.task_id)
+    ))
 
 
 def task(session: Session, lab_id: str, run_id: str, task_id: int) -> RunTask | None:

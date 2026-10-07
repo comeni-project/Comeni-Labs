@@ -110,7 +110,7 @@ def cancel(run_id: str, *, who: str, why: str = "") -> tuple[str, str]:
         # `next_seq` is the ingest path's own, so a cancel takes its place in the same order
         # everything else does — §6.2's *the order Wiener received things in*.
         projection.append(session, settings.lab_id, run_id, RunEvent(
-            run_id=run_id, seq=repository.next_seq(session, settings.lab_id, run_id),
+            run_id=run_id, seq=projection.next_seq(session, settings.lab_id, run_id),
             kind=EventKind.CANCELLED, at_ms=now_ms,
         ))
 

@@ -7,7 +7,7 @@ three days of events on every page load — they are a cache with a rebuild path
 
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Float, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from wiener_api.db import Base
@@ -53,6 +53,20 @@ class Run(Base):
     exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # --- what the fold needs and no other column holds (issue 282) --------------------
+    #
+    # With these, `run` and its `run_task` rows are enough for `wiener_core.state.restore` to
+    # rebuild the state before an event, so ingest folds one event instead of replaying the
+    # run. Counts and phase are not here: `restore` works them out as the fold does.
+    last_seq: Mapped[int] = mapped_column(Integer, default=-1, server_default="-1")
+    """The highest `seq` folded, and what the next one is taken from, under the row's lock."""
+    last_activity_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    started_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    terminal_seen: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    """Which terminal kinds have arrived (`completed`, `error`, `cancelled`), sorted: a set
+    from a closed vocabulary of three, never queried."""
+    run_succeeded: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
 
 class RunEventRow(Base):
     """The record. Every projection is derivable from these rows and nothing else."""
@@ -80,6 +94,8 @@ class RunTask(Base):
     attempts: Mapped[list] = mapped_column(JSON, default=list)
     latest_exit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_change_ms: Mapped[int] = mapped_column(BigInteger)
+    first_seen_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    """When the task was first seen — kept for `restore` (issue 282)."""
 
     # --- derived from the latest attempt, so the table can be ORDERED BY --------------
     #

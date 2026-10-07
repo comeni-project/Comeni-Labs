@@ -236,6 +236,35 @@ def fold(state: RunState, event: RunEvent) -> RunState:
     })
 
 
+def restore(
+    *,
+    run_id: str,
+    tasks: Mapping[int, TaskState],
+    last_seq: int,
+    last_activity_ms: int | None,
+    started_at_ms: int | None,
+    ended_at_ms: int | None,
+    terminal_seen: frozenset[EventKind],
+    run_succeeded: bool | None,
+) -> RunState:
+    """A run's state rebuilt from the facts a projection stores, so the fold can go on from it
+    without replaying the record (issue 282). **Counts and phase are not inputs**: they are
+    worked out here as `fold` works them out, so the projection cannot store a second answer.
+    `restore(<a state's own facts>) == state` for every state `replay` produces."""
+    return RunState(
+        run_id=run_id,
+        tasks=dict(tasks),
+        counts=_counts(tasks),
+        started_at_ms=started_at_ms,
+        ended_at_ms=ended_at_ms,
+        last_seq=last_seq,
+        last_activity_ms=last_activity_ms,
+        terminal_seen=frozenset(terminal_seen),
+        run_succeeded=run_succeeded,
+        phase=_phase(frozenset(terminal_seen), run_succeeded, started_at_ms is not None),
+    )
+
+
 def replay(events: Iterable[RunEvent]) -> RunState:
     state = EMPTY
     for event in events:

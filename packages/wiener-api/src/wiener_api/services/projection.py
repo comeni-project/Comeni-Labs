@@ -15,8 +15,17 @@ from datetime import UTC, datetime
 
 from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
-from wiener_core.events import RunEvent, admit, heartbeat
-from wiener_core.state import EMPTY, RunPhase, RunState, fold, replay
+from wiener_core.events import EventKind, RunEvent, admit, heartbeat
+from wiener_core.state import (
+    EMPTY,
+    Attempt,
+    RunPhase,
+    RunState,
+    TaskState,
+    fold,
+    replay,
+    restore,
+)
 
 from wiener_api import repository
 from wiener_api.models import RunEventRow, RunTask
@@ -51,14 +60,60 @@ def _artifact_pipeline(session, lab_id: str, run_id: str):
 
 
 def state_of(session: Session, lab_id: str, run_id: str) -> RunState:
-    """The run, folded from its record. No cache is consulted and none is trusted."""
+    """The run, folded from its record. No cache is consulted and none is trusted. **The
+    rebuild**, and the check on `restored`; never the ingest path (issue 282)."""
     return replay(RunEvent.model_validate(row.payload) for row in
                   repository.events(session, lab_id, run_id))
 
 
+def restored(session: Session, lab_id: str, run_id: str) -> RunState:
+    """The run's state as the projection holds it, rebuilt without reading the record (issue
+    282). `run` and `run_task` hold every fact the fold needs, so this equals `state_of` after
+    every event — `test_the_projection_restores_the_folded_state_at_every_event` holds it to
+    that. A run with no row has no projection: it is replayed."""
+    run = repository.run(session, lab_id, run_id)
+    if run is None:
+        return state_of(session, lab_id, run_id)
+    tasks = {
+        row.task_id: TaskState(
+            task_id=row.task_id, process=row.process, status=row.status,
+            attempts=tuple(Attempt.model_validate(a) for a in row.attempts or ()),
+            latest_exit=row.latest_exit,
+            first_seen_ms=row.first_seen_ms if row.first_seen_ms is not None
+            else row.last_change_ms,
+            last_change_ms=row.last_change_ms,
+        )
+        for row in repository.tasks(session, lab_id, run_id)
+    }
+    return restore(
+        run_id=run_id if run.last_seq >= 0 else "",
+        tasks=tasks,
+        last_seq=run.last_seq,
+        last_activity_ms=run.last_activity_ms,
+        started_at_ms=run.started_at_ms,
+        ended_at_ms=round(run.ended_at.timestamp() * 1000) if run.ended_at else None,
+        terminal_seen=frozenset(EventKind(kind) for kind in run.terminal_seen or ()),
+        run_succeeded=run.run_succeeded,
+    )
+
+
+def next_seq(session: Session, lab_id: str, run_id: str) -> int:
+    """The next `seq` for a run: the order Wiener received things in, which is the honest claim
+    (§6.2), not the order Nextflow emitted them in, which nothing can promise over a network.
+
+    **Taken under the run row's lock** (issue 282). It was `max + 1`
+    with none, so the heartbeat and an ingest could take the same number and one of them failed
+    on the primary key. The lock is held to the end of the transaction, so the writer that
+    takes a number also appends it before the next can take one."""
+    run = repository.run(session, lab_id, run_id, lock=True)
+    if run is None:
+        raise LookupError(f"no run {run_id}")
+    return run.last_seq + 1
+
+
 def record(session: Session, lab_id: str, run_id: str, payload: dict) -> RunState:
     """Admit one weblog body, append it to the record, and refresh the projections."""
-    seq = repository.next_seq(session, lab_id, run_id)
+    seq = next_seq(session, lab_id, run_id)
     return append(session, lab_id, run_id, admit(payload, run_id=run_id, seq=seq))
 
 
@@ -72,7 +127,7 @@ def beat(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState:
     It is not a sign of life. `fold` ignores it for `last_activity_ms`, which is what lets a
     quiet run be told apart from a dead one.
     """
-    seq = repository.next_seq(session, lab_id, run_id)
+    seq = next_seq(session, lab_id, run_id)
     return append(session, lab_id, run_id, heartbeat(run_id=run_id, at_ms=at_ms, seq=seq))
 
 
@@ -119,7 +174,11 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
     #
     # Found by a gauge that went up and never came down: nothing can see a transition when
     # before and after are the same value.
-    prior = state_of(session, lab_id, run_id) if seq else EMPTY
+    #
+    # **Restored, not replayed** (issue 282): the replay above was O(events) per event. The
+    # projection holds every fact the fold needs, so the state before this event is rebuilt
+    # from it; `state_of` is the rebuild and the check, never this path.
+    prior = restored(session, lab_id, run_id) if seq else EMPTY
 
     repository.add(session, lab_id, RunEventRow(
         run_id=run_id, seq=seq, kind=event.kind, at_ms=event.at_ms,
@@ -132,8 +191,16 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         row.phase = state.phase
         if state.ended_at_ms:
             row.ended_at = datetime.fromtimestamp(state.ended_at_ms / 1000, UTC)
+        row.last_seq = state.last_seq
+        row.last_activity_ms = state.last_activity_ms
+        row.started_at_ms = state.started_at_ms
+        row.terminal_seen = sorted(kind.value for kind in state.terminal_seen)
+        row.run_succeeded = state.run_succeeded
 
-    for task in state.tasks.values():
+    # **Only the task this event describes** (issue 282): the fold changes no other, and
+    # rewriting every task on every event made each ingest O(tasks) writes as well.
+    touched = event.trace.task_id if event.trace is not None else None
+    for task in (state.tasks[touched],) if touched in state.tasks else ():
         existing = repository.task(session, lab_id, run_id, task.task_id)
         if existing is None:
             existing = RunTask(run_id=run_id, task_id=task.task_id)
@@ -142,6 +209,7 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         existing.attempts = [a.model_dump(mode="json") for a in task.attempts]
         existing.latest_exit = task.latest_exit
         existing.last_change_ms = task.last_change_ms
+        existing.first_seen_ms = task.first_seen_ms
 
         # A191. The latest attempt's numbers, lifted out of the JSON so the Tasks tab can
         # `ORDER BY` them. The blob stays authoritative; these three are its index.

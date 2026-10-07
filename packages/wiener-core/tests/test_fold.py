@@ -133,3 +133,34 @@ def test_an_earlier_event_redelivered_does_not_erase_what_a_later_one_reported()
     attempt = next(iter(after.tasks.values())).attempts[0]
     assert attempt.pct_cpu is not None, "a redelivered start erased the completion's resources"
     assert attempt.status.name in ("COMPLETED", "FAILED"), "and rewound the status"
+
+
+def _prefixes():
+    """Every point a run passes through, for each recorded run: the state before each event."""
+    from wiener_core.events import RunEvent
+
+    weblog = FIXTURE.parent
+    runs = [_events()]
+    runs.append([RunEvent.model_validate(json.loads(line)) for line in
+                 (weblog / "spine-run.events.jsonl").read_text().splitlines() if line.strip()])
+    for events in runs:
+        for cut in range(len(events) + 1):
+            yield replay(events[:cut])
+
+
+def test_a_state_restored_from_its_stored_facts_is_the_state():
+    """Issue 282: ingest replayed the whole run before every event to learn the state before
+    it. `restore` rebuilds it from the facts a projection stores — and nothing else — so the
+    fold can continue from there. Counts and phase are not stored: they are worked out the way
+    the fold works them out, or the two would be two definitions of one thing."""
+    from wiener_core.state import restore
+
+    states = list(_prefixes())
+    assert len(states) > 10, "too few states: this would compare almost nothing"
+    for state in states:
+        assert restore(
+            run_id=state.run_id, tasks=state.tasks, last_seq=state.last_seq,
+            last_activity_ms=state.last_activity_ms, started_at_ms=state.started_at_ms,
+            ended_at_ms=state.ended_at_ms, terminal_seen=state.terminal_seen,
+            run_succeeded=state.run_succeeded,
+        ) == state

@@ -6,7 +6,9 @@ internet may reach just because it exists — which is the defect Plan 3A phase 
 transport over, arriving one release later in a different package.
 """
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from typing import Any
+
+from fastapi import APIRouter, Body, FastAPI, HTTPException
 
 from wiener_api import db
 from wiener_api.services.projection import record
@@ -16,8 +18,11 @@ router = APIRouter()
 
 
 @router.post("/events/{run_id}/{secret}", status_code=204)
-async def ingest(run_id: str, secret: str, request: Request) -> None:
-    payload = await request.json()
+def ingest(run_id: str, secret: str, payload: dict[str, Any] = Body(...)) -> None:  # noqa: B008
+    """**A plain `def`** (issue 282): the work is blocking database calls, and as `async def`
+    it held the one event loop while it ran, so every other post waited behind it. FastAPI
+    runs a `def` route in its thread pool; two posts for one run are then ordered by the run
+    row's lock (`projection.next_seq`), not by the loop."""
     with db.session_scope() as session:
         from wiener_api import repository
 
