@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { get } from "../api/client";
-import type { AiHealth } from "../api/types";
+import { useAiConfigured } from "./useAiConfigured";
 import { useBegin } from "./useBegin";
 
 /** The first run: one question, one field. **Drawn against `OverviewFirst.dc.html`, measurement
@@ -32,9 +30,10 @@ import { useBegin } from "./useBegin";
  *
  * Turning a sentence into a `Goal` is **door 1**, and it exists as of the living pipeline. It was
  * drawn disabled from 2026-08-30, the operator's decision, because nothing implemented it; it is
- * enabled only when `/health/ai` says a model is configured. **Without one the bar stays drawn and
- * disabled with that sentence under it**, because a laboratory that sets no model has chosen the
- * no-AI lane and `draw it yourself` is still the whole of what works for them.
+ * enabled only when settings say a model is configured (`useAiConfigured`). **Without one the
+ * bar stays drawn and disabled with that sentence under it**, because a laboratory that sets
+ * no model has chosen the no-AI lane and `draw it yourself` is still the whole of what works for
+ * them.
  *
  * **One build** (spec §13.1 of the consultant build): the Build/Spawn choice is retired, and how
  * the walk paces itself is the Pacing setting's.
@@ -48,12 +47,8 @@ import { useBegin } from "./useBegin";
 export function First() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
-  const health = useQuery({
-    queryKey: ["health", "ai"],
-    queryFn: () => get<AiHealth>("/health/ai"),
-    retry: false,
-  });
-  const live = health.data?.configured === true;
+  const model = useAiConfigured();
+  const live = model.configured;
   const begin = useBegin((started) => navigate(`/build?session=${started.session.id}`));
   const ready = live && prompt.trim().length > 0 && !begin.isPending;
 
@@ -127,7 +122,7 @@ export function First() {
             </button>
           )}
           <span className="text-[12.5px] text-ink-3" data-testid="first-aside">
-            {live ? "or " : health.isPending
+            {live ? "or " : model.pending
               ? "Checking whether a model is configured — meanwhile, "
               : "No model is configured on this installation, so describing it in words is off — "}
             <Link to="/build" className="text-[var(--link)] no-underline hover:text-ink">

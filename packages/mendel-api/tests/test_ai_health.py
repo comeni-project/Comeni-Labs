@@ -151,3 +151,34 @@ def test_the_probe_does_not_wait_on_the_fault_it_reports():
         assert time.monotonic() - start < health.PROBE_SECONDS * 2
     finally:
         object.__setattr__(settings, "redis_url", original)
+
+
+# ── whether a model is configured, asked on its own (issue 268) ────────────────────────────
+
+
+def _configured(monkeypatch) -> dict:
+    """`GET /api/settings/ai`, with Redis and the model probe made to fail loudly if reached."""
+    from fastapi.testclient import TestClient
+    from mendel_api.main import create_app
+
+    async def reached(*args, **kwargs):
+        raise AssertionError("asking whether a model is configured reached Redis or the model")
+
+    monkeypatch.setattr(health, "_worker_and_depth", reached)
+    monkeypatch.setattr(health, "answers", reached)
+    response = TestClient(create_app()).get("/api/settings/ai")
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_whether_a_model_is_configured_is_answered_from_settings_alone(monkeypatch):
+    """The describe box needs one settings fact, and asked `/health/ai`, which probes the model
+    server: two seconds when it does not answer, while the box stayed undrawn and what a person
+    typed went nowhere. This question touches neither Redis nor the model."""
+    monkeypatch.setenv("COMENI_AI_MODEL", "ollama_chat/gemma3:12b")
+    monkeypatch.setenv("COMENI_AI_BASE_URL", "http://127.0.0.1:9")
+    assert _configured(monkeypatch) == {"configured": True}
+
+
+def test_no_model_configured_is_said_so(monkeypatch):
+    assert _configured(monkeypatch) == {"configured": False}

@@ -30,6 +30,28 @@ def read_settings(inst: Annotated[Installation, Depends(installation)]) -> Menu:
     return inst.menu("mendel")
 
 
+class AiConfigured(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    configured: bool
+    """Whether any model is configured: the no-AI lane when false, never a fault."""
+
+
+@router.get(
+    "/ai",
+    operation_id="aiConfigured",
+    summary="Whether a model is configured, from settings alone",
+)
+def ai_configured() -> AiConfigured:
+    """**A settings fact, asked on its own** (issue 268). Whether to offer describing an analysis
+    in words depends only on this; `/health/ai` answers it too, but also asks Redis and probes
+    the model server, which takes seconds exactly when something is down. The describe box
+    waited on that, undrawn, and what a person typed meanwhile went nowhere."""
+    from mendel_api.settings import model_access
+
+    return AiConfigured(configured=model_access() is not None)
+
+
 @router.put(
     "/{key}",
     operation_id="writeSetting",

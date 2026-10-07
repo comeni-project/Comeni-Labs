@@ -1250,6 +1250,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether a model is configured, from settings alone
+         * @description **A settings fact, asked on its own** (issue 268). Whether to offer describing an analysis
+         *     in words depends only on this; `/health/ai` answers it too, but also asks Redis and probes
+         *     the model server, which takes seconds exactly when something is down. The describe box
+         *     waited on that, undrawn, and what a person typed meanwhile went nowhere.
+         */
+        get: operations["aiConfigured"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/{key}": {
         parameters: {
             query?: never;
@@ -1388,6 +1411,11 @@ export interface components {
          * @enum {string}
          */
         AdaptationState: "scaffolding" | "queued" | "generating" | "validating" | "review" | "changes_requested" | "publishing" | "published" | "failed" | "archived";
+        /** AiConfigured */
+        AiConfigured: {
+            /** Configured */
+            configured: boolean;
+        };
         /**
          * AiHealth
          * @description Three separate facts, because they fail separately and are fixed separately.
@@ -7012,6 +7040,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Menu"];
+                };
+            };
+        };
+    };
+    aiConfigured: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiConfigured"];
                 };
             };
         };

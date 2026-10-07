@@ -51,9 +51,11 @@ function at({ drafts = [PIPELINE, SETTLED], runs = [RUNNING, FINISHED], mendel =
       begin(JSON.parse(String(init.body)));
       return { ok: true, status: 201, json: async () => ({ session: { id: "s42" }, queued: true }) };
     }
+    // The diagnostic never answers, as when the model server is down (issue 268): nothing on the
+    // front door may wait on it. Whether a model is configured is asked on its own.
+    if (url.endsWith("/health/ai")) return new Promise(() => {});
     const body = url.includes("/attention") ? { forge: [], mendel }
-      : url.endsWith("/health/ai") ? { configured: model, worker_available: true, queue_depth: 0,
-                                       concurrency: 1 }
+      : url.endsWith("/settings/ai") ? { configured: model }
       : url.includes("/pipeline/drafts") ? { drafts, total: drafts.length }
       : url.includes("/api/runs") ? { runs, total: runs.length }
       : {};
@@ -170,6 +172,14 @@ describe("the front door", () => {
     expect(table.getAllByText("changed since kept")).toHaveLength(1);
     const row = table.getByText("changed since kept").closest("tr")!;
     expect(within(row).getByText("rnaseq-counts")).toBeTruthy();
+  });
+
+  it("lays the describe box out with the page, never after it", async () => {
+    // Issue 268: the box appeared seconds after the page, and what a person typed meanwhile
+    // went nowhere. The page arrives whole, so the box is there when the work is.
+    at({ model: true });
+    await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
+    expect(screen.getByRole("form", { name: "describe a new analysis" })).toBeTruthy();
   });
 
   it("offers the first-run composition when the lab has nothing yet", async () => {

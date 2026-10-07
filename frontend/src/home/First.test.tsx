@@ -18,9 +18,12 @@ const ok = (body: unknown, status = 200) => ({ ok: status < 400, status, json: a
 
 function first(configured: boolean | "pending", begin = vi.fn()) {
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
-    if (url.endsWith("/health/ai")) {
-      return configured === "pending" ? new Promise(() => {}) : ok({ configured, worker_available: true,
-        queue_depth: 0, concurrency: 1 });
+    // **Whether a model is configured is a settings fact** (issue 268), asked on its own. The
+    // diagnostic `/health/ai` never answers here, as when the model server is down: the prompt
+    // must not wait on it.
+    if (url.endsWith("/health/ai")) return new Promise(() => {});
+    if (url.endsWith("/settings/ai")) {
+      return configured === "pending" ? new Promise(() => {}) : ok({ configured });
     }
     if (url.endsWith("/pipeline/authoring") && init?.method === "POST") {
       begin(JSON.parse(String(init.body)));

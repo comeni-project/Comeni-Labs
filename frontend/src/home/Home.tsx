@@ -11,6 +11,7 @@ import type { components as wiener } from "../wiener/api/schema";
 import { Describe } from "./Describe";
 import { First } from "./First";
 import { Now } from "./Now";
+import { useAiConfigured } from "./useAiConfigured";
 import { ByPipeline, ByRun } from "./Work";
 
 type Attention = components["schemas"]["Attention"];
@@ -69,7 +70,13 @@ export function Home() {
     retry: false,
   });
 
-  if (attention.isLoading || drafts.isLoading) return <Loading what="the lab's work" />;
+  // **Whether a model is configured is waited for with the rest** (issue 268): it decides
+  // whether the describe box is drawn, and a box arriving after the page lost what was typed.
+  const model = useAiConfigured();
+
+  if (attention.isLoading || drafts.isLoading || model.pending) {
+    return <Loading what="the lab's work" />;
+  }
   if (attention.error) return <Failed error={attention.error} />;
   if (drafts.error) return <Failed error={drafts.error} />;
 

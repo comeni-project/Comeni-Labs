@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import { get } from "../api/client";
-import type { AiHealth } from "../api/types";
+import { useAiConfigured } from "./useAiConfigured";
 import { useBegin } from "./useBegin";
 
 /** Describe a new analysis, once the lab already has work (issue 229).
@@ -17,13 +15,9 @@ import { useBegin } from "./useBegin";
 export function Describe() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
-  const health = useQuery({
-    queryKey: ["health", "ai"],
-    queryFn: () => get<AiHealth>("/health/ai"),
-    retry: false,
-  });
+  const model = useAiConfigured();
   const begin = useBegin((started) => navigate(`/build?session=${started.session.id}`));
-  if (health.data?.configured !== true) return null;
+  if (!model.configured) return null;
   const ready = prompt.trim().length > 0 && !begin.isPending;
 
   return (
