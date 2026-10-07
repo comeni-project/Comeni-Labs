@@ -9,6 +9,8 @@ with the storage monkeypatched. A `keep` that reached straight into a session wo
 only a developer machine could check.
 """
 
+import hashlib
+import json
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
@@ -131,7 +133,10 @@ class DraftRow(BaseModel):
     """
 
     kept: bool
-    """Whether `keep` has ever written an artifact for this draft."""
+    """Whether `keep` has ever written an artifact for this draft — `PipelineDraft.kept_at`."""
+    changed_since_kept: bool = False
+    """Whether the graph differs from the one that was kept (issue 277), compared by content, so
+    the digest and outputs beside it describe an older state. Always false for an unkept draft."""
     digest: str | None = None
     """`Pipeline.content_digest()` of the kept artifact — **the join key to a run.**
 
@@ -239,22 +244,23 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
             .all()
         )
         listed = [
-            (row.id, row.name, row.who, row.updated_at,
-             len(DraftGraph.model_validate(row.graph).nodes))
+            (row.id, row.name, row.who, row.updated_at, DraftGraph.model_validate(row.graph),
+             row.kept_at is not None, row.kept_graph, row.kept_digest)
             for row in rows
         ]
 
     out: list[DraftRow] = []
-    for draft_id, name, who, updated_at, steps in listed:
-        row = DraftRow(id=draft_id, name=name, who=who, updated_at=updated_at, steps=steps,
-                       kept=False)
+    for draft_id, name, who, updated_at, graph, was_kept, kept_graph, digest in listed:
+        row = DraftRow(id=draft_id, name=name, who=who, updated_at=updated_at,
+                       steps=len(graph.nodes), kept=False)
         artifact = _output_root() / draft_id / "pipeline.yml"
-        if artifact.is_file():
+        if was_kept and artifact.is_file():
             kept = pipeline_file.load(artifact)
             provenance, named, unnamed = _provenance_of(kept)
             row = row.model_copy(update={
                 "kept": True,
-                "digest": kept.content_digest(),
+                "changed_since_kept": fingerprint(graph) != kept_graph,
+                "digest": digest,
                 "provenance": provenance,
                 "open_values": named,
                 "open_not_named": unnamed,
@@ -390,6 +396,17 @@ class Stored(NamedTuple):
     goal: Goal | None
 
 
+def _record_kept(draft_id: str, graph: str, digest: str) -> None:
+    """The storage seam `keep` writes through, beside `_load`: what was kept, and when."""
+    with session_scope() as session:
+        row = session.get(PipelineDraft, draft_id)
+        if row is None:
+            raise KeyError(draft_id)
+        row.kept_at = datetime.now(UTC)
+        row.kept_graph = graph
+        row.kept_digest = digest
+
+
 def _load(draft_id: str) -> Stored:
     """The storage seam. Raises `KeyError` for an unknown draft; the route maps it to 404.
 
@@ -486,7 +503,14 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     # so `staging.stage` is one implementation shared with `mendel build` rather than a second
     # `copytree` that can go missing again.
     staging.stage(pipeline, stack.modules, out)
+    _record_kept(draft_id, fingerprint(graph), pipeline.content_digest())
     return out / "pipeline.yml"
+
+
+def fingerprint(graph: DraftGraph) -> str:
+    """The graph's content, as a digest: what *changed since kept* compares (issue 277)."""
+    canonical = json.dumps(graph.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class Preview(NamedTuple):

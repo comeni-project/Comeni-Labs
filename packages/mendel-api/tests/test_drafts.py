@@ -213,6 +213,47 @@ def test_a_kept_draft_carries_its_provenance_and_its_join_key(client):
     assert [(v["step"], v["setting"]) for v in row["open_values"]] == [("align", "seq_platform")]
 
 
+def _row(client, draft_id: str) -> dict:
+    return next(r for r in client.get("/api/pipeline/drafts").json()["drafts"]
+                if r["id"] == draft_id)
+
+
+def test_a_draft_edited_after_it_was_kept_says_so(client):
+    """Issue 277: a kept draft edited afterwards listed the old artifact's digest and outputs
+    beside a graph that had moved on, with nothing to say they differ."""
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+    assert _row(client, made["id"])["changed_since_kept"] is False
+
+    shorter = {"nodes": SPINE["nodes"][:3], "edges": SPINE["edges"][:2]}
+    client.put(f"/api/pipeline/drafts/{made['id']}", json={"graph": shorter})
+    row = _row(client, made["id"])
+    assert row["kept"] is True and row["changed_since_kept"] is True
+
+
+def test_a_rename_after_keep_is_not_a_change(client):
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+    client.put(f"/api/pipeline/drafts/{made['id']}", json={"graph": SPINE, "name": "renamed"})
+    assert _row(client, made["id"])["changed_since_kept"] is False
+
+
+def test_kept_is_recorded_on_the_draft_not_read_off_a_file(client):
+    """The row is the one record of keeping (operator, issue 277): a `pipeline.yml` that `keep`
+    did not write for this draft does not make it kept."""
+    from mendel_api.services import drafts
+
+    kept = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    path = Path(client.post(f"/api/pipeline/drafts/{kept['id']}/keep").json()["path"])
+    stray = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    target = drafts._output_root() / stray["id"]
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "pipeline.yml").write_text(path.read_text())
+
+    row = _row(client, stray["id"])
+    assert row["kept"] is False and row["digest"] is None
+
+
 def test_the_listing_never_resolves(client, monkeypatch):
     """**The performance rule, made structural.** The 2026-08-19 audit found every
     registry-touching screen cost ~250ms warm and one function was responsible; this is the page

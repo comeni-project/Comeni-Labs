@@ -47,6 +47,7 @@ def kept(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
     monkeypatch.setattr(bundle, "_directory", lambda draft_id: tmp_path / draft_id)
+    monkeypatch.setattr(drafts, "_record_kept", lambda *recorded: None)
     drafts.keep("a-draft")
     return "a-draft"
 

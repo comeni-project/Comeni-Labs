@@ -16,7 +16,7 @@ import { routes } from "../app/router";
 const PIPELINE = {
   id: "aaaa1111", name: "rnaseq-counts", who: "R. Correia",
   updated_at: "2026-08-29T10:00:00Z", steps: 4, makes: ["counts.matrix"],
-  kept: true, digest: "sha256:" + "a".repeat(64),
+  kept: true, changed_since_kept: false, digest: "sha256:" + "a".repeat(64),
   provenance: { settled: 9, measured: 1, open: 1, by_person: 4, by_model: 0 },
   open_values: [{ step: "align", setting: "seq_platform" }],
   open_not_named: 0,
@@ -158,6 +158,18 @@ describe("the front door", () => {
     at({ drafts: [unkept], runs: [] });
     await waitFor(() => expect(screen.getByText("draft-only")).toBeTruthy());
     expect(screen.getByText("not kept")).toBeTruthy();
+  });
+
+  it("says a kept pipeline changed since it was kept, beside its name", async () => {
+    // Issue 277: the outputs and the bar describe the kept artifact, which an edit has left
+    // behind. Nothing says so for one unchanged since.
+    const edited = { ...PIPELINE, changed_since_kept: true };
+    at({ drafts: [edited, { ...SETTLED, changed_since_kept: false }], runs: [] });
+    await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
+    const table = within(screen.getByRole("table"));
+    expect(table.getAllByText("changed since kept")).toHaveLength(1);
+    const row = table.getByText("changed since kept").closest("tr")!;
+    expect(within(row).getByText("rnaseq-counts")).toBeTruthy();
   });
 
   it("offers the first-run composition when the lab has nothing yet", async () => {

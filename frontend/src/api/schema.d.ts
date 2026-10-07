@@ -2689,6 +2689,11 @@ export interface components {
             makes?: string[];
             /** Kept */
             kept: boolean;
+            /**
+             * Changed Since Kept
+             * @default false
+             */
+            changed_since_kept: boolean;
             /** Digest */
             digest?: string | null;
             provenance?: components["schemas"]["Provenance"] | null;

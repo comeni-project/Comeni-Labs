@@ -139,6 +139,14 @@ class PipelineDraft(Base):
 
     A draft that existed before this column is revision 0, which is correct rather than a
     placeholder: it has had no authoring turn, so nothing has been proposed against it."""
+    kept_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    """When `keep` last wrote this draft's `pipeline.yml`; null if it never has. **The one record
+    of keeping** (issue 277): the file is the artifact, and its existence alone says nothing."""
+    kept_graph: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    """The fingerprint of the graph that was kept (`drafts.fingerprint`), so the listing can say
+    *changed since kept* by content — whichever path edited the graph, and not for a rename."""
+    kept_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    """`Pipeline.content_digest()` of the artifact written: the join key to a run."""
 
 
 class GateRun(Base):

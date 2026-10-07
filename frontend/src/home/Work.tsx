@@ -128,6 +128,11 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                                                                  inline-block px-1 -mx-1 rounded-r">
                     {row.name || row.id.slice(0, 8)}
                   </Link>
+                  {/* The outputs and the bar describe the kept artifact; an edit since has left
+                      them behind (issue 277). */}
+                  {row.changed_since_kept && (
+                    <span className="ml-2 text-secondary text-ink-3">changed since kept</span>
+                  )}
                 </td>
                 <td className={`${CELL} text-ink-2 font-data text-secondary`}>
                   {row.makes.length ? row.makes.join(", ") : <span className="text-ink-3">—</span>}
