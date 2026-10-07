@@ -6,7 +6,10 @@ third option, `ask`, is not a pacing: the shell asks the question and passes the
 
 from enum import StrEnum
 
-from mendel_authoring.plan import BuildPlan
+from pydantic import BaseModel, ConfigDict
+
+from mendel_authoring.needs import NeedKind
+from mendel_authoring.plan import BuildPlan, PlannedStep
 
 
 class Pacing(StrEnum):
@@ -19,3 +22,33 @@ def waits(plan: BuildPlan, pacing: Pacing) -> list[str]:
     if pacing is Pacing.TOGETHER:
         return [step.node for step in plan.steps]
     return [step.node for step in plan.needing()]
+
+
+class Stop(StrEnum):
+    """Why the walk stops at a step (§14.4 of the consultant build)."""
+
+    TIER_FOUR = "tier_four"
+    GAP = "gap"
+    TOGETHER = "together"
+
+
+class Policy(BaseModel):
+    """How the walk goes, stored as one value: the pacing, and whether registry gaps stop it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    pacing: Pacing
+    show_gaps: bool = False
+
+
+def stops(step: PlannedStep, policy: Policy) -> Stop | None:
+    """Why the walk stops at `step`, or `None` to place it quietly. **The need first** (3b's
+    Review Focus 1): a tier-4 step stops whatever Dev mode says; then a gap, if gaps are shown;
+    then every step under *together*."""
+    if step.need.kind is not NeedKind.NOTHING:
+        return Stop.TIER_FOUR
+    if step.gaps and policy.show_gaps:
+        return Stop.GAP
+    if policy.pacing is Pacing.TOGETHER:
+        return Stop.TOGETHER
+    return None

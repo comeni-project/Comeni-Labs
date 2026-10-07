@@ -77,9 +77,9 @@ def committed(
     provenance: DraftProvenance,
     node_id: str,
     *,
-    contract_id: str,
     by: str,
-    registry: Contracts,
+    contract_id: str | None = None,
+    registry: Contracts | None = None,
 ) -> tuple[DraftGraph, DraftProvenance]:
     """The draft and its sidecar once `node_id` is accepted as `contract_id`.
 
@@ -98,6 +98,7 @@ def committed(
       choice, and says so.
     """
     step = blueprint.step(node_id)
+    contract_id = contract_id or step.module.contract_id
     own = contract_id == step.module.contract_id
     present = {node.id for node in graph.nodes} | {node_id}
 
@@ -186,6 +187,10 @@ def _selection(blueprint: Blueprint, step: Step, *, own: bool, by: str) -> Settl
             axis_reason=SELECTION_AXIS,
             by=by,
         )
+    if step.why.source is ValueSource.HUMAN:
+        # A person's pin in the goal (§14.3 of the consultant build): the blueprint's own step
+        # already says who chose it and over what — keep that reason, credit whoever reviewed it.
+        return _settled(step.why, by=by)
     if step.why.source is ValueSource.MODEL:
         chooser = next(
             (
