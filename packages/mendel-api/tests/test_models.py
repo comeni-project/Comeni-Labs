@@ -246,8 +246,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
 
     declared = {
         "pipeline_authoring_session": {
-            "id", "draft_id", "pacing", "phase", "failed_from", "goal", "blueprint",
-            "registry_digest", "cursor", "row_version", "who", "created_at", "updated_at",
+            "id", "draft_id", "policy", "phase", "failed_from", "goal", "blueprint",
+            "registry_digest", "reviewed", "row_version", "who", "created_at", "updated_at",
             # 14.7.3: typed facts (a type id, a declared measurement value, a source). Its
             # `sample` label is filled only at protection level 0 (14.7.6), a loosening of
             # invariant 15 recorded in docs/design/authoring-protocol.md.

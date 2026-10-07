@@ -51,7 +51,7 @@ def test_a_new_session_rests_where_you_say_what_you_want(sid):
 
 @pytest.mark.parametrize("phase, node", [
     (Phase.UNDERSTANDING, "say"), (Phase.GATHERING, "list_needs"),
-    (Phase.GOAL_REVIEW, "card"), (Phase.RESOLVING, "resolve"), (Phase.BUILDING, "step"),
+    (Phase.GOAL_REVIEW, "card"), (Phase.RESOLVING, "resolve"), (Phase.BUILDING, "step_card"),
     (Phase.COMPLETE, "wrap"), (Phase.FAILED, "failed"), (Phase.STOPPED, "stopped"),
 ])
 def test_a_row_from_before_at_rests_on_its_phases_node(sid, phase, node):

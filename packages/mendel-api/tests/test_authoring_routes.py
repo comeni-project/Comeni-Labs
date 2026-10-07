@@ -478,52 +478,53 @@ def test_a_step_proposal_says_what_it_reads_as_well_as_what_it_makes(
 @needs_db
 def test_a_direct_edit_writes_a_receipt_the_server_composed(client, clean, queue, monkeypatch):
     """The receipt is derived from the difference — the browser sends a graph and nothing that
-    could be told to the log."""
-    building, goal = _building(client, queue, monkeypatch)
-    graph = building["graph"]
+    could be told to the log. Editing opens once the walk is done (spec §14.5)."""
+    monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
+    built, _ = _building(client, queue, monkeypatch)
+    assert built["phase"] == "complete"
+    graph = built["graph"]
     graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
 
     response = client.post(
-        f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph}
+        f"/api/pipeline/authoring/{built['id']}/edits", json={"graph": graph}
     )
     assert response.status_code == 200, response.text
-    after = _session(client, building["id"])
+    after = _session(client, built["id"])
 
     receipt = after["turns"][-1]["blocks"][0]
     assert receipt["kind"] == "receipt"
     assert receipt["summary"] == "you added FASTQC_1"
-    assert after["revision"] == goal["revision"] + 1
+    assert after["revision"] == built["revision"] + 1
+    assert after["hand_edits"] == "you added FASTQC_1"
 
 
 @needs_db
-def test_an_edit_re_offers_the_pending_step_at_the_new_revision(client, clean, queue, monkeypatch):
-    """Otherwise the proposal on the card would be stale the moment somebody moved a box, and
-    accepting it would be refused with nothing left to answer."""
+def test_an_edit_during_the_walk_is_refused(client, clean, queue, monkeypatch):
+    """Issue 255: during the walk the draft is the blueprint's projection; a hand edit would be
+    lost at the next change, so it is refused (MI0217) and nothing is written."""
     building, _ = _building(client, queue, monkeypatch)
-    before = building["pending_proposal"]
     graph = building["graph"]
     graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
 
-    edited = client.post(f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph})
+    response = client.post(f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph})
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("MI0217")
     after = _session(client, building["id"])
-
-    assert edited.json()["reoffered"] == after["pending_proposal"]["id"] != before["id"]
-    assert after["pending_proposal"]["block"]["node"] == before["block"]["node"]
-    assert after["pending_proposal"]["draft_revision"] == after["revision"]
+    assert after["revision"] == building["revision"]
+    assert after["pending_proposal"]["id"] == building["pending_proposal"]["id"]
 
 
 @needs_db
-def test_adding_the_offered_step_by_hand_moves_the_offer_on(client, clean, queue, monkeypatch):
+def test_a_step_is_kept_or_changed_never_skipped(client, clean, queue, monkeypatch):
     building, _ = _building(client, queue, monkeypatch)
-    offered = building["pending_proposal"]["block"]
-    graph = building["graph"]
-    graph["nodes"].append({"id": offered["node"], "contract_id": offered["contract"], "params": []})
-
-    client.post(f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph})
-    after = _session(client, building["id"])
-
-    assert after["pending_proposal"] is not None
-    assert after["pending_proposal"]["block"]["node"] != offered["node"]
+    pending = building["pending_proposal"]
+    response = client.post(
+        f"/api/pipeline/authoring/{building['id']}/proposals/{pending['id']}/decide",
+        json={"decision": "rejected", "expected_revision": building["revision"]},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("MI0205")
+    assert _session(client, building["id"])["pending_proposal"]["id"] == pending["id"]
 
 
 @needs_db

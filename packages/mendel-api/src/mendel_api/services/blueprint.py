@@ -96,4 +96,21 @@ def candidates(blueprint: Blueprint, node_id: str) -> list[str]:
     site = blueprint.sites.get(node_id)
     if site is None:
         return []
-    return [c.id for c in registry.stack().registry.producers_of(site.type_id, site.states)]
+    # **A contract that consumes the type it would stand in for is not an alternative** — the
+    # router's own rule (a contract cannot satisfy its own input), applied by type. MultiQC
+    # produces `qc.report` and consumes it; offered as FastQC's alternative, the "swap" quietly
+    # built FastQC *and* MultiQC. Found twice before (the sorter for STAR, MultiQC for FastQC).
+    return [
+        c.id
+        for c in registry.stack().registry.producers_of(site.type_id, site.states)
+        if not _consumes(c, site.type_id)
+    ]
+
+
+def _consumes(contract, type_id: str) -> bool:
+    """Whether any input of `contract` accepts `type_id`, under any of its alternatives."""
+    return any(
+        port.type_id == type_id
+        or any(accepted.type_id == type_id for accepted in port.alternatives())
+        for port in contract.consumes
+    )

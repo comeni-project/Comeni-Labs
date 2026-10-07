@@ -69,7 +69,7 @@ def test_a_one_step_pipeline_is_one_card_with_nothing_else_to_choose():
     blueprint, _ = bp.resolve(_one_step())
     assert blueprint.order == ["fastqc"]
 
-    offered = _payload(blueprint, "fastqc")
+    offered = _payload(blueprint, "fastqc", goal=_one_step())
     assert offered["block"]["tier"] == 1
     assert offered["options"] == {bp.KEEP: "nf-core/fastqc@0.12.1"}
     assert blueprint.after("fastqc") is None
@@ -116,43 +116,39 @@ def test_a_blueprint_survives_being_stored_and_read_back(spine):
 
 
 def test_every_offered_option_id_maps_to_a_contract_the_server_holds():
-    """The block the browser renders and the set the server enforces are written together. A
-    choice offers the producer decision's candidates (spec §13.6), so the aligner without a read
-    length is the step with alternatives."""
+    """The block the browser renders and the set the server enforces are written together
+    (spec §14.4): *keep*, each alternative that can be built, and the fact the rule lacked —
+    and every alternative id stands for the amendment stored beside it."""
     data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
     data["profile"].pop("read_length")
     blueprint, _ = bp.resolve(Goal.model_validate(data))
-    offered = _payload(blueprint, "star_align")
+    offered = _payload(blueprint, "star_align", goal=Goal.model_validate(data))
     shown = {option["id"] for option in offered["block"]["alternatives"]}
 
     assert shown, "the aligner offered no alternatives, so this asserted nothing"
-    assert shown | {bp.KEEP} == set(offered["options"])
+    assert set(offered["options"]) == {bp.KEEP, "fact_read_length"} | set(offered["amendments"])
+    assert set(offered["amendments"]) <= shown
 
 
-def _payload(blueprint, node: str, present: frozenset[str] = frozenset()) -> dict:
-    """The step's card as the building stage stores it (`step_payload`, spec §13.6)."""
+def _payload(
+    blueprint, node: str, present: frozenset[str] = frozenset(), goal: Goal | None = None
+) -> dict:
+    """The step's card as the building stage stores it (`step_payload`, spec §14.4)."""
     from mendel_api.services import declared
     from mendel_api.stages.building import step_payload
+    from mendel_authoring.pacing import Stop
     from mendel_authoring.plan import plan_of
 
     plan = plan_of(blueprint, declared.of(registry.stack()))
     planned = next(s for s in plan.steps if s.node == node)
-    return step_payload(blueprint, planned, present)
+    return step_payload(blueprint, planned, goal or _rnaseq(), present, Stop.TOGETHER)
 
 
 # ── committing ────────────────────────────────────────────────────────────────────────────
 
 
-def _accept(blueprint, graph, provenance, node, contracts, contract=None, by="ana"):
-    return bp.committed(
-        blueprint,
-        graph,
-        provenance,
-        node,
-        contract_id=contract or blueprint.step(node).module.contract_id,
-        by=by,
-        registry=contracts,
-    )
+def _accept(blueprint, graph, provenance, node, contracts, by="ana"):
+    return bp.committed(blueprint, graph, provenance, node, by=by)
 
 
 def test_an_edge_is_committed_only_when_both_of_its_steps_are(spine, contracts):
@@ -184,17 +180,6 @@ def test_acknowledging_a_resolver_step_keeps_the_resolver_as_its_author(spine, c
     assert selection.source is ValueSource.RESOLVER
     assert selection.tier is Tier.DATA_PROFILED
     assert selection.reason == spine.step("star_align").why.reason
-
-
-def test_choosing_an_alternative_makes_the_person_its_author(spine, contracts):
-    graph, provenance = _accept(
-        spine, DraftGraph(), DraftProvenance(), "star_align", contracts, contract=HISAT2
-    )
-    selection = provenance.node("star_align").selection
-
-    assert graph.nodes[0].contract_id == HISAT2
-    assert selection.source is ValueSource.HUMAN
-    assert selection.by == "ana"
 
 
 def _with_why(blueprint, node, **why):
@@ -300,4 +285,7 @@ def test_each_step_knows_its_site_and_its_candidates():
     assert set(blueprint.sites) == set(blueprint.order)
     assert blueprint.sites["star_align"].type_id == "alignment.bam"
     assert "nf-core/hisat2/align@2.2.2" in bp.candidates(blueprint, "star_align")
+    assert "nf-core/samtools/sort@1.21.0" not in bp.candidates(blueprint, "star_align"), (
+        "the sorter consumes the BAM it would stand in for"
+    )
     assert bp.candidates(blueprint, "no_such_step") == []

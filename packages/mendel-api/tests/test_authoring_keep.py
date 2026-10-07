@@ -15,7 +15,6 @@ import pytest
 from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph
 from fastapi.testclient import TestClient
-from mendel_api.authoring.types import ProposalState
 from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.models import PipelineAuthoringSession
@@ -80,7 +79,7 @@ def _walk(session_id: str) -> None:
     while proposal is not None:
         revision = facade.read(session_id)["revision"]
         proposal = facade.perform(
-            commands.SettleStep(proposal, ProposalState.ACCEPTED.value, revision, "ana")
+            commands.SettleStep(proposal, revision, "ana")
         ).result.next_proposal
 
 

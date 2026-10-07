@@ -74,7 +74,7 @@ def open_session(draft_id: str, *, who: str) -> str:
                 facts=[],
                 blueprint={},
                 registry_digest="",
-                cursor=0,
+                reviewed=[],
                 row_version=1,
                 who=who,
                 created_at=now,

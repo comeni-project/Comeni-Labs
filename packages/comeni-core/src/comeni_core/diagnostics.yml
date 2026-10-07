@@ -3791,6 +3791,19 @@ MI0216:
     The authoring protocol is the program the builder runs (docs/design/diagrams/). From each
     place in it, only the arrows drawn lead on; an action or an outcome that names no arrow from
     where the session is, is refused here rather than half-done.
+MI0217:
+  emitted_by: authoring
+  concern: workflow
+  says: "editing opens when the walk is done"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Finish the walk first. During it, change a step's tool or tell it a fact on the step's card;
+    once the wrap-up is shown, the draft can be edited by hand.
+  explanation: |
+    During the walk the draft is the projection of the blueprint: the steps you have reviewed,
+    rebuilt from the goal after every change. A hand edit would have nowhere to live — the next
+    change would rebuild the draft without it — so it is refused rather than quietly lost.
 MI0300:
   emitted_by: api
   concern: settings

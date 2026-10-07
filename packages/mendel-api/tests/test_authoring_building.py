@@ -164,30 +164,26 @@ def test_a_goal_missing_an_input_fails_into_the_log_with_its_code(clean):
 # ── answering ─────────────────────────────────────────────────────────────────────────────
 
 
-def _answer_all(session_id: str, first: str, *, reject: set[str] = frozenset()) -> None:
+def _answer_all(session_id: str, first: str) -> None:
     proposal_id = first
     while proposal_id is not None:
-        node = _proposal(proposal_id).payload["node"]
         _, _, revision = _draft(session_id)
-        outcome = facade.perform(
-            commands.SettleStep(
-                proposal_id,
-                ProposalState.REJECTED if node in reject else ProposalState.ACCEPTED.value,
-                revision,
-                "ana",
-            )
-        ).result
+        outcome = facade.perform(commands.SettleStep(proposal_id, revision, "ana")).result
         assert outcome.settlement.refusal is None, outcome.settlement.refusal
         proposal_id = outcome.next_proposal
 
 
-def test_accepting_every_step_completes_the_session_with_the_whole_spine(clean):
+def test_continuing_every_step_completes_the_session_with_the_whole_spine(clean):
+    """Each *Continue* reviews one step, and the draft — the blueprint's reviewed steps — moves
+    one revision for each."""
     session_id = _resolving()
-    _answer_all(session_id, authoring_setup.start_building(session_id))
+    first = authoring_setup.start_building(session_id)
+    _, _, started = _draft(session_id)
+    _answer_all(session_id, first)
     graph, provenance, revision = _draft(session_id)
 
     assert _phase(session_id) is Phase.COMPLETE
-    assert revision == 5
+    assert revision == started + 5
     assert len(graph.nodes) == 5
     assert {(e.from_node, e.to_node) for e in graph.edges} == {
         ("trimgalore", "star_align"),
@@ -198,42 +194,26 @@ def test_accepting_every_step_completes_the_session_with_the_whole_spine(clean):
     assert provenance.node("star_align").selection.source is ValueSource.RESOLVER
 
 
-def test_a_rejected_step_is_never_wired_to_and_does_not_move_the_revision(clean):
+def test_choosing_another_tool_rebuilds_the_pipeline_as_a_persons_choice(clean):
+    """Spec §14.3: the tool goes into the goal as a pin and the blueprint is resolved again, so
+    HISAT2 replaces STAR's step — under its own id, with its own index — credited to the person."""
     session_id = _resolving()
-    _answer_all(session_id, authoring_setup.start_building(session_id), reject={"trimgalore"})
-    graph, _, revision = _draft(session_id)
-
-    assert "trimgalore" not in {n.id for n in graph.nodes}
-    assert all("trimgalore" not in (e.from_node, e.to_node) for e in graph.edges)
-    assert revision == 4
-
-
-def test_choosing_an_alternative_commits_it_as_a_persons_choice(clean):
-    """With no read length the aligner asks for the fact first; *I can't share it* leaves it
-    open, and the step then asks as a choice between the rule's own aligners (spec §13.6)."""
-    session_id = _resolving(_without_read_length())
     proposal_id = authoring_setup.start_building(session_id)
-    while _proposal(proposal_id).kind != "gap":
+    while _proposal(proposal_id).payload["node"] != "star_align":
         _, _, revision = _draft(session_id)
         proposal_id = facade.perform(
-            commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, revision, "ana")
+            commands.SettleStep(proposal_id, revision, "ana")
         ).result.next_proposal
-    assert _proposal(proposal_id).payload["subject"] == "read_length"
-    facade.perform(commands.AnswerGap(proposal_id, "cant_share", None, "ana"))
-    proposal_id = facade.pending_id(session_id)
-    assert _proposal(proposal_id).payload["node"] == "star_align"
 
     options = _proposal(proposal_id).payload["options"]
     chosen = next(option for option, contract in options.items() if contract == HISAT2)
-    _, _, revision = _draft(session_id)
-    outcome = facade.perform(
-        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, revision, "ana", chosen)
-    ).result
+    outcome = facade.perform(commands.Amend(proposal_id, chosen, None, "ana")).result
     graph, provenance, _ = _draft(session_id)
 
     assert outcome.settlement.refusal is None
-    assert next(n for n in graph.nodes if n.id == "star_align").contract_id == HISAT2
-    assert provenance.node("star_align").selection.source is ValueSource.HUMAN
+    assert next(n for n in graph.nodes if n.id == "hisat2_align").contract_id == HISAT2
+    assert "star_align" not in {n.id for n in graph.nodes}
+    assert provenance.node("hisat2_align").selection.source is ValueSource.HUMAN
     assert _proposal(proposal_id).chosen_option == chosen
 
 
@@ -243,13 +223,11 @@ def test_choosing_an_alternative_commits_it_as_a_persons_choice(clean):
 def test_an_option_that_was_never_offered_is_refused_and_changes_nothing(clean):
     session_id = _resolving()
     proposal_id = authoring_setup.start_building(session_id)
-    outcome = facade.perform(
-        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, 0, "ana", "alt_99")
-    ).result
-    graph, _, revision = _draft(session_id)
+    before = _draft(session_id)
+    with pytest.raises(ValueError, match="MI0205"):
+        facade.perform(commands.Amend(proposal_id, "alt_99", None, "ana"))
 
-    assert "MI0205" in outcome.settlement.refusal
-    assert revision == 0 and graph.nodes == []
+    assert _draft(session_id) == before
     assert _proposal(proposal_id).state == ProposalState.PENDING.value
 
 
@@ -257,39 +235,36 @@ def test_acting_on_an_old_picture_of_the_draft_is_refused(clean):
     """The two-tab case, through the step path rather than the generic one."""
     session_id = _resolving()
     proposal_id = authoring_setup.start_building(session_id)
-    outcome = facade.perform(
-        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, 7, "ana")
-    ).result
+    _, _, revision = _draft(session_id)
+    outcome = facade.perform(commands.SettleStep(proposal_id, revision + 6, "ana")).result
 
     assert "MI0201" in outcome.settlement.refusal
-    assert _draft(session_id)[2] == 0
+    assert _draft(session_id)[2] == revision
 
 
 def test_a_registry_that_moved_marks_the_proposal_stale_and_re_resolves(clean, monkeypatch):
-    """`MI0206`. The option was offered against one registry; applying it against another would
-    write a choice nobody made. Nothing reaches the draft, the proposal is `stale` rather than
-    `rejected`, and a fresh proposal for the same step is waiting against the new digest."""
+    """`MI0206`. The card was offered against one registry; applying it against another would
+    write a choice nobody made. Nothing is applied, the card is `stale` rather than `rejected`,
+    and the walk offers the same step again from the blueprint resolved against the new digest."""
     session_id = _resolving()
     proposal_id = authoring_setup.start_building(session_id)
+    _, _, revision = _draft(session_id)
 
     moved = "sha256:" + "0" * 64
     monkeypatch.setattr(bp, "registry_digest", lambda roots: moved)
-    outcome = facade.perform(
-        commands.SettleStep(proposal_id, ProposalState.ACCEPTED.value, 0, "ana")
-    ).result
+    outcome = facade.perform(commands.SettleStep(proposal_id, revision, "ana")).result
 
     assert "MI0206" in outcome.settlement.refusal
     assert _proposal(proposal_id).state == ProposalState.STALE.value
-    assert _draft(session_id)[2] == 0
+    assert _draft(session_id)[0].nodes == []
     assert _proposal(outcome.next_proposal).payload["node"] == "star_genomegenerate"
     with session_scope() as db:
         assert db.get(PipelineAuthoringSession, session_id).registry_digest == moved
 
-    retried = facade.perform(
-        commands.SettleStep(outcome.next_proposal, ProposalState.ACCEPTED.value, 0, "ana")
-    ).result
+    _, _, revision = _draft(session_id)
+    retried = facade.perform(commands.SettleStep(outcome.next_proposal, revision, "ana")).result
     assert retried.settlement.refusal is None
-    assert _draft(session_id)[2] == 1
+    assert [n.id for n in _draft(session_id)[0].nodes] == ["star_genomegenerate"]
 
 
 # ── the audit ─────────────────────────────────────────────────────────────────────────────

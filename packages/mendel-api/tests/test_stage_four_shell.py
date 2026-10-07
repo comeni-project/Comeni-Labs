@@ -1,8 +1,9 @@
-"""Stage ④ through the facade, against the real registry and a real database (spec §13.4).
+"""Stage ④ through the facade, against the real registry and a real database (spec §14).
 
-The pure flow is `packages/mendel-authoring/tests/test_stage_four.py`; this file is the work each
-node does with rows: the fact asked once, a choice from the rule's own tools, the pacing honoured,
-a registry gap shown or routed around, and the wrap-up at the end.
+**The blueprint decides, the walk reviews.** The pure flow is
+`packages/mendel-authoring/tests/test_stage_four.py`; this file is the work each node does with
+rows: a card's alternatives as whole pipelines, a change into the goal, the draft projected from
+the blueprint (no orphan, the fact kept), the pacing and Dev forks, the refusals, the wrap-up.
 """
 
 from pathlib import Path
@@ -11,9 +12,9 @@ import authoring_setup
 import pytest
 from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph
-from mendel_api.authoring.types import Phase, ProposalState
+from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
-from mendel_api.models import PipelineAuthoringProposal
+from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import drafts
 from mendel_api.services import session as facade
 from mendel_authoring import commands
@@ -23,7 +24,6 @@ from mendel_resolver.goal import Goal
 from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[3]
-STAR = "nf-core/star/align@1.11.0"
 
 
 def _database_is_reachable() -> bool:
@@ -74,91 +74,201 @@ def _built(goal: Goal) -> str:
     return session_id
 
 
-def _pending(session_id: str) -> dict:
+def _pending(session_id: str) -> dict | None:
     return facade.read(session_id)["pending_proposal"]
 
 
-def _accept(session_id: str, option: str | None = None) -> None:
+def _pending_node(session_id: str) -> str | None:
     pending = _pending(session_id)
-    revision = facade.read(session_id)["revision"]
+    return pending["payload"]["node"] if pending and pending["kind"] == "step" else None
+
+
+def _continue(session_id: str) -> None:
+    pending = _pending(session_id)
     facade.perform(
-        commands.SettleStep(pending["id"], ProposalState.ACCEPTED.value, revision, "ana", option)
+        commands.SettleStep(pending["id"], facade.read(session_id)["revision"], "ana")
     )
 
 
-def _walk_to(session_id: str, kind: str) -> dict:
-    """Accept every step card until a proposal of `kind` is pending."""
+def _amend(session_id: str, option: str, value=None, *, proposal_id: str | None = None) -> None:
+    proposal_id = proposal_id or _pending(session_id)["id"]
+    facade.perform(commands.Amend(proposal_id, option, value, "ana"))
+
+
+def _walk_to_node(session_id: str, node: str) -> dict:
+    """Continue every card until the one for `node` is pending."""
     for _ in range(50):
-        pending = _pending(session_id)
-        assert pending is not None, "the walk ended before reaching a " + kind
-        if pending["kind"] == kind:
-            return pending
-        _accept(session_id)
-    raise AssertionError("the walk never reached a " + kind)
+        if _pending_node(session_id) == node:
+            return _pending(session_id)
+        assert _pending(session_id) is not None, f"the walk ended before reaching {node}"
+        _continue(session_id)
+    raise AssertionError(f"the walk never reached {node}")
 
 
-def _node(proposal_id: str) -> str | None:
+def _walk_to_wrap(session_id: str) -> str:
+    """Continue every card to the wrap-up; return the wrap-up's receipt."""
+    for _ in range(50):
+        view = facade.read(session_id)
+        if view["phase"] == Phase.COMPLETE.value:
+            return next(
+                b["summary"] for t in reversed(view["turns"]) for b in t["blocks"]
+                if b["kind"] == "receipt" and b["id"].startswith("wrap-")
+            )
+        _continue(session_id)
+    raise AssertionError("the walk never reached the wrap-up")
+
+
+def _graph(session_id: str) -> dict:
+    return facade.read(session_id)["graph"]
+
+
+def _ids(session_id: str) -> set[str]:
+    return {n["id"] for n in _graph(session_id)["nodes"]}
+
+
+def _draft(session_id: str) -> PipelineDraft:
     with session_scope() as db:
-        return (db.get(PipelineAuthoringProposal, proposal_id).payload or {}).get("node")
+        row = db.get(PipelineAuthoringSession, session_id)
+        draft = db.get(PipelineDraft, row.draft_id)
+        db.expunge(draft)
+        return draft
 
 
-# ── the fact first ──────────────────────────────────────────────────────────────────────────
+def _no_orphan(session_id: str) -> None:
+    graph = _graph(session_id)
+    ids = {n["id"] for n in graph["nodes"]}
+    assert all(e["from_node"] in ids and e["to_node"] in ids for e in graph["edges"])
 
 
-def test_without_a_read_length_the_walk_stops_on_the_fact(clean):
+def _hisat2(card: dict) -> dict:
+    return next(a for a in card["payload"]["block"]["alternatives"] if "hisat2" in a["label"])
+
+
+# ── a card's choices ───────────────────────────────────────────────────────────────────────
+
+
+def test_without_a_read_length_the_aligner_stops_with_its_tools_and_the_fact(clean):
     session_id = _built(_goal(read_length=False))
-    fact = _walk_to(session_id, "gap")
-    assert fact["payload"]["subject"] == "read_length"
-    assert "upload" not in fact["payload"]["options"], "a sample is gathering's, not stage ④'s"
-    assert "not_sure" in fact["payload"]["options"]
-    assert facade.read(session_id)["phase"] == Phase.BUILDING.value
+    card = _walk_to_node(session_id, "star_align")
+    options = card["payload"]["options"]
+    assert card["payload"]["block"]["tier"] == 4
+    assert "fact_read_length" in options
+    assert any(o.startswith("alt_") for o in options)
+    assert "adds hisat2_build" in _hisat2(card)["note"]
 
 
-def test_answering_the_fact_places_the_aligner_at_tier_three(clean):
+def test_telling_a_short_read_length_rebuilds_with_hisat2_and_no_star(clean):
+    """Issue 253: the fact changes the tool, and the draft follows the new blueprint."""
     session_id = _built(_goal(read_length=False))
-    fact = _walk_to(session_id, "gap")
-    facade.perform(commands.AnswerGap(fact["id"], "value", 150, "ana"))
-    card = _pending(session_id)
-    assert card["kind"] == "step" and _node(card["id"]) == "star_align"
-    assert card["payload"]["block"]["tier"] == 3
-    assert any(
-        "read_length is 150" in line["text"] for line in card["payload"]["block"]["brief"]["check"]
-    )
+    _walk_to_node(session_id, "star_align")
+    _amend(session_id, "fact_read_length", 50)
+    assert not _ids(session_id) & {"star_genomegenerate", "star_align"}
+    _no_orphan(session_id)
+    _walk_to_wrap(session_id)
+    final = _ids(session_id)
+    assert {"hisat2_build", "hisat2_align"} <= final
+    assert not final & {"star_genomegenerate", "star_align"}
+    _no_orphan(session_id)
 
 
-def test_a_fact_answered_not_sure_becomes_a_choice_and_is_never_asked_again(clean):
-    """Review Focus 2."""
+def test_swapping_star_for_hisat2_on_the_card_brings_its_index(clean):
+    """Issue 257, Review Focus 1: the swap drags HISAT2's index in and STAR's out; the index it
+    added is the walk's next stop."""
+    session_id = _built(_goal())
+    card = _walk_to_node(session_id, "star_align")
+    _amend(session_id, _hisat2(card)["id"])
+    assert _pending_node(session_id) == "hisat2_build"
+    assert "hisat2_align" in _ids(session_id)
+    _walk_to_wrap(session_id)
+    assert not _ids(session_id) & {"star_genomegenerate", "star_align"}
+    _no_orphan(session_id)
+
+
+def test_the_kept_draft_carries_the_fact_it_was_built_on(clean):
+    """Issue 254."""
     session_id = _built(_goal(read_length=False))
-    fact = _walk_to(session_id, "gap")
-    facade.perform(commands.AnswerGap(fact["id"], "not_sure", None, "ana"))
-    card = _pending(session_id)
-    assert card["kind"] == "step" and _node(card["id"]) == "star_align"
-    assert card["payload"]["block"]["alternatives"], "a choice offers the rule's other tool"
-    _accept(session_id)
-    assert all(p["kind"] != "gap" for p in [_pending(session_id) or {"kind": ""}])
+    _walk_to_node(session_id, "star_align")
+    _amend(session_id, "fact_read_length", 150)
+    draft = _draft(session_id)
+    assert any(m["measurement"] == "read_length" for m in draft.goal["profile"]["measurements"])
+    assert any(m["measurement"] == "read_length" for m in draft.graph["profile"]["measurements"])
 
 
-# ── pacing ──────────────────────────────────────────────────────────────────────────────────
+def test_the_wrap_up_credits_the_person_for_a_swap(clean):
+    """Issue 256."""
+    session_id = _built(_goal())
+    _amend(session_id, _hisat2(_walk_to_node(session_id, "star_align"))["id"])
+    assert "by human" in _walk_to_wrap(session_id)
+
+
+def test_a_value_its_measurement_refuses_is_refused(clean):
+    session_id = _built(_goal(read_length=False))
+    _walk_to_node(session_id, "star_align")
+    with pytest.raises(ValueError, match="MI0208"):
+        _amend(session_id, "fact_read_length", "long")
+
+
+# ── refusals ───────────────────────────────────────────────────────────────────────────────
+
+
+def test_an_edit_during_the_walk_is_refused(clean):
+    """Issue 255."""
+    session_id = _built(_goal())
+    with pytest.raises(ValueError, match="MI0217"):
+        facade.perform(
+            commands.RecordEdit(session_id, DraftGraph().model_dump(mode="json"), "ana")
+        )
+
+
+def test_a_card_answered_twice_is_refused_the_second_time(clean):
+    """Review Focus 4: a double click, or a second tab."""
+    session_id = _built(_goal())
+    card = _walk_to_node(session_id, "star_align")
+    _amend(session_id, _hisat2(card)["id"], proposal_id=card["id"])
+    with pytest.raises(ValueError, match="MI0203"):
+        _amend(session_id, _hisat2(card)["id"], proposal_id=card["id"])
+    with pytest.raises(ValueError, match="MI0203"):
+        facade.perform(commands.SettleStep(card["id"], facade.read(session_id)["revision"], "a"))
+
+
+def test_an_option_the_card_never_offered_is_refused(clean):
+    session_id = _built(_goal())
+    _walk_to_node(session_id, "star_align")
+    with pytest.raises(ValueError, match="MI0205"):
+        _amend(session_id, "alt_99")
+
+
+def test_a_replayed_pacing_answer_is_refused(clean, monkeypatch):
+    """Issue 259."""
+    monkeypatch.delenv("COMENI_BUILD_PACING", raising=False)
+    session_id = _built(_goal())
+    question = _pending(session_id)
+    assert question["kind"] == "pacing"
+    facade.perform(commands.ChoosePacing(question["id"], "together", "ana"))
+    with pytest.raises(ValueError, match="MI0203"):
+        facade.perform(commands.ChoosePacing(question["id"], "together", "ana"))
+
+
+# ── pacing and Dev mode ─────────────────────────────────────────────────────────────────────
 
 
 def test_together_rests_at_every_step(clean):
     session_id = _built(_goal())
-    assert _pending(session_id)["kind"] == "step"
-    first = _pending(session_id)["id"]
-    _accept(session_id)
-    assert _pending(session_id)["id"] != first and _pending(session_id)["kind"] == "step"
+    first = _pending(session_id)
+    assert first["kind"] == "step"
+    _continue(session_id)
+    assert _pending(session_id)["id"] != first["id"] and _pending(session_id)["kind"] == "step"
 
 
 def test_stop_where_needed_with_a_read_length_reaches_the_wrap_up(clean, monkeypatch):
-    """Review Focus 3, the handler's half: every quiet step placed in one entry of `step`."""
+    """Review Focus 5's shell half: every quiet step placed in one entry of `step`."""
     monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
     session_id = _built(_goal())
     view = facade.read(session_id)
-    assert view["phase"] == Phase.COMPLETE.value
-    assert view["pending_proposal"] is None
-    last = view["turns"][-1]["blocks"][0]
-    assert last["kind"] == "receipt" and "You'll get: counts.matrix" in last["summary"]
-    assert {n["id"] for n in view["graph"]["nodes"]} >= {"star_align", "subread_featurecounts"}
+    assert view["phase"] == Phase.COMPLETE.value and view["pending_proposal"] is None
+    assert "You'll get: counts.matrix" in _walk_to_wrap(session_id)
+    assert _ids(session_id) >= {"star_align", "subread_featurecounts"}
+    _no_orphan(session_id)
 
 
 def test_ask_puts_the_pacing_question_and_the_answer_walks_on(clean, monkeypatch):
@@ -171,7 +281,7 @@ def test_ask_puts_the_pacing_question_and_the_answer_walks_on(clean, monkeypatch
 
 
 def test_an_env_pinned_pacing_wins_over_the_stored_one(monkeypatch, settings_in_memory):
-    """Review Focus 4: the snapshot is the settings resolver's, never the raw stored row."""
+    """The snapshot is the settings resolver's, never the raw stored row."""
     settings_in_memory.rows["building.pacing"] = "ask"
     monkeypatch.setenv("COMENI_BUILD_PACING", "together")
     assert facade.snapshot(PROTOCOL).settings["building.pacing"] == "together"
@@ -179,15 +289,13 @@ def test_an_env_pinned_pacing_wins_over_the_stored_one(monkeypatch, settings_in_
     assert facade.snapshot(PROTOCOL).settings["building.pacing"] == "ask"
 
 
-# ── registry gaps and Dev mode ─────────────────────────────────────────────────────────────
-
-
-def test_dev_mode_on_stops_on_the_gap_and_names_the_file(clean, monkeypatch):
+def test_dev_mode_on_stops_on_a_gap_and_names_the_file(clean, monkeypatch):
     monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
     monkeypatch.setenv("COMENI_DEV_MODE", "true")
     session_id = _built(_goal())
     card = _pending(session_id)
     assert card is not None and card["kind"] == "step"
+    assert card["payload"]["block"]["stop"] == "gap"
     gaps = card["payload"]["block"]["gaps"]
     assert gaps and all(g["fix"].startswith("registry/tools/") for g in gaps)
 
@@ -197,3 +305,15 @@ def test_dev_mode_off_routes_around_every_gap(clean, monkeypatch):
     monkeypatch.setenv("COMENI_DEV_MODE", "false")
     session_id = _built(_goal())
     assert facade.read(session_id)["phase"] == Phase.COMPLETE.value
+
+
+def test_after_the_walk_a_hand_edit_is_named_for_the_goal_card(clean, monkeypatch):
+    """Spec §14.9: once the walk is done the draft may be edited; a goal changed then would
+    replace the edit, so the view says what it would replace."""
+    monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
+    session_id = _built(_goal())
+    assert facade.read(session_id)["hand_edits"] is None
+    graph = DraftGraph.model_validate(_graph(session_id))
+    edited = graph.model_copy(update={"nodes": graph.nodes[1:]})
+    facade.perform(commands.RecordEdit(session_id, edited.model_dump(mode="json"), "ana"))
+    assert facade.read(session_id)["hand_edits"].startswith("you removed")

@@ -85,12 +85,14 @@ class DecideProposal(BaseModel):
     """For a goal: the goal as the person edited it on the card, when they changed a field. Held to
     the declared vocabulary — `MI0204` — exactly as a model's goal is. Ignored for a step."""
     option: OptionId | None = None
-    """For a step: `keep`, or one of the alternative ids the proposal offered. Ignored for a
-    goal. **An id the engine minted, never a contract id** — a value chosen by id cannot be a
-    value nobody offered."""
+    """For a step: `keep`, or one of the changes its card offered — an alternative tool
+    (`alt_N`) or a fact (`fact_<measurement>`, with `value`). Ignored for a goal. **An id the
+    engine minted, never a contract id** — a value chosen by id cannot be a value nobody
+    offered."""
     value: HumanParamValue | None = None
-    """For a gap answered with the `value` option: the typed value, held to the measurement's
-    declaration before anything is recorded (`MI0208`). Ignored otherwise."""
+    """For a gap answered with the `value` option, or a step's `fact_<measurement>`: the typed
+    value, held to the measurement's declaration before anything is recorded (`MI0208`).
+    Ignored otherwise."""
 
 
 # ── what comes out ────────────────────────────────────────────────────────────────────────
@@ -203,6 +205,9 @@ class AuthoringSessionView(BaseModel):
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
     """Where each visible step sits in the finished pipeline, so nothing moves as it grows."""
+    hand_edits: str | None = None
+    """What was changed by hand since the walk ended, as its receipt says it, or `None`. A goal
+    changed now replaces the draft with the new blueprint's, so the page asks first."""
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
@@ -262,8 +267,6 @@ class AuthoringEdited(BaseModel):
     model_config = _FROZEN
 
     revision: int
-    reoffered: str | None
-    """A pending step proposal made stale by the edit and offered again at the new revision."""
 
 
 class MeasurerView(BaseModel):
@@ -435,11 +438,20 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
             raise ValueError(outcome.refusal)
         return await _after_goal(session_id, phase)
 
-    stepped = (
-        await session.act(
-            c.SettleStep(proposal_id, decision.value, body.expected_revision, who, body.option)
+    # A step's card is kept as it is (`keep`: *Continue*) or changed by one of the amendments it
+    # offered, by id (spec §14.5). It is never skipped: the draft is the blueprint's reviewed
+    # steps, and removing one is a hand edit, after the walk.
+    if decision is not ProposalState.ACCEPTED:
+        raise ValueError(
+            coded("MI0205", "a step is kept or changed, not skipped")
+            + "\n  to remove a step, edit the draft once the walk is done"
         )
-    ).result
+    command = (
+        c.SettleStep(proposal_id, body.expected_revision, who)
+        if body.option in (None, "keep")
+        else c.Amend(proposal_id, body.option, body.value, who)
+    )
+    stepped = (await session.act(command)).result
     if stepped.settlement.refusal is not None:
         raise ValueError(stepped.settlement.refusal)
     return AuthoringDecided(
@@ -474,10 +486,10 @@ async def retry(session_id: str) -> AuthoringRetried:
 def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
     """A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
     receipt the server composes — never narrated by a model."""
-    revision, reoffered = session.perform(
+    revision = session.perform(
         c.RecordEdit(session_id, body.graph.model_dump(mode="json"), identity.default_author())
     ).result
-    return AuthoringEdited(revision=revision, reoffered=reoffered)
+    return AuthoringEdited(revision=revision)
 
 
 @router.get(
@@ -551,6 +563,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
         placement=picture["placement"],
+        hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],
         row_version=picture["row_version"],
         model_configured=model_access() is not None,

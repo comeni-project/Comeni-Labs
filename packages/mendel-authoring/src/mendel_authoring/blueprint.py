@@ -21,8 +21,6 @@ from comeni_core.plan.draft import (
 from comeni_core.plan.tiers import Tier, ValueSource
 from pydantic import BaseModel, ConfigDict
 
-from mendel_authoring.ports import Contracts
-
 SELECTION_AXIS = "which contract fills this step"
 ENGINE = "engine"
 """Who placed a step the walk did not stop at."""
@@ -80,39 +78,30 @@ def committed(
     node_id: str,
     *,
     by: str,
-    contract_id: str | None = None,
-    registry: Contracts | None = None,
 ) -> tuple[DraftGraph, DraftProvenance]:
-    """The draft and its sidecar once `node_id` is accepted as `contract_id`.
+    """The draft and its sidecar once the blueprint's step `node_id` is reviewed by `by`.
 
-    **Edges only between accepted steps.** An edge is added when both of its ends are in the
-    graph — in either direction, so a step accepted after its consumer still joins it — and an
-    edge to a step the person rejected is never drawn. When an alternative was chosen, an edge
-    is kept only where the alternative actually has the port, because a wire into a port that
-    does not exist is not a pipeline anybody asked for.
+    **Always the blueprint's own step**: a person's other tool arrives as a pin in the goal, so
+    the blueprint already holds it (spec §14.3) — there is no alternative to graft on here.
+    **Edges only between reviewed steps**, in either direction, so a step reviewed after its
+    consumer still joins it.
 
-    **Provenance is per decision** (§1.8), and three cases are distinguished:
+    **Provenance is per decision** (§1.8):
 
-    - the blueprint's own step, settled at tiers 1 to 3, keeps the resolver's tier and reason —
-      acknowledging it changed nothing about who decided it;
-    - a tier-4 step chosen by the model in Spawn keeps the model as its author;
-    - a person accepting a tier-4 default, or choosing any alternative, is the author of that
-      choice, and says so.
+    - a step settled at tiers 1 to 3 keeps the resolver's tier and reason;
+    - a person's pinned tool keeps its own reason (*you chose … over …*), credited to the person;
+    - a model's tier-4 choice keeps the model as its author;
+    - a person accepting a tier-4 default is the author of that choice, and says so.
     """
     step = blueprint.step(node_id)
-    contract_id = contract_id or step.module.contract_id
-    own = contract_id == step.module.contract_id
+    contract_id = step.module.contract_id
     present = {node.id for node in graph.nodes} | {node_id}
 
-    params = (
-        [
-            DraftParam(name=setting.name, value=setting.value, why=setting.why.reason)
-            for setting in step.settings
-            if setting.why.source is ValueSource.MODEL
-        ]
-        if own
-        else []
-    )
+    params = [
+        DraftParam(name=setting.name, value=setting.value, why=setting.why.reason)
+        for setting in step.settings
+        if setting.why.source is ValueSource.MODEL
+    ]
     nodes = [node for node in graph.nodes if node.id != node_id]
     nodes.append(DraftNode(id=node_id, contract_id=contract_id, params=params))
 
@@ -120,8 +109,6 @@ def committed(
     known = {(e.from_node, e.from_port, e.to_node, e.to_port) for e in edges}
     for candidate in edges_touching(blueprint, node_id):
         if candidate.from_node not in present or candidate.to_node not in present:
-            continue
-        if not own and not _has_port(registry, contract_id, candidate, node_id):
             continue
         spelled = (
             candidate.from_node, candidate.from_port, candidate.to_node, candidate.to_port
@@ -134,7 +121,7 @@ def committed(
     stamped.append(
         NodeSettled(
             node=node_id,
-            selection=_selection(blueprint, step, own=own, by=by),
+            selection=_selection(blueprint, step, by=by),
             presence=_settled(step.presence) if step.presence is not None else None,
         )
     )
@@ -173,22 +160,7 @@ def edges_touching(blueprint: Blueprint, node_id: str) -> list[DraftEdge]:
     return found
 
 
-def _has_port(registry: Contracts, contract_id: str, edge: DraftEdge, node_id: str) -> bool:
-    contract = registry.get(contract_id)
-    if edge.to_node == node_id:
-        return any(port.name == edge.to_port for port in contract.consumes)
-    return any(port.name == edge.from_port for port in contract.produces)
-
-
-def _selection(blueprint: Blueprint, step: Step, *, own: bool, by: str) -> Settled:
-    if not own:
-        return Settled(
-            source=ValueSource.HUMAN,
-            tier=Tier.AMBIGUOUS,
-            reason="chosen by a person over the resolver's proposal",
-            axis_reason=SELECTION_AXIS,
-            by=by,
-        )
+def _selection(blueprint: Blueprint, step: Step, *, by: str) -> Settled:
     if step.why.source is ValueSource.HUMAN:
         # A person's pin in the goal (§14.3 of the consultant build): the blueprint's own step
         # already says who chose it and over what — keep that reason. Credit the reviewer only

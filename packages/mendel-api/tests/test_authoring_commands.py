@@ -253,9 +253,9 @@ def test_settling_a_step_is_one_transaction(monkeypatch):
     def broke(*a, **k):
         raise RuntimeError("offering the next step failed")
 
-    monkeypatch.setattr(building, "_offer", broke)
+    monkeypatch.setattr(building.cards, "offer", broke)
     with pytest.raises(RuntimeError):
-        session.perform(c.SettleStep(first, "accepted", revision, "t"))
+        session.perform(c.SettleStep(first, revision, "t"))
     after = session.read(sid)
     assert after["revision"] == revision and after["pending_proposal"]["id"] == first
 
@@ -264,7 +264,7 @@ def test_no_stage_mentions_spawn():
     from pathlib import Path
 
     stages = Path(session.__file__).resolve().parents[1] / "stages"
-    files = sorted(stages.glob("*.py"))
+    files = sorted(stages.rglob("*.py"))
     assert files
     assert not [f.name for f in files if "spawn" in f.read_text()]
 

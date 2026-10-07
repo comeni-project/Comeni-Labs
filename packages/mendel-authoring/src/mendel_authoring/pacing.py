@@ -9,19 +9,12 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict
 
 from mendel_authoring.needs import NeedKind
-from mendel_authoring.plan import BuildPlan, PlannedStep
+from mendel_authoring.plan import PlannedStep
 
 
 class Pacing(StrEnum):
     TOGETHER = "together"
     STOP_WHERE_NEEDED = "stop_where_needed"
-
-
-def waits(plan: BuildPlan, pacing: Pacing) -> list[str]:
-    """The steps the walk stops at; the shell places the rest at once."""
-    if pacing is Pacing.TOGETHER:
-        return [step.node for step in plan.steps]
-    return [step.node for step in plan.needing()]
 
 
 class Stop(StrEnum):

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from mendel_authoring.blueprint import Blueprint
 from mendel_authoring.needs import NeedKind
-from mendel_authoring.pacing import Pacing, waits
+from mendel_authoring.pacing import Pacing, Policy, stops
 from mendel_authoring.plan import plan_of
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -64,18 +64,23 @@ def test_an_empty_blueprint_is_an_empty_plan(rnaseq, declared):
     assert plan.wrap_up.gets  # the goal still says what it wants
 
 
-def test_together_waits_at_every_step(rnaseq, declared):
+def _stopped(plan, pacing: Pacing) -> list[str]:
+    policy = Policy(pacing=pacing)
+    return [step.node for step in plan.steps if stops(step, policy) is not None]
+
+
+def test_together_stops_at_every_step(rnaseq, declared):
     plan = plan_of(rnaseq(None), declared)
-    assert waits(plan, Pacing.TOGETHER) == ["fastqc", "star_align", "featurecounts", "multiqc"]
+    assert _stopped(plan, Pacing.TOGETHER) == ["fastqc", "star_align", "featurecounts", "multiqc"]
 
 
-def test_stop_where_needed_waits_only_where_the_person_is_needed(rnaseq, declared):
+def test_stop_where_needed_stops_only_where_the_person_is_needed(rnaseq, declared):
     plan = plan_of(rnaseq(None, strandedness_open=True), declared)
-    assert waits(plan, Pacing.STOP_WHERE_NEEDED) == ["star_align", "featurecounts"]
+    assert _stopped(plan, Pacing.STOP_WHERE_NEEDED) == ["star_align", "featurecounts"]
 
 
 def test_ask_is_a_question_not_a_pacing():
-    """Review Focus 4: the setting's third option is resolved by the shell before `waits`."""
+    """Review Focus 4: the setting's third option is resolved by the shell before `stops`."""
     with pytest.raises(ValueError):
         Pacing("ask")
 

@@ -41,7 +41,7 @@ _BY_PHASE = {
     Phase.GATHERING: "list_needs",
     Phase.GOAL_REVIEW: "card",
     Phase.RESOLVING: "resolve",
-    Phase.BUILDING: "step",
+    Phase.BUILDING: "step_card",
     Phase.COMPLETE: "wrap",
     Phase.FAILED: "failed",
     Phase.STOPPED: "stopped",
@@ -418,7 +418,7 @@ def read(session_id: str) -> dict:
     from four endpoints would make the checkpoint a statement about four caches.
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
-    from mendel_api.stages.building import _placement
+    from mendel_api.stages.building import _placement, hand_edits
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
 
@@ -465,11 +465,11 @@ def read(session_id: str) -> dict:
             "failed_from": row.failed_from,
             "goal": row.goal,
             "facts": list(row.facts or []),
-            "cursor": row.cursor,
             "row_version": row.row_version,
             "revision": draft.revision if draft else 0,
             "graph": draft.graph if draft else {},
             "placement": _placement(row, draft, pending),
+            "hand_edits": hand_edits(row, draft),
             # **A count, not the plan.** How many steps the blueprint holds lets the header say
             # `4 of 7`; which steps they are stays private until each is offered.
             "steps_total": len((row.blueprint or {}).get("order") or []),

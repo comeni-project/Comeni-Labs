@@ -275,6 +275,9 @@ class StepProposal(_Block):
     """What the step needs from the person: nothing, a fact, or a choice (spec §4.3)."""
     gaps: list[Gap] = []
     """Registry gaps, shown when Dev mode is on (spec §13)."""
+    stop: Literal["tier_four", "gap", "together"] | None = None
+    """Why the walk stopped here (spec §14.4): a tier-4 step, a registry gap shown under Dev mode,
+    or every step under *together*."""
 
 
 class SettingRequest(_Block):
