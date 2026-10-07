@@ -63,6 +63,7 @@ Model: `comeni_core.goal.asked.Constraints`
 |---|---|---|---|
 | `required_states` | [required-states] | `[]` | states an output must carry |
 | `params` | [param-override] | `[]` | a parameter you are fixing yourself |
+| `producers` | [producer-pin] | `[]` | a tool you chose for a step; left out of the file when empty |
 
 `required_states` is what turns *get me a count matrix* into *get me a gene-level count matrix*.
 Without it, any producer of the type matches.
@@ -80,6 +81,25 @@ Model: `comeni_core.goal.asked.ParamOverride`
 |---|---|---|---|
 | `name` | string | *required* | the parameter |
 | `value` | int \| float \| bool \| string | *required* | what to set it to |
+
+Model: `comeni_core.goal.asked.ProducerPin`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `site` | [site] | *required* | the place in the pipeline: the type a step makes, with its states |
+| `contract` | string | *required* | the tool to use there, e.g. `nf-core/hisat2/align@2.2.2` |
+
+Model: `comeni_core.goal.asked.Site`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `type_id` | string | *required* | the type the step makes |
+| `states` | [string] | `[]` | the states asked of it there |
+
+A tool you choose is used in place of the engine's pick. When they differ, the step is marked
+tier 4 and yours, with the engine's pick and its reason kept beside it. A tool that applies
+nowhere (it cannot make that type, or the site is not one this pipeline asks for) is reported by
+`mendel build`, and `mendel upgrade` refuses (`MD0230`).
 
 **A mapping is the natural way to write this, and it works:**
 

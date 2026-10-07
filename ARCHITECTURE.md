@@ -19,7 +19,7 @@ summary of a twelve-thousand-word design record is a second copy that drifts.
 | `comeni-core` | types, contract schema, the IR, the artifact | **pure** | this page |
 | `mendel-resolver` | the four-tier ladder, rules, routing, ports | **pure** | this page |
 | `mendel-compiler` | IR → Nextflow, the gates, the CLI | **pure** | this page |
-| `mendel-authoring` | the conversation's protocol: the diagram the builder runs, its machine, its interpreter, forks (paths that switch on a setting), and the typed commands a person or a job performs; the blueprint, and the build plan made from it (each step's card and need, the wrap-up, pacing) | **pure** | `docs/design/authoring-protocol.md` |
+| `mendel-authoring` | the conversation's protocol: the diagram the builder runs, its machine, its interpreter, forks (paths that switch on a setting), and the typed commands a person or a job performs; the blueprint, and the build plan made from it (each step's card and need, the wrap-up, pacing); amendments to the goal, alternatives as whole pipelines, and the draft projected from the blueprint | **pure** | `docs/design/authoring-protocol.md` |
 | `mendel-forge` | drafting registry data from sources | impure | §10 below |
 | `comeni-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
 | `mendel-api` | the HTTP surface, drafts, the builder's backend: one module per stage of the conversation (`stages/`) behind one facade (`services/session.py`), which hands the protocol's forks a resolved settings snapshot | impure | `docs/design/forge-review.md`, `dashboard.md` |
@@ -313,12 +313,22 @@ a `DecisionRecord`, and exits at tier 4.
 **Module choices carry a tier too**, in `IRNode.selection`. Until that field existed, spec
 §6.1's claim that every module choice exits at exactly one tier was not true of the code: a
 module selected because it was the sole producer was indistinguishable from one selected by
-priority. `router._choose` assigns it:
+priority. `router._choose` assigns it through a chain of small deciders (`_CHAIN`), each
+returning a `Choice` or an open question (`Asked`) and none writing to the plan:
 
 - **structural** — one candidate, or one with strictly smaller surplus than the rest
 - **data-profiled** — a rule pinned it, and `selection.reason` carries the citation
 - **convention** — equal on surplus, `priority` broke it
-- **ambiguous** — nothing distinguished them
+- **ambiguous** — nothing distinguished them, or a rule could not apply
+
+**A person's tool wraps the chain.** `goal.constraints.producers` holds `ProducerPin(site,
+contract)`, where a `Site` is the type and states a step was chosen to produce. Where the pinned
+tool is a candidate and differs from the engine's pick, it is chosen at tier 4 with source
+`human`, the engine's pick and reason kept beside it, and one `ProducerDecision`; the resolver is
+not asked. A pin that agrees changes nothing; one that applies nowhere is named (`inert_pins`,
+`MD0230`). Authoring (`mendel_authoring`: `amend`, `alternatives`, `draft`, `diff`) writes every
+decision in the walk as such an amendment to the goal, and projects the draft from the resolved
+blueprint.
 
 A pin binds only where the pinned contract is genuinely a candidate for the requested
 *states*. featureCounts asks for `alignment.bam[coordinate_sorted]`, whose only producer is
