@@ -2287,6 +2287,21 @@ MF0011:
     that is what a scaffold is. What must not happen is one reaching a registry, and
     `MF0107` is where that becomes a refusal.
 
+MF0012:
+  emitted_by: forge
+  concern: workspace
+  says: "this revision's candidate is already kept, and a kept candidate is never overwritten"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Nothing to do for the revision: its candidate is on disk as it was produced. A new
+    candidate is a new revision, with its own id.
+  explanation: |
+    A generation overwrites the working `draft.json`, so each revision's candidate is kept
+    beside it under `revisions/<revision id>/` (issue 280). That copy is the record of what a
+    reviewer read and asked to change. Overwriting it would make the record say something the
+    reviewer never saw, so a second keep for one revision is refused.
+
 MF0100:
   emitted_by: forge
   concern: landing

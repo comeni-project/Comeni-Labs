@@ -36,3 +36,33 @@ def test_a_draft_name_cannot_escape_the_workspace(tmp_path, complete_scaffold):
     workspace = Workspace(root=tmp_path)
     with pytest.raises(ValueError, match="MF0008"):
         workspace.save(Draft(name="../escape", scaffold=complete_scaffold, module=None))
+
+
+def test_each_revisions_candidate_survives_the_next(tmp_path, complete_scaffold):
+    """Issue 280: `draft.json` is the working candidate and the next generation overwrites it,
+    while `ForgeRevision` promises the superseded candidate survives. Each is kept per revision."""
+    workspace = Workspace(root=tmp_path)
+    for revision, module in (("r1", "process ONE {}\n"), ("r2", "process TWO {}\n")):
+        workspace.write_draft(Draft(name="a1", scaffold=complete_scaffold, module=module))
+        workspace.keep_revision("a1", revision)
+
+    assert workspace.read_revision("a1", "r1").module == "process ONE {}\n"
+    assert workspace.read_revision("a1", "r2").module == "process TWO {}\n"
+    assert workspace.read_draft("a1").module == "process TWO {}\n"
+
+
+def test_a_kept_revision_is_never_overwritten(tmp_path, complete_scaffold):
+    workspace = Workspace(root=tmp_path)
+    workspace.write_draft(Draft(name="a1", scaffold=complete_scaffold, module="process A {}\n"))
+    workspace.keep_revision("a1", "r1")
+    workspace.write_draft(Draft(name="a1", scaffold=complete_scaffold, module="process B {}\n"))
+    with pytest.raises(ValueError, match="MF0012"):
+        workspace.keep_revision("a1", "r1")
+    assert workspace.read_revision("a1", "r1").module == "process A {}\n"
+
+
+def test_a_revision_id_cannot_escape_the_workspace(tmp_path, complete_scaffold):
+    workspace = Workspace(root=tmp_path)
+    workspace.write_draft(Draft(name="a1", scaffold=complete_scaffold, module=None))
+    with pytest.raises(ValueError, match="MF0008"):
+        workspace.keep_revision("a1", "../../escape")

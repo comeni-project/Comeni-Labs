@@ -160,6 +160,15 @@ async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
         },
         prompt_versions={attempt.prompt_id: attempt.prompt_digest for attempt in outcome.attempts},
     )
+    if outcome.succeeded():
+        from mendel_forge.workspace import Workspace
+
+        # **The candidate survives the next generation** (issue 280): `_generate` wrote it to
+        # the working `draft.json`, which the next one overwrites, so it is kept as this
+        # revision's. A run that produced nothing has no candidate to keep.
+        await asyncio.to_thread(
+            Workspace(root=settings.workspace_root).keep_revision, adaptation_id, revision_id
+        )
     await asyncio.to_thread(
         _record_verdict,
         revision_id,

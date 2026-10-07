@@ -401,7 +401,9 @@ class ForgeRevision(Base):
 
     **The eighth table.** A revision is immutable once validation begins, which is why *request
     changes* creates a new one rather than editing this. The superseded attempt stays: the plan
-    refuses to call it rejection precisely because the previous candidate has to survive.
+    refuses to call it rejection precisely because the previous candidate has to survive. The
+    row survives here and the candidate on disk, at `forge/<adaptation>/revisions/<id>/
+    draft.json`, kept once by `Workspace.keep_revision` (issue 280).
 
     `manifest` holds workspace-*relative* paths only. An absolute host path in a row is a path
     in every API response that renders it and, eventually, in a prompt — the scaffold asserts

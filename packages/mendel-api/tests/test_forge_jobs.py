@@ -441,13 +441,28 @@ class _Outcome:
         return ()
 
 
+@pytest.fixture(autouse=True)
+def _own_workspace(monkeypatch, tmp_path):
+    """Every job here writes into a workspace of its own, never the configured one."""
+    monkeypatch.setattr(forge_jobs.settings, "workspace_root", tmp_path / "workspace")
+
+
+def _generated(adaptation_id: str):
+    """A generation that produced a candidate: it leaves one in the working `draft.json`, as
+    `_generate` does, so the job can keep it as the revision's (issue 280)."""
+    working = forge_jobs.settings.workspace_root / "forge" / adaptation_id
+    working.mkdir(parents=True, exist_ok=True)
+    (working / "draft.json").write_text(f'{{"candidate of": "{adaptation_id}"}}')
+    return _Outcome(), (), []
+
+
 @needs_db
 @pytest.mark.asyncio
 async def test_a_generation_walks_to_review_and_records_a_revision(item, monkeypatch):
     """The whole point of the job. **It ends at `review` whether or not validation passed** —
     the plan draws both arrows there, and a candidate a curator never sees is one nobody can
     learn from."""
-    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), (), []))
+    monkeypatch.setattr(forge_jobs, "_generate", _generated)
     adaptation = _queued(item)
 
     ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
@@ -463,11 +478,37 @@ async def test_a_generation_walks_to_review_and_records_a_revision(item, monkeyp
 
 @needs_db
 @pytest.mark.asyncio
+async def test_a_generated_candidate_is_kept_under_its_revision(item, monkeypatch):
+    """Issue 280: the revision row survives a new generation, and now its candidate does too."""
+    monkeypatch.setattr(forge_jobs, "_generate", _generated)
+    adaptation = _queued(item)
+    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+
+    with session_scope() as session:
+        revision = session.get(ForgeAdaptation, adaptation).current_revision_id
+    forge = forge_jobs.settings.workspace_root / "forge" / adaptation
+    kept = forge / "revisions" / revision / "draft.json"
+    assert kept.read_text() == (forge / "draft.json").read_text()
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_generation_that_produced_nothing_keeps_nothing(item, monkeypatch):
+    """No candidate, nothing to keep."""
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(ok=False), (), []))
+    adaptation = _queued(item)
+    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    root = forge_jobs.settings.workspace_root
+    assert not (root / "forge" / adaptation / "revisions").exists()
+
+
+@needs_db
+@pytest.mark.asyncio
 async def test_an_unchecked_candidate_is_never_recorded_green(item, monkeypatch):
     """**The load-bearing one.** A curator approving on the strength of a check that never ran
     is the failure the whole review step exists to prevent, and `approval_refusals` reads
     exactly this field."""
-    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), (), []))
+    monkeypatch.setattr(forge_jobs, "_generate", _generated)
     adaptation = _queued(item)
     await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
 
@@ -888,7 +929,7 @@ async def test_a_generation_claims_before_it_calls_anything(item, monkeypatch):
 
     def watch(adaptation_id):
         seen.append(_state(adaptation_id))
-        return _Outcome(), (), []
+        return _generated(adaptation_id)
 
     monkeypatch.setattr(forge_jobs, "_generate", watch)
     adaptation = _queued(item)
@@ -906,7 +947,7 @@ async def test_a_duplicate_delivery_that_reaches_the_worker_is_skipped_not_faile
     and ARQ would retry it, which is the same duplicate with a delay in front of it."""
     calls = []
     monkeypatch.setattr(
-        forge_jobs, "_generate", lambda a: (calls.append(a), (_Outcome(), (), []))[1]
+        forge_jobs, "_generate", lambda a: (calls.append(a), _generated(a))[1]
     )
     adaptation = _queued(item)
     await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)

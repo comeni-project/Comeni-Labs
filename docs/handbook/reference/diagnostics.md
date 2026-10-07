@@ -199,6 +199,7 @@ decline to curate one.
 |---|---|
 | `MF0008` | no such draft, or a draft name that is not a plain name |
 | `MF0010` | a draft with that name already exists |
+| `MF0012` | this revision's candidate is already kept, and a kept candidate is never overwritten |
 
 ## The forge — adapting a tool, and in what order
 
