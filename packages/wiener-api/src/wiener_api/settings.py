@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     telemetry is fire-and-forget. `ops/telemetry/README.md` is how to point it somewhere."""
     stream_maxlen: int = 10_000
     """§7.2, and a starting number rather than a measurement — §17 carries it."""
+    stream_ttl_seconds: int = 3600
+    """How long a run's live tail outlives the run (issue 274). Postgres is the record and a
+    reader pages it before it subscribes, so a finished run's tail is only for a console that
+    was watching as it ended."""
 
 
 settings = Settings()

@@ -27,15 +27,32 @@ def key(run_id: str) -> str:
 
 
 def publish(run_id: str, event: RunEvent, redis: Redis | None = None,
-            maxlen: int | None = None) -> str:
-    """Append one event to a run's tail, and return the id a reader resumes from."""
-    return (redis or client()).xadd(
+            maxlen: int | None = None, *, ended: bool = False) -> str:
+    """Append one event to a run's tail, and return the id a reader resumes from.
+
+    **The tail lives as long as the run does** (issue 274): nothing removed it, so every run
+    kept up to `stream_maxlen` entries for good. An event that leaves the run `ended` gives
+    the tail `stream_ttl_seconds` to live; any other clears an expiry, because a run called
+    lost that speaks again is live. One round trip either way."""
+    pipe = (redis or client()).pipeline(transaction=False)
+    pipe.xadd(
         key(run_id),
         {"seq": event.seq, "kind": event.kind, "at_ms": event.at_ms,
          "json": event.model_dump_json()},
         maxlen=maxlen or settings.stream_maxlen,
         approximate=True,
     )
+    if ended:
+        pipe.expire(key(run_id), settings.stream_ttl_seconds)
+    else:
+        pipe.persist(key(run_id))
+    return pipe.execute()[0]
+
+
+def retire(run_id: str, redis: Redis | None = None) -> None:
+    """Let a run's tail go `stream_ttl_seconds` from now: for a run that ended without an event
+    to say so — the heartbeat's verdict that it is lost."""
+    (redis or client()).expire(key(run_id), settings.stream_ttl_seconds)
 
 
 def last_id(run_id: str, redis: Redis | None = None) -> str:

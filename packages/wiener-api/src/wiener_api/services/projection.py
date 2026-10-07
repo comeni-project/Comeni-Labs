@@ -245,7 +245,7 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
             log.warning("run %s: recorded but not exported: %s", run_id, exc)
 
     try:
-        stream.publish(run_id, event)
+        stream.publish(run_id, event, ended=state.phase in _TERMINAL)
     except RedisError as exc:
         # **The tail is lossy by design; the record is not.** Losing Redis must not lose an
         # event, so this cannot raise — but a dead tail that nobody notices is a console that

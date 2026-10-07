@@ -9,10 +9,12 @@ from datetime import UTC, datetime
 
 from arq import cron
 from arq.connections import RedisSettings
+from redis.exceptions import RedisError
 from wiener_core.policy import IntentKind, Policy, Reason, decide
 from wiener_core.state import RunPhase
 
 from wiener_api import db, main, repository
+from wiener_api.services import stream
 from wiener_api.services.launcher import launch
 from wiener_api.services.projection import beat
 from wiener_api.settings import settings
@@ -55,6 +57,13 @@ async def heartbeat_job(ctx: dict) -> int:
                 # was merely quiet un-loses itself, which is the right behaviour for a window
                 # that §17 admits is a guess.
                 run.phase = RunPhase.LOST
+                # No event will come to let its tail go, so the verdict does (issue 274). The
+                # tail is lossy and the record is not: a Redis that cannot hear this is logged.
+                try:
+                    stream.retire(run.id)
+                except RedisError as exc:
+                    logging.getLogger(__name__).warning("run %s: tail not retired: %s",
+                                                        run.id, exc)
     return len(runs)
 
 

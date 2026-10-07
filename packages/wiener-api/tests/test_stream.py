@@ -194,3 +194,53 @@ def test_a_lost_run_that_speaks_again_is_not_lost(session, a_run, tail, monkeypa
 
     projection.record(session, a_run.lab_id, a_run.id, bodies[1])   # it was only quiet
     assert repository.run(session, a_run.lab_id, a_run.id).phase == "running"
+
+
+# ── the stream lives as long as the run does (issue 274) ──────────────────────────────────
+
+
+def _bodies():
+    import json as _json
+    from pathlib import Path
+
+    fixture = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
+    return [_json.loads(line) for line in fixture.read_text().splitlines() if line.strip()]
+
+
+def test_a_finished_runs_tail_expires_and_a_live_ones_does_not(session, a_run, tail):
+    """Issue 274: nothing removed `wiener:run:<id>`, so every run kept up to `stream_maxlen`
+    entries in Redis for good. Postgres is the record and a reader pages it first, so a finished
+    run's tail is let go `stream_ttl_seconds` after it ends; a live run's never expires."""
+    from wiener_api.services import projection, stream
+    from wiener_api.settings import settings
+
+    bodies = _bodies()
+    assert len(bodies) > 2, "too few events to see a run in flight"
+    projection.record(session, a_run.lab_id, a_run.id, bodies[0])   # started
+    assert tail.ttl(stream.key(a_run.id)) == -1, "a run still in flight was given an expiry"
+
+    # The capture ends before its last body (`completed` arrives twice), so every body is sent.
+    for body in bodies[1:]:
+        projection.record(session, a_run.lab_id, a_run.id, body)
+    assert 0 < tail.ttl(stream.key(a_run.id)) <= settings.stream_ttl_seconds
+
+
+def test_a_lost_runs_tail_expires_and_comes_back_if_it_speaks(session, a_run, tail,
+                                                              monkeypatch):
+    """A lost run gets no further event to expire its tail by, so the verdict expires it; and
+    `lost` is not sticky, so a run that speaks again keeps its tail."""
+    import asyncio
+
+    from wiener_api.services import projection, stream
+    from wiener_api.settings import settings
+    from wiener_api.worker import heartbeat_job
+
+    bodies = _bodies()
+    projection.record(session, a_run.lab_id, a_run.id, bodies[0])
+    session.commit()
+    monkeypatch.setattr(settings, "lost_after_ms", 1)
+    asyncio.run(heartbeat_job({}))
+    assert 0 < tail.ttl(stream.key(a_run.id)) <= settings.stream_ttl_seconds
+
+    projection.record(session, a_run.lab_id, a_run.id, bodies[1])   # it was only quiet
+    assert tail.ttl(stream.key(a_run.id)) == -1
