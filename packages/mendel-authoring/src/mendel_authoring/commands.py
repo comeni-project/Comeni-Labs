@@ -185,12 +185,25 @@ class StartBuilding:
 
 @dataclass(frozen=True, slots=True)
 class SettleStep:
+    """*Continue*: keep this step as the blueprint has it (spec §14.5)."""
+
     proposal_id: str
-    decision: str
     expected_revision: int
     by: str
-    chosen_option: str | None = None
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.CONTINUE, Command.CHOOSE})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CONTINUE})
+
+
+@dataclass(frozen=True, slots=True)
+class Amend:
+    """One of the amendments a step's card offered, **by id** — `alt_N` for a tool, `fact:<m>`
+    for a fact with its `value` — so nothing outside the offered set can be sent (spec §14.5);
+    the door part 4's model will use too."""
+
+    proposal_id: str
+    option: str
+    value: object | None
+    by: str
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.AMEND})
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,5 +227,5 @@ COMMANDS: tuple[type, ...] = (
     DecideGoal, Revised, StoreReadback, ReadbackFailed,
     Resume, AnswerGap, PrefillGap, StorePhrasing, PhrasingFailed,
     UploadSample, SampleInspected, ReadingAnswered, ReadingFailed,
-    StartBuilding, SettleStep, ChoosePacing, RecordEdit,
+    StartBuilding, SettleStep, Amend, ChoosePacing, RecordEdit,
 )

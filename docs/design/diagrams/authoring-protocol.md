@@ -73,14 +73,12 @@ flowchart LR
         quiet["Only where I'm needed"]:::engine
         ask_pacing["Ask how to go"]:::engine
         pace_q{"Go through it together,<br/>or stop only where needed?"}:::you
-        step{"Next step:<br/>place it, or stop?"}:::engine
-        held["A step's card<br/>continue?"]:::engine
-        fact["A rule needs a fact<br/>tell me"]:::you
-        reresolve["Resolve again<br/>with the fact"]:::engine
-        choice["Tier 4 · you choose"]:::you
         dev{"Dev mode?"}:::engine
-        show_gap["Show the registry gap,<br/>naming the file"]:::engine
-        route_around["Route around it:<br/>the gap unshown"]:::engine
+        show_gaps["Registry gaps<br/>stop the walk"]:::engine
+        hide_gaps["Registry gaps<br/>routed around"]:::engine
+        step{"Next step:<br/>place it, or stop?"}:::engine
+        step_card["A step's card<br/>continue, or change it"]:::you
+        amend["Your change into the goal;<br/>resolve again"]:::engine
         wrap(["Wrap-up: what you get,<br/>what you need, who decided"]):::engine
     end
     style build fill:transparent,stroke:#555
@@ -165,24 +163,20 @@ flowchart LR
     pace -- "together" --> together
     pace -- "stop_where_needed" --> quiet
     pace -- "ask" --> ask_pacing
-    together --> step
-    quiet --> step
+    together --> dev
+    quiet --> dev
     ask_pacing --> pace_q
-    pace_q -- "you choose" --> step
-    step -- "wait for you" --> held
-    step -- "a rule lacks a fact" --> fact
-    step -- "no rule could" --> choice
-    step -- "a registry gap" --> dev
-    dev -- "on" --> show_gap
-    dev -- "off" --> route_around
-    show_gap --> held
-    route_around -- "placed" --> step
-    route_around -- "it waits for you" --> held
-    held -- "continue" --> step
-    fact -- "you tell me" --> reresolve
-    reresolve --> step
-    choice -- "you choose" --> step
+    pace_q -- "you choose" --> dev
+    dev -- "on" --> show_gaps
+    dev -- "off" --> hide_gaps
+    show_gaps --> step
+    hide_gaps --> step
+    step -- "stop here" --> step_card
     step -- "nothing left" --> wrap
+    step_card -- "continue" --> step
+    step_card -- "change it" --> amend
+    amend --> step
+    amend -- "can't build it" --> failed
     wrap -- "the goal changed" --> resolve
     failed -- "retry" --> family
     failed -- "retry" --> resolve
@@ -191,9 +185,7 @@ flowchart LR
     style sample_tie stroke:#ff5050,stroke-width:4px,stroke-dasharray:6 4,opacity:0.55
     style sample_undetermined stroke:#ff5050,stroke-width:4px
     style sample_stamped stroke:#f0d040,stroke-width:4px
-    style held stroke:#6fbf8f
-    style fact stroke:#f0d040,stroke-width:4px
-    style choice stroke:#ff5050,stroke-width:4px
+    style step_card stroke:#6fbf8f
     style ask_any stroke-dasharray:6 4,opacity:0.55
     style explain stroke-dasharray:6 4,opacity:0.55
     subgraph KEY ["Key: fill is who acts, border is the tier, dashed is planned"]

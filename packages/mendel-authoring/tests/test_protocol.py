@@ -187,6 +187,7 @@ def test_the_protection_level_is_asked_before_a_byte_is_kept():
 
 
 _MACHINE = {
+    (Phase.BUILDING, Event.BUILD_FAILED): Phase.FAILED,
     (Phase.BUILDING, Event.NOTHING_LEFT): Phase.COMPLETE,
     (Phase.COMPLETE, Event.GOAL_ACCEPTED): Phase.RESOLVING,
     (Phase.GATHERING, Event.FACT_ADDED): Phase.GATHERING,
@@ -205,7 +206,8 @@ _MACHINE = {
 first version compared `st.TRANSITIONS` with `PROTOCOL.transitions()`, which is the same value,
 so it could not fail (review of #134). **Changed by 14.7.8.3b**, stage ④ redrawn: a step settled
 moves nothing (it stays in `building`), and the old *goal changed* arrow out of a pending step is
-gone; a changed goal leaves the wrap-up."""
+gone; a changed goal leaves the wrap-up. **Changed by 14.7.8.3c**: a change on a step's card is
+resolved again in `amend`, and a goal it makes unbuildable fails like `resolve` does."""
 
 
 def test_the_machine_did_not_change():
@@ -308,7 +310,7 @@ def test_the_real_protocol_still_loads():
 def test_the_commands_are_the_specs_and_1bs():
     assert {c.value for c in Command} == {
         "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
-        "choose_pacing", "continue", "choose", "ask", "keep", "retry",
+        "choose_pacing", "continue", "amend", "ask", "keep", "retry",
         "reply_in_words", "understood", "asked_back", "revised",
         "provider_failed",
     }
@@ -338,11 +340,10 @@ def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
 
 # ── the protocol, marked (14.7.8.1b) ────────────────────────────────────────────────────────
 
-WAITS = {"say", "family", "reply", "card", "resolve", "pace_q", "held", "fact", "choice",
-         "wrap", "failed"}
+WAITS = {"say", "family", "reply", "card", "resolve", "pace_q", "step_card", "wrap", "failed"}
 ACTS = {"family", "read_goal", "list_needs", "next_gap", "ask", "answered", "suggest", "upload",
-        "readback", "resolve", "overview", "together", "quiet", "ask_pacing", "step", "reresolve",
-        "show_gap", "route_around", "wrap"}
+        "readback", "resolve", "overview", "together", "quiet", "ask_pacing", "show_gaps",
+        "hide_gaps", "step", "amend", "wrap"}
 
 
 def _main():

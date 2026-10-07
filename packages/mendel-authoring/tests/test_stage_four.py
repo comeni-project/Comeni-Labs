@@ -1,4 +1,7 @@
-"""Stage ④ over the real protocol, with a fake `enter` (spec §13.2): the arrows, not the work."""
+"""Stage ④ over the real protocol, with a fake `enter` (spec §14.4): the arrows, not the work.
+
+Pacing, then Dev mode, both decided before the walk; then `step` places what does not stop and
+rests on one card, which a person continues or changes; a change runs through `amend`."""
 
 import pytest
 from mendel_authoring.forks import Snapshot
@@ -20,75 +23,55 @@ def _walk(at, command, outcomes, **settings):
 
 
 @pytest.mark.parametrize(
-    ("pacing", "through"),
-    [("together", "together"), ("stop_where_needed", "quiet")],
+    ("pacing", "through"), [("together", "together"), ("stop_where_needed", "quiet")]
 )
-def test_each_pacing_reaches_the_first_step(pacing, through):
+@pytest.mark.parametrize(("dev", "gaps"), [(True, "show_gaps"), (False, "hide_gaps")])
+def test_each_pacing_and_dev_case_reaches_the_first_card(pacing, through, dev, gaps):
     ran, entered = _walk(
-        "card", Command.CONFIRM_GOAL.value,
-        {"resolve": "stored", "step": "held"}, **{"building.pacing": pacing},
+        "card", Command.CONFIRM_GOAL.value, {"resolve": "stored", "step": "stops"},
+        **{"building.pacing": pacing, "dev.mode": dev},
     )
-    assert through in entered and ran.at == "held"
+    assert through in entered and gaps in entered and ran.at == "step_card"
+    assert entered.index(through) < entered.index(gaps) < entered.index("step"), (
+        "both forks are decided before the walk"
+    )
 
 
-def test_ask_rests_on_the_pacing_question():
+def test_ask_rests_on_the_pacing_question_and_its_answer_reaches_dev():
     ran, _ = _walk("card", Command.CONFIRM_GOAL.value, {"resolve": "stored"},
                    **{"building.pacing": "ask"})
     assert ran.at == "pace_q"
-
-
-def test_the_pacing_answer_goes_on_to_the_first_step():
-    ran, _ = _walk("pace_q", Command.CHOOSE_PACING.value, {"step": "held"})
-    assert ran.at == "held"
-
-
-def test_dev_on_rests_on_the_gap_card():
-    ran, entered = _walk("held", Command.CONTINUE.value, {"step": "a_gap"},
-                         **{"dev.mode": True})
-    assert "show_gap" in entered and ran.at == "held"
-
-
-def test_dev_off_under_together_still_rests_on_the_steps_card():
-    """Dev off hides the gap, not the step: under *together* the card still waits (found by
-    the shell test, 3b run 2)."""
-    ran, entered = _walk("held", Command.CONTINUE.value, {"step": "a_gap", "route_around": "held"},
+    ran, entered = _walk("pace_q", Command.CHOOSE_PACING.value, {"step": "stops"},
                          **{"dev.mode": False})
-    assert "route_around" in entered and ran.at == "held"
+    assert "hide_gaps" in entered and ran.at == "step_card"
 
 
-def test_dev_off_routes_around_and_walks_on():
-    outcomes = {"step": "a_gap", "route_around": "placed"}
-    calls = iter(["a_gap", "none_left"])
-    entered = []
-
-    def enter(node):
-        entered.append(node)
-        return next(calls) if node == "step" else outcomes.get(node)
-
-    ran = run(PROTOCOL, "held", Command.CONTINUE.value, enter,
-              snapshot=Snapshot(settings={"dev.mode": False}))
-    assert "route_around" in entered and ran.at == "wrap"
-
-
-def test_a_fact_runs_through_reresolve_back_to_the_step():
-    ran, entered = _walk("fact", Command.ANSWER_GAP.value, {"step": "needs_choice"})
-    assert entered[:2] == ["reresolve", "step"] and ran.at == "choice"
-
-
-def test_a_choice_goes_on_to_the_next_step():
-    ran, _ = _walk("choice", Command.CHOOSE.value, {"step": "none_left"})
+def test_continue_walks_on_to_the_wrap_up():
+    ran, _ = _walk("step_card", Command.CONTINUE.value, {"step": "none_left"})
     assert ran.at == "wrap"
+
+
+def test_a_change_is_resolved_again_before_the_walk_goes_on():
+    ran, entered = _walk("step_card", Command.AMEND.value, {"amend": "amended", "step": "stops"})
+    assert entered[:2] == ["amend", "step"] and ran.at == "step_card"
+
+
+def test_a_change_that_cannot_be_built_fails_like_resolve():
+    ran, _ = _walk("step_card", Command.AMEND.value, {"amend": "cant_build"})
+    assert ran.at == "failed"
 
 
 def test_the_two_forks_read_pacing_and_dev_mode():
     assert PROTOCOL.fork_keys() == {"building.pacing", "dev.mode"}
 
 
-def test_a_quiet_walk_enters_step_once_and_reaches_the_wrap_up():
-    """Review Focus 3, the protocol's half: no arrow leads from `step` back to itself, so a walk
-    with nothing to stop on is one entry of `step`, whatever its length. The handler's half (it
-    places every quiet step inside that one entry) is the shell test
-    `test_stop_where_needed_with_a_read_length_reaches_the_wrap_up`."""
+def test_a_quiet_walk_of_any_length_is_one_entry_of_step():
+    """Review Focus 5 (issue 258): no arrow leads from `step` back to itself, and nothing
+    between a gap and the next step passes the interpreter — so a walk with nothing to stop on is
+    one entry of `step`, however many steps (the handler places them all inside it)."""
     assert not any(e.source == "step" and e.target == "step" for e in PROTOCOL.edges)
-    ran, entered = _walk("quiet", None, {"step": "none_left"})
+    assert not {"route_around", "show_gap", "held", "fact", "reresolve", "choice"} & {
+        n.id for n in PROTOCOL.nodes
+    }
+    ran, entered = _walk("hide_gaps", None, {"step": "none_left"})
     assert entered.count("step") == 1 and ran.at == "wrap"
