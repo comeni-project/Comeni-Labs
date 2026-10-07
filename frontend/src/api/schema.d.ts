@@ -2558,11 +2558,8 @@ export interface components {
          */
         DraftIn: {
             graph: components["schemas"]["DraftGraph"];
-            /**
-             * Name
-             * @default
-             */
-            name: string;
+            /** Name */
+            name?: string | null;
         };
         /**
          * DraftLabel

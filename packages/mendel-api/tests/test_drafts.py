@@ -88,6 +88,21 @@ def test_saving_replaces_the_graph(client):
     assert len(client.get(f"/api/pipeline/drafts/{draft_id}").json()["graph"]["nodes"]) == 4
 
 
+def test_a_rename_survives_a_fresh_read(client):
+    """Issue 271: the route stored the graph and only echoed the name back."""
+    draft_id = client.post("/api/pipeline/drafts", json={"graph": GRAPH}).json()["id"]
+    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": GRAPH, "name": "liver RNA-seq"})
+    assert client.get(f"/api/pipeline/drafts/{draft_id}").json()["name"] == "liver RNA-seq"
+
+
+def test_a_save_that_names_nothing_keeps_the_name(client):
+    draft_id = client.post(
+        "/api/pipeline/drafts", json={"graph": GRAPH, "name": "liver RNA-seq"}
+    ).json()["id"]
+    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": SPINE})
+    assert client.get(f"/api/pipeline/drafts/{draft_id}").json()["name"] == "liver RNA-seq"
+
+
 def test_keep_refuses_a_graph_with_an_illegal_finding(client):
     """`validate` reports; `keep` refuses. The boundary is here and nowhere else."""
     bad = {

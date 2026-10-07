@@ -420,8 +420,9 @@ def read(draft_id: str) -> PipelineDraft:
         return row
 
 
-def update(draft_id: str, graph: DraftGraph) -> None:
-    """Store the new graph, and carry the provenance of everything it did not change.
+def update(draft_id: str, graph: DraftGraph, *, name: str | None = None) -> str:
+    """Store the new graph, and carry the provenance of everything it did not change; rename
+    the draft when `name` is given. Answers the name it now has.
 
     **The sidecar is computed here and never accepted from the client** — §1.8. A browser that
     could post provenance could post `source: resolver` on a value it typed, and *nothing was
@@ -436,6 +437,9 @@ def update(draft_id: str, graph: DraftGraph) -> None:
         row.graph = graph.model_dump(mode="json")
         row.provenance = _restamped(graph, before, prior).model_dump(mode="json")
         row.updated_at = datetime.now(UTC)
+        if name is not None:
+            row.name = name
+        return row.name
 
 
 

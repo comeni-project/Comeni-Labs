@@ -152,7 +152,8 @@ class DraftIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     graph: DraftGraph
-    name: str = ""
+    name: str | None = None
+    """`None` leaves a saved draft's name as it is (issue 271); a new draft gets `""`."""
 
 
 class DraftOut(BaseModel):
@@ -205,8 +206,9 @@ def list_drafts(after: int = 0, limit: int = 50) -> DraftsPage:
 def create_draft(body: DraftIn) -> DraftOut:
     """The id is opaque and server-generated. `routes/build.py`'s own header records why the
     API cannot take a path, and a draft addressed by one would be that rule undone."""
-    draft_id = draft_service.create(body.graph, body.name, identity.default_author())
-    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+    name = body.name or ""
+    draft_id = draft_service.create(body.graph, name, identity.default_author())
+    return DraftOut(id=draft_id, name=name, graph=body.graph)
 
 
 @router.get("/drafts/{draft_id}", operation_id="readDraft", summary="A draft as it stands")
@@ -223,10 +225,10 @@ def save_draft(draft_id: str, body: DraftIn) -> DraftOut:
     """One write per save, not per edit. The client owns the working graph and sends it whole —
     a schema that could hold half a graph would be a second definition of what a graph is."""
     try:
-        draft_service.update(draft_id, body.graph)
+        name = draft_service.update(draft_id, body.graph, name=body.name)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
-    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+    return DraftOut(id=draft_id, name=name, graph=body.graph)
 
 
 @router.post(
