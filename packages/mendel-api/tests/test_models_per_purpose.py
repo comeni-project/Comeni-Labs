@@ -1,5 +1,7 @@
 """Each call uses its purpose's model (spec §6)."""
 
+import os
+
 import pytest
 from comeni_ai import access as ai_access
 from comeni_core.settings import catalogue
@@ -154,3 +156,65 @@ def test_a_purpose_can_go_back_to_the_default(clean_env, settings_in_memory):
     assert answer.status_code == 200, answer.text
     assert answer.json()["value"] is None
     assert model_access("builder", "ask").model == "ollama_chat/qwen2.5:7b"
+
+
+def _destination(access) -> str:
+    """Where a call with this access sends what it sends, said the Privacy page's way."""
+    if access is None:
+        return "no model: nothing is sent"
+    if not access.base_url:
+        return f"goes to {access.model.split('/', 1)[0]}"
+    return "stays on this machine or your network"
+
+
+def _parity_setups(store, monkeypatch):
+    """Each setup arranges the store and environment one way; the test asks both functions."""
+    local = {"name": "Local", "server": "ollama", "endpoint": "http://ollama:11434", "key": None}
+    cloud = {"name": "Cloud", "server": "ollama", "endpoint": "", "key": None}
+
+    def gone_purpose_with_default():
+        store.rows["models.connections"] = [local, cloud]
+        store.rows["models.default"] = {"connection": "Local", "model": "ollama_chat/a"}
+        store.rows["models.talk"] = {"connection": "Gone", "model": "openai/x"}
+
+    def gone_default_with_purpose():
+        store.rows["models.connections"] = [cloud]
+        store.rows["models.default"] = {"connection": "Gone", "model": "ollama_chat/a"}
+        store.rows["models.talk"] = {"connection": "Cloud", "model": "openai/x"}
+
+    def both_gone_with_the_env():
+        store.rows["models.connections"] = [local]
+        store.rows["models.default"] = {"connection": "Gone", "model": "ollama_chat/a"}
+        store.rows["models.talk"] = {"connection": "Gone2", "model": "openai/x"}
+        monkeypatch.setenv("COMENI_AI_MODEL", "anthropic/claude-sonnet-4-5")
+
+    def a_purpose_pinned_in_the_env():
+        store.rows["models.connections"] = [cloud]
+        store.rows["models.default"] = {"connection": "Cloud", "model": "openai/x"}
+        monkeypatch.setenv("COMENI_AI_MODEL", "ollama_chat/a")
+        monkeypatch.setenv("COMENI_AI_BASE_URL", "http://ollama:11434")
+        monkeypatch.setenv("COMENI_AI_MODEL_TALK", "ollama_chat/b")
+
+    def nothing_anywhere():
+        store.rows["models.connections"] = []
+
+    return [gone_purpose_with_default, gone_default_with_purpose, both_gone_with_the_env,
+            a_purpose_pinned_in_the_env, nothing_anywhere]
+
+
+@pytest.mark.parametrize("setup", range(5))
+def test_the_privacy_page_says_where_each_purposes_calls_go(
+    setup, clean_env, settings_in_memory, monkeypatch
+):
+    """Issue 283: the Privacy page and the call each worked the fallback out for themselves;
+    whatever the settings, what the page says a purpose sends must be where its calls go."""
+    from mendel_api.services.models import access_for
+
+    _parity_setups(settings_in_memory, monkeypatch)[setup]()
+    inst = installation.installation()
+    said = {r["purpose"]: r["goes"] for r in where_purposes(inst)}
+    assert said, "no purposes reported: this test would compare nothing"
+    for (agent, purpose), setting in PURPOSES.items():
+        assert said[setting.label] == _destination(access_for(inst, os.environ, agent, purpose)), (
+            f"{setting.label}: the page and the {agent}/{purpose} call disagree"
+        )
