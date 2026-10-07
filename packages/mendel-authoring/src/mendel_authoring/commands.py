@@ -195,15 +195,16 @@ class SettleStep:
 
 @dataclass(frozen=True, slots=True)
 class Amend:
-    """One of the amendments a step's card offered, **by id** — `alt_N` for a tool, `fact:<m>`
+    """One of the amendments a step's card offered, **by id** — `alt_N` for a tool, `fact_<m>`
     for a fact with its `value` — so nothing outside the offered set can be sent (spec §14.5);
-    the door part 4's model will use too."""
+    the door part 4's model will use too. A card offered against a registry that has since moved
+    is re-offered instead, which is *continue*'s arrow."""
 
     proposal_id: str
     option: str
     value: object | None
     by: str
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.AMEND})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.AMEND, Command.CONTINUE})
 
 
 @dataclass(frozen=True, slots=True)

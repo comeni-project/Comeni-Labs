@@ -51,7 +51,9 @@ def project(db, row, blueprint: bp.Blueprint) -> None:
 def pending_step(db, proposal_id: str) -> PipelineAuthoringProposal:
     """The step card a command answers: refused if it is gone, already answered (`MI0203` —
     a double click or a second tab), or not a step's card."""
-    proposal = db.get(PipelineAuthoringProposal, proposal_id)
+    # **Locked** (final review of Run 2, I3): two answers that really overlap — a double click,
+    # two tabs — are serialised here, so the second reads the card answered and is refused.
+    proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
     if proposal is None:
         raise KeyError(proposal_id)
     if proposal.state != ProposalState.PENDING.value:
@@ -113,10 +115,26 @@ def carried_by_pin(
     return carried
 
 
+def unbuildable_change(unroutable: UnroutableError) -> str:
+    """MI0207 for a change on a card: the goal with it cannot be built, so it is not applied."""
+    missing = ""
+    if unroutable.missing is not None:
+        type_id, states = unroutable.missing
+        missing = f": it would need {type_id}" + (
+            f"[{', '.join(sorted(states))}]" if states else ""
+        ) + ", and nothing can make it from what you have"
+    return coded("MI0207", "that change cannot be built" + missing) + (
+        "\n  nothing was changed — keep the step, or choose another answer"
+    )
+
+
 @records(c.Amend)
 def amend(ctx: Ctx, cmd: c.Amend):
-    """One of the card's offered changes (spec §14.5): checked, applied to the goal, and the
-    step it decided marked reviewed; then `amend` resolves again and projects the draft."""
+    """One of the card's offered changes (spec §14.5): checked, applied to the goal, and **the
+    goal with it resolved before anything is written** (final review of Run 2, I1) — a change that
+    cannot be built is refused here (MI0207), the card still waiting, rather than leaving the
+    session failed with the change in its goal. Then the blueprint is stored, the reviewed steps
+    it still has kept, the draft projected; `amend` says what the change did."""
     from mendel_api.stages.building import walk
 
     with session_scope() as db:
@@ -127,49 +145,38 @@ def amend(ctx: Ctx, cmd: c.Amend):
             return walk.re_offer(ctx, proposal, row, db)
         amendment = _offered(proposal, cmd.option, cmd.value, Goal.model_validate(row.goal))
         session.check(row.id, Command.AMEND.value)
-        row.goal = amendment.apply(Goal.model_validate(row.goal)).model_dump(mode="json")
+        goal = amendment.apply(Goal.model_validate(row.goal))
+        try:
+            fresh, _ = bp.resolve(goal)
+        except UnroutableError as unroutable:
+            raise ValueError(unbuildable_change(unroutable)) from None
+        before = bp.Blueprint.model_validate(row.blueprint)
+        reviewed = reviewed_of(row)
         if isinstance(amendment, ChooseTool):
             # The person just decided this step; the tool it now holds is theirs, reviewed.
-            row.reviewed = [
-                *(row.reviewed or []),
-                Reviewed(node=proposal.payload["node"], by=cmd.by).model_dump(mode="json"),
-            ]
+            reviewed.append(Reviewed(node=proposal.payload["node"], by=cmd.by))
+        row.goal = goal.model_dump(mode="json")
+        row.blueprint = fresh.model_dump(mode="json")
+        row.registry_digest = fresh.registry
+        carried = carried_by_pin(before, fresh, reviewed, goal)
+        row.reviewed = [r.model_dump(mode="json") for r in kept(fresh, carried)]
+        project(db, row, fresh)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = cmd.by
         proposal.chosen_option = cmd.option
         proposal.settled_at = _rows.now()
-    session.take(ctx, Command.AMEND.value)
+        said = diff_of(before, fresh).sentence()
+    session.take(ctx, Command.AMEND.value, said=said)
     return walk.outcome(ctx)
 
 
 @handles("amend")
 def amend_node(ctx: Ctx) -> str:
-    """Resolve the amended goal; store the blueprint, keep the reviewed steps it still has,
-    project the draft, and say what the change did. A goal that cannot be built fails as
-    `resolve` does (issue 259)."""
-    from mendel_api.stages.building import walk
-
+    """The change is in: say what it did, as a receipt, and walk on."""
+    said = ctx.payload.get("said", "changes nothing")
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
-        goal = Goal.model_validate(row.goal)
-        before = bp.Blueprint.model_validate(row.blueprint)
-    try:
-        fresh, _ = bp.resolve(goal)
-    except UnroutableError as unroutable:
-        _rows.note(ctx.session_id, walk.unbuildable(unroutable), code="MI0207")
-        return "cant_build"
-    except Exception as failure:  # the resolver's own failure: `failed`, then raised
-        ctx.raised = failure
-        return "cant_build"
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, ctx.session_id)
-        row.blueprint = fresh.model_dump(mode="json")
-        row.registry_digest = fresh.registry
-        carried = carried_by_pin(before, fresh, reviewed_of(row), goal)
-        row.reviewed = [r.model_dump(mode="json") for r in kept(fresh, carried)]
-        project(db, row, fresh)
         revision = db.get(PipelineDraft, row.draft_id).revision
-    said = diff_of(before, fresh).sentence()
     _rows.engine_turn(
         ctx.session_id,
         lambda seq: [

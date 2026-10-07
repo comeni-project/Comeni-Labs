@@ -187,7 +187,6 @@ def test_the_protection_level_is_asked_before_a_byte_is_kept():
 
 
 _MACHINE = {
-    (Phase.BUILDING, Event.BUILD_FAILED): Phase.FAILED,
     (Phase.BUILDING, Event.NOTHING_LEFT): Phase.COMPLETE,
     (Phase.COMPLETE, Event.GOAL_ACCEPTED): Phase.RESOLVING,
     (Phase.GATHERING, Event.FACT_ADDED): Phase.GATHERING,
@@ -206,8 +205,8 @@ _MACHINE = {
 first version compared `st.TRANSITIONS` with `PROTOCOL.transitions()`, which is the same value,
 so it could not fail (review of #134). **Changed by 14.7.8.3b**, stage ④ redrawn: a step settled
 moves nothing (it stays in `building`), and the old *goal changed* arrow out of a pending step is
-gone; a changed goal leaves the wrap-up. **Changed by 14.7.8.3c**: a change on a step's card is
-resolved again in `amend`, and a goal it makes unbuildable fails like `resolve` does."""
+gone; a changed goal leaves the wrap-up. 14.7.8.3c moves nothing: a change on a step's card that
+cannot be built is refused on the card, before anything is written."""
 
 
 def test_the_machine_did_not_change():
@@ -362,7 +361,7 @@ def test_every_named_arrow_is_taken_by_its_name():
 
     named = [e for e in p.PROTOCOL.edges if e.built and e.on is not None
              and not e.source.startswith("sample_")]
-    assert len(named) > 30, "the table is suspiciously short"
+    assert len(named) > 25, "the table is suspiciously short"
     phase = {n.id: n.phase for n in p.PROTOCOL.nodes}
     for edge in named:
         back = phase[edge.target] if edge.returns else None

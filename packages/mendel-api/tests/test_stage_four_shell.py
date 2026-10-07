@@ -317,3 +317,95 @@ def test_after_the_walk_a_hand_edit_is_named_for_the_goal_card(clean, monkeypatc
     edited = graph.model_copy(update={"nodes": graph.nodes[1:]})
     facade.perform(commands.RecordEdit(session_id, edited.model_dump(mode="json"), "ana"))
     assert facade.read(session_id)["hand_edits"].startswith("you removed")
+
+
+# ── the final review of Run 2 ─────────────────────────────────────────────────────────────
+
+
+def _unbuildable_at(monkeypatch, read_length: int) -> None:
+    """The resolver finds no way to build a goal whose read length is `read_length`."""
+    from mendel_api.services import blueprint as bp
+    from mendel_resolver.router import UnroutableError
+
+    real = bp.resolve
+
+    def resolve(goal, **kw):
+        told = {m.measurement: m.value for m in goal.profile.measurements}
+        if told.get("read_length") == read_length:
+            raise UnroutableError("no index", missing=("genome.index.hisat2", frozenset()))
+        return real(goal, **kw)
+
+    monkeypatch.setattr(bp, "resolve", resolve)
+
+
+def test_a_change_that_cannot_be_built_is_refused_on_the_card_and_can_be_answered_again(
+    clean, monkeypatch
+):
+    """Final review I1: a told fact that makes the goal unbuildable is refused (MI0207) before
+    anything is written — the card stays pending, the goal unchanged — and the person can
+    answer again. It used to land on `failed`, which had no way back."""
+    session_id = _built(_goal(read_length=False))
+    card = _walk_to_node(session_id, "star_align")
+    goal_before = facade.read(session_id)["goal"]
+    _unbuildable_at(monkeypatch, 50)
+
+    with pytest.raises(ValueError, match="MI0207"):
+        _amend(session_id, "fact_read_length", 50)
+    view = facade.read(session_id)
+    assert view["phase"] == Phase.BUILDING.value
+    assert view["pending_proposal"]["id"] == card["id"]
+    assert view["goal"] == goal_before
+
+    _amend(session_id, "fact_read_length", 150)
+    assert facade.read(session_id)["phase"] == Phase.BUILDING.value
+    told = _draft(session_id).goal["profile"]["measurements"]
+    assert any(m["measurement"] == "read_length" and m["value"] == 150 for m in told)
+
+
+def test_a_moved_registry_that_cannot_build_the_goal_is_refused_by_name(clean, monkeypatch):
+    """Final review I2: re-resolving after the registry moved can find the goal unbuildable;
+    that is said (MI0207), not a server error."""
+    from mendel_api.services import blueprint as bp
+    from mendel_resolver.router import UnroutableError
+
+    session_id = _built(_goal())
+    card = _pending(session_id)
+    monkeypatch.setattr(bp, "registry_digest", lambda roots: "sha256:" + "0" * 64)
+
+    def unbuildable(goal, **kw):
+        raise UnroutableError("gone", missing=("genome.fasta", frozenset()))
+
+    monkeypatch.setattr(bp, "resolve", unbuildable)
+    with pytest.raises(ValueError, match="MI0207"):
+        facade.perform(
+            commands.SettleStep(card["id"], facade.read(session_id)["revision"], "ana")
+        )
+
+
+def test_two_answers_at_once_to_one_card_one_is_refused(clean):
+    """Final review I3: a double click that really overlaps. The first answer holds the card;
+    the second waits for it, then reads it answered and is refused (MI0203)."""
+    import threading
+    import time
+
+    from mendel_api.models import PipelineAuthoringProposal
+
+    session_id = _built(_goal())
+    card = _walk_to_node(session_id, "star_align")
+    locked = threading.Event()
+
+    def first_answer():
+        with session_scope() as db:
+            proposal = db.get(PipelineAuthoringProposal, card["id"], with_for_update=True)
+            locked.set()
+            time.sleep(1.0)
+            proposal.state = "accepted"
+
+    holder = threading.Thread(target=first_answer)
+    holder.start()
+    locked.wait(5)
+    try:
+        with pytest.raises(ValueError, match="MI0203"):
+            _amend(session_id, _hisat2(card)["id"], proposal_id=card["id"])
+    finally:
+        holder.join()

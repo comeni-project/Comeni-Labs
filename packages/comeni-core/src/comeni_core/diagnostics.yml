@@ -3792,7 +3792,7 @@ MI0216:
     place in it, only the arrows drawn lead on; an action or an outcome that names no arrow from
     where the session is, is refused here rather than half-done.
 MI0217:
-  emitted_by: authoring
+  emitted_by: api
   concern: workflow
   says: "editing opens when the walk is done"
   fires_on: [authoring]

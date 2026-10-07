@@ -78,7 +78,7 @@ flowchart LR
         hide_gaps["Registry gaps<br/>routed around"]:::engine
         step{"Next step:<br/>place it, or stop?"}:::engine
         step_card["A step's card<br/>continue, or change it"]:::you
-        amend["Your change into the goal;<br/>resolve again"]:::engine
+        amend["Your change, resolved<br/>into the goal"]:::engine
         wrap(["Wrap-up: what you get,<br/>what you need, who decided"]):::engine
     end
     style build fill:transparent,stroke:#555
@@ -176,7 +176,6 @@ flowchart LR
     step_card -- "continue" --> step
     step_card -- "change it" --> amend
     amend --> step
-    amend -- "can't build it" --> failed
     wrap -- "the goal changed" --> resolve
     failed -- "retry" --> family
     failed -- "retry" --> resolve

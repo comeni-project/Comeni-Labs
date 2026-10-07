@@ -56,11 +56,6 @@ def test_a_change_is_resolved_again_before_the_walk_goes_on():
     assert entered[:2] == ["amend", "step"] and ran.at == "step_card"
 
 
-def test_a_change_that_cannot_be_built_fails_like_resolve():
-    ran, _ = _walk("step_card", Command.AMEND.value, {"amend": "cant_build"})
-    assert ran.at == "failed"
-
-
 def test_the_two_forks_read_pacing_and_dev_mode():
     assert PROTOCOL.fork_keys() == {"building.pacing", "dev.mode"}
 

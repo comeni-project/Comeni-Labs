@@ -195,7 +195,16 @@ def re_offer(ctx: Ctx, proposal, row, db) -> StepOutcome:
     was = row.registry_digest
     proposal.state = ProposalState.STALE.value
     proposal.settled_at = _rows.now()
-    fresh, _ = bp.resolve(Goal.model_validate(row.goal))
+    try:
+        fresh, _ = bp.resolve(Goal.model_validate(row.goal))
+    except UnroutableError as unroutable:
+        # Final review of Run 2, I2: said by name, never a server error. Nothing is written —
+        # the card waits, and the next answer meets the same sentence until the registry or
+        # the goal changes.
+        raise ValueError(
+            unbuildable(unroutable)
+            + "\n  the registry changed after this step was proposed, and the goal no longer builds"
+        ) from None
     row.blueprint = fresh.model_dump(mode="json")
     row.registry_digest = fresh.registry
     row.reviewed = [r.model_dump(mode="json") for r in kept(fresh, reviewed_of(row))]
@@ -373,7 +382,7 @@ def _choose_pacing(ctx: Ctx, cmd: c.ChoosePacing) -> None:
     """The pacing question answered: recorded in the walk's policy, and the walk goes on to the
     Dev fork. Refused when it is not the pacing question, or was already answered (issue 259)."""
     with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, cmd.proposal_id)
+        proposal = db.get(PipelineAuthoringProposal, cmd.proposal_id, with_for_update=True)
         if proposal is None or proposal.kind != PACING_PROPOSAL:
             raise ValueError(coded("MI0205", "that proposal is not the pacing question"))
         if proposal.state != ProposalState.PENDING.value:

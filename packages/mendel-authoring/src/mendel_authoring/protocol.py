@@ -720,7 +720,7 @@ PROTOCOL = Protocol(
                shape=Shape.CHOICE, acts=True),
         _built("step_card", "build", _YOU, "A step's card<br/>continue, or change it",
                _P.BUILDING, border=Border.TIER12, waits=True),
-        _built("amend", "build", _ENGINE, "Your change into the goal;<br/>resolve again",
+        _built("amend", "build", _ENGINE, "Your change, resolved<br/>into the goal",
                _P.BUILDING, acts=True),
         _built("wrap", "build", _ENGINE, "Wrap-up: what you get,<br/>what you need, who decided",
                _P.COMPLETE, shape=Shape.ROUND, acts=True, waits=True),
@@ -816,7 +816,6 @@ PROTOCOL = Protocol(
         _e("step_card", "step", "continue", on="continue", built=True),
         _e("step_card", "amend", "change it", on="amend", built=True),
         _e("amend", "step", on="amended", built=True),
-        _move("amend", "failed", _E.BUILD_FAILED, "can't build it", on="cant_build"),
         _move("wrap", "resolve", _E.GOAL_ACCEPTED, "the goal changed", on="confirm_goal"),
         # when it goes wrong
         _move("failed", "family", _E.RETRY, "retry", returns=True, on="retry"),
