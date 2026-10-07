@@ -17,22 +17,36 @@ a developer machine can check is a rule nobody checks.
 
 import asyncio
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from comeni_core.artifact.gates import Gate
 from comeni_core.diagnostics import coded
 from mendel_compiler import pipeline_file
 from mendel_compiler.emit import emit, emit_config, entry_params
-from mendel_compiler.gates import GateResult, materialise_stub_data, run_gate
+from mendel_compiler.gates import LONGEST, GateResult, materialise_stub_data, run_gate
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
 from mendel_api.db import session_scope
 from mendel_api.models import GateRun
 from mendel_api.settings import settings
 
 LIVE = ("queued", "running")
-"""The states a gate can still move out of. The browser polls while it is one of these."""
+"""The states a gate can still move out of. The browser polls while it is one of these. A draft
+has at most one gate in them (`GateRun`'s `ix_gate_run_one_live`)."""
+
+MARGIN = 300
+"""Seconds allowed around Nextflow for emitting the files and stamping the artifact."""
+JOB_TIMEOUT = LONGEST + MARGIN
+"""What the worker allows a gate job: the longest gate, and the work around it (issue 278)."""
+LOST_AFTER = JOB_TIMEOUT + MARGIN
+"""How long after it was asked for a gate still live is lost, not slow: past its job's own
+limit and a queue's wait. Every gate has a hard limit, so time alone can tell the two apart."""
+
+BUSY = "a gate is already running on this pipeline"
+FAILED = "the gate could not run to a result"
+LOST = "this gate was lost: no result came back within its time limit"
 
 
 class GateView(BaseModel):
@@ -68,18 +82,28 @@ def request(draft_id: str, gate: Gate, who: str) -> str:
     touches a gate need one, and the split is the same one `drafts.create` already makes.
     """
     run_id = secrets.token_hex(16)
-    with session_scope() as session:
-        session.add(
-            GateRun(
-                id=run_id,
-                draft_id=draft_id,
-                who=who,
-                gate=gate.value,
-                state="queued",
-                output="",
-                queued_at=datetime.now(UTC),
+    try:
+        with session_scope() as session:
+            live = (
+                session.query(GateRun)
+                .filter(GateRun.draft_id == draft_id, GateRun.state.in_(LIVE))
+                .first()
             )
-        )
+            if live is not None:
+                raise ValueError(coded("MI0003", BUSY))
+            session.add(
+                GateRun(
+                    id=run_id,
+                    draft_id=draft_id,
+                    who=who,
+                    gate=gate.value,
+                    state="queued",
+                    output="",
+                    queued_at=datetime.now(UTC),
+                )
+            )
+    except IntegrityError:  # two asks raced past the check; the index refused the second
+        raise ValueError(coded("MI0003", BUSY)) from None
     return run_id
 
 
@@ -131,12 +155,43 @@ async def execute(run_id: str) -> None:
         pipeline_file.stamp(directory, pipeline, gate=result.gate if result.passed else None)
     except ValueError as refusal:  # a coded refusal, e.g. MI0001
         state, output = "failed", str(refusal)
+    except (Exception, asyncio.CancelledError) as broke:
+        # **Every way out lands an end state** (issue 278). Anything else left the row
+        # `running` for good; a cancellation (the worker stopping) is recorded, then goes on.
+        _finish(run_id, "failed", coded("MI0002", f"{FAILED}: {broke!r}"))
+        if isinstance(broke, asyncio.CancelledError):
+            raise
+        return
 
+    _finish(run_id, state, output)
+
+
+def _finish(run_id: str, state: str, output: str) -> None:
     with session_scope() as session:
         row = session.get(GateRun, run_id)
         if row is not None:
             row.state, row.output = state, output
             row.finished_at = datetime.now(UTC)
+
+
+def sweep(now: datetime | None = None) -> list[str]:
+    """Fail every gate still live `LOST_AFTER` seconds after it was asked for; its ids.
+
+    Its worker died, or the queue lost its job. Left alone it would read as running for ever
+    and, through the one-live index, hold its draft's gates up for good (issue 278).
+    """
+    cutoff = (now or datetime.now(UTC)) - timedelta(seconds=LOST_AFTER)
+    with session_scope() as session:
+        lost = (
+            session.query(GateRun)
+            .filter(GateRun.state.in_(LIVE), GateRun.queued_at < cutoff)
+            .order_by(GateRun.id)
+            .all()
+        )
+        for row in lost:
+            row.state, row.output = "failed", coded("MI0004", LOST)
+            row.finished_at = datetime.now(UTC)
+        return [row.id for row in lost]
 
 
 def read(run_id: str) -> GateView:

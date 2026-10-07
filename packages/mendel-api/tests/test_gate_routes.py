@@ -72,3 +72,18 @@ def test_an_unknown_run_is_a_404_rather_than_a_500(monkeypatch):
     monkeypatch.setattr(build_routes.gate_service, "read", missing)
     client = TestClient(create_app(), raise_server_exceptions=False)
     assert client.get("/api/pipeline/gates/nope").status_code == 404
+
+
+def test_a_second_live_gate_is_a_409_naming_the_code(monkeypatch):
+    """Issue 278: one draft has at most one live gate."""
+    from comeni_core.diagnostics import coded
+
+    def busy(draft_id, gate, who):
+        raise ValueError(coded("MI0003", "a gate is already running on this pipeline"))
+
+    sent = []
+    client = _client(monkeypatch, sent)
+    monkeypatch.setattr(build_routes.gate_service, "request", busy)
+    response = client.post("/api/pipeline/drafts/abc/gate", json={"gate": "lint"})
+    assert response.status_code == 409 and "MI0003" in response.json()["detail"]
+    assert sent == [], "a refused gate was queued"

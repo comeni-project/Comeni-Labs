@@ -153,6 +153,15 @@ def test_the_partial_unique_index_survives_into_the_ddl(ddl):
     assert "published" in found.group(1) and "archived" in found.group(1)
 
 
+def test_the_one_live_gate_index_survives_into_the_ddl(ddl):
+    """Issue 278: one live gate per draft holds only if the partial index reaches the database."""
+    found = re.search(
+        r"CREATE UNIQUE INDEX ix_gate_run_one_live ON gate_run \(draft_id\) WHERE (.+);", ddl
+    )
+    assert found is not None, "the one-live index is not partial, or is not unique, in the DDL"
+    assert "queued" in found.group(1) and "running" in found.group(1)
+
+
 def test_no_foreign_key_cascades(ddl):
     """`models.py` says archiving an adaptation never deletes revisions, events, messages or
     invocation audit — and that the way the rule stays true is that there is no cascade to

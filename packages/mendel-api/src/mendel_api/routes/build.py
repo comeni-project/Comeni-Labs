@@ -395,9 +395,12 @@ async def start_gate(draft_id: str, body: GateIn) -> gate_service.GateView:
     # Every other route here is a plain `def`, which FastAPI already runs in a threadpool; an
     # `async def` doing a synchronous Postgres session blocks the event loop for every other
     # request in flight.
-    run_id = await run_in_threadpool(
-        gate_service.request, draft_id, body.gate, identity.default_author()
-    )
+    try:
+        run_id = await run_in_threadpool(
+            gate_service.request, draft_id, body.gate, identity.default_author()
+        )
+    except ValueError as busy:  # MI0003: one live gate per draft (issue 278)
+        raise HTTPException(status_code=409, detail=str(busy)) from None
     await jobs.enqueue("run_gate_job", run_id)
     return await run_in_threadpool(gate_service.read, run_id)
 

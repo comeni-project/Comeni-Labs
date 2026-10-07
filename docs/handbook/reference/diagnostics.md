@@ -142,6 +142,9 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MI0001` | this draft has no artifact to gate — keep it first |
+| `MI0002` | the gate could not run to a result |
+| `MI0003` | a gate is already running on this pipeline |
+| `MI0004` | this gate was lost: no result came back within its time limit |
 
 ## Validating a hand-built graph
 

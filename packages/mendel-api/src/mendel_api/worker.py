@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 from arq import cron
 from arq.connections import RedisSettings
+from arq.worker import func
 from mendel_forge import ops
 
 from mendel_api.db import session_scope
@@ -95,10 +96,27 @@ async def run_gate_job(ctx: dict, run_id: str) -> str:
     return run_id
 
 
+async def sweep_lost_gates(ctx: dict) -> int:
+    """Fail every gate whose worker never finished it (issue 278). Returns how many.
+
+    **On a timer, unlike the AI worker's reclaim**, which runs only at startup because a model
+    call has no known length. A gate does: Nextflow is stopped at its limit, so a row live long
+    past it is lost, not slow. A queue that lost the job would otherwise wait for a restart.
+    """
+    swept = gate_service.sweep()
+    if swept:
+        log.warning("failed %d gate(s) that never came back: %s", len(swept), swept)
+    return len(swept)
+
+
 class WorkerSettings:
     functions = [
         check_sources,
-        run_gate_job,
+        # **Its own limit, and one try** (issue 278). arq's default (300s) cancelled the stub
+        # and test gates; raising the worker's would let a sync hang for an hour. A retry would
+        # re-run an hour-long gate unasked, into the directory the first one was writing.
+        func(run_gate_job, timeout=gate_service.JOB_TIMEOUT, max_tries=1),
+        sweep_lost_gates,
         forge_jobs.sync_forge_sources,
         forge_jobs.scaffold_forge_adaptation,
         forge_jobs.publish_forge_adaptation,
@@ -111,6 +129,7 @@ class WorkerSettings:
     cron_jobs = [
         cron(check_sources, hour=3, minute=0),
         cron(sync_every_source, minute=7, run_at_startup=True),
+        cron(sweep_lost_gates, minute={0, 15, 30, 45}, run_at_startup=True),
     ]
     """`check_sources` at 03:00 daily; `sync_every_source` hourly and on startup.
 

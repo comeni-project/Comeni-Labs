@@ -188,6 +188,19 @@ class GateRun(Base):
     queued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    __table_args__ = (
+        Index(
+            "ix_gate_run_one_live",
+            "draft_id",
+            unique=True,
+            postgresql_where=text("state IN ('queued', 'running')"),
+        ),
+    )
+    """At most one *live* gate per draft (issue 278): two would write over each other's
+    `main.nf` and stamp `pipeline.yml` in turn. The SQL spells out `services.gates.LIVE`, held to
+    it by `test_the_live_gate_index_names_the_live_states`; `gates.request` refuses first, and
+    this is the half that cannot be raced."""
+
 
 # --- the forge's durable workflow -------------------------------------------------------
 #

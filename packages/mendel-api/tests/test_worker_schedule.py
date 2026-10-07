@@ -27,7 +27,7 @@ def test_these_are_the_scheduled_jobs():
     """Named literally, so adding one means editing this test — which is where somebody
     notices that a new job needs a cadence argued for rather than copied."""
     assert WorkerSettings.cron_jobs, "nothing is scheduled"
-    assert sorted(_by_name()) == ["check_sources", "sync_every_source"]
+    assert sorted(_by_name()) == ["check_sources", "sweep_lost_gates", "sync_every_source"]
 
 
 def test_the_drift_check_runs_nightly_and_not_at_startup():
@@ -111,3 +111,19 @@ def test_one_unreachable_source_does_not_stop_the_others(monkeypatch):
 
     assert counts[registered[0]] == -1
     assert all(counts[name] == 7 for name in registered[1:])
+
+
+def test_a_gate_job_outlasts_the_longest_gate_and_runs_once():
+    """Issue 278: arq's default job timeout (300s) is below the stub gate's own (900s) and the
+    test gate's (3600s), so it cancelled them. Only the gate job gets the long limit, since the
+    worker is shared; and it is never re-run unasked, since two runs share one directory."""
+    from mendel_compiler.gates import LONGEST
+
+    [entry] = [f for f in WorkerSettings.functions if getattr(f, "name", None) == "run_gate_job"]
+    assert entry.timeout_s is not None and entry.timeout_s > LONGEST
+    assert entry.max_tries == 1
+
+
+def test_lost_gates_are_swept_every_quarter_hour_and_at_startup():
+    job = _by_name()["sweep_lost_gates"]
+    assert job.minute == {0, 15, 30, 45} and job.run_at_startup

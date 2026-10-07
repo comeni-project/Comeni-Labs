@@ -231,6 +231,19 @@ def test_the_pending_proposal_index_names_the_pending_state():
     )
 
 
+def test_the_live_gate_index_names_the_live_states():
+    """`GateRun`'s index spells out `services.gates.LIVE`; a state added to one and not the other
+    would let two gates run on one draft, or block a draft on a finished one (issue 278)."""
+    from mendel_api.models import GateRun
+    from mendel_api.services.gates import LIVE
+
+    index = next(i for i in GateRun.__table__.indexes if i.name == "ix_gate_run_one_live")
+    assert index.unique, "one-live is not unique, so it enforces nothing"
+    clause = str(index.dialect_options["postgresql"]["where"])
+    assert LIVE, "no live states: the check below would assert nothing"
+    assert all(f"'{state}'" in clause for state in LIVE), f"{clause!r} does not name {LIVE}"
+
+
 def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
     """The §8 line, asked of the three tables closest to crossing it.
 

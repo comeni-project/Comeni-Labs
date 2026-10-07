@@ -3450,6 +3450,49 @@ MI0001:
     refused the duplicate rather than letting the second win. The sentence was the thing that
     was wrong; it is corrected at the top of this file.
 
+MI0002:
+  emitted_by: api
+  concern: gates
+  says: "the gate could not run to a result"
+  fires_on: [gate worker]
+  refuses: false
+  fix: |
+    Read the reason after the code: it is the error the gate stopped on. Gate again once it
+    is addressed; a worker that was shutting down needs nothing but a second try.
+  explanation: |
+    A gate that fails on its own terms (Nextflow reports an error) is `failed` with Nextflow's
+    output. This is the other way a gate ends: the work around Nextflow broke, or the worker
+    was stopped while it ran. Either used to leave the row `running` for good, because only a
+    coded refusal was caught (issue 278). The row is now always moved to an end state.
+
+MI0003:
+  emitted_by: api
+  concern: gates
+  says: "a gate is already running on this pipeline"
+  fires_on: [gate]
+  refuses: true
+  fix: |
+    Wait for it to finish, then gate again. The gate in progress is on the pipeline's page.
+  explanation: |
+    A gate emits `main.nf` and `nextflow.config` into the pipeline's directory and stamps its
+    `pipeline.yml`. Two at once would write over each other's files and stamp whichever
+    finished last, so a draft has at most one live gate, held by a partial unique index
+    (issue 278).
+
+MI0004:
+  emitted_by: api
+  concern: gates
+  says: "this gate was lost: no result came back within its time limit"
+  fires_on: [gate worker]
+  refuses: false
+  fix: |
+    Gate again. If it keeps happening, check that the worker is running.
+  explanation: |
+    Every gate has a hard time limit, after which Nextflow is stopped. A gate still queued or
+    running well past it has no worker left to finish it: the worker died, or the queue lost
+    the job. A sweep marks it failed with this code, so it neither reads as running for ever
+    nor holds up the next gate on its pipeline (issue 278).
+
 MI0100:
   emitted_by: api
   concern: workflow
