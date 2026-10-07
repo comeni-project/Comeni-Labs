@@ -811,6 +811,25 @@ MD0224:
     call carrying two values of the same name that disagreed, and `MD0108` did not catch it
     because it checked `ext` keys only.
 
+MD0230:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a tool you chose applies nowhere in this pipeline"
+  fires_on: [build, upgrade]
+  refuses: false
+  fix: |
+    The goal's `constraints.producers` names a tool for a site, and no step at that site can
+    use it: the tool cannot make that type there, or the registry no longer has it, or the site
+    is not one this pipeline asks for. Correct the pin's `site`, or remove the pin. `build`
+    reports it and goes on; `upgrade` refuses, because re-resolving would quietly replace your
+    choice with the engine's.
+  explanation: |
+    A person's tool lives in the goal, and the resolver honours it before any rule. When it
+    applies nowhere the resolver has nothing to honour, and the pipeline comes out as if you
+    had chosen nothing. Saying so is the point: **a choice that quietly did nothing is a silent
+    guess**, which is what this product exists to remove. `upgrade` treats it as `MD0203`
+    treats an override that answers nothing — a refusal, with nothing written.
+
 MD0229:
   emitted_by: core
   concern: pipeline-file

@@ -24,6 +24,8 @@ from pydantic import BaseModel, ConfigDict
 from mendel_authoring.ports import Contracts
 
 SELECTION_AXIS = "which contract fills this step"
+ENGINE = "engine"
+"""Who placed a step the walk did not stop at."""
 PRESENCE_AXIS = "whether this step exists at all"
 
 
@@ -189,8 +191,10 @@ def _selection(blueprint: Blueprint, step: Step, *, own: bool, by: str) -> Settl
         )
     if step.why.source is ValueSource.HUMAN:
         # A person's pin in the goal (§14.3 of the consultant build): the blueprint's own step
-        # already says who chose it and over what — keep that reason, credit whoever reviewed it.
-        return _settled(step.why, by=by)
+        # already says who chose it and over what — keep that reason. Credit the reviewer only
+        # when a person reviewed it: a pin already in the goal is placed quietly, by the engine,
+        # and the engine never signs a person's choice.
+        return _settled(step.why, by="" if by == ENGINE else by)
     if step.why.source is ValueSource.MODEL:
         chooser = next(
             (

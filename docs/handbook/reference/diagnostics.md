@@ -113,6 +113,7 @@ decline to curate one.
 | `MD0226` | two channels share a name |
 | `MD0227` | a port names a channel the pipeline does not declare |
 | `MD0229` | a samplesheet with one column, or two channels reading one parameter |
+| `MD0230` | a tool you chose applies nowhere in this pipeline |
 
 ## Routing and resolution
 

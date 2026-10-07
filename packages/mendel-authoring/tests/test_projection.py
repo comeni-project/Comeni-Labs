@@ -109,3 +109,11 @@ def test_where_the_walk_stops(tier4, gaps, pacing, show, expected):
     """The need first (3b's Review Focus 1), then a gap if Dev mode shows gaps, then *together*."""
     policy = Policy(pacing=Pacing(pacing), show_gaps=show)
     assert stops(_planned(tier4=tier4, gaps=gaps), policy) == expected
+
+
+def test_a_pinned_step_placed_quietly_is_not_credited_to_the_engine():
+    """Final review I2: a pin already in the goal is not a need, so the walk places its step
+    quietly, as the engine — and the person's choice must not be signed by the engine."""
+    _, provenance = drafted(HISAT2, [Reviewed(node="hisat2_align", by="engine")], DataProfile())
+    settled = provenance.nodes[0].selection
+    assert settled.source.value == "human" and settled.by != "engine"

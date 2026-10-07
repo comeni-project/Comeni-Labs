@@ -6,6 +6,7 @@ from comeni_core.declared.contract import InputPort
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
+from comeni_core.goal.asked import ProducerPin
 from comeni_core.plan.decision import (
     DecisionRecord,
     ParamAsked,
@@ -443,6 +444,7 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
         [held.type_id for held in goal.have]
         + list(goal.want)
         + [required.type_id for required in goal.constraints.required_states]
+        + [pin.site.type_id for pin in goal.constraints.producers]
     )
     for type_id in named:
         if type_id not in vocabulary.types:
@@ -457,4 +459,19 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
         # bundle as a *key*, and a state that no type declares is a goal asking for
         # something no contract can satisfy.
         vocabulary.validate(required.type_id, required.states)
+    for pin in goal.constraints.producers:
+        # A person's pin names a site; held to the vocabulary like every type a goal names.
+        vocabulary.validate(pin.site.type_id, pin.site.states)
 
+
+def inert_pins(ir: PipelineIR, pins: Sequence[ProducerPin]) -> list[ProducerPin]:
+    """The person's pins that applied nowhere in `ir` — its tool fills no step at the pin's site.
+
+    A pin is inert when its tool is not a candidate there (the registry dropped it) or its site
+    is asked nowhere (a typed state). The router passes over such a pin, so a caller must say
+    so: a person's choice that quietly did nothing is the silent guess this product exists to
+    remove (§14.3 of the consultant build; final review of 3c run 1). `ir` must be fresh from
+    `resolve()`: a node's `site` is carried in memory, not in a dump.
+    """
+    placed = {(node.site, node.contract_id) for node in ir.nodes if node.site is not None}
+    return [pin for pin in pins if (pin.site, pin.contract) not in placed]

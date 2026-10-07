@@ -14,7 +14,7 @@ from comeni_core.plan.ir import Tier
 from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
-from mendel_resolver.resolve import resolve
+from mendel_resolver.resolve import UnknownTypeError, inert_pins, resolve
 
 ROOT = Path(__file__).resolve().parents[3]
 HISAT2_ALIGN = "nf-core/hisat2/align@2.2.2"
@@ -97,6 +97,29 @@ def test_a_pin_at_an_open_site_asks_no_resolver(resolve_rnaseq):
     assert "read_length" in records[0].unknown
 
 
-def test_a_pin_that_matches_no_site_is_inert(resolve_rnaseq):
-    ghost = ProducerPin(site=Site(type_id="variants.vcf"), contract="x/y@1")
-    assert resolve_rnaseq(pins=[ghost]).nodes == resolve_rnaseq().nodes
+def test_a_pin_that_matches_no_site_changes_nothing_and_is_named(resolve_rnaseq):
+    """Final review I1: a pin that applies nowhere leaves the pipeline as it was — and is
+    reported by `inert_pins`, never dropped in silence (nothing was guessed silently)."""
+    ghost = ProducerPin(site=Site(type_id="qc.report"), contract="x/y@1")
+    ir = resolve_rnaseq(pins=[ghost])
+    assert ir.nodes == resolve_rnaseq().nodes
+    assert inert_pins(ir, [ghost]) == [ghost]
+
+
+def test_a_pin_that_applies_is_not_inert(resolve_rnaseq):
+    star = _node(resolve_rnaseq(), "star_align")
+    for contract in (HISAT2_ALIGN, star.contract_id):     # against the engine, and agreeing
+        pin = ProducerPin(site=star.site, contract=contract)
+        assert inert_pins(resolve_rnaseq(pins=[pin]), [pin]) == []
+
+
+def test_a_pin_must_name_a_declared_type_and_states(resolve_rnaseq):
+    """Final review I1: a pin's site is held to the vocabulary like every type a goal names
+    (A29, invariant 7)."""
+    with pytest.raises(UnknownTypeError):
+        resolve_rnaseq(pins=[ProducerPin(site=Site(type_id="made.up"), contract=HISAT2_ALIGN)])
+    with pytest.raises(ValueError, match="no_such_state"):
+        resolve_rnaseq(pins=[ProducerPin(
+            site=Site(type_id="alignment.bam", states=frozenset({"no_such_state"})),
+            contract=HISAT2_ALIGN,
+        )])
