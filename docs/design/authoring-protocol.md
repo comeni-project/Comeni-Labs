@@ -173,7 +173,7 @@ tightening is filling in a row, not rewiring.
 | Node | **0 (MVP)** | `guarded` (later) | `sealed` (later) |
 |---|---|---|---|
 | files | uploaded; each file's first 4 MB held in memory, never stored | read in the browser, facts only | none |
-| characteriser receives | at most 8 KB of the sample's text | derived facts, after confirmation | not run |
+| characteriser receives | at most 8 KB of the sample's text, which may reach disk in Redis's snapshot | derived facts, after confirmation | not run |
 | main agent receives | typed facts + the conversation | same | typed goal only |
 | a fact's sample reaches a provider | yes | no | no |
 | a model's reply is stored (`ai_invocation.response`) | yes, whole | decided with the level | decided with the level |
@@ -203,16 +203,19 @@ tightening is filling in a row, not rewiring.
   (#198) says it is worth its extra call**.
 - **The typed payload stays.** Every agent answers in a declared shape. What loosens is *what the
   input may contain*, never the output's type.
-- **A model reads part of a person's file** (14.7.7, 2026-10-04). When nothing here reads a
-  sample's type, up to 8 KB of its text crosses door 6 to the configured model, which may be
-  outside this server. **The excerpt waits in Redis** inside the AI job's arguments until the
-  worker takes it, and no longer than the card waits (the job expires with the reading). The job
-  keeps no result. One path keeps it longer: a job ARQ fails after its retries is kept for the
-  worker's default hour (#242). The excerpt is never logged (its `repr` is sealed). **What the
-  model quotes as evidence is kept**, whole, in its reply (`ai_invocation.response`), with
-  `unmatched` and refused replies (#238, operator, 2026-10-04: *level 0 is not really protected,
-  but the easiest to work with*). Each later level decides whether a reading happens at all, and
-  what of its reply is kept.
+- **A model reads part of a person's file** (14.7.7, 2026-10-04). When nothing here reads a sample's
+  type, up to 8 KB of its text crosses door 6 to the configured model, which may be outside this
+  server. **The excerpt waits in Redis** inside the AI job's arguments until the worker takes it,
+  and no longer than the card waits (the job expires with the reading). The job keeps no result. One
+  path keeps it longer: a job ARQ fails after its retries is kept for the worker's default hour
+  (#242). **Either can reach disk**: Redis snapshots its data to a persistent volume, so a snapshot
+  taken while a job waits writes the excerpt into it, with no expiry tied to the card. Level 0
+  allows this (#281, operator, 2026-10-07: *for 0 we can leave it be written*); a later level that
+  keeps excerpts off disk turns the queue's snapshots off. The excerpt is never logged (its `repr`
+  is sealed). **What the model quotes as evidence is kept**, whole, in its reply
+  (`ai_invocation.response`), with `unmatched` and refused replies (#238, operator, 2026-10-04:
+  *level 0 is not really protected, but the easiest to work with*). Each later level decides whether
+  a reading happens at all, and what of its reply is kept.
 
 ## Open questions
 
@@ -244,3 +247,4 @@ tightening is filling in a row, not rewiring.
 | 2026-10-06 | forks: a node whose arrows are the cases of a pluggable subject, taken by the interpreter from a snapshot; every option covered, checked when the protocol loads | 14.7.8.3a (#136, #252), operator's brainstorm |
 | 2026-10-06 | stage ④ built: overview count, the Pacing and Dev forks, the walk on the build plan (fact first, asked once; choices from the resolver's tools; tier 4 stops; gaps shown or routed around), the wrap-up; Build/Spawn and `Mode` retired | 14.7.8.3b (#136, #117, #252), operator's brainstorm |
 | 2026-10-07 | the blueprint decides, the walk reviews: every decision an amendment to the goal (a tool pinned at its site, a fact in the profile), the draft a projection of the resolved blueprint, any step swappable for a compatible tool shown as a whole pipeline; one step card and one `amend` node; Dev decided before the walk; edits after the walk | 14.7.8.3c (#136, #253–#259), operator's brainstorm |
+| 2026-10-07 | level 0 lets a waiting sample excerpt reach disk in Redis's snapshot; a later level turns the queue's snapshots off | 14.7.8.3d (#281), operator's decision: *for 0 we can leave it be written* |

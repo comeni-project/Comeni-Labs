@@ -286,7 +286,8 @@ and `mendel build` re-routes every goal's profile through it. Delete that one ca
 - since 14.7.6, an uploaded sample's first 4 MB is held in memory and measured on this
   server, and only the measured facts are kept;
 - since 14.7.7, when nothing reads its type, up to 8 KB of its text goes to a model through
-  door 6, waiting in the AI queue until the worker takes it. Only the ids it admits become
+  door 6, waiting in the AI queue until the worker takes it (and in Redis's snapshot on
+  disk, which level 0 allows, #281). Only the ids it admits become
   facts; the model's reply, with the lines it quoted from the file, is kept whole (#238).
 
 `guarded` and `sealed` will hold the invariant (#71).
