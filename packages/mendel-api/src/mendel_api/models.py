@@ -596,7 +596,7 @@ class PipelineAuthoringSession(Base):
     `blueprint` is what the **resolver** produced, stored whole. §1.4 — resolve the whole
     blueprint, reveal it incrementally — so the reveal is a cursor over something already
     computed rather than a series of fresh resolutions that could each answer differently.
-    `cursor` is how far the reveal has got.
+    `reviewed` is how far the walk has got.
 
     `row_version` is optimistic concurrency on the session itself, the same mechanism
     `ForgeAdaptation` documents: two tabs on one conversation is the ordinary case.
@@ -614,9 +614,10 @@ class PipelineAuthoringSession(Base):
     §2 gives a session one phase and one cursor, so two sessions on one draft would be two
     answers to *where are we* with nothing to arbitrate between them. A second conversation is
     a second draft."""
-    pacing: Mapped[str | None] = mapped_column(String(24), nullable=True)
-    """The walk's pacing, recorded when the Pacing fork or its question is passed (spec §13 of
-    the consultant build). `None` until then."""
+    policy: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    """How the walk goes — `mendel_authoring.pacing.Policy`: its pacing and whether registry
+    gaps stop it — recorded as the Pacing and Dev forks are passed (spec §14.4 of the consultant
+    build). `None` until then."""
     phase: Mapped[str] = mapped_column(String(16), index=True)
     """A `Phase` value. Indexed because sweeping for sessions stuck in `understanding` is how a
     job that never came back is found — `forge_jobs` already sweeps that way."""
@@ -660,7 +661,10 @@ class PipelineAuthoringSession(Base):
     **80, not 64.** It was 64 for a commit, which is a hex digest's length — and a `Digest` is
     `sha256:` plus 64 hex, seventy-one characters. Postgres would have refused the first
     blueprint ever stored, and nothing wrote one until Task 6."""
-    cursor: Mapped[int] = mapped_column(Integer, default=0)
+    reviewed: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    """The steps the walk has passed, as `mendel_authoring.draft.Reviewed` dicts — the walk's
+    place (spec §14.3). The draft is projected from the blueprint and these; a step a new
+    blueprint no longer has simply leaves the list."""
     row_version: Mapped[int] = mapped_column(Integer, default=1)
     who: Mapped[str] = mapped_column(String(200), index=True)
     """ATTRIBUTION, not authentication, exactly as on `QueueVisit`, `PipelineDraft`,

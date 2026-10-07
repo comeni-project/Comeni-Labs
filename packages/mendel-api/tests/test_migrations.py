@@ -173,3 +173,12 @@ def test_stored_blueprints_lose_their_mode(ddl):
 def test_the_session_row_loses_mode_and_gains_pacing(ddl):
     assert "ALTER TABLE pipeline_authoring_session DROP COLUMN mode" in ddl
     assert "pacing" in _added(ddl, "pipeline_authoring_session")
+
+
+def test_the_walks_place_is_the_steps_reviewed_and_one_policy(ddl):
+    """14.7.8.3c (spec §14.6): the cursor and the pacing column give way to `reviewed` and one
+    stored `policy` (pacing and whether gaps stop the walk)."""
+    added = _added(ddl, "pipeline_authoring_session")
+    assert "reviewed" in added and "policy" in added
+    assert "ALTER TABLE pipeline_authoring_session DROP COLUMN cursor" in ddl
+    assert "ALTER TABLE pipeline_authoring_session DROP COLUMN pacing" in ddl
