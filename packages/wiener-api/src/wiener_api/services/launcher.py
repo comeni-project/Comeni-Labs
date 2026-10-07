@@ -8,6 +8,7 @@ on screen would explain.
 """
 
 import json
+import logging
 import pathlib
 import shutil
 import socket
@@ -17,6 +18,8 @@ from pathlib import Path
 from wiener_api import db, repository
 from wiener_api.models import Run
 from wiener_api.settings import settings
+
+log = logging.getLogger(__name__)
 
 
 def work_dir(run_id: str) -> Path:
@@ -170,16 +173,28 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     return written
 
 
-def launch(run_id: str, params: dict[str, object] | None = None) -> None:
+def launch(run_id: str, params: dict[str, object] | None = None) -> bool:
     """Copy the artifact somewhere Wiener owns, write the site config, and start Nextflow.
+    Answers whether it launched.
 
     The artifact is COPIED rather than run in place: a second run of the same artifact must not
     share a working directory with the first, and Wiener owns what it executes — §12.
+
+    **Only a `queued` run is launched, and claimed first** (issue 273). arq delivers at least
+    once, so a worker restarted mid-launch re-delivers this job; without the claim a second
+    Nextflow started in the same work directory. The row is locked, the phase read, and
+    `launching` written in one transaction, so a redelivery waits on the lock and then finds the
+    run claimed. A run claimed already is skipped, not failed: failing would make arq retry.
     """
     with db.session_scope() as session:
-        run = repository.run(session, settings.lab_id, run_id)
+        run = repository.run(session, settings.lab_id, run_id, lock=True)
         if run is None:
             raise LookupError(f"no run {run_id}")
+        if run.phase != "queued":
+            log.info("run %s is %s, not queued: already claimed, not launched again",
+                     run_id, run.phase)
+            return False
+        run.phase = "launching"
         artifact = repository.artifact(session, settings.lab_id, run.artifact_id)
         if artifact is None:
             raise LookupError(f"run {run_id} names artifact {run.artifact_id}, which is gone")
@@ -196,7 +211,6 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
         if params:
             params = _materialise_tables(params, workdir)
             (workdir / "params.json").write_text(json.dumps(params, indent=2, sort_keys=True))
-        run.phase = "launching"
         argv = command(run, workdir=str(workdir), has_params=bool(params))
 
     spawned = _spawn(argv, cwd=workdir)
@@ -214,3 +228,4 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
             run.pid = spawned.pid
             run.pid_started_at = process_started_at(spawned.pid)
             run.pid_host = socket.gethostname()
+    return True

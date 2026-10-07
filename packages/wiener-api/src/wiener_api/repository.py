@@ -19,8 +19,11 @@ from sqlalchemy.orm import Session
 from wiener_api.models import Run, RunArtifact, RunEventRow, RunTask
 
 
-def run(session: Session, lab_id: str, run_id: str) -> Run | None:
-    return session.scalar(select(Run).where(Run.lab_id == lab_id, Run.id == run_id))
+def run(session: Session, lab_id: str, run_id: str, *, lock: bool = False) -> Run | None:
+    """One run. `lock` holds its row until the transaction ends (`FOR UPDATE`), for a writer
+    that reads the run and decides on what it read: a claim, a `seq`."""
+    query = select(Run).where(Run.lab_id == lab_id, Run.id == run_id)
+    return session.scalar(query.with_for_update() if lock else query)
 
 
 def runs(session: Session, lab_id: str, limit: int = 50) -> list[Run]:
