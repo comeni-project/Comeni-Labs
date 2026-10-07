@@ -10,6 +10,11 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: ${DB_CONTAINER_NAME:-mendel-db}
+    # **What restarts by itself must find what it needs** (issue 268): the workers, the ingest
+    # and web are `unless-stopped`, so after a reboot they came back while this did not, and
+    # crash-looped until `make dev`. The whole stack comes back now, as the prod overlay does;
+    # `test_a_service_that_restarts_itself_has_what_it_depends_on_restart_too` holds it.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: mendel
       POSTGRES_PASSWORD: mendel
@@ -25,6 +30,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ${REDIS_CONTAINER_NAME:-mendel-redis}
+    restart: unless-stopped  # see `postgres`
     ports: ["${REDIS_HOST_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -35,6 +41,7 @@ services:
   api:
     build: .
     container_name: ${API_CONTAINER_NAME:-mendel-api}
+    restart: unless-stopped  # see `postgres`
     # **Runs as the host user, not root.** Two things break otherwise, and both were found by
     # running it: git refuses a bind-mounted repository owned by a different uid ("detected
     # dubious ownership"), so accepting a drift returns MF0107 against a perfectly good clone;
@@ -340,6 +347,7 @@ services:
     # the first join across the line is easy to write and hard to notice.
     image: postgres:17-alpine
     container_name: ${WIENER_DB_CONTAINER_NAME:-wiener-db}
+    restart: unless-stopped  # see `postgres`
     environment:
       POSTGRES_USER: wiener
       POSTGRES_PASSWORD: wiener
@@ -437,6 +445,7 @@ services:
   wiener-api:
     build: .
     container_name: ${WIENER_API_CONTAINER_NAME:-wiener-api}
+    restart: unless-stopped  # see `postgres`
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       wiener-postgres: {condition: service_healthy}

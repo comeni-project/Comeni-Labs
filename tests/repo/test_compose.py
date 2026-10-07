@@ -559,3 +559,22 @@ def test_every_service_that_reaches_a_model_gets_every_model_setting(base):
     assert reaching, "no service is handed COMENI_AI_MODEL — this test is measuring nothing"
     missing = {name: sorted(needed - env) for name, env in reaching.items() if needed - env}
     assert not missing, f"services that reach a model without every model setting: {missing}"
+
+
+def test_a_service_that_restarts_itself_has_what_it_depends_on_restart_too(base):
+    """Issue 268: after a reboot the workers, the ingest and the web came back (they are
+    `unless-stopped`, for crash recovery) while Postgres and Redis did not, so the workers
+    crash-looped until somebody ran `make dev`. Whatever comes back on its own must find what
+    it needs: the operator chose the whole stack coming back, as the prod overlay already does."""
+    services = base["services"]
+    restarting = {name for name, svc in services.items() if svc.get("restart")}
+    assert restarting, "nothing restarts: this would check nothing"
+    stranded = {
+        (name, needed)
+        for name in restarting
+        for needed in services[name].get("depends_on", {})
+        if needed not in restarting
+    }
+    assert stranded == set(), (
+        f"these restart by themselves and depend on a service that does not: {sorted(stranded)}"
+    )
