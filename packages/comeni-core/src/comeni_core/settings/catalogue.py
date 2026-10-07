@@ -268,12 +268,23 @@ REGISTRY = Section(
     order=6,
     settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
 )
+AUTHOR = Setting.text(
+    key="system.author",
+    label="Your name",
+    help=(
+        "Written beside what is done here: a pipeline started, an answer given, a tool "
+        "approved. Attribution, not an account: everyone using this installation is recorded "
+        "under it. Empty uses the name git knows, if it knows one."
+    ),
+    env="COMENI_AUTHOR",
+)
+
 SYSTEM = Section(
     key="system",
     title="System",
-    lede="What is installed, and whether each part answers.",
+    lede="Who is recorded as working here, what is installed, and whether each part answers.",
     order=7,
-    settings=(VERSIONS, DATABASE, REDIS, MODEL_SERVER),
+    settings=(AUTHOR, VERSIONS, DATABASE, REDIS, MODEL_SERVER),
 )
 
 WIENER_ENV = ReadOnlyHere(why="Wiener reads this from its own .env")

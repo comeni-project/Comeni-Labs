@@ -91,3 +91,12 @@ def test_a_default_cannot_be_a_designed_option():
             key="x.y", label="Y", help="Which of two things this setting picks.", default="b",
             options=[("a", "A"), ("b", "B")], designed={"b": "issue 1"},
         )
+
+
+def test_the_author_is_a_text_setting_under_system_pinned_by_its_env():
+    """Issue 268: the name recorded beside what a person does, when git cannot say."""
+    from comeni_core.settings.declare import Kind
+
+    setting = CATALOGUE.setting("system.author")
+    assert setting.kind is Kind.TEXT and setting.env == "COMENI_AUTHOR"
+    assert CATALOGUE.section_of("system.author").key == "system"

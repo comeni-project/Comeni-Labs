@@ -750,10 +750,38 @@
     {
       "key": "system",
       "title": "System",
-      "lede": "What is installed, and whether each part answers.",
+      "lede": "Who is recorded as working here, what is installed, and whether each part answers.",
       "order": 7,
       "served_by": "mendel",
       "entries": [
+        {
+          "setting": {
+            "key": "system.author",
+            "label": "Your name",
+            "help": "Written beside what is done here: a pipeline started, an answer given, a tool approved. Attribution, not an account: everyone using this installation is recorded under it. Empty uses the name git knows, if it knows one.",
+            "kind": "text",
+            "default": "",
+            "env": "COMENI_AUTHOR",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
         {
           "setting": {
             "key": "system.versions",
