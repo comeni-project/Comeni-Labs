@@ -56,7 +56,9 @@ export function DecisionLog({
   session: AuthoringSession;
   selected: string | null;
   busy: (proposalId: string) => boolean;
-  onAccept: (proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: number) => void;
+  onAccept: (
+    proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: string | number,
+  ) => void;
   onReject: (proposal: AuthoringProposal) => void;
   onPreview: (option: string | null) => void;
   onSelect: (node: string | null) => void;
@@ -168,8 +170,7 @@ export function DecisionLog({
               proposal={pending}
               position={stepsSoFar + 1}
               busy={busy(pending.id)}
-              onAccept={(option) => onAccept(pending, option)}
-              onReject={() => onReject(pending)}
+              onAccept={(option, value) => onAccept(pending, option, undefined, value)}
               onPreview={onPreview}
               onExplain={() =>
                 onSay(`Why is ${pending.block.kind === "step_proposal" ? pending.block.node : "this step"} here?`)}
@@ -206,10 +207,12 @@ export function DecisionLog({
         )}
         {pending && pending.kind === "pacing" && (
           // How the walk paces itself (spec §13 of the consultant build): a question with a
-          // closed set of answers, so the gap card draws it; there is nothing to upload.
+          // closed set of answers, so the gap card draws it — framed as the build's, not the
+          // data's; there is nothing to upload.
           <Turn tick="wait">
             <GapCard
               key={pending.id}
+              frame={{ label: "how we go through the build", title: "How we go" }}
               proposal={pending}
               busy={busy(pending.id)}
               onAnswer={(option, value) => onAccept(pending, option, undefined, value)}
@@ -225,6 +228,7 @@ export function DecisionLog({
               vocabulary={vocabulary}
               busy={busy(pending.id)}
               onConfirm={(edited) => onAccept(pending, "keep", edited)}
+              replaces={session.hand_edits ?? null}
               onReject={() => onReject(pending)}
             />
           </Turn>

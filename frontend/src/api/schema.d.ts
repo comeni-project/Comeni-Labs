@@ -1632,8 +1632,6 @@ export interface components {
         AuthoringEdited: {
             /** Revision */
             revision: number;
-            /** Reoffered */
-            reoffered: string | null;
         };
         /** AuthoringPosition */
         AuthoringPosition: {
@@ -1740,6 +1738,8 @@ export interface components {
             placement: {
                 [key: string]: components["schemas"]["AuthoringPosition"];
             };
+            /** Hand Edits */
+            hand_edits?: string | null;
             /** Row Version */
             row_version: number;
             /** Model Configured */
@@ -2306,11 +2306,25 @@ export interface components {
          * Constraints
          * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
          */
-        Constraints: {
+        "Constraints-Input": {
             /** Required States */
             required_states?: components["schemas"]["RequiredStates"][];
             /** Params */
             params?: components["schemas"]["ParamOverride"][];
+            /** Producers */
+            producers?: components["schemas"]["ProducerPin-Input"][];
+        };
+        /**
+         * Constraints
+         * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
+         */
+        "Constraints-Output": {
+            /** Required States */
+            required_states?: components["schemas"]["RequiredStates"][];
+            /** Params */
+            params?: components["schemas"]["ParamOverride"][];
+            /** Producers */
+            producers?: components["schemas"]["ProducerPin-Output"][];
         };
         /**
          * ContainerRef
@@ -2989,7 +3003,7 @@ export interface components {
             have?: components["schemas"]["GoalInput-Input"][];
             /** Want */
             want?: string[];
-            constraints?: components["schemas"]["Constraints"];
+            constraints?: components["schemas"]["Constraints-Input"];
             profile?: components["schemas"]["DataProfile"];
         };
         /** Goal */
@@ -2998,7 +3012,7 @@ export interface components {
             have?: components["schemas"]["GoalInput-Output"][];
             /** Want */
             want?: string[];
-            constraints?: components["schemas"]["Constraints"];
+            constraints?: components["schemas"]["Constraints-Output"];
             profile?: components["schemas"]["DataProfile"];
         };
         /**
@@ -3819,6 +3833,28 @@ export interface components {
             gathers: boolean;
         };
         /**
+         * ProducerPin
+         * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
+         *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
+         *     longer proven from the data, and a reader sees who decided.
+         */
+        "ProducerPin-Input": {
+            site: components["schemas"]["Site-Input"];
+            /** Contract */
+            contract: string;
+        };
+        /**
+         * ProducerPin
+         * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
+         *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
+         *     longer proven from the data, and a reader sees who decided.
+         */
+        "ProducerPin-Output": {
+            site: components["schemas"]["Site-Output"];
+            /** Contract */
+            contract: string;
+        };
+        /**
          * Proposal
          * @description What a hole needs that the vocabulary cannot express yet.
          *
@@ -4366,6 +4402,37 @@ export interface components {
             last4?: string | null;
         };
         /**
+         * Site
+         * @description Where the router chooses a tool: the type it must produce, with these states.
+         *
+         *     One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
+         *     step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
+         *     which place they mean.
+         */
+        "Site-Input": {
+            /** Type Id */
+            type_id: string;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+        };
+        /**
+         * Site
+         * @description Where the router chooses a tool: the type it must produce, with these states.
+         *
+         *     One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
+         *     step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
+         *     which place they mean.
+         */
+        "Site-Output": {
+            /** Type Id */
+            type_id: string;
+            /** States */
+            states?: string[];
+        };
+        /**
          * Source
          * @enum {string}
          */
@@ -4580,6 +4647,8 @@ export interface components {
              * @default []
              */
             gaps: components["schemas"]["Gap"][];
+            /** Stop */
+            stop?: ("tier_four" | "gap" | "together") | null;
         };
         /**
          * StepView

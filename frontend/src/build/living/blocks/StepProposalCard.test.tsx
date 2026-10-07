@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthoringProposal } from "../../../api/types";
@@ -48,7 +49,7 @@ function proposal(): AuthoringProposal {
 const card = () =>
   render(
     <StepProposalCard proposal={proposal()} position={4} busy={false} onAccept={vi.fn()}
-                      onReject={vi.fn()} onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+                      onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
   );
 
 describe("the step card's brief", () => {
@@ -80,9 +81,60 @@ describe("the step card's brief", () => {
     }
     render(
       <StepProposalCard proposal={bare} position={1} busy={false} onAccept={vi.fn()}
-                        onReject={vi.fn()} onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+                        onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
     );
     expect(screen.queryByTestId("step-brief")).toBeNull();
     expect(screen.queryByTestId("step-gaps")).toBeNull();
   });
 });
+
+describe("changing a step (spec §14 of the consultant build)", () => {
+  const withChoices = (): AuthoringProposal => {
+    const p = proposal();
+    p.options = ["keep", "alt_1", "fact_read_length"];
+    if (p.block.kind === "step_proposal") {
+      p.block.alternatives = [
+        { id: "alt_1", label: "nf-core/hisat2/align@2.2.2",
+          note: "adds hisat2_build; removes star_genomegenerate", recommended: false },
+        { id: "alt_2", label: "lab/bad@1", note: "can't be built here: needs genome.gtf",
+          recommended: false },
+      ];
+    }
+    return p;
+  };
+  const show = (onAccept = vi.fn()) =>
+    render(
+      <StepProposalCard proposal={withChoices()} position={4} busy={false} onAccept={onAccept}
+                        onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+
+  it("offers each alternative with what it changes, and no Skip", () => {
+    show();
+    expect(screen.getByTestId("option-alt_1")).toHaveTextContent("adds hisat2_build");
+    expect(screen.queryByTestId("reject-step")).toBeNull();
+  });
+
+  it("shows an alternative that cannot be built, and does not offer it", () => {
+    show();
+    expect(screen.getByTestId("refused-alt_2")).toHaveTextContent("can't be built here");
+    expect(screen.queryByTestId("option-alt_2")).toBeNull();
+  });
+
+  it("asks for a fact the rule lacks, and sends it typed", async () => {
+    const onAccept = vi.fn();
+    show(onAccept);
+    await userEvent.click(screen.getByTestId("option-fact_read_length"));
+    await userEvent.type(screen.getByLabelText("read_length"), "50");
+    await userEvent.click(screen.getByTestId("accept-step"));
+    expect(onAccept).toHaveBeenCalledWith("fact_read_length", 50);
+  });
+
+  it("continues with the step as it is by default", async () => {
+    const onAccept = vi.fn();
+    show(onAccept);
+    expect(screen.getByTestId("accept-step")).toHaveTextContent("Continue");
+    await userEvent.click(screen.getByTestId("accept-step"));
+    expect(onAccept).toHaveBeenCalledWith("keep", undefined);
+  });
+});
+

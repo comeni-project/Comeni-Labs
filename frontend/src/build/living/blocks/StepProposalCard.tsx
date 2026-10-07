@@ -18,7 +18,6 @@ export function StepProposalCard({
   position,
   busy,
   onAccept,
-  onReject,
   onPreview,
   onExplain,
   onSelect,
@@ -27,8 +26,8 @@ export function StepProposalCard({
   /** `4` in *step 4*. */
   position: number;
   busy: boolean;
-  onAccept: (option: string) => void;
-  onReject: () => void;
+  /** `keep` (*Continue*), an alternative's id, or `fact_<measurement>` with the typed value. */
+  onAccept: (option: string, value?: string | number) => void;
   onPreview: (option: string | null) => void;
   /** Ask why this step is here — a real turn to the model, not a canned sentence. */
   onExplain: () => void;
@@ -38,6 +37,7 @@ export function StepProposalCard({
   const block = proposal.block;
   const group = useId();
   const [chosen, setChosen] = useState("keep");
+  const [told, setTold] = useState("");
   const [previewing, setPreviewing] = useState<string | null>(null);
   if (block.kind !== "step_proposal") return null;
 
@@ -48,15 +48,22 @@ export function StepProposalCard({
     onPreview(next);
   };
 
+  // **Only what the card offered can be sent** (spec §14.5): an alternative that cannot be built
+  // from this goal is shown, with why, and is not a choice.
+  const offered = new Set(proposal.options);
+  const refused = block.alternatives.filter((option) => !offered.has(option.id));
+  const facts = proposal.options.filter((id) => id.startsWith(FACT));
   const options = [
     { id: "keep", label: processName(block.node), note: block.reason, recommended: true },
-    ...block.alternatives.map((option) => ({
-      id: option.id,
-      label: option.label,
-      note: option.note ?? "",
-      recommended: false,
-    })),
+    ...block.alternatives
+      .filter((option) => offered.has(option.id))
+      .map((option) => ({ id: option.id, label: option.label, note: option.note ?? "",
+                          recommended: false })),
+    ...facts.map((id) => ({ id, label: `Tell me the ${id.slice(FACT.length)}`,
+                            note: "the rule that picks this tool reads it", recommended: false })),
   ];
+  const fact = chosen.startsWith(FACT) ? chosen.slice(FACT.length) : null;
+  const accept = () => onAccept(chosen, fact ? typed(told) : undefined);
 
   return (
     <BlockFrame
@@ -65,14 +72,12 @@ export function StepProposalCard({
       aside={`tier ${block.tier}`}
       actions={
         <>
-          <Primary data-testid="accept-step" disabled={busy} onClick={() => onAccept(chosen)}>
-            {busy ? "Adding…" : "Add it"}
+          <Primary data-testid="accept-step" disabled={busy || (fact !== null && told.trim() === "")}
+                   onClick={accept}>
+            {busy ? "Working…" : chosen === "keep" ? "Continue" : "Change it"}
           </Primary>
           <Secondary data-testid="explain-step" onClick={onExplain}>
             Show me why
-          </Secondary>
-          <Secondary data-testid="reject-step" disabled={busy} onClick={onReject}>
-            Skip
           </Secondary>
         </>
       }
@@ -95,7 +100,7 @@ export function StepProposalCard({
           <ul className="m-0 p-0 list-none">
             {(block.gaps ?? []).map((gap) => (
               <li key={`${gap.kind}-${gap.subject}`} className="text-[12px] text-ink-2">
-                {gap.kind.replace("_", " ")}: {gap.subject}{" "}
+                {gap.kind.replaceAll("_", " ")}: {gap.subject}{" "}
                 <span className="font-data text-[11px] text-ink-3">— fix {gap.fix}</span>
               </li>
             ))}
@@ -150,7 +155,7 @@ export function StepProposalCard({
                   <span className="block mt-1 text-[12px] text-ink-2">{option.note}</span>
                 )}
               </span>
-              {option.id !== "keep" && (
+              {option.id !== "keep" && !option.id.startsWith(FACT) && (
                 <button
                   type="button"
                   data-testid={`preview-${option.id}`}
@@ -171,8 +176,37 @@ export function StepProposalCard({
           );
         })}
       </div>
+      {fact && (
+        <label className="block mb-2 text-[12px] text-ink-2">
+          <span className="block mb-1 font-data text-[10px] tracking-[.08em] uppercase text-ink-3">
+            {fact}
+          </span>
+          <input aria-label={fact} value={told} onChange={(e) => setTold(e.target.value)}
+                 className="w-full px-2 py-1 border bg-transparent font-data text-[12px] text-ink
+                            focus-visible:shadow-[var(--ring)]"
+                 style={{ borderColor: "var(--line-2)" }} />
+        </label>
+      )}
+      {refused.length > 0 && (
+        <ul aria-label="tools that cannot be used here" className="m-0 p-0 list-none">
+          {refused.map((option) => (
+            <li key={option.id} data-testid={`refused-${option.id}`}
+                className="px-[10px] py-1 text-[11.5px] text-ink-3">
+              <span className="font-data">{option.label}</span> — {option.note}
+            </li>
+          ))}
+        </ul>
+      )}
     </BlockFrame>
   );
+}
+
+const FACT = "fact_";
+
+/** A typed fact as the server checks it: a number when it reads as one. */
+function typed(text: string): string | number {
+  const trimmed = text.trim();
+  return /^-?\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : trimmed;
 }
 
 

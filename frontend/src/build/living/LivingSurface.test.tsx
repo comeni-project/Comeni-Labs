@@ -168,6 +168,19 @@ describe("the pacing question (spec §13)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go through it together" }));
     expect(props.onAccept).toHaveBeenCalledWith(pacing, "together", undefined, undefined);
   });
+
+  it("is framed as a question about the build, not about your data", () => {
+    const pacing = {
+      id: "pq", kind: "pacing", draft_revision: 0, options: ["stop_where_needed", "together"],
+      edges: [],
+      block: { kind: "question", id: "pacing-s1", asks: "How should we go through the build?",
+        why_open: "Pacing is set to ask me every time.", exhaustive: true,
+        options: [{ id: "together", label: "Go through it together" }] },
+    };
+    surface(with_({ phase: "building", pending_proposal: pacing } as Partial<AuthoringSession>));
+    expect(screen.getByRole("region", { name: "how we go through the build" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "a question about your data" })).toBeNull();
+  });
 });
 
 describe("the proposal card", () => {
@@ -177,7 +190,7 @@ describe("the proposal card", () => {
     expect(within(card).getByText("recommended")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("radio", { name: /SAMTOOLS_SORMADUP/ }));
     fireEvent.click(within(card).getByTestId("accept-step"));
-    expect(props.onAccept).toHaveBeenCalledWith(FAKE_SESSION.pending_proposal, "alt_1");
+    expect(props.onAccept).toHaveBeenCalledWith(FAKE_SESSION.pending_proposal, "alt_1", undefined, undefined);
   });
 
   it("previews an option on keyboard focus, not only on hover", () => {

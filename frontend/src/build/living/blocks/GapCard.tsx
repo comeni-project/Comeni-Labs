@@ -12,12 +12,15 @@ import { SampleUpload } from "./SampleUpload";
  * looser than the one that counts. *Not sure* and *can't share it* are answers, never skips:
  * nothing is guessed, and what is left open is decided later, by the person, at tier 4.
  */
+const DATA = { label: "a question about your data", title: "What it needs" };
+
 export function GapCard({
   proposal,
   busy,
   onAnswer,
   onUpload,
   onAnswered = () => {},
+  frame = DATA,
 }: {
   proposal: AuthoringProposal;
   busy: boolean;
@@ -26,6 +29,8 @@ export function GapCard({
    *  button that sent it would be refused, since the click is not an answer, the sample is. */
   onUpload?: (files: File[]) => Promise<SampleInspected>;
   onAnswered?: (result: SampleInspected, files: string[]) => void;
+  /** What the question is about, for a screen reader and the eye: the data, unless said. */
+  frame?: { label: string; title: string };
 }) {
   const field = useId();
   // While a sample is out, the other answers wait: an answer and a sample must not race.
@@ -54,7 +59,7 @@ export function GapCard({
   const Send = picked ? Secondary : Primary;
 
   return (
-    <BlockFrame label="a question about your data" title="What it needs" aside="asked by the engine">
+    <BlockFrame label={frame.label} title={frame.title} aside="asked by the engine">
       <p className="m-0 mb-1 text-[12.5px] text-ink">{block.asks}</p>
       {block.phrasing === "done" && (
         // The question in a model's words; the options below are the engine's and never move.

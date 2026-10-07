@@ -115,7 +115,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       option: string;
       expectedRevision: number;
       goal?: GoalIn;
-      value?: number;
+      value?: string | number;
     }) =>
       post<AuthoringDecided>(
         `/pipeline/authoring/${sessionId}/proposals/${input.proposal.id}/decide`,
@@ -124,7 +124,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
           expected_revision: input.expectedRevision,
           option: input.proposal.kind === "goal" ? null : input.option,
           goal: input.proposal.kind === "goal" ? (input.goal ?? null) : null,
-          value: input.proposal.kind === "gap" ? (input.value ?? null) : null,
+          // A gap's typed answer, or a fact told on a step's card (`fact_<measurement>`).
+          value: input.proposal.kind === "gap" || input.option.startsWith("fact_")
+            ? (input.value ?? null) : null,
         },
       ),
     onMutate: (input) => {
@@ -181,7 +183,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
   });
 
   const accept = useCallback(
-    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: number) =>
+    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number) =>
       decide.mutate({
         proposal,
         decision: "accepted",
