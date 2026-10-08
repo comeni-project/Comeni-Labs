@@ -68,7 +68,8 @@ def test_the_shipped_registry_loads_with_every_contract_classified():
 def test_a_contract_naming_an_undeclared_role_stops_the_build(tmp_path):
     """The typo a person actually makes: one transposed pair in a hand-typed key."""
     layer = _registry_copy(tmp_path)
-    star = next(layer.rglob("align/contract.yml"))
+    star = layer / "tools/nf-core/star/align/contract.yml"
+    assert star.is_file()
     star.write_text(
         _declared(
             star,

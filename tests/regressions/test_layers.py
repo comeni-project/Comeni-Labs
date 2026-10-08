@@ -97,7 +97,7 @@ def test_a9_a_symlinked_layer_is_refused_at_load(tmp_path):
 
     layer = tmp_path / "lab"
     shutil.copytree("registry", layer)
-    victim = next((layer / "tools").rglob("contract.yml"))
+    victim = next((layer / "tools").rglob("contract.yml"))  # any one will do
     (tmp_path / "elsewhere.yml").write_text(
         _declared(
             tmp_path / "elsewhere.yml",
