@@ -12,7 +12,13 @@ from comeni_core.diagnostics import coded
 from mendel_authoring import state as st
 from sqlalchemy import select, update
 
-from mendel_api.authoring.types import Narrative, ProposalState, TurnState
+from mendel_api.authoring.types import (
+    Narrative,
+    ProposalKind,
+    ProposalState,
+    TurnRole,
+    TurnState,
+)
 from mendel_api.db import session_scope
 from mendel_api.models import (
     PipelineAuthoringProposal,
@@ -155,7 +161,7 @@ def decide(
     return outcome
 
 
-STEP = "step"
+STEP = ProposalKind.STEP
 """The proposal `kind` for a step offered from a blueprint."""
 
 
@@ -181,7 +187,7 @@ def engine_turn(session_id: str, blocks: Callable[[int], list[dict]]) -> None:
             PipelineAuthoringTurn(
                 session_id=session_id,
                 seq=seq,
-                role="assistant",
+                role=TurnRole.ASSISTANT,
                 state=TurnState.ANSWERED.value,
                 blocks=blocks(seq),
                 text="",
@@ -229,11 +235,11 @@ def store_goal(session_id: str, goal: dict | None) -> None:
         row.updated_at = now()
 
 
-GOAL = "goal"
+GOAL = ProposalKind.GOAL
 """The proposal `kind` for a goal summary awaiting confirmation."""
 
 
-GAP = "gap"
+GAP = ProposalKind.GAP
 """The proposal `kind` for one thing the want needs that no fact settles yet."""
 
 

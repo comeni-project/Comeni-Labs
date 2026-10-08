@@ -25,9 +25,11 @@ from mendel_api.authoring.types import (
     Narrative,
     Option,
     Phase,
+    ProposalKind,
     ProposalState,
     Question,
     Receipt,
+    TurnRole,
     TurnState,
 )
 from mendel_api.db import session_scope
@@ -48,7 +50,7 @@ from mendel_api.stages.building.amending import project, reviewed_of
 log = logging.getLogger(__name__)
 
 STEP = cards.STEP
-PACING_PROPOSAL = "pacing"
+PACING_PROPOSAL = ProposalKind.PACING
 ENGINE = "engine"
 
 
@@ -318,7 +320,7 @@ def record_edit(session_id: str, graph: DraftGraph, *, by: str) -> int:
             PipelineAuthoringTurn(
                 session_id=session_id,
                 seq=seq,
-                role="assistant",
+                role=TurnRole.ASSISTANT,
                 state=TurnState.ANSWERED.value,
                 blocks=[
                     {

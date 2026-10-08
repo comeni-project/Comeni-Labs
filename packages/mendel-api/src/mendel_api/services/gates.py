@@ -18,6 +18,7 @@ a developer machine can check is a rule nobody checks.
 import asyncio
 import secrets
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
 
 from comeni_core.artifact.gates import Gate
@@ -32,7 +33,17 @@ from mendel_api.db import session_scope
 from mendel_api.models import GateRun
 from mendel_api.settings import settings
 
-LIVE = ("queued", "running")
+
+class GateState(StrEnum):
+    """Where a gate's row is. Queued and running are live (`LIVE`); passed and failed end it."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    PASSED = "passed"
+    FAILED = "failed"
+
+
+LIVE = (GateState.QUEUED, GateState.RUNNING)
 """The states a gate can still move out of. The browser polls while it is one of these. A draft
 has at most one gate in them (`GateRun`'s `ix_gate_run_one_live`)."""
 
@@ -97,7 +108,7 @@ def request(draft_id: str, gate: Gate, who: str) -> str:
                     draft_id=draft_id,
                     who=who,
                     gate=gate.value,
-                    state="queued",
+                    state=GateState.QUEUED,
                     output="",
                     queued_at=datetime.now(UTC),
                 )
@@ -138,13 +149,13 @@ async def execute(run_id: str) -> None:
         row = session.get(GateRun, run_id)
         if row is None:
             return
-        row.state = "running"
+        row.state = GateState.RUNNING
         draft_id, gate = row.draft_id, Gate(row.gate)
 
     try:
         directory = _directory(draft_id)
         result = await asyncio.to_thread(of, directory, gate)
-        state, output = ("passed" if result.passed else "failed"), result.output
+        state, output = (GateState.PASSED if result.passed else GateState.FAILED), result.output
         # **Stamped on the failing path too, and that is not symmetry for its own sake.**
         # `of` regenerated `main.nf` and `nextflow.config`, so leaving the `emitted:` record
         # untouched makes the directory diverge from its own `pipeline.yml` — and the next
@@ -154,11 +165,11 @@ async def execute(run_id: str) -> None:
         pipeline = pipeline_file.load(directory / pipeline_file.FILENAME)
         pipeline_file.stamp(directory, pipeline, gate=result.gate if result.passed else None)
     except ValueError as refusal:  # a coded refusal, e.g. MI0001
-        state, output = "failed", str(refusal)
+        state, output = GateState.FAILED, str(refusal)
     except (Exception, asyncio.CancelledError) as broke:
         # **Every way out lands an end state** (issue 278). Anything else left the row
         # `running` for good; a cancellation (the worker stopping) is recorded, then goes on.
-        _finish(run_id, "failed", coded("MI0002", f"{FAILED}: {broke!r}"))
+        _finish(run_id, GateState.FAILED, coded("MI0002", f"{FAILED}: {broke!r}"))
         if isinstance(broke, asyncio.CancelledError):
             raise
         return
@@ -189,7 +200,7 @@ def sweep(now: datetime | None = None) -> list[str]:
             .all()
         )
         for row in lost:
-            row.state, row.output = "failed", coded("MI0004", LOST)
+            row.state, row.output = GateState.FAILED, coded("MI0004", LOST)
             row.finished_at = datetime.now(UTC)
         return [row.id for row in lost]
 

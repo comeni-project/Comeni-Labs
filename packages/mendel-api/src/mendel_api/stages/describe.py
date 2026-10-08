@@ -13,7 +13,7 @@ from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from sqlalchemy import select, update
 
-from mendel_api.authoring.types import Phase, ProposalState, TurnState
+from mendel_api.authoring.types import Phase, ProposalState, TurnRole, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     PipelineAuthoringProposal,
@@ -104,7 +104,7 @@ def record_said(session_id: str, text: str) -> int:
             PipelineAuthoringTurn(
                 session_id=session_id,
                 seq=seq,
-                role="person",
+                role=TurnRole.PERSON,
                 state=TurnState.ANSWERED.value,
                 blocks=[],
                 text=text,
@@ -116,7 +116,7 @@ def record_said(session_id: str, text: str) -> int:
             PipelineAuthoringTurn(
                 session_id=session_id,
                 seq=seq + 1,
-                role="assistant",
+                role=TurnRole.ASSISTANT,
                 state=TurnState.PENDING.value,
                 blocks=[],
                 text="",
@@ -179,7 +179,7 @@ def pending_turn(session_id: str) -> int:
             PipelineAuthoringTurn(
                 session_id=session_id,
                 seq=seq,
-                role="assistant",
+                role=TurnRole.ASSISTANT,
                 state=TurnState.PENDING.value,
                 blocks=[],
                 text="",
@@ -196,7 +196,7 @@ def newest_pending(session_id: str) -> int | None:
             select(PipelineAuthoringTurn.seq)
             .where(
                 PipelineAuthoringTurn.session_id == session_id,
-                PipelineAuthoringTurn.role == "assistant",
+                PipelineAuthoringTurn.role == TurnRole.ASSISTANT,
                 PipelineAuthoringTurn.state == TurnState.PENDING.value,
             )
             .order_by(PipelineAuthoringTurn.seq.desc())
@@ -241,11 +241,12 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
             return None
 
         earlier = [t for t in turns if t.seq < seq]
-        person = next((t for t in reversed(earlier) if t.role == "person"), None)
+        person = next((t for t in reversed(earlier) if t.role == TurnRole.PERSON), None)
         tail = [
-            ("person" if t.role == "person" else "model", _spoken(t))
+            ("person" if t.role == TurnRole.PERSON else "model", _spoken(t))
             for t in earlier
-            if t is not person and (t.role == "person" or t.state == TurnState.ANSWERED.value)
+            if t is not person
+            and (t.role == TurnRole.PERSON or t.state == TurnState.ANSWERED.value)
         ]
         draft = db.get(PipelineDraft, row.draft_id)
         pending = db.scalar(
@@ -283,7 +284,7 @@ def _spoken(turn: PipelineAuthoringTurn) -> str:
     the model through `steps` and `options`, where they are held to admission, rather than as
     prose it could quote back as if it had authored them.
     """
-    if turn.role == "person":
+    if turn.role == TurnRole.PERSON:
         return turn.text
     said = []
     for block in turn.blocks or []:

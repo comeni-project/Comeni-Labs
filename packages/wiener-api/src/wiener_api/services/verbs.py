@@ -22,6 +22,7 @@ import os
 import secrets
 import signal
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from wiener_core.events import EventKind, RunEvent
 from wiener_core.policy import IntentKind, Reason
@@ -38,7 +39,7 @@ class Refused(Exception):
     """The verb was not performed, and the message says why in a sentence a person can act on."""
 
 
-class Outcome:
+class Outcome(StrEnum):
     """What a verb actually did — a closed set, because *accepted* and *it worked* differ.
 
     An audit that records only what was asked for is an audit of intentions. A cancel that found

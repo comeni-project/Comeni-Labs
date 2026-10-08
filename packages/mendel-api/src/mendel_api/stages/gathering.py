@@ -25,6 +25,7 @@ from mendel_api.authoring.types import (
     Phase,
     ProposalState,
     Question,
+    TurnRole,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import (
@@ -531,7 +532,7 @@ def gap_context(session_id: str, subject: str) -> dict | None:
             select(PipelineAuthoringTurn)
             .where(
                 PipelineAuthoringTurn.session_id == session_id,
-                PipelineAuthoringTurn.role == "person",
+                PipelineAuthoringTurn.role == TurnRole.PERSON,
             )
             .order_by(PipelineAuthoringTurn.seq)
             .limit(1)

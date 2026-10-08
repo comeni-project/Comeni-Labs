@@ -24,7 +24,7 @@ from sqlalchemy import func, select, update
 
 from mendel_api import db as db_mod
 from mendel_api import jobs
-from mendel_api.authoring.types import FactSource, Phase, ProposalState, TurnState
+from mendel_api.authoring.types import FactSource, Phase, ProposalState, TurnRole, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
     AiInvocation,
@@ -57,7 +57,7 @@ def rests_at(db, row: PipelineAuthoringSession) -> str:
         turn = db.scalar(
             select(PipelineAuthoringTurn.seq).where(
                 PipelineAuthoringTurn.session_id == row.id,
-                PipelineAuthoringTurn.role == "assistant",
+                PipelineAuthoringTurn.role == TurnRole.ASSISTANT,
                 PipelineAuthoringTurn.state == TurnState.PENDING.value,
             )
         )

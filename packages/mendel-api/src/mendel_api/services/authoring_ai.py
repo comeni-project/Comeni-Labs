@@ -43,7 +43,7 @@ from comeni_core.artifact.egress import (
 )
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
-from mendel_forge.workflow import InvocationState
+from mendel_forge.workflow import Agent, InvocationState
 
 from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
@@ -63,7 +63,7 @@ from mendel_api.db import session_scope
 from mendel_api.models import AiInvocation
 from mendel_api.settings import model_access
 
-AGENT = "builder"
+AGENT = Agent.BUILDER
 """What goes in `ai_invocation.agent` for every row this file writes.
 
 The column exists because the transport is shared and an audit table named `forge_*` would be a

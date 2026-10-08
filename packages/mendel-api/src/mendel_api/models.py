@@ -760,9 +760,9 @@ class PipelineAuthoringProposal(Base):
     option id won, never a value: the browser posts ids, and a proposal that recorded a *value*
     would be a place for something outside the offered set to enter.
 
-    `by` distinguishes a person from the model for the reason `model_override` exists on all
-    three decision kinds — a pipeline an agent assembled must not read as one a person drew by
-    hand. That is A130 arriving in a third place.
+    `by` was meant to distinguish a person from the model for the reason `model_override`
+    exists on all three decision kinds — a pipeline an agent assembled must not read as one a
+    person drew by hand (A130). **It does not yet:** it holds a name (issue 295).
     """
 
     __tablename__ = "pipeline_authoring_proposal"
@@ -785,7 +785,10 @@ class PipelineAuthoringProposal(Base):
     chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)
     """An option **id**, never a value. See the class docstring."""
     by: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    """`person`, `model` or `resolver`, once answered. Null while pending."""
+    """Who settled it, once answered: an author's name or a model's id. Null while pending.
+
+    **Not a vocabulary.** It once said `person`, `model` or `resolver`; the writers store a name,
+    so whether a person or a model decided is not recorded here (issue 295)."""
     draft_revision: Mapped[int] = mapped_column(Integer)
     """The revision this was proposed against. Staleness is equality against this."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

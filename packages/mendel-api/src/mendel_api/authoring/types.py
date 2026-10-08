@@ -70,6 +70,26 @@ class TurnState(StrEnum):
     FAILED = "failed"
 
 
+class TurnRole(StrEnum):
+    """Who wrote a turn of the conversation, as stored (issue 274).
+
+    `AuthoringRole` (door 5's payload) says person or *model*; the stored turn says assistant.
+    They are different spellings for different places and stay apart.
+    """
+
+    PERSON = "person"
+    ASSISTANT = "assistant"
+
+
+class ProposalKind(StrEnum):
+    """What a proposal asks the person to settle (issue 274)."""
+
+    STEP = "step"
+    GOAL = "goal"
+    GAP = "gap"
+    PACING = "pacing"
+
+
 class BlockKind(StrEnum):
     """The eight things an assistant turn can contain (§2).
 
