@@ -222,7 +222,11 @@ class GateRun(Base):
     __tablename__ = "gate_run"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    draft_id: Mapped[str] = mapped_column(String(32), index=True)
+    draft_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), index=True
+    )
+    """The draft this gate ran. A key (issue 274): nothing deletes a draft, and a gate cannot
+    outlive one by being written against an id that names nothing."""
     who: Mapped[str] = mapped_column(String(200))
     """ATTRIBUTION, not authentication, exactly as on `QueueVisit` and `PipelineDraft`."""
     gate: Mapped[str] = mapped_column(_one_of(Gate, 16, "gate"))

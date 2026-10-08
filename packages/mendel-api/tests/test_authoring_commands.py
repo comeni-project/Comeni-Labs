@@ -15,7 +15,7 @@ from sqlalchemy import text
 def empty():
     with session_scope() as db:
         db.execute(text("TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
-                        "pipeline_authoring_session, pipeline_draft"))
+                        "pipeline_authoring_session, pipeline_draft, gate_run"))
 
 
 def _at(sid):

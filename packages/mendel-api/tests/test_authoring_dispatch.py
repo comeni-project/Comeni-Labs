@@ -24,7 +24,7 @@ def sid():
     with session_scope() as db:
         db.execute(text(
             "TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
-            "pipeline_authoring_session, pipeline_draft"
+            "pipeline_authoring_session, pipeline_draft, gate_run"
         ))
     draft_id = secrets.token_hex(16)
     with session_scope() as db:

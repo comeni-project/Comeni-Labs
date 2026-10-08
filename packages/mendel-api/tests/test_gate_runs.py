@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from comeni_core.artifact.gates import Gate
 from mendel_api.db import session_scope
-from mendel_api.models import GateRun
+from mendel_api.models import GateRun, PipelineDraft
 from mendel_api.services import gates
 from mendel_postgres import reachable
 from sqlalchemy import text
@@ -24,8 +24,16 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def clean():
+    """No gates, and two drafts, `d1` and `d2`, for them to belong to: a gate's draft is a key
+    (issue 274). Everything that references `pipeline_draft` goes in the one `TRUNCATE`."""
+    now = datetime.now(UTC)
     with session_scope() as session:
-        session.execute(text("TRUNCATE TABLE gate_run"))
+        session.execute(text(
+            "TRUNCATE TABLE gate_run, pipeline_authoring_proposal, pipeline_authoring_turn, "
+            "pipeline_authoring_session, pipeline_draft, gate_run"
+        ))
+        for draft_id in ("d1", "d2"):
+            session.add(PipelineDraft(id=draft_id, who="ana", graph={}, updated_at=now))
     yield
 
 
@@ -118,3 +126,11 @@ def test_the_database_refuses_a_state_outside_gate_state(clean):
             "INSERT INTO gate_run (id, draft_id, who, gate, state, output, queued_at) "
             "VALUES ('r1', 'd1', 'ana', 'lint', 'sideways', '', now())"
         ))
+
+
+def test_a_gate_for_a_draft_that_does_not_exist_is_refused(clean):
+    """Issue 274: `draft_id` named a draft by convention only, and nine gates in the dev
+    database outlived theirs."""
+    with pytest.raises(IntegrityError, match="gate_run_draft_id_fkey"), session_scope() as session:
+        session.add(GateRun(id="r1", draft_id="nope", who="ana", gate="lint", state="queued",
+                            output="", queued_at=datetime.now(UTC)))

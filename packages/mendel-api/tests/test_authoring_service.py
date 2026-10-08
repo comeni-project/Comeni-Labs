@@ -40,7 +40,7 @@ def clean_authoring():
     """
     tables = (
         "pipeline_authoring_proposal, pipeline_authoring_turn, "
-        "pipeline_authoring_session, pipeline_draft"
+        "pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:
         session.execute(text(f"TRUNCATE TABLE {tables}"))
