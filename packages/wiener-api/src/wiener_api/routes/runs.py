@@ -11,9 +11,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
+from wiener_core.events import TaskStatus
 from wiener_core.series import Series, series
 from wiener_core.signals import signal_of
-from wiener_core.state import Attempt
+from wiener_core.state import Attempt, RunPhase
 from wiener_core.timeline import Timeline, lanes
 
 from wiener_api import db, jobs, repository
@@ -236,7 +237,7 @@ async def submit(body: SubmitRequest) -> RunAccepted:
 
 
 @router.get("/runs", operation_id="listRuns", summary="The board")
-def board(phase: str | None = None, who: str | None = None, executor: str | None = None,
+def board(phase: RunPhase | None = None, who: str | None = None, executor: str | None = None,
           after: int = 0, limit: int = 25) -> RunsPage:
     """One page of runs, newest first, with each row's task tally beside it."""
     with db.session_scope() as session:
@@ -546,7 +547,7 @@ class TasksOut(BaseModel):
 
 @router.get("/runs/{run_id}/tasks", operation_id="readTasks",
             summary="A run's tasks, filtered, sorted and paged")
-def run_tasks(run_id: str, process: str | None = None, status: str | None = None,
+def run_tasks(run_id: str, process: str | None = None, status: TaskStatus | None = None,
               retried_only: bool = False, attempt: int | None = None,
               tag: str | None = None,
               sort: str = "task_id", after: int = 0, limit: int = 100) -> TasksOut:

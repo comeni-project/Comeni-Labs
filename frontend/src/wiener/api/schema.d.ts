@@ -897,6 +897,11 @@ export interface components {
              */
             height: number;
         };
+        /**
+         * RunPhase
+         * @enum {string}
+         */
+        RunPhase: "queued" | "launching" | "running" | "succeeded" | "failed" | "cancelled" | "lost";
         /** RunRow */
         RunRow: {
             /** Id */
@@ -1222,7 +1227,7 @@ export interface operations {
     listRuns: {
         parameters: {
             query?: {
-                phase?: string | null;
+                phase?: components["schemas"]["RunPhase"] | null;
                 who?: string | null;
                 executor?: string | null;
                 after?: number;
@@ -1451,7 +1456,7 @@ export interface operations {
         parameters: {
             query?: {
                 process?: string | null;
-                status?: string | null;
+                status?: components["schemas"]["TaskStatus"] | null;
                 retried_only?: boolean;
                 attempt?: number | null;
                 tag?: string | null;

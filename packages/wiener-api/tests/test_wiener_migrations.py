@@ -55,11 +55,14 @@ def test_the_models_match_the_migrated_database():
     assert done.returncode == 0, f"the models and the migrations disagree:\n{found}"
 
 
-def _values(expression: str) -> set[str]:
-    return set(re.findall(r"'([^']*)'", expression))
+def _values(expression: str) -> list[str]:
+    """The quoted literals, **in order**. A set would merge `ck_ai_invocation_agent_purpose`'s
+    two branches into one union, so a purpose added to one agent that the other already has
+    would compare equal (final review of issue 274). Postgres keeps the order it was given."""
+    return re.findall(r"'([^']*)'", expression)
 
 
-def _model_checks() -> dict[str, set[str]]:
+def _model_checks() -> dict[str, list[str]]:
     """Each CHECK the models declare, by name, as the quoted values it names."""
     found = {}
     for table in Base.metadata.sorted_tables:

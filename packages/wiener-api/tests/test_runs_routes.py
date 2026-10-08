@@ -256,3 +256,15 @@ def test_the_board_hands_back_the_join_key(client, a_run, a_real_bundle, session
     row = next(r for r in client.get("/api/runs").json()["runs"] if r["id"] == a_run.id)
     assert row["pipeline_digest"], "the board cannot join a run to its pipeline"
     assert row["pipeline_digest"].startswith("sha256:")
+
+
+def test_an_unknown_phase_or_status_is_a_422_naming_the_vocabulary(client, a_run):
+    """Issue 274's CHECKs made the columns `Enum`s, which refuse an unknown value even in a
+    WHERE: `?phase=done` was a 500. A closed filter takes its enum, so FastAPI answers 422 and
+    lists what is allowed, as Mendel's closed filters do."""
+    board = client.get("/api/runs", params={"phase": "done"})
+    assert board.status_code == 422, board.text
+    assert "succeeded" in board.text
+    tasks = client.get(f"/api/runs/{a_run.id}/tasks", params={"status": "failed"})
+    assert tasks.status_code == 422, tasks.text
+    assert "FAILED" in tasks.text
