@@ -465,7 +465,7 @@ class ForgeEvent(Base):
         String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
     )
     revision_id: Mapped[str | None] = mapped_column(
-        String(32), ForeignKey("forge_revision.id", ondelete="RESTRICT"), nullable=True
+        String(32), ForeignKey("forge_revision.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     kind: Mapped[str] = mapped_column(String(32), index=True)
     """An `EventKind` value — closed, because an audit whose vocabulary any call site may extend
@@ -516,7 +516,7 @@ class ForgeMessage(Base):
         String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
     )
     revision_id: Mapped[str | None] = mapped_column(
-        String(32), ForeignKey("forge_revision.id", ondelete="RESTRICT"), nullable=True
+        String(32), ForeignKey("forge_revision.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     """Which candidate was on screen. A question about a type is a question about the revision
     that chose it, and the answer is unreadable a revision later without this."""

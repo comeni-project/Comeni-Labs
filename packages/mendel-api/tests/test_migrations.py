@@ -1,14 +1,13 @@
 """The migrations and the models describe the same database.
 
-**This is the check CI can actually run.** Every other claim about the schema needs Postgres and
-is skipped on a pull request, which is the worst possible place for the failure mode this file
-covers: a column added to `models.py` and forgotten in the migration is invisible to every unit
-test — SQLAlchemy is happy, the model imports, and the first symptom is `UndefinedColumn` on a
-deployed instance.
+**The whole schema is compared by `alembic check`** against the throwaway Postgres
+(`make test-db`; CI has one): tables, columns, types, nullability, indexes, unique and foreign
+keys, and check constraints by name. Until issue 279 this file compared only tables and
+columns, by regex over offline DDL, and two indexes the models did not declare went unseen.
 
-Alembic's **offline mode** is what makes it possible. `alembic upgrade head --sql` renders the
-whole chain as PostgreSQL DDL with no server anywhere, so the comparison is against the real
-dialect rather than against a SQLite approximation that silently drops a partial index.
+**The offline DDL stays for what is about specific SQL.** `alembic upgrade head --sql` renders
+the whole chain as PostgreSQL with no server, so the partial indexes, the absence of cascades
+and the data migrations are asserted on the statements themselves.
 """
 
 import re
@@ -25,6 +24,7 @@ import pytest
 # metadata, noticed. `test_the_scan_reached_the_models` is the standing version of that accident.
 from mendel_api import models  # noqa: F401
 from mendel_api.db import Base
+from mendel_postgres import reachable
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -46,12 +46,6 @@ def ddl() -> str:
     )
     assert done.returncode == 0, f"alembic refused:\n{done.stderr}"
     return done.stdout
-
-
-def _created(ddl: str, table: str) -> str:
-    """The body of one `CREATE TABLE`, or `""` when the migrations never create it."""
-    found = re.search(rf"CREATE TABLE {table} \((.*?)\n\);", ddl, re.DOTALL)
-    return found.group(1) if found else ""
 
 
 def _added(ddl: str, table: str) -> set[str]:
@@ -92,48 +86,6 @@ def test_the_chain_has_one_head():
     assert done.returncode == 0, done.stderr
     heads = [line for line in done.stdout.splitlines() if line.strip()]
     assert len(heads) == 1, f"the migration chain has forked: {heads}"
-
-
-def test_every_model_table_is_created_by_a_migration(ddl):
-    missing = [name for name in sorted(Base.metadata.tables) if not _created(ddl, name)]
-    assert missing == [], (
-        f"these tables exist in models.py and in no migration: {missing}. "
-        "`make migrate` would leave a deployed instance without them, and nothing else here "
-        "would notice — a model imports fine against a table that does not exist."
-    )
-
-
-def test_every_model_column_is_created_by_a_migration(ddl):
-    """The cheaper mistake, and the one this file is really for.
-
-    A whole missing table is loud on the first request. A missing *column* is loud only on the
-    first request that touches it, which for something like `failed_stage` is the first failure
-    in production — the path nobody exercises while writing the feature.
-    """
-    missing = []
-    for name, table in sorted(Base.metadata.tables.items()):
-        body = _created(ddl, name)
-        added = _added(ddl, name)
-        for column in table.columns:
-            in_create = re.search(rf"^\s*{re.escape(column.name)}\s", body, re.MULTILINE)
-            if not in_create and column.name not in added:
-                missing.append(f"{name}.{column.name}")
-    assert missing == [], f"these columns exist in models.py and in no migration: {missing}"
-
-
-def test_every_migrated_table_is_still_a_model(ddl):
-    """The other direction: a table the migrations create and nothing declares.
-
-    Not a correctness bug — it costs a table nobody reads — but it is how a rename lands as an
-    addition, leaving the old table and its rows sitting in every database while the code reads
-    a new one. `alembic_version` is alembic's own bookkeeping and is not a model.
-    """
-    created = set(re.findall(r"CREATE TABLE (\w+) \(", ddl)) - {"alembic_version"}
-    orphaned = sorted(created - set(Base.metadata.tables))
-    assert orphaned == [], (
-        f"the migrations create {orphaned} and models.py declares no such table. If this is a "
-        "rename, the old table is still there in every existing database."
-    )
 
 
 def test_the_partial_unique_index_survives_into_the_ddl(ddl):
@@ -191,3 +143,31 @@ def test_the_walks_place_is_the_steps_reviewed_and_one_policy(ddl):
     assert "reviewed" in added and "policy" in added
     assert "ALTER TABLE pipeline_authoring_session DROP COLUMN cursor" in ddl
     assert "ALTER TABLE pipeline_authoring_session DROP COLUMN pacing" in ddl
+
+
+needs_db = pytest.mark.skipif(not reachable(), reason="needs the test database (`make test-db`)")
+
+
+def _alembic(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, "-m", "alembic", *args], cwd=PACKAGE,
+                          capture_output=True, text=True, check=False)
+
+
+def _found(done: subprocess.CompletedProcess) -> str:
+    """What alembic detected, without its bookkeeping lines (plugins, SERIAL sequences)."""
+    return "\n".join(line for line in done.stderr.splitlines()
+                     if "Detected" in line and "sequence named" not in line)
+
+
+@needs_db
+def test_the_models_match_the_migrated_database():
+    """Issue 279: the models and the migrations had drifted (two indexes the models did not
+    declare), and nothing here compared indexes or nullability. `alembic check` compares
+    tables, columns, types, nullability, indexes, unique and foreign keys, and checks by name,
+    against the real dialect."""
+    current = _alembic("current")
+    assert "(head)" in current.stdout, (
+        "the test database is not at head, so a difference would be a phantom: `make test-db`"
+    )
+    done = _alembic("check")
+    assert done.returncode == 0, f"the models and the migrations disagree:\n{_found(done)}"
