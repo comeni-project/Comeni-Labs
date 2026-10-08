@@ -217,9 +217,10 @@ package, `mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artif
 
 ## Gotchas
 
-- **Database tests need their own Postgres.** The Makefile `-include`s `.env`, which beats the
-  environment, and authoring fixtures truncate. Use a throwaway on `127.0.0.1:5442`, and put
-  `MENDEL_DATABASE_URL=…` on **make's command line**. Run Python tests from the repository root.
+- **Database tests need their own Postgres.** `make test-db` starts a throwaway on
+  `127.0.0.1:5442` with both databases at head; `make test` and `make check` point at it. A bare
+  `uv run pytest` reads the dev database `.env` names, and the fixtures truncate it. Run Python
+  tests from the repository root.
 - **The stack:** the mendel `api` reloads from `./packages`; `ai-worker` and `wiener-api` are baked,
   so rebuild them after a backend change. Ollama's default context (2048) silently truncates.
   **The worker holds the host Docker socket**, which is root-equivalent: `WIENER_API_TOKEN` is the
@@ -227,9 +228,9 @@ package, `mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artif
   and out, because a path handed to the daemon resolves on the host.
 - **Toolchain, verified 2026-08-02, do not re-audit:** uv, Python 3.12, Nextflow 25.10, Java 21,
   Docker. The nf-core CLI is not installed; `uvx nf-core` works.
-- **CI has no Nextflow or Docker.** Any test passing `--gate` is green locally and red in CI; omit
-  it unless the test is about gates (`test_gates.py` guards with `skipif`). **Check by
-  shadowing:** put a `nextflow` that exits non-zero on `PATH` and run the fast suite.
+- **CI has Postgres, but no Nextflow or Docker.** Any test passing `--gate` is green locally
+  and red in CI; omit it unless the test is about gates (`test_gates.py` guards with `skipif`).
+  **Check by shadowing:** put a `nextflow` that exits non-zero on `PATH` and run the fast suite.
 - **The stub gate needs Docker and ~900s cold**, and `-stub-run` cannot see a hollow input: only
   `--gate test` catches a process handed nothing.
 - **nf-core's module metadata (meta.yml) is a scaffold, not a contract**: "sorted" exists only in

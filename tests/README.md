@@ -67,6 +67,14 @@ Three tests in this repository were found asserting over an empty loop, and one 
 the standing check for a documented rule. `tests/guards/test_no_clock.py` carries the pattern
 as a separate named test where the collection is a file scan.
 
+## Tests that need Postgres
+
+They skip when no database answers, and import the one helper that decides it:
+`from mendel_postgres import reachable` (or `from wiener_postgres import URL, reachable`, for
+the Wiener tests SQLite cannot hold). With `COMENI_REQUIRE_DB` set, as CI sets it, an unreachable
+database fails the run instead, so storage cannot go green by skipping. Locally, `make test-db`
+starts the throwaway database and `make test` uses it.
+
 ## When to add a directory
 
 Rarely. Seven is already close to the number at which a reader has to guess, and the cost of a
