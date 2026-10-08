@@ -12,20 +12,10 @@ from mendel_api.db import session_scope
 from mendel_api.models import ForgeAdaptation, ForgeCatalogueItem, ForgeSourceSnapshot
 from mendel_api.services import forge_adaptations, forge_overview, forge_review, forge_state
 from mendel_forge.workflow import AdaptationState, EventKind, MessageState, RevisionState
-from sqlalchemy import text
-
-
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
+from mendel_postgres import reachable
 
 pytestmark = pytest.mark.skipif(
-    not _database_is_reachable(), reason="no database — run `docker compose up -d postgres`"
+    not reachable(), reason="no database — run `docker compose up -d postgres`"
 )
 
 

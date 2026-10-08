@@ -7,7 +7,6 @@ one, which may be somebody's — and skips otherwise:
     WIENER_TEST_DATABASE_URL=postgresql+psycopg://…/wiener uv run pytest …/test_seq_race.py
 """
 
-import os
 import secrets
 import threading
 import time
@@ -20,10 +19,9 @@ from wiener_api.models import Run
 from wiener_api.services import projection
 from wiener_api.settings import settings
 from wiener_core.events import heartbeat
+from wiener_postgres import URL, reachable
 
-URL = os.environ.get("WIENER_TEST_DATABASE_URL")
-
-pytestmark = pytest.mark.skipif(URL is None, reason="needs WIENER_TEST_DATABASE_URL (Postgres)")
+pytestmark = pytest.mark.skipif(not reachable(), reason="needs WIENER_TEST_DATABASE_URL (Postgres)")
 
 
 @pytest.fixture

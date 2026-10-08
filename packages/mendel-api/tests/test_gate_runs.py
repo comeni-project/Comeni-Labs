@@ -13,21 +13,12 @@ from comeni_core.artifact.gates import Gate
 from mendel_api.db import session_scope
 from mendel_api.models import GateRun
 from mendel_api.services import gates
+from mendel_postgres import reachable
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
-
 pytestmark = pytest.mark.skipif(
-    not _database_is_reachable(), reason="these are about storage, and CI has no Postgres"
+    not reachable(), reason="these are about storage, and CI has no Postgres"
 )
 
 

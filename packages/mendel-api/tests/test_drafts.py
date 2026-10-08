@@ -14,7 +14,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
-from sqlalchemy import text
+from mendel_postgres import reachable
 
 STAR = "nf-core/star/align@1.11.0"
 SORT = "nf-core/samtools/sort@1.21.0"
@@ -22,19 +22,8 @@ COUNTS = "nf-core/subread/featurecounts@2.0.6"
 GENOME = "nf-core/star/genomegenerate@1.11.0"
 
 
-def _database_is_reachable() -> bool:
-    from mendel_api.db import session_scope
-
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
-
 pytestmark = pytest.mark.skipif(
-    not _database_is_reachable(), reason="these are about storage, and CI has no Postgres"
+    not reachable(), reason="these are about storage, and CI has no Postgres"
 )
 
 

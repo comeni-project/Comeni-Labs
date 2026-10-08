@@ -3,21 +3,10 @@
 import threading
 
 import pytest
-from mendel_api.db import session_scope
-from sqlalchemy import text
-
-
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
+from mendel_postgres import reachable
 
 pytestmark = pytest.mark.skipif(
-    not _database_is_reachable(), reason="no database — see this plan's Global Constraints"
+    not reachable(), reason="no database — see this plan's Global Constraints"
 )
 
 

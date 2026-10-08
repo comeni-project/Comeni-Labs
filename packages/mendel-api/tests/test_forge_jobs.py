@@ -21,20 +21,11 @@ from mendel_api.models import (
 )
 from mendel_api.services import forge_jobs, forge_state
 from mendel_forge.workflow import RUNNING, AdaptationState, EventKind, RevisionState
-from sqlalchemy import select, text
-
-
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
+from mendel_postgres import reachable
+from sqlalchemy import select
 
 needs_db = pytest.mark.skipif(
-    not _database_is_reachable(), reason="no database — run `docker compose up -d postgres`"
+    not reachable(), reason="no database — run `docker compose up -d postgres`"
 )
 
 

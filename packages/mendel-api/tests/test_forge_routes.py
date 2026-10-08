@@ -8,25 +8,14 @@ cross a door and `test_ai_schemas.py` lists what a response may carry.
 
 import pytest
 from fastapi.testclient import TestClient
-from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.routes import forge as routes
 from mendel_api.services import forge_jobs
+from mendel_postgres import reachable
 from pydantic import BaseModel
-from sqlalchemy import text
-
-
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
 
 needs_db = pytest.mark.skipif(
-    not _database_is_reachable(), reason="no database — run `docker compose up -d postgres`"
+    not reachable(), reason="no database — run `docker compose up -d postgres`"
 )
 
 

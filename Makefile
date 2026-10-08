@@ -1,4 +1,4 @@
-.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
+.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -29,6 +29,13 @@ NODEDEPS := frontend/node_modules/.package-lock.json
 #
 # 8010 rather than mkdocs' default 8000: `api` publishes 8000.
 WIKI_PORT := $(or $(WIKI_HOST_PORT),8010)
+
+# The throwaway Postgres the tests use — never the dev database `.env` names, whose rows the
+# fixtures truncate. `make test-db` starts and migrates it; `make test` points at it.
+TEST_DB_CONTAINER := mendel-test-db
+TEST_DB_IMAGE     := postgres:17-alpine
+TEST_MENDEL_URL   := postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel
+TEST_WIENER_URL   := postgresql+psycopg://mendel:mendel@127.0.0.1:5442/wiener
 
 registry-present:  ## refuse early if the registry submodule was not checked out
 	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
@@ -75,8 +82,18 @@ residue:        ## how much of A14 is left, counted per guard (A69). --list for 
 forge-ai-eval:  ## §5.9's evaluation corpus: the cases and their answer keys. --json for a machine
 	@uv run python tools/forge_ai_eval.py $(ARGS)
 
-test:           ## run the test suite
-	uv run pytest -v
+test:           ## run the test suite against the throwaway database (`make test-db`)
+	MENDEL_DATABASE_URL=$(TEST_MENDEL_URL) WIENER_TEST_DATABASE_URL=$(TEST_WIENER_URL) uv run pytest -v
+
+test-db:        ## start the throwaway Postgres on :5442 and bring both databases to head
+	@docker start $(TEST_DB_CONTAINER) >/dev/null 2>&1 || docker run -d --name $(TEST_DB_CONTAINER) \
+	  -e POSTGRES_USER=mendel -e POSTGRES_PASSWORD=mendel -e POSTGRES_DB=mendel \
+	  -p 127.0.0.1:5442:5432 $(TEST_DB_IMAGE) >/dev/null
+	@until docker exec $(TEST_DB_CONTAINER) psql -U mendel -qtAc 'SELECT 1' >/dev/null 2>&1; do sleep 1; done
+	@docker exec $(TEST_DB_CONTAINER) psql -U mendel -qtAc "SELECT 1 FROM pg_database WHERE datname = 'wiener'" \
+	  | grep -q 1 || docker exec $(TEST_DB_CONTAINER) psql -U mendel -qc 'CREATE DATABASE wiener'
+	cd packages/mendel-api && MENDEL_DATABASE_URL=$(TEST_MENDEL_URL) uv run alembic upgrade head
+	cd packages/wiener-api && WIENER_DATABASE_URL=$(TEST_WIENER_URL) uv run alembic upgrade head
 
 lint:           ## ruff, line length 100
 	uv run ruff check .

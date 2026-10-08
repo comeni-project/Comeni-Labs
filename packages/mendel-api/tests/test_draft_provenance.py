@@ -28,6 +28,7 @@ from comeni_core.plan.tiers import Tier, ValueSource
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
 from mendel_api.services import drafts
+from mendel_postgres import reachable
 from sqlalchemy import text
 
 STAR = "nf-core/star/align@1.11.0"
@@ -37,17 +38,8 @@ COUNTS = "nf-core/subread/featurecounts@2.0.6"
 MODEL = "claude-opus-5"
 
 
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
-
 pytestmark = pytest.mark.skipif(
-    not _database_is_reachable(), reason="no database — run `docker compose up -d postgres`"
+    not reachable(), reason="no database — run `docker compose up -d postgres`"
 )
 
 

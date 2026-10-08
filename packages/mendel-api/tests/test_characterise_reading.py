@@ -12,15 +12,15 @@ from mendel_api.services import characterise, protection
 from mendel_api.services import session as facade
 from mendel_api.stages import samples
 from mendel_authoring import commands
+from mendel_postgres import reachable
 from test_authoring_samples import (  # noqa: F401
-    _database_is_reachable,
     _gathering,
     _payload,
     _pending_for,
     clean,
 )
 
-pytestmark = pytest.mark.skipif(not _database_is_reachable(), reason="no database")
+pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 
 
 @pytest.fixture

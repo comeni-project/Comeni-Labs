@@ -22,23 +22,15 @@ from mendel_api.services import drafts
 from mendel_api.services import session as facade
 from mendel_authoring import commands
 from mendel_authoring import state as st
+from mendel_postgres import reachable
 from mendel_resolver.goal import Goal
 from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def _database_is_reachable() -> bool:
-    try:
-        with session_scope() as session:
-            session.execute(text("SELECT 1"))
-    except Exception:
-        return False
-    return True
-
-
 pytestmark = pytest.mark.skipif(
-    not _database_is_reachable(), reason="no database — run `docker compose up -d postgres`"
+    not reachable(), reason="no database — run `docker compose up -d postgres`"
 )
 
 
