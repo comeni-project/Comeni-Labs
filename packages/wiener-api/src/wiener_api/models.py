@@ -6,11 +6,23 @@ three days of events on every page load — they are a cache with a rebuild path
 """
 
 from datetime import datetime
+from enum import StrEnum
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Enum, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
+from wiener_core.events import EventKind, TaskStatus
+from wiener_core.policy import IntentKind, Outcome, Reason
+from wiener_core.state import RunPhase
 
 from wiener_api.db import Base
+
+
+def _one_of(enum: type[StrEnum], length: int, name: str) -> Enum:
+    """A `VARCHAR(length)` that holds only `enum`'s values, with a CHECK named
+    `ck_<table>_<name>` (issue 274). `mendel_api.models._one_of` carries the argument; the two
+    services share no code, so it is written twice."""
+    return Enum(enum, native_enum=False, create_constraint=True, validate_strings=True,
+                length=length, name=name, values_callable=lambda e: [m.value for m in e])
 
 
 class Run(Base):
@@ -45,7 +57,7 @@ class Run(Base):
     submitted_by: Mapped[str] = mapped_column(String(200))
     """ATTRIBUTION, not authentication — and §12.1 says that is a gap in W1, not a design."""
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    phase: Mapped[str] = mapped_column(String(16), index=True)
+    phase: Mapped[str] = mapped_column(_one_of(RunPhase, 16, "phase"), index=True)
     executor: Mapped[str] = mapped_column(String(16), default="local")
     ingest_secret: Mapped[str] = mapped_column(String(64))
     """Generated at launch and carried in the head process's weblog URL — §13.1."""
@@ -76,7 +88,7 @@ class RunEventRow(Base):
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     seq: Mapped[int] = mapped_column(Integer, primary_key=True)
-    kind: Mapped[str] = mapped_column(String(24))
+    kind: Mapped[str] = mapped_column(_one_of(EventKind, 24, "kind"))
     at_ms: Mapped[int] = mapped_column(BigInteger)
     payload: Mapped[dict] = mapped_column(JSON)
     """The ADMITTED event, not the raw body — §4.4."""
@@ -90,7 +102,7 @@ class RunTask(Base):
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     process: Mapped[str] = mapped_column(String(200), index=True)
-    status: Mapped[str] = mapped_column(String(16), index=True)
+    status: Mapped[str] = mapped_column(_one_of(TaskStatus, 16, "status"), index=True)
     attempts: Mapped[list] = mapped_column(JSON, default=list)
     latest_exit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_change_ms: Mapped[int] = mapped_column(BigInteger)
@@ -163,12 +175,12 @@ class RunIntent(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     run_id: Mapped[str] = mapped_column(String(32), index=True)
-    kind: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(_one_of(IntentKind, 32, "kind"))
     """A member of `wiener_core.intent.IntentKind`, stored as its value. **A closed vocabulary
     written down twice would drift**, so the enum is the authority and this column is its
     spelling on disk — the same relationship `run.phase` has with `Phase`."""
 
-    because: Mapped[str] = mapped_column(String(32))
+    because: Mapped[str] = mapped_column(_one_of(Reason, 32, "because"))
     """A member of `wiener_core.policy.Reason` — **a declared enum, never free text**, which is
     §5.2's rule and the reason that enum exists. `OPERATOR_REQUEST` is what a person clicking
     *cancel* writes; a policy that cancels on its own would write its own reason, and the audit
@@ -192,13 +204,13 @@ class RunIntent(Base):
     why: Mapped[str] = mapped_column(Text, default="")
     """Free text somebody typed to justify a verb. Displayed, never interpreted."""
 
-    prior_phase: Mapped[str] = mapped_column(String(16))
+    prior_phase: Mapped[str] = mapped_column(_one_of(RunPhase, 16, "prior_phase"))
     """What the run was before the verb. **The audit's most load-bearing field**: a cancel on a
     run that was already failing is a different act from one on a healthy run, and the phase
     afterwards cannot distinguish them."""
 
     resulting_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    outcome: Mapped[str] = mapped_column(String(32), default="")
+    outcome: Mapped[str] = mapped_column(_one_of(Outcome, 32, "outcome"))
     """What the verb actually did, in a closed set. A request that was accepted and then found
     nothing to signal is not the same as one that stopped a running process, and an audit that
     cannot tell them apart is an audit of intentions rather than of effects."""

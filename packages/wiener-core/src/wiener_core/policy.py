@@ -23,6 +23,21 @@ class IntentKind(StrEnum):
     GIVE_UP = "give_up"
 
 
+class Outcome(StrEnum):
+    """What a verb actually did — a closed set, because *accepted* and *it worked* differ.
+
+    Here beside `IntentKind`, not in `wiener_api.services.verbs` (which re-exports it), so
+    `run_intent.outcome`'s CHECK is built from it without an import cycle (issue 274).
+
+    An audit that records only what was asked for is an audit of intentions. A cancel that found
+    no process is a real answer and a different one from a cancel that stopped a running
+    pipeline; a reader chasing an orphaned container needs to tell them apart.
+    """
+
+    SIGNALLED = "signalled"
+    ALREADY_GONE = "already_gone"
+
+
 class Reason(StrEnum):
     """Why an intent exists. **A declared enum, never free text** — §5.2.
 
