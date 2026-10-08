@@ -13,6 +13,7 @@ import time
 from datetime import UTC, datetime
 
 import pytest
+import wiener_rows
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from wiener_api.models import Run
@@ -30,8 +31,9 @@ def sessions():
     maker = sessionmaker(bind=engine, expire_on_commit=False)
     run_id = secrets.token_hex(16)
     with maker() as session:
+        artifact_id = wiener_rows.an_artifact(session)
         session.add(Run(
-            id=run_id, lab_id=settings.lab_id, artifact_id=secrets.token_hex(16),
+            id=run_id, lab_id=settings.lab_id, artifact_id=artifact_id,
             submitted_by="test", submitted_at=datetime.now(UTC), phase="running",
             executor="local", ingest_secret=secrets.token_hex(16),
         ))
@@ -41,6 +43,7 @@ def sessions():
         for table in ("run_event", "run_task", "run"):
             column = "id" if table == "run" else "run_id"
             connection.execute(text(f"DELETE FROM {table} WHERE {column} = :r"), {"r": run_id})
+        connection.execute(text("DELETE FROM run_artifact WHERE id = :a"), {"a": artifact_id})
     engine.dispose()
 
 

@@ -8,7 +8,19 @@ three days of events on every page load — they are a cache with a rebuild path
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Enum, Float, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 from wiener_core.events import EventKind, TaskStatus
 from wiener_core.policy import IntentKind, Outcome, Reason
@@ -30,12 +42,20 @@ class Run(Base):
     gate runs Mendel's own artifact on public data and lives in `mendel-api`'s `gate_run`."""
 
     __tablename__ = "run"
+    __table_args__ = (
+        UniqueConstraint("lab_id", "id", name="uq_run_lab_id_id"),
+        # Its artifact, in its lab (issue 274).
+        ForeignKeyConstraint(["lab_id", "artifact_id"], ["run_artifact.lab_id", "run_artifact.id"],
+                             name="fk_run_artifact", ondelete="RESTRICT"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     """**On every table from day one** — `docs/design/wiener.md` §7.1, decided 2026-08-23.
     Cheap now; a migration touching every table later. The named cost is that a filter you can
-    forget is a leak, which is why Step 7a adds a guard rather than a convention."""
+    forget is a leak, which is why Step 7a adds a guard rather than a convention. **Children
+    are held to it by key, not by copy** (issue 274): each one's `(lab_id, run_id)` points at
+    `(lab_id, id)` here, so a child row in another lab's run cannot exist."""
     artifact_id: Mapped[str] = mapped_column(String(32), index=True)
 
     # --- what was spawned, so a verb has something to signal -----------------------------
@@ -84,6 +104,12 @@ class RunEventRow(Base):
     """The record. Every projection is derivable from these rows and nothing else."""
 
     __tablename__ = "run_event"
+    __table_args__ = (
+        # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
+        # lab's run (issue 274).
+        ForeignKeyConstraint(["lab_id", "run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_event_run", ondelete="RESTRICT"),
+    )
 
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
@@ -97,6 +123,12 @@ class RunEventRow(Base):
 
 class RunTask(Base):
     __tablename__ = "run_task"
+    __table_args__ = (
+        # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
+        # lab's run (issue 274).
+        ForeignKeyConstraint(["lab_id", "run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_task_run", ondelete="RESTRICT"),
+    )
 
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
@@ -171,6 +203,14 @@ class RunIntent(Base):
     """
 
     __tablename__ = "run_intent"
+    __table_args__ = (
+        # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
+        # lab's run (issue 274).
+        ForeignKeyConstraint(["lab_id", "run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_intent_run", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["lab_id", "resulting_run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_intent_resulting_run", ondelete="RESTRICT"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
@@ -220,6 +260,7 @@ class RunArtifact(Base):
     """A gated pipeline directory somebody uploaded. Wiener owns it — §12."""
 
     __tablename__ = "run_artifact"
+    __table_args__ = (UniqueConstraint("lab_id", "id", name="uq_run_artifact_lab_id_id"),)
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)

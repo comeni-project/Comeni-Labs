@@ -47,7 +47,6 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     three tests above cover the strings it assembles, not the thing it does with them.
     """
     from wiener_api import repository
-    from wiener_api.models import RunArtifact
     from wiener_api.services import launcher
     from wiener_api.settings import settings
 
@@ -57,10 +56,6 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     (stored / "modules").mkdir(parents=True)
     (stored / "main.nf").write_text("workflow {}\n")
 
-    repository.add(session, a_run.lab_id, RunArtifact(
-        id=a_run.artifact_id, uploaded_by="test",
-        uploaded_at=a_run.submitted_at, digest="sha256:" + "0" * 64, size_bytes=1,
-    ))
     session.commit()
 
     spawned: list[tuple[list[str], str]] = []
@@ -162,7 +157,6 @@ def test_a_run_already_claimed_is_not_launched_again(a_run, session, tmp_path, m
     work directory. Only a `queued` run is claimed; any other is skipped, not failed — the
     redelivery is the queue working, and failing it would only make arq try again."""
     from wiener_api import repository
-    from wiener_api.models import RunArtifact
     from wiener_api.services import launcher
     from wiener_api.settings import settings
 
@@ -170,10 +164,6 @@ def test_a_run_already_claimed_is_not_launched_again(a_run, session, tmp_path, m
     monkeypatch.setattr(settings, "work_root", tmp_path / "work")
     (settings.artifact_root / a_run.artifact_id).mkdir(parents=True)
     (settings.artifact_root / a_run.artifact_id / "main.nf").write_text("workflow {}\n")
-    repository.add(session, a_run.lab_id, RunArtifact(
-        id=a_run.artifact_id, uploaded_by="test",
-        uploaded_at=a_run.submitted_at, digest="sha256:" + "0" * 64, size_bytes=1,
-    ))
     repository.run(session, a_run.lab_id, a_run.id).phase = phase
     session.commit()
     spawned = []
