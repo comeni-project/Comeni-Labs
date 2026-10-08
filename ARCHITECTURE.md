@@ -67,10 +67,11 @@ knows which directory to open:
 | `comeni_core/declared/` | what a registry layer holds — contracts, measurements, vocabularies, roles, and the stacking every kind shares |
 | `comeni_core/goal/` | what was asked for, and what the data measurably looks like |
 | `comeni_core/plan/` | what was decided — the IR, each ambiguity's record, the tier ladder |
-| `comeni_core/artifact/` | what is shipped — `pipeline.yml`, its digests, and the doors it crosses |
+| `comeni_core/artifact/` | saved pipeline models, dependency fingerprints, and generated-file evidence |
+| `comeni_core/egress/` | outbound payload schemas and their declared boundaries |
 | `comeni_core/spell/` | how a value is written down — marked strings, routes, directives |
 
-`yaml_strict.py` and `diagnostics.py` sit above those five because every one of them uses both.
+`yaml_strict.py` and `diagnostics.py` provide shared YAML loading and diagnostic helpers.
 
 `comeni_core/settings/` sits beside them: what an installation may change, the layers a value
 comes from, and why a setting is greyed out. It holds declarations and logic only; the store and
@@ -538,7 +539,7 @@ broken by someone who meant well.
 | Guard | Asserts | Broken by |
 |---|---|---|
 | `tests/guards/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core`, `mendel-resolver`, `wiener-core`, `dag-core` and `mendel-authoring`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
-| `tests/guards/test_egress.py` | the declared doors and which path each is on, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
+| `tests/guards/test_egress.py` | registered boundaries and their flows; payloads across every egress module; no `Any`, mappings, or unmarked strings; rejection of unknown fields; explicit free-text fields | an undeclared text field or a payload omitted from schema traversal |
 | `tests/guards/test_construction.py` | a `DataProfile` is built in exactly one place, and that place validates it | — new; watched failing by adding `DataProfile()` to `router.py` |
 
 The third exists because validation *moved*. `DataProfile` used to hold four hardcoded fields,

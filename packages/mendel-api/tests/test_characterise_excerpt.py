@@ -4,7 +4,7 @@ import gzip
 import struct
 import zlib
 
-from comeni_core.artifact.egress import CharacteriseRequest
+from comeni_core.egress.characterisation import CharacteriseRequest
 from comeni_core.spell.marks import EXCERPT_BYTES, EXCERPT_LINES
 from mendel_api.services.characterise import DECODED_CAP, MIN_TEXT, excerpt
 

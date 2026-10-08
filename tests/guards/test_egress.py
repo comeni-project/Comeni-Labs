@@ -16,12 +16,19 @@ less-scrutinised one is where a door that belonged on the other list eventually 
 """
 
 import enum
+import importlib
+import pkgutil
 import types
 import typing
 from collections import abc
 
 import pytest
-from comeni_core.artifact import egress
+from comeni_core import egress as egress_package
+from comeni_core.egress import boundaries as egress
+from comeni_core.egress.authoring import AuthoringRequest
+from comeni_core.egress.base import EgressPayload
+from comeni_core.egress.characterisation import CharacteriseRequest
+from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
 from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import Mark
 from pydantic import BaseModel, ValidationError, computed_field
@@ -184,33 +191,17 @@ SAMPLE_FIELDS = {
 
 
 def _payload_types() -> set[type[BaseModel]]:
-    """Every model reachable from a declared payload, not just the payload itself.
-
-    The first version returned only `EgressPayload` subclasses, and every check walked
-    `typing.get_args`, which returns `()` at a nested `BaseModel`. So nothing ever looked
-    inside `RepairRequest.ir`, and a payload serialised a patient path and an SSN while
-    this file reported green. Transitive expansion is the fix; exempting nested models
-    would be the hole.
-
-    **The roots come from `DOORS`**, not from what happens to be defined in `egress.py`.
-    That distinction had no consequences until Plan 1.10 Task 11 moved the publication
-    payload to `comeni_core.artifact.pipeline`: scanning `vars(egress)` then found three doors
-    out of four, and `Pipeline` — the door with no undo — crossed the boundary entirely
-    unchecked
-    while this file reported ten passed.
-
-    `DOORS` is the declaration of what actually leaves. The subclass scan stays beside it,
-    so a payload type declared and not yet wired to a door is still covered; the union is
-    what makes both "declared but unused" and "used but declared elsewhere" visible.
-    """
-    roots = set(egress.DOORS.values())
-    roots |= {
-        obj
-        for obj in vars(egress).values()
-        if isinstance(obj, type)
-        and issubclass(obj, egress.EgressPayload)
-        and obj is not egress.EgressPayload
-    }
+    """Walk registered payloads and every payload subclass in the egress package."""
+    roots = set(egress.PAYLOADS.values())
+    for module in pkgutil.iter_modules(egress_package.__path__, prefix="comeni_core.egress."):
+        payload_module = importlib.import_module(module.name)
+        roots |= {
+            obj
+            for obj in vars(payload_module).values()
+            if isinstance(obj, type)
+            and issubclass(obj, EgressPayload)
+            and obj is not EgressPayload
+        }
     return reachable(*roots)
 
 
@@ -222,7 +213,7 @@ def test_every_door_is_walked_by_the_checks_below():
     run to say so.
     """
     walked = _payload_types()
-    for name, payload in egress.DOORS.items():
+    for name, payload in egress.PAYLOADS.items():
         assert payload in walked, f"door {name} carries {payload.__name__}, and nothing walks it"
 
 
@@ -429,33 +420,22 @@ def test_every_payload_field_is_a_declared_shape():
 
 
 def test_the_doors_are_exactly_the_ones_listed_here():
-    assert set(egress.DOORS) == DOORS
+    """Require the boundary registry to match the explicitly allowed names."""
+    assert set(egress.PAYLOADS) == DOORS
 
 
 def test_pipeline_data_leaves_through_exactly_the_pipeline_doors():
-    """**Invariant 14's original sentence, kept checkable.**
-
-    Adding door 5 could have made *pipeline data leaves through four doors* untestable, which
-    is the real cost of a fifth entry and the reason `DoorPath` exists. It does not: the claim
-    is now about a subset, and this is that subset. Door 6 joined on 2026-10-04 (14.7.7); the
-    sentence is now the set's.
-
-    A forge door mis-tagged as `PIPELINE` fails here, which is the failure mode a separate
-    `FORGE_DOORS` list would have hidden — there, the mistake is putting a pipeline door on the
-    quieter list, and nothing compares the two.
-    """
-    assert set(egress.doors_on(egress.DoorPath.PIPELINE)) == PIPELINE_DOORS
-    assert set(egress.doors_on(egress.DoorPath.FORGE)) == FORGE_DOORS
+    """Check that pipeline and forge payloads are assigned to the intended flows."""
+    assert set(egress.payloads_for(egress.BoundaryFlow.PIPELINE)) == PIPELINE_DOORS
+    assert set(egress.payloads_for(egress.BoundaryFlow.FORGE)) == FORGE_DOORS
 
 
 def test_every_door_declares_which_path_it_is_on():
-    """`DOORS` and `PATHS` are projections of one `DECLARED` mapping rather than two dicts kept
-    in step by hand — a pair that must agree is the shape this repository keeps finding to be
-    one mechanism and one decoration. This is the assertion that they are projections."""
-    assert set(egress.PATHS) == set(egress.DOORS) == set(egress.DECLARED)
-    for name, door in egress.DECLARED.items():
-        assert egress.DOORS[name] is door.payload
-        assert egress.PATHS[name] is door.path
+    """Check that payload and flow lookups are derived from the same boundary registry."""
+    assert set(egress.FLOWS) == set(egress.PAYLOADS) == set(egress.BOUNDARIES)
+    for name, door in egress.BOUNDARIES.items():
+        assert egress.PAYLOADS[name] is door.payload
+        assert egress.FLOWS[name] is door.flow
 
 
 def test_the_forge_review_door_is_grounded_on_a_revision():
@@ -467,8 +447,8 @@ def test_the_forge_review_door_is_grounded_on_a_revision():
     candidate nobody is looking at, and the reviewer reading the answer has no way to tell.
     """
     with pytest.raises(ValidationError):
-        egress.ForgeReviewRequest(candidate="a contract")
-    assert egress.ForgeReviewRequest(revision="sha256:" + "a" * 64, candidate="a contract")
+        ForgeReviewRequest(candidate="a contract")
+    assert ForgeReviewRequest(revision="sha256:" + "a" * 64, candidate="a contract")
 
 
 def test_the_forge_review_door_carries_codes_rather_than_a_tools_output():
@@ -480,24 +460,24 @@ def test_the_forge_review_door_carries_codes_rather_than_a_tools_output():
     has no room for a path — which is the point of the alias rather than a side effect of it.
     """
     grounded = {"revision": "sha256:" + "a" * 64, "candidate": "x"}
-    assert egress.ForgeReviewRequest(**grounded, validation=["MD0105", "MF0401"])
+    assert ForgeReviewRequest(**grounded, validation=["MD0105", "MF0401"])
     with pytest.raises(ValidationError):
-        egress.ForgeReviewRequest(**grounded, validation=["/work/ab/cd12 failed: no such file"])
+        ForgeReviewRequest(**grounded, validation=["/work/ab/cd12 failed: no such file"])
 
 
 def test_a_review_turn_says_who_wrote_it_from_a_closed_set():
     """The curator/model distinction is the whole reason this door exists: one is a string a
     person typed at request time and the other is what came back. A free-text author field
     would make the two indistinguishable in the record."""
-    assert set(egress.ReviewRole) == {egress.ReviewRole.CURATOR, egress.ReviewRole.MODEL}
+    assert set(ReviewRole) == {ReviewRole.CURATOR, ReviewRole.MODEL}
     with pytest.raises(ValidationError):
-        egress.ReviewTurn(role="reviewer", content="hello")
+        ReviewTurn(role="reviewer", content="hello")
 
 
 def test_every_door_declares_an_egress_payload():
-    assert egress.DOORS, "no door is declared — invariant 14 says there are four"
-    for name, payload in egress.DOORS.items():
-        assert issubclass(payload, egress.EgressPayload), name
+    assert egress.PAYLOADS, "no outbound boundary is declared"
+    for name, payload in egress.PAYLOADS.items():
+        assert issubclass(payload, EgressPayload), name
 
 
 def test_free_text_lives_only_where_declared():
@@ -525,7 +505,7 @@ def test_only_the_characterisation_door_can_reach_a_sample():
     """A sample field nested in any other door's payload, through any path, fails here."""
     reaching = {
         name
-        for name, payload in egress.DOORS.items()
+        for name, payload in egress.PAYLOADS.items()
         for model in reachable(payload)
         if _fields(model, Mark.SAMPLE)
     }
@@ -534,7 +514,7 @@ def test_only_the_characterisation_door_can_reach_a_sample():
 
 def test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file():
     """Spec §6: no file name, no extension, no session, no question, no conversation."""
-    door = egress.DOORS["characterisation"]
+    door = egress.PAYLOADS["characterisation"]
     assert list(door.model_fields) == ["excerpt", "binary_before", "registry"]
     assert reachable(door) == {door}, "the payload holds no nested model that could grow a field"
 
@@ -546,19 +526,19 @@ def test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file()
 )
 def test_an_excerpt_over_its_bound_is_refused_by_its_type(text):
     with pytest.raises(ValidationError):
-        egress.CharacteriseRequest(excerpt=text)
+        CharacteriseRequest(excerpt=text)
 
 
 @pytest.mark.parametrize("separator", ["\u2028", "\x85", "\x0c"], ids=["u2028", "nel", "ff"])
 def test_an_excerpt_counts_lines_as_the_cutter_does(separator):
     """Issue 237: 200 newline-separated lines are 200 lines, whatever else they hold."""
     text = "\n".join(f"a{separator}b" for _ in range(200))
-    assert egress.CharacteriseRequest(excerpt=text).excerpt
+    assert CharacteriseRequest(excerpt=text).excerpt
 
 
 def test_an_excerpt_at_its_bound_is_accepted():
-    assert egress.CharacteriseRequest(excerpt="a\n" * 199 + "a").excerpt
-    assert egress.CharacteriseRequest(excerpt="x" * 8192).excerpt
+    assert CharacteriseRequest(excerpt="a\n" * 199 + "a").excerpt
+    assert CharacteriseRequest(excerpt="x" * 8192).excerpt
 
 
 def test_payloads_forbid_unknown_fields():
@@ -651,7 +631,7 @@ def test_every_ambiguity_field_can_cross_the_door():
     see it fail. `type_id` and `required` were already in that state when this was written.
     """
 
-    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.egress.resolution import AmbiguityRequest
     from comeni_core.plan.decision import Ambiguity, AmbiguityKinds
 
     # `model_fields`, not `_serialised_hints`, and deliberately: this asks whether each
@@ -684,7 +664,7 @@ def test_every_tier_four_question_can_actually_cross_the_door():
     and two kinds still could not get through. Construct one of each instead.
     """
 
-    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.egress.resolution import AmbiguityRequest
     from comeni_core.plan.decision import ParamAsked, ProducerAsked, SourceAsked
 
     for asked in (
@@ -721,7 +701,7 @@ def test_publication_carries_a_pipeline():
     was on disk."""
     from comeni_core.artifact.pipeline import Pipeline
 
-    assert egress.DOORS["publication"] is Pipeline
+    assert egress.PAYLOADS["publication"] is Pipeline
 
 
 def test_publish_bundle_is_gone():
@@ -781,7 +761,7 @@ def test_a_computed_field_cannot_cross_a_door_unchecked():
     now; the hole and the fix are the same one.)
     """
 
-    class Sneaky(egress.AuthoringRequest):
+    class Sneaky(AuthoringRequest):
         @computed_field
         @property
         def context(self) -> str:
@@ -897,7 +877,7 @@ def test_every_publication_payload_model_is_frozen():
     """
     mutable = sorted(
         model.__name__
-        for model in reachable(egress.DOORS["publication"])
+        for model in reachable(egress.PAYLOADS["publication"])
         if not model.model_config.get("frozen", False)
     )
     assert mutable == [], (
@@ -1014,7 +994,7 @@ def test_the_door_carries_what_the_forge_measured_a_model_needs():
     configuration tested, six points below closing it, so whether the candidate list binds
     is something the model must be told rather than left to infer.
     """
-    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.egress.resolution import AmbiguityRequest
 
     for needed in ("what", "why_open", "closed", "evidence"):
         assert needed in AmbiguityRequest.model_fields, (
@@ -1049,7 +1029,7 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
     none of the ten models reachable from here has a field that could hold one, and this test
     is what notices if one gains it.
     """
-    door = egress.DOORS["goal_extraction"]
+    door = egress.PAYLOADS["goal_extraction"]
     models = reachable(door)
     assert len(models) > 5, "the walk is not walking"
 
@@ -1091,3 +1071,14 @@ def _marks_in(annotation: object) -> set[Mark]:
     for arg in typing.get_args(annotation):
         found |= _marks_in(arg)
     return found
+
+
+def test_unregistered_payloads_in_separate_modules_are_also_walked(monkeypatch):
+    from comeni_core.egress import authoring
+
+    class UnregisteredPayload(EgressPayload):
+        pass
+
+    monkeypatch.setattr(authoring, "UnregisteredPayload", UnregisteredPayload, raising=False)
+    assert UnregisteredPayload not in egress.PAYLOADS.values()
+    assert UnregisteredPayload in _payload_types()

@@ -1,5 +1,4 @@
 """Validation gates, cheapest first. Each is a subprocess call to nextflow."""
-
 import subprocess
 from pathlib import Path
 

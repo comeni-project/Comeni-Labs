@@ -17,7 +17,7 @@ reason rather than allowed by silence.
 
 import typing
 
-from comeni_core.artifact.egress import Emitted, EmittedFile
+from comeni_core.artifact.emitted import Emitted, EmittedFile
 from comeni_core.artifact.lockfile import LockedContract, LockedLayer, Lockfile
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.layered import Displacement

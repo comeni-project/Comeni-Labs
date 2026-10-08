@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_bytes
-from comeni_core.artifact.egress import Emitted
+from comeni_core.artifact.emitted import Emitted
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier

@@ -315,7 +315,7 @@ def test_a27_a_reason_that_reaches_a_generated_file_is_one_line():
 
 def test_a27_a_gate_message_may_still_be_many_lines():
     """The regression guard for the split: Nextflow's stderr is inherently multi-line."""
-    from comeni_core.artifact.egress import GateFailure
+    from comeni_core.egress.repair import GateFailure
 
     failure = GateFailure(
         process="star_align",

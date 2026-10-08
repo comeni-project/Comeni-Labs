@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from comeni_core import yaml_strict
-from comeni_core.artifact.load import _param_refs
+from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
@@ -167,7 +167,7 @@ class TypeDeclaration(BaseModel):
         """
         if self.entry_channel is None:
             return self
-        hardcoded = _param_refs(self.entry_channel.replace("params.{param}", ""))
+        hardcoded = extract_param_refs(self.entry_channel.replace("params.{param}", ""))
         if hardcoded:
             raise ValueError(
                 coded(

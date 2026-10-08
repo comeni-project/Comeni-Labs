@@ -872,7 +872,7 @@ RELEASED_SCHEMA_VERSION = 1
 
 def test_a_schema_change_bumps_the_version():
     """Adding a field to the artifact moves every archived pipeline's digest. Announce it."""
-    from comeni_core.artifact.egress import Emitted
+    from comeni_core.artifact.emitted import Emitted
     from comeni_core.artifact.pipeline import (
         SCHEMA_VERSION,
         CallArg,

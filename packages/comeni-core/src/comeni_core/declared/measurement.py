@@ -470,30 +470,29 @@ class MeasurementRegistry(BaseModel):
     def meta_sources_for(
         self, type_id: str, profile: DataProfile
     ) -> dict[str, tuple["Measurement", ParamValue]]:
-        """The same entries, each with the measurement that produced it.
+        """Return metadata values and their declarations for one input type."""
+        return self.meta_sources_by_type({type_id}, profile).get(type_id, {})
 
-        `meta_for` answers *what value* and is what emission needs. This answers *on whose
-        authority*, which is what the artifact needs and did not have: `strandedness: reverse`
-        becomes featureCounts' `-s 2` — the classic way to a matrix of zeroes — and it reached
-        the tool with no provenance of any kind while the measurement's own declared `cite`
-        stopped at the registry. Audit A80.
+    def meta_sources_by_type(
+        self, type_ids: set[str], profile: DataProfile
+    ) -> dict[str, dict[str, tuple["Measurement", ParamValue]]]:
+        """Collect metadata for the requested types in one registry pass.
 
-        Two accessors rather than one richer return, because the callers want different
-        things and `meta_for`'s three test callers assert on a plain mapping. This is the
-        provenance-carrying one; that one stays the value-carrying one and is now derived from
-        it, so they cannot disagree about which entries exist.
+        Profile values are indexed once. Measurement ID order preserves the
+        existing precedence when declarations share a metadata key.
         """
-        found: dict[str, tuple[Measurement, ParamValue]] = {}
+        values = {entry.measurement: entry.value for entry in reversed(profile.measurements)}
+        found: dict[str, dict[str, tuple[Measurement, ParamValue]]] = {}
         for measurement_id in self.ids():
             measurement = self.get(measurement_id)
-            if measurement.describes != type_id or not measurement.meta_key:
+            if measurement.describes not in type_ids or not measurement.meta_key:
                 continue
-            value = profile.get(measurement_id)
+            value = values.get(measurement_id)
             if value is None:
                 continue
             for translation in measurement.meta_values:
                 if translation.when == value:
                     value = translation.then
                     break
-            found[measurement.meta_key] = (measurement, value)
+            found.setdefault(measurement.describes, {})[measurement.meta_key] = (measurement, value)
         return found

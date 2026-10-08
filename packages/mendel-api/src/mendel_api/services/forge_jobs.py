@@ -270,7 +270,7 @@ def _answer(adaptation_id: str, message_id: str):
     prompt is how a model reads it. Building the payload and not using it would be a declared
     boundary nothing crosses, which is worse than none — it reads as checked.
     """
-    from comeni_core.artifact.egress import ForgeReviewRequest, ReviewRole, ReviewTurn
+    from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
     from mendel_forge import prompts
     from mendel_forge.ai.schemas import ChatAnswer, admit_answer
     from mendel_forge.workspace import Workspace

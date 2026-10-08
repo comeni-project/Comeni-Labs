@@ -33,14 +33,9 @@ from datetime import UTC, datetime
 from typing import NamedTuple
 
 from comeni_ai import Client, ModelAccess, ModelUnavailableError, Usage
-from comeni_core.artifact.egress import (
-    AuthoringRequest,
-    AuthoringRole,
-    AuthoringTurn,
-    CharacteriseRequest,
-    KnownStep,
-)
 from comeni_core.diagnostics import coded
+from comeni_core.egress.authoring import AuthoringRequest, AuthoringRole, AuthoringTurn, KnownStep
+from comeni_core.egress.characterisation import CharacteriseRequest
 from comeni_core.goal.asked import Goal
 from mendel_forge.workflow import Agent, InvocationState
 

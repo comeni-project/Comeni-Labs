@@ -28,7 +28,7 @@ import re
 from typing import NamedTuple
 
 from comeni_ai import Client, Option, choose_one
-from comeni_core.artifact.egress import AmbiguityRequest
+from comeni_core.egress.resolution import AmbiguityRequest
 from comeni_core.plan.decision import Ambiguity, Resolution
 from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver, NoCandidatesError
