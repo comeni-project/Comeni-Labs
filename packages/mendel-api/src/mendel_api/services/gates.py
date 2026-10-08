@@ -18,7 +18,6 @@ a developer machine can check is a rule nobody checks.
 import asyncio
 import secrets
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from pathlib import Path
 
 from comeni_core.artifact.gates import Gate
@@ -30,18 +29,8 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
 from mendel_api.db import session_scope
-from mendel_api.models import GateRun
+from mendel_api.models import GateRun, GateState
 from mendel_api.settings import settings
-
-
-class GateState(StrEnum):
-    """Where a gate's row is. Queued and running are live (`LIVE`); passed and failed end it."""
-
-    QUEUED = "queued"
-    RUNNING = "running"
-    PASSED = "passed"
-    FAILED = "failed"
-
 
 LIVE = (GateState.QUEUED, GateState.RUNNING)
 """The states a gate can still move out of. The browser polls while it is one of these. A draft

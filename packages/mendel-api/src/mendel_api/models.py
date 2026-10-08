@@ -9,12 +9,26 @@ rather than a drift.
 """
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
+from comeni_core.artifact.gates import Gate
+from mendel_forge.workflow import (
+    AdaptationState,
+    Agent,
+    EventKind,
+    InvocationPurpose,
+    InvocationState,
+    MessageRole,
+    MessageState,
+    RevisionState,
+)
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
+    Enum,
     Float,
     ForeignKey,
     Index,
@@ -25,7 +39,42 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from mendel_api.authoring.types import (
+    Phase,
+    ProposalKind,
+    ProposalState,
+    Purpose,
+    TurnRole,
+    TurnState,
+)
 from mendel_api.db import Base
+
+
+def _one_of(enum: type[StrEnum], length: int, name: str) -> Enum:
+    """A `VARCHAR(length)` that holds only `enum`'s values, with a CHECK named
+    `ck_<table>_<name>` (issue 274).
+
+    Built from the enum, so a new member changes this and the drift tests ask for the
+    migration: `alembic check` by name, `test_each_check_names_exactly_its_enum` by value. Not
+    a native Postgres enum, for the reason `GateRun.state` gives. `validate_strings` refuses an
+    unknown value in Python, before the database does; `length` keeps the column's width.
+    """
+    return Enum(enum, native_enum=False, create_constraint=True, validate_strings=True,
+                length=length, name=name, values_callable=lambda e: [m.value for m in e])
+
+
+def _quoted(enum: type[StrEnum]) -> str:
+    return ", ".join(f"'{member.value}'" for member in enum)
+
+
+class GateState(StrEnum):
+    """Where a gate's row is. Queued and running are live (`services.gates.LIVE`); passed and
+    failed end it. Here rather than in `services.gates`, which imports this module."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    PASSED = "passed"
+    FAILED = "failed"
 
 
 class SourceCheck(Base):
@@ -176,8 +225,8 @@ class GateRun(Base):
     draft_id: Mapped[str] = mapped_column(String(32), index=True)
     who: Mapped[str] = mapped_column(String(200))
     """ATTRIBUTION, not authentication, exactly as on `QueueVisit` and `PipelineDraft`."""
-    gate: Mapped[str] = mapped_column(String(16))
-    state: Mapped[str] = mapped_column(String(16), index=True)
+    gate: Mapped[str] = mapped_column(_one_of(Gate, 16, "gate"))
+    state: Mapped[str] = mapped_column(_one_of(GateState, 16, "state"), index=True)
     """`queued` | `running` | `passed` | `failed`.
 
     A plain column rather than a native enum: adding a state to a Postgres enum is a migration,
@@ -349,7 +398,7 @@ class ForgeAdaptation(Base):
     catalogue_item_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("forge_catalogue_item.id", ondelete="RESTRICT"), index=True
     )
-    state: Mapped[str] = mapped_column(String(24), index=True)
+    state: Mapped[str] = mapped_column(_one_of(AdaptationState, 24, "state"), index=True)
     """An `AdaptationState` value. A plain column rather than a native Postgres enum, for the
     reason `GateRun.state` records: adding a member to a Postgres enum is a migration, and
     `mendel_forge.workflow.AdaptationState` is already the closed vocabulary that matters."""
@@ -424,7 +473,7 @@ class ForgeRevision(Base):
     parent_revision_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("forge_revision.id", ondelete="RESTRICT"), nullable=True
     )
-    state: Mapped[str] = mapped_column(String(24), index=True)
+    state: Mapped[str] = mapped_column(_one_of(RevisionState, 24, "state"), index=True)
     """A `RevisionState` value. `validated` means the checks *finished*, not that they passed —
     a candidate that fails its checks is still inspectable, and that is a reviewable state."""
     manifest: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -467,10 +516,12 @@ class ForgeEvent(Base):
     revision_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("forge_revision.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    kind: Mapped[str] = mapped_column(String(32), index=True)
+    kind: Mapped[str] = mapped_column(_one_of(EventKind, 32, "kind"), index=True)
     """An `EventKind` value — closed, because an audit whose vocabulary any call site may extend
     with a free string is one nothing can query."""
-    from_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    from_state: Mapped[str | None] = mapped_column(
+        _one_of(AdaptationState, 32, "from_state"), nullable=True
+    )
     """The state the adaptation was in before this event, or `None` for one that moved nothing.
 
     **Added 2026-09-05, when archiving became legal from five states rather than one.** Until
@@ -520,9 +571,9 @@ class ForgeMessage(Base):
     )
     """Which candidate was on screen. A question about a type is a question about the revision
     that chose it, and the answer is unreadable a revision later without this."""
-    role: Mapped[str] = mapped_column(String(16))
+    role: Mapped[str] = mapped_column(_one_of(MessageRole, 16, "role"))
     """A `MessageRole` value — `curator` or `assistant`."""
-    state: Mapped[str] = mapped_column(String(16), index=True)
+    state: Mapped[str] = mapped_column(_one_of(MessageState, 16, "state"), index=True)
     """A `MessageState` value. A question is `pending` until the AI lane reaches it, and it may
     wait behind an adaptation, so the page has to be able to draw the waiting."""
     content: Mapped[str] = mapped_column(Text, default="")
@@ -558,10 +609,11 @@ class AiInvocation(Base):
     __tablename__ = "ai_invocation"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    agent: Mapped[str] = mapped_column(String(32), index=True)
+    agent: Mapped[str] = mapped_column(_one_of(Agent, 32, "agent"), index=True)
     """`forge` today. The builder's and Wiener's agents are why this is a column."""
     purpose: Mapped[str] = mapped_column(String(24), index=True)
-    """An `InvocationPurpose` value — one member per committed prompt id."""
+    """An `InvocationPurpose` for the forge, a `Purpose` for the builder — one member per
+    committed prompt id. Held to its agent's set by `ck_ai_invocation_agent_purpose`."""
     model: Mapped[str] = mapped_column(String(200))
     provider: Mapped[str] = mapped_column(String(64), default="")
     prompt_id: Mapped[str] = mapped_column(String(120), index=True)
@@ -571,7 +623,7 @@ class AiInvocation(Base):
     input_digests: Mapped[dict] = mapped_column(JSON, default=dict)
     """Source and registry digests. What makes the answer reproducible."""
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
-    state: Mapped[str] = mapped_column(String(16), index=True)
+    state: Mapped[str] = mapped_column(_one_of(InvocationState, 16, "state"), index=True)
     """An `InvocationState` value. `refused` — the answer did not validate — is separate from
     `failed` — the provider did not answer. Folding them hides the finding worth measuring."""
     failure_code: Mapped[str] = mapped_column(String(16), default="")
@@ -594,6 +646,16 @@ class AiInvocation(Base):
     enforced (`ollama`, …). Null on rows written before it was recorded."""
     """Nullable because a provider supplies them or does not, and a local Ollama lane often
     does not. A zero would be a measurement; a null is the absence of one."""
+
+    __table_args__ = (
+        # A purpose is scoped by its agent (`Purpose`'s docstring): both declare a `chat`, so
+        # the pair is what is closed, not either column alone (issue 274).
+        CheckConstraint(
+            f"(agent = 'forge' AND purpose IN ({_quoted(InvocationPurpose)})) OR "
+            f"(agent = 'builder' AND purpose IN ({_quoted(Purpose)}))",
+            name="agent_purpose",
+        ),
+    )
 
 
 class PipelineAuthoringSession(Base):
@@ -641,10 +703,12 @@ class PipelineAuthoringSession(Base):
     """How the walk goes — `mendel_authoring.pacing.Policy`: its pacing and whether registry
     gaps stop it — recorded as the Pacing and Dev forks are passed (spec §14.4 of the consultant
     build). `None` until then."""
-    phase: Mapped[str] = mapped_column(String(16), index=True)
+    phase: Mapped[str] = mapped_column(_one_of(Phase, 16, "phase"), index=True)
     """A `Phase` value. Indexed because sweeping for sessions stuck in `understanding` is how a
     job that never came back is found — `forge_jobs` already sweeps that way."""
-    failed_from: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    failed_from: Mapped[str | None] = mapped_column(
+        _one_of(Phase, 16, "failed_from"), nullable=True
+    )
     """The phase it was in when it failed, so retry resumes *that* one.
 
     **§2 draws two arrows out of `failed`** — back to `understanding` and to `resolving` — and
@@ -722,9 +786,9 @@ class PipelineAuthoringTurn(Base):
     )
     seq: Mapped[int] = mapped_column(Integer)
     """Explicit order within the session. See the class docstring: `at` is not an ordering."""
-    role: Mapped[str] = mapped_column(String(16))
+    role: Mapped[str] = mapped_column(_one_of(TurnRole, 16, "role"))
     """`person` or `assistant`. The same distinction `AuthoringRole` draws at the door."""
-    state: Mapped[str] = mapped_column(String(16), index=True)
+    state: Mapped[str] = mapped_column(_one_of(TurnState, 16, "state"), index=True)
     """A `TurnState` value — `pending`, `answered` or `failed`."""
     blocks: Mapped[list] = mapped_column(JSON, default=list)
     """The assistant's turn as a list of discriminated blocks. Empty while `pending`."""
@@ -774,13 +838,13 @@ class PipelineAuthoringProposal(Base):
     turn_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pipeline_authoring_turn.id", ondelete="RESTRICT"), nullable=True
     )
-    kind: Mapped[str] = mapped_column(String(24), index=True)
+    kind: Mapped[str] = mapped_column(_one_of(ProposalKind, 24, "kind"), index=True)
     """A `BlockKind` value — which of the discriminated payloads `payload` holds."""
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     """The block itself, stored whole and validated back through `authoring.types.parse_block`.
     Whole rather than shredded for `PipelineDraft.graph`'s reason: a schema that could hold half
     a proposal would be a second definition of what a proposal is."""
-    state: Mapped[str] = mapped_column(String(16), index=True)
+    state: Mapped[str] = mapped_column(_one_of(ProposalState, 16, "state"), index=True)
     """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
     chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)
     """An option **id**, never a value. See the class docstring."""

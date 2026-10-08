@@ -108,3 +108,13 @@ def test_the_sweep_fails_a_gate_past_its_limit_and_leaves_a_recent_one(clean):
     assert _row("lost").state == "failed" and "MI0004" in _row("lost").output
     assert _row(recent).state == "queued"
     gates.request("d1", Gate.LINT, "ana")  # the draft is free again
+
+
+def test_the_database_refuses_a_state_outside_gate_state(clean):
+    """Issue 274. Raw SQL, because SQLAlchemy refuses an unknown value before the database is
+    asked; this is the half that holds for any other writer."""
+    with pytest.raises(IntegrityError, match="ck_gate_run_state"), session_scope() as session:
+        session.execute(text(
+            "INSERT INTO gate_run (id, draft_id, who, gate, state, output, queued_at) "
+            "VALUES ('r1', 'd1', 'ana', 'lint', 'sideways', '', now())"
+        ))

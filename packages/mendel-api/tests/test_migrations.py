@@ -23,8 +23,11 @@ import pytest
 # `test_every_migrated_table_is_still_a_model`, the direction that reads the DDL rather than the
 # metadata, noticed. `test_the_scan_reached_the_models` is the standing version of that accident.
 from mendel_api import models  # noqa: F401
-from mendel_api.db import Base
+from mendel_api.db import Base, session_scope
 from mendel_postgres import reachable
+from sqlalchemy import text
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateTable
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -171,3 +174,32 @@ def test_the_models_match_the_migrated_database():
     )
     done = _alembic("check")
     assert done.returncode == 0, f"the models and the migrations disagree:\n{_found(done)}"
+
+
+def _values(expression: str) -> set[str]:
+    return set(re.findall(r"'([^']*)'", expression))
+
+
+def _model_checks() -> dict[str, set[str]]:
+    """Each CHECK the models declare, by name, as the quoted values it names."""
+    found = {}
+    for table in Base.metadata.sorted_tables:
+        ddl = str(CreateTable(table).compile(dialect=postgresql.dialect()))
+        for name, expression in re.findall(r"CONSTRAINT (\w+) CHECK \((.*)\)", ddl):
+            found[name] = _values(expression)
+    return found
+
+
+@needs_db
+def test_each_check_names_exactly_its_enum():
+    """`alembic check` compares check constraints by name only. An enum that gains a member
+    keeps the name and changes the values, so this compares what is inside (issue 274)."""
+    with session_scope() as session:
+        rows = session.execute(text(
+            "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE contype = 'c' AND connamespace = 'public'::regnamespace"
+        )).all()
+    database = {name: _values(definition) for name, definition in rows}
+    model = _model_checks()
+    assert model, "the models declare no check constraint; nothing below compares anything"
+    assert model == database

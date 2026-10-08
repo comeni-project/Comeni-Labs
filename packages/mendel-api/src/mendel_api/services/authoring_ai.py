@@ -30,7 +30,6 @@ import re
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import NamedTuple
 
 from comeni_ai import Client, ModelAccess, ModelUnavailableError, Usage
@@ -56,6 +55,7 @@ from mendel_api.authoring.types import (
     FamilyChoice,
     GapReply,
     GoalUnderstanding,
+    Purpose,  # noqa: F401 (re-exported: it lived here; models.py needs it without a cycle)
     ReadBack,
     WantUnderstanding,
 )
@@ -78,26 +78,6 @@ _CODE = re.compile(r"\b(M[A-Z]\d{4})\b")
 out of our own message is not parsing somebody else's error: the alternative is every call site
 passing the code beside the message it already contains, which is two things to keep in step.
 """
-
-
-class Purpose(StrEnum):
-    """Which of the builder's two calls this was — one member per committed prompt id.
-
-    **Scoped by `agent`, not spelled to be globally unique.** The forge declares a `chat` purpose
-    too, and `agent='builder' AND purpose='chat'` is what tells them apart, which is precisely
-    what that column is for. Inventing `builder_chat` here would put the agent name in two
-    columns and let them disagree.
-    """
-
-    GOAL = "goal"
-    FAMILY = "family"
-    CHAT = "chat"
-    TIER4 = "tier4"
-    GAP = "gap"
-    ASK = "ask"
-    READBACK = "readback"
-    CHARACTERISE_FAMILY = "characterise_family"
-    CHARACTERISE = "characterise"
 
 
 class Outcome(NamedTuple):

@@ -70,6 +70,28 @@ class TurnState(StrEnum):
     FAILED = "failed"
 
 
+class Purpose(StrEnum):
+    """Which of the builder's calls an `ai_invocation` row records — one member per committed
+    prompt id. Here rather than in `services.authoring_ai` (which re-exports it) so `models.py`
+    can build its CHECK without an import cycle (issue 274).
+
+    **Scoped by `agent`, not spelled to be globally unique.** The forge declares a `chat` purpose
+    too, and `agent='builder' AND purpose='chat'` is what tells them apart, which is precisely
+    what that column is for. Inventing `builder_chat` here would put the agent name in two
+    columns and let them disagree.
+    """
+
+    GOAL = "goal"
+    FAMILY = "family"
+    CHAT = "chat"
+    TIER4 = "tier4"
+    GAP = "gap"
+    ASK = "ask"
+    READBACK = "readback"
+    CHARACTERISE_FAMILY = "characterise_family"
+    CHARACTERISE = "characterise"
+
+
 class TurnRole(StrEnum):
     """Who wrote a turn of the conversation, as stored (issue 274).
 

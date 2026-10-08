@@ -1,6 +1,6 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import Enum, engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
@@ -28,6 +28,27 @@ target_metadata = Base.metadata
 # database lives is two answers to that question, and the one in the .ini is the one that
 # gets forgotten in an environment.
 config.set_main_option("sqlalchemy.url", settings.database_url)
+
+
+def _enum_checks() -> set[str]:
+    """The CHECKs the models build from an enum (`models._one_of`), by name."""
+    return {
+        f"ck_{table.name}_{column.type.name}"
+        for table in target_metadata.tables.values()
+        for column in table.columns
+        if isinstance(column.type, Enum) and column.type.create_constraint
+    }
+
+
+ENUM_CHECKS = _enum_checks()
+
+
+def include_object(object, name, type_, reflected, compare_to):  # noqa: A002 — alembic's names
+    """**`alembic check` does not see a CHECK that an `Enum` type creates** as part of the
+    model, so it reports each one in the database as removed (issue 274). Those are left out
+    here; `test_each_check_names_exactly_its_enum` compares them, by name and by value."""
+    return not (type_ == "check_constraint" and reflected and name in ENUM_CHECKS)
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -74,7 +95,8 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
