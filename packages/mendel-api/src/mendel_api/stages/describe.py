@@ -9,6 +9,7 @@ from typing import NamedTuple
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring import commands as c
+from mendel_authoring import payloads as p
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from sqlalchemy import select, update
@@ -353,7 +354,7 @@ def _answer_turn(ctx: Ctx, cmd: c.AnswerTurn) -> bool:
 
 @records(c.Understood)
 def _understood(ctx: Ctx, cmd: c.Understood) -> None:
-    session.take(ctx, Command.UNDERSTOOD.value, goal=cmd.goal)
+    session.take(ctx, Command.UNDERSTOOD.value, p.GoalReturned(extraction=cmd.goal))
 
 
 @records(c.AskedBack)
@@ -371,7 +372,7 @@ def _retry(ctx: Ctx, cmd: c.Retry) -> tuple[Phase, int | None]:
     """Leave `failed` for whichever phase failed (`retry`). Into understanding, `family` writes
     the new pending turn and queues it (`pending_turn`)."""
     session.take(ctx, Command.RETRY.value)
-    return session.current_phase(ctx.session_id), ctx.payload.get("seq")
+    return session.current_phase(ctx.session_id), ctx.turn_seq
 
 
 # ── the handlers ─────────────────────────────────────────────────────────────────────────
@@ -388,7 +389,7 @@ def family(ctx: Ctx) -> None:
         seq = newest_pending(ctx.session_id)
     else:
         return None
-    ctx.payload["seq"] = seq
+    ctx.turn_seq = seq
     ctx.queue(_jobs.turn(ctx.session_id, seq))
     return None
 
@@ -396,5 +397,7 @@ def family(ctx: Ctx) -> None:
 @handles("read_goal")
 def read_goal(ctx: Ctx) -> str:
     """Store the want the model read; the engine takes over to gather what it needs."""
-    store_goal(ctx.session_id, ctx.payload["goal"])
+    if not isinstance(ctx.payload, p.GoalReturned):
+        raise TypeError("read_goal requires GoalReturned")
+    store_goal(ctx.session_id, ctx.payload.extraction.model_dump(mode="json"))
     return "want_returned"

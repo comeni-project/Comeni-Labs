@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
+from mendel_api.authoring.envelopes import HistoryOffer, Offer
 from mendel_api.authoring.types import (
     Block,
     Fact,
@@ -123,6 +124,7 @@ class AuthoringDecisionView(BaseModel):
 
     model_config = _FROZEN
 
+    envelope: HistoryOffer
     id: str
     kind: Literal["goal", "step", "gap", "pacing"]
     state: ProposalState
@@ -138,6 +140,8 @@ class AuthoringDecisionView(BaseModel):
 
 class AuthoringProposalView(BaseModel):
     model_config = _FROZEN
+
+    envelope: Offer
 
     id: str
     kind: Literal["goal", "step", "gap", "pacing"]
@@ -587,6 +591,7 @@ def _view(session_id: str) -> AuthoringSessionView:
                 id=pending["id"],
                 kind=pending["kind"],
                 draft_revision=pending["draft_revision"],
+                envelope=pending["payload"],
                 block=pending["payload"]["block"],
                 options=sorted(pending["payload"].get("options", {})),
                 edges=pending["payload"].get("edges", []),

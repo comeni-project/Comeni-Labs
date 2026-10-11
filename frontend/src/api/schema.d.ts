@@ -1631,6 +1631,8 @@ export interface components {
          * @description A proposal that has been answered — one collapsed row of the decision log.
          */
         AuthoringDecisionView: {
+            /** Envelope */
+            envelope: (components["schemas"]["GoalOffer"] | components["schemas"]["GapOffer"] | components["schemas"]["StepOffer"] | components["schemas"]["PacingOffer"] | components["schemas"]["DisagreementOffer"]) | components["schemas"]["LegacyOffer"];
             /** Id */
             id: string;
             /**
@@ -1686,6 +1688,8 @@ export interface components {
         };
         /** AuthoringProposalView */
         AuthoringProposalView: {
+            /** Envelope */
+            envelope: components["schemas"]["GoalOffer"] | components["schemas"]["GapOffer"] | components["schemas"]["StepOffer"] | components["schemas"]["PacingOffer"] | components["schemas"]["DisagreementOffer"];
             /** Id */
             id: string;
             /**
@@ -2218,6 +2222,13 @@ export interface components {
             designed?: string | null;
         };
         /**
+         * ChooseTool
+         * @description Use this tool at its site: adds the pin, or replaces the one already there.
+         */
+        ChooseTool: {
+            pin: components["schemas"]["ProducerPin-Output"];
+        };
+        /**
          * Citation
          * @description One thing a chat answer points at, so the UI can make it clickable.
          *
@@ -2490,6 +2501,31 @@ export interface components {
             detail: string;
             /** Fix */
             fix: string;
+        };
+        /** DisagreementOffer */
+        DisagreementOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "disagreement";
+            /** Subject */
+            subject: string;
+            /** Observation Id */
+            observation_id: string;
+            /** Current Revision Id */
+            current_revision_id: string | null;
+            /**
+             * Continuation
+             * @enum {string}
+             */
+            continuation: "gather" | "goal" | "build" | "complete" | "stopped";
+            block: components["schemas"]["Question"];
         };
         /**
          * DomainView
@@ -2988,6 +3024,25 @@ export interface components {
          * @enum {string}
          */
         GapKind: "no_domain" | "no_description" | "unverified";
+        /** GapOffer */
+        GapOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "gap";
+            /** Subject */
+            subject: string;
+            kind: components["schemas"]["FactKind"];
+            /** Why */
+            why: string;
+            block: components["schemas"]["Question"];
+        };
         /**
          * Gate
          * @description Cheapest first. Each is strictly more evidence than the one above it.
@@ -3090,6 +3145,21 @@ export interface components {
             name?: string | null;
             /** States */
             states?: string[];
+        };
+        /** GoalOffer */
+        GoalOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "goal";
+            block: components["schemas"]["GoalSummary"];
+            goal: components["schemas"]["Goal-Output"];
         };
         /**
          * GoalSummary
@@ -3285,6 +3355,24 @@ export interface components {
          * @enum {string}
          */
         Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly" | "model" | "collection";
+        /**
+         * LegacyOffer
+         * @description An archived snapshot, never accepted as a live mutation offer.
+         */
+        LegacyOffer: {
+            /**
+             * Offer
+             * @default legacy
+             * @constant
+             */
+            offer: "legacy";
+            /** Kind */
+            kind: string;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * Level
          * @enum {string}
@@ -3572,6 +3660,17 @@ export interface components {
              */
             kind: string;
         };
+        /** OfferContext */
+        OfferContext: {
+            /** Draft Revision */
+            draft_revision: number;
+            /** Decision Revision */
+            decision_revision: number;
+            /** Session Version */
+            session_version: number;
+            /** Registry */
+            registry: string;
+        };
         /** Offered */
         Offered: {
             /** Value */
@@ -3722,6 +3821,20 @@ export interface components {
             stages: components["schemas"]["Stages"];
             ai_lane: components["schemas"]["AiLane"];
             attention: components["schemas"]["NeedsYou"];
+        };
+        /** PacingOffer */
+        PacingOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "pacing";
+            block: components["schemas"]["Question"];
         };
         /**
          * Page
@@ -4640,6 +4753,28 @@ export interface components {
          * @enum {string}
          */
         Status: "drifted" | "unverifiable" | "matching";
+        /** StepOffer */
+        StepOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "step";
+            /** Node */
+            node: string;
+            block: components["schemas"]["StepProposal"];
+            /** Amendments */
+            amendments: {
+                [key: string]: components["schemas"]["ChooseTool"];
+            };
+            /** Edges */
+            edges: components["schemas"]["DraftEdge"][];
+        };
         /**
          * StepProposal
          * @description A step the engine proposes, with what it would replace and why.

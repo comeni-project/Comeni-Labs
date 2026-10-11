@@ -38,7 +38,7 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from mendel_api.authoring.types import (
     Phase,
@@ -881,6 +881,12 @@ class PipelineAuthoringProposal(Base):
     """The block itself, stored whole and validated back through `authoring.types.parse_block`.
     Whole rather than shredded for `PipelineDraft.graph`'s reason: a schema that could hold half
     a proposal would be a second definition of what a proposal is."""
+    @validates("payload")
+    def _validated_payload(self, _key, payload):
+        from mendel_api.authoring.envelopes import parse
+
+        return parse(payload, kind=payload.get("offer")).model_dump(mode="json")
+
     state: Mapped[str] = mapped_column(_one_of(ProposalState, 16, "state"), index=True)
     """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
     chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)

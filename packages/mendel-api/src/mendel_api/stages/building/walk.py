@@ -150,7 +150,8 @@ def start(ctx: Ctx, session_id: str, *, client=None) -> str | None:
                 + "\n  a blueprint is resolved only once a goal is confirmed"
             )
     ctx.session_id = session_id
-    session.resume(session_id, ctx=ctx, client=client)
+    ctx.resolver_client = client
+    session.resume(session_id, ctx=ctx)
     return session.pending_id(session_id)
 
 
@@ -383,6 +384,7 @@ def _choose_pacing(ctx: Ctx, cmd: c.ChoosePacing) -> None:
             raise ValueError(coded("MI0205", "that proposal is not the pacing question"))
         if proposal.state != ProposalState.PENDING.value:
             raise ValueError(coded("MI0203", "this proposal has already been settled"))
+        _rows.read_offer(db, proposal)
         if cmd.option not in proposal.payload["options"]:
             raise ValueError(
                 coded("MI0205", "that is not one of the paces offered")
@@ -413,7 +415,7 @@ def resolve(ctx: Ctx) -> str | None:
     if ctx.command is not None:
         return None
     try:
-        return resolve_blueprint(ctx.session_id, client=ctx.payload.get("client"))
+        return resolve_blueprint(ctx.session_id, client=ctx.resolver_client)
     except ResolverFailed as failed:  # the resolver itself: `failed`, then raised
         ctx.raised = failed.__cause__
         return "cant_build"

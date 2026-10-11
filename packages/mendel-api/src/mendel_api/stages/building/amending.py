@@ -11,6 +11,7 @@ from comeni_core.declared.measurement import MeasuredEntry
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import ValueSource
 from mendel_authoring import commands as c
+from mendel_authoring import payloads as p
 from mendel_authoring.amend import Amendment, ChooseTool, SetFact
 from mendel_authoring.diff import diff_of
 from mendel_authoring.draft import Reviewed, drafted, kept
@@ -60,6 +61,7 @@ def pending_step(db, proposal_id: str) -> PipelineAuthoringProposal:
         raise ValueError(coded("MI0203", "this proposal has already been settled"))
     if proposal.kind != STEP:
         raise ValueError(coded("MI0205", "that proposal is not a step's card"))
+    _rows.read_offer(db, proposal)
     return proposal
 
 
@@ -166,14 +168,16 @@ def amend(ctx: Ctx, cmd: c.Amend):
         proposal.chosen_option = cmd.option
         proposal.settled_at = _rows.now()
         said = diff_of(before, fresh).sentence()
-    session.take(ctx, Command.AMEND.value, said=said)
+    session.take(ctx, Command.AMEND.value, p.Amended(said=said))
     return walk.outcome(ctx)
 
 
 @handles("amend")
 def amend_node(ctx: Ctx) -> str:
     """The change is in: say what it did, as a receipt, and walk on."""
-    said = ctx.payload.get("said", "changes nothing")
+    if not isinstance(ctx.payload, p.Amended):
+        raise TypeError("amend requires Amended")
+    said = ctx.payload.said
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         revision = db.get(PipelineDraft, row.draft_id).revision

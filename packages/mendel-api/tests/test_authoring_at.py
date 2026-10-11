@@ -74,7 +74,9 @@ def test_a_pending_turn_in_understanding_rests_where_the_model_works(sid):
 def test_a_pending_question_rests_on_the_reply(sid):
     _old(sid, Phase.GATHERING)
     _rows.propose(sid, kind=gathering.GAP, payload={"subject": "x", "kind": "input",
-                                                        "why": "", "options": {}, "block": {}})
+                                                        "why": "", "options": {},
+                              "block": {"kind": "question", "id": "input-x",
+                                        "asks": "Have x?", "why_open": "required"}})
     assert _at(sid) == "reply"
 
 

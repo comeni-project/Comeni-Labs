@@ -7,6 +7,7 @@ from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
 from mendel_authoring import commands as c
+from mendel_authoring import payloads as p
 from mendel_authoring import state as st
 from mendel_authoring.interpret import Refused
 from mendel_authoring.types import Command
@@ -203,7 +204,8 @@ def reading_of(proposal_id: str) -> SampleReading | None:
 def start_reading(proposal_id: str) -> int:
     """Mark the question as being read by the AI; the attempt that keys the job."""
     with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                          populate_existing=True)
         if proposal is None:
             raise KeyError(proposal_id)
         # **Asked again under the lock** (issue 241): a click mid-inspection, or a second upload
@@ -222,7 +224,8 @@ def start_reading(proposal_id: str) -> int:
 def reading_failed(proposal_id: str, attempt: int, state: str, code: str | None) -> None:
     """End a reading without recording anything, if it is still this attempt's."""
     with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                          populate_existing=True)
         if proposal is None:
             return
         reading = (proposal.payload.get("block") or {}).get("reading") or {}
@@ -238,7 +241,8 @@ def end_hand_back(proposal_id: str, *, confirmed: bool) -> None:
     """After the re-sent file was inspected (spec §8): `handed` when its format confirmed it,
     and the recorded type dropped when not, so nothing the AI said stays."""
     with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                          populate_existing=True)
         if proposal is None or proposal.state != ProposalState.PENDING.value:
             return
         reading = (proposal.payload.get("block") or {}).get("reading") or {}
@@ -278,7 +282,7 @@ def _moves(ctx: Ctx, answered: bool, recorded: list[str]) -> None:
     recorded facts but left its question open queues the phrasing the route used to (ruling 6),
     only when the session is still on that question (issue 251)."""
     try:
-        session.take(ctx, Command.UPLOAD_SAMPLE.value, answered=answered)
+        session.take(ctx, Command.UPLOAD_SAMPLE.value, p.SampleAnswered(answered=answered))
     except Refused:
         return
     if recorded and not answered:
@@ -300,7 +304,8 @@ def record_inspection(ctx: Ctx, proposal_id: str, inspection, *, by: str) -> Sam
         # **Locked**: two tabs uploading at once take turns here, so the second reads the
         # proposal settled and is refused as a duplicate click (MI0203), not by the version
         # swap below (MI0201, issue 226).
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                          populate_existing=True)
         if proposal is None:
             raise KeyError(proposal_id)
         refusal = _sample_refusal(proposal)
@@ -340,7 +345,8 @@ def record_reading(
     stack = registry.stack()
     _pin(proposal_id)
     with session_scope() as db:
-        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+        proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                          populate_existing=True)
         if proposal is None or proposal.state != ProposalState.PENDING.value:
             return None
         reading = (proposal.payload.get("block") or {}).get("reading") or {}
@@ -445,4 +451,6 @@ def _reading_failed(ctx: Ctx, cmd: c.ReadingFailed) -> None:
 
 @handles("upload")
 def upload(ctx: Ctx) -> str:
-    return "answered" if ctx.payload["answered"] else "stays"
+    if not isinstance(ctx.payload, p.SampleAnswered):
+        raise TypeError("record_sample requires SampleAnswered")
+    return "answered" if ctx.payload.answered else "stays"

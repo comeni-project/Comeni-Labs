@@ -12,6 +12,7 @@ from comeni_core.diagnostics import coded
 from mendel_authoring import state as st
 from sqlalchemy import select, update
 
+from mendel_api.authoring import envelopes
 from mendel_api.authoring.types import (
     Narrative,
     ProposalKind,
@@ -89,7 +90,7 @@ def propose(session_id: str, *, kind: str, payload: dict, turn_id: int | None = 
                 session_id=session_id,
                 turn_id=turn_id,
                 kind=kind,
-                payload=payload,
+                payload=envelopes.prepare(payload, kind=kind, draft=draft, session=row),
                 state=ProposalState.PENDING.value,
                 chosen_option=None,
                 by=None,
@@ -99,6 +100,16 @@ def propose(session_id: str, *, kind: str, payload: dict, turn_id: int | None = 
             )
         )
     return proposal_id
+
+
+def read_offer(db, proposal):
+    """Validate the whole offer and its decision context before applying an answer."""
+    envelope = envelopes.parse(proposal.payload, kind=proposal.kind)
+    row = db.get(PipelineAuthoringSession, proposal.session_id)
+    draft = db.get(PipelineDraft, row.draft_id)
+    if envelope.context.decision_revision != draft.decision_revision:
+        raise ValueError(coded("MI0201", "the selected decisions changed after this offer"))
+    return envelope
 
 
 def settlement(proposal_id: str, decision: ProposalState, expected_revision: int):

@@ -79,6 +79,19 @@ def _bump(draft_id: str) -> int:
         return row.revision
 
 
+def _offer(kind="step"):
+    """Storage tests offer a complete card at the real boundary."""
+    if kind == "gap":
+        return {"subject": "reads.fastq", "kind": "input", "why": "required input",
+                "options": {}, "block": {"kind": "question", "id": "input",
+                                          "asks": "Have reads?", "why_open": "required"}}
+    return {"node": "align", "options": {"keep": "nf-core/star/align@1.11.0"},
+            "amendments": {}, "edges": [],
+            "block": {"kind": "step_proposal", "id": "step-align", "node": "align",
+                      "contract": "nf-core/star/align@1.11.0", "tier": 1,
+                      "reason": "declared route"}}
+
+
 # ── the checkpoint ────────────────────────────────────────────────────────────────────────
 
 
@@ -93,7 +106,7 @@ def test_a_session_survives_being_read_back_in_a_new_connection(draft):
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
     facade.perform(commands.Say(session_id, "I have paired fastq and I want counts per gene"))
     proposal_id = _rows.propose(
-        session_id, kind=_rows.STEP, payload={"node": "align", "contract": "nf-core/star"}
+        session_id, kind=_rows.STEP, payload=_offer()
     )
 
     read = facade.read(session_id)
@@ -219,7 +232,7 @@ def test_deciding_a_proposal_twice_is_refused(draft):
     """`MI0203`. The first call decides and every later one is refused rather than re-applied,
     which is what makes accepting idempotent in the way that matters."""
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
-    proposal_id = _rows.propose(session_id, kind=_rows.STEP, payload={})
+    proposal_id = _rows.propose(session_id, kind=_rows.STEP, payload=_offer())
 
     first = _rows.decide(
         proposal_id, ProposalState.ACCEPTED, expected_revision=0, by="person"
@@ -237,7 +250,7 @@ def test_deciding_a_proposal_twice_is_refused(draft):
 def test_one_pending_proposal_at_a_time(draft):
     """§2's MVP rule. Refused with a sentence; the partial unique index holds the race."""
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
-    _rows.propose(session_id, kind=_rows.STEP, payload={})
+    _rows.propose(session_id, kind=_rows.STEP, payload=_offer())
     with pytest.raises(ValueError) as raised:
         _rows.propose(session_id, kind=_rows.GAP, payload={})
     assert "waiting for an answer" in str(raised.value)
@@ -250,13 +263,13 @@ def test_a_second_tab_accepting_against_an_older_view_changes_nothing(draft):
     """The ordinary case §2 names. Somebody accepts a step in one tab and then answers in the
     other, against a picture one revision old."""
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
-    first = _rows.propose(session_id, kind=_rows.STEP, payload={"node": "align"})
+    first = _rows.propose(session_id, kind=_rows.STEP, payload=_offer())
 
     accepted = _rows.decide(first, ProposalState.ACCEPTED, expected_revision=0, by="person")
     assert accepted.applies and accepted.bumps_revision
     assert facade.read(session_id)["revision"] == 1
 
-    second = _rows.propose(session_id, kind=_rows.GAP, payload={"node": "align"})
+    second = _rows.propose(session_id, kind=_rows.GAP, payload=_offer("gap"))
     stale_view = _rows.decide(
         second, ProposalState.ACCEPTED, expected_revision=0, by="person"
     )
@@ -273,7 +286,7 @@ def test_a_proposal_from_before_the_draft_moved_goes_stale_and_never_applies(dra
     able to tell a choice they declined from one the engine withdrew.
     """
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
-    proposal_id = _rows.propose(session_id, kind=_rows.STEP, payload={"node": "align"})
+    proposal_id = _rows.propose(session_id, kind=_rows.STEP, payload=_offer())
 
     now = _bump(draft)  # the draft moved by some other route
 

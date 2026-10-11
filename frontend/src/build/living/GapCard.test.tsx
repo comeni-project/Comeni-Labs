@@ -6,22 +6,23 @@ import { GapCard } from "./blocks/GapCard";
 
 /** 14.7.3: the engine asks for what the want needs, one gap at a time, and a click answers. */
 
-const gap = (options: [string, string][], asks: string): AuthoringProposal => ({
-  id: "p-gap",
-  kind: "gap",
-  draft_revision: 0,
-  options: options.map(([id]) => id).sort(),
-  edges: [],
-  block: {
-    kind: "question",
-    id: "gap-3",
-    asks,
-    why_open: "a step reads it to decide",
+const gap = (options: [string, string][], asks: string): AuthoringProposal => {
+  const block = {
+    kind: "question" as const,
+    id: "gap-3", asks, why_open: "a step reads it to decide",
     options: options.map(([id, label]) => ({ id, label, recommended: false })),
-    exhaustive: true,
-    phrasing: "none",
-  },
-});
+    exhaustive: true, phrasing: "none" as const,
+  };
+  return {
+    id: "p-gap", kind: "gap", draft_revision: 0,
+    options: options.map(([id]) => id).sort(), edges: [], block,
+    envelope: {
+      offer: "gap", subject: "read_length", kind: "measurement", why: "a step reads it",
+      options: Object.fromEntries(options), block,
+      context: { draft_revision: 0, decision_revision: 0, session_version: 1, registry: "" },
+    },
+  };
+};
 
 const PAIRED = gap(
   [["yes", "Yes"], ["no", "No"], ["not_sure", "Not sure"], ["cant_share", "I can't share it"]],

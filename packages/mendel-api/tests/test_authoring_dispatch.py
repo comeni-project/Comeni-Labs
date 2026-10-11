@@ -12,6 +12,7 @@ from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import session
 from mendel_api.services import session as facade
 from mendel_authoring import commands
+from mendel_authoring import payloads as p
 from mendel_authoring.interpret import Refused
 from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
 from mendel_authoring.types import Event
@@ -69,8 +70,9 @@ def test_a_command_moves_the_session_and_the_phase_is_read_off_the_node(sid):
         seen.append((ctx.command, ctx.payload))
         return "done"
 
-    ran = session.perform_now(sid, "describe", protocol=TOY, handlers={"work": work}, said="x")
-    assert ran.at == "card" and seen == [("describe", {"said": "x"})]
+    ran = session.perform_now(sid, "describe", protocol=TOY, handlers={"work": work},
+                              payload=p.Empty())
+    assert ran.at == "card" and seen == [("describe", p.Empty())]
     at, phase, version, _ = _row(sid)
     assert (at, phase, version) == ("card", Phase.GOAL_REVIEW.value, 2)
 
@@ -148,7 +150,8 @@ def test_saying_what_you_want_moves_to_where_the_model_works(sid):
 
 def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
     facade.perform(commands.Say(sid, "RNA-seq counts"))
-    ran = session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
+    ran = session.perform_now(sid, Command.UNDERSTOOD.value,
+                              payload=p.GoalReturned(extraction=WANT))
     assert ran.path[:3] == ["read_goal", "list_needs", "next_gap"]
     assert _row(sid)[:2] == ("reply", Phase.GATHERING.value)
 
@@ -156,7 +159,7 @@ def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
 def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
     """Review focus 1: the job's command has no arrow from the question; nothing moves."""
     facade.perform(commands.Say(sid, "RNA-seq counts"))
-    session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
+    session.perform_now(sid, Command.UNDERSTOOD.value, payload=p.GoalReturned(extraction=WANT))
     before = _row(sid)
     authoring_jobs._failed(sid)
     assert _row(sid) == before
@@ -167,7 +170,7 @@ def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
 
 def _gathering(sid):
     facade.perform(commands.Say(sid, "RNA-seq counts"))
-    session.perform_now(sid, Command.UNDERSTOOD.value, goal=WANT)
+    session.perform_now(sid, Command.UNDERSTOOD.value, payload=p.GoalReturned(extraction=WANT))
 
 
 def test_an_answer_runs_through_answered_to_the_next_question(sid):
@@ -191,7 +194,7 @@ def test_a_sample_that_answered_nothing_moves_nothing(sid):
     """Review focus 4, issue 226."""
     _gathering(sid)
     before = _row(sid)
-    session.perform_now(sid, Command.UPLOAD_SAMPLE.value, answered=False)
+    session.perform_now(sid, Command.UPLOAD_SAMPLE.value, payload=p.SampleAnswered(answered=False))
     assert _row(sid) == before
 
 

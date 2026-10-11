@@ -17,6 +17,7 @@ from typing import Any
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftProvenance
 from mendel_authoring import interpret
+from mendel_authoring import payloads as p
 from mendel_authoring import state as st
 from mendel_authoring.forks import Snapshot
 from mendel_authoring.protocol import PROTOCOL, Protocol
@@ -95,7 +96,9 @@ class Ctx:
 
     session_id: str | None
     command: str | None
-    payload: dict = field(default_factory=dict)
+    payload: p.Payload = field(default_factory=p.Empty)
+    turn_seq: int | None = None
+    resolver_client: Any = None
     raised: BaseException | None = None
     jobs: list[Job] = field(default_factory=list)
 
@@ -180,11 +183,11 @@ def perform_now(
     protocol: Protocol = PROTOCOL,
     handlers: dict[str, Handler] | None = None,
     ctx: Ctx | None = None,
-    **payload: object,
+    payload: p.Payload = p.EMPTY,
 ) -> interpret.Ran:
     """Take `command`'s arrow from where the session rests, run every handler on the way, and
     write where it comes to rest."""
-    return _dispatch(session_id, command, payload, protocol, handlers, ctx=ctx)
+    return _dispatch(session_id, command, p.check(command, payload), protocol, handlers, ctx=ctx)
 
 
 def resume(
@@ -193,10 +196,10 @@ def resume(
     protocol: Protocol = PROTOCOL,
     handlers: dict[str, Handler] | None = None,
     ctx: Ctx | None = None,
-    **payload: object,
+    payload: p.Payload = p.EMPTY,
 ) -> interpret.Ran:
     """Enter the node the session rests on, as if it had just arrived."""
-    return _dispatch(session_id, None, payload, protocol, handlers, ctx=ctx)
+    return _dispatch(session_id, None, p.check(None, payload), protocol, handlers, ctx=ctx)
 
 
 def snapshot(protocol: Protocol = PROTOCOL) -> Snapshot:
@@ -221,9 +224,9 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
     start, stored, phase, came_from = _where(session_id)
     own = ctx is None
     if own:
-        ctx = Ctx(session_id, command, dict(payload))
+        ctx = Ctx(session_id, command, payload)
     else:
-        ctx.command, ctx.payload = command, dict(payload)
+        ctx.command, ctx.payload = command, payload
     ran = interpret.run(
         protocol,
         start,
@@ -323,9 +326,8 @@ def perform(command: object, *, recorders: dict[type, Recorder] | None = None) -
         session_id = ctx.session_id
         proposal_id = getattr(command, "proposal_id", None)
         if session_id is None and proposal_id is not None:
-            proposal = db.get(PipelineAuthoringProposal, proposal_id)
-            if proposal is not None:
-                session_id = proposal.session_id
+            session_id = db.scalar(select(PipelineAuthoringProposal.session_id).where(
+                PipelineAuthoringProposal.id == proposal_id))
         if session_id is not None:
             draft_mutations.lock_session(db, session_id)
         result = bound[type(command)](ctx, command)
@@ -408,12 +410,10 @@ async def _enqueue(job: Job) -> bool:
 
 
 def take(
-    ctx: Ctx, arrow: str, *, protocol: Protocol = PROTOCOL, **payload: object
+    ctx: Ctx, arrow: str, payload: p.Payload = p.EMPTY, *, protocol: Protocol = PROTOCOL
 ) -> interpret.Ran:
-    """Inside a recorder: take `arrow` from where `ctx.session_id` rests, every handler on the way
-    sharing `ctx`."""
-    ctx.command, ctx.payload = arrow, dict(payload)
-    return _dispatch(ctx.session_id, arrow, payload, protocol, None, ctx=ctx)
+    """Take an arrow with its frozen typed value in the recorder's transaction."""
+    return _dispatch(ctx.session_id, arrow, p.check(arrow, payload), protocol, None, ctx=ctx)
 
 
 # ── the read model: what a browser and a job read (plan 1c) ──────────────────────────────
@@ -428,6 +428,7 @@ def read(session_id: str) -> dict:
     from four endpoints would make the checkpoint a statement about four caches.
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
+    from mendel_api.authoring import envelopes
     from mendel_api.stages.building import _placement, hand_edits
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
@@ -499,6 +500,8 @@ def read(session_id: str) -> dict:
             "history": [
                 {
                     "id": p.id,
+                    "envelope": envelopes.historical(p.payload, kind=p.kind)
+                                          .model_dump(mode="json"),
                     "kind": p.kind,
                     "state": p.state,
                     "block": p.payload.get("block"),
@@ -523,7 +526,8 @@ def read(session_id: str) -> dict:
                 else {
                     "id": pending.id,
                     "kind": pending.kind,
-                    "payload": _aged(pending.payload),
+                    "payload": _aged(envelopes.parse(pending.payload, kind=pending.kind)
+                                     .model_dump(mode="json")),
                     "draft_revision": pending.draft_revision,
                 }
             ),

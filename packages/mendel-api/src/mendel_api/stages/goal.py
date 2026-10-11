@@ -124,6 +124,8 @@ def _decide_goal(ctx: Ctx, cmd: c.DecideGoal) -> tuple[st.Settlement, Phase]:
     # **The proposal's own refusal first** (ruling 8; final review of 1b): a duplicate is MI0203
     # and an old picture of the draft MI0201, before the diagram is asked.
     if _rows.settlement(cmd.proposal_id, decision, cmd.expected_revision).refusal is None:
+        with session_scope() as db:
+            _rows.read_offer(db, db.get(PipelineAuthoringProposal, cmd.proposal_id))
         session.check(ctx.session_id, arrow.value)
     outcome = _rows.decide(
         cmd.proposal_id, decision, expected_revision=cmd.expected_revision, by=cmd.by

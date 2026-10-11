@@ -10,6 +10,7 @@ from comeni_core.goal.profile import Evidence
 from comeni_core.review.answer import ValueSource
 from mendel_authoring import commands as c
 from mendel_authoring import interpret
+from mendel_authoring import payloads as p
 from mendel_authoring import state as st
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
@@ -578,7 +579,7 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
             raise KeyError(proposal_id)
         if proposal.kind != GAP:
             raise ValueError(coded("MI0205", "that proposal is not a question about your data"))
-        payload = proposal.payload
+        payload = _rows.read_offer(db, proposal).model_dump(mode="json")
         if option not in payload["options"]:
             raise ValueError(
                 coded("MI0205", "that is not one of the answers this question offered")
@@ -635,7 +636,7 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
         kind_of = "left_open"
     else:
         kind_of = "said"
-    session.take(ctx, Command.ANSWER_GAP.value, answered=kind_of)
+    session.take(ctx, Command.ANSWER_GAP.value, p.GapAnswered(answered=kind_of))
     if stops:
         _say(
             session_id,
@@ -685,7 +686,9 @@ def next_gap(ctx: Ctx) -> str:
 @handles("answered")
 def answered(ctx: Ctx) -> str:
     """Which of the three the answer was: `answer_gap` recorded it, and says which."""
-    return str(ctx.payload["answered"])
+    if not isinstance(ctx.payload, p.GapAnswered):
+        raise TypeError("answered requires GapAnswered")
+    return ctx.payload.answered
 
 
 @handles("ask")
