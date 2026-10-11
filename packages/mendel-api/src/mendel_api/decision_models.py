@@ -208,6 +208,11 @@ class PipelineWantRevision(_Revision):
     __tablename__ = "pipeline_want_revision"
     __table_args__ = _revision_keys("want")
 
+    states_order: Mapped[int | None] = mapped_column(
+        Integer,
+        CheckConstraint("states_order >= 0", name="states_order_nonnegative"),
+        nullable=True,
+    )
     type_id: Mapped[str] = mapped_column(String(128))
     states: Mapped[list] = mapped_column(JSON, default=list)
     present: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))

@@ -138,7 +138,24 @@ def _goal_selections(goal):
             (r["states"] for r in goal["constraints"]["required_states"] if r["type_id"] == wanted),
             [],
         )
-        selected.append(_selection("want", wanted, type_id=wanted, states=states, present=True))
+        states_order = next(
+            (
+                n
+                for n, r in enumerate(goal["constraints"]["required_states"])
+                if r["type_id"] == wanted
+            ),
+            None,
+        )
+        selected.append(
+            _selection(
+                "want",
+                wanted,
+                type_id=wanted,
+                states=states,
+                states_order=states_order,
+                present=True,
+            )
+        )
     for fact in goal["profile"]["measurements"]:
         selected.append(
             _selection(
@@ -537,28 +554,43 @@ def _proposed_goal(converted):
 
 def snapshots(connection):
     from sqlalchemy import inspect, text
+
     """Explicit SQL snapshot, independent of changing runtime ORM attributes."""
     columns = {column["name"] for column in inspect(connection).get_columns("pipeline_draft")}
     if "goal" not in columns:
         return []
-    rows = connection.execute(text("""
+    rows = connection.execute(
+        text("""
         SELECT d.id AS draft_id, s.id AS session_id, s.phase, s.at,
                s.goal AS session_goal, d.goal AS draft_goal,
                s.facts, d.graph, d.provenance, s.blueprint, s.reviewed, s.policy,
                d.decision_revision
         FROM pipeline_draft d LEFT JOIN pipeline_authoring_session s ON s.draft_id=d.id
         ORDER BY d.id
-    """)).mappings()
+    """)
+    ).mappings()
     result = []
     for row in rows:
         values = dict(row)
-        for field in ("session_goal", "draft_goal", "facts", "graph", "provenance",
-                      "blueprint", "reviewed", "policy"):
+        for field in (
+            "session_goal",
+            "draft_goal",
+            "facts",
+            "graph",
+            "provenance",
+            "blueprint",
+            "reviewed",
+            "policy",
+        ):
             value = values[field]
             if value is None:
-                value = [] if field in ("facts", "reviewed") else {} if field in (
-                    "graph", "provenance", "blueprint") else None
+                value = (
+                    []
+                    if field in ("facts", "reviewed")
+                    else {}
+                    if field in ("graph", "provenance", "blueprint")
+                    else None
+                )
             values[field] = json.dumps(value) if value is not None else None
         result.append(Snapshot(**values))
     return result
-

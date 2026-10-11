@@ -73,6 +73,7 @@ class InputDecision(_Value):
 class WantDecision(_Value):
     type_id: TypeId
     states: list[str] = Field(default_factory=list)
+    states_order: int | None = Field(default=None, ge=0)
     present: bool = True
 
 
@@ -125,22 +126,43 @@ class Decisions(_Value):
     def goal(self, measurements: Profiles) -> Goal:
         """The active goal. Only a declaration-validating registry constructs its profile."""
         return Goal(
-            have=[GoalInput(type_id=i.type_id, name=i.name, states=frozenset(i.states))
-                  for i in self.inputs if i.present],
+            have=[
+                GoalInput(type_id=i.type_id, name=i.name, states=frozenset(i.states))
+                for i in self.inputs
+                if i.present
+            ],
             want=[w.type_id for w in self.wants if w.present],
             constraints=Constraints(
-                required_states=[RequiredStates(type_id=w.type_id, states=w.states)
-                                 for w in self.wants if w.present and w.states],
-                params=[ParamOverride(name=p.name, value=p.value)
-                        for p in self.parameters if p.value is not None],
-                producers=[ProducerPin(site=p.site, contract=p.contract)
-                           for p in self.producers if p.contract is not None],
+                required_states=[
+                    RequiredStates(type_id=w.type_id, states=w.states)
+                    for _, w in sorted(
+                        enumerate(self.wants),
+                        key=lambda pair: (
+                            pair[1].states_order if pair[1].states_order is not None else pair[0]
+                        ),
+                    )
+                    if w.present and w.states
+                ],
+                params=[
+                    ParamOverride(name=p.name, value=p.value)
+                    for p in self.parameters
+                    if p.value is not None
+                ],
+                producers=[
+                    ProducerPin(site=p.site, contract=p.contract)
+                    for p in self.producers
+                    if p.contract is not None
+                ],
             ),
-            profile=measurements.profile_of([
-                MeasuredEntry(f.subject, f.value, _SOURCE[f.origin], f.by,
-                              tuple(f.pieces), f.evidence)
-                for f in self.facts if f.origin is not FactOrigin.OPEN
-            ]),
+            profile=measurements.profile_of(
+                [
+                    MeasuredEntry(
+                        f.subject, f.value, _SOURCE[f.origin], f.by, tuple(f.pieces), f.evidence
+                    )
+                    for f in self.facts
+                    if f.origin is not FactOrigin.OPEN
+                ]
+            ),
         )
 
     @classmethod
@@ -149,12 +171,14 @@ class Decisions(_Value):
         if len(set(goal.want)) != len(goal.want):
             raise ValueError("repeated wanted outputs cannot be represented faithfully")
         required = goal.constraints.required_states
-        if (any(r.type_id not in goal.want or not r.states for r in required)
-                or len({r.type_id for r in required}) != len(required)):
+        if any(r.type_id not in goal.want or not r.states for r in required) or len(
+            {r.type_id for r in required}
+        ) != len(required):
             raise ValueError("required-state records cannot be represented faithfully")
         if any(f.source not in _ORIGIN for f in goal.profile.measurements):
             raise ValueError("that evidence source cannot be represented faithfully")
         keys = set()
+
         def input_key(item):
             base = item.name or item.type_id
             key, count = base, 1
@@ -163,19 +187,37 @@ class Decisions(_Value):
                 key = f"{base}#{count}"
             keys.add(key)
             return key
+
         return cls(
-            inputs=[InputDecision(key=input_key(i), type_id=i.type_id,
-                                  name=i.name, states=sorted(i.states))
-                    for i in goal.have],
-            wants=[WantDecision(type_id=w, states=sorted(goal.constraints.states_for(w)))
-                   for w in goal.want],
-            facts=[FactDecision(subject=f.measurement, value=f.value,
-                                origin=(_ORIGIN[f.source] if f.value is not None
-                                        else FactOrigin.OPEN),
-                                by=f.by, pieces=f.pieces, evidence=f.evidence)
-                   for f in goal.profile.measurements],
-            producers=[ProducerChoice(site=p.site, contract=p.contract)
-                       for p in goal.constraints.producers],
-            parameters=[ParameterChoice(name=p.name, value=p.value)
-                        for p in goal.constraints.params],
+            inputs=[
+                InputDecision(
+                    key=input_key(i), type_id=i.type_id, name=i.name, states=sorted(i.states)
+                )
+                for i in goal.have
+            ],
+            wants=[
+                WantDecision(
+                    type_id=w,
+                    states=sorted(goal.constraints.states_for(w)),
+                    states_order=next((n for n, r in enumerate(required) if r.type_id == w), None),
+                )
+                for w in goal.want
+            ],
+            facts=[
+                FactDecision(
+                    subject=f.measurement,
+                    value=f.value,
+                    origin=(_ORIGIN[f.source] if f.value is not None else FactOrigin.OPEN),
+                    by=f.by,
+                    pieces=f.pieces,
+                    evidence=f.evidence,
+                )
+                for f in goal.profile.measurements
+            ],
+            producers=[
+                ProducerChoice(site=p.site, contract=p.contract) for p in goal.constraints.producers
+            ],
+            parameters=[
+                ParameterChoice(name=p.name, value=p.value) for p in goal.constraints.params
+            ],
         )

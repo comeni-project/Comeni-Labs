@@ -255,3 +255,14 @@ def test_reviews_are_retained_rows_with_real_actor_kind_and_cascade_status():
         assert [r.status for r in revisions] == ["reviewed", "superseded"]
         assert revisions[0].who == "engine" and revisions[0].actor_kind == "resolver"
         assert db.get(PipelineDraft, draft).decision_revision == 0
+
+
+def test_persisted_goal_keeps_required_state_order_independent_of_wants():
+    service = _service()
+    draft = drafts.create(DraftGraph(), "ordered constraints", "ana")
+    goal = Goal(want=["counts.matrix", "alignment.bam"], constraints={"required_states": [
+        {"type_id": "alignment.bam", "states": ["coordinate_sorted"]},
+        {"type_id": "counts.matrix", "states": ["gene_level"]},
+    ]})
+    service.import_goal(draft, goal, who="ana")
+    assert service.goal(draft).model_dump(mode="json") == goal.model_dump(mode="json")

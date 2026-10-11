@@ -323,3 +323,34 @@ def test_the_cutover_removes_duplicate_live_goal_columns():
         {"goal", "facts", "reviewed", "policy"}
         & {c["name"] for c in schema.get_columns("pipeline_authoring_session")}
     )
+
+
+def test_frozen_conversion_retains_the_independent_required_state_order():
+    from comeni_core.declared.measurement import MeasurementRegistry
+    from comeni_core.goal.asked import Goal
+    from mendel_api.migration_data.decisions_v1 import convert
+    from mendel_authoring.decisions import Decisions, WantDecision
+    from support.paths import REGISTRY
+
+    goal = Goal(
+        want=["counts.matrix", "alignment.bam"],
+        constraints={
+            "required_states": [
+                {"type_id": "alignment.bam", "states": ["coordinate_sorted"]},
+                {"type_id": "counts.matrix", "states": ["gene_level"]},
+            ]
+        },
+    )
+    encoded = goal.model_dump_json()
+    converted = convert(_snapshot(session_goal=encoded, draft_goal=encoded, facts="[]"))
+    assert converted.disposition == "confirmed"
+    selected = Decisions(
+        wants=[
+            WantDecision.model_validate_json(s.fields)
+            for s in converted.selections
+            if s.family == "want"
+        ]
+    )
+    assert selected.goal(MeasurementRegistry.load(REGISTRY)).model_dump(mode="json") == (
+        goal.model_dump(mode="json")
+    )

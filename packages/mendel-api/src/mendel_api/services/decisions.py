@@ -332,7 +332,12 @@ def read(draft_id):
                 for s, r in _current(db, draft_id, "input")
             ],
             wants=[
-                WantDecision(type_id=r.type_id, states=r.states, present=r.present)
+                WantDecision(
+                    type_id=r.type_id,
+                    states=r.states,
+                    present=r.present,
+                    states_order=r.states_order,
+                )
                 for s, r in _current(db, draft_id, "want")
             ],
             facts=[

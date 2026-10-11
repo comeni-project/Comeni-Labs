@@ -7,7 +7,7 @@ Downgrade cannot reconstruct later decisions; restoring that backup is the rollb
 from datetime import UTC, datetime
 
 from alembic import context, op
-from sqlalchemy import text
+from sqlalchemy import Column, Integer, text
 
 revision = "a8c2d6e4b053"
 down_revision = "f7b1c5d3a942"
@@ -24,6 +24,12 @@ def upgrade():
             "'Decision cutover requires an online upgrade and verified backup'; END $$"
         )
     else:
+        op.add_column("pipeline_want_revision", Column("states_order", Integer(), nullable=True))
+        op.create_check_constraint(
+            op.f("ck_pipeline_want_revision_states_order_nonnegative"),
+            "pipeline_want_revision",
+            "states_order >= 0",
+        )
         from mendel_api.migration_data.decisions_v1 import Conversion, apply, convert, snapshots
 
         connection = op.get_bind()
