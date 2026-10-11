@@ -29,3 +29,24 @@ def reachable(probe=_select_one) -> bool:
             ) from failed
         return False
     return True
+
+
+def truncate(statement: str):
+    """Truncate test-owned draft decisions together with their parent, never by cascade.
+
+    Read live table names so populated-baseline migration tests work before the additive
+    schema exists. This helper is only in test support; production never truncates drafts.
+    """
+    from mendel_api.db import engine
+    from sqlalchemy import inspect
+
+    prefix = "TRUNCATE TABLE "
+    if not statement.startswith(prefix):
+        raise ValueError("expected a test truncation statement")
+    tables = {name.strip() for name in statement[len(prefix):].split(",")}
+    if "pipeline_draft" in tables:
+        tables.update(
+            name for name in inspect(engine).get_table_names()
+            if name.startswith("pipeline_") and not name.startswith("pipeline_authoring_")
+        )
+    return text(prefix + ", ".join(sorted(tables)))

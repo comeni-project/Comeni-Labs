@@ -20,9 +20,8 @@ from mendel_api.services import session as facade
 from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_authoring.protocol import PROTOCOL
-from mendel_postgres import reachable
+from mendel_postgres import reachable, truncate
 from mendel_resolver.goal import Goal
-from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -42,7 +41,7 @@ def clean():
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:
-        session.execute(text(f"TRUNCATE TABLE {tables}"))
+        session.execute(truncate(f"TRUNCATE TABLE {tables}"))
     yield
 
 

@@ -87,6 +87,21 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_authoring_turn",
         "pipeline_authoring_proposal",
         "installation_setting",
+        "pipeline_input",
+        "pipeline_input_revision",
+        "pipeline_want",
+        "pipeline_want_revision",
+        "pipeline_fact",
+        "pipeline_fact_revision",
+        "pipeline_producer",
+        "pipeline_producer_revision",
+        "pipeline_parameter",
+        "pipeline_parameter_revision",
+        "pipeline_review",
+        "pipeline_review_revision",
+        "pipeline_observation",
+        "pipeline_evidence_access",
+        "pipeline_phrasing",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a sixteenth needs the same argument written down. Two rejections in "
@@ -267,6 +282,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             "facts",
             # 14.7.8.1: the protocol node the session rests on — a node id, nothing of a file.
             "at",
+            # Part F: typed extraction presentation, retired workflow status and policy columns.
+            "extraction", "retired", "retirement_reason", "pacing", "show_gaps",
         },
         "pipeline_authoring_turn": {
             "id", "session_id", "seq", "role", "state", "blocks", "text", "base_revision",

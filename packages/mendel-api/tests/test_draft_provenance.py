@@ -28,8 +28,7 @@ from comeni_core.plan.tiers import Tier, ValueSource
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
 from mendel_api.services import drafts
-from mendel_postgres import reachable
-from sqlalchemy import text
+from mendel_postgres import reachable, truncate
 
 STAR = "nf-core/star/align@1.11.0"
 HISAT = "nf-core/hisat2/align@2.2.1"
@@ -117,7 +116,7 @@ def spawned_draft() -> str:
     """A draft with a full sidecar, as a Spawn session would leave it."""
     with session_scope() as session:
         session.execute(
-            text(
+            truncate(
                 "TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
                 "pipeline_authoring_session, pipeline_draft, gate_run"
             )
@@ -264,7 +263,7 @@ def test_a_hand_drawn_draft_starts_with_no_sidecar():
     still drawing, and `ir_of` treats that as today's behaviour byte for byte."""
     with session_scope() as session:
         session.execute(
-            text(
+            truncate(
                 "TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
                 "pipeline_authoring_session, pipeline_draft, gate_run"
             )

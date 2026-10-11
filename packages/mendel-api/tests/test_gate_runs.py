@@ -13,7 +13,7 @@ from comeni_core.artifact.gates import Gate
 from mendel_api.db import session_scope
 from mendel_api.models import GateRun, PipelineDraft
 from mendel_api.services import gates
-from mendel_postgres import reachable
+from mendel_postgres import reachable, truncate
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -28,7 +28,7 @@ def clean():
     (issue 274). Everything that references `pipeline_draft` goes in the one `TRUNCATE`."""
     now = datetime.now(UTC)
     with session_scope() as session:
-        session.execute(text(
+        session.execute(truncate(
             "TRUNCATE TABLE gate_run, pipeline_authoring_proposal, pipeline_authoring_turn, "
             "pipeline_authoring_session, pipeline_draft, gate_run"
         ))

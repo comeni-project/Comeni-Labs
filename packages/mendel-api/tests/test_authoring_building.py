@@ -28,9 +28,9 @@ from mendel_api.services import blueprint as bp
 from mendel_api.services import session as facade
 from mendel_authoring import commands
 from mendel_authoring import state as st
-from mendel_postgres import reachable
+from mendel_postgres import reachable, truncate
 from mendel_resolver.goal import Goal
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 ROOT = Path(__file__).resolve().parents[3]
 HISAT2 = "nf-core/hisat2/align@2.2.2"
@@ -51,7 +51,7 @@ def clean():
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:
-        session.execute(text(f"TRUNCATE TABLE {tables}"))
+        session.execute(truncate(f"TRUNCATE TABLE {tables}"))
     yield
 
 

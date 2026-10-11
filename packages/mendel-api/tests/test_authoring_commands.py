@@ -8,13 +8,14 @@ from mendel_api.services import session
 from mendel_api.stages import _jobs
 from mendel_authoring import commands as c
 from mendel_authoring.interpret import Refused
+from mendel_postgres import truncate
 from sqlalchemy import text
 
 
 @pytest.fixture(autouse=True)
 def empty():
     with session_scope() as db:
-        db.execute(text("TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
+        db.execute(truncate("TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
                         "pipeline_authoring_session, pipeline_draft, gate_run"))
 
 

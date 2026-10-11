@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 
 from comeni_core.artifact.gates import Gate
+from mendel_authoring.pacing import Pacing
 from mendel_forge.workflow import (
     AdaptationState,
     Agent,
@@ -75,6 +76,16 @@ class GateState(StrEnum):
     RUNNING = "running"
     PASSED = "passed"
     FAILED = "failed"
+
+
+class DraftOwnership(StrEnum):
+    AUTHORED = "authored"
+    MANUAL = "manual"
+
+
+class RetirementReason(StrEnum):
+    AMBIGUOUS = "ambiguous"
+    OBSOLETE_PROTOCOL = "obsolete_protocol"
 
 
 class SourceCheck(Base):
@@ -148,6 +159,20 @@ class PipelineDraft(Base):
     """
 
     __tablename__ = "pipeline_draft"
+
+    ownership: Mapped[str] = mapped_column(
+        _one_of(DraftOwnership, 16, "ownership"), default=DraftOwnership.MANUAL,
+        server_default=text("'manual'")
+    )
+    decision_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    decision_sequence: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    projection_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    projection_current: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
+    forked_from: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), nullable=True
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     who: Mapped[str] = mapped_column(String(200), index=True)
@@ -693,6 +718,14 @@ class PipelineAuthoringSession(Base):
 
     __tablename__ = "pipeline_authoring_session"
 
+    extraction: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    retirement_reason: Mapped[str | None] = mapped_column(
+        _one_of(RetirementReason, 32, "retirement_reason"), nullable=True
+    )
+    pacing: Mapped[str | None] = mapped_column(_one_of(Pacing, 32, "pacing"), nullable=True)
+    show_gaps: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), unique=True, index=True
@@ -879,3 +912,23 @@ class PipelineAuthoringProposal(Base):
     `test_the_pending_proposal_index_names_the_pending_state` holds the two together rather than
     this sentence doing it — a comment claiming a guard exists is worse than no comment.
     """
+
+
+# Register draft-owned decisions in the same metadata Alembic and existing consumers read.
+from mendel_api.decision_models import (  # noqa: E402, F401
+    PipelineEvidenceAccess,
+    PipelineFact,
+    PipelineFactRevision,
+    PipelineInput,
+    PipelineInputRevision,
+    PipelineObservation,
+    PipelineParameter,
+    PipelineParameterRevision,
+    PipelinePhrasing,
+    PipelineProducer,
+    PipelineProducerRevision,
+    PipelineReview,
+    PipelineReviewRevision,
+    PipelineWant,
+    PipelineWantRevision,
+)

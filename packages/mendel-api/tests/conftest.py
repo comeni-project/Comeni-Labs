@@ -1,6 +1,7 @@
 """Fixtures for the API tests."""
 
 import pytest
+from mendel_postgres import truncate
 
 
 @pytest.fixture(autouse=True)
@@ -37,10 +38,9 @@ def clean_db():
     leaving rows behind makes them order-dependent.
     """
     from mendel_api.db import session_scope
-    from sqlalchemy import text
 
     with session_scope() as session:
-        session.execute(text("TRUNCATE TABLE queue_visit"))
+        session.execute(truncate("TRUNCATE TABLE queue_visit"))
     yield
 
 
@@ -68,7 +68,6 @@ def clean_forge():
     time. A third agent adds a line here.
     """
     from mendel_api.db import session_scope
-    from sqlalchemy import text
 
     tables = (
         "forge_message, forge_event, forge_revision, forge_adaptation, "
@@ -76,7 +75,7 @@ def clean_forge():
         "pipeline_authoring_proposal, pipeline_authoring_turn"
     )
     with session_scope() as session:
-        session.execute(text(f"TRUNCATE TABLE {tables}"))
+        session.execute(truncate(f"TRUNCATE TABLE {tables}"))
     yield
 
 
@@ -113,10 +112,9 @@ def clean_settings():
     """An empty `installation_setting` around each test. Nothing references it, so it truncates
     alone."""
     from mendel_api.db import session_scope
-    from sqlalchemy import text
 
     with session_scope() as session:
-        session.execute(text("TRUNCATE TABLE installation_setting"))
+        session.execute(truncate("TRUNCATE TABLE installation_setting"))
     yield
 class _MemoryStore:
     def __init__(self):

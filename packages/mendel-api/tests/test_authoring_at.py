@@ -14,14 +14,14 @@ from mendel_api.stages import _rows, gathering
 from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_authoring.protocol import PROTOCOL
-from sqlalchemy import text
+from mendel_postgres import truncate
 
 
 @pytest.fixture
 def sid():
     """One session on one draft, the tables emptied first (`test_authoring_service.py`'s way)."""
     with session_scope() as db:
-        db.execute(text(
+        db.execute(truncate(
             "TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
             "pipeline_authoring_session, pipeline_draft, gate_run"
         ))

@@ -17,8 +17,7 @@ from mendel_api.stages import gathering
 from mendel_api.stages import goal as goal_stage
 from mendel_authoring import commands
 from mendel_authoring import state as st
-from mendel_postgres import reachable
-from sqlalchemy import text
+from mendel_postgres import reachable, truncate
 
 pytestmark = pytest.mark.skipif(
     not reachable(), reason="no database — run `docker compose up -d postgres`"
@@ -33,7 +32,7 @@ def clean():
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:
-        session.execute(text(f"TRUNCATE TABLE {tables}"))
+        session.execute(truncate(f"TRUNCATE TABLE {tables}"))
     yield
 
 
