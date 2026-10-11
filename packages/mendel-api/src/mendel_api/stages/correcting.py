@@ -1,5 +1,8 @@
 """⑤ Truthful changes select facts first; resolution and dependent reviews follow the diagram."""
 
+import hashlib
+import json
+
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Site
 from mendel_authoring import commands as c
@@ -82,11 +85,9 @@ def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
             raise ValueError(
                 coded("MI0215", "a sample is still being read; retry when it finishes")
             )
-        session.check(row.id, arrow.value)
         if draft.ownership == "manual":
-            raise ValueError(
-                coded("MI0217", "correct this manually edited pipeline in a new draft")
-            )
+            arrow = Command.FORK_CORRECTION
+        session.check(row.id, arrow.value)
         ctx.session_id = row.id
         payload = p.Correction(
             subject=subject,
@@ -97,6 +98,10 @@ def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
             continuation=_CONTINUATION[Phase(row.phase)],
             before=bp.Blueprint.model_validate(row.blueprint) if row.blueprint else None,
         )
+        if arrow is Command.FORK_CORRECTION:
+            existing = existing_fork(db, row, draft, payload)
+            if existing:
+                return result(existing)
         session.take(ctx, arrow.value, payload)
     return result(ctx.session_id)
 
@@ -104,6 +109,97 @@ def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
 @records(c.CorrectFact)
 def correct(ctx: Ctx, cmd: c.CorrectFact):
     return _begin(ctx, cmd, Command.CORRECT_FACT, subject=cmd.subject, kind=cmd.kind)
+
+
+@records(c.ForkCorrection)
+def fork(ctx: Ctx, cmd: c.ForkCorrection):
+    return _begin(ctx, cmd, Command.FORK_CORRECTION, subject=cmd.subject, kind=cmd.kind)
+
+
+def fork_key(row, draft, payload):
+    values = [
+        row.id,
+        row.row_version,
+        draft.revision,
+        draft.decision_revision,
+        payload.model_dump(mode="json", exclude={"before", "after"}),
+    ]
+    return hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
+
+
+def existing_fork(db, row, draft, payload):
+    return db.scalar(
+        select(PipelineAuthoringSession.id)
+        .join(PipelineDraft, PipelineDraft.id == PipelineAuthoringSession.draft_id)
+        .where(
+            PipelineDraft.forked_from == draft.id,
+            PipelineDraft.fork_key == fork_key(row, draft, payload),
+        )
+    )
+
+
+@handles("fork_correction")
+def fork_correction(ctx: Ctx):
+    from comeni_core.plan.draft import DraftGraph
+
+    from mendel_api.stages import describe
+
+    change = _payload(ctx)
+    with session_scope() as db:
+        parent_session = db.get(PipelineAuthoringSession, ctx.session_id)
+        parent = db.get(PipelineDraft, parent_session.draft_id)
+        child = PipelineDraft(
+            id=_rows.new_id(),
+            who=change.who,
+            name=(parent.name[:188] + " (corrected)"),
+            graph=DraftGraph().model_dump(mode="json"),
+            updated_at=_rows.now(),
+            ownership="authored",
+            forked_from=parent.id,
+            fork_key=fork_key(parent_session, parent, change),
+            fork_sequence=parent.decision_sequence,
+            fork_at=_rows.now(),
+            decision_revision=0,
+            decision_sequence=0,
+            projection_current=False,
+        )
+        db.add(child)
+        db.flush()
+        decisions.inherit_in(db, parent, child)
+        sid = describe.open_session(child.id, who=change.who, start="fork_correction")
+        row = db.get(PipelineAuthoringSession, sid)
+        row.extraction = parent_session.extraction
+        row.pacing, row.show_gaps = parent_session.pacing, parent_session.show_gaps
+        row.blueprint, row.registry_digest = (
+            parent_session.blueprint,
+            parent_session.registry_digest,
+        )
+        if change.observation_id:
+            decisions.acknowledge_observation(
+                child.id,
+                change.observation_id,
+                "selected" if change.kind == "observation" else "retained",
+                who=change.who,
+            )
+        ctx.session_id = sid
+        _rows.say_engine(
+            sid,
+            f"Your manual pipeline is preserved in draft {parent.id}. "
+            "This linked draft applies the correction and starts a fresh review.",
+        )
+        _rows.engine_turn(
+            sid,
+            lambda seq: [
+                Receipt(
+                    id=f"fork-{seq}",
+                    summary=f"Manual work preserved in draft {parent.id}; "
+                    "the correction is in this new draft.",
+                    revision=child.revision,
+                    by="person",
+                ).model_dump(mode="json")
+            ],
+        )
+    return "forked"
 
 
 @records(c.ReleaseProducer)
@@ -464,6 +560,14 @@ def answer_disagreement(ctx: Ctx, cmd: c.AnswerDisagreement):
             continuation=offer.continuation,
             before=bp.Blueprint.model_validate(row.blueprint) if row.blueprint else None,
         )
+        ctx.session_id = row.id
+        if draft.ownership == "manual":
+            session.check(row.id, Command.FORK_CORRECTION.value)
+            existing = existing_fork(db, row, draft, payload)
+            if existing:
+                return result(existing)
+            session.take(ctx, Command.FORK_CORRECTION.value, payload)
+            return result(ctx.session_id)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by, proposal.chosen_option = cmd.by, cmd.option
         proposal.settled_at = _rows.now()

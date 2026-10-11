@@ -210,6 +210,10 @@ flowchart LR
     step_card -- "correct in a new draft" --> fork_correction
     wrap -- "correct in a new draft" --> fork_correction
     stopped -- "correct in a new draft" --> fork_correction
+    disagree_gather -- "correct in a new draft" --> fork_correction
+    disagree_goal -- "correct in a new draft" --> fork_correction
+    disagree_build -- "correct in a new draft" --> fork_correction
+    disagree_complete -- "correct in a new draft" --> fork_correction
     disagree_gather -- "your explicit choice" --> correct_fact
     disagree_goal -- "your explicit choice" --> correct_fact
     disagree_build -- "your explicit choice" --> correct_fact

@@ -40,13 +40,15 @@ directory — §2 already excludes draft labels from what a model is shown, and 
 the prompt would put the prompt somewhere that exclusion was never meant to reach.
 """
 
-def open_session(draft_id: str, *, who: str) -> str:
+def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
     """Start a conversation about a draft, or refuse if one is already open.
 
     **One session per draft**, which the unique index enforces and this refuses first — the same
     two-mechanism arrangement `forge_state.begin` uses, so a person reads a sentence rather than
     a constraint violation.
     """
+    if start not in ("say", "fork_correction"):
+        raise ValueError("unsupported initial authoring node")
     with session_scope() as session:
         if session.get(PipelineDraft, draft_id) is None:
             raise KeyError(draft_id)
@@ -69,8 +71,9 @@ def open_session(draft_id: str, *, who: str) -> str:
             PipelineAuthoringSession(
                 id=session_id,
                 draft_id=draft_id,
-                phase=Phase.UNDERSTANDING.value,
-                at="say",
+                phase=(Phase.CORRECTING if start == "fork_correction"
+                       else Phase.UNDERSTANDING).value,
+                at=start,
                 failed_from=None,
                 goal=None,
                 facts=[],

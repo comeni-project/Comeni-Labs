@@ -65,6 +65,8 @@ def rests_at(db, row: PipelineAuthoringSession) -> str:
     if row.at is not None:
         return row.at
     phase = Phase(row.phase)
+    if phase is Phase.CORRECTING:
+        raise ValueError(coded("MI0217", "an incomplete correction cannot be resumed"))
     if phase is Phase.UNDERSTANDING:
         turn = db.scalar(
             select(PipelineAuthoringTurn.seq).where(
@@ -246,6 +248,13 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
         returning_to=came_from,
         snapshot=snapshot(protocol),
     )
+    if ctx.session_id != session_id:
+        if command != "fork_correction":
+            raise RuntimeError("only the drawn correction fork can start another session")
+        session_id = ctx.session_id
+        start, stored, phase, came_from = _where(session_id)
+        if start != "fork_correction":
+            raise RuntimeError("a correction fork must enter at its drawn fork node")
     held = (
         PipelineAuthoringSession.at.is_(None)
         if stored is None

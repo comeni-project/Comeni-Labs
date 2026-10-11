@@ -36,6 +36,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, validates
@@ -159,6 +160,19 @@ class PipelineDraft(Base):
     """
 
     __tablename__ = "pipeline_draft"
+
+    __table_args__ = (
+        UniqueConstraint("forked_from", "fork_key", name="uq_pipeline_draft_fork"),
+        CheckConstraint(
+            "(forked_from IS NULL AND fork_key IS NULL AND fork_sequence IS NULL "
+            "AND fork_at IS NULL) "
+            "OR (forked_from IS NOT NULL AND fork_key IS NOT NULL AND fork_sequence IS NOT NULL "
+            "AND fork_at IS NOT NULL AND forked_from != id)", name="complete_fork"
+        ),
+    )
+    fork_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fork_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fork_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     ownership: Mapped[str] = mapped_column(
         _one_of(DraftOwnership, 16, "ownership"), default=DraftOwnership.MANUAL,

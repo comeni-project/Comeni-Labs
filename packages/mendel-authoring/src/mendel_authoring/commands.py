@@ -249,7 +249,7 @@ class CorrectFact:
     expected_draft_revision: int
     expected_session_version: int
     kind: str = "measurement"
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT, Command.FORK_CORRECTION})
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,7 +261,7 @@ class AnswerDisagreement:
     expected_decision_revision: int
     expected_draft_revision: int
     expected_session_version: int
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.ANSWER_DISAGREEMENT})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.ANSWER_DISAGREEMENT, Command.FORK_CORRECTION})
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,7 +273,7 @@ class ReleaseProducer:
     expected_decision_revision: int
     expected_draft_revision: int
     expected_session_version: int
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.RELEASE_PRODUCER})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.RELEASE_PRODUCER, Command.FORK_CORRECTION})
 
 
 @dataclass(frozen=True, slots=True)

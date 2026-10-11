@@ -62,7 +62,9 @@ def test_a_row_from_before_at_rests_on_its_phases_node(sid, phase, node):
 
 
 def test_every_phase_has_a_derived_node():
-    assert set(session._BY_PHASE) == set(Phase)
+    # Corrections are atomic and require a typed action payload; no legacy row can
+    # safely derive a correction from a phase alone.
+    assert set(session._BY_PHASE) == set(Phase) - {Phase.CORRECTING}
 
 
 def test_a_pending_turn_in_understanding_rests_where_the_model_works(sid):
@@ -92,3 +94,9 @@ def test_a_test_moving_by_event_leaves_the_node_to_be_derived(sid):
     with session_scope() as db:
         assert db.get(PipelineAuthoringSession, sid).at is None
     assert _at(sid) == "list_needs"
+
+
+def test_a_correction_without_its_node_cannot_invent_an_action(sid):
+    _old(sid, Phase.CORRECTING)
+    with pytest.raises(ValueError, match="incomplete correction"):
+        _at(sid)

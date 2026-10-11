@@ -853,7 +853,9 @@ PROTOCOL = Protocol(
           for source in ("reply", "card", "step_card", "wrap", "stopped")),
         *(_move(source, "fork_correction", _E.CORRECTION_REQUESTED,
                  "correct in a new draft", on="fork_correction")
-          for source in ("reply", "card", "step_card", "wrap", "stopped")),
+          for source in ("reply", "card", "step_card", "wrap", "stopped",
+                         "disagree_gather", "disagree_goal",
+                         "disagree_build", "disagree_complete")),
         *(_move("disagree_" + suffix, "correct_fact", _E.CORRECTION_REQUESTED,
                  "your explicit choice", on="answer_disagreement")
           for suffix in ("gather", "goal", "build", "complete")),
