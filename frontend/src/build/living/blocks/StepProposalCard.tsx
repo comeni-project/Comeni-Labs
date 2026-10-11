@@ -21,8 +21,10 @@ export function StepProposalCard({
   onPreview,
   onExplain,
   onSelect,
+  onCorrectAnswers,
 }: {
   proposal: AuthoringProposal;
+  onCorrectAnswers?: () => void;
   /** `4` in *step 4*. */
   position: number;
   busy: boolean;
@@ -76,6 +78,9 @@ export function StepProposalCard({
                    onClick={accept}>
             {busy ? "Working…" : chosen === "keep" ? "Continue" : "Change it"}
           </Primary>
+          {onCorrectAnswers && <Secondary onClick={onCorrectAnswers} disabled={busy}>
+            Correct current answers
+          </Secondary>}
           <Secondary data-testid="explain-step" onClick={onExplain}>
             Show me why
           </Secondary>

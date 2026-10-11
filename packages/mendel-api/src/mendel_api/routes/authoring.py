@@ -16,14 +16,17 @@ a declared code, written by the job; this file never catches a provider exceptio
 formats one.
 """
 
+from datetime import datetime
 from typing import Literal
 
 from comeni_core.artifact.pipeline import AiProvenance
+from comeni_core.declared.measurement import Measurement
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
 from comeni_core.spell.marks import HumanParamValue, OptionId
 from fastapi import APIRouter, HTTPException, Request, status
 from mendel_authoring import commands as c
+from mendel_authoring.decisions import ActorKind, InputDecision
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -126,10 +129,12 @@ class AuthoringDecisionView(BaseModel):
 
     envelope: HistoryOffer
     id: str
-    kind: Literal["goal", "step", "gap", "pacing"]
+    kind: Literal["goal", "step", "gap", "pacing", "disagreement"]
     state: ProposalState
     block: Block
     by: str | None
+    actor_kind: ActorKind = ActorKind.UNKNOWN
+    applicability: Literal["retained", "superseded", "removed"] | None = None
     chosen_option: str | None
     chosen_contract: str | None
     """The contract the chosen option stood for, so a row can name a substitution."""
@@ -144,7 +149,7 @@ class AuthoringProposalView(BaseModel):
     envelope: Offer
 
     id: str
-    kind: Literal["goal", "step", "gap", "pacing"]
+    kind: Literal["goal", "step", "gap", "pacing", "disagreement"]
     draft_revision: int
     block: Block
     options: list[str]
@@ -199,6 +204,14 @@ class AuthoringSessionView(BaseModel):
     failed_from: Phase | None
     goal: Goal | None
     facts: list[Fact] = []
+    inputs: list[InputDecision] = []
+    decision_revision: int = 0
+    projection_current: bool = True
+    ownership: Literal["authored", "manual"] = "authored"
+    retired: bool = False
+    forked_from: str | None = None
+    forked_from_session: str | None = None
+    review_applicability: dict[str, Literal["retained", "superseded", "removed"]] = {}
     usage: AuthoringUsage = AuthoringUsage()
     """The session's model calls, totalled — carried by the poll the page already makes."""
     """What gathering learned, each with where it came from. Empty until 14.7.3's gathering."""
@@ -293,6 +306,7 @@ class AuthoringVocabulary(BaseModel):
 
     types: dict[str, list[str]]
     measurers: list[MeasurerView] = []
+    measurements: dict[str, Measurement] = {}
 
 
 class AuthoringPreview(BaseModel):
@@ -342,6 +356,34 @@ class AuthoringCorrected(BaseModel):
     projection_current: bool
 
 
+class FactHistoryEntry(BaseModel):
+    model_config = _FROZEN
+    seq: int
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    origin: Literal["person_said", "measured", "model_read", "open"]
+    selected: bool
+    current: bool
+    revision_id: str | None = None
+    observation_id: str | None = None
+    actor_kind: ActorKind = ActorKind.UNKNOWN
+    who: str | None = None
+    action: Literal["select", "retain", "retract", "inherit", "import", "observed"]
+    at: datetime
+    observed_at: datetime | None = None
+    acknowledged_as: Literal["agreement", "retained", "selected", "obsolete"] | None = None
+    acknowledged_at: datetime | None = None
+    acknowledged_by: str | None = None
+    acknowledged_kind: ActorKind | None = None
+    inherited: bool = False
+    source_draft_id: str | None = None
+
+
+class FactHistoryView(BaseModel):
+    model_config = _FROZEN
+    subject: str
+    entries: list[FactHistoryEntry]
+
+
 # ── operations ────────────────────────────────────────────────────────────────────────────
 
 
@@ -376,6 +418,7 @@ def vocabulary() -> AuthoringVocabulary:
     types = stack.vocabulary.types
     return AuthoringVocabulary(
         types={t: sorted(types[t]) for t in sorted(types)},
+        measurements=stack.measurements.measurements,
         measurers=[MeasurerView(**m.model_dump()) for m in measurers.index(stack)],
     )
 
@@ -388,6 +431,18 @@ def vocabulary() -> AuthoringVocabulary:
 )
 def read(session_id: str) -> AuthoringSessionView:
     return _view(session_id)
+
+
+@router.get("/{session_id}/facts/{subject}/history", operation_id="authoringFactHistory",
+            responses=REFUSES)
+def fact_history(session_id: str, subject: str) -> FactHistoryView:
+    from mendel_api.services import decisions
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="authoring session not found")
+        entries = decisions.history(row.draft_id, subject)
+    return FactHistoryView(subject=subject, entries=entries)
 
 
 @router.get(
@@ -600,6 +655,9 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
+        **{key: picture[key] for key in (
+            "inputs", "decision_revision", "projection_current", "ownership", "retired",
+            "forked_from", "forked_from_session", "review_applicability")},
         usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),

@@ -44,6 +44,7 @@ export function LivingHeader({
       <span className="font-data text-[11px] text-ink-3" data-testid="living-status">
         <span style={{ color: waiting ? "var(--measured)" : undefined }}>{phaseWords(session)}</span>
         {progress && <> · {progress}</>}
+        {session.projection_current === false && " · pipeline outdated"}
         {` · revision ${session.revision}`}
       </span>
       {spent && (

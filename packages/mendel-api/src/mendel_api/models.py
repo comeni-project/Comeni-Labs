@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 
 from comeni_core.artifact.gates import Gate
+from mendel_authoring.decisions import ActorKind
 from mendel_authoring.pacing import Pacing
 from mendel_forge.workflow import (
     AdaptationState,
@@ -905,6 +906,9 @@ class PipelineAuthoringProposal(Base):
     """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
     chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)
     """An option **id**, never a value. See the class docstring."""
+    actor_kind: Mapped[str | None] = mapped_column(
+        _one_of(ActorKind, 16, "actor_kind"), nullable=True
+    )
     by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     """Who settled it, once answered: an author's name or a model's id. Null while pending.
 

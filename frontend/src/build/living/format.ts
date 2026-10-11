@@ -10,21 +10,11 @@ import type { AuthoringSession } from "../../api/types";
 export const processName = (node: string) => node.toUpperCase();
 
 /** Who decided something, as the three marks the canvas bar and the log tick share. */
-export type Author = "resolver" | "model" | "person";
+export type Author = "resolver" | "model" | "person" | "unknown";
 
 /** The author of an answered proposal, from what the server recorded — never guessed from mode. */
 export function authorOf(decision: AuthoringSession["history"][number]): Author {
-  const by = decision.by ?? "";
-  if (by === "person" || by === "model" || by === "resolver") return by;
-  if (decision.kind === "step" && decision.chosen_option && decision.chosen_option !== "keep") {
-    return "person";
-  }
-  if (decision.block.kind === "step_proposal") {
-    // A step settled at tiers 1–3 and acknowledged unchanged keeps the resolver as its author;
-    // a tier-4 one a person pressed is theirs. Spawn's model choices arrive with `by` naming it.
-    return decision.block.tier === 4 ? "person" : "resolver";
-  }
-  return "person";
+  return decision.actor_kind === "unknown" || !decision.actor_kind ? "unknown" : decision.actor_kind;
 }
 
 /** Whether the goal phase is waiting on the **person**, and why — or `null` while it is not.

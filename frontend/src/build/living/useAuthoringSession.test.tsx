@@ -234,3 +234,21 @@ describe("coming back to the page (issue 230)", () => {
     await waitFor(() => expect(sessionReads()).toBe(2));
   });
 });
+
+it("sends the three current versions and follows a corrected manual fork", async () => {
+  const follow = vi.fn();
+  const fetch = vi.fn(async (url: string, request?: RequestInit) => request?.method === "POST"
+    ? ok({ session_id: "s2", draft_id: "d2", phase: "building", revision: 8, decision_revision: 3,
+      next_proposal: "p2", projection_current: true })
+    : url.endsWith("/vocabulary") ? ok({ types: {}, measurements: {} })
+    : url.endsWith("/preview") ? ok({ revision: 7, text: "" })
+    : ok(view("answered", { phase: "complete", decision_revision: 2, revision: 7, row_version: 9 })));
+  vi.stubGlobal("fetch", fetch);
+  const { result } = renderHook(() => useAuthoringSession("s1", { onFork: follow }), { wrapper: wrap(fresh()) });
+  await waitFor(() => expect(result.current.session?.revision).toBe(7));
+  await act(async () => { await result.current.correct("read_length", 50, "measurement"); });
+  const sent = fetch.mock.calls.find(([url, request]) => url.endsWith("/facts/read_length") && request?.method === "POST")!;
+  expect(JSON.parse(sent[1]!.body as string)).toEqual({ value: 50, kind: "measurement",
+    expected_decision_revision: 2, expected_draft_revision: 7, expected_session_version: 9 });
+  expect(follow).toHaveBeenCalledWith("s2");
+});

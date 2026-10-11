@@ -21,6 +21,8 @@ from comeni_core.plan.draft import (
 from comeni_core.plan.tiers import Tier, ValueSource
 from pydantic import BaseModel, ConfigDict
 
+from mendel_authoring.decisions import ActorKind
+
 SELECTION_AXIS = "which contract fills this step"
 ENGINE = "engine"
 """Who placed a step the walk did not stop at."""
@@ -78,6 +80,7 @@ def committed(
     node_id: str,
     *,
     by: str,
+    actor_kind: ActorKind = ActorKind.PERSON,
 ) -> tuple[DraftGraph, DraftProvenance]:
     """The draft and its sidecar once the blueprint's step `node_id` is reviewed by `by`.
 
@@ -121,7 +124,7 @@ def committed(
     stamped.append(
         NodeSettled(
             node=node_id,
-            selection=_selection(blueprint, step, by=by),
+            selection=_selection(blueprint, step, by=by, actor_kind=actor_kind),
             presence=_settled(step.presence) if step.presence is not None else None,
         )
     )
@@ -160,13 +163,13 @@ def edges_touching(blueprint: Blueprint, node_id: str) -> list[DraftEdge]:
     return found
 
 
-def _selection(blueprint: Blueprint, step: Step, *, by: str) -> Settled:
+def _selection(blueprint: Blueprint, step: Step, *, by: str, actor_kind: ActorKind) -> Settled:
     if step.why.source is ValueSource.HUMAN:
         # A person's pin in the goal (§14.3 of the consultant build): the blueprint's own step
         # already says who chose it and over what — keep that reason. Credit the reviewer only
         # when a person reviewed it: a pin already in the goal is placed quietly, by the engine,
         # and the engine never signs a person's choice.
-        return _settled(step.why, by="" if by == ENGINE else by)
+        return _settled(step.why, by=by if actor_kind is ActorKind.PERSON else "")
     if step.why.source is ValueSource.MODEL:
         chooser = next(
             (

@@ -289,12 +289,27 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
 
 def history(draft_id, subject):
     with session_scope() as db:
-        draft = _draft(db, draft_id)
+        draft = db.get(PipelineDraft, draft_id)
+        if draft is None:
+            raise KeyError(draft_id)
         rows = db.execute(select(PipelineFact, PipelineFactRevision).join(
             PipelineFactRevision, PipelineFact.id == PipelineFactRevision.subject_id
         ).where(PipelineFact.draft_id == draft_id, PipelineFact.subject_key == subject)).all()
         selected_ids = {r.observation_id for s, r in rows}
         result = []
+        if not rows:
+            inputs = db.execute(select(PipelineInput, PipelineInputRevision).join(
+                PipelineInputRevision, PipelineInput.id == PipelineInputRevision.subject_id
+            ).where(PipelineInput.draft_id == draft_id,
+                    PipelineInput.subject_key == subject)).all()
+            for selected, revision in inputs:
+                result.append(dict(seq=revision.seq,
+                    value=None if revision.origin == "open" else revision.present,
+                    origin=revision.origin, selected=True,
+                    current=selected.current_id == revision.id,
+                    revision_id=revision.id, observation_id=None,
+                    actor_kind=revision.actor_kind, who=revision.who,
+                    action=revision.action, at=revision.at, observed_at=None))
         for s, revision in rows:
             observation = _observation(db, revision.observation_id)
             fact = _fact(observation, subject)
@@ -423,7 +438,8 @@ def reviews(draft_id):
         return _reviews_in(db, draft_id)
 
 
-def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON):
+def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON,
+                  proposal_id=None):
     from mendel_authoring.reviews import review
 
     chosen = review(blueprint, node, who, actor_kind=actor_kind)
@@ -432,6 +448,7 @@ def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON
         return _write(db, draft, "review", node, {
             "node": node, "contract": chosen.contract, "fingerprint": chosen.fingerprint,
             "status": "reviewed", "decision_revision": draft.decision_revision,
+            "proposal_id": proposal_id,
         }, who=who, actor_kind=actor_kind).id
 
 
@@ -450,6 +467,7 @@ def cascade_reviews(draft_id, before, fresh):
                     "node": revision.node, "contract": revision.contract,
                     "fingerprint": revision.fingerprint, "status": applied.status.value,
                     "decision_revision": revision.decision_revision,
+                    "proposal_id": revision.proposal_id,
                 }, who="resolver", actor_kind=ActorKind.RESOLVER)
         return applicability
 

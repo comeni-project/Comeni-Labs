@@ -4,6 +4,7 @@ import type {
   AuthoringBlock,
   AuthoringProposal,
   AuthoringSession,
+  AuthoringVocabulary,
   DraftGraph,
   GoalIn,
   SampleInspected,
@@ -11,6 +12,8 @@ import type {
 } from "../../api/types";
 import { Block, NoticeLine, Primary } from "./blocks/Block";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
+import { DisagreementCard } from "./blocks/DisagreementCard";
+import type { FactValue } from "./FactEditor";
 import { GapCard } from "./blocks/GapCard";
 import { GoalCard } from "./blocks/GoalCard";
 import { SampleResult } from "./blocks/SampleUpload";
@@ -47,6 +50,7 @@ export function DecisionLog({
   onSay,
   saying = null,
   vocabulary = null,
+  declarations, onDisagreement, onCorrectAnswers, correcting = false,
   onSetParam,
   onApplyChange,
   graph,
@@ -68,6 +72,10 @@ export function DecisionLog({
   /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
   saying?: string | null;
   vocabulary?: Record<string, string[]> | null;
+  declarations?: AuthoringVocabulary["measurements"];
+  onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
+  correcting?: boolean;
+  onCorrectAnswers?: () => void;
   onSetParam: (node: string, setting: string, value: string) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** The draft as drawn — what a step's tools change. */
@@ -95,7 +103,7 @@ export function DecisionLog({
   ].sort((a, b) => (a.at === b.at ? a.order - b.order : a.at < b.at ? -1 : 1));
 
   const accepted = new Set(session.history.filter((d) => d.state === "accepted").map((d) => d.block.id));
-  const acceptedBy = new Map(session.history.map((d) => [d.block.id, d.by ?? ""] as const));
+  const acceptedBy = new Map(session.history.map((d) => [d.block.id, d.actor_kind ?? "unknown"] as const));
   const pending = session.pending_proposal;
   const drawnOnTurns = new Set(session.turns.flatMap((t) => t.blocks.map((b) => b.id)));
   const stepsSoFar = session.history.filter((d) => d.kind === "step").length;
@@ -169,6 +177,7 @@ export function DecisionLog({
               key={pending.id}
               proposal={pending}
               position={stepsSoFar + 1}
+              onCorrectAnswers={onCorrectAnswers}
               busy={busy(pending.id)}
               onAccept={(option, value) => onAccept(pending, option, undefined, value)}
               onPreview={onPreview}
@@ -192,6 +201,10 @@ export function DecisionLog({
             </section>
           </Turn>
         )}
+        {pending?.kind === "disagreement" && onDisagreement && <Turn tick="wait">
+          <DisagreementCard key={pending.id} proposal={pending} declarations={declarations}
+            busy={correcting || busy(pending.id)} onAnswer={(option, value) => onDisagreement(pending, option, value)} />
+        </Turn>}
         {pending && pending.kind === "gap" && (
           <Turn tick="wait">
             <GapCard
@@ -335,7 +348,8 @@ function TurnEntry({
           return (
             <Turn key={block.id} tick={acceptedBy.get(block.id) === "model" ? "model" : "person"}>
               <Collapsed name="Goal confirmed" detail={block.get}
-                         by={acceptedBy.get(block.id) === "model" ? "read by the model" : "you chose"} />
+                         by={acceptedBy.get(block.id) === "model" ? "read by the model" :
+                           acceptedBy.get(block.id) === "person" ? "you chose" : "chooser unknown"} />
             </Turn>
           );
         }
@@ -375,7 +389,7 @@ function TurnEntry({
 const UNREACHABLE = new Set(["MI0106", "MA0002", "MA0003", "MA0007"]);
 
 /** What a collapsed row says about a tier, in the artboard's words. Tiers 1 and 2 say nothing. */
-const TIER_WORD: Record<number, string> = { 3: " · measured", 4: " · open" };
+const TIER_WORD: Record<number, string> = { 4: " · open" };
 
 function DecisionEntry({
   decision,
@@ -404,9 +418,10 @@ function DecisionEntry({
     const goal = decision.block.goal as { have?: { type_id: string }[]; want?: string[] };
     const flow = `${(goal.have ?? []).map((h) => h.type_id).join(", ")} → ${(goal.want ?? []).join(", ")}`;
     return (
-      <Turn tick={decision.by === "model" ? "model" : "person"}>
+      <Turn tick={decision.actor_kind === "model" ? "model" : "person"}>
         <Collapsed name="Goal confirmed" detail={flow}
-                   by={decision.by === "model" ? "confirmed by the policy" : "you confirmed"} />
+                   by={decision.actor_kind === "model" ? "confirmed by the policy" :
+                     decision.actor_kind === "person" ? "you confirmed" : "chooser unknown"} />
       </Turn>
     );
   }
@@ -417,7 +432,7 @@ function DecisionEntry({
     const answer = decision.answer
       ?? block.options.find((o) => o.id === decision.chosen_option)?.label
       ?? decision.chosen_option ?? "";
-    const model = decision.by === "model";
+    const model = decision.actor_kind === "model";
     const sampled = decision.chosen_option === "upload";
     // A sample the AI read, not one an inspector measured (issue 135).
     const aiRead = sampled && (block as { reading?: { state?: string } | null }).reading?.state === "read";
@@ -437,10 +452,10 @@ function DecisionEntry({
   }
   if (block.kind !== "step_proposal") return null;
   const author = authorOf(decision);
-  const tick: Tick = author === "model" ? "model" : author === "person" ? "person" : "resolver";
+  const tick: Tick = author === "model" ? "model" : author === "person" ? "person" : author === "unknown" ? "quiet" : "resolver";
   const verb =
     decision.state === "rejected" ? "skipped" : decision.state === "stale" ? "withdrawn"
-      : author === "model" ? "model chose" : author === "person" ? "you chose" : "settled";
+      : author === "model" ? "model chose" : author === "person" ? "you chose" : author === "unknown" ? "chooser unknown" : "settled";
   const replaced =
     decision.chosen_contract && decision.chosen_contract !== block.contract
       ? ` · ${decision.chosen_contract}`
@@ -450,12 +465,12 @@ function DecisionEntry({
     <Turn tick={tick} anchor={block.node}>
       <Collapsed
         name={processName(block.node)}
-        detail={`step ${position}${TIER_WORD[block.tier] ?? ""}${replaced}`}
+        detail={`step ${position}${TIER_WORD[block.tier] ?? ""}${replaced}${decision.applicability && decision.applicability !== "retained" ? ` · ${decision.applicability}` : ""}`}
         by={verb}
         selected={selected === block.node}
         onClick={() => onSelect(block.node)}
       />
-      {tools && decision.state === "accepted" && selected === block.node && (
+      {tools && decision.state === "accepted" && (!decision.applicability || decision.applicability === "retained") && selected === block.node && (
         <div className="mt-2">{tools}</div>
       )}
     </Turn>

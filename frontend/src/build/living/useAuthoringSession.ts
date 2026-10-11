@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useState } from "react";
 
+import type { components } from "../../api/schema";
+import type { FactValue } from "./FactEditor";
+
 import { get, post, postForm, Refused } from "../../api/client";
 import type {
   AuthoringDecided,
@@ -45,7 +48,7 @@ const key = (sessionId: string) => ["authoring", sessionId] as const;
 /** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
 export const HEAD_BYTES = 4 * 2 ** 20;
 
-export function useAuthoringSession(sessionId: string, options: { pollMs?: number } = {}) {
+export function useAuthoringSession(sessionId: string, options: { pollMs?: number; onFork?: (sessionId: string) => void } = {}) {
   const pollMs = options.pollMs ?? POLL_MS;
   const client = useQueryClient();
   const [state, dispatch] = useReducer(authoringReducer, initialAuthoring);
@@ -182,6 +185,29 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     onSuccess: () => void refresh(),
   });
 
+  const correction = useMutation({
+    mutationFn: (input: { subject?: string; kind?: "input" | "measurement";
+      proposal?: AuthoringProposal; option?: string; value: FactValue; release?: { type_id: string; states: string[] } }) => {
+      const current = session.data;
+      if (!current) throw new Error("Reload the session before correcting");
+      const context = { expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version };
+      const path = input.release ? "release-tool" : input.proposal ? `disagreements/${input.proposal.id}` :
+        `facts/${encodeURIComponent(input.subject!)}`;
+      return post<components["schemas"]["AuthoringCorrected"]>(
+        `/pipeline/authoring/${sessionId}/${path}`, { ...context, ...(input.release ?? { value: input.value,
+          ...(input.proposal ? { option: input.option } : { kind: input.kind }) }) });
+    },
+    onSuccess: answer => {
+      if (answer.session_id !== sessionId) options.onFork?.(answer.session_id);
+      else void refresh();
+    },
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
   const accept = useCallback(
     (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number) =>
       decide.mutate({
@@ -226,6 +252,14 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     /** A direct edit, recorded as the person's with a receipt the server composes. */
     edit: (graph: DraftGraph) => edit.mutate(graph),
     vocabulary: vocabulary.data?.types ?? null,
+    measurements: vocabulary.data?.measurements,
+    correcting: correction.isPending,
+    releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
+      release: { type_id, states }, value: null }),
+    correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>
+      correction.mutateAsync({ subject, value, kind }),
+    answerDisagreement: (proposal: AuthoringProposal, option: string, value: FactValue = null) =>
+      correction.mutateAsync({ proposal, option, value }),
     previewOption: (option: string | null) => dispatch({ type: "preview", option }),
     select: (node: string | null) => dispatch({ type: "select", node }),
     compose: (text: string) => dispatch({ type: "compose", text }),

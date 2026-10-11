@@ -166,6 +166,7 @@ def decide(
             row.settled_at = now()
             if outcome.applies:
                 row.by = by
+                row.actor_kind = "person"
                 row.chosen_option = chosen_option
 
         if outcome.bumps_revision and draft is not None:

@@ -178,6 +178,7 @@ def _record_found(
     if answered:
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = by
+        proposal.actor_kind = "person"
         proposal.chosen_option = UPLOAD
         proposal.settled_at = _now()
     # A sample that changed nothing leaves the session's version alone, so a click the person

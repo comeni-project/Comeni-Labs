@@ -451,7 +451,7 @@ def read(session_id: str) -> dict:
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
     from mendel_api.authoring import envelopes
-    from mendel_api.services import authoring_decisions
+    from mendel_api.services import authoring_decisions, decisions
     from mendel_api.stages.building import _placement, hand_edits
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
@@ -484,7 +484,25 @@ def read(session_id: str) -> dict:
                 func.count(AiInvocation.id),
             ).where(AiInvocation.session_id == session_id)
         ).one()
+        selected = decisions.read(row.draft_id)
+        review_rows = db.scalars(select(decisions.PipelineReviewRevision).where(
+            decisions.PipelineReviewRevision.draft_id == row.draft_id
+        ).order_by(decisions.PipelineReviewRevision.seq)).all()
+        review_status = {r.proposal_id: ("retained" if r.status == "reviewed" else r.status)
+                         for r in review_rows if r.proposal_id}
+        node_status = {r.node: ("retained" if r.status == "reviewed" else r.status)
+                       for r in review_rows}
+        original_session = (db.scalar(select(PipelineAuthoringSession.id).where(
+            PipelineAuthoringSession.draft_id == draft.forked_from)) if draft.forked_from else None)
         return {
+            "decision_revision": draft.decision_revision,
+            "projection_current": draft.projection_current,
+            "ownership": draft.ownership,
+            "retired": row.retired,
+            "forked_from": draft.forked_from,
+            "forked_from_session": original_session,
+            "inputs": [i.model_dump(mode="json") for i in selected.inputs],
+            "review_applicability": node_status,
             # **The token total rides the read every poll already makes** (#191; the operator's
             # constraint for 14.7.4: nothing chatty). A provider that reported no usage counts
             # as zero here and stays null on its row.
@@ -532,6 +550,8 @@ def read(session_id: str) -> dict:
                     "state": p.state,
                     "block": p.payload.get("block"),
                     "by": p.by,
+                    "actor_kind": p.actor_kind or "unknown",
+                    "applicability": review_status.get(p.id),
                     "chosen_option": p.chosen_option,
                     "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
                     "answer": _answer_of(p, current_facts),

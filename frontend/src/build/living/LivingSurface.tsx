@@ -4,6 +4,7 @@ import type {
   AuthoringBlock,
   AuthoringProposal,
   AuthoringSession,
+  AuthoringVocabulary,
   DraftGraph,
   GoalIn,
   SampleInspected,
@@ -14,6 +15,8 @@ import { ArtifactView } from "../ArtifactView";
 import { Browse } from "../Browse";
 import { ArtifactPreview } from "./ArtifactPreview";
 import type { AuthoringState, MotionEvent } from "./authoringReducer";
+import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
+import type { FactValue } from "./FactEditor";
 import { Composer } from "./Composer";
 import { DecisionLog } from "./DecisionLog";
 import { Drawer } from "./Drawer";
@@ -49,6 +52,7 @@ export function LivingSurface({
   onAddStep,
   onDismiss,
   vocabulary = null,
+  declarations, onCorrect, onRelease, onDisagreement, correcting = false,
   onSetParam,
   onApplyChange,
   onEdit,
@@ -77,6 +81,11 @@ export function LivingSurface({
   onAddStep: (contractId: string) => void;
   onDismiss: () => void;
   vocabulary?: Record<string, string[]> | null;
+  declarations?: AuthoringVocabulary["measurements"];
+  onCorrect?: CorrectFact;
+  onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
+  correcting?: boolean;
   onSetParam: (node: string, setting: string, value: string) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
@@ -96,6 +105,7 @@ export function LivingSurface({
     sheet: React.ReactNode;
   } | null;
 }) {
+  const [factsRequest, setFactsRequest] = useState(0);
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
   const [artifactTab, setArtifactTab] = useState<"preview" | "kept">("preview");
   const [browsing, setBrowsing] = useState(false);
@@ -122,7 +132,7 @@ export function LivingSurface({
         running={run ? run.busy : false}
         stage={run?.stage ?? null}
         runError={run?.error ?? null}
-        runnable={run !== null}
+        runnable={run !== null && session.projection_current !== false && !session.retired}
       />
       <div className="living min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
@@ -211,6 +221,14 @@ export function LivingSurface({
             </div>
           )}
           <div className="flex-1 min-h-0 overflow-auto px-5 pt-6 pb-4">
+            {session.projection_current === false && <p role="status" className="mb-3 text-[12px] text-ink-2">
+              Pipeline outdated. Your answers are saved; follow the chat to provide missing inputs or release a tool choice.
+            </p>}
+            {session.forked_from_session && <a className="text-[12px] text-link underline"
+              href={`/build/living?session=${encodeURIComponent(session.forked_from_session)}`}>Open preserved manual work</a>}
+            <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} openRequest={factsRequest}
+              disabled={correcting || session.retired || pendingTurn || session.phase === "resolving" ||
+                (pending?.block.kind === "question" && pending.block.reading?.state === "pending")} />
             <DecisionLog
               session={session}
               selected={state.selected}
@@ -224,6 +242,10 @@ export function LivingSurface({
               onSay={onSay}
               saying={state.saying}
               vocabulary={vocabulary}
+              declarations={declarations}
+              onDisagreement={onDisagreement}
+              correcting={correcting}
+              onCorrectAnswers={onCorrect ? () => setFactsRequest(n => n + 1) : undefined}
               onSetParam={onSetParam}
               onApplyChange={onApplyChange}
               graph={graph}

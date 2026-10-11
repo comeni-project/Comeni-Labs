@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useReducer, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { post } from "../../api/client";
 import type { AuthoringBlock, AuthoringSession, Built, DraftGraph, Step } from "../../api/types";
 import { withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring, visibleGraph } from "./authoringReducer";
-import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
+import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
 import { RunSheet } from "../RunSheet";
 import { entryChannels } from "../Sources";
@@ -33,8 +33,9 @@ export function LivingBuilder() {
   const fake = params.get("fake");
   if (fake === "guided") return <GuidedLiving />;
   if (fake === "collect") return <CollectLiving />;
+  if (fake === "conflict") return <FakeLiving session={CONFLICT_SESSION} />;
   if (fake) return <FakeLiving />;
-  if (session) return <LiveLiving sessionId={session} />;
+  if (session) return <LiveLiving key={session} sessionId={session} />;
   return (
     <p className="gutter py-10 text-[13px] text-ink-2" data-testid="living-empty">
       Open a session with <span className="font-data">?session=&lt;id&gt;</span>.
@@ -50,7 +51,10 @@ function idFor(graph: DraftGraph, contract: string): string {
 }
 
 function LiveLiving({ sessionId }: { sessionId: string }) {
-  const living = useAuthoringSession(sessionId);
+  const navigate = useNavigate();
+  const living = useAuthoringSession(sessionId, {
+    onFork: id => navigate(`/build/living?session=${encodeURIComponent(id)}`),
+  });
   const drawn = useDrawn(living.graph, living.session);
   const reveal = useFirstArrival(sessionId, living.session);
   // **The session's own draft**, so Keep neither creates a second one nor re-saves the graph.
@@ -108,6 +112,11 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       preview={living.preview}
       busy={living.busy}
       vocabulary={living.vocabulary}
+      declarations={living.measurements}
+      onCorrect={living.correct}
+      onRelease={living.releaseTool}
+      onDisagreement={living.answerDisagreement}
+      correcting={living.correcting}
       onAccept={living.accept}
       onReject={living.reject}
       onPreviewOption={living.previewOption}
@@ -180,12 +189,11 @@ function useDrawn(graph: DraftGraph, session: AuthoringSession | null) {
   };
 }
 
-function FakeLiving() {
+function FakeLiving({ session = FAKE_SESSION }: { session?: AuthoringSession }) {
   const [state, dispatch] = useReducer(authoringReducer, {
     ...initialAuthoring,
-    snapshot: FAKE_SESSION,
+    snapshot: session,
   });
-  const session = FAKE_SESSION;
   return (
     <LivingSurface
       session={session}
@@ -199,6 +207,7 @@ function FakeLiving() {
       busy={(id) => state.inFlight === id}
       onAccept={(proposal, option = "keep") =>
         dispatch({ type: "accept", proposal, option, expectedRevision: session.revision })}
+      onDisagreement={async () => undefined}
       onReject={(proposal) => dispatch({ type: "reject", proposalId: proposal.id })}
       onPreviewOption={(option) => dispatch({ type: "preview", option })}
       onSelect={(node) => dispatch({ type: "select", node })}

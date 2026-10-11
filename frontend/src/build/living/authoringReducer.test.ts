@@ -290,3 +290,10 @@ describe("waiting for a model's words (issues 167 and 176)", () => {
     expect(isWaiting(offered({ reading: { state: "read", attempt: 1 } }))).toBe(false);
   });
 });
+
+it("keeps composed text on a correction revision refusal", () => {
+  const typed = authoringReducer(initialAuthoring, { type: "compose", text: "my unsent correction" });
+  const refused = authoringReducer(typed, { type: "refused", proposalId: "", detail: "MI0201: reload before correcting" });
+  expect(refused.composer).toBe("my unsent correction");
+  expect(refused.notice?.code).toBe("MI0201");
+});

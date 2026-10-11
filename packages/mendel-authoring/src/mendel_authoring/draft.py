@@ -29,8 +29,9 @@ def next_step(blueprint: Blueprint, reviewed: list[Reviewed]) -> str | None:
 def drafted(
     blueprint: Blueprint, reviewed: list[Reviewed], profile: DataProfile
 ) -> tuple[DraftGraph, DraftProvenance]:
-    by = {r.node: r.by for r in kept(blueprint, reviewed)}
+    by = {r.node: r for r in kept(blueprint, reviewed)}
     graph, provenance = DraftGraph(profile=profile), DraftProvenance()
     for node in (n for n in blueprint.order if n in by):
-        graph, provenance = committed(blueprint, graph, provenance, node, by=by[node])
+        graph, provenance = committed(blueprint, graph, provenance, node, by=by[node].by,
+                                      actor_kind=by[node].actor_kind)
     return graph, provenance

@@ -270,9 +270,10 @@ def settle(ctx: Ctx, proposal_id: str, *, expected_revision: int, by: str) -> St
             return StepOutcome(settled, draft.revision, None, Phase(row.phase))
         session.check(row.id, Command.CONTINUE.value)
         decisions.record_review(row.draft_id, bp.Blueprint.model_validate(row.blueprint),
-                                proposal.payload["node"], who=by)
+                                proposal.payload["node"], who=by, proposal_id=proposal.id)
         proposal.state = settled.state.value
         proposal.by = by
+        proposal.actor_kind = "person"
         proposal.chosen_option = bp.KEEP
         proposal.settled_at = _rows.now()
         project(db, row, bp.Blueprint.model_validate(row.blueprint))
@@ -393,6 +394,7 @@ def _choose_pacing(ctx: Ctx, cmd: c.ChoosePacing) -> None:
         session.check(proposal.session_id, Command.CHOOSE_PACING.value)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = cmd.by
+        proposal.actor_kind = "person"
         proposal.chosen_option = cmd.option
         proposal.settled_at = _rows.now()
         row = db.get(PipelineAuthoringSession, proposal.session_id)

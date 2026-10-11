@@ -396,3 +396,25 @@ describe("the card and the canvas point at each other", () => {
       .toHaveAttribute("aria-pressed", "true");
   });
 });
+
+it("restores a source-labelled disagreement and allows an explicit keyboard choice", async () => {
+  const { DisagreementCard } = await import("./blocks/DisagreementCard");
+  const answer = vi.fn().mockResolvedValue(undefined);
+  const proposal = { id: "conflict", kind: "disagreement", envelope: {
+    offer: "disagreement", subject: "paired", current_value: false, observed_value: true,
+    current_origin: "person_said", observed_origin: "measured", block: {
+      kind: "question", id: "check", asks: "You said no, but we measured yes. Which should we use?",
+      why_open: "Evidence never replaces your answer automatically.", options: [
+        { id: "keep_current", label: "Keep no (you said)" },
+        { id: "use_measurement", label: "Use yes (measured)" },
+        { id: "correct", label: "Use another answer" },
+        { id: "unknown", label: "Return to unknown" },
+      ],
+    },
+  } } as unknown as import("../../api/types").AuthoringProposal;
+  render(<DisagreementCard proposal={proposal} busy={false} onAnswer={answer} />);
+  screen.getByRole("button", { name: "Keep no (you said)" }).focus();
+  await userEvent.setup().keyboard("{Enter}");
+  expect(answer).toHaveBeenCalledWith("keep_current", undefined);
+  expect(screen.getByText(/never replaces/)).toBeInTheDocument();
+});

@@ -98,8 +98,9 @@ describe("every block state in the static session", () => {
 
   it("collapses every answered step to one line naming who decided it", () => {
     surface();
-    const row = screen.getByRole("button", { name: /STAR_ALIGN step 3 · measured/ });
+    const row = screen.getByRole("button", { name: /STAR_ALIGN step 3/ });
     expect(row).toHaveTextContent("you chose");
+    expect(row).not.toHaveTextContent("measured");
   });
 });
 
@@ -446,4 +447,15 @@ describe("a sample that answered a question (issue 134)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Measure" }));
     expect(await screen.findByRole("button", { name: "I can't share it" })).toBeDisabled();
   });
+});
+
+it("labels superseded historical reviews and blocks Run while the projection is outdated", () => {
+  const changed = with_({ projection_current: false,
+    history: FAKE_SESSION.history.map(decision => ({ ...decision,
+      applicability: decision.id === "h-align" ? "superseded" : "retained" })),
+  });
+  surface(changed, { run: { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null } });
+  expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 · superseded/ })).toBeInTheDocument();
+  expect(screen.getByTestId("living-run")).toBeDisabled();
+  expect(screen.getByText(/^Pipeline outdated\./)).toBeInTheDocument();
 });

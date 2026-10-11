@@ -1091,6 +1091,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/facts/{subject}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fact History */
+        get: operations["authoringFactHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring/{session_id}/calls": {
         parameters: {
             query?: never;
@@ -1229,6 +1246,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/facts/{subject}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Correct a selected fact or return it to unknown */
+        post: operations["correctAuthoringFact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/release-tool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Let the engine choose a producer again */
+        post: operations["releaseAuthoringTool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/disagreements/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose which answer to use after an evidence disagreement */
+        post: operations["answerAuthoringDisagreement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -1345,6 +1413,11 @@ export interface components {
              */
             values: string[];
         };
+        /**
+         * ActorKind
+         * @enum {string}
+         */
+        ActorKind: "person" | "model" | "resolver" | "unknown";
         /**
          * Adaptation
          * @description One adaptation in full: where it is, what it produced, and what happened to it.
@@ -1496,6 +1569,22 @@ export interface components {
             /** By */
             by?: string | null;
         };
+        /** AnswerEvidenceQuestion */
+        AnswerEvidenceQuestion: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            /**
+             * Option
+             * @enum {string}
+             */
+            option: "keep_current" | "use_measurement" | "correct" | "unknown";
+            /** Value */
+            value?: number | boolean | string | null;
+        };
         /** AnswerRequest */
         AnswerRequest: {
             /** Draft */
@@ -1616,6 +1705,22 @@ export interface components {
             /** At */
             at: string;
         };
+        /** AuthoringCorrected */
+        AuthoringCorrected: {
+            /** Session Id */
+            session_id: string;
+            /** Draft Id */
+            draft_id: string;
+            phase: components["schemas"]["Phase"];
+            /** Revision */
+            revision: number;
+            /** Decision Revision */
+            decision_revision: number;
+            /** Next Proposal */
+            next_proposal: string | null;
+            /** Projection Current */
+            projection_current: boolean;
+        };
         /** AuthoringDecided */
         AuthoringDecided: {
             phase: components["schemas"]["Phase"];
@@ -1639,12 +1744,16 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step" | "gap" | "pacing";
+            kind: "goal" | "step" | "gap" | "pacing" | "disagreement";
             state: components["schemas"]["ProposalState"];
             /** Block */
             block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
             /** By */
             by: string | null;
+            /** @default unknown */
+            actor_kind: components["schemas"]["ActorKind"];
+            /** Applicability */
+            applicability?: ("retained" | "superseded" | "removed") | null;
             /** Chosen Option */
             chosen_option: string | null;
             /** Chosen Contract */
@@ -1677,7 +1786,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "ready" | "empty" | "illegal" | "unavailable";
+            state: "ready" | "empty" | "illegal" | "unavailable" | "outdated";
             /** Text */
             text: string;
             /**
@@ -1696,7 +1805,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step" | "gap" | "pacing";
+            kind: "goal" | "step" | "gap" | "pacing" | "disagreement";
             /** Draft Revision */
             draft_revision: number;
             /** Block */
@@ -1741,6 +1850,43 @@ export interface components {
              * @default []
              */
             facts: components["schemas"]["Fact"][];
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: components["schemas"]["InputDecision"][];
+            /**
+             * Decision Revision
+             * @default 0
+             */
+            decision_revision: number;
+            /**
+             * Projection Current
+             * @default true
+             */
+            projection_current: boolean;
+            /**
+             * Ownership
+             * @default authored
+             * @enum {string}
+             */
+            ownership: "authored" | "manual";
+            /**
+             * Retired
+             * @default false
+             */
+            retired: boolean;
+            /** Forked From */
+            forked_from?: string | null;
+            /** Forked From Session */
+            forked_from_session?: string | null;
+            /**
+             * Review Applicability
+             * @default {}
+             */
+            review_applicability: {
+                [key: string]: "retained" | "superseded" | "removed";
+            };
             /**
              * @default {
              *       "input": 0,
@@ -1852,6 +1998,13 @@ export interface components {
              * @default []
              */
             measurers: components["schemas"]["MeasurerView"][];
+            /**
+             * Measurements
+             * @default {}
+             */
+            measurements: {
+                [key: string]: components["schemas"]["Measurement"];
+            };
         };
         /**
          * Band
@@ -2406,6 +2559,23 @@ export interface components {
              */
             evidence_ids: string[];
         };
+        /** CorrectAuthoringFact */
+        CorrectAuthoringFact: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            /** Value */
+            value?: number | boolean | string | null;
+            /**
+             * Kind
+             * @default measurement
+             * @enum {string}
+             */
+            kind: "measurement" | "input";
+        };
         /**
          * DataProfile
          * @description Measured properties of the input data.
@@ -2520,6 +2690,12 @@ export interface components {
             observation_id: string;
             /** Current Revision Id */
             current_revision_id: string | null;
+            /** Current Value */
+            current_value?: number | boolean | string | null;
+            current_origin: components["schemas"]["FactSource"];
+            /** Observed Value */
+            observed_value: number | boolean | string | null;
+            observed_origin: components["schemas"]["FactSource"];
             /**
              * Continuation
              * @enum {string}
@@ -2928,11 +3104,73 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
+        /** FactHistoryEntry */
+        FactHistoryEntry: {
+            /** Seq */
+            seq: number;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "person_said" | "measured" | "model_read" | "open";
+            /** Selected */
+            selected: boolean;
+            /** Current */
+            current: boolean;
+            /** Revision Id */
+            revision_id?: string | null;
+            /** Observation Id */
+            observation_id?: string | null;
+            /** @default unknown */
+            actor_kind: components["schemas"]["ActorKind"];
+            /** Who */
+            who?: string | null;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "select" | "retain" | "retract" | "inherit" | "import" | "observed";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Observed At */
+            observed_at?: string | null;
+            /** Acknowledged As */
+            acknowledged_as?: ("agreement" | "retained" | "selected" | "obsolete") | null;
+            /** Acknowledged At */
+            acknowledged_at?: string | null;
+            /** Acknowledged By */
+            acknowledged_by?: string | null;
+            acknowledged_kind?: components["schemas"]["ActorKind"] | null;
+            /**
+             * Inherited
+             * @default false
+             */
+            inherited: boolean;
+            /** Source Draft Id */
+            source_draft_id?: string | null;
+        };
+        /** FactHistoryView */
+        FactHistoryView: {
+            /** Subject */
+            subject: string;
+            /** Entries */
+            entries: components["schemas"]["FactHistoryEntry"][];
+        };
         /**
          * FactKind
          * @enum {string}
          */
         FactKind: "input" | "measurement";
+        /**
+         * FactOrigin
+         * @enum {string}
+         */
+        FactOrigin: "person_said" | "measured" | "model_read" | "open";
         /**
          * FactSource
          * @description Where a fact came from, which is what the goal card and the tier-3 premise show.
@@ -3041,6 +3279,8 @@ export interface components {
             kind: components["schemas"]["FactKind"];
             /** Why */
             why: string;
+            /** States */
+            states?: string[];
             block: components["schemas"]["Question"];
         };
         /**
@@ -3292,6 +3532,24 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /** InputDecision */
+        InputDecision: {
+            /** Key */
+            key: string;
+            /** Type Id */
+            type_id: string;
+            /** Name */
+            name?: string | null;
+            /** States */
+            states?: string[];
+            /**
+             * Present
+             * @default true
+             */
+            present: boolean;
+            /** @default person_said */
+            origin: components["schemas"]["FactOrigin"];
+        };
         /** InspectedFactView */
         InspectedFactView: {
             /** Measurement */
@@ -3399,6 +3657,67 @@ export interface components {
             pieces?: string[];
             evidence?: components["schemas"]["Evidence"] | null;
         };
+        /** Measurement */
+        Measurement: {
+            /** Id */
+            id: string;
+            kind: components["schemas"]["MeasurementKind"];
+            /** Values */
+            values?: string[];
+            /**
+             * Extensible
+             * @default false
+             */
+            extensible: boolean;
+            /**
+             * Per Sample
+             * @default false
+             */
+            per_sample: boolean;
+            /**
+             * Assertion Only
+             * @default false
+             */
+            assertion_only: boolean;
+            /**
+             * Assertion Only Because
+             * @default
+             */
+            assertion_only_because: string;
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Cite */
+            cite?: string | null;
+            /** Edam */
+            edam?: string | null;
+            /** Describes */
+            describes?: string | null;
+            /** Meta Key */
+            meta_key?: string | null;
+            /** Meta Values */
+            meta_values?: components["schemas"]["MetaValue"][];
+            /**
+             * Deprecated
+             * @default false
+             */
+            deprecated: boolean;
+            /** Replaced By */
+            replaced_by?: string | null;
+        };
+        /**
+         * MeasurementKind
+         * @enum {string}
+         */
+        MeasurementKind: "integer" | "number" | "boolean" | "enum";
         /**
          * MeasurerView
          * @description One way a measurement can be measured, and where that runs (#134).
@@ -3462,6 +3781,20 @@ export interface components {
          * @enum {string}
          */
         MessageState: "pending" | "answered" | "failed";
+        /**
+         * MetaValue
+         * @description One value translation between our vocabulary and a module's.
+         *
+         *     A list of records rather than a mapping, matching `ParamBinding` and `Measured`: a
+         *     typed key does not prove a declared key, and `Measurement` is one field away from
+         *     being reachable from a publish bundle.
+         */
+        MetaValue: {
+            /** When */
+            when: number | boolean | string | null;
+            /** Then */
+            then: number | boolean | string | null;
+        };
         /** ModulePage */
         ModulePage: {
             /** Id */
@@ -3878,7 +4211,7 @@ export interface components {
          *     out of it, back to `understanding` and to `resolving`.
          * @enum {string}
          */
-        Phase: "understanding" | "gathering" | "goal_review" | "resolving" | "building" | "complete" | "failed" | "stopped";
+        Phase: "understanding" | "gathering" | "goal_review" | "resolving" | "building" | "complete" | "failed" | "correcting" | "stopped";
         /**
          * Pinned
          * @description A value in `.env` beats every layer. The variable is named so a person knows where to go.
@@ -4245,6 +4578,19 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** ReleaseToolChoice */
+        ReleaseToolChoice: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            /** Type Id */
+            type_id: string;
+            /** States */
+            states?: string[];
+        };
         /**
          * RequiredStates
          * @description States a wanted output must carry.
@@ -4391,6 +4737,10 @@ export interface components {
              * @default 1
              */
             attempt: number;
+            /** Decision Revision */
+            decision_revision?: number | null;
+            /** Session Version */
+            session_version?: number | null;
             /** Started At */
             started_at?: string | null;
             /** Type Id */
@@ -6879,6 +7229,47 @@ export interface operations {
             };
         };
     };
+    authoringFactHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                subject: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactHistoryView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
     listAuthoringCalls: {
         parameters: {
             query?: never;
@@ -7165,6 +7556,140 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    correctAuthoringFact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                subject: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectAuthoringFact"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    releaseAuthoringTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseToolChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    answerAuthoringDisagreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerEvidenceQuestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
             };
             /** @description The id in the path names nothing. */
             404: {

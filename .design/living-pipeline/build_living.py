@@ -1262,6 +1262,23 @@ def board_done():
                              'nothing needs you', view='artifact'))
 
 
+def board_conflict():
+    rail_html = rail(
+        done('Goal confirmed', 'hum', '12 paired samples')
+        + says('Pipeline outdated. Your answers are saved; follow the chat to provide missing inputs or release a tool choice.', 0)
+        + block('Current answers', 'paired: no &middot; you said<br>fastq.reads: yes &middot; you said',
+                foot='<span class="no">Correct paired</span><span class="no">History of paired</span>', right='selected')
+        + block('Your answer and this sample differ',
+                'For paired, your answer is no (you said), but this sample says yes (measured). Which should we use?'
+                '<p>Evidence never replaces your selected answer automatically.</p>',
+                foot='<span class="no">Keep no (you said)</span><span class="no">Use yes (measured)</span>'
+                     '<span class="no">Use another answer</span><span class="no">Return to unknown</span>',
+                right='asked by the engine'))
+    write('LivingConflict', cols(canvas(built_graph()), rail_html),
+          header_html=header('building &middot; pipeline outdated &middot; Run unavailable', run=False))
+
+board_conflict()
+
 board_open()
 board_goal()
 board_build()

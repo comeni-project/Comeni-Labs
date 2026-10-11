@@ -161,12 +161,13 @@ def amend(ctx: Ctx, cmd: c.Amend):
         decisions.cascade_reviews(row.draft_id, before, fresh)
         if isinstance(amendment, ChooseTool):
             node = next(n for n, site in fresh.sites.items() if site == amendment.pin.site)
-            decisions.record_review(row.draft_id, fresh, node, who=cmd.by)
+            decisions.record_review(row.draft_id, fresh, node, who=cmd.by, proposal_id=proposal.id)
         row.blueprint = fresh.model_dump(mode="json")
         row.registry_digest = fresh.registry
         project(db, row, fresh)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = cmd.by
+        proposal.actor_kind = "person"
         proposal.chosen_option = cmd.option
         proposal.settled_at = _rows.now()
         said = diff_of(before, fresh).sentence()

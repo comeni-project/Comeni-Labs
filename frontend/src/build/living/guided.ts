@@ -55,7 +55,7 @@ export function guidedDecide(
   const history = [
     ...session.history,
     {
-      id: pending.id, kind: pending.kind, state: decision, block: pending.block, by: "person",
+      id: pending.id, kind: pending.kind, state: decision, block: pending.block, by: "person", actor_kind: "person",
       chosen_option: pending.kind === "step" ? option : null,
       chosen_contract: pending.block.kind === "step_proposal" ? pending.block.contract : null,
       at: at(session.history.length + 1),

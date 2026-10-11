@@ -247,3 +247,14 @@ does the same thing for the same reason: this canvas opens on the whole board ra
 entry artboard, so `launch` is `{"view": "canvas"}` and the entry file is only a fallback. The
 seeder names `LivingBuild.dc.html` as that fallback, which is the right one — it is the primary
 state.
+
+## Part F — corrections and retained evidence
+
+`LivingConflict` adds the explicit disagreement question, selected source labels,
+current-answer corrections and history. Compare with `/build/living?fake=conflict`
+using `/_compare.html?living=1`; both panes use a 1400px viewport. The current answers
+expand above the transcript; the question stays visible at the end. The persistent
+header says “pipeline outdated” and Run stays disabled until rebuilding completes.
+
+The October 11 comparison was rendered with Chrome at 1400px per pane and 900px
+for the narrow pass. History is read-only; undo remains a later implementation.

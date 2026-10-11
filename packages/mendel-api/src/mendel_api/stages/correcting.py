@@ -570,6 +570,7 @@ def answer_disagreement(ctx: Ctx, cmd: c.AnswerDisagreement):
             return result(ctx.session_id)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by, proposal.chosen_option = cmd.by, cmd.option
+        proposal.actor_kind = "person"
         proposal.settled_at = _rows.now()
         decisions.acknowledge_observation(
             draft.id,

@@ -605,6 +605,7 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
             samples._set_reading(db, proposal, None)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = by
+        proposal.actor_kind = "person"
         proposal.chosen_option = option
         proposal.settled_at = _now()
 

@@ -115,6 +115,18 @@ def test_where_the_walk_stops(tier4, gaps, pacing, show, expected):
 def test_a_pinned_step_placed_quietly_is_not_credited_to_the_engine():
     """Final review I2: a pin already in the goal is not a need, so the walk places its step
     quietly, as the engine — and the person's choice must not be signed by the engine."""
-    _, provenance = drafted(HISAT2, [review(HISAT2, "hisat2_align", "engine")], DataProfile())
+    from mendel_authoring.decisions import ActorKind
+    _, provenance = drafted(HISAT2, [review(HISAT2, "hisat2_align", "engine",
+                                           actor_kind=ActorKind.RESOLVER)], DataProfile())
     settled = provenance.nodes[0].selection
     assert settled.source.value == "human" and settled.by != "engine"
+
+
+def test_a_person_named_engine_is_still_credited_for_reviewing_a_pin():
+    from mendel_authoring.decisions import ActorKind
+    chosen = next(step.id for step in HISAT2.pipeline.steps
+                  if step.why.source.value == "human")
+    _, provenance = drafted(HISAT2, [review(HISAT2, chosen, "engine",
+                                           actor_kind=ActorKind.PERSON)], DataProfile())
+    selected = next(entry for entry in provenance.nodes if entry.node == chosen).selection
+    assert selected.by == "engine"

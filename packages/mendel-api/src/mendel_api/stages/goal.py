@@ -35,6 +35,7 @@ def withdraw_pending(session_id: str, *, by: str) -> None:
         if pending is not None:
             pending.state = ProposalState.REJECTED.value
             pending.by = by
+            pending.actor_kind = "person"
             pending.settled_at = _now()
 
 
