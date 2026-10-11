@@ -70,3 +70,42 @@ def test_a_quiet_walk_of_any_length_is_one_entry_of_step():
     }
     ran, entered = _walk("hide_gaps", None, {"step": "none_left"})
     assert entered.count("step") == 1 and ran.at == "wrap"
+
+
+@pytest.mark.parametrize('at', ['reply', 'card', 'step_card', 'wrap', 'stopped'])
+def test_corrections_from_each_resting_phase_resolve_and_cascade_before_the_walk(at):
+    ran, entered = _walk(at, 'correct_fact', {
+        'correct_fact': 'selected', 'resolve_correction': 'resolved',
+        'cascade_reviews': 'review_again', 'step': 'stops',
+    })
+    assert entered[:3] == ['correct_fact', 'resolve_correction', 'cascade_reviews']
+    assert ran.at == 'step_card'
+
+
+def test_an_unbuildable_correction_can_stop_and_then_be_corrected_again():
+    ran, entered = _walk('wrap', 'correct_fact', {
+        'correct_fact': 'selected', 'resolve_correction': 'blocked',
+        'correction_blocked': 'essential_missing',
+    })
+    assert ran.at == 'stopped'
+    assert 'correction_blocked' in entered
+    ran, _ = _walk(ran.at, 'correct_fact', {
+        'correct_fact': 'gather_again', 'list_needs': 'listed', 'next_gap': 'a_gap',
+    })
+    assert ran.at == 'reply'
+
+
+@pytest.mark.parametrize('suffix', ['gather', 'goal', 'build', 'complete'])
+def test_each_disagreement_returns_through_a_declared_correction_path(suffix):
+    ran, entered = _walk('disagree_' + suffix, 'answer_disagreement', {
+        'correct_fact': 'selected', 'resolve_correction': 'resolved',
+        'cascade_reviews': 'review_again', 'step': 'stops',
+    })
+    assert 'cascade_reviews' in entered and ran.at == 'step_card'
+
+
+def test_busy_resolver_refuses_competing_corrections():
+    from mendel_authoring.interpret import Refused
+
+    with pytest.raises(Refused, match='MI0216'):
+        _walk('resolve', 'correct_fact', {})

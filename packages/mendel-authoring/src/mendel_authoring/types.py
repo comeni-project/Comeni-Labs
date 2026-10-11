@@ -26,8 +26,10 @@ class Phase(StrEnum):
     BUILDING = "building"
     COMPLETE = "complete"
     FAILED = "failed"
+    CORRECTING = "correcting"
     STOPPED = "stopped"
-    """An honest end: an input the analysis needs does not exist. Terminal, and not a failure."""
+    """An honest end: an input the analysis needs does not exist.
+    Waiting for a correction, and not a failure."""
 
 
 class Event(StrEnum):
@@ -40,6 +42,12 @@ class Event(StrEnum):
     those read as three events.
     """
 
+    CORRECTION_REQUESTED = "correction_requested"
+    CORRECTION_GATHERED = "correction_gathered"
+    CORRECTION_CHECKED = "correction_checked"
+    CORRECTION_RESOLVED = "correction_resolved"
+    CORRECTION_STOPPED = "correction_stopped"
+    CORRECTION_COMPLETE = "correction_complete"
     GOAL_ACCEPTED = "goal_accepted"
     """The person accepted the goal — including a revised one, later in the session."""
     GOAL_REVISED = "goal_revised"
@@ -88,6 +96,10 @@ class Command(StrEnum):
     """What a person (or, from 1b, a job) can do to a session: each is an arrow out of a
     waiting node (spec §3.2). Refused with MI0216 wherever no arrow names it."""
 
+    CORRECT_FACT = "correct_fact"
+    ANSWER_DISAGREEMENT = "answer_disagreement"
+    RELEASE_PRODUCER = "release_producer"
+    FORK_CORRECTION = "fork_correction"
     DESCRIBE = "describe"
     ANSWER_GAP = "answer_gap"
     UPLOAD_SAMPLE = "upload_sample"

@@ -200,6 +200,16 @@ _MACHINE = {
     (Phase.RESOLVING, Event.PROVIDER_FAILED): Phase.FAILED,
     (Phase.UNDERSTANDING, Event.PROVIDER_FAILED): Phase.FAILED,
     (Phase.UNDERSTANDING, Event.WANT_RETURNED): Phase.GATHERING,
+    (Phase.GATHERING, Event.CORRECTION_REQUESTED): Phase.CORRECTING,
+    (Phase.GOAL_REVIEW, Event.CORRECTION_REQUESTED): Phase.CORRECTING,
+    (Phase.BUILDING, Event.CORRECTION_REQUESTED): Phase.CORRECTING,
+    (Phase.COMPLETE, Event.CORRECTION_REQUESTED): Phase.CORRECTING,
+    (Phase.STOPPED, Event.CORRECTION_REQUESTED): Phase.CORRECTING,
+    (Phase.CORRECTING, Event.CORRECTION_GATHERED): Phase.GATHERING,
+    (Phase.CORRECTING, Event.CORRECTION_CHECKED): Phase.GOAL_REVIEW,
+    (Phase.CORRECTING, Event.CORRECTION_RESOLVED): Phase.BUILDING,
+    (Phase.CORRECTING, Event.CORRECTION_STOPPED): Phase.STOPPED,
+    (Phase.CORRECTING, Event.CORRECTION_COMPLETE): Phase.COMPLETE,
 }
 """The machine as it stood before 14.7.6.5, printed then and pinned here. **A literal**: the
 first version compared `st.TRANSITIONS` with `PROTOCOL.transitions()`, which is the same value,
@@ -209,8 +219,8 @@ gone; a changed goal leaves the wrap-up. 14.7.8.3c moves nothing: a change on a 
 cannot be built is refused on the card, before anything is written."""
 
 
-def test_the_machine_did_not_change():
-    """Review focus 5: the upload's edges carry no events of their own."""
+def test_the_machine_has_only_the_declared_phase_changes():
+    """A correction has a named phase; the sample request never waits inside it."""
     assert p.PROTOCOL.transitions() == _MACHINE
 
 
@@ -311,7 +321,8 @@ def test_the_commands_are_the_specs_and_1bs():
         "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
         "choose_pacing", "continue", "amend", "ask", "keep", "retry",
         "reply_in_words", "understood", "asked_back", "revised",
-        "provider_failed",
+        "provider_failed", "correct_fact", "answer_disagreement",
+        "release_producer", "fork_correction",
     }
 
 
@@ -339,8 +350,10 @@ def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
 
 # ── the protocol, marked (14.7.8.1b) ────────────────────────────────────────────────────────
 
-WAITS = {"say", "family", "reply", "card", "resolve", "pace_q", "step_card", "wrap", "failed"}
-ACTS = {"family", "read_goal", "list_needs", "next_gap", "ask", "answered", "suggest", "upload",
+WAITS = {"stopped", "disagree_gather", "disagree_goal", "disagree_build",
+         "disagree_complete", "say", "family", "reply", "card", "resolve", "pace_q", "step_card", "wrap", "failed"}
+ACTS = {"correct_fact", "resolve_correction", "cascade_reviews", "correction_blocked",
+        "fork_correction", "compare_evidence", "family", "read_goal", "list_needs", "next_gap", "ask", "answered", "suggest", "upload",
         "readback", "resolve", "overview", "together", "quiet", "ask_pacing", "show_gaps",
         "hide_gaps", "step", "amend", "wrap"}
 

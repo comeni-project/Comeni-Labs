@@ -159,6 +159,8 @@ class SampleInspected:
     proposal_id: str
     inspection: dict
     by: str
+    expected_decision_revision: int | None = None
+    expected_session_version: int | None = None
     takes: ClassVar[frozenset[Command]] = frozenset({Command.UPLOAD_SAMPLE})
 
 
@@ -169,6 +171,8 @@ class ReadingAnswered:
     reply: dict
     by: str
     handed_back: bool
+    expected_decision_revision: int | None = None
+    expected_session_version: int | None = None
     takes: ClassVar[frozenset[Command]] = frozenset({Command.UPLOAD_SAMPLE})
 
 
@@ -208,6 +212,9 @@ class Amend:
     option: str
     value: object | None
     by: str
+    expected_decision_revision: int | None = None
+    expected_draft_revision: int | None = None
+    expected_session_version: int | None = None
     takes: ClassVar[frozenset[Command]] = frozenset({Command.AMEND, Command.CONTINUE})
 
 
@@ -227,10 +234,53 @@ class RecordEdit:
     takes: ClassVar[frozenset[Command]] = _NONE
 
 
+@dataclass(frozen=True, slots=True)
+class CorrectFact:
+    session_id: str
+    subject: str
+    value: object | None
+    by: str
+    expected_decision_revision: int
+    expected_draft_revision: int
+    expected_session_version: int
+    kind: str = "measurement"
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT})
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerDisagreement:
+    proposal_id: str
+    option: str
+    value: object | None
+    by: str
+    expected_decision_revision: int
+    expected_draft_revision: int
+    expected_session_version: int
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.ANSWER_DISAGREEMENT})
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseProducer:
+    session_id: str
+    type_id: str
+    states: tuple[str, ...]
+    by: str
+    expected_decision_revision: int
+    expected_draft_revision: int
+    expected_session_version: int
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.RELEASE_PRODUCER})
+
+
+@dataclass(frozen=True, slots=True)
+class ForkCorrection(CorrectFact):
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.FORK_CORRECTION})
+
+
 COMMANDS: tuple[type, ...] = (
     OpenSession, Begin, Say, AnswerTurn, Understood, AskedBack, ProviderFailed, Retry,
     DecideGoal, Revised, StoreReadback, ReadbackFailed,
     Resume, AnswerGap, PrefillGap, StorePhrasing, PhrasingFailed,
     UploadSample, SampleInspected, ReadingAnswered, ReadingFailed,
     StartBuilding, SettleStep, Amend, ChoosePacing, RecordEdit,
+    CorrectFact, AnswerDisagreement, ReleaseProducer, ForkCorrection,
 )

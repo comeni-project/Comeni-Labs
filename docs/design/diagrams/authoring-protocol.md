@@ -82,6 +82,20 @@ flowchart LR
         wrap(["Wrap-up: what you get,<br/>what you need, who decided"]):::engine
     end
     style build fill:transparent,stroke:#555
+    subgraph correct ["⑤ Correct a fact, resolve and review what changed"]
+        direction TB
+        correct_fact["Select your correction<br/>keep evidence and history"]:::engine
+        resolve_correction["Compose the current goal<br/>resolve with your facts and pins"]:::engine
+        cascade_reviews["Compare meaning and old/new wiring<br/>supersede changed and dependent reviews"]:::engine
+        correction_blocked["Your correction stays<br/>old pipeline is outdated; explain what is missing"]:::engine
+        fork_correction["Manual work stays<br/>inherit evidence into a linked authored draft"]:::engine
+        compare_evidence["Keep every admitted observation<br/>compare to your selected answer"]:::engine
+        disagree_gather["You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?"]:::you
+        disagree_goal["You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?"]:::you
+        disagree_build["You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?"]:::you
+        disagree_complete["You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?"]:::you
+    end
+    style correct fill:transparent,stroke:#555
     subgraph anytime ["Any time"]
         direction TB
         ask_any(["Ask anything:<br/>why? what if? what's a BAM?"]):::you
@@ -177,6 +191,48 @@ flowchart LR
     step_card -- "change it" --> amend
     amend --> step
     wrap -- "the goal changed" --> resolve
+    reply -- "correct or return to unknown" --> correct_fact
+    card -- "correct or return to unknown" --> correct_fact
+    step_card -- "correct or return to unknown" --> correct_fact
+    wrap -- "correct or return to unknown" --> correct_fact
+    stopped -- "correct or return to unknown" --> correct_fact
+    disagree_gather -- "correct or return to unknown" --> correct_fact
+    disagree_goal -- "correct or return to unknown" --> correct_fact
+    disagree_build -- "correct or return to unknown" --> correct_fact
+    disagree_complete -- "correct or return to unknown" --> correct_fact
+    reply -- "release this tool choice" --> correct_fact
+    card -- "release this tool choice" --> correct_fact
+    step_card -- "release this tool choice" --> correct_fact
+    wrap -- "release this tool choice" --> correct_fact
+    stopped -- "release this tool choice" --> correct_fact
+    reply -- "correct in a new draft" --> fork_correction
+    card -- "correct in a new draft" --> fork_correction
+    step_card -- "correct in a new draft" --> fork_correction
+    wrap -- "correct in a new draft" --> fork_correction
+    stopped -- "correct in a new draft" --> fork_correction
+    disagree_gather -- "your explicit choice" --> correct_fact
+    disagree_goal -- "your explicit choice" --> correct_fact
+    disagree_build -- "your explicit choice" --> correct_fact
+    disagree_complete -- "your explicit choice" --> correct_fact
+    fork_correction --> correct_fact
+    correct_fact --> resolve_correction
+    correct_fact --> list_needs
+    correct_fact --> readback
+    correct_fact --> stopped
+    resolve_correction --> cascade_reviews
+    resolve_correction --> correction_blocked
+    cascade_reviews --> step
+    correction_blocked --> list_needs
+    correction_blocked --> stopped
+    sample_back -- "observations disagree" --> compare_evidence
+    compare_evidence -- "ask before replacing" --> disagree_gather
+    compare_evidence -- "ask before replacing" --> disagree_goal
+    compare_evidence -- "ask before replacing" --> disagree_build
+    compare_evidence -- "ask before replacing" --> disagree_complete
+    correct_fact -- "keep your current answer" --> next_gap
+    correct_fact -- "keep your current answer" --> readback
+    correct_fact -- "keep your current answer" --> step
+    correct_fact -- "keep your current answer" --> wrap
     failed -- "retry" --> family
     failed -- "retry" --> resolve
     ask_any -.-> explain

@@ -584,6 +584,7 @@ PROTOCOL = Protocol(
         Stage(id="sample", title="②a Inside: reading a sample", within_request=True),
         Stage(id="check", title="③ You check the goal"),
         Stage(id="build", title="④ Your consultant builds it with you"),
+        Stage(id="correct", title="⑤ Correct a fact, resolve and review what changed"),
         Stage(id="anytime", title="Any time"),
         Stage(id="wrong", title="When it goes wrong"),
     ),
@@ -682,6 +683,7 @@ PROTOCOL = Protocol(
             "Stop: can't build without it<br/>(e.g. no genome)",
             _P.STOPPED,
             shape=Shape.ROUND,
+            waits=True,
         ),
         # ③ built
         _built(
@@ -724,6 +726,29 @@ PROTOCOL = Protocol(
                _P.BUILDING, acts=True),
         _built("wrap", "build", _ENGINE, "Wrap-up: what you get,<br/>what you need, who decided",
                _P.COMPLETE, shape=Shape.ROUND, acts=True, waits=True),
+        _built("correct_fact", "correct", _ENGINE,
+               "Select your correction<br/>keep evidence and history",
+               _P.CORRECTING, acts=True),
+        _built("resolve_correction", "correct", _ENGINE,
+               "Compose the current goal<br/>resolve with your facts and pins",
+               _P.CORRECTING, acts=True),
+        _built("cascade_reviews", "correct", _ENGINE,
+               "Compare meaning and old/new wiring<br/>supersede changed and dependent reviews",
+               _P.CORRECTING, acts=True),
+        _built("correction_blocked", "correct", _ENGINE,
+               "Your correction stays<br/>old pipeline is outdated; explain what is missing",
+               _P.CORRECTING, acts=True),
+        _built("fork_correction", "correct", _ENGINE,
+               "Manual work stays<br/>inherit evidence into a linked authored draft",
+               _P.CORRECTING, acts=True),
+        _built("compare_evidence", "correct", _ENGINE,
+               "Keep every admitted observation<br/>compare to your selected answer",
+               _P.CORRECTING, acts=True),
+        *(_built("disagree_" + suffix, "correct", _YOU,
+            "You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?",
+            phase, waits=True) for suffix, phase in (
+                ("gather", _P.GATHERING), ("goal", _P.GOAL_REVIEW),
+                ("build", _P.BUILDING), ("complete", _P.COMPLETE))),
         # any time, planned
         _n(
             "ask_any",
@@ -817,6 +842,45 @@ PROTOCOL = Protocol(
         _e("step_card", "amend", "change it", on="amend", built=True),
         _e("amend", "step", on="amended", built=True),
         _move("wrap", "resolve", _E.GOAL_ACCEPTED, "the goal changed", on="confirm_goal"),
+        # Corrections are offered only at waiting boundaries, never during async work.
+        *(_move(source, "correct_fact", _E.CORRECTION_REQUESTED,
+                 "correct or return to unknown", on="correct_fact")
+          for source in ("reply", "card", "step_card", "wrap", "stopped",
+                         "disagree_gather", "disagree_goal",
+                         "disagree_build", "disagree_complete")),
+        *(_move(source, "correct_fact", _E.CORRECTION_REQUESTED,
+                 "release this tool choice", on="release_producer")
+          for source in ("reply", "card", "step_card", "wrap", "stopped")),
+        *(_move(source, "fork_correction", _E.CORRECTION_REQUESTED,
+                 "correct in a new draft", on="fork_correction")
+          for source in ("reply", "card", "step_card", "wrap", "stopped")),
+        *(_move("disagree_" + suffix, "correct_fact", _E.CORRECTION_REQUESTED,
+                 "your explicit choice", on="answer_disagreement")
+          for suffix in ("gather", "goal", "build", "complete")),
+        _e("fork_correction", "correct_fact", on="forked", built=True),
+        _e("correct_fact", "resolve_correction", on="selected", built=True),
+        _move("correct_fact", "list_needs", _E.CORRECTION_GATHERED, on="gather_again"),
+        _move("correct_fact", "readback", _E.CORRECTION_CHECKED, on="check_again"),
+        _move("correct_fact", "stopped", _E.CORRECTION_STOPPED, on="input_missing"),
+        _e("resolve_correction", "cascade_reviews", on="resolved", built=True),
+        _e("resolve_correction", "correction_blocked", on="blocked", built=True),
+        _move("cascade_reviews", "step", _E.CORRECTION_RESOLVED, on="review_again"),
+        _move("correction_blocked", "list_needs", _E.CORRECTION_GATHERED, on="gather_missing"),
+        _move("correction_blocked", "stopped", _E.CORRECTION_STOPPED, on="essential_missing"),
+        # Sample exits leave the request section before the chat waits for a choice.
+        _move("sample_back", "compare_evidence", _E.CORRECTION_REQUESTED,
+              "observations disagree", on="conflicts"),
+        *(_move("compare_evidence", "disagree_" + suffix, event,
+                 "ask before replacing", on="disagree_" + suffix)
+          for suffix, event in (("gather", _E.CORRECTION_GATHERED),
+                                ("goal", _E.CORRECTION_CHECKED),
+                                ("build", _E.CORRECTION_RESOLVED),
+                                ("complete", _E.CORRECTION_COMPLETE))),
+        *(_move("correct_fact", target, event, "keep your current answer", on="retained_" + suffix)
+          for suffix, target, event in (("gather", "next_gap", _E.CORRECTION_GATHERED),
+                                       ("goal", "readback", _E.CORRECTION_CHECKED),
+                                       ("build", "step", _E.CORRECTION_RESOLVED),
+                                       ("complete", "wrap", _E.CORRECTION_COMPLETE))),
         # when it goes wrong
         _move("failed", "family", _E.RETRY, "retry", returns=True, on="retry"),
         _move("failed", "resolve", _E.RETRY, "retry", returns=True, on="retry"),

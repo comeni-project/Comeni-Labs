@@ -6,6 +6,8 @@ from comeni_core.goal.asked import Constraints
 from comeni_core.spell.marks import HumanParamValue, TypeId
 from pydantic import BaseModel, ConfigDict, Field
 
+from mendel_authoring.blueprint import Blueprint
+
 
 class _Payload(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -40,18 +42,36 @@ class GapAnswered(_Payload):
 
 class SampleAnswered(_Payload):
     answered: bool
+    conflicts: bool = False
+    continuation: Literal["gather", "goal", "build", "complete", "stopped"] = "gather"
 
 
 class Amended(_Payload):
     said: str = Field(max_length=2000)
 
 
+class Correction(_Payload):
+    subject: str
+    value: HumanParamValue | None = None
+    who: str
+    kind: Literal["measurement", "input", "producer", "retain", "observation"]
+    observation_id: str | None = None
+    states: list[str] = Field(default_factory=list)
+    continuation: Literal["gather", "goal", "build", "complete", "stopped"]
+    before: Blueprint | None = None
+    after: Blueprint | None = None
+    missing: str | None = None
+    pin_blocked: bool = False
+
+
 EMPTY = Empty()
 
-Payload = Empty | GoalReturned | GapAnswered | SampleAnswered | Amended
+Payload = Empty | GoalReturned | GapAnswered | SampleAnswered | Amended | Correction
 
 _TYPES = {"understood": GoalReturned, "answer_gap": GapAnswered,
-          "upload_sample": SampleAnswered, "amend": Amended}
+          "upload_sample": SampleAnswered, "amend": Amended,
+          "correct_fact": Correction, "answer_disagreement": Correction,
+          "release_producer": Correction, "fork_correction": Correction}
 
 
 def check(arrow: str | None, payload: Payload) -> Payload:
