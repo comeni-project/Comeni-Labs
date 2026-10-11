@@ -84,9 +84,8 @@ def test_selecting_ungranted_evidence_is_refused():
 def test_live_revision_cannot_have_unknown_or_undeclared_actor(actor):
     draft = drafts.create(DraftGraph(), "constraint", "ana")
     subject, revision = token_hex(16), token_hex(16)
-    with pytest.raises(IntegrityError):
-        with engine.begin() as conn:
-            _subject(conn, draft, subject, revision)
-            _revision(conn, draft, subject, revision)
-            conn.execute(text("UPDATE pipeline_fact_revision SET actor_kind=:actor WHERE id=:id"),
-                         {"actor": actor, "id": revision})
+    with pytest.raises(IntegrityError), engine.begin() as conn:
+        _subject(conn, draft, subject, revision)
+        _revision(conn, draft, subject, revision)
+        conn.execute(text("UPDATE pipeline_fact_revision SET actor_kind=:actor WHERE id=:id"),
+                     {"actor": actor, "id": revision})
