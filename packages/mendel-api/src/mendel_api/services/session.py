@@ -317,7 +317,17 @@ def perform(command: object, *, recorders: dict[type, Recorder] | None = None) -
         raise RuntimeError("a command never performs another: take its arrow (`take`)")
     bound = _recorded() if recorders is None else recorders
     ctx = Ctx(getattr(command, "session_id", None), None)
-    with db_mod.transaction():
+    with db_mod.transaction() as db:
+        from mendel_api.services import draft_mutations
+
+        session_id = ctx.session_id
+        proposal_id = getattr(command, "proposal_id", None)
+        if session_id is None and proposal_id is not None:
+            proposal = db.get(PipelineAuthoringProposal, proposal_id)
+            if proposal is not None:
+                session_id = proposal.session_id
+        if session_id is not None:
+            draft_mutations.lock_session(db, session_id)
         result = bound[type(command)](ctx, command)
     if (collecting := _collected.get()) is not None and not _acting.get():
         collecting.extend(ctx.jobs)

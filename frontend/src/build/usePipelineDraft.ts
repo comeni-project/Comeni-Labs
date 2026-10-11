@@ -80,22 +80,49 @@ export function usePipelineDraft(): DraftState {
   // The server's name wins on open, and only on open — after that the field a person is typing
   // in is the truth, or their edit would be overwritten by every refetch.
   const adopted = useRef(false);
+  const revision = useRef<number | null>(null);
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const conflict = useRef<Error | null>(null);
   useEffect(() => {
     if (loaded.data && !adopted.current) {
       adopted.current = true;
       setName(loaded.data.name);
+      revision.current = loaded.data.revision;
     }
   }, [loaded.data]);
 
   const write = useMutation({
-    mutationFn: async ({ graph, as }: { graph: DraftGraph; as: string }) => {
-      const body = { graph, name: as };
-      if (draftId === null) {
-        const made = await post<DraftOut>("/pipeline/drafts", body);
-        created.current = made.id;
-        return made;
-      }
-      return await put<DraftOut>(`/pipeline/drafts/${draftId}`, body);
+    mutationFn: ({ graph, as, renameOnly }: {
+      graph: DraftGraph; as: string; renameOnly?: boolean;
+    }) => {
+      const execute = async () => {
+        if (conflict.current) throw conflict.current;
+        const id = fromUrl ?? created.current;
+        try {
+          let saved: DraftOut;
+          if (id === null) {
+            saved = await post<DraftOut>("/pipeline/drafts", { graph, name: as });
+            created.current = saved.id;
+          } else {
+            if (revision.current === null) throw new Error("the draft has not loaded yet");
+            saved = await put<DraftOut>(`/pipeline/drafts/${id}`, {
+              ...(renameOnly ? { name: as } : { graph }),
+              expected_revision: revision.current,
+            });
+          }
+          revision.current = saved.revision;
+          return saved;
+        } catch (failed) {
+          if (failed instanceof Error && /MI0201|MI0202/.test(failed.message)) {
+            conflict.current = failed;
+          }
+          throw failed;
+        }
+      };
+      // Queue before entering the async body so overlapping calls read the last ACK.
+      const next = writes.current.then(execute);
+      writes.current = next.catch(() => undefined);
+      return next;
     },
     onSuccess: () => {
       setSavedAt(new Date());
@@ -117,16 +144,8 @@ export function usePipelineDraft(): DraftState {
   const rename = useCallback(
     (to: string, graph: DraftGraph) => {
       setName(to);
-      // **Renaming carries the graph, and that is not incidental.** `PUT /drafts/{id}` writes
-      // `{graph, name}` as one document, so a rename that sent an empty graph would SAVE an
-      // empty graph — deleting the pipeline while appearing to relabel it. The first version of
-      // this function did exactly that, and it is the sort of defect no test would have been
-      // written for because nobody expects a rename to be destructive.
-      //
-      // It saves immediately rather than waiting for the graph to go idle: the graph may never
-      // change again, and a name that only lands if you also move a node is a name that looks
-      // saved and is not.
-      write.mutate({ graph, as: to });
+      // Existing drafts rename through metadata only. A first save still creates its graph.
+      write.mutate({ graph, as: to, renameOnly: true });
     },
     [write],
   );

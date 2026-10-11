@@ -26,6 +26,7 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
+from mendel_api.services import draft_mutations
 
 
 def now() -> datetime:
@@ -135,7 +136,9 @@ def decide(
         row = db.get(PipelineAuthoringProposal, proposal_id)
         if row is None:
             raise KeyError(proposal_id)
-        session_row = db.get(PipelineAuthoringSession, row.session_id)
+        session_row = draft_mutations.lock_session(db, row.session_id)
+        row = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                     populate_existing=True)
         draft = db.get(PipelineDraft, session_row.draft_id)
         revision = draft.revision if draft else 0
 
@@ -155,8 +158,7 @@ def decide(
                 row.chosen_option = chosen_option
 
         if outcome.bumps_revision and draft is not None:
-            draft.revision = revision + 1
-            draft.updated_at = now()
+            draft_mutations.touch(db, draft)
 
     return outcome
 

@@ -437,26 +437,13 @@ def read(draft_id: str) -> PipelineDraft:
         return row
 
 
-def update(draft_id: str, graph: DraftGraph, *, name: str | None = None) -> str:
-    """Store the new graph, and carry the provenance of everything it did not change; rename
-    the draft when `name` is given. Answers the name it now has.
+def update(draft_id: str, graph: DraftGraph, *, name: str | None = None,
+           expected_revision: int | None = None) -> str:
+    """Internal saves share the revision owner; HTTP requires an expected revision."""
+    from mendel_api.services import draft_mutations
 
-    **The sidecar is computed here and never accepted from the client** — §1.8. A browser that
-    could post provenance could post `source: resolver` on a value it typed, and *nothing was
-    guessed silently* would become a claim the client makes about itself.
-    """
-    with session_scope() as session:
-        row = session.get(PipelineDraft, draft_id)
-        if row is None:
-            raise KeyError(draft_id)
-        before = DraftGraph.model_validate(row.graph)
-        prior = DraftProvenance.model_validate(row.provenance or {})
-        row.graph = graph.model_dump(mode="json")
-        row.provenance = _restamped(graph, before, prior).model_dump(mode="json")
-        row.updated_at = datetime.now(UTC)
-        if name is not None:
-            row.name = name
-        return row.name
+    return draft_mutations.save(draft_id, graph=graph, name=name,
+                                expected_revision=expected_revision).name
 
 
 

@@ -22,7 +22,7 @@ from mendel_api.authoring.types import ProposalState, Receipt
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import blueprint as bp
-from mendel_api.services import registry, session
+from mendel_api.services import draft_mutations, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _rows
 from mendel_api.stages.building.cards import FACT, STEP
@@ -39,13 +39,8 @@ def project(db, row, blueprint: bp.Blueprint) -> None:
     goal = Goal.model_validate(row.goal)
     draft = db.get(PipelineDraft, row.draft_id)
     graph, provenance = drafted(blueprint, reviewed_of(row), goal.profile)
-    dumped = graph.model_dump(mode="json")
-    if dumped != draft.graph or draft.goal != row.goal:
-        draft.graph = dumped
-        draft.provenance = provenance.model_dump(mode="json")
-        draft.goal = row.goal
-        draft.revision = draft.revision + 1
-        draft.updated_at = _rows.now()
+    draft_mutations.project(db, draft, graph,
+                            provenance=provenance.model_dump(mode="json"), goal=row.goal)
 
 
 def pending_step(db, proposal_id: str) -> PipelineAuthoringProposal:
@@ -53,7 +48,12 @@ def pending_step(db, proposal_id: str) -> PipelineAuthoringProposal:
     a double click or a second tab), or not a step's card."""
     # **Locked** (final review of Run 2, I3): two answers that really overlap — a double click,
     # two tabs — are serialised here, so the second reads the card answered and is refused.
-    proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True)
+    identity = db.get(PipelineAuthoringProposal, proposal_id)
+    if identity is None:
+        raise KeyError(proposal_id)
+    draft_mutations.lock_session(db, identity.session_id)
+    proposal = db.get(PipelineAuthoringProposal, proposal_id, with_for_update=True,
+                      populate_existing=True)
     if proposal is None:
         raise KeyError(proposal_id)
     if proposal.state != ProposalState.PENDING.value:

@@ -506,11 +506,7 @@ export interface paths {
         };
         /** A draft as it stands */
         get: operations["readDraft"];
-        /**
-         * Save a draft
-         * @description One write per save, not per edit. The client owns the working graph and sends it whole —
-         *     a schema that could hold half a graph would be a second definition of what a graph is.
-         */
+        /** Save a checked draft */
         put: operations["saveDraft"];
         post?: never;
         delete?: never;
@@ -2648,6 +2644,8 @@ export interface components {
             /** Name */
             name: string;
             graph: components["schemas"]["DraftGraph"];
+            /** Revision */
+            revision: number;
         };
         /**
          * DraftParam
@@ -2732,6 +2730,17 @@ export interface components {
              * @default 0
              */
             open_not_named: number;
+        };
+        /**
+         * DraftSave
+         * @description A checked save; omitting graph permits a metadata-only rename.
+         */
+        DraftSave: {
+            /** Expected Revision */
+            expected_revision: number;
+            graph?: components["schemas"]["DraftGraph"] | null;
+            /** Name */
+            name?: string | null;
         };
         /**
          * DraftsPage
@@ -5729,7 +5738,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DraftIn"];
+                "application/json": components["schemas"]["DraftSave"];
             };
         };
         responses: {
@@ -5742,13 +5751,31 @@ export interface operations {
                     "application/json": components["schemas"]["DraftOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description MI0201: stale save; MI0217: authored work is in progress. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };

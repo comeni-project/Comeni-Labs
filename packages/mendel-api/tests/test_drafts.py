@@ -73,14 +73,15 @@ def test_an_unknown_draft_is_404_not_500(client):
 
 def test_saving_replaces_the_graph(client):
     draft_id = client.post("/api/pipeline/drafts", json={"graph": GRAPH}).json()["id"]
-    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": SPINE})
+    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": SPINE, "expected_revision": 0})
     assert len(client.get(f"/api/pipeline/drafts/{draft_id}").json()["graph"]["nodes"]) == 4
 
 
 def test_a_rename_survives_a_fresh_read(client):
     """Issue 271: the route stored the graph and only echoed the name back."""
     draft_id = client.post("/api/pipeline/drafts", json={"graph": GRAPH}).json()["id"]
-    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": GRAPH, "name": "liver RNA-seq"})
+    client.put(f"/api/pipeline/drafts/{draft_id}", 
+               json={"graph": GRAPH, "name": "liver RNA-seq", "expected_revision": 0})
     assert client.get(f"/api/pipeline/drafts/{draft_id}").json()["name"] == "liver RNA-seq"
 
 
@@ -88,7 +89,7 @@ def test_a_save_that_names_nothing_keeps_the_name(client):
     draft_id = client.post(
         "/api/pipeline/drafts", json={"graph": GRAPH, "name": "liver RNA-seq"}
     ).json()["id"]
-    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": SPINE})
+    client.put(f"/api/pipeline/drafts/{draft_id}", json={"graph": SPINE, "expected_revision": 0})
     assert client.get(f"/api/pipeline/drafts/{draft_id}").json()["name"] == "liver RNA-seq"
 
 
@@ -215,7 +216,8 @@ def test_a_draft_edited_after_it_was_kept_says_so(client):
     assert _row(client, made["id"])["changed_since_kept"] is False
 
     shorter = {"nodes": SPINE["nodes"][:3], "edges": SPINE["edges"][:2]}
-    client.put(f"/api/pipeline/drafts/{made['id']}", json={"graph": shorter})
+    client.put(f"/api/pipeline/drafts/{made['id']}", 
+               json={"graph": shorter, "expected_revision": 0})
     row = _row(client, made["id"])
     assert row["kept"] is True and row["changed_since_kept"] is True
 
@@ -223,7 +225,8 @@ def test_a_draft_edited_after_it_was_kept_says_so(client):
 def test_a_rename_after_keep_is_not_a_change(client):
     made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
     client.post(f"/api/pipeline/drafts/{made['id']}/keep")
-    client.put(f"/api/pipeline/drafts/{made['id']}", json={"graph": SPINE, "name": "renamed"})
+    client.put(f"/api/pipeline/drafts/{made['id']}", 
+               json={"graph": SPINE, "name": "renamed", "expected_revision": 0})
     assert _row(client, made["id"])["changed_since_kept"] is False
 
 

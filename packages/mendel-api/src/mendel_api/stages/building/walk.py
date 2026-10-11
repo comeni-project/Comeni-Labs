@@ -12,7 +12,7 @@ import logging
 from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
-from comeni_core.plan.draft import DraftGraph, DraftProvenance
+from comeni_core.plan.draft import DraftGraph
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
 from mendel_authoring.draft import Reviewed, drafted, kept, next_step
@@ -292,12 +292,10 @@ def record_edit(session_id: str, graph: DraftGraph, *, by: str) -> int:
     Editing opens once the walk is done. **The receipt is composed here, from the difference,
     never sent by the browser.**
     """
-    from mendel_api.services import drafts
+    from mendel_api.services import draft_mutations
 
     with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
+        row = draft_mutations.lock_session(db, session_id)
         if row.phase == Phase.BUILDING.value:
             raise ValueError(
                 coded("MI0217", "editing opens when the walk is done")
@@ -305,15 +303,11 @@ def record_edit(session_id: str, graph: DraftGraph, *, by: str) -> int:
             )
         draft = db.get(PipelineDraft, row.draft_id)
         before = DraftGraph.model_validate(draft.graph)
-        prior = DraftProvenance.model_validate(draft.provenance or {})
         summary = describe_edit(before, graph)
         if summary is None:
             return draft.revision
 
-        draft.graph = graph.model_dump(mode="json")
-        draft.provenance = drafts._restamped(graph, before, prior).model_dump(mode="json")
-        draft.revision = draft.revision + 1
-        draft.updated_at = _rows.now()
+        draft_mutations.save_in(db, draft, graph=graph)
 
         seq = _rows.next_seq(db, session_id)
         db.add(
