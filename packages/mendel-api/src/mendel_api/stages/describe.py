@@ -75,11 +75,8 @@ def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
                        else Phase.UNDERSTANDING).value,
                 at=start,
                 failed_from=None,
-                goal=None,
-                facts=[],
                 blueprint={},
                 registry_digest="",
-                reviewed=[],
                 row_version=1,
                 who=who,
                 created_at=now,
@@ -260,8 +257,8 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
                 PipelineAuthoringProposal.state == ProposalState.PENDING.value,
             )
         )
-        # The card's composed goal while it is on offer: `row.goal` holds only the want until the
-        # person confirms it (14.7.3).
+        # The card's composed goal while on offer: extraction holds the tentative want
+        # until the person confirms it (14.7.3).
         card = pending.payload.get("goal") if pending is not None and pending.kind == GOAL else None
         from mendel_api.services import authoring_decisions
 

@@ -76,11 +76,11 @@ def test_gathering_sits_between_the_want_and_the_card():
     assert st.advance(Phase.GATHERING, st.Event.INPUT_UNAVAILABLE) is Phase.STOPPED
 
 
-def test_stopped_is_terminal_and_not_a_failure():
-    """An honest stop is the protocol ending correctly. RETRY is for failures."""
+def test_stopped_waits_for_a_correction_and_is_not_a_failure():
+    """An honest stop requires an explicit correction. RETRY is for failures."""
     with pytest.raises(ValueError, match="MI0200"):
         st.advance(Phase.STOPPED, st.Event.RETRY)
-    assert not any(src is Phase.STOPPED for (src, _ev) in st.TRANSITIONS)
+    assert st.advance(Phase.STOPPED, st.Event.CORRECTION_REQUESTED) is Phase.CORRECTING
 
 
 # ── retry resumes the stage that failed ───────────────────────────────────────────────────

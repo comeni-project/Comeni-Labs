@@ -29,7 +29,7 @@ def sid():
     with session_scope() as db:
         db.add(PipelineDraft(id=draft_id, who="tester", name="d",
                              graph={"nodes": [], "edges": []}, updated_at=datetime.now(UTC),
-                             goal=None, provenance={}, revision=0))
+                             provenance={}, revision=0))
     return facade.perform(commands.OpenSession(draft_id, "tester")).result
 
 

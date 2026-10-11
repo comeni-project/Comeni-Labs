@@ -34,7 +34,7 @@ def _seen(draft_id: str) -> bool:
 def _write(ctx, cmd, *, then=None):
     with session_scope() as s:
         s.add(PipelineDraft(id=cmd.draft_id, who="t", name="t", graph={"nodes": [], "edges": []},
-                            updated_at=datetime.now(UTC), goal=None, provenance={}, revision=0))
+                            updated_at=datetime.now(UTC), provenance={}, revision=0))
     ctx.queue(Job("noted", (cmd.draft_id,), f"noted:{cmd.draft_id}", "q",
                   unqueued=Undo(cmd.draft_id)))
     if then is not None:

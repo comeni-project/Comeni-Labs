@@ -194,18 +194,6 @@ class PipelineDraft(Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     graph: Mapped[dict] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    goal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    """The confirmed `Goal`, once a person has accepted one. Null on every draft drawn by hand.
-
-    **An authored draft retains its goal** (§1.9), and this is where. Without it a conversation
-    that has already established what somebody wants has to re-derive it from the graph on
-    every turn — `materialise.py` does derive one, and a derived goal is a reading of the graph
-    rather than a record of what was asked for. Both exist because they answer different
-    questions; this is the one a person confirmed.
-
-    Nullable rather than defaulted to `{}`, because *no goal was ever confirmed* and *an empty
-    goal was confirmed* are different facts and a default would erase the distinction on every
-    row that predates this column."""
     provenance: Mapped[dict] = mapped_column(JSON, default=dict)
     """Who settled what, per decision rather than per session (§1.8).
 
@@ -751,10 +739,6 @@ class PipelineAuthoringSession(Base):
     §2 gives a session one phase and one cursor, so two sessions on one draft would be two
     answers to *where are we* with nothing to arbitrate between them. A second conversation is
     a second draft."""
-    policy: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    """How the walk goes — `mendel_authoring.pacing.Policy`: its pacing and whether registry
-    gaps stop it — recorded as the Pacing and Dev forks are passed (spec §14.4 of the consultant
-    build). `None` until then."""
     phase: Mapped[str] = mapped_column(_one_of(Phase, 16, "phase"), index=True)
     """A `Phase` value. Indexed because sweeping for sessions stuck in `understanding` is how a
     job that never came back is found — `forge_jobs` already sweeps that way."""
@@ -778,19 +762,6 @@ class PipelineAuthoringSession(Base):
     **Null on a row from before it existed**, and on a row a test moved by event: the node is
     then derived from the phase, the pending proposal and the pending turn
     (`session.rests_at`), and the first move writes it."""
-    goal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    """The confirmed `Goal`, mirrored onto `pipeline_draft.goal` when the person accepts it.
-
-    Here as well as there because they answer different questions: this is what *this
-    conversation* settled on, and the draft's is what the artifact will be built from. They are
-    equal in the ordinary case and must be allowed to differ while a revision is being
-    reviewed."""
-    facts: Mapped[list] = mapped_column(JSON, default=list)
-    """What gathering learned, as `authoring.types.Fact` dicts, each with its source.
-
-    Until the goal card composes a full `Goal`, the want sits in `goal` as
-    `{"want": [...], "constraints": {...}}`; these are the rest. `[]` on a session that never
-    gathered, which is true of every session before 14.7.3."""
     blueprint: Mapped[dict] = mapped_column(JSON, default=dict)
     registry_digest: Mapped[str] = mapped_column(String(80), default="")
     """Which layer stack the blueprint was resolved against. A blueprint outlives the registry
@@ -800,10 +771,6 @@ class PipelineAuthoringSession(Base):
     **80, not 64.** It was 64 for a commit, which is a hex digest's length — and a `Digest` is
     `sha256:` plus 64 hex, seventy-one characters. Postgres would have refused the first
     blueprint ever stored, and nothing wrote one until Task 6."""
-    reviewed: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    """The steps the walk has passed, as `mendel_authoring.draft.Reviewed` dicts — the walk's
-    place (spec §14.3). The draft is projected from the blueprint and these; a step a new
-    blueprint no longer has simply leaves the list."""
     row_version: Mapped[int] = mapped_column(Integer, default=1)
     who: Mapped[str] = mapped_column(String(200), index=True)
     """ATTRIBUTION, not authentication, exactly as on `QueueVisit`, `PipelineDraft`,

@@ -155,7 +155,7 @@ def test_sql_conversion_is_idempotent_and_keeps_graph_name_and_old_observations(
     from mendel_api.migration_data.decisions_v1 import apply, convert
     from mendel_api.models import PipelineAuthoringSession, PipelineDraft
     from mendel_api.services import decisions, session
-    from mendel_api.services.decision_migration import inventory, snapshots
+    from mendel_api.services.decision_migration import inventory
     from sqlalchemy import text
 
     snapshot = _snapshot(draft_id=token_hex(16), session_id=token_hex(16))
@@ -166,7 +166,6 @@ def test_sql_conversion_is_idempotent_and_keeps_graph_name_and_old_observations(
                 name="Preserved",
                 who="old",
                 graph=json.loads(snapshot.graph),
-                goal=json.loads(snapshot.draft_goal),
                 provenance={"nodes": []},
                 updated_at=datetime.now(UTC),
                 revision=4,
@@ -181,10 +180,7 @@ def test_sql_conversion_is_idempotent_and_keeps_graph_name_and_old_observations(
                 at="wrap",
                 who="old",
                 row_version=3,
-                goal=json.loads(snapshot.session_goal),
-                facts=json.loads(snapshot.facts),
                 blueprint={},
-                reviewed=[],
                 registry_digest="",
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
@@ -195,12 +191,12 @@ def test_sql_conversion_is_idempotent_and_keeps_graph_name_and_old_observations(
             text("SELECT count(*) FROM pipeline_fact_revision")
         ).scalar_one()
         report = inventory(connection)
-        assert report[0]["disposition"] == "confirmed"
+        assert report == []  # a new draft has no legacy snapshot to inventory
         assert (
             connection.execute(text("SELECT count(*) FROM pipeline_fact_revision")).scalar_one()
             == before
         )
-        loaded = snapshots(connection)[0]
+        loaded = snapshot
         converted = convert(loaded)
         assert apply(connection, loaded, converted, at=datetime.now(UTC))
         assert not apply(connection, loaded, converted, at=datetime.now(UTC))
@@ -222,9 +218,7 @@ def test_populated_previous_head_upgrades_and_converts_without_changing_saved_by
     from secrets import token_hex
 
     from mendel_api import db
-    from mendel_api.migration_data.decisions_v1 import apply, convert
     from mendel_api.services import decisions, session
-    from mendel_api.services.decision_migration import snapshots
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
 
@@ -279,8 +273,12 @@ def test_populated_previous_head_upgrades_and_converts_without_changing_saved_by
             ).one()
         upgrade("head")
         with clone.begin() as connection:
-            for snapshot in snapshots(connection):
-                apply(connection, snapshot, convert(snapshot), at=datetime.now(UTC))
+            assert (
+                connection.execute(
+                    text("SELECT disposition FROM pipeline_decision_migration")
+                ).scalar_one()
+                == "confirmed"
+            )
             after = connection.execute(
                 text("""SELECT name,graph::text,provenance::text,
                 kept_graph,kept_digest,revision FROM pipeline_draft""")
@@ -313,3 +311,15 @@ def test_retired_sessions_are_readable_but_all_commands_refuse_mutation(clean):
     assert session.read(sid)["retired"]
     with pytest.raises(ValueError, match="MI0217.*archived"):
         session.perform(c.Say(sid, "try changing this"))
+
+
+def test_the_cutover_removes_duplicate_live_goal_columns():
+    from mendel_api.db import engine
+    from sqlalchemy import inspect
+
+    schema = inspect(engine)
+    assert "goal" not in {c["name"] for c in schema.get_columns("pipeline_draft")}
+    assert not (
+        {"goal", "facts", "reviewed", "policy"}
+        & {c["name"] for c in schema.get_columns("pipeline_authoring_session")}
+    )

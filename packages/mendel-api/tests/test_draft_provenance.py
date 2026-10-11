@@ -130,7 +130,6 @@ def spawned_draft() -> str:
                 name="spawned",
                 graph=_graph().model_dump(mode="json"),
                 updated_at=datetime.now(UTC),
-                goal=None,
                 provenance=_spawned().model_dump(mode="json"),
                 revision=0,
             )
@@ -304,9 +303,7 @@ def test_a_stored_goal_reaches_the_artifact_instead_of_one_derived_from_the_canv
     from comeni_core.goal.asked import Goal
 
     asked = Goal(want=["counts.matrix", "qc.report"])
-    from mendel_api.services import decisions
-
-    from mendel_api.services import draft_mutations
+    from mendel_api.services import decisions, draft_mutations
 
     decisions.import_goal(spawned_draft, asked, who="ana")
     # This fixture supplies a deliberate partial projection of the broader accepted want.

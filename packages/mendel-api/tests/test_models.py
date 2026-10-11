@@ -102,6 +102,8 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_observation",
         "pipeline_evidence_access",
         "pipeline_phrasing",
+        # Frozen snapshots preserve legacy history without being read by BUILD.
+        "pipeline_decision_migration",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a sixteenth needs the same argument written down. Two rejections in "
@@ -274,12 +276,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
 
     declared = {
         "pipeline_authoring_session": {
-            "id", "draft_id", "policy", "phase", "failed_from", "goal", "blueprint",
-            "registry_digest", "reviewed", "row_version", "who", "created_at", "updated_at",
-            # 14.7.3: typed facts (a type id, a declared measurement value, a source). Its
-            # `sample` label is filled only at protection level 0 (14.7.6), a loosening of
-            # invariant 15 recorded in docs/design/authoring-protocol.md.
-            "facts",
+            "id", "draft_id", "phase", "failed_from", "blueprint",
+            "registry_digest", "row_version", "who", "created_at", "updated_at",
             # 14.7.8.1: the protocol node the session rests on — a node id, nothing of a file.
             "at",
             # Part F: typed extraction presentation, retired workflow status and policy columns.
@@ -291,7 +289,7 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
         },
         "pipeline_authoring_proposal": {
             "id", "session_id", "turn_id", "kind", "payload", "state", "chosen_option",
-            "by", "draft_revision", "created_at", "settled_at",
+            "by", "actor_kind", "draft_revision", "created_at", "settled_at",
         },
     }
     tables = {t.__tablename__: t for t in vars(m).values() if hasattr(t, "__tablename__")}

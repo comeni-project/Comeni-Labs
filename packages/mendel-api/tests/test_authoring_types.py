@@ -24,6 +24,7 @@ def test_every_phase_in_the_state_diagram_exists():
         "gathering",
         "goal_review",
         "resolving",
+        "correcting",
         "building",
         "complete",
         "failed",

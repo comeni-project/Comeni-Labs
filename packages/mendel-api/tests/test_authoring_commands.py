@@ -281,5 +281,5 @@ def test_a_sample_whose_session_moved_on_queues_no_phrasing(monkeypatch):
                   {"i": sid})
     ctx = session.Ctx(sid, None)
     with db.transaction():
-        samples._moves(ctx, False, ["read_length"])
+        samples._moves(ctx, False, ["read_length"], [])
     assert ctx.jobs == []

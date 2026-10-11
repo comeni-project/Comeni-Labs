@@ -222,7 +222,7 @@ def test_model_extraction_stays_separate_from_accepted_goal_and_fact_rows():
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, sid)
         assert row.extraction["stated"][0]["value"] is True
-        assert row.goal is None
+        assert not service.read(row.draft_id).wants
     assert not service.read(session.read(sid)["draft_id"]).facts
 
 

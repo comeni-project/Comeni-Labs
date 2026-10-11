@@ -11,7 +11,7 @@ from mendel_api.models import PipelineDraft
 
 def _draft(draft_id: str) -> PipelineDraft:
     return PipelineDraft(id=draft_id, who="tester", name="t", graph={"nodes": [], "edges": []},
-                         updated_at=datetime.now(UTC), goal=None, provenance={}, revision=0)
+                         updated_at=datetime.now(UTC), provenance={}, revision=0)
 
 
 def _seen_elsewhere(draft_id: str) -> bool:

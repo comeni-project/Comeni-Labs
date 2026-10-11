@@ -63,7 +63,6 @@ def draft(clean_authoring) -> str:
                 name="rnaseq",
                 graph={"nodes": [], "edges": []},
                 updated_at=datetime.now(UTC),
-                goal=None,
                 provenance={},
                 revision=0,
             )
