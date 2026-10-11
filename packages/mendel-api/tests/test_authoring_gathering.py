@@ -41,7 +41,7 @@ def _gathering(want: list[str], stated: list[dict] | None = None) -> str:
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with session_scope() as db:
-        db.get(PipelineAuthoringSession, sid).goal = {
+        db.get(PipelineAuthoringSession, sid).extraction = {
             "want": want,
             "constraints": {},
             "stated": stated or [],
@@ -70,8 +70,7 @@ def _answer_until(sid: str, subject: str, option: str) -> None:
 
 
 def _facts(sid: str) -> list[dict]:
-    with session_scope() as db:
-        return list(db.get(PipelineAuthoringSession, sid).facts)
+    return facade.read(sid)["facts"]
 
 
 def test_answering_every_gap_reaches_the_card_with_a_goal_that_builds(clean):
@@ -161,7 +160,7 @@ def test_a_want_nothing_can_make_asks_instead_of_failing(clean, caplog):
     assert blocks[1]["asks"] == gathering.UNREACHABLE_ASK
     assert "no.such.type" not in blocks[1]["asks"]
     with session_scope() as db:
-        assert db.get(PipelineAuthoringSession, sid).goal is None, "the want is cleared"
+        assert db.get(PipelineAuthoringSession, sid).extraction is None, "the want is cleared"
     assert view["pending_proposal"] is None
 
 
@@ -293,25 +292,51 @@ def _write_call(sid, *, input_tokens, output_tokens, cached, response=None, purp
 
     now = datetime.now(UTC)
     with session_scope() as db:
-        db.add(AiInvocation(
-            id=secrets.token_hex(16), agent="builder", purpose=purpose, model="fake/test",
-            provider="local", prompt_id="builder.goal.v4", prompt_version="v4",
-            prompt_digest="0" * 64, input_digests={}, temperature=0.0, state="succeeded",
-            failure_code="", started_at=now, finished_at=now, duration_ms=10,
-            input_tokens=input_tokens, output_tokens=output_tokens, cached_tokens=cached,
-            response=response, session_id=sid,
-        ))
+        db.add(
+            AiInvocation(
+                id=secrets.token_hex(16),
+                agent="builder",
+                purpose=purpose,
+                model="fake/test",
+                provider="local",
+                prompt_id="builder.goal.v4",
+                prompt_version="v4",
+                prompt_digest="0" * 64,
+                input_digests={},
+                temperature=0.0,
+                state="succeeded",
+                failure_code="",
+                started_at=now,
+                finished_at=now,
+                duration_ms=10,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cached_tokens=cached,
+                response=response,
+                session_id=sid,
+            )
+        )
 
 
 def test_usage_sums_the_sessions_calls_and_a_new_session_is_all_zero(clean):
     sid = _gathering(want=["counts.matrix"])
     assert facade.read(sid)["usage"] == {
-        "input": 0, "output": 0, "cached": 0, "calls": 0, "in_flight": False}
+        "input": 0,
+        "output": 0,
+        "cached": 0,
+        "calls": 0,
+        "in_flight": False,
+    }
     _write_call(sid, input_tokens=3000, output_tokens=40, cached=2800)
     _write_call(sid, input_tokens=None, output_tokens=None, cached=None)  # no usage block
-    _write_call("x" * 32, input_tokens=999, output_tokens=9, cached=0)    # another session
+    _write_call("x" * 32, input_tokens=999, output_tokens=9, cached=0)  # another session
     assert facade.read(sid)["usage"] == {
-        "input": 3000, "output": 40, "cached": 2800, "calls": 2, "in_flight": False}
+        "input": 3000,
+        "output": 40,
+        "cached": 2800,
+        "calls": 2,
+        "in_flight": False,
+    }
 
 
 def test_the_call_list_carries_each_reply_oldest_first(clean):
@@ -336,17 +361,17 @@ def test_the_calls_route_lists_them_and_refuses_an_unknown_session(clean):
     assert client.get("/api/pipeline/authoring/" + "0" * 32 + "/calls").status_code == 404
 
 
-
 def test_the_models_constraints_are_suggestions_never_in_the_goal(clean):
     """#176: *gene_level, normalised* arrived in the typed goal unasked; now the card offers."""
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with session_scope() as db:
-        db.get(PipelineAuthoringSession, sid).goal = {
+        db.get(PipelineAuthoringSession, sid).extraction = {
             "want": ["counts.matrix"],
             "constraints": {},
-            "suggested": {"required_states": [{"type_id": "counts.matrix",
-                                               "states": ["gene_level"]}]},
+            "suggested": {
+                "required_states": [{"type_id": "counts.matrix", "states": ["gene_level"]}]
+            },
             "stated": [],
         }
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
@@ -377,6 +402,7 @@ def test_a_phrased_question_replaces_the_engines_words_in_place_and_keeps_the_op
             sid,
             "paired",
             _asked("Were both ends of each fragment sequenced?").model_dump(mode="json"),
+            stamp=gathering.phrasing_context(sid, "paired"),
         )
     )
     after = _payload(pid)["block"]
@@ -391,7 +417,12 @@ def test_a_phrasing_that_arrives_after_the_answer_changes_nothing(clean):
     facade.perform(commands.AnswerGap(pid, "yes", None, "ana"))
     answered = _payload(pid)["block"]
     facade.perform(
-        commands.StorePhrasing(sid, "paired", _asked("late", option="no").model_dump(mode="json"))
+        commands.StorePhrasing(
+            sid,
+            "paired",
+            _asked("late", option="no").model_dump(mode="json"),
+            stamp=gathering.phrasing_context(sid, "paired"),
+        )
     )
     assert _payload(pid)["block"] == answered
 
@@ -401,40 +432,54 @@ def test_already_pre_fills_and_an_unoffered_one_is_dropped(clean):
     pid = _pending_for(sid, "paired")
     facade.perform(
         commands.StorePhrasing(
-            sid, "paired", _asked("Paired?", option="maybe").model_dump(mode="json")
+            sid,
+            "paired",
+            _asked("Paired?", option="maybe").model_dump(mode="json"),
+            stamp=gathering.phrasing_context(sid, "paired"),
         )
     )
     assert not any(o["recommended"] for o in _payload(pid)["block"]["options"])
     facade.perform(
         commands.StorePhrasing(
-            sid, "paired", _asked("Paired?", option="yes").model_dump(mode="json")
+            sid,
+            "paired",
+            _asked("Paired?", option="yes").model_dump(mode="json"),
+            stamp=gathering.phrasing_context(sid, "paired"),
         )
     )
     assert {o["id"] for o in _payload(pid)["block"]["options"] if o["recommended"]} == {"yes"}
 
 
-def test_a_prefetched_phrasing_is_used_when_its_gap_is_offered(clean):
+def test_a_prefetched_phrasing_expires_when_earlier_answers_change_its_context(clean):
     sid = _gathering(want=["counts.matrix"])
     facade.perform(
         commands.StorePhrasing(
-            sid, "strandedness", _asked("Which way was the library made?").model_dump(mode="json")
+            sid,
+            "strandedness",
+            _asked("Which way was the library made?").model_dump(mode="json"),
+            stamp=gathering.phrasing_context(sid, "strandedness"),
         )
     )
     pid = _pending_for(sid, "strandedness")
     block = _payload(pid)["block"]
-    assert block["asks"] == "Which way was the library made?" and block["phrasing"] == "done"
+    assert block["asks"] != "Which way was the library made?"
+    assert block["phrasing"] == "none"
 
 
-def test_a_refused_prefetch_leaves_the_engines_words_when_its_gap_is_offered(clean, monkeypatch):
+def test_a_refused_prefetch_is_retried_for_a_new_decision_context(clean, monkeypatch):
     """#196: refused while it was the *next* question, it used to wait `pending` for ever —
     its job id spent, nothing left to settle it."""
     monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
-    facade.perform(commands.PhrasingFailed(sid, "strandedness"))
+    facade.perform(
+        commands.PhrasingFailed(
+            sid, "strandedness", stamp=gathering.phrasing_context(sid, "strandedness")
+        )
+    )
     assert "strandedness" not in gathering.to_phrase(sid)
     block = _payload(_pending_for(sid, "strandedness"))["block"]
-    assert block["phrasing"] == "none"
-    assert "strandedness" not in gathering.to_phrase(sid)
+    assert block["phrasing"] == "pending"
+    assert "strandedness" in gathering.to_phrase(sid)
 
 
 async def _queue_phrasing(sid: str) -> None:
@@ -490,7 +535,11 @@ def test_a_question_waiting_for_its_words_counts_as_in_flight(clean, monkeypatch
     monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
     assert facade.read(sid)["usage"]["in_flight"] is True
-    facade.perform(commands.PhrasingFailed(sid, "fastq.reads"))
+    facade.perform(
+        commands.PhrasingFailed(
+            sid, "fastq.reads", stamp=gathering.phrasing_context(sid, "fastq.reads")
+        )
+    )
     assert facade.read(sid)["usage"]["in_flight"] is False
 
 
@@ -520,7 +569,11 @@ def test_a_read_back_lands_on_the_card_and_a_failed_one_leaves_the_engines_sente
     card = _to_card(sid)
     assert _payload(card)["block"]["readback_pending"] is True
     facade.perform(
-        commands.StoreReadback(sid, "You'll get a table of gene counts from your reads.")
+        commands.StoreReadback(
+            sid,
+            "You'll get a table of gene counts from your reads.",
+            stamp=goal_stage.readback_context_stamp(sid),
+        )
     )
     block = _payload(card)["block"]
     assert block["readback"] == "You'll get a table of gene counts from your reads."
@@ -531,6 +584,6 @@ def test_a_failed_read_back_clears_the_wait(clean, monkeypatch):
     monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid = _gathering(want=["counts.matrix"])
     card = _to_card(sid)
-    facade.perform(commands.ReadbackFailed(sid))
+    facade.perform(commands.ReadbackFailed(sid, stamp=goal_stage.readback_context_stamp(sid)))
     block = _payload(card)["block"]
     assert block["readback"] is None and block["readback_pending"] is False

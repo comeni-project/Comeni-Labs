@@ -38,7 +38,8 @@ def _gathering(want: list[str]) -> str:
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
     with session_scope() as db:
-        db.get(PipelineAuthoringSession, sid).goal = {"want": want, "constraints": {}, "stated": []}
+        db.get(PipelineAuthoringSession, sid).extraction = {
+            "want": want, "constraints": {}, "stated": []}
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.offer_next_gap(sid)
     return sid
@@ -58,8 +59,7 @@ def _pending_for(sid: str, subject: str) -> str:
 
 
 def _facts(sid: str) -> list[dict]:
-    with session_scope() as db:
-        return list(db.get(PipelineAuthoringSession, sid).facts)
+    return facade.read(sid)["facts"]
 
 
 def _measured(**values) -> inspect.Inspection:

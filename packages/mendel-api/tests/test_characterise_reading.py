@@ -115,9 +115,7 @@ def test_available_needs_the_level_and_a_model(monkeypatch):
 
 
 def _facts(sid):
-    with session_scope() as db:
-        from mendel_api.models import PipelineAuthoringSession
-        return list(db.get(PipelineAuthoringSession, sid).facts)
+    return facade.read(sid)["facts"]
 
 
 def test_a_reading_answers_an_input_gap_and_is_marked_read_by_ai(clean, readable):  # noqa: F811
@@ -158,11 +156,9 @@ def test_a_reading_of_another_type_is_recorded_and_the_question_stays(clean, rea
 
 def test_the_persons_word_stands_over_a_reading(clean, readable):  # noqa: F811
     sid, pid = _at("paired")
-    from mendel_api.models import PipelineAuthoringSession
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, sid)
-        row.facts = [*row.facts, {"kind": "measurement", "subject": "quality_encoding",
-                                  "value": "phred33", "source": "person_said"}]
+    from mendel_api.services import decisions
+
+    decisions.set_fact(facade.read(sid)["draft_id"], "quality_encoding", "phred33", who="ana")
     attempt = samples.start_reading(pid)
     reply = CharacteriseReply(
         type_id="fastq.reads",

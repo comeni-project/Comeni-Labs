@@ -42,12 +42,11 @@ def touch(db, draft):
     draft.updated_at = datetime.now(UTC)
 
 
-def project(db, draft, graph, *, provenance, goal):
+def project(db, draft, graph, *, provenance):
     dumped = graph.model_dump(mode="json")
-    if dumped != draft.graph or goal != draft.goal or provenance != draft.provenance:
+    if dumped != draft.graph or provenance != draft.provenance:
         draft.graph = dumped
         draft.provenance = provenance
-        draft.goal = goal
         touch(db, draft)
     draft.projection_revision = draft.decision_revision
     draft.projection_current = True

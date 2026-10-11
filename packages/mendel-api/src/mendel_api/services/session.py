@@ -429,6 +429,7 @@ def read(session_id: str) -> dict:
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
     from mendel_api.authoring import envelopes
+    from mendel_api.services import authoring_decisions
     from mendel_api.stages.building import _placement, hand_edits
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
@@ -438,6 +439,9 @@ def read(session_id: str) -> dict:
         if row is None:
             raise KeyError(session_id)
         draft = db.get(PipelineDraft, row.draft_id)
+        current_facts = [f.model_dump(mode="json") for f in authoring_decisions.facts(row.draft_id)]
+        current_goal = (authoring_decisions.goal(row).model_dump(mode="json")
+                        if authoring_decisions.confirmed(row.draft_id) else None)
 
         turns = db.scalars(
             select(PipelineAuthoringTurn)
@@ -474,8 +478,8 @@ def read(session_id: str) -> dict:
             "draft_id": row.draft_id,
             "phase": row.phase,
             "failed_from": row.failed_from,
-            "goal": row.goal,
-            "facts": list(row.facts or []),
+            "goal": current_goal,
+            "facts": current_facts,
             "row_version": row.row_version,
             "revision": draft.revision if draft else 0,
             "graph": draft.graph if draft else {},
@@ -508,7 +512,7 @@ def read(session_id: str) -> dict:
                     "by": p.by,
                     "chosen_option": p.chosen_option,
                     "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
-                    "answer": _answer_of(p, row.facts or []),
+                    "answer": _answer_of(p, current_facts),
                     "at": (p.settled_at or p.created_at).isoformat(),
                 }
                 for p in db.scalars(
@@ -638,6 +642,8 @@ def characterised(facts: list[dict] | None) -> bool:
 
 def ai_for_draft(draft_id: str):
     """`ai_for` for a draft an authoring session owns, or `None` for a hand-drawn one."""
+    from mendel_api.services import authoring_decisions
+
     with session_scope() as db:
         owned = db.scalar(
             select(PipelineAuthoringSession).where(
@@ -649,6 +655,7 @@ def ai_for_draft(draft_id: str):
         draft = db.get(PipelineDraft, draft_id)
         return ai_for(
             DraftProvenance.model_validate(draft.provenance or {}),
-            characterised=characterised(owned.facts),
+            characterised=characterised([f.model_dump(mode="json") for f in
+                authoring_decisions.facts(draft_id)]),
         )
 

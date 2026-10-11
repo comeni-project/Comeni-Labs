@@ -82,14 +82,32 @@ def _bump(draft_id: str) -> int:
 def _offer(kind="step"):
     """Storage tests offer a complete card at the real boundary."""
     if kind == "gap":
-        return {"subject": "reads.fastq", "kind": "input", "why": "required input",
-                "options": {}, "block": {"kind": "question", "id": "input",
-                                          "asks": "Have reads?", "why_open": "required"}}
-    return {"node": "align", "options": {"keep": "nf-core/star/align@1.11.0"},
-            "amendments": {}, "edges": [],
-            "block": {"kind": "step_proposal", "id": "step-align", "node": "align",
-                      "contract": "nf-core/star/align@1.11.0", "tier": 1,
-                      "reason": "declared route"}}
+        return {
+            "subject": "reads.fastq",
+            "kind": "input",
+            "why": "required input",
+            "options": {},
+            "block": {
+                "kind": "question",
+                "id": "input",
+                "asks": "Have reads?",
+                "why_open": "required",
+            },
+        }
+    return {
+        "node": "align",
+        "options": {"keep": "nf-core/star/align@1.11.0"},
+        "amendments": {},
+        "edges": [],
+        "block": {
+            "kind": "step_proposal",
+            "id": "step-align",
+            "node": "align",
+            "contract": "nf-core/star/align@1.11.0",
+            "tier": 1,
+            "reason": "declared route",
+        },
+    }
 
 
 # ── the checkpoint ────────────────────────────────────────────────────────────────────────
@@ -105,9 +123,7 @@ def test_a_session_survives_being_read_back_in_a_new_connection(draft):
     """
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
     facade.perform(commands.Say(session_id, "I have paired fastq and I want counts per gene"))
-    proposal_id = _rows.propose(
-        session_id, kind=_rows.STEP, payload=_offer()
-    )
+    proposal_id = _rows.propose(session_id, kind=_rows.STEP, payload=_offer())
 
     read = facade.read(session_id)
 
@@ -133,7 +149,9 @@ def test_the_confirmed_goal_survives_the_round_trip(draft):
     authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2, goal=goal)
 
     reread = facade.read(session_id)
-    assert reread["goal"] == goal
+    from comeni_core.goal.asked import Goal
+
+    assert reread["goal"] == Goal.model_validate(goal).model_dump(mode="json")
     assert reread["phase"] == Phase.GOAL_REVIEW.value
 
 
@@ -234,14 +252,10 @@ def test_deciding_a_proposal_twice_is_refused(draft):
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
     proposal_id = _rows.propose(session_id, kind=_rows.STEP, payload=_offer())
 
-    first = _rows.decide(
-        proposal_id, ProposalState.ACCEPTED, expected_revision=0, by="person"
-    )
+    first = _rows.decide(proposal_id, ProposalState.ACCEPTED, expected_revision=0, by="person")
     assert first.applies and first.state is ProposalState.ACCEPTED
 
-    second = _rows.decide(
-        proposal_id, ProposalState.REJECTED, expected_revision=1, by="person"
-    )
+    second = _rows.decide(proposal_id, ProposalState.REJECTED, expected_revision=1, by="person")
     assert not second.applies
     assert "MI0203" in second.refusal
     assert second.state is ProposalState.ACCEPTED, "the outcome changed on a duplicate"
@@ -270,9 +284,7 @@ def test_a_second_tab_accepting_against_an_older_view_changes_nothing(draft):
     assert facade.read(session_id)["revision"] == 1
 
     second = _rows.propose(session_id, kind=_rows.GAP, payload=_offer("gap"))
-    stale_view = _rows.decide(
-        second, ProposalState.ACCEPTED, expected_revision=0, by="person"
-    )
+    stale_view = _rows.decide(second, ProposalState.ACCEPTED, expected_revision=0, by="person")
     assert not stale_view.applies
     assert "MI0201" in stale_view.refusal
     assert facade.read(session_id)["revision"] == 1, "a refused acceptance moved the draft"
@@ -290,9 +302,7 @@ def test_a_proposal_from_before_the_draft_moved_goes_stale_and_never_applies(dra
 
     now = _bump(draft)  # the draft moved by some other route
 
-    outcome = _rows.decide(
-        proposal_id, ProposalState.ACCEPTED, expected_revision=now, by="person"
-    )
+    outcome = _rows.decide(proposal_id, ProposalState.ACCEPTED, expected_revision=now, by="person")
     assert not outcome.applies
     assert outcome.state is ProposalState.STALE
     assert "MI0202" in outcome.refusal

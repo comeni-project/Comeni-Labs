@@ -17,8 +17,8 @@ from mendel_resolver.router import UnroutableError
 from mendel_api.authoring import envelopes
 from mendel_api.authoring.types import Option, ProposalState, StepProposal
 from mendel_api.models import PipelineAuthoringProposal, PipelineDraft
+from mendel_api.services import authoring_decisions, declared, registry
 from mendel_api.services import blueprint as bp
-from mendel_api.services import declared, registry
 from mendel_api.stages import _rows
 
 STEP = _rows.STEP
@@ -106,7 +106,7 @@ def offer(db, row, blueprint: bp.Blueprint, plan: BuildPlan, node: str, stop: St
             turn_id=None,
             kind=STEP,
             payload=envelopes.prepare(
-                step_payload(blueprint, planned, Goal.model_validate(row.goal), present, stop),
+                step_payload(blueprint, planned, authoring_decisions.goal(row), present, stop),
                 kind=STEP, draft=draft, session=row),
             state=ProposalState.PENDING.value,
             chosen_option=None,

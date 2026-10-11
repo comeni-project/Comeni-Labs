@@ -147,9 +147,9 @@ class Decisions(_Value):
     def from_goal(cls, goal: Goal) -> Self:
         """Import a confirmed goal without treating its evidence as a fresh observation."""
         return cls(
-            inputs=[InputDecision(key=i.name or f"{i.type_id}:{n}", type_id=i.type_id,
+            inputs=[InputDecision(key=i.name or i.type_id, type_id=i.type_id,
                                   name=i.name, states=sorted(i.states))
-                    for n, i in enumerate(goal.have)],
+                    for i in goal.have],
             wants=[WantDecision(type_id=w, states=sorted(goal.constraints.states_for(w)))
                    for w in goal.want],
             facts=[FactDecision(subject=f.measurement, value=f.value,

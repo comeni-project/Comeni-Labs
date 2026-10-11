@@ -37,7 +37,7 @@ def test_two_internal_writes_in_an_action_stamp_the_revision_once():
     with transaction(), session_scope() as db:
         row = service.lock(db, draft)
         service.touch(db, row)
-        service.project(db, row, _graph(), provenance={}, goal={})
+        service.project(db, row, _graph(), provenance={})
     assert drafts.read(draft).revision == 1
 
 

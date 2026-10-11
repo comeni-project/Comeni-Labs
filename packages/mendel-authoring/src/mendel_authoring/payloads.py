@@ -59,3 +59,8 @@ def check(arrow: str | None, payload: Payload) -> Payload:
     if type(payload) is not expected:
         raise ValueError(f"{arrow}: payload must be {expected.__name__}")
     return payload
+
+
+class ContextStamp(_Payload):
+    decision_revision: int = Field(ge=0)
+    context_digest: str = Field(min_length=64, max_length=64)

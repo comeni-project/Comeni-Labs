@@ -2,10 +2,11 @@
 drive by hand. **Nothing under `src/` may call these** (`test_authoring_binding.py`)."""
 
 from comeni_core.diagnostics import coded
-from mendel_api.authoring.types import Phase
-from mendel_api.db import session_scope
+from comeni_core.goal.asked import Goal
+from mendel_api.authoring.types import Fact, Phase
+from mendel_api.db import transaction
 from mendel_api.models import PipelineAuthoringSession
-from mendel_api.services import session
+from mendel_api.services import authoring_decisions, decisions, session
 from mendel_api.stages._rows import now as _now
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
@@ -23,7 +24,7 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
     still ours*. Both are needed and they catch different mistakes — the first an illegal move,
     the second a legal move applied to a session somebody else already moved.
     """
-    with session_scope() as db:
+    with transaction() as db:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
@@ -36,6 +37,19 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
         # the phase of a failure it has already recovered from — `forge_state.move` clears
         # `failed_stage` for exactly this reason, and a stale one sends the next retry wrong.
         failed = st.failed_from(current).value if target is Phase.FAILED else None
+
+        if "goal" in values:
+            goal = values.pop("goal")
+            if target in (Phase.UNDERSTANDING, Phase.GATHERING):
+                values["extraction"] = goal
+            else:
+                decisions.import_goal(row.draft_id, Goal.model_validate(goal or {}), who=row.who)
+        if "facts" in values:
+            for fact in values.pop("facts"):
+                authoring_decisions.record(row.draft_id, Fact.model_validate(fact), who=row.who)
+        if "policy" in values:
+            policy = values.pop("policy") or {}
+            values.update(pacing=policy.get("pacing"), show_gaps=policy.get("show_gaps"))
 
         done = db.execute(
             update(PipelineAuthoringSession)

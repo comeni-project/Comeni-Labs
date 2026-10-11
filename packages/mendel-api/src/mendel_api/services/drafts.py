@@ -36,7 +36,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
-from mendel_api.services import registry
+from mendel_api.services import decisions, registry
 from mendel_api.services import validate as validation
 from mendel_api.settings import settings
 
@@ -420,7 +420,7 @@ def _load(draft_id: str) -> Stored:
         return Stored(
             graph=DraftGraph.model_validate(row.graph),
             provenance=DraftProvenance.model_validate(row.provenance) if row.provenance else None,
-            goal=Goal.model_validate(row.goal) if row.goal else None,
+            goal=decisions.confirmed_goal(draft_id),
         )
 
 

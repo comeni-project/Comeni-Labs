@@ -24,8 +24,8 @@ from mendel_api.models import (
 )
 from mendel_api.services import session
 from mendel_api.services.session import Ctx, handles, records
-from mendel_api.stages import _jobs, gathering
-from mendel_api.stages._rows import GOAL, new_id, next_seq, store_goal
+from mendel_api.stages import _jobs, _rows, gathering
+from mendel_api.stages._rows import GOAL, new_id, next_seq
 from mendel_api.stages._rows import now as _now
 
 READS = ("turn_context",)
@@ -62,6 +62,7 @@ def open_session(draft_id: str, *, who: str) -> str:
                 + f"\n  it is {existing.id}, in phase {existing.phase}"
             )
 
+        session.get(PipelineDraft, draft_id).ownership = "authored"
         session_id = new_id()
         now = _now()
         session.add(
@@ -259,7 +260,10 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
         # The card's composed goal while it is on offer: `row.goal` holds only the want until the
         # person confirms it (14.7.3).
         card = pending.payload.get("goal") if pending is not None and pending.kind == GOAL else None
-        goal = card or row.goal
+        from mendel_api.services import authoring_decisions
+
+        goal = card or (authoring_decisions.goal(row).model_dump(mode="json")
+                        if authoring_decisions.confirmed(row.draft_id) else None)
         return TurnContext(
             phase=Phase(row.phase),
             prompt=person.text if person is not None else "",
@@ -399,5 +403,5 @@ def read_goal(ctx: Ctx) -> str:
     """Store the want the model read; the engine takes over to gather what it needs."""
     if not isinstance(ctx.payload, p.GoalReturned):
         raise TypeError("read_goal requires GoalReturned")
-    store_goal(ctx.session_id, ctx.payload.extraction.model_dump(mode="json"))
+    _rows.store_extraction(ctx.session_id, ctx.payload.extraction.model_dump(mode="json"))
     return "want_returned"

@@ -22,8 +22,8 @@ from mendel_resolver.router import UnroutableError
 from mendel_api.authoring.types import ProposalState, Receipt
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
+from mendel_api.services import authoring_decisions, decisions, draft_mutations, registry, session
 from mendel_api.services import blueprint as bp
-from mendel_api.services import draft_mutations, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _rows
 from mendel_api.stages.building.cards import FACT, STEP
@@ -37,11 +37,11 @@ def project(db, row, blueprint: bp.Blueprint) -> None:
     """The draft from the blueprint and the reviewed steps, and the goal with it (issue 254):
     the kept artifact carries every fact and pin it was built from. The revision moves only
     when something changed."""
-    goal = Goal.model_validate(row.goal)
+    goal = authoring_decisions.goal(row)
     draft = db.get(PipelineDraft, row.draft_id)
     graph, provenance = drafted(blueprint, reviewed_of(row), goal.profile)
     draft_mutations.project(db, draft, graph,
-                            provenance=provenance.model_dump(mode="json"), goal=row.goal)
+                            provenance=provenance.model_dump(mode="json"))
 
 
 def pending_step(db, proposal_id: str) -> PipelineAuthoringProposal:
@@ -145,9 +145,9 @@ def amend(ctx: Ctx, cmd: c.Amend):
         ctx.session_id = row.id
         if walk.registry_moved(row):
             return walk.re_offer(ctx, proposal, row, db)
-        amendment = _offered(proposal, cmd.option, cmd.value, Goal.model_validate(row.goal))
+        amendment = _offered(proposal, cmd.option, cmd.value, authoring_decisions.goal(row))
         session.check(row.id, Command.AMEND.value)
-        goal = amendment.apply(Goal.model_validate(row.goal))
+        goal = amendment.apply(authoring_decisions.goal(row))
         try:
             fresh, _ = bp.resolve(goal)
         except UnroutableError as unroutable:
@@ -157,7 +157,7 @@ def amend(ctx: Ctx, cmd: c.Amend):
         if isinstance(amendment, ChooseTool):
             # The person just decided this step; the tool it now holds is theirs, reviewed.
             reviewed.append(Reviewed(node=proposal.payload["node"], by=cmd.by))
-        row.goal = goal.model_dump(mode="json")
+        decisions.import_goal(row.draft_id, goal, who=cmd.by)
         row.blueprint = fresh.model_dump(mode="json")
         row.registry_digest = fresh.registry
         carried = carried_by_pin(before, fresh, reviewed, goal)

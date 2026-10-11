@@ -1,11 +1,12 @@
 """② The engine gathers what it needs: the needs, a question at a time, the answers, and the
 model's words for each question (14.7.8.1; plan 1c). Moved from `services/authoring.py`."""
 
+import hashlib
+import json
 import logging
 
-from comeni_core.declared.measurement import MeasuredEntry, MeasurementKind
+from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import GoalInput
 from comeni_core.goal.profile import Evidence
 from comeni_core.review.answer import ValueSource
 from mendel_authoring import commands as c
@@ -33,11 +34,13 @@ from mendel_api.models import (
     PipelineAuthoringProposal,
     PipelineAuthoringSession,
     PipelineAuthoringTurn,
+    PipelineDraft,
+    PipelinePhrasing,
 )
-from mendel_api.services import gaps, registry, session
+from mendel_api.services import authoring_decisions, decisions, gaps, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows
-from mendel_api.stages._rows import GOAL, propose, store_goal
+from mendel_api.stages._rows import GOAL, propose
 from mendel_api.stages._rows import engine_turn as _engine_turn
 from mendel_api.stages._rows import now as _now
 from mendel_api.stages._rows import say_engine as _say
@@ -45,7 +48,7 @@ from mendel_api.stages._rows import swap as _swap
 
 log = logging.getLogger(__name__)
 
-READS = ("to_phrase", "gap_context", "compose_goal", "as_goal", "_inspectable")
+READS = ("to_phrase", "gap_context", "compose_goal", "as_goal", "_inspectable", "phrasing_context")
 """What a job may read of this stage directly (ruling 2 of plan 1c); every change is a command."""
 
 GAP = _rows.GAP
@@ -169,23 +172,18 @@ def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
-        facts = [Fact.model_validate(f) for f in row.facts or []]
-        return dict(row.goal or {}), facts, row.row_version
-
-
-_NOT_GOAL = frozenset({"summary", "stated", "suggested", "phrased"})
-"""What the session's `goal` column holds while gathering beside the want, and a `Goal` does not:
-the model's summary sentence for the card, and the candidates it heard (#170)."""
+        extracted = authoring_decisions.extracted(row)
+        wanted = extracted.model_dump(mode="json") if extracted else {}
+        current = decisions.goal(row.draft_id)
+        if current.want:
+            wanted = {**wanted, "want": current.want,
+                      "constraints": current.constraints.model_dump(mode="json")}
+        return wanted, authoring_decisions.facts(row.draft_id), row.row_version
 
 
 def as_goal(stored: dict | None) -> Goal | None:
-    """A stored goal as a `Goal`. While gathering, the column also holds the model's one-sentence
-    summary for the card, which is not part of a goal."""
-    if not stored:
-        return None
-    return Goal.model_validate(
-        {k: v for k, v in stored.items() if k not in _NOT_GOAL}
-    )
+    """Parse the composed current snapshot or the derived goal card."""
+    return Goal.model_validate(stored) if stored is not None else None
 
 
 def _goal_evidence(evidence: dict | None) -> Evidence | None:
@@ -202,32 +200,17 @@ def compose_goal(session_id: str) -> Goal:
     **An open fact is absent, not empty.** A measurement nobody knows is left out of the
     profile, and the tiers carry every decision that reads it as tier 4 (protocol rule 6).
     """
-    wanted, facts, _ = _gathered(session_id)
-    stack = registry.stack()
-    return Goal.model_validate(
-        {
-            "have": [
-                GoalInput(type_id=f.subject, states=frozenset(f.states))
-                for f in facts
-                if f.kind is FactKind.INPUT
-            ],
-            "want": wanted.get("want", []),
-            "constraints": wanted.get("constraints") or {},
-            "profile": stack.measurements.profile_of(
-                [
-                    MeasuredEntry(
-                        f.subject,
-                        f.value,
-                        _SOURCE[f.source],
-                        pieces=tuple(f.pieces),
-                        evidence=_goal_evidence(f.evidence),
-                    )
-                    for f in facts
-                    if f.kind is FactKind.MEASUREMENT and f.source is not FactSource.OPEN
-                ]
-            ),
-        }
-    )
+    wanted, _facts, _ = _gathered(session_id)
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        current = decisions.goal(row.draft_id)
+    # The card proposes the extracted want. It is selected only by confirmation.
+    if current.want:
+        return current
+    return current.model_copy(update={"want": wanted.get("want", []),
+                                      "constraints": Goal.model_validate({
+                                          "constraints": wanted.get("constraints") or {}}
+                                      ).constraints})
 
 
 UNREACHABLE_ASK = "Nothing here can produce what you asked for. What result do you want?"
@@ -267,7 +250,7 @@ def need_listed(session_id: str) -> bool:
                 ).model_dump(mode="json"),
             ],
         )
-        store_goal(session_id, None)
+        _rows.store_extraction(session_id, None)
         return False
 
     return True
@@ -316,11 +299,10 @@ def offer_gap_or_card(session_id: str) -> str:
     )
     if heard is not None and (fill := _candidate_option(gap.kind, heard.get("value"), options)):
         question = _prefilled(question, *fill, note=STATED_NOTE)
-    settled = wanted.get("phrased") or {}
-    phrased = settled.get(gap.subject)
+    cached, phrased = cached_phrasing(session_id, gap.subject)
     if phrased is not None:
         question = _phrased(question, AskedGap.model_validate(phrased), gap.kind, options)
-    elif _model_configured() and gap.subject not in settled:  # a recorded refusal is `none`
+    elif _model_configured() and not cached:
         question = question.model_copy(update={"phrasing": "pending"})
     propose(
         session_id,
@@ -436,58 +418,64 @@ def _phrased(question: Question, asked: AskedGap, kind: FactKind, options: dict)
     return question
 
 
-def store_phrasing(session_id: str, subject: str, asked: AskedGap) -> None:
-    """Keep a phrasing for `subject`, and if that question is on offer, swap it in place (#167).
-
-    **Stored by subject**, because a prefetch phrases the next question before it exists (#186);
-    `offer_next_gap` applies it then. A phrasing for a question already answered changes nothing.
-    """
+def phrasing_context(session_id, subject):
+    context = gap_context(session_id, subject)
+    if context is None:
+        return None
+    wanted, _facts, _version = _gathered(session_id)
+    digest = hashlib.sha256(json.dumps({"question": context, "want": wanted.get("want"),
+        "constraints": wanted.get("constraints"), "registry": registry.digest()},
+        sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        goal = dict(row.goal or {})
-        goal["phrased"] = {**(goal.get("phrased") or {}), subject: asked.model_dump(mode="json")}
-        row.goal = goal
+        draft = db.get(PipelineDraft, row.draft_id)
+        return p.ContextStamp(decision_revision=draft.decision_revision, context_digest=digest)
+
+
+def cached_phrasing(session_id, subject):
+    stamp = phrasing_context(session_id, subject)
+    if stamp is None:
+        return False, None
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        cached = db.get(PipelinePhrasing, (row.draft_id, subject,
+                                          stamp.decision_revision, stamp.context_digest))
+        return (cached is not None, cached.asked if cached else None)
+
+
+def store_phrasing(session_id: str, subject: str, asked: AskedGap | None, stamp) -> None:
+    """Store wording only for the selected revision and semantic context it read."""
+    if stamp is None or stamp != phrasing_context(session_id, subject):
+        return
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        key = (row.draft_id, subject, stamp.decision_revision, stamp.context_digest)
+        cached = db.get(PipelinePhrasing, key)
+        data = asked.model_dump(mode="json") if asked else None
+        if cached is None:
+            db.add(PipelinePhrasing(draft_id=row.draft_id, subject=subject,
+                decision_revision=stamp.decision_revision, context_digest=stamp.context_digest,
+                asked=data))
+        else:
+            cached.asked = data
         pending = _pending_gap(db, session_id)
         if pending is not None and pending.payload.get("subject") == subject:
             payload = dict(pending.payload)
             question = Question.model_validate(payload["block"])
-            payload["block"] = _phrased(
-                question, asked, FactKind(payload["kind"]), payload["options"]
-            ).model_dump(mode="json")
+            payload["block"] = (_phrased(question, asked, FactKind(payload["kind"]),
+                                         payload["options"]) if asked else question.model_copy(
+                                             update={"phrasing": "none"})).model_dump(mode="json")
             pending.payload = payload
 
 
-def phrasing_failed(session_id: str, subject: str) -> None:
-    """A phrasing call that failed or was refused: the engine's words stand (`none`).
-
-    **Recorded by subject as `null`**, like a phrasing, because a refused *prefetch* is for a
-    question not yet on offer: unrecorded, that question later waited `pending` with its job id
-    spent and nothing left to settle it (#196)."""
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is not None:
-            goal = dict(row.goal or {})
-            goal["phrased"] = {**(goal.get("phrased") or {}), subject: None}
-            row.goal = goal
-        pending = _pending_gap(db, session_id)
-        if pending is not None and pending.payload.get("subject") == subject:
-            payload = dict(pending.payload)
-            block = dict(payload["block"])
-            if block.get("phrasing") == "pending":
-                block["phrasing"] = "none"
-                payload["block"] = block
-                pending.payload = payload
+def phrasing_failed(session_id: str, subject: str, stamp) -> None:
+    store_phrasing(session_id, subject, None, stamp)
 
 
 def _pending_gap(db, session_id: str):
-    pending = db.scalar(
-        select(PipelineAuthoringProposal).where(
-            PipelineAuthoringProposal.session_id == session_id,
-            PipelineAuthoringProposal.state == ProposalState.PENDING.value,
-        )
-    )
+    pending = db.scalar(select(PipelineAuthoringProposal).where(
+        PipelineAuthoringProposal.session_id == session_id,
+        PipelineAuthoringProposal.state == ProposalState.PENDING.value))
     return pending if pending is not None and pending.kind == GAP else None
 
 
@@ -508,8 +496,7 @@ def _unphrased(session_id: str) -> list[str]:
     found = gaps.gaps(wanted.get("want", []), facts, registry.stack())
     if isinstance(found, gaps.Unreachable):
         return []
-    done = set(wanted.get("phrased") or {})
-    return [g.subject for g in found[:2] if g.subject not in done]
+    return [g.subject for g in found[:2] if not cached_phrasing(session_id, g.subject)[0]]
 
 
 def gap_context(session_id: str, subject: str) -> dict | None:
@@ -623,10 +610,15 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
         session_id = ctx.session_id = proposal.session_id
         row = db.get(PipelineAuthoringSession, session_id)
         stops = kind is FactKind.INPUT and option == "dont_have"
-        facts = list(row.facts or [])
-        if not stops:
-            facts.append(_fact_for(kind, subject, option, value).model_dump(mode="json"))
-        _swap(db, session_id, row.row_version, facts=facts)
+        if stops:
+            from mendel_authoring.decisions import InputDecision
+
+            decisions.set_input(row.draft_id, InputDecision(
+                key=subject, type_id=subject, present=False), who=by)
+        else:
+            authoring_decisions.record(row.draft_id,
+                                      _fact_for(kind, subject, option, value), who=by)
+        _swap(db, session_id, row.row_version)
 
     # `_fact_for` decides what an answer means, so it decides the arrow too: *I have it, but
     # can't share it* is still having the input (`said`), *not sure* is `left_open`.
@@ -657,12 +649,12 @@ def _prefill(ctx: Ctx, cmd: c.PrefillGap) -> None:
 
 @records(c.StorePhrasing)
 def _store_phrasing(ctx: Ctx, cmd: c.StorePhrasing) -> None:
-    store_phrasing(cmd.session_id, cmd.subject, AskedGap.model_validate(cmd.asked))
+    store_phrasing(cmd.session_id, cmd.subject, AskedGap.model_validate(cmd.asked), cmd.stamp)
 
 
 @records(c.PhrasingFailed)
 def _phrasing_failed(ctx: Ctx, cmd: c.PhrasingFailed) -> None:
-    phrasing_failed(cmd.session_id, cmd.subject)
+    phrasing_failed(cmd.session_id, cmd.subject, cmd.stamp)
 
 
 @records(c.Resume)

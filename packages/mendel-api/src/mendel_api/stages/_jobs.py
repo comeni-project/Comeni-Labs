@@ -16,12 +16,18 @@ def turn(session_id: str, seq: int) -> Job:
 
 
 def phrase(session_id: str, subject: str) -> Job:
-    return Job(PHRASE, (session_id, subject),
-               jobs.job_id_for("builder", "phrase", session_id, subject), jobs.AI_QUEUE)
+    from mendel_api.stages import gathering
+
+    stamp = gathering.phrasing_context(session_id, subject)
+    if stamp is None:
+        raise ValueError("this question is no longer needed")
+    return Job(PHRASE, (session_id, subject, stamp.decision_revision, stamp.context_digest),
+               jobs.job_id_for("builder", "phrase", session_id, subject,
+                               str(stamp.decision_revision), stamp.context_digest), jobs.AI_QUEUE)
 
 
 def readback(session_id: str, proposal_id: str) -> Job:
-    return Job(READ_BACK, (session_id,),
+    return Job(READ_BACK, (session_id, proposal_id),
                jobs.job_id_for("builder", "readback", session_id, proposal_id), jobs.AI_QUEUE)
 
 

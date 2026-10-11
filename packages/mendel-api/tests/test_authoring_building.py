@@ -117,7 +117,9 @@ def test_building_stores_the_blueprint_and_offers_its_first_step(clean):
         assert row.blueprint["order"][0] == "star_genomegenerate"
         # **The regression.** A digest is seventy-one characters and the column was 64.
         assert len(row.registry_digest) == 71
-        assert db.get(PipelineDraft, row.draft_id).goal is not None
+        from mendel_api.services import decisions
+
+        assert decisions.goal(row.draft_id).want
 
 
 def test_building_cannot_start_from_any_phase_but_resolving(clean):

@@ -23,7 +23,7 @@ from mendel_api.authoring.types import (
 )
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
-from mendel_api.services import registry, session
+from mendel_api.services import authoring_decisions, decisions, registry, session
 from mendel_api.services.inspect import Inspection
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.settings import settings
@@ -108,21 +108,17 @@ def _record_found(
     session_id = proposal.session_id
     subject = proposal.payload["subject"]
     decided = {f.measurement for f in found if f.value is not None}
-    facts = [
-        f
-        for f in row.facts or []
-        if not (f.get("source") == FactSource.OPEN.value and f["subject"] in decided)
-    ]
+    facts = [f.model_dump(mode="json") for f in authoring_decisions.facts(row.draft_id)
+             if not (f.source is FactSource.OPEN and f.subject in decided)]
     known = {f["subject"]: f for f in facts}
     recorded, kept, disagreed = [], [], []
     if type_id:
         if type_id in known:
             kept.append(type_id)
         else:
-            facts.append(
-                Fact(kind=FactKind.INPUT, subject=type_id, states=sorted(states), source=source)
-                .model_dump(mode="json")
-            )
+            authoring_decisions.record(row.draft_id,
+                Fact(kind=FactKind.INPUT, subject=type_id, states=sorted(states), source=source),
+                who=by)
             recorded.append(type_id)
     for item in found:
         if item.value is None:
@@ -131,21 +127,15 @@ def _record_found(
             stack.measurements.check(item.measurement, item.value)
         except (ValueError, KeyError):
             continue
+        observation = decisions.observe(row.draft_id, item.measurement, item.value,
+                                        origin=source, pieces=item.pieces,
+                                        evidence=gathering._goal_evidence(item.evidence))
         if item.measurement in known:
             kept.append(item.measurement)
             if known[item.measurement].get("value") != item.value:
                 disagreed.append(item.measurement)
             continue
-        facts.append(
-            Fact(
-                kind=FactKind.MEASUREMENT,
-                subject=item.measurement,
-                value=item.value,
-                source=source,
-                pieces=item.pieces,
-                evidence=_counts(item.evidence or {}) or None,
-            ).model_dump(mode="json")
-        )
+        decisions.select_observation(row.draft_id, item.measurement, observation, who=by)
         recorded.append(item.measurement)
     answered = subject in recorded
     if answered:
@@ -155,8 +145,8 @@ def _record_found(
         proposal.settled_at = _now()
     # A sample that changed nothing leaves the session's version alone, so a click the person
     # made meanwhile is not refused as stale (issue 226).
-    if answered or facts != (row.facts or []):
-        _swap(db, session_id, row.row_version, facts=facts)
+    if answered or recorded:
+        _swap(db, session_id, row.row_version)
     return recorded, kept, disagreed, answered
 
 

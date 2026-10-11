@@ -249,6 +249,12 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                     _write(db, draft, family, subject.subject_key, fields,
                            who=who, action="retract")
             for position, (key, fields) in enumerate(values):
+                if family == "input":
+                    old = next((r for s, r in _current(db, draft_id, family)
+                                if s.subject_key == key), None)
+                    if old is not None and all(getattr(old, name) == value for name, value in
+                                               fields.items() if name != "origin"):
+                        fields = {**fields, "origin": old.origin}
                 _write(db, draft, family, key, fields, who=who, action="import", position=position)
         facts = {f.subject: f for f in decisions.facts}
         for subject, _revision in _current(db, draft_id, "fact"):
@@ -353,3 +359,17 @@ def release_parameter(draft_id, name, *, who, expected_revision=None):
 def release_producer(draft_id, site: Site, *, who, expected_revision=None):
     return _release(draft_id, "producer", _site_key(site), who=who,
                     expected_revision=expected_revision)
+
+
+def set_input(draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON):
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        return _write(db, draft, "input", decision.key,
+                      decision.model_dump(mode="json", exclude={"key"}),
+                      who=who, actor_kind=actor_kind).id
+
+
+def confirmed_goal(draft_id):
+    current = read(draft_id)
+    return (current.goal(registry.stack().measurements)
+            if any(w.present for w in current.wants) else None)

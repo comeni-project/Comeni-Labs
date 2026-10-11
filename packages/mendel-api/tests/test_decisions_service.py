@@ -189,3 +189,38 @@ def test_reordering_selected_inputs_updates_goal_and_decision_revision():
     assert service.goal(draft) == second
     with session_scope() as db:
         assert db.get(PipelineDraft, draft).decision_revision == 2
+
+
+def test_gathering_records_selected_inputs_and_uses_a_corrected_row_value():
+    from mendel_api.services import session
+    from mendel_api.stages import gathering
+    from mendel_authoring import commands as c
+
+    service = _service()
+    sid = session.perform(c.Begin("counts", "ana")).result[0]
+    session.perform(c.Understood(sid, {"want": ["counts.matrix"]}))
+    offered = session.read(sid)["pending_proposal"]
+    subject = offered["payload"]["subject"]
+    session.perform(c.AnswerGap(offered["id"], "have_it", None, "ana"))
+    draft = session.read(sid)["draft_id"]
+    assert any(i.type_id == subject for i in service.read(draft).inputs)
+    service.set_fact(draft, "read_length", 100, who="ana")
+    assert gathering.compose_goal(sid).profile.get("read_length") == 100
+    current = next(f for f in session.read(sid)["facts"] if f["subject"] == "read_length")
+    assert current["value"] == 100
+
+
+def test_model_extraction_stays_separate_from_accepted_goal_and_fact_rows():
+    from mendel_api.models import PipelineAuthoringSession
+    from mendel_api.services import session
+    from mendel_authoring import commands as c
+
+    service = _service()
+    sid = session.perform(c.Begin("counts from paired reads", "ana")).result[0]
+    session.perform(c.Understood(sid, {"want": ["counts.matrix"], "stated": [
+        {"kind": "measurement", "subject": "paired", "value": True}]}))
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, sid)
+        assert row.extraction["stated"][0]["value"] is True
+        assert row.goal is None
+    assert not service.read(session.read(sid)["draft_id"]).facts

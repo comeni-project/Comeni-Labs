@@ -510,7 +510,10 @@ def preview(session_id: str) -> AuthoringPreview:
         draft_id = row.draft_id
         stored = db.get(PipelineDraft, draft_id)
         provenance = DraftProvenance.model_validate(stored.provenance or {})
-        read_by_ai = session.characterised(row.facts)
+        from mendel_api.services import authoring_decisions
+
+        read_by_ai = session.characterised([f.model_dump(mode="json")
+                                           for f in authoring_decisions.facts(row.draft_id)])
     shown = drafts.preview(draft_id, ai=_ai_for(provenance, characterised=read_by_ai))
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings

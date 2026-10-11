@@ -3,6 +3,7 @@ model's words (14.7.8.1; plan 1c). Moved from `services/authoring.py`."""
 
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
+from mendel_authoring.payloads import ContextStamp
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from sqlalchemy import select
@@ -15,7 +16,7 @@ from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows, gathering
 from mendel_api.stages._rows import now as _now
 
-READS = ("wants_readback", "readback_context")
+READS = ("readback_context_stamp", "wants_readback", "readback_context")
 """What a job may read of this stage directly (ruling 2 of plan 1c); every change is a command."""
 
 GOAL = _rows.GOAL
@@ -82,14 +83,33 @@ def _set_card(session_id: str, **changes) -> None:
         card.payload = payload
 
 
-def store_readback(session_id: str, text: str) -> None:
-    """The read-back on the card on offer; nothing if the card was already answered (#176)."""
-    _set_card(session_id, readback=text, readback_pending=False)
+def readback_context_stamp(session_id):
+    import hashlib
+    import json
+
+    with session_scope() as db:
+        card = _pending_card(db, session_id)
+        if card is None:
+            return None
+        from mendel_api.models import PipelineAuthoringSession, PipelineDraft
+
+        owner = db.get(PipelineAuthoringSession, session_id)
+        if db.get(PipelineDraft, owner.draft_id).decision_revision != (
+                card.payload["context"]["decision_revision"]):
+            return None
+        return ContextStamp(decision_revision=card.payload["context"]["decision_revision"],
+                            context_digest=hashlib.sha256(json.dumps(card.payload["goal"],
+                                sort_keys=True).encode()).hexdigest())
 
 
-def readback_failed(session_id: str) -> None:
-    """A read-back that failed or was refused: the engine's sentence stands."""
-    _set_card(session_id, readback_pending=False)
+def store_readback(session_id: str, text: str, stamp) -> None:
+    if stamp is not None and stamp == readback_context_stamp(session_id):
+        _set_card(session_id, readback=text, readback_pending=False)
+
+
+def readback_failed(session_id: str, stamp) -> None:
+    if stamp is not None and stamp == readback_context_stamp(session_id):
+        _set_card(session_id, readback_pending=False)
 
 
 def wants_readback(session_id: str) -> bool:
@@ -150,12 +170,12 @@ def _revised(ctx: Ctx, cmd: c.Revised) -> None:
 
 @records(c.StoreReadback)
 def _store_readback(ctx: Ctx, cmd: c.StoreReadback) -> None:
-    store_readback(cmd.session_id, cmd.text)
+    store_readback(cmd.session_id, cmd.text, cmd.stamp)
 
 
 @records(c.ReadbackFailed)
 def _readback_failed(ctx: Ctx, cmd: c.ReadbackFailed) -> None:
-    readback_failed(cmd.session_id)
+    readback_failed(cmd.session_id, cmd.stamp)
 
 
 # ── the handler ──────────────────────────────────────────────────────────────────────────

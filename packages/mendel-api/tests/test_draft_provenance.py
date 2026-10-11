@@ -304,8 +304,9 @@ def test_a_stored_goal_reaches_the_artifact_instead_of_one_derived_from_the_canv
     from comeni_core.goal.asked import Goal
 
     asked = Goal(want=["counts.matrix", "qc.report"])
-    with session_scope() as session:
-        session.get(PipelineDraft, spawned_draft).goal = asked.model_dump(mode="json")
+    from mendel_api.services import decisions
+
+    decisions.import_goal(spawned_draft, asked, who="ana")
 
     # **`_load` is not stubbed here.** These read the real row, because the columns under test
     # are exactly the ones the seam reads — stubbing it would test the stub.

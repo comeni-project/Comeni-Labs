@@ -230,10 +230,13 @@ async def characterise_sample(
     return f"{proposal_id}:{attempt}:{state}"
 
 
-async def read_back_authoring_goal(ctx: dict, session_id: str) -> str:
+async def read_back_authoring_goal(ctx: dict, session_id: str, proposal_id=None) -> str:
     """Read the composed goal back to the person (#176). A failure leaves the engine's sentence."""
+    if proposal_id is not None and session_mod.pending_id(session_id) != proposal_id:
+        return f"{session_id}: outdated goal card"
     if not goal.wants_readback(session_id):
         return f"{session_id}: no card waiting for a read-back"
+    stamp = goal.readback_context_stamp(session_id)
     outcome = authoring_ai.read_back(
         authoring_ai.compose(prompt="", registry=registry.digest()),
         goal=goal.readback_context(session_id),
@@ -241,17 +244,23 @@ async def read_back_authoring_goal(ctx: dict, session_id: str) -> str:
         session_id=session_id,
     )
     if outcome.admitted:
-        _perform(c.StoreReadback(session_id, outcome.reply.text))
+        _perform(c.StoreReadback(session_id, outcome.reply.text, stamp))
     else:
-        _perform(c.ReadbackFailed(session_id))
+        _perform(c.ReadbackFailed(session_id, stamp))
     return f"{session_id}: read back"
 
 
-async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str) -> str:
+async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str,
+                               decision_revision=None, context_digest=None) -> str:
     """Phrase one gathering question for the person (#167). A failure leaves the engine's words."""
     gap = gathering.gap_context(session_id, subject)
     if gap is None:
         return f"{session_id}:{subject} is no longer asked"
+    stamp = gathering.phrasing_context(session_id, subject)
+    if (decision_revision is not None and
+            (stamp is None or stamp.decision_revision != decision_revision
+             or stamp.context_digest != context_digest)):
+        return f"{session_id}:{subject}: outdated question context"
     request = authoring_ai.compose(
         prompt=gap["first_sentence"], options=list(gap["options"]), registry=registry.digest()
     )
@@ -263,9 +272,9 @@ async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str) -> str:
         session_id=session_id,
     )
     if outcome.admitted:
-        _perform(c.StorePhrasing(session_id, subject, outcome.reply.model_dump(mode="json")))
+        _perform(c.StorePhrasing(session_id, subject, outcome.reply.model_dump(mode="json"), stamp))
     else:
-        _perform(c.PhrasingFailed(session_id, subject))
+        _perform(c.PhrasingFailed(session_id, subject, stamp))
     return f"{session_id}:{subject}"
 
 

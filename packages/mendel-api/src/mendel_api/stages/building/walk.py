@@ -18,7 +18,6 @@ from mendel_authoring import state as st
 from mendel_authoring.draft import Reviewed, drafted, kept, next_step
 from mendel_authoring.pacing import Pacing, Policy, stops
 from mendel_authoring.types import Command
-from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
 
 from mendel_api.authoring.types import (
@@ -39,7 +38,7 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
-from mendel_api.services import authoring_ai, session
+from mendel_api.services import authoring_ai, authoring_decisions, session
 from mendel_api.services import blueprint as bp
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.settings import settings
@@ -98,12 +97,12 @@ def resolve_blueprint(session_id: str, *, client=None) -> str:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
-        if row.goal is None:
+        if not authoring_decisions.confirmed(row.draft_id):
             raise ValueError(
                 coded("MI0200", "this session has no confirmed goal to build from")
                 + "\n  accept a goal first; a blueprint resolved from nothing is not a pipeline"
             )
-        goal = Goal.model_validate(row.goal)
+        goal = authoring_decisions.goal(row)
         version = row.row_version
 
     try:
@@ -178,7 +177,7 @@ def hand_edits(row: PipelineAuthoringSession, draft: PipelineDraft | None) -> st
         return None
     blueprint = bp.Blueprint.model_validate(row.blueprint)
     projected, _ = drafted(
-        blueprint, reviewed_of(row), Goal.model_validate(row.goal).profile
+        blueprint, reviewed_of(row), authoring_decisions.goal(row).profile
     )
     return describe_edit(projected, DraftGraph.model_validate(draft.graph))
 
@@ -199,7 +198,7 @@ def re_offer(ctx: Ctx, proposal, row, db) -> StepOutcome:
     proposal.state = ProposalState.STALE.value
     proposal.settled_at = _rows.now()
     try:
-        fresh, _ = bp.resolve(Goal.model_validate(row.goal))
+        fresh, _ = bp.resolve(authoring_decisions.goal(row))
     except UnroutableError as unroutable:
         # Final review of Run 2, I2: said by name, never a server error. Nothing is written —
         # the card waits, and the next answer meets the same sentence until the registry or
@@ -397,7 +396,7 @@ def _choose_pacing(ctx: Ctx, cmd: c.ChoosePacing) -> None:
         proposal.chosen_option = cmd.option
         proposal.settled_at = _rows.now()
         row = db.get(PipelineAuthoringSession, proposal.session_id)
-        row.policy = _with(row, pacing=Pacing(cmd.option))
+        row.pacing = Pacing(cmd.option).value
     session.take(ctx, Command.CHOOSE_PACING.value)
 
 
@@ -437,19 +436,16 @@ def overview(ctx: Ctx) -> None:
     return None
 
 
-def _with(row: PipelineAuthoringSession, **change) -> dict:
-    """The walk's policy with `change` applied. Pacing is recorded first (its fork comes first),
-    so a policy always has one by the time gaps are decided."""
-    current = dict(row.policy or {})
-    current.update({k: (v.value if isinstance(v, Pacing) else v) for k, v in change.items()})
-    current.setdefault("pacing", Pacing.TOGETHER.value)
-    return Policy.model_validate(current).model_dump(mode="json")
+def _policy(row):
+    return Policy(pacing=row.pacing or Pacing.TOGETHER, show_gaps=bool(row.show_gaps))
 
 
 def _record(ctx: Ctx, **change) -> None:
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
-        row.policy = _with(row, **change)
+        policy = _policy(row).model_copy(update=change)
+        row.pacing = policy.pacing.value
+        row.show_gaps = policy.show_gaps
     return None
 
 
@@ -504,7 +500,7 @@ def step(ctx: Ctx) -> str:
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         blueprint, plan = cards.plan_of_row(row)
-        policy = Policy.model_validate(row.policy or {"pacing": Pacing.TOGETHER.value})
+        policy = _policy(row)
         reviewed = reviewed_of(row)
         by_node = {planned.node: planned for planned in plan.steps}
         stop = None
@@ -530,7 +526,7 @@ def wrap(ctx: Ctx) -> None:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         blueprint, plan = cards.plan_of_row(row)
         revision = db.get(PipelineDraft, row.draft_id).revision
-        goal = Goal.model_validate(row.goal)
+        goal = authoring_decisions.goal(row)
     used = {
         (blueprint.sites.get(s.id), s.module.contract_id) for s in blueprint.pipeline.steps
     }
