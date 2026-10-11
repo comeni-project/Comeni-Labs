@@ -144,7 +144,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   made phrasing refusals go from 4 of 18 to 12 of 12. (2026-09-29)
 - **On Ollama `cached` reads 0** (reuse shows only as speed); the first call after a rebuild is a
   ~70 s cold load; a hidden Chrome tab does not poll. (2026-09-29, 2026-09-30)
-- **A `grep` at the end of an `&&` chain hides a failing test.** Run the suite alone, then commit.
-  (2026-10-01)
+- **Python 3.14 loses truncated-gzip evidence** (#303); the cases pass on CI Python 3.12/3.13.
+  Keep that separate compatibility issue visible before using 3.14 inspections. (2026-10-11)
 - **Headless Chrome** freezes `settle` at its first frame (`--force-prefers-reduced-motion`), and
   stands in when the extension is not connected (throwaway `--user-data-dir`). (2026-09-13, 2026-10-01)
