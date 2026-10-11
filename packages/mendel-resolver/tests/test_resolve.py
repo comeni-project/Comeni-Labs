@@ -214,7 +214,7 @@ def test_every_tier_4_resolution_emits_a_decision_record(setup):
     )
     ir = resolve(goal, registry, rules, measurements, vocabulary=vocabulary)
     keys = [d.key for d in ir.decisions]
-    assert "featurecounts.strandedness" in keys
+    assert keys == ["featurecounts.strandedness"]
     assert ir.decisions[0].resolved_by == "flag-only"
 
 
@@ -503,3 +503,24 @@ def test_a_tier_3_reason_names_what_measured_its_premise(setup):
         ir = resolve(goal, registry, rules, measurements, vocabulary=vocabulary)
         param = next(n for n in ir.nodes if n.id == "featurecounts").param("strandedness")
         assert param.reason.endswith(f"strandedness is reverse, {says}"), param.reason
+
+
+def test_parameter_resolution_returns_its_unresolved_question_without_mutating_context(setup):
+    from mendel_resolver.ports import FlagOnlyResolver
+    from mendel_resolver.resolve import ParamContext, _resolve_param
+
+    registry, rules, measurements, _ = setup
+    contract = registry.get("nf-core/subread/featurecounts@2.0.6")
+    goal = Goal(have=[GoalInput(type_id="alignment.bam")], want=["counts.matrix"])
+    context = ParamContext(
+        node_id="counts", roles=tuple(contract.roles), implementation=contract.id,
+        from_layer="base", goal=goal, rules=rules, premises={},
+        resolver=FlagOnlyResolver(), backed={},
+    )
+    value, decision = _resolve_param(contract.params[0], context)
+    assert value.value is None and value.tier is Tier.AMBIGUOUS
+    assert decision.key == "counts.strandedness" and decision.chosen is None
+    conventional, no_question = _resolve_param(contract.params[1], context)
+    assert conventional.value == "illumina" and conventional.tier is Tier.CONVENTION
+    assert no_question is None
+    assert context.backed == {} and context.premises == {}

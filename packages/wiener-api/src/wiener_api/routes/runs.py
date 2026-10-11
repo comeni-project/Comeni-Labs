@@ -28,6 +28,7 @@ from wiener_api.services.artifacts import (
 )
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
+from wiener_api.task_query import TaskQuery
 
 router = APIRouter(prefix="/api")
 
@@ -562,11 +563,10 @@ def run_tasks(run_id: str, process: str | None = None, status: TaskStatus | None
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
-        filters = {"process": process, "status": status, "retried_only": retried_only,
-                   "attempt": attempt, "tag": tag}
-        rows = repository.tasks_page(session, settings.lab_id, run_id,
-                                     sort=sort, after=after, limit=limit, **filters)
-        total = repository.tasks_total(session, settings.lab_id, run_id, **filters)
+        query = TaskQuery(process=process, status=status, retried_only=retried_only,
+                          attempt=attempt, tag=tag, sort=sort, after=after, limit=limit)
+        rows = repository.tasks_page(session, settings.lab_id, run_id, query)
+        total = repository.tasks_total(session, settings.lab_id, run_id, query)
         tasks = [
             TaskOut(
                 task_id=row.task_id, process=row.process, status=row.status,
