@@ -10,7 +10,6 @@ let the tests' call sites be rewritten by a script (plan 1c, Task 10)."""
 from dataclasses import dataclass
 from typing import ClassVar
 
-from mendel_authoring.payloads import ContextStamp
 from mendel_authoring.types import Command
 
 _NONE: frozenset[Command] = frozenset()
@@ -93,14 +92,14 @@ class Revised:
 class StoreReadback:
     session_id: str
     text: str
-    stamp: ContextStamp | None
+    stamp: tuple[int, str] | None
     takes: ClassVar[frozenset[Command]] = _NONE
 
 
 @dataclass(frozen=True, slots=True)
 class ReadbackFailed:
     session_id: str
-    stamp: ContextStamp | None
+    stamp: tuple[int, str] | None
     takes: ClassVar[frozenset[Command]] = _NONE
 
 
@@ -133,7 +132,7 @@ class StorePhrasing:
     session_id: str
     subject: str
     asked: dict
-    stamp: ContextStamp | None
+    stamp: tuple[int, str] | None
     takes: ClassVar[frozenset[Command]] = _NONE
 
 
@@ -141,7 +140,7 @@ class StorePhrasing:
 class PhrasingFailed:
     session_id: str
     subject: str
-    stamp: ContextStamp | None
+    stamp: tuple[int, str] | None
     takes: ClassVar[frozenset[Command]] = _NONE
 
 

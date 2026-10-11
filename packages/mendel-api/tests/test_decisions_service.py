@@ -224,3 +224,34 @@ def test_model_extraction_stays_separate_from_accepted_goal_and_fact_rows():
         assert row.extraction["stated"][0]["value"] is True
         assert row.goal is None
     assert not service.read(session.read(sid)["draft_id"]).facts
+
+
+def test_reviews_are_retained_rows_with_real_actor_kind_and_cascade_status():
+    import json
+
+    from mendel_api.models import PipelineReviewRevision
+    from mendel_authoring.blueprint import Blueprint
+    from mendel_authoring.decisions import ActorKind
+    from sqlalchemy import select
+    from support.paths import PACKAGES
+
+    service = _service()
+    draft = drafts.create(DraftGraph(), "reviews", "ana")
+    fixture = PACKAGES / "mendel-authoring/tests/fixtures/blueprint-star.json"
+    before = Blueprint.model_validate(json.loads(fixture.read_text()))
+    node = before.order[0]
+    service.record_review(draft, before, node, who="engine", actor_kind=ActorKind.RESOLVER)
+    [reviewed] = service.reviews(draft)
+    assert reviewed.actor_kind is ActorKind.RESOLVER and reviewed.by == "engine"
+    changed = before.step(node).model_copy(update={"module": before.step(node).module.model_copy(
+        update={"digest": "sha256:" + "f" * 64})})
+    fresh = before.model_copy(update={"pipeline": before.pipeline.model_copy(update={
+        "steps": [changed if s.id == node else s for s in before.pipeline.steps]})})
+    service.cascade_reviews(draft, before, fresh)
+    assert service.reviews(draft) == []
+    with session_scope() as db:
+        revisions = db.scalars(select(PipelineReviewRevision).where(
+            PipelineReviewRevision.draft_id == draft).order_by(PipelineReviewRevision.seq)).all()
+        assert [r.status for r in revisions] == ["reviewed", "superseded"]
+        assert revisions[0].who == "engine" and revisions[0].actor_kind == "resolver"
+        assert db.get(PipelineDraft, draft).decision_revision == 0

@@ -447,6 +447,7 @@ def store_phrasing(session_id: str, subject: str, asked: AskedGap | None, stamp)
     """Store wording only for the selected revision and semantic context it read."""
     if stamp is None or stamp != phrasing_context(session_id, subject):
         return
+    stamp = p.ContextStamp(*stamp)
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
         key = (row.draft_id, subject, stamp.decision_revision, stamp.context_digest)

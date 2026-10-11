@@ -15,7 +15,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
-from mendel_authoring.draft import Reviewed, drafted, kept, next_step
+from mendel_authoring.draft import drafted, next_step
 from mendel_authoring.pacing import Pacing, Policy, stops
 from mendel_authoring.types import Command
 from mendel_resolver.router import UnroutableError
@@ -38,7 +38,7 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
-from mendel_api.services import authoring_ai, authoring_decisions, session
+from mendel_api.services import authoring_ai, authoring_decisions, decisions, session
 from mendel_api.services import blueprint as bp
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.settings import settings
@@ -207,9 +207,9 @@ def re_offer(ctx: Ctx, proposal, row, db) -> StepOutcome:
             unbuildable(unroutable)
             + "\n  the registry changed after this step was proposed, and the goal no longer builds"
         ) from None
+    decisions.cascade_reviews(row.draft_id, bp.Blueprint.model_validate(row.blueprint), fresh)
     row.blueprint = fresh.model_dump(mode="json")
     row.registry_digest = fresh.registry
-    row.reviewed = [r.model_dump(mode="json") for r in kept(fresh, reviewed_of(row))]
     project(db, row, fresh)
     revision = db.get(PipelineDraft, row.draft_id).revision
     db.flush()
@@ -267,10 +267,8 @@ def settle(ctx: Ctx, proposal_id: str, *, expected_revision: int, by: str) -> St
                 proposal.settled_at = _rows.now()
             return StepOutcome(settled, draft.revision, None, Phase(row.phase))
         session.check(row.id, Command.CONTINUE.value)
-        row.reviewed = [
-            *(row.reviewed or []),
-            Reviewed(node=proposal.payload["node"], by=by).model_dump(mode="json"),
-        ]
+        decisions.record_review(row.draft_id, bp.Blueprint.model_validate(row.blueprint),
+                                proposal.payload["node"], who=by)
         proposal.state = settled.state.value
         proposal.by = by
         proposal.chosen_option = bp.KEEP
@@ -508,8 +506,12 @@ def step(ctx: Ctx) -> str:
             stop = stops(by_node[node], policy)
             if stop is not None:
                 break
-            reviewed.append(Reviewed(node=node, by=ENGINE))
-        row.reviewed = [r.model_dump(mode="json") for r in reviewed]
+            from mendel_authoring.decisions import ActorKind
+            from mendel_authoring.reviews import review
+
+            decisions.record_review(row.draft_id, blueprint, node, who=ENGINE,
+                                    actor_kind=ActorKind.RESOLVER)
+            reviewed.append(review(blueprint, node, ENGINE, actor_kind=ActorKind.RESOLVER))
         project(db, row, blueprint)
         if stop is None:
             return "none_left"

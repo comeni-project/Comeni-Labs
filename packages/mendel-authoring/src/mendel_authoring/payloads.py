@@ -1,6 +1,6 @@
 """Frozen values carried by protocol arrows, separate from command results."""
 
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from comeni_core.goal.asked import Constraints
 from comeni_core.spell.marks import HumanParamValue, TypeId
@@ -61,6 +61,8 @@ def check(arrow: str | None, payload: Payload) -> Payload:
     return payload
 
 
-class ContextStamp(_Payload):
-    decision_revision: int = Field(ge=0)
-    context_digest: str = Field(min_length=64, max_length=64)
+class ContextStamp(NamedTuple):
+    """Plain immutable values identifying the context a background result belongs to."""
+
+    decision_revision: int
+    context_digest: str

@@ -37,6 +37,8 @@ from mendel_api.models import (
     PipelineParameterRevision,
     PipelineProducer,
     PipelineProducerRevision,
+    PipelineReview,
+    PipelineReviewRevision,
     PipelineWant,
     PipelineWantRevision,
 )
@@ -48,6 +50,7 @@ _FAMILIES = {
     "fact": (PipelineFact, PipelineFactRevision),
     "producer": (PipelineProducer, PipelineProducerRevision),
     "parameter": (PipelineParameter, PipelineParameterRevision),
+    "review": (PipelineReview, PipelineReviewRevision),
 }
 
 
@@ -110,7 +113,7 @@ def _write(db, draft, family, key, fields, *, who, actor_kind=ActorKind.PERSON,
                              legacy=attribution.legacy, **fields)
     db.add(revision)
     subject.current_id = revision_id
-    if not same or reordered:
+    if family != "review" and (not same or reordered):
         _changed(db, draft)
     db.flush()
     return revision
@@ -373,3 +376,48 @@ def confirmed_goal(draft_id):
     current = read(draft_id)
     return (current.goal(registry.stack().measurements)
             if any(w.present for w in current.wants) else None)
+
+
+def _reviews_in(db, draft_id):
+    from mendel_authoring.reviews import Reviewed
+
+    return [Reviewed(node=r.node, by=r.who, actor_kind=r.actor_kind,
+                     contract=r.contract, fingerprint=r.fingerprint)
+            for s, r in _current(db, draft_id, "review") if r.status == "reviewed"]
+
+
+def reviews(draft_id):
+    with session_scope() as db:
+        _draft(db, draft_id)
+        return _reviews_in(db, draft_id)
+
+
+def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON):
+    from mendel_authoring.reviews import review
+
+    chosen = review(blueprint, node, who, actor_kind=actor_kind)
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        return _write(db, draft, "review", node, {
+            "node": node, "contract": chosen.contract, "fingerprint": chosen.fingerprint,
+            "status": "reviewed", "decision_revision": draft.decision_revision,
+        }, who=who, actor_kind=actor_kind).id
+
+
+def cascade_reviews(draft_id, before, fresh):
+    from mendel_authoring.reviews import Applicability, cascade
+
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        active = _reviews_in(db, draft_id)
+        applicability = cascade(before, fresh, active)
+        by_node = {o.node: o for o in applicability}
+        for subject, revision in _current(db, draft_id, "review"):
+            applied = by_node.get(subject.subject_key)
+            if applied is not None and applied.status is not Applicability.RETAINED:
+                _write(db, draft, "review", subject.subject_key, {
+                    "node": revision.node, "contract": revision.contract,
+                    "fingerprint": revision.fingerprint, "status": applied.status.value,
+                    "decision_revision": revision.decision_revision,
+                }, who="resolver", actor_kind=ActorKind.RESOLVER)
+        return applicability

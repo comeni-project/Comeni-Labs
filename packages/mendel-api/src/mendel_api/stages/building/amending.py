@@ -14,7 +14,7 @@ from mendel_authoring import commands as c
 from mendel_authoring import payloads as p
 from mendel_authoring.amend import Amendment, ChooseTool, SetFact
 from mendel_authoring.diff import diff_of
-from mendel_authoring.draft import Reviewed, drafted, kept
+from mendel_authoring.draft import Reviewed, drafted
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from mendel_resolver.router import UnroutableError
@@ -30,7 +30,7 @@ from mendel_api.stages.building.cards import FACT, STEP
 
 
 def reviewed_of(row) -> list[Reviewed]:
-    return [Reviewed.model_validate(r) for r in row.reviewed or []]
+    return decisions.reviews(row.draft_id)
 
 
 def project(db, row, blueprint: bp.Blueprint) -> None:
@@ -100,23 +100,6 @@ def _fact(measurement: str, value, goal: Goal) -> SetFact:
     return SetFact(measurement=measurement, value=value, profile=profile)
 
 
-def carried_by_pin(
-    before: bp.Blueprint, fresh: bp.Blueprint, reviewed: list[Reviewed], goal: Goal
-) -> list[Reviewed]:
-    """A reviewed step a person's tool replaced keeps its review, under the new step's id: the
-    person chose that tool at that site on its card (STAR's card, now HISAT2's step). Only where
-    the goal pins the site — a step a fact or a registry change replaced is shown again."""
-    now_at = {site: node for node, site in fresh.sites.items()}
-    pinned = {pin.site for pin in goal.constraints.producers}
-    carried = []
-    for entry in reviewed:
-        site = before.sites.get(entry.node)
-        if entry.node not in fresh.order and site in pinned and site in now_at:
-            entry = Reviewed(node=now_at[site], by=entry.by)
-        carried.append(entry)
-    return carried
-
-
 def unbuildable_change(unroutable: UnroutableError) -> str:
     """MI0207 for a change on a card: the goal with it cannot be built, so it is not applied."""
     missing = ""
@@ -153,15 +136,13 @@ def amend(ctx: Ctx, cmd: c.Amend):
         except UnroutableError as unroutable:
             raise ValueError(unbuildable_change(unroutable)) from None
         before = bp.Blueprint.model_validate(row.blueprint)
-        reviewed = reviewed_of(row)
-        if isinstance(amendment, ChooseTool):
-            # The person just decided this step; the tool it now holds is theirs, reviewed.
-            reviewed.append(Reviewed(node=proposal.payload["node"], by=cmd.by))
         decisions.import_goal(row.draft_id, goal, who=cmd.by)
+        decisions.cascade_reviews(row.draft_id, before, fresh)
+        if isinstance(amendment, ChooseTool):
+            node = next(n for n, site in fresh.sites.items() if site == amendment.pin.site)
+            decisions.record_review(row.draft_id, fresh, node, who=cmd.by)
         row.blueprint = fresh.model_dump(mode="json")
         row.registry_digest = fresh.registry
-        carried = carried_by_pin(before, fresh, reviewed, goal)
-        row.reviewed = [r.model_dump(mode="json") for r in kept(fresh, carried)]
         project(db, row, fresh)
         proposal.state = ProposalState.ACCEPTED.value
         proposal.by = cmd.by

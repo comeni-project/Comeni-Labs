@@ -11,11 +11,12 @@ from pathlib import Path
 import pytest
 from comeni_core.goal.profile import DataProfile
 from mendel_authoring.blueprint import Blueprint
-from mendel_authoring.draft import Reviewed, drafted, kept, next_step
+from mendel_authoring.draft import drafted, kept, next_step
 from mendel_authoring.gaps import Gap, GapKind
 from mendel_authoring.needs import Need, NeedKind
 from mendel_authoring.pacing import Pacing, Policy, Stop, stops
 from mendel_authoring.plan import PlannedStep
+from mendel_authoring.reviews import review
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,7 +33,7 @@ def _ids(graph) -> set[str]:
 
 
 def test_the_draft_holds_only_reviewed_steps_with_edges_between_them():
-    reviewed = [Reviewed(node=n, by="engine") for n in STAR.order[:3]]
+    reviewed = [review(STAR, n, "engine") for n in STAR.order[:3]]
     graph, provenance = drafted(STAR, reviewed, DataProfile())
     assert _ids(graph) == set(STAR.order[:3])
     assert graph.edges, "the index feeds the aligner"
@@ -50,7 +51,7 @@ def test_the_draft_carries_the_goals_profile():
 def test_no_orphan_after_a_swap_whatever_was_reviewed(cut):
     """Review Focus 1, as a property: whatever was reviewed under STAR, the draft projected from
     HISAT2's blueprint holds only HISAT2's steps and only edges between them."""
-    reviewed = [Reviewed(node=n, by="person") for n in STAR.order[:cut]]
+    reviewed = [review(STAR, n, "person") for n in STAR.order[:cut]]
     graph, _ = drafted(HISAT2, reviewed, DataProfile())
     ids = _ids(graph)
     assert ids <= set(HISAT2.order)
@@ -58,19 +59,19 @@ def test_no_orphan_after_a_swap_whatever_was_reviewed(cut):
 
 
 def test_after_a_swap_the_index_it_added_comes_next():
-    before = [Reviewed(node=n, by="person") for n in ("star_genomegenerate", "trimgalore")]
-    reviewed = kept(HISAT2, before) + [Reviewed(node="hisat2_align", by="person")]
+    before = [review(STAR, n, "person") for n in ("star_genomegenerate", "trimgalore")]
+    reviewed = kept(HISAT2, before) + [review(HISAT2, "hisat2_align", "person")]
     assert next_step(HISAT2, reviewed) == "hisat2_build"
 
 
 def test_the_walk_ends_when_every_step_is_reviewed():
-    assert next_step(STAR, [Reviewed(node=n, by="engine") for n in STAR.order]) is None
+    assert next_step(STAR, [review(STAR, n, "engine") for n in STAR.order]) is None
 
 
 def test_a_swapped_step_keeps_the_persons_reason():
     """The pinned aligner is the blueprint's own step, tier 4 by person: its provenance keeps
     the pin's reason (*you chose … over …*), not a generic sentence."""
-    _, provenance = drafted(HISAT2, [Reviewed(node="hisat2_align", by="ana")], DataProfile())
+    _, provenance = drafted(HISAT2, [review(HISAT2, "hisat2_align", "ana")], DataProfile())
     settled = provenance.nodes[0].selection
     assert settled.by == "ana" and settled.reason.startswith("you chose")
 
@@ -114,6 +115,6 @@ def test_where_the_walk_stops(tier4, gaps, pacing, show, expected):
 def test_a_pinned_step_placed_quietly_is_not_credited_to_the_engine():
     """Final review I2: a pin already in the goal is not a need, so the walk places its step
     quietly, as the engine — and the person's choice must not be signed by the engine."""
-    _, provenance = drafted(HISAT2, [Reviewed(node="hisat2_align", by="engine")], DataProfile())
+    _, provenance = drafted(HISAT2, [review(HISAT2, "hisat2_align", "engine")], DataProfile())
     settled = provenance.nodes[0].selection
     assert settled.source.value == "human" and settled.by != "engine"

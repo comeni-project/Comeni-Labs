@@ -8,24 +8,15 @@ with it — HISAT2's index in, STAR's out — leaves no orphan behind (issue 253
 
 from comeni_core.goal.profile import DataProfile
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
-from pydantic import BaseModel, ConfigDict
 
 from mendel_authoring.blueprint import Blueprint, committed
-
-
-class Reviewed(BaseModel):
-    """A step the walk has passed, and who passed it: a person, or the engine placing it
-    quietly."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    node: str
-    by: str
+from mendel_authoring.reviews import Reviewed, fingerprint
 
 
 def kept(blueprint: Blueprint, reviewed: list[Reviewed]) -> list[Reviewed]:
     """A reviewed step the blueprint no longer has leaves the set."""
-    return [r for r in reviewed if r.node in blueprint.order]
+    return [r for r in reviewed if r.node in blueprint.order
+            and r.fingerprint == fingerprint(blueprint, r.node)]
 
 
 def next_step(blueprint: Blueprint, reviewed: list[Reviewed]) -> str | None:
