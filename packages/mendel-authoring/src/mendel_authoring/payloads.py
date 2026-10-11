@@ -16,7 +16,7 @@ class _Payload(BaseModel):
 class StatedCandidate(_Payload):
     kind: Literal["input", "measurement"]
     subject: str = Field(min_length=1, max_length=128)
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
 
 
 class Extraction(_Payload):
@@ -52,7 +52,7 @@ class Amended(_Payload):
 
 class Correction(_Payload):
     subject: str
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     who: str
     kind: Literal["measurement", "input", "producer", "retain", "observation"]
     observation_id: str | None = None

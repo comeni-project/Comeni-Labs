@@ -32,11 +32,11 @@ export function FactHistory({ sessionId, subject, revision }: {
     <ol className="pl-4">
       {entries?.map(entry => <li key={entry.revision_id ?? entry.observation_id} className="my-2">
         {factWords(entry.value)} · {sourceWords[entry.origin]} · {entry.current ? "current answer" :
-          entry.selected ? entry.action === "retract" ? "returned to unknown" : "previous answer" : "unused observation"}
+          entry.selected ? entry.action === "retract" ? "returned to unknown" : "previous answer" : entry.legacy ? "legacy observation; activation unknown" : "unused observation"}
         {entry.selected && <> · {entry.actor_kind === "unknown" ? "chooser unknown" :
           `${entry.actor_kind}: ${entry.who ?? "unknown"}`}</>}
         {entry.inherited && " · inherited"}
-        <time className="block text-ink-4" dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time>
+        <time className="block text-ink-4" dateTime={entry.at}>{entry.legacy && "Migrated at "}{new Date(entry.at).toLocaleString()}</time>
       </li>)}
     </ol>
     <p className="text-ink-4">History is read-only. Undo will be added later.</p>

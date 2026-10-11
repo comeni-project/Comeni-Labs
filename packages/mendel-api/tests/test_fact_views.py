@@ -71,3 +71,13 @@ def test_input_history_preserves_selected_presence_and_retraction(clean):
     entries = response.json()["entries"]
     assert entries[0]["value"] is True and not entries[0]["current"]
     assert entries[1]["value"] is None and entries[1]["current"]
+
+
+def test_a_historical_typed_answer_does_not_change_when_the_current_fact_changes(clean):
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "read_length")
+    session.perform(c.AnswerGap(pid, "value", 150, "ana"))
+    draft_id = session.read(sid)["draft_id"]
+    decisions.set_fact(draft_id, "read_length", 50, who="ana")
+    answer = next(d for d in session.read(sid)["history"] if d["id"] == pid)
+    assert answer["answer"] == "150"

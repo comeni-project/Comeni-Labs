@@ -146,8 +146,25 @@ class Decisions(_Value):
     @classmethod
     def from_goal(cls, goal: Goal) -> Self:
         """Import a confirmed goal without treating its evidence as a fresh observation."""
+        if len(set(goal.want)) != len(goal.want):
+            raise ValueError("repeated wanted outputs cannot be represented faithfully")
+        required = goal.constraints.required_states
+        if (any(r.type_id not in goal.want or not r.states for r in required)
+                or len({r.type_id for r in required}) != len(required)):
+            raise ValueError("required-state records cannot be represented faithfully")
+        if any(f.source not in _ORIGIN for f in goal.profile.measurements):
+            raise ValueError("that evidence source cannot be represented faithfully")
+        keys = set()
+        def input_key(item):
+            base = item.name or item.type_id
+            key, count = base, 1
+            while key in keys:
+                count += 1
+                key = f"{base}#{count}"
+            keys.add(key)
+            return key
         return cls(
-            inputs=[InputDecision(key=i.name or i.type_id, type_id=i.type_id,
+            inputs=[InputDecision(key=input_key(i), type_id=i.type_id,
                                   name=i.name, states=sorted(i.states))
                     for i in goal.have],
             wants=[WantDecision(type_id=w, states=sorted(goal.constraints.states_for(w)))

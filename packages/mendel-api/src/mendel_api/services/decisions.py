@@ -87,7 +87,7 @@ def _current(db, draft_id, family):
 
 
 def _write(db, draft, family, key, fields, *, who, actor_kind=ActorKind.PERSON,
-           action="select", position=None, acknowledge=False, legacy=False):
+           action="select", position=None, acknowledge=False, legacy=False, proposal_id=None):
     attribution = Attribution(kind=actor_kind, who=who, legacy=legacy)
     subject_type, revision_type = _FAMILIES[family]
     subject = db.scalar(select(subject_type).where(
@@ -97,7 +97,7 @@ def _write(db, draft, family, key, fields, *, who, actor_kind=ActorKind.PERSON,
     same = current is not None and all(getattr(current, name) == value
                                        for name, value in fields.items())
     reordered = subject is not None and position is not None and position != subject.position
-    if same and not acknowledge and not reordered:
+    if same and not acknowledge and proposal_id is None and not reordered:
         return current
     revision_id = token_hex(16)
     if subject is None:
@@ -107,10 +107,13 @@ def _write(db, draft, family, key, fields, *, who, actor_kind=ActorKind.PERSON,
         db.flush()  # Current-pointer FK is deferred, revision's subject FK is immediate.
     elif position is not None:
         subject.position = position
+    recorded = dict(fields)
+    if proposal_id is not None:
+        recorded["proposal_id"] = proposal_id
     revision = revision_type(id=revision_id, draft_id=draft.id, subject_id=subject.id,
                              seq=_seq(draft), at=datetime.now(UTC), action=action,
                              actor_kind=attribution.kind, who=attribution.who,
-                             legacy=attribution.legacy, **fields)
+                             legacy=attribution.legacy, **recorded)
     db.add(revision)
     subject.current_id = revision_id
     if family != "review" and (not same or reordered):
@@ -167,7 +170,7 @@ def observe(draft_id, subject, value, *, origin=FactOrigin.MEASURED, by=None,
 
 
 def set_fact(draft_id, subject, value, *, who, expected_revision=None,
-             actor_kind=ActorKind.PERSON):
+             actor_kind=ActorKind.PERSON, proposal_id=None):
     fact = FactDecision(subject=subject, value=value,
                         origin=FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID)
     registry.stack().measurements.get(subject)
@@ -179,15 +182,17 @@ def set_fact(draft_id, subject, value, *, who, expected_revision=None,
                 if _fact(old, subject) == fact:
                     return _write(db, draft, "fact", subject,
                                   {"observation_id": revision.observation_id}, who=who,
-                                  actor_kind=actor_kind, action="retain", acknowledge=True).id
+                                  actor_kind=actor_kind, action="retain", acknowledge=True,
+                                  proposal_id=proposal_id).id
         observation = _observe(db, draft, fact) if value is not None else None
         return _write(db, draft, "fact", subject,
                       {"observation_id": observation.id if observation else None},
                       who=who, actor_kind=actor_kind,
-                      action="select" if observation else "retract").id
+                      action="select" if observation else "retract", proposal_id=proposal_id).id
 
 
-def select_observation(draft_id, subject, observation_id, *, who, expected_revision=None):
+def select_observation(draft_id, subject, observation_id, *, who, expected_revision=None,
+                       proposal_id=None):
     with session_scope() as db:
         draft = _draft(db, draft_id, expected_revision)
         if db.get(PipelineEvidenceAccess, (draft_id, observation_id)) is None:
@@ -196,7 +201,7 @@ def select_observation(draft_id, subject, observation_id, *, who, expected_revis
         if observation.subject != subject:
             raise ValueError("this evidence answers a different subject")
         return _write(db, draft, "fact", subject, {"observation_id": observation_id},
-                      who=who).id
+                      who=who, proposal_id=proposal_id).id
 
 
 def retain_fact(draft_id, subject, *, who, expected_revision=None):
@@ -309,7 +314,7 @@ def history(draft_id, subject):
                     current=selected.current_id == revision.id,
                     revision_id=revision.id, observation_id=None,
                     actor_kind=revision.actor_kind, who=revision.who,
-                    action=revision.action, at=revision.at, observed_at=None))
+                    action=revision.action, at=revision.at, legacy=revision.legacy, observed_at=None))
         for s, revision in rows:
             observation = _observation(db, revision.observation_id)
             fact = _fact(observation, subject)
@@ -317,7 +322,7 @@ def history(draft_id, subject):
                                selected=True, current=s.current_id == revision.id,
                                revision_id=revision.id, observation_id=revision.observation_id,
                                actor_kind=revision.actor_kind, who=revision.who,
-                               action=revision.action, at=revision.at,
+                               action=revision.action, at=revision.at, legacy=revision.legacy,
                                observed_at=observation.at if observation else None))
         observations = db.scalars(select(PipelineObservation).join(
             PipelineEvidenceAccess,
@@ -330,7 +335,7 @@ def history(draft_id, subject):
                 result.append(dict(seq=observation.seq, value=observation.value,
                                    origin=observation.origin, selected=False, current=False,
                                    observation_id=observation.id, at=observation.at,
-                                   observed_at=observation.at, action="observed",
+                                   observed_at=observation.at, action="observed", legacy=observation.legacy,
                                    acknowledged_as=access.acknowledged_as,
                                    acknowledged_at=access.acknowledged_at,
                                    acknowledged_by=access.acknowledged_by,
@@ -410,12 +415,13 @@ def release_producer(draft_id, site: Site, *, who, expected_revision=None):
                     expected_revision=expected_revision)
 
 
-def set_input(draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON):
+def set_input(draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON,
+              proposal_id=None):
     with session_scope() as db:
         draft = _draft(db, draft_id)
         return _write(db, draft, "input", decision.key,
                       decision.model_dump(mode="json", exclude={"key"}),
-                      who=who, actor_kind=actor_kind).id
+                      who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
 
 
 def confirmed_goal(draft_id):
@@ -563,3 +569,22 @@ def inherit_in(db, parent, child):
                    action="inherit", position=subject.position)
     child.projection_current = False
     db.flush()
+
+
+def answers_in(db, draft_id):
+    """Facts selected by an answered offer, not today's values substituted into yesterday."""
+    result = {}
+    for subject, revision in db.execute(select(PipelineFact, PipelineFactRevision).join(
+        PipelineFactRevision, PipelineFact.id == PipelineFactRevision.subject_id
+    ).where(PipelineFact.draft_id == draft_id,
+            PipelineFactRevision.proposal_id.is_not(None)).order_by(PipelineFactRevision.seq)):
+        fact = _fact(_observation(db, revision.observation_id), subject.subject_key)
+        result.setdefault(revision.proposal_id, []).append(dict(
+            kind="measurement", subject=subject.subject_key, value=fact.value, source=fact.origin))
+    for subject, revision in db.execute(select(PipelineInput, PipelineInputRevision).join(
+        PipelineInputRevision, PipelineInput.id == PipelineInputRevision.subject_id
+    ).where(PipelineInput.draft_id == draft_id,
+            PipelineInputRevision.proposal_id.is_not(None)).order_by(PipelineInputRevision.seq)):
+        result.setdefault(revision.proposal_id, []).append(dict(
+            kind="input", subject=revision.type_id, source=revision.origin))
+    return result

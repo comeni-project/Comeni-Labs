@@ -177,7 +177,7 @@ class Fact(_Shape):
     kind: FactKind
     subject: str = Field(min_length=1, max_length=128)
     """A type id for an input, a measurement id for a measurement."""
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     states: list[str] = []
     source: FactSource
     sample: str | None = Field(default=None, max_length=64)
@@ -285,7 +285,7 @@ class Question(_Block):
     why_open: Prose
     options: list[Option] = []
     exhaustive: bool = True
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     """A value to pre-fill an open field with — a candidate the person confirms, never an
     answer (#170, #171)."""
     phrasing: Literal["pending", "done", "none"] = "none"
@@ -491,7 +491,7 @@ class Stated(_Shape):
 
     kind: FactKind
     subject: str = Field(min_length=1, max_length=128)
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
 
 
 class AskedGap(_Shape):
@@ -505,7 +505,7 @@ class AskedGap(_Shape):
 
     asks: Prose
     already_option: OptionId | None = None
-    already_value: HumanParamValue | None = None
+    already_value: HumanParamValue | list[HumanParamValue] | None = None
 
 
 class ReadBack(_Shape):
@@ -611,7 +611,7 @@ class GapReply(_Shape):
     """
 
     chose: OptionId | None = None
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     unsure: bool = False
 
     @model_validator(mode="after")
@@ -637,7 +637,7 @@ class SettingProposal(_Shape):
     node: NodeId
     setting: str = Field(min_length=1, max_length=128)
     chose: OptionId | None = None
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     because: Prose
 
 

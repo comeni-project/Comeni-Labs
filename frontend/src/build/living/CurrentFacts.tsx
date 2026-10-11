@@ -15,10 +15,11 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
   useEffect(() => { if (openRequest && details.current) details.current.open = true; }, [openRequest]);
   const pins = session.goal?.constraints?.producers ?? [];
   const facts = (session.facts ?? []).filter(fact => fact.kind === "measurement");
+  const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));
   const inputs = session.inputs ?? [];
-  if (!facts.length && !inputs.length && !pins.length) return null;
+  if (!facts.length && !inputs.length && !pins.length && !absent.length) return null;
   return <details ref={details} className="mb-4 text-[12px]" open={editing !== null ? true : undefined}>
-    <summary className="cursor-pointer text-ink-2">Current answers · {facts.length + inputs.length}</summary>
+    <summary className="cursor-pointer text-ink-2">Current answers · {facts.length + inputs.length + absent.length}</summary>
     {error && <p role="alert">{error}</p>}
     {pins.map(pin => <p key={`${pin.site.type_id}:${pin.site.states.join(",")}`}>
       Tool choice for {pin.site.type_id}: {pin.contract}
@@ -30,7 +31,8 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
     {[...inputs.map(input => ({ subject: input.key, label: input.name ?? input.type_id,
       value: input.origin === "open" ? null : input.present, source: input.origin, kind: "input" as const })),
     ...facts.map(fact => ({ subject: fact.subject, label: fact.subject, value: fact.value ?? null,
-      source: fact.source, kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} className="border-t py-2">
+      source: fact.source, kind: "measurement" as const })),
+    ...absent.map(subject => ({ subject, label: subject, value: null, source: "open", kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} className="border-t py-2">
       <span>{fact.label}: {factWords(fact.value)} · {sourceWords[fact.source]}</span>
       {onCorrect && <button type="button" disabled={disabled} className="ml-2 text-link underline"
         onClick={() => setEditing(editing === fact.subject ? null : fact.subject)}>Correct {fact.label}</button>}

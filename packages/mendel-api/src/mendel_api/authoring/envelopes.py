@@ -90,9 +90,9 @@ class DisagreementOffer(_Offer):
     subject: str
     observation_id: str
     current_revision_id: str | None
-    current_value: HumanParamValue | None = None
+    current_value: HumanParamValue | list[HumanParamValue] | None = None
     current_origin: FactSource
-    observed_value: HumanParamValue
+    observed_value: HumanParamValue | list[HumanParamValue]
     observed_origin: FactSource
     continuation: Literal["gather", "goal", "build", "complete", "stopped"]
     block: Question

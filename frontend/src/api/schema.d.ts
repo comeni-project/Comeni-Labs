@@ -1583,7 +1583,7 @@ export interface components {
              */
             option: "keep_current" | "use_measurement" | "correct" | "unknown";
             /** Value */
-            value?: number | boolean | string | null;
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
         };
         /** AnswerRequest */
         AnswerRequest: {
@@ -1855,6 +1855,11 @@ export interface components {
              * @default []
              */
             inputs: components["schemas"]["InputDecision"][];
+            /**
+             * Fact Subjects
+             * @default []
+             */
+            fact_subjects: string[];
             /**
              * Decision Revision
              * @default 0
@@ -2568,7 +2573,7 @@ export interface components {
             /** Expected Session Version */
             expected_session_version: number;
             /** Value */
-            value?: number | boolean | string | null;
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
             /**
              * Kind
              * @default measurement
@@ -2608,7 +2613,7 @@ export interface components {
             /** Option */
             option?: string | null;
             /** Value */
-            value?: number | boolean | string | null;
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
         };
         /** DecideRequest */
         DecideRequest: {
@@ -2691,10 +2696,10 @@ export interface components {
             /** Current Revision Id */
             current_revision_id: string | null;
             /** Current Value */
-            current_value?: number | boolean | string | null;
+            current_value?: number | boolean | string | null | (number | boolean | string | null)[];
             current_origin: components["schemas"]["FactSource"];
             /** Observed Value */
-            observed_value: number | boolean | string | null;
+            observed_value: number | boolean | string | null | (number | boolean | string | null)[];
             observed_origin: components["schemas"]["FactSource"];
             /**
              * Continuation
@@ -3085,7 +3090,7 @@ export interface components {
             /** Subject */
             subject: string;
             /** Value */
-            value?: number | boolean | string | null;
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
             /**
              * States
              * @default []
@@ -3151,6 +3156,11 @@ export interface components {
              * @default false
              */
             inherited: boolean;
+            /**
+             * Legacy
+             * @default false
+             */
+            legacy: boolean;
             /** Source Draft Id */
             source_draft_id?: string | null;
         };
@@ -3555,7 +3565,7 @@ export interface components {
             /** Measurement */
             measurement: string;
             /** Value */
-            value?: number | boolean | string | null;
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
             /** Undetermined */
             undetermined?: string | null;
             /**
@@ -4476,7 +4486,7 @@ export interface components {
              */
             exhaustive: boolean;
             /** Value */
-            value?: number | boolean | string | null;
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
             /**
              * Phrasing
              * @default none

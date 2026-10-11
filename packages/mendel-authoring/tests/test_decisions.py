@@ -90,3 +90,20 @@ def test_composition_refuses_a_measurement_outside_its_declaration():
         d.Decisions(facts=[d.FactDecision(subject="read_length", value="nonsense")]).goal(
             MeasurementRegistry.load(REGISTRY)
         )
+
+
+def test_import_never_collapses_two_unnamed_inputs_of_the_same_type():
+    d = _module()
+    goal = Goal(have=[{"type_id": "fastq.reads"}, {"type_id": "fastq.reads"}],
+                want=["counts.matrix"])
+    selected = d.Decisions.from_goal(goal)
+    assert len({i.key for i in selected.inputs}) == 2
+    assert selected.goal(MeasurementRegistry.load(REGISTRY)) == goal
+
+
+def test_unrepresentable_required_state_records_are_refused_instead_of_silently_dropped():
+    d = _module()
+    goal = Goal(want=["counts.matrix"], constraints={"required_states": [
+        {"type_id": "alignment.bam", "states": ["sorted"]}]})
+    with pytest.raises(ValueError, match="required"):
+        d.Decisions.from_goal(goal)

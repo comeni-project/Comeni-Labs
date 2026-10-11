@@ -20,16 +20,16 @@ def facts(draft_id):
     ]
 
 
-def record(draft_id, fact: Fact, *, who):
+def record(draft_id, fact: Fact, *, who, proposal_id=None):
     if fact.kind is FactKind.INPUT:
         return decisions.set_input(draft_id, InputDecision(
             key=fact.subject, type_id=fact.subject, states=fact.states,
-            origin=FactOrigin(fact.source)), who=who)
+            origin=FactOrigin(fact.source)), who=who, proposal_id=proposal_id)
     if fact.source in (FactSource.OPEN, FactSource.PERSON_SAID):
-        return decisions.set_fact(draft_id, fact.subject, fact.value, who=who)
+        return decisions.set_fact(draft_id, fact.subject, fact.value, who=who, proposal_id=proposal_id)
     observed = decisions.observe(draft_id, fact.subject, fact.value, origin=fact.source,
                                  pieces=fact.pieces, evidence=fact.evidence)
-    return decisions.select_observation(draft_id, fact.subject, observed, who=who)
+    return decisions.select_observation(draft_id, fact.subject, observed, who=who, proposal_id=proposal_id)
 
 
 def extracted(row):

@@ -621,7 +621,7 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
             authoring_decisions.record(row.draft_id,
                                       _fact_for(kind, subject, option, value).model_copy(
                     update={"states": payload.get("states", [])} if kind is FactKind.INPUT
-                    else {}), who=by)
+                    else {}), who=by, proposal_id=proposal.id)
         _swap(db, session_id, row.row_version)
 
     # `_fact_for` decides what an answer means, so it decides the arrow too: *I have it, but

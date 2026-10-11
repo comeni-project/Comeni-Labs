@@ -211,6 +211,9 @@ export function LivingSurface({
               </button>
             </div>
           )}
+          {session.retired && <p className="mx-5 mt-4 text-[12px] text-ink-2">
+            This archived conversation is read-only. <a href="/build" className="text-link underline">Start a new analysis</a>.
+          </p>}
           {!session.model_configured && (
             <div data-testid="no-model" className="mx-5 mt-4">
               <p className="m-0 text-[13px] text-ink">No model is configured here</p>
@@ -258,7 +261,7 @@ export function LivingSurface({
               value={state.composer}
               onChange={onCompose}
               onSend={onSay}
-              disabled={pendingTurn || session.phase === "stopped"}
+              disabled={session.retired || pendingTurn || session.phase === "stopped"}
               placeholder={
                 session.phase === "stopped"
                   ? "This analysis has ended — start a new one above"

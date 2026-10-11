@@ -956,3 +956,30 @@ from mendel_api.decision_models import (  # noqa: E402, F401
     PipelineWant,
     PipelineWantRevision,
 )
+
+
+class DecisionMigrationDisposition(StrEnum):
+    ALREADY_ROWS = "already_rows"
+    MANUAL = "manual"
+    CONFIRMED = "confirmed"
+    MANUAL_CONFIRMED = "manual_confirmed"
+    GATHERING = "gathering"
+    UNDERSTANDING = "understanding"
+    AMBIGUOUS_MANUAL = "ambiguous_manual"
+    OBSOLETE_PROTOCOL = "obsolete_protocol"
+
+
+class PipelineDecisionMigration(Base):
+    """Frozen legacy provenance; an archive, never a current decision fallback."""
+
+    __tablename__ = "pipeline_decision_migration"
+    draft_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
+    )
+    version: Mapped[str] = mapped_column(String(16))
+    disposition: Mapped[str] = mapped_column(
+        _one_of(DecisionMigrationDisposition, 24, "disposition")
+    )
+    reason: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    snapshot: Mapped[dict] = mapped_column(JSON)

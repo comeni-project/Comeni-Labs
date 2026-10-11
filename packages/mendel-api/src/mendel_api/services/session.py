@@ -351,7 +351,9 @@ def perform(command: object, *, recorders: dict[type, Recorder] | None = None) -
             session_id = db.scalar(select(PipelineAuthoringProposal.session_id).where(
                 PipelineAuthoringProposal.id == proposal_id))
         if session_id is not None:
-            draft_mutations.lock_session(db, session_id)
+            row = draft_mutations.lock_session(db, session_id)
+            if row.retired:
+                raise ValueError(coded("MI0217", "this archived session is read-only"))
         result = bound[type(command)](ctx, command)
     if (collecting := _collected.get()) is not None and not _acting.get():
         collecting.extend(ctx.jobs)
@@ -484,6 +486,7 @@ def read(session_id: str) -> dict:
                 func.count(AiInvocation.id),
             ).where(AiInvocation.session_id == session_id)
         ).one()
+        historical_answers = decisions.answers_in(db, row.draft_id)
         selected = decisions.read(row.draft_id)
         review_rows = db.scalars(select(decisions.PipelineReviewRevision).where(
             decisions.PipelineReviewRevision.draft_id == row.draft_id
@@ -494,7 +497,12 @@ def read(session_id: str) -> dict:
                        for r in review_rows}
         original_session = (db.scalar(select(PipelineAuthoringSession.id).where(
             PipelineAuthoringSession.draft_id == draft.forked_from)) if draft.forked_from else None)
+        evidence_subjects = db.scalars(select(decisions.PipelineObservation.subject).join(
+            decisions.PipelineEvidenceAccess,
+            decisions.PipelineEvidenceAccess.observation_id == decisions.PipelineObservation.id
+        ).where(decisions.PipelineEvidenceAccess.draft_id == row.draft_id).distinct()).all()
         return {
+            "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
             "decision_revision": draft.decision_revision,
             "projection_current": draft.projection_current,
             "ownership": draft.ownership,
@@ -554,7 +562,7 @@ def read(session_id: str) -> dict:
                     "applicability": review_status.get(p.id),
                     "chosen_option": p.chosen_option,
                     "chosen_contract": (p.payload.get("options") or {}).get(p.chosen_option or ""),
-                    "answer": _answer_of(p, current_facts),
+                    "answer": _answer_of(p, historical_answers.get(p.id, [])),
                     "at": (p.settled_at or p.created_at).isoformat(),
                 }
                 for p in db.scalars(

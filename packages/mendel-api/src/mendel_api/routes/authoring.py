@@ -93,7 +93,7 @@ class DecideProposal(BaseModel):
     (`alt_N`) or a fact (`fact_<measurement>`, with `value`). Ignored for a goal. **An id the
     engine minted, never a contract id** — a value chosen by id cannot be a value nobody
     offered."""
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     """For a gap answered with the `value` option, or a step's `fact_<measurement>`: the typed
     value, held to the measurement's declaration before anything is recorded (`MI0208`).
     Ignored otherwise."""
@@ -205,6 +205,7 @@ class AuthoringSessionView(BaseModel):
     goal: Goal | None
     facts: list[Fact] = []
     inputs: list[InputDecision] = []
+    fact_subjects: list[str] = []
     decision_revision: int = 0
     projection_current: bool = True
     ownership: Literal["authored", "manual"] = "authored"
@@ -331,13 +332,13 @@ class CorrectionContext(BaseModel):
 
 
 class CorrectAuthoringFact(CorrectionContext):
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     kind: Literal["measurement", "input"] = "measurement"
 
 
 class AnswerEvidenceQuestion(CorrectionContext):
     option: Literal["keep_current", "use_measurement", "correct", "unknown"]
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
 
 
 class ReleaseToolChoice(CorrectionContext):
@@ -375,6 +376,7 @@ class FactHistoryEntry(BaseModel):
     acknowledged_by: str | None = None
     acknowledged_kind: ActorKind | None = None
     inherited: bool = False
+    legacy: bool = False
     source_draft_id: str | None = None
 
 
@@ -656,7 +658,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
         **{key: picture[key] for key in (
-            "inputs", "decision_revision", "projection_current", "ownership", "retired",
+            "inputs", "fact_subjects", "decision_revision", "projection_current", "ownership", "retired",
             "forked_from", "forked_from_session", "review_applicability")},
         usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
@@ -704,7 +706,7 @@ class InspectedFactView(BaseModel):
     model_config = _FROZEN
 
     measurement: str
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     undetermined: str | None = None
     pieces: list[str] = []
     evidence: dict[str, int | float | bool | str] = {}
