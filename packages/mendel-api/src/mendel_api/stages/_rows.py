@@ -27,7 +27,7 @@ from mendel_api.models import (
     PipelineAuthoringTurn,
     PipelineDraft,
 )
-from mendel_api.services import decisions, draft_mutations
+from mendel_api.services import decisions, draft_mutations, session
 
 
 def now() -> datetime:
@@ -223,7 +223,7 @@ def swap(db, session_id: str, version: int, **values: object) -> None:
             PipelineAuthoringSession.row_version == version,
         )
         .values(
-            row_version=version + 1,
+            row_version=session.changed_version(db, session_id, version),
             updated_at=now(),
             **values,
         )
@@ -245,7 +245,7 @@ def store_goal(session_id: str, goal: dict | None) -> None:
         if row is None:
             raise KeyError(session_id)
         decisions.import_goal(row.draft_id, Goal.model_validate(goal or {}), who=row.who)
-        row.row_version += 1
+        row.row_version = session.changed_version(db, session_id, row.row_version)
         row.updated_at = now()
 
 
@@ -258,7 +258,7 @@ def store_extraction(session_id, extraction):
             raise KeyError(session_id)
         row.extraction = (Extraction.model_validate(extraction).model_dump(mode="json")
                           if extraction is not None else None)
-        row.row_version += 1
+        row.row_version = session.changed_version(db, session_id, row.row_version)
         row.updated_at = now()
 
 

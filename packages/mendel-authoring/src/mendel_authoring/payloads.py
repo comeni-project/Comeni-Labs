@@ -61,6 +61,7 @@ class Correction(_Payload):
     before: Blueprint | None = None
     after: Blueprint | None = None
     missing: str | None = None
+    missing_states: list[str] = Field(default_factory=list)
     pin_blocked: bool = False
 
 

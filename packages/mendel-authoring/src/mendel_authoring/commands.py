@@ -215,7 +215,8 @@ class Amend:
     expected_decision_revision: int | None = None
     expected_draft_revision: int | None = None
     expected_session_version: int | None = None
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.AMEND, Command.CONTINUE})
+    takes: ClassVar[frozenset[Command]] = frozenset(
+        {Command.AMEND, Command.CONTINUE, Command.CORRECT_FACT})
 
 
 @dataclass(frozen=True, slots=True)

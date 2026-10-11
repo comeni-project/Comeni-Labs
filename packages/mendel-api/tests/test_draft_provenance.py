@@ -306,7 +306,14 @@ def test_a_stored_goal_reaches_the_artifact_instead_of_one_derived_from_the_canv
     asked = Goal(want=["counts.matrix", "qc.report"])
     from mendel_api.services import decisions
 
+    from mendel_api.services import draft_mutations
+
     decisions.import_goal(spawned_draft, asked, who="ana")
+    # This fixture supplies a deliberate partial projection of the broader accepted want.
+    with session_scope() as db:
+        row = db.get(PipelineDraft, spawned_draft)
+        draft_mutations.project(db, row, DraftGraph.model_validate(row.graph),
+                                provenance=row.provenance)
 
     # **`_load` is not stubbed here.** These read the real row, because the columns under test
     # are exactly the ones the seam reads — stubbing it would test the stub.

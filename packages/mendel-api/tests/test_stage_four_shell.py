@@ -181,7 +181,7 @@ def test_the_kept_draft_carries_the_fact_it_was_built_on(clean):
     _walk_to_node(session_id, "star_align")
     _amend(session_id, "fact_read_length", 150)
     draft = _draft(session_id)
-    assert any(m["measurement"] == "read_length" for m in draft.goal["profile"]["measurements"])
+    assert any(m["measurement"] == "read_length" for m in facade.read(session_id)["goal"]["profile"]["measurements"])
     assert any(m["measurement"] == "read_length" for m in draft.graph["profile"]["measurements"])
 
 
@@ -344,28 +344,26 @@ def _unbuildable_at(monkeypatch, read_length: int) -> None:
     monkeypatch.setattr(bp, "resolve", resolve)
 
 
-def test_a_change_that_cannot_be_built_is_refused_on_the_card_and_can_be_answered_again(
+def test_a_truthful_fact_change_stays_when_building_is_blocked_and_can_be_corrected_again(
     clean, monkeypatch
 ):
-    """Final review I1: a told fact that makes the goal unbuildable is refused (MI0207) before
-    anything is written — the card stays pending, the goal unchanged — and the person can
-    answer again. It used to land on `failed`, which had no way back."""
+    """Part F: an impossible speculative swap is refused; a truthful fact stays selected."""
+    from test_fact_corrections import _correct
+
     session_id = _built(_goal(read_length=False))
     card = _walk_to_node(session_id, "star_align")
-    goal_before = facade.read(session_id)["goal"]
     _unbuildable_at(monkeypatch, 50)
-
-    with pytest.raises(ValueError, match="MI0207"):
-        _amend(session_id, "fact_read_length", 50)
+    _amend(session_id, "fact_read_length", 50)
     view = facade.read(session_id)
-    assert view["phase"] == Phase.BUILDING.value
-    assert view["pending_proposal"]["id"] == card["id"]
-    assert view["goal"] == goal_before
-
-    _amend(session_id, "fact_read_length", 150)
+    assert view["phase"] in (Phase.GATHERING.value, Phase.GOAL_REVIEW.value)
+    assert view["pending_proposal"]["id"] != card["id"]
+    assert any(m["measurement"] == "read_length" and m["value"] == 50
+               for m in view["goal"]["profile"]["measurements"])
+    assert not _draft(session_id).projection_current
+    _correct(session_id, "read_length", 150)
     assert facade.read(session_id)["phase"] == Phase.BUILDING.value
-    told = _draft(session_id).goal["profile"]["measurements"]
-    assert any(m["measurement"] == "read_length" and m["value"] == 150 for m in told)
+    assert any(m["measurement"] == "read_length" and m["value"] == 150
+               for m in facade.read(session_id)["goal"]["profile"]["measurements"])
 
 
 def test_a_moved_registry_that_cannot_build_the_goal_is_refused_by_name(clean, monkeypatch):

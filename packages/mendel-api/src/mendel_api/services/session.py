@@ -49,6 +49,17 @@ _BY_PHASE = {
 }
 """The node a row from before `at` rests on, when nothing pending says more (ruling 4)."""
 
+
+def changed_version(db, session_id, current):
+    """One workflow version per action, shared by recording and movement."""
+    stamps = db.info.setdefault("authoring_mutation_stamps", {})
+    key = (session_id, db.get_transaction())
+    if stamps.get(key) != current:
+        current += 1
+        stamps[key] = current
+    return current
+
+
 def rests_at(db, row: PipelineAuthoringSession) -> str:
     """The node `row` rests on: stored, or derived from its phase and what is pending."""
     if row.at is not None:
@@ -254,7 +265,6 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
                 at=ran.at,
                 phase=node.phase.value,
                 failed_from=failed,
-                row_version=PipelineAuthoringSession.row_version + 1,
                 updated_at=datetime.now(UTC),
             )
         )
@@ -270,6 +280,9 @@ def _dispatch(session_id, command, payload, protocol, handlers, *, ctx=None) -> 
         )
     if write is not None:
         with session_scope() as db:
+            if ran.at != start:
+                row = db.get(PipelineAuthoringSession, session_id)
+                write = write.values(row_version=changed_version(db, session_id, row.row_version))
             if db.execute(write).rowcount != 1:
                 raise ValueError(
                     coded("MI0201", "this session moved while you were looking at it")

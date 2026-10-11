@@ -122,14 +122,16 @@ def resolve_blueprint(session_id: str, *, client=None) -> str:
         )
 
     with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row.blueprint:
+            decisions.cascade_reviews(row.draft_id,
+                bp.Blueprint.model_validate(row.blueprint), blueprint)
         _rows.swap(
             db,
             session_id,
             version,
             blueprint=blueprint.model_dump(mode="json"),
             registry_digest=blueprint.registry,
-            reviewed=[],
-            policy=None,
         )
         project(db, db.get(PipelineAuthoringSession, session_id), blueprint)
         return "stored"

@@ -301,12 +301,40 @@ class AuthoringPreview(BaseModel):
     model_config = _FROZEN
 
     revision: int
-    state: Literal["ready", "empty", "illegal", "unavailable"]
+    state: Literal["ready", "empty", "illegal", "unavailable", "outdated"]
     """`ready` carries text; the other three carry none — a partial pipeline is never YAML."""
     text: str
     """`pipeline.yml` as it would read now, byte for byte what Keep would write."""
     findings: list[str] = []
     """Why there is no text, as coded sentences."""
+
+
+class CorrectionContext(BaseModel):
+    model_config = _FROZEN
+    expected_decision_revision: int = Field(ge=0)
+    expected_draft_revision: int = Field(ge=0)
+    expected_session_version: int = Field(ge=0)
+
+
+class CorrectAuthoringFact(CorrectionContext):
+    value: HumanParamValue | None = None
+    kind: Literal["measurement", "input"] = "measurement"
+
+
+class ReleaseToolChoice(CorrectionContext):
+    type_id: str
+    states: list[str] = Field(default_factory=list)
+
+
+class AuthoringCorrected(BaseModel):
+    model_config = _FROZEN
+    session_id: str
+    draft_id: str
+    phase: Phase
+    revision: int
+    decision_revision: int
+    next_proposal: str | None
+    projection_current: bool
 
 
 # ── operations ────────────────────────────────────────────────────────────────────────────
@@ -453,7 +481,8 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     command = (
         c.SettleStep(proposal_id, body.expected_revision, who)
         if body.option in (None, "keep")
-        else c.Amend(proposal_id, body.option, body.value, who)
+        else c.Amend(proposal_id, body.option, body.value, who,
+                     expected_draft_revision=body.expected_revision)
     )
     stepped = (await session.act(command)).result
     if stepped.settlement.refusal is not None:
@@ -718,3 +747,22 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
         disagreed=up.answer.disagreed,
         session=view,
     )
+
+
+@router.post("/{session_id}/facts/{subject}", operation_id="correctAuthoringFact",
+             summary="Correct a selected fact or return it to unknown", responses=REFUSES)
+async def correct_fact(session_id: str, subject: str,
+                       body: CorrectAuthoringFact) -> AuthoringCorrected:
+    done = await session.act(c.CorrectFact(session_id, subject, body.value,
+        identity.default_author(), body.expected_decision_revision,
+        body.expected_draft_revision, body.expected_session_version, body.kind))
+    return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post("/{session_id}/release-tool", operation_id="releaseAuthoringTool",
+             summary="Let the engine choose a producer again", responses=REFUSES)
+async def release_tool(session_id: str, body: ReleaseToolChoice) -> AuthoringCorrected:
+    done = await session.act(c.ReleaseProducer(session_id, body.type_id, tuple(body.states),
+        identity.default_author(), body.expected_decision_revision,
+        body.expected_draft_revision, body.expected_session_version))
+    return AuthoringCorrected.model_validate(done.result)

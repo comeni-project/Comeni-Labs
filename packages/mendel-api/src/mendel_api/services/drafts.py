@@ -394,6 +394,7 @@ class Stored(NamedTuple):
     graph: DraftGraph
     provenance: DraftProvenance | None
     goal: Goal | None
+    projection_current: bool = True
 
 
 def _record_kept(draft_id: str, graph: str, digest: str) -> None:
@@ -421,6 +422,7 @@ def _load(draft_id: str) -> Stored:
             graph=DraftGraph.model_validate(row.graph),
             provenance=DraftProvenance.model_validate(row.provenance) if row.provenance else None,
             goal=decisions.confirmed_goal(draft_id),
+            projection_current=row.projection_current,
         )
 
 
@@ -531,6 +533,9 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
     stored = _load(draft_id)
     with session_scope() as session:
         revision = session.get(PipelineDraft, draft_id).revision
+    if not stored.projection_current:
+        return Preview(revision, "outdated", "", [coded("MI0201",
+            "the selected facts changed; resolve the corrected pipeline before keeping it")])
     if not stored.graph.nodes:
         return Preview(revision, "empty", "", [])
     verdict = validation.of(stored.graph)
@@ -547,6 +552,9 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
 
 def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:
     """A stored draft as a `Pipeline`, for `keep` and `preview` alike."""
+    if not stored.projection_current:
+        raise ValueError(coded("MI0201",
+            "the selected facts changed; resolve the corrected pipeline before keeping it"))
     graph = stored.graph
     return Pipeline.of(
         ir_of(graph, stack, by=by, provenance=stored.provenance),

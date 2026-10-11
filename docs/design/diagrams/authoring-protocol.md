@@ -222,7 +222,7 @@ flowchart LR
     resolve_correction --> cascade_reviews
     resolve_correction --> correction_blocked
     cascade_reviews --> step
-    correction_blocked --> list_needs
+    correction_blocked -- "ask for the exact missing input and states" --> reply
     correction_blocked --> stopped
     sample_back -- "observations disagree" --> compare_evidence
     compare_evidence -- "ask before replacing" --> disagree_gather

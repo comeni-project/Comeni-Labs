@@ -45,6 +45,7 @@ class GapOffer(_Offer):
     subject: str = Field(min_length=1, max_length=128)
     kind: FactKind
     why: str
+    states: list[str] = Field(default_factory=list)
     block: Question
 
     @model_validator(mode="after")

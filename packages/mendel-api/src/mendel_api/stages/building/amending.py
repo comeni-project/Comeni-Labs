@@ -101,7 +101,7 @@ def _fact(measurement: str, value, goal: Goal) -> SetFact:
 
 
 def unbuildable_change(unroutable: UnroutableError) -> str:
-    """MI0207 for a change on a card: the goal with it cannot be built, so it is not applied."""
+    """MI0207 for a speculative tool choice that cannot be built, before it is applied."""
     missing = ""
     if unroutable.missing is not None:
         type_id, states = unroutable.missing
@@ -115,20 +115,41 @@ def unbuildable_change(unroutable: UnroutableError) -> str:
 
 @records(c.Amend)
 def amend(ctx: Ctx, cmd: c.Amend):
-    """One of the card's offered changes (spec §14.5): checked, applied to the goal, and **the
-    goal with it resolved before anything is written** (final review of Run 2, I1) — a change that
-    cannot be built is refused here (MI0207), the card still waiting, rather than leaving the
-    session failed with the change in its goal. Then the blueprint is stored, the reviewed steps
-    it still has kept, the draft projected; `amend` says what the change did."""
+    """A told fact takes the truthful correction path; a speculative tool swap resolves first.
+
+    Tool choices that cannot be built leave the pending card and selections unchanged. Facts
+    stay selected even when resolution is blocked, and the diagram explains how to recover.
+    """
     from mendel_api.stages.building import walk
 
     with session_scope() as db:
         proposal = pending_step(db, cmd.proposal_id)
         row = db.get(PipelineAuthoringSession, proposal.session_id)
         ctx.session_id = row.id
+        draft = db.get(PipelineDraft, row.draft_id)
+        if ((cmd.expected_draft_revision is not None
+                and cmd.expected_draft_revision != draft.revision)
+                or (cmd.expected_decision_revision is not None
+                    and cmd.expected_decision_revision != draft.decision_revision)
+                or (cmd.expected_session_version is not None
+                    and cmd.expected_session_version != row.row_version)):
+            raise ValueError(coded("MI0201", "this amendment's context changed; reload the card"))
         if walk.registry_moved(row):
             return walk.re_offer(ctx, proposal, row, db)
         amendment = _offered(proposal, cmd.option, cmd.value, authoring_decisions.goal(row))
+        if isinstance(amendment, SetFact):
+            from mendel_api.stages import correcting
+
+            draft = db.get(PipelineDraft, row.draft_id)
+            correction = c.CorrectFact(row.id, amendment.measurement, amendment.value, cmd.by,
+                cmd.expected_decision_revision if cmd.expected_decision_revision is not None
+                else draft.decision_revision,
+                cmd.expected_draft_revision if cmd.expected_draft_revision is not None
+                else draft.revision,
+                cmd.expected_session_version if cmd.expected_session_version is not None
+                else row.row_version)
+            correcting.correct(ctx, correction)
+            return walk.outcome(ctx)
         session.check(row.id, Command.AMEND.value)
         goal = amendment.apply(authoring_decisions.goal(row))
         try:

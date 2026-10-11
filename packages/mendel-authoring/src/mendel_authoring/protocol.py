@@ -865,7 +865,8 @@ PROTOCOL = Protocol(
         _e("resolve_correction", "cascade_reviews", on="resolved", built=True),
         _e("resolve_correction", "correction_blocked", on="blocked", built=True),
         _move("cascade_reviews", "step", _E.CORRECTION_RESOLVED, on="review_again"),
-        _move("correction_blocked", "list_needs", _E.CORRECTION_GATHERED, on="gather_missing"),
+        _move("correction_blocked", "reply", _E.CORRECTION_GATHERED,
+              "ask for the exact missing input and states", on="gather_missing"),
         _move("correction_blocked", "stopped", _E.CORRECTION_STOPPED, on="essential_missing"),
         # Sample exits leave the request section before the chat waits for a choice.
         _move("sample_back", "compare_evidence", _E.CORRECTION_REQUESTED,
