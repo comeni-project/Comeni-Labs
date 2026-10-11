@@ -5,11 +5,11 @@ from typing import Annotated, Any, Literal, Self
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
 from comeni_core.plan.draft import DraftEdge
-from comeni_core.spell.marks import NodeId
+from comeni_core.spell.marks import HumanParamValue, NodeId
 from mendel_authoring.amend import ChooseTool
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-from mendel_api.authoring.types import FactKind, GoalSummary, Question, StepProposal
+from mendel_api.authoring.types import FactKind, FactSource, GoalSummary, Question, StepProposal
 
 
 class _Shape(BaseModel):
@@ -90,12 +90,16 @@ class DisagreementOffer(_Offer):
     subject: str
     observation_id: str
     current_revision_id: str | None
+    current_value: HumanParamValue | None = None
+    current_origin: FactSource
+    observed_value: HumanParamValue
+    observed_origin: FactSource
     continuation: Literal["gather", "goal", "build", "complete", "stopped"]
     block: Question
 
     @model_validator(mode="after")
     def _fixed_options(self) -> Self:
-        if (set(self.options) != {"keep_current", "use_measurement", "correct"}
+        if (set(self.options) != {"keep_current", "use_measurement", "correct", "unknown"}
                 or set(self.options) != {o.id for o in self.block.options}):
             raise ValueError("disagreement options must explicitly retain, select, or correct")
         return self

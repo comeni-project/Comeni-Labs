@@ -149,7 +149,9 @@ def test_a_reading_of_another_type_is_recorded_and_the_question_stays(clean, rea
     assert answer.recorded == ["alignment.bam"]
     bam = next(f for f in _facts(sid) if f["subject"] == "alignment.bam")
     assert bam["states"] == ["coordinate_sorted"] and bam["source"] == "model_read"
-    assert facade.pending_id(sid) == pid
+    fresh = facade.pending_id(sid)
+    assert fresh != pid, "new accepted facts need a fresh question context"
+    assert _payload(fresh)["subject"] == "genome.fasta"
     reading = samples.reading_of(pid)
     assert reading.state == "read" and reading.recorded == ["alignment.bam"]
 

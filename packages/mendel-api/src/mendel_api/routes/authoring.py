@@ -321,6 +321,11 @@ class CorrectAuthoringFact(CorrectionContext):
     kind: Literal["measurement", "input"] = "measurement"
 
 
+class AnswerEvidenceQuestion(CorrectionContext):
+    option: Literal["keep_current", "use_measurement", "correct", "unknown"]
+    value: HumanParamValue | None = None
+
+
 class ReleaseToolChoice(CorrectionContext):
     type_id: str
     states: list[str] = Field(default_factory=list)
@@ -763,6 +768,19 @@ async def correct_fact(session_id: str, subject: str,
              summary="Let the engine choose a producer again", responses=REFUSES)
 async def release_tool(session_id: str, body: ReleaseToolChoice) -> AuthoringCorrected:
     done = await session.act(c.ReleaseProducer(session_id, body.type_id, tuple(body.states),
+        identity.default_author(), body.expected_decision_revision,
+        body.expected_draft_revision, body.expected_session_version))
+    return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post("/{session_id}/disagreements/{proposal_id}",
+             operation_id="answerAuthoringDisagreement",
+             summary="Choose which answer to use after an evidence disagreement", responses=REFUSES)
+async def answer_disagreement(session_id: str, proposal_id: str,
+                              body: AnswerEvidenceQuestion) -> AuthoringCorrected:
+    if await run_in_threadpool(_kind_in, session_id, proposal_id) != "disagreement":
+        raise ValueError(coded("MI0205", "that proposal is not an evidence question"))
+    done = await session.act(c.AnswerDisagreement(proposal_id, body.option, body.value,
         identity.default_author(), body.expected_decision_revision,
         body.expected_draft_revision, body.expected_session_version))
     return AuthoringCorrected.model_validate(done.result)

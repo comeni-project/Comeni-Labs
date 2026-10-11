@@ -891,7 +891,7 @@ class PipelineAuthoringProposal(Base):
     """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
     chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)
     """An option **id**, never a value. See the class docstring."""
-    by: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     """Who settled it, once answered: an author's name or a model's id. Null while pending.
 
     **Not a vocabulary.** It once said `person`, `model` or `resolver`; the writers store a name,

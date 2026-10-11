@@ -868,6 +868,12 @@ PROTOCOL = Protocol(
         _move("correction_blocked", "reply", _E.CORRECTION_GATHERED,
               "ask for the exact missing input and states", on="gather_missing"),
         _move("correction_blocked", "stopped", _E.CORRECTION_STOPPED, on="essential_missing"),
+        *(_move(source, "compare_evidence", _E.CORRECTION_REQUESTED,
+                 "compare retained evidence against current answers", on="compare_evidence")
+          for source in ("reply", "card", "step_card", "wrap", "stopped")),
+        *(_move(source, "compare_evidence", _E.CORRECTION_REQUESTED,
+                 "unanswered evidence", on="conflicts")
+          for source in ("next_gap", "step", "wrap")),
         # Sample exits leave the request section before the chat waits for a choice.
         _move("sample_back", "compare_evidence", _E.CORRECTION_REQUESTED,
               "observations disagree", on="conflicts"),

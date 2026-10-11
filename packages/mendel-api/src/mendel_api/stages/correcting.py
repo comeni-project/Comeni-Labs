@@ -74,6 +74,14 @@ def result(sid):
 def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
     with session_scope() as db:
         row, draft = checked(db, cmd)
+        from mendel_api.stages import samples
+
+        pending = _rows.pending_of(db, row.id)
+        reading = samples._reading(pending.payload.get("block", {})) if pending else None
+        if reading is not None and reading.get("state") == "pending":
+            raise ValueError(
+                coded("MI0215", "a sample is still being read; retry when it finishes")
+            )
         session.check(row.id, arrow.value)
         if draft.ownership == "manual":
             raise ValueError(
@@ -120,6 +128,8 @@ def receipt(ctx, suffix=""):
         said = (
             f"released the tool choice for {change.subject}"
             if change.kind == "producer"
+            else f"kept your selected answer for {change.subject}"
+            if change.kind == "retain"
             else f"{change.subject} is {value}"
         )
         _rows.engine_turn(
@@ -143,6 +153,15 @@ def select_correction(ctx: Ctx):
         draft = db.get(PipelineDraft, row.draft_id)
         previous = draft.decision_revision
         if change.kind == "measurement":
+            try:
+                declaration = registry.stack().measurements
+                declaration.get(change.subject)
+                if change.value is not None:
+                    declaration.check(change.subject, change.value)
+            except (ValueError, KeyError, TypeError) as refused:
+                raise ValueError(
+                    coded("MI0208", f"that answer does not fit {change.subject}")
+                ) from refused
             decisions.set_fact(draft.id, change.subject, change.value, who=change.who)
         elif change.kind == "input":
             if change.value is not None and type(change.value) is not bool:
@@ -274,6 +293,12 @@ def blocked(ctx: Ctx):
         or change.missing is None
         or (change.kind == "input" and change.value is False)
     )
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, ctx.session_id)
+        essential = essential or any(
+            i.type_id == change.missing and not i.present and i.origin is FactOrigin.PERSON_SAID
+            for i in decisions.read(row.draft_id).inputs
+        )
     if essential:
         return "essential_missing"
     from mendel_api.authoring.types import FactKind
@@ -303,3 +328,151 @@ def blocked(ctx: Ctx):
             },
         )
     return "gather_missing"
+
+
+_SOURCE_WORDS = {
+    "person_said": "you said",
+    "measured": "measured",
+    "model_read": "read by AI",
+    "open": "unknown",
+}
+
+
+def compare_if_needed(ctx: Ctx, continuation):
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, ctx.session_id)
+        if not decisions.pending_evidence(row.draft_id):
+            return False
+    ctx.payload = p.SampleAnswered(answered=False, conflicts=True, continuation=continuation)
+    return True
+
+
+def _value_word(value):
+    return (
+        "unknown"
+        if value is None
+        else ("yes" if value is True else "no" if value is False else str(value))
+    )
+
+
+@handles("compare_evidence")
+def compare_evidence(ctx: Ctx):
+    from mendel_api.authoring.types import Option, Question
+
+    if not isinstance(ctx.payload, p.SampleAnswered):
+        raise TypeError("evidence comparison needs its closed continuation")
+    continuation = ctx.payload.continuation
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, ctx.session_id)
+        unseen = decisions.pending_evidence(row.draft_id)
+        if not unseen:
+            raise ValueError("the evidence comparison has no unanswered observation")
+        evidence = unseen[0]
+        stale_proposals(db, row.id)
+        row.row_version = session.changed_version(db, row.id, row.row_version)
+        active = _value_word(evidence["current_value"])
+        observed = _value_word(evidence["observed_value"])
+        active_source = _SOURCE_WORDS[evidence["current_origin"]]
+        observed_source = _SOURCE_WORDS[evidence["observed_origin"]]
+        options = {
+            "keep_current": f"Keep {active} ({active_source})",
+            "use_measurement": f"Use {observed} ({observed_source})",
+            "correct": "Use another answer",
+            "unknown": "Return to unknown",
+        }
+        question = Question(
+            id=f"disagreement-{row.row_version}",
+            asks=f"For {evidence['subject']}, your answer is {active} ({active_source}), "
+            f"but this sample says {observed} ({observed_source}). Which should we use?",
+            why_open="Evidence never replaces your selected answer automatically.",
+            options=[Option(id=k, label=v) for k, v in options.items()],
+            exhaustive=True,
+        )
+        _rows.propose(
+            row.id,
+            kind="disagreement",
+            payload={
+                **evidence,
+                "continuation": continuation,
+                "options": options,
+                "block": question.model_dump(mode="json"),
+            },
+        )
+    return "disagree_" + ("gather" if continuation == "stopped" else continuation)
+
+
+@records(c.AnswerDisagreement)
+def answer_disagreement(ctx: Ctx, cmd: c.AnswerDisagreement):
+    from mendel_api.authoring import envelopes
+
+    with session_scope() as db:
+        proposal = db.get(
+            PipelineAuthoringProposal, cmd.proposal_id, with_for_update=True, populate_existing=True
+        )
+        if proposal is None:
+            raise KeyError(cmd.proposal_id)
+        if proposal.state != ProposalState.PENDING.value:
+            raise ValueError(coded("MI0203", "this evidence question has already been answered"))
+        offer = _rows.read_offer(db, proposal)
+        if not isinstance(offer, envelopes.DisagreementOffer):
+            raise ValueError(coded("MI0205", "that proposal is not an evidence question"))
+        envelopes.answer(offer, option=cmd.option, decision_revision=cmd.expected_decision_revision)
+        versioned = c.CorrectFact(
+            proposal.session_id,
+            offer.subject,
+            cmd.value,
+            cmd.by,
+            cmd.expected_decision_revision,
+            cmd.expected_draft_revision,
+            cmd.expected_session_version,
+        )
+        row, draft = checked(db, versioned)
+        session.check(row.id, Command.ANSWER_DISAGREEMENT.value)
+        fresh = next(
+            (
+                e
+                for e in decisions.pending_evidence(draft.id)
+                if e["observation_id"] == offer.observation_id
+            ),
+            None,
+        )
+        if fresh is None or fresh["current_revision_id"] != offer.current_revision_id:
+            raise ValueError(
+                coded("MI0201", "the active answer changed; refresh this evidence question")
+            )
+        if cmd.option == "correct" and cmd.value is None:
+            raise ValueError(coded("MI0208", "enter another answer, or choose unknown"))
+        kind = {
+            "keep_current": "retain",
+            "use_measurement": "observation",
+            "correct": "measurement",
+            "unknown": "measurement",
+        }[cmd.option]
+        value = (
+            offer.observed_value
+            if cmd.option == "use_measurement"
+            else None
+            if cmd.option in ("unknown", "keep_current")
+            else cmd.value
+        )
+        payload = p.Correction(
+            subject=offer.subject,
+            value=value,
+            who=cmd.by,
+            kind=kind,
+            observation_id=offer.observation_id,
+            continuation=offer.continuation,
+            before=bp.Blueprint.model_validate(row.blueprint) if row.blueprint else None,
+        )
+        proposal.state = ProposalState.ACCEPTED.value
+        proposal.by, proposal.chosen_option = cmd.by, cmd.option
+        proposal.settled_at = _rows.now()
+        decisions.acknowledge_observation(
+            draft.id,
+            offer.observation_id,
+            "selected" if cmd.option == "use_measurement" else "retained",
+            who=cmd.by,
+        )
+        ctx.session_id = row.id
+        session.take(ctx, Command.ANSWER_DISAGREEMENT.value, payload)
+    return result(ctx.session_id)

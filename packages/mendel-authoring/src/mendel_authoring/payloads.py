@@ -70,7 +70,7 @@ EMPTY = Empty()
 Payload = Empty | GoalReturned | GapAnswered | SampleAnswered | Amended | Correction
 
 _TYPES = {"understood": GoalReturned, "answer_gap": GapAnswered,
-          "upload_sample": SampleAnswered, "amend": Amended,
+          "upload_sample": SampleAnswered, "compare_evidence": SampleAnswered, "amend": Amended,
           "correct_fact": Correction, "answer_disagreement": Correction,
           "release_producer": Correction, "fork_correction": Correction}
 

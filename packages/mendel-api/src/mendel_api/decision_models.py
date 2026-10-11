@@ -40,6 +40,13 @@ class SelectionAction(StrEnum):
     IMPORT = "import"
 
 
+class EvidenceDisposition(StrEnum):
+    AGREEMENT = "agreement"
+    RETAINED = "retained"
+    SELECTED = "selected"
+    OBSOLETE = "obsolete"
+
+
 class ReviewStatus(StrEnum):
     REVIEWED = "reviewed"
     SUPERSEDED = "superseded"
@@ -66,14 +73,16 @@ class _Revision(Base):
     subject_id: Mapped[str] = mapped_column(String(32), index=True)
     seq: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     actor_kind: Mapped[str] = mapped_column(
-        _one_of(ActorKind, 16, "actor_kind"), default=ActorKind.PERSON,
-        server_default=text("'person'")
+        _one_of(ActorKind, 16, "actor_kind"),
+        default=ActorKind.PERSON,
+        server_default=text("'person'"),
     )
     who: Mapped[str] = mapped_column(String(200), default="", server_default=text("''"))
     legacy: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     action: Mapped[str] = mapped_column(
-        _one_of(SelectionAction, 16, "action"), default=SelectionAction.SELECT,
-        server_default=text("'select'")
+        _one_of(SelectionAction, 16, "action"),
+        default=SelectionAction.SELECT,
+        server_default=text("'select'"),
     )
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     turn_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -86,21 +95,30 @@ def _subject_keys(family):
         UniqueConstraint("draft_id", "subject_key", name=f"uq_pipeline_{family}_subject"),
         ForeignKeyConstraint(
             ["current_id", "id", "draft_id"],
-            [f"pipeline_{family}_revision.id", f"pipeline_{family}_revision.subject_id",
-             f"pipeline_{family}_revision.draft_id"],
-            name=f"fk_pipeline_{family}_current", ondelete="RESTRICT",
-            deferrable=True, initially="DEFERRED", use_alter=True,
+            [
+                f"pipeline_{family}_revision.id",
+                f"pipeline_{family}_revision.subject_id",
+                f"pipeline_{family}_revision.draft_id",
+            ],
+            name=f"fk_pipeline_{family}_current",
+            ondelete="RESTRICT",
+            deferrable=True,
+            initially="DEFERRED",
+            use_alter=True,
         ),
     )
 
 
 def _revision_keys(family):
     return (
-        UniqueConstraint("id", "subject_id", "draft_id",
-                         name=f"uq_pipeline_{family}_revision_owner"),
+        UniqueConstraint(
+            "id", "subject_id", "draft_id", name=f"uq_pipeline_{family}_revision_owner"
+        ),
         ForeignKeyConstraint(
-            ["subject_id", "draft_id"], [f"pipeline_{family}.id", f"pipeline_{family}.draft_id"],
-            name=f"fk_pipeline_{family}_revision_subject", ondelete="RESTRICT",
+            ["subject_id", "draft_id"],
+            [f"pipeline_{family}.id", f"pipeline_{family}.draft_id"],
+            name=f"fk_pipeline_{family}_revision_subject",
+            ondelete="RESTRICT",
         ),
         CheckConstraint("actor_kind != 'unknown' OR legacy", name="unknown_is_legacy"),
     )
@@ -108,6 +126,11 @@ def _revision_keys(family):
 
 class PipelineObservation(Base):
     __tablename__ = "pipeline_observation"
+    __table_args__ = (
+        UniqueConstraint(
+            "draft_id", "ingestion_key", "subject", name="uq_pipeline_observation_ingestion_subject"
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     draft_id: Mapped[str] = mapped_column(
@@ -120,6 +143,7 @@ class PipelineObservation(Base):
     evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     measured_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     invocation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ingestion_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     seq: Mapped[int] = mapped_column(Integer)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     legacy: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
@@ -127,6 +151,26 @@ class PipelineObservation(Base):
 
 class PipelineEvidenceAccess(Base):
     __tablename__ = "pipeline_evidence_access"
+    __table_args__ = (
+        CheckConstraint(
+            "(acknowledged_as IS NULL AND acknowledged_revision IS NULL AND "
+            "acknowledged_at IS NULL AND acknowledged_by IS NULL AND acknowledged_kind IS NULL) "
+            "OR (acknowledged_as IS NOT NULL AND acknowledged_revision IS NOT NULL AND "
+            "acknowledged_at IS NOT NULL AND acknowledged_by IS NOT NULL AND "
+            "acknowledged_kind IS NOT NULL AND acknowledged_kind != 'unknown')",
+            name="complete_acknowledgement",
+        ),
+    )
+
+    acknowledged_as: Mapped[str | None] = mapped_column(
+        _one_of(EvidenceDisposition, 16, "acknowledged_as"), nullable=True
+    )
+    acknowledged_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    acknowledged_kind: Mapped[str | None] = mapped_column(
+        _one_of(ActorKind, 16, "acknowledged_kind"), nullable=True
+    )
 
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
@@ -176,11 +220,15 @@ class PipelineFact(_Subject):
 
 class PipelineFactRevision(_Revision):
     __tablename__ = "pipeline_fact_revision"
-    __table_args__ = (*_revision_keys("fact"), ForeignKeyConstraint(
-        ["draft_id", "observation_id"],
-        ["pipeline_evidence_access.draft_id", "pipeline_evidence_access.observation_id"],
-        name="fk_pipeline_fact_evidence", ondelete="RESTRICT",
-    ))
+    __table_args__ = (
+        *_revision_keys("fact"),
+        ForeignKeyConstraint(
+            ["draft_id", "observation_id"],
+            ["pipeline_evidence_access.draft_id", "pipeline_evidence_access.observation_id"],
+            name="fk_pipeline_fact_evidence",
+            ondelete="RESTRICT",
+        ),
+    )
 
     observation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 

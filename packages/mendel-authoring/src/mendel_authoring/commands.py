@@ -151,7 +151,8 @@ class UploadSample:
     files: tuple
     """`((name, head bytes), ...)`: one file, or a pair."""
     by: str
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.UPLOAD_SAMPLE})
+    takes: ClassVar[frozenset[Command]] = frozenset(
+        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE})
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,7 +162,8 @@ class SampleInspected:
     by: str
     expected_decision_revision: int | None = None
     expected_session_version: int | None = None
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.UPLOAD_SAMPLE})
+    takes: ClassVar[frozenset[Command]] = frozenset(
+        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE})
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,9 +173,11 @@ class ReadingAnswered:
     reply: dict
     by: str
     handed_back: bool
+    invocation_id: str | None = None
     expected_decision_revision: int | None = None
     expected_session_version: int | None = None
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.UPLOAD_SAMPLE})
+    takes: ClassVar[frozenset[Command]] = frozenset(
+        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE})
 
 
 @dataclass(frozen=True, slots=True)

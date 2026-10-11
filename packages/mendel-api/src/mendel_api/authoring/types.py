@@ -110,6 +110,7 @@ class ProposalKind(StrEnum):
     GOAL = "goal"
     GAP = "gap"
     PACING = "pacing"
+    DISAGREEMENT = "disagreement"
 
 
 class BlockKind(StrEnum):
@@ -260,6 +261,8 @@ class SampleReading(_Shape):
         "pending", "read", "could_not_tell", "refused", "no_answer", "hand_back", "handed"
     ]
     attempt: int = 1
+    decision_revision: int | None = None
+    session_version: int | None = None
     started_at: datetime | None = None
     type_id: str | None = None
     states: list[str] = []

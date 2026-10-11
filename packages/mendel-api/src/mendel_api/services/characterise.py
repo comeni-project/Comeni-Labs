@@ -123,6 +123,8 @@ def read_sample(
     binary_before: bool,
     *,
     client_for,
+    decision_revision=None,
+    session_version=None,
 ) -> str:
     """Read one sample through door 6: families, then the type; record what was admitted.
     **Never raises for a refusal**; every way out is a reading state the card shows. Returns it.
@@ -145,6 +147,10 @@ def read_sample(
         session.perform(c.ReadingFailed(proposal_id, attempt, "refused", "MI0213"))
         return "refused"
 
+    captured = samples.reading_of(proposal_id)
+    if decision_revision is None:
+        decision_revision = captured.decision_revision
+        session_version = captured.session_version
     stack = registry.stack()
     request = authoring_ai.compose_characterise(
         text, binary_before=binary_before, registry=registry.digest()
@@ -184,6 +190,9 @@ def read_sample(
             second.reply.model_dump(mode="json"),
             identity.default_author(),
             handed,
+            invocation_id=second.invocation_id,
+            expected_decision_revision=decision_revision,
+            expected_session_version=session_version,
         )
     )
     return "hand_back" if handed else "read"

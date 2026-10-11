@@ -497,6 +497,10 @@ def step(ctx: Ctx) -> str:
 
     **The card is offered after the projection** (issue 263): it records the draft's revision and
     wires against its graph, so both must already hold the steps placed quietly before it."""
+    from mendel_api.stages import correcting
+
+    if correcting.compare_if_needed(ctx, "build"):
+        return "conflicts"
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         blueprint, plan = cards.plan_of_row(row)
@@ -522,10 +526,14 @@ def step(ctx: Ctx) -> str:
 
 
 @handles("wrap")
-def wrap(ctx: Ctx) -> None:
+def wrap(ctx: Ctx) -> str | None:
     """The wrap-up (spec §4.4), as a `Receipt`: what you'll get, what you need, who decided —
     read from the final blueprint, which carries a person's tools as theirs (issue 256) — and any
     tool you chose that applies nowhere."""
+    from mendel_api.stages import correcting
+
+    if correcting.compare_if_needed(ctx, "complete"):
+        return "conflicts"
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         blueprint, plan = cards.plan_of_row(row)

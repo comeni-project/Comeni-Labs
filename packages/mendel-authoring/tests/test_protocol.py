@@ -322,7 +322,7 @@ def test_the_commands_are_the_specs_and_1bs():
         "choose_pacing", "continue", "amend", "ask", "keep", "retry",
         "reply_in_words", "understood", "asked_back", "revised",
         "provider_failed", "correct_fact", "answer_disagreement",
-        "release_producer", "fork_correction",
+        "release_producer", "fork_correction", "compare_evidence",
     }
 
 

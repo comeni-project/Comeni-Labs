@@ -224,6 +224,14 @@ flowchart LR
     cascade_reviews --> step
     correction_blocked -- "ask for the exact missing input and states" --> reply
     correction_blocked --> stopped
+    reply -- "compare retained evidence against current answers" --> compare_evidence
+    card -- "compare retained evidence against current answers" --> compare_evidence
+    step_card -- "compare retained evidence against current answers" --> compare_evidence
+    wrap -- "compare retained evidence against current answers" --> compare_evidence
+    stopped -- "compare retained evidence against current answers" --> compare_evidence
+    next_gap -- "unanswered evidence" --> compare_evidence
+    step -- "unanswered evidence" --> compare_evidence
+    wrap -- "unanswered evidence" --> compare_evidence
     sample_back -- "observations disagree" --> compare_evidence
     compare_evidence -- "ask before replacing" --> disagree_gather
     compare_evidence -- "ask before replacing" --> disagree_goal

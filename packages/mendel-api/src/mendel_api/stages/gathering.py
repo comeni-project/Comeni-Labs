@@ -675,6 +675,10 @@ def list_needs(ctx: Ctx) -> str:
 
 @handles("next_gap")
 def next_gap(ctx: Ctx) -> str:
+    from mendel_api.stages import correcting
+
+    if correcting.compare_if_needed(ctx, "gather"):
+        return "conflicts"
     return offer_gap_or_card(ctx.session_id)
 
 

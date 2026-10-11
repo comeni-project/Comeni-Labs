@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from mendel_api.authoring.types import CharacteriseReply
+from mendel_api.db import session_scope
 from mendel_api.main import create_app
 from mendel_api.services import characterise, inspect
 from mendel_api.services import session as facade
@@ -236,7 +237,14 @@ def readable(monkeypatch):
 
     async def enqueue(job):  # what the upload asked for, after its commit (plan 1c)
         if job.name == _jobs.CHARACTERISE:
-            session_id, proposal_id, attempt, sealed, binary_before = job.args
+            (session_id, proposal_id, attempt, sealed, binary_before,
+             decision_revision, session_version) = job.args
+            from mendel_api.models import PipelineAuthoringSession, PipelineDraft
+
+            with session_scope() as db:
+                row = db.get(PipelineAuthoringSession, session_id)
+                assert decision_revision == db.get(PipelineDraft, row.draft_id).decision_revision
+                assert session_version == row.row_version
             queued.append(
                 (session_id, proposal_id, attempt, characterise.Excerpt(str(sealed), binary_before))
             )

@@ -96,6 +96,7 @@ class Command(StrEnum):
     """What a person (or, from 1b, a job) can do to a session: each is an arrow out of a
     waiting node (spec §3.2). Refused with MI0216 wherever no arrow names it."""
 
+    COMPARE_EVIDENCE = "compare_evidence"
     CORRECT_FACT = "correct_fact"
     ANSWER_DISAGREEMENT = "answer_disagreement"
     RELEASE_PRODUCER = "release_producer"

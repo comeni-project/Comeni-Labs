@@ -211,7 +211,8 @@ def _ask_which_result(
 
 
 async def characterise_sample(
-    ctx: dict, session_id: str, proposal_id: str, attempt: int, text: str, binary_before: bool
+    ctx: dict, session_id: str, proposal_id: str, attempt: int, text: str, binary_before: bool,
+    decision_revision=None, session_version=None,
 ) -> str:
     """Read a sample nothing here reads, through door 6 (14.7.7). A failure is a reading state."""
     from mendel_api.services import characterise
@@ -219,7 +220,8 @@ async def characterise_sample(
     try:
         async with session_mod.queued_after():
             state = characterise.read_sample(
-                session_id, proposal_id, attempt, str(text), binary_before, client_for=_client
+                session_id, proposal_id, attempt, str(text), binary_before, client_for=_client,
+                decision_revision=decision_revision, session_version=session_version,
             )
     except Exception:
         # **Never left pending** (issue 241): whatever broke, the card says the AI didn't

@@ -131,13 +131,23 @@ def _fact(observation, subject):
                         evidence=observation.evidence)
 
 
-def _observe(db, draft, fact, *, invocation_id=None):
+def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None):
     registry.stack().measurements.check(fact.subject, fact.value)
+    if ingestion_key is not None:
+        previous = db.scalar(select(PipelineObservation).where(
+            PipelineObservation.draft_id == draft.id,
+            PipelineObservation.ingestion_key == ingestion_key,
+            PipelineObservation.subject == fact.subject))
+        if previous is not None:
+            if _fact(previous, fact.subject) != fact:
+                raise ValueError("one evidence delivery cannot report two different observations")
+            return previous
     observation = PipelineObservation(
         id=token_hex(16), draft_id=draft.id, subject=fact.subject, value=fact.value,
         origin=fact.origin, measured_by=fact.by, pieces=fact.pieces,
         evidence=fact.evidence.model_dump(mode="json") if fact.evidence else None,
-        invocation_id=invocation_id, seq=_seq(draft), at=datetime.now(UTC), legacy=False,
+        invocation_id=invocation_id, ingestion_key=ingestion_key, seq=_seq(draft),
+        at=datetime.now(UTC), legacy=False,
     )
     db.add(observation)
     db.flush()
@@ -147,12 +157,13 @@ def _observe(db, draft, fact, *, invocation_id=None):
 
 
 def observe(draft_id, subject, value, *, origin=FactOrigin.MEASURED, by=None,
-            pieces=(), evidence=None, invocation_id=None):
+            pieces=(), evidence=None, invocation_id=None, ingestion_key=None):
     fact = FactDecision(subject=subject, value=value, origin=origin, by=by,
                         pieces=list(pieces), evidence=evidence)
     with session_scope() as db:
         draft = _draft(db, draft_id)
-        return _observe(db, draft, fact, invocation_id=invocation_id).id
+        return _observe(db, draft, fact, invocation_id=invocation_id,
+                        ingestion_key=ingestion_key).id
 
 
 def set_fact(draft_id, subject, value, *, who, expected_revision=None,
@@ -300,10 +311,15 @@ def history(draft_id, subject):
                 PipelineObservation.subject == subject)).all()
         for observation in observations:
             if observation.id not in selected_ids:
+                access = db.get(PipelineEvidenceAccess, (draft_id, observation.id))
                 result.append(dict(seq=observation.seq, value=observation.value,
                                    origin=observation.origin, selected=False, current=False,
                                    observation_id=observation.id, at=observation.at,
-                                   observed_at=observation.at))
+                                   observed_at=observation.at, action="observed",
+                                   acknowledged_as=access.acknowledged_as,
+                                   acknowledged_at=access.acknowledged_at,
+                                   acknowledged_by=access.acknowledged_by,
+                                   acknowledged_kind=access.acknowledged_kind))
         return sorted(result, key=lambda entry: entry["seq"])
 
 
@@ -421,3 +437,57 @@ def cascade_reviews(draft_id, before, fresh):
                     "decision_revision": revision.decision_revision,
                 }, who="resolver", actor_kind=ActorKind.RESOLVER)
         return applicability
+
+
+
+def _acknowledge(db, draft, observation_id, disposition, *, who, actor_kind):
+    from mendel_api.decision_models import EvidenceDisposition
+
+    admitted = Attribution(kind=actor_kind, who=who)
+    access = db.get(PipelineEvidenceAccess, (draft.id, observation_id))
+    if access is None:
+        raise ValueError("this draft has no access to the evidence")
+    if access.acknowledged_as is None:
+        access.acknowledged_as = EvidenceDisposition(disposition).value
+        access.acknowledged_revision = draft.decision_revision
+        access.acknowledged_at = datetime.now(UTC)
+        access.acknowledged_by = admitted.who
+        access.acknowledged_kind = admitted.kind.value
+
+
+def acknowledge_observation(draft_id, observation_id, disposition, *, who,
+                            actor_kind=ActorKind.PERSON):
+    """An acknowledgement is metadata about evidence, never a selected factual value."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        _acknowledge(db, draft, observation_id, disposition, who=who, actor_kind=actor_kind)
+
+
+def pending_evidence(draft_id):
+    """Unseen evidence, compared afresh; obsolete/equal observations never reopen a question."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        selections = {s.subject_key: r for s, r in _current(db, draft_id, "fact")}
+        selected_ids = set(db.scalars(select(PipelineFactRevision.observation_id).where(
+            PipelineFactRevision.draft_id == draft_id)))
+        observations = db.scalars(select(PipelineObservation).join(PipelineEvidenceAccess,
+            PipelineEvidenceAccess.observation_id == PipelineObservation.id).where(
+                PipelineEvidenceAccess.draft_id == draft_id,
+                PipelineEvidenceAccess.acknowledged_as.is_(None)).order_by(
+                    PipelineObservation.seq, PipelineObservation.subject, PipelineObservation.id))
+        unseen = []
+        for observed in observations:
+            if observed.id in selected_ids:
+                continue
+            revision = selections.get(observed.subject)
+            active = _fact(_observation(db, revision.observation_id) if revision else None,
+                           observed.subject)
+            if observed.value == active.value:
+                _acknowledge(db, draft, observed.id, "obsolete", who="resolver",
+                             actor_kind=ActorKind.RESOLVER)
+                continue
+            unseen.append(dict(subject=observed.subject, observation_id=observed.id,
+                observed_value=observed.value, observed_origin=observed.origin,
+                current_value=active.value, current_origin=active.origin.value,
+                current_revision_id=revision.id if revision else None))
+        return unseen
