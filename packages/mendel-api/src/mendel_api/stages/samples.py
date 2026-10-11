@@ -136,7 +136,8 @@ def _record_found(
             authoring_decisions.record(
                 row.draft_id,
                 Fact(kind=FactKind.INPUT, subject=type_id, states=sorted(states), source=source),
-                who=by, proposal_id=proposal.id,
+                who=by,
+                proposal_id=proposal.id,
             )
             recorded.append(type_id)
     for item in found:
@@ -171,7 +172,9 @@ def _record_found(
             continue
         if not current:
             continue
-        decisions.select_observation(row.draft_id, item.measurement, observation, who=by, proposal_id=proposal.id)
+        decisions.select_observation(
+            row.draft_id, item.measurement, observation, who=by, proposal_id=proposal.id
+        )
         decisions.acknowledge_observation(row.draft_id, observation, "selected", who=by)
         recorded.append(item.measurement)
     answered = subject in recorded

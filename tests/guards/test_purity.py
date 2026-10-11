@@ -81,7 +81,7 @@ CLOSED_PACKAGES = {
     },
     "mendel-authoring": {
         "collections", "collections.abc", "dataclasses", "enum", "typing", "pydantic",
-        "comeni_core", "mendel_authoring",
+        "comeni_core", "mendel_authoring", "hashlib", "json",
     },
 }
 # `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note
@@ -170,6 +170,8 @@ CLOSED_PACKAGES = {
 # import it. Rejected because `test_the_two_halves_share_only_comeni_core` forbids exactly that,
 # and correctly — a run graph is not a reason for Wiener to depend on Mendel's compiler.
 
+# `hashlib` and `json` are allowed for in-memory, deterministic review fingerprints.
+# reviews.py hashes canonical value serialization; neither operation performs I/O.
 # `mendel-authoring` was added 2026-10-04 as a whole package (14.7.8, the consultant build), and
 # this is the sixth such note. It holds the authoring protocol — the diagram the engine runs —
 # and its interpreter. **It allows nothing new**: every name on its line is on another pure

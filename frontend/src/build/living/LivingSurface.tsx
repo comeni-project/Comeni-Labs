@@ -264,7 +264,7 @@ export function LivingSurface({
               disabled={session.retired || pendingTurn || session.phase === "stopped"}
               placeholder={
                 session.phase === "stopped"
-                  ? "This analysis has ended — start a new one above"
+                  ? "Correct your current answers to continue"
                   : pendingTurn
                   ? "Waiting for the answer…"
                   : session.phase === "understanding"

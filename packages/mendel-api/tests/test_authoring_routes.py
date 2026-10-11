@@ -392,7 +392,11 @@ def test_starting_a_session_accepts_prose_and_nothing_else():
     assert set(routes.BeginAuthoring.model_fields) == {"prompt"}
     assert set(routes.SayToAuthoring.model_fields) == {"text"}
     assert set(routes.DecideProposal.model_fields) == {
-        "decision", "expected_revision", "goal", "option", "value"
+        "decision",
+        "expected_revision",
+        "goal",
+        "option",
+        "value",
     }
 
 
@@ -407,7 +411,6 @@ def test_the_authoring_jobs_run_on_the_ai_worker_and_nowhere_else():
         assert job in ai, f"{job.__name__} is not on the AI worker"
         assert job not in ordinary, f"{job.__name__} would run beside a source sync"
     assert not ai & ordinary
-
 
 
 # ── Task 10: editing without a model, and the receipt the server writes ───────────────────
@@ -478,7 +481,8 @@ def test_a_direct_edit_writes_a_receipt_the_server_composed(client, clean, queue
     graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
 
     response = client.post(
-        f"/api/pipeline/authoring/{built['id']}/edits", json={"graph": graph}
+        f"/api/pipeline/authoring/{built['id']}/edits",
+        json={"graph": graph, "expected_revision": built["revision"]},
     )
     assert response.status_code == 200, response.text
     after = _session(client, built["id"])
@@ -498,7 +502,10 @@ def test_an_edit_during_the_walk_is_refused(client, clean, queue, monkeypatch):
     graph = building["graph"]
     graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
 
-    response = client.post(f"/api/pipeline/authoring/{building['id']}/edits", json={"graph": graph})
+    response = client.post(
+        f"/api/pipeline/authoring/{building['id']}/edits",
+        json={"graph": graph, "expected_revision": building["revision"]},
+    )
     assert response.status_code == 422
     assert response.json()["detail"].startswith("MI0217")
     after = _session(client, building["id"])
@@ -523,8 +530,10 @@ def test_a_step_is_kept_or_changed_never_skipped(client, clean, queue, monkeypat
 def test_an_edit_that_changes_nothing_writes_nothing(client, clean, queue, monkeypatch):
     building, _ = _building(client, queue, monkeypatch)
     turns = len(building["turns"])
-    client.post(f"/api/pipeline/authoring/{building['id']}/edits",
-                json={"graph": building["graph"]})
+    client.post(
+        f"/api/pipeline/authoring/{building['id']}/edits",
+        json={"graph": building["graph"], "expected_revision": building["revision"]},
+    )
     after = _session(client, building["id"])
     assert len(after["turns"]) == turns
     assert after["revision"] == building["revision"]
@@ -538,7 +547,7 @@ def test_the_vocabulary_a_goal_card_may_use_is_the_registrys():
 
 
 def test_an_edit_body_is_the_graph_and_nothing_else():
-    assert set(routes.EditAuthoringDraft.model_fields) == {"graph"}
+    assert set(routes.EditAuthoringDraft.model_fields) == {"graph", "expected_revision"}
 
 
 # ── the family step (#194) ────────────────────────────────────────────────────────────────
@@ -585,9 +594,9 @@ def test_no_family_fits_asks_and_never_calls_the_goal(client, clean, queue, monk
     assert [b["kind"] for b in blocks] == ["narrative", "question"]
     assert blocks[1]["asks"] == "Which result?"
     assert view["phase"] == "understanding"
-    assert prompts.FAMILY in {
+    assert prompts.FAMILY in {r.prompt_id for r in _rows_now()} and "builder.goal.v7" not in {
         r.prompt_id for r in _rows_now()
-    } and "builder.goal.v7" not in {r.prompt_id for r in _rows_now()}, "the goal call is not made"
+    }, "the goal call is not made"
 
 
 @needs_db

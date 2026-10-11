@@ -459,3 +459,11 @@ it("labels superseded historical reviews and blocks Run while the projection is 
   expect(screen.getByTestId("living-run")).toBeDisabled();
   expect(screen.getByText(/^Pipeline outdated\./)).toBeInTheDocument();
 });
+
+it("offers correction as the way to recover an honest stop", () => {
+  const correct = vi.fn();
+  surface(with_({ phase: "stopped", pending_proposal: null }), { onCorrect: correct });
+  expect(screen.getByRole("button", { name: "Correct current answers" })).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("Correct your current answers to continue")).toBeDisabled();
+  expect(screen.queryByText(/This analysis has ended/)).toBeNull();
+});

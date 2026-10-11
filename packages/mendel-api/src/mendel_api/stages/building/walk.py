@@ -284,7 +284,8 @@ def settle(ctx: Ctx, proposal_id: str, *, expected_revision: int, by: str) -> St
 # ── a direct edit ───────────────────────────────────────────────────────────────────────────
 
 
-def record_edit(session_id: str, graph: DraftGraph, *, by: str) -> int:
+def record_edit(session_id: str, graph: DraftGraph, *, by: str,
+                expected_revision: int | None = None) -> int:
     """A direct edit to the session's draft, recorded in the transcript. Returns the new
     revision. Nothing is re-offered: no step's card is pending outside the walk.
 
@@ -297,6 +298,7 @@ def record_edit(session_id: str, graph: DraftGraph, *, by: str) -> int:
 
     with session_scope() as db:
         row = draft_mutations.lock_session(db, session_id)
+        draft_mutations.lock(db, row.draft_id, expected_revision=expected_revision)
         if row.phase == Phase.BUILDING.value:
             raise ValueError(
                 coded("MI0217", "editing opens when the walk is done")
@@ -404,7 +406,8 @@ def _choose_pacing(ctx: Ctx, cmd: c.ChoosePacing) -> None:
 
 @records(c.RecordEdit)
 def _edit(ctx: Ctx, cmd: c.RecordEdit) -> int:
-    return record_edit(cmd.session_id, DraftGraph.model_validate(cmd.graph), by=cmd.by)
+    return record_edit(cmd.session_id, DraftGraph.model_validate(cmd.graph), by=cmd.by,
+                       expected_revision=cmd.expected_revision)
 
 
 # ── the handlers ─────────────────────────────────────────────────────────────────────────

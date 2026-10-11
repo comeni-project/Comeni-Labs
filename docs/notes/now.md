@@ -5,7 +5,7 @@ The consolidated state of the project. **Read this first**; then any entry still
 [the compaction rules](compaction.md). Each line cites the entry it came from; the long form of any
 line is in [the archive](journal/archive/).
 
-**Compacted through: 2026-10-05.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
+**Compacted through: 2026-10-11.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
 history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim in
 `tests/fixtures/claude-md-2026-09-28.md`.
 
@@ -13,15 +13,10 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - **Task 14 of the living pipeline, step 14.7: walking it with a real model.** The tree is GitHub
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
-- **Next: 14.7.8.2, the build plan** (#136; spec `2026-10-04-the-consultant-build-design.md`
-  §4, §10): a pure `plan_of(blueprint, registry, facts)`. Brainstorm first, then a spec section,
-  then plan 2. Open: where it lives and how the `Blueprint` (a `mendel-api` model) reaches it;
-  whether a family's `stage` label (`Family` has none) is a `comeni-core` change now. Then parts
-  3–5 (④ with Build/Spawn gone and pacing live #117; *ask anything*; cards and the walk) →
-  **14.7.9** tune (#210) → **14.7.10** the nine scenarios. A defect found on the way joins #210
-  unless it blocks the loop. (2026-09-28, 2026-10-05)
-- **Scenario 1 builds end to end with `gemma3:12b`** from home, answered by uploading the pair
-  SRR6357070; the aligner is tier 3 with a read length, tier 4 without. (2026-09-28, 2026-10-03)
+- **14.7.8.3d Parts A–F are implemented** (#285–#290): data bugs, run reliability,
+  schema integrity and decisions as rows. **Next: Part G** (#291), canvas and walk defects;
+  then H (#292), readiness for real users, and I (#293), the tutor. Undo is deferred in
+  #302; history is available now. (2026-10-07, 2026-10-08, 2026-10-11)
 
 ## How work is done now
 
@@ -49,22 +44,27 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   want nothing can make asks the person instead of failing (`WANT_UNREACHABLE`). (2026-09-29,
   2026-09-30)
 - **The model only phrases:** `builder.ask.v1` words each gap (queued on entering `ask`),
-  `builder.readback.v1` reads the goal back; a fact the person stated wins over the model's guess. Prompts are sent as a
+  `builder.readback.v1` reads the goal back; conflicting evidence asks for an explicit choice. Prompts are sent as a
   fixed system part and a per-call part. A prompt change is always a new version file. (2026-09-29)
 - **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider; Ollama on), so a
   shape is never refused: 0 of 27 calls against 4 of 18 when the schema sat in the prompt. Showing
   a model a raw JSON Schema is what made it echo the schema. (2026-09-29)
 - A resolve that fails for a missing input is **MI0207** in the conversation. (2026-09-28)
+- **Current decisions are retained rows**, selected by one pointer per subject; the goal is
+  composed from them. Corrections cascade semantic reviews, truthful unbuildable answers stay,
+  and manual work forks to a linked authored draft. Chooser roles are explicit. (2026-10-11)
+- **Legacy conversion is frozen and online**; old snapshots are historical only. Backup/restore
+  was rehearsed on throwaway data; the configured dev database was offline. (2026-10-11)
 - **Open:** `MD0225` does not cover step selections (the keep route closes it for the product);
-  whether `comeni-core` needs a version bump for `DraftProvenance`, MI0207 and door 1's payload.
-  (2026-09-13, 2026-09-28)
+  the `comeni-core` version bump for goal pins, missing-premise records and provenance.
+  (2026-09-13, 2026-10-06, 2026-10-07)
 
 ## Samples (protection level 0)
 
 - **A gap can be answered with a sample**, one file or a pair: the browser sends each file's first
   4 MB, the server holds it in memory, measures it in a child process with no secrets and hard
   limits, and keeps facts, never bytes. Upload is offered on every input question while the AI may
-  read; the person's word always stands over a sample's. (2026-10-03, 2026-10-04)
+  read; a sample disagreement asks keep, use, correct or unknown. (2026-10-03, 2026-10-04)
 - **A sample nothing reads is read by the AI** (door 6): up to 8 KB of text; a family, then a
   type; each property **quotes its line**, checked (one line, ≥ 8 chars), then *read by AI*. A
   type an inspector reads is handed back and measured. Open: #238 (stored replies), #239. (2026-10-04)
@@ -88,7 +88,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **On the RX 7600 (8 GiB):** gemma3:4b and qwen2.5:7b fit (100% GPU, 0.5–3 s a call);
   gemma3:12b spills 36% to the CPU (3–7 s). Set: talk and read-back on gemma3:4b, the rest on the
   default gemma3:12b until #198 measures accuracy. (2026-09-29, 2026-10-01)
-- Pacing, tier 4 by a model, protection levels and k8s/awsbatch are shown greyed as designed.
+- Pacing is live; tier 4 by a model, protection levels and k8s/awsbatch remain designed.
   Running is reported by Wiener itself. (2026-10-01)
 
 ## The forge (where declared data comes from)
@@ -138,7 +138,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - **The stack:** the mendel `api` and `worker` mount `./packages` (and `api` reloads); `ai-worker`,
   `wiener-api` and `web` (nginx's config) run **baked**: rebuild them after a change, and
-  `docker compose up -d` after a compose change. The stack reads `.run/registry`, a clone, not
+  `docker compose up -d` after a compose change. The stack reads a writable registry clone made by `make dev`, not
   `registry/`. (2026-09-01, 2026-09-29, 2026-10-01)
 - **Measure a model fix on the same sentences before and after:** a fix that passed `make check`
   made phrasing refusals go from 4 of 18 to 12 of 12. (2026-09-29)

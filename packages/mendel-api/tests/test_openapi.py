@@ -75,8 +75,14 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/authoring/{session_id}/preview", "get"): "previewAuthoring",
         ("/api/pipeline/authoring/{session_id}/edits", "post"): "editAuthoringDraft",
         ("/api/pipeline/authoring/{session_id}/facts/{subject}", "post"): "correctAuthoringFact",
-        ("/api/pipeline/authoring/{session_id}/facts/{subject}/history", "get"): "authoringFactHistory",
-        ("/api/pipeline/authoring/{session_id}/disagreements/{proposal_id}", "post"): "answerAuthoringDisagreement",
+        (
+            "/api/pipeline/authoring/{session_id}/facts/{subject}/history",
+            "get",
+        ): "authoringFactHistory",
+        (
+            "/api/pipeline/authoring/{session_id}/disagreements/{proposal_id}",
+            "post",
+        ): "answerAuthoringDisagreement",
         ("/api/pipeline/authoring/{session_id}/release-tool", "post"): "releaseAuthoringTool",
         ("/api/pipeline/authoring/vocabulary", "get"): "authoringVocabulary",
         # 14.7.4 (#191): the call panel, fetched when opened, never polled.

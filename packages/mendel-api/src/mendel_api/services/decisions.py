@@ -81,28 +81,52 @@ def _changed(db, draft):
 
 def _current(db, draft_id, family):
     subject, revision = _FAMILIES[family]
-    return db.execute(select(subject, revision).join(
-        revision, subject.current_id == revision.id
-    ).where(subject.draft_id == draft_id).order_by(subject.position, subject.subject_key)).all()
+    return db.execute(
+        select(subject, revision)
+        .join(revision, subject.current_id == revision.id)
+        .where(subject.draft_id == draft_id)
+        .order_by(subject.position, subject.subject_key)
+    ).all()
 
 
-def _write(db, draft, family, key, fields, *, who, actor_kind=ActorKind.PERSON,
-           action="select", position=None, acknowledge=False, legacy=False, proposal_id=None):
+def _write(
+    db,
+    draft,
+    family,
+    key,
+    fields,
+    *,
+    who,
+    actor_kind=ActorKind.PERSON,
+    action="select",
+    position=None,
+    acknowledge=False,
+    legacy=False,
+    proposal_id=None,
+):
     attribution = Attribution(kind=actor_kind, who=who, legacy=legacy)
     subject_type, revision_type = _FAMILIES[family]
-    subject = db.scalar(select(subject_type).where(
-        subject_type.draft_id == draft.id, subject_type.subject_key == key
-    ))
+    subject = db.scalar(
+        select(subject_type).where(
+            subject_type.draft_id == draft.id, subject_type.subject_key == key
+        )
+    )
     current = db.get(revision_type, subject.current_id) if subject else None
-    same = current is not None and all(getattr(current, name) == value
-                                       for name, value in fields.items())
+    same = current is not None and all(
+        getattr(current, name) == value for name, value in fields.items()
+    )
     reordered = subject is not None and position is not None and position != subject.position
     if same and not acknowledge and proposal_id is None and not reordered:
         return current
     revision_id = token_hex(16)
     if subject is None:
-        subject = subject_type(id=token_hex(16), draft_id=draft.id, subject_key=key,
-                               current_id=revision_id, position=position or 0)
+        subject = subject_type(
+            id=token_hex(16),
+            draft_id=draft.id,
+            subject_key=key,
+            current_id=revision_id,
+            position=position or 0,
+        )
         db.add(subject)
         db.flush()  # Current-pointer FK is deferred, revision's subject FK is immediate.
     elif position is not None:
@@ -110,10 +134,18 @@ def _write(db, draft, family, key, fields, *, who, actor_kind=ActorKind.PERSON,
     recorded = dict(fields)
     if proposal_id is not None:
         recorded["proposal_id"] = proposal_id
-    revision = revision_type(id=revision_id, draft_id=draft.id, subject_id=subject.id,
-                             seq=_seq(draft), at=datetime.now(UTC), action=action,
-                             actor_kind=attribution.kind, who=attribution.who,
-                             legacy=attribution.legacy, **recorded)
+    revision = revision_type(
+        id=revision_id,
+        draft_id=draft.id,
+        subject_id=subject.id,
+        seq=_seq(draft),
+        at=datetime.now(UTC),
+        action=action,
+        actor_kind=attribution.kind,
+        who=attribution.who,
+        legacy=attribution.legacy,
+        **recorded,
+    )
     db.add(revision)
     subject.current_id = revision_id
     if family != "review" and (not same or reordered):
@@ -129,28 +161,44 @@ def _observation(db, observation_id):
 def _fact(observation, subject):
     if observation is None:
         return FactDecision(subject=subject, origin=FactOrigin.OPEN)
-    return FactDecision(subject=subject, value=observation.value, origin=observation.origin,
-                        by=observation.measured_by, pieces=observation.pieces,
-                        evidence=observation.evidence)
+    return FactDecision(
+        subject=subject,
+        value=observation.value,
+        origin=observation.origin,
+        by=observation.measured_by,
+        pieces=observation.pieces,
+        evidence=observation.evidence,
+    )
 
 
 def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None):
     registry.stack().measurements.check(fact.subject, fact.value)
     if ingestion_key is not None:
-        previous = db.scalar(select(PipelineObservation).where(
-            PipelineObservation.draft_id == draft.id,
-            PipelineObservation.ingestion_key == ingestion_key,
-            PipelineObservation.subject == fact.subject))
+        previous = db.scalar(
+            select(PipelineObservation).where(
+                PipelineObservation.draft_id == draft.id,
+                PipelineObservation.ingestion_key == ingestion_key,
+                PipelineObservation.subject == fact.subject,
+            )
+        )
         if previous is not None:
             if _fact(previous, fact.subject) != fact:
                 raise ValueError("one evidence delivery cannot report two different observations")
             return previous
     observation = PipelineObservation(
-        id=token_hex(16), draft_id=draft.id, subject=fact.subject, value=fact.value,
-        origin=fact.origin, measured_by=fact.by, pieces=fact.pieces,
+        id=token_hex(16),
+        draft_id=draft.id,
+        subject=fact.subject,
+        value=fact.value,
+        origin=fact.origin,
+        measured_by=fact.by,
+        pieces=fact.pieces,
         evidence=fact.evidence.model_dump(mode="json") if fact.evidence else None,
-        invocation_id=invocation_id, ingestion_key=ingestion_key, seq=_seq(draft),
-        at=datetime.now(UTC), legacy=False,
+        invocation_id=invocation_id,
+        ingestion_key=ingestion_key,
+        seq=_seq(draft),
+        at=datetime.now(UTC),
+        legacy=False,
     )
     db.add(observation)
     db.flush()
@@ -159,20 +207,43 @@ def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None):
     return observation
 
 
-def observe(draft_id, subject, value, *, origin=FactOrigin.MEASURED, by=None,
-            pieces=(), evidence=None, invocation_id=None, ingestion_key=None):
-    fact = FactDecision(subject=subject, value=value, origin=origin, by=by,
-                        pieces=list(pieces), evidence=evidence)
+def observe(
+    draft_id,
+    subject,
+    value,
+    *,
+    origin=FactOrigin.MEASURED,
+    by=None,
+    pieces=(),
+    evidence=None,
+    invocation_id=None,
+    ingestion_key=None,
+):
+    fact = FactDecision(
+        subject=subject, value=value, origin=origin, by=by, pieces=list(pieces), evidence=evidence
+    )
     with session_scope() as db:
         draft = _draft(db, draft_id)
-        return _observe(db, draft, fact, invocation_id=invocation_id,
-                        ingestion_key=ingestion_key).id
+        return _observe(
+            db, draft, fact, invocation_id=invocation_id, ingestion_key=ingestion_key
+        ).id
 
 
-def set_fact(draft_id, subject, value, *, who, expected_revision=None,
-             actor_kind=ActorKind.PERSON, proposal_id=None):
-    fact = FactDecision(subject=subject, value=value,
-                        origin=FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID)
+def set_fact(
+    draft_id,
+    subject,
+    value,
+    *,
+    who,
+    expected_revision=None,
+    actor_kind=ActorKind.PERSON,
+    proposal_id=None,
+):
+    fact = FactDecision(
+        subject=subject,
+        value=value,
+        origin=FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID,
+    )
     registry.stack().measurements.get(subject)
     with session_scope() as db:
         draft = _draft(db, draft_id, expected_revision)
@@ -180,19 +251,35 @@ def set_fact(draft_id, subject, value, *, who, expected_revision=None,
             if selected.subject_key == subject:
                 old = _observation(db, revision.observation_id)
                 if _fact(old, subject) == fact:
-                    return _write(db, draft, "fact", subject,
-                                  {"observation_id": revision.observation_id}, who=who,
-                                  actor_kind=actor_kind, action="retain", acknowledge=True,
-                                  proposal_id=proposal_id).id
+                    return _write(
+                        db,
+                        draft,
+                        "fact",
+                        subject,
+                        {"observation_id": revision.observation_id},
+                        who=who,
+                        actor_kind=actor_kind,
+                        action="retain",
+                        acknowledge=True,
+                        proposal_id=proposal_id,
+                    ).id
         observation = _observe(db, draft, fact) if value is not None else None
-        return _write(db, draft, "fact", subject,
-                      {"observation_id": observation.id if observation else None},
-                      who=who, actor_kind=actor_kind,
-                      action="select" if observation else "retract", proposal_id=proposal_id).id
+        return _write(
+            db,
+            draft,
+            "fact",
+            subject,
+            {"observation_id": observation.id if observation else None},
+            who=who,
+            actor_kind=actor_kind,
+            action="select" if observation else "retract",
+            proposal_id=proposal_id,
+        ).id
 
 
-def select_observation(draft_id, subject, observation_id, *, who, expected_revision=None,
-                       proposal_id=None):
+def select_observation(
+    draft_id, subject, observation_id, *, who, expected_revision=None, proposal_id=None
+):
     with session_scope() as db:
         draft = _draft(db, draft_id, expected_revision)
         if db.get(PipelineEvidenceAccess, (draft_id, observation_id)) is None:
@@ -200,8 +287,15 @@ def select_observation(draft_id, subject, observation_id, *, who, expected_revis
         observation = db.get(PipelineObservation, observation_id)
         if observation.subject != subject:
             raise ValueError("this evidence answers a different subject")
-        return _write(db, draft, "fact", subject, {"observation_id": observation_id},
-                      who=who, proposal_id=proposal_id).id
+        return _write(
+            db,
+            draft,
+            "fact",
+            subject,
+            {"observation_id": observation_id},
+            who=who,
+            proposal_id=proposal_id,
+        ).id
 
 
 def retain_fact(draft_id, subject, *, who, expected_revision=None):
@@ -209,9 +303,16 @@ def retain_fact(draft_id, subject, *, who, expected_revision=None):
         draft = _draft(db, draft_id, expected_revision)
         for selected, revision in _current(db, draft_id, "fact"):
             if selected.subject_key == subject:
-                return _write(db, draft, "fact", subject,
-                              {"observation_id": revision.observation_id}, who=who,
-                              action="retain", acknowledge=True).id
+                return _write(
+                    db,
+                    draft,
+                    "fact",
+                    subject,
+                    {"observation_id": revision.observation_id},
+                    who=who,
+                    action="retain",
+                    acknowledge=True,
+                ).id
         raise ValueError("there is no current fact to retain")
 
 
@@ -219,18 +320,33 @@ def read(draft_id):
     with session_scope() as db:
         _draft(db, draft_id)
         return Decisions(
-            inputs=[InputDecision(key=s.subject_key, type_id=r.type_id, name=r.name,
-                                  states=r.states, present=r.present, origin=r.origin)
-                    for s, r in _current(db, draft_id, "input")],
-            wants=[WantDecision(type_id=r.type_id, states=r.states, present=r.present)
-                   for s, r in _current(db, draft_id, "want")],
-            facts=[_fact(_observation(db, r.observation_id), s.subject_key)
-                   for s, r in _current(db, draft_id, "fact")],
-            producers=[ProducerChoice(site=Site(type_id=r.type_id, states=r.states),
-                                      contract=r.contract)
-                       for s, r in _current(db, draft_id, "producer")],
-            parameters=[ParameterChoice(name=r.name, value=r.value)
-                        for s, r in _current(db, draft_id, "parameter")],
+            inputs=[
+                InputDecision(
+                    key=s.subject_key,
+                    type_id=r.type_id,
+                    name=r.name,
+                    states=r.states,
+                    present=r.present,
+                    origin=r.origin,
+                )
+                for s, r in _current(db, draft_id, "input")
+            ],
+            wants=[
+                WantDecision(type_id=r.type_id, states=r.states, present=r.present)
+                for s, r in _current(db, draft_id, "want")
+            ],
+            facts=[
+                _fact(_observation(db, r.observation_id), s.subject_key)
+                for s, r in _current(db, draft_id, "fact")
+            ],
+            producers=[
+                ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract)
+                for s, r in _current(db, draft_id, "producer")
+            ],
+            parameters=[
+                ParameterChoice(name=r.name, value=r.value)
+                for s, r in _current(db, draft_id, "parameter")
+            ],
         )
 
 
@@ -249,12 +365,21 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
     with session_scope() as db:
         draft = _draft(db, draft_id, expected_revision)
         families = {
-            "input": [(i.key, i.model_dump(exclude={"key"}, mode="json"))
-                      for i in decisions.inputs],
+            "input": [
+                (i.key, i.model_dump(exclude={"key"}, mode="json")) for i in decisions.inputs
+            ],
             "want": [(w.type_id, w.model_dump(mode="json")) for w in decisions.wants],
-            "producer": [(_site_key(p.site), {"type_id": p.site.type_id,
-                          "states": sorted(p.site.states), "contract": p.contract})
-                         for p in decisions.producers],
+            "producer": [
+                (
+                    _site_key(p.site),
+                    {
+                        "type_id": p.site.type_id,
+                        "states": sorted(p.site.states),
+                        "contract": p.contract,
+                    },
+                )
+                for p in decisions.producers
+            ],
             "parameter": [(p.name, p.model_dump(mode="json")) for p in decisions.parameters],
         }
         for family, values in families.items():
@@ -262,34 +387,59 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
             for subject, revision in _current(db, draft_id, family):
                 if subject.subject_key not in included:
                     fields = {name: getattr(revision, name) for name in _FIELDS[family]}
-                    fields[{"input": "present", "want": "present", "producer": "contract",
-                            "parameter": "value"}[family]] = (
-                                False if family in ("input", "want") else None)
-                    _write(db, draft, family, subject.subject_key, fields,
-                           who=who, action="retract")
+                    fields[
+                        {
+                            "input": "present",
+                            "want": "present",
+                            "producer": "contract",
+                            "parameter": "value",
+                        }[family]
+                    ] = False if family in ("input", "want") else None
+                    _write(
+                        db, draft, family, subject.subject_key, fields, who=who, action="retract"
+                    )
             for position, (key, fields) in enumerate(values):
                 if family == "input":
-                    old = next((r for s, r in _current(db, draft_id, family)
-                                if s.subject_key == key), None)
-                    if old is not None and all(getattr(old, name) == value for name, value in
-                                               fields.items() if name != "origin"):
+                    old = next(
+                        (r for s, r in _current(db, draft_id, family) if s.subject_key == key), None
+                    )
+                    if old is not None and all(
+                        getattr(old, name) == value
+                        for name, value in fields.items()
+                        if name != "origin"
+                    ):
                         fields = {**fields, "origin": old.origin}
                 _write(db, draft, family, key, fields, who=who, action="import", position=position)
         facts = {f.subject: f for f in decisions.facts}
         for subject, _revision in _current(db, draft_id, "fact"):
             if subject.subject_key not in facts:
-                _write(db, draft, "fact", subject.subject_key, {"observation_id": None},
-                       who=who, action="retract")
+                _write(
+                    db,
+                    draft,
+                    "fact",
+                    subject.subject_key,
+                    {"observation_id": None},
+                    who=who,
+                    action="retract",
+                )
         for fact in decisions.facts:
-            previous = next((r for s, r in _current(db, draft_id, "fact")
-                             if s.subject_key == fact.subject), None)
+            previous = next(
+                (r for s, r in _current(db, draft_id, "fact") if s.subject_key == fact.subject),
+                None,
+            )
             observation = _observation(db, previous.observation_id) if previous else None
             if previous and _fact(observation, fact.subject) == fact:
                 continue
             observation = _observe(db, draft, fact) if fact.origin != FactOrigin.OPEN else None
-            _write(db, draft, "fact", fact.subject,
-                   {"observation_id": observation.id if observation else None},
-                   who=who, action="import")
+            _write(
+                db,
+                draft,
+                "fact",
+                fact.subject,
+                {"observation_id": observation.id if observation else None},
+                who=who,
+                action="import",
+            )
 
 
 def history(draft_id, subject):
@@ -297,63 +447,116 @@ def history(draft_id, subject):
         draft = db.get(PipelineDraft, draft_id)
         if draft is None:
             raise KeyError(draft_id)
-        rows = db.execute(select(PipelineFact, PipelineFactRevision).join(
-            PipelineFactRevision, PipelineFact.id == PipelineFactRevision.subject_id
-        ).where(PipelineFact.draft_id == draft_id, PipelineFact.subject_key == subject)).all()
+        rows = db.execute(
+            select(PipelineFact, PipelineFactRevision)
+            .join(PipelineFactRevision, PipelineFact.id == PipelineFactRevision.subject_id)
+            .where(PipelineFact.draft_id == draft_id, PipelineFact.subject_key == subject)
+        ).all()
         selected_ids = {r.observation_id for s, r in rows}
         result = []
         if not rows:
-            inputs = db.execute(select(PipelineInput, PipelineInputRevision).join(
-                PipelineInputRevision, PipelineInput.id == PipelineInputRevision.subject_id
-            ).where(PipelineInput.draft_id == draft_id,
-                    PipelineInput.subject_key == subject)).all()
+            inputs = db.execute(
+                select(PipelineInput, PipelineInputRevision)
+                .join(PipelineInputRevision, PipelineInput.id == PipelineInputRevision.subject_id)
+                .where(PipelineInput.draft_id == draft_id, PipelineInput.subject_key == subject)
+            ).all()
             for selected, revision in inputs:
-                result.append(dict(seq=revision.seq,
-                    value=None if revision.origin == "open" else revision.present,
-                    origin=revision.origin, selected=True,
-                    current=selected.current_id == revision.id,
-                    revision_id=revision.id, observation_id=None,
-                    actor_kind=revision.actor_kind, who=revision.who,
-                    action=revision.action, at=revision.at, legacy=revision.legacy, observed_at=None))
+                result.append(
+                    dict(
+                        seq=revision.seq,
+                        value=None if revision.origin == "open" else revision.present,
+                        origin=revision.origin,
+                        selected=True,
+                        current=selected.current_id == revision.id,
+                        revision_id=revision.id,
+                        observation_id=None,
+                        actor_kind=revision.actor_kind,
+                        who=revision.who,
+                        action=revision.action,
+                        at=revision.at,
+                        legacy=revision.legacy,
+                        observed_at=None,
+                    )
+                )
         for s, revision in rows:
             observation = _observation(db, revision.observation_id)
             fact = _fact(observation, subject)
-            result.append(dict(seq=revision.seq, value=fact.value, origin=fact.origin.value,
-                               selected=True, current=s.current_id == revision.id,
-                               revision_id=revision.id, observation_id=revision.observation_id,
-                               actor_kind=revision.actor_kind, who=revision.who,
-                               action=revision.action, at=revision.at, legacy=revision.legacy,
-                               observed_at=observation.at if observation else None))
-        observations = db.scalars(select(PipelineObservation).join(
-            PipelineEvidenceAccess,
-            PipelineEvidenceAccess.observation_id == PipelineObservation.id,
-        ).where(PipelineEvidenceAccess.draft_id == draft_id,
-                PipelineObservation.subject == subject)).all()
+            result.append(
+                dict(
+                    seq=revision.seq,
+                    value=fact.value,
+                    origin=fact.origin.value,
+                    selected=True,
+                    current=s.current_id == revision.id,
+                    revision_id=revision.id,
+                    observation_id=revision.observation_id,
+                    actor_kind=revision.actor_kind,
+                    who=revision.who,
+                    action=revision.action,
+                    at=revision.at,
+                    legacy=revision.legacy,
+                    observed_at=observation.at if observation else None,
+                )
+            )
+        observations = db.scalars(
+            select(PipelineObservation)
+            .join(
+                PipelineEvidenceAccess,
+                PipelineEvidenceAccess.observation_id == PipelineObservation.id,
+            )
+            .where(
+                PipelineEvidenceAccess.draft_id == draft_id, PipelineObservation.subject == subject
+            )
+        ).all()
         for observation in observations:
             if observation.id not in selected_ids:
                 access = db.get(PipelineEvidenceAccess, (draft_id, observation.id))
-                result.append(dict(seq=observation.seq, value=observation.value,
-                                   origin=observation.origin, selected=False, current=False,
-                                   observation_id=observation.id, at=observation.at,
-                                   observed_at=observation.at, action="observed", legacy=observation.legacy,
-                                   acknowledged_as=access.acknowledged_as,
-                                   acknowledged_at=access.acknowledged_at,
-                                   acknowledged_by=access.acknowledged_by,
-                                   acknowledged_kind=access.acknowledged_kind))
+                result.append(
+                    dict(
+                        seq=observation.seq,
+                        value=observation.value,
+                        origin=observation.origin,
+                        selected=False,
+                        current=False,
+                        observation_id=observation.id,
+                        at=observation.at,
+                        observed_at=observation.at,
+                        action="observed",
+                        legacy=observation.legacy,
+                        acknowledged_as=access.acknowledged_as,
+                        acknowledged_at=access.acknowledged_at,
+                        acknowledged_by=access.acknowledged_by,
+                        acknowledged_kind=access.acknowledged_kind,
+                    )
+                )
         if draft.forked_from:
             inherited = history(draft.forked_from, subject)
-            inherited = [dict(entry, current=False, inherited=True,
-                              source_draft_id=entry.get("source_draft_id", draft.forked_from))
-                         for entry in inherited if entry["seq"] <= draft.fork_sequence]
+            inherited = [
+                dict(
+                    entry,
+                    current=False,
+                    inherited=True,
+                    source_draft_id=entry.get("source_draft_id", draft.forked_from),
+                )
+                for entry in inherited
+                if entry["seq"] <= draft.fork_sequence
+            ]
             # Parent acknowledgements after the fork are not part of this snapshot.
             for entry in inherited:
                 if entry.get("acknowledged_at") and entry["acknowledged_at"] > draft.fork_at:
-                    for key in ("acknowledged_as", "acknowledged_at", "acknowledged_by",
-                                "acknowledged_kind"):
+                    for key in (
+                        "acknowledged_as",
+                        "acknowledged_at",
+                        "acknowledged_by",
+                        "acknowledged_kind",
+                    ):
                         entry[key] = None
             parent_observations = {entry.get("observation_id") for entry in inherited}
-            result = [entry for entry in result if entry["selected"] or
-                      entry.get("observation_id") not in parent_observations]
+            result = [
+                entry
+                for entry in result
+                if entry["selected"] or entry.get("observation_id") not in parent_observations
+            ]
             result = inherited + result
         return sorted(result, key=lambda entry: entry["seq"])
 
@@ -376,8 +579,11 @@ def assess_observation(draft_id, observation_id):
                 current = _observation(db, revision.observation_id)
                 if current is None:
                     return ObservationOutcome.UNKNOWN
-                return (ObservationOutcome.AGREEMENT if current.value == observed.value
-                        else ObservationOutcome.DISAGREEMENT)
+                return (
+                    ObservationOutcome.AGREEMENT
+                    if current.value == observed.value
+                    else ObservationOutcome.DISAGREEMENT
+                )
         return ObservationOutcome.UNKNOWN
 
 
@@ -395,9 +601,14 @@ def _release(draft_id, family, key, *, who, expected_revision=None):
         for subject, revision in _current(db, draft_id, family):
             if subject.subject_key == key:
                 fields = {name: getattr(revision, name) for name in _FIELDS[family]}
-                fields[{"input": "present", "want": "present", "producer": "contract",
-                        "parameter": "value"}[family]] = (
-                            False if family in ("input", "want") else None)
+                fields[
+                    {
+                        "input": "present",
+                        "want": "present",
+                        "producer": "contract",
+                        "parameter": "value",
+                    }[family]
+                ] = False if family in ("input", "want") else None
                 return _write(db, draft, family, key, fields, who=who, action="retract").id
         raise ValueError(f"there is no current {family} choice for {key}")
 
@@ -411,31 +622,51 @@ def release_parameter(draft_id, name, *, who, expected_revision=None):
 
 
 def release_producer(draft_id, site: Site, *, who, expected_revision=None):
-    return _release(draft_id, "producer", _site_key(site), who=who,
-                    expected_revision=expected_revision)
+    return _release(
+        draft_id, "producer", _site_key(site), who=who, expected_revision=expected_revision
+    )
 
 
-def set_input(draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON,
-              proposal_id=None):
+def set_input(
+    draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON, proposal_id=None
+):
     with session_scope() as db:
         draft = _draft(db, draft_id)
-        return _write(db, draft, "input", decision.key,
-                      decision.model_dump(mode="json", exclude={"key"}),
-                      who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
+        return _write(
+            db,
+            draft,
+            "input",
+            decision.key,
+            decision.model_dump(mode="json", exclude={"key"}),
+            who=who,
+            actor_kind=actor_kind,
+            proposal_id=proposal_id,
+        ).id
 
 
 def confirmed_goal(draft_id):
     current = read(draft_id)
-    return (current.goal(registry.stack().measurements)
-            if any(w.present for w in current.wants) else None)
+    return (
+        current.goal(registry.stack().measurements)
+        if any(w.present for w in current.wants)
+        else None
+    )
 
 
 def _reviews_in(db, draft_id):
     from mendel_authoring.reviews import Reviewed
 
-    return [Reviewed(node=r.node, by=r.who, actor_kind=r.actor_kind,
-                     contract=r.contract, fingerprint=r.fingerprint)
-            for s, r in _current(db, draft_id, "review") if r.status == "reviewed"]
+    return [
+        Reviewed(
+            node=r.node,
+            by=r.who,
+            actor_kind=r.actor_kind,
+            contract=r.contract,
+            fingerprint=r.fingerprint,
+        )
+        for s, r in _current(db, draft_id, "review")
+        if r.status == "reviewed"
+    ]
 
 
 def reviews(draft_id):
@@ -444,18 +675,28 @@ def reviews(draft_id):
         return _reviews_in(db, draft_id)
 
 
-def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON,
-                  proposal_id=None):
+def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON, proposal_id=None):
     from mendel_authoring.reviews import review
 
     chosen = review(blueprint, node, who, actor_kind=actor_kind)
     with session_scope() as db:
         draft = _draft(db, draft_id)
-        return _write(db, draft, "review", node, {
-            "node": node, "contract": chosen.contract, "fingerprint": chosen.fingerprint,
-            "status": "reviewed", "decision_revision": draft.decision_revision,
-            "proposal_id": proposal_id,
-        }, who=who, actor_kind=actor_kind).id
+        return _write(
+            db,
+            draft,
+            "review",
+            node,
+            {
+                "node": node,
+                "contract": chosen.contract,
+                "fingerprint": chosen.fingerprint,
+                "status": "reviewed",
+                "decision_revision": draft.decision_revision,
+                "proposal_id": proposal_id,
+            },
+            who=who,
+            actor_kind=actor_kind,
+        ).id
 
 
 def cascade_reviews(draft_id, before, fresh):
@@ -469,14 +710,23 @@ def cascade_reviews(draft_id, before, fresh):
         for subject, revision in _current(db, draft_id, "review"):
             applied = by_node.get(subject.subject_key)
             if applied is not None and applied.status is not Applicability.RETAINED:
-                _write(db, draft, "review", subject.subject_key, {
-                    "node": revision.node, "contract": revision.contract,
-                    "fingerprint": revision.fingerprint, "status": applied.status.value,
-                    "decision_revision": revision.decision_revision,
-                    "proposal_id": revision.proposal_id,
-                }, who="resolver", actor_kind=ActorKind.RESOLVER)
+                _write(
+                    db,
+                    draft,
+                    "review",
+                    subject.subject_key,
+                    {
+                        "node": revision.node,
+                        "contract": revision.contract,
+                        "fingerprint": revision.fingerprint,
+                        "status": applied.status.value,
+                        "decision_revision": revision.decision_revision,
+                        "proposal_id": revision.proposal_id,
+                    },
+                    who="resolver",
+                    actor_kind=ActorKind.RESOLVER,
+                )
         return applicability
-
 
 
 def _acknowledge(db, draft, observation_id, disposition, *, who, actor_kind):
@@ -494,8 +744,9 @@ def _acknowledge(db, draft, observation_id, disposition, *, who, actor_kind):
         access.acknowledged_kind = admitted.kind.value
 
 
-def acknowledge_observation(draft_id, observation_id, disposition, *, who,
-                            actor_kind=ActorKind.PERSON):
+def acknowledge_observation(
+    draft_id, observation_id, disposition, *, who, actor_kind=ActorKind.PERSON
+):
     """An acknowledgement is metadata about evidence, never a selected factual value."""
     with session_scope() as db:
         draft = _draft(db, draft_id)
@@ -507,28 +758,54 @@ def pending_evidence(draft_id):
     with session_scope() as db:
         draft = _draft(db, draft_id)
         selections = {s.subject_key: r for s, r in _current(db, draft_id, "fact")}
-        selected_ids = set(db.scalars(select(PipelineFactRevision.observation_id).where(
-            PipelineFactRevision.draft_id == draft_id)))
-        observations = db.scalars(select(PipelineObservation).join(PipelineEvidenceAccess,
-            PipelineEvidenceAccess.observation_id == PipelineObservation.id).where(
+        selected_ids = set(
+            db.scalars(
+                select(PipelineFactRevision.observation_id).where(
+                    PipelineFactRevision.draft_id == draft_id
+                )
+            )
+        )
+        observations = db.scalars(
+            select(PipelineObservation)
+            .join(
+                PipelineEvidenceAccess,
+                PipelineEvidenceAccess.observation_id == PipelineObservation.id,
+            )
+            .where(
                 PipelineEvidenceAccess.draft_id == draft_id,
-                PipelineEvidenceAccess.acknowledged_as.is_(None)).order_by(
-                    PipelineObservation.seq, PipelineObservation.subject, PipelineObservation.id))
+                PipelineEvidenceAccess.acknowledged_as.is_(None),
+            )
+            .order_by(PipelineObservation.seq, PipelineObservation.subject, PipelineObservation.id)
+        )
         unseen = []
         for observed in observations:
             if observed.id in selected_ids:
                 continue
             revision = selections.get(observed.subject)
-            active = _fact(_observation(db, revision.observation_id) if revision else None,
-                           observed.subject)
+            active = _fact(
+                _observation(db, revision.observation_id) if revision else None, observed.subject
+            )
             if observed.value == active.value:
-                _acknowledge(db, draft, observed.id, "obsolete", who="resolver",
-                             actor_kind=ActorKind.RESOLVER)
+                _acknowledge(
+                    db,
+                    draft,
+                    observed.id,
+                    "obsolete",
+                    who="resolver",
+                    actor_kind=ActorKind.RESOLVER,
+                )
                 continue
-            unseen.append(dict(subject=observed.subject, observation_id=observed.id,
-                observed_value=observed.value, observed_origin=observed.origin,
-                current_value=active.value, current_origin=active.origin.value,
-                current_revision_id=revision.id if revision else None))
+            unseen.append(
+                dict(
+                    subject=observed.subject,
+                    observation_id=observed.id,
+                    observed_value=observed.value,
+                    observed_origin=observed.origin,
+                    current_value=active.value,
+                    current_origin=active.origin.value,
+                    current_revision_id=revision.id if revision else None,
+                )
+            )
         return unseen
 
 
@@ -538,35 +815,82 @@ def inherit_in(db, parent, child):
     The caller holds the parent lock. Old selections stay in the parent's frozen
     history; the new authored walk starts without approvals of the manual graph.
     """
-    grants = db.scalars(select(PipelineEvidenceAccess).where(
-        PipelineEvidenceAccess.draft_id == parent.id)).all()
+    grants = db.scalars(
+        select(PipelineEvidenceAccess).where(PipelineEvidenceAccess.draft_id == parent.id)
+    ).all()
     child.decision_sequence = parent.decision_sequence
     for grant in grants:
         observation = db.get(PipelineObservation, grant.observation_id)
         child.decision_sequence = max(child.decision_sequence, observation.seq)
-        db.add(PipelineEvidenceAccess(
-            draft_id=child.id, observation_id=grant.observation_id, inherited=True,
-            **{key: getattr(grant, key) for key in (
-                "acknowledged_as", "acknowledged_revision", "acknowledged_at",
-                "acknowledged_by", "acknowledged_kind")}))
+        db.add(
+            PipelineEvidenceAccess(
+                draft_id=child.id,
+                observation_id=grant.observation_id,
+                inherited=True,
+                **{
+                    key: getattr(grant, key)
+                    for key in (
+                        "acknowledged_as",
+                        "acknowledged_revision",
+                        "acknowledged_at",
+                        "acknowledged_by",
+                        "acknowledged_kind",
+                    )
+                },
+            )
+        )
     db.flush()
-    old_selected = set(db.scalars(select(PipelineFactRevision.observation_id).where(
-        PipelineFactRevision.draft_id == parent.id)))
+    old_selected = set(
+        db.scalars(
+            select(PipelineFactRevision.observation_id).where(
+                PipelineFactRevision.draft_id == parent.id
+            )
+        )
+    )
     for grant in grants:
         if grant.observation_id in old_selected:
-            _acknowledge(db, child, grant.observation_id, "obsolete",
-                         who="resolver", actor_kind=ActorKind.RESOLVER)
-    metadata = {"id", "draft_id", "subject_id", "seq", "at", "action", "actor_kind",
-                "who", "legacy", "turn_id", "proposal_id"}
+            _acknowledge(
+                db,
+                child,
+                grant.observation_id,
+                "obsolete",
+                who="resolver",
+                actor_kind=ActorKind.RESOLVER,
+            )
+    metadata = {
+        "id",
+        "draft_id",
+        "subject_id",
+        "seq",
+        "at",
+        "action",
+        "actor_kind",
+        "who",
+        "legacy",
+        "turn_id",
+        "proposal_id",
+    }
     for family, (_, revision_type) in _FAMILIES.items():
         if family == "review":
             continue
         for subject, revision in _current(db, parent.id, family):
-            fields = {column.key: getattr(revision, column.key)
-                      for column in revision_type.__table__.columns if column.key not in metadata}
-            _write(db, child, family, subject.subject_key, fields, who=revision.who,
-                   actor_kind=revision.actor_kind, legacy=revision.legacy,
-                   action="inherit", position=subject.position)
+            fields = {
+                column.key: getattr(revision, column.key)
+                for column in revision_type.__table__.columns
+                if column.key not in metadata
+            }
+            _write(
+                db,
+                child,
+                family,
+                subject.subject_key,
+                fields,
+                who=revision.who,
+                actor_kind=revision.actor_kind,
+                legacy=revision.legacy,
+                action="inherit",
+                position=subject.position,
+            )
     child.projection_current = False
     db.flush()
 
@@ -574,17 +898,28 @@ def inherit_in(db, parent, child):
 def answers_in(db, draft_id):
     """Facts selected by an answered offer, not today's values substituted into yesterday."""
     result = {}
-    for subject, revision in db.execute(select(PipelineFact, PipelineFactRevision).join(
-        PipelineFactRevision, PipelineFact.id == PipelineFactRevision.subject_id
-    ).where(PipelineFact.draft_id == draft_id,
-            PipelineFactRevision.proposal_id.is_not(None)).order_by(PipelineFactRevision.seq)):
+    for subject, revision in db.execute(
+        select(PipelineFact, PipelineFactRevision)
+        .join(PipelineFactRevision, PipelineFact.id == PipelineFactRevision.subject_id)
+        .where(PipelineFact.draft_id == draft_id, PipelineFactRevision.proposal_id.is_not(None))
+        .order_by(PipelineFactRevision.seq)
+    ):
         fact = _fact(_observation(db, revision.observation_id), subject.subject_key)
-        result.setdefault(revision.proposal_id, []).append(dict(
-            kind="measurement", subject=subject.subject_key, value=fact.value, source=fact.origin))
-    for subject, revision in db.execute(select(PipelineInput, PipelineInputRevision).join(
-        PipelineInputRevision, PipelineInput.id == PipelineInputRevision.subject_id
-    ).where(PipelineInput.draft_id == draft_id,
-            PipelineInputRevision.proposal_id.is_not(None)).order_by(PipelineInputRevision.seq)):
-        result.setdefault(revision.proposal_id, []).append(dict(
-            kind="input", subject=revision.type_id, source=revision.origin))
+        result.setdefault(revision.proposal_id, []).append(
+            dict(
+                kind="measurement",
+                subject=subject.subject_key,
+                value=fact.value,
+                source=fact.origin,
+            )
+        )
+    for _subject, revision in db.execute(
+        select(PipelineInput, PipelineInputRevision)
+        .join(PipelineInputRevision, PipelineInput.id == PipelineInputRevision.subject_id)
+        .where(PipelineInput.draft_id == draft_id, PipelineInputRevision.proposal_id.is_not(None))
+        .order_by(PipelineInputRevision.seq)
+    ):
+        result.setdefault(revision.proposal_id, []).append(
+            dict(kind="input", subject=revision.type_id, source=revision.origin)
+        )
     return result

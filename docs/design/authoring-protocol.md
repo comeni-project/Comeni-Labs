@@ -248,3 +248,26 @@ tightening is filling in a row, not rewiring.
 | 2026-10-06 | stage ④ built: overview count, the Pacing and Dev forks, the walk on the build plan (fact first, asked once; choices from the resolver's tools; tier 4 stops; gaps shown or routed around), the wrap-up; Build/Spawn and `Mode` retired | 14.7.8.3b (#136, #117, #252), operator's brainstorm |
 | 2026-10-07 | the blueprint decides, the walk reviews: every decision an amendment to the goal (a tool pinned at its site, a fact in the profile), the draft a projection of the resolved blueprint, any step swappable for a compatible tool shown as a whole pipeline; one step card and one `amend` node; Dev decided before the walk; edits after the walk | 14.7.8.3c (#136, #253–#259), operator's brainstorm |
 | 2026-10-07 | level 0 lets a waiting sample excerpt reach disk in Redis's snapshot; a later level turns the queue's snapshots off | 14.7.8.3d (#281), operator's decision: *for 0 we can leave it be written* |
+
+| 2026-10-11 | retained decisions compose the goal; conflicting evidence asks an explicit choice; corrections cascade semantic reviews; manual work forks; history now and undo later | 14.7.8.3d Part F (#290), operator decisions in the approved spec |
+
+## Corrections and retained decisions (14.7.8.3d Part F)
+
+The draft owns the current selections and their retained revisions. The session retains the
+workflow node, extraction presentation and pacing; its historical migration archive never
+supplies current decisions. The goal is composed from selected input, want, measurement,
+producer and parameter rows. The graph carries the decision revision it projects.
+
+An observation never replaces a known answer automatically. At a waiting boundary the engine
+asks which answer to keep, showing both values and their sources. Keep, use the observation,
+correct and return to unknown are explicit choices. Delayed observations remain evidence and
+cannot settle a newer question. The chooser's typed role is independent of the fact's origin.
+
+Corrections use the drawn correcting path: record truth, resolve, cascade semantic review
+status, then resume the applicable gathering or review boundary. A missing input or incompatible
+pin leaves truth selected and the projection outdated; keep and materialisation refuse it.
+Manual graphs take the fork path and remain unchanged in the linked original draft.
+
+Fact history is inspectable now. Undo is deferred to
+[issue 302](https://github.com/comeni-project/Comeni-Labs/issues/302): restoring a historical
+answer must make a new attributed decision and run the same cascade and version checks.

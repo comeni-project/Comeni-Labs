@@ -101,7 +101,8 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
 
   const edit = useMutation({
     mutationFn: (graph: DraftGraph) =>
-      post<AuthoringEdited>(`/pipeline/authoring/${sessionId}/edits`, { graph }),
+      post<AuthoringEdited>(`/pipeline/authoring/${sessionId}/edits`, { graph,
+        expected_revision: session.data?.revision }),
     onSuccess: () => void refresh(),
     onError: (error) =>
       dispatch({

@@ -152,7 +152,8 @@ class UploadSample:
     """`((name, head bytes), ...)`: one file, or a pair."""
     by: str
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE})
+        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,7 +164,8 @@ class SampleInspected:
     expected_decision_revision: int | None = None
     expected_session_version: int | None = None
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE})
+        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +179,8 @@ class ReadingAnswered:
     expected_decision_revision: int | None = None
     expected_session_version: int | None = None
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE})
+        {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,7 +223,8 @@ class Amend:
     expected_draft_revision: int | None = None
     expected_session_version: int | None = None
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.AMEND, Command.CONTINUE, Command.CORRECT_FACT})
+        {Command.AMEND, Command.CONTINUE, Command.CORRECT_FACT}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +240,7 @@ class RecordEdit:
     session_id: str
     graph: dict
     by: str
+    expected_revision: int | None = None
     takes: ClassVar[frozenset[Command]] = _NONE
 
 
@@ -261,7 +266,9 @@ class AnswerDisagreement:
     expected_decision_revision: int
     expected_draft_revision: int
     expected_session_version: int
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.ANSWER_DISAGREEMENT, Command.FORK_CORRECTION})
+    takes: ClassVar[frozenset[Command]] = frozenset(
+        {Command.ANSWER_DISAGREEMENT, Command.FORK_CORRECTION}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,7 +280,9 @@ class ReleaseProducer:
     expected_decision_revision: int
     expected_draft_revision: int
     expected_session_version: int
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.RELEASE_PRODUCER, Command.FORK_CORRECTION})
+    takes: ClassVar[frozenset[Command]] = frozenset(
+        {Command.RELEASE_PRODUCER, Command.FORK_CORRECTION}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,10 +291,34 @@ class ForkCorrection(CorrectFact):
 
 
 COMMANDS: tuple[type, ...] = (
-    OpenSession, Begin, Say, AnswerTurn, Understood, AskedBack, ProviderFailed, Retry,
-    DecideGoal, Revised, StoreReadback, ReadbackFailed,
-    Resume, AnswerGap, PrefillGap, StorePhrasing, PhrasingFailed,
-    UploadSample, SampleInspected, ReadingAnswered, ReadingFailed,
-    StartBuilding, SettleStep, Amend, ChoosePacing, RecordEdit,
-    CorrectFact, AnswerDisagreement, ReleaseProducer, ForkCorrection,
+    OpenSession,
+    Begin,
+    Say,
+    AnswerTurn,
+    Understood,
+    AskedBack,
+    ProviderFailed,
+    Retry,
+    DecideGoal,
+    Revised,
+    StoreReadback,
+    ReadbackFailed,
+    Resume,
+    AnswerGap,
+    PrefillGap,
+    StorePhrasing,
+    PhrasingFailed,
+    UploadSample,
+    SampleInspected,
+    ReadingAnswered,
+    ReadingFailed,
+    StartBuilding,
+    SettleStep,
+    Amend,
+    ChoosePacing,
+    RecordEdit,
+    CorrectFact,
+    AnswerDisagreement,
+    ReleaseProducer,
+    ForkCorrection,
 )

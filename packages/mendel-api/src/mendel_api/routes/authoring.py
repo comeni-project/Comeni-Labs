@@ -272,13 +272,14 @@ class AuthoringRetried(BaseModel):
 
 
 class EditAuthoringDraft(BaseModel):
-    """The whole graph after a direct edit. **The graph and nothing else** — no summary: the server
+    """The graph and the revision it was based on, with no client-composed summary: the server
     composes the receipt from the difference, so the log cannot be told something that did not
     happen."""
 
     model_config = _FROZEN
 
     graph: DraftGraph
+    expected_revision: int = Field(ge=0)
 
 
 class AuthoringEdited(BaseModel):
@@ -435,10 +436,12 @@ def read(session_id: str) -> AuthoringSessionView:
     return _view(session_id)
 
 
-@router.get("/{session_id}/facts/{subject}/history", operation_id="authoringFactHistory",
-            responses=REFUSES)
+@router.get(
+    "/{session_id}/facts/{subject}/history", operation_id="authoringFactHistory", responses=REFUSES
+)
 def fact_history(session_id: str, subject: str) -> FactHistoryView:
     from mendel_api.services import decisions
+
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
@@ -543,8 +546,13 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     command = (
         c.SettleStep(proposal_id, body.expected_revision, who)
         if body.option in (None, "keep")
-        else c.Amend(proposal_id, body.option, body.value, who,
-                     expected_draft_revision=body.expected_revision)
+        else c.Amend(
+            proposal_id,
+            body.option,
+            body.value,
+            who,
+            expected_draft_revision=body.expected_revision,
+        )
     )
     stepped = (await session.act(command)).result
     if stepped.settlement.refusal is not None:
@@ -582,7 +590,12 @@ def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
     """A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
     receipt the server composes — never narrated by a model."""
     revision = session.perform(
-        c.RecordEdit(session_id, body.graph.model_dump(mode="json"), identity.default_author())
+        c.RecordEdit(
+            session_id,
+            body.graph.model_dump(mode="json"),
+            identity.default_author(),
+            body.expected_revision,
+        )
     ).result
     return AuthoringEdited(revision=revision)
 
@@ -603,8 +616,9 @@ def preview(session_id: str) -> AuthoringPreview:
         provenance = DraftProvenance.model_validate(stored.provenance or {})
         from mendel_api.services import authoring_decisions
 
-        read_by_ai = session.characterised([f.model_dump(mode="json")
-                                           for f in authoring_decisions.facts(row.draft_id)])
+        read_by_ai = session.characterised(
+            [f.model_dump(mode="json") for f in authoring_decisions.facts(row.draft_id)]
+        )
     shown = drafts.preview(draft_id, ai=_ai_for(provenance, characterised=read_by_ai))
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
@@ -657,9 +671,20 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
-        **{key: picture[key] for key in (
-            "inputs", "fact_subjects", "decision_revision", "projection_current", "ownership", "retired",
-            "forked_from", "forked_from_session", "review_applicability")},
+        **{
+            key: picture[key]
+            for key in (
+                "inputs",
+                "fact_subjects",
+                "decision_revision",
+                "projection_current",
+                "ownership",
+                "retired",
+                "forked_from",
+                "forked_from_session",
+                "review_applicability",
+            )
+        },
         usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
@@ -814,33 +839,71 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     )
 
 
-@router.post("/{session_id}/facts/{subject}", operation_id="correctAuthoringFact",
-             summary="Correct a selected fact or return it to unknown", responses=REFUSES)
-async def correct_fact(session_id: str, subject: str,
-                       body: CorrectAuthoringFact) -> AuthoringCorrected:
-    done = await session.act(c.CorrectFact(session_id, subject, body.value,
-        identity.default_author(), body.expected_decision_revision,
-        body.expected_draft_revision, body.expected_session_version, body.kind))
+@router.post(
+    "/{session_id}/facts/{subject}",
+    operation_id="correctAuthoringFact",
+    summary="Correct a selected fact or return it to unknown",
+    responses=REFUSES,
+)
+async def correct_fact(
+    session_id: str, subject: str, body: CorrectAuthoringFact
+) -> AuthoringCorrected:
+    done = await session.act(
+        c.CorrectFact(
+            session_id,
+            subject,
+            body.value,
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+            body.kind,
+        )
+    )
     return AuthoringCorrected.model_validate(done.result)
 
 
-@router.post("/{session_id}/release-tool", operation_id="releaseAuthoringTool",
-             summary="Let the engine choose a producer again", responses=REFUSES)
+@router.post(
+    "/{session_id}/release-tool",
+    operation_id="releaseAuthoringTool",
+    summary="Let the engine choose a producer again",
+    responses=REFUSES,
+)
 async def release_tool(session_id: str, body: ReleaseToolChoice) -> AuthoringCorrected:
-    done = await session.act(c.ReleaseProducer(session_id, body.type_id, tuple(body.states),
-        identity.default_author(), body.expected_decision_revision,
-        body.expected_draft_revision, body.expected_session_version))
+    done = await session.act(
+        c.ReleaseProducer(
+            session_id,
+            body.type_id,
+            tuple(body.states),
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+        )
+    )
     return AuthoringCorrected.model_validate(done.result)
 
 
-@router.post("/{session_id}/disagreements/{proposal_id}",
-             operation_id="answerAuthoringDisagreement",
-             summary="Choose which answer to use after an evidence disagreement", responses=REFUSES)
-async def answer_disagreement(session_id: str, proposal_id: str,
-                              body: AnswerEvidenceQuestion) -> AuthoringCorrected:
+@router.post(
+    "/{session_id}/disagreements/{proposal_id}",
+    operation_id="answerAuthoringDisagreement",
+    summary="Choose which answer to use after an evidence disagreement",
+    responses=REFUSES,
+)
+async def answer_disagreement(
+    session_id: str, proposal_id: str, body: AnswerEvidenceQuestion
+) -> AuthoringCorrected:
     if await run_in_threadpool(_kind_in, session_id, proposal_id) != "disagreement":
         raise ValueError(coded("MI0205", "that proposal is not an evidence question"))
-    done = await session.act(c.AnswerDisagreement(proposal_id, body.option, body.value,
-        identity.default_author(), body.expected_decision_revision,
-        body.expected_draft_revision, body.expected_session_version))
+    done = await session.act(
+        c.AnswerDisagreement(
+            proposal_id,
+            body.option,
+            body.value,
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+        )
+    )
     return AuthoringCorrected.model_validate(done.result)

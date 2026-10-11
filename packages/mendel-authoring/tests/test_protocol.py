@@ -103,7 +103,6 @@ def test_rendering_is_deterministic():
     assert p.to_mermaid(p.PROTOCOL) == p.to_mermaid(p.PROTOCOL)
 
 
-
 def test_the_machine_is_read_from_the_protocol():
     assert p.PROTOCOL.transitions() == st.TRANSITIONS
     assert st.RETRY_TARGETS == p.PROTOCOL.retry_targets() == {Phase.UNDERSTANDING, Phase.RESOLVING}
@@ -143,8 +142,20 @@ def test_the_sample_inside_is_a_section_of_the_one_protocol():
     assert stages["sample"].within_request
     assert _sample(), "a loop over no nodes asserts nothing"
     labels = " ".join(n.label for n in _sample()).lower()
-    for step in ("4 mb", "protection", "extension", "unpack", "confirm", "measure",
-                 "undetermined", "admit", "nothing reads", "8 kb", "families", "read by ai"):
+    for step in (
+        "4 mb",
+        "protection",
+        "extension",
+        "unpack",
+        "confirm",
+        "measure",
+        "undetermined",
+        "admit",
+        "nothing reads",
+        "8 kb",
+        "families",
+        "read by ai",
+    ):
         assert step in labels, f"the section does not draw {step!r}"
     assert all(n.id.startswith("sample_") for n in _sample())
 
@@ -156,8 +167,11 @@ def test_the_sample_section_sits_after_gathering():
 
 def test_a_section_within_a_request_never_moves_the_session():
     inside = {n.id for n in _sample()}
-    moving = [e for e in p.PROTOCOL.edges if e.event is not None
-              and e.source in inside and e.target in inside]
+    moving = [
+        e
+        for e in p.PROTOCOL.edges
+        if e.event is not None and e.source in inside and e.target in inside
+    ]
     assert moving == []
 
 
@@ -239,10 +253,15 @@ def test_every_way_out_of_an_upload_is_drawn():
     """Review of #134: the tie, a refusal after the inspection, an unreadable sample and a
     value the registry refuses all leave the question open today, and each is drawn so."""
     built = {(e.source, e.target) for e in p.PROTOCOL.edges if e.built}
-    assert {("sample_confirm", "sample_back"), ("sample_admit", "sample_refused"),
-            ("sample_unreadable", "sample_back")} <= built
-    assert any(e.source == "sample_admit" and e.target == "sample_back" and "dropped" in e.label
-               for e in p.PROTOCOL.edges)
+    assert {
+        ("sample_confirm", "sample_back"),
+        ("sample_admit", "sample_refused"),
+        ("sample_unreadable", "sample_back"),
+    } <= built
+    assert any(
+        e.source == "sample_admit" and e.target == "sample_back" and "dropped" in e.label
+        for e in p.PROTOCOL.edges
+    )
 
 
 # ── the characteriser (14.7.7) ──────────────────────────────────────────────────────────────
@@ -257,10 +276,19 @@ def test_the_characteriser_is_drawn_step_by_step_and_built():
         assert nodes[f"sample_{step}"].built, step
     edges = {(e.source, e.target) for e in p.PROTOCOL.edges}
     for a, b in [
-        ("claim", "door"), ("door", "nothing"), ("door", "excerpt"), ("excerpt", "nothing"),
-        ("excerpt", "families"), ("families", "back"), ("families", "types"),
-        ("types", "ai_admit"), ("ai_admit", "back"), ("ai_admit", "kept"),
-        ("ai_admit", "ai_stamped"), ("ai_admit", "hand_back"), ("hand_back", "confirm"),
+        ("claim", "door"),
+        ("door", "nothing"),
+        ("door", "excerpt"),
+        ("excerpt", "nothing"),
+        ("excerpt", "families"),
+        ("families", "back"),
+        ("families", "types"),
+        ("types", "ai_admit"),
+        ("ai_admit", "back"),
+        ("ai_admit", "kept"),
+        ("ai_admit", "ai_stamped"),
+        ("ai_admit", "hand_back"),
+        ("hand_back", "confirm"),
         ("ai_stamped", "back"),
     ]:
         assert (f"sample_{a}", f"sample_{b}") in edges, f"{a}→{b} is not drawn"
@@ -280,36 +308,51 @@ def _proto(nodes, edges):
 
 
 def _taking(id, **kw):
-    return Node(id=id, stage="s", actor=Actor.ENGINE, label=id, phase=Phase.GATHERING,
-                built=True, **kw)
+    return Node(
+        id=id, stage="s", actor=Actor.ENGINE, label=id, phase=Phase.GATHERING, built=True, **kw
+    )
 
 
 def test_two_arrows_out_of_one_node_cannot_answer_to_the_same_name():
     with pytest.raises(ValueError, match="twice"):
-        _proto([_taking("a", acts=True), _taking("b"), _taking("c")],
-               [p.Edge(source="a", target="b", on="yes", built=True),
-                p.Edge(source="a", target="c", on="yes", built=True)])
+        _proto(
+            [_taking("a", acts=True), _taking("b"), _taking("c")],
+            [
+                p.Edge(source="a", target="b", on="yes", built=True),
+                p.Edge(source="a", target="c", on="yes", built=True),
+            ],
+        )
 
 
 def test_a_waiting_node_is_left_only_by_a_declared_command():
     with pytest.raises(ValueError, match="not a command"):
-        _proto([_taking("a", waits=True), _taking("b")],
-               [p.Edge(source="a", target="b", on="whatever", built=True)])
-    _proto([_taking("a", waits=True), _taking("b")],
-           [p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True)])
+        _proto(
+            [_taking("a", waits=True), _taking("b")],
+            [p.Edge(source="a", target="b", on="whatever", built=True)],
+        )
+    _proto(
+        [_taking("a", waits=True), _taking("b")],
+        [p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True)],
+    )
 
 
 def test_a_node_has_at_most_one_way_straight_through():
     with pytest.raises(ValueError, match="straight through"):
-        _proto([_taking("a", waits=True), _taking("b"), _taking("c")],
-               [p.Edge(source="a", target="b", built=True),
-                p.Edge(source="a", target="c", built=True)])
+        _proto(
+            [_taking("a", waits=True), _taking("b"), _taking("c")],
+            [
+                p.Edge(source="a", target="b", built=True),
+                p.Edge(source="a", target="c", built=True),
+            ],
+        )
 
 
 def test_a_node_that_takes_no_part_may_still_fan_out_unnamed():
     """Today's protocol: no node marked, no arrow named. 1b turns the rule on as it marks each."""
-    _proto([_taking("a"), _taking("b"), _taking("c")],
-           [p.Edge(source="a", target="b", built=True), p.Edge(source="a", target="c", built=True)])
+    _proto(
+        [_taking("a"), _taking("b"), _taking("c")],
+        [p.Edge(source="a", target="b", built=True), p.Edge(source="a", target="c", built=True)],
+    )
 
 
 def test_the_real_protocol_still_loads():
@@ -318,11 +361,27 @@ def test_the_real_protocol_still_loads():
 
 def test_the_commands_are_the_specs_and_1bs():
     assert {c.value for c in Command} == {
-        "describe", "answer_gap", "upload_sample", "confirm_goal", "revise_goal",
-        "choose_pacing", "continue", "amend", "ask", "keep", "retry",
-        "reply_in_words", "understood", "asked_back", "revised",
-        "provider_failed", "correct_fact", "answer_disagreement",
-        "release_producer", "fork_correction", "compare_evidence",
+        "describe",
+        "answer_gap",
+        "upload_sample",
+        "confirm_goal",
+        "revise_goal",
+        "choose_pacing",
+        "continue",
+        "amend",
+        "ask",
+        "keep",
+        "retry",
+        "reply_in_words",
+        "understood",
+        "asked_back",
+        "revised",
+        "provider_failed",
+        "correct_fact",
+        "answer_disagreement",
+        "release_producer",
+        "fork_correction",
+        "compare_evidence",
     }
 
 
@@ -330,12 +389,24 @@ def test_the_ways_out_of_a_section_are_named_once_each():
     with pytest.raises(ValueError, match="ways out of section"):
         Protocol(
             stages=(Stage(id="s", title="s"), Stage(id="w", title="w", within_request=True)),
-            nodes=(_taking("a", acts=True), _taking("b"), _taking("c"),
-                   Node(id="w1", stage="w", actor=Actor.ENGINE, label="w1",
-                        phase=Phase.GATHERING, built=True)),
-            edges=(p.Edge(source="a", target="w1", built=True),
-                   p.Edge(source="w1", target="b", on="answered", built=True),
-                   p.Edge(source="w1", target="c", built=True)),
+            nodes=(
+                _taking("a", acts=True),
+                _taking("b"),
+                _taking("c"),
+                Node(
+                    id="w1",
+                    stage="w",
+                    actor=Actor.ENGINE,
+                    label="w1",
+                    phase=Phase.GATHERING,
+                    built=True,
+                ),
+            ),
+            edges=(
+                p.Edge(source="a", target="w1", built=True),
+                p.Edge(source="w1", target="b", on="answered", built=True),
+                p.Edge(source="w1", target="c", built=True),
+            ),
         )
 
 
@@ -343,19 +414,60 @@ def test_a_named_arrow_out_of_a_node_that_neither_acts_nor_waits_is_refused():
     """Final review of 1a: nothing could take it, and a session run there would rest on a node
     no command leaves. A forgotten `acts=True` is a drawing mistake, so it refuses to load."""
     with pytest.raises(ValueError, match="neither acts nor waits"):
-        _proto([_taking("a", waits=True), _taking("b"), _taking("c", waits=True)],
-               [p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True),
-                p.Edge(source="b", target="c", on="done", built=True)])
+        _proto(
+            [_taking("a", waits=True), _taking("b"), _taking("c", waits=True)],
+            [
+                p.Edge(source="a", target="b", on=Command.CONTINUE.value, built=True),
+                p.Edge(source="b", target="c", on="done", built=True),
+            ],
+        )
 
 
 # ── the protocol, marked (14.7.8.1b) ────────────────────────────────────────────────────────
 
-WAITS = {"stopped", "disagree_gather", "disagree_goal", "disagree_build",
-         "disagree_complete", "say", "family", "reply", "card", "resolve", "pace_q", "step_card", "wrap", "failed"}
-ACTS = {"correct_fact", "resolve_correction", "cascade_reviews", "correction_blocked",
-        "fork_correction", "compare_evidence", "family", "read_goal", "list_needs", "next_gap", "ask", "answered", "suggest", "upload",
-        "readback", "resolve", "overview", "together", "quiet", "ask_pacing", "show_gaps",
-        "hide_gaps", "step", "amend", "wrap"}
+WAITS = {
+    "stopped",
+    "disagree_gather",
+    "disagree_goal",
+    "disagree_build",
+    "disagree_complete",
+    "say",
+    "family",
+    "reply",
+    "card",
+    "resolve",
+    "pace_q",
+    "step_card",
+    "wrap",
+    "failed",
+}
+ACTS = {
+    "correct_fact",
+    "resolve_correction",
+    "cascade_reviews",
+    "correction_blocked",
+    "fork_correction",
+    "compare_evidence",
+    "family",
+    "read_goal",
+    "list_needs",
+    "next_gap",
+    "ask",
+    "answered",
+    "suggest",
+    "upload",
+    "readback",
+    "resolve",
+    "overview",
+    "together",
+    "quiet",
+    "ask_pacing",
+    "show_gaps",
+    "hide_gaps",
+    "step",
+    "amend",
+    "wrap",
+}
 
 
 def _main():
@@ -372,8 +484,11 @@ def test_every_named_arrow_is_taken_by_its_name():
     """Spec §9: every arrow of the protocol taken once, in a table."""
     from mendel_authoring.interpret import follow
 
-    named = [e for e in p.PROTOCOL.edges if e.built and e.on is not None
-             and not e.source.startswith("sample_")]
+    named = [
+        e
+        for e in p.PROTOCOL.edges
+        if e.built and e.on is not None and not e.source.startswith("sample_")
+    ]
     assert len(named) > 25, "the table is suspiciously short"
     phase = {n.id: n.phase for n in p.PROTOCOL.nodes}
     for edge in named:
@@ -410,13 +525,19 @@ def test_a_node_that_neither_acts_nor_waits_passes_straight_on_or_ends():
 def test_the_redrawn_arrows():
     edges = {(e.source, e.target, e.on) for e in p.PROTOCOL.edges if e.built}
     assert ("reply", "answered", "answer_gap") in edges
-    assert {("answered", "said", "said"), ("answered", "left_open", "left_open"),
-            ("answered", "stopped", "no_input")} <= edges
+    assert {
+        ("answered", "said", "said"),
+        ("answered", "left_open", "left_open"),
+        ("answered", "stopped", "no_input"),
+    } <= edges
     assert ("card", "say", "revise_goal") in edges and ("card", "family", "revised") in edges
     assert ("next_gap", "readback", "nothing_missing") in edges
     assert ("sample_back", "reply", "stays") in edges
-    assert not {(s, t) for s, t, _ in edges} & {("read_goal", "suggest"),
-                                                ("read_goal", "failed"), ("next_gap", "card")}
+    assert not {(s, t) for s, t, _ in edges} & {
+        ("read_goal", "suggest"),
+        ("read_goal", "failed"),
+        ("next_gap", "card"),
+    }
 
 
 # ── forks (spec §12) ─────────────────────────────────────────────────────────────────────────
@@ -426,8 +547,11 @@ from mendel_authoring.forks import DEFAULT, SettingSubject  # noqa: E402
 
 _PACE = SettingSubject.of(
     Setting.choice(
-        key="building.pacing", label="Pacing", help="A setting used by the fork tests.",
-        options=[("together", "T"), ("stop_where_needed", "S")], default="together",
+        key="building.pacing",
+        label="Pacing",
+        help="A setting used by the fork tests.",
+        options=[("together", "T"), ("stop_where_needed", "S")],
+        default="together",
     )
 )
 _OPEN = SettingSubject.of(

@@ -76,9 +76,7 @@ def _pending_node(session_id: str) -> str | None:
 
 def _continue(session_id: str) -> None:
     pending = _pending(session_id)
-    facade.perform(
-        commands.SettleStep(pending["id"], facade.read(session_id)["revision"], "ana")
-    )
+    facade.perform(commands.SettleStep(pending["id"], facade.read(session_id)["revision"], "ana"))
 
 
 def _amend(session_id: str, option: str, value=None, *, proposal_id: str | None = None) -> None:
@@ -102,7 +100,9 @@ def _walk_to_wrap(session_id: str) -> str:
         view = facade.read(session_id)
         if view["phase"] == Phase.COMPLETE.value:
             return next(
-                b["summary"] for t in reversed(view["turns"]) for b in t["blocks"]
+                b["summary"]
+                for t in reversed(view["turns"])
+                for b in t["blocks"]
                 if b["kind"] == "receipt" and b["id"].startswith("wrap-")
             )
         _continue(session_id)
@@ -181,7 +181,10 @@ def test_the_kept_draft_carries_the_fact_it_was_built_on(clean):
     _walk_to_node(session_id, "star_align")
     _amend(session_id, "fact_read_length", 150)
     draft = _draft(session_id)
-    assert any(m["measurement"] == "read_length" for m in facade.read(session_id)["goal"]["profile"]["measurements"])
+    assert any(
+        m["measurement"] == "read_length"
+        for m in facade.read(session_id)["goal"]["profile"]["measurements"]
+    )
     assert any(m["measurement"] == "read_length" for m in draft.graph["profile"]["measurements"])
 
 
@@ -206,9 +209,7 @@ def test_an_edit_during_the_walk_is_refused(clean):
     """Issue 255."""
     session_id = _built(_goal())
     with pytest.raises(ValueError, match="MI0217"):
-        facade.perform(
-            commands.RecordEdit(session_id, DraftGraph().model_dump(mode="json"), "ana")
-        )
+        facade.perform(commands.RecordEdit(session_id, DraftGraph().model_dump(mode="json"), "ana"))
 
 
 def test_a_card_answered_twice_is_refused_the_second_time(clean):
@@ -357,13 +358,17 @@ def test_a_truthful_fact_change_stays_when_building_is_blocked_and_can_be_correc
     view = facade.read(session_id)
     assert view["phase"] in (Phase.GATHERING.value, Phase.GOAL_REVIEW.value)
     assert view["pending_proposal"]["id"] != card["id"]
-    assert any(m["measurement"] == "read_length" and m["value"] == 50
-               for m in view["goal"]["profile"]["measurements"])
+    assert any(
+        m["measurement"] == "read_length" and m["value"] == 50
+        for m in view["goal"]["profile"]["measurements"]
+    )
     assert not _draft(session_id).projection_current
     _correct(session_id, "read_length", 150)
     assert facade.read(session_id)["phase"] == Phase.BUILDING.value
-    assert any(m["measurement"] == "read_length" and m["value"] == 150
-               for m in facade.read(session_id)["goal"]["profile"]["measurements"])
+    assert any(
+        m["measurement"] == "read_length" and m["value"] == 150
+        for m in facade.read(session_id)["goal"]["profile"]["measurements"]
+    )
 
 
 def test_a_moved_registry_that_cannot_build_the_goal_is_refused_by_name(clean, monkeypatch):
@@ -381,9 +386,7 @@ def test_a_moved_registry_that_cannot_build_the_goal_is_refused_by_name(clean, m
 
     monkeypatch.setattr(bp, "resolve", unbuildable)
     with pytest.raises(ValueError, match="MI0207"):
-        facade.perform(
-            commands.SettleStep(card["id"], facade.read(session_id)["revision"], "ana")
-        )
+        facade.perform(commands.SettleStep(card["id"], facade.read(session_id)["revision"], "ana"))
 
 
 def test_two_answers_at_once_to_one_card_one_is_refused(clean):

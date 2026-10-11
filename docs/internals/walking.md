@@ -106,3 +106,16 @@ it does: one issue in round 1 was filed about a prompt nobody had read.
 - **An automated tab is hidden**, so the page's polling pauses (TanStack Query does not poll a
   hidden tab). A page that seems stuck after a model answered may simply not have asked: reload,
   or read the session from the API, before filing it. Issue 166 was this.
+
+## Part F regression walk (recorded evidence)
+
+The automated walk uses a separate throwaway database and the real API/React interface,
+with recorded inspector results and no live model. It checks explicit disagreement choices,
+read-only history, return to unknown, semantic re-review, missing-input recovery, stale
+saves from two tabs, and manual correction forks. Upload admission is separately covered
+by the HTTP tests. This is distinct from an operator walk with a live model and workers.
+
+Screenshots and authoritative API assertions are retained in `build/part-f-review/` locally;
+backup/restore rehearsal data is in `build/part-f-migration/`. Both are ignored artifacts.
+The configured development database was offline during this implementation; its normal
+startup must apply the online migration with old writers stopped and a verified backup.

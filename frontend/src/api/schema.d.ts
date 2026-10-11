@@ -2995,6 +2995,8 @@ export interface components {
          */
         EditAuthoringDraft: {
             graph: components["schemas"]["DraftGraph"];
+            /** Expected Revision */
+            expected_revision: number;
         };
         /** Entry */
         Entry: {

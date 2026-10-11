@@ -12,7 +12,12 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
   const [editing, setEditing] = useState<string | null>(null);
   const details = useRef<HTMLDetailsElement>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { if (openRequest && details.current) details.current.open = true; }, [openRequest]);
+  useEffect(() => {
+    if (openRequest && details.current) {
+      details.current.open = true;
+      details.current.scrollIntoView?.({ block: "start" });
+    }
+  }, [openRequest]);
   const pins = session.goal?.constraints?.producers ?? [];
   const facts = (session.facts ?? []).filter(fact => fact.kind === "measurement");
   const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));

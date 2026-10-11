@@ -343,6 +343,23 @@ the CLI reported "0 requiring review" while an aligner had been chosen alphabeti
 
 ---
 
+### Authoring decisions and corrections
+
+The draft owns typed input, wanted-output, measurement, producer, parameter and review
+subjects. Each subject selects one retained revision. The goal is composed from those
+selections; neither the session nor draft stores another live goal. The authored graph is
+a versioned projection, and materialisation refuses an outdated projection.
+
+Observations retain evidence origin separately from the actor selecting an answer. Conflicting
+samples ask keep, use, correct or unknown. A correction persists truthful input, recomputes the
+goal and invalidates reviews whose semantic fingerprint changed. Manual work is preserved by
+opening a linked authored fork. Read-only history is available; undo is deferred in
+[issue 302](https://github.com/comeni-project/Comeni-Labs/issues/302).
+
+Legacy conversion uses a frozen snapshot converter before removing the old live columns.
+Its archive is historical presentation, never a fallback authority. Recovery after new writes
+requires restoring the verified database backup rather than a lossy schema downgrade.
+
 ## 4a. One question, two behaviours
 
 The forge and the build path both ask a reviewer questions, and until 2026-08-18 each had its

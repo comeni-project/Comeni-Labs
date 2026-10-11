@@ -247,8 +247,10 @@ export function DecisionLog({
           </Turn>
         )}
         {session.phase === "stopped" && (
-          // An honest stop ends the session; the way on is a new analysis (issue 175).
+          // Corrections can recover an honest stop without discarding its decisions.
           <Turn tick="open">
+            {onCorrectAnswers && !session.retired && <button type="button" onClick={onCorrectAnswers}
+              className="mr-3 text-[12.5px] text-link underline">Correct current answers</button>}
             <a href="/build" className="text-[12.5px] text-link underline focus-visible:shadow-[var(--ring)]">
               Start a new analysis
             </a>
