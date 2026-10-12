@@ -987,7 +987,7 @@ git commit -m "feat: a draft can be deleted, keeping only the record that its mo
   `repository.artifact_in_use(session, lab_id, artifact_id) -> bool`;
   `repository.delete_artifact(session, lab_id, artifact_id) -> None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Deleting a run takes its rows, its directory and its stream; its pipeline goes with its last
@@ -1054,8 +1054,8 @@ def test_the_route_answers_204_then_404_and_409_for_a_live_run(client, session):
 Read `wiener_rows.a_run` / `an_artifact` to confirm an artifact row is created per run and how
 `artifact_id` is passed; adjust the third test's setup to match.
 
-- [ ] **Step 2: Run to verify failure** — Expected: `ImportError: … deletion`.
-- [ ] **Step 3: Implement**
+- [x] **Step 2: Run to verify failure** — Expected: `ImportError: … deletion`.
+- [x] **Step 3: Implement**
 
 `repository.py` (every query takes `lab_id`):
 
@@ -1146,11 +1146,11 @@ def delete_run(run_id: str) -> None:
 
 Then `make client`.
 
-- [ ] **Step 4: Run the tests** — Expected: PASS. Also run `test_tenancy.py` (the
+- [x] **Step 4: Run the tests** — Expected: PASS. Also run `test_tenancy.py` (the
   queries-only-in-repository scan must still pass).
-- [ ] **Step 5: Watch each guard fail** — skip `RunIntent` → first test fails on a foreign key or
+- [x] **Step 5: Watch each guard fail** — skip `RunIntent` → first test fails on a foreign key or
   a leftover; drop the phase check → second; delete the artifact unconditionally → third. Ledger.
-- [ ] **Step 6: `make check`, commit**
+- [x] **Step 6: `make check`, commit**
 
 ```bash
 git commit -m "feat: a finished run can be deleted, with its files, its stream and its last pipeline (#276)"

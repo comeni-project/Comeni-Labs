@@ -13,12 +13,12 @@ files would mean two answers to *where does the database get touched*.
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Integer, case, func, select
+from sqlalchemy import Integer, case, delete, func, select
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import GenericFunction
 
-from wiener_api.models import Run, RunArtifact, RunEventRow, RunTask
+from wiener_api.models import Run, RunArtifact, RunEventRow, RunIntent, RunTask
 from wiener_api.task_query import TaskQuery
 
 
@@ -293,6 +293,28 @@ def unfinished(session: Session, lab_id: str) -> list[Run]:
         select(Run).where(Run.lab_id == lab_id,
                           Run.phase.notin_(("succeeded", "failed", "cancelled", "lost")))
     ))
+
+
+def delete_run(session: Session, lab_id: str, run_id: str) -> int:
+    """A run's rows, children first (Part H). Permanent: `run_intent` is its audit, and the
+    person asked for the run to go."""
+    removed = 0
+    for model in (RunEventRow, RunTask, RunIntent):
+        removed += session.execute(delete(model).where(
+            model.lab_id == lab_id, model.run_id == run_id)).rowcount
+    removed += session.execute(delete(Run).where(Run.lab_id == lab_id, Run.id == run_id)).rowcount
+    return removed
+
+
+def artifact_in_use(session: Session, lab_id: str, artifact_id: str) -> bool:
+    """Whether any run still names this pipeline: it is kept while one does."""
+    return session.scalar(select(func.count()).select_from(Run).where(
+        Run.lab_id == lab_id, Run.artifact_id == artifact_id)) > 0
+
+
+def delete_artifact(session: Session, lab_id: str, artifact_id: str) -> None:
+    session.execute(delete(RunArtifact).where(RunArtifact.lab_id == lab_id,
+                                              RunArtifact.id == artifact_id))
 
 
 def queued(session: Session, lab_id: str) -> list[Run]:

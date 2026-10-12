@@ -20,7 +20,7 @@ from wiener_core.timeline import Timeline, lanes
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
-from wiener_api.services import launcher, stream, verbs
+from wiener_api.services import deletion, launcher, stream, verbs
 from wiener_api.services.artifacts import (
     declared_holes,
     input_shape,
@@ -246,6 +246,19 @@ async def submit(body: SubmitRequest) -> RunAccepted:
             )) from exc
     await jobs.enqueue("launch_job", run_id)
     return RunAccepted(run_id=run_id)
+
+
+@router.delete("/runs/{run_id}", status_code=204, operation_id="deleteRun",
+               summary="Delete a finished run, its files and its record, permanently")
+def delete_run(run_id: str) -> None:
+    """**Permanent**, and only for a finished run: a live one is refused with what to do first.
+    Its pipeline goes too when no other run uses it (Part H)."""
+    try:
+        deletion.delete_run(run_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="no such run") from None
+    except deletion.Refused as refused:
+        raise HTTPException(status_code=409, detail=str(refused)) from None
 
 
 @router.get("/runs", operation_id="listRuns", summary="The board")

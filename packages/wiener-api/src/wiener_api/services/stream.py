@@ -7,11 +7,14 @@ for a page and then subscribes from the id that page ended at. `docs/design/wien
 losing the tail is survivable precisely because the record is somewhere else.
 """
 
+import logging
+
 from redis import Redis
 from wiener_core.events import RunEvent
 
 from wiener_api.settings import settings
 
+log = logging.getLogger(__name__)
 _client: Redis | None = None
 
 
@@ -53,6 +56,16 @@ def retire(run_id: str, redis: Redis | None = None) -> None:
     """Let a run's tail go `stream_ttl_seconds` from now: for a run that ended without an event
     to say so — the heartbeat's verdict that it is lost."""
     (redis or client()).expire(key(run_id), settings.stream_ttl_seconds)
+
+
+def drop(run_id: str, redis: Redis | None = None) -> None:
+    """Remove a run's tail at once: the run was deleted (Part H). A Redis that does not answer
+    costs nothing lasting, since the tail expires on its own; it is logged, as a failed
+    publish is by its caller."""
+    try:
+        (redis or client()).delete(key(run_id))
+    except Exception:  # noqa: BLE001 — the record is gone; the tail expires anyway
+        log.warning("could not drop the tail of deleted run %s", run_id, exc_info=True)
 
 
 def last_id(run_id: str, redis: Redis | None = None) -> str:

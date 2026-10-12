@@ -30,5 +30,6 @@ def test_every_operation_is_named_by_hand():
         ("/api/runs/{run_id}/series", "get"): "readSeries",
         ("/api/runs/{run_id}/timeline", "get"): "readTimeline",
         ("/api/runs/{run_id}/cancel", "post"): "cancelRun",
+        ("/api/runs/{run_id}", "delete"): "deleteRun",
         ("/api/health", "get"): "health",
     }
