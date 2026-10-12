@@ -315,9 +315,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Running, as Wiener has it */
+        /** Wiener's settings */
         get: operations["readWienerSettings"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wiener/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change one of Wiener's settings */
+        put: operations["writeWienerSetting"];
         post?: never;
         delete?: never;
         options?: never;
@@ -475,6 +492,10 @@ export interface components {
             outcome: string;
             /** Message */
             message: string;
+        };
+        /** Change */
+        Change: {
+            value?: components["schemas"]["JsonValue"];
         };
         /** ChoiceOption */
         ChoiceOption: {
@@ -1673,6 +1694,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Menu"];
+                };
+            };
+        };
+    };
+    writeWienerSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Change"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shown"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

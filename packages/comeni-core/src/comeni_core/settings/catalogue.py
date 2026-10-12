@@ -9,6 +9,7 @@ build's fork (14.7.8.3b), Tier-4 answers still designed; Developer (Dev mode) ar
 
 from comeni_core.settings.declare import FROM_ENV, EnvItem, Setting, Where
 from comeni_core.settings.reasons import Designed, ReadOnlyHere
+from comeni_core.settings.retention import CHOICES, WHEN_IT_ENDS
 from comeni_core.settings.sections import Catalogue, Section
 
 THEME = Setting.choice(
@@ -261,11 +262,67 @@ PRIVACY = Section(
     order=4,
     settings=(PROTECTION, WHERE_PURPOSES),
 )
+def _limit(key: str, label: str, help: str, default: str, env: str,
+           *, when_it_ends: bool = False) -> Setting:
+    """A retention limit: a choice in words, `keep` first (Part H)."""
+    options = [CHOICES[0], WHEN_IT_ENDS, *CHOICES[1:]] if when_it_ends else CHOICES
+    return Setting.choice(key=key, label=label, help=help, options=options, default=default,
+                          env=env)
+
+
+MODEL_REPLIES = _limit(
+    "retention.model_replies_days", "Model replies",
+    "The text a model sent back, including anything it quoted from a sample it read, is "
+    "cleared after this long. The record that the call happened, and every decision, stay.",
+    "30", "COMENI_RETENTION_MODEL_REPLIES_DAYS",
+)
+DRAFTS = _limit(
+    "retention.drafts_days", "Drafts and conversations",
+    "A pipeline nobody has changed for this long is deleted, with its conversation, its "
+    "decisions and its gate results. Its runs stay: they are kept under Data retention: runs.",
+    "keep", "COMENI_RETENTION_DRAFTS_DAYS",
+)
+RETENTION = Section(
+    key="retention",
+    title="Data retention",
+    lede="How long this installation keeps what it stores while you build. Anything not listed "
+         "is kept until you delete it.",
+    order=5,
+    settings=(MODEL_REPLIES, DRAFTS),
+)
+
+WORK_SUCCEEDED = _limit(
+    "retention_runs.work_succeeded_days", "Working files of a run that succeeded",
+    "Nextflow's intermediate files, which hold data from your samples, are deleted after this "
+    "long. The results and the run's record stay.",
+    "0", "WIENER_RETENTION_WORK_SUCCEEDED_DAYS", when_it_ends=True,
+)
+WORK_FAILED = _limit(
+    "retention_runs.work_failed_days", "Working files of a run that failed or was stopped",
+    "Kept a while so a failure can be looked into, then deleted. The results and the run's "
+    "record stay.",
+    "7", "WIENER_RETENTION_WORK_FAILED_DAYS", when_it_ends=True,
+)
+RUNS = _limit(
+    "retention_runs.runs_days", "Runs and results",
+    "A finished run is deleted whole after this long: its record, its results and its files.",
+    "keep", "WIENER_RETENTION_RUNS_DAYS",
+)
+RETENTION_RUNS = Section(
+    key="retention_runs",
+    title="Data retention: runs",
+    lede="How long Wiener keeps what a run leaves behind.",
+    order=6,
+    served_by="wiener",
+    settings=(WORK_SUCCEEDED, WORK_FAILED, RUNS),
+)
+
+
 REGISTRY = Section(
     key="registry",
     title="Registry & sources",
     lede="Where tools and types are read from, and what the forge can reach.",
-    order=6,
+    order=8,
     settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
 )
 AUTHOR = Setting.text(
@@ -283,7 +340,7 @@ SYSTEM = Section(
     key="system",
     title="System",
     lede="Who is recorded as working here, what is installed, and whether each part answers.",
-    order=7,
+    order=9,
     settings=(AUTHOR, VERSIONS, DATABASE, REDIS, MODEL_SERVER),
 )
 
@@ -326,7 +383,7 @@ RUNNING = Section(
     key="running",
     title="Running",
     lede="How runs execute, as Wiener reports it from its own settings.",
-    order=5,
+    order=7,
     served_by="wiener",
     settings=(EXECUTOR, CONTAINER_RUNTIME, LOST_AFTER, API_TOKEN, TELEMETRY),
 )
@@ -351,5 +408,6 @@ DEVELOPER = Section(
 )
 
 CATALOGUE = Catalogue(
-    sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RUNNING, REGISTRY, SYSTEM, DEVELOPER)
+    sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RETENTION, RETENTION_RUNS, RUNNING, REGISTRY,
+              SYSTEM, DEVELOPER)
 )

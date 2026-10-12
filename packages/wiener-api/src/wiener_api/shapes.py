@@ -39,6 +39,7 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("run_event", "payload", dict[str, JsonValue]),
         Shape("run_task", "attempts", list[Attempt] | None),
         Shape("run_task", "labels", list[str]),
+        Shape("wiener_setting", "value", JsonValue),
     )
 
 

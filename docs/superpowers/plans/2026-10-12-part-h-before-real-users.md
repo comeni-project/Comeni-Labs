@@ -1177,7 +1177,7 @@ git commit -m "feat: a finished run can be deleted, with its files, its stream a
   `retention.work_succeeded_days`, `retention.work_failed_days`, `retention.runs_days` (section
   `retention_runs`, `served_by="wiener"`, order 6); `retention.days(value: str) -> int | None`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `packages/comeni-core/tests/test_retention_settings.py`:
 
@@ -1246,8 +1246,8 @@ def test_an_env_variable_pins_a_retention_limit(client, monkeypatch):
     assert shown["value"] == "1" and shown["locked"] and shown["reason"]["kind"] == "pinned"
 ```
 
-- [ ] **Step 2: Run to verify failure** — Expected: `ModuleNotFoundError: … retention` and 404/405 on the PUT.
-- [ ] **Step 3: Declare the settings**
+- [x] **Step 2: Run to verify failure** — Expected: `ModuleNotFoundError: … retention` and 404/405 on the PUT.
+- [x] **Step 3: Declare the settings**
 
 `retention.py`:
 
@@ -1317,7 +1317,7 @@ Appearance 1, Building 2, Models 3, Privacy & data 4, Running 5, Registry & sour
 Developer 99: move Running to 7, Registry & sources to 8 and System to 9, and update any golden
 that lists them (`settings-menu.json`), reviewing its diff.
 
-- [ ] **Step 4: Wiener's store**
+- [x] **Step 4: Wiener's store**
 
 `models.py`:
 
@@ -1391,12 +1391,12 @@ Read `Installation.put` and `resolved` to confirm the `running.*` read-only sett
 `SettingLocked`, and that an env variable pins with `Pinned`; if `running.runtime` reaches the
 store instead, refuse `Kind.READONLY` in the route and ledger it. Then `make client`.
 
-- [ ] **Step 5: Run** — comeni-core, wiener-api settings and models tests, the OpenAPI goldens
+- [x] **Step 5: Run** — comeni-core, wiener-api settings and models tests, the OpenAPI goldens
   (`test_wiener_openapi.py`, Mendel's `test_openapi.py`): Expected PASS after regenerating any
   golden that lists the menu, reviewing its diff.
-- [ ] **Step 6: Watch the guards fail** — remove `RUNS` from its section → the census fails;
+- [x] **Step 6: Watch the guards fail** — remove `RUNS` from its section → the census fails;
   give `_Store.put` a no-op → the round trip fails. Ledger rows.
-- [ ] **Step 7: `make check`, commit**
+- [x] **Step 7: `make check`, commit**
 
 ```bash
 git commit -m "feat: every retention limit is a setting, Wiener's stored and editable by Wiener (#276)"

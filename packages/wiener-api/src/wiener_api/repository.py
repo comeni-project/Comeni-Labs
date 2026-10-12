@@ -18,7 +18,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import GenericFunction
 
-from wiener_api.models import Run, RunArtifact, RunEventRow, RunIntent, RunTask
+from wiener_api.models import Run, RunArtifact, RunEventRow, RunIntent, RunTask, WienerSetting
 from wiener_api.task_query import TaskQuery
 
 
@@ -430,3 +430,21 @@ def add(session: Session, lab_id: str, row) -> None:
     """Insert, with the laboratory stamped here rather than at the call site."""
     row.lab_id = lab_id
     session.add(row)
+
+
+def setting_values(session: Session, lab_id: str) -> dict[str, object]:
+    """This lab's stored settings, by key."""
+    rows = session.execute(select(WienerSetting.key, WienerSetting.value)
+                           .where(WienerSetting.lab_id == lab_id))
+    return {key: value for key, value in rows}
+
+
+def put_setting(session: Session, lab_id: str, key: str, value: object, by: str) -> None:
+    """One setting's value, inserted or replaced. Read, then written: fine for a menu a person
+    clicks, and the same on the suite's SQLite as on Postgres."""
+    row = session.get(WienerSetting, (lab_id, key))
+    if row is None:
+        session.add(WienerSetting(lab_id=lab_id, key=key, value=value,
+                                  updated_at=datetime.now(UTC), updated_by=by))
+    else:
+        row.value, row.updated_at, row.updated_by = value, datetime.now(UTC), by

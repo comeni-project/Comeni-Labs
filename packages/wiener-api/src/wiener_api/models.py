@@ -294,3 +294,19 @@ class RunArtifact(Base):
     # in the §8 sense — it names a pipeline shape, not a sample — but it is user-authored, so
     # it must not reach a span attribute or a log line without the same care.
     name: Mapped[str] = mapped_column(String(200), default="")
+
+
+class WienerSetting(Base):
+    """**The sixth table, and its argument** (Part H, operator 2026-10-12: *make sure it appears
+    on the settings menus so people can know it exists*): a laboratory changes how long runs are
+    kept from the Settings page, and only Wiener reads Wiener's settings, so Wiener stores them.
+    One row per setting per lab; the `running` section stays reported, never stored."""
+
+    __tablename__ = "wiener_setting"
+    shape_version: Mapped[int] = stamp("wiener_setting")
+
+    lab_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[object] = mapped_column(Json, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_by: Mapped[str] = mapped_column(String(200))

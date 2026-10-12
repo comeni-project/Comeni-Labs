@@ -559,10 +559,137 @@
       ]
     },
     {
+      "key": "retention",
+      "title": "Data retention",
+      "lede": "How long this installation keeps what it stores while you build. Anything not listed is kept until you delete it.",
+      "order": 5,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "retention.model_replies_days",
+            "label": "Model replies",
+            "help": "The text a model sent back, including anything it quoted from a sample it read, is cleared after this long. The record that the call happened, and every decision, stay.",
+            "kind": "choice",
+            "default": "30",
+            "env": "COMENI_RETENTION_MODEL_REPLIES_DAYS",
+            "options": [
+              {
+                "value": "keep",
+                "label": "Kept until deleted",
+                "designed": null
+              },
+              {
+                "value": "1",
+                "label": "After 1 day",
+                "designed": null
+              },
+              {
+                "value": "7",
+                "label": "After 7 days",
+                "designed": null
+              },
+              {
+                "value": "30",
+                "label": "After 30 days",
+                "designed": null
+              },
+              {
+                "value": "90",
+                "label": "After 90 days",
+                "designed": null
+              },
+              {
+                "value": "365",
+                "label": "After 365 days",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "30",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "retention.drafts_days",
+            "label": "Drafts and conversations",
+            "help": "A pipeline nobody has changed for this long is deleted, with its conversation, its decisions and its gate results. Its runs stay: they are kept under Data retention: runs.",
+            "kind": "choice",
+            "default": "keep",
+            "env": "COMENI_RETENTION_DRAFTS_DAYS",
+            "options": [
+              {
+                "value": "keep",
+                "label": "Kept until deleted",
+                "designed": null
+              },
+              {
+                "value": "1",
+                "label": "After 1 day",
+                "designed": null
+              },
+              {
+                "value": "7",
+                "label": "After 7 days",
+                "designed": null
+              },
+              {
+                "value": "30",
+                "label": "After 30 days",
+                "designed": null
+              },
+              {
+                "value": "90",
+                "label": "After 90 days",
+                "designed": null
+              },
+              {
+                "value": "365",
+                "label": "After 365 days",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "keep",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
       "key": "registry",
       "title": "Registry & sources",
       "lede": "Where tools and types are read from, and what the forge can reach.",
-      "order": 6,
+      "order": 8,
       "served_by": "mendel",
       "entries": [
         {
@@ -751,7 +878,7 @@
       "key": "system",
       "title": "System",
       "lede": "Who is recorded as working here, what is installed, and whether each part answers.",
-      "order": 7,
+      "order": 9,
       "served_by": "mendel",
       "entries": [
         {
