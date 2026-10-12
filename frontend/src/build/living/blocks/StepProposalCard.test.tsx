@@ -46,9 +46,10 @@ function proposal(): AuthoringProposal {
   } as AuthoringProposal;
 }
 
-const card = () =>
+const card = ({ showGapDetails = false } = {}) =>
   render(
-    <StepProposalCard proposal={proposal()} position={4} busy={false} onAccept={vi.fn()}
+    <StepProposalCard proposal={proposal()} progress={{ position: 4, total: 5, again: false }}
+                      showGapDetails={showGapDetails} busy={false} onAccept={vi.fn()}
                       onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
   );
 
@@ -66,10 +67,10 @@ describe("the step card's brief", () => {
     expect(brief).toHaveTextContent("read_length is 150, measured by fastq@1.1.0");
   });
 
-  it("marks a registry gap and names the file to fix", () => {
-    card();
+  it("marks a registry gap and names the file to fix under Dev mode", () => {
+    card({ showGapDetails: true });
     const gaps = screen.getByTestId("step-gaps");
-    expect(gaps).toHaveTextContent("Registry gap");
+    expect(gaps).toHaveTextContent("Registry information is incomplete");
     expect(gaps).toHaveTextContent("registry/tools/nf-core/multiqc/tool.yml");
   });
 
@@ -80,7 +81,7 @@ describe("the step card's brief", () => {
       bare.block.gaps = [];
     }
     render(
-      <StepProposalCard proposal={bare} position={1} busy={false} onAccept={vi.fn()}
+      <StepProposalCard proposal={bare} progress={null} busy={false} onAccept={vi.fn()}
                         onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
     );
     expect(screen.queryByTestId("step-brief")).toBeNull();
@@ -104,7 +105,7 @@ describe("changing a step (spec §14 of the consultant build)", () => {
   };
   const show = (onAccept = vi.fn()) =>
     render(
-      <StepProposalCard proposal={withChoices()} position={4} busy={false} onAccept={onAccept}
+      <StepProposalCard proposal={withChoices()} progress={{ position: 4, total: 5, again: false }} busy={false} onAccept={onAccept}
                         onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
     );
 

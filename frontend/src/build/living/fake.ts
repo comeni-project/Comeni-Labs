@@ -26,6 +26,7 @@ export const FAKE_SESSION = {
   row_version: 9,
   model_configured: true,
   steps_total: 5,
+  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false } },
   graph: {
     nodes: [
       { id: "star_genomegenerate", contract_id: INDEX, params: [] },
@@ -99,17 +100,17 @@ export const FAKE_SESSION = {
       chosen_contract: null, at: at(2),
       block: { kind: "goal_summary", id: "goal-1", goal: { have: [], want: [] }, have: "", do: "",
         get: "a gene-level counts matrix" } },
-    { id: "h-index", kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
+    { id: "h-index", envelope: { offer: "step", progress: { position: 1, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
       chosen_contract: INDEX, at: at(3),
       block: { kind: "step_proposal", id: "step-star_genomegenerate", node: "star_genomegenerate",
         contract: INDEX, produces: ["genome.index.star"], reason: "STAR needs an index.", tier: 2,
         alternatives: [] } },
-    { id: "h-trim", kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
+    { id: "h-trim", envelope: { offer: "step", progress: { position: 2, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
       chosen_contract: TRIM, at: at(4),
       block: { kind: "step_proposal", id: "step-trimgalore", node: "trimgalore", contract: TRIM,
         produces: ["fastq.reads"], reason: "STAR asks for trimmed reads.", tier: 2,
         alternatives: [] } },
-    { id: "h-align", kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
+    { id: "h-align", envelope: { offer: "step", progress: { position: 3, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
       chosen_contract: ALIGN, at: at(5),
       block: { kind: "step_proposal", id: "step-star_align", node: "star_align", contract: ALIGN,
         produces: ["alignment.bam"], reason: "The rule for 150bp paired reads.", tier: 3,
@@ -175,6 +176,7 @@ export const COLLECT_SESSION = {
   name: "rnaseq-counts",
   phase: "complete",
   steps_total: 4,
+  progress: { reviewed: 4, total: 4, active: null },
   graph: {
     nodes: [
       { id: "star_align", contract_id: ALIGN, params: [] },

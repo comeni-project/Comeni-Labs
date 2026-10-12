@@ -23,6 +23,8 @@ import { Drawer } from "./Drawer";
 import { authorOf, type Author } from "./format";
 import { LivingCanvas } from "./LivingCanvas";
 import { LivingHeader } from "./LivingHeader";
+import type { ReviewState } from "./LivingNode";
+import type { Positions } from "../geometry";
 
 /** The living builder's composition: **wires state and callbacks, draws nothing itself.**
  *
@@ -37,7 +39,6 @@ import { LivingHeader } from "./LivingHeader";
 export function LivingSurface({
   session,
   graph,
-  steps,
   state,
   preview,
   busy,
@@ -56,14 +57,13 @@ export function LivingSurface({
   onSetParam,
   onApplyChange,
   onEdit,
-  channels = [],
   onPlayed = () => undefined,
   reveal = {},
   run = null,
 }: {
   session: AuthoringSession;
+  /** The draft as saved — what an edit changes. The canvas draws the session's frame instead. */
   graph: DraftGraph;
-  steps: Record<string, Step>;
   state: AuthoringState;
   preview: components["schemas"]["AuthoringPreview"] | null;
   busy: (proposalId: string) => boolean;
@@ -91,8 +91,6 @@ export function LivingSurface({
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
   onEdit: (graph: DraftGraph) => void;
-  /** Where data enters and how often — the drawn view's channels, from the server. */
-  channels?: components["schemas"]["ChannelView"][];
   onPlayed?: (event: MotionEvent) => void;
   reveal?: Record<string, number>;
   /** The Run sequence — keep, lint, run sheet — when the page has one. The fixtures do not. */
@@ -112,6 +110,15 @@ export function LivingSurface({
 
   const pending = session.pending_proposal;
   const ghost = pending?.block.kind === "step_proposal" ? pending.block.node : null;
+  // **The server's frame, whole**: the visible graph with the step on offer, each step's recorded
+  // metadata, and the channels that really enter. Nothing here re-derives or guesses any of it.
+  const frame = session.canvas ?? null;
+  const steps: Record<string, Step> =
+    Object.fromEntries((frame?.steps ?? []).map((step) => [step.id, step]));
+  const reviews: Record<string, ReviewState> = Object.fromEntries(
+    Object.entries(session.review_applicability ?? {}).map(([node, status]) =>
+      [node, status === "retained" ? "reviewed" : "again"] as const));
+  if (ghost && session.progress?.active?.again) reviews[ghost] = "again";
 
   const authors: Record<string, Author> = {};
   for (const decision of session.history) {
@@ -140,15 +147,18 @@ export function LivingSurface({
             empty={session.phase === "stopped"
               ? "This analysis stopped before anything was built — see why on the right"
               : undefined}
-            graph={graph}
+            graph={frame?.graph ?? { nodes: [], edges: [] }}
+            stale={frame !== null && !frame.current}
+            working={state.inFlight !== null}
+            reviews={reviews}
             ghost={ghost}
             ghostProposal={pending?.kind === "step" ? pending.id : null}
             ghostEdges={pending?.edges ?? []}
-            channels={channels}
+            channels={frame?.channels ?? []}
             events={state.events}
             onPlayed={onPlayed}
             reveal={reveal}
-            positions={session.placement}
+            positions={{ ...session.placement, ...(frame?.placement as Positions | undefined) }}
             steps={steps}
             authors={authors}
             selected={state.selected}

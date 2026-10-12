@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 
 import type { AuthoringProposal } from "../../../api/types";
-import { processName } from "../format";
+import { processName, stepWords, type OfferProgress } from "../format";
 import { BlockFrame, Primary, Secondary } from "./parts";
 
 /** The one step on offer: what it does, why it is here, and the real options for it.
@@ -15,7 +15,8 @@ import { BlockFrame, Primary, Secondary } from "./parts";
  */
 export function StepProposalCard({
   proposal,
-  position,
+  progress,
+  showGapDetails = false,
   busy,
   onAccept,
   onPreview,
@@ -25,8 +26,10 @@ export function StepProposalCard({
 }: {
   proposal: AuthoringProposal;
   onCorrectAnswers?: () => void;
-  /** `4` in *step 4*. */
-  position: number;
+  /** Where this step stood in the plan when it was offered; `null` for an older offer. */
+  progress: OfferProgress | null;
+  /** Dev mode as the build recorded it: gap kinds and the files to fix are shown only then. */
+  showGapDetails?: boolean;
   busy: boolean;
   /** `keep` (*Continue*), an alternative's id, or `fact_<measurement>` with the typed value. */
   onAccept: (option: string, value?: string | number) => void;
@@ -66,11 +69,12 @@ export function StepProposalCard({
   ];
   const fact = chosen.startsWith(FACT) ? chosen.slice(FACT.length) : null;
   const accept = () => onAccept(chosen, fact ? typed(told) : undefined);
+  const unresolved = block.unresolved_settings ?? [];
 
   return (
     <BlockFrame
-      label={`step ${position}: ${processName(block.node)}`}
-      title={`Step ${position} — ${processName(block.node)}`}
+      label={`${stepWords(progress).toLowerCase()}: ${processName(block.node)}`}
+      title={`${stepWords(progress)} — ${processName(block.node)}`}
       aside={`tier ${block.tier}`}
       actions={
         <>
@@ -96,23 +100,30 @@ export function StepProposalCard({
         </span>
       </button>
       {block.brief && <Brief brief={block.brief} />}
-      {(block.gaps ?? []).length > 0 && (
+      {(showGapDetails ? (block.gaps ?? []).length : unresolved.length) > 0 && (
         <div data-testid="step-gaps" className="mb-3 px-[10px] py-2 border"
              style={{ borderColor: "var(--line-2)" }}>
           <p className="m-0 mb-1 font-data text-[10px] tracking-[.12em] uppercase text-ink-2">
-            Registry gap
+            Registry information is incomplete
           </p>
-          <ul className="m-0 p-0 list-none">
-            {(block.gaps ?? []).map((gap) => (
-              <li key={`${gap.kind}-${gap.subject}`} className="text-[12px] text-ink-2">
-                {gap.kind.replaceAll("_", " ")}: {gap.subject}{" "}
-                <span className="font-data text-[11px] text-ink-3">— fix {gap.fix}</span>
-              </li>
-            ))}
-          </ul>
+          {showGapDetails ? (
+            <ul className="m-0 p-0 list-none">
+              {(block.gaps ?? []).map((gap) => (
+                <li key={`${gap.kind}-${gap.subject}`} className="text-[12px] text-ink-2">
+                  {gap.kind.replaceAll("_", " ")}: {gap.subject}{" "}
+                  <span className="font-data text-[11px] text-ink-3">— fix {gap.fix}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="m-0 text-[12px] text-ink-2">
+              No values are listed for {unresolved.join(", ")}, so {unresolved.length === 1 ? "it stays" : "they stay"} unset.
+              It is not something you need to provide.
+            </p>
+          )}
         </div>
       )}
-      <div role="radiogroup" aria-label={`options for step ${position}`}>
+      <div role="radiogroup" aria-label={`options for ${processName(block.node)}`}>
         {options.map((option) => {
           const picked = chosen === option.id;
           return (

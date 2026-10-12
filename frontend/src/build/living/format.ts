@@ -1,3 +1,4 @@
+import type { components } from "../../api/schema";
 import type { AuthoringSession } from "../../api/types";
 
 /** Small, pure readings of session data that more than one component needs. */
@@ -56,10 +57,23 @@ export function phaseWords(session: AuthoringSession): string {
   }
 }
 
-/** How many of the blueprint's steps are in the draft — `4 of 7 steps`, or nothing at all. */
+export type OfferProgress = components["schemas"]["OfferProgress"];
+
+/** How many of the plan's steps hold a review — `3 of 5 steps reviewed` — or nothing before a
+ *  plan exists. **Counted by the server against the plan**, never from the transcript, so a swap
+ *  or a step offered again cannot make it run past the end. */
 export function progressWords(session: AuthoringSession): string | null {
-  if (!session.steps_total) return null;
-  return `${session.graph.nodes.length} of ${session.steps_total} steps`;
+  const progress = session.progress;
+  if (!progress?.total) return null;
+  return `${progress.reviewed} of ${progress.total} steps reviewed`;
+}
+
+/** `Step 4 of 5`, `Review step 4 of 5 again`, or plain `Step` for an offer made before positions
+ *  were recorded — an ordinal nobody stored is not invented. */
+export function stepWords(progress: OfferProgress | null | undefined): string {
+  if (!progress) return "Step";
+  const place = `step ${progress.position} of ${progress.total}`;
+  return progress.again ? `Review ${place} again` : place[0].toUpperCase() + place.slice(1);
 }
 
 type Usage = NonNullable<AuthoringSession["usage"]>;

@@ -488,7 +488,7 @@ routes construct coherent local frames. `progressWords` reads `session.progress`
 Step cards receive fixed `OfferProgress | null` and `showGapDetails: boolean`.
 Node receives `reviewState: "reviewed" | "again" | "proposed" | "unknown"`.
 
-- [ ] Write guards for duplicate node, no false sources, real recorded tier, re-review
+- [x] Write guards for duplicate node, no false sources, real recorded tier, re-review
   copy and stable historical positions. Mock the live session response and assert
   no `/pipeline/draw` request and no fabricated footer while a mutation is pending:
 
@@ -504,16 +504,16 @@ it("uses the session frame without asking the manual draw endpoint", async () =>
 Also test stale projection label/run disable, manual same-id different contract,
 true INPUT boxes, grouped collection rendering, Dev-off warning without paths and
 Dev-on detail. Preserve existing FactHistory refresh/correction guards. Watch RED.
-- [ ] Remove live `useDrawn`; consume matching graph/metadata/channels from the frame.
+- [x] Remove live `useDrawn`; consume matching graph/metadata/channels from the frame.
   Keep last complete frame during mutation with a working indicator; stop using
   optimistic graph insertion in the living canvas. Initial/no-frame states are
   explicit. Keep manual builder edits and RunSheet using the actual draft's graph,
   never preview metadata. Deduplicate even when fixtures re-offer an existing node.
-- [ ] Replace transcript-count numbering with current `progress.active` and historical
+- [x] Replace transcript-count numbering with current `progress.active` and historical
   envelope progress. Render **Review step … again**, **… steps reviewed** and legacy
   node-only history. Add review text without repainting recorded tier colour. Gate
   technical gap paths by `showGapDetails`; plain unresolved-setting copy remains.
-- [ ] Update fake/guided fixtures to coherent frames/progress so they exercise the
+- [x] Update fake/guided fixtures to coherent frames/progress so they exercise the
   same renderer rather than retaining label-only preview behavior. Run focused
   Vitest, collection/replay/correction tests and `npx tsc -b`. Compare screenshots
   with Task 1 artboards; record GREEN and commit the normal-canvas UI checkpoint.
@@ -662,3 +662,11 @@ RED (old wording) → GREEN; `unresolved_settings` RED (`KeyError`) → GREEN on
 pinned from the start, since a swap counts as the aligner's review and never offers its card.
 Plan goldens gain `gaps`; settings golden and protocol diagram regenerated (hide-gaps label now
 *named, no stop*). Gap paths still travel in the stored block; `show_gap_details` decides display.
+
+**Task 7 (2026-10-12).** 10 live-route guards in `LivingBuilder.test.tsx`: 7 RED before
+(draw request, sources, stale, progress, again, history place, Dev-off copy); the duplicate-node
+guard RED when the canvas dedupe is reverted. Frontend 690 passed, `tsc -b` clean, oxlint adds
+nothing. `?fake=1` and `?fake=collect` screenshotted headless at 1400×900 and viewed: one
+SAMTOOLS_SORT ghost with one dashed wire, three true inputs, *Step 4 of 5*, *3 of 5 steps reviewed*;
+the collection fixture had inherited the static session's progress and was given its own (4 of 4).
+The run sheet asks `/pipeline/draw` for the saved draft only when it opens.

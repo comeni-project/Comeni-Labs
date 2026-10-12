@@ -9,7 +9,7 @@ import { useView } from "../useView";
 import type { MotionEvent } from "./authoringReducer";
 import { Flowline, flowLabel, flowTag, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
 import type { Author } from "./format";
-import { LivingNode } from "./LivingNode";
+import { LivingNode, type ReviewState } from "./LivingNode";
 import { motionFor, wireSubject } from "./motion";
 
 type Channel = components["schemas"]["ChannelView"];
@@ -41,6 +41,9 @@ export function LivingCanvas({
   onPlayed = () => undefined,
   reveal = {},
   empty,
+  stale = false,
+  reviews = {},
+  working = false,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -63,14 +66,25 @@ export function LivingCanvas({
   reveal?: Record<string, number>;
   /** What the empty canvas says instead of the invitation — after an honest stop, why. */
   empty?: string;
+  /** The frame is the last pipeline built, and answers have changed since: said, never hidden. */
+  stale?: boolean;
+  /** Whether each drawn step's review still holds — said in words, never by repainting its tier. */
+  reviews?: Record<string, ReviewState>;
+  /** A decision is on its way: the last complete frame stays, marked as being updated. */
+  working?: boolean;
 }) {
   const view = useView();
   const [moved, setMoved] = useState<Positions>({});
   const drag = useRef<{ id: string; from: Point; origin: Point; travelled: boolean } | null>(null);
 
   const at: Positions = { ...positions, ...moved };
-  const ids = [...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])];
+  // **Each step once.** A frame's graph already holds the step on offer; the ghost names which one
+  // it is, and its wires are drawn dashed, not also solid.
+  const ids = [...new Set([...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])])];
   const visible = new Set(ids);
+  const wireKey = (e: DraftEdge) => `${e.from_node}.${e.from_port}>${e.to_node}.${e.to_port}`;
+  const dashed = new Set(ghostEdges.map(wireKey));
+  const solid = graph.edges.filter((e) => !dashed.has(wireKey(e)));
 
   if (ids.length === 0) {
     return (
@@ -154,6 +168,12 @@ export function LivingCanvas({
       footer={
         <>
           {footer}
+          {(stale || working) && (
+            <span role="status" data-testid={stale ? "canvas-stale" : "canvas-working"}
+                  className="absolute left-5 top-4 font-data text-[10px] tracking-[.1em] uppercase text-ink-2">
+              {stale ? "Outdated — the last pipeline built" : "Updating…"}
+            </span>
+          )}
           {Object.keys(moved).length > 0 && (
             <button type="button" data-testid="tidy" onClick={() => setMoved({})}
                     className="absolute right-5 bottom-5 font-data text-[11px] px-3 py-[6px] bg-transparent
@@ -179,7 +199,7 @@ export function LivingCanvas({
             );
           }),
         )}
-        {graph.edges.map((edge) => {
+        {solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
           if (!from || !to) return null;
@@ -230,6 +250,7 @@ export function LivingCanvas({
             author={authors[id] ?? "resolver"}
             ports={steps[id]?.ports ?? []}
             settled={steps[id]?.settings.length}
+            reviewState={isGhost ? (reviews[id] === "again" ? "again" : "proposed") : reviews[id] ?? "unknown"}
             runs={steps[id] ? runs : undefined}
             perItem={steps[id]?.runs === "per_item"}
             ghost={isGhost}

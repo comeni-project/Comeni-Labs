@@ -13,6 +13,7 @@ import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { guidedStart } from "./guided";
 import { GuidedLiving } from "./LivingBuilder";
 import { LivingSurface } from "./LivingSurface";
+import { framed } from "./frame";
 
 /** Task 10: the cards a person answers, and the two ways the checkpoint says they must be
  *  answerable — with only the keyboard, and with a pointer that cannot hover. */
@@ -361,9 +362,8 @@ describe("saying something", () => {
     const quiet = { ...FAKE_SESSION, turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending") };
     mount(
       <LivingSurface
-        session={quiet as AuthoringSession}
+        session={framed(quiet as AuthoringSession, FAKE_STEPS)}
         graph={quiet.graph}
-        steps={FAKE_STEPS}
         state={{ ...initialAuthoring, snapshot: quiet as AuthoringSession, saying: "and the sorter?" }}
         preview={null}
         busy={() => false}

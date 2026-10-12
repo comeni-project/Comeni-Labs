@@ -3,6 +3,8 @@ import { HEAD_H, NODE_H, NODE_W, PORT_ROW, portOffset } from "../geometry";
 import type { Author } from "./format";
 import { processName } from "./format";
 
+export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
+
 /** One step on the living canvas — the 172×112 symbol every canvas in the product draws.
  *
  * **Geometry from `geometry.ts`, never a literal here.** A wire lands on a port because both read
@@ -26,6 +28,7 @@ export function LivingNode({
   author,
   ports,
   settled,
+  reviewState = "unknown",
   ghost = false,
   selected = false,
   onSelect,
@@ -47,6 +50,8 @@ export function LivingNode({
   /** How many values this step settled. **Absent on a ghost**: a number it does not have yet is
    *  the fastest way to make provisional read as committed. */
   settled?: number;
+  /** Whether a review of this step holds, is asked for again, or is on offer now. */
+  reviewState?: ReviewState;
   ghost?: boolean;
   selected?: boolean;
   onSelect?: () => void;
@@ -141,7 +146,7 @@ export function LivingNode({
         </span>
         {ghost && (
           <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
-            {instead ? "INSTEAD" : "PROPOSED"}
+            {instead ? "INSTEAD" : reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
           </span>
         )}
       </span>
@@ -168,7 +173,8 @@ export function LivingNode({
           className="h-[24px] flex items-center px-[10px] w-full shrink-0 font-data text-[9px] text-ink-3"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
-          {runs ? `${runs} · ` : ""}{settled ?? 0} settled
+          {[runs, settled === undefined ? null : `${settled} settled`,
+            reviewState === "reviewed" ? "reviewed" : null].filter(Boolean).join(" · ")}
         </span>
       )}
     </button>

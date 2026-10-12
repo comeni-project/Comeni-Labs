@@ -8,6 +8,7 @@ import { ArtifactPreview } from "./ArtifactPreview";
 import { initialAuthoring } from "./authoringReducer";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingSurface } from "./LivingSurface";
+import { framed } from "./frame";
 import { useAuthoringSession } from "./useAuthoringSession";
 
 /** Task 13: the preview the server writes, and Keep/Run over the session's own draft.
@@ -154,7 +155,7 @@ function surface(session: AuthoringSession, run: Parameters<typeof LivingSurface
   render(
     <QueryClientProvider client={fresh()}>
       <LivingSurface
-        session={session} graph={session.graph} steps={FAKE_STEPS}
+        session={framed(session, FAKE_STEPS)} graph={session.graph}
         state={{ ...initialAuthoring, snapshot: session }}
         preview={ready(session.revision, "version: 6\n")}
         busy={() => false} onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()}

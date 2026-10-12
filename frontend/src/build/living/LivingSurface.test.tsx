@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AuthoringSession } from "../../api/types";
 import { initialAuthoring } from "./authoringReducer";
-import { FAKE_SESSION, FAKE_STEPS } from "./fake";
+import { FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS } from "./fake";
+import { framed } from "./frame";
 import { LivingSurface } from "./LivingSurface";
 
 /** The living builder's shell, against the static session that carries every block state.
@@ -16,9 +17,8 @@ import { LivingSurface } from "./LivingSurface";
 
 function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
   const props = {
-    session,
+    session: framed(session, FAKE_STEPS, FAKE_CHANNELS),
     graph: session.graph,
-    steps: FAKE_STEPS,
     state: { ...initialAuthoring, snapshot: session },
     preview: { revision: session.revision, state: "ready" as const, text: "version: 6\n", findings: [] },
     busy: () => false,
@@ -76,7 +76,7 @@ describe("the two surfaces", () => {
 
   it("says how far through the blueprint the draft is", () => {
     surface();
-    expect(screen.getByTestId("living-status")).toHaveTextContent("3 of 5 steps");
+    expect(screen.getByTestId("living-status")).toHaveTextContent("3 of 5 steps reviewed");
   });
 });
 
@@ -93,7 +93,7 @@ describe("every block state in the static session", () => {
     for (const title of ["It would not answer", "This answer is out of date", "Something to check", "Done"]) {
       expect(within(log).getByText(title)).toBeInTheDocument();
     }
-    expect(within(log).getByRole("region", { name: "step 4: SAMTOOLS_SORT" })).toBeInTheDocument();
+    expect(within(log).getByRole("region", { name: "step 4 of 5: SAMTOOLS_SORT" })).toBeInTheDocument();
   });
 
   it("collapses every answered step to one line naming who decided it", () => {
@@ -187,7 +187,7 @@ describe("the pacing question (spec §13)", () => {
 describe("the proposal card", () => {
   it("accepts the option that is selected, and the recommended one is said in words", () => {
     const props = surface();
-    const card = screen.getByRole("region", { name: "step 4: SAMTOOLS_SORT" });
+    const card = screen.getByRole("region", { name: "step 4 of 5: SAMTOOLS_SORT" });
     expect(within(card).getByText("recommended")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("radio", { name: /SAMTOOLS_SORMADUP/ }));
     fireEvent.click(within(card).getByTestId("accept-step"));
@@ -455,7 +455,7 @@ it("labels superseded historical reviews and blocks Run while the projection is 
       applicability: decision.id === "h-align" ? "superseded" : "retained" })),
   });
   surface(changed, { run: { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null } });
-  expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 · superseded/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 of 5 · superseded/ })).toBeInTheDocument();
   expect(screen.getByTestId("living-run")).toBeDisabled();
   expect(screen.getByText(/^Pipeline outdated\./)).toBeInTheDocument();
 });

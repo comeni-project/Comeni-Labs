@@ -20,7 +20,7 @@ import { SampleResult } from "./blocks/SampleUpload";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepProposalCard } from "./blocks/StepProposalCard";
 import { StepTools } from "./blocks/StepTools";
-import { authorOf, processName, waitingOn } from "./format";
+import { authorOf, processName, stepWords, waitingOn, type OfferProgress } from "./format";
 import { Turn, type Tick } from "./blocks/parts";
 
 type Entry =
@@ -106,10 +106,9 @@ export function DecisionLog({
   const acceptedBy = new Map(session.history.map((d) => [d.block.id, d.actor_kind ?? "unknown"] as const));
   const pending = session.pending_proposal;
   const drawnOnTurns = new Set(session.turns.flatMap((t) => t.blocks.map((b) => b.id)));
-  const stepsSoFar = session.history.filter((d) => d.kind === "step").length;
-  const stepNumber = new Map(
-    session.history.filter((d) => d.kind === "step").map((d, i) => [d.id, i + 1] as const),
-  );
+  // **Where each step stood when it was offered**, from its own envelope, and where the walk is
+  // now, from the server's count against the plan — never a count of proposals in the transcript.
+  const active = session.progress?.active ?? null;
 
   // **A selected step that is in the draft gets its tools under the line that created it** — or,
   // for a step added by hand that no decision created, after the history. A ghost is not in the
@@ -151,7 +150,7 @@ export function DecisionLog({
                        onSetParam={onSetParam} onApplyChange={onApplyChange} />
           ) : (
             <DecisionEntry key={`d${entry.decision.id}`} decision={entry.decision}
-                           position={stepNumber.get(entry.decision.id) ?? 0}
+                           progress={offeredAt(entry.decision)}
                            selected={selected} onSelect={onSelect} tools={tools}
                            inTurns={drawnOnTurns.has(entry.decision.block.id)} />
           ),
@@ -166,8 +165,8 @@ export function DecisionLog({
         {pending && pending.kind === "step" && (
           <Turn tick="quiet">
             <p className="m-0 text-[12.5px] leading-[1.6] text-ink-2">
-              Step {stepsSoFar + 1}{session.steps_total ? ` of ${session.steps_total}` : ""}, on the
-              canvas already and drawn dashed. Nothing is committed until you add it.
+              {stepWords(active)}, on the canvas already and drawn dashed. Nothing is committed
+              until you add it.
             </p>
           </Turn>
         )}
@@ -176,7 +175,8 @@ export function DecisionLog({
             <StepProposalCard
               key={pending.id}
               proposal={pending}
-              position={stepsSoFar + 1}
+              progress={active}
+              showGapDetails={session.show_gap_details ?? false}
               onCorrectAnswers={onCorrectAnswers}
               busy={busy(pending.id)}
               onAccept={(option, value) => onAccept(pending, option, undefined, value)}
@@ -393,16 +393,21 @@ const UNREACHABLE = new Set(["MI0106", "MA0002", "MA0003", "MA0007"]);
 /** What a collapsed row says about a tier, in the artboard's words. Tiers 1 and 2 say nothing. */
 const TIER_WORD: Record<number, string> = { 4: " · open" };
 
+/** The position a decided step was offered at, or `null` for an offer older than the record. */
+function offeredAt(decision: AuthoringSession["history"][number]): OfferProgress | null {
+  return (decision.envelope as { progress?: OfferProgress | null } | null | undefined)?.progress ?? null;
+}
+
 function DecisionEntry({
   decision,
-  position,
+  progress,
   selected,
   onSelect,
   tools,
   inTurns = false,
 }: {
   decision: AuthoringSession["history"][number];
-  position: number;
+  progress: OfferProgress | null;
   selected: string | null;
   onSelect: (node: string | null) => void;
   /** The selected step's tools, drawn here only when this is the decision that put it there. */
@@ -467,7 +472,7 @@ function DecisionEntry({
     <Turn tick={tick} anchor={block.node}>
       <Collapsed
         name={processName(block.node)}
-        detail={`step ${position}${TIER_WORD[block.tier] ?? ""}${replaced}${decision.applicability && decision.applicability !== "retained" ? ` · ${decision.applicability}` : ""}`}
+        detail={`${progress ? stepWords(progress).toLowerCase() : ""}${TIER_WORD[block.tier] ?? ""}${replaced}${decision.applicability && decision.applicability !== "retained" ? ` · ${decision.applicability}` : ""}`.replace(/^ · /, "")}
         by={verb}
         selected={selected === block.node}
         onClick={() => onSelect(block.node)}

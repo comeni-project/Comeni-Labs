@@ -7,6 +7,7 @@ import { makeClient } from "../../app/queryClient";
 import { initialAuthoring } from "./authoringReducer";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingSurface } from "./LivingSurface";
+import { framed } from "./frame";
 
 /** Changing a step that is already on the canvas — Task 14's *preserve swapping and settings*.
  *
@@ -69,9 +70,8 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
   render(
     <QueryClientProvider client={makeClient()}>
       <LivingSurface
-        session={RESTED}
+        session={framed(RESTED, STEPS)}
         graph={graph}
-        steps={STEPS}
         state={{ ...initialAuthoring, snapshot: RESTED, selected }}
         preview={null}
         busy={() => false}

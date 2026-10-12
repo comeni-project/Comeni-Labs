@@ -3,9 +3,9 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { post } from "../../api/client";
-import type { AuthoringBlock, AuthoringSession, Built, DraftGraph, Step } from "../../api/types";
+import type { AuthoringBlock, AuthoringSession, Built, DraftGraph } from "../../api/types";
 import { withNode, withoutNode, withParam } from "../graphOps";
-import { authoringReducer, initialAuthoring, visibleGraph } from "./authoringReducer";
+import { authoringReducer, initialAuthoring } from "./authoringReducer";
 import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
 import { RunSheet } from "../RunSheet";
@@ -14,11 +14,14 @@ import { withTypedValues } from "../useBuilder";
 import { useGate } from "../useGate";
 import { useKeep } from "../useKeep";
 import { useRun } from "../useRun";
+import { framed } from "./frame";
 import { LivingSurface } from "./LivingSurface";
 import { lastSeen, markSeen, revealPlan } from "./replay";
 import { useAuthoringSession } from "./useAuthoringSession";
 
 type ChangeBlock = Extract<AuthoringBlock, { kind: "change_set" }>;
+
+const EMPTY_GRAPH: DraftGraph = { nodes: [], edges: [] };
 
 /** `/build/living` — a secondary route while `/build` stays exactly as it is.
  *
@@ -55,12 +58,19 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId, {
     onFork: id => navigate(`/build/living?session=${encodeURIComponent(id)}`),
   });
-  const drawn = useDrawn(living.graph, living.session);
+  const [sheet, setSheet] = useState(false);
+  // **The run sheet reads the saved draft**, never the frame's preview metadata, and is asked
+  // only when it opens: the canvas itself never calls the draw endpoint.
+  const saved = living.session?.graph ?? EMPTY_GRAPH;
+  const sheetView = useQuery({
+    queryKey: ["living-run-sheet", living.session?.id, living.session?.revision],
+    queryFn: () => post<Built>("/pipeline/draw", saved),
+    enabled: sheet && saved.nodes.length > 0,
+  });
   const reveal = useFirstArrival(sessionId, living.session);
   // **The session's own draft**, so Keep neither creates a second one nor re-saves the graph.
-  const keeper = useKeep(living.graph, living.session ? { draftId: living.session.draft_id } : null);
+  const keeper = useKeep(saved, living.session ? { draftId: living.session.draft_id } : null);
   const gate = useGate(living.session?.draft_id ?? null);
-  const [sheet, setSheet] = useState(false);
   const runner = useRun({
     keep: keeper.keepAsync,
     lint: () => gate.start("lint"),
@@ -79,13 +89,11 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const graph = living.graph;
+  const graph = saved;
   return (
     <LivingSurface
       session={living.session}
       graph={graph}
-      steps={drawn.steps}
-      channels={drawn.channels}
       onPlayed={living.consumed}
       reveal={reveal}
       run={{
@@ -94,13 +102,13 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
         stage: runner.stage,
         error: runner.error ?? keeper.error,
         kept: keeper.keptAt !== null,
-        sheet: sheet && drawn.built ? (
+        sheet: sheet && sheetView.data ? (
           <RunSheet
             name={living.session.name || "this pipeline"}
             // **Open human decisions come first on the sheet** — it counts what nobody answered
             // before it asks where the data is, which is the order Build's Run has always had.
-            steps={drawn.built.steps.map((step) => withTypedValues(step, graph))}
-            sources={entryChannels(drawn.built)}
+            steps={sheetView.data.steps.map((step) => withTypedValues(step, graph))}
+            sources={entryChannels(sheetView.data)}
             draftId={living.session.draft_id}
             blocked={keeper.blocked}
             gated={gate.passed}
@@ -166,30 +174,8 @@ export function useFirstArrival(sessionId: string, session: AuthoringSession | n
   return plan.current ?? {};
 }
 
-/** Ports and tiers for what is on the canvas, from the server's drawn view of it.
- *
- * **Asked once per revision, never per frame.** The ghost is included so the step on offer shows
- * its real ports before it is accepted.
- */
-function useDrawn(graph: DraftGraph, session: AuthoringSession | null) {
-  const pending = session?.pending_proposal;
-  const withGhost =
-    pending?.block.kind === "step_proposal"
-      ? withNode(graph, { id: pending.block.node, contract_id: pending.block.contract, params: [] })
-      : graph;
-  const drawn = useQuery({
-    queryKey: ["living-draw", session?.id, session?.revision, pending?.id],
-    queryFn: () => post<Built>("/pipeline/draw", withGhost),
-    enabled: withGhost.nodes.length > 0,
-  });
-  return {
-    steps: Object.fromEntries((drawn.data?.steps ?? []).map((step) => [step.id, step])) as Record<string, Step>,
-    channels: drawn.data?.channels ?? [],
-    built: drawn.data ?? null,
-  };
-}
-
-function FakeLiving({ session = FAKE_SESSION }: { session?: AuthoringSession }) {
+function FakeLiving({ session: given = FAKE_SESSION }: { session?: AuthoringSession }) {
+  const session = framed(given, FAKE_STEPS, FAKE_CHANNELS);
   const [state, dispatch] = useReducer(authoringReducer, {
     ...initialAuthoring,
     snapshot: session,
@@ -197,9 +183,7 @@ function FakeLiving({ session = FAKE_SESSION }: { session?: AuthoringSession }) 
   return (
     <LivingSurface
       session={session}
-      graph={visibleGraph(state)}
-      steps={FAKE_STEPS}
-      channels={FAKE_CHANNELS}
+      graph={session.graph}
       onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={{ revision: session.revision, state: "ready", findings: [],
@@ -235,10 +219,8 @@ export function GuidedLiving() {
 
   return (
     <LivingSurface
-      session={session}
+      session={framed(session, FAKE_STEPS, FAKE_CHANNELS)}
       graph={session.graph}
-      steps={FAKE_STEPS}
-      channels={FAKE_CHANNELS}
       onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={null}
@@ -266,10 +248,8 @@ function CollectLiving() {
   const [state, dispatch] = useReducer(authoringReducer, { ...initialAuthoring, snapshot: COLLECT_SESSION });
   return (
     <LivingSurface
-      session={COLLECT_SESSION}
+      session={framed(COLLECT_SESSION, COLLECT_STEPS, COLLECT_CHANNELS)}
       graph={COLLECT_SESSION.graph}
-      steps={COLLECT_STEPS}
-      channels={COLLECT_CHANNELS}
       onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={null}
