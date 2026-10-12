@@ -90,6 +90,21 @@ describe("the live canvas", () => {
     expect(sources.sort()).toEqual(["living-source-fasta", "living-source-gtf", "living-source-reads"]);
   });
 
+  it("draws no offered step the frame does not include, as for a draft owned by hand", async () => {
+    const frame = live().canvas;
+    open(live({ canvas: { ...frame, proposal_id: null, graph: FAKE_SESSION.graph,
+                          steps: frame.steps.filter((s) => s.id !== "samtools_sort") } }));
+    await screen.findByTestId("living-node-star_align");
+    expect(screen.queryByTestId("living-node-samtools_sort")).toBeNull();
+  });
+
+  it("says a held review in the step's header, keeping its footer to one line", async () => {
+    open(live({ review_applicability: { star_align: "retained" } }));
+    const node = await screen.findByTestId("living-node-star_align");
+    expect(within(node).getByText("REVIEWED")).toBeInTheDocument();
+    expect(within(node).getByText(/settled/)).not.toHaveTextContent("reviewed");
+  });
+
   it("says when the drawn pipeline is outdated, and keeps drawing it", async () => {
     open(live({ canvas: { ...live().canvas, current: false } }));
     await screen.findByTestId("living-node-star_align");

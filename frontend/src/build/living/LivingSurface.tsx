@@ -113,10 +113,12 @@ export function LivingSurface({
   const [browsing, setBrowsing] = useState(false);
 
   const pending = session.pending_proposal;
-  const ghost = pending?.block.kind === "step_proposal" ? pending.block.node : null;
   // **The server's frame, whole**: the visible graph with the step on offer, each step's recorded
-  // metadata, and the channels that really enter. Nothing here re-derives or guesses any of it.
+  // metadata, and the channels that really enter. Nothing here re-derives or guesses any of it —
+  // an offered step is drawn only when the frame says it holds that offer.
   const frame = session.canvas ?? null;
+  const ghost = pending?.block.kind === "step_proposal" && frame?.proposal_id === pending.id
+    ? pending.block.node : null;
   const steps: Record<string, Step> =
     Object.fromEntries((frame?.steps ?? []).map((step) => [step.id, step]));
   const reviews: Record<string, ReviewState> = Object.fromEntries(
@@ -243,7 +245,7 @@ export function LivingSurface({
             reviews={reviews}
             ghost={ghost}
             ghostProposal={pending?.kind === "step" ? pending.id : null}
-            ghostEdges={pending?.edges ?? []}
+            ghostEdges={ghost ? (pending?.edges ?? []) : []}
             channels={frame?.channels ?? []}
             events={state.events}
             onPlayed={onPlayed}

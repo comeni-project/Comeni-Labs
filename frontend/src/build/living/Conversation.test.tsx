@@ -75,6 +75,16 @@ describe("completing a guided pipeline", () => {
     expect(screen.getByTestId("living-status")).toHaveTextContent("complete");
   });
 
+  it("redraws a step from proposed to placed without mixing border shorthands", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    mount(<GuidedLiving />);
+    await user.click(screen.getByTestId("accept-goal"));
+    await user.click(screen.getByTestId("accept-step"));
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/conflicting property/);
+    errors.mockRestore();
+  });
+
   it("names every choice for a screen reader", () => {
     mount(<GuidedLiving />);
     expect(screen.getByRole("button", { name: "That's right" })).toBeInTheDocument();

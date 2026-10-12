@@ -92,7 +92,11 @@ export function LivingNode({
         height: NODE_H,
         background: ghost ? "var(--panel)" : "var(--node)",
         opacity: ghost ? 0.62 : 1,
-        border: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
+        // Three sides and the left bar, never `border` beside `borderLeft`: React cannot redraw a
+        // shorthand next to its own longhand (a ghost becoming placed warned on every accept).
+        borderTop: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
+        borderRight: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
+        borderBottom: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
         borderLeft: `3px ${author === "model" ? "dashed" : "solid"} ${selected ? "var(--link)" : bar}`,
         boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--link) 26%, transparent)" : undefined,
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
@@ -139,11 +143,15 @@ export function LivingNode({
         <span className="font-data text-[11px] font-medium text-ink truncate" data-testid={`node-name-${id}`}>
           {processName(id)}
         </span>
-        {(ghost || reviewState === "proposed") && (
+        {(ghost || reviewState === "proposed") ? (
           <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
             {reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
           </span>
-        )}
+        ) : reviewState === "reviewed" ? (
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-ink-3">REVIEWED</span>
+        ) : reviewState === "again" ? (
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">REVIEW AGAIN</span>
+        ) : null}
       </span>
       {/* **No top padding, measured rather than read.** The artboard's CSS says `padding:5px 0`,
           and its render puts the first row's centre at 306 — the header rule plus half a row.
@@ -168,8 +176,7 @@ export function LivingNode({
           className="h-[24px] flex items-center px-[10px] w-full shrink-0 font-data text-[9px] text-ink-3"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
-          {[runs, settled === undefined ? null : `${settled} settled`,
-            reviewState === "reviewed" ? "reviewed" : null].filter(Boolean).join(" · ")}
+          {[runs, settled === undefined ? null : `${settled} settled`].filter(Boolean).join(" · ")}
         </span>
       )}
     </button>
