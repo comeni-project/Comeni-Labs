@@ -1,6 +1,8 @@
 # Before real users (14.7.8.3d Part H) — design
 
-**Status: awaiting the operator's review of this written spec (2026-10-12).**
+**Status: approved for planning (2026-10-12).**
+Operator: “write the plan”. Decisions commented on
+[276](https://github.com/comeni-project/Comeni-Labs/issues/276#issuecomment-6127927868).
 Each choice below was made by the operator in the brainstorm of 2026-10-12.
 
 Scope: [Part H](https://github.com/comeni-project/Comeni-Labs/issues/292), which is
