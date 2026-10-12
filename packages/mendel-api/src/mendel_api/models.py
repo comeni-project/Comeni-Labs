@@ -869,6 +869,17 @@ class PipelineAuthoringProposal(Base):
 
         return parse(payload, kind=payload.get("offer")).model_dump(mode="json")
 
+    preview_views: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True, deferred=True, deferred_raiseload=True,
+    )
+    """Immutable derived alternatives. Ordinary reads must not load this large column."""
+
+    @validates("preview_views")
+    def _validated_previews(self, _key, value):
+        from mendel_api.authoring.canvas import checked_previews
+
+        return None if value is None else checked_previews(value, self.payload, self.id)
+
     state: Mapped[str] = mapped_column(_one_of(ProposalState, 16, "state"), index=True)
     """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
     chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)

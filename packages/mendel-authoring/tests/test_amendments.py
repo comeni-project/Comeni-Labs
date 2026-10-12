@@ -28,6 +28,22 @@ HISAT2_BP = {
 }
 
 
+def test_alternative_retains_the_same_resolved_blueprint(blueprint_of):
+    before = blueprint_of(STAR_BP, {"star_align": ALIGNMENT})
+    after = blueprint_of(HISAT2_BP)
+    calls = []
+
+    def resolve(goal):
+        calls.append(goal)
+        return after
+
+    options = alternatives_of(before, Goal(), "star_align",
+                              [HISAT2_BP["hisat2_align"]], resolve, (Unroutable,))
+    assert len(options) == 1 and len(calls) == 1
+    assert getattr(options[0], "blueprint", None) == after
+    assert options[0].diff.added == ["hisat2_build", "hisat2_align"]
+
+
 def test_a_swap_names_what_it_adds_and_removes(blueprint_of):
     d = diff_of(blueprint_of(STAR_BP), blueprint_of(HISAT2_BP))
     assert d.added == ["hisat2_build", "hisat2_align"]

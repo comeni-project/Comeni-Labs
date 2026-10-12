@@ -5267,3 +5267,10 @@ Task suites and the final repository check verify the completed implementations.
 | 2026-10-12 | `FactHistory.test.tsx::discards a slower response for the previous revision` | same component command before fix | RED: new current answer absent → GREEN | older response cannot replace newer selected truth; fixed in `6adf90dd` |
 | 2026-10-12 | `FactHistory.test.tsx::loads the new subject when an expanded history changes identity at the same revision` | same component command before fix | RED: new subject answer absent → GREEN | identity changes invalidate history independently of revision; fixed in `6adf90dd` |
 | 2026-10-12 | `test_decision_migration.py::test_empty_legacy_gathering_can_answer_its_recovered_goal_card[accepted/rejected]` | `uv run pytest packages/mendel-api/tests/test_decision_migration.py -k empty_legacy -q` before fix | 2 failed MI0201 → migration suite 14 passed | final review #304, fixed in `6adf90dd`; stamp actual migrated decision revision |
+
+## Part G — saved alternatives (2026-10-12)
+
+- `test_alternative_retains_the_same_resolved_blueprint`: RED missing retained blueprint; GREEN same candidate result used once.
+- `test_offer_saves_the_complete_alternative`: RED discarded candidate; GREEN real HISAT2 index/align ports and wires.
+- `test_routine_offer_read_cannot_lazy_load_snapshots`: RED no deferred column; GREEN routine read omits it and accidental access raises.
+- `test_snapshot_must_match_its_fixed_offer` (option, contract, context, proposal): all four RED accepted mismatches; GREEN refuses them.

@@ -61,6 +61,7 @@ class StepOffer(_Offer):
     block: StepProposal
     amendments: dict[str, ChooseTool]
     edges: list[DraftEdge]
+    preview_options: list[str] = []
 
     @model_validator(mode="after")
     def _same_step(self) -> Self:
@@ -68,6 +69,8 @@ class StepOffer(_Offer):
             raise ValueError("the offered node must equal the step card's node")
         if not set(self.amendments) <= set(self.options):
             raise ValueError("amendments must name offered options")
+        if not set(self.preview_options) <= set(self.amendments):
+            raise ValueError("previews must name offered alternatives")
         for option, amendment in self.amendments.items():
             if self.options[option] != amendment.pin.contract:
                 raise ValueError("an amendment must select its offered contract")

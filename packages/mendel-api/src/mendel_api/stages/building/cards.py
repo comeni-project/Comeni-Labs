@@ -15,9 +15,10 @@ from mendel_authoring.plan import BuildPlan, PlannedStep, plan_of
 from mendel_resolver.router import UnroutableError
 
 from mendel_api.authoring import envelopes
+from mendel_api.authoring.canvas import AlternativePreview
 from mendel_api.authoring.types import Option, ProposalState, StepProposal
 from mendel_api.models import PipelineAuthoringProposal, PipelineDraft
-from mendel_api.services import authoring_decisions, declared, registry
+from mendel_api.services import authoring_canvas, authoring_decisions, declared, registry
 from mendel_api.services import blueprint as bp
 from mendel_api.stages import _rows
 
@@ -42,11 +43,13 @@ def step_payload(
     goal: Goal,
     present: frozenset[str],
     stop: Stop,
+    *,
+    found=None,
 ) -> dict:
     """The stored payload offering one step. `edges` are the wires keeping it adds between it and
     the steps already in the draft, so the browser can draw it at once."""
     step = blueprint.step(planned.node)
-    found = alternatives_of(
+    found = found if found is not None else alternatives_of(
         blueprint, goal, planned.node, bp.candidates(blueprint, planned.node), _resolved,
         (UnroutableError,),
     )
@@ -99,15 +102,29 @@ def offer(db, row, blueprint: bp.Blueprint, plan: BuildPlan, node: str, stop: St
     present = frozenset(n.id for n in DraftGraph.model_validate(draft.graph).nodes)
     planned = next(p for p in plan.steps if p.node == node)
     proposal_id = _rows.new_id()
+    goal = authoring_decisions.goal(row)
+    found = alternatives_of(blueprint, goal, node, bp.candidates(blueprint, node),
+                            _resolved, (UnroutableError,))
+    payload = envelopes.prepare(
+        step_payload(blueprint, planned, goal, present, stop, found=found),
+        kind=STEP, draft=draft, session=row)
+    context = envelopes.OfferContext.model_validate(payload["context"])
+    previews = {
+        alt.id: AlternativePreview(
+            option_id=alt.id, contract=alt.contract, observed_context=context,
+            frame=authoring_canvas.preview_frames(alt.blueprint, context, proposal_id,
+                                                 registry.stack()),
+        ).model_dump(mode="json") for alt in found if alt.blueprint is not None
+    }
+    payload["preview_options"] = list(previews)
     db.add(
         PipelineAuthoringProposal(
             id=proposal_id,
             session_id=row.id,
             turn_id=None,
             kind=STEP,
-            payload=envelopes.prepare(
-                step_payload(blueprint, planned, authoring_decisions.goal(row), present, stop),
-                kind=STEP, draft=draft, session=row),
+            payload=payload,
+            preview_views=previews,
             state=ProposalState.PENDING.value,
             chosen_option=None,
             by=None,

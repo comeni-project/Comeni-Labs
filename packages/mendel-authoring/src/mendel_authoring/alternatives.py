@@ -25,6 +25,7 @@ class Alternative(BaseModel):
     contract: str
     amendment: ChooseTool
     diff: BlueprintDiff | None = None
+    blueprint: Blueprint | None = None
     refused: str | None = None
     """Why it cannot be built from this goal — shown, never offered."""
 
@@ -47,7 +48,8 @@ def alternatives_of(
     for contract in (c for c in candidates if c != chosen):
         amendment = ChooseTool(pin=ProducerPin(site=site, contract=contract))
         try:
-            diff = diff_of(blueprint, resolve(amendment.apply(goal)))
+            resolved = resolve(amendment.apply(goal))
+            diff = diff_of(blueprint, resolved)
         except refusals as refused:
             found.append(
                 Alternative(
@@ -59,7 +61,8 @@ def alternatives_of(
         if not diff.empty:
             found.append(
                 Alternative(
-                    id=f"alt_{len(found) + 1}", contract=contract, amendment=amendment, diff=diff
+                    id=f"alt_{len(found) + 1}", contract=contract, amendment=amendment,
+                    diff=diff, blueprint=resolved,
                 )
             )
     return found

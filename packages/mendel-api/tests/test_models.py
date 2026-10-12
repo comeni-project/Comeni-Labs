@@ -290,6 +290,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
         "pipeline_authoring_proposal": {
             "id", "session_id", "turn_id", "kind", "payload", "state", "chosen_option",
             "by", "actor_kind", "draft_revision", "created_at", "settled_at",
+            # Part G: typed, deferred derived views; no files, containers or sample data.
+            "preview_views",
         },
     }
     tables = {t.__tablename__: t for t in vars(m).values() if hasattr(t, "__tablename__")}

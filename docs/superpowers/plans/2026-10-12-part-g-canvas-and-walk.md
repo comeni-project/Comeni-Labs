@@ -192,7 +192,7 @@ Store `dict[str, AlternativePreview]` serialized in `proposal.preview_views`.
 For a saved snapshot set `observed_context` to the offer context; the GET returns
 a new response wrapper with the context it checked, leaving stored JSON intact.
 
-- [ ] Add a pure guard proving one candidate resolve call produces both its diff
+- [x] Add a pure guard proving one candidate resolve call produces both its diff
   and retained blueprint; add the refusing/inert candidate cases:
 
 ```python
@@ -214,9 +214,9 @@ Use existing `STAR_BP`, `HISAT2_BP`, `ALIGNMENT`, `Unroutable` fixtures/constant
 `test_amendments.py`. Add database guards for null old rows, typed map/context
 validation and routine ORM reads omitting the column. Watch the missing snapshot
 behavior fail before adding the implementation.
-- [ ] Run the focused test and record its exact assertion failure in the ledger;
+- [x] Run the focused test and record its exact assertion failure in the ledger;
   do not count an import error as the defect's RED.
-- [ ] Retain the candidate once and construct its full frame from the actual
+- [x] Retain the candidate once and construct its full frame from the actual
   resolved result. Wire snapshot creation into `cards.offer`, generating the
   proposal id/context before constructing snapshots. Preserve existing options,
   amendments and offered wires; no additional resolver pass.
@@ -238,7 +238,7 @@ op.add_column("pipeline_authoring_proposal", sa.Column("preview_views", sa.JSON(
 Validate map keys, option/contract/context consistency before the existing offer
 write. Exclude refused alternatives. Migration downgrade follows the repository's
 restore-backup convention; do not discard retained view history implicitly.
-- [ ] Upgrade only the throwaway test database; run focused guards and migration
+- [x] Upgrade only the throwaway test database; run focused guards and migration
   parity. Test an older null snapshot row and compile default proposal SELECT to
   assert `preview_views` is absent. Confirm ordinary attribute access raises rather
   than lazy-loading. Record GREEN and commit citing #265/#291.
