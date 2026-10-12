@@ -32,7 +32,6 @@ export function LivingNode({
   ghost = false,
   selected = false,
   onSelect,
-  instead = null,
   runs,
   perItem = false,
   className,
@@ -55,10 +54,6 @@ export function LivingNode({
   ghost?: boolean;
   selected?: boolean;
   onSelect?: () => void;
-  /** **One slot, one box**: an alternative being previewed replaces the ghost's name and says
-   *  `INSTEAD`. The design record's operator finding — a substitution drawn as a second node reads
-   *  as a pipeline that gained a module. */
-  instead?: string | null;
   /** `runs 12×` or `runs once` — the server's `StepView.runs`, said in the footer. */
   runs?: string;
   /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
@@ -142,11 +137,11 @@ export function LivingNode({
         style={{ height: HEAD_H, borderBottom: `1px solid ${ghost ? "var(--line-soft)" : "var(--node-rule)"}` }}
       >
         <span className="font-data text-[11px] font-medium text-ink truncate" data-testid={`node-name-${id}`}>
-          {instead ?? processName(id)}
+          {processName(id)}
         </span>
-        {ghost && (
+        {(ghost || reviewState === "proposed") && (
           <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
-            {instead ? "INSTEAD" : reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
+            {reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
           </span>
         )}
       </span>

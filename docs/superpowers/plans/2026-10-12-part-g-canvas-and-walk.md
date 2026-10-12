@@ -533,11 +533,11 @@ error and explicit `retry()`. Step-card callback is
 `["alternative-preview", session.id, proposal.id, option, draftRevision,
 decisionRevision, sessionVersion, registry]`.
 
-- [ ] Write request-count guards: first activation fetches once; repeated hover,
+- [x] Write request-count guards: first activation fetches once; repeated hover,
   focus, pin and reopen of the same context do not fetch again. Test a failed read,
   close/reopen, then deliberate Retry; test delayed option A after selecting B and
   delayed result after a context change. Watch RED before wiring the hook.
-- [ ] Implement the context-bound query and deliberately disable automatic triggers:
+- [x] Implement the context-bound query and deliberately disable automatic triggers:
 
 ```tsx
 useQuery({
@@ -562,20 +562,20 @@ or context changes. Explicit Retry uses `refetch` on the
 same key. Remove cache entries for superseded proposals and session unmount so
 `gcTime: Infinity` cannot accumulate old-session snapshots indefinitely. Multiple
 events requesting the same key share the QueryClient request.
-- [ ] Keep the current build canvas mounted but hidden/inert during a successful
+- [x] Keep the current build canvas mounted but hidden/inert during a successful
   preview, preserving its viewport/drag positions/selection. Mount a separate
   read-only preview canvas with real node ids and all nodes marked proposed;
   disable drag/edit tools and do not pass committed animation events. Add banner,
   Close/Escape and touch toggle; restore focus to its explicit trigger on close.
   Temporary hover/focus cannot clear an existing pinned selection.
-- [ ] Render loading/error beside the still-visible build; old unavailable/refused
+- [x] Render loading/error beside the still-visible build; old unavailable/refused
   options cannot fetch or apply. Disable Keep/Run while a full preview is shown;
   the original card's **Change it** still uses its checked offer. Clear selection
   on proposal/context/session change, including transition to no pending proposal.
   Reject late snapshots unless `observed_context` exactly matches the active cache
   key/context; the immutable frame's original offer version is not the current
   session-version check. Never change the saved frame in the cache to make it match.
-- [ ] Prove mouse/keyboard/touch behavior, pinned-preview mixed events, Escape focus,
+- [x] Prove mouse/keyboard/touch behavior, pinned-preview mixed events, Escape focus,
   viewport restoration, preview edit/run prohibition, acceptance, stale-projection
   warning and retry counts through integration guards. Run focused Vitest and
   TypeScript, inspect wide/narrow screenshots and console, record GREEN and commit
@@ -670,3 +670,10 @@ nothing. `?fake=1` and `?fake=collect` screenshotted headless at 1400×900 and v
 SAMTOOLS_SORT ghost with one dashed wire, three true inputs, *Step 4 of 5*, *3 of 5 steps reviewed*;
 the collection fixture had inherited the static session's progress and was given its own (4 of 4).
 The run sheet asks `/pipeline/draw` for the saved draft only when it opens.
+
+**Task 8 (2026-10-12).** 6 hook guards RED (no module) → GREEN; 9 surface guards GREEN, each
+key behaviour mutation-checked RED (pin survives hover, error disables re-read until Retry,
+read-only drag). Run is already disabled by phase whenever an offer is pending, so `!showing` is
+defensive and unguarded. Frontend 705 passed, `tsc -b`, oxlint clean for changed files. Pinned
+preview screenshotted over CDP at 1400×900 and 900×1100: whole SORMADUP pipeline, every step
+*PROPOSED*, banner with Close, build hidden; no console errors.

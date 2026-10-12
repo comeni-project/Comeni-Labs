@@ -6,7 +6,7 @@ import { post } from "../../api/client";
 import type { AuthoringBlock, AuthoringSession, Built, DraftGraph } from "../../api/types";
 import { withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring } from "./authoringReducer";
-import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY } from "./fake";
+import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY, readFakePreview } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
 import { RunSheet } from "../RunSheet";
 import { entryChannels } from "../Sources";
@@ -184,6 +184,7 @@ function FakeLiving({ session: given = FAKE_SESSION }: { session?: AuthoringSess
     <LivingSurface
       session={session}
       graph={session.graph}
+      readPreview={readFakePreview(session)}
       onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={{ revision: session.revision, state: "ready", findings: [],
@@ -212,6 +213,7 @@ export function GuidedLiving() {
   const [session, setSession] = useState<AuthoringSession>(guidedStart);
   const [state, dispatch] = useReducer(authoringReducer, { ...initialAuthoring, snapshot: session });
 
+  const guided = framed(session, FAKE_STEPS, FAKE_CHANNELS);
   const advance = (next: AuthoringSession) => {
     setSession(next);
     dispatch({ type: "snapshot", session: next });
@@ -219,8 +221,9 @@ export function GuidedLiving() {
 
   return (
     <LivingSurface
-      session={framed(session, FAKE_STEPS, FAKE_CHANNELS)}
+      session={guided}
       graph={session.graph}
+      readPreview={readFakePreview(guided)}
       onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
       state={state}
       preview={null}

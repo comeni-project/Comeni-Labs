@@ -44,6 +44,7 @@ export function DecisionLog({
   onAccept,
   onReject,
   onPreview,
+  pinnedPreview = null,
   onSelect,
   onRetry,
   onUpload,
@@ -64,7 +65,9 @@ export function DecisionLog({
     proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: string | number,
   ) => void;
   onReject: (proposal: AuthoringProposal) => void;
-  onPreview: (option: string | null) => void;
+  onPreview: (option: string | null, mode: "temporary" | "pinned") => void;
+  /** The alternative whose complete preview is pinned on the canvas now. */
+  pinnedPreview?: string | null;
   onSelect: (node: string | null) => void;
   onRetry: () => void;
   onUpload?: (proposal: AuthoringProposal, files: File[]) => Promise<SampleInspected>;
@@ -181,6 +184,8 @@ export function DecisionLog({
               busy={busy(pending.id)}
               onAccept={(option, value) => onAccept(pending, option, undefined, value)}
               onPreview={onPreview}
+              pinned={pinnedPreview}
+              previewable={(pending.envelope as { preview_options?: string[] } | undefined)?.preview_options ?? []}
               onExplain={() =>
                 onSay(`Why is ${pending.block.kind === "step_proposal" ? pending.block.node : "this step"} here?`)}
               onSelect={() => onSelect(pending.block.kind === "step_proposal" ? pending.block.node : null)}

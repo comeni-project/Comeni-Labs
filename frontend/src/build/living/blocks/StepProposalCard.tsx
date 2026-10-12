@@ -20,6 +20,8 @@ export function StepProposalCard({
   busy,
   onAccept,
   onPreview,
+  pinned = null,
+  previewable = [],
   onExplain,
   onSelect,
   onCorrectAnswers,
@@ -33,7 +35,13 @@ export function StepProposalCard({
   busy: boolean;
   /** `keep` (*Continue*), an alternative's id, or `fact_<measurement>` with the typed value. */
   onAccept: (option: string, value?: string | number) => void;
-  onPreview: (option: string | null) => void;
+  /** Hover and focus look at an option for a moment; **Preview** pins it until pressed again,
+   *  closed, or Escape. A moment's look never clears a pinned one. */
+  onPreview: (option: string | null, mode: "temporary" | "pinned") => void;
+  /** The option whose complete preview is pinned now, from the page that shows it. */
+  pinned?: string | null;
+  /** Alternatives with a saved complete preview; only these can be pinned. */
+  previewable?: string[];
   /** Ask why this step is here — a real turn to the model, not a canned sentence. */
   onExplain: () => void;
   /** Focus this step on the canvas — selecting a card highlights its object. */
@@ -43,15 +51,8 @@ export function StepProposalCard({
   const group = useId();
   const [chosen, setChosen] = useState("keep");
   const [told, setTold] = useState("");
-  const [previewing, setPreviewing] = useState<string | null>(null);
   if (block.kind !== "step_proposal") return null;
 
-  /** Touch has no hover, so a preview is an explicit press — and pressing it again clears it. */
-  const togglePreview = (option: string) => {
-    const next = previewing === option ? null : option;
-    setPreviewing(next);
-    onPreview(next);
-  };
 
   // **Only what the card offered can be sent** (spec §14.5): an alternative that cannot be built
   // from this goal is shown, with why, and is not a choice.
@@ -130,8 +131,8 @@ export function StepProposalCard({
             <label
               key={option.id}
               data-testid={`option-${option.id}`}
-              onMouseEnter={() => onPreview(option.id)}
-              onMouseLeave={() => onPreview(null)}
+              onMouseEnter={() => onPreview(option.id, "temporary")}
+              onMouseLeave={() => onPreview(null, "temporary")}
               className="flex items-start gap-[9px] px-[10px] py-2 mb-[6px] border cursor-pointer
                          focus-within:shadow-[0_0_0_1px_color-mix(in_oklab,var(--link)_30%,transparent)]"
               style={{
@@ -147,8 +148,8 @@ export function StepProposalCard({
                 value={option.id}
                 checked={picked}
                 onChange={() => setChosen(option.id)}
-                onFocus={() => onPreview(option.id)}
-                onBlur={() => onPreview(null)}
+                onFocus={() => onPreview(option.id, "temporary")}
+                onBlur={() => onPreview(null, "temporary")}
                 className="sr-only"
               />
               <span
@@ -171,19 +172,19 @@ export function StepProposalCard({
                   <span className="block mt-1 text-[12px] text-ink-2">{option.note}</span>
                 )}
               </span>
-              {option.id !== "keep" && !option.id.startsWith(FACT) && (
+              {previewable.includes(option.id) && (
                 <button
                   type="button"
                   data-testid={`preview-${option.id}`}
-                  aria-pressed={previewing === option.id}
+                  aria-pressed={pinned === option.id}
                   aria-label={`preview ${option.label} on the canvas`}
                   onClick={(e) => {
                     e.preventDefault();
-                    togglePreview(option.id);
+                    onPreview(option.id, "pinned");
                   }}
                   className="shrink-0 self-center font-data text-[10px] px-2 py-[2px] bg-transparent
                              text-ink-2 border cursor-pointer focus-visible:shadow-[var(--ring)]"
-                  style={{ borderColor: previewing === option.id ? "var(--link)" : "var(--line-2)" }}
+                  style={{ borderColor: pinned === option.id ? "var(--link)" : "var(--line-2)" }}
                 >
                   Preview
                 </button>

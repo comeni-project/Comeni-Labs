@@ -99,6 +99,7 @@ export function guidedDecide(
                 active: { position: index + 1, total: STEPS.length, again: false } },
     pending_proposal: {
       id: `p-${next.node}`, kind: "step", draft_revision: revision,
+      envelope: { offer: "step", preview_options: next.node === "samtools_sort" ? ["alt_1"] : [] },
       options: ["keep", ...next.alternatives.map((option) => option.id)],
       edges: (WIRES[next.node] ?? []).filter((w) => present.has(w.from_node) && present.has(w.to_node)),
       block: next,

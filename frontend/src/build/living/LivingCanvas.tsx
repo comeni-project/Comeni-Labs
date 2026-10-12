@@ -36,7 +36,7 @@ export function LivingCanvas({
   selected,
   onSelect,
   footer,
-  instead = null,
+  readOnly = false,
   events = [],
   onPlayed = () => undefined,
   reveal = {},
@@ -58,8 +58,8 @@ export function LivingCanvas({
   selected: string | null;
   onSelect: (node: string | null) => void;
   footer?: React.ReactNode;
-  /** An alternative being previewed for the ghost's slot — drawn *in* the slot, never beside it. */
-  instead?: string | null;
+  /** A complete preview: nothing here can be moved, selected or changed. */
+  readOnly?: boolean;
   events?: MotionEvent[];
   onPlayed?: (event: MotionEvent) => void;
   /** Spawn's first-arrival reveal: a delay per step, in ms. Empty on reload. */
@@ -254,15 +254,15 @@ export function LivingCanvas({
             runs={steps[id] ? runs : undefined}
             perItem={steps[id]?.runs === "per_item"}
             ghost={isGhost}
-            instead={isGhost ? instead : null}
             selected={selected === id}
             className={id in reveal ? "living-reveal" : played?.className}
             delay={reveal[id]}
             onAnimationEnd={played ? () => onPlayed(played.event) : undefined}
             onSelect={() => {
-              if (!drag.current?.travelled) onSelect(id);
+              if (!readOnly && !drag.current?.travelled) onSelect(id);
             }}
             onPointerDown={(e) => {
+              if (readOnly) return;
               drag.current = { id, from: { x: e.clientX, y: e.clientY }, origin: at[id], travelled: false };
               (e.target as Element).setPointerCapture?.(e.pointerId);
             }}

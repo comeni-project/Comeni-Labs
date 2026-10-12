@@ -1,4 +1,5 @@
 import type { AuthoringSession, Step } from "../../api/types";
+import type { AlternativePreview } from "./useAlternativePreview";
 
 /** A static session carrying **every block state** — Task 9's checkpoint, before any API.
  *
@@ -119,6 +120,7 @@ export const FAKE_SESSION = {
   pending_proposal: {
     id: "p-sort",
     kind: "step",
+    envelope: { offer: "step", preview_options: ["alt_1"] },
     draft_revision: 4,
     options: ["alt_1", "keep"],
     edges: [{ from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam" }],
@@ -247,3 +249,42 @@ export const CONFLICT_SESSION = {
         { id: "correct", recommended: false, label: "Use another answer" }, { id: "unknown", recommended: false, label: "Return to unknown" } ] },
   },
 } as AuthoringSession;
+
+const SORMADUP = "nf-core/samtools/sormadup@1.21.0";
+
+/** The sorter's one alternative as its **complete saved preview**: the whole pipeline it gives,
+ *  read the way a live session reads one, so the fixtures exercise the same preview canvas. */
+export function fakePreview(session: AuthoringSession, option: string): AlternativePreview {
+  const context = session.canvas?.context ?? { draft_revision: session.revision, decision_revision: 0,
+                                               session_version: session.row_version ?? 0, registry: "fixture" };
+  const kept = ["star_genomegenerate", "trimgalore", "star_align"];
+  return {
+    option_id: option,
+    contract: SORMADUP,
+    observed_context: context,
+    frame: {
+      context, proposal_id: session.pending_proposal?.id ?? null, current: true,
+      graph: {
+        nodes: [...kept.map((id) => ({ id, contract_id: FAKE_STEPS[id].contract_id, params: [] })),
+                { id: "samtools_sormadup", contract_id: SORMADUP, params: [] }],
+        edges: [
+          { from_node: "trimgalore", from_port: "reads", to_node: "star_align", to_port: "reads" },
+          { from_node: "star_genomegenerate", from_port: "index", to_node: "star_align", to_port: "index" },
+          { from_node: "star_align", from_port: "bam", to_node: "samtools_sormadup", to_port: "bam" },
+        ],
+      },
+      steps: [...kept.map((id) => FAKE_STEPS[id]),
+        { id: "samtools_sormadup", process: "SAMTOOLS_SORMADUP", contract_id: SORMADUP, tier: 2,
+          runs: "per_item", reason: "", settings: [],
+          ports: [port("bam", "alignment.bam", "in"),
+                  port("bam", "alignment.bam", "out", ["coordinate_sorted", "duplicates_marked"])] },
+      ] as unknown as AlternativePreview["frame"]["steps"],
+      channels: FAKE_CHANNELS,
+      placement: { ...FAKE_SESSION.placement, samtools_sormadup: FAKE_SESSION.placement.samtools_sort },
+    },
+  };
+}
+
+/** A fixture's preview reader: the option is the path's last segment, before its query. */
+export const readFakePreview = (session: AuthoringSession) => (path: string) =>
+  Promise.resolve(fakePreview(session, path.split("?")[0].split("/").pop() ?? ""));

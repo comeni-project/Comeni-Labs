@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   AuthoringBlock,
@@ -25,6 +25,7 @@ import { LivingCanvas } from "./LivingCanvas";
 import { LivingHeader } from "./LivingHeader";
 import type { ReviewState } from "./LivingNode";
 import type { Positions } from "../geometry";
+import { useAlternativePreview, type PreviewSelection, type ReadPreview } from "./useAlternativePreview";
 
 /** The living builder's composition: **wires state and callbacks, draws nothing itself.**
  *
@@ -60,6 +61,7 @@ export function LivingSurface({
   onPlayed = () => undefined,
   reveal = {},
   run = null,
+  readPreview,
 }: {
   session: AuthoringSession;
   /** The draft as saved — what an edit changes. The canvas draws the session's frame instead. */
@@ -102,6 +104,8 @@ export function LivingSurface({
     kept: boolean;
     sheet: React.ReactNode;
   } | null;
+  /** How a saved complete preview is read; the endpoint unless a fixture supplies its own. */
+  readPreview?: ReadPreview;
 }) {
   const [factsRequest, setFactsRequest] = useState(0);
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
@@ -129,6 +133,49 @@ export function LivingSurface({
 
   const pendingTurn = session.turns.some((turn) => turn.state === "pending");
 
+  // **A complete preview belongs to one offer in one context.** A selection made against another
+  // proposal or context is no selection, so a change of either clears it without an effect.
+  const offer = pending?.kind === "step" ? pending.id : null;
+  const context = JSON.stringify(frame?.context ?? null);
+  const [picked, setPicked] =
+    useState<{ option: string; pinned: boolean; offer: string | null; context: string } | null>(null);
+  const live = picked && picked.offer === offer && picked.context === context ? picked : null;
+  const selection: PreviewSelection = live ? { option: live.option, pinned: live.pinned } : null;
+  const trigger = useRef<HTMLElement | null>(null);
+  const alternative = useAlternativePreview(session, selection, readPreview);
+  const showing = alternative.preview;
+
+  const onPreview = (option: string | null, mode: "temporary" | "pinned") => {
+    onPreviewOption(option);
+    if (mode === "pinned") {
+      if (option === null || (live?.pinned && live.option === option)) {
+        setPicked(null);
+        return;
+      }
+      trigger.current = document.activeElement as HTMLElement | null;
+      setPicked({ option, pinned: true, offer, context });
+      return;
+    }
+    // A moment's look — hover or focus — never replaces or clears a pinned preview.
+    if (live?.pinned) return;
+    setPicked(option === null ? null : { option, pinned: false, offer, context });
+  };
+  const closePreview = () => {
+    setPicked(null);
+    trigger.current?.focus();
+  };
+  const previewOpen = live !== null;
+  useEffect(() => {
+    if (!previewOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setPicked(null);
+      trigger.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewOpen]);
+
   return (
     <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden" data-testid="living">
       <LivingHeader
@@ -139,10 +186,53 @@ export function LivingSurface({
         running={run ? run.busy : false}
         stage={run?.stage ?? null}
         runError={run?.error ?? null}
-        runnable={run !== null && session.projection_current !== false && !session.retired}
+        runnable={run !== null && session.projection_current !== false && !session.retired && !showing}
       />
       <div className="living min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
+          {(alternative.loading || alternative.error) && (
+            <div role="status" data-testid={alternative.error ? "preview-error" : "preview-loading"}
+                 className="mx-5 mt-3 flex items-baseline gap-3 text-[12px] text-ink-2">
+              {alternative.error
+                ? <>This preview could not be read. {alternative.error.message}
+                    <button type="button" data-testid="preview-retry" onClick={() => void alternative.retry()}
+                            className="bg-transparent border-0 p-0 text-link underline cursor-pointer">
+                      Retry
+                    </button></>
+                : "Reading the saved preview…"}
+            </div>
+          )}
+          {showing && (
+            <div data-testid="alternative-preview" className="relative flex-1 min-h-0 flex flex-col">
+              <div role="status" className="mx-5 mt-3 px-3 py-2 border flex items-baseline gap-3"
+                   style={{ borderColor: "var(--link-line)", background: "var(--paper-2)" }}>
+                <span className="text-[12.5px] text-ink flex-1">
+                  Previewing {showing.contract}: the whole pipeline this choice gives. Nothing
+                  changes until you choose it.
+                </span>
+                <button type="button" data-testid="preview-close" onClick={closePreview}
+                        className="bg-transparent border-0 text-link cursor-pointer text-[11px]">
+                  Close
+                </button>
+              </div>
+              <LivingCanvas
+                readOnly
+                graph={showing.frame.graph}
+                ghost={null}
+                positions={showing.frame.placement as Positions}
+                steps={Object.fromEntries(showing.frame.steps.map((step) => [step.id, step]))}
+                channels={showing.frame.channels}
+                reviews={Object.fromEntries(showing.frame.graph.nodes.map((n) => [n.id, "proposed" as const]))}
+                authors={{}}
+                selected={null}
+                onSelect={() => undefined}
+              />
+            </div>
+          )}
+          {/* **Kept mounted while a preview shows**, so its viewport, moved steps and selection are
+              exactly as they were when the preview closes. */}
+          <div className={showing ? "hidden" : "relative flex-1 min-h-0 flex flex-col"}
+               inert={showing ? true : undefined} data-testid="build-canvas">
           <LivingCanvas
             empty={session.phase === "stopped"
               ? "This analysis stopped before anything was built — see why on the right"
@@ -163,11 +253,6 @@ export function LivingSurface({
             authors={authors}
             selected={state.selected}
             onSelect={onSelect}
-            instead={
-              state.previewed && pending?.block.kind === "step_proposal"
-                ? (pending.block.alternatives.find((o) => o.id === state.previewed)?.label ?? null)
-                : null
-            }
             footer={
               <div className="absolute left-5 bottom-5 flex gap-2">
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
@@ -179,6 +264,7 @@ export function LivingSurface({
               </div>
             }
           />
+          </div>
           {view === "artifact" && (
             <Drawer title="pipeline.yml" onClose={() => setView("canvas")}>
               <div className="flex gap-2 mb-4" role="tablist" aria-label="which pipeline.yml">
@@ -248,7 +334,8 @@ export function LivingSurface({
               busy={busy}
               onAccept={onAccept}
               onReject={onReject}
-              onPreview={onPreviewOption}
+              onPreview={onPreview}
+              pinnedPreview={live?.pinned ? live.option : null}
               onSelect={onSelect}
               onRetry={onRetry}
               onUpload={onUpload}

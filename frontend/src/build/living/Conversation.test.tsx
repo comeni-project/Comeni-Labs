@@ -61,12 +61,15 @@ describe("completing a guided pipeline", () => {
       expect(screen.getByTestId(`living-node-${step}`)).not.toHaveAttribute("data-ghost");
     }
 
-    // The sorter offers an alternative. With no hover, Preview is the way to see it in the slot.
+    // The sorter offers an alternative. With no hover, Preview is the way to see the whole
+    // pipeline it gives; pressing it again gives the build back as it was.
     await tap(screen.getByTestId("preview-alt_1"));
-    expect(screen.getByTestId("node-name-samtools_sort")).toHaveTextContent("SAMTOOLS_SORMADUP");
-    expect(screen.getByTestId("living-node-samtools_sort")).toHaveTextContent("INSTEAD");
+    const preview = await screen.findByTestId("alternative-preview");
+    expect(within(preview).getByTestId("living-node-samtools_sormadup")).toHaveTextContent("PROPOSED");
+    expect(screen.getByTestId("build-canvas")).toHaveClass("hidden");
     await tap(screen.getByTestId("preview-alt_1"));
-    expect(screen.getByTestId("node-name-samtools_sort")).toHaveTextContent("SAMTOOLS_SORT");
+    expect(screen.queryByTestId("alternative-preview")).toBeNull();
+    expect(screen.getByTestId("build-canvas")).not.toHaveClass("hidden");
 
     await tap(screen.getByTestId("accept-step"));
     expect(screen.getByTestId("living-status")).toHaveTextContent("complete");
