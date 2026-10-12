@@ -74,3 +74,29 @@ def test_the_last_sweep_is_served_and_a_cleared_run_says_so(client, session, wor
     last = client.get("/api/wiener/retention/last").json()
     assert last["removed"]["work_succeeded"] == 1
     assert client.get(f"/api/runs/{run.id}").json()["work_cleared"] is True
+
+
+def test_working_files_go_within_minutes_of_the_end(session, work):
+    """Review finding 1: *When the run ends* must not mean *at 04:00 tomorrow*."""
+    just_now = wiener_rows.a_run(session, phase="succeeded", ended_at=NOW - timedelta(minutes=2))
+    young = _ended(session, "failed", 2)
+    (launcher.work_dir(just_now.id) / "work").mkdir(parents=True)
+    removed = retention.clear_ended_work(NOW)
+    assert not (launcher.work_dir(just_now.id) / "work").exists()
+    assert (launcher.work_dir(young.id) / "work").exists()
+    assert removed == {"work_succeeded": 1, "work_failed": 0}
+    rows = session.query(RetentionSweep).all()
+    assert [(r.category, r.removed) for r in rows] == [("work_succeeded", 1)]
+
+
+def test_a_quiet_pass_between_sweeps_writes_nothing(session, work):
+    """Every five minutes, so only a pass that removed something is recorded."""
+    retention.clear_ended_work(NOW)
+    assert session.query(RetentionSweep).all() == []
+
+
+def test_the_worker_clears_ended_work_every_five_minutes():
+    from wiener_api.worker import WorkerSettings
+
+    jobs = {job.coroutine.__name__: job for job in WorkerSettings.cron_jobs}
+    assert jobs["clear_ended_work_job"].minute == set(range(0, 60, 5))

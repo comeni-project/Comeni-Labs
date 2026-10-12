@@ -62,6 +62,26 @@ def sweep(now: datetime) -> dict[str, int]:
     return removed
 
 
+def clear_ended_work(now: datetime) -> dict[str, int]:
+    """The working files whose limit is due, every five minutes (review finding 1): *When the
+    run ends* means minutes after, not the next daily pass. Only a pass that removed something
+    is recorded; the daily `sweep` records its zeros."""
+    removed = {
+        "work_succeeded": _clear_work(now, SUCCEEDED, _limit(catalogue.WORK_SUCCEEDED)),
+        "work_failed": _clear_work(now, STOPPED, _limit(catalogue.WORK_FAILED)),
+    }
+    done = {category: count for category, count in removed.items() if count}
+    if done:
+        with db.session_scope() as session:
+            repository.record_sweep(session, settings.lab_id, now, done)
+    return removed
+
+
+async def clear_ended_work_job(ctx: dict) -> dict[str, int]:
+    """The five-minute entry point. The clock is read here, never inside the function."""
+    return clear_ended_work(datetime.now(UTC))
+
+
 def last() -> LastSweep | None:
     with db.session_scope() as session:
         found = repository.last_sweep(session, settings.lab_id)

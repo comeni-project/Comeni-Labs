@@ -91,8 +91,6 @@ def delete_draft(draft_id: str) -> Deleted:
                                              "then delete the draft"))
         sessions = list(db.scalars(sa.select(PipelineAuthoringSession.id)
                                    .where(PipelineAuthoringSession.draft_id == draft_id)))
-        cleared = (clear_replies(db, AiInvocation.session_id.in_(sessions), "deleted")
-                   if sessions else 0)
         _hand_inherited_evidence_on(db, draft_id)
         rows = 0
         for subject in _SUBJECTS:
@@ -108,6 +106,10 @@ def delete_draft(draft_id: str) -> Deleted:
                                    {"s": sessions}).rowcount
             rows += db.execute(sa.delete(PipelineAuthoringSession)
                                .where(PipelineAuthoringSession.draft_id == draft_id)).rowcount
+        # **After the sessions go, never before** (review finding 2): a reply being written now
+        # either waits on them and finds them gone, or is committed before this reads it.
+        cleared = (clear_replies(db, AiInvocation.session_id.in_(sessions), "deleted")
+                   if sessions else 0)
         rows += db.execute(sa.delete(GateRun).where(GateRun.draft_id == draft_id)).rowcount
         db.execute(sa.update(PipelineDraft).where(PipelineDraft.forked_from == draft_id).values(
             forked_from=None, fork_key=None, fork_sequence=None, fork_at=None))

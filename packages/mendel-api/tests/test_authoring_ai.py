@@ -456,20 +456,33 @@ def test_the_two_calls_are_told_apart_by_purpose_under_one_agent(stack, clean_fo
 # ── what a call row keeps (14.7.4, #182 #191) ─────────────────────────────────────────────
 
 
+def _session() -> str:
+    """A session that exists: a reply for one that does not is stored cleared (Part H), which
+    is what a draft deleted mid-call looks like."""
+    from comeni_core.plan.draft import DraftGraph
+    from mendel_api.services import drafts
+    from mendel_api.services import session as facade
+    from mendel_authoring import commands
+
+    return facade.perform(commands.OpenSession(drafts.create(DraftGraph(), "t", "ana"),
+                                               "ana")).result
+
+
 def test_a_call_stores_its_reply_and_its_session(stack, clean_forge):
+    sid = _session()
     ai.understand(
         ai.compose(prompt="count genes"), stack=stack, client=_client(_goal_answer()),
-        session_id="s" * 32,
+        session_id=sid,
     )
     row = _rows()[0]
     assert row.response == _goal_answer()
-    assert row.session_id == "s" * 32
+    assert row.session_id == sid
 
 
 def test_a_refused_call_keeps_the_reply_that_was_refused(stack, clean_forge):
     ai.understand(
         ai.compose(prompt="count genes"), stack=stack,
-        client=_client(_goal_answer(want=["rnaseq.counts"])), session_id="s" * 32,
+        client=_client(_goal_answer(want=["rnaseq.counts"])), session_id=_session(),
     )
     row = _rows()[0]
     assert row.state == "refused" and "rnaseq.counts" in row.response

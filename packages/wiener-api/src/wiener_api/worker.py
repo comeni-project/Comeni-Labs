@@ -14,16 +14,21 @@ from wiener_core.policy import IntentKind, Policy, Reason, decide
 from wiener_core.state import RunPhase
 
 from wiener_api import db, main, repository
-from wiener_api.services import retention, stream
+from wiener_api.services import launcher, retention, stream
 from wiener_api.services.launcher import launch
 from wiener_api.services.projection import beat
 from wiener_api.settings import settings
 
 
-async def launch_job(ctx: dict, run_id: str) -> str:
+async def launch_job(ctx: dict, run_id: str, params: dict | None = None) -> str:
     """The run id only. Its parameters wait in its own directory (`launcher.params_path`), never
     in a table (invariant 15) and no longer in this job, so a Redis that loses the job loses a
-    delay, not the run (#273)."""
+    delay, not the run (#273).
+
+    `params` is accepted for a job queued before that change: they are written where the
+    launcher reads them, unless the run already has its file."""
+    if params and not launcher.params_path(run_id).exists():
+        launcher.write_params(run_id, params)
     launch(run_id)
     return run_id
 
@@ -120,5 +125,7 @@ class WorkerSettings:
         cron(heartbeat_job, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
         # Part H: once a day, what is past its retention limit.
         cron(retention.retention_sweep, hour=4, minute=0),
+        # A run's working files whose limit is due, within five minutes of it ending.
+        cron(retention.clear_ended_work_job, minute=set(range(0, 60, 5))),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)

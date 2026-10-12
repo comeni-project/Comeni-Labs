@@ -13,10 +13,15 @@ import pathlib
 import shutil
 import socket
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
+
+from comeni_core.diagnostics import coded
+from wiener_core.state import RunPhase
 
 from wiener_api import db, repository
 from wiener_api.models import Run
+from wiener_api.services.artifacts import declared_holes
 from wiener_api.settings import settings
 
 log = logging.getLogger(__name__)
@@ -221,6 +226,14 @@ def launch(run_id: str) -> bool:
         results_dir(run_id).mkdir(parents=True, exist_ok=True)
         stored = params_path(run_id)
         params = json.loads(stored.read_text()) if stored.exists() else {}
+        if not params and declared_holes(artifact.id):
+            # **Failed, said so, never launched empty** (review finding 3): a declared input
+            # with nothing to fill it would run with every one of them null. An observation
+            # written on the row, as the heartbeat writes `lost`; no event will come.
+            log.error(coded("MW0102", f"run {run_id} has no parameters to launch with"))
+            run.phase = RunPhase.FAILED
+            run.ended_at = datetime.now(UTC)
+            return False
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
         if params:

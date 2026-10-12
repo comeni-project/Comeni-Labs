@@ -3971,3 +3971,17 @@ MI0401:
   explanation: |
     A gate writes into the draft's directory while it runs. Deleting the draft underneath it
     would leave a gate reporting on a pipeline that no longer exists.
+MW0102:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a run had no parameters to launch with, so it was failed rather than started empty"
+  fires_on: [launch]
+  refuses: true
+  fix: |
+    Submit the run again. Its parameters wait in its own directory until it launches; this run's
+    were missing, which happens when the directory was removed by hand or the run was queued by
+    an older version whose job was lost.
+  explanation: |
+    A pipeline started with none of its declared inputs would run with every one of them empty,
+    and fail somewhere deep inside with a message about a missing file. Failing it before it
+    starts says what is actually wrong.

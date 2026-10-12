@@ -8,7 +8,7 @@ genuinely not recoverable from disk is *when a check last ran*, so that is what 
 rather than a drift.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -37,6 +37,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, validates
@@ -726,6 +727,26 @@ class AiInvocation(Base):
             name="agent_purpose",
         ),
     )
+
+
+@event.listens_for(AiInvocation, "before_insert")
+def _no_text_for_a_deleted_session(mapper, connection, target) -> None:
+    """**A reply that lands after its draft was deleted keeps no text** (Part H, review finding
+    2). A model call can be in flight while a person deletes the draft; its row is written when
+    the model answers, after the deletion cleared the rows that existed. `FOR SHARE` makes the
+    two meet in one order: a deletion in progress is waited for, and one that waits on this
+    insert clears it afterwards (`deletion.delete_draft` clears replies after the sessions go).
+    """
+    if target.session_id is None or target.response is None:
+        return
+    alive = connection.execute(
+        text("SELECT 1 FROM pipeline_authoring_session WHERE id = :s FOR SHARE"),
+        {"s": target.session_id},
+    ).first()
+    if alive is None:
+        target.response = None
+        target.response_cleared = ReplyCleared.DELETED.value
+        target.response_cleared_at = datetime.now(UTC)
 
 
 class PipelineAuthoringSession(Base):

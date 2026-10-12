@@ -302,6 +302,7 @@ decline to curate one.
 | `MI0401` | a draft with a gate running cannot be deleted |
 | `MW0100` | a stored run row is in an older shape than this server reads |
 | `MW0101` | a run's parameters could not be written; nothing was queued |
+| `MW0102` | a run had no parameters to launch with, so it was failed rather than started empty |
 
 ## Wiener — what may enter
 

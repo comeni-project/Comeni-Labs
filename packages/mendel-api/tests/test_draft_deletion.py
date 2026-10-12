@@ -118,3 +118,19 @@ def test_a_session_reads_its_cleared_call_as_cleared(g_case):
     calls = session.calls(g_case.session_id)
     cleared = next(c for c in calls if c["id"] == "inv-kept")
     assert cleared["response"] is None and cleared["cleared"] == "retention"
+
+
+def test_a_reply_that_lands_after_its_draft_was_deleted_keeps_no_text(g_case):
+    """Review finding 2: a model call already in flight when the draft goes must not leave the
+    sample's quotes behind; its record is written cleared."""
+    deletion.delete_draft(_draft_of(g_case.session_id))
+    _call(g_case.session_id, "inv-late")
+    with session_scope() as db:
+        late = db.get(AiInvocation, "inv-late")
+        assert late.response is None and late.response_cleared == "deleted"
+
+
+def test_a_reply_for_a_live_session_keeps_its_text(g_case):
+    _call(g_case.session_id, "inv-live")
+    with session_scope() as db:
+        assert db.get(AiInvocation, "inv-live").response == "the sample says R1"

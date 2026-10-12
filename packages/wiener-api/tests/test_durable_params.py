@@ -93,3 +93,38 @@ def test_the_worker_queues_lost_runs_again_when_it_starts(session, monkeypatch, 
 
     asyncio.run(worker.WorkerSettings.on_startup({"redis": Redis()}))
     assert sent == [("launch_job", (queued.id,))]
+
+
+def _declaring(a_run, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "work_root", tmp_path / "work")
+    monkeypatch.setattr(settings, "artifact_root", tmp_path / "artifacts")
+    artifact = settings.artifact_root / a_run.artifact_id
+    artifact.mkdir(parents=True)
+    (artifact / "nextflow.config").write_text("params {\n    input = null\n}\n")
+    spawned = []
+    monkeypatch.setattr(launcher, "_spawn",
+                        lambda argv, cwd: spawned.append(argv) or type("P", (), {"pid": 1})())
+    monkeypatch.setattr(launcher, "process_started_at", lambda pid: None)
+    return spawned
+
+
+def test_a_run_whose_parameters_are_gone_fails_instead_of_launching_empty(a_run, session,
+                                                                           tmp_path, monkeypatch):
+    """Review finding 3: a declared input with nothing to fill it is a failed run, said so."""
+    spawned = _declaring(a_run, tmp_path, monkeypatch)
+    assert launcher.launch(a_run.id) is False
+    assert spawned == []
+    session.expire_all()
+    run = repository.run(session, settings.lab_id, a_run.id)
+    assert run.phase == "failed" and run.ended_at is not None
+
+
+def test_a_job_queued_before_the_upgrade_still_carries_its_parameters(a_run, session, tmp_path,
+                                                                     monkeypatch):
+    """The upgrade window: a job enqueued as `launch_job(run_id, params)` keeps them."""
+    from wiener_api import worker
+
+    spawned = _declaring(a_run, tmp_path, monkeypatch)
+    asyncio.run(worker.launch_job({}, a_run.id, {"input": "/d/sheet.csv"}))
+    assert spawned, "the run did not launch"
+    assert json.loads(launcher.params_path(a_run.id).read_text())["input"] == "/d/sheet.csv"
