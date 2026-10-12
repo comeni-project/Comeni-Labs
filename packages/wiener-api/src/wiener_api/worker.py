@@ -20,11 +20,22 @@ from wiener_api.services.projection import beat
 from wiener_api.settings import settings
 
 
-async def launch_job(ctx: dict, run_id: str, params: dict | None = None) -> str:
-    """The run's parameters travel here rather than in a column — §7.1 forbids the column, and
-    a job argument is transient by nature, which is the right lifetime for run data."""
-    launch(run_id, params)
+async def launch_job(ctx: dict, run_id: str) -> str:
+    """The run id only. Its parameters wait in its own directory (`launcher.params_path`), never
+    in a table (invariant 15) and no longer in this job, so a Redis that loses the job loses a
+    delay, not the run (#273)."""
+    launch(run_id)
     return run_id
+
+
+async def requeue_queued(ctx: dict) -> int:
+    """Every run still `queued` is queued again when the worker starts. Safe because `launch`
+    claims a run before it does anything and skips one already claimed (#273)."""
+    with db.session_scope() as session:
+        ids = [run.id for run in repository.queued(session, settings.lab_id)]
+    for run_id in ids:
+        await ctx["redis"].enqueue_job("launch_job", run_id)
+    return len(ids)
 
 
 async def heartbeat_job(ctx: dict) -> int:
@@ -94,9 +105,14 @@ async def warn_about_the_pairing(ctx: dict) -> None:
         )
 
 
+async def on_startup(ctx: dict) -> None:
+    await warn_about_the_pairing(ctx)
+    await requeue_queued(ctx)
+
+
 class WorkerSettings:
     functions = [launch_job]
-    on_startup = warn_about_the_pairing
+    on_startup = on_startup
     cron_jobs = [
         # Every five minutes. The interval only has to be finer than the coarsest thing that
         # reads it, and §17's `LOST` window is deliberately blunt — it must exceed the slowest

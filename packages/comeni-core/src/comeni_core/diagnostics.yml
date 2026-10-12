@@ -3947,3 +3947,16 @@ MW0100:
     Every Wiener table holding JSON records which shape its rows are in. A row in an older shape
     is refused rather than read, because a run read in the wrong shape would show a history it
     does not have.
+MW0101:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a run's parameters could not be written; nothing was queued"
+  fires_on: [submit]
+  refuses: true
+  fix: |
+    Free space on, or fix permissions of, Wiener's work directory (WIENER_WORK_ROOT), then
+    submit the run again.
+  explanation: |
+    A run's parameters wait in its own directory until it launches, so a queue that loses the
+    job loses a delay rather than the run. A run is never recorded without them: when they
+    cannot be written, the submission is refused whole.

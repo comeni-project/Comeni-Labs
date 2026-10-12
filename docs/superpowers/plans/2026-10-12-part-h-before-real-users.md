@@ -583,7 +583,7 @@ git commit -m "feat: Wiener's JSON is JSONB and records its shape (#276)"
 - Produces: `launcher.params_path(run_id) -> Path`; `launch(run_id: str) -> bool` (no `params`
   argument); `worker.requeue_queued(ctx) -> int`; job `launch_job(ctx, run_id)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """A queued run survives losing Redis: its parameters are on disk in its own directory (#273).
@@ -647,8 +647,8 @@ def test_a_run_whose_job_was_lost_is_queued_again_and_launched_once(session, mon
 The submit fixture's `params` keys must equal the bundle's declared holes; read `a_bundle` in
 `conftest.py` and use its holes.
 
-- [ ] **Step 2: Run to verify failure** — Expected: `AttributeError: … has no attribute 'params_path'`.
-- [ ] **Step 3: Implement**
+- [x] **Step 2: Run to verify failure** — Expected: `AttributeError: … has no attribute 'params_path'`.
+- [x] **Step 3: Implement**
 
 `launcher.py`:
 
@@ -723,12 +723,12 @@ page. Replace the `§7.1` citations in `worker.py` and `launcher.py` with
 `docs/design/invariants.md` invariant 15, and add there one paragraph: *No table holds a run's
 parameters. They are written to the run's own directory at submit and deleted with it.*
 
-- [ ] **Step 4: Run the new tests and `test_launcher.py`** — Expected: PASS. Update
+- [x] **Step 4: Run the new tests and `test_launcher.py`** — Expected: PASS. Update
   `test_launcher.py` call sites that pass `params` to write them with `write_params` first.
-- [ ] **Step 5: Watch each guard fail** — enqueue `body.params` again → the first test fails;
+- [x] **Step 5: Watch each guard fail** — enqueue `body.params` again → the first test fails;
   write the file after the row commits → the second; drop `requeue_queued` from startup → the
   third. Ledger rows.
-- [ ] **Step 6: `make check`, commit**
+- [x] **Step 6: `make check`, commit**
 
 ```bash
 git commit -m "fix: a queued run's parameters wait in its own directory, and a lost job is queued again (#273)"

@@ -27,6 +27,18 @@ def work_dir(run_id: str) -> Path:
     return settings.work_root / run_id
 
 
+def params_path(run_id: str) -> Path:
+    """Where a run's parameters wait for launch: in its own directory, never in a table
+    (invariant 15), so deleting the run deletes them and a lost queue loses none (#273)."""
+    return work_dir(run_id) / "params.json"
+
+
+def write_params(run_id: str, params: dict[str, object]) -> None:
+    path = params_path(run_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(params, indent=2, sort_keys=True))
+
+
 def results_dir(run_id: str) -> Path:
     """Where this run's published outputs land — **a site fact, chosen here.**
 
@@ -150,9 +162,10 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     that launches runs and is allowed to hold run data, which is the whole reason the two are
     separate services.
 
-    **Written into the workdir, never into a table.** `docs/design/wiener.md` §7.1: no table
-    holds a samplesheet. The workdir is transient by nature and is deleted with the run, which
-    is the right lifetime for the one artefact that names a laboratory's files.
+    **Written into the workdir, never into a table** (invariant 15,
+    `docs/design/invariants.md`): no table holds a samplesheet. The workdir is transient by
+    nature and is deleted with the run, which is the right lifetime for the one artefact that
+    names a laboratory's files.
 
     A `str` value is passed through unchanged — that is a path the laboratory already has, and
     a person who wants to point at their own samplesheet still can. The browser's table editor
@@ -173,7 +186,7 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     return written
 
 
-def launch(run_id: str, params: dict[str, object] | None = None) -> bool:
+def launch(run_id: str) -> bool:
     """Copy the artifact somewhere Wiener owns, write the site config, and start Nextflow.
     Answers whether it launched.
 
@@ -206,11 +219,13 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> bool:
         # instead of 404ing, which reads as *no such run* — absence is absence, and the two
         # absences are different facts.
         results_dir(run_id).mkdir(parents=True, exist_ok=True)
+        stored = params_path(run_id)
+        params = json.loads(stored.read_text()) if stored.exists() else {}
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
         if params:
             params = _materialise_tables(params, workdir)
-            (workdir / "params.json").write_text(json.dumps(params, indent=2, sort_keys=True))
+            stored.write_text(json.dumps(params, indent=2, sort_keys=True))
         argv = command(run, workdir=str(workdir), has_params=bool(params))
 
     spawned = _spawn(argv, cwd=workdir)

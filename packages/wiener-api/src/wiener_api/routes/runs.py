@@ -9,6 +9,7 @@ import secrets
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
+from comeni_core.diagnostics import coded
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
 from wiener_core.events import TaskStatus
@@ -46,8 +47,9 @@ class SubmitRequest(BaseModel):
     unknown key and a missing one are both refused, for any pipeline, including one Mendel
     never built.
 
-    **Not stored** — §7.1: no table holds a samplesheet. These ride to the launcher as a job
-    argument, which is transient by nature and the right lifetime for run data.
+    **Not stored in a table** — invariant 15 (`docs/design/invariants.md`). They are written to
+    the run's own `params.json` at submit, so a lost job loses a delay rather than the run, and
+    deleting the run deletes them (#273).
 
     **A value may be a list of rows**, which is a samplesheet composed in the browser: the
     launcher writes it as a CSV into the run's workdir and points the parameter at that file.
@@ -233,7 +235,16 @@ async def submit(body: SubmitRequest) -> RunAccepted:
             submitted_at=datetime.now(UTC), phase="queued", executor=body.executor,
             ingest_secret=secrets.token_hex(16),
         ))
-    await jobs.enqueue("launch_job", run_id, body.params)
+        # **Written before the row commits** (#273): a run never exists without its
+        # parameters, and they live in its own directory rather than in the job, so a Redis
+        # that loses the job loses a delay, not the run.
+        try:
+            launcher.write_params(run_id, body.params)
+        except OSError as exc:
+            raise HTTPException(status_code=507, detail=coded(
+                "MW0101", f"the run's parameters could not be written: {exc.strerror}",
+            )) from exc
+    await jobs.enqueue("launch_job", run_id)
     return RunAccepted(run_id=run_id)
 
 

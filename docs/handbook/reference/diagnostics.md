@@ -300,6 +300,7 @@ decline to curate one.
 |---|---|
 | `MI0400` | a stored row is in an older shape than this server reads |
 | `MW0100` | a stored run row is in an older shape than this server reads |
+| `MW0101` | a run's parameters could not be written; nothing was queued |
 
 ## Wiener — what may enter
 

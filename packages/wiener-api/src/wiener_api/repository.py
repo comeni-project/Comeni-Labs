@@ -295,6 +295,12 @@ def unfinished(session: Session, lab_id: str) -> list[Run]:
     ))
 
 
+def queued(session: Session, lab_id: str) -> list[Run]:
+    """Runs submitted and not yet claimed, oldest first: what a starting worker queues again."""
+    return list(session.scalars(select(Run).where(Run.lab_id == lab_id, Run.phase == "queued")
+                                .order_by(Run.submitted_at)))
+
+
 def artifact(session: Session, lab_id: str, artifact_id: str) -> RunArtifact | None:
     return session.scalar(
         select(RunArtifact).where(RunArtifact.lab_id == lab_id, RunArtifact.id == artifact_id)

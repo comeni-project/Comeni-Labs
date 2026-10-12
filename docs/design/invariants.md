@@ -292,6 +292,11 @@ and `mendel build` re-routes every goal's profile through it. Delete that one ca
 
 `guarded` and `sealed` will hold the invariant (#71).
 
+**No table holds a run's parameters** (Wiener's half of the same boundary). The samplesheet path
+and reference values a laboratory gives at submit are written to the run's own params file,
+in its directory beside its working files, and deleted with it. They are not in a column and no
+longer in the queued job: a queue that loses the job loses a delay, not the run (#273, Part H).
+
 ## The four tiers
 
 Every module choice and parameter exits at exactly one tier and carries it forever.
