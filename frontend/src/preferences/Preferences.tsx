@@ -169,11 +169,11 @@ export function Preferences({
 
 /** What each category is called when counted (Part H). Working files of either outcome are
  *  one thing to a reader: folders that went. */
-const SWEPT: [string[], string][] = [
-  [["work_succeeded", "work_failed"], "working folders"],
-  [["runs"], "runs"],
-  [["model_replies"], "replies"],
-  [["drafts"], "drafts"],
+const SWEPT: [string[], string, string][] = [
+  [["work_succeeded", "work_failed"], "working folder", "working folders"],
+  [["runs"], "run", "runs"],
+  [["model_replies"], "reply", "replies"],
+  [["drafts"], "draft", "drafts"],
 ];
 
 /** *Last cleared 12 Oct: 3 working folders, 41 replies* — the line that says the limits above
@@ -187,8 +187,12 @@ function LastCleared({ served }: { served: Server }) {
     words = "Not run yet.";
   } else {
     const day = new Date(sweep.ran_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-    const parts = SWEPT.map(([keys, noun]) => [keys.reduce((n, k) => n + (sweep.removed[k] ?? 0), 0), noun] as const)
-      .filter(([n]) => n > 0).map(([n, noun]) => `${n} ${noun}`);
+    const parts = SWEPT
+      .map(([keys, one, many]) => {
+        const n = keys.reduce((sum, k) => sum + (sweep.removed[k] ?? 0), 0);
+        return n > 0 ? `${n} ${n === 1 ? one : many}` : null;
+      })
+      .filter(Boolean);
     words = `Last cleared ${day}: ${parts.length ? parts.join(", ") : "nothing was due"}.`;
   }
   return (

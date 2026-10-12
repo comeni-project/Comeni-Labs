@@ -316,6 +316,15 @@ describe("data retention", () => {
     expect(await screen.findByText(/Last cleared 12 Oct: 41 replies/)).toBeTruthy();
   });
 
+  it("says one of a thing in the singular (issue 305)", async () => {
+    const one = vi.fn().mockImplementation((url: string) => Promise.resolve(
+      url === "/api/settings/retention/last"
+        ? ok({ ran_at: "2026-10-12T04:00:00Z", removed: { model_replies: 1, drafts: 1 } })
+        : url === "/api/wiener/settings" ? ok({ sections: [] }) : ok(MENDEL)));
+    at("/page?settings=retention", one);
+    expect(await screen.findByText("Last cleared 12 Oct: 1 reply, 1 draft.")).toBeTruthy();
+  });
+
   it("counts working folders together, and says nothing was due when nothing was", async () => {
     at("/page?settings=retention_runs", both());
     expect(await screen.findByText(/Last cleared 12 Oct: 3 working folders/)).toBeTruthy();
