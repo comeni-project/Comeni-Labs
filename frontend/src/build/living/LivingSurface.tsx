@@ -162,17 +162,23 @@ export function LivingSurface({
     if (live?.pinned) return;
     setPicked(option === null ? null : { option, pinned: false, offer, context });
   };
+  /** Focus goes back to **Preview** only when a pinned preview closes, and only once: a moment's
+   *  look never owned the focus, and an old trigger must not take it from where the person is. */
   const closePreview = () => {
+    const back = live?.pinned ? trigger.current : null;
+    trigger.current = null;
     setPicked(null);
-    trigger.current?.focus();
+    back?.focus();
   };
   const previewOpen = live !== null;
+  const close = useRef(closePreview);
+  useEffect(() => {
+    close.current = closePreview;
+  });
   useEffect(() => {
     if (!previewOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setPicked(null);
-      trigger.current?.focus();
+      if (e.key === "Escape") close.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -201,7 +207,7 @@ export function LivingSurface({
                             className="bg-transparent border-0 p-0 text-link underline cursor-pointer">
                       Retry
                     </button></>
-                : "Reading the saved preview…"}
+                : "Loading preview…"}
             </div>
           )}
           {showing && (
@@ -209,12 +215,12 @@ export function LivingSurface({
               <div role="status" className="mx-5 mt-3 px-3 py-2 border flex items-baseline gap-3"
                    style={{ borderColor: "var(--link-line)", background: "var(--paper-2)" }}>
                 <span className="text-[12.5px] text-ink flex-1">
-                  Previewing {showing.contract}: the whole pipeline this choice gives. Nothing
-                  changes until you choose it.
+                  <strong className="font-semibold">Preview — not applied.</strong>{" "}
+                  The whole pipeline {showing.contract} gives; nothing changes until you choose it.
                 </span>
                 <button type="button" data-testid="preview-close" onClick={closePreview}
                         className="bg-transparent border-0 text-link cursor-pointer text-[11px]">
-                  Close
+                  Close preview
                 </button>
               </div>
               <LivingCanvas

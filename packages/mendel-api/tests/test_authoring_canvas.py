@@ -132,3 +132,31 @@ def test_a_manual_draft_has_no_walk_progress(g_case):
         row = db.get(PipelineAuthoringSession, g_case.session_id)
         db.get(PipelineDraft, row.draft_id).ownership = "manual"
     assert facade.read(g_case.session_id)["progress"] is None
+
+
+def test_a_registry_that_lost_a_used_contract_still_reads_the_session(g_case, monkeypatch):
+    from mendel_api.services import build
+
+    def gone(*_args, **_kwargs):
+        raise KeyError("nf-core/star/align@1.11.0")
+
+    monkeypatch.setattr(build, "step_views", gone)
+    picture = facade.read(g_case.session_id)
+    assert picture["canvas"] is None
+    assert picture["pending_proposal"] is not None
+
+
+def test_dev_mode_off_sends_no_repository_path(g_case):
+    from part_g_setup import with_hisat2
+
+    session_id = with_hisat2()
+    for _ in range(20):
+        picture = facade.read(session_id)
+        pending = picture["pending_proposal"]
+        if pending["payload"]["node"] == "hisat2_align":
+            break
+        facade.perform(commands.SettleStep(pending["id"], picture["revision"], "ana"))
+    assert picture["show_gap_details"] is False
+    assert "registry/tools/" not in str(picture["pending_proposal"])
+    assert "registry/tools/" not in str(picture["history"])
+    assert pending["payload"]["block"]["unresolved_settings"] == ["seq_platform"]

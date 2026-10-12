@@ -509,27 +509,37 @@ def read(session_id: str) -> dict:
         blueprint = Blueprint.model_validate(row.blueprint) if row.blueprint else None
         step = pending if pending is not None and pending.kind == "step" else None
         offered = step.payload["node"] if step is not None else None
-        # Each node's latest review, reduced in sequence order from the rows already loaded.
-        progress = (None if blueprint is None or draft.ownership == "manual" else progress_of(
-            list(blueprint.order),
-            frozenset(n for n, status in node_status.items() if status == "retained"),
-            frozenset(node_status), offered))
-        canvas = authoring_canvas.frame_of(
-            blueprint=blueprint,
-            graph=DraftGraph.model_validate(draft.graph or {}),
-            provenance=DraftProvenance.model_validate(draft.provenance or {}),
-            pending=envelopes.parse(step.payload, kind=step.kind) if step is not None else None,
-            proposal_id=step.id if step is not None else None,
-            context=envelopes.OfferContext(draft_revision=draft.revision,
-                decision_revision=draft.decision_revision, session_version=row.row_version,
-                registry=row.registry_digest or ""),
-            current=draft.projection_current, ownership=draft.ownership,
-            placement=placement, layers=registry.stack(),
-        )
+        # **A drawing never makes the session unreadable.** The frame and progress are read off the
+        # registry as it stands; one that moved under a recorded contract or port (or a pending
+        # step outside the plan) leaves them absent, and history, polling and forks still work.
+        try:
+            # Each node's latest review, reduced in sequence order from the rows already loaded.
+            progress = (None if blueprint is None or draft.ownership == "manual" else progress_of(
+                list(blueprint.order),
+                frozenset(n for n, status in node_status.items() if status == "retained"),
+                frozenset(node_status), offered))
+        except ValueError:
+            progress = None
+        try:
+            canvas = authoring_canvas.frame_of(
+                blueprint=blueprint,
+                graph=DraftGraph.model_validate(draft.graph or {}),
+                provenance=DraftProvenance.model_validate(draft.provenance or {}),
+                pending=envelopes.parse(step.payload, kind=step.kind) if step is not None else None,
+                proposal_id=step.id if step is not None else None,
+                context=envelopes.OfferContext(draft_revision=draft.revision,
+                    decision_revision=draft.decision_revision, session_version=row.row_version,
+                    registry=row.registry_digest or ""),
+                current=draft.projection_current, ownership=draft.ownership,
+                placement=placement, layers=registry.stack(),
+            )
+        except (KeyError, ValueError):
+            canvas = None
+        details = bool(row.show_gaps)
         return {
             "canvas": canvas.model_dump(mode="json") if canvas is not None else None,
             "progress": progress.model_dump(mode="json") if progress is not None else None,
-            "show_gap_details": bool(row.show_gaps),
+            "show_gap_details": details,
             "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
             "decision_revision": draft.decision_revision,
             "projection_current": draft.projection_current,
@@ -580,11 +590,11 @@ def read(session_id: str) -> dict:
             "history": [
                 {
                     "id": p.id,
-                    "envelope": envelopes.historical(p.payload, kind=p.kind)
-                                          .model_dump(mode="json"),
+                    "envelope": _gaps_shown(envelopes.historical(p.payload, kind=p.kind)
+                                            .model_dump(mode="json"), details),
                     "kind": p.kind,
                     "state": p.state,
-                    "block": p.payload.get("block"),
+                    "block": _gaps_shown(p.payload.get("block"), details),
                     "by": p.by,
                     "actor_kind": p.actor_kind or "unknown",
                     "applicability": review_status.get(p.id),
@@ -608,12 +618,26 @@ def read(session_id: str) -> dict:
                 else {
                     "id": pending.id,
                     "kind": pending.kind,
-                    "payload": _aged(envelopes.parse(pending.payload, kind=pending.kind)
-                                     .model_dump(mode="json")),
+                    "payload": _gaps_shown(_aged(envelopes.parse(pending.payload, kind=pending.kind)
+                                                 .model_dump(mode="json")), details),
                     "draft_revision": pending.draft_revision,
                 }
             ),
         }
+
+
+def _gaps_shown(value, details: bool):
+    """Registry gaps with their kinds and repository paths go out only under Dev mode (Part G spec
+    §8, for API consumers as well as the screen): otherwise every `gaps` list is emptied, and a
+    step's `unresolved_settings` still names, in plain words, what stays unset."""
+    if details:
+        return value
+    if isinstance(value, dict):
+        return {k: ([] if k == "gaps" and isinstance(v, list) else _gaps_shown(v, details))
+                for k, v in value.items()}
+    if isinstance(value, list):
+        return [_gaps_shown(v, details) for v in value]
+    return value
 
 
 def _words_coming(pending) -> bool:

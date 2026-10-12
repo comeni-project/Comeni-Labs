@@ -120,6 +120,28 @@ describe("the complete preview", () => {
     const legacy = { ...SESSION, pending_proposal: { ...SESSION.pending_proposal!, envelope: undefined } };
     surface({ session: legacy as unknown as AuthoringSession });
     expect(screen.queryByTestId("preview-alt_1")).toBeNull();
+    expect(screen.getByText("Preview unavailable for this older offer")).toBeInTheDocument();
+  });
+
+  it("says it is not applied, in the spec's words", async () => {
+    surface();
+    fireEvent.click(screen.getByTestId("preview-alt_1"));
+    const preview = await screen.findByTestId("alternative-preview");
+    expect(preview).toHaveTextContent("Preview — not applied");
+    expect(within(preview).getByRole("button", { name: "Close preview" })).toBeInTheDocument();
+  });
+
+  it("returns focus only after closing a pinned preview, never to an old trigger", async () => {
+    surface();
+    fireEvent.click(screen.getByTestId("preview-alt_1"));
+    await screen.findByTestId("alternative-preview");
+    fireEvent.click(screen.getByTestId("preview-close"));
+    const box = screen.getByTestId("explain-step");
+    box.focus();
+    fireEvent.mouseEnter(option());
+    await screen.findByTestId("alternative-preview");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(document.activeElement).toBe(box);
   });
 
   it("a stale build still says so beside a preview", async () => {

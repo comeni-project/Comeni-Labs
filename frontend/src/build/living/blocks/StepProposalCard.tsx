@@ -124,6 +124,9 @@ export function StepProposalCard({
           )}
         </div>
       )}
+      {previewable.length === 0 && block.alternatives.some((o) => offered.has(o.id)) && (
+        <p className="m-0 mb-2 font-data text-[10.5px] text-ink-3">Preview unavailable for this older offer</p>
+      )}
       <div role="radiogroup" aria-label={`options for ${processName(block.node)}`}>
         {options.map((option) => {
           const picked = chosen === option.id;
