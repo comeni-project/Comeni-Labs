@@ -26,6 +26,11 @@ class Base(DeclarativeBase):
     })
 
 
+from wiener_api import shapes  # noqa: E402 — after Base, which it listens on
+
+shapes.install(Base)
+
+
 @contextmanager
 def session_scope() -> Iterator[Session]:
     session = SessionLocal()

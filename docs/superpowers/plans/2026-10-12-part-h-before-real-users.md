@@ -525,7 +525,7 @@ Wiener's three tables: `run` (`terminal_seen` → `list[EventKind]`), `run_event
 `dict[str, JsonValue]`, Nextflow's, shaped by `admit()`), `run_task` (`attempts` →
 `list[Attempt]` from `wiener_core.state`; `labels` → `list[str]`).
 
-- [ ] **Step 1: Write the failing tests** — `packages/wiener-api/tests/test_shapes.py`, the
+- [x] **Step 1: Write the failing tests** — `packages/wiener-api/tests/test_shapes.py`, the
   same five tests as Task 1 Step 1 with these substitutions: imports from `wiener_api`; the
   database tests use `from wiener_postgres import URL, reachable` and an engine on `URL`, and
   insert into `run` a stale row via `wiener_rows.a_run(session)` followed by
@@ -549,19 +549,19 @@ def test_a_run_in_an_older_shape_is_refused(pg_session):
 `pg_session` is a fixture in the same file: an engine on `wiener_postgres.URL`, a session, a
 rollback at teardown. The SQLite fixtures keep working because `Json` is a variant.
 
-- [ ] **Step 2: Run to verify failure** — `$SP/part-h-run uv run pytest packages/wiener-api/tests/test_shapes.py -v`; Expected: `No module named 'wiener_api.shapes'`.
-- [ ] **Step 3: Write `shape_versions.py` and `shapes.py`** — Task 1 Steps 3–4 with
+- [x] **Step 2: Run to verify failure** — `$SP/part-h-run uv run pytest packages/wiener-api/tests/test_shapes.py -v`; Expected: `No module named 'wiener_api.shapes'`.
+- [x] **Step 3: Write `shape_versions.py` and `shapes.py`** — Task 1 Steps 3–4 with
   `VERSIONS = {"run": 1, "run_event": 1, "run_task": 1}`, the three tables' shapes above,
   `coded("MW0100", …)`, and `install(Base)` called from `wiener_api/db.py`.
-- [ ] **Step 4: Models** — `JSON` → `Json`, a `stamp(...)` on the three classes;
+- [x] **Step 4: Models** — `JSON` → `Json`, a `stamp(...)` on the three classes;
   `repository.py` uses `func.jsonb_array_length` (the test suite's SQLite has
   `json_array_length` only: branch on `session.bind.dialect.name`, with a one-line comment).
-- [ ] **Step 5: `MW0100`** in `diagnostics.yml` (`emitted_by: wiener`, `concern: storage`, the
+- [x] **Step 5: `MW0100`** in `diagnostics.yml` (`emitted_by: wiener`, `concern: storage`, the
   same wording with *wiener-migrate*), and the band line; regenerate the page.
-- [ ] **Step 6: Migration** — `down_revision = "b9e5d1a7c320"`, Task 1 Step 7's body.
-- [ ] **Step 7: Goldens, tests, guards** — as Task 1 Steps 8–9 (revert `Attempt` by a field;
+- [x] **Step 6: Migration** — `down_revision = "b9e5d1a7c320"`, Task 1 Step 7's body.
+- [x] **Step 7: Goldens, tests, guards** — as Task 1 Steps 8–9 (revert `Attempt` by a field;
   the census; `_check`; one column back to `JSON`), with ledger rows.
-- [ ] **Step 8: Update the table guard's message only if needed, run `make check`, commit**
+- [x] **Step 8: Update the table guard's message only if needed, run `make check`, commit**
 
 ```bash
 git commit -m "feat: Wiener's JSON is JSONB and records its shape (#276)"

@@ -13,11 +13,37 @@ files would mean two answers to *where does the database get touched*.
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import case, func, select
+from sqlalchemy import Integer, case, func, select
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.functions import GenericFunction
 
 from wiener_api.models import Run, RunArtifact, RunEventRow, RunTask
 from wiener_api.task_query import TaskQuery
+
+
+class _array_length(GenericFunction):
+    """How many items a JSON array holds, `NULL` for anything that is not an array.
+
+    **Two spellings because the column is two types**: `JSONB` in Postgres, whose
+    `jsonb_array_length` raises on a scalar (a JSON `null` is what a Python `None` stores), and
+    plain JSON in the SQLite the suite runs on, whose `json_array_length` answers 0 for one.
+    """
+
+    type = Integer()
+    inherit_cache = True
+    name = "wiener_array_length"
+
+
+@compiles(_array_length)
+def _sqlite_length(element, compiler, **kw):
+    return f"json_array_length({compiler.process(element.clauses, **kw)})"
+
+
+@compiles(_array_length, "postgresql")
+def _postgres_length(element, compiler, **kw):
+    arg = compiler.process(element.clauses, **kw)
+    return f"CASE WHEN jsonb_typeof({arg}) = 'array' THEN jsonb_array_length({arg}) END"
 
 
 def run(session: Session, lab_id: str, run_id: str, *, lock: bool = False) -> Run | None:
@@ -328,7 +354,7 @@ def _tasks_query(lab_id: str, run_id: str, filters: TaskQuery):
     if filters.status:
         query = query.where(RunTask.status == filters.status)
     if filters.retried_only:
-        query = query.where(func.json_array_length(RunTask.attempts) > 1)
+        query = query.where(_array_length(RunTask.attempts) > 1)
     if filters.attempt:
         # **This mirrors `TaskOut`'s `len(row.attempts or []) or 1` in SQL, exactly**, and
         # every piece is load-bearing. A task with no recorded attempt still had one:
@@ -338,7 +364,7 @@ def _tasks_query(lab_id: str, run_id: str, filters: TaskQuery):
         # asks for — silently, because an empty table looks like a filter that matched
         # nothing. `nullif(..., 0)` folds the two zeroes into NULL; the coalesce makes all
         # three 1.
-        tries = func.coalesce(func.nullif(func.json_array_length(RunTask.attempts), 0), 1)
+        tries = func.coalesce(func.nullif(_array_length(RunTask.attempts), 0), 1)
         query = query.where(tries >= 3 if filters.attempt >= 3 else tries == filters.attempt)
     return query
 

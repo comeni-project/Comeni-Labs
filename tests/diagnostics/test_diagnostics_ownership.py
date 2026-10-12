@@ -33,6 +33,7 @@ PACKAGE_OF = {
     "api": "mendel-api",
     "authoring": "mendel-authoring",
     "wiener": "wiener-core",
+    "wiener-api": "wiener-api",
     "vendor": "comeni-vendor",
 }
 

@@ -299,6 +299,7 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MI0400` | a stored row is in an older shape than this server reads |
+| `MW0100` | a stored run row is in an older shape than this server reads |
 
 ## Wiener — what may enter
 

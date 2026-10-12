@@ -1,0 +1,21 @@
+{
+  "$defs": {
+    "EventKind": {
+      "enum": [
+        "started",
+        "process_submitted",
+        "process_started",
+        "process_completed",
+        "completed",
+        "error",
+        "heartbeat",
+        "cancelled"
+      ],
+      "type": "string"
+    }
+  },
+  "items": {
+    "$ref": "#/$defs/EventKind"
+  },
+  "type": "array"
+}

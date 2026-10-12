@@ -3934,3 +3934,16 @@ MI0400:
     Every table holding JSON records which shape its rows are in. A row in an older shape is
     refused rather than read, because reading it as the current shape would silently show
     something it does not say.
+MW0100:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a stored run row is in an older shape than this server reads"
+  fires_on: [load]
+  refuses: true
+  fix: |
+    Run Wiener's migrations (`make wiener-migrate`). A restored backup is upgraded by the same
+    command.
+  explanation: |
+    Every Wiener table holding JSON records which shape its rows are in. A row in an older shape
+    is refused rather than read, because a run read in the wrong shape would show a history it
+    does not have.

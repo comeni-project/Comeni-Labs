@@ -77,6 +77,10 @@ class EmittedBy(StrEnum):
     `mendel explain` can answer for all of them. `MW` is the prefix; `W` was reserved for
     Wiener when the bands were laid out, before anything could emit one.
     """
+    WIENER_API = "wiener-api"
+    """`wiener-api` — what Wiener stores and serves: a row in an older shape, a run's parameters
+    that could not be written. Split from `wiener` on 2026-10-12 (Part H), when the API first
+    raised a code of its own, so `wiener` keeps meaning the pure run-state package."""
     VENDOR = "vendor"
     """`comeni-vendor` — fetching a tool's source into a registry layer, and checking it.
 

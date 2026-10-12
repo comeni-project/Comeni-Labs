@@ -9,7 +9,6 @@ from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import (
-    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -27,6 +26,8 @@ from wiener_core.policy import IntentKind, Outcome, Reason
 from wiener_core.state import RunPhase
 
 from wiener_api.db import Base
+from wiener_api.shape_versions import stamp
+from wiener_api.shapes import Json
 
 
 def _one_of(enum: type[StrEnum], length: int, name: str) -> Enum:
@@ -42,6 +43,7 @@ class Run(Base):
     gate runs Mendel's own artifact on public data and lives in `mendel-api`'s `gate_run`."""
 
     __tablename__ = "run"
+    shape_version: Mapped[int] = stamp("run")
     __table_args__ = (
         UniqueConstraint("lab_id", "id", name="uq_run_lab_id_id"),
         # Its artifact, in its lab (issue 274).
@@ -94,7 +96,7 @@ class Run(Base):
     """The highest `seq` folded, and what the next one is taken from, under the row's lock."""
     last_activity_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     started_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    terminal_seen: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    terminal_seen: Mapped[list] = mapped_column(Json, default=list, server_default="[]")
     """Which terminal kinds have arrived (`completed`, `error`, `cancelled`), sorted: a set
     from a closed vocabulary of three, never queried."""
     run_succeeded: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -104,6 +106,7 @@ class RunEventRow(Base):
     """The record. Every projection is derivable from these rows and nothing else."""
 
     __tablename__ = "run_event"
+    shape_version: Mapped[int] = stamp("run_event")
     __table_args__ = (
         # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
         # lab's run (issue 274).
@@ -116,13 +119,14 @@ class RunEventRow(Base):
     seq: Mapped[int] = mapped_column(Integer, primary_key=True)
     kind: Mapped[str] = mapped_column(_one_of(EventKind, 24, "kind"))
     at_ms: Mapped[int] = mapped_column(BigInteger)
-    payload: Mapped[dict] = mapped_column(JSON)
+    payload: Mapped[dict] = mapped_column(Json)
     """The ADMITTED event, not the raw body — §4.4."""
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class RunTask(Base):
     __tablename__ = "run_task"
+    shape_version: Mapped[int] = stamp("run_task")
     __table_args__ = (
         # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
         # lab's run (issue 274).
@@ -135,7 +139,7 @@ class RunTask(Base):
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     process: Mapped[str] = mapped_column(String(200), index=True)
     status: Mapped[str] = mapped_column(_one_of(TaskStatus, 16, "status"), index=True)
-    attempts: Mapped[list] = mapped_column(JSON, default=list)
+    attempts: Mapped[list] = mapped_column(Json, default=list)
     latest_exit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_change_ms: Mapped[int] = mapped_column(BigInteger)
     first_seen_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -161,7 +165,7 @@ class RunTask(Base):
     #
     # Deliberately NOT indexed. The column exists so a task row can say `sample_07`, not so
     # anybody can search a deployment for a patient.
-    labels: Mapped[list] = mapped_column(JSON, default=list)
+    labels: Mapped[list] = mapped_column(Json, default=list)
 
     # --- the latest attempt's tag, so ONE RUN's tasks can be filtered by it -----------
     #
