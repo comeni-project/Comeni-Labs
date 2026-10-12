@@ -127,10 +127,13 @@ write fails leaves no `queued` row.
 
 ### 5.1 Deleting by hand
 
-**A draft.** `DELETE /pipeline/drafts/{id}`, behind a confirmation in the builder (*Delete
-draft*). One transaction removes the draft, its sessions, turns and proposals, its
-`ai_invocation` rows, its gate runs, its decision rows (subjects, revisions, observations,
-evidence access, phrasings, decision migration), and then its directory under `draft_root`. A
+**A draft.** `DELETE /pipeline/drafts/{id}`, behind a confirmation on the draft's row in the
+home list of pipelines (*Delete*), where drafts are listed and opened. One transaction removes the draft, its sessions, turns and proposals, its
+gate runs, its decision rows (subjects, revisions, observations,
+evidence access, phrasings, decision migration), and then its directory under `draft_root`. **Its model calls are kept and their reply text
+cleared** (`response = NULL`, `response_cleared = 'deleted'`): `ai_invocation` has no foreign key
+on purpose — *a deleted session must not take its audit rows with it* — so the record that a call
+was made, its purpose, model and tokens, outlives the draft, and nothing it said does. A
 draft forked from it keeps its own rows and its `forked_from` becomes null. A draft with a gate
 running is refused with a code that says to wait or cancel. Wiener's copy of an artifact is not
 touched: Wiener owns its store.
@@ -157,15 +160,16 @@ JSON.
 | Working files, succeeded run | `retention.work_succeeded_days` | 0 | deletes `work/` once the run ended this many days ago; `results/` and the record stay | Wiener |
 | Working files, failed / cancelled / lost run | `retention.work_failed_days` | 7 | the same | Wiener |
 | Runs and results | `retention.runs_days` | kept | deletes the whole run, as §5.1 | Wiener |
-| Model replies | `retention.model_replies_days` | 30 | clears `ai_invocation.response`; the call's record and every decision stay | Mendel |
-| Sample excerpts | `retention.sample_excerpts_days` | 30 | clears a quote in `pipeline_observation.evidence`, marking it *cleared by retention*; the observation and its decision stay | Mendel |
+| Model replies, including what a model quoted from a sample | `retention.model_replies_days` | 30 | clears `ai_invocation.response` of the builder's calls; the call's record and every decision stay | Mendel |
 | Drafts and conversations | `retention.drafts_days` | kept | deletes a draft untouched this long, as §5.1 | Mendel |
 
-**Sample excerpts are wherever a quote is stored, not one column.** The plan first locates every
-place a quote from door 6 lands (`pipeline_observation.evidence`, and any copy in turn blocks,
-proposal payloads or the decision snapshot) against the code, and the category clears all of them.
-Marking a quote *cleared by retention* adds a field to the evidence model, so it is the first real
-use of §3.3: a version bump, an upgrader and a migration.
+**A sample's quotes live in one place: the model's reply.** Checked against the code
+(2026-10-12): door 6's reply carries each quote (`CharacteriseReply`), which is stored whole in
+`ai_invocation.response`; the reading kept on the proposal holds the type and states only, and
+`pipeline_observation.evidence` holds counts (`records`, `rows`, `share`), never text. So the
+operator's two 30-day categories are one setting, and its help says that replies to a sample
+reading quote the sample. A guard holds that no quote reaches a turn, a proposal or an
+observation. The forge's calls are about registry tools, never a sample, and are not swept.
 
 *Drafts untouched* reads `pipeline_draft.updated_at`. *Kept* is `null`: kept until deleted by hand. `0` on working files means *when the run ends*.
 The call panel shows a cleared reply as *Reply cleared after 30 days by this installation's
@@ -176,7 +180,9 @@ untouched, and the run page says *Working files cleared* where it would link to 
 
 ### 5.3 On the Settings page
 
-**One section, *Data retention*,** after *Privacy & data*, with a lede: *How long this
+**Two adjacent sections, *Data retention* (Mendel's) and *Data retention: runs* (Wiener's)**,
+because a section is served by one service; both sit under *This installation*, after
+*Privacy & data*, with a lede: *How long this
 installation keeps what it stores. Anything not listed is kept until you delete it.* Each row
 says its current limit in words (*Kept until deleted*, *Deleted when the run ends*, *Deleted
 after 7 days*) and one line of help saying what is removed and what stays.
@@ -186,8 +192,8 @@ after 7 days*) and one line of help saying what is removed and what stays.
 - **Wiener's rows are editable on the same page**, not hidden in environment variables. Wiener
   keeps them in its own `retention_setting` table and serves `GET`/`PUT /api/settings/retention`;
   the browser reads both services, as it already does for the artifact copy. A `WIENER_RETENTION_*`
-  environment variable sets the starting value on a fresh install, and the row says when one
-  pins it, as the Mendel rows do for `env`.
+  environment variable pins a row, as `.env` pins every other setting (*a value in .env always
+  wins*), and the row says so.
 - **Under the section, the last sweep:** *Last cleared 12 Oct: 3 working folders, 41 replies*,
   read from both services' `retention_sweep`. *Not run yet* before the first pass.
 
