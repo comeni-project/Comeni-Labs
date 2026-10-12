@@ -247,3 +247,77 @@ describe("the settings overlay", () => {
     await waitFor(() => expect(router.state.location.search).toBe("?settings=models"));
   });
 });
+
+/** Part H: the retention limits, on both servers, where a person looks for them. */
+describe("data retention", () => {
+  const limit = (key: string, value: string) => ({
+    setting: setting(key, "choice", {
+      label: key.split(".")[1], default: value,
+      options: [{ value: "keep", label: "Kept until deleted" }, { value: "7", label: "After 7 days" },
+                { value: "30", label: "After 30 days" }],
+    }),
+    shown: shown({ value }),
+  });
+  const MENDEL = { sections: [{
+    key: "retention", title: "Data retention", lede: "How long this installation keeps it.",
+    order: 5, served_by: "mendel", entries: [limit("retention.model_replies_days", "30")],
+  }] };
+  const WIENER = { sections: [{
+    key: "retention_runs", title: "Data retention: runs", lede: "How long Wiener keeps it.",
+    order: 6, served_by: "wiener", entries: [limit("retention_runs.work_failed_days", "7")],
+  }] };
+  const LAST = { ran_at: "2026-10-12T04:00:00Z", removed: { model_replies: 41, drafts: 0 } };
+  const LAST_RUNS = { ran_at: "2026-10-12T04:00:00Z",
+                      removed: { work_succeeded: 2, work_failed: 1, runs: 0 } };
+
+  const both = (wiener: Answer = ok(WIENER)) => vi.fn().mockImplementation(
+    (url: string, init?: RequestInit) => Promise.resolve(
+      init?.method === "PUT" ? ok(shown({ value: "keep", source: "installation" }))
+        : url === "/api/wiener/settings" ? wiener
+          : url === "/api/wiener/retention/last" ? ok(LAST_RUNS)
+            : url === "/api/settings/retention/last" ? ok(LAST)
+              : ok(MENDEL),
+    ));
+
+  it("writes a Wiener limit to Wiener", async () => {
+    const { fetch } = at("/page?settings=retention_runs", both());
+    await userEvent.click(await screen.findByLabelText("Kept until deleted"));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
+      "/api/wiener/settings/retention_runs.work_failed_days",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ value: "keep" }) })));
+    expect(fetch.mock.calls.some(([url]) => url === "/api/settings/retention_runs.work_failed_days"))
+      .toBe(false);
+  });
+
+  it("writes a Mendel limit to Mendel", async () => {
+    const { fetch } = at("/page?settings=retention", both());
+    await userEvent.click(await screen.findByLabelText("Kept until deleted"));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
+      "/api/settings/retention.model_replies_days", expect.objectContaining({ method: "PUT" })));
+  });
+
+  it("lists both under this installation, side by side", async () => {
+    at("/page?settings=retention", both());
+    const rail = await screen.findByRole("navigation", { name: "Settings sections" });
+    await within(rail).findByText("Data retention: runs");
+    const group = within(rail).getByText("This installation").parentElement!;
+    expect(within(group).getByText("Data retention")).toBeTruthy();
+    expect(within(group).getByText("Data retention: runs")).toBeTruthy();
+  });
+
+  it("keeps Mendel's limits usable when Wiener does not answer", async () => {
+    at("/page?settings=retention", both({ ok: false, status: 503, json: async () => ({}) }));
+    expect(await screen.findByLabelText("Kept until deleted")).toBeTruthy();
+    expect(screen.getByLabelText("After 30 days")).toBeChecked();
+  });
+
+  it("says when each side last cleared something, and what", async () => {
+    at("/page?settings=retention", both());
+    expect(await screen.findByText(/Last cleared 12 Oct: 41 replies/)).toBeTruthy();
+  });
+
+  it("counts working folders together, and says nothing was due when nothing was", async () => {
+    at("/page?settings=retention_runs", both());
+    expect(await screen.findByText(/Last cleared 12 Oct: 3 working folders/)).toBeTruthy();
+  });
+});

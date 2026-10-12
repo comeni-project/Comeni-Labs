@@ -4,7 +4,7 @@ import { Refused } from "../api/client";
 import { Empty, Failed, Loading } from "../ui/States";
 import { sourceOf } from "./shared";
 import { SettingRow } from "./SettingRow";
-import { type Menu, useMenu, useWienerMenu, useWrite } from "./usePreferences";
+import { type Menu, type Server, useLastSweep, useMenu, useWienerMenu, useWrite } from "./usePreferences";
 
 /** The overlay's body: sections down the left, the chosen one's settings on the right (spec §1,
  * §7; the overlay's design, 2026-10-01).
@@ -23,7 +23,10 @@ const GROUPS = ["This browser", "This installation", "Reported"] as const;
 function groupOf(section: Section): (typeof GROUPS)[number] {
   const settings = section.entries.map((e) => e.setting);
   if (settings.every((s) => s.where === "browser")) return "This browser";
-  if (section.served_by === "wiener" || settings.every((s) => s.kind === "readonly")) {
+  // A Wiener section is reported unless something in it can be changed here (Part H's Data
+  // retention: runs is stored by Wiener and set on this page).
+  if (settings.every((s) => s.kind === "readonly")
+      || (section.served_by === "wiener" && section.entries.every((e) => e.shown.locked))) {
     return "Reported";
   }
   return "This installation";
@@ -49,17 +52,17 @@ export function Preferences({
 
   if (menu.isLoading) return <Loading what="settings" />;
   if (menu.error) return <Failed error={menu.error} />;
-  // **Both servers' sections, by order.** Every Wiener row is locked, so nothing here writes to
-  // Wiener; a Wiener that does not answer costs its own section and says so in the rail.
+  // **Both servers' sections, by order.** A Wiener row is written to Wiener (`useWrite`); a
+  // Wiener that does not answer costs its own sections and says so in the rail.
   const sections = [...(menu.data?.sections ?? []), ...(wiener.data?.sections ?? [])]
     .sort((a, b) => a.order - b.order);
   if (!sections.length) return <Empty title="There are no settings to show." />;
   const current = section ? sections.find((s) => s.key === section) : sections[0];
 
-  const save = (key: string, value: unknown, done?: () => void) => {
+  const save = (key: string, value: unknown, served: Server, done?: () => void) => {
     setRefused(null);
     write.mutate(
-      { key, value },
+      { key, value, served },
       {
         onSuccess: () => done?.(),
         onError: (error) =>
@@ -143,13 +146,14 @@ export function Preferences({
                 {current.lede}
               </p>
             )}
+            {current.key.startsWith("retention") && <LastCleared served={current.served_by} />}
             <div className="mt-[20px]">
               {current.entries.map((entry) => (
                 <SettingRow
                   key={entry.setting.key}
                   entry={entry}
                   menu={menu.data}
-                  onWrite={(value, done) => save(entry.setting.key, value, done)}
+                  onWrite={(value, done) => save(entry.setting.key, value, current.served_by, done)}
                   refusal={refused?.key === entry.setting.key ? refused.message : null}
                 />
               ))}
@@ -160,5 +164,34 @@ export function Preferences({
         )}
       </div>
     </div>
+  );
+}
+
+/** What each category is called when counted (Part H). Working files of either outcome are
+ *  one thing to a reader: folders that went. */
+const SWEPT: [string[], string][] = [
+  [["work_succeeded", "work_failed"], "working folders"],
+  [["runs"], "runs"],
+  [["model_replies"], "replies"],
+  [["drafts"], "drafts"],
+];
+
+/** *Last cleared 12 Oct: 3 working folders, 41 replies* — the line that says the limits above
+ *  are being kept, read from the server that keeps them. */
+function LastCleared({ served }: { served: Server }) {
+  const last = useLastSweep(served, true);
+  if (last.isPending || last.error) return null;
+  const sweep = last.data;
+  let words: string;
+  if (!sweep) {
+    words = "Not run yet.";
+  } else {
+    const day = new Date(sweep.ran_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const parts = SWEPT.map(([keys, noun]) => [keys.reduce((n, k) => n + (sweep.removed[k] ?? 0), 0), noun] as const)
+      .filter(([n]) => n > 0).map(([n, noun]) => `${n} ${noun}`);
+    words = `Last cleared ${day}: ${parts.length ? parts.join(", ") : "nothing was due"}.`;
+  }
+  return (
+    <p data-testid="last-cleared" className="mt-[6px] mb-0 text-secondary text-ink-3">{words}</p>
   );
 }

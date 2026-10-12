@@ -60,6 +60,13 @@ function CallRow({ call }: { call: Call }) {
           </button>
         )}
       </div>
+      {/* Part H: a reply the installation's retention cleared says so. A draft's deletion also
+          clears replies, but its session goes with it, so this panel never shows those. */}
+      {!call.response && call.cleared === "retention" && (
+        <p className="m-0 mt-1 font-data text-[10.5px] text-ink-3">
+          Reply cleared by this installation's retention setting. The call's record stays.
+        </p>
+      )}
       {shown && call.response && (
         <pre className="m-0 mt-1 whitespace-pre-wrap break-words font-data text-[10.5px] text-ink-2">
           {call.response}

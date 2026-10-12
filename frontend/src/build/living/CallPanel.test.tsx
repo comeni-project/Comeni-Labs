@@ -58,6 +58,14 @@ describe("the call panel", () => {
     expect(screen.getByText(/counts\.matrix/)).toBeInTheDocument();
   });
 
+  it("says a reply was cleared by retention, rather than showing nothing (Part H)", async () => {
+    vi.mocked(get).mockResolvedValue([{ ...CALL, response: null, cleared: "retention" }]);
+    mount(<CallPanel sessionId="s1" calls={1} open />);
+    expect(await screen.findByText(/cleared by this installation's retention setting/))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reply/ })).toBeNull();
+  });
+
   it("does not fetch again while the count has not moved", async () => {
     const cache = new QueryClient();
     const at = (calls: number) => (

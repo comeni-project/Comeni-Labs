@@ -1674,7 +1674,7 @@ git commit -m "feat: a daily sweep clears what is past its limit and records eve
   `RunOverview.work_cleared` (generated names: read `frontend/src/api/schema.ts` after
   `make client`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `DeleteDraft.test.tsx`:
 
@@ -1742,8 +1742,8 @@ rendering, and the text *Last cleared 12 Oct: 3 working folders, 41 replies*.
 cleared by this installation's retention setting*; `cleared: "deleted"` is not shown (its session
 is gone).
 
-- [ ] **Step 2: Run to verify failure** — `cd frontend && npx vitest run src/home/DeleteDraft.test.tsx src/runs/DeleteRun.test.tsx src/preferences/Preferences.test.tsx src/build/living/CallPanel.test.tsx`; Expected: FAIL (modules missing, assertions).
-- [ ] **Step 3: Implement**
+- [x] **Step 2: Run to verify failure** — `cd frontend && npx vitest run src/home/DeleteDraft.test.tsx src/runs/DeleteRun.test.tsx src/preferences/Preferences.test.tsx src/build/living/CallPanel.test.tsx`; Expected: FAIL (modules missing, assertions).
+- [x] **Step 3: Implement**
   - `wiener/api/client.ts`: `put<T>(path, payload)` and `del(path)`, each handling 401/409/422
     like `post` (reuse its 409 sentence handling).
   - `DeleteDraft.tsx` / `DeleteRun.tsx`: the `Cancel.tsx` pattern — a `use…` mutation returned
@@ -1770,12 +1770,12 @@ is gone).
     folders, 41 replies*, or *Not run yet* — with words per category (`work_succeeded` +
     `work_failed` → *working folders*, `runs` → *runs*, `model_replies` → *replies*, `drafts`
     → *drafts*; zero counts omitted; all zero → *nothing was due*).
-- [ ] **Step 4: Run the four files, then the whole frontend suite and `tsc`** —
+- [x] **Step 4: Run the four files, then the whole frontend suite and `tsc`** —
   `npx vitest run && npx tsc -b`; Expected: green.
-- [ ] **Step 5: Watch each guard fail** — fire the mutation on the first press → the
+- [x] **Step 5: Watch each guard fail** — fire the mutation on the first press → the
   "only then" test; route every write to Mendel → the Wiener write test; gate Mendel's section on
   Wiener's query → the Wiener-down test. Ledger rows.
-- [ ] **Step 6: `make check`, commit**
+- [x] **Step 6: `make check`, commit**
 
 ```bash
 git commit -m "feat: delete a draft or a run, and see and change every retention limit on Settings (#276)"

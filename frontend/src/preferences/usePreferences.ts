@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { get, put } from "../api/client";
 import type { components } from "../api/schema";
-import { get as wienerGet } from "../wiener/api/client";
+import { get as wienerGet, put as wienerPut } from "../wiener/api/client";
 
 export type Menu = components["schemas"]["Menu"];
 export type Entry = components["schemas"]["Entry"];
@@ -14,12 +14,35 @@ export function useMenu() {
   return useQuery({ queryKey: ["settings"], queryFn: () => get<Menu>("/settings") });
 }
 
+export type Server = "mendel" | "wiener";
+
+/** A change, sent to **the server that serves its section**: Mendel's own, or Wiener's for a
+ *  section Wiener stores (Data retention: runs, Part H). Both menus share the `settings` key, so
+ *  either write asks for both again. */
 export function useWrite() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, value }: { key: string; value: unknown }) =>
-      put<Shown>(`/settings/${encodeURIComponent(key)}`, { value }),
+    mutationFn: ({ key, value, served = "mendel" }: { key: string; value: unknown;
+                                                       served?: Server }) =>
+      served === "wiener"
+        ? wienerPut<Shown>(`/api/wiener/settings/${encodeURIComponent(key)}`, { value })
+        : put<Shown>(`/settings/${encodeURIComponent(key)}`, { value }),
     onSettled: () => client.invalidateQueries({ queryKey: ["settings"] }),
+  });
+}
+
+export type LastSweep = { ran_at: string; removed: Record<string, number> } | null;
+
+/** When retention last ran on one server, and what it removed (Part H): the line under a Data
+ *  retention section that says the limits are being kept. */
+export function useLastSweep(served: Server, enabled: boolean) {
+  return useQuery({
+    queryKey: ["settings", "retention-last", served],
+    queryFn: () => served === "wiener"
+      ? wienerGet<LastSweep>("/api/wiener/retention/last")
+      : get<LastSweep>("/settings/retention/last"),
+    enabled,
+    retry: false,
   });
 }
 

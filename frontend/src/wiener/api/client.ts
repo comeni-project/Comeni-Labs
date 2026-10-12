@@ -129,3 +129,32 @@ export async function post<T>(path: string, payload: unknown): Promise<T> {
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;
 }
+
+/** `DELETE` (Part H): a finished run. A 409 is the server's sentence — *cancel it first* — and
+ *  a 204 answers nothing. */
+export async function remove(path: string): Promise<void> {
+  const r = await fetch(path, { method: "DELETE", headers: headers() });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
+  if (r.status === 204) return;
+  if (r.status === 409 || r.status === 422) {
+    const detail = ((await r.json().catch(() => null)) as { detail?: string } | null)?.detail;
+    throw new Error(detail || `${path} → ${r.status}`);
+  }
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+}
+
+/** `PUT` (Part H): one of Wiener's own settings. Its refusals are sentences, as `remove`'s. */
+export async function put<T>(path: string, payload: unknown): Promise<T> {
+  const r = await fetch(path, {
+    method: "PUT",
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
+  if (r.status === 409 || r.status === 422) {
+    const detail = ((await r.json().catch(() => null)) as { detail?: string } | null)?.detail;
+    throw new Error(detail || `${path} → ${r.status}`);
+  }
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return (await r.json()) as T;
+}
