@@ -238,6 +238,8 @@ class AuthoringSessionView(BaseModel):
     progress: WalkProgress | None = None
     """Where the walk is in the plan as it now stands. `None` before a blueprint, and for a
     draft the person owns by hand."""
+    show_gap_details: bool = False
+    """Dev mode as this build recorded it: whether gap kinds and repository paths are shown."""
     steps_total: int = 0
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
@@ -709,6 +711,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         graph=DraftGraph.model_validate(picture["graph"] or {}),
         canvas=picture["canvas"],
         progress=picture["progress"],
+        show_gap_details=picture["show_gap_details"],
         placement=picture["placement"],
         hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],

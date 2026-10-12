@@ -75,7 +75,7 @@ flowchart LR
         pace_q{"Go through it together,<br/>or stop only where needed?"}:::you
         dev{"Dev mode?"}:::engine
         show_gaps["Registry gaps<br/>stop the walk"]:::engine
-        hide_gaps["Registry gaps<br/>routed around"]:::engine
+        hide_gaps["Registry gaps<br/>named, no stop"]:::engine
         step{"Next step:<br/>place it, or stop?"}:::engine
         step_card["A step's card<br/>continue, or change it"]:::you
         amend["Your change, resolved<br/>into the goal"]:::engine

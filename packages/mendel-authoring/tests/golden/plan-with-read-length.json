@@ -149,6 +149,13 @@
       }
     ],
     "unset": [],
+    "gaps": [
+      {
+        "kind": "no_description",
+        "subject": "nf-core/multiqc",
+        "fix": "registry/tools/nf-core/multiqc/tool.yml"
+      }
+    ],
     "decided": [
       {
         "tier": 1,

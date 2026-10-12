@@ -335,8 +335,9 @@ DEV_MODE = Setting.toggle(
     key="dev.mode",
     label="Dev mode",
     help=(
-        "Show registry gaps in the build — missing descriptions, settings with no list of "
-        "values, unverified contracts — as cards naming the file to fix."
+        "Add registry detail to the build: each gap's kind and the file that would fix it, and "
+        "a stop at every step with a gap. Off, the build still says what the registry lacks "
+        "and still stops wherever it needs you."
     ),
     default=False,
     env="COMENI_DEV_MODE",

@@ -546,6 +546,7 @@ def wrap(ctx: Ctx) -> str | None:
         blueprint, plan = cards.plan_of_row(row)
         revision = db.get(PipelineDraft, row.draft_id).revision
         goal = authoring_decisions.goal(row)
+        details = _policy(row).show_gaps
     used = {
         (blueprint.sites.get(s.id), s.module.contract_id) for s in blueprint.pipeline.steps
     }
@@ -554,11 +555,17 @@ def wrap(ctx: Ctx) -> str | None:
     needed = [i.id for i in w.inputs] + w.unset
     lines = [
         "You'll get: " + (", ".join(g.id for g in w.gets) or "nothing named") + ".",
-        "To run it you need: " + (", ".join(needed) or "nothing more") + ".",
+        "To run, provide: " + (", ".join(needed) or "nothing more") + ".",
         "Decided: "
         + ", ".join(f"{d.count} at tier {d.tier} by {d.source}" for d in w.decided)
         + ".",
     ]
+    # Spec §8 of Part G: what the registry lacks is never something to provide. Dev mode adds the
+    # kind and the file to fix; without it, only what is missing is named.
+    if w.gaps:
+        lines.append("Registry information is incomplete: " + ", ".join(
+            f"{g.subject} ({g.kind.value}, fix in {g.fix})" if details else g.subject
+            for g in w.gaps) + ".")
     if inert:
         lines.append(
             "Tools you chose that no longer apply: "

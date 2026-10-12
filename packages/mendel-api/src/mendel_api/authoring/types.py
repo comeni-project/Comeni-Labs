@@ -319,7 +319,10 @@ class StepProposal(_Block):
     need: Need | None = None
     """What the step needs from the person: nothing, a fact, or a choice (spec §4.3)."""
     gaps: list[Gap] = []
-    """Registry gaps, shown when Dev mode is on (spec §13)."""
+    """Registry gaps, with the file that would fix each; shown in detail only under Dev mode."""
+    unresolved_settings: list[str] = []
+    """Settings the registry lists no values for, named in plain words whatever Dev mode says:
+    the person learns what stays unset without being shown a repository path."""
     stop: Literal["tier_four", "gap", "together"] | None = None
     """Why the walk stopped here (spec §14.4): a tier-4 step, a registry gap shown under Dev mode,
     or every step under *together*."""

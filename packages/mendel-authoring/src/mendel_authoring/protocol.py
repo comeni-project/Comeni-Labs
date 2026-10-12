@@ -716,7 +716,7 @@ PROTOCOL = Protocol(
         _fork("dev", "build", SettingSubject.of(DEV_MODE, title="Dev mode?"), _P.BUILDING),
         _built("show_gaps", "build", _ENGINE, "Registry gaps<br/>stop the walk", _P.BUILDING,
                acts=True),
-        _built("hide_gaps", "build", _ENGINE, "Registry gaps<br/>routed around", _P.BUILDING,
+        _built("hide_gaps", "build", _ENGINE, "Registry gaps<br/>named, no stop", _P.BUILDING,
                acts=True),
         _built("step", "build", _ENGINE, "Next step:<br/>place it, or stop?", _P.BUILDING,
                shape=Shape.CHOICE, acts=True),

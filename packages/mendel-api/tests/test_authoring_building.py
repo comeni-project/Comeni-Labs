@@ -278,3 +278,55 @@ def test_every_tier_four_call_becomes_an_invocation_row(clean):
     assert {rows[i].purpose for i in ids} == {"tier4"}
     assert {rows[i].agent for i in ids} == {"builder"}
     assert rows[ids[0]].duration_ms is None
+
+
+# ── Part G, Task 6: what a run needs, apart from what the registry lacks ─────────────────────
+
+
+def _walked_to_the_end_with_hisat2(case, show_gaps: bool) -> dict:
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, case.session_id).show_gaps = show_gaps
+    facade.perform(commands.Amend(case.proposal_id, case.option_id, None, "ana"))
+    for _ in range(20):
+        picture = facade.read(case.session_id)
+        pending = picture["pending_proposal"]
+        if pending is None:
+            return picture
+        facade.perform(commands.SettleStep(pending["id"], picture["revision"], "ana"))
+    raise AssertionError("the walk did not end within 20 steps")
+
+
+def _receipt(picture) -> str:
+    return next(b["summary"] for t in reversed(picture["turns"]) for b in t["blocks"]
+                if b["kind"] == "receipt" and b["id"].startswith("wrap-"))
+
+
+def test_a_registry_gap_is_reported_apart_from_what_a_run_needs(g_case):
+    picture = _walked_to_the_end_with_hisat2(g_case, show_gaps=False)
+    receipt = _receipt(picture)
+    provide = receipt.split("To run, provide: ", 1)[1].split(".", 1)[0]
+    assert "seq_platform" not in provide
+    assert "Registry information is incomplete: " in receipt and "seq_platform" in receipt
+    assert "registry/tools/" not in receipt
+    assert picture["show_gap_details"] is False
+
+
+def test_dev_mode_adds_the_file_that_would_fix_each_gap(g_case):
+    picture = _walked_to_the_end_with_hisat2(g_case, show_gaps=True)
+    assert "registry/tools/nf-core/hisat2/align/contract.yml" in _receipt(picture)
+    assert picture["show_gap_details"] is True
+
+
+def test_a_setting_with_no_listed_values_is_named_on_its_card(g_case):
+    from part_g_setup import with_hisat2
+
+    session_id = with_hisat2()
+    for _ in range(20):
+        picture = facade.read(session_id)
+        pending = picture["pending_proposal"]
+        assert pending is not None, "the walk ended before offering HISAT2's aligner"
+        if pending["payload"]["node"] == "hisat2_align":
+            assert pending["payload"]["block"]["unresolved_settings"] == ["seq_platform"]
+            return
+        facade.perform(commands.SettleStep(pending["id"], picture["revision"], "ana"))
+    raise AssertionError("the walk did not reach HISAT2's aligner")

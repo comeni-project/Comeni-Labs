@@ -432,7 +432,7 @@ Session adds `show_gap_details: bool` from the recorded policy; new step blocks 
 `unresolved_settings: list[str] = []` for user-facing explanation independent of
 technical `Gap.fix` paths. Frame/run diagnostics remain the existing authority.
 
-- [ ] Extend the real-registry guard: HISAT2's null/no-domain `seq_platform` belongs
+- [x] Extend the real-registry guard: HISAT2's null/no-domain `seq_platform` belongs
   in gaps, not `unset`. Preserve pure fixture strandedness as a legitimate deferred
   setting. Add a receipt assertion and Dev on/off pacing precedence cases:
 
@@ -448,7 +448,7 @@ def test_domain_gap_is_not_a_run_requirement(g_case):
 Resolve only in test setup, not reads/preview. Use the actual alignment site from
 the candidate amendment if it carries required states; preserve canonical Site.
 Watch receipt misclassification fail before implementation.
-- [ ] Collect no-domain decision keys with `gaps.no_domain`; subtract only those
+- [x] Collect no-domain decision keys with `gaps.no_domain`; subtract only those
   from unset settings, retain true input channels, and deduplicate typed gaps.
   Build **To run, provide…** and **Registry information is incomplete** separately.
   Set plain-language unresolved-setting data without exposing repository paths.
@@ -459,11 +459,11 @@ unset = [f"{step.id}.{setting.name}" for step in pipeline.steps for setting in s
          if setting.value is None and f"{step.id}.{setting.name}" not in domain_gaps]
 gaps = [gap for step in pipeline.steps for gap in gaps_of(step, pipeline, declared)]
 ```
-- [ ] Use the stored `show_gaps` policy for developer details. Existing diagnostic
+- [x] Use the stored `show_gaps` policy for developer details. Existing diagnostic
   refusals keep run disabled/explained regardless of Dev mode. Do not invent a
   `blocking=True` rule for all gaps or add another run gate. Keep need → gap →
   together pacing precedence. Update help text/comments and protocol generator.
-- [ ] Run wrap-up/needs/stage-four/settings/building guards; regenerate settings
+- [x] Run wrap-up/needs/stage-four/settings/building guards; regenerate settings
   golden output through its existing fixture workflow and protocol/reference docs:
 
 ```bash
@@ -655,3 +655,10 @@ build-service suite. `make check`: all green except the two truncated-gzip cases
 (`KeyError: 'progress'`) → GREEN. After a STAR→HISAT2 swap the history keeps 3 of 5 and the walk
 reads 1 of 5 at `hisat2_build`. `session.read` derives progress from the review rows it already
 loads; the offer path reads `review_state` once instead of `reviews`. SQL budgets unchanged.
+
+**Task 6 (2026-10-12).** Pure wrap-up guards RED (strandedness-without-domain listed as unset; no
+`gaps`) → GREEN; real-registry HISAT2 `seq_platform` guard RED → GREEN; receipt/Dev-mode guards
+RED (old wording) → GREEN; `unresolved_settings` RED (`KeyError`) → GREEN on a goal with HISAT2
+pinned from the start, since a swap counts as the aligner's review and never offers its card.
+Plan goldens gain `gaps`; settings golden and protocol diagram regenerated (hide-gaps label now
+*named, no stop*). Gap paths still travel in the stored block; `show_gap_details` decides display.

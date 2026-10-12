@@ -1934,6 +1934,11 @@ export interface components {
             canvas?: components["schemas"]["CanvasFrame"] | null;
             progress?: components["schemas"]["WalkProgress"] | null;
             /**
+             * Show Gap Details
+             * @default false
+             */
+            show_gap_details: boolean;
+            /**
              * Steps Total
              * @default 0
              */
@@ -5251,6 +5256,11 @@ export interface components {
              * @default []
              */
             gaps: components["schemas"]["Gap"][];
+            /**
+             * Unresolved Settings
+             * @default []
+             */
+            unresolved_settings: string[];
             /** Stop */
             stop?: ("tier_four" | "gap" | "together") | null;
         };

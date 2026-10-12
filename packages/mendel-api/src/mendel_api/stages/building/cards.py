@@ -10,6 +10,7 @@ from comeni_core.goal.asked import Goal
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring.alternatives import alternatives_of
 from mendel_authoring.blueprint import edges_touching
+from mendel_authoring.gaps import GapKind
 from mendel_authoring.pacing import Stop
 from mendel_authoring.plan import BuildPlan, PlannedStep, plan_of
 from mendel_authoring.progress import progress_of
@@ -77,6 +78,7 @@ def step_payload(
         brief=planned.brief,
         need=planned.need,
         gaps=planned.gaps,
+        unresolved_settings=[g.subject for g in planned.gaps if g.kind is GapKind.NO_DOMAIN],
         stop=stop.value,
     )
     here = set(present) | {planned.node}

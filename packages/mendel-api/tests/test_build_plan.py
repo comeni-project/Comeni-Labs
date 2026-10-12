@@ -7,14 +7,19 @@ blueprint that already carries `unknown`; only this one proves the resolver writ
 from pathlib import Path
 
 from comeni_core import yaml_strict
+from comeni_core.goal.asked import ProducerPin, Site
 from mendel_api.services import blueprint as bp
 from mendel_api.services import declared, registry
+from mendel_authoring.amend import ChooseTool
+from mendel_authoring.gaps import GapKind
 from mendel_authoring.needs import NeedKind
 from mendel_authoring.plan import plan_of
+from mendel_authoring.wrapup import wrap_up
 from mendel_resolver.goal import Goal
 
 ROOT = Path(__file__).resolve().parents[3]
 STAR = "nf-core/star/align@1.11.0"
+HISAT2 = "nf-core/hisat2/align@2.2.2"
 
 
 def _rnaseq(**profile_without) -> Goal:
@@ -46,3 +51,13 @@ def test_with_a_read_length_the_aligner_checks_its_premise():
     assert all(not choice.key.startswith("producer:") for choice in star.need.choices)
     assert any("read_length is 150" in line.text for line in star.brief.check)
     assert star.brief.does is not None
+
+
+def test_domain_gap_is_not_a_run_requirement():
+    """HISAT2's contract declares no values for `seq_platform`: the registry is incomplete, and
+    no researcher can provide what it never listed."""
+    alternate, _ = bp.resolve(ChooseTool(pin=ProducerPin(
+        site=Site(type_id="alignment.bam"), contract=HISAT2)).apply(_rnaseq()))
+    wrap = wrap_up(alternate, declared.of(registry.stack()))
+    assert "hisat2_align.seq_platform" not in wrap.unset
+    assert any(g.kind is GapKind.NO_DOMAIN and g.subject == "seq_platform" for g in wrap.gaps)

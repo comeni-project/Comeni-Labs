@@ -529,6 +529,7 @@ def read(session_id: str) -> dict:
         return {
             "canvas": canvas.model_dump(mode="json") if canvas is not None else None,
             "progress": progress.model_dump(mode="json") if progress is not None else None,
+            "show_gap_details": bool(row.show_gaps),
             "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
             "decision_revision": draft.decision_revision,
             "projection_current": draft.projection_current,

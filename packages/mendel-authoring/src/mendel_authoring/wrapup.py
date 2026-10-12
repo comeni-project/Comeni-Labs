@@ -1,4 +1,9 @@
-"""The build's last card: what you'll get, what you need to run it, and who decided what."""
+"""The build's last card: what you'll get, what you need to run it, and who decided what.
+
+**What a run needs and what the registry lacks are kept apart.** A setting whose candidates are
+only `[None]` has no declared values: no researcher can supply what the registry never listed, so
+it is a gap, never a line under *to run, provide*. A setting left open with real candidates stays
+a run setting."""
 
 from collections import Counter
 
@@ -6,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from mendel_authoring.blueprint import Blueprint
 from mendel_authoring.brief import Said, family_said
+from mendel_authoring.gaps import Gap, gaps_of, no_domain
 from mendel_authoring.ports import Declared
 
 
@@ -32,13 +38,16 @@ class WrapUp(BaseModel):
     inputs: list[Item]
     """The pipeline's input channels, by the parameter a run sets."""
     unset: list[str]
-    """`<step>.<setting>` for every setting with no value, left to the run."""
+    """`<step>.<setting>` for every setting with no value that the run may supply."""
+    gaps: list[Gap] = []
+    """What the registry's declarations lack, each once, in step order."""
     decided: list[Count]
     """Every step's selection and every setting, by tier and source, sorted."""
 
 
 def wrap_up(blueprint: Blueprint, declared: Declared) -> WrapUp:
     pipeline = blueprint.pipeline
+    domain_gaps = {record.key for record in pipeline.decisions if no_domain(record)}
     tally = Counter(
         (int(why.tier), why.source.value)
         for step in pipeline.steps
@@ -54,8 +63,10 @@ def wrap_up(blueprint: Blueprint, declared: Declared) -> WrapUp:
             f"{step.id}.{setting.name}"
             for step in pipeline.steps
             for setting in step.settings
-            if setting.value is None
+            if setting.value is None and f"{step.id}.{setting.name}" not in domain_gaps
         ],
+        gaps=list(dict.fromkeys(
+            gap for step in pipeline.steps for gap in gaps_of(step, pipeline, declared))),
         decided=[
             Count(tier=tier, source=source, count=n) for (tier, source), n in sorted(tally.items())
         ],
