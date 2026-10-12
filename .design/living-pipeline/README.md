@@ -186,18 +186,17 @@ consistent — it just meant the wrong thing.
 | `LivingChoose`, again | the fix put it in the slot and then drew **the whole rerouted graph on top of the old one** — an amber ribbon through TRIMGALORE's port rows, dimmed and dashed wires in the same 24px band, six lines where one belongs | **intrinsic vs asserted**, below |
 | every board with a reference | every source pinned to a **left-hand gutter**, so `genome.index.star` read as an entry channel and dragged a wire across the whole graph | **an input is drawn where it enters.** `dag-core` does layered layout: a source whose only consumer is at layer 2 belongs at layer 1. An input can arrive at any point in the chain, and a step gaining a bound input gains a source node *there* |
 
-**A graph diff drawn on top of the graph is unreadable, and no colour tuning fixes it.** What
-does is a split, and it is the design's answer to *how does a preview show consequences*:
+**Part G preview decision (2026-10-12): show the complete alternative alone.**
+The older intrinsic/asserted local substitution described above is historical.
+The current preview temporarily replaces the canvas with the full alternative,
+including added dependencies and their actual ports and wires, labelled
+**Preview — not applied**. Closing restores the current build's viewport and
+selection. There is no overlaid old topology, no edit/run action on the preview,
+and no implied approval. The change list stays beside the card.
 
-- **Intrinsic** — what cannot survive the substitution — is always on the canvas. One ghost box
-  in the slot; a wire the compatibility index would now refuse is simply *gone*, its port left
-  open. Nothing new is ever drawn.
-- **Asserted** — every other consequence — is a rail bullet that marks its object on the canvas
-  only while it is hovered or focused. Four consequences become four things the reader asks for
-  one at a time.
-
-That second half is a rule the design already had — *selecting a chat card focuses its graph
-object* — and this is where it earns itself.
+Loading/errors keep the current build visible. Mouse/focus temporary preview and
+an explicit touch/pinned preview share the same cached answer. Dev mode adds
+registry fix paths; user-facing run blockers stay visible independently.
 
 **One real bug fell out of building it.** `.node.ghost` dashed *every* border including the
 left one, and a dashed left bar is how this canvas says *a model chose it* — so every proposal

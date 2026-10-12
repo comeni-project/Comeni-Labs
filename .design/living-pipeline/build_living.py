@@ -554,97 +554,52 @@ def board_build():
 #  4. CHOOSE — an alternative previewed on the canvas, and everything it would drag with it
 # ══════════════════════════════════════════════════════════════════════════════════════════
 def board_choose():
-    """**A substitution preview changes exactly one box and never draws a second topology.**
-
-    Three versions got here. The first drew HISAT2 as a SECOND node below STAR, which reads as
-    a pipeline that has gained a module. The second put it in the slot — right — but also drew
-    the whole rerouted graph on top of the old one: an amber ribbon through TRIMGALORE's port
-    rows, dimmed wires and dashed wires in the same 24px band, an amber pole up the middle of
-    the canvas. Six lines where one belongs, and TRIMGALORE wearing four separate *this is
-    going* signals at once.
-
-    A graph diff drawn on top of the graph is unreadable, and no amount of colour tuning fixes
-    it. So:
-
-      · the SUBSTITUTION is always drawn — one ghost box in the slot, and any wire the
-        compatibility index would now refuse goes dim. Nothing new is drawn, ever.
-      · every other CONSEQUENCE is a rail bullet, and it appears on the canvas only while its
-        bullet is hovered or focused.
-
-    `n-bswap` said the first half of this and was half-ignored: *the consequences are in the
-    RAIL, where you clicked Swap from.* They were put in the rail AND drawn on the canvas."""
+    """The entire alternative replaces the canvas; no two graphs are overlaid."""
     ps = [('in', SPINE, 'many'), ('out', SPINE, 'many')]
-    reads = (16 + SW, YS + SH / 2)
-
-    sv = ('        <svg style="position:absolute; inset:0;" width="100%" height="100%" aria-hidden="true">\n'
-          # everything the swap does not touch, at full strength and unmoved
-          '          <g fill="none" stroke="#2C3E45" stroke-width="1.5" stroke-linejoin="miter">\n'
-          '            ' + wire(reads, (inn(0), YQ + SPINE), 'many', bend=gx(0) - 62) + '\n'
-          '            ' + wire((out(1), YM + SPINE), (inn(2), YM + SPINE), 'many') + '\n'
-          # TRIMGALORE's wires stay SOLID. Its removal is a consequence the rail asserts,
-          # and the wires are facts about the graph as it stands; the marked node carries the
-          # claim on its own. The reference's wire is the opposite case and is simply GONE —
-          # `.star` cannot feed a port asking for `.hisat2`, so there is no wire to draw and
-          # the port is open. Intrinsic to the substitution, therefore on the canvas.
-          '            ' + wire(reads, (inn(0), YM + SPINE), 'many') + '\n'
-          '            ' + wire((out(0), YM + SPINE), (inn(1), YM + SPINE), 'many') + '\n'
-          '          </g>\n        </svg>\n')
-
-    g = (src(16, YS, 'reads', 'fastq.reads[paired]', many=True, count=S['samples'])
-         + src(gx(0), YREF, 'reference', 'genome.index.star', dim=True)
-         + node(gx(0), YQ, 'FASTQC', [('in', 'fastq.reads'), ('out', 'qc.report')],
-                '4 settled', ports=ps)
-         # bullet 1 is the focused one, so this is the object it marks
-         + node(gx(0), YM, 'TRIMGALORE',
-                [('in', 'fastq.reads'), ('out', 'fastq.reads[trimmed]')],
-                '<span style="color:#E3674E;">would go</span>', leaving=True, ports=ps)
-         # ONE box in the slot. The tool leaving is named in the footer, so the slot persists
-         # and nothing else on the canvas moves.
-         + node(gx(1), YM, 'HISAT2_ALIGN',
-                [('in', 'fastq.reads'), ('in', 'genome.index.hisat2'), ('out', 'alignment.bam')],
-                '<span style="color:#889699;">replaces</span> '
-                '<span style="text-decoration:line-through;'
-                ' text-decoration-color:#889699;">STAR_ALIGN</span>',
-                ghost=True, tier='meas', ports=ps + [('in', SPINE2, 'open')],
-                extra='<span class="m" style="font-size:8.5px; color:#C1B508;'
-                      ' margin-left:auto;">INSTEAD</span>')
-         + node(gx(2), YM, 'SAMTOOLS_SORT',
-                [('in', 'alignment.bam'), ('out', 'alignment.bam[sorted]')], '6 settled',
-                ports=ps))
-
-    alts = (option('STAR_ALIGN', 'Ranked 1st. Splice-aware, and your reads are 151 bp.',
-                   pick=True, tag='in use')
-            + option('HISAT2_ALIGN', 'Ranked 2nd. Peaks near 8 GB where STAR wants 38.',
-                     foc=True, tag='focused')
-            + option('SALMON_QUANT', 'Ranked 3rd. Removes three later steps.',
-                     tag='changes the goal'))
-
-    changes = ('<div style="font-size:12.5px; color:#889699; line-height:1.5;'
-               ' padding-bottom:11px;">Four things move. Point at one to see it.</div>'
-               + bullet('#E3674E', 'TRIMGALORE would go',
-                        'Only STAR asks for <span class="m" style="font-size:10.5px;">[trimmed]</span>.',
-                        foc=True)
-               + bullet('#C1B508', 'A different reference',
-                        'Its index port is open &mdash; '
-                        '<span class="m" style="font-size:10.5px;">.star</span> cannot feed it.')
-               + bullet('#C1B508', '3 settings change',
-                        '<span class="m" style="font-size:10.5px;">--sjdbOverhang</span> is '
-                        'dropped; two re-resolve.')
-               + bullet('#10AA91', 'SAMTOOLS_SORT unaffected',
-                        'Still fed <span class="m" style="font-size:10.5px;">alignment.bam</span>.'))
-
-    rail_html = rail(
-        said('why star and not hisat2?', 0)
-        + says('Read length, 151 bp &mdash; that is why it ranked first.', 40)
-        + block('Step 3 &mdash; align the reads', alts, right='4 candidates', delay=70)
-        + block('HISAT2_ALIGN in STAR&rsquo;s place', changes,
-                foot='<span class="go">Apply all four</span><span class="no">Keep STAR</span>',
-                right='preview', tick='wait', tone='#C1B508', delay=120))
-
-    body = cols(canvas(sv + g), rail_html)
-    write('LivingChoose', body,
-          header_html=header('building &middot; 4 of 7 steps &middot; '
-                             '<span style="color:#C1B508;">previewing a swap</span>'))
+    x0, x1, x2 = 180, 440, 700
+    nodes = (src(16, 180, 'reads', 'fastq.reads[paired]', many=True, count=S['samples'])
+             + src(16, 70, 'fasta', 'genome.fasta')
+             + src(700, 430, 'gtf', 'annotation.gtf')
+             + node(x0, 70, 'HISAT2_BUILD', [('in', 'genome.fasta'),
+                    ('out', 'genome.index.hisat2')], '', ghost=True,
+                    ports=[('in', SPINE, ''), ('out', SPINE, '')])
+             + node(x0, 250, 'TRIMGALORE', [('in', 'fastq.reads'),
+                    ('out', 'fastq.reads[trimmed]')], '', ghost=True, ports=ps)
+             + node(x1, 250, 'HISAT2_ALIGN', [('in', 'fastq.reads[trimmed]'),
+                    ('in', 'genome.index.hisat2'), ('out', 'alignment.bam')], '',
+                    ghost=True, tier='open', ports=ps + [('in', SPINE2, '')])
+             + node(x2, 250, 'SAMTOOLS_SORT', [('in', 'alignment.bam'),
+                    ('out', 'alignment.bam[coordinate_sorted]')], '', ghost=True, ports=ps)
+             + node(940, 250, 'FEATURECOUNTS', [('in', 'alignment.bam[coordinate_sorted]'),
+                    ('in', 'annotation.gtf'), ('out', 'counts.matrix')], '', ghost=True,
+                    ports=[('in', SPINE, 'gather'), ('in', SPINE2, ''), ('out', SPINE, '')]))
+    routes = [( (16+SW, 180+SH/2), (x0, 250+SPINE), 'many'),
+              ( (16+SW, 70+SH/2), (x0, 70+SPINE), 'one'),
+              ( (x0+NW, 250+SPINE), (x1, 250+SPINE), 'many'),
+              ( (x0+NW, 70+SPINE), (x1, 250+SPINE2), 'one'),
+              ( (x1+NW, 250+SPINE), (x2, 250+SPINE), 'many'),
+              ( (x2+NW, 250+SPINE), (940, 250+SPINE), 'gather'),
+              ( (700+SW, 430+SH/2), (940, 250+SPINE2), 'one')]
+    wires = '<svg style="position:absolute; inset:0;" width="100%" height="100%" aria-hidden="true"><g fill="none" stroke="#2C3E45" stroke-width="1.5">'
+    wires += ''.join(wire(a, b, flow) for a, b, flow in routes) + '</g></svg>'
+    banner = ('<div style="position:absolute; left:22px; top:16px; right:22px; display:flex;'
+              ' align-items:center; gap:12px; z-index:3;">'
+              '<span class="m" style="font-size:11px; color:#6CB7FF;">Preview — not applied</span>'
+              '<span class="m" style="font-size:10px; color:#889699;">HISAT2 alternative</span>'
+              '<button style="margin-left:auto; background:transparent; color:#6CB7FF;'
+              ' border:1px solid #1E3A4E; padding:6px 10px;">Close preview</button></div>')
+    changes = (bullet('#10AA91', 'Adds HISAT2_BUILD and HISAT2_ALIGN', 'Their actual ports and wires are shown.')
+               + bullet('#889699', 'Removes STAR_GENOMEGENERATE and STAR_ALIGN', 'They are absent from this alternative.')
+               + bullet('#6CB7FF', 'Nothing has been applied', 'Close preview to return to your current build.'))
+    detail = (says('Review step 3 of 5 again: the read length changed.', 0)
+              + block('HISAT2 alternative', changes, right='preview', tick='wait',
+                      foot='<span class="go">Change it</span><span class="no">Close preview</span>')
+              + block('Registry information is incomplete',
+                      row('Setting', 'seq_platform', '#889699', 'No declared values; this is not an input file.')
+                      + row('Dev mode', 'no domain', '#889699', 'Fix registry/tools/nf-core/hisat2/align/contract.yml'))
+              + says('Loading preview… keeps your current build visible. If it fails, Retry is explicit.', 0))
+    write('LivingChoose', cols(canvas(wires + nodes, scale=.8, overlay=banner, foot=False), rail(detail)),
+          header_html=header('building &middot; 2 of 5 steps reviewed &middot; preview not applied', run=False))
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════

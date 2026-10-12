@@ -191,16 +191,10 @@ def test_continuing_every_step_completes_the_session_with_the_whole_spine(clean)
 def test_choosing_another_tool_rebuilds_the_pipeline_as_a_persons_choice(clean):
     """Spec §14.3: the tool goes into the goal as a pin and the blueprint is resolved again, so
     HISAT2 replaces STAR's step — under its own id, with its own index — credited to the person."""
-    session_id = _resolving()
-    proposal_id = authoring_setup.start_building(session_id)
-    while _proposal(proposal_id).payload["node"] != "star_align":
-        _, _, revision = _draft(session_id)
-        proposal_id = facade.perform(
-            commands.SettleStep(proposal_id, revision, "ana")
-        ).result.next_proposal
+    from part_g_setup import at_aligner
 
-    options = _proposal(proposal_id).payload["options"]
-    chosen = next(option for option, contract in options.items() if contract == HISAT2)
+    case = at_aligner()
+    session_id, proposal_id, chosen = case.session_id, case.proposal_id, case.option_id
     outcome = facade.perform(commands.Amend(proposal_id, chosen, None, "ana")).result
     graph, provenance, _ = _draft(session_id)
 

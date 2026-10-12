@@ -4,6 +4,20 @@ import pytest
 from mendel_postgres import truncate
 
 
+@pytest.fixture
+def g_case(monkeypatch):
+    from mendel_api.db import session_scope
+    from part_g_setup import at_aligner
+
+    monkeypatch.setenv("COMENI_BUILD_PACING", "together")
+    with session_scope() as db:
+        db.execute(truncate("TRUNCATE TABLE forge_message, forge_event, forge_revision, "
+                            "forge_adaptation, forge_catalogue_item, forge_source_snapshot, "
+                            "ai_invocation, pipeline_authoring_proposal, pipeline_authoring_turn, "
+                            "pipeline_authoring_session, pipeline_draft, gate_run"))
+    return at_aligner()
+
+
 @pytest.fixture(autouse=True)
 def one_step_by_default(monkeypatch):
     """**The first call is one step in this suite unless a test says otherwise** (#194).

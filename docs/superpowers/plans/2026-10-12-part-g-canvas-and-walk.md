@@ -9,7 +9,7 @@
 **Tech Stack:** Python 3.12, Pydantic, SQLAlchemy 2, Alembic/PostgreSQL, FastAPI; React 19, TypeScript, TanStack Query 5, Vitest; existing Python-generated HTML artboards.
 
 **Spec:** [Approved design](../specs/2026-10-12-part-g-canvas-and-walk-design.md).
-**Status:** Proposed plan for operator review; no implementation authorized by this document alone.
+**Status:** Implementation authorized 2026-10-12: “right you can begin implementation”.
 **Baseline:** `55f57c21`, branch `stage-four-the-consultant-build`.
 **Issues:** #291, #265, #266, #294; assigned canvas/walk and Dev mode items in #268. Parent #284.
 
@@ -149,21 +149,21 @@ class Case:
     context: OfferContext  # Current context from the session read, not pre-commit offer version.
 ```
 
-- [ ] Record branch/HEAD, registry SHA, database heads and existing changes in the
+- [x] Record branch/HEAD, registry SHA, database heads and existing changes in the
   execution record. Capture baseline session SQL counts with SQLAlchemy's
   `before_cursor_execute`, excluding fixture setup; save SQL text, never parameters.
-- [ ] Add the reusable case and SQL-capture context manager. Assert proposal and
+- [x] Add the reusable case and SQL-capture context manager. Assert proposal and
   option collections are non-empty before selecting. Confirm the shared helper
   works by driving the existing STAR→HISAT2 building guard through it.
-- [ ] Reproduce the reported canvas issues in an isolated recorded-evidence browser
+- [x] Reproduce the reported canvas issues in an isolated recorded-evidence browser
   session; collect them in one walk, without patching between findings. Store
   screenshots/API assertions locally under `build/part-g-review/`. Any newly found
   defect gets an issue before a fix, as the repository requires.
-- [ ] Update `board_choose` to show only the complete HISAT2 alternative and its
+- [x] Update `board_choose` to show only the complete HISAT2 alternative and its
   **Preview — not applied** banner/close control. Show loading/error, re-review,
   separated run requirements/gaps and developer detail in affected boards.
   Replace the older intrinsic/asserted preview explanation in the design README.
-- [ ] Generate/render and inspect the boards before touching React:
+- [x] Generate/render and inspect the boards before touching React:
 
 ```bash
 python3 .design/living-pipeline/build_living.py
