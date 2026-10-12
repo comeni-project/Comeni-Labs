@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { get } from "../../api/client";
 import type { components } from "../../api/schema";
 
@@ -10,22 +10,25 @@ export function factWords(value: unknown): string {
     typeof value === "boolean" ? value ? "yes" : "no" : String(value);
 }
 
-/** History is loaded only on expansion. It contains facts and selections, never raw AI replies. */
+/** Load history while expanded, keeping its current-answer labels in sync with corrections. */
 export function FactHistory({ sessionId, subject, revision }: {
   sessionId: string; subject: string; revision: number;
 }) {
   const [entries, setEntries] = useState<components["schemas"]["FactHistoryEntry"][] | null>(null);
-  const [loadedRevision, setLoadedRevision] = useState(-1);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  async function load() {
-    if (loadedRevision === revision) return;
-    try {
-      const view = await get<components["schemas"]["FactHistoryView"]>(
-        `/pipeline/authoring/${sessionId}/facts/${encodeURIComponent(subject)}/history`);
-      setEntries(view.entries); setLoadedRevision(revision); setError(null);
-    } catch (failure) { setError(String(failure)); }
-  }
-  return <details className="mt-2 text-[11px]" onToggle={event => { if (event.currentTarget.open) void load(); }}>
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setEntries(null); setError(null);
+    void get<components["schemas"]["FactHistoryView"]>(
+      `/pipeline/authoring/${sessionId}/facts/${encodeURIComponent(subject)}/history`)
+      .then(view => { if (active) setEntries(view.entries); })
+      .catch(failure => { if (active) setError(String(failure)); });
+    // A response for an older selection or identity must never relabel it as current.
+    return () => { active = false; };
+  }, [open, sessionId, subject, revision]);
+  return <details className="mt-2 text-[11px]" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary className="cursor-pointer text-ink-3">History of {subject}</summary>
     {error && <p role="alert">{error}</p>}
     {!entries && !error && <p>Loading history…</p>}

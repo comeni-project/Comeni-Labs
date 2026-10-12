@@ -488,9 +488,10 @@ def apply(connection, snapshot: Snapshot, converted: Conversion, *, at):
             # Offer the recovered goal for an explicit fresh review. No old step approval
             # is silently carried onto a semantic fingerprint it never recorded.
             goal = json.loads(converted.goal) if converted.goal else _proposed_goal(converted)
-            revision = execute(
-                "SELECT revision FROM pipeline_draft WHERE id=:draft", draft=snapshot.draft_id
-            ).scalar_one()
+            revision, decision_revision = execute(
+                "SELECT revision, decision_revision FROM pipeline_draft WHERE id=:draft",
+                draft=snapshot.draft_id,
+            ).one()
             version = (
                 execute(
                     "SELECT row_version FROM pipeline_authoring_session WHERE id=:id",
@@ -499,7 +500,8 @@ def apply(connection, snapshot: Snapshot, converted: Conversion, *, at):
                 + 1
             )
             context = dict(
-                draft_revision=revision, decision_revision=1, session_version=version, registry=""
+                draft_revision=revision, decision_revision=decision_revision,
+                session_version=version, registry=""
             )
             block = dict(
                 kind="goal_summary",

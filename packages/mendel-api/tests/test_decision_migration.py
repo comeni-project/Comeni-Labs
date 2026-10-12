@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from test_authoring_samples import clean as clean
 
 
@@ -354,3 +355,44 @@ def test_frozen_conversion_retains_the_independent_required_state_order():
     assert selected.goal(MeasurementRegistry.load(REGISTRY)).model_dump(mode="json") == (
         goal.model_dump(mode="json")
     )
+
+
+@pytest.mark.parametrize("decision", ["accepted", "rejected"])
+def test_empty_legacy_gathering_can_answer_its_recovered_goal_card(clean, monkeypatch, decision):
+    from datetime import UTC, datetime
+    from secrets import token_hex
+
+    from mendel_api.db import engine, session_scope
+    from mendel_api.migration_data.decisions_v1 import apply, convert
+    from mendel_api.models import PipelineAuthoringSession, PipelineDraft
+    from mendel_api.services import session
+    from mendel_authoring import commands as c
+
+    monkeypatch.setattr(session, "_enqueue", lambda job: True)
+    snapshot = _snapshot(
+        draft_id=token_hex(16), session_id=token_hex(16), phase="gathering", at="reply",
+        draft_goal=None, session_goal=json.dumps({"want": ["counts.matrix"]}), facts="[]",
+    )
+    converted = convert(snapshot)
+    assert converted.disposition == "gathering" and not converted.selections
+    with session_scope() as db:
+        db.add(PipelineDraft(
+            id=snapshot.draft_id, name="Before the first answer", who="old",
+            graph=json.loads(snapshot.graph), provenance={"nodes": []},
+            updated_at=datetime.now(UTC), revision=4,
+        ))
+        db.flush()
+        db.add(PipelineAuthoringSession(
+            id=snapshot.session_id, draft_id=snapshot.draft_id, phase="gathering", at="reply",
+            who="old", row_version=3, blueprint={}, registry_digest="",
+            created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+        ))
+    with engine.begin() as connection:
+        assert apply(connection, snapshot, converted, at=datetime.now(UTC))
+    # Reload the actual persisted offer, then answer it through the real dispatcher.
+    current = session.read(snapshot.session_id)
+    assert current["phase"] == "goal_review"
+    proposal = current["pending_proposal"]
+    session.perform(c.DecideGoal(proposal["id"], decision, current["revision"], "ana"))
+    changed = session.read(snapshot.session_id)
+    assert changed["phase"] != "goal_review"
