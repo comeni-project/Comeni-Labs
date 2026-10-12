@@ -1428,7 +1428,7 @@ git commit -m "feat: every retention limit is a setting, Wiener's stored and edi
 
 Categories: Mendel `model_replies`, `drafts`; Wiener `work_succeeded`, `work_failed`, `runs`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Mendel:
 
@@ -1570,8 +1570,8 @@ that string appears in no `pipeline_authoring_turn.blocks`, `pipeline_authoring_
 `pipeline_observation` row (`CAST(col AS text) LIKE '%QUOTE-7f3a%'`) — and does appear in
 `ai_invocation.response` (so the test is measuring something).
 
-- [ ] **Step 2: Run to verify failure** — Expected: `ImportError: … retention`.
-- [ ] **Step 3: Implement Mendel's sweep**
+- [x] **Step 2: Run to verify failure** — Expected: `ImportError: … retention`.
+- [x] **Step 3: Implement Mendel's sweep**
 
 ```python
 """The daily sweep (spec §5.2): what is past its limit goes, and every pass is recorded."""
@@ -1626,7 +1626,7 @@ async def retention_sweep(ctx: dict) -> dict[str, int]:
 `String(32)`, `removed` int — no JSON, so no stamp. Migration `a3f7c9e1b246`, `down_revision =
 "d7b3e9a1c524"`. Cron in `worker.py`: `cron(retention.retention_sweep, hour=4, minute=0)`.
 
-- [ ] **Step 4: Implement Wiener's sweep** — the same shape. Reads its own `installation()`
+- [x] **Step 4: Implement Wiener's sweep** — the same shape. Reads its own `installation()`
   (Task 6). For `work_succeeded`/`work_failed`: runs in `SUCCEEDED` / `{FAILED, CANCELLED,
   LOST}` with `ended_at <= now - limit` and `work_cleared_at IS NULL`; `shutil.rmtree(work_dir /
   "work")`; set `work_cleared_at = now`. For `runs`: finished runs with `ended_at <= now -
@@ -1636,16 +1636,16 @@ async def retention_sweep(ctx: dict) -> dict[str, int]:
   must be able to see that deletion happened*). `Run.work_cleared_at` column. Migration
   `b8d2f4a6c159`. Cron beside `heartbeat_job`. Note the boundary: `0` days means a run that
   ended at or before `now`, which is every finished run.
-- [ ] **Step 5: The last sweep, served** — Mendel `GET /settings/retention/last` and Wiener
+- [x] **Step 5: The last sweep, served** — Mendel `GET /settings/retention/last` and Wiener
   `GET /api/wiener/retention/last` → `LastSweep | None`: the newest `ran_at` and that pass's
   counts. `work_cleared: bool` on Wiener's run overview model (read where `Run` is serialised
   for the run page). `make client`.
-- [ ] **Step 6: Run all four test files** — Expected: PASS.
-- [ ] **Step 7: Watch each guard fail** — `<` → `<=` swapped the wrong way on replies → boundary
+- [x] **Step 6: Run all four test files** — Expected: PASS.
+- [x] **Step 7: Watch each guard fail** — `<` → `<=` swapped the wrong way on replies → boundary
   test; skip the `RetentionSweep` write when zero → the "still says it ran" test; drop the
   `agent == "builder"` filter → the forge test; sweep `RUNNING` too → the live-run test; copy the
   reply's evidence into `SampleReading` → the quote guard. Ledger rows.
-- [ ] **Step 8: `make check`, commit**
+- [x] **Step 8: `make check`, commit**
 
 ```bash
 git commit -m "feat: a daily sweep clears what is past its limit and records every pass (#276)"

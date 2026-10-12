@@ -10,8 +10,9 @@ def test_the_tables_are_the_four_that_argued_for_themselves():
     tables = {v.__tablename__ for v in vars(m).values() if hasattr(v, "__tablename__")}
     # `wiener_setting` (Part H): a lab changes how long runs are kept on the Settings page, and
     # only Wiener reads Wiener's settings — argued on the model.
+    # `retention_sweep` (Part H): a laboratory must be able to see that deletion happened.
     assert tables == {"run", "run_event", "run_task", "run_artifact", "run_intent",
-                      "wiener_setting"}, (
+                      "wiener_setting", "retention_sweep"}, (
         f"the tables moved: {sorted(tables)}. run_event is the record and run_task and run "
         "are projections of it with a rebuild path — a table that is neither needs an "
         "argument in docs/design/wiener.md §7.1 before it exists. NOTE: `run_message` is "

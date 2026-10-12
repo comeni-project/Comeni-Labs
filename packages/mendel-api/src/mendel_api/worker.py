@@ -15,7 +15,7 @@ from mendel_forge import ops
 
 from mendel_api.db import session_scope
 from mendel_api.models import SourceCheck
-from mendel_api.services import forge_jobs
+from mendel_api.services import forge_jobs, retention
 from mendel_api.services import gates as gate_service
 from mendel_api.settings import settings
 
@@ -130,6 +130,8 @@ class WorkerSettings:
         cron(check_sources, hour=3, minute=0),
         cron(sync_every_source, minute=7, run_at_startup=True),
         cron(sweep_lost_gates, minute={0, 15, 30, 45}, run_at_startup=True),
+        # Part H: once a day, an hour after the drift check, what is past its retention limit.
+        cron(retention.retention_sweep, hour=4, minute=0),
     ]
     """`check_sources` at 03:00 daily; `sync_every_source` hourly and on startup.
 

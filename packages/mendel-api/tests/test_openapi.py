@@ -133,6 +133,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
         ("/api/settings", "get"): "readSettings",
+        ("/api/settings/retention/last", "get"): "readLastRetentionSweep",
         # Whether a model is configured, from settings alone: the describe box's question,
         # apart from `/health/ai`'s probe (issue 268).
         ("/api/settings/ai", "get"): "aiConfigured",

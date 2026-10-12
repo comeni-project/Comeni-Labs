@@ -323,6 +323,8 @@ def read(run_id: str) -> dict:
         # `local · started 21:04`, and the executor was on the board's rows and nowhere on the
         # run itself — so the page that shows one run could not say where it ran.
         state["executor"] = row.executor
+        # Part H: retention deleted its working files; results and record stay.
+        state["work_cleared"] = row.work_cleared_at is not None
     return state
 
 

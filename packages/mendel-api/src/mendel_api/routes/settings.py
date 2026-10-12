@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 
 from mendel_api.identity import default_author
 from mendel_api.refusals import LOCKED, REFUSES
+from mendel_api.services import retention
 from mendel_api.services.installation import installation
 from mendel_api.services.settings_actions import ACTIONS, ActionResult
 
@@ -23,6 +24,12 @@ class Change(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     value: JsonValue = None
+
+
+@router.get("/retention/last", operation_id="readLastRetentionSweep",
+            summary="When retention last ran here, and what it removed")
+def last_retention_sweep() -> retention.LastSweep | None:
+    return retention.last()
 
 
 @router.get("", operation_id="readSettings", summary="Every setting, its value and its source")

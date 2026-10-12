@@ -110,6 +110,19 @@ class SourceCheck(Base):
     skipped: Mapped[int] = mapped_column(Integer)
 
 
+class RetentionSweep(Base):
+    """One category's share of one pass of the daily sweep (Part H): what retention removed, so a
+    laboratory can see that deletion happened. A pass with nothing to do still writes its zeros:
+    *nothing was due* is an answer, and silence would read as a sweep that never ran."""
+
+    __tablename__ = "retention_sweep"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    category: Mapped[str] = mapped_column(String(32))
+    removed: Mapped[int] = mapped_column(Integer)
+
+
 class QueueVisit(Base):
     """When a curator last looked at the queue.
 

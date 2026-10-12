@@ -18,7 +18,15 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import GenericFunction
 
-from wiener_api.models import Run, RunArtifact, RunEventRow, RunIntent, RunTask, WienerSetting
+from wiener_api.models import (
+    RetentionSweep,
+    Run,
+    RunArtifact,
+    RunEventRow,
+    RunIntent,
+    RunTask,
+    WienerSetting,
+)
 from wiener_api.task_query import TaskQuery
 
 
@@ -448,3 +456,30 @@ def put_setting(session: Session, lab_id: str, key: str, value: object, by: str)
                                   updated_at=datetime.now(UTC), updated_by=by))
     else:
         row.value, row.updated_at, row.updated_by = value, datetime.now(UTC), by
+
+
+def finished_before(session: Session, lab_id: str, phases: set[str], before: datetime,
+                    *, uncleared: bool = False) -> list[Run]:
+    """Runs in `phases` that ended at or before `before`, oldest first: what a retention limit
+    reaches. `uncleared` keeps only those whose working files are still there."""
+    query = select(Run).where(Run.lab_id == lab_id, Run.phase.in_(sorted(phases)),
+                              Run.ended_at.is_not(None), Run.ended_at <= before)
+    if uncleared:
+        query = query.where(Run.work_cleared_at.is_(None))
+    return list(session.scalars(query.order_by(Run.ended_at)))
+
+
+def record_sweep(session: Session, lab_id: str, ran_at: datetime, removed: dict[str, int]) -> None:
+    for category, count in removed.items():
+        session.add(RetentionSweep(lab_id=lab_id, ran_at=ran_at, category=category,
+                                   removed=count))
+
+
+def last_sweep(session: Session, lab_id: str) -> tuple[datetime, dict[str, int]] | None:
+    ran_at = session.scalar(select(func.max(RetentionSweep.ran_at))
+                            .where(RetentionSweep.lab_id == lab_id))
+    if ran_at is None:
+        return None
+    rows = session.execute(select(RetentionSweep.category, RetentionSweep.removed).where(
+        RetentionSweep.lab_id == lab_id, RetentionSweep.ran_at == ran_at)).all()
+    return ran_at, dict(rows)

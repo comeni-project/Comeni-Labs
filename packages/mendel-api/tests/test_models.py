@@ -74,6 +74,8 @@ def test_the_registry_is_not_in_the_database():
     assert tables == {
         "source_check",
         "queue_visit",
+        # Part H: what each retention pass removed, so a laboratory can see deletion happened.
+        "retention_sweep",
         "pipeline_draft",
         "gate_run",
         "forge_source_snapshot",

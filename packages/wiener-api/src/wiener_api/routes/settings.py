@@ -6,6 +6,7 @@ from comeni_core.settings import IllegalValue, Menu, SettingLocked, Shown
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, JsonValue
 
+from wiener_api.services import retention
 from wiener_api.services.installation import installation
 
 router = APIRouter(prefix="/api/wiener", tags=["settings"])
@@ -35,3 +36,9 @@ def write_setting(key: str, change: Change) -> Shown:
         raise HTTPException(status_code=422, detail=f"{key}: {refused}") from None
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no setting called {key}") from None
+
+
+@router.get("/retention/last", operation_id="readLastWienerRetentionSweep",
+            summary="When Wiener's retention last ran, and what it removed")
+def last_retention_sweep() -> retention.LastSweep | None:
+    return retention.last()

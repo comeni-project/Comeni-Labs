@@ -1320,6 +1320,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/retention/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** When retention last ran here, and what it removed */
+        get: operations["readLastRetentionSweep"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -3685,6 +3702,18 @@ export interface components {
          * @enum {string}
          */
         Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly" | "model" | "collection";
+        /** LastSweep */
+        LastSweep: {
+            /**
+             * Ran At
+             * Format: date-time
+             */
+            ran_at: string;
+            /** Removed */
+            removed: {
+                [key: string]: number;
+            };
+        };
         /**
          * LegacyOffer
          * @description An archived snapshot, never accepted as a live mutation offer.
@@ -7901,6 +7930,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readLastRetentionSweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastSweep"] | null;
                 };
             };
         };

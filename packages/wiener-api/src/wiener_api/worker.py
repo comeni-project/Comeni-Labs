@@ -14,7 +14,7 @@ from wiener_core.policy import IntentKind, Policy, Reason, decide
 from wiener_core.state import RunPhase
 
 from wiener_api import db, main, repository
-from wiener_api.services import stream
+from wiener_api.services import retention, stream
 from wiener_api.services.launcher import launch
 from wiener_api.services.projection import beat
 from wiener_api.settings import settings
@@ -118,5 +118,7 @@ class WorkerSettings:
         # reads it, and §17's `LOST` window is deliberately blunt — it must exceed the slowest
         # single task, and a six-hour STAR align emits nothing while it runs.
         cron(heartbeat_job, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        # Part H: once a day, what is past its retention limit.
+        cron(retention.retention_sweep, hour=4, minute=0),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)

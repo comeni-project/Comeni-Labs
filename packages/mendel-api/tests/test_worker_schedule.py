@@ -27,7 +27,16 @@ def test_these_are_the_scheduled_jobs():
     """Named literally, so adding one means editing this test — which is where somebody
     notices that a new job needs a cadence argued for rather than copied."""
     assert WorkerSettings.cron_jobs, "nothing is scheduled"
-    assert sorted(_by_name()) == ["check_sources", "sweep_lost_gates", "sync_every_source"]
+    assert sorted(_by_name()) == ["check_sources", "retention_sweep", "sweep_lost_gates",
+                                  "sync_every_source"]
+
+
+def test_retention_runs_daily_and_not_at_startup():
+    """Part H. Daily is the granularity every limit is stated in (days), and a restart is not
+    a reason to delete anything: a deploy must never be what clears a laboratory's data."""
+    job = _by_name()["retention_sweep"]
+    assert job.hour == 4 and job.minute == 0
+    assert not job.run_at_startup
 
 
 def test_the_drift_check_runs_nightly_and_not_at_startup():

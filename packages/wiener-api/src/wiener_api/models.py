@@ -100,6 +100,10 @@ class Run(Base):
     """Which terminal kinds have arrived (`completed`, `error`, `cancelled`), sorted: a set
     from a closed vocabulary of three, never queried."""
     run_succeeded: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    work_cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                             nullable=True)
+    """When retention deleted this run's working files (Part H). Its results and record stay;
+    the run page says *Working files cleared* instead of offering them."""
 
 
 class RunEventRow(Base):
@@ -310,3 +314,17 @@ class WienerSetting(Base):
     value: Mapped[object] = mapped_column(Json, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_by: Mapped[str] = mapped_column(String(200))
+
+
+class RetentionSweep(Base):
+    """**The seventh table, and its argument** (Part H): a laboratory must be able to see that
+    deletion happened, on the Settings page. One row per category per pass; a pass with nothing
+    to do writes its zeros, because silence would read as a sweep that never ran."""
+
+    __tablename__ = "retention_sweep"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
+    ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    category: Mapped[str] = mapped_column(String(32))
+    removed: Mapped[int] = mapped_column(Integer)
