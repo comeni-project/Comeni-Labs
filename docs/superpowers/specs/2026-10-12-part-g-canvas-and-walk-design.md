@@ -1,8 +1,9 @@
 # Canvas and walk agreement (14.7.8.3d Part G) — design
 
-**Status: proposed for operator review (2026-10-12).**
-Behavior choices are approved; this written technical design is not yet approved
-for planning or implementation.
+**Status: approved for planning (2026-10-12).**
+Operator: “right go ahead and write the implementatio nplan”.
+Implementation still awaits review of the
+[written plan](../plans/2026-10-12-part-g-canvas-and-walk.md).
 
 Scope: [Part G](https://github.com/comeni-project/Comeni-Labs/issues/291),
 [265](https://github.com/comeni-project/Comeni-Labs/issues/265),
@@ -122,6 +123,13 @@ request reads the named proposal and current context in a single transaction,
 verifies session ownership and that the offer is still pending and current,
 then returns only that saved snapshot. Read the required rows together; do not
 query per node. Use existing stale/registry-moved refusal conventions.
+
+Keep the saved offer context immutable. The response wrapper also identifies
+the current context checked by the read. Offer creation itself can advance the
+session version after recording the offer, so check the caller's expected session
+version against the current session, rather than requiring its equality with the
+snapshot's historical version. Draft/decision revision, registry and pending
+proposal identity must still match the saved offer.
 
 The client caches by session, proposal, option and complete context. Fetch once
 on first activation; repeated hover/focus uses the cached answer. Deduplicate

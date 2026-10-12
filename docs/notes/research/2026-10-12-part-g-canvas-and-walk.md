@@ -2,7 +2,8 @@
 
 Research and approved brainstorming choices. Inspected on 2026-10-12 after Part F,
 local baseline `bed410fa`. The [written spec](../../superpowers/specs/2026-10-12-part-g-canvas-and-walk-design.md)
-is proposed for operator review; no implementation plan or product changes yet.
+is approved for planning. The [implementation plan](../../superpowers/plans/2026-10-12-part-g-canvas-and-walk.md)
+is proposed for operator review; product code is unchanged.
 
 ## What the work should achieve
 
@@ -120,8 +121,8 @@ and separate registry-gap reporting. Preserve the existing tier-colour invariant
 an approved tier-4 choice remains flagged; a lost-provenance tier-4 fallback must
 not overwrite a real recorded tier. No decision-storage redesign is intended.
 
-No further operator questions are currently needed. The written spec is now
-proposed for review, followed by a separately reviewed implementation plan.
+No further operator questions are currently needed. The written spec is approved
+for planning; the implementation plan is now proposed for review.
 Its self-review selected a nullable, deferred snapshot column on the existing
 proposal row: storing complete alternatives inside the routinely loaded proposal
 JSON would still bloat database reads despite excluding them from HTTP responses.
