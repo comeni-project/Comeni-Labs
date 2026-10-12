@@ -200,6 +200,9 @@ class AuthoringCallView(BaseModel):
     state: str
     response: str | None
     """Exactly what the model returned — a level-0 store (#182)."""
+    cleared: Literal["deleted", "retention"] | None = None
+    """Why `response` is empty though the model answered (Part H): the installation's retention
+    limit passed, or its draft was deleted."""
     reply_format: str | None = None
     """`in_prompt`, or the provider format the server enforced (#194)."""
     at: str

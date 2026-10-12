@@ -751,7 +751,7 @@ git commit -m "fix: a queued run's parameters wait in its own directory, and a l
   `Deleted = NamedTuple(rows: int, replies_cleared: int)`; `deletion.clear_replies(where) -> int`
   (used by Task 7); `AiInvocation.response_cleared: str | None` (`"deleted"` or `"retention"`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Deleting a draft leaves nothing that names it, and keeps the record that its calls happened
@@ -850,8 +850,8 @@ Read `GateRun`'s and `AiInvocation`'s required columns in `models.py` and fill t
 match; read how Part F creates a fork (`services/forks*.py` or `stages/correcting.py`'s linked
 fork) and call that in place of `fork_for_test` — do not add a test-only function to production.
 
-- [ ] **Step 2: Run to verify failure** — Expected: `ImportError: cannot import name 'deletion'`.
-- [ ] **Step 3: Implement `deletion.py`**
+- [x] **Step 2: Run to verify failure** — Expected: `ImportError: cannot import name 'deletion'`.
+- [x] **Step 3: Implement `deletion.py`**
 
 ```python
 """Deleting what a person asks to delete (spec §5.1). **Permanent**: there is no undo.
@@ -958,11 +958,11 @@ def delete_draft(draft_id: str) -> None:
 deleted*). Expose `response_cleared` in `session.py`'s call list (`"cleared":
 r.response_cleared`) and in its route model, then `make client`.
 
-- [ ] **Step 4: Run the tests** — `$SP/part-h-run uv run pytest packages/mendel-api/tests/test_draft_deletion.py -v`; Expected: PASS, five.
-- [ ] **Step 5: Watch each guard fail** — drop `pipeline_phrasing` from `_BY_DRAFT` → first test
+- [x] **Step 4: Run the tests** — `$SP/part-h-run uv run pytest packages/mendel-api/tests/test_draft_deletion.py -v`; Expected: PASS, five.
+- [x] **Step 5: Watch each guard fail** — drop `pipeline_phrasing` from `_BY_DRAFT` → first test
   names it; delete the invocation instead of clearing → second; drop the fork `UPDATE` → third
   (a foreign-key error); remove the live-gate check → fourth. Ledger rows.
-- [ ] **Step 6: `make check`, commit**
+- [x] **Step 6: `make check`, commit**
 
 ```bash
 git commit -m "feat: a draft can be deleted, keeping only the record that its model calls happened (#276)"

@@ -22,7 +22,7 @@ from mendel_api import identity, jobs
 from mendel_api.refusals import REFUSES, Refusal
 from mendel_api.services import build as service
 from mendel_api.services import bundle as bundle_service
-from mendel_api.services import candidates, draft_mutations, registry
+from mendel_api.services import candidates, deletion, draft_mutations, registry
 from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
 from mendel_api.services import gates as gate_service
@@ -229,6 +229,15 @@ def read_draft(draft_id: str) -> DraftOut:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
     return DraftOut(id=row.id, name=row.name, graph=DraftGraph.model_validate(row.graph),
                     revision=row.revision)
+
+
+@router.delete("/drafts/{draft_id}", status_code=204, operation_id="deleteDraft",
+               summary="Delete a draft and everything about it, permanently", responses=REFUSES)
+def delete_draft(draft_id: str) -> None:
+    """**Permanent.** The draft, its conversations, decisions and gate results go; its model
+    calls keep their record without their text, and a fork of it keeps what it inherited
+    (Part H)."""
+    deletion.delete_draft(draft_id)
 
 
 @router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a checked draft",

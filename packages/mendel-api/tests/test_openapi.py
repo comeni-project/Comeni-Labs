@@ -95,6 +95,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/drafts", "post"): "createDraft",
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
         ("/api/pipeline/drafts/{draft_id}", "put"): "saveDraft",
+        ("/api/pipeline/drafts/{draft_id}", "delete"): "deleteDraft",
         ("/api/pipeline/drafts/{draft_id}/keep", "post"): "keepDraft",
         ("/api/pipeline/drafts/{draft_id}/artifact", "get"): "readArtifact",
         # **The only route that answers with bytes** — the courier's Mendel half, A179. It

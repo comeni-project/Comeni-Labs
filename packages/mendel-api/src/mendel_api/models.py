@@ -86,6 +86,15 @@ class DraftOwnership(StrEnum):
     MANUAL = "manual"
 
 
+class ReplyCleared(StrEnum):
+    """Why a model's reply text is gone though the model answered (Part H)."""
+
+    DELETED = "deleted"
+    """Its draft was deleted; the call's record outlives it."""
+    RETENTION = "retention"
+    """The installation's limit for model replies passed."""
+
+
 class RetirementReason(StrEnum):
     AMBIGUOUS = "ambiguous"
     OBSOLETE_PROTOCOL = "obsolete_protocol"
@@ -678,6 +687,14 @@ class AiInvocation(Base):
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     """Exactly what the model returned, admitted or refused (#182). A level-0 store: a reply can
     echo the person's words, and each future protection level decides whether it is kept."""
+    response_cleared: Mapped[str | None] = mapped_column(
+        _one_of(ReplyCleared, 16, "response_cleared"), nullable=True
+    )
+    """Why `response` is empty though the model answered: its draft was deleted, or the
+    installation's retention limit passed (Part H). Null while the text is kept."""
+    response_cleared_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     session_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     """The authoring session a builder call belongs to (#191). No foreign key: forge rows have
     none, and a deleted session must not take its audit rows with it."""

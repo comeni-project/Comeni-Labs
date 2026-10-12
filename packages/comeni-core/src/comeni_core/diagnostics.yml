@@ -3960,3 +3960,14 @@ MW0101:
     A run's parameters wait in its own directory until it launches, so a queue that loses the
     job loses a delay rather than the run. A run is never recorded without them: when they
     cannot be written, the submission is refused whole.
+MI0401:
+  emitted_by: api
+  concern: storage
+  says: "a draft with a gate running cannot be deleted"
+  fires_on: [delete]
+  refuses: true
+  fix: |
+    Let the gate finish (or fail), then delete the draft.
+  explanation: |
+    A gate writes into the draft's directory while it runs. Deleting the draft underneath it
+    would leave a gate reporting on a pipeline that no longer exists.

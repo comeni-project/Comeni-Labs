@@ -509,7 +509,13 @@ export interface paths {
         /** Save a checked draft */
         put: operations["saveDraft"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete a draft and everything about it, permanently
+         * @description **Permanent.** The draft, its conversations, decisions and gate results go; its model
+         *     calls keep their record without their text, and a fork of it keeps what it inherited
+         *     (Part H).
+         */
+        delete: operations["deleteDraft"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1726,6 +1732,8 @@ export interface components {
             state: string;
             /** Response */
             response: string | null;
+            /** Cleared */
+            cleared?: ("deleted" | "retention") | null;
             /** Reply Format */
             reply_format?: string | null;
             /** At */
@@ -6348,6 +6356,44 @@ export interface operations {
             };
             /** @description MI0201: stale save; MI0217: authored work is in progress. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    deleteDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
