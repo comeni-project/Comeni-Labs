@@ -1,6 +1,7 @@
 # Decisions as rows (14.7.8.3d Part F) — design
 
-**Status: approved for planning (operator, 2026-10-11: "you can write the plan").**
+**Status: implemented locally and verified (2026-10-12).**
+Approved for planning by the operator, 2026-10-11: "you can write the plan".
 Behavior decisions and the proposed technical design below are the planning baseline.
 Issues: #290, #269, #272, #275, #295 and Part F's items in #268. Parent: #284.
 
@@ -331,7 +332,7 @@ the current-state notes. Read-only history is complete here; undo remains unbuil
 
 ## Research basis
 
-[Local findings and alternatives](../../notes/research/2026-10-11-decisions-as-rows.md).
+[Local findings and alternatives](../../../notes/research/2026-10-11-decisions-as-rows.md).
 The relational-history recommendation uses the trade-offs in
 [Fowler's temporal patterns](https://martinfowler.com/eaaDev/timeNarrative.html) and
 [Microsoft's event sourcing guidance](https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing).

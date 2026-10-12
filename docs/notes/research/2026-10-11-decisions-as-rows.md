@@ -155,7 +155,7 @@ the spec is now the approved planning baseline.
    defer browsing? Recommended: a compact fact history now, full replay/undo later.
 
 The approved specification records these choices and their technical design:
-[Decisions as rows](../../superpowers/specs/2026-10-11-decisions-as-rows-design.md).
+[Decisions as rows](../../superpowers/specs/archive/2026-10-11-decisions-as-rows-design.md).
 
 The authority cutover is an online Alembic upgrade. Stop writers, retain a database
 backup, and rehearse restore plus upgrade before applying it to a populated installation.

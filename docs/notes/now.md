@@ -5,7 +5,7 @@ The consolidated state of the project. **Read this first**; then any entry still
 [the compaction rules](compaction.md). Each line cites the entry it came from; the long form of any
 line is in [the archive](journal/archive/).
 
-**Compacted through: 2026-10-11.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
+**Compacted through: 2026-10-12.** `CLAUDE.md` as it stood before that day, with its plan-by-plan
 history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim in
 `tests/fixtures/claude-md-2026-09-28.md`.
 
@@ -16,7 +16,7 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **14.7.8.3d Parts A–F are implemented** (#285–#290): data bugs, run reliability,
   schema integrity and decisions as rows. **Next: Part G** (#291), canvas and walk defects;
   then H (#292), readiness for real users, and I (#293), the tutor. Undo is deferred in
-  #302; history is available now. (2026-10-07, 2026-10-08, 2026-10-11)
+  #302; history is available and refreshes after corrections. (2026-10-11, 2026-10-12)
 
 ## How work is done now
 
