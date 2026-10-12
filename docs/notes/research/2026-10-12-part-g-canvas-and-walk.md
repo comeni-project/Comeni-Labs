@@ -1,8 +1,8 @@
 # Part G: make the canvas and walk agree
 
 Research and approved brainstorming choices. Inspected on 2026-10-12 after Part F,
-local baseline `bed410fa`. The [written spec](../../superpowers/specs/2026-10-12-part-g-canvas-and-walk-design.md)
-is approved for planning. The [implementation plan](../../superpowers/plans/2026-10-12-part-g-canvas-and-walk.md)
+local baseline `bed410fa`. The [written spec](../../superpowers/specs/archive/2026-10-12-part-g-canvas-and-walk-design.md)
+is approved for planning. The [implementation plan](../../superpowers/plans/archive/2026-10-12-part-g-canvas-and-walk.md)
 is proposed for operator review; product code is unchanged.
 
 ## What the work should achieve

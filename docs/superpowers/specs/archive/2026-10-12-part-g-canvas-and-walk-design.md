@@ -3,7 +3,7 @@
 **Status: approved for planning (2026-10-12).**
 Operator: “right go ahead and write the implementatio nplan”.
 Implementation still awaits review of the
-[written plan](../plans/2026-10-12-part-g-canvas-and-walk.md).
+[written plan](../../plans/archive/2026-10-12-part-g-canvas-and-walk.md).
 
 Scope: [Part G](https://github.com/comeni-project/Comeni-Labs/issues/291),
 [265](https://github.com/comeni-project/Comeni-Labs/issues/265),
@@ -11,7 +11,7 @@ Scope: [Part G](https://github.com/comeni-project/Comeni-Labs/issues/291),
 [294](https://github.com/comeni-project/Comeni-Labs/issues/294), and the assigned
 canvas/walk findings plus Dev mode wording in
 [268](https://github.com/comeni-project/Comeni-Labs/issues/268).
-Evidence: [research](../../notes/research/2026-10-12-part-g-canvas-and-walk.md).
+Evidence: [research](../../../notes/research/2026-10-12-part-g-canvas-and-walk.md).
 Code baseline: `bed410fa`, after Part F.
 
 ## 1. What the researcher gets

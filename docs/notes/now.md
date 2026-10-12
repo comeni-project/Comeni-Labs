@@ -13,10 +13,8 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - **Task 14 of the living pipeline, step 14.7: walking it with a real model.** The tree is GitHub
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
-- **14.7.8.3d Parts A–F are implemented** (#285–#290): data bugs, run reliability,
-  schema integrity and decisions as rows. **Next: Part G** (#291), canvas and walk defects;
-  then H (#292), readiness for real users, and I (#293), the tutor. Undo is deferred in
-  #302; history is available and refreshes after corrections. (2026-10-11, 2026-10-12)
+- **14.7.8.3d Parts A–G are implemented** (#285–#291). **Next: Part H** (#292), readiness for real
+  users, then I (#293), the tutor; undo is deferred in #302. (2026-10-11, 2026-10-12)
 
 ## How work is done now
 
@@ -53,6 +51,8 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 - **Current decisions are retained rows**, selected by one pointer per subject; the goal is
   composed from them. Corrections cascade semantic reviews, truthful unbuildable answers stay,
   and manual work forks to a linked authored draft. Chooser roles are explicit. (2026-10-11)
+- **The canvas is the session's frame**, read from recorded rows and never re-resolved; progress
+  counts the plan (*Step 4 of 5*); an alternative previews as the whole saved pipeline. (2026-10-12)
 - **Legacy conversion is frozen and online**; old snapshots are historical only. Backup/restore
   was rehearsed on throwaway data; the configured dev database was offline. (2026-10-11)
 - **Open:** `MD0225` does not cover step selections (the keep route closes it for the product);

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, Pydantic, SQLAlchemy 2, Alembic/PostgreSQL, FastAPI; React 19, TypeScript, TanStack Query 5, Vitest; existing Python-generated HTML artboards.
 
-**Spec:** [Approved design](../specs/2026-10-12-part-g-canvas-and-walk-design.md).
+**Spec:** [Approved design](../../specs/archive/2026-10-12-part-g-canvas-and-walk-design.md).
 **Status:** Implementation authorized 2026-10-12: “right you can begin implementation”.
 **Baseline:** `55f57c21`, branch `stage-four-the-consultant-build`.
 **Issues:** #291, #265, #266, #294; assigned canvas/walk and Dev mode items in #268. Parent #284.
@@ -588,17 +588,17 @@ records; create `docs/notes/research/2026-10-12-part-g-execution.md`. Archive ap
 plan/spec only when complete. Local screenshots/results stay in ignored
 `build/part-g-review/`. Issue mutations follow the repository's explicit walk workflow.
 
-- [ ] Drive real API/React against a freshly named throwaway database at both heads,
+- [x] Drive real API/React against a freshly named throwaway database at both heads,
   with recorded model/inspection replies: preview STAR→HISAT2, close, accept, complete,
   correct read length, re-review dependency chain, reload, stale two-tab mutation,
   unavailable legacy preview and manual fork. Exercise both pacing and Dev modes.
   Assert API/canvas agreement and no duplicate React keys; inspect screenshots.
-- [ ] Capture network and SQL evidence: no normal draw request or extra polling,
+- [x] Capture network and SQL evidence: no normal draw request or extra polling,
   session SELECT count no higher than Task 1 baseline, snapshot column absent from
   routine SQL/history, one preview read per cached context and no writes/re-resolution.
   Compare one-node and multi-node/history cases to catch N+1 growth. Run null-old-row
   upgrade and Alembic parity on the throwaway; do not upgrade actual dev data.
-- [ ] Run one full affected verification after focused guards pass:
+- [x] Run one full affected verification after focused guards pass:
 
 ```bash
 make check guards MENDEL_DATABASE_URL="$MENDEL_DATABASE_URL" WIENER_DATABASE_URL="$WIENER_DATABASE_URL"
@@ -611,7 +611,7 @@ If mandatory resolver/compiler/artifact files changed, use `make verify` with th
 same overrides. Record actual test counts, skipped tests and baseline failures;
 do not repeat broad suites absent changes/failures. Rebuild changed baked app
 images once at the end without starting/upgrading the real development stack.
-- [ ] Dispatch exactly one fresh native whole-branch review over this plan's baseline
+- [x] Dispatch exactly one fresh native whole-branch review over this plan's baseline
   through implementation HEAD, giving the approved spec, evidence and query limits.
   Use the executing-plans review procedure and most capable available model. Work
   remains native; no implementer agents. Address material findings in one grouped
@@ -677,3 +677,15 @@ read-only drag). Run is already disabled by phase whenever an offer is pending, 
 defensive and unguarded. Frontend 705 passed, `tsc -b`, oxlint clean for changed files. Pinned
 preview screenshotted over CDP at 1400×900 and 900×1100: whole SORMADUP pipeline, every step
 *PROPOSED*, banner with Close, build hidden; no console errors.
+
+**Task 9 (2026-10-12).** Browser walk over CDP against `mendel_partg_walk` (only the mendel
+database; this branch has no Wiener migration): preview HISAT2 → close → swap → complete → reload,
+read-length correction, stale, legacy, manual, quiet + Dev, HISAT2 pinned from the start. DOM and API
+canvases agreed everywhere and nodes were unique. One preview read covered three pin presses,
+and nothing called `/pipeline/draw`. The walk found three defects, fixed in `c916ea62`. Session
+reads issue 50 statements while building (1 or 3 nodes) and 62 when complete (0 or 7 history
+rows), with the same queries either way, so there is no N+1. `make check`: 3898 passed, 2 failed
+(#303, Python 3.14 only), plus types, docs, links, sizes and guards (95). Vitest 710, `tsc` clean.
+One fresh review (opus) found 1 Critical and 3 Important, all fixed test-first in `ff941e08`;
+7 Minors are deferred in the execution note. Not done: closing the issues on GitHub (waits for
+the operator) and rebuilding the baked images (the stack is not running).
