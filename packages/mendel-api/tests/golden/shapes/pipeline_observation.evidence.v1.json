@@ -1,0 +1,55 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "records": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/Evidence"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}

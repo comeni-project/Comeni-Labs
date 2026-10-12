@@ -32,7 +32,9 @@
 #   MI0100-MI0199  the API: the forge workflow's durable state, and the workers that move it
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
 #   MI0300-MI0399  the API: settings — what the menu may change
+#   MI0400-MI0499  the API: what is stored — shapes and retention
 #   MW0001-MW0099  wiener: ingesting a run's events
+#   MW0100-MW0199  wiener: what is stored — shapes, parameters and retention
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
@@ -3920,3 +3922,15 @@ MI0303:
   explanation: |
     An option that is designed but not built is shown so the menu says what is coming, and
     refused because nothing would honour it.
+MI0400:
+  emitted_by: api
+  concern: storage
+  says: "a stored row is in an older shape than this server reads"
+  fires_on: [load]
+  refuses: true
+  fix: |
+    Run the migrations (`make migrate`). A restored backup is upgraded by the same command.
+  explanation: |
+    Every table holding JSON records which shape its rows are in. A row in an older shape is
+    refused rather than read, because reading it as the current shape would silently show
+    something it does not say.

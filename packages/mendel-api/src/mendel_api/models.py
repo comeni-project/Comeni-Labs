@@ -26,7 +26,6 @@ from mendel_forge.workflow import (
     RevisionState,
 )
 from sqlalchemy import (
-    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -51,6 +50,8 @@ from mendel_api.authoring.types import (
     TurnState,
 )
 from mendel_api.db import Base
+from mendel_api.shape_versions import stamp
+from mendel_api.shapes import Json
 
 
 def _one_of(enum: type[StrEnum], length: int, name: str) -> Enum:
@@ -131,9 +132,10 @@ class InstallationSetting(Base):
     """
 
     __tablename__ = "installation_setting"
+    shape_version: Mapped[int] = stamp("installation_setting")
 
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
-    value: Mapped[Any] = mapped_column(JSON)
+    value: Mapped[Any] = mapped_column(Json)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_by: Mapped[str] = mapped_column(String(200))
 
@@ -161,6 +163,7 @@ class PipelineDraft(Base):
     """
 
     __tablename__ = "pipeline_draft"
+    shape_version: Mapped[int] = stamp("pipeline_draft")
 
     __table_args__ = (
         UniqueConstraint("forked_from", "fork_key", name="uq_pipeline_draft_fork"),
@@ -192,9 +195,9 @@ class PipelineDraft(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     who: Mapped[str] = mapped_column(String(200), index=True)
     name: Mapped[str] = mapped_column(String(200), default="")
-    graph: Mapped[dict] = mapped_column(JSON)
+    graph: Mapped[dict] = mapped_column(Json)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    provenance: Mapped[dict] = mapped_column(JSON, default=dict)
+    provenance: Mapped[dict] = mapped_column(Json, default=dict)
     """Who settled what, per decision rather than per session (§1.8).
 
     A sidecar rather than fields on the graph's nodes: the browser owns the graph and sends it
@@ -316,6 +319,7 @@ class ForgeSourceSnapshot(Base):
     """
 
     __tablename__ = "forge_source_snapshot"
+    shape_version: Mapped[int] = stamp("forge_source_snapshot")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     source: Mapped[str] = mapped_column(String(32), index=True)
@@ -327,12 +331,12 @@ class ForgeSourceSnapshot(Base):
     ok: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     error: Mapped[str] = mapped_column(Text, default="")
     """A coded refusal — `MF0201`, `MF0206` — never a provider's raw traceback."""
-    counts: Mapped[dict] = mapped_column(JSON, default=dict)
+    counts: Mapped[dict] = mapped_column(Json, default=dict)
     """A `SourceCounts` dump. JSON because the six numbers have exact meanings and are read
     together or not at all; six columns would invite reading one."""
-    filters: Mapped[list] = mapped_column(JSON, default=list)
+    filters: Mapped[list] = mapped_column(Json, default=list)
     """The `FilterNode` tree, when the source publishes one. PEGiS does; nf-core does not."""
-    warnings: Mapped[list] = mapped_column(JSON, default=list)
+    warnings: Mapped[list] = mapped_column(Json, default=list)
     """`SyncWarning` dumps. A sync that read 190 tools and could not classify two must be able
     to say so without failing — `MF0205` and `MF0207` are exactly that shape."""
     last_successful_sync_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -364,6 +368,7 @@ class ForgeCatalogueItem(Base):
     """
 
     __tablename__ = "forge_catalogue_item"
+    shape_version: Mapped[int] = stamp("forge_catalogue_item")
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     snapshot_id: Mapped[str] = mapped_column(
@@ -377,7 +382,7 @@ class ForgeCatalogueItem(Base):
     summary: Mapped[str] = mapped_column(Text, default="")
     """Denormalised out of `metadata` so the catalogue's search is an index rather than a JSON
     scan. The catalogue page puts a search box on ~1,600 rows and expects it to be instant."""
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    metadata_json: Mapped[dict] = mapped_column("metadata", Json, default=dict)
     """The whole `CatalogueItem` dump.
 
     **JSON because the shape genuinely varies by source** — PEGiS carries classifications and a
@@ -495,6 +500,7 @@ class ForgeRevision(Base):
     """
 
     __tablename__ = "forge_revision"
+    shape_version: Mapped[int] = stamp("forge_revision")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     adaptation_id: Mapped[str] = mapped_column(
@@ -508,9 +514,9 @@ class ForgeRevision(Base):
     state: Mapped[str] = mapped_column(_one_of(RevisionState, 24, "state"), index=True)
     """A `RevisionState` value. `validated` means the checks *finished*, not that they passed —
     a candidate that fails its checks is still inspectable, and that is a reviewable state."""
-    manifest: Mapped[dict] = mapped_column(JSON, default=dict)
+    manifest: Mapped[dict] = mapped_column(Json, default=dict)
     """Workspace-relative paths, by role. Never an absolute path — see the class docstring."""
-    validation: Mapped[dict] = mapped_column(JSON, default=dict)
+    validation: Mapped[dict] = mapped_column(Json, default=dict)
     """The verdict ladder's summary: which rungs ran, which refused, and their coded
     diagnostics. Stored rather than recomputed, because the layer it was computed against may
     be gone by the time anybody reads it — which is the fact `MF0301` refuses on."""
@@ -518,7 +524,7 @@ class ForgeRevision(Base):
     """Denormalised out of `validation`, because approval queries it and the page renders it."""
     unresolved_required: Mapped[int] = mapped_column(Integer, default=0)
     """How many required holes are still open. A precondition of approval, so it is a column."""
-    prompt_versions: Mapped[dict] = mapped_column(JSON, default=dict)
+    prompt_versions: Mapped[dict] = mapped_column(Json, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
     __table_args__ = (
@@ -593,6 +599,7 @@ class ForgeMessage(Base):
     """
 
     __tablename__ = "forge_message"
+    shape_version: Mapped[int] = stamp("forge_message")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation_id: Mapped[str] = mapped_column(
@@ -609,7 +616,7 @@ class ForgeMessage(Base):
     """A `MessageState` value. A question is `pending` until the AI lane reaches it, and it may
     wait behind an adaptation, so the page has to be able to draw the waiting."""
     content: Mapped[str] = mapped_column(Text, default="")
-    citations: Mapped[list] = mapped_column(JSON, default=list)
+    citations: Mapped[list] = mapped_column(Json, default=list)
     ai_invocation_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("ai_invocation.id", ondelete="RESTRICT"), nullable=True
     )
@@ -639,6 +646,7 @@ class AiInvocation(Base):
     """
 
     __tablename__ = "ai_invocation"
+    shape_version: Mapped[int] = stamp("ai_invocation")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     agent: Mapped[str] = mapped_column(_one_of(Agent, 32, "agent"), index=True)
@@ -652,7 +660,7 @@ class AiInvocation(Base):
     prompt_version: Mapped[str] = mapped_column(String(16), default="")
     prompt_digest: Mapped[str] = mapped_column(String(64))
     """Over the rendered prompt, not the template."""
-    input_digests: Mapped[dict] = mapped_column(JSON, default=dict)
+    input_digests: Mapped[dict] = mapped_column(Json, default=dict)
     """Source and registry digests. What makes the answer reproducible."""
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
     state: Mapped[str] = mapped_column(_one_of(InvocationState, 16, "state"), index=True)
@@ -720,8 +728,9 @@ class PipelineAuthoringSession(Base):
     """
 
     __tablename__ = "pipeline_authoring_session"
+    shape_version: Mapped[int] = stamp("pipeline_authoring_session")
 
-    extraction: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    extraction: Mapped[dict | None] = mapped_column(Json, nullable=True)
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(
         _one_of(RetirementReason, 32, "retirement_reason"), nullable=True
@@ -762,7 +771,7 @@ class PipelineAuthoringSession(Base):
     **Null on a row from before it existed**, and on a row a test moved by event: the node is
     then derived from the phase, the pending proposal and the pending turn
     (`session.rests_at`), and the first move writes it."""
-    blueprint: Mapped[dict] = mapped_column(JSON, default=dict)
+    blueprint: Mapped[dict] = mapped_column(Json, default=dict)
     registry_digest: Mapped[str] = mapped_column(String(80), default="")
     """Which layer stack the blueprint was resolved against. A blueprint outlives the registry
     that produced it, and `MF0301`'s lesson one product over: a green answer about a layer that
@@ -798,6 +807,7 @@ class PipelineAuthoringTurn(Base):
     """
 
     __tablename__ = "pipeline_authoring_turn"
+    shape_version: Mapped[int] = stamp("pipeline_authoring_turn")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     session_id: Mapped[str] = mapped_column(
@@ -809,7 +819,7 @@ class PipelineAuthoringTurn(Base):
     """`person` or `assistant`. The same distinction `AuthoringRole` draws at the door."""
     state: Mapped[str] = mapped_column(_one_of(TurnState, 16, "state"), index=True)
     """A `TurnState` value — `pending`, `answered` or `failed`."""
-    blocks: Mapped[list] = mapped_column(JSON, default=list)
+    blocks: Mapped[list] = mapped_column(Json, default=list)
     """The assistant's turn as a list of discriminated blocks. Empty while `pending`."""
     text: Mapped[str] = mapped_column(Text, default="")
     """The person's own words. Free text with a real author, and the same kind of field
@@ -849,6 +859,7 @@ class PipelineAuthoringProposal(Base):
     """
 
     __tablename__ = "pipeline_authoring_proposal"
+    shape_version: Mapped[int] = stamp("pipeline_authoring_proposal")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     session_id: Mapped[str] = mapped_column(
@@ -859,7 +870,7 @@ class PipelineAuthoringProposal(Base):
     )
     kind: Mapped[str] = mapped_column(_one_of(ProposalKind, 24, "kind"), index=True)
     """A `BlockKind` value — which of the discriminated payloads `payload` holds."""
-    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    payload: Mapped[dict] = mapped_column(Json, default=dict)
     """The block itself, stored whole and validated back through `authoring.types.parse_block`.
     Whole rather than shredded for `PipelineDraft.graph`'s reason: a schema that could hold half
     a proposal would be a second definition of what a proposal is."""
@@ -870,7 +881,7 @@ class PipelineAuthoringProposal(Base):
         return parse(payload, kind=payload.get("offer")).model_dump(mode="json")
 
     preview_views: Mapped[dict | None] = mapped_column(
-        JSON, nullable=True, deferred=True, deferred_raiseload=True,
+        Json, nullable=True, deferred=True, deferred_raiseload=True,
     )
     """Immutable derived alternatives. Ordinary reads must not load this large column."""
 
@@ -951,6 +962,7 @@ class PipelineDecisionMigration(Base):
     """Frozen legacy provenance; an archive, never a current decision fallback."""
 
     __tablename__ = "pipeline_decision_migration"
+    shape_version: Mapped[int] = stamp("pipeline_decision_migration")
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
     )
@@ -960,4 +972,4 @@ class PipelineDecisionMigration(Base):
     )
     reason: Mapped[str | None] = mapped_column(String(24), nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    snapshot: Mapped[dict] = mapped_column(JSON)
+    snapshot: Mapped[dict] = mapped_column(Json)

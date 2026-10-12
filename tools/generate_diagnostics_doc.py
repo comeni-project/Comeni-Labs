@@ -82,6 +82,7 @@ HEADINGS: dict[str, str] = {
     "model-access": "Reaching a model",
     "model-output": "What a model answered",
     "settings": "Settings — what the menu may change",
+    "storage": "What is stored — shapes, parameters and retention",
     "ingest": "Wiener — what may enter",
     "vendoring": "comeni-vendor — a tool's source in a layer",
 }

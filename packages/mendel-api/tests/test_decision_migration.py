@@ -269,7 +269,7 @@ def test_populated_previous_head_upgrades_and_converts_without_changing_saved_by
                 dict(goal=goal, facts=_snapshot().facts, at=datetime.now(UTC)),
             )
             before = connection.execute(
-                text("""SELECT name,graph::text,provenance::text,
+                text("""SELECT name,graph::jsonb::text,provenance::jsonb::text,
                 kept_graph,kept_digest,revision FROM pipeline_draft""")
             ).one()
         upgrade("head")
@@ -281,7 +281,7 @@ def test_populated_previous_head_upgrades_and_converts_without_changing_saved_by
                 == "confirmed"
             )
             after = connection.execute(
-                text("""SELECT name,graph::text,provenance::text,
+                text("""SELECT name,graph::jsonb::text,provenance::jsonb::text,
                 kept_graph,kept_digest,revision FROM pipeline_draft""")
             ).one()
         assert after == before

@@ -10,7 +10,6 @@ from enum import StrEnum
 
 from mendel_authoring.decisions import ActorKind, FactOrigin
 from sqlalchemy import (
-    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -25,6 +24,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from mendel_api.db import Base
 from mendel_api.models import _one_of
+from mendel_api.shape_versions import stamp
+from mendel_api.shapes import Json
 
 
 class Ownership(StrEnum):
@@ -126,6 +127,7 @@ def _revision_keys(family):
 
 class PipelineObservation(Base):
     __tablename__ = "pipeline_observation"
+    shape_version: Mapped[int] = stamp("pipeline_observation")
     __table_args__ = (
         UniqueConstraint(
             "draft_id", "ingestion_key", "subject", name="uq_pipeline_observation_ingestion_subject"
@@ -137,10 +139,10 @@ class PipelineObservation(Base):
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), index=True
     )
     subject: Mapped[str] = mapped_column(String(128))
-    value: Mapped[object] = mapped_column(JSON, nullable=True)
+    value: Mapped[object] = mapped_column(Json, nullable=True)
     origin: Mapped[str] = mapped_column(_one_of(FactOrigin, 16, "origin"))
-    pieces: Mapped[list] = mapped_column(JSON, default=list)
-    evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    pieces: Mapped[list] = mapped_column(Json, default=list)
+    evidence: Mapped[dict | None] = mapped_column(Json, nullable=True)
     measured_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     invocation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     ingestion_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -188,11 +190,12 @@ class PipelineInput(_Subject):
 
 class PipelineInputRevision(_Revision):
     __tablename__ = "pipeline_input_revision"
+    shape_version: Mapped[int] = stamp("pipeline_input_revision")
     __table_args__ = _revision_keys("input")
 
     type_id: Mapped[str] = mapped_column(String(128))
     name: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    states: Mapped[list] = mapped_column(JSON, default=list)
+    states: Mapped[list] = mapped_column(Json, default=list)
     present: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     origin: Mapped[str] = mapped_column(
         _one_of(FactOrigin, 16, "origin"), default=FactOrigin.PERSON_SAID
@@ -206,6 +209,7 @@ class PipelineWant(_Subject):
 
 class PipelineWantRevision(_Revision):
     __tablename__ = "pipeline_want_revision"
+    shape_version: Mapped[int] = stamp("pipeline_want_revision")
     __table_args__ = _revision_keys("want")
 
     states_order: Mapped[int | None] = mapped_column(
@@ -214,7 +218,7 @@ class PipelineWantRevision(_Revision):
         nullable=True,
     )
     type_id: Mapped[str] = mapped_column(String(128))
-    states: Mapped[list] = mapped_column(JSON, default=list)
+    states: Mapped[list] = mapped_column(Json, default=list)
     present: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
@@ -245,10 +249,11 @@ class PipelineProducer(_Subject):
 
 class PipelineProducerRevision(_Revision):
     __tablename__ = "pipeline_producer_revision"
+    shape_version: Mapped[int] = stamp("pipeline_producer_revision")
     __table_args__ = _revision_keys("producer")
 
     type_id: Mapped[str] = mapped_column(String(128))
-    states: Mapped[list] = mapped_column(JSON, default=list)
+    states: Mapped[list] = mapped_column(Json, default=list)
     contract: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
@@ -259,10 +264,11 @@ class PipelineParameter(_Subject):
 
 class PipelineParameterRevision(_Revision):
     __tablename__ = "pipeline_parameter_revision"
+    shape_version: Mapped[int] = stamp("pipeline_parameter_revision")
     __table_args__ = _revision_keys("parameter")
 
     name: Mapped[str] = mapped_column(String(128))
-    value: Mapped[object] = mapped_column(JSON, nullable=True)
+    value: Mapped[object] = mapped_column(Json, nullable=True)
 
 
 class PipelineReview(_Subject):
@@ -283,6 +289,7 @@ class PipelineReviewRevision(_Revision):
 
 class PipelinePhrasing(Base):
     __tablename__ = "pipeline_phrasing"
+    shape_version: Mapped[int] = stamp("pipeline_phrasing")
 
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
@@ -290,4 +297,4 @@ class PipelinePhrasing(Base):
     subject: Mapped[str] = mapped_column(String(128), primary_key=True)
     decision_revision: Mapped[int] = mapped_column(Integer, primary_key=True)
     context_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
-    asked: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    asked: Mapped[dict | None] = mapped_column(Json, nullable=True)

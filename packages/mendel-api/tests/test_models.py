@@ -294,6 +294,9 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             "preview_views",
         },
     }
+    # Part H: every table holding JSON records which shape it is in — an integer, never data.
+    for name in declared:
+        declared[name].add("shape_version")
     tables = {t.__tablename__: t for t in vars(m).values() if hasattr(t, "__tablename__")}
     assert set(declared) <= set(tables), "the authoring tables moved"
 

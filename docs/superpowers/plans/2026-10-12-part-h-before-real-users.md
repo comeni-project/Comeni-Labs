@@ -104,7 +104,7 @@ writes:
 | `pipeline_parameter_revision` | `value` → `JsonValue` |
 | `pipeline_phrasing` | `asked` → `AskedGap \| None` |
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `packages/mendel-api/tests/test_shapes.py`:
 
@@ -234,13 +234,13 @@ def test_a_walked_offer_keeps_its_order_through_a_reload(g_case):
         assert list(views) == stored["preview_options"]
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `$SP/part-h-run uv run pytest packages/mendel-api/tests/test_shapes.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'mendel_api.shapes'` (and the database
 census reports `json` columns).
 
-- [ ] **Step 3: Write `shape_versions.py`**
+- [x] **Step 3: Write `shape_versions.py`**
 
 ```python
 """Which shape each table's JSON is in (spec §3). **Numbers only, importing nothing**, so
@@ -281,7 +281,7 @@ def stamp(table: str) -> Mapped[int]:
                          server_default=text(str(VERSIONS[table])))
 ```
 
-- [ ] **Step 4: Write `shapes.py`**
+- [x] **Step 4: Write `shapes.py`**
 
 ```python
 """What each JSON column holds, and the refusal of a row in an older shape (spec §3).
@@ -396,7 +396,7 @@ If an import in `_shapes()` names a module that does not hold the class (plans h
 predicted types that did not exist), grep for the class and correct the import; ledger the
 ruling.
 
-- [ ] **Step 5: Use `Json` and `stamp` in the models, and install the check**
+- [x] **Step 5: Use `Json` and `stamp` in the models, and install the check**
 
 In `models.py` and `decision_models.py`: drop `JSON` from the `sqlalchemy` import, add
 `from mendel_api.shape_versions import stamp` and `from mendel_api.shapes import Json`, replace
@@ -417,7 +417,7 @@ from mendel_api import shapes  # noqa: E402 — after Base, which it listens on
 shapes.install(Base)
 ```
 
-- [ ] **Step 6: Declare `MI0400`**
+- [x] **Step 6: Declare `MI0400`**
 
 Append to `diagnostics.yml` (and the band line `MI0400-MI0499  the API: what is stored — shapes
 and retention` to its header comment):
@@ -439,7 +439,7 @@ MI0400:
 
 Run: `uv run python tools/generate_diagnostics_doc.py`
 
-- [ ] **Step 7: Write the migration**
+- [x] **Step 7: Write the migration**
 
 `c4e8a2f6d913_jsonb_and_shape_versions.py`, `down_revision = "b9d3e7f5c164"`:
 
@@ -476,7 +476,7 @@ def downgrade():
 
 `columns`' table set must equal `VERSIONS`' keys; the census test checks the result.
 
-- [ ] **Step 8: Write the goldens and run the tests**
+- [x] **Step 8: Write the goldens and run the tests**
 
 Run: `make test-db` (re-creates the throwaway databases at the new head), then
 `COMENI_WRITE_GOLDEN=1 $SP/part-h-run uv run pytest packages/mendel-api/tests/test_shapes.py -v`
@@ -486,14 +486,14 @@ Expected: PASS, all six. **If the key-order test fails**, a column's order is se
 one column `JSON` (declare it `sa.JSON` and skip it in the migration's `ALTER`), record it in
 `shapes.py` beside its `Shape` with why, and ledger the ruling; do not sort options to hide it.
 
-- [ ] **Step 9: Watch each guard fail**
+- [x] **Step 9: Watch each guard fail**
 
 One at a time, revert and run, recording each in `tests/fixtures/guard-ledger.md`:
 add a field to `AskedGap` → golden fails; add `Column("x", Json)` to `QueueVisit` → census fails;
 replace `_check`'s body with `return` → stale-row test fails; `ALTER` one column back to `JSON` in
 the test database → JSONB census fails.
 
-- [ ] **Step 10: The whole suite, then commit**
+- [x] **Step 10: The whole suite, then commit**
 
 Run: `$SP/part-h-run make check`
 Expected: green, apart from the two #303 failures on Python 3.14 only.

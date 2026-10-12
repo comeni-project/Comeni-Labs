@@ -53,7 +53,8 @@ def _payload(pid: str) -> dict:
 def _pending_for(sid: str, subject: str) -> str:
     while (pid := facade.pending_id(sid)) and _payload(pid)["subject"] != subject:
         skip = ("dont_have", "value", "not_sure", "upload")
-        options = [o for o in _payload(pid)["options"] if o not in skip]
+        drawn = [o["id"] for o in _payload(pid)["block"]["options"]]  # the card's order
+        options = [o for o in drawn if o not in skip]
         facade.perform(commands.AnswerGap(pid, options[0], None, "ana"))
     return facade.pending_id(sid)
 

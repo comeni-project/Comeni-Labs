@@ -1,0 +1,101 @@
+{
+  "properties": {
+    "at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "blueprint": {
+      "type": "string"
+    },
+    "decision_revision": {
+      "type": "integer"
+    },
+    "draft_goal": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "draft_id": {
+      "type": "string"
+    },
+    "facts": {
+      "type": "string"
+    },
+    "graph": {
+      "type": "string"
+    },
+    "phase": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provenance": {
+      "type": "string"
+    },
+    "reviewed": {
+      "type": "string"
+    },
+    "session_goal": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "draft_id",
+    "session_id",
+    "phase",
+    "at",
+    "session_goal",
+    "draft_goal",
+    "facts",
+    "graph",
+    "provenance",
+    "blueprint",
+    "reviewed",
+    "policy",
+    "decision_revision"
+  ],
+  "type": "object"
+}

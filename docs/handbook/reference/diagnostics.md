@@ -294,6 +294,12 @@ decline to curate one.
 | `MI0302` | this value is not one this setting can hold |
 | `MI0303` | a setting's option is designed and cannot be chosen yet |
 
+## What is stored — shapes, parameters and retention
+
+| Code | Says |
+|---|---|
+| `MI0400` | a stored row is in an older shape than this server reads |
+
 ## Wiener — what may enter
 
 | Code | Says |

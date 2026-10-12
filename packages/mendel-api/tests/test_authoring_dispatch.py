@@ -176,8 +176,10 @@ def _gathering(sid):
 def test_an_answer_runs_through_answered_to_the_next_question(sid):
     _gathering(sid)
     pending = facade.pending_id(sid)
-    options = facade.read(sid)["pending_proposal"]["payload"]["options"]
-    facade.perform(commands.AnswerGap(pending, next(iter(options)), None, "tester"))
+    # The order the card draws is `block.options`, a list; the `options` map's key order is not
+    # kept by JSONB and was never what a person saw.
+    options = [o["id"] for o in facade.read(sid)["pending_proposal"]["payload"]["block"]["options"]]
+    facade.perform(commands.AnswerGap(pending, options[0], None, "tester"))
     assert _row(sid)[0] in {"reply", "card"}
     assert facade.pending_id(sid) != pending
 
@@ -283,8 +285,10 @@ def test_a_row_from_before_at_takes_its_first_answer(sid):
     with session_scope() as db:
         db.get(PipelineAuthoringSession, sid).at = None
     pending = facade.pending_id(sid)
-    options = facade.read(sid)["pending_proposal"]["payload"]["options"]
-    facade.perform(commands.AnswerGap(pending, next(iter(options)), None, "tester"))
+    # The order the card draws is `block.options`, a list; the `options` map's key order is not
+    # kept by JSONB and was never what a person saw.
+    options = [o["id"] for o in facade.read(sid)["pending_proposal"]["payload"]["block"]["options"]]
+    facade.perform(commands.AnswerGap(pending, options[0], None, "tester"))
     assert _row(sid)[0] in {"reply", "card"}
     assert facade.pending_id(sid) not in {None, pending}
 
