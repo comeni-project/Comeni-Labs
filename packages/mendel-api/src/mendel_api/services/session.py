@@ -452,8 +452,11 @@ def read(session_id: str) -> dict:
     from four endpoints would make the checkpoint a statement about four caches.
     """
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
+    from comeni_core.plan.draft import DraftGraph
+    from mendel_authoring.blueprint import Blueprint
+
     from mendel_api.authoring import envelopes
-    from mendel_api.services import authoring_decisions, decisions
+    from mendel_api.services import authoring_canvas, authoring_decisions, decisions, registry
     from mendel_api.stages.building import _placement, hand_edits
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
@@ -501,7 +504,22 @@ def read(session_id: str) -> dict:
             decisions.PipelineEvidenceAccess,
             decisions.PipelineEvidenceAccess.observation_id == decisions.PipelineObservation.id
         ).where(decisions.PipelineEvidenceAccess.draft_id == row.draft_id).distinct()).all()
+        placement = _placement(row, draft, pending)
+        canvas = authoring_canvas.frame_of(
+            blueprint=Blueprint.model_validate(row.blueprint) if row.blueprint else None,
+            graph=DraftGraph.model_validate(draft.graph or {}),
+            provenance=DraftProvenance.model_validate(draft.provenance or {}),
+            pending=(envelopes.parse(pending.payload, kind=pending.kind)
+                     if pending is not None and pending.kind == "step" else None),
+            proposal_id=pending.id if pending is not None and pending.kind == "step" else None,
+            context=envelopes.OfferContext(draft_revision=draft.revision,
+                decision_revision=draft.decision_revision, session_version=row.row_version,
+                registry=row.registry_digest or ""),
+            current=draft.projection_current, ownership=draft.ownership,
+            placement=placement, layers=registry.stack(),
+        )
         return {
+            "canvas": canvas.model_dump(mode="json") if canvas is not None else None,
             "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
             "decision_revision": draft.decision_revision,
             "projection_current": draft.projection_current,
@@ -531,7 +549,7 @@ def read(session_id: str) -> dict:
             "row_version": row.row_version,
             "revision": draft.revision if draft else 0,
             "graph": draft.graph if draft else {},
-            "placement": _placement(row, draft, pending),
+            "placement": placement,
             "hand_edits": hand_edits(row, draft),
             # **A count, not the plan.** How many steps the blueprint holds lets the header say
             # `4 of 7`; which steps they are stays private until each is offered.

@@ -316,7 +316,7 @@ context: OfferContext, current: bool, ownership: str, placement: dict, layers)
 -> CanvasFrame | None`. It accepts values, not ORM rows or a Session. The session
 response adds `canvas: CanvasFrame | None` using values already loaded.
 
-- [ ] Write guards for pending upstream wiring in both pacing modes, existing-node
+- [x] Write guards for pending upstream wiring in both pacing modes, existing-node
   uniqueness, full edge-key uniqueness and current recorded tiers. Example:
 
 ```python
@@ -332,7 +332,7 @@ def test_pending_aligner_uses_its_upstream_index(g_case):
 Add grouped inputs, same-type/different-state channels, sample/run scope and count;
 manual recorded provenance versus unrecorded tier-4 fallback; stale projection
 after unbuildable correction; no future-node metadata in ordinary frames. Watch RED.
-- [ ] Build the visible graph from the stored graph plus the compatible pending
+- [x] Build the visible graph from the stored graph plus the compatible pending
   node/edges. Read metadata from the corresponding blueprint steps and provenance.
   Share formatting helpers with `build._view` without routing authored views through
   its unrecorded-manual fallback. Compute entry channels with the actual wiring
@@ -358,10 +358,10 @@ validate its contract before adding any offered edges.
 For manual mode pass stored provenance to existing materialisation. When a node's
 contract differs from the blueprint, use its matching stored provenance; never
 restore a stale blueprint decision solely because the id is equal.
-- [ ] Attach the frame in `session.read` before leaving the existing scope. Pass
+- [x] Attach the frame in `session.read` before leaving the existing scope. Pass
   already loaded values into the adapter; no `decisions.read/reviews` call per node
   and no separate DB context. Preserve existing response fields for other callers.
-- [ ] Compare observed SELECT count with Task 1 baseline; assert no added queries,
+- [x] Compare observed SELECT count with Task 1 baseline; assert no added queries,
   no snapshot column loaded and no resolver/model/gate call during authored reads.
   Extend schema/client, run focused guards plus keep/materialisation regressions,
   record GREEN and commit #266/#268/#294.
@@ -640,3 +640,13 @@ have been executed and no product files have changed.
 
 Implementation references: [SQLAlchemy deferred columns and raiseload](https://docs.sqlalchemy.org/en/20/orm/queryguide/columns.html),
 [TanStack Query options](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery).
+
+**Task 4 (2026-10-12).** 7 canvas guards RED without the frame, GREEN with it. Rulings: under
+`stop_where_needed` a tier-3 aligner is placed without an offer, so the quiet case checks wiring
+on the placed graph; SQL budgets are per case (together 50, quiet 62), each measured identical
+with and without the frame; a manual draft's dangling edges are dropped from its frame rather
+than failing the read (`test_after_the_walk_a_hand_edit_is_named_for_the_goal_card` RED→GREEN);
+Task 3's preview route added to the hand-named operation list. No same-type/different-state
+channel exists in the recorded RNA-seq case; that formatting stays covered by `step_views`'s
+build-service suite. `make check`: all green except the two truncated-gzip cases, the Python
+3.14 trap (#303), which pass on 3.12.

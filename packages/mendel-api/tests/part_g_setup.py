@@ -30,7 +30,7 @@ class Case:
     context: OfferContext
 
 
-def at_aligner(pacing: str = "together") -> Case:
+def _accepted(pacing: str) -> tuple[str, Goal]:
     goal = Goal.model_validate(yaml_strict.load(ROOT / "examples/rnaseq-goal.yml"))
     draft = drafts.create(DraftGraph(), "rnaseq", "ana")
     sid = facade.perform(commands.OpenSession(draft, "ana")).result
@@ -41,6 +41,20 @@ def at_aligner(pacing: str = "together") -> Case:
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, sid)
         row.pacing, row.show_gaps = pacing, False
+    return sid, goal
+
+
+def placed_quietly() -> str:
+    """A session whose whole walk was placed without stopping: nothing is pending. Pacing is
+    read from `COMENI_BUILD_PACING`, so the caller sets it to `stop_where_needed`."""
+    sid, _ = _accepted("stop_where_needed")
+    authoring_setup.start_building(sid)
+    assert facade.read(sid)["pending_proposal"] is None, "the quiet walk stopped"
+    return sid
+
+
+def at_aligner(pacing: str = "together") -> Case:
+    sid, goal = _accepted(pacing)
     proposal = authoring_setup.start_building(sid)
     for _ in range(20):
         picture = facade.read(sid)

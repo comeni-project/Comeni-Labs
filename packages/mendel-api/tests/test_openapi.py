@@ -70,6 +70,10 @@ def test_every_operation_is_named_by_hand():
             "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/decide",
             "post",
         ): "decideAuthoringProposal",
+        (
+            "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/alternatives/{option_id}",
+            "get",
+        ): "previewAuthoringAlternative",
         ("/api/pipeline/authoring/{session_id}/retry", "post"): "retryAuthoring",
         ("/api/pipeline/authoring/{session_id}/samples", "post"): "uploadAuthoringSample",
         ("/api/pipeline/authoring/{session_id}/preview", "get"): "previewAuthoring",

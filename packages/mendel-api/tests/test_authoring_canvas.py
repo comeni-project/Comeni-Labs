@@ -4,21 +4,27 @@ import pytest
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import session as facade
+from mendel_compiler import orchestrate
 from mendel_postgres import reachable
-from part_g_setup import at_aligner, captured_sql
+from part_g_setup import captured_sql, placed_quietly
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="run make test-db")
+
+# Statements `session.read` issued for each case before it carried a frame: the frame adds none.
+BASELINE = {"together": 50, "stop_where_needed": 62}
 
 
 @pytest.mark.parametrize("pacing", ["together", "stop_where_needed"])
 def test_pending_aligner_uses_its_upstream_index(g_case, pacing, monkeypatch):
     monkeypatch.setenv("COMENI_BUILD_PACING", pacing)
-    case = g_case if pacing == "together" else at_aligner(pacing)
+    # Quietly paced, a tier-3 aligner is placed without stopping, so its wiring is checked
+    # on the placed graph rather than on an offer.
+    session_id = g_case.session_id if pacing == "together" else placed_quietly()
     with captured_sql() as sql:
-        picture = facade.read(case.session_id)
+        picture = facade.read(session_id)
     frame = picture.get("canvas")
     assert isinstance(frame, dict), "session has no coherent authored canvas"
-    assert len(sql) <= 50, sql
+    assert len(sql) <= BASELINE[pacing], sql
     assert all("preview_views" not in statement for statement in sql)
     assert any(e["from_node"] == "star_genomegenerate" and e["to_node"] == "star_align"
                for e in frame["graph"]["edges"])
@@ -67,3 +73,34 @@ def test_manual_same_id_uses_its_actual_contract_and_provenance(g_case):
     assert frame is not None
     [step] = frame["steps"]
     assert step["contract_id"] == "nf-core/fastqc@0.12.1" and step["tier"] == 4
+
+
+def test_offer_frame_shows_only_visible_steps_and_entry_scopes(g_case, monkeypatch):
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("an authored read re-resolved the goal")
+
+    monkeypatch.setattr(orchestrate, "build", refuse)
+    frame = facade.read(g_case.session_id)["canvas"]
+    drawn = {n["id"] for n in frame["graph"]["nodes"]}
+    assert drawn == {"star_genomegenerate", "trimgalore", "star_align"}
+    assert {s["id"] for s in frame["steps"]} == drawn == set(frame["placement"])
+    by_type = {c["type_id"]: c for c in frame["channels"]}
+    gtf, reads = by_type["annotation.gtf"], by_type["fastq.reads"]
+    assert gtf["scope"] == "run" and gtf["count"] is None
+    assert sorted(gtf["ports"]) == ["star_align.gtf", "star_genomegenerate.gtf"]
+    assert reads["scope"] == "sample" and reads["count"]
+
+
+def test_manual_recorded_provenance_keeps_its_tier(g_case):
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, g_case.session_id)
+        draft = db.get(PipelineDraft, row.draft_id)
+        draft.ownership = "manual"
+        draft.graph = {"nodes": [{"id": "qc", "contract_id": "nf-core/fastqc@0.12.1",
+                                 "params": []}], "edges": []}
+        draft.provenance = {"nodes": [{"node": "qc", "selection": {
+            "source": "human", "tier": 1, "reason": "chosen on the canvas"}}]}
+    frame = facade.read(g_case.session_id).get("canvas")
+    assert frame is not None
+    [step] = frame["steps"]
+    assert step["contract_id"] == "nf-core/fastqc@0.12.1" and step["tier"] == 1

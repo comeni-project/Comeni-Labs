@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
-from mendel_api.authoring.canvas import AlternativePreview
+from mendel_api.authoring.canvas import AlternativePreview, CanvasFrame
 from mendel_api.authoring.envelopes import HistoryOffer, Offer, OfferContext
 from mendel_api.authoring.types import (
     Block,
@@ -231,6 +231,9 @@ class AuthoringSessionView(BaseModel):
     revision: int
     graph: DraftGraph
     """The draft as the server holds it — the canvas restores from this, not from the transcript."""
+    canvas: CanvasFrame | None = None
+    """The visible graph with its step metadata and entry channels, read from what was recorded.
+    `None` before a blueprint exists, or for an empty manual draft."""
     steps_total: int = 0
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
@@ -700,6 +703,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
+        canvas=picture["canvas"],
         placement=picture["placement"],
         hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],

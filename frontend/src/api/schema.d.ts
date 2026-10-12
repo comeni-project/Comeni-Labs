@@ -1931,6 +1931,7 @@ export interface components {
             /** Revision */
             revision: number;
             graph: components["schemas"]["DraftGraph"];
+            canvas?: components["schemas"]["CanvasFrame"] | null;
             /**
              * Steps Total
              * @default 0
