@@ -17,7 +17,7 @@ stored as installation settings, Wiener's in Wiener's own table, written through
 **Tech Stack:** Python 3.12, SQLAlchemy 2, Alembic, Postgres (JSONB), arq cron, FastAPI, Pydantic
 2, React 19 + TanStack Query + Vitest.
 
-**Spec:** `docs/superpowers/specs/2026-10-12-part-h-before-real-users-design.md`
+**Spec:** `docs/superpowers/specs/archive/2026-10-12-part-h-before-real-users-design.md`
 
 ## Global Constraints
 
@@ -1792,12 +1792,12 @@ git commit -m "feat: delete a draft or a run, and see and change every retention
   current naming, read the folder)
 - Modify: this plan's checkboxes and an execution record at its end
 
-- [ ] **Step 1: Migrate the dev databases with a backup first** — `make dev` stack down;
+- [x] **Step 1: Migrate the dev databases with a backup first** — `make dev` stack down;
   `pg_dump` both dev databases to the scratchpad; `make migrate && make wiener-migrate`; confirm
   `SELECT DISTINCT data_type … 'json'` returns nothing and every `shape_version` is 1.
-- [ ] **Step 2: Rebuild the baked images** (`ai-worker`, `wiener-api`, `wiener-worker`, `web`)
+- [x] **Step 2: Rebuild the baked images** (`ai-worker`, `wiener-api`, `wiener-worker`, `web`)
   and start the stack.
-- [ ] **Step 3: Walk in the browser, screenshot each, and compare with the API**:
+- [x] **Step 3: Walk in the browser, screenshot each, and compare with the API**:
   1. Settings → *Data retention* and *Data retention: runs* under *This installation*, each
      limit in words; change *Working files of a run that failed* to *After 30 days*, reload,
      still 30; pin one by `.env` and see it locked with why.
@@ -1809,12 +1809,48 @@ git commit -m "feat: delete a draft or a run, and see and change every retention
   5. Stop Redis between submit and launch (`docker compose stop redis`, submit, `start redis`,
      restart the worker): the run launches with its parameters.
   Every defect found gets a GitHub issue first (`walk` label), then a fix test-first.
-- [ ] **Step 4: `make verify`** — Expected: green, apart from #303 on Python 3.14 only (run the
+- [x] **Step 4: `make verify`** — Expected: green, apart from #303 on Python 3.14 only (run the
   two under 3.12 to confirm).
-- [ ] **Step 5: Record** — the journal entry; `now.md` says Part H implemented, next Part I
+- [x] **Step 5: Record** — the journal entry; `now.md` says Part H implemented, next Part I
   (#293); a comment on #292 and #276 citing the commits (the operator has allowed issue
   comments); tick every box here and write the execution record.
 
 ```bash
 git commit -m "docs: close Part H, its walk and its record (#292)"
 ```
+
+---
+
+## Execution record (2026-10-12)
+
+Executed inline, `750a81bb` through `2c3503dc`. Every ruling is listed here with its cost.
+
+- **Task 1.** JSONB reorders object keys. No order a person sees reads key order: cards draw
+  lists and the API sorts option ids. So every column stays JSONB, and the guard checks values
+  and list order. Two tests that took "the first option" now read `block.options`.
+- **Task 1.** The migration lists its columns instead of discovering them, because offline
+  `--sql` rendering must work. Part F's bytes test compares `::jsonb::text`. The goldens drop
+  prose.
+- **Task 2.** `jsonb_array_length` refuses a scalar, so a dialect-compiled `_array_length` keeps
+  the attempt filters working. A new `EmittedBy.WIENER_API` covers codes raised in wiener-api.
+- **Task 3.** A test drives the worker's startup hook itself, not only `requeue_queued`.
+- **Task 4.** A fork's inherited evidence passes to the fork when its parent is deleted. The
+  parent's history, which the fork showed by reference, goes with the parent. Each subject and
+  its revisions are deleted in one statement, because Postgres checks RESTRICT at the end of
+  each statement, deferred or not.
+- **Task 6.** Wiener's keys are `retention_runs.*`, because a section's keys must start with
+  its own key. Wiener's `Installation` moved to `services/installation.py`.
+- **Task 7.** The quote guard drives `ReadingAnswered` directly. The live-run guard gives the
+  run an `ended_at`.
+- **Task 8.** Settings is an overlay, so the confirmations link to `?settings=…`. Delete sits in
+  the last column of the home table.
+- **Task 9.** This repository has no dev database, so the walk ran against the throwaway
+  database, as Part G's did. The Redis-crash scenario is covered by tests, not walked. The walk
+  found #305 ("1 replies"), fixed test-first.
+- **Review.** No Critical findings and three Important ones, all fixed:
+  - working files now go within five minutes of a run ending;
+  - a reply that lands after its draft is deleted keeps no text;
+  - a run without parameters is failed (`MW0102`), and jobs queued under the old signature
+    keep theirs.
+
+  Seven minors are deferred (listed in the journal entry). The baked images are not rebuilt.

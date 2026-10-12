@@ -13,8 +13,8 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - **Task 14 of the living pipeline, step 14.7: walking it with a real model.** The tree is GitHub
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
-- **14.7.8.3d Parts A–G are implemented** (#285–#291). **Next: Part H** (#292), readiness for real
-  users, then I (#293), the tutor; undo is deferred in #302. (2026-10-11, 2026-10-12)
+- **14.7.8.3d Parts A–H are implemented** (#285–#292). **Next: Part I** (#293), the tutor; undo
+  is deferred in #302. (2026-10-11, 2026-10-12)
 
 ## How work is done now
 
