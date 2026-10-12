@@ -255,7 +255,7 @@ expected: OfferContext) -> AlternativePreview`. Endpoint:
 with required query parameters `expected_revision`, `expected_decision_revision`,
 `expected_session_version`, `expected_registry`. Return the Task 2 DTO.
 
-- [ ] Add service/HTTP guards for correct STAR→HISAT2 graph/ports/wires, session
+- [x] Add service/HTTP guards for correct STAR→HISAT2 graph/ports/wires, session
   ownership, unknown/refused options, settled/stale offers, registry movement and
   mismatches in each current context field. Add a regression for the dispatcher
   advancing the version after offer creation: the fresh pending offer remains
@@ -277,7 +277,7 @@ Also replace goal resolution/model/gate seams with functions raising if invoked,
 capture SQL for the preview read, and assert no INSERT/UPDATE/DELETE. Cross-session
 lookup is 404 even if the option id is valid. Old null maps say unavailable and
 do not prevent accepting the original card. Watch the new behavior's RED.
-- [ ] Implement a single joined SELECT of proposal/session/draft and the explicitly
+- [x] Implement a single joined SELECT of proposal/session/draft and the explicitly
   requested column in one read transaction. Check ownership before returning data,
   then pending state, current/expected context and selected option. Do not acquire
   mutation locks or mark a proposal stale on GET. Reuse `coded()` refusal vocabulary.
@@ -296,10 +296,10 @@ Validate the saved map and expected context inside the transaction. Use the
 existing registry digest machinery; no new scan/network/model dependency.
   Check current context independently of the saved frame's historical session
   version as defined above; return current `observed_context` in the wrapper.
-- [ ] Return the coded API refusal as an inline preview error. If a distinct
+- [x] Return the coded API refusal as an inline preview error. If a distinct
   unavailable diagnostic is needed, declare it in `comeni_core/diagnostics.yml`
   and regenerate its reference; do not reuse a misleading code or embed raw strings.
-- [ ] Run preview service/routes tests, migration guards, `make client`, and frontend
+- [x] Run preview service/routes tests, migration guards, `make client`, and frontend
   TypeScript. Confirm exactly one preview SELECT and no snapshot material on session
   HTTP/history reads. Commit the endpoint checkpoint.
 

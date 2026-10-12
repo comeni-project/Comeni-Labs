@@ -1031,6 +1031,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/alternatives/{option_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Alternative */
+        get: operations["previewAuthoringAlternative"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring": {
         parameters: {
             query?: never;
@@ -1558,6 +1575,15 @@ export interface components {
          * @enum {string}
          */
         Alignment: "same" | "differs" | "yours-only" | "mendel-only";
+        /** AlternativePreview */
+        AlternativePreview: {
+            /** Option Id */
+            option_id: string;
+            /** Contract */
+            contract: string;
+            frame: components["schemas"]["CanvasFrame"];
+            observed_context: components["schemas"]["OfferContext"];
+        };
         /** AnswerAllRequest */
         AnswerAllRequest: {
             /** Subject */
@@ -2142,6 +2168,25 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /** CanvasFrame */
+        CanvasFrame: {
+            context: components["schemas"]["OfferContext"];
+            /** Proposal Id */
+            proposal_id: string | null;
+            /** Current */
+            current: boolean;
+            graph: components["schemas"]["DraftGraph"];
+            /** Steps */
+            steps: components["schemas"]["StepView"][];
+            /** Channels */
+            channels: components["schemas"]["ChannelView"][];
+            /** Placement */
+            placement: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
         };
         /**
          * CatalogueItem
@@ -2989,7 +3034,7 @@ export interface components {
         };
         /**
          * EditAuthoringDraft
-         * @description The whole graph after a direct edit. **The graph and nothing else** — no summary: the server
+         * @description The graph and the revision it was based on, with no client-composed summary: the server
          *     composes the receipt from the difference, so the log cannot be told something that did not
          *     happen.
          */
@@ -5136,6 +5181,11 @@ export interface components {
             };
             /** Edges */
             edges: components["schemas"]["DraftEdge"][];
+            /**
+             * Preview Options
+             * @default []
+             */
+            preview_options: string[];
         };
         /**
          * StepProposal
@@ -7135,6 +7185,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previewAuthoringAlternative: {
+        parameters: {
+            query: {
+                expected_revision: number;
+                expected_decision_revision: number;
+                expected_session_version: number;
+                expected_registry: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                proposal_id: string;
+                option_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlternativePreview"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };

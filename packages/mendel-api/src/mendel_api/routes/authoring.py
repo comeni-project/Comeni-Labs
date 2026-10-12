@@ -32,7 +32,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
-from mendel_api.authoring.envelopes import HistoryOffer, Offer
+from mendel_api.authoring.canvas import AlternativePreview
+from mendel_api.authoring.envelopes import HistoryOffer, Offer, OfferContext
 from mendel_api.authoring.types import (
     Block,
     Fact,
@@ -44,11 +45,22 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
-from mendel_api.services import drafts, session
+from mendel_api.services import authoring_preview, drafts, session
 from mendel_api.settings import model_access
 from mendel_api.stages import building, gathering, goal
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
+
+
+@router.get("/{session_id}/proposals/{proposal_id}/alternatives/{option_id}",
+            operation_id="previewAuthoringAlternative", responses=REFUSES)
+def preview_alternative(session_id: str, proposal_id: str, option_id: OptionId,
+                        expected_revision: int, expected_decision_revision: int,
+                        expected_session_version: int, expected_registry: str,
+                        ) -> AlternativePreview:
+    return authoring_preview.read(session_id, proposal_id, option_id, OfferContext(
+        draft_revision=expected_revision, decision_revision=expected_decision_revision,
+        session_version=expected_session_version, registry=expected_registry))
 
 _FROZEN = ConfigDict(extra="forbid", frozen=True)
 

@@ -5274,3 +5274,5 @@ Task suites and the final repository check verify the completed implementations.
 - `test_offer_saves_the_complete_alternative`: RED discarded candidate; GREEN real HISAT2 index/align ports and wires.
 - `test_routine_offer_read_cannot_lazy_load_snapshots`: RED no deferred column; GREEN routine read omits it and accidental access raises.
 - `test_snapshot_must_match_its_fixed_offer` (option, contract, context, proposal): all four RED accepted mismatches; GREEN refuses them.
+
+- Part G preview endpoint: `test_saved_preview_get_is_one_read_and_changes_nothing`, `test_preview_refuses_a_changed_context` (four fields), `test_preview_refuses_unoffered_options`, `test_settled_offer_cannot_be_previewed`, `test_older_offer_without_saved_view_stays_acceptible`, `test_registry_movement_refuses_preview_without_rewriting_offer`: all RED on absent route, GREEN in the 50-test preview/routes run. Cross-session lookup also verified 404.

@@ -237,6 +237,7 @@ decline to curate one.
 | `MI0215` | a sample is already being read for this question |
 | `MI0216` | that is not possible from here |
 | `MI0217` | editing opens when the walk is done |
+| `MI0218` | this older offer has no saved alternative preview |
 
 ## The forge — what a model is told, and what it cites
 

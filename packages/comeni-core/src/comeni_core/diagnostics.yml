@@ -3849,6 +3849,18 @@ MI0216:
     The authoring protocol is the program the builder runs (docs/design/diagrams/). From each
     place in it, only the arrows drawn lead on; an action or an outcome that names no arrow from
     where the session is, is refused here rather than half-done.
+MI0218:
+  emitted_by: api
+  concern: workflow
+  says: "this older offer has no saved alternative preview"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Continue with the existing offer, or review a new offer after a deliberate change.
+    Viewing this older card does not recompute or replace the options it offered.
+  explanation: |
+    Complete previews are saved with new step offers. Older offers have no saved view;
+    resolving again while hovering could show a pipeline different from the one offered.
 MI0217:
   emitted_by: api
   concern: workflow
