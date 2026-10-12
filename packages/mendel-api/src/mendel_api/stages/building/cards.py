@@ -12,6 +12,8 @@ from mendel_authoring.alternatives import alternatives_of
 from mendel_authoring.blueprint import edges_touching
 from mendel_authoring.pacing import Stop
 from mendel_authoring.plan import BuildPlan, PlannedStep, plan_of
+from mendel_authoring.progress import progress_of
+from mendel_authoring.reviews import Reviewed
 from mendel_resolver.router import UnroutableError
 
 from mendel_api.authoring import envelopes
@@ -96,8 +98,10 @@ def step_payload(
     }
 
 
-def offer(db, row, blueprint: bp.Blueprint, plan: BuildPlan, node: str, stop: Stop) -> str:
-    """Store one step's card as `pending`, against the draft as it stands now."""
+def offer(db, row, blueprint: bp.Blueprint, plan: BuildPlan, node: str, stop: Stop, *,
+          retained: list[Reviewed], previously_reviewed: frozenset[str]) -> str:
+    """Store one step's card as `pending`, against the draft as it stands now, stamped with
+    where the step stood in the plan when it was offered."""
     draft = db.get(PipelineDraft, row.draft_id)
     present = frozenset(n.id for n in DraftGraph.model_validate(draft.graph).nodes)
     planned = next(p for p in plan.steps if p.node == node)
@@ -105,8 +109,11 @@ def offer(db, row, blueprint: bp.Blueprint, plan: BuildPlan, node: str, stop: St
     goal = authoring_decisions.goal(row)
     found = alternatives_of(blueprint, goal, node, bp.candidates(blueprint, node),
                             _resolved, (UnroutableError,))
+    stood = progress_of(list(blueprint.order), frozenset(r.node for r in retained),
+                        previously_reviewed, node).active
     payload = envelopes.prepare(
-        step_payload(blueprint, planned, goal, present, stop, found=found),
+        {**step_payload(blueprint, planned, goal, present, stop, found=found),
+         "progress": stood.model_dump(mode="json")},
         kind=STEP, draft=draft, session=row)
     context = envelopes.OfferContext.model_validate(payload["context"])
     previews = {

@@ -4,6 +4,7 @@ import pytest
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import session as facade
+from mendel_authoring import commands
 from mendel_compiler import orchestrate
 from mendel_postgres import reachable
 from part_g_setup import captured_sql, placed_quietly
@@ -104,3 +105,30 @@ def test_manual_recorded_provenance_keeps_its_tier(g_case):
     assert frame is not None
     [step] = frame["steps"]
     assert step["contract_id"] == "nf-core/fastqc@0.12.1" and step["tier"] == 1
+
+
+def test_progress_counts_the_plan_not_the_proposals(g_case):
+    picture = facade.read(g_case.session_id)
+    order = ["star_genomegenerate", "trimgalore", "star_align", "samtools_sort",
+             "subread_featurecounts"]
+    active = {"position": 3, "total": len(order), "again": False}
+    assert picture["progress"] == {"reviewed": 2, "total": len(order), "active": active}
+    assert picture["pending_proposal"]["payload"]["progress"] == active
+
+
+def test_a_swap_keeps_the_original_offer_position_in_history(g_case):
+    facade.perform(commands.Amend(g_case.proposal_id, g_case.option_id, None, "ana"))
+    picture = facade.read(g_case.session_id)
+    [swapped] = [h for h in picture["history"] if h["id"] == g_case.proposal_id]
+    assert swapped["envelope"]["progress"] == {"position": 3, "total": 5, "again": False}
+    # HISAT2 brings its own index, offered first; STAR's index review no longer counts.
+    assert picture["pending_proposal"]["payload"]["node"] == "hisat2_build"
+    assert picture["progress"] == {"reviewed": 1, "total": 5,
+                                   "active": {"position": 1, "total": 5, "again": False}}
+
+
+def test_a_manual_draft_has_no_walk_progress(g_case):
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, g_case.session_id)
+        db.get(PipelineDraft, row.draft_id).ownership = "manual"
+    assert facade.read(g_case.session_id)["progress"] is None

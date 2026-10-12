@@ -1932,6 +1932,7 @@ export interface components {
             revision: number;
             graph: components["schemas"]["DraftGraph"];
             canvas?: components["schemas"]["CanvasFrame"] | null;
+            progress?: components["schemas"]["WalkProgress"] | null;
             /**
              * Steps Total
              * @default 0
@@ -4062,6 +4063,21 @@ export interface components {
             /** Registry */
             registry: string;
         };
+        /**
+         * OfferProgress
+         * @description One offer's place: step `position` of `total`, and whether that step was reviewed before.
+         */
+        OfferProgress: {
+            /** Position */
+            position: number;
+            /** Total */
+            total: number;
+            /**
+             * Again
+             * @default false
+             */
+            again: boolean;
+        };
         /** Offered */
         Offered: {
             /** Value */
@@ -5187,6 +5203,7 @@ export interface components {
              * @default []
              */
             preview_options: string[];
+            progress?: components["schemas"]["OfferProgress"] | null;
         };
         /**
          * StepProposal
@@ -5396,6 +5413,17 @@ export interface components {
              * Format: date-time
              */
             seen_at: string;
+        };
+        /**
+         * WalkProgress
+         * @description How many of the plan's steps hold a review, and the step offered now, if any.
+         */
+        WalkProgress: {
+            /** Reviewed */
+            reviewed: number;
+            /** Total */
+            total: number;
+            active?: components["schemas"]["OfferProgress"] | null;
         };
         /**
          * Where

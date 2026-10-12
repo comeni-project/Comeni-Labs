@@ -7,6 +7,7 @@ from comeni_core.goal.asked import Goal
 from comeni_core.plan.draft import DraftEdge
 from comeni_core.spell.marks import HumanParamValue, NodeId
 from mendel_authoring.amend import ChooseTool
+from mendel_authoring.progress import OfferProgress
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from mendel_api.authoring.types import FactKind, FactSource, GoalSummary, Question, StepProposal
@@ -62,6 +63,8 @@ class StepOffer(_Offer):
     amendments: dict[str, ChooseTool]
     edges: list[DraftEdge]
     preview_options: list[str] = []
+    progress: OfferProgress | None = None
+    """Where this step stood when it was offered; `None` on offers made before it was stamped."""
 
     @model_validator(mode="after")
     def _same_step(self) -> Self:

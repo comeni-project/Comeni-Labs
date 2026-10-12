@@ -27,6 +27,7 @@ from comeni_core.spell.marks import HumanParamValue, OptionId
 from fastapi import APIRouter, HTTPException, Request, status
 from mendel_authoring import commands as c
 from mendel_authoring.decisions import ActorKind, InputDecision
+from mendel_authoring.progress import WalkProgress
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -234,6 +235,9 @@ class AuthoringSessionView(BaseModel):
     canvas: CanvasFrame | None = None
     """The visible graph with its step metadata and entry channels, read from what was recorded.
     `None` before a blueprint exists, or for an empty manual draft."""
+    progress: WalkProgress | None = None
+    """Where the walk is in the plan as it now stands. `None` before a blueprint, and for a
+    draft the person owns by hand."""
     steps_total: int = 0
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
@@ -704,6 +708,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
         canvas=picture["canvas"],
+        progress=picture["progress"],
         placement=picture["placement"],
         hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],

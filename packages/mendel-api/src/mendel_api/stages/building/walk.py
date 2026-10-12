@@ -510,7 +510,8 @@ def step(ctx: Ctx) -> str:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         blueprint, plan = cards.plan_of_row(row)
         policy = _policy(row)
-        reviewed = reviewed_of(row)
+        state = decisions.review_state(row.draft_id)
+        reviewed = list(state.retained)
         by_node = {planned.node: planned for planned in plan.steps}
         stop = None
         while (node := next_step(blueprint, reviewed)) is not None:
@@ -526,7 +527,8 @@ def step(ctx: Ctx) -> str:
         project(db, row, blueprint)
         if stop is None:
             return "none_left"
-        cards.offer(db, row, blueprint, plan, node, stop)
+        cards.offer(db, row, blueprint, plan, node, stop, retained=reviewed,
+                    previously_reviewed=state.previously_reviewed | {r.node for r in reviewed})
         return "stops"
 
 

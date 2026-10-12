@@ -5,6 +5,7 @@ never select themselves: only an explicit selection changes the goal.
 """
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from secrets import token_hex
@@ -658,26 +659,47 @@ def confirmed_goal(draft_id):
     )
 
 
-def _reviews_in(db, draft_id):
+@dataclass(frozen=True)
+class ReviewState:
+    """The reviews that still hold, and every step reviewed at least once: a superseded or
+    removed review keeps its subject, so one query answers both."""
+
+    retained: list
+    previously_reviewed: frozenset[str]
+
+
+def _review_state_in(db, draft_id) -> ReviewState:
     from mendel_authoring.reviews import Reviewed
 
-    return [
-        Reviewed(
-            node=r.node,
-            by=r.who,
-            actor_kind=r.actor_kind,
-            contract=r.contract,
-            fingerprint=r.fingerprint,
-        )
-        for s, r in _current(db, draft_id, "review")
-        if r.status == "reviewed"
-    ]
+    current = _current(db, draft_id, "review")
+    return ReviewState(
+        retained=[
+            Reviewed(
+                node=r.node,
+                by=r.who,
+                actor_kind=r.actor_kind,
+                contract=r.contract,
+                fingerprint=r.fingerprint,
+            )
+            for s, r in current
+            if r.status == "reviewed"
+        ],
+        previously_reviewed=frozenset(r.node for s, r in current),
+    )
+
+
+def _reviews_in(db, draft_id):
+    return _review_state_in(db, draft_id).retained
+
+
+def review_state(draft_id) -> ReviewState:
+    with session_scope() as db:
+        _draft(db, draft_id)
+        return _review_state_in(db, draft_id)
 
 
 def reviews(draft_id):
-    with session_scope() as db:
-        _draft(db, draft_id)
-        return _reviews_in(db, draft_id)
+    return review_state(draft_id).retained
 
 
 def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON, proposal_id=None):

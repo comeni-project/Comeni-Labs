@@ -384,7 +384,7 @@ and `decisions.review_state(draft_id) -> ReviewState`, reusing the exact `_curre
 review query that `decisions.reviews` already executes. `reviews` delegates and
 returns its `retained` list. Do not add a second historical-review query.
 
-- [ ] Write pure guards for first offer, swap insertion, removed nodes, same-node
+- [x] Write pure guards for first offer, swap insertion, removed nodes, same-node
   re-review, duplicate historic reviews, complete/empty plan and pending node absent
   from order. Add an API guard preserving original offer position after a swap:
 
@@ -397,7 +397,7 @@ def test_re_review_uses_current_position_not_lifetime_proposals():
 ```
 
 Watch position/total guard fail against historical-count behavior.
-- [ ] Implement current position by `order.index(pending) + 1`; retained count uses
+- [x] Implement current position by `order.index(pending) + 1`; retained count uses
   unique current nodes only. `again` requires a prior review of that current node.
   Invalid pending identity is refused, never clamped to a plausible number. Validate
   ordinal/count bounds. Preserve removed/superseded historical entries.
@@ -409,14 +409,14 @@ active = None if pending is None else OfferProgress(
 )
 return WalkProgress(reviewed=len(set(order) & retained), total=len(order), active=active)
 ```
-- [ ] Feed the function from the latest review rows already loaded in `session.read`,
+- [x] Feed the function from the latest review rows already loaded in `session.read`,
   reducing by node in sequence order. For offer creation use review data already
   computed by building `step`: obtain both retained reviews and historical node
   identities through `review_state`, then pass them to `cards.offer` instead of
   fetching again. Extend `cards.offer(..., *, retained: list[Reviewed],
   previously_reviewed: frozenset[str])` and update its building callers.
   Stamp original progress in new offers. Legacy history without it shows no ordinal.
-- [ ] Run pure/API guards, prove SQL count unchanged, regenerate client, record GREEN
+- [x] Run pure/API guards, prove SQL count unchanged, regenerate client, record GREEN
   and commit the progress checkpoint. No historical data rewrite or extra endpoint.
 
 ## Task 6 — Separate registry deficiencies and make Dev mode truthful
@@ -650,3 +650,8 @@ Task 3's preview route added to the hand-named operation list. No same-type/diff
 channel exists in the recorded RNA-seq case; that formatting stays covered by `step_views`'s
 build-service suite. `make check`: all green except the two truncated-gzip cases, the Python
 3.14 trap (#303), which pass on 3.12.
+
+**Task 5 (2026-10-12).** 10 pure progress guards RED (no module) → GREEN; 3 API guards RED
+(`KeyError: 'progress'`) → GREEN. After a STAR→HISAT2 swap the history keeps 3 of 5 and the walk
+reads 1 of 5 at `hisat2_build`. `session.read` derives progress from the review rows it already
+loads; the offer path reads `review_state` once instead of `reviews`. SQL budgets unchanged.

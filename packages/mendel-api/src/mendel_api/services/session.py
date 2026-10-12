@@ -454,6 +454,7 @@ def read(session_id: str) -> dict:
     # Not moved yet (plan 1c, Tasks 5, 7, 8): imported here, which keeps it from being circular.
     from comeni_core.plan.draft import DraftGraph
     from mendel_authoring.blueprint import Blueprint
+    from mendel_authoring.progress import progress_of
 
     from mendel_api.authoring import envelopes
     from mendel_api.services import authoring_canvas, authoring_decisions, decisions, registry
@@ -505,13 +506,20 @@ def read(session_id: str) -> dict:
             decisions.PipelineEvidenceAccess.observation_id == decisions.PipelineObservation.id
         ).where(decisions.PipelineEvidenceAccess.draft_id == row.draft_id).distinct()).all()
         placement = _placement(row, draft, pending)
+        blueprint = Blueprint.model_validate(row.blueprint) if row.blueprint else None
+        step = pending if pending is not None and pending.kind == "step" else None
+        offered = step.payload["node"] if step is not None else None
+        # Each node's latest review, reduced in sequence order from the rows already loaded.
+        progress = (None if blueprint is None or draft.ownership == "manual" else progress_of(
+            list(blueprint.order),
+            frozenset(n for n, status in node_status.items() if status == "retained"),
+            frozenset(node_status), offered))
         canvas = authoring_canvas.frame_of(
-            blueprint=Blueprint.model_validate(row.blueprint) if row.blueprint else None,
+            blueprint=blueprint,
             graph=DraftGraph.model_validate(draft.graph or {}),
             provenance=DraftProvenance.model_validate(draft.provenance or {}),
-            pending=(envelopes.parse(pending.payload, kind=pending.kind)
-                     if pending is not None and pending.kind == "step" else None),
-            proposal_id=pending.id if pending is not None and pending.kind == "step" else None,
+            pending=envelopes.parse(step.payload, kind=step.kind) if step is not None else None,
+            proposal_id=step.id if step is not None else None,
             context=envelopes.OfferContext(draft_revision=draft.revision,
                 decision_revision=draft.decision_revision, session_version=row.row_version,
                 registry=row.registry_digest or ""),
@@ -520,6 +528,7 @@ def read(session_id: str) -> dict:
         )
         return {
             "canvas": canvas.model_dump(mode="json") if canvas is not None else None,
+            "progress": progress.model_dump(mode="json") if progress is not None else None,
             "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
             "decision_revision": draft.decision_revision,
             "projection_current": draft.projection_current,
