@@ -357,6 +357,18 @@ goal and invalidates reviews whose semantic fingerprint changed. Manual work is 
 opening a linked authored fork. Read-only history is available; undo is deferred in
 [issue 302](https://github.com/comeni-project/Comeni-Labs/issues/302).
 
+**Every change goes through one writer** (`mendel_api/services/changes.py`): a person's click
+or edit, the chat model's reply, and a stage's handler all arrive as a
+`mendel_authoring.payloads.DecisionChange` — a want, an input, a measurement, a required state, a
+tool pinned, a parameter, something asked for that is not offered, or the retraction of one —
+and `c.Change` takes the correction section's edges, so the consequence is the diagram's. A
+model's change is **heard** when it quotes the person and the quote is in one of their turns
+(`mendel_authoring.heard`); heard changes are recorded before the goal is confirmed, everything
+else waits in `pipeline_authoring_suggestion` for one click. The quote is kept on the revision
+(`heard`, `heard_seq`), never in a payload. Confirmation is recorded (`confirmed_revision`), not
+inferred. Every conversational prompt is given what is known, rendered from these rows by
+`mendel_authoring.memory` through `services/known.py`.
+
 Legacy conversion uses a frozen snapshot converter before removing the old live columns.
 Its archive is historical presentation, never a fallback authority. Recovery after new writes
 requires restoring the verified database backup rather than a lossy schema downgrade.

@@ -106,6 +106,17 @@ gives (*adds hisat2_build; removes star_genomegenerate*), and, where a rule lack
 me*. A tool you choose over the engine's is tier 4 and yours, with the engine's pick kept beside
 it. Hand edits open once the walk is done. The cards are the existing ones; part 5 designs them.
 
+**As built (Part I.0, #307).** A model hands over **changes**, never a goal: the want, the
+inputs and facts it heard, a state on what is wanted, a tool or a setting, what was asked for
+that nothing here can make, or the retraction of one. A change that **quotes the person** — the
+quote found in one of their own turns — is *heard*, and recorded while the goal is still being
+checked; one that does not is *suggested* and waits for their click. Once the goal is confirmed,
+every model change waits for a click: an amendment is shown before it moves anything. Rule 5
+becomes **nothing is recorded from a model unless it quotes you**. Every conversational prompt is
+told what is known, from the record, and the record wins where the conversation seems to
+disagree. The goal card shows the words each fact was heard in, which is where a misreading
+(*"not paired-end"*) is caught.
+
 ## How a fact's source reaches the tiers
 
 The four tiers are unchanged. What this protocol adds is **where the premise came from**, which

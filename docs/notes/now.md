@@ -15,7 +15,9 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
 - **14.7.8.3d Parts A–H are implemented** (#285–#292). **Part I** (#293), the tutor, is split
   in three: I.1 explain the inputs (implemented), I.2 say what was narrowed or already known,
-  I.3 a conversation, not a form. **Next: I.2.** Undo is deferred in #302. (2026-10-11,
+  I.3 a conversation, not a form. **Part I.0** (#307) came first: intent, facts and steps; the
+  model returns grounded changes. Plan A (the conversation) is implemented; **next: its walk with
+  a model, then Plan B** (the save file). Undo is deferred in #302. (2026-10-11,
   2026-10-12, 2026-10-13)
 
 ## How work is done now
