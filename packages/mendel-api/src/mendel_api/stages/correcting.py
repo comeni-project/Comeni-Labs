@@ -4,11 +4,11 @@ import hashlib
 import json
 
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import Site
 from mendel_authoring import commands as c
 from mendel_authoring import payloads as p
-from mendel_authoring.decisions import FactOrigin, InputDecision
+from mendel_authoring.decisions import FactOrigin
 from mendel_authoring.diff import diff_of
+from mendel_authoring.payloads import Change
 from mendel_authoring.types import Command, Phase, ProposalState
 from mendel_resolver.router import UnroutableError, UnroutablePinError
 from sqlalchemy import select
@@ -16,7 +16,14 @@ from sqlalchemy import select
 from mendel_api.authoring.types import Receipt
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
-from mendel_api.services import authoring_decisions, decisions, draft_mutations, registry, session
+from mendel_api.services import (
+    authoring_decisions,
+    changes,
+    decisions,
+    draft_mutations,
+    registry,
+    session,
+)
 from mendel_api.services import blueprint as bp
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _rows
@@ -252,53 +259,16 @@ def select_correction(ctx: Ctx):
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         draft = db.get(PipelineDraft, row.draft_id)
         previous = draft.decision_revision
-        if change.kind == "measurement":
-            try:
-                declaration = registry.stack().measurements
-                declaration.get(change.subject)
-                if change.value is not None:
-                    declaration.check(change.subject, change.value)
-            except (ValueError, KeyError, TypeError) as refused:
-                raise ValueError(
-                    coded("MI0208", f"that answer does not fit {change.subject}")
-                ) from refused
-            decisions.set_fact(draft.id, change.subject, change.value, who=change.who)
-        elif change.kind == "input":
-            if change.value is not None and type(change.value) is not bool:
-                raise ValueError(coded("MI0208", "an input answer must say whether you have it"))
-            current = decisions.read(draft.id)
-            old = next(
-                (
-                    i
-                    for i in current.inputs
-                    if i.key == change.subject or i.type_id == change.subject
-                ),
-                None,
-            )
-            type_id = old.type_id if old else change.subject
-            if type_id not in registry.stack().vocabulary.types:
-                raise ValueError(coded("MI0208", f"undeclared input type {type_id}"))
-            selected = InputDecision(
-                key=old.key if old else type_id,
-                type_id=type_id,
-                name=old.name if old else None,
-                states=old.states if old else [],
-                present=change.value is True,
-                origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
-            )
-            decisions.set_input(draft.id, selected, who=change.who)
-        elif change.kind == "producer":
-            decisions.release_producer(
-                draft.id,
-                Site(type_id=change.subject, states=frozenset(change.states)),
-                who=change.who,
-            )
-        elif change.kind == "retain":
-            decisions.retain_fact(draft.id, change.subject, who=change.who)
-        elif change.kind == "observation":
-            decisions.select_observation(
-                draft.id, change.subject, change.observation_id, who=change.who
-            )
+        # **One writer for every change** (Part I.0 §5.1): the correction's own kinds and the
+        # general `Change` both go through `changes.apply`, which holds the vocabulary.
+        written = change.change or Change(
+            kind=change.kind,
+            subject=change.subject,
+            value=change.value,
+            states=change.states,
+            observation_id=change.observation_id,
+        )
+        changes.apply(draft.id, written, who=change.who)
         stale_proposals(db, row.id)
         row.row_version = session.changed_version(db, row.id, row.row_version)
         row.updated_at = _rows.now()
