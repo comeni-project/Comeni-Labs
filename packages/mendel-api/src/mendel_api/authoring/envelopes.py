@@ -10,7 +10,14 @@ from mendel_authoring.amend import ChooseTool
 from mendel_authoring.progress import OfferProgress
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-from mendel_api.authoring.types import FactKind, FactSource, GoalSummary, Question, StepProposal
+from mendel_api.authoring.types import (
+    Explanation,
+    FactKind,
+    FactSource,
+    GoalSummary,
+    Question,
+    StepProposal,
+)
 
 
 class _Shape(BaseModel):
@@ -48,6 +55,9 @@ class GapOffer(_Offer):
     why: str
     states: list[str] = Field(default_factory=list)
     block: Question
+    explain: Explanation | None = None
+    """What the question is about and why it is asked (Part I.1). Absent on offers made before it;
+    the card then draws no panel."""
 
     @model_validator(mode="after")
     def _fixed_options(self) -> Self:

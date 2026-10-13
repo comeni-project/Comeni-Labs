@@ -116,7 +116,7 @@ def test_dont_have_an_input_stops_honestly(clean):
     sid = _gathering(want=["counts.matrix"])
     _answer_until(sid, "genome.fasta", "dont_have")
     assert facade.current_phase(sid) is Phase.STOPPED
-    assert "genome.fasta" in facade.read(sid)["turns"][-1]["blocks"][0]["text"]
+    assert "reference genome (FASTA)" in facade.read(sid)["turns"][-1]["blocks"][0]["text"]
 
 
 def test_a_value_outside_the_declaration_is_refused_and_nothing_recorded(clean):
@@ -278,7 +278,7 @@ def test_an_answered_gap_says_its_answer_in_the_history(clean):
     facade.perform(commands.AnswerGap(_pending_for(sid, "read_length"), "value", 150, "ana"))
     history = {d["block"]["asks"]: d["answer"] for d in facade.read(sid)["history"]}
     assert history["Sequenced read length?"] == "150"
-    assert history["This analysis needs fastq.reads. Do you have one?"] == "I have it"
+    assert history["This analysis needs sequencing reads (FASTQ). Do you have one?"] == "I have it"
 
 
 # ── the session's calls, totalled and listed (14.7.4, #191) ───────────────────────────────
@@ -587,3 +587,13 @@ def test_a_failed_read_back_clears_the_wait(clean, monkeypatch):
     facade.perform(commands.ReadbackFailed(sid, stamp=goal_stage.readback_context_stamp(sid)))
     block = _payload(card)["block"]
     assert block["readback"] is None and block["readback_pending"] is False
+
+
+def test_a_gap_is_offered_with_its_name_and_explanation(clean):
+    """Part I.1: the question names the thing, and the offer carries why it is asked."""
+    sid = _gathering(["counts.matrix"])
+    payload = _payload(_pending_for(sid, "fastq.reads"))
+    assert payload["block"]["asks"] == (
+        "This analysis needs sequencing reads (FASTQ). Do you have one?")
+    assert payload["explain"]["name"] == "sequencing reads (FASTQ)"
+    assert payload["explain"]["needed"]

@@ -37,7 +37,7 @@ from mendel_api.models import (
     PipelineDraft,
     PipelinePhrasing,
 )
-from mendel_api.services import authoring_decisions, decisions, gaps, registry, session
+from mendel_api.services import authoring_decisions, decisions, explain, gaps, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows
 from mendel_api.stages._rows import GOAL, propose
@@ -125,7 +125,7 @@ def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
         # wherever the AI may read one — not only where a format reads the type.
         if gap.subject in read or _characterisable():
             have, *rest = _INPUT_OPTIONS.items()
-            return dict([have, (UPLOAD, "I have it, and I'll upload a sample"), *rest])
+            return dict([have, (UPLOAD, "Yes — I'll upload a sample"), *rest])
         return dict(_INPUT_OPTIONS)
     measurement = stack.measurements.get(gap.subject)
     if measurement.kind is MeasurementKind.ENUM:
@@ -145,7 +145,7 @@ def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
         # would end in *nothing reads this type yet*, and *not sure* stays.
         return {
             **options,
-            UPLOAD: "Not sure: upload a sample and I'll measure it",
+            UPLOAD: "Not sure — measure it from a sample",
             "cant_share": _UNSURE["cant_share"],
         }
     return {**options, **_UNSURE}
@@ -154,10 +154,10 @@ def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
 def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Question:
     """The engine's own wording. A model rephrases it for the person in 14.7.3.6."""
     if gap.kind is FactKind.INPUT:
-        asks = f"This analysis needs {gap.subject}. Do you have one?"
+        named = explain.name_of(stack, gap.kind, gap.subject)
+        asks = f"This analysis needs {named}. Do you have one?"
     else:
-        described = stack.measurements.get(gap.subject).description or gap.subject
-        asks = f"{described}?"
+        asks = f"{explain.name_of(stack, gap.kind, gap.subject)}?"
     return Question(
         id=f"gap-{seq}",
         asks=asks,
@@ -265,7 +265,8 @@ def offer_gap_or_card(session_id: str) -> str:
 
     if not found:
         goal = compose_goal(session_id)
-        inputs = ", ".join(h.type_id for h in goal.have) or "nothing"
+        inputs = ", ".join(explain.name_of(stack, FactKind.INPUT, h.type_id)
+                           for h in goal.have) or "nothing"
         summary = GoalSummary(
             id=f"goal-{version}",
             goal=goal,
@@ -273,7 +274,8 @@ def offer_gap_or_card(session_id: str) -> str:
             do="The engine builds it from what you said.",
             readback_pending=_model_configured(),
             suggested=(wanted.get("suggested") or {}).get("required_states") or [],
-            get=f"You get: {', '.join(goal.want)}.",
+            get="You get: "
+            + ", ".join(explain.name_of(stack, FactKind.INPUT, t) for t in goal.want) + ".",
         )
         propose(
             session_id,
@@ -289,6 +291,9 @@ def offer_gap_or_card(session_id: str) -> str:
     gap = found[0]
     options = _gap_options(gap, stack, facts)
     question = _gap_question(gap, options, stack, version)
+    measured, read = _inspectable(stack)
+    explained = explain.explanation(gap, found, stack, measured=measured, read=read,
+                                    characterisable=_characterisable())
     heard = next(
         (
             c
@@ -313,6 +318,7 @@ def offer_gap_or_card(session_id: str) -> str:
             "why": gap.why,
             "options": options,
             "block": question.model_dump(mode="json"),
+            "explain": explained.model_dump(mode="json"),
         },
     )
     return "a_gap"
@@ -636,7 +642,8 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
     if stops:
         _say(
             session_id,
-            f"This analysis needs {subject}, and without one it cannot be built. Nothing was "
+            f"This analysis needs {explain.name_of(registry.stack(), FactKind.INPUT, subject)}, "
+            "and without one it cannot be built. Nothing was "
             "built. Start again when you have one, or describe a different analysis.",
         )
     return session.current_phase(session_id)

@@ -272,6 +272,30 @@ class SampleReading(_Shape):
     code: str | None = None
 
 
+class Reason(_Shape):
+    """One line of why a question is asked, and where it comes from (Part I.1)."""
+
+    text: Prose
+    detail: Prose | None = None
+    """A tool's declared description, or a rule's citation."""
+
+
+class Explanation(_Shape):
+    """What a question is about and why it is asked: `what` is curated (the registry's
+    `explain`), the rest the engine's, derived from the gap walk (Part I.1 §4). I.3 hands the same
+    fields to the AI as its sources."""
+
+    name: Prose
+    what: Prose | None = None
+    needed: list[Reason] = []
+    reads: Literal["steps", "rule"] | None = None
+    """How `needed` reads: the steps that can read an input, or the rule a measurement decides."""
+    settles: list[Prose] = []
+    """For an input: what a sample of it would answer, by name, among the questions still open."""
+    read_by: Literal["inspector", "ai"] | None = None
+    """Who would read a sample of it: an inspector, the AI, or nothing here."""
+
+
 class Question(_Block):
     """One typed question with a closed set of answers, or a declared open one.
 

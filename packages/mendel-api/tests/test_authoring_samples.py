@@ -232,7 +232,7 @@ def test_the_log_says_what_a_sample_measured_not_the_options_label(clean):
 
 
 def test_an_input_answered_by_upload_logs_i_have_it(clean):
-    """Issue 232: the log read *I have it, and I'll upload a sample* beside *measured from your
+    """Issue 232: the log read *Yes — I'll upload a sample* beside *measured from your
     sample*; the long label squeezed out the question and overflowed the conversation."""
     sid = _gathering(["counts.matrix"])
     pid = facade.pending_id(sid)
