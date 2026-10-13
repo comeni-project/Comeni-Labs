@@ -1,0 +1,109 @@
+"""A model's reply is a list of changes, each heard (quoting the person) or suggested
+(Part I.0 spec §5.3, §7)."""
+
+import pytest
+from mendel_api.authoring.types import ChatReply, Understanding
+from mendel_api.services import registry, replies
+
+TURNS = [(1, "Gene counts from my paired-end Illumina reads, 150 bp, and differential "
+             "expression between treated and control")]
+
+
+@pytest.fixture
+def stack():
+    return registry.stack()
+
+
+def _issued(stack, reply):
+    return replies.issue(replies.admit(reply, stack), turns=TURNS, stack=stack,
+                         invocation_id="inv-1")
+
+
+def test_a_quoted_fact_is_heard_with_its_turn(stack):
+    got = _issued(stack, Understanding(
+        wants=[{"type": "counts.matrix", "quote": "Gene counts"}],
+        facts=[{"subject": "paired", "value": True, "quote": "paired-end"},
+               {"subject": "read_length", "value": 150, "quote": "150 bp"}]))
+    heard = {(c.kind, c.subject): c for c in got.heard}
+    assert heard[("measurement", "paired")].heard == "paired-end"
+    assert heard[("measurement", "paired")].heard_seq == 1
+    assert heard[("measurement", "read_length")].value == 150
+    assert heard[("want", "counts.matrix")].heard == "Gene counts"
+    assert all(c.actor == "model" and c.invocation_id == "inv-1" for c in got.heard)
+    assert got.suggested == []
+
+
+def test_an_unquoted_fact_is_suggested(stack):
+    got = _issued(stack, Understanding(
+        wants=[{"type": "counts.matrix", "quote": "Gene counts"}],
+        facts=[{"subject": "strandedness", "value": "reverse"}]))
+    assert [(c.kind, c.subject) for c in got.suggested] == [("measurement", "strandedness")]
+
+
+def test_an_unquoted_want_is_still_issued(stack):
+    """Gathering needs the want; the goal card's *That's right* confirms it."""
+    got = _issued(stack, Understanding(wants=[{"type": "counts.matrix"}]))
+    assert [(c.kind, c.subject, c.heard) for c in got.heard] == [("want", "counts.matrix", None)]
+
+
+def test_not_offered_is_heard_or_dropped_never_suggested(stack):
+    got = _issued(stack, Understanding(
+        wants=[{"type": "counts.matrix", "quote": "Gene counts"}],
+        not_offered=[{"quote": "differential expression"}, {"quote": "variant calling"}]))
+    assert [(c.kind, c.subject) for c in got.heard if c.kind == "asked"] == [
+        ("asked", "differential expression")]
+    assert got.dropped == ["variant calling"]
+    assert not [c for c in got.suggested if c.kind == "asked"]
+
+
+def test_one_subject_said_two_ways_is_suggested_both_ways(stack):
+    """Review Focus 3."""
+    got = _issued(stack, ChatReply(facts=[
+        {"subject": "paired", "value": True, "quote": "paired-end"},
+        {"subject": "paired", "value": False, "quote": "Illumina reads"}]))
+    assert not [c for c in got.heard if c.subject == "paired"]
+    assert sorted(c.value for c in got.suggested if c.subject == "paired") == [False, True]
+
+
+def test_an_input_said_is_held(stack):
+    got = _issued(stack, Understanding(
+        wants=[{"type": "counts.matrix"}],
+        inputs=[{"type": "fastq.reads", "quote": "Illumina reads"}]))
+    held = next(c for c in got.heard if c.kind == "input")
+    assert held.value is True and held.subject == "fastq.reads"
+
+
+def test_a_retract_takes_the_kind_its_subject_implies(stack):
+    got = _issued(stack, ChatReply(retract=[{"subject": "read_length", "quote": "150 bp"},
+                                            {"subject": "genome.fasta"}]))
+    assert {(c.kind, c.subject, c.retract) for c in got.heard} == {
+        ("measurement", "read_length", True)}
+    assert {(c.kind, c.subject, c.retract) for c in got.suggested} == {
+        ("input", "genome.fasta", True)}
+
+
+@pytest.mark.parametrize("reply", [
+    Understanding(wants=[{"type": "made.up"}]),
+    ChatReply(facts=[{"subject": "read_length", "value": -3}]),
+    ChatReply(pins=[{"type": "alignment.bam", "tool": "nf-core/nothing@1.0.0"}]),
+    ChatReply(requires=[{"type": "counts.matrix", "states": ["no_such_state"]}]),
+])
+def test_an_undeclared_id_is_refused_at_admission(stack, reply):
+    with pytest.raises(ValueError, match="MI0204"):
+        replies.admit(reply, stack)
+
+
+def test_a_quote_is_checked_against_what_the_person_typed_in_this_session():
+    from comeni_core.plan.draft import DraftGraph
+    from mendel_api.services import drafts
+    from mendel_api.services import session as facade
+    from mendel_api.stages import describe
+    from mendel_authoring import commands
+    from mendel_postgres import reachable
+
+    if not reachable():
+        pytest.skip("no database")
+    sid = facade.perform(commands.OpenSession(drafts.create(DraftGraph(), "t", "ana"), "ana")).result
+    answer = describe.record_said(sid, "paired-end reads, 150 bp")
+    # `record_said` returns the pending answer's seq; the person's own turn is just before it.
+    assert replies.person_turns(sid) == [(answer - 1, "paired-end reads, 150 bp")]

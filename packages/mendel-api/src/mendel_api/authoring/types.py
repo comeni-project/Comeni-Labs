@@ -628,6 +628,95 @@ class WantUnderstanding(_Shape):
     pre-fills gaps with; it still asks, and the person confirms (#170)."""
 
 
+# ── what a model hands over: changes, as flat lists (Part I.0 §7.1) ───────────────────────
+# One list per kind of change and **no tagged union**: a local model that cannot reliably pick
+# a variant tag can still fill a list (`AuthoringIntent`'s reason). Every item may carry `quote`,
+# the person's own words it comes from; the engine checks it (`mendel_authoring.heard`) and
+# records a change only when it checks — otherwise the change is offered as a suggestion.
+
+_Quote = Annotated[str, Field(max_length=500)]
+
+
+class WantItem(_Shape):
+    type: str = Field(min_length=1, max_length=128)
+    quote: _Quote | None = None
+
+
+class InputItem(_Shape):
+    """An input the person says they have."""
+
+    type: str = Field(min_length=1, max_length=128)
+    quote: _Quote | None = None
+
+
+class FactItem(_Shape):
+    subject: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | list[HumanParamValue]
+    quote: _Quote | None = None
+
+
+class RequireItem(_Shape):
+    type: str = Field(min_length=1, max_length=128)
+    states: list[str] = Field(min_length=1)
+    quote: _Quote | None = None
+
+
+class PinItem(_Shape):
+    type: str = Field(min_length=1, max_length=128)
+    tool: str = Field(min_length=1, max_length=200)
+    quote: _Quote | None = None
+
+
+class ParameterItem(_Shape):
+    name: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | list[HumanParamValue]
+    quote: _Quote | None = None
+
+
+class RetractItem(_Shape):
+    subject: str = Field(min_length=1, max_length=128)
+    quote: _Quote | None = None
+
+
+class NotOfferedItem(_Shape):
+    """Something the person asked for that nothing here can make, in their own words: never
+    without a quote, since claiming they asked for something they did not is the one thing it
+    must not do."""
+
+    quote: _Quote
+
+
+class Understanding(_Shape):
+    """`builder.goal.v8`: what the person wants and what they said, as changes (Part I.0 §7.2).
+    Replaces `WantUnderstanding`'s `stated` candidates."""
+
+    say: Prose | None = None
+    wants: list[WantItem] = Field(min_length=1)
+    inputs: list[InputItem] = []
+    facts: list[FactItem] = []
+    requires: list[RequireItem] = []
+    not_offered: list[NotOfferedItem] = []
+    questions: list[AskedQuestion] = []
+
+
+class ChatReply(_Shape):
+    """`builder.chat.v3`: typed words anywhere after the want is read, as something to say and
+    the changes they ask for (Part I.0 §7.2). Replaces `AuthoringIntent` and `GapReply`."""
+
+    say: Prose | None = None
+    wants: list[WantItem] = []
+    inputs: list[InputItem] = []
+    facts: list[FactItem] = []
+    requires: list[RequireItem] = []
+    pins: list[PinItem] = []
+    parameters: list[ParameterItem] = []
+    retract: list[RetractItem] = []
+    not_offered: list[NotOfferedItem] = []
+    questions: list[AskedQuestion] = []
+    proceed: bool = False
+    """*Go on*: the waiting step is settled. Nothing else is asked."""
+
+
 class GapReply(_Shape):
     """A person's typed answer to one gap, read back by a model (`builder.gap.v1`).
 
