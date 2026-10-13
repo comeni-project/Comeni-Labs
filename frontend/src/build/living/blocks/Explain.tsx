@@ -71,5 +71,5 @@ export function uploadHeadline(e: Explanation): string | null {
   if (e.read_by !== "inspector") return null;
   if (e.settles.length === 0) return "Have a sample to hand? Upload it and we'll measure it.";
   return `Have a sample to hand? Upload it and we'll measure the rest: ${and(e.settles)}. `
-    + "You won't need to answer those yourself.";
+    + `You won't need to answer ${e.settles.length === 1 ? "that" : "those"} yourself.`;
 }

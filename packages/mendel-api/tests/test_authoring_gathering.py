@@ -278,7 +278,7 @@ def test_an_answered_gap_says_its_answer_in_the_history(clean):
     facade.perform(commands.AnswerGap(_pending_for(sid, "read_length"), "value", 150, "ana"))
     history = {d["block"]["asks"]: d["answer"] for d in facade.read(sid)["history"]}
     assert history["Sequenced read length?"] == "150"
-    assert history["This analysis needs sequencing reads (FASTQ). Do you have one?"] == "I have it"
+    assert history["Do you have the sequencing reads (FASTQ) this analysis needs?"] == "I have it"
 
 
 # ── the session's calls, totalled and listed (14.7.4, #191) ───────────────────────────────
@@ -594,6 +594,6 @@ def test_a_gap_is_offered_with_its_name_and_explanation(clean):
     sid = _gathering(["counts.matrix"])
     payload = _payload(_pending_for(sid, "fastq.reads"))
     assert payload["block"]["asks"] == (
-        "This analysis needs sequencing reads (FASTQ). Do you have one?")
+        "Do you have the sequencing reads (FASTQ) this analysis needs?")
     assert payload["explain"]["name"] == "sequencing reads (FASTQ)"
     assert payload["explain"]["needed"]

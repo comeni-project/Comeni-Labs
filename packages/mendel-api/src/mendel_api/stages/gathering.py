@@ -155,7 +155,9 @@ def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Qu
     """The engine's own wording. A model rephrases it for the person in 14.7.3.6."""
     if gap.kind is FactKind.INPUT:
         named = explain.name_of(stack, gap.kind, gap.subject)
-        asks = f"This analysis needs {named}. Do you have one?"
+        # "Do you have the … this analysis needs?" reads right for any name, singular or plural,
+        # with no article to guess (Part I.1).
+        asks = f"Do you have the {named} this analysis needs?"
     else:
         asks = f"{explain.name_of(stack, gap.kind, gap.subject)}?"
     return Question(
@@ -642,9 +644,9 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
     if stops:
         _say(
             session_id,
-            f"This analysis needs {explain.name_of(registry.stack(), FactKind.INPUT, subject)}, "
-            "and without one it cannot be built. Nothing was "
-            "built. Start again when you have one, or describe a different analysis.",
+            f"Without the {explain.name_of(registry.stack(), FactKind.INPUT, subject)} this "
+            "analysis cannot be built, so nothing was built. Start again when you have it, or "
+            "describe a different analysis.",
         )
     return session.current_phase(session_id)
 

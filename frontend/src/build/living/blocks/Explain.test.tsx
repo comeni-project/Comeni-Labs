@@ -73,6 +73,11 @@ describe("the upload headline", () => {
         + "was sequenced paired-end, and sequenced read length. You won't need to answer those "
         + "yourself.");
   });
+  it("says *that* for one thing settled", () => {
+    expect(uploadHeadline({ ...GTF, read_by: "inspector", settles: ["sequenced read length"] }))
+      .toBe("Have a sample to hand? Upload it and we'll measure the rest: sequenced read "
+        + "length. You won't need to answer that yourself.");
+  });
   it("promises nothing when nothing is left to settle (Review Focus 3)", () => {
     expect(uploadHeadline({ ...GTF, read_by: "inspector", settles: [] }))
       .toBe("Have a sample to hand? Upload it and we'll measure it.");
