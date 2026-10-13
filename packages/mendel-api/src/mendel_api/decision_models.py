@@ -17,6 +17,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     text,
 )
@@ -88,6 +89,11 @@ class _Revision(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     turn_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     proposal_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    heard: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """The person's own words this revision was taken from, checked against what they typed
+    (Part I.0 §5.3); `None` when nobody quoted them. Never written into a payload."""
+    heard_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    """The turn those words are in."""
 
 
 def _subject_keys(family):
@@ -149,6 +155,9 @@ class PipelineObservation(Base):
     seq: Mapped[int] = mapped_column(Integer)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     legacy: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    heard: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """The words a person-said observation was taken from (Part I.0 §6.1)."""
+    heard_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class PipelineEvidenceAccess(Base):
@@ -285,6 +294,22 @@ class PipelineReviewRevision(_Revision):
     fingerprint: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(_one_of(ReviewStatus, 16, "status"))
     decision_revision: Mapped[int] = mapped_column(Integer)
+
+
+class PipelineAsked(_Subject):
+    """Something the person asked for that nothing here can make (Part I.0 §5.1). Kept so the
+    conversation never promises it; never part of the goal the resolver reads."""
+
+    __tablename__ = "pipeline_asked"
+    __table_args__ = _subject_keys("asked")
+
+
+class PipelineAskedRevision(_Revision):
+    __tablename__ = "pipeline_asked_revision"
+    __table_args__ = _revision_keys("asked")
+
+    phrase: Mapped[str] = mapped_column(Text)
+    present: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class PipelinePhrasing(Base):

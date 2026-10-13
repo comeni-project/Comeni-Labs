@@ -166,6 +166,10 @@ def fork_correction(ctx: Ctx):
         db.add(child)
         db.flush()
         decisions.inherit_in(db, parent, child)
+        # A fork of a confirmed goal is confirmed: it inherits the answers *That's right* covered
+        # (Part I.0 §6.2), and the correction it carries is checked as any correction is.
+        if parent.confirmed_revision is not None:
+            child.confirmed_revision = child.decision_revision
         sid = describe.open_session(child.id, who=change.who, start="fork_correction")
         row = db.get(PipelineAuthoringSession, sid)
         row.extraction = parent_session.extraction

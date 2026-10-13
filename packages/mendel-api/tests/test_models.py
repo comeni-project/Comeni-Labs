@@ -93,6 +93,8 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_input_revision",
         "pipeline_want",
         "pipeline_want_revision",
+        "pipeline_asked",
+        "pipeline_asked_revision",
         "pipeline_fact",
         "pipeline_fact_revision",
         "pipeline_producer",

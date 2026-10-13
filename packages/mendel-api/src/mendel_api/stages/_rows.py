@@ -246,6 +246,8 @@ def store_goal(session_id: str, goal: dict | None) -> None:
         if row is None:
             raise KeyError(session_id)
         decisions.import_goal(row.draft_id, Goal.model_validate(goal or {}), who=row.who)
+        # *That's right* is recorded, not inferred from the want it imported (Part I.0 §6.2).
+        decisions.confirm(row.draft_id)
         row.row_version = session.changed_version(db, session_id, row.row_version)
         row.updated_at = now()
 

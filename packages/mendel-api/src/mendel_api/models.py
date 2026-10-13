@@ -206,6 +206,10 @@ class PipelineDraft(Base):
         server_default=text("'manual'")
     )
     decision_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    confirmed_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    """The decision revision the goal was confirmed at (*That's right*), or `None` while it
+    never was. Recorded rather than inferred from *a want is present* (Part I.0 §6.2): the rows
+    hold the want from the first sentence on."""
     decision_sequence: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     projection_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     projection_current: Mapped[bool] = mapped_column(
@@ -980,6 +984,8 @@ class PipelineAuthoringProposal(Base):
 
 # Register draft-owned decisions in the same metadata Alembic and existing consumers read.
 from mendel_api.decision_models import (  # noqa: E402, F401
+    PipelineAsked,
+    PipelineAskedRevision,
     PipelineEvidenceAccess,
     PipelineFact,
     PipelineFactRevision,

@@ -44,6 +44,7 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
                 values["extraction"] = goal
             else:
                 decisions.import_goal(row.draft_id, Goal.model_validate(goal or {}), who=row.who)
+                decisions.confirm(row.draft_id)
         if "facts" in values:
             for fact in values.pop("facts"):
                 authoring_decisions.record(row.draft_id, Fact.model_validate(fact), who=row.who)

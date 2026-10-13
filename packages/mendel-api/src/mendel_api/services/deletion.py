@@ -29,7 +29,7 @@ from mendel_api.models import (
 from mendel_api.settings import settings
 
 _SUBJECTS = ("pipeline_input", "pipeline_want", "pipeline_fact", "pipeline_producer",
-             "pipeline_parameter", "pipeline_review")
+             "pipeline_parameter", "pipeline_review", "pipeline_asked")
 """Each with its `_revision` table. A subject names its current revision and every revision its
 subject, both `RESTRICT`, which Postgres checks at the end of each statement even where the
 constraint is deferrable: so a subject and its revisions go in one statement."""

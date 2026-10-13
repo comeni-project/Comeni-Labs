@@ -68,7 +68,7 @@ def extracted(row):
 
 
 def confirmed(draft_id):
-    return any(w.present for w in decisions.read(draft_id).wants)
+    return decisions.confirmed(draft_id)
 
 
 def goal(row):

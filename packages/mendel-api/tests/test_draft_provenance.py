@@ -306,6 +306,7 @@ def test_a_stored_goal_reaches_the_artifact_instead_of_one_derived_from_the_canv
     from mendel_api.services import decisions, draft_mutations
 
     decisions.import_goal(spawned_draft, asked, who="ana")
+    decisions.confirm(spawned_draft)
     # This fixture supplies a deliberate partial projection of the broader accepted want.
     with session_scope() as db:
         row = db.get(PipelineDraft, spawned_draft)

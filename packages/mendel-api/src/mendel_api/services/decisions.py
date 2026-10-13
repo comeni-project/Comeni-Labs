@@ -27,6 +27,8 @@ from sqlalchemy import select
 
 from mendel_api.db import session_scope
 from mendel_api.models import (
+    PipelineAsked,
+    PipelineAskedRevision,
     PipelineDraft,
     PipelineEvidenceAccess,
     PipelineFact,
@@ -52,7 +54,14 @@ _FAMILIES = {
     "producer": (PipelineProducer, PipelineProducerRevision),
     "parameter": (PipelineParameter, PipelineParameterRevision),
     "review": (PipelineReview, PipelineReviewRevision),
+    "asked": (PipelineAsked, PipelineAskedRevision),
 }
+
+
+def _heard(fields, heard, heard_seq):
+    """The person's words beside a write, only when there are some: an unquoted write then
+    compares equal to its predecessor exactly as before (Part I.0 §6.1)."""
+    return {**fields, "heard": heard, "heard_seq": heard_seq} if heard is not None else fields
 
 
 def _draft(db, draft_id, expected_revision=None):
@@ -172,7 +181,8 @@ def _fact(observation, subject):
     )
 
 
-def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None):
+def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None, heard=None,
+             heard_seq=None):
     registry.stack().measurements.check(fact.subject, fact.value)
     if ingestion_key is not None:
         previous = db.scalar(
@@ -200,6 +210,8 @@ def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None):
         seq=_seq(draft),
         at=datetime.now(UTC),
         legacy=False,
+        heard=heard,
+        heard_seq=heard_seq,
     )
     db.add(observation)
     db.flush()
@@ -239,6 +251,8 @@ def set_fact(
     expected_revision=None,
     actor_kind=ActorKind.PERSON,
     proposal_id=None,
+    heard=None,
+    heard_seq=None,
 ):
     fact = FactDecision(
         subject=subject,
@@ -264,13 +278,16 @@ def set_fact(
                         acknowledge=True,
                         proposal_id=proposal_id,
                     ).id
-        observation = _observe(db, draft, fact) if value is not None else None
+        observation = (
+            _observe(db, draft, fact, heard=heard, heard_seq=heard_seq)
+            if value is not None else None
+        )
         return _write(
             db,
             draft,
             "fact",
             subject,
-            {"observation_id": observation.id if observation else None},
+            _heard({"observation_id": observation.id if observation else None}, heard, heard_seq),
             who=who,
             actor_kind=actor_kind,
             action="select" if observation else "retract",
@@ -634,7 +651,8 @@ def release_producer(draft_id, site: Site, *, who, expected_revision=None):
 
 
 def set_input(
-    draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON, proposal_id=None
+    draft_id, decision: InputDecision, *, who, actor_kind=ActorKind.PERSON, proposal_id=None,
+    heard=None, heard_seq=None,
 ):
     with session_scope() as db:
         draft = _draft(db, draft_id)
@@ -643,7 +661,7 @@ def set_input(
             draft,
             "input",
             decision.key,
-            decision.model_dump(mode="json", exclude={"key"}),
+            _heard(decision.model_dump(mode="json", exclude={"key"}), heard, heard_seq),
             who=who,
             actor_kind=actor_kind,
             proposal_id=proposal_id,
@@ -651,12 +669,138 @@ def set_input(
 
 
 def confirmed_goal(draft_id):
-    current = read(draft_id)
-    return (
-        current.goal(registry.stack().measurements)
-        if any(w.present for w in current.wants)
-        else None
-    )
+    return goal(draft_id) if confirmed(draft_id) else None
+
+
+def confirmed(draft_id) -> bool:
+    """Whether *That's right* was ever pressed for this draft — recorded, not inferred from a
+    present want, which the rows hold from the first sentence on (Part I.0 §6.2)."""
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, draft_id)
+        if draft is None:
+            raise KeyError(draft_id)
+        return draft.confirmed_revision is not None
+
+
+def confirm(draft_id) -> int:
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        draft.confirmed_revision = draft.decision_revision
+        db.flush()
+        return draft.confirmed_revision
+
+
+def _current_of(db, draft_id, family, key):
+    return next((r for s, r in _current(db, draft_id, family) if s.subject_key == key), None)
+
+
+def set_want(draft_id, type_id, *, who, actor_kind=ActorKind.PERSON, heard=None, heard_seq=None,
+             proposal_id=None):
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        old = _current_of(db, draft_id, "want", type_id)
+        fields = {
+            "type_id": type_id,
+            "states": list(old.states) if old else [],
+            "present": True,
+            "states_order": old.states_order if old else None,
+        }
+        return _write(db, draft, "want", type_id, _heard(fields, heard, heard_seq), who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def retract_want(draft_id, type_id, *, who, actor_kind=ActorKind.PERSON, proposal_id=None):
+    """`None` when nothing was wanted: retracting what was never recorded changes nothing."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        old = _current_of(db, draft_id, "want", type_id)
+        if old is None or not old.present:
+            return None
+        fields = {"type_id": type_id, "states": list(old.states), "present": False,
+                  "states_order": old.states_order}
+        return _write(db, draft, "want", type_id, fields, who=who, actor_kind=actor_kind,
+                      action="retract", proposal_id=proposal_id).id
+
+
+def require_states(draft_id, type_id, states, *, who, actor_kind=ActorKind.PERSON, heard=None,
+                   heard_seq=None, proposal_id=None):
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        old = _current_of(db, draft_id, "want", type_id)
+        if old is None or not old.present:
+            raise ValueError(coded("MI0204", f"{type_id} is not something this goal wants"))
+        fields = {"type_id": type_id, "states": sorted(states), "present": True,
+                  "states_order": old.states_order}
+        return _write(db, draft, "want", type_id, _heard(fields, heard, heard_seq), who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def pin_producer(draft_id, site: Site, contract, *, who, actor_kind=ActorKind.PERSON, heard=None,
+                 heard_seq=None, proposal_id=None):
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract}
+        return _write(db, draft, "producer", _site_key(site), _heard(fields, heard, heard_seq),
+                      who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def set_parameter(draft_id, name, value, *, who, actor_kind=ActorKind.PERSON, heard=None,
+                  heard_seq=None, proposal_id=None):
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        return _write(db, draft, "parameter", name,
+                      _heard({"name": name, "value": value}, heard, heard_seq), who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+@dataclass(frozen=True)
+class Asked:
+    phrase: str
+    heard_seq: int | None
+
+
+def set_asked(draft_id, phrase, *, who, actor_kind=ActorKind.PERSON, heard=None, heard_seq=None,
+              proposal_id=None):
+    key = " ".join(phrase.split()).casefold()[:400]
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        return _write(db, draft, "asked", key,
+                      _heard({"phrase": phrase, "present": True}, heard, heard_seq), who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def retract_asked(draft_id, phrase, *, who, actor_kind=ActorKind.PERSON, proposal_id=None):
+    key = " ".join(phrase.split()).casefold()[:400]
+    with session_scope() as db:
+        draft = _draft(db, draft_id)
+        old = _current_of(db, draft_id, "asked", key)
+        if old is None or not old.present:
+            return None
+        return _write(db, draft, "asked", key, {"phrase": old.phrase, "present": False},
+                      who=who, actor_kind=actor_kind, action="retract",
+                      proposal_id=proposal_id).id
+
+
+def read_asked(draft_id) -> list[Asked]:
+    with session_scope() as db:
+        return [Asked(phrase=r.phrase, heard_seq=r.heard_seq)
+                for _s, r in _current(db, draft_id, "asked") if r.present]
+
+
+def heard_of(draft_id) -> dict[tuple[str, str], tuple[str, int | None]]:
+    """`(family, key)` → the words each current decision was heard in. A fact's words live on
+    the observation it selects."""
+    found = {}
+    with session_scope() as db:
+        for family in ("input", "want", "producer", "parameter", "asked"):
+            for subject, revision in _current(db, draft_id, family):
+                if revision.heard is not None:
+                    found[(family, subject.subject_key)] = (revision.heard, revision.heard_seq)
+        for subject, revision in _current(db, draft_id, "fact"):
+            observation = _observation(db, revision.observation_id)
+            if observation is not None and observation.heard is not None:
+                found[("fact", subject.subject_key)] = (observation.heard, observation.heard_seq)
+    return found
 
 
 @dataclass(frozen=True)
