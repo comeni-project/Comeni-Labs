@@ -171,36 +171,6 @@ def test_a_fact_the_registry_refuses_refuses_the_reply(stack, clean_forge):
     assert outcome.code == "MI0204"
 
 
-# ── reading a reply to a gap ──────────────────────────────────────────────────────────
-
-
-PAIRED = ai.compose(prompt="yes, both ends", options=["yes", "no", "not_sure", "cant_share"])
-
-
-def test_a_reply_to_a_gap_is_read_into_an_offered_option(clean_forge):
-    outcome = ai.read_gap_reply(
-        PAIRED, question="Is it paired-end?", client=_client(json.dumps({"chose": "yes"}))
-    )
-    assert outcome.admitted, outcome.refusal
-    assert outcome.reply.chose == "yes"
-
-
-def test_a_reply_read_into_an_option_never_offered_is_refused(clean_forge):
-    outcome = ai.read_gap_reply(
-        PAIRED, question="Is it paired-end?", client=_client(json.dumps({"chose": "maybe"}))
-    )
-    assert not outcome.admitted
-    assert outcome.code == "MI0205"
-
-
-def test_a_typed_value_is_refused_where_no_value_was_offered(clean_forge):
-    outcome = ai.read_gap_reply(
-        PAIRED, question="Is it paired-end?", client=_client(json.dumps({"value": 2}))
-    )
-    assert not outcome.admitted
-    assert outcome.code == "MI0205"
-
-
 # ── the chat call ─────────────────────────────────────────────────────────────────────────
 
 
@@ -520,10 +490,6 @@ def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_forge):
     # `ask.v2` is words only (#307): nothing it writes is held to a list.
     assert asked.choices == [None]
 
-    replied = _Choosing(json.dumps({"chose": "yes"}))
-    ai.read_gap_reply(PAIRED, question="Is it paired-end?", client=replied)
-    assert replied.choices == [{"chose": ["yes", "no", "not_sure", "cant_share"]}]
-
 
 def test_prose_only_calls_name_no_list(clean_forge):
     reader = _Choosing(json.dumps({"text": "You will get a counts matrix."}))
@@ -531,18 +497,13 @@ def test_prose_only_calls_name_no_list(clean_forge):
     assert reader.choices == [None]
 
 
-def test_an_empty_list_is_not_sent_as_an_enum_of_nothing(clean_forge):
-    """A gap offering no option ids: the reply may still be a value or `unsure`."""
-    replied = _Choosing(json.dumps({"unsure": True}))
-    ai.read_gap_reply(ai.compose(prompt="p", options=[]), question="How long?", client=replied)
-    # The empty list now reaches the transport (#244), and `with_choices` is what keeps it from
-    # becoming an enum of nothing: a scalar is left unconstrained.
+def test_an_empty_list_is_not_sent_as_an_enum_of_nothing():
+    """An id list with nothing in it constrains nothing: `with_choices` leaves the field
+    unconstrained rather than making it an enum of nothing (#244)."""
     from comeni_ai.formats import with_choices
-    from mendel_api.authoring.types import GapReply
+    from mendel_api.authoring.types import ChatReply
 
-    [held] = replied.choices
-    assert held and all(values == [] for values in held.values())
-    assert "enum" not in str(with_choices(GapReply.model_json_schema(), held))
+    assert "enum" not in str(with_choices(ChatReply.model_json_schema(), {"pins.tool": []}))
 
 
 # ── choosing the type by family (#194) ────────────────────────────────────────────────────

@@ -36,7 +36,6 @@ from comeni_ai import Client, ModelAccess, ModelUnavailableError, Usage
 from comeni_core.diagnostics import coded
 from comeni_core.egress.authoring import AuthoringRequest, AuthoringRole, AuthoringTurn, KnownStep
 from comeni_core.egress.characterisation import CharacteriseRequest
-from comeni_core.goal.asked import Goal
 from mendel_forge.workflow import Agent, InvocationState
 
 from mendel_api.authoring import prompts
@@ -47,7 +46,6 @@ from mendel_api.authoring.types import (
     CharacteriseFamilies,
     CharacteriseReply,
     ChatReply,
-    FactKind,
     FamilyChoice,
     GapReply,
     GoalUnderstanding,
@@ -321,17 +319,6 @@ def _admit_wanted(understanding, shown: Sequence[str]):
     return understanding
 
 
-def _admit_shown(understanding: WantUnderstanding, shown: Sequence[str]) -> WantUnderstanding:
-    """A want outside the families it was shown is refused (`MI0204`): the list is what the call
-    showed, on a lane that cannot enforce it as much as on one that can (#194)."""
-    outside = sorted(set(understanding.want) - set(shown))
-    if outside:
-        raise ValueError(
-            coded("MI0204", f"the want names types it was not shown: {', '.join(outside)}")
-        )
-    return understanding
-
-
 def follow_up(
     request: AuthoringRequest,
     *,
@@ -371,36 +358,6 @@ def follow_up(
             "facts.subject": _subjects(stack),
             "retract.subject": _subjects(stack),
         },
-    )
-
-
-def read_gap_reply(
-    request: AuthoringRequest,
-    *,
-    question: str,
-    client: Client | None = None,
-    session_id: str | None = None,
-) -> Outcome:
-    """A typed answer to one gap in, an offered option id or a typed value out, or `unsure`.
-
-    `request.options` is the gap's own option ids, written down before the call went out, so
-    admission compares the reply against a set the reply cannot have widened (MI0205).
-    """
-    return _call(
-        request,
-        purpose=Purpose.GAP,
-        prompt_id=prompts.GAP,
-        shape=GapReply,
-        values={
-            "question": question,
-            "options": _options_text(request.options),
-            "conversation": _conversation_text(request.turns),
-            "request": request.prompt,
-        },
-        admit=lambda reply: _admit_gap_reply(reply, request),
-        client=client,
-        session_id=session_id,
-        choices={"chose": list(request.options)},
     )
 
 
@@ -785,28 +742,6 @@ def _admit_goal(understanding: GoalUnderstanding, stack) -> GoalUnderstanding:
     return understanding
 
 
-def _admit_want(understanding: WantUnderstanding, stack) -> WantUnderstanding:
-    """A model's want, held to the vocabulary: the same `MI0204` check, over a goal holding only
-    the want and the person's constraints.
-
-    **A stated candidate the registry refuses is dropped, not refused** (#170): the want is still
-    good, and a candidate only ever pre-fills a question the engine asks anyway.
-    """
-    admit_goal(Goal(want=understanding.want, constraints=understanding.constraints), stack)
-    kept = []
-    for candidate in understanding.stated:
-        if candidate.kind is FactKind.INPUT:
-            if candidate.subject in stack.vocabulary.types:
-                kept.append(candidate.model_copy(update={"value": None}))
-            continue
-        try:
-            stack.measurements.check(candidate.subject, candidate.value)
-        except (ValueError, KeyError, TypeError):
-            continue
-        kept.append(candidate)
-    return understanding.model_copy(update={"stated": kept})
-
-
 def admit_goal(goal, stack) -> None:
     """Every id in the goal against what the registry declares. `MI0204`.
 
@@ -849,54 +784,6 @@ def admit_goal(goal, stack) -> None:
             + "".join(f"\n  {item}" for item in unknown)
             + "\n  nothing was applied — say it in different words, or add it through the forge"
         )
-
-
-def _admit_gap_reply(reply: GapReply, request: AuthoringRequest) -> GapReply:
-    """The reply's id against the gap's offered ids. `MI0205`, as for any intent."""
-    offered = set(request.options)
-    named = reply.chose
-    if named is None and reply.value is not None:
-        named = "value"
-    if named is not None and named not in offered:
-        raise ValueError(
-            coded("MI0205", "the reply names an option that was never offered")
-            + f"\n  option {named}"
-            + f"\n  offered: {', '.join(sorted(offered)) or '(none)'}"
-        )
-    return reply
-
-
-def _admit_intent(intent: AuthoringIntent, request: AuthoringRequest) -> AuthoringIntent:
-    """Every id in the reply against the ids the engine issued. `MI0205`.
-
-    **This is the product claim made mechanical.** *A model cannot produce a value outside the
-    candidate set* is a sentence about a comparison, and this is the comparison — against
-    `request.options` and `request.steps`, both of which were written down before the call went
-    out, so neither can have been widened by the answer.
-    """
-    offered = set(request.options)
-    steps = {step.node for step in request.steps}
-    invented: list[str] = []
-
-    if intent.chose and intent.chose not in offered:
-        invented.append(f"option {intent.chose}")
-    for node in intent.refers_to:
-        if node not in steps:
-            invented.append(f"step {node}")
-    if intent.setting is not None:
-        if intent.setting.node not in steps:
-            invented.append(f"step {intent.setting.node}")
-        if intent.setting.chose and intent.setting.chose not in offered:
-            invented.append(f"option {intent.setting.chose}")
-
-    if invented:
-        raise ValueError(
-            coded("MI0205", "the reply names an option or a step that was never offered")
-            + "".join(f"\n  {item}" for item in invented)
-            + f"\n  offered: {', '.join(sorted(offered)) or '(none)'}"
-            + f"\n  steps: {', '.join(sorted(steps)) or '(none)'}"
-        )
-    return intent
 
 
 # ── the audit row ─────────────────────────────────────────────────────────────────────────

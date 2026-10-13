@@ -222,6 +222,10 @@ class TurnContext(NamedTuple):
     steps: list[tuple[str, str]]
     options: list[str]
     registry: str | None
+    decision_revision: int = 0
+    """The decisions as they stood when the person spoke (Part I.0): a heard change the model
+    read against an older picture is offered, never recorded over what happened since."""
+    session_version: int = 0
 
 def turn_context(session_id: str, seq: int) -> TurnContext | None:
     """The grounding for assistant turn `seq`, or `None` when that turn is not pending.
@@ -278,6 +282,8 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
             else [],
             options=sorted(pending.payload.get("options", {})) if pending is not None else [],
             registry=row.registry_digest or None,
+            decision_revision=draft.decision_revision if draft else 0,
+            session_version=row.row_version,
         )
 
 def _spoken(turn: PipelineAuthoringTurn) -> str:

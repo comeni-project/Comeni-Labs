@@ -21,10 +21,9 @@ import logging
 from comeni_ai import Client
 from mendel_authoring import commands as c
 from mendel_authoring.interpret import Refused
-from mendel_authoring.types import Command
 
 from mendel_api.authoring.types import (
-    AuthoringIntent,
+    ChatReply,
     Narrative,
     Notice,
     NoticeKind,
@@ -33,7 +32,16 @@ from mendel_api.authoring.types import (
     Question,
     Understanding,
 )
-from mendel_api.services import authoring_ai, known, registry, replies
+from mendel_api.db import session_scope
+from mendel_api.services import (
+    authoring_ai,
+    authoring_decisions,
+    decisions,
+    known,
+    registry,
+    replies,
+    suggestions,
+)
 from mendel_api.services import session as session_mod
 from mendel_api.settings import model_access, settings
 from mendel_api.stages import describe, gathering, goal
@@ -89,9 +97,9 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
         # with a question: a second, wasted call.
         if context.phase is Phase.UNDERSTANDING:
             _understand(session_id, seq, context, context.prompt)
-        elif context.phase is Phase.GATHERING and _pending_gap(session_id) is not None:
-            _gap_reply(session_id, seq, context)
         else:
+            # A typed answer to the open question is a fact like any other (#307): the memory
+            # tells `chat.v3` which question is open.
             _follow_up(session_id, seq, context)
     return f"{session_id}:{seq}"
 
@@ -244,6 +252,7 @@ async def read_back_authoring_goal(ctx: dict, session_id: str, proposal_id=None)
     outcome = authoring_ai.read_back(
         authoring_ai.compose(prompt="", registry=registry.digest()),
         goal=goal.readback_context(session_id),
+        memory=known.text(session_id),
         client=_client(authoring_ai.Purpose.READBACK),
         session_id=session_id,
     )
@@ -272,6 +281,7 @@ async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str,
         request,
         gap=gap,
         stack=registry.stack(),
+        memory=known.text(session_id),
         client=_client(authoring_ai.Purpose.ASK),
         session_id=session_id,
     )
@@ -280,63 +290,6 @@ async def phrase_authoring_gap(ctx: dict, session_id: str, subject: str,
     else:
         _perform(c.PhrasingFailed(session_id, subject, stamp))
     return f"{session_id}:{subject}"
-
-
-def _pending_gap(session_id: str) -> dict | None:
-    pending = session_mod.read(session_id)["pending_proposal"]
-    return pending if pending is not None and pending["kind"] == gathering.GAP else None
-
-
-def _gap_reply(session_id: str, seq: int, context) -> None:
-    """A typed answer to the pending gap, read into one of its ids — or re-offered, never guessed.
-
-    Clicking an option answers without this; typing is the path that needs a model to read words
-    back into an id the engine minted (`builder.gap.v1`).
-    """
-    gap = _pending_gap(session_id)
-    options = gap["payload"]["options"]
-    request = authoring_ai.compose(
-        prompt=context.prompt, turns=context.tail, options=list(options), registry=context.registry
-    )
-    outcome = authoring_ai.read_gap_reply(
-        request,
-        question=gap["payload"]["block"]["asks"],
-        client=_client(authoring_ai.Purpose.GAP),
-        session_id=session_id,
-    )
-    if not outcome.admitted:
-        _refused(session_id, seq, context, outcome)
-        return
-
-    reply = outcome.reply
-    if reply.unsure:
-        listed = "; ".join(label for key, label in options.items() if key != "value")
-        _narrate(
-            session_id, seq, context, outcome.invocation_id,
-            f"I couldn't tell from that. Here are the options: {listed}. Pick one, or say it "
-            "another way.",
-        )
-        return
-
-    option = reply.chose if reply.chose is not None else "value"
-    try:
-        # **A reading is a suggestion, never an answer** (#171): the gap is pre-filled and the
-        # person's click records the fact. The model call is on the turn, so the log still says
-        # the reading was a model's.
-        session_mod.perform(c.PrefillGap(gap["id"], option, reply.value, gathering.READ_NOTE))
-    except ValueError as refused:
-        _answer_blocks(
-            session_id, seq, context, outcome.invocation_id,
-            [Notice(id=f"notice-{seq}", notice=NoticeKind.REFUSAL, text=str(refused)[:2000],
-                    code=authoring_ai._code_in(str(refused))).model_dump(mode="json")],
-        )
-        return
-
-    said = options.get(option, option) if reply.value is None else str(reply.value)
-    _narrate(
-        session_id, seq, context, outcome.invocation_id,
-        f"I read that as {said} — confirm it above, or pick another answer.",
-    )
 
 
 def _narrate(session_id: str, seq: int, context, invocation_id, text: str) -> None:
@@ -353,6 +306,11 @@ def _answer_blocks(session_id: str, seq: int, context, invocation_id, blocks: li
 
 
 def _follow_up(session_id: str, seq: int, context) -> None:
+    """Typed words anywhere after the want is read (`chat.v3`, #307): something to say, and the
+    changes they ask for. **Before the goal is confirmed** a heard change is recorded, through
+    the correction path that routes its consequence; a suggested one waits for a click. **After**,
+    every change is offered: a model's amendment is shown before it moves anything."""
+    stack = registry.stack()
     request = authoring_ai.compose(
         prompt=context.prompt,
         turns=context.tail,
@@ -362,70 +320,100 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         registry=context.registry,
     )
     outcome = authoring_ai.follow_up(
-        request, client=_client(authoring_ai.Purpose.CHAT), session_id=session_id
+        request, stack=stack, memory=known.text(session_id),
+        client=_client(authoring_ai.Purpose.CHAT), session_id=session_id,
     )
     if not outcome.admitted:
         _refused(session_id, seq, context, outcome)
         return
 
-    intent: AuthoringIntent = outcome.reply
-    # **Only where the diagram still draws the revision** (final review of 1b): the card may have
-    # been accepted while the model read, and then nothing is withdrawn and nothing re-read.
-    if (
-        intent.revise
-        and context.phase is Phase.GOAL_REVIEW
-        and session_mod.allows(session_id, Command.REVISED.value)
-    ):
-        # A goal revision re-enters understanding with the person's corrected words, and the
-        # summary they were correcting is withdrawn rather than left pending beside the new one.
-        _perform(c.Revised(session_id, "person"))
-        _understand(session_id, seq, context, intent.revise)
+    reply: ChatReply = outcome.reply
+    draft_id, wanted = _draft_and_wants(session_id)
+    issued = replies.issue(
+        reply, turns=replies.person_turns(session_id), stack=stack,
+        invocation_id=outcome.invocation_id, wanted=wanted,
+    )
+    blocks = []
+    if reply.say:
+        blocks.append(Narrative(id=f"reply-{seq}", text=reply.say).model_dump(mode="json"))
+    for index, asked in enumerate(reply.questions, start=1):
+        blocks.append(Question(
+            id=f"question-{seq}-{index}", asks=asked.asks, why_open=asked.why_open,
+            options=[Option(id=f"q{index}_{n}", label=label)
+                     for n, label in enumerate(asked.choices, start=1)],
+            exhaustive=asked.exhaustive,
+        ).model_dump(mode="json"))
+    if not _answered(session_id, seq, blocks=blocks or [
+            Narrative(id=f"reply-{seq}", text=_noted(issued)).model_dump(mode="json")],
+            base_revision=context.revision, invocation_id=outcome.invocation_id):
         return
 
-    _answered(
-        session_id,
-        seq,
-        blocks=[_block_for(seq, intent, context.phase).model_dump(mode="json")],
-        base_revision=context.revision,
-        invocation_id=outcome.invocation_id,
-    )
+    if authoring_decisions.confirmed(draft_id):
+        for change, heard in [*((c, True) for c in issued.heard),
+                              *((c, False) for c in issued.suggested)]:
+            suggestions.offer(session_id, change, heard=heard, invocation_id=change.invocation_id)
+    else:
+        # **Only if nothing moved since the person spoke** (Review Focus 2 of plan A): a click
+        # that landed while the model read wins, and the reading is offered instead.
+        current = not _moved_since(draft_id, context)
+        for change in issued.heard:
+            if not (current and _record(session_id, draft_id, change)):
+                suggestions.offer(session_id, change, heard=True,
+                                  invocation_id=change.invocation_id)
+        for change in issued.suggested:
+            suggestions.offer(session_id, change, heard=False,
+                              invocation_id=change.invocation_id)
+    if reply.proceed:
+        _proceed(session_id)
 
 
-def _block_for(seq: int, intent: AuthoringIntent, phase: Phase):
-    """One admitted intent as the block a person reads. **Nothing here mutates the draft.**
+def _draft_and_wants(session_id: str):
+    from mendel_api.models import PipelineAuthoringSession
 
-    A chosen option or a proposed setting is *shown* — the person still presses the control that
-    applies it, which is a deterministic request with a revision behind it. A model reading
-    *use HISAT2* correctly is not a model applying it.
-    """
-    if intent.explain:
-        return Narrative(id=f"reply-{seq}", text=intent.explain, refers_to=intent.refers_to)
-    if intent.chose:
-        return Narrative(
-            id=f"reply-{seq}", text=f"You picked `{intent.chose}` — confirm it on the card."
-        )
-    if intent.setting is not None:
-        value = intent.setting.chose or intent.setting.value
-        return Narrative(
-            id=f"reply-{seq}",
-            text=(
-                f"Proposed: `{intent.setting.setting}` on `{intent.setting.node}` = `{value}`. "
-                f"{intent.setting.because}"
-            ).strip()[:2000],
-            refers_to=[intent.setting.node],
-        )
-    if intent.proceed:
-        return Narrative(id=f"reply-{seq}", text="Carrying on with the next step.")
-    if intent.revise:
-        return Notice(
-            id=f"reply-{seq}",
-            notice=NoticeKind.VALIDATION,
-            text=(
-                "Changing the goal once the pipeline is being built is not available in this "
-                f"version (the session is {phase.value}). Start a new session with the new goal."
-            ),
-        )
-    return Notice(id=f"reply-{seq}", notice=NoticeKind.REFUSAL, text=intent.unsupported or "")
+    with session_scope() as db:
+        draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
+    wanted = frozenset(w.type_id for w in decisions.read(draft_id).wants if w.present)
+    return draft_id, wanted
+
+
+def _moved_since(draft_id: str, context) -> bool:
+    from mendel_api.models import PipelineDraft
+
+    with session_scope() as db:
+        return db.get(PipelineDraft, draft_id).decision_revision != context.decision_revision
+
+
+def _record(session_id: str, draft_id: str, change) -> bool:
+    """One heard change through the correction path, at the versions as they stand now."""
+    from mendel_api.models import PipelineAuthoringSession, PipelineDraft
+
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, draft_id)
+        row = db.get(PipelineAuthoringSession, session_id)
+        versions = (draft.decision_revision, draft.revision, row.row_version)
+    try:
+        session_mod.perform(c.Change(session_id, change.model_dump(mode="json"), "model",
+                                     *versions))
+    except (Refused, ValueError) as refused:
+        log.info("a heard change was offered instead: %s", str(refused).splitlines()[0])
+        return False
+    return True
+
+
+def _proceed(session_id: str) -> None:
+    """*Go on*: the waiting step is settled, as its card's *continue* would. Elsewhere there is
+    nothing to continue, and nothing happens."""
+    view = session_mod.read(session_id)
+    pending = view.get("pending_proposal")
+    if pending is None or pending["kind"] != "step":
+        return
+    _perform(c.SettleStep(pending["id"], view["revision"], "person"))
+
+
+def _noted(issued) -> str:
+    if issued.heard or issued.suggested:
+        return "Noted."
+    return "I could not tell what to change from that; say it another way."
 
 
 def _refused(session_id: str, seq: int, context, outcome) -> None:

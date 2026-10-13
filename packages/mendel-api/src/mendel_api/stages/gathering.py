@@ -428,16 +428,10 @@ def _model_configured() -> bool:
 
 
 def _phrased(question: Question, asked: AskedGap, kind: FactKind, options: dict) -> Question:
-    """The question in the model's words, options untouched; `already` pre-fills only when
-    nothing is suggested yet (a stated candidate, heard first, wins)."""
-    question = question.model_copy(update={"asks": asked.asks, "phrasing": "done"})
-    if any(o.recommended for o in question.options):
-        return question
-    if asked.already_value is not None and "value" in options:
-        return _prefilled(question, "value", asked.already_value, note=ALREADY_NOTE)
-    if asked.already_option is not None and asked.already_option in options:
-        return _prefilled(question, asked.already_option, None, note=ALREADY_NOTE)
-    return question
+    """The question in the model's words, options untouched. **Words only** (`ask.v2`, #307):
+    recognising what the person already said is the reading calls' job — a quoted fact is
+    recorded and never asked — so `already_*`, which `ask.v1` filled, is no longer read."""
+    return question.model_copy(update={"asks": asked.asks, "phrasing": "done"})
 
 
 def phrasing_context(session_id, subject):

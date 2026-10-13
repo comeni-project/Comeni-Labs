@@ -212,21 +212,6 @@ def _typed(monkeypatch, sid: str, text: str, reply: dict) -> None:
     asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
 
 
-def test_a_typed_reply_pre_fills_the_gap_and_records_nothing(clean, monkeypatch):
-    """#171: a model's reading of a typed reply is a suggestion; the person's click is the fact."""
-    sid = _gathering(want=["counts.matrix"])
-    pid = _pending_for(sid, "paired")
-    before = _facts(sid)
-    _typed(monkeypatch, sid, "yes, both ends were sequenced", {"chose": "yes"})
-    assert facade.pending_id(sid) == pid and _facts(sid) == before
-    options = {o["id"]: o for o in _payload(pid)["block"]["options"]}
-    assert options["yes"]["recommended"] and "reply" in options["yes"]["note"]
-    assert "I read that as Yes" in facade.read(sid)["turns"][-1]["blocks"][0]["text"]
-    facade.perform(commands.AnswerGap(pid, "yes", None, "ana"))
-    paired = [f for f in _facts(sid) if f["subject"] == "paired"][0]
-    assert paired["value"] is True and paired["source"] == "person_said"
-
-
 def test_a_suggested_fact_pre_fills_its_gap_and_waits_for_the_click(clean):
     """#307 (superseding #170): a fact the model did not quote is its suggestion — it pre-fills
     the question, marked as the model's, and only the click records it. (A quoted one is recorded
@@ -249,24 +234,26 @@ def test_a_suggested_fact_pre_fills_its_gap_and_waits_for_the_click(clean):
 
 
 def test_a_reply_the_model_cannot_map_leaves_the_gap_and_records_nothing(clean, monkeypatch):
-    """Never a guess: *unsure* re-offers the options and writes no fact."""
+    """Never a guess (#307): a reply naming no change writes no fact, and the question stays."""
     sid = _gathering(want=["counts.matrix"])
     pid = _pending_for(sid, "paired")
     before = _facts(sid)
-    _typed(monkeypatch, sid, "hmm, the sequencing core did it", {"unsure": True})
+    _typed(monkeypatch, sid, "hmm, the sequencing core did it", {})
     assert facade.pending_id(sid) == pid and _facts(sid) == before
     last = facade.read(sid)["turns"][-1]
-    assert last["state"] == "answered" and "options" in last["blocks"][0]["text"]
+    assert last["state"] == "answered" and "another way" in last["blocks"][0]["text"]
 
 
 def test_a_typed_value_the_declaration_refuses_is_a_notice_and_nothing_recorded(clean, monkeypatch):
+    """The reply named a value the measurement refuses: refused at admission (MI0204, #307)."""
     sid = _gathering(want=["counts.matrix"])
     pid = _pending_for(sid, "read_length")
     before = _facts(sid)
-    _typed(monkeypatch, sid, "minus five", {"value": -5})
+    _typed(monkeypatch, sid, "minus five",
+           {"facts": [{"subject": "read_length", "value": -5, "quote": "minus five"}]})
     assert facade.pending_id(sid) == pid and _facts(sid) == before
     block = facade.read(sid)["turns"][-1]["blocks"][0]
-    assert block["kind"] == "notice" and block["code"] == "MI0208"
+    assert block["kind"] == "notice" and block["code"] == "MI0204"
 
 
 def test_an_answered_gap_says_its_answer_in_the_history(clean):
@@ -415,29 +402,6 @@ def test_a_phrasing_that_arrives_after_the_answer_changes_nothing(clean):
         )
     )
     assert _payload(pid)["block"] == answered
-
-
-def test_already_pre_fills_and_an_unoffered_one_is_dropped(clean):
-    sid = _gathering(want=["counts.matrix"])
-    pid = _pending_for(sid, "paired")
-    facade.perform(
-        commands.StorePhrasing(
-            sid,
-            "paired",
-            _asked("Paired?", option="maybe").model_dump(mode="json"),
-            stamp=gathering.phrasing_context(sid, "paired"),
-        )
-    )
-    assert not any(o["recommended"] for o in _payload(pid)["block"]["options"])
-    facade.perform(
-        commands.StorePhrasing(
-            sid,
-            "paired",
-            _asked("Paired?", option="yes").model_dump(mode="json"),
-            stamp=gathering.phrasing_context(sid, "paired"),
-        )
-    )
-    assert {o["id"] for o in _payload(pid)["block"]["options"] if o["recommended"]} == {"yes"}
 
 
 def test_a_prefetched_phrasing_expires_when_earlier_answers_change_its_context(clean):
