@@ -39,3 +39,13 @@ def test_a_measurement_carries_its_explanation(tmp_path):
     registry = MeasurementRegistry.load(tmp_path)
     assert registry.get("read_length").explain == "Bases per read."
     assert registry.get("organism").explain is None
+
+
+def test_an_explanation_too_long_to_show_is_refused_when_the_layer_loads(tmp_path):
+    """Part I.1 review: a measurement's `explain` had no cap, loaded, and then failed every time
+    gathering showed it. Refused at load, as a type's is."""
+    _write(tmp_path, "measurements/read_length.yml",
+           "declares: measurement\nid: read_length\nkind: integer\nminimum: 1\n"
+           f"explain: {'x' * 601}\n")
+    with pytest.raises(ValueError, match="explain"):
+        MeasurementRegistry.load(tmp_path)

@@ -257,6 +257,8 @@ def test_a_missing_requirement_is_asked_by_its_exact_type_and_states(clean, monk
     assert changed["phase"] == "gathering"
     assert pending.payload["subject"] == "alignment.bam"
     assert pending.payload["states"] == ["coordinate_sorted"]
+    # Part I.1 review: a correction's question explains itself like gathering's.
+    assert pending.payload["explain"]["name"] == "aligned reads (BAM)"
     assert (
         next(
             m["value"]

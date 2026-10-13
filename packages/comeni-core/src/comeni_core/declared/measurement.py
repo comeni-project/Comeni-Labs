@@ -125,7 +125,7 @@ class Measurement(BaseModel):
     unit: str | None = None
     description: str = ""
     cite: str | None = None
-    explain: str | None = None
+    explain: str | None = Field(default=None, min_length=1, max_length=600)
     """What it is and how a person finds it out, one short paragraph (Part I.1). Its name is
     `description`. Read by nothing that builds."""
     edam: str | None = None

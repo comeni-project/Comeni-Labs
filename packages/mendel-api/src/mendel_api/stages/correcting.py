@@ -398,7 +398,7 @@ def blocked(ctx: Ctx):
     if essential:
         return "essential_missing"
     from mendel_api.authoring.types import FactKind
-    from mendel_api.services import gaps
+    from mendel_api.services import explain, gaps
     from mendel_api.stages import gathering
 
     with session_scope() as db:
@@ -409,8 +409,19 @@ def blocked(ctx: Ctx):
             "the corrected pipeline needs this input and its required states",
         )
         stack = registry.stack()
-        options = gathering._gap_options(gap, stack, authoring_decisions.facts(row.draft_id))
+        facts = authoring_decisions.facts(row.draft_id)
+        options = gathering._gap_options(gap, stack, facts)
         question = gathering._gap_question(gap, options, stack, row.row_version)
+        # Explained like gathering's questions (Part I.1): the walk's readers when the missing
+        # type is one of its gaps, and what is still open, so a sample promises only those.
+        found = gaps.gaps(decisions.goal(row.draft_id).want, facts, stack)
+        found = [] if isinstance(found, gaps.Unreachable) else found
+        walked = next((g for g in found if g.subject == gap.subject), gap)
+        measured, read = gathering._inspectable(stack)
+        explained = explain.explanation(
+            gap._replace(used_by=walked.used_by), found, stack, measured=measured, read=read,
+            characterisable=gathering._characterisable(),
+        )
         _rows.propose(
             row.id,
             kind=_rows.GAP,
@@ -421,6 +432,7 @@ def blocked(ctx: Ctx):
                 "states": change.missing_states,
                 "options": options,
                 "block": question.model_dump(mode="json"),
+                "explain": explained.model_dump(mode="json"),
             },
         )
     return "gather_missing"

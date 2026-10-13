@@ -522,7 +522,7 @@ def gap_context(session_id: str, subject: str) -> dict | None:
     described = (
         stack.measurements.get(subject).description
         if gap.kind is FactKind.MEASUREMENT
-        else f"an input the analysis reads: {subject}"
+        else f"an input the analysis reads: {explain.name_of(stack, gap.kind, subject)}"
     )
     with session_scope() as db:
         first = db.scalar(

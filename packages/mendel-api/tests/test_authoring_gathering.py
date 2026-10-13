@@ -597,3 +597,11 @@ def test_a_gap_is_offered_with_its_name_and_explanation(clean):
         "Do you have the sequencing reads (FASTQ) this analysis needs?")
     assert payload["explain"]["name"] == "sequencing reads (FASTQ)"
     assert payload["explain"]["needed"]
+
+
+def test_the_phrasing_model_is_given_the_name_not_the_id(clean):
+    """Part I.1 review: a model handed `fastq.reads` beside a named question may echo the id."""
+    sid = _gathering(["counts.matrix"])
+    context = gathering.gap_context(sid, "fastq.reads")
+    assert "sequencing reads (FASTQ)" in context["description"]
+    assert "fastq.reads" not in context["description"]
