@@ -27,6 +27,7 @@ from comeni_core.spell.marks import HumanParamValue, OptionId
 from fastapi import APIRouter, HTTPException, Request, status
 from mendel_authoring import commands as c
 from mendel_authoring.decisions import ActorKind, InputDecision
+from mendel_authoring.payloads import Change
 from mendel_authoring.progress import WalkProgress
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
@@ -359,6 +360,12 @@ class CorrectionContext(BaseModel):
 class CorrectAuthoringFact(CorrectionContext):
     value: HumanParamValue | list[HumanParamValue] | None = None
     kind: Literal["measurement", "input"] = "measurement"
+
+
+class ChangeAuthoring(CorrectionContext):
+    """Any change to intent or facts, as the person makes it (Part I.0 §5.1)."""
+
+    change: Change
 
 
 class AnswerEvidenceQuestion(CorrectionContext):
@@ -885,6 +892,26 @@ async def correct_fact(
             body.expected_draft_revision,
             body.expected_session_version,
             body.kind,
+        )
+    )
+    return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post(
+    "/{session_id}/changes",
+    operation_id="changeAuthoring",
+    summary="Change what you want or what is known about your data",
+    responses=REFUSES,
+)
+async def change_authoring(session_id: str, body: ChangeAuthoring) -> AuthoringCorrected:
+    done = await session.act(
+        c.Change(
+            session_id,
+            body.change.model_dump(mode="json"),
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
         )
     )
     return AuthoringCorrected.model_validate(done.result)

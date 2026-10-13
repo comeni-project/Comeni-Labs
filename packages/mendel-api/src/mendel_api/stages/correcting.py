@@ -81,7 +81,7 @@ def result(sid):
         }
 
 
-def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
+def _begin(ctx, cmd, arrow, *, subject, kind, states=(), change=None):
     with session_scope() as db:
         row, draft = checked(db, cmd)
         from mendel_api.stages import samples
@@ -98,10 +98,11 @@ def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
         ctx.session_id = row.id
         payload = p.Correction(
             subject=subject,
-            value=getattr(cmd, "value", None),
+            value=change.value if change is not None else getattr(cmd, "value", None),
             who=cmd.by,
             kind=kind,
             states=list(states),
+            change=change,
             continuation=_CONTINUATION[Phase(row.phase)],
             before=bp.Blueprint.model_validate(row.blueprint) if row.blueprint else None,
         )
@@ -116,6 +117,19 @@ def _begin(ctx, cmd, arrow, *, subject, kind, states=()):
 @records(c.CorrectFact)
 def correct(ctx: Ctx, cmd: c.CorrectFact):
     return _begin(ctx, cmd, Command.CORRECT_FACT, subject=cmd.subject, kind=cmd.kind)
+
+
+@records(c.Change)
+def change(ctx: Ctx, cmd: c.Change):
+    """A change from anyone, through the correction path (Part I.0 §5.1): its consequence —
+    gather again, check the goal again, re-resolve and re-review — is the diagram's, as for a
+    correction. Refused before the arrow when it names something undeclared (`MI0204`)."""
+    from mendel_api.services import changes as changes_mod
+
+    written = Change.model_validate(cmd.change)
+    changes_mod.check(written)
+    return _begin(ctx, cmd, Command.CORRECT_FACT, subject=written.subject, kind=written.kind,
+                  states=written.states, change=written)
 
 
 @records(c.ForkCorrection)
@@ -233,7 +247,9 @@ def receipt(ctx, suffix=""):
         draft = db.get(PipelineDraft, row.draft_id)
         value = "unknown" if change.value is None else str(change.value)
         said = (
-            f"released the tool choice for {change.subject}"
+            changes.describe(change.change)
+            if change.change is not None
+            else f"released the tool choice for {change.subject}"
             if change.kind == "producer"
             else f"kept your selected answer for {change.subject}"
             if change.kind == "retain"

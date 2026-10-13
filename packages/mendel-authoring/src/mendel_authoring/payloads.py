@@ -72,7 +72,8 @@ class Correction(_Payload):
     subject: str
     value: HumanParamValue | list[HumanParamValue] | None = None
     who: str
-    kind: Literal["measurement", "input", "producer", "retain", "observation"]
+    kind: Literal["measurement", "input", "producer", "retain", "observation", "want",
+                  "require", "pin", "parameter", "asked"]
     observation_id: str | None = None
     states: list[str] = Field(default_factory=list)
     continuation: Literal["gather", "goal", "build", "complete", "stopped"]

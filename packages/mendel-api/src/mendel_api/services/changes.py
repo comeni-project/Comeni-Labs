@@ -47,6 +47,20 @@ def _measurement(stack, subject: str, value) -> None:
         raise ValueError(coded("MI0208", f"that answer does not fit {subject}")) from refused
 
 
+def check(change: Change) -> None:
+    """Refuse what names something undeclared, before anything moves (`MI0204`, `MI0208`)."""
+    stack = registry.stack()
+    kind, subject = change.kind, change.subject
+    if kind == "measurement":
+        _measurement(stack, subject, None if change.retract else change.value)
+    elif kind in ("want", "require", "pin", "producer"):
+        _type(stack, subject)
+        if kind == "pin" and not change.retract:
+            _tool(stack, str(change.value))
+    elif kind == "parameter":
+        _parameter(stack, subject)
+
+
 def apply(draft_id: str, change: Change, *, who: str) -> bool:
     """Write one change; whether the decisions moved. Retracting what is not there is no
     change (Review Focus 5 of plan A)."""

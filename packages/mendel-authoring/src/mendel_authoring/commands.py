@@ -286,6 +286,21 @@ class ReleaseProducer:
 
 
 @dataclass(frozen=True, slots=True)
+class Change:
+    """Any change to intent or facts, from anyone (Part I.0 spec §5.1): `change` is a
+    `payloads.Change` dump. It takes the correction section's arrows, so it is offered exactly
+    where a correction is — at a waiting node, never during async work."""
+
+    session_id: str
+    change: dict
+    by: str
+    expected_decision_revision: int
+    expected_draft_revision: int
+    expected_session_version: int
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT, Command.FORK_CORRECTION})
+
+
+@dataclass(frozen=True, slots=True)
 class ForkCorrection(CorrectFact):
     takes: ClassVar[frozenset[Command]] = frozenset({Command.FORK_CORRECTION})
 
@@ -318,6 +333,7 @@ COMMANDS: tuple[type, ...] = (
     ChoosePacing,
     RecordEdit,
     CorrectFact,
+    Change,
     AnswerDisagreement,
     ReleaseProducer,
     ForkCorrection,
