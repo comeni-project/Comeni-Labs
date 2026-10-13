@@ -323,7 +323,7 @@ dev-down:  ## stop Vite and the stack
 	$(DC) down
 
 dev-logs:  ## tail the api and the worker
-	$(DC) logs -f api worker
+	$(DC) logs -f api mendel-worker
 
 # ---- the local model lane ------------------------------------------------------------
 #

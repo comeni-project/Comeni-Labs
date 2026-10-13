@@ -1,103 +1,104 @@
-# **Safety, not capability.** Every service the base defines is here; what changes is that code
-# is baked rather than mounted, nothing auto-reloads, and the database and redis are not on the
-# host's network. Dev can do everything this can — that is the whole shape of the split, and it
-# is why this is an overlay rather than a second stack that would drift from the first.
+# Production overrides for docker-compose.yml. Run with `make prod`, or:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
-#     docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-#     make prod
+# Changes from the base stack:
+#   - Remove host ports for both databases, Redis, Mendel's API, Ollama, and the wiki.
+#     Access the app through the web service.
+#   - Disable Mendel API auto-reload.
+#   - Start the wiki only when you enable `--profile wiki`.
+#   - Set `restart: unless-stopped` for the services listed below, including Ollama.
 #
-# **This is not a deployment posture.** No TLS, no auth — auth is deferred (interface spec §9)
-# — and no published image. It is the same stack with the unsafe parts removed, which is what
-# makes it worth having locally: the path prod serves is the path you can test.
+# The services keep their shared registry, workspace, and draft paths.
+# Compose also retains the base file's source and example mounts when merging volumes.
+#
+# Sections: 1. Shared infrastructure, 2. Mendel, 3. Local AI,
+#           4. Web and documentation, 5. Wiener.
 services:
+  # -----------------------------------------------------------------------------
+  # 1. Shared infrastructure
+  # -----------------------------------------------------------------------------
+  # Keep Mendel's database on the Compose network, with no published host port.
   postgres:
     restart: unless-stopped
-    # **`!reset`, not `[]`.** Compose MERGES sequences across files, so an empty list adds
-    # nothing and the base's published port survives. Measured: postgres was still open
-    # on 5432 with `ports: []` in this file.
+    # Use !reset to remove inherited ports; Compose merges an empty list with the base.
     ports: !reset []   # reachable on the compose network only
 
+  # Keep the shared job broker and event streams on the Compose network.
   redis:
     restart: unless-stopped
     ports: !reset []
 
+  # -----------------------------------------------------------------------------
+  # 2. Mendel
+  # -----------------------------------------------------------------------------
+  # Serve Mendel's API for pipeline building, registry browsing, and tool adaptation.
   api:
     restart: unless-stopped
     ports: !reset []   # nginx reaches it on the compose network
-    # No `./packages` mount: the code is the image. The registry stays a mounted CLONE,
-    # because accepting a drift is a commit and a baked copy of files cannot take one —
-    # MF0107 says so rather than crashing.
-    #
-    # **`.run/drafts` is here now, and its absence was a real defect.** The base carries a
-    # comment explaining that `keep` (api) writes the artifact and the gate job (worker) runs
-    # Nextflow in it, and that setting the env var with nothing backing it put the file in one
-    # container's ephemeral layer where the other could not see it — fixed in the base on
-    # 2026-08-23 and never carried into this overlay, so `make prod` still had exactly that
-    # bug. Found by writing `test_compose.py` for Task 12's *identical paths* box.
+    # Share registry, workspace, and draft paths with the other Mendel services.
     volumes:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+    # Run migrations and serve the API with development auto-reload disabled.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
 
-  worker:
+  # Run Mendel's background jobs: gates, source checks, and tool adaptation tasks.
+  mendel-worker:
     restart: unless-stopped
+    # Share registry, workspace, and draft paths with the other Mendel services.
     volumes:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
 
+  # Run model calls for pipeline conversations, sample characterisation, and Forge.
   ai-worker:
     restart: unless-stopped
-    # **The same three mounts as `api` and `worker`, and that is the whole point.** A
-    # generation job reads the scaffold this API wrote; a workspace that differed between them
-    # would refuse with `MF0008` for a draft that is right there.
+    # Share registry, workspace, and draft paths with the other Mendel services.
     volumes:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
 
+  # -----------------------------------------------------------------------------
+  # 3. Local AI
+  # -----------------------------------------------------------------------------
+  # Serve local AI models for Mendel through Ollama's HTTP API.
   ollama:
-    # Listed so the overlay covers every service the base defines — its own header says so.
-    # It stays behind the `ai` profile here too; prod is the same stack with the unsafe parts
-    # removed, not a different set of services.
     restart: unless-stopped
+    # Keep model access on the Compose network.
     ports: !reset []   # the workers reach it on the compose network
 
+  # -----------------------------------------------------------------------------
+  # 4. Web and documentation
+  # -----------------------------------------------------------------------------
+  # Serve the browser app through nginx and route API requests to Mendel and Wiener.
   web:
     restart: unless-stopped
 
-  # **Not started here**, and a profile is how compose says that — there is no "off" switch for
-  # an inherited service. `mkdocs serve` is a live-reload development server watching a mounted
-  # source tree; the prod answer for the wiki is a built `site/` (`make wiki`) behind a real
-  # server, and until something serves it this stack does not pretend to.
-  #
-  #     docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile wiki up -d
-  #
-  # brings it up anyway — **on the compose network only.** The port is reset like every other
-  # service's, so opting in gets you a wiki another container can reach and the internet
-  # cannot. That is the overlay's rule holding: a profile says *not started*, and it may not
-  # also mean *and published on the host if you ask twice*.
+  # Enable the documentation server with --profile wiki; keep its port internal.
   wiki:
     profiles: ["wiki"]
     restart: unless-stopped
     ports: !reset []
 
+  # -----------------------------------------------------------------------------
+  # 5. Wiener
+  # -----------------------------------------------------------------------------
+  # Store Wiener's run and task state independently of Mendel's database.
   wiener-postgres:
     restart: unless-stopped
     ports: !reset []   # reachable on the compose network only
 
+  # Serve run submission, monitoring, artifact uploads, and execution settings.
   wiener-api:
     restart: unless-stopped
-    # No `ports` reset: it publishes none in the base either. nginx is the way in.
-    #
-    # **No `command` override either, and that is the fix rather than an omission.** This file
-    # carried the only copy of `alembic upgrade head` for Wiener, so prod migrated and dev did
-    # not. The base now runs it — and `wiener-api` has no `--reload` to strip, so unlike `api`
-    # there is nothing left for prod to say here.
 
+  # Receive Nextflow execution events for recording and live monitoring.
   wiener-ingest:
     restart: unless-stopped
 
+  # Launch pipeline runs through Nextflow and manage background execution jobs.
   wiener-worker:
     restart: unless-stopped

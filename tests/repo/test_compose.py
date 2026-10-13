@@ -105,8 +105,8 @@ def test_the_default_stack_is_these_eleven_services(base):
     All three were written as a service and nothing else. The list is the only thing that
     notices, because everything a new service is missing is missing *quietly*."""
     assert sorted(_default_stack(base)) == [
-        "ai-worker", "api", "postgres", "redis", "web",
-        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "wiki", "worker",
+        "ai-worker", "api", "mendel-worker", "postgres", "redis", "web",
+        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "wiki",
     ]
 
 
@@ -186,7 +186,7 @@ def test_every_service_is_healthchecked_or_waits_for_one_that_is(base):
 def test_the_api_and_the_worker_share_one_image(base):
     """They import the same packages and read the same declared data; only the command
     differs. Two images would be two places to keep one dependency pin honest."""
-    assert base["services"]["api"]["build"] == base["services"]["worker"]["build"] == "."
+    assert base["services"]["api"]["build"] == base["services"]["mendel-worker"]["build"] == "."
 
 
 def test_the_registry_and_the_vendored_modules_reach_the_api(base):
@@ -212,7 +212,7 @@ def test_the_api_gets_a_registry_it_can_commit_to(base):
     """A CLONE, not the submodule. A submodule's `.git` is a pointer at a host path that
     resolves to nothing inside a container, so accepting a drift would refuse with MF0107 —
     and dev must be able to do what prod can. `make dev` creates `.run/registry`."""
-    for service in ("api", "worker"):
+    for service in ("api", "mendel-worker"):
         mounts = " ".join(base["services"][service]["volumes"])
         assert ".run/registry:/app/registry" in mounts, service
 
@@ -221,7 +221,7 @@ def test_the_containers_do_not_run_as_root(base):
     """Two things break otherwise, both found by running it: git refuses a bind-mounted
     repository owned by another uid, and drafts written into `./workspace` land root-owned and
     undeletable by whoever started the stack."""
-    for service in ("api", "worker"):
+    for service in ("api", "mendel-worker"):
         assert "user" in base["services"][service], f"{service} runs as root"
 
 
@@ -240,7 +240,7 @@ def test_prod_mounts_no_code(base, prod):
     dev_mounts = " ".join(base["services"]["api"]["volumes"])
     assert "./packages:" in dev_mounts, "dev stopped mounting code — this test is now vacuous"
 
-    for service in ("api", "worker"):
+    for service in ("api", "mendel-worker"):
         for mount in prod["services"][service]["volumes"]:
             assert "./packages" not in mount, f"prod mounts code into {service}"
 
@@ -316,7 +316,7 @@ def test_the_draft_root_is_a_volume_shared_by_the_api_and_the_worker(base):
     Found by asking what a container does, which is the method that found phase 8's two.
     """
     services = base["services"]
-    for name in ("api", "worker"):
+    for name in ("api", "mendel-worker"):
         root = env_of(services[name])["MENDEL_DRAFT_ROOT"]
         mounts = [v.split(":")[1] for v in services[name]["volumes"] if ":" in v]
         assert root in mounts, f"{name}: MENDEL_DRAFT_ROOT={root} is backed by no volume"
@@ -380,7 +380,7 @@ def test_the_overlay_never_introduces_a_migration_the_base_lacks(base, prod):
 
 # ── the AI lane ───────────────────────────────────────────────────────────────────────
 
-FORGE_SERVICES = ("api", "worker", "ai-worker")
+FORGE_SERVICES = ("api", "mendel-worker", "ai-worker")
 """The three that touch the forge's workspace.
 
 `web` serves files and the Wiener services are the other half of the product; none of them
@@ -510,7 +510,7 @@ def test_the_token_reaches_every_service_that_reads_an_upstream(base):
     sync costing about two thousand, and the symptom of a missing token is not an error — it
     is a catalogue that never finishes, which reads as a slow upstream.
     """
-    for service in ("api", "worker", "ai-worker"):
+    for service in ("api", "mendel-worker", "ai-worker"):
         environment = env_of(base["services"][service])
         assert "COMENI_FORGE_GITHUB_TOKEN" in environment, service
 
