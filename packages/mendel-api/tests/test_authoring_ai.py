@@ -79,11 +79,10 @@ def _client(*bodies: str | Exception) -> Client:
 
 
 def _goal_answer(**overrides) -> str:
-    """A well-formed `WantUnderstanding`, so each test overrides only what it is about."""
+    """A well-formed `Understanding` (`goal.v8`, #307), so each test overrides only what it is
+    about."""
     body = {
-        "want": ["counts.matrix"],
-        "constraints": {},
-        "ack": "Gene counts from paired-end RNA-seq — got it.",
+        "wants": [{"type": "counts.matrix", "quote": "gene counts"}],
         "questions": [],
     }
     body.update(overrides)
@@ -101,16 +100,17 @@ def _rows() -> list[AiInvocation]:
 def test_a_paired_rnaseq_request_comes_back_as_a_typed_want(stack, clean_forge):
     """The flagship case under v3: prose in, what they want out, and nothing about what they
     have. The engine works that out and asks (14.7.3)."""
-    client = _client(
-        _goal_answer(constraints={"required_states": {"counts.matrix": ["gene_level"]}})
-    )
+    client = _client(_goal_answer(
+        requires=[{"type": "counts.matrix", "states": ["gene_level"], "quote": "gene counts"}],
+        facts=[{"subject": "paired", "value": True, "quote": "paired"}],
+    ))
     request = ai.compose(prompt="I have 12 paired RNA-seq samples and want gene counts")
     outcome = ai.understand(request, stack=stack, client=client)
 
     assert outcome.admitted, outcome.refusal
-    assert outcome.reply.want == ["counts.matrix"]
-    assert outcome.reply.constraints.states_for("counts.matrix") == frozenset({"gene_level"})
-    assert outcome.reply.ack
+    assert [w.type for w in outcome.reply.wants] == ["counts.matrix"]
+    assert outcome.reply.requires[0].states == ["gene_level"]
+    assert outcome.reply.facts[0].quote == "paired"
 
 
 def test_an_ambiguous_want_comes_back_as_a_question(stack, clean_forge):
@@ -140,7 +140,7 @@ def test_a_want_naming_a_type_the_registry_does_not_declare_is_refused(stack, cl
     routes to nothing — dropping it silently would leave a goal quietly missing the thing
     somebody asked for.
     """
-    client = _client(_goal_answer(want=["rnaseq.counts"]))
+    client = _client(_goal_answer(wants=[{"type": "rnaseq.counts"}]))
     outcome = ai.understand(ai.compose(prompt="count genes"), stack=stack, client=client)
 
     assert not outcome.admitted
@@ -152,7 +152,7 @@ def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack
     """The same code on the other axis: `counts.matrix` is real and `polished` is not one of
     its states."""
     client = _client(
-        _goal_answer(constraints={"required_states": {"counts.matrix": ["polished"]}})
+        _goal_answer(requires=[{"type": "counts.matrix", "states": ["polished"]}])
     )
     outcome = ai.understand(ai.compose(prompt="count genes"), stack=stack, client=client)
 
@@ -161,26 +161,14 @@ def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack
     assert "polished" in outcome.refusal
 
 
-def test_stated_facts_come_back_as_candidates_and_a_bad_one_is_dropped(stack, clean_forge):
-    """#170: what the person said is heard, as a candidate. A candidate the registry refuses is
-    dropped rather than refusing the want, which is still good."""
-    client = _client(
-        _goal_answer(
-            stated=[
-                {"kind": "measurement", "subject": "paired", "value": True},
-                {"kind": "measurement", "subject": "read_length", "value": -5},
-                {"kind": "input", "subject": "genome.fasta"},
-                {"kind": "input", "subject": "rnaseq.reads"},
-            ]
-        )
-    )
-    outcome = ai.understand(ai.compose(prompt="paired-end, I have a genome"), stack=stack,
-                            client=client)
-    assert outcome.admitted, outcome.refusal
-    assert [(c.subject, c.value) for c in outcome.reply.stated] == [
-        ("paired", True),
-        ("genome.fasta", None),
-    ]
+def test_a_fact_the_registry_refuses_refuses_the_reply(stack, clean_forge):
+    """#307 (spec §9): an undeclared id, or a value its measurement refuses, is refused at
+    admission and nothing is recorded — where #170 dropped a bad stated candidate. A change is
+    recorded or offered as it stands, so one the registry cannot hold has nowhere to go."""
+    client = _client(_goal_answer(facts=[{"subject": "read_length", "value": -5}]))
+    outcome = ai.understand(ai.compose(prompt="150 bp"), stack=stack, client=client)
+    assert not outcome.admitted
+    assert outcome.code == "MI0204"
 
 
 # ── reading a reply to a gap ──────────────────────────────────────────────────────────
@@ -223,94 +211,51 @@ DRAFT = ai.compose(
 )
 
 
-def test_a_goal_correction_comes_back_as_a_revision(clean_forge):
-    """Not an edit. A person saying *actually it is single-end* is re-describing the analysis,
-    and that re-enters goal understanding rather than patching the graph in place."""
-    client = _client(json.dumps({"revise": "the reads are single-end, not paired"}))
+def test_an_explanation_comes_back_as_something_to_say(clean_forge):
+    """#307: an explanation is `say`; it changes nothing."""
+    client = _client(json.dumps({"say": "STAR is here because your reads are 150 bp long"}))
     outcome = ai.follow_up(DRAFT, client=client)
 
     assert outcome.admitted, outcome.refusal
-    assert outcome.reply.revise
-    assert outcome.reply.chose is None
+    assert outcome.reply.say.startswith("STAR is here")
+    assert not outcome.reply.facts and not outcome.reply.pins
 
 
-def test_why_star_comes_back_as_an_explanation_grounded_on_a_step(clean_forge):
-    """The explanation case, and `refers_to` is what makes it checkable: the step it is about is
-    an id the engine issued, not a name recovered from prose."""
-    client = _client(
-        json.dumps(
-            {
-                "explain": "STAR is here because you asked for splice-aware gene counts",
-                "refers_to": ["align"],
-            }
-        )
-    )
+def test_a_correction_in_words_comes_back_as_a_fact_quoting_them(clean_forge):
+    """*actually it is single-end* is a change to a fact, quoting them — no longer a revision
+    re-read from the top (#307)."""
+    client = _client(json.dumps(
+        {"facts": [{"subject": "paired", "value": False, "quote": "single-end"}]}))
     outcome = ai.follow_up(DRAFT, client=client)
 
     assert outcome.admitted, outcome.refusal
-    assert outcome.reply.refers_to == ["align"]
+    assert outcome.reply.facts[0].value is False
 
 
-def test_an_explanation_citing_a_step_that_is_not_in_the_draft_is_refused(clean_forge):
-    """`MI0205` on the reference axis.
-
-    A fluent, checkable-sounding claim about a step the person cannot see is the hardest kind of
-    wrong answer for them to catch, which is why this is refused rather than shown with the
-    citation quietly dropped.
-    """
-    client = _client(
-        json.dumps({"explain": "TRIMGALORE cleans the adapters first", "refers_to": ["trim"]})
-    )
+def test_a_tool_the_registry_does_not_declare_is_refused(clean_forge):
+    """**The product claim, as a test.** A model cannot produce a value outside the candidate
+    set: a pin names a declared tool or the reply is refused."""
+    client = _client(json.dumps(
+        {"pins": [{"type": "alignment.bam", "tool": "nf-core/salmon/quant@1.0.0"}]}))
     outcome = ai.follow_up(DRAFT, client=client)
 
     assert not outcome.admitted
-    assert outcome.code == "MI0205"
-    assert "trim" in outcome.refusal
+    assert outcome.code == "MI0204"
+    assert "salmon" in outcome.refusal
 
 
-def test_selecting_an_offered_alternative_comes_back_as_that_option_id(clean_forge):
-    """The ordinary case the whole boundary exists for: the answer is an id the engine minted,
-    so nothing about the choice was authored by the model."""
-    client = _client(json.dumps({"chose": "opt_hisat2"}))
-    outcome = ai.follow_up(DRAFT, client=client)
-
-    assert outcome.admitted, outcome.refusal
-    assert outcome.reply.chose == "opt_hisat2"
-
-
-def test_an_option_nobody_offered_is_refused(clean_forge):
-    """**The product claim, as a test.** *A model cannot produce a value outside the candidate
-    set* is a sentence about a comparison, and this is the comparison failing to hold."""
-    client = _client(json.dumps({"chose": "opt_salmon"}))
+def test_a_setting_no_step_declares_is_refused(clean_forge):
+    client = _client(json.dumps({"parameters": [{"name": "libtype", "value": "A"}]}))
     outcome = ai.follow_up(DRAFT, client=client)
 
     assert not outcome.admitted
-    assert outcome.code == "MI0205"
-    assert "opt_salmon" in outcome.refusal
+    assert outcome.code == "MI0204"
 
 
-def test_a_tool_named_in_prose_cannot_arrive_as_a_step_reference(clean_forge):
-    """§1.3 from the other side: there is nowhere in the shape to put a module id, so a model
-    that wants one has to cite a step — and an uncommitted tool is not a step."""
+def test_saying_what_cannot_be_done_is_an_admitted_answer_and_not_a_refusal(clean_forge):
+    """Saying *I cannot do that here* is the model working, not failing."""
     client = _client(
-        json.dumps({"setting": {
-            "node": "salmon",
-            "setting": "libtype",
-            "value": "A",
-            "because": "it is the usual default",
-        }})
-    )
-    outcome = ai.follow_up(DRAFT, client=client)
-
-    assert not outcome.admitted
-    assert outcome.code == "MI0205"
-
-
-def test_an_unsupported_request_is_an_admitted_answer_and_not_a_refusal(clean_forge):
-    """Saying *I cannot do that here* is the model working, not failing. It is recorded as a
-    success, because the call did exactly what it was asked to do."""
-    client = _client(
-        json.dumps({"unsupported": "I cannot add a tool to the registry from this conversation"})
+        json.dumps({"say": "I cannot add a tool to the registry from this conversation"})
     )
     outcome = ai.follow_up(DRAFT, client=client)
 
@@ -416,8 +361,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v6"
-    assert row.prompt_version == "v6"
+    assert row.prompt_id == "builder.goal.v8"
+    assert row.prompt_version == "v8"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""
@@ -563,16 +508,17 @@ def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_forge):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="count genes"), stack=stack, client=goal)
     [held] = goal.choices
-    assert held["want"] == sorted(stack.vocabulary.types)
+    assert held["wants.type"] == sorted(stack.vocabulary.types)
     measured = set(stack.measurements.measurements)
-    assert set(held["stated.subject"]) == set(stack.vocabulary.types) | measured
+    assert set(held["facts.subject"]) == set(stack.vocabulary.types) | measured
 
     gap = {"subject": "paired", "kind": "measurement", "asks": "Whether paired?",
            "description": "paired-end", "options": {"yes": "Yes", "no": "No"}, "facts": ""}
     asked = _Choosing(json.dumps({"asks": "Paired?"}))
     ai.phrase_gap(ai.compose(prompt="p", options=["yes", "no"]), gap=gap, stack=stack,
                   client=asked)
-    assert asked.choices == [{"already_option": ["yes", "no"]}]
+    # `ask.v2` is words only (#307): nothing it writes is held to a list.
+    assert asked.choices == [None]
 
     replied = _Choosing(json.dumps({"chose": "yes"}))
     ai.read_gap_reply(PAIRED, question="Is it paired-end?", client=replied)
@@ -617,7 +563,7 @@ def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_
     outcome = ai.choose_families(ai.compose(prompt="gene counts"), stack=stack, client=chooser)
     assert outcome.admitted and outcome.reply.families == ["counts"]
     assert chooser.choices == [{"families": sorted(stack.families.families)}]
-    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v3"
+    assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v4"
 
 
 def test_a_family_nothing_declares_is_refused(stack, clean_forge):
@@ -632,12 +578,12 @@ def test_a_family_nothing_declares_is_refused(stack, clean_forge):
 
 
 def test_the_goal_call_is_shown_only_the_chosen_families_whole(stack, clean_forge):
-    goal = _Choosing(_goal_answer(ack=None))
+    goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=["counts"], client=goal)
     counts = sorted(t for t in stack.vocabulary.types if t.startswith("counts."))
-    assert goal.choices[0]["want"] == counts
+    assert goal.choices[0]["wants.type"] == counts
     assert "fastq.reads" not in goal.last_prompt and "counts.matrix" in goal.last_prompt
-    assert _rows()[0].prompt_id == "builder.goal.v7"
+    assert _rows()[0].prompt_id == "builder.goal.v8"
 
 
 def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges(
@@ -645,5 +591,6 @@ def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges
 ):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=None, client=goal)
-    assert goal.choices[0]["want"] == sorted(stack.vocabulary.types)
-    assert _rows()[0].prompt_id == "builder.goal.v6"
+    assert goal.choices[0]["wants.type"] == sorted(stack.vocabulary.types)
+    assert _rows()[0].prompt_id == "builder.goal.v8"
+    assert "Acknowledge them in `say`" in goal.last_prompt

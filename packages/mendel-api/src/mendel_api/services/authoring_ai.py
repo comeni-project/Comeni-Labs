@@ -46,16 +46,19 @@ from mendel_api.authoring.types import (
     AuthoringIntent,
     CharacteriseFamilies,
     CharacteriseReply,
+    ChatReply,
     FactKind,
     FamilyChoice,
     GapReply,
     GoalUnderstanding,
     Purpose,  # noqa: F401 (re-exported: it lived here; models.py needs it without a cycle)
     ReadBack,
+    Understanding,
     WantUnderstanding,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import AiInvocation
+from mendel_api.services import registry, replies
 from mendel_api.settings import model_access
 
 AGENT = Agent.BUILDER
@@ -212,6 +215,7 @@ def choose_families(
     request: AuthoringRequest,
     *,
     stack,
+    memory: str = "",
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
@@ -227,6 +231,7 @@ def choose_families(
         shape=FamilyChoice,
         values={
             "families": _families_text(stack),
+            "memory": memory or "(nothing is known yet)",
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
@@ -259,10 +264,12 @@ def understand(
     *,
     stack,
     families: Sequence[str] | None = None,
+    memory: str = "",
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """Prose in, the typed want out, or a visible coded refusal.
+    """Prose in, what the person wants and what they said as changes out (`Understanding`,
+    `goal.v8`, #307), or a visible coded refusal.
 
     **`families` given** (#194): `goal.v7`, shown every type of those families and held to them.
     **`None`**, the family step switched off: `goal.v6`, shown every type, acknowledging as it
@@ -278,23 +285,40 @@ def understand(
         request,
         purpose=Purpose.GOAL,
         prompt_id=prompts.GOAL_ONE_STEP if families is None else prompts.GOAL,
-        shape=WantUnderstanding,
+        shape=Understanding,
         values={
             "vocabulary": _vocabulary_text(stack, None if families is None else shown),
+            "memory": memory or "(nothing is known yet)",
             "conversation": _conversation_text(request.turns),
-            "request": request.prompt,
+            "request": request.prompt
+            + ("\n\n(Acknowledge them in `say`: nothing has yet.)" if families is None else ""),
         },
-        admit=lambda reply: _admit_shown(_admit_want(reply, stack), shown),
+        admit=lambda reply: _admit_wanted(replies.admit(reply, stack), shown),
         client=client,
         session_id=session_id,
         choices={
-            "want": shown,
-            # An input names a type, a measurement names a measurement: one field, both lists.
-            "stated.subject": sorted(
-                set(stack.vocabulary.types) | set(stack.measurements.measurements)
-            ),
+            "wants.type": shown,
+            "inputs.type": sorted(stack.vocabulary.types),
+            "requires.type": shown,
+            # A fact names a measurement, or a type the person said they hold.
+            "facts.subject": _subjects(stack),
         },
     )
+
+
+def _subjects(stack) -> list[str]:
+    return sorted(set(stack.vocabulary.types) | set(stack.measurements.measurements))
+
+
+def _admit_wanted(understanding, shown: Sequence[str]):
+    """A want outside the families it was shown is refused (`MI0204`), as `_admit_shown` holds
+    for the older shape."""
+    outside = sorted({w.type for w in understanding.wants} - set(shown))
+    if outside:
+        raise ValueError(
+            coded("MI0204", f"the want names types it was not shown: {', '.join(outside)}")
+        )
+    return understanding
 
 
 def _admit_shown(understanding: WantUnderstanding, shown: Sequence[str]) -> WantUnderstanding:
@@ -309,7 +333,12 @@ def _admit_shown(understanding: WantUnderstanding, shown: Sequence[str]) -> Want
 
 
 def follow_up(
-    request: AuthoringRequest, *, client: Client | None = None, session_id: str | None = None
+    request: AuthoringRequest,
+    *,
+    stack=None,
+    memory: str = "",
+    client: Client | None = None,
+    session_id: str | None = None,
 ) -> Outcome:
     """A follow-up turn in, exactly one declared intent out, or a visible coded refusal.
 
@@ -317,20 +346,31 @@ def follow_up(
     is not what this call is held to. Asking for one anyway would be a parameter that exists to
     look symmetrical.
     """
+    stack = stack if stack is not None else registry.stack()
     return _call(
         request,
         purpose=Purpose.CHAT,
         prompt_id=prompts.CHAT,
-        shape=AuthoringIntent,
+        shape=ChatReply,
         values={
+            "memory": memory or "(nothing is known yet)",
             "pipeline": _pipeline_text(request),
             "options": _options_text(request.options),
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: _admit_intent(reply, request),
+        admit=lambda reply: replies.admit(reply, stack),
         client=client,
         session_id=session_id,
+        choices={
+            "wants.type": sorted(stack.vocabulary.types),
+            "inputs.type": sorted(stack.vocabulary.types),
+            "requires.type": sorted(stack.vocabulary.types),
+            "pins.type": sorted(stack.vocabulary.types),
+            "pins.tool": sorted(c.id for c in stack.registry.all()),
+            "facts.subject": _subjects(stack),
+            "retract.subject": _subjects(stack),
+        },
     )
 
 
@@ -369,10 +409,11 @@ def phrase_gap(
     *,
     gap: dict,
     stack,
+    memory: str = "",
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """One gathering question, phrased for this person, and any answer they already gave (#167).
+    """One gathering question, phrased for this person (#167; `ask.v2`, words only, #307).
 
     `gap` carries `subject`, `kind`, `asks` (the engine's wording), `description` and `options`
     (id → label); `request.prompt` is the person's first sentence and `request.options` the
@@ -389,12 +430,11 @@ def phrase_gap(
             "description": gap.get("description") or gap["subject"],
             "options": _options_text([f"{k} — {v}" for k, v in gap["options"].items()]),
             "first_sentence": request.prompt,
-            "facts": gap.get("facts") or "(nothing yet)",
+            "memory": memory or gap.get("facts") or "(nothing is known yet)",
         },
         admit=lambda reply: _admit_asked(reply, gap, stack),
         client=client,
         session_id=session_id,
-        choices={"already_option": list(gap["options"])},
     )
 
 
@@ -402,16 +442,17 @@ def read_back(
     request: AuthoringRequest,
     *,
     goal: str,
+    memory: str = "",
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """The composed goal, read back in plain words for the card (#176). Prose only."""
+    """What is known, read back in plain words for the card (#176; `readback.v2`, #307)."""
     return _call(
         request,
         purpose=Purpose.READBACK,
         prompt_id=prompts.READBACK,
         shape=ReadBack,
-        values={"goal": goal},
+        values={"memory": memory or goal},
         admit=lambda reply: reply,
         client=client,
         session_id=session_id,

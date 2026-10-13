@@ -62,7 +62,7 @@ def test_the_invariant_block_is_at_the_top_of_each_one():
 
 def test_there_are_templates_to_check():
     """A loop is not an assertion: every test above passes over an empty tuple."""
-    assert len(prompts.TEMPLATES) == 9
+    assert len(prompts.TEMPLATES) == 8
 
 
 # ── the gap-reply prompt ──────────────────────────────────────────────────────────────
@@ -132,20 +132,24 @@ def test_the_tier_four_prompt_takes_the_question_and_its_evidence():
 # ── the goal prompt ───────────────────────────────────────────────────────────────────────
 
 
-def test_the_goal_prompt_asks_only_for_the_want():
-    """v3 (14.7.3, #105/#114): the model reads what the person wants and nothing else. The
-    engine works out what that needs and asks for it itself, so a model never guesses an input,
-    a state or a measurement into the goal."""
+def test_the_goal_prompt_asks_for_quotes_and_never_invents_a_request():
+    """v8 (#307): what the person wants and said comes back as changes, each quoting their own
+    words; the engine records what checks and offers the rest. `not_offered` is never anything
+    they did not ask for."""
     body = prompts.template(prompts.GOAL).body
-    assert "`goal.have` is what already exists" not in body
     for required in (
-        "You are not asked what they have",
-        "The engine works that out from what they want and asks them itself",
-        "list it under `stated`",
-        "the engine asks them to confirm it",
+        "the exact words of theirs it comes from, copied, not",
+        "never invent words to make an item count",
+        "**`wants`**",
+        "**`inputs`**",
+        "**`facts`**",
+        "**`requires`**",
+        "**`not_offered`**",
+        "Always quoted; never anything they did not ask for",
         "every type id you write must appear in the vocabulary above",
     ):
         assert required in body, f"the goal prompt no longer says: {required!r}"
+    assert "`stated`" not in body
 
 
 def test_the_goal_prompt_only_wants_questions_that_can_change_the_pipeline():
@@ -161,11 +165,11 @@ def test_the_goal_prompt_only_wants_questions_that_can_change_the_pipeline():
 
 
 def test_the_goal_prompt_cannot_state_a_sample_structure():
-    """v2 asked for the grouping question because a model could write `have` and `n_samples`
-    and so infer a sample structure silently. v3 has nowhere to write either: the shape has no
-    `have` and no `profile`, so the inference is impossible rather than discouraged."""
-    fields = set(t.WantUnderstanding.model_fields)
-    assert fields == {"want", "constraints", "ack", "questions", "stated"}
+    """Still nowhere to write a sample structure: no `have`, no `profile` (v3's reason). What the
+    person *said* they have is an input change, quoting them, and the person confirms it on the
+    card."""
+    fields = set(t.Understanding.model_fields)
+    assert fields == {"say", "wants", "inputs", "facts", "requires", "not_offered", "questions"}
     assert "have" not in fields and "profile" not in fields
 
 
@@ -175,6 +179,7 @@ def test_the_goal_prompt_is_grounded_on_vocabulary_and_a_bounded_tail():
     §2 says ground on the declared request and the bounded tail, not on the transcript alone."""
     assert prompts.template(prompts.GOAL).placeholders() == {
         "vocabulary",
+        "memory",
         "conversation",
         "request",
     }
@@ -183,32 +188,28 @@ def test_the_goal_prompt_is_grounded_on_vocabulary_and_a_bounded_tail():
 # ── the chat prompt ───────────────────────────────────────────────────────────────────────
 
 
-def test_the_chat_prompt_names_every_intent_and_no_others():
-    """Task 5's third bullet: six, closed. The failure this prevents is a model inventing a
-    seventh — *apply this change* — which is a generic mutation command by another name."""
+def test_the_chat_prompt_names_every_list_and_changes_nothing_itself():
+    """v3 (#307): something to say and the changes asked for, closed lists; still no
+    general-purpose command (a model inventing *apply this* is a mutation by another name)."""
     body = prompts.template(prompts.CHAT).body
     for required in (
-        "explain something",
-        "revise the goal",
-        "choose one of the options offered",
-        "propose a setting",
-        "continue",
-        "say that what was asked is not something you can do here",
+        "**`say`**",
+        "**`pins`**",
+        "**`parameters`**",
+        "**`retract`**",
+        "**`not_offered`**",
+        "**`proceed`**",
         "There is no general-purpose command",
+        "You change nothing yourself",
     ):
         assert required in body, f"the chat prompt no longer says: {required!r}"
 
 
 def test_the_chat_prompt_refuses_an_arbitrary_tool_id():
-    """§1.3: the model never names a module the engine did not offer. The registry and the
-    resolver own that answer, and a plausible tool id is the most convincing thing a model can
-    produce here — it looks exactly like a real one."""
+    """§1.3: the model never names a module the engine did not offer; the reply format also
+    holds `pins.tool` to the registry's ids."""
     body = prompts.template(prompts.CHAT).body
-    for required in (
-        "You cannot name a tool that is not already a step or offered as an option",
-        "choose an option id from the list below",
-    ):
-        assert required in body, f"the chat prompt no longer says: {required!r}"
+    assert "Only a tool listed below as a step or an option" in body
 
 
 def test_the_chat_prompt_grounds_an_explanation_on_known_step_ids():
@@ -224,6 +225,7 @@ def test_the_chat_prompt_grounds_an_explanation_on_known_step_ids():
 
 def test_the_chat_prompt_is_grounded_on_the_pipeline_the_options_and_a_bounded_tail():
     assert prompts.template(prompts.CHAT).placeholders() == {
+        "memory",
         "pipeline",
         "options",
         "conversation",
@@ -278,8 +280,9 @@ def test_the_digest_is_over_the_rendered_text_and_not_the_template():
     Two sessions sharing a template must not share a digest, or the audit row says two different
     conversations were the same call."""
     template = prompts.template(prompts.GOAL)
-    one = template.render({"vocabulary": "v", "conversation": "(none)", "request": "count genes"})
-    two = template.render({"vocabulary": "v", "conversation": "(none)", "request": "align reads"})
+    fixed = {"vocabulary": "v", "memory": "(nothing)", "conversation": "(none)"}
+    one = template.render(fixed | {"request": "count genes"})
+    two = template.render(fixed | {"request": "align reads"})
     assert one.digest != two.digest
     assert one.prompt_id == two.prompt_id == prompts.GOAL
 
@@ -336,6 +339,7 @@ PER_CALL = {  # two different sessions' values for every per-call placeholder
     "description": ("a reference genome", "read length in bp"),
     "first_sentence": ("gene counts", "variant calls"),
     "facts": ("paired: yes", "(none)"),
+    "memory": ("- paired: yes · you said", "Nothing is known yet."),
     "goal": ("have: fastq.reads", "have: nothing"),
     "excerpt": ("@HD\tSO:coordinate", ">chr1"),
     "binary_before": (
@@ -366,7 +370,7 @@ def test_every_builder_prompt_has_a_system_part_identical_across_sessions():
 
 def test_the_goal_prompt_puts_the_vocabulary_before_its_instructions():
     system, _ = prompts.template(prompts.GOAL).render_split(
-        {"vocabulary": "VOCAB", "conversation": "", "request": "x"}
+        {"vocabulary": "VOCAB", "memory": "", "conversation": "", "request": "x"}
     )
     assert system.startswith(INVARIANT_BLOCK)
     assert system.index("VOCAB") < system.index("# What you are doing")
@@ -374,22 +378,32 @@ def test_the_goal_prompt_puts_the_vocabulary_before_its_instructions():
 
 def test_the_first_call_asks_for_an_acknowledgement_not_a_summary():
     """#176: the up-front summary made claims before anything was known (*normalised*).
+    **Written by whichever call reads the person first** (#194): the family call, or, with the
+    family step off, the goal call told to acknowledge in `say` (#307)."""
+    assert "acknowledge what they asked for in one or two short sentences" in \
+        prompts.template(prompts.FAMILY).body
+    goal = prompts.template(prompts.GOAL).body
+    assert "**`say`** — only when you are asked below to acknowledge" in goal
+    assert "claiming nothing about how it will be done" in goal
+    for prompt_id in (prompts.FAMILY, prompts.GOAL):
+        assert "`summary`" not in prompts.template(prompt_id).body
 
-    **Written by whichever call reads the person first** (#194): the family call when the type is
-    chosen in two steps, the one-step goal call otherwise — and never both, so a person is not
-    acknowledged twice."""
-    for acknowledging in (prompts.FAMILY, prompts.GOAL_ONE_STEP):
-        body = prompts.template(acknowledging).body
-        assert "acknowledge what they asked for in one or two short sentences" in body
-        assert "`summary`" not in body
-    assert "write no\n`ack`" in prompts.template(prompts.GOAL).body
+
+def test_every_conversational_prompt_is_told_what_is_known():
+    """#307: the memory in every call that reads or writes the person's words, and the record
+    wins where the conversation seems to disagree."""
+    for prompt_id in (prompts.FAMILY, prompts.GOAL, prompts.CHAT, prompts.ASK,
+                      prompts.READBACK):
+        body = prompts.template(prompt_id).body
+        assert "{{memory}}" in body.split("<!-- then, per call -->")[1], prompt_id
+        assert "the record wins" in body, prompt_id
 
 
 def test_the_family_prompt_asks_for_the_verdict_first():
     body = prompts.template(prompts.FAMILY).body
-    assert prompts.FAMILY == "builder.family.v3" and prompts.FAMILY in prompts.TEMPLATES
+    assert prompts.FAMILY == "builder.family.v4" and prompts.FAMILY in prompts.TEMPLATES
     assert body.index("**`fits`**") < body.index("**`families`**")
-    assert {"builder.family.v1", "builder.family.v2"} <= set(prompts.RETIRED)
+    assert {"builder.family.v1", "builder.family.v2", "builder.family.v3"} <= set(prompts.RETIRED)
 
 
 def test_the_family_prompt_means_the_result_itself_and_does_not_steer():

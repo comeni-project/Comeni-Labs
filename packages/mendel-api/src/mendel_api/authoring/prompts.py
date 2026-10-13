@@ -26,8 +26,14 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v7"
-"""Prose in, the typed **want** and what was **stated** out. Egress door 1.
+GOAL: PromptId = "builder.goal.v8"
+"""Prose in, what the person wants and what they said about their data out, as **changes**, each
+quoting their words (`Understanding`). Egress door 1.
+
+**v8 (2026-10-13, #307)** replaces `stated` candidates with lists of changes — `wants`, `inputs`,
+`facts`, `requires`, `not_offered` — each carrying the person's own words; the engine records a
+change whose quote checks and offers the rest as suggestions. It is told what is known
+(`{{memory}}`), and it is also the one-step call (`GOAL_ONE_STEP`), shown every type.
 
 **v7 (2026-09-29, #194)** is shown only the types of the families `builder.family.v1` chose,
 each family whole, and writes no acknowledgement: the family call wrote it. With the family step
@@ -44,6 +50,15 @@ that.
 """
 
 RETIRED: tuple[PromptId, ...] = (
+    # Superseded by the change lists and the memory (#307): goal.v6 and v7 by goal.v8, chat.v2
+    # and gap.v2 by chat.v3, ask.v1 by ask.v2, readback.v1 by readback.v2, family.v3 by v4.
+    "builder.goal.v6",
+    "builder.goal.v7",
+    "builder.chat.v2",
+    "builder.gap.v2",
+    "builder.ask.v1",
+    "builder.readback.v1",
+    "builder.family.v3",
     "builder.goal.v1",
     "builder.goal.v2",
     "builder.goal.v3",
@@ -59,12 +74,12 @@ RETIRED: tuple[PromptId, ...] = (
 """Superseded templates that stay loadable. An `ai_invocation` row citing one must still reach
 the text it ran under, so a retired file is kept, never edited and never deleted."""
 
-GOAL_ONE_STEP: PromptId = "builder.goal.v6"
+GOAL_ONE_STEP: PromptId = GOAL
 """The want call shown **every** type, acknowledging as it goes — what runs when the family step
 is switched off (`MENDEL_FAMILY_STEP_FROM`, #194), so the benchmark (#198) compares one step with
 two exactly as each shipped."""
 
-FAMILY: PromptId = "builder.family.v3"
+FAMILY: PromptId = "builder.family.v4"
 """Prose in, the **families** what the person wants belongs to and the acknowledgement out, or a
 question when none fits (#194). Egress door 1, the same payload as the goal call. **v2 (#202):
 the verdict first** — `fits` is answered before any family is listed, because v1's empty list was
@@ -73,8 +88,10 @@ a family holds the result itself, never a step on the way (ChIP-seq peaks were r
 `alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
 the shared block, as every template does."""
 
-CHAT: PromptId = "builder.chat.v2"
-"""A follow-up turn in, exactly one declared authoring intent out."""
+CHAT: PromptId = "builder.chat.v3"
+"""Typed words anywhere after the want is read, in; something to say and the changes they ask
+for out (`ChatReply`), each quoting the person (#307). Replaces chat.v2's six intents, which
+changed nothing, and `gap.v2`: a typed answer to the open question is a `fact`."""
 
 TIER4: PromptId = "builder.tier4.v2"
 """One tier-4 ambiguity in, one of its own candidates out. Egress door 2.
@@ -89,11 +106,11 @@ GAP: PromptId = "builder.gap.v2"
 """A person's typed answer to one gap in, one offered option id or a typed value out, or
 *unsure*. Egress door 1. Clicking an option never reaches this: it needs no model (14.7.3)."""
 
-ASK: PromptId = "builder.ask.v1"
+ASK: PromptId = "builder.ask.v2"
 """One gathering question in, the question in the person's words out, and any answer they
 already gave (#167). Prose only: the options and the fact stay the engine's."""
 
-READBACK: PromptId = "builder.readback.v1"
+READBACK: PromptId = "builder.readback.v2"
 """The composed goal in, one or two plain sentences out, for the goal card (#176). Written from
 what will be built, never from the first sentence."""
 
@@ -112,7 +129,6 @@ TEMPLATES: tuple[PromptId, ...] = (
     FAMILY,
     CHAT,
     TIER4,
-    GAP,
     ASK,
     READBACK,
     CHARACTERISE_FAMILY,
