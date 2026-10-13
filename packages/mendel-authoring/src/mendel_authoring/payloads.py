@@ -50,6 +50,24 @@ class Amended(_Payload):
     said: str = Field(max_length=2000)
 
 
+class Change(_Payload):
+    """One change to intent or facts, from any caller — the person's click or edit, the chat
+    model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
+    was taken from, already checked (`heard.find`); `retract` removes what `subject` names."""
+
+    kind: Literal["want", "input", "measurement", "require", "pin", "parameter", "asked",
+                  "producer", "retain", "observation"]
+    subject: str = Field(min_length=1, max_length=256)
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    states: list[str] = Field(default_factory=list)
+    retract: bool = False
+    heard: str | None = Field(default=None, max_length=500)
+    heard_seq: int | None = None
+    actor: Literal["person", "model"] = "person"
+    invocation_id: str | None = None
+    observation_id: str | None = None
+
+
 class Correction(_Payload):
     subject: str
     value: HumanParamValue | list[HumanParamValue] | None = None
@@ -63,6 +81,8 @@ class Correction(_Payload):
     missing: str | None = None
     missing_states: list[str] = Field(default_factory=list)
     pin_blocked: bool = False
+    change: Change | None = None
+    """The general change this correction carries (Part I.0); `None` for the older kinds."""
 
 
 EMPTY = Empty()

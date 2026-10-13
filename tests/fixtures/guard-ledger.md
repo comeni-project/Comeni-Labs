@@ -5298,3 +5298,5 @@ Task suites and the final repository check verify the completed implementations.
 - Issue 305 (2026-10-12): `Preferences.test.tsx` "says one of a thing in the singular" RED before the fix ("1 replies") → GREEN.
 
 - Part H review fixes (2026-10-12): `test_working_files_go_within_minutes_of_the_end` RED with `clear_ended_work` clearing nothing; `test_the_worker_clears_ended_work_every_five_minutes` RED with the cron removed; `test_a_reply_that_lands_after_its_draft_was_deleted_keeps_no_text` RED with the insert hook off; `test_a_run_whose_parameters_are_gone_fails_instead_of_launching_empty` RED with the check off; `test_a_job_queued_before_the_upgrade_still_carries_its_parameters` RED with the old-signature write off. All GREEN restored.
+
+- Part I.0 A (2026-10-13): the heard-quote guard `test_heard.py` RED (3 of 5: `test_a_quote_nobody_typed_is_not_heard`, `…_case_and_spacing_folded`, `…_cannot_join_two_turns`) with `heard.find` returning the first turn whatever was quoted; GREEN restored. Draft deletion of the `asked` family: `test_deleting_a_draft_takes_what_was_asked_with_it` RED with `pipeline_asked` out of `_SUBJECTS`; GREEN restored.

@@ -1,0 +1,19 @@
+What is known (recorded; do not ask for it again):
+
+What you want:
+- gene counts matrix · you said · "gene counts"
+
+Asked for but not offered here:
+- differential expression
+
+Inputs you have:
+- sequencing reads (FASTQ) · you said · "Illumina reads"
+
+Facts about your data:
+- read length: 150 bp · you said · "150 bp"
+- paired: yes · measured from your sample
+
+Suggested, waiting for you:
+- strandedness: reverse
+
+The goal is confirmed; changes are offered to the person before they apply.
