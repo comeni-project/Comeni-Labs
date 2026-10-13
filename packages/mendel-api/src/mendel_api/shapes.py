@@ -34,7 +34,7 @@ def _shapes() -> tuple[Shape, ...]:
     from comeni_core.goal.profile import Evidence
     from comeni_core.plan.draft import DraftGraph
     from comeni_core.spell.marks import ParamValue
-    from mendel_authoring.payloads import Extraction
+    from mendel_authoring.payloads import Change, Extraction
     from mendel_forge.ai.schemas import Citation
     from mendel_forge.catalogue import CatalogueItem
 
@@ -58,6 +58,7 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("pipeline_authoring_proposal", "preview_views", dict[str, AlternativePreview] | None),
         Shape("pipeline_authoring_session", "extraction", Extraction | None),
         Shape("pipeline_authoring_session", "blueprint", loose),
+        Shape("pipeline_authoring_suggestion", "change", Change),
         Shape("pipeline_authoring_turn", "blocks", list[Block]),
         Shape("pipeline_decision_migration", "snapshot", Snapshot),
         Shape("pipeline_draft", "graph", DraftGraph),

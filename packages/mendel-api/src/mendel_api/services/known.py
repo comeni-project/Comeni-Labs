@@ -27,7 +27,9 @@ def _value(value) -> str:
 
 def _suggested(session_id: str) -> list[str]:
     """The model's suggestions still waiting for a click, in words."""
-    return []
+    from mendel_api.services import suggestions
+
+    return [view.says for view in suggestions.pending(session_id)]
 
 
 def of(session_id: str) -> Known:

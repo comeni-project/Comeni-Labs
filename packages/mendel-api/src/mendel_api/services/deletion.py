@@ -101,7 +101,8 @@ def delete_draft(draft_id: str) -> Deleted:
             rows += db.execute(sa.text(f"DELETE FROM {table} WHERE draft_id = :d"),
                                {"d": draft_id}).rowcount
         if sessions:
-            for table in ("pipeline_authoring_proposal", "pipeline_authoring_turn"):
+            for table in ("pipeline_authoring_suggestion", "pipeline_authoring_proposal",
+                          "pipeline_authoring_turn"):
                 rows += db.execute(sa.text(f"DELETE FROM {table} WHERE session_id = ANY(:s)"),
                                    {"s": sessions}).rowcount
             rows += db.execute(sa.delete(PipelineAuthoringSession)

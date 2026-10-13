@@ -49,4 +49,8 @@ def truncate(statement: str):
             name for name in inspect(engine).get_table_names()
             if name.startswith("pipeline_") and not name.startswith("pipeline_authoring_")
         )
+    live = set(inspect(engine).get_table_names())
+    if "pipeline_authoring_session" in tables and "pipeline_authoring_suggestion" in live:
+        # A session's suggestions go with it (Part I.0): they reference it, `RESTRICT`.
+        tables.add("pipeline_authoring_suggestion")
     return text(prefix + ", ".join(sorted(tables)))

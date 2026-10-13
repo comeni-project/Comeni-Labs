@@ -86,6 +86,7 @@ def test_the_registry_is_not_in_the_database():
         "forge_message",
         "ai_invocation",
         "pipeline_authoring_session",
+        "pipeline_authoring_suggestion",
         "pipeline_authoring_turn",
         "pipeline_authoring_proposal",
         "installation_setting",

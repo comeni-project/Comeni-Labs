@@ -982,6 +982,37 @@ class PipelineAuthoringProposal(Base):
     """
 
 
+class SuggestionState(StrEnum):
+    PENDING = "pending"
+    APPLIED = "applied"
+    DISMISSED = "dismissed"
+    STALE = "stale"
+
+
+class PipelineAuthoringSuggestion(Base):
+    """A change the model offered and the person has not yet taken or set aside (Part I.0 §5.3).
+
+    **Its own table, not a proposal**: a session holds one pending proposal — the open question
+    or the goal card — and suggestions sit beside it. `change` is a `payloads.Change` dump;
+    `heard` says whether it quoted the person (offered rather than recorded only because the goal
+    was already confirmed). Applying one is the person's own change; the model is named by
+    `invocation_id`, never recorded as the author."""
+
+    __tablename__ = "pipeline_authoring_suggestion"
+    shape_version: Mapped[int] = stamp("pipeline_authoring_suggestion")
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_authoring_session.id", ondelete="RESTRICT"), index=True
+    )
+    change: Mapped[dict] = mapped_column(Json)
+    heard: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    state: Mapped[str] = mapped_column(_one_of(SuggestionState, 16, "state"), index=True)
+    invocation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 # Register draft-owned decisions in the same metadata Alembic and existing consumers read.
 from mendel_api.decision_models import (  # noqa: E402, F401
     PipelineAsked,

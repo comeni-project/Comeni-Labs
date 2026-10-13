@@ -19,6 +19,7 @@ VERSIONS: dict[str, int] = {
     "installation_setting": 1,
     "pipeline_authoring_proposal": 1,
     "pipeline_authoring_session": 1,
+    "pipeline_authoring_suggestion": 1,
     "pipeline_authoring_turn": 1,
     "pipeline_decision_migration": 1,
     "pipeline_draft": 1,

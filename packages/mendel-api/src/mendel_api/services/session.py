@@ -458,6 +458,7 @@ def read(session_id: str) -> dict:
 
     from mendel_api.authoring import envelopes
     from mendel_api.services import authoring_canvas, authoring_decisions, decisions, registry
+    from mendel_api.services import suggestions as _suggestions
     from mendel_api.stages.building import _placement, hand_edits
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
@@ -611,6 +612,12 @@ def read(session_id: str) -> dict:
                     )
                     .order_by(PipelineAuthoringProposal.created_at)
                 ).all()
+            ],
+            "suggestions": [
+                {"id": view.id, "says": view.says, "heard": view.heard,
+                 "quote": view.change.heard, "kind": view.change.kind,
+                 "subject": view.change.subject}
+                for view in _suggestions.pending(session_id)
             ],
             "pending_proposal": (
                 None

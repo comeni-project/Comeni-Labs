@@ -209,6 +209,21 @@ class AuthoringCallView(BaseModel):
     at: str
 
 
+class AuthoringSuggestionView(BaseModel):
+    model_config = _FROZEN
+
+    id: str
+    says: str
+    heard: bool
+    quote: str | None = None
+    kind: str
+    subject: str
+
+
+class DecideSuggestion(BaseModel):
+    decision: Literal["apply", "dismiss"]
+
+
 class AuthoringSessionView(BaseModel):
     """Everything needed to restore the page, from one read."""
 
@@ -258,6 +273,8 @@ class AuthoringSessionView(BaseModel):
     turns: list[AuthoringTurnView]
     history: list[AuthoringDecisionView] = []
     """Every answered proposal, oldest first — the pipeline's provenance, made navigable."""
+    suggestions: list[AuthoringSuggestionView] = []
+    """The model's suggestions waiting for one click (Part I.0 §5.3)."""
     pending_proposal: AuthoringProposalView | None
 
 
@@ -915,6 +932,25 @@ async def change_authoring(session_id: str, body: ChangeAuthoring) -> AuthoringC
         )
     )
     return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post(
+    "/{session_id}/suggestions/{suggestion_id}",
+    operation_id="decideAuthoringSuggestion",
+    summary="Apply or set aside one of the model's suggestions",
+    responses=REFUSES,
+)
+async def decide_suggestion(
+    session_id: str, suggestion_id: str, body: DecideSuggestion
+) -> AuthoringCorrected | None:
+    from mendel_api.services import suggestions
+
+    if body.decision == "dismiss":
+        suggestions.dismiss(session_id, suggestion_id, by=identity.default_author())
+        return None
+    return AuthoringCorrected.model_validate(
+        suggestions.apply(session_id, suggestion_id, by=identity.default_author())
+    )
 
 
 @router.post(

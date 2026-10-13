@@ -147,7 +147,12 @@ def apply(draft_id: str, change: Change, *, who: str) -> bool:
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
         decisions.select_observation(draft_id, subject, change.observation_id, who=who)
-    return _revision(draft_id) != before
+    moved = _revision(draft_id) != before
+    if moved:
+        from mendel_api.services import suggestions
+
+        suggestions.stale_for(draft_id, change)
+    return moved
 
 
 def describe(change: Change) -> str:

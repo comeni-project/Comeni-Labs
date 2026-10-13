@@ -1,0 +1,135 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "actor": {
+      "default": "person",
+      "enum": [
+        "person",
+        "model"
+      ],
+      "type": "string"
+    },
+    "heard": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "heard_seq": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "invocation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "kind": {
+      "enum": [
+        "want",
+        "input",
+        "measurement",
+        "require",
+        "pin",
+        "parameter",
+        "asked",
+        "producer",
+        "retain",
+        "observation"
+      ],
+      "type": "string"
+    },
+    "observation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "retract": {
+      "default": false,
+      "type": "boolean"
+    },
+    "states": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "subject": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "array"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "kind",
+    "subject"
+  ],
+  "type": "object"
+}
