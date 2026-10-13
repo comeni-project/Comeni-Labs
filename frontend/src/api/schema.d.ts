@@ -1286,6 +1286,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** DecisionChange what you want or what is known about your data */
+        post: operations["changeAuthoring"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/suggestions/{suggestion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply or set aside one of the model's suggestions */
+        post: operations["decideAuthoringSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring/{session_id}/release-tool": {
         parameters: {
             query?: never;
@@ -1988,6 +2022,11 @@ export interface components {
              * @default []
              */
             history: components["schemas"]["AuthoringDecisionView"][];
+            /**
+             * Suggestions
+             * @default []
+             */
+            suggestions: components["schemas"]["AuthoringSuggestionView"][];
             pending_proposal: components["schemas"]["AuthoringProposalView"] | null;
         };
         /** AuthoringStarted */
@@ -1995,6 +2034,21 @@ export interface components {
             session: components["schemas"]["AuthoringSessionView"];
             /** Queued */
             queued: boolean;
+        };
+        /** AuthoringSuggestionView */
+        AuthoringSuggestionView: {
+            /** Id */
+            id: string;
+            /** Says */
+            says: string;
+            /** Heard */
+            heard: boolean;
+            /** Quote */
+            quote?: string | null;
+            /** Kind */
+            kind: string;
+            /** Subject */
+            subject: string;
         };
         /** AuthoringTurnView */
         AuthoringTurnView: {
@@ -2362,6 +2416,19 @@ export interface components {
             value?: components["schemas"]["JsonValue"];
         };
         /**
+         * ChangeAuthoring
+         * @description Any change to intent or facts, as the person makes it (Part I.0 §5.1).
+         */
+        ChangeAuthoring: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            change: components["schemas"]["DecisionChange"];
+        };
+        /**
          * ChangeSet
          * @description Exactly what a conversational revision would touch, before it touches it.
          *
@@ -2706,6 +2773,14 @@ export interface components {
             /** By */
             by?: string | null;
         };
+        /** DecideSuggestion */
+        DecideSuggestion: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "apply" | "dismiss";
+        };
         /** Decided */
         Decided: {
             /** Draft */
@@ -2726,6 +2801,44 @@ export interface components {
          * @enum {string}
          */
         Decision: "open" | "approved" | "rejected";
+        /**
+         * DecisionChange
+         * @description One change to intent or facts, from any caller — the person's click or edit, the chat
+         *     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
+         *     was taken from, already checked (`heard.find`); `retract` removes what `subject` names.
+         */
+        DecisionChange: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation";
+            /** Subject */
+            subject: string;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /** States */
+            states?: string[];
+            /**
+             * Retract
+             * @default false
+             */
+            retract: boolean;
+            /** Heard */
+            heard?: string | null;
+            /** Heard Seq */
+            heard_seq?: number | null;
+            /**
+             * Actor
+             * @default person
+             * @enum {string}
+             */
+            actor: "person" | "model";
+            /** Invocation Id */
+            invocation_id?: string | null;
+            /** Observation Id */
+            observation_id?: string | null;
+        };
         /**
          * Designed
          * @description Designed, not built: shown so the menu tells the truth about what is coming.
@@ -3213,6 +3326,8 @@ export interface components {
             evidence?: {
                 [key: string]: number;
             } | null;
+            /** Heard */
+            heard?: string | null;
         };
         /** FactHistoryEntry */
         FactHistoryEntry: {
@@ -3401,14 +3516,12 @@ export interface components {
         };
         /**
          * Gate
-         * @description Cheapest first. Each is strictly more evidence than the one above it.
+         * @description Validation checks, ordered from linting to execution on test data.
          *
-         *     The ladder matters to a reader of a published bundle rather than only to a build:
-         *     `lint` proves the file parses, and only `test` runs the tools on real data. nf-core
-         *     stubs never read their inputs, so a contract pointing a channel at the wrong upstream
-         *     output passes conformance, `lint`, `preview` and `stub` alike — audit A4. A bundle
-         *     that records `stub` is not a bundle that was checked less carefully; it is a bundle
-         *     whose wiring nothing has checked at all.
+         *     LINT runs Nextflow's linter on the generated workflow.
+         *     PREVIEW previews the workflow without executing its processes.
+         *     STUB runs the workflow using substitute process commands.
+         *     TEST runs the actual tools with test data.
          * @enum {string}
          */
         Gate: "lint" | "preview" | "stub" | "test";
@@ -7862,6 +7975,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    changeAuthoring: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeAuthoring"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    decideAuthoringSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideSuggestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"] | null;
                 };
             };
             /** @description The id in the path names nothing. */

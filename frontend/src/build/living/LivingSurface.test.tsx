@@ -467,3 +467,22 @@ it("offers correction as the way to recover an honest stop", () => {
   expect(screen.getByPlaceholderText("Correct your current answers to continue")).toBeDisabled();
   expect(screen.queryByText(/This analysis has ended/)).toBeNull();
 });
+
+describe("the model's suggestions (Part I.0)", () => {
+  it("waits above the composer and applies on one click", () => {
+    const onApplySuggestion = vi.fn();
+    surface(with_({ suggestions: [{ id: "s1", says: "read length is 50", heard: true,
+                                    quote: "50 bp", kind: "measurement", subject: "read_length" }] }),
+            { onApplySuggestion });
+    const waiting = screen.getByRole("list", { name: "suggestions waiting for you" });
+    expect(waiting).toHaveTextContent("read length is 50");
+    expect(waiting).toHaveTextContent('you said "50 bp"');
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onApplySuggestion).toHaveBeenCalledWith("s1");
+  });
+
+  it("draws nothing when nothing waits", () => {
+    surface(with_({ suggestions: [] }));
+    expect(screen.queryByRole("list", { name: "suggestions waiting for you" })).toBeNull();
+  });
+});

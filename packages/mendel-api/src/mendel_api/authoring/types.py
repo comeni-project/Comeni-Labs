@@ -187,6 +187,9 @@ class Fact(_Shape):
     evidence: dict[str, int | float] | None = None
     """How much they read, counts only. Session state, not a door payload: the goal gets the
     typed `Evidence`, which holds only the counts it declares."""
+    heard: Prose | None = None
+    """The person's own words it was taken from, when a model heard it (Part I.0 §5.4): shown on
+    the goal card so a misreading (*"not paired-end"*) is caught there. Session state only."""
 
     @model_validator(mode="after")
     def _open_has_no_value(self) -> Self:

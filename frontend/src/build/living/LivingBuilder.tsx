@@ -132,6 +132,9 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onCompose={living.compose}
       onSay={living.say}
       onRetry={living.retry}
+      onApplySuggestion={living.applySuggestion}
+      onDismissSuggestion={living.dismissSuggestion}
+      suggesting={living.suggesting}
       onUpload={living.upload}
       onDismiss={living.dismiss}
       // **Every direct edit goes through the session's edit verb**, which saves the draft, stamps

@@ -65,6 +65,8 @@ export type SampleReading = S["SampleReading"];
 /** What a question is about and why it is asked (Part I.1). */
 export type Explanation = S["Explanation"];
 export type InspectedFact = S["InspectedFactView"];
+/** A change the model offered, waiting for one click (Part I.0). */
+export type AuthoringSuggestion = S["AuthoringSuggestionView"];
 /** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
 export type AiHealth = S["AiHealth"];
 export type AiConfigured = S["AiConfigured"];

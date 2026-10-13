@@ -8,10 +8,20 @@ from mendel_api.services import decisions
 
 def facts(draft_id):
     current = decisions.read(draft_id)
+    heard = decisions.heard_of(draft_id)
+
+    def words(family, key):
+        found = heard.get((family, key))
+        return found[0] if found else None
+
     return [
         *[
             Fact(
-                kind=FactKind.INPUT, subject=i.type_id, states=i.states, source=FactSource(i.origin)
+                kind=FactKind.INPUT,
+                subject=i.type_id,
+                states=i.states,
+                source=FactSource(i.origin),
+                heard=words("input", i.key),
             )
             for i in current.inputs
             if i.present
@@ -26,6 +36,7 @@ def facts(draft_id):
                 evidence=(
                     f.evidence.model_dump(mode="json", exclude_none=True) if f.evidence else None
                 ),
+                heard=words("fact", f.subject),
             )
             for f in current.facts
         ],

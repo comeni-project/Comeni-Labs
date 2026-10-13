@@ -19,9 +19,12 @@ const SOURCE: Record<Fact["source"], string> = {
 /** A fact's source, and **what measured it** when a sample did (issue 134). *From 1 sample* is
  *  a constant on purpose: one sample is all the conversation accepts (issue 218 changes that). */
 const sourceLabel = (f: Fact) =>
-  f.source === "measured" && f.pieces?.length
+  (f.source === "measured" && f.pieces?.length
     ? `measured · ${piece(f.pieces[0])} · from 1 sample`
-    : SOURCE[f.source];
+    : SOURCE[f.source])
+  // **The words it was heard in** (Part I.0): a model's reading of *"not paired-end"* holds
+  // *"paired-end"*, and the quote is how the person sees what it was taken from.
+  + (f.heard ? ` · "${f.heard}"` : "");
 
 /** The goal read back — the plain-language summary, and the typed goal it stands for, editable.
  *

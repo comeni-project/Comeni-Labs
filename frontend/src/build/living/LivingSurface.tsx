@@ -17,6 +17,7 @@ import { ArtifactPreview } from "./ArtifactPreview";
 import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
+import { SuggestionCard } from "./blocks/SuggestionCard";
 import { Composer } from "./Composer";
 import { DecisionLog } from "./DecisionLog";
 import { Drawer } from "./Drawer";
@@ -50,6 +51,9 @@ export function LivingSurface({
   onCompose,
   onSay,
   onRetry,
+  onApplySuggestion = () => {},
+  onDismissSuggestion = () => {},
+  suggesting = false,
   onUpload,
   onAddStep,
   onDismiss,
@@ -78,6 +82,10 @@ export function LivingSurface({
   onCompose: (text: string) => void;
   onSay: (text: string) => void;
   onRetry: () => void;
+  /** Apply or set aside one of the model's suggestions (Part I.0). */
+  onApplySuggestion?: (id: string) => void;
+  onDismissSuggestion?: (id: string) => void;
+  suggesting?: boolean;
   /** Answer a gap with a sample (issue 134). Absent where nothing can be uploaded. */
   onUpload?: (proposal: AuthoringProposal, files: File[]) => Promise<SampleInspected>;
   onAddStep: (contractId: string) => void;
@@ -362,6 +370,17 @@ export function LivingSurface({
             />
           </div>
           <div className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>
+            {(session.suggestions ?? []).length > 0 && (
+              <div aria-label="suggestions waiting for you" role="list"
+                   className="flex flex-col gap-2 mb-3">
+                {(session.suggestions ?? []).map((s) => (
+                  <div role="listitem" key={s.id}>
+                    <SuggestionCard suggestion={s} busy={suggesting}
+                                    onApply={onApplySuggestion} onDismiss={onDismissSuggestion} />
+                  </div>
+                ))}
+              </div>
+            )}
             <Composer
               value={state.composer}
               onChange={onCompose}

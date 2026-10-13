@@ -186,6 +186,24 @@ describe("the goal card", () => {
     expect(within(open).getByText("read_length")).toBeInTheDocument();
   });
 
+  it("shows the words a fact was heard in, so a misreading is caught (issue 307)", () => {
+    // Review Focus 1 of Part I.0 A: *"not paired-end"* holds *"paired-end"*; the quote is how
+    // the person sees what the model took it from.
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "fastq.reads", source: "person_said", states: [], pieces: [],
+        heard: "my Illumina reads" },
+      { kind: "measurement", subject: "paired", source: "person_said", states: [], pieces: [],
+        value: true, heard: "paired-end" },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/^paired: yes/).closest("li")).toHaveTextContent('"paired-end"');
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByText(/fastq\.reads/).closest("li")).toHaveTextContent(
+      '"my Illumina reads"');
+  });
+
   it("labels an input and a fact the AI read as read by AI (issue 135)", () => {
     const facts: AuthoringSession["facts"] = [
       { kind: "input", subject: "genome.fasta", source: "model_read", states: [], pieces: [] },

@@ -209,6 +209,19 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     },
   });
 
+  // **The model's suggestions wait for one click** (Part I.0): applied as the person's own change,
+  // or set aside.
+  const suggestion = useMutation({
+    mutationFn: (input: { id: string; decision: "apply" | "dismiss" }) =>
+      post<components["schemas"]["AuthoringCorrected"] | null>(
+        `/pipeline/authoring/${sessionId}/suggestions/${input.id}`, { decision: input.decision }),
+    onSuccess: () => void refresh(),
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
   const accept = useCallback(
     (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number) =>
       decide.mutate({
@@ -259,6 +272,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       release: { type_id, states }, value: null }),
     correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>
       correction.mutateAsync({ subject, value, kind }),
+    applySuggestion: (id: string) => suggestion.mutate({ id, decision: "apply" }),
+    dismissSuggestion: (id: string) => suggestion.mutate({ id, decision: "dismiss" }),
+    suggesting: suggestion.isPending,
     answerDisagreement: (proposal: AuthoringProposal, option: string, value: FactValue = null) =>
       correction.mutateAsync({ proposal, option, value }),
     previewOption: (option: string | null) => dispatch({ type: "preview", option }),
