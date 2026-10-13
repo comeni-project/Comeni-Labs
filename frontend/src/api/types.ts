@@ -62,6 +62,8 @@ export type AuthoringEdited = S["AuthoringEdited"];
 /** What one uploaded sample measured, and what that settled (issue 134). */
 export type SampleInspected = S["SampleInspected"];
 export type SampleReading = S["SampleReading"];
+/** What a question is about and why it is asked (Part I.1). */
+export type Explanation = S["Explanation"];
 export type InspectedFact = S["InspectedFactView"];
 /** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
 export type AiHealth = S["AiHealth"];

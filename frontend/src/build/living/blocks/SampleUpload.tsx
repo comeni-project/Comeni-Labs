@@ -6,7 +6,8 @@ import { bytes } from "../../../runs/units";
 import { Primary, Secondary } from "./parts";
 import { piece } from "./piece";
 
-/** Answering a gap with a sample: one file, or a pair (issue 134, the canvas *Uploading a sample*).
+/** Answering a gap with a sample: one file, or both of a pair (issue 134, the canvas *Uploading a
+ * sample*).
  *
  * **Nothing leaves before the person presses Measure**, and nothing but the files and the
  * question's id leaves then: the names are shown back here, in this browser, and never written
@@ -23,10 +24,13 @@ type Stage =
   | { at: "done"; files: File[]; result: SampleInspected }
   | { at: "failed"; files: File[]; why: string };
 
-const PAIR = "one file, or a pair (R1 and R2)";
-/** What may leave, said before anything does (issue 135): a sample nothing here reads goes, as
- *  about 8 KB of its text, to the AI. */
-const TO_AI = "if nothing here reads its type, about 8 KB of its text goes to the AI to read";
+const PAIR = "choose one file, or both files if your reads are paired";
+/** How to choose, in the person's terms (Part I.1). **Nothing about bytes or the AI read on the
+ *  card** (operator, 2026-10-13, replacing issue 135's line): on an install a lab runs itself it
+ *  reads as a warning; Settings → Privacy says where each purpose goes. */
+const CHOOSE =
+  "Choose one file, or both files if your reads are paired. Paired files are usually named "
+  + "_R1 and _R2, or _1 and _2.";
 
 export function SampleUpload({
   proposalId,
@@ -63,7 +67,7 @@ export function SampleUpload({
     const files = Array.from(list ?? []);
     if (files.length === 0) return;
     if (files.length > 2) {
-      setRefusal(`${files.length} files: upload ${PAIR}.`);
+      setRefusal(`${files.length} files: ${PAIR}.`);
       setStage({ at: "offered" });
       return;
     }
@@ -167,10 +171,8 @@ export function SampleUpload({
           (stage.at === "reading" && reading?.state !== undefined)) && (
         <div className="flex flex-col gap-[6px] md:items-start">
           {picker}
-          <p className="m-0 font-data text-[10px] text-ink-3">
-            {handBackGone
-              ? "only the first 4 MB is read, on this server"
-              : `${PAIR} · only the first 4 MB is read, on this server · ${TO_AI}`}
+          <p className="m-0 text-[11.5px] text-ink-3">
+            {handBackGone ? "Choose the file again to measure it." : CHOOSE}
           </p>
         </div>
       )}
@@ -181,10 +183,6 @@ export function SampleUpload({
           <Picked files={stage.files} />
           {stage.at === "picked" ? (
             <>
-              <p className="m-0 font-data text-[10px] text-ink-3">
-                only the first 4 MB of each is read, on this server · the rest never leaves your
-                computer · {TO_AI.replace(" to read", "")}
-              </p>
               <div className="flex items-center gap-[8px]">
                 <Primary disabled={busy} onClick={() => void measure(stage.files)}>Measure</Primary>
                 <Secondary onClick={() => setStage({ at: "offered" })}>Change</Secondary>
@@ -193,7 +191,7 @@ export function SampleUpload({
           ) : (
             <p className="m-0 font-data text-[11.5px] text-ink-2" aria-live="polite">
               <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">●</span>{" "}
-              reading the first 4 MB, then measuring…
+              Reading the sample, then measuring…
             </p>
           )}
         </div>

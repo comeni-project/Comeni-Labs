@@ -3161,6 +3161,32 @@ export interface components {
             text: string;
         };
         /**
+         * Explanation
+         * @description What a question is about and why it is asked: `what` is curated (the registry's
+         *     `explain`), the rest the engine's, derived from the gap walk (Part I.1 §4). I.3 hands the same
+         *     fields to the AI as its sources.
+         */
+        Explanation: {
+            /** Name */
+            name: string;
+            /** What */
+            what?: string | null;
+            /**
+             * Needed
+             * @default []
+             */
+            needed: components["schemas"]["Reason-Output"][];
+            /** Reads */
+            reads?: ("steps" | "rule") | null;
+            /**
+             * Settles
+             * @default []
+             */
+            settles: string[];
+            /** Read By */
+            read_by?: ("inspector" | "ai") | null;
+        };
+        /**
          * Fact
          * @description One thing gathering learned, and who it came from. Nothing is guessed (protocol rule 5).
          */
@@ -3371,6 +3397,7 @@ export interface components {
             /** States */
             states?: string[];
             block: components["schemas"]["Question"];
+            explain?: components["schemas"]["Explanation"] | null;
         };
         /**
          * Gate
@@ -3798,6 +3825,8 @@ export interface components {
             description: string;
             /** Cite */
             cite?: string | null;
+            /** Explain */
+            explain?: string | null;
             /** Edam */
             edam?: string | null;
             /** Describes */
@@ -4648,9 +4677,19 @@ export interface components {
          *     test that says *these are all the fields* would be describing a model rather than a
          *     boundary.
          */
-        Reason: {
+        "Reason-Input": {
             /** Reason */
             reason: string;
+        };
+        /**
+         * Reason
+         * @description One line of why a question is asked, and where it comes from (Part I.1).
+         */
+        "Reason-Output": {
+            /** Text */
+            text: string;
+            /** Detail */
+            detail?: string | null;
         };
         /**
          * Receipt
@@ -7106,7 +7145,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Reason"];
+                "application/json": components["schemas"]["Reason-Input"];
             };
         };
         responses: {
@@ -7209,7 +7248,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Reason"];
+                "application/json": components["schemas"]["Reason-Input"];
             };
         };
         responses: {
@@ -7279,7 +7318,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Reason"];
+                "application/json": components["schemas"]["Reason-Input"];
             };
         };
         responses: {

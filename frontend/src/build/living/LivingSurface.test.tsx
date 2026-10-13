@@ -373,7 +373,7 @@ describe("a sample that answered a question (issue 134)", () => {
       exhaustive: true, phrasing: "none" },
   });
   const LENGTH = question("p-len", [["value", "Type it (bp)"],
-    ["upload", "Not sure: upload a sample and I'll measure it"], ["cant_share", "I can't share it"]]);
+    ["upload", "Not sure — measure it from a sample"], ["cant_share", "I can't share it"]]);
   const STRAND = question("p-strand", [["forward", "forward"], ["reverse", "reverse"]]);
   const answered = {
     outcome: "measured", type_id: "fastq.reads", reason: null, recorded: ["read_length"], kept: [],
@@ -405,7 +405,7 @@ describe("a sample that answered a question (issue 134)", () => {
 
   it("keeps what it measured above the next question, and drops it once that is answered", async () => {
     const { rerender, at } = shown(LENGTH);
-    const input = screen.getByLabelText(/upload a sample/i);
+    const input = screen.getByLabelText(/a sample$/i);
     fireEvent.change(input, { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
     fireEvent.click(screen.getByRole("button", { name: "Measure" }));
     rerender(at(STRAND));
@@ -417,14 +417,14 @@ describe("a sample that answered a question (issue 134)", () => {
 
   // Issue 231: with a pair picked, *Measure* and *I have it* were both drawn primary.
   it("draws one primary action while a sample is picked", () => {
-    const READS = question("p-reads", [["upload", "I have it, and I'll upload a sample"],
+    const READS = question("p-reads", [["upload", "Yes — I'll upload a sample"],
       ["have", "I have it"], ["dont_have", "I don't have one"]]);
     shown(READS);
     const primaries = () => within(screen.getByRole("region", { name: "a question about your data" }))
       .getAllByRole("button")
       .filter((b) => b.className.includes("bg-[var(--link)]")).map((b) => b.textContent);
     expect(primaries()).toEqual(["I have it"]);
-    fireEvent.change(screen.getByLabelText(/upload a sample/i),
+    fireEvent.change(screen.getByLabelText(/a sample$/i),
       { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
     expect(primaries()).toEqual(["Measure"]);
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
@@ -434,7 +434,7 @@ describe("a sample that answered a question (issue 134)", () => {
   it("draws the typed value's button secondary while a sample is picked", () => {
     shown(LENGTH);
     const card = () => within(screen.getByRole("region", { name: "a question about your data" }));
-    fireEvent.change(screen.getByLabelText(/upload a sample/i),
+    fireEvent.change(screen.getByLabelText(/a sample$/i),
       { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
     expect(card().getByRole("button", { name: "Use this" }).className)
       .not.toContain("bg-[var(--link)]");
@@ -442,7 +442,7 @@ describe("a sample that answered a question (issue 134)", () => {
 
   it("holds the question's other answers while a sample is out", async () => {
     shown(LENGTH, vi.fn(() => new Promise(() => {})));
-    const input = screen.getByLabelText(/upload a sample/i);
+    const input = screen.getByLabelText(/a sample$/i);
     fireEvent.change(input, { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
     fireEvent.click(screen.getByRole("button", { name: "Measure" }));
     expect(await screen.findByRole("button", { name: "I can't share it" })).toBeDisabled();

@@ -123,7 +123,7 @@ describe("a gap card", () => {
 
 describe("a gap card that takes a sample", () => {
   const LENGTH_WITH_UPLOAD = gap(
-    [["value", "Type it (bp)"], ["upload", "Not sure: upload a sample and I'll measure it"],
+    [["value", "Type it (bp)"], ["upload", "Not sure — measure it from a sample"],
      ["cant_share", "I can't share it"]],
     "Sequenced read length?",
   );
@@ -132,15 +132,15 @@ describe("a gap card that takes a sample", () => {
     const onAnswer = vi.fn();
     render(<GapCard proposal={LENGTH_WITH_UPLOAD} busy={false} onAnswer={onAnswer}
       onUpload={vi.fn()} />);
-    expect(screen.getByLabelText(/upload a sample/i)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /upload a sample/i })).toBeNull();
+    expect(screen.getByLabelText(/a sample$/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /a sample$/i })).toBeNull();
     expect(screen.getByRole("button", { name: "I can't share it" })).toBeTruthy();
     expect(onAnswer).not.toHaveBeenCalled();
   });
 
   it("without an upload handler, leaves the upload answer out rather than send it", () => {
     render(<GapCard proposal={LENGTH_WITH_UPLOAD} busy={false} onAnswer={vi.fn()} />);
-    expect(screen.queryByText(/upload a sample/i)).toBeNull();
+    expect(screen.queryByText(/a sample$/i)).toBeNull();
   });
 
   it("holds the other answers while the AI reads a sample (issue 135)", () => {
@@ -150,5 +150,17 @@ describe("a gap card that takes a sample", () => {
     expect((screen.getByRole("button", { name: "I can't share it" }) as HTMLButtonElement)
       .disabled).toBe(true);
     expect(screen.getByText(/being read by AI/)).toBeTruthy();
+  });
+
+  it("draws the explanation under the question, and none for an offer made before it", () => {
+    // Part I.1, and Review Focus 1: an offer stored before explanations carries none.
+    const explained = { ...PAIRED, envelope: { ...PAIRED.envelope, explain: {
+      name: "Whether the library was sequenced paired-end", what: "Read from both ends.",
+      needed: [], reads: null, settles: [], read_by: null } } } as AuthoringProposal;
+    const { unmount } = render(<GapCard proposal={explained} busy={false} onAnswer={vi.fn()} />);
+    expect(screen.getByText("Read from both ends.")).toBeInTheDocument();
+    unmount();
+    render(<GapCard proposal={PAIRED} busy={false} onAnswer={vi.fn()} />);
+    expect(screen.queryByTestId("explain")).toBeNull();
   });
 });

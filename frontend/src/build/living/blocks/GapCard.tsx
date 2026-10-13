@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 
 import type { AuthoringProposal, SampleInspected } from "../../../api/types";
+import { Explain, uploadHeadline } from "./Explain";
 import { BlockFrame, Primary, Secondary } from "./parts";
 import { SampleUpload } from "./SampleUpload";
 
@@ -47,6 +48,9 @@ export function GapCard({
   // While the AI reads a sample, the other answers wait too (issue 135): two answers must not race.
   const waiting = measuring || block.reading?.state === "pending";
   const suggested = block.options.find((o) => o.recommended && o.note);
+  // What it is and why it is asked (Part I.1); an offer made before that carries none.
+  const explained = proposal.envelope?.offer === "gap" ? proposal.envelope.explain ?? null : null;
+  const headline = explained ? uploadHeadline(explained) : null;
 
   const typedOption = block.options.find((o) => o.id === "value");
   const uploadOption = block.options.find((o) => o.id === "upload");
@@ -66,6 +70,7 @@ export function GapCard({
         <p className="m-0 mb-1 font-data text-[9.5px] text-ink-4">phrased for you</p>
       )}
       <p className="m-0 mb-3 text-[11.5px] text-ink-3">{block.why_open}</p>
+      {explained && <Explain explanation={explained} />}
       {suggested && (
         <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-link">
           {suggested.id === "value" ? String(block.value ?? "") : suggested.label} — {suggested.note}
@@ -94,6 +99,7 @@ export function GapCard({
       )}
       {uploadOption && onUpload && (
         <div className="mb-3">
+          {headline && <p className="m-0 mb-2 text-[12px] text-ink-2">{headline}</p>}
           <SampleUpload
             proposalId={proposal.id}
             label={uploadOption.label}

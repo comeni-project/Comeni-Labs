@@ -9,7 +9,7 @@ import { SampleResult, SampleUpload } from "./blocks/SampleUpload";
 /** Issue 134: a person who is not sure uploads one file or a pair and sees what it measured. */
 
 const fq = (name: string) => new File(["@r\nACGT\n+\nIIII\n"], name);
-const LABEL = "Not sure: upload a sample and I'll measure it";
+const LABEL = "Not sure — measure it from a sample";
 
 const result = (extra: Partial<SampleInspected> = {}): SampleInspected => ({
   outcome: "measured", type_id: "fastq.reads", reason: null, recorded: ["read_length"], kept: [],
@@ -61,7 +61,7 @@ describe("uploading a sample", () => {
   it("refuses three files on the card, before any request", async () => {
     const { onUpload } = setup();
     await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq"), fq("b.fq"), fq("c.fq")]);
-    expect(screen.getByRole("alert").textContent).toMatch(/3 files: upload one file, or a pair/);
+    expect(screen.getByRole("alert").textContent).toMatch(/3 files: choose one file, or both files if your reads are paired/);
     expect(screen.queryByRole("button", { name: "Measure" })).toBeNull();
     expect(onUpload).not.toHaveBeenCalled();
   });
@@ -204,11 +204,13 @@ function setupReading(props: Record<string, unknown> = {}, onUpload = vi.fn()) {
 }
 
 describe("the AI reading a sample (issue 135)", () => {
-  it("accepts any file and says what may go to the AI", () => {
+  it("accepts any file, and says how to choose without talking about bytes (Part I.1)", () => {
     setupReading();
     const input = screen.getByLabelText(LABEL) as HTMLInputElement;
     expect(input.accept).toBe("");
-    expect(screen.getByText(/if nothing here reads its type, about 8 KB of its text goes to the AI to read/)).toBeTruthy();
+    expect(screen.getByText(/Choose one file, or both files if your reads are paired/))
+      .toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/4 MB|8 KB|the AI to read/);
   });
 
   it("waits while the AI reads", async () => {
