@@ -103,7 +103,8 @@ def test_a_quote_is_checked_against_what_the_person_typed_in_this_session():
 
     if not reachable():
         pytest.skip("no database")
-    sid = facade.perform(commands.OpenSession(drafts.create(DraftGraph(), "t", "ana"), "ana")).result
+    draft = drafts.create(DraftGraph(), "t", "ana")
+    sid = facade.perform(commands.OpenSession(draft, "ana")).result
     answer = describe.record_said(sid, "paired-end reads, 150 bp")
     # `record_said` returns the pending answer's seq; the person's own turn is just before it.
     assert replies.person_turns(sid) == [(answer - 1, "paired-end reads, 150 bp")]
