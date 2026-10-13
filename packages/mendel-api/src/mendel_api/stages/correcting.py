@@ -128,6 +128,12 @@ def change(ctx: Ctx, cmd: c.Change):
 
     written = DecisionChange.model_validate(cmd.change)
     changes_mod.check(written)
+    if written.retract:
+        with session_scope() as db:
+            draft_id = db.get(PipelineAuthoringSession, cmd.session_id).draft_id
+        if not changes_mod.retracts_something(draft_id, written):
+            # Nothing to retract is no change: the waiting question stays as it was (review I5).
+            return result(cmd.session_id)
     return _begin(ctx, cmd, Command.CORRECT_FACT, subject=written.subject, kind=written.kind,
                   states=written.states, change=written)
 
@@ -254,14 +260,22 @@ def receipt(ctx, suffix=""):
             if change.kind == "retain"
             else f"{change.subject} is {value}"
         )
+        # **Who made it, said as such** (review I4): a change the model recorded from the
+        # person's words is the model's reading of them, never *your correction*.
+        by_model = change.change is not None and change.change.actor == "model"
+        summary = (
+            f'Heard "{change.change.heard}": {said}. {suffix}' if by_model and change.change.heard
+            else f"The model's reading: {said}. {suffix}" if by_model
+            else f"Your correction: {said}. {suffix}"
+        ).strip()
         _rows.engine_turn(
             row.id,
             lambda seq: [
                 Receipt(
                     id=f"correction-{seq}",
-                    summary=f"Your correction: {said}. {suffix}".strip(),
+                    summary=summary,
                     revision=draft.revision,
-                    by="person",
+                    by="model" if by_model else "person",
                 ).model_dump(mode="json")
             ],
         )

@@ -99,6 +99,7 @@ def record_said(session_id: str, text: str) -> int:
             raise KeyError(session_id)
         draft = db.get(PipelineDraft, row.draft_id)
         revision = draft.revision if draft else 0
+        decided = draft.decision_revision if draft else 0
 
         seq = next_seq(db, session_id)
         now = _now()
@@ -123,6 +124,7 @@ def record_said(session_id: str, text: str) -> int:
                 blocks=[],
                 text="",
                 base_revision=revision,
+                base_decision_revision=decided,
                 at=now,
             )
         )
@@ -282,7 +284,11 @@ def turn_context(session_id: str, seq: int) -> TurnContext | None:
             else [],
             options=sorted(pending.payload.get("options", {})) if pending is not None else [],
             registry=row.registry_digest or None,
-            decision_revision=draft.decision_revision if draft else 0,
+            decision_revision=(
+                target.base_decision_revision
+                if target.base_decision_revision is not None
+                else draft.decision_revision if draft else 0
+            ),
             session_version=row.row_version,
         )
 

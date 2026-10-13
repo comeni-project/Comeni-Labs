@@ -129,6 +129,20 @@ def _changes(reply, stack, wanted: frozenset[str]) -> list[tuple[DecisionChange,
     return out
 
 
+SUBJECT_LIMIT = DecisionChange.model_fields["subject"].metadata[1].max_length
+"""The longest `subject` a change holds: an `asked` phrase is its subject."""
+
+
+def _says_value(change: DecisionChange, quote: str | None) -> bool:
+    """A number is heard only in a quote that holds it (review M2): a quote proves the words
+    were typed, and *"the"* would otherwise make any value heard."""
+    value = change.value
+    if change.retract or isinstance(value, bool) or not isinstance(value, int | float):
+        return True
+    number = str(int(value)) if float(value).is_integer() else str(value)
+    return number in (quote or "")
+
+
 def issue(
     reply: Understanding | ChatReply,
     *,
@@ -136,6 +150,7 @@ def issue(
     stack,
     invocation_id: str | None,
     wanted: frozenset[str] = frozenset(),
+    first_reading: bool = False,
 ) -> Issued:
     """Sort an admitted reply into heard and suggested changes. `wanted` is what the goal wants
     now, so retracting a type knows whether it was a want or an input."""
@@ -151,10 +166,16 @@ def issue(
     heard, suggested = [], []
     for change, quote in pairs:
         seq = heard_mod.find(quote, turns)
+        if seq is not None and not _says_value(change, quote):
+            seq = None
         stamped = change.model_copy(update={"actor": "model", "invocation_id": invocation_id})
         if seq is not None and (change.kind, change.subject) not in contested:
             heard.append(stamped.model_copy(update={"heard": quote, "heard_seq": seq}))
-        elif change.kind == "want":
+        elif (first_reading and change.kind == "want" and not change.retract
+              and (change.kind, change.subject) not in contested):
+            # **Only the first reading's wants** are issued unquoted (review C1): gathering
+            # needs a want, and the goal card confirms it. A retraction, a contested want, or a
+            # new want in the chat follows the quote rule like any other change.
             heard.append(stamped)
         else:
             suggested.append(stamped)
@@ -162,7 +183,9 @@ def issue(
     dropped = []
     for item in reply.not_offered:
         seq = heard_mod.find(item.quote, turns)
-        if seq is None:
+        # A phrase longer than a change's subject can hold is dropped, never a crash (review I2):
+        # a request is a few words, and the person is not asked again for being long-winded.
+        if seq is None or len(item.quote) > SUBJECT_LIMIT:
             dropped.append(item.quote)
             continue
         heard.append(

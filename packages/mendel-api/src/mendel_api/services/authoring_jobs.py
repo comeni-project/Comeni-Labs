@@ -184,7 +184,7 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     # for a click (#307).
     issued = replies.issue(
         understood, turns=replies.person_turns(session_id), stack=stack,
-        invocation_id=outcome.invocation_id,
+        invocation_id=outcome.invocation_id, first_reading=True,
     )
     _perform(
         c.Understood(
@@ -356,8 +356,11 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         # **Only if nothing moved since the person spoke** (Review Focus 2 of plan A): a click
         # that landed while the model read wins, and the reading is offered instead.
         current = not _moved_since(draft_id, context)
-        for change in issued.heard:
-            if not (current and _record(session_id, draft_id, change)):
+        for index, change in enumerate(issued.heard):
+            # The first is held to the spoken-at revision itself, so a click landing between the
+            # check and the write is refused by the command's own version check (review I3).
+            expected = context.decision_revision if index == 0 else None
+            if not (current and _record(session_id, draft_id, change, expected)):
                 suggestions.offer(session_id, change, heard=True,
                                   invocation_id=change.invocation_id)
         for change in issued.suggested:
@@ -383,14 +386,15 @@ def _moved_since(draft_id: str, context) -> bool:
         return db.get(PipelineDraft, draft_id).decision_revision != context.decision_revision
 
 
-def _record(session_id: str, draft_id: str, change) -> bool:
+def _record(session_id: str, draft_id: str, change, expected: int | None = None) -> bool:
     """One heard change through the correction path, at the versions as they stand now."""
     from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 
     with session_scope() as db:
         draft = db.get(PipelineDraft, draft_id)
         row = db.get(PipelineAuthoringSession, session_id)
-        versions = (draft.decision_revision, draft.revision, row.row_version)
+        decided = draft.decision_revision if expected is None else expected
+        versions = (decided, draft.revision, row.row_version)
     try:
         session_mod.perform(c.Change(session_id, change.model_dump(mode="json"), "model",
                                      *versions))

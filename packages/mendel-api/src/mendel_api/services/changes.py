@@ -62,6 +62,30 @@ def check(change: DecisionChange) -> None:
         _parameter(stack, subject)
 
 
+def retracts_something(draft_id: str, change: DecisionChange) -> bool:
+    """Whether a retraction has anything to retract (review I5): one that does not is no change,
+    and the waiting question is left exactly as it was."""
+    current = decisions.read(draft_id)
+    subject = change.subject
+    if change.kind == "measurement":
+        return any(f.subject == subject and f.origin is not FactOrigin.OPEN
+                   for f in current.facts)
+    if change.kind == "input":
+        return any((i.key == subject or i.type_id == subject)
+                   and (i.present or i.origin is not FactOrigin.OPEN) for i in current.inputs)
+    if change.kind in ("want", "require"):
+        return any(w.type_id == subject and w.present for w in current.wants)
+    if change.kind in ("pin", "producer"):
+        return any(p.site.type_id == subject and p.contract for p in current.producers)
+    if change.kind == "parameter":
+        return any(p.name == subject and p.value is not None for p in current.parameters)
+    if change.kind == "asked":
+        key = " ".join(subject.split()).casefold()
+        return any(" ".join(a.phrase.split()).casefold() == key
+                   for a in decisions.read_asked(draft_id))
+    return True
+
+
 def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
     """Write one change; whether the decisions moved. Retracting what is not there is no
     change (Review Focus 5 of plan A)."""
@@ -92,9 +116,17 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         type_id = old.type_id if old else subject
         _type(stack, type_id)
         if change.retract:
-            if old is None or not old.present:
+            if old is None or (not old.present and old.origin is FactOrigin.OPEN):
                 return False
-            decisions.withdraw_input(draft_id, old.key, who=who)
+            if old.present:
+                decisions.withdraw_input(draft_id, old.key, who=who)
+            else:
+                # *I don't have one*, forgotten (review I5): nobody knows again.
+                decisions.set_input(
+                    draft_id,
+                    old.model_copy(update={"present": False, "origin": FactOrigin.OPEN}),
+                    **said,
+                )
         else:
             if change.value is not None and type(change.value) is not bool:
                 raise ValueError(coded("MI0208", "an input answer must say whether you have it"))

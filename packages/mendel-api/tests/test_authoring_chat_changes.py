@@ -75,7 +75,7 @@ def test_once_confirmed_a_heard_change_waits_for_a_click_then_re_resolves(clean,
     assert _value(sid, "read_length") == before
     [offered] = suggestions.pending(sid)
     assert offered.heard and offered.says == "read length is 50"
-    result = suggestions.apply(sid, offered.id, by="ana")
+    result = asyncio.run(suggestions.apply(sid, offered.id, by="ana"))
     assert _value(sid, "read_length") == 50
     assert result["phase"] == "building"
 
@@ -114,3 +114,18 @@ def test_something_to_say_alone_records_nothing(clean, monkeypatch):
     assert (_facts(sid), facade.pending_id(sid)) == before
     assert facade.read(sid)["turns"][-1]["blocks"][0]["text"] == (
         "Your reads are aligned against it.")
+
+
+def test_a_click_before_the_job_starts_still_wins(clean, monkeypatch):
+    """Review I3: the baseline was read when the job started, so a click made while a busy
+    worker had not yet reached the turn was overwritten. It is the decisions as they stood when
+    the person spoke."""
+    sid = _gathering(want=["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    seq = facade.perform(commands.Say(sid, "single-end, I think")).result
+    facade.perform(commands.AnswerGap(pid, "yes", None, "ana"))  # the click, before the job
+    _model(monkeypatch, {"facts": [{"subject": "paired", "value": False, "quote": "single-end"}]})
+    asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
+    assert _value(sid, "paired") is True
+    assert [(v.change.subject, v.change.value) for v in suggestions.pending(sid)] == [
+        ("paired", False)]

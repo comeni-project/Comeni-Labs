@@ -120,3 +120,44 @@ def test_a_change_while_gathering_closes_its_question(clean):
     )
     pending = session.pending_id(sid)
     assert pending is None or _payload(pending).get("subject") != "paired"
+
+
+def test_a_change_the_model_heard_is_said_as_the_models_not_the_persons(clean):
+    """Review I4: the transcript said *Your correction* for what the model recorded."""
+    sid = _resolving()
+    _answer_all(sid, authoring_setup.start_building(sid))
+    _change(sid, DecisionChange(kind="measurement", subject="read_length", value=50,
+                                heard="50 bp", heard_seq=1, actor="model"))
+    receipts = [b for t in session.read(sid)["turns"] for b in t["blocks"]
+                if b.get("kind") == "receipt"]
+    last = receipts[-1]
+    assert last["by"] == "model"
+    assert "Your correction" not in last["summary"] and '"50 bp"' in last["summary"]
+
+
+def test_retracting_what_was_never_said_leaves_the_question_as_it_was(clean):
+    """Review I5: through `c.Change`, a retraction that changes nothing staled the waiting
+    question, wrote a receipt and gathered again."""
+    from test_authoring_gathering import _gathering, _pending_for
+
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    before = _versions(sid)
+    turns = len(session.read(sid)["turns"])
+    _change(sid, DecisionChange(kind="input", subject="alignment.bam", retract=True))
+    assert session.pending_id(sid) == pid
+    assert _versions(sid) == before
+    assert len(session.read(sid)["turns"]) == turns
+
+
+def test_an_input_said_not_held_can_be_forgotten(clean):
+    from mendel_api.services import changes
+
+    sid = _resolving()
+    draft = _versions(sid)[0]
+    changes.apply(draft, DecisionChange(kind="input", subject="alignment.bam", value=False),
+                  who="ana")
+    assert changes.apply(draft, DecisionChange(kind="input", subject="alignment.bam",
+                                               retract=True), who="ana")
+    held = next(i for i in decisions.read(draft).inputs if i.type_id == "alignment.bam")
+    assert held.origin == "open"

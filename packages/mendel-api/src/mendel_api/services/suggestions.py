@@ -95,22 +95,27 @@ def _pending_row(db, session_id: str, suggestion_id: str):
     return row
 
 
-def apply(session_id: str, suggestion_id: str, *, by: str) -> dict:
-    """The person takes the suggestion: its change, performed as theirs."""
+async def apply(session_id: str, suggestion_id: str, *, by: str) -> dict:
+    """The person takes the suggestion: its change, performed as theirs, **and the jobs it asks
+    for queued after the commit** (`act`, review I1) — the next question's phrasing, a card's
+    read-back."""
+    from starlette.concurrency import run_in_threadpool
+
     from mendel_api.services import session
 
-    with session_scope() as db:
-        row = _pending_row(db, session_id, suggestion_id)
-        change = DecisionChange.model_validate(row.change).model_copy(update={"actor": "person"})
-        sess = db.get(PipelineAuthoringSession, session_id)
-        draft = db.get(PipelineDraft, sess.draft_id)
-        versions = (draft.decision_revision, draft.revision, sess.row_version)
-    result = session.perform(
-        c.Change(session_id, change.model_dump(mode="json"), by, *versions)
-    ).result
-    with session_scope() as db:
-        _settle(db, db.get(PipelineAuthoringSuggestion, suggestion_id), SuggestionState.APPLIED)
-    return result
+    def read():
+        with session_scope() as db:
+            row = _pending_row(db, session_id, suggestion_id)
+            change = DecisionChange.model_validate(row.change).model_copy(
+                update={"actor": "person"})
+            sess = db.get(PipelineAuthoringSession, session_id)
+            draft = db.get(PipelineDraft, sess.draft_id)
+            return change, (draft.decision_revision, draft.revision, sess.row_version)
+
+    change, versions = await run_in_threadpool(read)
+    done = await session.act(c.Change(session_id, change.model_dump(mode="json"), by, *versions))
+    await run_in_threadpool(mark_applied, suggestion_id)
+    return done.result
 
 
 def mark_applied(suggestion_id: str) -> None:

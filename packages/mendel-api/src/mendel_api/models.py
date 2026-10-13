@@ -880,6 +880,10 @@ class PipelineAuthoringTurn(Base):
     `ForgeMessage.content` is — which door carries it and what may be in it is
     `tests/guards/test_egress.py`'s to declare, not this docstring's to assume."""
     base_revision: Mapped[int] = mapped_column(Integer, default=0)
+    base_decision_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    """The decisions as they stood when the person spoke (Part I.0, review I3): a model's heard
+    change is recorded only if nothing moved since — a click made while the worker was busy wins.
+    `None` on turns written before it existed."""
     ai_invocation_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("ai_invocation.id", ondelete="RESTRICT"), nullable=True
     )

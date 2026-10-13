@@ -16,7 +16,7 @@ def stack():
 
 def _issued(stack, reply):
     return replies.issue(replies.admit(reply, stack), turns=TURNS, stack=stack,
-                         invocation_id="inv-1")
+                         invocation_id="inv-1", first_reading=isinstance(reply, Understanding))
 
 
 def test_a_quoted_fact_is_heard_with_its_turn(stack):
@@ -108,3 +108,44 @@ def test_a_quote_is_checked_against_what_the_person_typed_in_this_session():
     answer = describe.record_said(sid, "paired-end reads, 150 bp")
     # `record_said` returns the pending answer's seq; the person's own turn is just before it.
     assert replies.person_turns(sid) == [(answer - 1, "paired-end reads, 150 bp")]
+
+
+def test_an_unquoted_retraction_of_a_want_is_only_suggested(stack):
+    """Review C1: the want exception covers the first reading's wants, never a retraction."""
+    got = replies.issue(replies.admit(ChatReply(retract=[{"subject": "counts.matrix"}]), stack),
+                        turns=TURNS, stack=stack, invocation_id="i",
+                        wanted=frozenset({"counts.matrix"}))
+    assert not got.heard
+    assert [(c.kind, c.retract) for c in got.suggested] == [("want", True)]
+
+
+def test_a_want_said_two_ways_is_not_heard(stack):
+    got = replies.issue(replies.admit(ChatReply(
+        wants=[{"type": "counts.matrix", "quote": "Gene counts"}],
+        retract=[{"subject": "counts.matrix", "quote": "Gene counts"}]), stack),
+        turns=TURNS, stack=stack, invocation_id="i", wanted=frozenset({"counts.matrix"}))
+    assert not [c for c in got.heard if c.kind == "want"]
+
+
+def test_in_chat_an_unquoted_new_want_is_only_suggested(stack):
+    got = replies.issue(replies.admit(ChatReply(wants=[{"type": "qc.report"}]), stack),
+                        turns=TURNS, stack=stack, invocation_id="i")
+    assert not got.heard and [c.subject for c in got.suggested] == ["qc.report"]
+
+
+def test_a_number_is_heard_only_when_the_quote_holds_it(stack):
+    """Review M2 (re-graded Important): a quote proves words were typed; for a number it must
+    be the number's words, or "the" would make any value heard."""
+    got = _issued(stack, ChatReply(facts=[
+        {"subject": "read_length", "value": 150, "quote": "paired-end"},
+        {"subject": "read_length", "value": 150, "quote": "150 bp"}]))
+    assert [(c.subject, c.heard) for c in got.heard] == [("read_length", "150 bp")]
+    assert [(c.subject, c.heard) for c in got.suggested] == [("read_length", None)]
+
+
+def test_a_not_offered_phrase_too_long_to_keep_is_dropped_not_a_crash(stack):
+    """Review I2: a quote longer than a change's subject crashed the turn job."""
+    long = "differential expression between treated and control " * 6
+    got = replies.issue(replies.admit(ChatReply(not_offered=[{"quote": long.strip()}]), stack),
+                        turns=[(1, long)], stack=stack, invocation_id="i")
+    assert got.heard == [] and got.dropped == [long.strip()]

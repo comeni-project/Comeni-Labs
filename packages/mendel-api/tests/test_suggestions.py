@@ -1,6 +1,8 @@
 """The model's suggestions wait for one click: applied as the person's own change, or set aside
 (Part I.0 spec §5.3)."""
 
+import asyncio
+
 import pytest
 from mendel_api.services import decisions, suggestions
 from mendel_api.services import session as facade
@@ -43,7 +45,7 @@ def test_an_offer_waits_and_says_what_it_would_change(clean):
 def test_applying_it_is_the_persons_change(clean):
     sid = _built()
     offered = suggestions.offer(sid, FIFTY, heard=True, invocation_id="inv-1")
-    result = suggestions.apply(sid, offered, by="ana")
+    result = asyncio.run(suggestions.apply(sid, offered, by="ana"))
     draft = _versions(sid)[0]
     assert next(f.value for f in decisions.read(draft).facts if f.subject == "read_length") == 50
     assert result["phase"] == "building"
@@ -65,7 +67,7 @@ def test_a_change_to_its_subject_makes_it_stale(clean):
     _change(sid, DecisionChange(kind="measurement", subject="read_length", value=100))
     assert suggestions.pending(sid) == []
     with pytest.raises(ValueError, match="MI0201"):
-        suggestions.apply(sid, offered, by="ana")
+        asyncio.run(suggestions.apply(sid, offered, by="ana"))
 
 
 def test_the_session_view_lists_what_is_waiting(clean):
@@ -94,3 +96,29 @@ def test_the_route_applies_and_dismisses(clean):
     assert applied.json()["phase"] == "building"
     view = client.get(f"/api/pipeline/authoring/{sid}").json()
     assert view["suggestions"] == []
+
+
+def test_applying_queues_the_jobs_its_change_asks_for(clean, monkeypatch):
+    """Review I1: applied through `perform`, the jobs a change asks for (the next question's
+    phrasing, a card's read-back) came back unqueued and were dropped."""
+    import asyncio
+
+    from mendel_api.services import session as session_service
+    from test_authoring_gathering import _gathering, _pending_for
+
+    queued = []
+
+    async def enqueue(job):
+        queued.append(job.name)
+        return True
+
+    monkeypatch.setattr(session_service, "_enqueue", enqueue)
+    monkeypatch.setenv("COMENI_AI_MODEL", "fake/test")  # a model configured: questions are phrased
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "paired")
+    offered = suggestions.offer(sid, DecisionChange(kind="measurement", subject="paired",
+                                                    value=True, actor="model"),
+                                heard=False, invocation_id=None)
+    queued.clear()
+    asyncio.run(suggestions.apply(sid, offered, by="ana"))
+    assert queued, "the change asked for jobs, and none was queued"

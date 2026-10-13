@@ -943,13 +943,16 @@ async def change_authoring(session_id: str, body: ChangeAuthoring) -> AuthoringC
 async def decide_suggestion(
     session_id: str, suggestion_id: str, body: DecideSuggestion
 ) -> AuthoringCorrected | None:
+    from starlette.concurrency import run_in_threadpool
+
     from mendel_api.services import suggestions
 
     if body.decision == "dismiss":
-        suggestions.dismiss(session_id, suggestion_id, by=identity.default_author())
+        await run_in_threadpool(suggestions.dismiss, session_id, suggestion_id,
+                                by=identity.default_author())
         return None
     return AuthoringCorrected.model_validate(
-        suggestions.apply(session_id, suggestion_id, by=identity.default_author())
+        await suggestions.apply(session_id, suggestion_id, by=identity.default_author())
     )
 
 
