@@ -37,7 +37,8 @@ the same pipeline anywhere, and it says where to fetch that registry.
 | The person's words in the save file | **No.** Each fact says its source (*said*, *measured*, *read by AI*, *open*); quotes stay in the database. |
 | The registry in the save file | **Locator and integrity, kept apart** (the Nix model): each layer keeps its `digest` and gains `source` and `commit` (and whether it had uncommitted edits). |
 | Database and file | **Both.** The tables are the working record (every revision, who, when, the quotes); the file is what is kept and shared (the current state). |
-| Run-time pins | Containers by digest and the Nextflow version are **not here**; their own issue. |
+| Run-time pins | Containers by digest and the Nextflow version are **not here**; their own issue, [308](https://github.com/comeni-project/Comeni-Labs/issues/308). |
+| One of each | **One file, one store** ("keeping two is confusing"). The `--goal` file becomes a `pipeline.yml` with only intent and facts (§8.5). In the database, intent and facts live only in the decision rows, from the first command: no goal snapshot beside them (§6.2). |
 
 ## 3. What is already right, and what is not
 
@@ -146,7 +147,28 @@ invented evidence; the card removes misreadings.
   `Want` (unquoted, so it waits on the card as today), `constraints` → suggestions, `stated` →
   suggestions (they were candidates, never facts).
 
-### 6.2 The memory
+### 6.2 One representation in the database
+
+Today intent and facts have two homes before the goal card is confirmed: `session.extraction`
+and a whole `Goal` copied into the card's proposal payload (`GoalOffer.goal`). *That's right*
+imports the copy into the rows (`import_goal`), and whether a goal is confirmed is **inferred** —
+`authoring_decisions.confirmed()` is *any want present*. With heard commands recorded at once
+that inference breaks, and the copy is a second truth.
+
+- **The rows are the only home**, from the first command. `session.extraction` is retired
+  (§6.1); the goal card's proposal carries no goal: it is drawn from the current revisions, and
+  an edit on the card is a command.
+- **Confirmation is recorded, not inferred** **(spec)**: `pipeline_draft.confirmed_revision`, the
+  decision revision *That's right* was pressed at. The goal is confirmed when it is set and no
+  intent or fact has changed since; a change after it (a correction) is what re-offers the card,
+  as the correction section's *check again* already does. `confirmed()` and `confirmed_goal()`
+  read it.
+- **What stays derived, and says so:** `session.blueprint` (the resolver's plan) and, in the living
+  builder, the draft's `graph` are caches of a resolution, recomputable from the rows and the
+  registry. They are not a source of intent or facts, and nothing writes intent or facts from
+  them.
+
+### 6.3 The memory
 
 A pure function in `mendel-authoring`, `memory.render(decisions, asked, pending, open_gaps,
 names) -> str`, writes *what is known* from the current revisions: the wants, the constraints,
@@ -272,6 +294,15 @@ Importing a `pipeline.yml` into a new draft writes its intent and facts as decis
 `action: import`. The steps are re-derived by resolving, and the file's decision records are
 replayed, never re-asked — `mendel upgrade`'s behaviour.
 
+### 8.5 One file to start from
+
+`examples/rnaseq-goal.yml` and `mendel build --goal` use a second format (`have`, `want`,
+`profile`). It goes: **a starter is a version-7 `pipeline.yml` with only `intent` and `facts`**
+(no `steps`, `registry`, `ai` or `emitted`). `mendel build <file>` resolves it and writes the
+whole file back; the no-AI path is writing the top half by hand, the AI path is the conversation
+writing it. `--goal` keeps reading the old format through the same upgrade, so nothing that
+worked stops working; the examples and the handbook move to the new form.
+
 ## 9. When it goes wrong
 
 | Case | What happens |
@@ -297,6 +328,11 @@ replayed, never re-asked — `mendel upgrade`'s behaviour.
 - **The calls:** recorded fixtures for `goal.v8`, `chat.v3`, `ask.v2`, `readback.v2`; admission
   of every list; `proceed` continues.
 - **The conversion** of sessions with an `extraction`.
+- **One representation:** no proposal payload carries a goal; the goal card drawn from the rows
+  matches the resolver's goal; confirmation set by *That's right*, cleared in effect by a later
+  change, and the card re-offered (§6.2).
+- **The starter file:** `mendel build` on an intent-and-facts-only v7 file writes a complete one
+  whose `.nf` is byte-identical to the old `--goal` build of the same example (§8.5).
 - **The save file:** a golden v7 `pipeline.yml`; the v6 → v7 upgrader on the examples; same goal
   → byte-identical `.nf` across the change; `mendel upgrade` from a lone v7 file rebuilds
   identically; the locator for a clean, a dirty and an un-versioned layer.
