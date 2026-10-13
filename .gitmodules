@@ -1,3 +1,6 @@
+# Registry declarations and module source are versioned in their own repository.
+# The parent repository's gitlink pins the revision; this URL identifies where to fetch it.
+# Initialize the pinned checkout with: git submodule update --init
 [submodule "registry"]
 	path = registry
 	url = https://github.com/comeni-project/comeni-registry

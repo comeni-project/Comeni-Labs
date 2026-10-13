@@ -1,38 +1,25 @@
-# Alembic writes these from its own templates. Linting generated files means either
-# hand-editing every migration to satisfy a style it did not choose, or a noqa storm.
+# Python lint and formatting settings. make lint checks code; make fmt rewrites formatting.
+# Sections: discovery and Python version; enabled rules; design-generator exceptions.
+
+# Skip Alembic migration directories during discovery to retain their template formatting.
+# This also skips migration env.py files; explicitly named files can still be linted.
 exclude = ["packages/mendel-api/migrations", "packages/wiener-api/migrations"]
 
 line-length = 100
 target-version = "py312"
 
 [lint]
+# Errors, undefined/unused names, import order, Python upgrades, bug patterns, simplifications.
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [lint.per-file-ignores]
-# The mockup builder is HTML: its long lines are style attributes and SVG path data inside
-# string literals, where a wrap puts the break somewhere the reader has to undo, and its
-# markup is `%`-templated because a template is filled positionally after it is written.
-# Relaxed only here, and only for the two rules that are about writing HTML in Python —
-# E, F, I, B, SIM and the rest of UP still apply. Nothing imports these files (A196): they
-# are a design tool whose output is nine artboards, and the artboards are the artifact.
-#
-# These moved from `docs/design/` to `.design/` on 2026-09-02: a lint config reaching into the
-# documentation tree was the tell that generated payload and executable generators were living
-# there. Every canvas is under `.design/` now, so every exemption below names one directory.
+# HTML/SVG generators retain long literals and positional percent-format templates.
+# Other selected lint rules still apply.
 ".design/*-mockups/build.py" = ["E501", "UP031"]
-# The runs board is drawn by the same tool for the same reason — it borrows `build.py`'s
-# chrome rather than restating it, so it inherits its shape and therefore its two exemptions.
 ".design/runs-board/board.py" = ["E501", "UP031"]
-# The flat canvas at `.design/` is the same class again: two generators whose output is twenty-four artboards,
-# and whose long lines are style attributes, SVG path data and `{{ }}` template holes inside
-# string literals. **E501 only** — deliberately not a directory exclude, because F811 caught
-# seven superseded functions left behind by an append-and-override edit, and a blanket exclude
-# would have shipped all seven. Nothing imports these files; `python runs_boards.py` and
-# `python build_boards.py` regenerate the `.dc.html` beside them, byte for byte.
-# `*` does not cross a `/`, so this covers the flat generators only — the three in
-# subdirectories are named above, with the extra exemption they need and this one does not.
+
+# Allow long HTML/SVG literals across .design/, including nested Python files.
+# Keep correctness checks such as duplicate definitions enabled.
 ".design/*.py" = ["E501"]
-# The living-pipeline canvas is the same class once more, and it is in a subdirectory because
-# `.design/README.md` had run out of room at the root. `*` does not cross a `/`, so the line
-# above does not reach it. E501 only, for the same reason and with the same F811 argument.
+# Explicit canvas exception; the broader pattern above already covers this file.
 ".design/living-pipeline/build_living.py" = ["E501"]

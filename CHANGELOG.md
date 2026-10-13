@@ -1,382 +1,270 @@
 # Changelog
 
-All notable changes to this project are recorded here.
+Notable changes are recorded here for users and package consumers: features, fixes,
+breaking changes, deprecations and operational changes. Routine commits do not each need
+an entry. Add relevant notes under Unreleased as work lands, then group them for release.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
-project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Packages version independently,
+using tags such as `comeni-core-v0.2.0`. Each version has one `###` heading per package;
+[the release workflow](.github/workflows/release.yml) extracts that package's section.
+See [the release procedure](docs/internals/releasing.md) before tagging.
 
-**Registry data moved out on 2026-08-16** ([issue #46](https://github.com/comeni-project/Comeni-Labs/issues/46)).
-It lives in [`comeni-registry`](https://github.com/comeni-project/comeni-registry) under
-CC-BY-4.0, versions separately, and is mounted here as a git submodule at `registry/`. Its
-changes are recorded in its own repository, not below.
-
-**Every package versions independently and is tagged on its own** —
-`comeni-core-v0.2.0`, `mendel-resolver-v0.1.3`. Entries below sit under a `###` heading naming
-the package they belong to, which is what the release workflow reads to fill a Release's notes.
-Which number to move is [`docs/internals/releasing.md`](docs/internals/releasing.md).
+Registry data lives in [comeni-registry](https://github.com/comeni-project/comeni-registry),
+mounted here as a submodule. Its changes and releases are recorded in that repository.
 
 ## [Unreleased]
 
-### comeni-vendor
-
-- **The package exists.** `comeni-vendor add` fetches a tool's source into a registry layer at a
-  pinned commit; `comeni-vendor check` asks whether a `module/` has been hand-edited (offline,
-  against the digest its own `module.yml` records) or whether upstream has moved (`--upstream`,
-  which needs the network and is a different question). A module declaring `upstream: null` is a
-  laboratory's own process and reports `unpinned` rather than `ok`: there is nothing to compare
-  it against, and reporting a pass would claim a check that never ran.
-
-  **It is not `mendel vendor`, and the name is the point.** `mendel` is
-  `mendel_compiler.cli:main` and `mendel-compiler` is one of the packages invariant 1 keeps off
-  the network, so a subcommand that fetches from GitHub could not live there — and should not
-  look as though it could, because this tool is not part of the deterministic build path.
+These notes consolidate the earlier unreleased entries and backfill notable changes
+through the explain-inputs and retention work on this branch. They are not a new release
+or a complete commit history.
 
 ### comeni-core
 
-- **`DeclaredKind` gains `MODULES`** — the sixth kind, and the first whose declaration is *about*
-  a directory rather than being the whole of what it declares. `module.yml` states where the
-  `module/` beside it came from, at which commit, under which licence, and what was deliberately
-  not copied; the code is upstream's and is never hand-edited. It stacks on the **module key**,
-  which is the key contracts already group on, so a laboratory's overlay displacing a contract
-  displaces its module with it through one mechanism.
+#### Added
 
-- **The layer digest covers a tool's own source.** A `pipeline.yml` pins a layer, and a digest
-  covering `meta.yml` but not `main.nf` is partial coverage — which reads as a guarantee and is
-  not one, so re-vendoring at a different commit would leave the pinned digest untouched while
-  the emitted pipeline changed behaviour. Covered **by directory** and not by extension: nf-core
-  ships `.py`, `.sh`, `.R` and `.conda-lock/` beside `main.nf`, and an extension allowlist covers
-  today's corpus and misses the next one.
+- Module declarations record source, pinned commit, licence and omitted files. Layer digests
+  cover module source as well as contracts, including auxiliary files regardless of extension.
+- Registry manifests declare directory layout for linting. Files still declare their own kind;
+  module declarations stack by the same key as their contracts.
+- Saved pipelines carry the goal, measured profile, pinned contracts and registry layers,
+  displacements, decision provenance, emitted-file digests and gate verdicts in `pipeline.yml`.
+  It replaces the separate IR, lockfile and publication bundle formats.
+- Human and model overrides have separate attribution. Draft graphs and review verdicts
+  represent hand-built pipelines and their checks. Diagnostics now declare the emitting
+  package, including core and Wiener, and reject undeclared codes.
+- Type families, display names and explanations support goal selection and readable
+  questions. Measured facts carry their sources; AI-read facts retain evidence attribution.
+- Contract declarations include parameter destinations (`ext`, `meta`, `directive`), fixed
+  arguments, input-placeholder reasons and pinned test data.
 
-- **`registry.yml` replaces `kinds:` with `layout:`.** The old field said in its own comment that
-  it was *"read by nobody"*, and it had drifted exactly as that invites. The new one is
-  `mendel lint`'s argument, so if it is wrong the lint refuses correctly-placed files, which is
-  loud. The loader reads neither: invariant 11 says a file declares its own kind.
+#### Changed
 
-### mendel-compiler
+- The saved artifact schema is now version 6. Readers reject newer unsupported versions;
+  compatibility handling for older formats lives in the artifact loader. Schema version
+  changes are distinct from package release versions.
+- Publication payloads use the saved pipeline itself. Emission integrity includes the
+  digest of the artifact used to generate the Nextflow files.
 
-- **`mendel conformance --registry X`** — does every contract agree with the module it is a
-  binding for? **All of them**, where `mendel build --gate lint` only ever reaches the contracts
-  a goal happens to route to. `MD0100` (no module source) is reported and does not fail the run,
-  because a laboratory wrapping bare containers is legitimate.
+#### Fixed
 
-- **`mendel lint --registry X`** — is the layer arranged the way its own manifest says? Seven
-  refusals, `MD0013`–`MD0019`, including **a relative path leaving a tool's own directory**,
-  which is what makes *self-isolated* a checked property rather than a hope. comeni-registry#1
-  traded a guarantee for a freedom — a misfiled document used to be impossible by construction —
-  and this is the other half of that trade.
+- Artifact validation rejects conflicting writers, duplicate decision keys, missing goals,
+  inconsistent override attribution and unsupported parameter destinations. A human or model
+  attribution must correspond to an actual decision; AI-derived premises are also counted.
+- Directory digests distinguish filenames, file contents and symlink targets, preventing
+  ambiguous encodings and accidental hashing of files outside the directory.
+- Vocabulary serialization sorts sets. Layer order and identity no longer collapse layers
+  with the same display name; serialized displacement records avoid absolute host paths.
+- Loading invalid declared data reports a diagnostic with the offending file and remedy.
+  IR serialization round-trips computed review fields correctly.
 
-- **Conformance reads the layer, not a separate root.** `check()` and `module_path()` take the
-  stack's modules and look one up by **key**, derived from the contract's own `nf_include`. They
-  computed `module_root / f"{nf_include}.nf"` before, over a directory in *this* repository on a
-  different release cadence from the registry the contract came out of — so `MD0104`, the check
-  that exists to catch a contract drifting from its module, was comparing two things nothing kept
-  in step. `orchestrate.build` loses `vendor_root`.
+#### Known limitations
 
-- **`mendel_compiler.staging`** puts the module source a pipeline needs beside the artifact — one
-  implementation where `mendel build` and the API's `keep` each had their own `copytree`, which is
-  the shape a bug hides in (`keep` had no copy at all until `MD0210` found it). It stages **what
-  the pipeline includes**: five modules for the spine, where the old sweep shipped all thirteen.
-
-### mendel-api
-
-- **`settings.source_root` is retired.** One root: a container that has the registry now has
-  everything, and `docker-compose.yml` loses a bind mount from two services.
-
-### Removed
-
-- **`vendor/`**, and `vendor/modules.json` and `vendor/conf/` with it. The modules live in the
-  registry layer beside the contracts that bind them. `vendor/conf/` held eight nf-core
-  container-config files that no code path ever opened; the label→resource mappings Mendel emits
-  are transcribed into `emit.py` as a quoted convention.
-
-### wiener-core
-
-- **The package exists, and it is pure.** `wiener-core` joins invariant 1 — the static scan and
-  the runtime audit hook cover it exactly as they cover the three Mendel packages. A fold over
-  events has no legitimate need to open a socket, and it pays for itself where nobody planned:
-  the OpenTelemetry SDK is a network client, so the guard is what keeps the span *mapping* pure
-  and the *export* on the other side of the line. `docs/design/wiener.md` §3.1.
-- **`admit()` — the ingress allowlist.** Mendel declares what may leave; Wiener declares what
-  may enter. A weblog body becomes closed types and every undeclared field is dropped, so a
-  Nextflow upgrade adding a field is inert until somebody adds it in a diff. Held to
-  `tests/fixtures/weblog/failing-run.jsonl`, thirteen events from a real run.
-- **`EventKind.HEARTBEAT`, and `FROM_NEXTFLOW` is smaller than it.** Time enters the fold as an
-  event because `wiener-core` may not read a clock; `heartbeat()` is the only constructor and
-  `admit()` refuses one from the network.
-- **`LabString`** marks the fields a laboratory's own words reach — `name`, `script`, `workdir`,
-  `tag`. Structured fields, which is why "structured fields only" was never a privacy guarantee.
-
-### comeni-core
-
-- **`EmittedBy.WIENER`**, so a code can name the package that raises it. The first member
-  naming a package outside Mendel.
-- **Two diagnostics, `MW0001`–`MW0002`**, and a new band `MW0001`–`MW0099` for Wiener's
-  ingest. `W` was reserved for Wiener when the bands were laid out; this is the first code to
-  use it.
-
-- **`SCHEMA_VERSION` 4 → 5. This breaks the artifact format**, and `0.2.0` rather than `1.0.0`
-  is a judgement under `docs/guides/releasing.md`'s pre-1.0 paragraph: below 1.0.0 a `0.x.0`
-  may still break something, provided the break is said out loud. This is it being said.
-  A `pipeline.yml` written by this version is refused by an older Mendel (`MD0207`); a v4 file
-  still emits here, which was checked rather than assumed.
-- **A model's override is recorded separately from a person's.** `ParamDecision`,
-  `ProducerDecision` and `SourceDecision` each gain a `model_override`, and `_Decided` gains
-  `model_override_by` naming which model. `human_override` keeps its meaning — `decision.py`
-  calls it *"the one field in the system that is by design a person's answer"*, and a model
-  writing there would make that sentence false and a machine-assembled pipeline
-  indistinguishable from a hand-drawn one. That is audit A130 from the other direction.
-- **`DraftGraph`, `DraftNode`, `DraftEdge`** (`plan/draft.py`) — a graph somebody drew, before
-  anything has been decided about it. Four names per edge; everything else is derived.
-- **`Verdict`, `Finding`, `Level`** (`review/verdict.py`) — what a check reports. It reports at
-  three levels and never refuses; refusal stays with `keep` and the gates.
-- **Nine diagnostics, `MD0501`–`MD0509`**, and a new band `MD0500`–`MD0599` for validating a
-  hand-built graph. `MD0400`–`MD0499` was already allocated to gates and emission.
-
-**Known limit, recorded rather than fixed.** `ParamDecision.model_override` is
-`HumanParamValue`, which includes `None`, so a parameter a model deliberately set to null is
-indistinguishable from one it never touched. Detecting it via `model_fields_set` was tried and
-is worse: after a `model_dump()` round-trip every field is in that set, so it would refuse every
-`pipeline.yml` ever written. The same hole is inherited on `human_override` since A3. What is
-checked is the reverse — an author naming no act.
-
-- **`emitted_by` names the package that raises a code**, and `EmittedBy` gained `core`. Twenty-
-  three entries named a package that does not raise them, all of them raised in `comeni-core` —
-  the vocabulary had no way to say so. `tests/test_diagnostics_ownership.py` derives the answer
-  from the source.
-- **`MD0001`–`MD0009`** — loading declared data refuses with a code, a file name and a fix
-  rather than a Pydantic traceback.
-- **`ai:` and `MD0225`** — the artifact can state that no model was consulted, and refuses a
-  value claiming one when none was available. `pipeline.yml` is at version 4.
+- Legacy parameter decision records use null for both an absent override and an explicit
+  null answer. Human and model attribution does not resolve that ambiguity.
 
 ### mendel-resolver
 
-- No changes since the last release.
+#### Added
+
+- Replays preserve recorded answers while reporting stale and orphaned decisions. Resolved
+  values record the supplying layer and displaced alternatives for contracts and rules.
+- Goals and profiles use declared type families and validated measurements with sources.
+  Rules record the premises they lacked so the authoring flow can explain unanswered questions.
+
+#### Fixed
+
+- An inapplicable rule becomes a tier-4 question rather than failing resolution or guessing.
+  Producer pins are honored when applicable and refused when their inputs cannot be reached.
+- Parameter overrides survive replay instead of being discarded by candidate-list checks.
+  Registry drift handles deleted or unused contracts and changes to layer order.
+- Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
 
-- **`mendel docs`** — one Markdown page per tool, rendered from a layer's declared data.
-  A tool is the first two segments of a contract's module key, never its directory, since
-  comeni-registry#1 made the path meaningless. `--check` writes nothing and exits 1 when a
-  page is stale, missing, or describes a tool the registry no longer ships; that is what
-  `comeni-registry`'s CI runs on every pull request.
-- **`MD0223` sees a tier-4 setting answered by hand.** Answering a tier-4 question is now a
-  two-part edit — the override *and* the reason beside the value — and the one-part edit exits 2.
+#### Added
+
+- `mendel emit` regenerates Nextflow from a saved pipeline without registry access;
+  `mendel upgrade` re-resolves against current layers, replays answers and reports drift,
+  changes, replayed, stale and orphaned decisions. Dry runs do not write files.
+- `mendel publish` verifies and gates the saved files without re-resolving. It records the
+  successful gate and refuses divergent files or a failed gate.
+- Whole-layer conformance checks compare contracts with module signatures and outputs.
+  Missing source is reported as unverified. Layout lint checks declared directory structure
+  and refuses relative paths that escape a tool's directory.
+- Shared module staging copies only the sources included by a pipeline. `mendel docs`
+  renders tool documentation from declared data, with a check mode for stale or missing pages.
+- `mendel explain` provides the long-form diagnostic without loading a registry.
+
+#### Fixed
+
+- Resolved settings reach their declared destinations in tool arguments, channel metadata
+  or process directives. Reference and annotation inputs reach the processes that need them;
+  real-data tests check the resulting counts, beyond what stub execution can establish.
+- Conformance reads module source from the contract's registry stack rather than a separate
+  vendor root. Build refuses disagreements before emission.
+- Emission escapes editable Groovy values and validates template grammar. Refused emission
+  leaves existing files untouched; upgrade refuses another pipeline's output directory unless
+  explicitly forced. Tier-4 hand edits require both an override and its explanation.
+- The test gate enables Docker. Emitted test profiles pin their datasets by commit.
+
+### mendel-authoring
+
+#### Added
+
+- A pure package owns the authoring protocol, typed commands and interpreter. The session's
+  current node and named arrows drive transitions; protocol loading checks fork coverage.
+- Build plans describe steps, required facts, choices and registry gaps in pipeline order.
+  The flow walks the plan, records facts and decisions, and summarizes the resulting pipeline.
+- Pacing controls the conversation; tier-4 choices still stop for review. Previously answered
+  questions are not asked again. Build and Spawn are consolidated into one authoring flow.
+
+### mendel-api
+
+#### Added
+
+- Persistent authoring sessions support goal extraction, fact gathering, sample uploads,
+  read-back, typed answers, build review and resumption. Questions explain their subject,
+  affected steps, reason and available answers; uploads can answer missing facts.
+- Model-call records retain replies, response format and token usage. Installation settings
+  support environment locks, sealed credentials, provider connections and a model per purpose.
+- Sample inspection and AI characterisation run as background jobs under protection-level
+  checks. Characterisation validates offered identifiers and quoted evidence before using facts.
+- Saved whole-pipeline alternatives can be previewed without re-resolving. Manual edits create
+  linked authoring drafts, and corrected goals invalidate reviews when their meaning changes.
+- Draft deletion removes working content while retaining the specified audit record.
+  Cleanup applies retention settings and records deletion counts.
+
+#### Fixed
+
+- Authoring actions use one transaction, with jobs queued after commit. Serialized draft
+  writes and version checks prevent autosave and background work from overwriting each other.
+- Late or duplicated replies cannot silently advance or lock a newer question. Failed jobs
+  remain visible; expired sample text cannot be reused by a late characterisation reply.
+- Measured-fact conflicts require an explicit choice. Unbuildable corrections persist
+  truthfully, while accepted decisions and current answers remain visible in session history.
+- Database constraints and migrations align stored enums, JSON shapes and ownership keys.
+  Invalid phase filters return a validation response rather than a server error.
+
+#### Removed
+
+- The separate module source-root setting and mount; registry layers carry module source.
+
+### comeni-ai
+
+#### Added
+
+- Shared provider transport supports purpose-specific models, system/user message splits,
+  cache markers, raw replies and cached-token accounting.
+- Provider-specific structured response formats constrain declared answers and preserve null
+  where allowed. Server validation remains required; an empty allowed list allows no values.
+
+### mendel-ai
+
+#### Changed
+
+- Mendel model integration uses the shared `comeni-ai` transport. The package split does not
+  yet encompass all Mendel prompts or worker orchestration; ownership is tracked in
+  [issue #310](https://github.com/comeni-project/Comeni-Labs/issues/310).
+
+### comeni-inspect
+
+#### Added
+
+- A separate inspection package processes bounded uploaded samples in subprocesses, producing
+  measured facts. Compressed samples support truncated stream inspection with expansion limits.
+
+### mendel-forge
+
+#### Added
+
+- Source discovery, scaffolding, typed gaps, verification and human-approved landing support
+  registry proposals. Revisions persist new candidates rather than overwriting prior generations.
+
+### comeni-vendor
+
+#### Added
+
+- `comeni-vendor add` fetches module source into a registry layer at a pinned commit.
+  Offline `check` verifies the recorded digest; `--upstream` checks for upstream movement
+  over the network. Laboratory modules with no upstream report unpinned rather than checked.
+
+### wiener-core
+
+#### Added
+
+- A pure event fold models run state. Ingress admits declared Nextflow fields and drops
+  undeclared fields; heartbeat time arrives as an internally constructed event.
+- Laboratory-authored strings are identified separately from other structured fields.
+  Telemetry mapping stays pure, with export handled outside the package.
+
+### wiener-api
+
+#### Added
+
+- Run submission, local execution, event ingestion and live updates integrate with the build
+  application. Wiener reports its execution and retention settings to the shared settings UI.
+- Run deletion removes associated files, event streams and pipeline content. Working files
+  expire after completion according to retention settings; launching requires available params.
+
+#### Fixed
+
+- Run claims and event folding are serialized. Queued run parameters are durable in the
+  run directory, and lost queued jobs can be requeued.
+- Database constraints enforce declared shapes and laboratory ownership of child records.
+
+### dag-core
+
+#### Added
+
+- Shared pure graph layout supports the build and run canvases.
+
+### frontend
+
+#### Added
+
+- Goal and build flows show facts, sources, readable questions, step cards, review history
+  and model-call usage. Upload cards expose inspection and characterisation status.
+- Settings cover appearance, model connections, purpose-specific models, building, running
+  and retention. Locked or unavailable settings explain why they cannot be changed.
+- Whole-pipeline previews, retained pipeline views, draft/run deletion and retention controls
+  expose the corresponding backend operations.
+
+#### Fixed
+
+- The canvas uses a consistent frame for retained and previewed pipelines. Session answers,
+  progress and alternative views reflect saved state; duplicate React keys are corrected.
 
 ### Repository
 
-Not part of any package's version: build and documentation changes.
+#### Added
 
-- Every GitHub Action is current and pinned by commit SHA; Dependabot watches them weekly.
-- A tag-driven release workflow, and [`docs/internals/releasing.md`](docs/internals/releasing.md).
-- Workspace dependencies carry lower bounds, so an independent version means something.
+- `make verify` combines repository checks, real-tool tests and invariant guards;
+  `make static` exercises conformance, Nextflow lint and preview. Isolated test databases
+  separate destructive fixtures from development data.
+- CI runs fast checks on pushes and pull requests, with slow execution checks nightly.
+  Database test jobs fail when their required database is unavailable.
+- Package release automation, workspace dependency lower bounds, SHA-pinned GitHub Actions
+  and Dependabot updates support independent releases.
 
-### Changed
+#### Changed
 
-- **`via: meta` and `via: directive` now emit** (round three, A38). Only `via: ext` reached a
-  tool before, so a value routed to the channel `meta` map or to a process directive was
-  recorded with full provenance and carried nowhere — issue #10 reopened one level below where
-  it was closed. All three routes emit now, and a `Via` member that emits nothing is refused at
-  load rather than left to record a dead value.
-- **`mendel publish` certifies the artifact on disk and re-resolves nothing** (round three,
-  A50). It read the goal back and re-resolved against whatever `--registry` was installed, so an
-  overlay could reroute the pipeline, erase human overrides, and stamp a gate on a result nobody
-  read — at the door with no undo. Publish now needs no registry: it refuses a directory that
-  diverged from its `pipeline.yml`, gates the files on disk, and stamps the verdict. Conformance
-  is checked at `build`, where it always ran, since publish reads no contracts.
-- **One artifact: `pipeline.yml`.** It replaces `pipeline.ir.json`, `mendel.lock.yml` and
-  `pipeline.bundle.json`, which are no longer written. Every step, setting, decision, module
-  digest, registry layer and gate verdict is in it, and every value carries a `why:` — the
-  tier it exited at, who settled it, which layer it came from, and the citation. "What
-  settings does this pipeline use, and why" was four files and four mechanisms; it is one file
-  now. See [`docs/handbook/reference/pipeline-schema.md`](docs/handbook/reference/pipeline-schema.md).
-- **A setting declares the route that carries it, and a dead one is refused.** Every `Param`
-  names `via: ext | meta | directive`. Before this, a resolved value became a `params.<x>`
-  line in the workflow that no module reads — the resolver ran, flagged tier 4, printed
-  `REVIEW`, and the pipeline behaved identically whatever anyone answered. Issue #10.
-- **Four verbs.** `mendel emit <pipeline.yml>` rebuilds the Nextflow with no registry and no
-  network; `mendel upgrade <pipeline.yml> --out` never writes in place, and `--dry-run` is
-  `verify`; `mendel publish <pipeline.yml>` certifies a directory rather than writing a
-  bundle beside it.
-- **Publication carries a `Pipeline`.** `PublishBundle` is retired: the artifact on disk *is*
-  the payload, so what a person reads before publishing and what crosses the boundary cannot
-  disagree.
-- **`upgrade` reports five categories, not three** — drift, changes, replayed, stale and
-  orphaned. A recorded answer that stops applying used to vanish into a "newly asked" count.
+- Compose documentation identifies service roles and configuration sections. Mendel services
+  use `mendel-worker` and `mendel-ai-worker` names alongside `wiener-worker`.
+- Documentation is organized into user guidance, reference, design and working notes.
+  Build-file comments and command guidance are being simplified without changing behavior.
 
-### Added
+#### Security
 
-- **The diagnostic registry is data.** `comeni_core/diagnostics.yml` holds every code, and the
-  table in `docs/reference/cli.md` is generated from it — `make docs` regenerates, CI checks.
-  An undeclared code cannot be constructed. 30 codes: `MD0100`–`MD0108` conformance,
-  `MD0200`–`MD0220` the pipeline file.
-- **`emitted.from_digest`** — Nextflow runs `main.nf`, not `pipeline.yml`, so editing the file
-  and forgetting to re-emit would leave the run and the artifact diverged with every digest
-  matching. `mendel emit` reports and cures it; `upgrade` and `publish` refuse.
-- **A resolved setting is proven to reach a tool**, on real data, in `tests/test_counts.py`.
+- Static and runtime guards cover pure-package I/O, including indirect process/network calls.
+  Egress guards derive payload roots from declared doors and inspect mappings and byte fields.
+- Registry loading refuses symlinks. Parameter overrides reject path-shaped values as a
+  limited safeguard, not a complete closed-vocabulary solution.
 
-### Fixed
+#### Removed
 
-- **Round three (A38–A54) is closed** — the first audit of the `pipeline.yml` surface, seventeen
-  findings, four critical. Beyond A38 and A50 (above): hand-editable strings no longer flow
-  unescaped into generated Groovy (`test_data` is escaped, `NfTemplate` has a grammar — A44/A45);
-  a tier-4 answer has one writable home and a stored `human_override` that contradicts it is
-  refused (`MD0218`, A46); `source: human` must be backed by a real override (`MD0220`, A54); two
-  writers for one destination, a duplicate decision key, a missing `goal:`, and a two-writer meta
-  collision are each refused (`MD0208`/`MD0217`/`MD0219`, A40/A52/A48); `upgrade --out` refuses to
-  overwrite another pipeline's directory without `--force` (A53); a refused emit leaves the
-  directory untouched (A49); all four displacement kinds reach the artifact (A51); and a contract
-  that fails to load is blamed on the contract, not the goal (`MD0200`, A41). Every refusal added
-  or restored has a reverted-and-watched row in the guard ledger. **A14 stays open** — the loop
-  exits on no critical finding surviving a *fresh* audit, so round four is owed.
-- **A human override on a *parameter* was discarded entirely, in silence.** A parameter's
-  candidate list is a placeholder, so the replay resolver's membership check rejected every
-  override, counted it as newly asked, and threw the answer away.
-- **The egress guard walked three doors out of four.** It collected its roots by scanning
-  `egress.py` rather than from `DOORS`, so moving the publication payload to another module
-  took the door with no undo out of every check in that file, silently.
-
-### Security
-
-- **The 2026-08-06 audit's thirteen findings are closed** (A1–A13), plus A15, found while
-  fixing A5. See `notes/audits/2026-08-06-plan-1-to-1.7-audit.md`; **A14 and A16 remain
-  open**, deliberately, and are described there.
-- **Invariant 1 is enforced at runtime, and its claim is now accurate.** A file in
-  `comeni-core` importing only allowlisted names reached `os.system` via `pathlib.os` and
-  delivered a serialised `Goal` over TCP while the purity guard reported green.
-  `tests/test_purity_runtime.py` installs an audit hook over a real build and fails on any
-  socket or process event from a pure package; the static scan gained bare
-  `exec`/`eval`/`compile` and module-attribute chains. `CLAUDE.md` no longer says the pure
-  packages *cannot* reach the network — they *do not*, which is what two partial guards
-  support.
-- **An installed overlay can no longer reroute a pipeline silently** (invariant 11).
-  `ResolvedValue` records which layer supplied a contract or a rule block, and flags the case
-  where a lower layer offered something that lost. Contracts and rule tables both, the second
-  of which recorded nothing at all.
-- **`mendel publish` no longer writes a bundle when its gate fails**, and a bundle records
-  which gate it passed. `Gate` moved to `comeni_core.gates` with a shim at the old location.
-- **A path can no longer be typed into a parameter.** `DecisionRecord.human_override` and a
-  goal's `ParamOverride.value` reject path-shaped values. A blocklist and a stopgap; closed
-  parameter vocabulary in Plan 2 Task 11 is the real fix.
-- The egress guard learned `Mapping` and `bytes`; a registry layer may not contain a symlink;
-  a contract is pinned by its file rather than by what survived parsing; `resolve()` validates
-  the profile it was handed rather than trusting `mendel build` to have done it.
-
-### Added
-
-- **`make verify`** — `check` + the counts-matrix tests + the guards, in
-  order, with `-j1` where it matters. `make check` deselects the only tests that exercise the
-  v1 criterion, and naming that in a Makefile target beats remembering it.
-
-- **A pipeline is a shareable artifact.** `mendel publish` certifies a pipeline directory:
-  every contract pinned by content digest, every layer by name and digest, the gate that
-  passed and the digests of what was emitted. No filesystem paths and no timestamps, both
-  tested — a path is meaningless on the machine that reads it, and a timestamp would turn the
-  determinism tests into noise. It writes files and sends nothing; transmitting them is a
-  later, separate act.
-
-  *Shipped in this cycle as a `PublishBundle` plus `mendel.lock.yml`; both were consolidated
-  into `pipeline.yml` before release, and this bullet describes where it landed.*
-- **`mendel upgrade`** re-resolves a published pipeline against the current registry, replays
-  every recorded decision rather than asking again, and reports drift (the registry moved)
-  separately from changes (that moved *this* pipeline), each with its tier and reason.
-  Against an unchanged registry it reproduces byte-identical Nextflow.
-- `ReplayResolver` — federation §4.3: load a curated pipeline, change one thing, and every
-  untouched decision replays from its record. One more `AmbiguityResolver`, which is the
-  payoff for Plan 1 having declared the port.
-- Content addressing: `digest_of` for models and `digest_of_directory` for layers.
-- `PipelineIR.registry_layers` and `PipelineIR.shadowed`, so the artifact records which
-  registry built it and what an overlay displaced.
-- `Goal` moved to `comeni-core` so a bundle can carry one; `mendel_resolver.goal` re-exports.
-- **The registry is its own layer**, in `registry/`, with a `registry.yml` manifest, and is
-  published at [comeni-registry](https://github.com/comeni-project/comeni-registry) under
-  CC-BY-4.0. `examples/` now holds the example goal and nothing else.
-
-### Fixed
-
-- **A layer digest was forgeable.** It joined `name:hash` with newlines and escaped nothing,
-  so a single file named `a.yml:<sha of "alpha">\nb.yml` digested identically to a two-file
-  layer. Names are now hashed rather than embedded, and file and symlink contents are
-  domain-separated so neither can impersonate the other.
-- **A layer digest followed symlinks out of the layer**, making it depend on bytes the layer
-  does not contain. A symlink is now hashed as its target path, as git does.
-- **`Vocabulary` digested differently in every process.** Its frozensets are `dict` values
-  rather than fields, so the codebase-wide "sets must sort on serialisation" rule had never
-  been applied to them, and nothing had serialised a `Vocabulary` before.
-- **`ShadowRecord.winning_layer` was an absolute filesystem path**, and it reaches a publish
-  bundle. It now carries the layer's name.
-- `Lockfile.drift_against` raised `KeyError` in two cases it exists to report: a contract
-  deleted from the registry, and a contract still present but no longer used by the
-  re-resolved pipeline.
-- Layers compared by name rather than position, so **inverting the registry stack reported no
-  drift at all** — although order decides which layer shadows which — and two layers sharing
-  a basename silently collapsed into one.
-
-- **Conformance checking: `mendel build` refuses a contract that disagrees with its
-  module.** A `ModuleContract` is a hand-written binding to a foreign, dynamically-typed
-  unit, and until now nothing compared the two. `ModuleSpec` parses the vendored `main.nf`
-  and `meta.yml`; seven diagnostics (`MD0100`–`MD0107`) check a contract against it; any
-  disagreement exits `2` and emits nothing. Every diagnostic says what to write instead.
-- `mendel explain <code>` — the long form of a diagnostic, after `rustc --explain`. Loads
-  nothing, so it answers even when the registry will not.
-- `PipelineIR.unverified` — contracts whose module source was absent, so nothing could
-  check them. A lab wrapping a bare container is legitimate; the claim still reaches a
-  publish bundle marked as unevidenced.
-- `make static` — conformance, `nextflow lint` and `nextflow -preview`, no Docker, about
-  six seconds. Both gates now run on every pull request. They are not redundant:
-  `nextflow lint` accepts a reference to a channel that does not exist and exits `0`;
-  `-preview` rejects it.
-
-### Fixed
-
-- **Three contracts declared output ports that their modules never emit.** The port name is
-  what the compiler reads as `PROCESS.out.<name>`, so each would have failed at launch
-  against a channel that does not exist. All three were latent — no goal had yet routed to
-  one — and all three were found by running the new checker for the first time:
-  `nf-core/samtools/index` said `bai` where `SAMTOOLS_INDEX` emits `index`;
-  `comeni/profile/fastqc` said `read_length` against FastQC's `html`/`zip`;
-  `comeni/profile/collect` said `profile` against MultiQC's `report`/`data`/`plots`.
-
-- **The emitted spine could not run, and once it could it counted wrongly.** Three defects,
-  none of which `-stub-run` could see, because nf-core stubs never read their inputs:
-  - `genome.fasta` was not a declared type. Both aligner index builders were called with an
-    empty tuple where the reference belongs — you cannot build an index without a genome.
-  - `STAR_ALIGN` was handed an empty GTF while the annotation channel sat in the same
-    workflow feeding featureCounts.
-  - A resolved parameter reached no tool at all. nf-core modules read `task.ext.args` and
-    `meta`; Mendel emitted a workflow-level `params.<x>` that nothing referenced. The
-    consequence was not a crash: featureCounts fell back to `-s 0`, so the spine would have
-    produced a counts matrix computed with the wrong strandedness, silently.
-- `Gate.TEST` ran `-profile test` without `docker`, so every process died with
-  `command not found`. It had never been run.
-- `PipelineIR` did not deserialise: `review_level` is a computed field, written on dump and
-  refused on load by `extra="forbid"`. Nothing had read an IR back yet.
-- `.gitignore`'s bare `build/` excluded the vendored `hisat2/build` module from git.
-
-### Added
-
-- `ModuleContract.ext_args` — flags a module always needs, emitted into
-  `process { withName: … { ext.args = … } }`. Carries no tier, because it is not a decision.
-- `Measurement.describes` / `meta_key` / `meta_values` — measured facts travel in the channel's
-  `meta` map, where nf-core modules already translate them into flags.
-- `PipelineIR.profile` — the IR records what was measured about the data it was built for.
-- `NfInput.because` — an empty placeholder must say why the type system does not model that
-  input, so the next hollow slot is something a reviewer reads rather than a real run finds.
-- `Vocabulary.test_data` and an emitted `test` profile, pinned to a commit of
-  `nf-core/test-datasets` rather than a branch.
-- Public-repository documentation: `docs/` split into guides, reference, concepts, design
-  and internal working notes, with `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`
-  and this file.
-- CI: fast checks on every push and pull request, the `-stub-run` gate nightly, and the
-  counts-matrix assertions nightly — the only gate that can catch a pipeline which runs and
-  computes the wrong numbers.
-
-### Removed
-
-- The `param: strandedness` rule and featureCounts' `strandedness` parameter. `-s 2` is
-  featureCounts' encoding of a measured fact, not a decision — the module already contains
-  that translation, and the rule's "citation" was the tool's own manual. It was a translation
-  wearing a tier-3 badge. One rule remains in `registry/rules/rnaseq.yml`, and it is a genuine
-  decision between two defensible aligners.
+- The separate vendored module tree and unused container configuration files. Registry layers
+  now contain source beside contracts; registry-data fixes are tracked in comeni-registry.
 
 ## [0.1.0] — 2026-08-03
 
