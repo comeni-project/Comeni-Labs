@@ -2,8 +2,7 @@
 
 from typing import Literal, NamedTuple
 
-from comeni_core.goal.asked import Constraints
-from comeni_core.spell.marks import HumanParamValue, TypeId
+from comeni_core.spell.marks import HumanParamValue
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_authoring.blueprint import Blueprint
@@ -11,21 +10,6 @@ from mendel_authoring.blueprint import Blueprint
 
 class _Payload(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class StatedCandidate(_Payload):
-    kind: Literal["input", "measurement"]
-    subject: str = Field(min_length=1, max_length=128)
-    value: HumanParamValue | list[HumanParamValue] | None = None
-
-
-class Extraction(_Payload):
-    """A model's suggestions; confirmation creates decisions separately."""
-
-    want: list[TypeId] = Field(min_length=1)
-    constraints: Constraints = Field(default_factory=Constraints)
-    suggested: Constraints = Field(default_factory=Constraints)
-    stated: list[StatedCandidate] = Field(default_factory=list)
 
 
 class Empty(_Payload):

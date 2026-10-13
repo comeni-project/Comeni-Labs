@@ -9,7 +9,7 @@ import pytest
 from comeni_core.plan.draft import DraftGraph
 from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
-from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
+from mendel_api.models import PipelineAuthoringProposal
 from mendel_api.services import blueprint as bp
 from mendel_api.services import drafts
 from mendel_api.services import session as facade
@@ -154,8 +154,10 @@ def test_a_want_nothing_can_make_asks_instead_of_failing(clean, caplog):
     assert "no.such.type" in caplog.text, "the server log says which type"
     assert blocks[1]["asks"] == gathering.UNREACHABLE_ASK
     assert "no.such.type" not in blocks[1]["asks"]
-    with session_scope() as db:
-        assert db.get(PipelineAuthoringSession, sid).extraction is None, "the want is cleared"
+    from mendel_api.services import decisions
+
+    draft_id = facade.read(sid)["draft_id"]
+    assert not [w for w in decisions.read(draft_id).wants if w.present], "the want is retracted"
     assert view["pending_proposal"] is None
 
 

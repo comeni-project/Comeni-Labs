@@ -409,9 +409,6 @@ def prefill_gap(proposal_id: str, option: str, value, *, note: str) -> None:
         proposal.payload = payload
 
 
-ALREADY_NOTE = "from what you said earlier"
-"""The note on an option a phrasing call heard the person already give (#167)."""
-
 
 def _characterisable() -> bool:
     """Whether the AI may read a sample here (14.7.7). The seam is `characterise.available`."""

@@ -286,7 +286,7 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             # 14.7.8.1: the protocol node the session rests on — a node id, nothing of a file.
             "at",
             # Part F: typed extraction presentation, retired workflow status and policy columns.
-            "extraction", "retired", "retirement_reason", "pacing", "show_gaps",
+            "retired", "retirement_reason", "pacing", "show_gaps",
         },
         "pipeline_authoring_turn": {
             "id", "session_id", "seq", "role", "state", "blocks", "text", "base_revision",

@@ -785,7 +785,6 @@ class PipelineAuthoringSession(Base):
     __tablename__ = "pipeline_authoring_session"
     shape_version: Mapped[int] = stamp("pipeline_authoring_session")
 
-    extraction: Mapped[dict | None] = mapped_column(Json, nullable=True)
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(
         _one_of(RetirementReason, 32, "retirement_reason"), nullable=True

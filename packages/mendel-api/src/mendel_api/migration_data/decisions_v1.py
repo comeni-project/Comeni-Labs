@@ -460,15 +460,34 @@ def apply(connection, snapshot: Snapshot, converted: Conversion, *, at):
         draft=snapshot.draft_id,
     )
     if snapshot.session_id:
-        execute(
-            """UPDATE pipeline_authoring_session SET retired=:retired,
-            retirement_reason=:reason, extraction=CAST(:extraction AS JSON)
-            WHERE id=:session""",
-            retired=converted.retired,
-            reason=converted.reason,
-            extraction=converted.extraction,
-            session=snapshot.session_id,
-        )
+        from sqlalchemy import inspect
+
+        columns = {c["name"] for c in inspect(connection).get_columns("pipeline_authoring_session")}
+        if "extraction" in columns:
+            execute(
+                """UPDATE pipeline_authoring_session SET retired=:retired,
+                retirement_reason=:reason, extraction=CAST(:extraction AS JSON)
+                WHERE id=:session""",
+                retired=converted.retired,
+                reason=converted.reason,
+                extraction=converted.extraction,
+                session=snapshot.session_id,
+            )
+        else:
+            # **The writer follows the schema; the interpretation stays frozen.** Once Part I.0
+            # dropped the column, what it held is carried into rows and suggestions instead.
+            execute(
+                """UPDATE pipeline_authoring_session SET retired=:retired,
+                retirement_reason=:reason WHERE id=:session""",
+                retired=converted.retired,
+                reason=converted.reason,
+                session=snapshot.session_id,
+            )
+            if converted.extraction:
+                from mendel_api.migration_data import extraction_v1
+
+                extraction_v1.carry(connection, snapshot.session_id, snapshot.draft_id,
+                                    converted.extraction)
         policy = json.loads(snapshot.policy) if snapshot.policy else {}
         if policy:
             execute(

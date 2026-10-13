@@ -252,19 +252,6 @@ def store_goal(session_id: str, goal: dict | None) -> None:
         row.updated_at = now()
 
 
-def store_extraction(session_id, extraction):
-    from mendel_authoring.payloads import Extraction
-
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, session_id)
-        if row is None:
-            raise KeyError(session_id)
-        row.extraction = (Extraction.model_validate(extraction).model_dump(mode="json")
-                          if extraction is not None else None)
-        row.row_version = session.changed_version(db, session_id, row.row_version)
-        row.updated_at = now()
-
-
 GOAL = ProposalKind.GOAL
 """The proposal `kind` for a goal summary awaiting confirmation."""
 

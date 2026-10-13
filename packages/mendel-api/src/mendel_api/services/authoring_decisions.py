@@ -1,7 +1,6 @@
 """Authoring presentation reads selected rows; model extraction remains a suggestion."""
 
 from mendel_authoring.decisions import FactOrigin, InputDecision
-from mendel_authoring.payloads import Extraction
 
 from mendel_api.authoring.types import Fact, FactKind, FactSource
 from mendel_api.services import decisions
@@ -61,10 +60,6 @@ def record(draft_id, fact: Fact, *, who, proposal_id=None):
     return decisions.select_observation(
         draft_id, fact.subject, observed, who=who, proposal_id=proposal_id
     )
-
-
-def extracted(row):
-    return Extraction.model_validate(row.extraction) if row.extraction else None
 
 
 def confirmed(draft_id):
