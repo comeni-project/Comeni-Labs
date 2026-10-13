@@ -63,7 +63,7 @@ def test_stored_offer_is_refused_after_its_selected_decision_context_changes():
     if not reachable():
         pytest.skip("needs throwaway Postgres")
     sid = session.perform(c.Begin("counts", "ana")).result[0]
-    session.perform(c.Understood(sid, {"want": ["counts.matrix"]}))
+    session.perform(c.Understood(sid, {"heard": [{"kind": "want", "subject": "counts.matrix"}]}))
     offered = session.read(sid)["pending_proposal"]
     decisions.set_fact(session.read(sid)["draft_id"], "read_length", 100, who="ana")
     with pytest.raises(ValueError, match="MI0201"):

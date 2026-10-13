@@ -32,10 +32,6 @@ class Empty(_Payload):
     pass
 
 
-class GoalReturned(_Payload):
-    extraction: Extraction
-
-
 class GapAnswered(_Payload):
     answered: Literal["said", "left_open", "no_input"]
 
@@ -50,7 +46,7 @@ class Amended(_Payload):
     said: str = Field(max_length=2000)
 
 
-class Change(_Payload):
+class DecisionChange(_Payload):
     """One change to intent or facts, from any caller — the person's click or edit, the chat
     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
     was taken from, already checked (`heard.find`); `retract` removes what `subject` names."""
@@ -68,6 +64,14 @@ class Change(_Payload):
     observation_id: str | None = None
 
 
+class GoalReturned(_Payload):
+    """What the model read from the person's first words (Part I.0 §5.3): changes it heard,
+    quoting them, which are recorded; and changes it suggests, which wait for a click."""
+
+    heard: list[DecisionChange] = Field(default_factory=list)
+    suggested: list[DecisionChange] = Field(default_factory=list)
+
+
 class Correction(_Payload):
     subject: str
     value: HumanParamValue | list[HumanParamValue] | None = None
@@ -82,7 +86,7 @@ class Correction(_Payload):
     missing: str | None = None
     missing_states: list[str] = Field(default_factory=list)
     pin_blocked: bool = False
-    change: Change | None = None
+    change: DecisionChange | None = None
     """The general change this correction carries (Part I.0); `None` for the older kinds."""
 
 

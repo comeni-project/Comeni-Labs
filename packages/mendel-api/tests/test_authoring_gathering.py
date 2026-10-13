@@ -40,12 +40,7 @@ def _gathering(want: list[str], stated: list[dict] | None = None) -> str:
     """A session moved to GATHERING with a want and no facts, its first gap offered."""
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
-    with session_scope() as db:
-        db.get(PipelineAuthoringSession, sid).extraction = {
-            "want": want,
-            "constraints": {},
-            "stated": stated or [],
-        }
+    authoring_setup.seed(sid, want, stated or [])
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.offer_next_gap(sid)
     return sid
@@ -232,8 +227,10 @@ def test_a_typed_reply_pre_fills_the_gap_and_records_nothing(clean, monkeypatch)
     assert paired["value"] is True and paired["source"] == "person_said"
 
 
-def test_a_stated_fact_pre_fills_its_gap_and_waits_for_the_click(clean):
-    """#170: *paired-end* in the first sentence is heard, and still confirmed by the person."""
+def test_a_suggested_fact_pre_fills_its_gap_and_waits_for_the_click(clean):
+    """#307 (superseding #170): a fact the model did not quote is its suggestion — it pre-fills
+    the question, marked as the model's, and only the click records it. (A quoted one is recorded
+    outright: `test_authoring_describe_heard.py`.)"""
     sid = _gathering(
         want=["counts.matrix"],
         stated=[
@@ -243,7 +240,7 @@ def test_a_stated_fact_pre_fills_its_gap_and_waits_for_the_click(clean):
     )
     pid = _pending_for(sid, "paired")
     options = {o["id"]: o for o in _payload(pid)["block"]["options"]}
-    assert options["yes"]["recommended"] and options["yes"]["note"] == "you mentioned it"
+    assert options["yes"]["recommended"] and options["yes"]["note"] == "suggested by AI"
     assert not options["no"]["recommended"]
     assert not [f for f in _facts(sid) if f["subject"] == "paired"]
     facade.perform(commands.AnswerGap(pid, "yes", None, "ana"))
@@ -365,15 +362,8 @@ def test_the_models_constraints_are_suggestions_never_in_the_goal(clean):
     """#176: *gene_level, normalised* arrived in the typed goal unasked; now the card offers."""
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
-    with session_scope() as db:
-        db.get(PipelineAuthoringSession, sid).extraction = {
-            "want": ["counts.matrix"],
-            "constraints": {},
-            "suggested": {
-                "required_states": [{"type_id": "counts.matrix", "states": ["gene_level"]}]
-            },
-            "stated": [],
-        }
+    authoring_setup.seed(sid, ["counts.matrix"], suggested_states=[
+        {"type_id": "counts.matrix", "states": ["gene_level"]}])
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.offer_next_gap(sid)
     while (pid := facade.pending_id(sid)) and "subject" in _payload(pid):

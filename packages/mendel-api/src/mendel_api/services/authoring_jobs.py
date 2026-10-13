@@ -31,9 +31,9 @@ from mendel_api.authoring.types import (
     Option,
     Phase,
     Question,
-    WantUnderstanding,
+    Understanding,
 )
-from mendel_api.services import authoring_ai, registry
+from mendel_api.services import authoring_ai, known, registry, replies
 from mendel_api.services import session as session_mod
 from mendel_api.settings import model_access, settings
 from mendel_api.stages import describe, gathering, goal
@@ -107,7 +107,8 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
     if len(stack.vocabulary.types) >= settings.family_step_from:
         # **The type in two steps** (#194): the families first, then each chosen family whole.
         chosen = authoring_ai.choose_families(
-            request, stack=stack, client=_client(authoring_ai.Purpose.FAMILY), session_id=session_id
+            request, stack=stack, memory=known.text(session_id),
+            client=_client(authoring_ai.Purpose.FAMILY), session_id=session_id,
         )
         if not chosen.admitted:
             _refused(session_id, seq, context, chosen)
@@ -127,6 +128,7 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         request,
         stack=stack,
         families=families,
+        memory=known.text(session_id),
         client=_client(authoring_ai.Purpose.GOAL),
         session_id=session_id,
     )
@@ -135,8 +137,8 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         _refused(session_id, seq, context, outcome)
         return
 
-    understood: WantUnderstanding = outcome.reply
-    said = ack or understood.ack or ""
+    understood: Understanding = outcome.reply
+    said = ack or understood.say or ""
     blocks = [Narrative(id=f"want-{seq}", text=said).model_dump(mode="json")]
     for index, asked in enumerate(understood.questions, start=1):
         # **The engine mints the option ids here** — `AskedQuestion` carries labels only, so the
@@ -169,19 +171,19 @@ def _understand(session_id: str, seq: int, context, prompt: str) -> None:
         _perform(c.AskedBack(session_id))
         return
 
-    # **The engine takes over from here, in both modes** (14.7.3). What the want needs is
-    # computed, not asked of a model, and each gap needs a person: nothing is guessed, so Spawn
-    # has nothing it could fill in on their behalf (protocol rule 5).
+    # **The engine takes over from here** (14.7.3): what the want needs is computed, not asked
+    # of a model. What the model heard, quoting the person, is recorded; what it suggests waits
+    # for a click (#307).
+    issued = replies.issue(
+        understood, turns=replies.person_turns(session_id), stack=stack,
+        invocation_id=outcome.invocation_id,
+    )
     _perform(
         c.Understood(
             session_id,
             {
-            "want": list(understood.want),
-            # **The model's constraints are suggestions, never the goal's** (#176): the card offers
-            # them and only the ones the person keeps are added.
-            "constraints": {},
-            "suggested": understood.constraints.model_dump(mode="json"),
-                "stated": [s.model_dump(mode="json") for s in understood.stated],
+                "heard": [change.model_dump(mode="json") for change in issued.heard],
+                "suggested": [change.model_dump(mode="json") for change in issued.suggested],
             },
         )
     )  # `understood` runs on to the first question (`list_needs`, `next_gap`): 14.7.8.1

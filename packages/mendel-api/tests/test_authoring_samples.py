@@ -37,9 +37,7 @@ def clean():
 def _gathering(want: list[str]) -> str:
     draft_id = drafts.create(DraftGraph(), "t", "ana")
     sid = facade.perform(commands.OpenSession(draft_id, "ana")).result
-    with session_scope() as db:
-        db.get(PipelineAuthoringSession, sid).extraction = {
-            "want": want, "constraints": {}, "stated": []}
+    authoring_setup.seed(sid, want)
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.offer_next_gap(sid)
     return sid

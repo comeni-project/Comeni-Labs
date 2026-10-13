@@ -24,7 +24,7 @@ from mendel_api.models import (
 )
 from mendel_api.services import session
 from mendel_api.services.session import Ctx, handles, records
-from mendel_api.stages import _jobs, _rows, gathering
+from mendel_api.stages import _jobs, gathering
 from mendel_api.stages._rows import GOAL, new_id, next_seq
 from mendel_api.stages._rows import now as _now
 
@@ -358,7 +358,7 @@ def _answer_turn(ctx: Ctx, cmd: c.AnswerTurn) -> bool:
 
 @records(c.Understood)
 def _understood(ctx: Ctx, cmd: c.Understood) -> None:
-    session.take(ctx, Command.UNDERSTOOD.value, p.GoalReturned(extraction=cmd.goal))
+    session.take(ctx, Command.UNDERSTOOD.value, p.GoalReturned.model_validate(cmd.reading))
 
 
 @records(c.AskedBack)
@@ -400,8 +400,18 @@ def family(ctx: Ctx) -> None:
 
 @handles("read_goal")
 def read_goal(ctx: Ctx) -> str:
-    """Store the want the model read; the engine takes over to gather what it needs."""
+    """Record what the model heard and offer what it suggests (Part I.0 §5.3); the engine takes
+    over to gather what the want needs. **The rows are the only home** (§6.2): no extraction is
+    stored beside them."""
+    from mendel_api.services import changes, suggestions
+
     if not isinstance(ctx.payload, p.GoalReturned):
         raise TypeError("read_goal requires GoalReturned")
-    _rows.store_extraction(ctx.session_id, ctx.payload.extraction.model_dump(mode="json"))
+    with session_scope() as db:
+        draft_id = db.get(PipelineAuthoringSession, ctx.session_id).draft_id
+    for change in ctx.payload.heard:
+        changes.apply(draft_id, change, who="model")
+    for change in ctx.payload.suggested:
+        suggestions.offer(ctx.session_id, change, heard=False,
+                          invocation_id=change.invocation_id)
     return "want_returned"

@@ -10,8 +10,8 @@ from sqlalchemy import select
 
 from mendel_api.authoring.types import FactKind, FactSource, Phase, ProposalState
 from mendel_api.db import session_scope
-from mendel_api.models import PipelineAuthoringProposal
-from mendel_api.services import authoring_ai, registry, session
+from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
+from mendel_api.services import authoring_ai, decisions, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows, gathering
 from mendel_api.stages._rows import now as _now
@@ -154,9 +154,35 @@ def _decide_goal(ctx: Ctx, cmd: c.DecideGoal) -> tuple[st.Settlement, Phase]:
     if outcome.refusal is not None:
         return outcome, session.current_phase(ctx.session_id)
     if accepted:
-        store_goal(ctx.session_id, goal)
+        # **The rows already hold the goal** (Part I.0 §6.2): an unedited card only records
+        # *That's right*; an edited one is imported as the person's change, then confirmed.
+        if cmd.edited is not None:
+            store_goal(ctx.session_id, goal)
+        else:
+            with session_scope() as db:
+                draft_id = db.get(PipelineAuthoringSession, ctx.session_id).draft_id
+            decisions.confirm(draft_id)
+        _settle_card_suggestions(ctx.session_id)
     session.take(ctx, arrow.value)
     return outcome, session.current_phase(ctx.session_id)
+
+
+def _settle_card_suggestions(session_id: str) -> None:
+    """The card offered the model's suggested states as chips; once it is decided they are
+    settled — kept ones applied, the rest set aside — so none is offered twice."""
+    from mendel_api.services import suggestions
+
+    with session_scope() as db:
+        draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
+    kept = {(r.type_id, frozenset(r.states))
+            for r in decisions.goal(draft_id).constraints.required_states}
+    for view in suggestions.pending(session_id):
+        if view.change.kind != "require":
+            continue
+        if (view.change.subject, frozenset(view.change.states)) in kept:
+            suggestions.mark_applied(view.id)
+        else:
+            suggestions.dismiss(session_id, view.id, by="engine")
 
 
 @records(c.Revised)

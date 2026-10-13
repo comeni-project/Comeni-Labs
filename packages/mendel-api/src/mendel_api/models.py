@@ -993,7 +993,7 @@ class PipelineAuthoringSuggestion(Base):
     """A change the model offered and the person has not yet taken or set aside (Part I.0 §5.3).
 
     **Its own table, not a proposal**: a session holds one pending proposal — the open question
-    or the goal card — and suggestions sit beside it. `change` is a `payloads.Change` dump;
+    or the goal card — and suggestions sit beside it. `change` is a `payloads.DecisionChange` dump;
     `heard` says whether it quoted the person (offered rather than recorded only because the goal
     was already confirmed). Applying one is the person's own change; the model is named by
     `invocation_id`, never recorded as the author."""

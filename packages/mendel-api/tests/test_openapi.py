@@ -79,6 +79,9 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/authoring/{session_id}/preview", "get"): "previewAuthoring",
         ("/api/pipeline/authoring/{session_id}/edits", "post"): "editAuthoringDraft",
         ("/api/pipeline/authoring/{session_id}/facts/{subject}", "post"): "correctAuthoringFact",
+        ("/api/pipeline/authoring/{session_id}/changes", "post"): "changeAuthoring",
+        ("/api/pipeline/authoring/{session_id}/suggestions/{suggestion_id}", "post"):
+            "decideAuthoringSuggestion",
         (
             "/api/pipeline/authoring/{session_id}/facts/{subject}/history",
             "get",

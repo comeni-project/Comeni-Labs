@@ -93,13 +93,14 @@ def _model(monkeypatch, *bodies) -> Answers:
 
 GOAL = json.dumps(
     {
-        "want": ["counts.matrix"],
-        "constraints": {"required_states": {"counts.matrix": ["gene_level"]}},
-        "ack": "A gene-level counts matrix — got it. A few questions first.",
+        "wants": [{"type": "counts.matrix"}],
+        "requires": [{"type": "counts.matrix", "states": ["gene_level"]}],
+        "say": "A gene-level counts matrix — got it. A few questions first.",
         "questions": [],
     }
 )
-"""The model's answer under `builder.goal.v3`: the want only. What it needs is gathered."""
+"""The model's answer under `builder.goal.v8` (#307): the want, and a state it suggests (no
+quote, so offered on the card, as the old `constraints` were). What it needs is gathered."""
 
 ANSWERS = {
     "read_length": ("value", 150),
@@ -359,7 +360,7 @@ def test_a_follow_up_during_goal_review_is_answered_as_an_explanation(
     assert response.status_code == 202, response.text
     seq = response.json()["seq"]
 
-    _model(monkeypatch, json.dumps({"explain": "counting needs aligned, sorted reads"}))
+    _model(monkeypatch, json.dumps({"say": "counting needs aligned, sorted reads"}))
     _run(session["id"], seq)
     reply = _session(client, session["id"])["turns"][-1]
 
@@ -377,7 +378,7 @@ def test_a_follow_up_while_gathering_is_answered_not_crashed(client, clean, queu
     response = client.post(
         f"/api/pipeline/authoring/{session_id}/messages", json={"text": "why a genome?"}
     )
-    _model(monkeypatch, json.dumps({"explain": "reads are aligned against it"}))
+    _model(monkeypatch, json.dumps({"say": "reads are aligned against it"}))
     _run(session_id, response.json()["seq"])
     reply = _session(client, session_id)["turns"][-1]
     assert reply["state"] == "answered", reply
@@ -559,7 +560,7 @@ FAMILY = json.dumps(
 NO_FIT = json.dumps(
     {"fits": "no", "families": [], "ack": "Variant calls — noted.", "unclear": "Which result?"}
 )
-GOAL_V7 = json.dumps({"want": ["counts.matrix"], "constraints": {}, "questions": []})
+GOAL_V7 = json.dumps({"wants": [{"type": "counts.matrix"}], "questions": []})
 
 
 def _family_step_on(monkeypatch):
@@ -617,8 +618,8 @@ def test_a_goal_answer_that_asks_makes_exactly_one_call(client, clean, queue, mo
     """Issue 201, the one-step path: the goal call asks, the session stays in understanding."""
     session_id, seq = _begin(client, queue)
     asked = {
-        "want": ["counts.matrix"],
-        "ack": "Counts — noted.",
+        "wants": [{"type": "counts.matrix"}],
+        "say": "Counts — noted.",
         "questions": [{"asks": "Gene or transcript level?", "why_open": "Both are possible"}],
     }
     transport = _model(monkeypatch, json.dumps(asked))
@@ -688,7 +689,7 @@ def test_a_yes_with_nothing_listed_asks(client, clean, queue, monkeypatch):
     assert len(transport.sent) == 1
 
 
-UNREACHABLE = json.dumps({"want": ["annotation.gtf"], "constraints": {}, "questions": []})
+UNREACHABLE = json.dumps({"wants": [{"type": "annotation.gtf"}], "questions": []})
 """`annotation.gtf` is declared in the real registry, and nothing produces it."""
 
 
@@ -768,7 +769,9 @@ def test_a_correction_in_words_after_the_goal_was_accepted_does_not_withdraw_the
     step = _session(client, session["id"])["pending_proposal"]
     assert step is not None and step["kind"] == "step"
 
-    transport = _model(monkeypatch, json.dumps({"revise": "an aligned, sorted BAM"}))
+    transport = _model(monkeypatch, json.dumps({"say": "Noted.",
+                                               "wants": [{"type": "alignment.bam",
+                                                          "quote": "an aligned, sorted BAM"}]}))
     authoring_jobs._follow_up(session["id"], seq, grounding)
     after = _session(client, session["id"])
     assert after["phase"] == "building"

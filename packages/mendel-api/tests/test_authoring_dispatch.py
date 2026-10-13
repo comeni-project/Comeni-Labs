@@ -14,6 +14,7 @@ from mendel_api.services import session as facade
 from mendel_authoring import commands
 from mendel_authoring import payloads as p
 from mendel_authoring.interpret import Refused
+from mendel_authoring.payloads import DecisionChange
 from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
 from mendel_authoring.types import Event
 from mendel_postgres import truncate
@@ -140,7 +141,7 @@ def test_allows_and_check_read_the_diagram(sid):
 from mendel_api.services import authoring_jobs  # noqa: E402
 from mendel_authoring.types import Command  # noqa: E402
 
-WANT = {"want": ["counts.matrix"], "constraints": {}, "suggested": {}, "stated": []}
+WANT = [DecisionChange(kind="want", subject="counts.matrix", actor="model")]
 
 
 def test_saying_what_you_want_moves_to_where_the_model_works(sid):
@@ -151,7 +152,7 @@ def test_saying_what_you_want_moves_to_where_the_model_works(sid):
 def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
     facade.perform(commands.Say(sid, "RNA-seq counts"))
     ran = session.perform_now(sid, Command.UNDERSTOOD.value,
-                              payload=p.GoalReturned(extraction=WANT))
+                              payload=p.GoalReturned(heard=WANT))
     assert ran.path[:3] == ["read_goal", "list_needs", "next_gap"]
     assert _row(sid)[:2] == ("reply", Phase.GATHERING.value)
 
@@ -159,7 +160,7 @@ def test_the_models_reading_is_a_command_that_runs_to_the_first_question(sid):
 def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
     """Review focus 1: the job's command has no arrow from the question; nothing moves."""
     facade.perform(commands.Say(sid, "RNA-seq counts"))
-    session.perform_now(sid, Command.UNDERSTOOD.value, payload=p.GoalReturned(extraction=WANT))
+    session.perform_now(sid, Command.UNDERSTOOD.value, payload=p.GoalReturned(heard=WANT))
     before = _row(sid)
     authoring_jobs._failed(sid)
     assert _row(sid) == before
@@ -170,7 +171,7 @@ def test_a_provider_failure_after_the_session_moved_on_is_ignored(sid):
 
 def _gathering(sid):
     facade.perform(commands.Say(sid, "RNA-seq counts"))
-    session.perform_now(sid, Command.UNDERSTOOD.value, payload=p.GoalReturned(extraction=WANT))
+    session.perform_now(sid, Command.UNDERSTOOD.value, payload=p.GoalReturned(heard=WANT))
 
 
 def test_an_answer_runs_through_answered_to_the_next_question(sid):

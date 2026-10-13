@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from comeni_core.diagnostics import coded
 from mendel_authoring import heard as heard_mod
-from mendel_authoring.payloads import Change
+from mendel_authoring.payloads import DecisionChange
 from sqlalchemy import select
 
 from mendel_api.authoring.types import ChatReply, TurnRole, Understanding
@@ -22,8 +22,8 @@ from mendel_api.models import PipelineAuthoringTurn
 
 @dataclass(frozen=True)
 class Issued:
-    heard: list[Change]
-    suggested: list[Change]
+    heard: list[DecisionChange]
+    suggested: list[DecisionChange]
     dropped: list[str]
     """`not_offered` phrases whose quote did not check, for the call's log."""
 
@@ -33,8 +33,10 @@ def person_turns(session_id: str) -> list[tuple[int, str]]:
     with session_scope() as db:
         rows = db.scalars(
             select(PipelineAuthoringTurn)
-            .where(PipelineAuthoringTurn.session_id == session_id,
-                   PipelineAuthoringTurn.role == TurnRole.PERSON)
+            .where(
+                PipelineAuthoringTurn.session_id == session_id,
+                PipelineAuthoringTurn.role == TurnRole.PERSON,
+            )
             .order_by(PipelineAuthoringTurn.seq)
         ).all()
         return [(row.seq, row.text or "") for row in rows]
@@ -86,39 +88,55 @@ def admit(reply: Understanding | ChatReply, stack) -> Understanding | ChatReply:
     return reply
 
 
-def _changes(reply, stack, wanted: frozenset[str]) -> list[tuple[Change, str | None]]:
+def _changes(reply, stack, wanted: frozenset[str]) -> list[tuple[DecisionChange, str | None]]:
     """Each item as the change it asks for, with its quote."""
     types = stack.vocabulary.types
-    out: list[tuple[Change, str | None]] = []
+    out: list[tuple[DecisionChange, str | None]] = []
     for item in reply.wants:
-        out.append((Change(kind="want", subject=item.type), item.quote))
+        out.append((DecisionChange(kind="want", subject=item.type), item.quote))
     for item in reply.inputs:
-        out.append((Change(kind="input", subject=item.type, value=True), item.quote))
+        out.append((DecisionChange(kind="input", subject=item.type, value=True), item.quote))
     for item in reply.facts:
         if item.subject in types:
             held = item.value if isinstance(item.value, bool) else True
-            out.append((Change(kind="input", subject=item.subject, value=held), item.quote))
+            out.append((DecisionChange(kind="input", subject=item.subject, value=held), item.quote))
         else:
-            out.append((Change(kind="measurement", subject=item.subject, value=item.value),
-                        item.quote))
+            out.append(
+                (
+                    DecisionChange(kind="measurement", subject=item.subject, value=item.value),
+                    item.quote,
+                )
+            )
     for item in reply.requires:
-        out.append((Change(kind="require", subject=item.type, states=sorted(item.states)),
-                    item.quote))
+        out.append(
+            (
+                DecisionChange(kind="require", subject=item.type, states=sorted(item.states)),
+                item.quote,
+            )
+        )
     for item in getattr(reply, "pins", []):
-        out.append((Change(kind="pin", subject=item.type, value=item.tool), item.quote))
+        out.append((DecisionChange(kind="pin", subject=item.type, value=item.tool), item.quote))
     for item in getattr(reply, "parameters", []):
-        out.append((Change(kind="parameter", subject=item.name, value=item.value), item.quote))
+        out.append(
+            (DecisionChange(kind="parameter", subject=item.name, value=item.value), item.quote)
+        )
     for item in getattr(reply, "retract", []):
         if item.subject in types:
             kind = "want" if item.subject in wanted else "input"
         else:
             kind = "measurement"
-        out.append((Change(kind=kind, subject=item.subject, retract=True), item.quote))
+        out.append((DecisionChange(kind=kind, subject=item.subject, retract=True), item.quote))
     return out
 
 
-def issue(reply: Understanding | ChatReply, *, turns: Sequence[tuple[int, str]], stack,
-          invocation_id: str | None, wanted: frozenset[str] = frozenset()) -> Issued:
+def issue(
+    reply: Understanding | ChatReply,
+    *,
+    turns: Sequence[tuple[int, str]],
+    stack,
+    invocation_id: str | None,
+    wanted: frozenset[str] = frozenset(),
+) -> Issued:
     """Sort an admitted reply into heard and suggested changes. `wanted` is what the goal wants
     now, so retracting a type knows whether it was a want or an input."""
     pairs = _changes(reply, stack, wanted)
@@ -126,7 +144,8 @@ def issue(reply: Understanding | ChatReply, *, turns: Sequence[tuple[int, str]],
     values: dict[tuple[str, str], set] = {}
     for change, _quote in pairs:
         values.setdefault((change.kind, change.subject), set()).add(
-            repr((change.value, change.retract, tuple(change.states))))
+            repr((change.value, change.retract, tuple(change.states)))
+        )
     contested = {key for key, seen in values.items() if len(seen) > 1}
 
     heard, suggested = [], []
@@ -146,6 +165,14 @@ def issue(reply: Understanding | ChatReply, *, turns: Sequence[tuple[int, str]],
         if seq is None:
             dropped.append(item.quote)
             continue
-        heard.append(Change(kind="asked", subject=item.quote, heard=item.quote, heard_seq=seq,
-                            actor="model", invocation_id=invocation_id))
+        heard.append(
+            DecisionChange(
+                kind="asked",
+                subject=item.quote,
+                heard=item.quote,
+                heard_seq=seq,
+                actor="model",
+                invocation_id=invocation_id,
+            )
+        )
     return Issued(heard=heard, suggested=suggested, dropped=dropped)

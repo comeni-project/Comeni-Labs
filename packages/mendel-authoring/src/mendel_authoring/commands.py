@@ -48,8 +48,10 @@ class AnswerTurn:
 
 @dataclass(frozen=True, slots=True)
 class Understood:
+    """The model read the person's words: `reading` is a `payloads.GoalReturned` dump."""
+
     session_id: str
-    goal: dict
+    reading: dict
     takes: ClassVar[frozenset[Command]] = frozenset({Command.UNDERSTOOD})
 
 
@@ -288,8 +290,8 @@ class ReleaseProducer:
 @dataclass(frozen=True, slots=True)
 class Change:
     """Any change to intent or facts, from anyone (Part I.0 spec §5.1): `change` is a
-    `payloads.Change` dump. It takes the correction section's arrows, so it is offered exactly
-    where a correction is — at a waiting node, never during async work."""
+    `payloads.DecisionChange` dump. It takes the correction section's arrows, so it is offered
+    exactly where a correction is — at a waiting node, never during async work."""
 
     session_id: str
     change: dict

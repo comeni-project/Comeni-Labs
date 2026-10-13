@@ -1,14 +1,14 @@
 """One writer for every change to intent and facts (Part I.0 spec §5.1).
 
 The person's click or edit, the chat model's reply and a stage's own handler all arrive as a
-`Change` and are written here, through `services.decisions`, so there is one path and one set of
-checks: an undeclared type, tool or parameter is refused with `MI0204`, a value a measurement
-refuses with `MI0208`, and nothing is written for either."""
+`DecisionChange` and are written here, through `services.decisions`, so there is one path and
+one set of checks: an undeclared type, tool or parameter is refused with `MI0204`, a value a
+measurement refuses with `MI0208`, and nothing is written for either."""
 
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Site
 from mendel_authoring.decisions import ActorKind, FactOrigin, InputDecision
-from mendel_authoring.payloads import Change
+from mendel_authoring.payloads import DecisionChange
 
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
@@ -29,8 +29,9 @@ def _tool(stack, contract: str) -> None:
     try:
         stack.registry.get(contract)
     except (KeyError, ValueError) as refused:
-        raise ValueError(coded("MI0204", f"{contract} is not a tool this registry declares")) \
-            from refused
+        raise ValueError(
+            coded("MI0204", f"{contract} is not a tool this registry declares")
+        ) from refused
 
 
 def _parameter(stack, name: str) -> None:
@@ -47,7 +48,7 @@ def _measurement(stack, subject: str, value) -> None:
         raise ValueError(coded("MI0208", f"that answer does not fit {subject}")) from refused
 
 
-def check(change: Change) -> None:
+def check(change: DecisionChange) -> None:
     """Refuse what names something undeclared, before anything moves (`MI0204`, `MI0208`)."""
     stack = registry.stack()
     kind, subject = change.kind, change.subject
@@ -61,7 +62,7 @@ def check(change: Change) -> None:
         _parameter(stack, subject)
 
 
-def apply(draft_id: str, change: Change, *, who: str) -> bool:
+def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
     """Write one change; whether the decisions moved. Retracting what is not there is no
     change (Review Focus 5 of plan A)."""
     stack = registry.stack()
@@ -78,8 +79,13 @@ def apply(draft_id: str, change: Change, *, who: str) -> bool:
         current = {f.subject: f for f in decisions.read(draft_id).facts}
         if change.retract and current.get(subject) is None:
             return False
-        decisions.set_fact(draft_id, subject, None if change.retract else change.value,
-                           **said, **({} if change.retract else heard))
+        decisions.set_fact(
+            draft_id,
+            subject,
+            None if change.retract else change.value,
+            **said,
+            **({} if change.retract else heard),
+        )
     elif kind == "input":
         current = decisions.read(draft_id)
         old = next((i for i in current.inputs if i.key == subject or i.type_id == subject), None)
@@ -104,7 +110,8 @@ def apply(draft_id: str, change: Change, *, who: str) -> bool:
                     present=change.value is True,
                     origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
                 ),
-                **said, **heard,
+                **said,
+                **heard,
             )
     elif kind == "want":
         _type(stack, subject)
@@ -116,13 +123,15 @@ def apply(draft_id: str, change: Change, *, who: str) -> bool:
         unknown = [s for s in change.states if s not in stack.vocabulary.types[subject]]
         if unknown:
             raise ValueError(coded("MI0204", f"{subject} declares no state {unknown[0]}"))
-        decisions.require_states(draft_id, subject, [] if change.retract else change.states,
-                                 **said, **heard)
+        decisions.require_states(
+            draft_id, subject, [] if change.retract else change.states, **said, **heard
+        )
     elif kind in ("pin", "producer"):
         _type(stack, subject)
         site = Site(type_id=subject, states=frozenset(change.states))
-        pinned = {(p.site.type_id, p.site.states): p.contract
-                  for p in decisions.read(draft_id).producers}
+        pinned = {
+            (p.site.type_id, p.site.states): p.contract for p in decisions.read(draft_id).producers
+        }
         if change.retract or kind == "producer":
             if pinned.get((subject, frozenset(change.states))) is None:
                 return False
@@ -155,7 +164,7 @@ def apply(draft_id: str, change: Change, *, who: str) -> bool:
     return moved
 
 
-def describe(change: Change) -> str:
+def describe(change: DecisionChange) -> str:
     """The change in a person's words, for a receipt or a suggestion card."""
     from mendel_api.authoring.types import FactKind
     from mendel_api.services import explain
@@ -174,8 +183,9 @@ def describe(change: Change) -> str:
         name = explain.name_of(stack, FactKind.INPUT, subject)
         return f"no longer wanting the {name}" if change.retract else f"you want the {name}"
     if change.kind == "require":
-        return f"the {explain.name_of(stack, FactKind.INPUT, subject)} must be " + \
-            ", ".join(change.states)
+        return f"the {explain.name_of(stack, FactKind.INPUT, subject)} must be " + ", ".join(
+            change.states
+        )
     if change.kind in ("pin", "producer"):
         if change.retract or change.kind == "producer":
             return f"released the tool choice for {subject}"

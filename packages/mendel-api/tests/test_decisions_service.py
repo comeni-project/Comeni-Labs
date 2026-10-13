@@ -198,7 +198,7 @@ def test_gathering_records_selected_inputs_and_uses_a_corrected_row_value():
 
     service = _service()
     sid = session.perform(c.Begin("counts", "ana")).result[0]
-    session.perform(c.Understood(sid, {"want": ["counts.matrix"]}))
+    session.perform(c.Understood(sid, {"heard": [{"kind": "want", "subject": "counts.matrix"}]}))
     offered = session.read(sid)["pending_proposal"]
     subject = offered["payload"]["subject"]
     session.perform(c.AnswerGap(offered["id"], "have_it", None, "ana"))
@@ -210,20 +210,24 @@ def test_gathering_records_selected_inputs_and_uses_a_corrected_row_value():
     assert current["value"] == 100
 
 
-def test_model_extraction_stays_separate_from_accepted_goal_and_fact_rows():
-    from mendel_api.models import PipelineAuthoringSession
-    from mendel_api.services import session
+def test_what_the_model_suggests_waits_and_its_want_is_unconfirmed():
+    """#307: the want is recorded from the first reading, unconfirmed until *That's right*; a
+    statement the model did not quote waits as a suggestion, never a fact."""
+    from mendel_api.services import authoring_decisions, session, suggestions
     from mendel_authoring import commands as c
 
     service = _service()
     sid = session.perform(c.Begin("counts from paired reads", "ana")).result[0]
-    session.perform(c.Understood(sid, {"want": ["counts.matrix"], "stated": [
-        {"kind": "measurement", "subject": "paired", "value": True}]}))
-    with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, sid)
-        assert row.extraction["stated"][0]["value"] is True
-        assert not service.read(row.draft_id).wants
-    assert not service.read(session.read(sid)["draft_id"]).facts
+    session.perform(c.Understood(sid, {
+        "heard": [{"kind": "want", "subject": "counts.matrix", "actor": "model"}],
+        "suggested": [{"kind": "measurement", "subject": "paired", "value": True,
+                       "actor": "model"}],
+    }))
+    draft = session.read(sid)["draft_id"]
+    assert [w.type_id for w in service.read(draft).wants if w.present] == ["counts.matrix"]
+    assert not authoring_decisions.confirmed(draft)
+    assert not service.read(draft).facts
+    assert [v.change.subject for v in suggestions.pending(sid)] == ["paired"]
 
 
 def test_reviews_are_retained_rows_with_real_actor_kind_and_cascade_status():

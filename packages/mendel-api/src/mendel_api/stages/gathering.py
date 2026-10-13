@@ -7,12 +7,14 @@ import logging
 
 from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import RequiredStates
 from comeni_core.goal.profile import Evidence
 from comeni_core.review.answer import ValueSource
 from mendel_authoring import commands as c
 from mendel_authoring import interpret
 from mendel_authoring import payloads as p
 from mendel_authoring import state as st
+from mendel_authoring.decisions import ActorKind
 from mendel_authoring.types import Command
 from mendel_resolver.goal import Goal
 from sqlalchemy import select
@@ -37,7 +39,15 @@ from mendel_api.models import (
     PipelineDraft,
     PipelinePhrasing,
 )
-from mendel_api.services import authoring_decisions, decisions, explain, gaps, registry, session
+from mendel_api.services import (
+    authoring_decisions,
+    decisions,
+    explain,
+    gaps,
+    registry,
+    session,
+    suggestions,
+)
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows
 from mendel_api.stages._rows import GOAL, propose
@@ -174,12 +184,11 @@ def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
-        extracted = authoring_decisions.extracted(row)
-        wanted = extracted.model_dump(mode="json") if extracted else {}
+        # **The rows are the only home** of the want (Part I.0 §6.2): what the model read is
+        # recorded there from the first sentence, and confirmed later on the card.
         current = decisions.goal(row.draft_id)
-        if current.want:
-            wanted = {**wanted, "want": current.want,
-                      "constraints": current.constraints.model_dump(mode="json")}
+        wanted = {"want": current.want,
+                  "constraints": current.constraints.model_dump(mode="json")}
         return wanted, authoring_decisions.facts(row.draft_id), row.row_version
 
 
@@ -202,17 +211,9 @@ def compose_goal(session_id: str) -> Goal:
     **An open fact is absent, not empty.** A measurement nobody knows is left out of the
     profile, and the tiers carry every decision that reads it as tier 4 (protocol rule 6).
     """
-    wanted, _facts, _ = _gathered(session_id)
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
-        current = decisions.goal(row.draft_id)
-    # The card proposes the extracted want. It is selected only by confirmation.
-    if current.want:
-        return current
-    return current.model_copy(update={"want": wanted.get("want", []),
-                                      "constraints": Goal.model_validate({
-                                          "constraints": wanted.get("constraints") or {}}
-                                      ).constraints})
+        return decisions.goal(row.draft_id)
 
 
 UNREACHABLE_ASK = "Nothing here can produce what you asked for. What result do you want?"
@@ -252,7 +253,12 @@ def need_listed(session_id: str) -> bool:
                 ).model_dump(mode="json"),
             ],
         )
-        _rows.store_extraction(session_id, None)
+        # The want was the model's guess: it is retracted, so the reply is read from the top.
+        with session_scope() as db:
+            draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
+        for type_id in wanted.get("want", []):
+            decisions.retract_want(draft_id, type_id, who="engine",
+                                   actor_kind=ActorKind.RESOLVER)
         return False
 
     return True
@@ -275,7 +281,7 @@ def offer_gap_or_card(session_id: str) -> str:
             have=f"You have: {inputs}.",
             do="The engine builds it from what you said.",
             readback_pending=_model_configured(),
-            suggested=(wanted.get("suggested") or {}).get("required_states") or [],
+            suggested=_suggested_states(session_id),
             get="You get: "
             + ", ".join(explain.name_of(stack, FactKind.INPUT, t) for t in goal.want) + ".",
         )
@@ -296,15 +302,15 @@ def offer_gap_or_card(session_id: str) -> str:
     measured, read = _inspectable(stack)
     explained = explain.explanation(gap, found, stack, measured=measured, read=read,
                                     characterisable=_characterisable())
-    heard = next(
-        (
-            c
-            for c in wanted.get("stated") or []
-            if c.get("kind") == gap.kind.value and c.get("subject") == gap.subject
-        ),
+    # **A suggestion pre-fills the question it answers** (Part I.0 §5.3): the model's reading,
+    # marked as such, sent only by the person's click.
+    offered = next(
+        (v.change for v in suggestions.pending(session_id)
+         if v.change.kind == gap.kind.value and v.change.subject == gap.subject
+         and not v.change.retract),
         None,
     )
-    if heard is not None and (fill := _candidate_option(gap.kind, heard.get("value"), options)):
+    if offered is not None and (fill := _candidate_option(gap.kind, offered.value, options)):
         question = _prefilled(question, *fill, note=STATED_NOTE)
     cached, phrased = cached_phrasing(session_id, gap.subject)
     if phrased is not None:
@@ -326,8 +332,16 @@ def offer_gap_or_card(session_id: str) -> str:
     return "a_gap"
 
 
-STATED_NOTE = "you mentioned it"
-"""The note on an option a stated candidate pre-fills (#170)."""
+STATED_NOTE = "suggested by AI"
+"""The note on an option a model's suggestion pre-fills (#170; #307: a quoted statement is
+recorded, so what pre-fills is only ever the model's own reading)."""
+
+
+def _suggested_states(session_id: str) -> list[RequiredStates]:
+    """Required states the model suggested, offered on the card as chips to keep (#176)."""
+    return [RequiredStates(type_id=v.change.subject, states=v.change.states)
+            for v in suggestions.pending(session_id)
+            if v.change.kind == "require" and not v.change.retract]
 
 
 READ_NOTE = "read from your reply"

@@ -55,7 +55,7 @@ def test_a_late_reading_is_refused_and_writes_nothing():
     session.perform(c.ProviderFailed(sid))
     before = _at(sid)
     with pytest.raises(Refused):
-        session.perform(c.Understood(sid, {"want": ["counts.gene"]}))
+        session.perform(c.Understood(sid, {"heard": [{"kind": "want", "subject": "counts.gene"}]}))
     assert _at(sid) == before
 
 
@@ -64,7 +64,8 @@ def _gathering(monkeypatch, configured=True):
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: configured)
     sid, _ = session.perform(c.Begin("gene counts", "t")).result
-    done = session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
+    done = session.perform(
+        c.Understood(sid, {"heard": [{"kind": "want", "subject": "counts.matrix"}]}))
     return sid, done
 
 
@@ -135,7 +136,7 @@ def _to_card(monkeypatch):
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: True)
     sid, _ = session.perform(c.Begin("gene counts", "t")).result
-    session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
+    session.perform(c.Understood(sid, {"heard": [{"kind": "want", "subject": "counts.matrix"}]}))
     done = None
     while (pending := session.read(sid)["pending_proposal"])["kind"] == "gap":
         # The first ordinary option, as `test_authoring_gathering._pending_for` answers.
@@ -153,8 +154,9 @@ def test_the_card_offered_queues_its_read_back(monkeypatch):
 
 
 def test_accepting_the_goal_is_one_transaction(monkeypatch):
-    """If storing the goal breaks, the card is still pending: the decision rolled back with it."""
-    from mendel_api.stages import goal
+    """If recording the confirmation breaks, the card is still pending: the decision rolled back
+    with it. (An unedited card only records *That's right*, Part I.0 §6.2.)"""
+    from mendel_api.services import decisions
 
     sid, card, _ = _to_card(monkeypatch)
     revision = session.read(sid)["revision"]
@@ -162,7 +164,7 @@ def test_accepting_the_goal_is_one_transaction(monkeypatch):
     def broke(*a, **k):
         raise RuntimeError("store failed")
 
-    monkeypatch.setattr(goal, "store_goal", broke)
+    monkeypatch.setattr(decisions, "confirm", broke)
     with pytest.raises(RuntimeError):
         session.perform(c.DecideGoal(card["id"], "accepted", revision, "t"))
     assert session.read(sid)["pending_proposal"]["id"] == card["id"]
@@ -219,7 +221,7 @@ def _confirmed(monkeypatch):
 
     monkeypatch.setattr(gathering, "_model_configured", lambda: False)
     sid, _ = session.perform(c.Begin("gene counts", "t")).result
-    session.perform(c.Understood(sid, {"want": ["counts.matrix"], "constraints": {}}))
+    session.perform(c.Understood(sid, {"heard": [{"kind": "want", "subject": "counts.matrix"}]}))
     while (pending := session.read(sid)["pending_proposal"])["kind"] == "gap":
         options = pending["payload"]["options"]
         ordinary = [o for o in options if o not in ("dont_have", "value", "not_sure", "upload")]

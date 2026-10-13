@@ -41,7 +41,8 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
         if "goal" in values:
             goal = values.pop("goal")
             if target in (Phase.UNDERSTANDING, Phase.GATHERING):
-                values["extraction"] = goal
+                # Before confirmation the want lives in the rows (Part I.0 §6.2).
+                seed_rows(row.draft_id, (goal or {}).get("want", []))
             else:
                 decisions.import_goal(row.draft_id, Goal.model_validate(goal or {}), who=row.who)
                 decisions.confirm(row.draft_id)
@@ -85,3 +86,31 @@ def offer_next_gap(session_id: str) -> str | None:
 
 def start_building(session_id: str) -> str | None:
     return session.perform(c.StartBuilding(session_id)).result
+
+
+def seed_rows(draft_id: str, want, stated=()) -> None:
+    """What a model's first reading leaves: the want in the rows, unconfirmed (Part I.0 §6.2)."""
+    from mendel_authoring.decisions import ActorKind
+
+    for type_id in want:
+        decisions.set_want(draft_id, type_id, who="model", actor_kind=ActorKind.MODEL)
+
+
+def seed(session_id: str, want, stated=(), suggested_states=()) -> None:
+    """A session as the model's reading leaves it: the want recorded, what it heard unquoted
+    offered as suggestions (Part I.0 §5.3)."""
+    from mendel_api.services import suggestions
+    from mendel_authoring.payloads import DecisionChange
+
+    with transaction() as db:
+        draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
+    seed_rows(draft_id, want)
+    for said in stated:
+        value = said.get("value", True) if said["kind"] == "input" else said.get("value")
+        suggestions.offer(session_id, DecisionChange(kind=said["kind"], subject=said["subject"],
+                                             value=value, actor="model"),
+                          heard=False, invocation_id=None)
+    for r in suggested_states:
+        suggestions.offer(session_id, DecisionChange(kind="require", subject=r["type_id"],
+                                             states=r["states"], actor="model"),
+                          heard=False, invocation_id=None)

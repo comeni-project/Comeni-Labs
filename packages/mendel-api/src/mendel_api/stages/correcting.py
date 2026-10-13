@@ -8,7 +8,7 @@ from mendel_authoring import commands as c
 from mendel_authoring import payloads as p
 from mendel_authoring.decisions import FactOrigin
 from mendel_authoring.diff import diff_of
-from mendel_authoring.payloads import Change
+from mendel_authoring.payloads import DecisionChange
 from mendel_authoring.types import Command, Phase, ProposalState
 from mendel_resolver.router import UnroutableError, UnroutablePinError
 from sqlalchemy import select
@@ -126,7 +126,7 @@ def change(ctx: Ctx, cmd: c.Change):
     correction. Refused before the arrow when it names something undeclared (`MI0204`)."""
     from mendel_api.services import changes as changes_mod
 
-    written = Change.model_validate(cmd.change)
+    written = DecisionChange.model_validate(cmd.change)
     changes_mod.check(written)
     return _begin(ctx, cmd, Command.CORRECT_FACT, subject=written.subject, kind=written.kind,
                   states=written.states, change=written)
@@ -193,7 +193,6 @@ def fork_correction(ctx: Ctx):
             child.confirmed_revision = child.decision_revision
         sid = describe.open_session(child.id, who=change.who, start="fork_correction")
         row = db.get(PipelineAuthoringSession, sid)
-        row.extraction = parent_session.extraction
         row.pacing, row.show_gaps = parent_session.pacing, parent_session.show_gaps
         row.blueprint, row.registry_digest = (
             parent_session.blueprint,
@@ -276,8 +275,8 @@ def select_correction(ctx: Ctx):
         draft = db.get(PipelineDraft, row.draft_id)
         previous = draft.decision_revision
         # **One writer for every change** (Part I.0 §5.1): the correction's own kinds and the
-        # general `Change` both go through `changes.apply`, which holds the vocabulary.
-        written = change.change or Change(
+        # general `DecisionChange` both go through `changes.apply`, which holds the vocabulary.
+        written = change.change or DecisionChange(
             kind=change.kind,
             subject=change.subject,
             value=change.value,
