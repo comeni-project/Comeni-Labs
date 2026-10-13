@@ -56,7 +56,7 @@
     {
       "key": "building",
       "title": "Building",
-      "lede": "How the build walks you through a pipeline. Neither choice is read yet.",
+      "lede": "How the build walks you through a pipeline, and how much it explains on the way.",
       "order": 2,
       "served_by": "mendel",
       "entries": [
@@ -97,6 +97,45 @@
           },
           "shown": {
             "value": "ask",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "building.explain",
+            "label": "Explain each question",
+            "help": "Under each question about your data: what it is, where it usually comes from, and why this analysis needs it. Kept by this browser. Each explanation can still be opened or folded on its own.",
+            "kind": "choice",
+            "default": "open",
+            "env": null,
+            "options": [
+              {
+                "value": "open",
+                "label": "Open",
+                "designed": null
+              },
+              {
+                "value": "collapsed",
+                "label": "Collapsed",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "browser",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "open",
             "source": "default",
             "locked": false,
             "reason": null,

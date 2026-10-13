@@ -48,6 +48,19 @@ PACING = Setting.choice(
     env="COMENI_BUILD_PACING",
 )
 
+EXPLAIN = Setting.choice(
+    key="building.explain",
+    label="Explain each question",
+    help=(
+        "Under each question about your data: what it is, where it usually comes from, and why "
+        "this analysis needs it. Kept by this browser. Each explanation can still be opened or "
+        "folded on its own."
+    ),
+    options=[("open", "Open"), ("collapsed", "Collapsed")],
+    default="open",
+    where=Where.BROWSER,
+)
+
 TIER4_ANSWERS = Setting.choice(
     key="building.tier4",
     label="Choices no rule settles",
@@ -65,9 +78,9 @@ TIER4_ANSWERS = Setting.choice(
 BUILDING = Section(
     key="building",
     title="Building",
-    lede="How the build walks you through a pipeline. Neither choice is read yet.",
+    lede="How the build walks you through a pipeline, and how much it explains on the way.",
     order=2,
-    settings=(PACING, TIER4_ANSWERS),
+    settings=(PACING, EXPLAIN, TIER4_ANSWERS),
 )
 
 PURPOSE_NAMES = ("want", "talk", "tier4", "readback", "forge")

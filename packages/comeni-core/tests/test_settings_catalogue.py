@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from comeni_core.settings import CATALOGUE, Designed, Installation, Kind, Source, resolve
-from comeni_core.settings.catalogue import BUILDING, PACING, TIER4_ANSWERS
+from comeni_core.settings.catalogue import BUILDING, EXPLAIN, PACING, TIER4_ANSWERS
 
 GOLDEN = Path(__file__).parent / "golden" / "settings-menu.json"
 
@@ -48,7 +48,7 @@ def test_the_served_menu_matches_the_golden_file():
 
 def test_building_sits_between_appearance_and_models():
     assert [s.key for s in CATALOGUE.sections][:3] == ["appearance", "building", "models"]
-    assert BUILDING.settings == (PACING, TIER4_ANSWERS)
+    assert BUILDING.settings == (PACING, EXPLAIN, TIER4_ANSWERS)
 
 
 def test_pacing_is_live_and_an_env_pin_wins_over_the_stored_value():
@@ -100,3 +100,15 @@ def test_the_author_is_a_text_setting_under_system_pinned_by_its_env():
     setting = CATALOGUE.setting("system.author")
     assert setting.kind is Kind.TEXT and setting.env == "COMENI_AUTHOR"
     assert CATALOGUE.section_of("system.author").key == "system"
+
+
+def test_explain_each_question_is_kept_by_the_browser_and_starts_open():
+    """Part I.1: how much a question explains is one person's way of reading, kept by the
+    browser like the theme."""
+    from comeni_core.settings.catalogue import BUILDING
+    from comeni_core.settings.declare import Where
+
+    setting = next(s for s in BUILDING.settings if s.key == "building.explain")
+    assert setting.where is Where.BROWSER
+    assert setting.default == "open"
+    assert [o.value for o in setting.options] == ["open", "collapsed"]
