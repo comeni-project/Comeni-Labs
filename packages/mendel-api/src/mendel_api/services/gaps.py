@@ -8,6 +8,7 @@ costs the build (#114). Deterministic: same want and facts in, same gaps out, in
 from typing import NamedTuple
 
 from mendel_resolver.layers import Layers
+from mendel_resolver.rules.format import Decision
 
 from mendel_api.authoring.types import Fact, FactKind
 
@@ -16,6 +17,11 @@ class Gap(NamedTuple):
     kind: FactKind
     subject: str
     why: str
+    used_by: tuple[str, ...] = ()
+    """For an input, or a measurement carried in its type's `meta`: every candidate contract on
+    the walk that consumes the type, in walk order (Part I.1 §4)."""
+    decides: tuple[Decision, ...] = ()
+    """For a measurement a rule reads: each decision whose `when` reads it, in table order."""
 
 
 class Unreachable(NamedTuple):
@@ -24,8 +30,9 @@ class Unreachable(NamedTuple):
     subject: str
 
 
-def _premise_measurements(stack: Layers) -> set[str]:
-    """Measurement ids a rule's `when` reads, directly or through a derivation.
+def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:
+    """Measurement ids a rule's `when` reads, directly or through a derivation, each with the
+    decisions that read it, in table order.
 
     A derivation reads its `source`, its aggregate's measurement, or the keys of its own rows'
     `when`, and any of those may itself be derived, so the walk follows them to declared
@@ -49,12 +56,23 @@ def _premise_measurements(stack: Layers) -> set[str]:
             found |= resolve(source, visiting | {key})
         return found
 
-    read: set[str] = set()
+    read: dict[str, list[Decision]] = {}
     for decision in stack.rules.decisions:
+        measured: set[str] = set()
         for row in decision.rows:
             for key in row.when:
-                read |= resolve(key, frozenset())
+                measured |= resolve(key, frozenset())
+        for measurement in sorted(measured):
+            read.setdefault(measurement, []).append(decision)
     return read
+
+
+def _carried_by(measurement, leaves: list[str], consumers: dict[str, list[str]]
+                ) -> tuple[str, ...]:
+    """A measurement carried in its type's `meta` is read by whatever reads that type."""
+    if measurement.meta_key and measurement.describes in leaves:
+        return tuple(consumers.get(measurement.describes, ()))
+    return ()
 
 
 def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unreachable:
@@ -66,6 +84,9 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
     known = {(f.kind, f.subject) for f in facts}
     leaves: list[str] = []
     seen: set[str] = set()
+    # Who reads each type, recorded before the `seen` check cuts a second visit short, so a type
+    # two contracts consume names both (Part I.1 §4).
+    consumers: dict[str, list[str]] = {}
 
     def walk(type_id: str, visiting: frozenset[str]) -> None:
         if type_id in seen:
@@ -85,6 +106,9 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
         for contract in producers:
             for port in contract.consumes:
                 if port.type_id:
+                    readers = consumers.setdefault(port.type_id, [])
+                    if contract.id not in readers:
+                        readers.append(contract.id)
                     walk(port.type_id, visiting | {contract.id})
 
     for type_id in want:
@@ -92,18 +116,22 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
             return Unreachable(type_id)
         walk(type_id, frozenset())
 
-    measurements = _premise_measurements(stack) | {
+    premises = _premise_measurements(stack)
+    measurements = set(premises) | {
         m.id
         for m in stack.measurements.measurements.values()
         if m.meta_key and m.describes in leaves
     }
     out = [
-        Gap(FactKind.INPUT, t, "the pipeline needs it and nothing can make it")
+        Gap(FactKind.INPUT, t, "the pipeline needs it and nothing can make it",
+            used_by=tuple(consumers.get(t, ())))
         for t in leaves
         if (FactKind.INPUT, t) not in known
     ]
     out += [
-        Gap(FactKind.MEASUREMENT, m, "a step reads it to decide")
+        Gap(FactKind.MEASUREMENT, m, "a step reads it to decide",
+            used_by=_carried_by(stack.measurements.get(m), leaves, consumers),
+            decides=tuple(premises.get(m, ())))
         for m in sorted(measurements)
         if (FactKind.MEASUREMENT, m) not in known
     ]
