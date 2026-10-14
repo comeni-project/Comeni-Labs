@@ -1,15 +1,24 @@
+# Development commands for Comeni Labs. Run `make help` to list targets.
+# Sections: configuration; checks and tests; documentation; pipeline examples;
+#           clients, migrations, and telemetry; development; local AI; production.
+# Most Python commands use uv. Container targets need Docker Compose;
+# pipeline gates also need Nextflow and Java.
+# Start the app: make dev. Read the docs: make wiki-serve.
+# Check changes: make test-db, then make check. Use make verify for pipeline execution checks.
+# Each target below describes a command you can run as `make <name>`.
+
 .PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
-# The containers run as the host user so bind-mounted files stay yours: git refuses a
-# repository owned by another uid, and root-owned drafts in ./workspace are undeletable.
+# -----------------------------------------------------------------------------
+# 1. Configuration
+# -----------------------------------------------------------------------------
+# Run containers as the host user to keep mounted files writable and Git ownership consistent.
 export DOCKER_UID := $(shell id -u)
 export DOCKER_GID := $(shell id -g)
 
-# Read from `.env` so the banner can print addresses that are actually listening. Compose reads
-# that file itself for interpolation; make does not, and the two disagreeing is how `make dev`
-# came to advertise `:8000` on a stack published at `:58000`.
+# Load the same settings as Compose so commands and printed addresses use the configured ports.
 -include .env
 export
 
@@ -18,26 +27,23 @@ RUN_DIR  := .run
 PIDFILE  := $(RUN_DIR)/vite.pid
 LOGFILE  := $(RUN_DIR)/vite.log
 DEVREG   := $(RUN_DIR)/registry
-# npm writes this file on every install, so it is the honest mtime for "what is installed".
+# npm updates this installation marker; compare it with the frontend lockfile.
 NODEDEPS := frontend/node_modules/.package-lock.json
-# Where the wiki is served, by `make dev` (in the stack) and by `make wiki-serve` (on the host).
-#
-# **This read `.env` with its own `sed` until this branch merged.** It was written on main,
-# where make did not load that file — `-include .env` above arrived here at the same time and
-# says the same thing once, for every variable. Two spellings of "what is in `.env`" is the
-# defect the include exists to prevent, so the hand-rolled one goes.
-#
-# 8010 rather than mkdocs' default 8000: `api` publishes 8000.
+# Use the same wiki port for the container and host server; 8010 avoids the API default of 8000.
 WIKI_PORT := $(or $(WIKI_HOST_PORT),8010)
 
-# The throwaway Postgres the tests use — never the dev database `.env` names, whose rows the
-# fixtures truncate. `make test-db` starts and migrates it; `make test` points at it.
+# Test fixtures truncate rows. Use an isolated test server instead of the development database.
+# Start and migrate it with make test-db before running database tests.
 TEST_DB_CONTAINER := mendel-test-db
 TEST_DB_IMAGE     := postgres:17-alpine
 TEST_MENDEL_URL   := postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel
 TEST_WIENER_URL   := postgresql+psycopg://mendel:mendel@127.0.0.1:5442/wiener
 
-registry-present:  ## refuse early if the registry submodule was not checked out
+# -----------------------------------------------------------------------------
+# 2. Checks and tests
+# -----------------------------------------------------------------------------
+# Check for any registry files, since a layer does not require a fixed directory layout.
+registry-present:  ## check that the registry submodule contains files
 	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
 	  echo "registry/ holds no registry data — it is a git submodule and was not checked out."; \
 	  echo; \
@@ -46,46 +52,50 @@ registry-present:  ## refuse early if the registry submodule was not checked out
 	  echo "'git clone --recurse-submodules' avoids this. See .github/CONTRIBUTING.md."; \
 	  exit 1; \
 	fi
-# Here as well as in `layers.load()` because a contributor's first command is `make check`,
-# not a pytest invocation — and thirty-three failures about missing contracts is not a
-# diagnosis. Same sentence in both places on purpose.
-#
-# **Empty, not "has no contracts/".** It tested `-d registry/contracts` until
-# comeni-registry#1 arranged the layer by tool, at which point the directory it was looking for
-# stopped existing and this refused a perfectly good checkout. A layer is files that say what
-# they are, so the only thing left to check is whether there are any.
 
-help:           ## show this help
+help:  ## list available commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
-check: registry-present lint test types docs docs-status links doc-paths doc-sizes  ## everything CI runs on a pull request (~1 min, no Docker)
+# Use after editing code or documentation: this combines the regular tests and consistency checks.
+check: registry-present lint test types docs docs-status links doc-paths doc-sizes  ## run repository checks and tests; use test-db for database coverage
 
-verify:         ## check + slow + guards — needs Docker, ~2 min. See CLAUDE.md
+# Keep the stages sequential, even when the caller passes -j; stop at the first failure.
+# Use before validating a release or a change that affects pipeline execution.
+verify:  ## run check, slow tests, and invariant guards in order (Docker and Nextflow)
 	@$(MAKE) --no-print-directory -j1 check
 	@$(MAKE) --no-print-directory slow
 	@$(MAKE) --no-print-directory guards
-# Sequential sub-makes rather than prerequisites: `verify: check slow guards` would let
-# -j interleave them, and cheapest-first only means something if it is actually ordered.
-# `-j1` on check is not a preference — MAKEFLAGS carries -j12 here and has hidden a lint
-# failure before.
 
-slow:           ## the counts-matrix tests: --gate test on real data (Docker, ~45s warm)
+# Execute Nextflow workflows and tool containers on test inputs; these checks can take minutes.
+# Use after changing workflow generation or tool wiring. Regular tests exclude this group.
+slow:  ## run pipeline execution tests (Docker and Nextflow; can take minutes)
 	uv run pytest -m slow -v
 
-guards:         ## purity, egress and construction — the tests that hold the invariants
+# Guards are tests that catch violations of project boundaries and validation rules.
+# Purity checks imports in deterministic packages; egress checks model-request schemas;
+# construction checks that measurement profiles use approved validation paths.
+# These run in make test too; use this smaller set when changing those boundaries.
+guards:  ## check package boundaries, model-request fields, and measurement validation
 	uv run pytest tests/guards/test_purity.py tests/guards/test_purity_runtime.py \
 	  tests/guards/test_egress.py tests/guards/test_construction.py -v
 
-residue:        ## how much of A14 is left, counted per guard (A69). --list for the names
+# Audit the tests themselves: a guard should fail when someone introduces the problem it prevents.
+# Estimate which guards lack that failure evidence in tests/fixtures/guard-ledger.md.
+# This prints a report, not a pass/fail gate or a complete measure of test coverage.
+residue:  ## report tests not yet recorded catching a bad change; ARGS=--list for details
 	@uv run python tools/guard_residue.py $(ARGS)
 
-forge-ai-eval:  ## §5.9's evaluation corpus: the cases and their answer keys. --json for a machine
+# Inspect the examples and expected answers used to evaluate tool adaptation.
+# This builds the evaluation data; it does not call a model or measure model performance.
+forge-ai-eval:  ## build the Forge evaluation corpus and check answer keys; ARGS=--json for JSON
 	@uv run python tools/forge_ai_eval.py $(ARGS)
 
-test:           ## run the test suite against the throwaway database (`make test-db`)
+# Point tests at the isolated server; unavailable database cases may skip unless required by CI.
+test:  ## run tests against the isolated database prepared by test-db
 	MENDEL_DATABASE_URL=$(TEST_MENDEL_URL) WIENER_TEST_DATABASE_URL=$(TEST_WIENER_URL) uv run pytest -v
 
-test-db:        ## start the throwaway Postgres on :5442 and bring both databases to head
+# Reuse or create the test server on localhost:5442, then migrate both databases.
+test-db:  ## start isolated PostgreSQL on localhost:5442 and migrate Mendel and Wiener
 	@docker start $(TEST_DB_CONTAINER) >/dev/null 2>&1 || docker run -d --name $(TEST_DB_CONTAINER) \
 	  -e POSTGRES_USER=mendel -e POSTGRES_PASSWORD=mendel -e POSTGRES_DB=mendel \
 	  -p 127.0.0.1:5442:5432 $(TEST_DB_IMAGE) >/dev/null
@@ -95,108 +105,126 @@ test-db:        ## start the throwaway Postgres on :5442 and bring both database
 	cd packages/mendel-api && MENDEL_DATABASE_URL=$(TEST_MENDEL_URL) uv run alembic upgrade head
 	cd packages/wiener-api && WIENER_DATABASE_URL=$(TEST_WIENER_URL) uv run alembic upgrade head
 
-lint:           ## ruff, line length 100
+# Find code mistakes and style problems without running the application.
+lint:  ## check Python lint rules with Ruff
 	uv run ruff check .
 
-fmt:            ## format in place
+# Apply formatting changes to the files themselves; review the resulting diff.
+fmt:  ## format Python files in place with Ruff
 	uv run ruff format .
 
-types:          ## fail if the generated measurement stub is stale
+# Check the generated measurement type hints used by editors against registry declarations.
+types:  ## check that generated measurement type stubs are current
 	uv run python tools/generate_types.py --check
 
-forge-rework:   ## everything the deferred forge rework has to revisit
+# Find explicit reminders left for the deferred Forge work; this is a search, not a test.
+forge-rework:  ## list remaining FORGE-REWORK markers
 	@grep -rn FORGE-REWORK packages/ frontend/src/ docs/notes/ 2>/dev/null \
 	  | grep -v Binary || echo "nothing marked"
 
-links:          ## every relative markdown link in docs/, .github/, .design/ and the root
+# -----------------------------------------------------------------------------
+# 3. Documentation
+# -----------------------------------------------------------------------------
+# Use after moving or renaming documentation to catch broken links.
+links:  ## check relative Markdown links
 	uv run python tools/check_links.py
 
-doc-paths:      ## every backticked path in CLAUDE.md, now.md and invariants.md exists
+doc-paths:  ## check source paths mentioned in contributor and status documents
 	uv run python tools/check_doc_paths.py
 
-doc-sizes:      ## CLAUDE.md ≤ 300 lines, now.md ≤ 150 — compact, don't raise
+doc-sizes:  ## check the line budgets for CLAUDE.md (300) and now.md (150)
 	uv run python tools/check_doc_sizes.py
 
-docs:           ## fail if docs/reference/ disagrees with the code
+# Use after changing schemas or documented behavior to find reference pages that need updating.
+docs:  ## check generated diagnostics, protocol, and schema reference documentation
 	uv run python tools/generate_diagnostics_doc.py --check
 	uv run python tools/generate_protocol_doc.py --check
 	uv run python tools/check_reference.py --check
 
-docs-status:    ## what on the wiki is vision and what is real — derived, not asserted
+# Check that documentation distinguishes implemented features from planned ones.
+docs-status:  ## check wiki implementation-status labels
 	uv run python tools/docs_status.py --check
 
-wiki-tools:     ## render the tool catalogue from the registry into docs/tools/
+wiki-tools:  ## generate the tool catalogue and registry documentation
 	uv run mendel docs --registry registry/ --out docs/tools/
 	uv run python tools/generate_tools_catalogue.py
 
-# wiki-tools is not optional here: mkdocs.yml's nav names tools/catalogue.md, which only
-# exists once wiki-tools has generated it — a bare `mkdocs build`/`serve` aborts under --strict.
-wiki: wiki-tools  ## build the wiki to site/ — local, no hosting
+# Generate the tool catalogue before MkDocs builds: mkdocs.yml links to that generated page.
+wiki: wiki-tools  ## build the documentation into site/
 	uv run --group docs mkdocs build --strict
 
-# **8010, not mkdocs' default 8000** — that is the port `api` publishes, so with the stack up
-# this command died on "address already in use". `make dev` now serves the wiki in the stack at
-# the same port; this target is the way to read it without Docker.
-wiki-serve: wiki-tools  ## serve the wiki at http://localhost:8010 with live reload
+# Serve documentation on the host without Docker, using WIKI_HOST_PORT when configured.
+wiki-serve: wiki-tools  ## serve documentation on the host with live reload (default localhost:8010)
 	uv run --group docs mkdocs serve --dev-addr 127.0.0.1:$(WIKI_PORT)
 
-static:         ## conformance + lint + preview — everything checkable without Docker
+# -----------------------------------------------------------------------------
+# 4. Pipeline examples and Forge demo
+# -----------------------------------------------------------------------------
+# Check generated workflow syntax and connections before running an analysis.
+static:  ## build the RNA-seq example and run lint/preview gates (Nextflow)
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
 
-demo-seed:       ## seed the example pipeline and fake runs into the running stack
+# Populate a local demo with saved examples; this writes data through the running APIs.
+demo-seed:  ## add the example pipeline and fake runs to the running stack
 	uv run python tools/seed_demo.py --fake-runs
 
-demo-fake-run:   ## add a visible running demo run without launching Nextflow
+demo-fake-run:  ## add a running demo record without launching Nextflow
 	uv run python tools/seed_demo.py --fake-running
 
-stub:           ## build the RNA-seq spine and run the stub gate (needs Docker + Nextflow)
+# Exercise the workflow with lightweight tool stand-ins to check how steps connect.
+# This checks execution wiring, not the biological correctness of analysis results.
+stub:  ## build the RNA-seq example and run its stub gate (Docker and Nextflow)
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
-profile:        ## emit a pipeline that measures the input data
+# Generate the workflow for measuring input properties; this command does not execute it.
+profile:  ## emit an input-profiling pipeline into profile-build/
 	uv run mendel profile --have fastq.reads --out profile-build/
 
-clean:          ## remove build outputs
+clean:  ## remove build outputs and Python test/lint caches
 	rm -rf build/ profile-build/ dist/ .pytest_cache/ .ruff_cache/
 
-forge:          ## draft one nf-core module into a scratch workspace and show it
+# Recreate .forge-demo and demonstrate drafting a tool.
+# Verification can refuse an incomplete draft; ignore that exit status for this demo.
+forge:  ## recreate .forge-demo, draft an nf-core tool, and show verification findings
 	@rm -rf .forge-demo
 	uv run forge draft nf-core:samtools/sort --name sort --version 1.21.0 \
 	  --workspace .forge-demo
 	@echo
 	uv run forge verify sort --workspace .forge-demo || true
-# The whole loop in one command, for somebody meeting the forge for the first time. It ends
-# on `verify` refusing, which is the point: a fresh draft has holes, and MF0004 is the design
-# working rather than failing. `|| true` because that refusal exits 1 and this target is a
-# demonstration, not a gate.
 
-client:  ## regenerate both TypeScript clients from the APIs' own schemas
+# -----------------------------------------------------------------------------
+# 5. API clients, migrations, and telemetry
+# -----------------------------------------------------------------------------
+# Update the browser's generated API descriptions after changing either API; this overwrites generated files.
+client:  ## regenerate Mendel and Wiener TypeScript clients from OpenAPI
 	uv run python -c "import json; from mendel_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.json
 	cd frontend && npx openapi-typescript openapi.json -o src/api/schema.d.ts
 	uv run python -c "import json; from wiener_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.wiener.json
 	cd frontend && npx openapi-typescript openapi.wiener.json -o src/wiener/api/schema.d.ts
 
-migrate:  ## apply database migrations
+# Bring Mendel's database structure up to date after a schema change, using its configured database.
+migrate:  ## apply Mendel database migrations
 	cd packages/mendel-api && uv run alembic upgrade head
 
-telemetry:  ## bring up the OTLP backend — ClickHouse, the collector and Grafana on :3001
+# Start the optional monitoring tools when investigating execution timings and traces.
+telemetry:  ## start ClickHouse, the collector, and Grafana (default dashboard port 3001)
 	docker compose --profile telemetry up -d clickhouse otel-collector grafana
 	@echo "OTLP on localhost:4317 · boards on http://localhost:3001"
 	@echo "point Wiener at it:  export WIENER_OTLP_ENDPOINT=http://localhost:4317"
 
-wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
+# Apply the same kind of schema update to Wiener's separate database.
+wiener-migrate:  ## apply Wiener database migrations
 	cd packages/wiener-api && uv run alembic upgrade head
 
-dev: names-free $(DEVREG) dev-refresh $(NODEDEPS) wiki-tools  ## the whole stack, plus Vite on the host for HMR
+# -----------------------------------------------------------------------------
+# 6. Development stack
+# -----------------------------------------------------------------------------
+# Prepare the registry, host frontend dependencies, and tool catalogue before starting Compose.
+# The host Vite server refreshes the browser as frontend source files change.
+dev: names-free $(DEVREG) dev-refresh $(NODEDEPS) wiki-tools  ## start the app and refresh the browser as frontend code changes
 	@test -f .env || cp .env.example .env
-	@# **Made here, owned by whoever ran make.** Docker creates a missing bind-mount source
-	@# ROOT-owned, and the containers run as the host user — so the first write dies on
-	@# `PermissionError`. Same trap CLAUDE.md records for ./workspace, and the same fix.
-	@#
-	@# **The Wiener pair was covered and the Mendel pair was not**, while the sentence above
-	@# named ./workspace as the precedent. Measured 2026-08-29: `.run/drafts` and `workspace`
-	@# came up `root root`, and pressing *Keep* in the builder answered 500 with
-	@# `PermissionError: /app/drafts/<id>` — the one control the whole loop hangs on.
+	@# Create bind-mount directories as the host user; Docker would create missing ones as root.
 	@mkdir -p .run/wiener/artifacts .run/wiener/work .run/drafts workspace
 	$(DC) up -d --build
 	@mkdir -p $(RUN_DIR)
@@ -207,9 +235,7 @@ dev: names-free $(DEVREG) dev-refresh $(NODEDEPS) wiki-tools  ## the whole stack
 		echo $$! > $(PIDFILE); sleep 1; \
 	fi
 	@echo ""
-	@# **The ports come from the environment, not from a literal.** Every one of these was
-	@# hardcoded, so a checkout with `API_HOST_PORT` set — which is what a second stack on one
-	@# machine needs — printed addresses that answer nothing. Found by running two.
+	@# Print configured Compose ports; the host Vite server uses its development port.
 	@echo "  Home (HMR):     http://localhost:5173/"
 	@echo "  Home (built):   http://localhost:$(or $(WEB_HOST_PORT),80)/"
 	@echo "  Registry:       http://localhost:5173/forge"
@@ -218,49 +244,13 @@ dev: names-free $(DEVREG) dev-refresh $(NODEDEPS) wiki-tools  ## the whole stack
 	@echo "  Wiki:           http://localhost:$(WIKI_PORT)/"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
 
-# **Install what the frontend now depends on, before Vite serves it.**
-#
-# `make dev` ran `npm run dev` against whatever `node_modules` happened to hold. Pull a commit
-# that adds a dependency and the HMR server starts fine and fails in the browser — while
-# `http://localhost/` stays green, because the `web` image runs `npm ci` in its own build. Two
-# addresses, one of them silently a version behind. Measured after a 152-commit pull:
-# `@tanstack/react-virtual` was in `package.json`, absent from `node_modules`, and `tsc -b`
-# was the only thing that said so.
+# Refresh host frontend dependencies when the lockfile changes, before Vite starts.
 $(NODEDEPS): frontend/package-lock.json
 	@echo "frontend dependencies changed — installing"
 	cd frontend && npm install
 
-# **Refuse early when another checkout already owns our container names.**
-#
-# The names are fixed (`mendel-api`, `wiener-db`, ...) so `docker exec mendel-db psql` works
-# without looking anything up. The cost is that two checkouts collide, and the collision
-# surfaces as a daemon error naming ONE container, mid-way through `up`, after some volumes
-# have already been created:
-#
-#     Error response from daemon: Conflict. The container name "/mendel-redis" is already in
-#     use by container "a5ba6fa6ed10..."
-#
-# `.env.example` has commented `*_CONTAINER_NAME` overrides "so two checkouts can run side by
-# side", but `make dev` copies that file with them still commented — so the default experience
-# is the conflict, and the message says nothing about the fix. This lists every colliding name
-# at once and names both ways out.
-#
-# ═══ AND THE FIX IT NAMED DID NOT WORK ════════════════════════════════════════════════════
-#
-# Found 2026-08-31 by taking the advice in the message. Two reasons, and both are the same
-# mistake: the check was written from the *sentence* rather than from `docker-compose.yml`.
-#
-#   → **It read the shell, not `.env`.** `make` does not load `.env`; compose does. So the
-#     overrides the message tells you to write were invisible to the check that printed the
-#     message, and following its advice changed nothing at all.
-#   → **Five of the nine names were hardcoded.** `mendel-db`, `mendel-redis`, `wiener-db`,
-#     `wiener-ingest` and `wiener-worker` had no override here, though `docker-compose.yml`
-#     makes every one of them a `$${..._CONTAINER_NAME:-default}`. So even exporting the
-#     variables first would still have collided on five names.
-#
-# The list is read from compose itself now — `config --format json` resolves `.env`, the
-# defaults and the overrides the same way `up` will — so there is one answer to *what will
-# this stack call its containers* rather than a copy here that goes stale on the next service.
+# Read container names from Compose so .env overrides and defaults match the upcoming startup.
+# Report names owned by another project; skip the check if the configuration cannot be read.
 names-free:
 	@names="$$(docker compose config --format json 2>/dev/null \
 	  | python3 -c 'import json,sys; print(" ".join(s.get("container_name","") for s in json.load(sys.stdin)["services"].values() if s.get("container_name")))' \
@@ -285,19 +275,16 @@ names-free:
 	  exit 1; \
 	fi
 
-# A CLONE of the registry, because a submodule's `.git` is a pointer at a host path that
-# resolves to nothing inside a container — so accepting a drift would refuse with MF0107, and
-# dev must be able to do what prod can.
+# Create a writable Git clone: the submodule's .git pointer cannot resolve inside containers.
 $(DEVREG):
 	@mkdir -p $(RUN_DIR)
 	git clone -q registry $(DEVREG)
 	@echo "cloned the registry to $(DEVREG) — this is what the containers write to"
 
-# **A dependency of `dev`, not a thing to remember.** The clone was made once and never
-# touched again, so `make dev` served whatever the registry looked like the first time anybody
-# ran it — every change in Plan 5A and 5B was invisible to the running stack, and the symptom
-# was a blank builder with a 422 about a manifest field that had been replaced.
-dev-refresh:  ## pull registry changes into the dev clone, if it has no work in it
+# Leave uncommitted edits alone. Reset a clean clone to the commit checked out in registry/.
+# Fetch origin HEAD because the source submodule can be detached; a branch name may be stale.
+# This reset also replaces local commits in a clean clone.
+dev-refresh:  ## refresh a clean development registry clone from registry/
 	@if [ ! -d $(DEVREG) ]; then echo "no dev registry yet"; exit 0; fi; \
 	if [ -n "`git -C $(DEVREG) status --porcelain`" ]; then \
 		echo "dev registry has uncommitted work — left alone"; exit 0; fi; \
@@ -308,44 +295,29 @@ dev-refresh:  ## pull registry changes into the dev clone, if it has no work in 
 		git -C $(DEVREG) fetch -q origin HEAD && git -C $(DEVREG) reset -q --hard FETCH_HEAD && \
 		echo "dev registry $$(echo $$have | cut -c1-8) -> $$(echo $$want | cut -c1-8)"; \
 	fi
-	@# **`fetch origin HEAD`, never a branch name.** This reset to `origin/HEAD`, and the
-	@# clone's origin is the submodule *directory* — fetching a path gets its local branches,
-	@# and the submodule's `main` never moves because the superproject pins a *commit* and
-	@# leaves it detached. So it fetched a branch that had not moved in days and printed
-	@# "dev registry refreshed". `HEAD` fetches whatever the submodule is actually on.
-	@#
-	@# The message now names the two commits, so a refresh that moves nothing says so. A
-	@# success line that is unconditional on whether anything happened is `make drift`
-	@# printing "skipped" over twelve edited contracts, in a new place.
 
-dev-down:  ## stop Vite and the stack
+# Stop the recorded Vite process group and Compose containers; keep named volumes.
+dev-down:  ## stop Vite and the development stack
 	@if [ -f $(PIDFILE) ]; then kill -- -`cat $(PIDFILE)` 2>/dev/null || true; rm -f $(PIDFILE); fi
 	$(DC) down
 
-dev-logs:  ## tail the api and the worker
-	$(DC) logs -f api worker
+# Follow server output when a page or background job fails; Ctrl+C stops viewing logs.
+dev-logs:  ## follow Mendel API and worker logs
+	$(DC) logs -f api mendel-worker
 
-# ---- the local model lane ------------------------------------------------------------
-#
-# **Separate targets, and `make dev` never touches them.** Bringing a model up means pulling
-# several gigabytes; somebody working on the catalogue should not wait for that to see a page.
-# The `telemetry` targets make the same argument about ClickHouse, and this is the same shape:
-# a compose profile, an explicit verb, and nothing implicit.
-#
-# **`ai-up` does not pull a model either**, which is the part worth being careful about. It
-# starts a server with whatever is already in the volume and tells you what to do next. A target
-# that helpfully downloaded 9GB because you typed *up* is a target people learn to fear.
-
+# -----------------------------------------------------------------------------
+# 7. Local AI
+# -----------------------------------------------------------------------------
+# Start local models explicitly. ai-up may pull the server image; ai-pull downloads model weights.
+# ai-down stops the server and keeps downloaded models.
 AI_MODEL ?= qwen2.5-coder:14b
 
-# **`OLLAMA_GPU=rocm` layers the AMD override; anything else is the portable default.** A GPU is
-# the one part of this lane that cannot be a `${VAR:-default}` in the base file — `devices:` is
-# a list, and a base file naming `/dev/kfd` refuses to start on a host without an AMD card.
-# NVIDIA needs no override at all: the default image is CUDA-capable.
+# Set OLLAMA_GPU=rocm to add the AMD device overlay; leave unset for the base configuration.
 OLLAMA_GPU ?=
 DC_AI = $(DC) $(if $(OLLAMA_GPU),-f docker-compose.yml -f docker-compose.ollama-$(OLLAMA_GPU).yml)
 
-ai-up:  ## start the local Ollama and print the two lines for .env — pulls nothing
+# Print a Compose service URL: workers reach Ollama at ollama:11434, not their own localhost.
+ai-up:  ## start Ollama without downloading model weights; print configuration
 	$(DC_AI) --profile ai up -d ollama
 	@echo
 	@echo "put these in .env, then \`make dev\` (or restart ai-worker):"
@@ -353,24 +325,27 @@ ai-up:  ## start the local Ollama and print the two lines for .env — pulls not
 	@echo "  COMENI_AI_BASE_URL=http://ollama:11434"
 	@echo
 	@echo "the model itself:  make ai-pull MODEL=$(AI_MODEL)"
-	@# **The base URL is the compose hostname, not localhost.** The worker reaches it on the
-	@# compose network; `http://localhost:11434` is the worker's own loopback and answers
-	@# nothing. It is the mistake this echo exists to prevent.
 
-ai-pull:  ## download a model into the ollama volume — `make ai-pull MODEL=qwen2.5-coder:14b`
+# Use when the model you want is not in local storage; downloading weights may take time and disk space.
+ai-pull:  ## download model weights; set MODEL=, for example MODEL=qwen2.5-coder:14b
 	@test -n "$(MODEL)" || { echo "MODEL= is required, e.g. make ai-pull MODEL=$(AI_MODEL)"; exit 2; }
 	$(DC_AI) --profile ai up -d ollama
 	$(DC_AI) --profile ai exec ollama ollama pull $(MODEL)
 	@echo "pulled $(MODEL) — set COMENI_AI_MODEL=ollama_chat/$(MODEL)"
 
-ai-logs:  ## tail the AI worker and the model server
+ai-logs:  ## follow AI worker and Ollama logs
 	$(DC_AI) --profile ai logs -f ai-worker ollama
 
-ai-down:  ## stop the model server. The pulled models stay in their named volume
+ai-down:  ## stop Ollama and retain downloaded models
 	$(DC_AI) --profile ai stop ollama
 
-prod:  ## the same stack, with the unsafe parts removed
+# -----------------------------------------------------------------------------
+# 8. Production overrides
+# -----------------------------------------------------------------------------
+# Apply the production overlay. Registry and directory preparation remain a follow-up in #313.
+# Use to exercise the built browser app and production overrides, without the host Vite server.
+prod:  ## start the stack with production overrides
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-prod-down:  ## stop the prod stack
+prod-down:  ## stop the production stack and retain named volumes
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml down

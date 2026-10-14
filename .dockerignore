@@ -1,9 +1,15 @@
-# The build context is the repository root. Without this it carries the whole object store.
+# Filter the repository-root build context used by both Python and frontend images.
+
+# Host Git metadata.
 .git
+
+# Installed dependencies and generated frontend assets.
 .venv
 node_modules
 frontend/node_modules
 frontend/dist
+
+# Build outputs, runtime state, local worktrees, and Python caches.
 build/
 .run
 .worktrees
@@ -11,6 +17,5 @@ build/
 *.pyc
 *.egg-info
 
-# **`.git` is excluded and that has a consequence worth knowing**: the registry in the image is
-# a copy of files rather than a checkout, so accepting a drift there refuses with MF0107. That
-# is deliberate — `make dev` mounts a writable clone over it, and so does the prod overlay.
+# The bundled registry cannot commit updates: its submodule pointer refers to excluded
+# host Git metadata. Compose mounts the writable clone prepared by make dev instead.
