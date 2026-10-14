@@ -13,12 +13,10 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
 
 - **Task 14 of the living pipeline, step 14.7: walking it with a real model.** The tree is GitHub
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
-- **14.7.8.3d Parts A–H are implemented** (#285–#292). **Part I** (#293), the tutor, is split
-  in three: I.1 explain the inputs (implemented), I.2 say what was narrowed or already known,
-  I.3 a conversation, not a form. **Part I.0** (#307) came first: intent, facts and steps; the
-  model returns grounded changes. Plan A (the conversation) is implemented; **next: its walk with
-  a model, then Plan B** (the save file). Undo is deferred in #302. (2026-10-11,
-  2026-10-12, 2026-10-13)
+- **14.7.8.3d Parts A–H are implemented** (#285–#292). Part I (#293) is I.1 explain the inputs
+  (done), I.2 say what was narrowed, I.3 a conversation; **Part I.0** (#307, grounded changes) came
+  first: Plan A is done, **next its walk with a model, then Plan B** (the save file). Undo: #302.
+  (2026-10-11, 2026-10-12, 2026-10-13)
 
 ## How work is done now
 
@@ -41,13 +39,12 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   are retired: one build, tier 4 always stops (14.7.8.3b). (2026-10-05, 2026-10-06)
 - **Protection level 0** (everything open) is the MVP; invariant 15 does not hold at level 0 and
   characterisation is a fourth AI point, both recorded loosenings. (2026-09-28, 2026-10-04)
-- **The want is two calls:** `builder.family.v3` answers `fits` first, then `builder.goal.v7`
-  reads the chosen families whole; `goal.v6` is the one-step path (`MENDEL_FAMILY_STEP_FROM`). A
-  want nothing can make asks the person instead of failing (`WANT_UNREACHABLE`). (2026-09-29,
-  2026-09-30)
-- **The model only phrases:** `builder.ask.v1` words each gap (queued on entering `ask`),
-  `builder.readback.v1` reads the goal back; conflicting evidence asks for an explicit choice. Prompts are sent as a
-  fixed system part and a per-call part. A prompt change is always a new version file. (2026-09-29)
+- **The want is two calls:** `builder.family.v4` answers `fits` first, then `builder.goal.v8`
+  reads the chosen families whole, and is also the one-step path (`MENDEL_FAMILY_STEP_FROM`). A
+  want nothing can make asks the person (`WANT_UNREACHABLE`). (2026-09-29, 2026-09-30, 2026-10-13)
+- **The model phrases and returns grounded changes:** `builder.ask.v2` words each gap,
+  `builder.readback.v2` reads the goal back; a change it quotes is recorded, one it does not is
+  offered. A prompt change is always a new version file. (2026-09-29, 2026-10-13)
 - **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider; Ollama on), so a
   shape is never refused: 0 of 27 calls against 4 of 18 when the schema sat in the prompt. Showing
   a model a raw JSON Schema is what made it echo the schema. (2026-09-29)
@@ -148,7 +145,6 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   made phrasing refusals go from 4 of 18 to 12 of 12. (2026-09-29)
 - **On Ollama `cached` reads 0** (reuse shows only as speed); the first call after a rebuild is a
   ~70 s cold load; a hidden Chrome tab does not poll. (2026-09-29, 2026-09-30)
-- **Python 3.14 loses truncated-gzip evidence** (#303); the cases pass on CI Python 3.12/3.13.
-  Keep that separate compatibility issue visible before using 3.14 inspections. (2026-10-11)
+- **Python 3.14 loses truncated-gzip evidence** (#303); CI's 3.12 and 3.13 pass. (2026-10-11)
 - **Headless Chrome** freezes `settle` at its first frame (`--force-prefers-reduced-motion`), and
   stands in when the extension is not connected (throwaway `--user-data-dir`). (2026-09-13, 2026-10-01)

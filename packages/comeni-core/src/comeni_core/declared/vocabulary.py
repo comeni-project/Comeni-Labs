@@ -261,12 +261,12 @@ class Vocabulary(BaseModel):
     """
 
     params: dict[str, str] = {}
+    """The default param name for each type that declares one. See `TypeDeclaration.param` —
+    absent means the type id's last segment, which is every type but `fastq.reads`."""
     names: dict[str, str] = {}
     """Type id → its declared `name`, for the types that declare one (Part I.1)."""
     explains: dict[str, str] = {}
     """Type id → its declared `explain`, for the types that declare one (Part I.1)."""
-    """The default param name for each type that declares one. See `TypeDeclaration.param` —
-    absent means the type id's last segment, which is every type but `fastq.reads`."""
 
     columns: dict[str, int] = {}
     """Type id -> how many CSV columns one sample of it occupies. See

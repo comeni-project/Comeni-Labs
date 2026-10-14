@@ -796,10 +796,15 @@ def heard_of(draft_id) -> dict[tuple[str, str], tuple[str, int | None]]:
             for subject, revision in _current(db, draft_id, family):
                 if revision.heard is not None:
                     found[(family, subject.subject_key)] = (revision.heard, revision.heard_seq)
-        for subject, revision in _current(db, draft_id, "fact"):
-            observation = _observation(db, revision.observation_id)
+        facts = [(s.subject_key, r.observation_id) for s, r in _current(db, draft_id, "fact")
+                 if r.observation_id]
+        observations = {o.id: o for o in db.scalars(
+            select(PipelineObservation).where(PipelineObservation.id.in_([i for _, i in facts]))
+        )} if facts else {}
+        for key, observation_id in facts:
+            observation = observations.get(observation_id)
             if observation is not None and observation.heard is not None:
-                found[("fact", subject.subject_key)] = (observation.heard, observation.heard_seq)
+                found[("fact", key)] = (observation.heard, observation.heard_seq)
     return found
 
 

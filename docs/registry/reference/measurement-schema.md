@@ -39,6 +39,7 @@ Model: `comeni_core.declared.measurement.Measurement`
 | `unit` | string \| null | `null` | `bp`, `GB` — for display, never for conversion |
 | `description` | string | `""` | one line, for a human |
 | `cite` | string \| null | `null` | where the definition comes from |
+| `explain` | string \| null | `null` | what it is and how a person finds it out, one short paragraph shown under a question about it. Read by nothing that builds |
 | `edam` | string \| null | `null` | the EDAM ontology term, when one fits |
 | `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads` |
 | `meta_key` | string \| null | `null` | the key this becomes in a Nextflow `meta` map |

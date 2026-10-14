@@ -40,6 +40,8 @@ Model: `comeni_core.declared.vocabulary.TypeDeclaration`
 | `entry_channel` | string \| null | `null` | Groovy producing this type when nothing upstream does |
 | `param` | string \| null | `null` | the parameter `entry_channel` reads. Defaults to the id's last segment |
 | `test_data` | string \| [string] \| null | `null` | a pinned example, for the generated `test` profile |
+| `name` | string \| null | `null` | what a person calls it, as it reads mid-sentence: *gene annotation (GTF)*. Absent, the id is shown. Read by nothing that builds |
+| `explain` | string \| null | `null` | what it is and where it usually comes from, one short paragraph shown under a question about it and handed to the AI as a source |
 
 ### `states` is closed, and that is the point
 
@@ -96,6 +98,8 @@ Model: `comeni_core.declared.vocabulary.Vocabulary`
 | `columns` | dict | per type, from `sample_columns` above |
 | `scopes` | dict | per type, from `scope` above |
 | `entry_channels` | dict | per type, from `entry_channel` above |
+| `names` | dict | per type that declares one, from `name` above |
+| `explains` | dict | per type that declares one, from `explain` above |
 
 **Overlays extend or replace.** `states:` replaces a type's states; `add_states:` extends them.
 A replacement is recorded as a `Displacement` and printed in the build's `OVERLAY` block, so an

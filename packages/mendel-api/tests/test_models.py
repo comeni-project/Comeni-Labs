@@ -289,8 +289,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             "retired", "retirement_reason", "pacing", "show_gaps",
         },
         "pipeline_authoring_turn": {
-            "id", "session_id", "seq", "role", "state", "blocks", "text", "base_revision", "base_decision_revision",
-            "ai_invocation_id", "at",
+            "id", "session_id", "seq", "role", "state", "blocks", "text", "base_revision",
+            "base_decision_revision", "ai_invocation_id", "at",
         },
         "pipeline_authoring_proposal": {
             "id", "session_id", "turn_id", "kind", "payload", "state", "chosen_option",
