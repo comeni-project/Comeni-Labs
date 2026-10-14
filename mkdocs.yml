@@ -18,12 +18,20 @@ exclude_docs: |
   superpowers/
   /README.md
 
-# Keep the homepage outside the five navigation tabs.
-# Generated tool pages remain accessible through Tools > catalogue and search.
-# These patterns suppress warnings about pages missing from the navigation.
+# Keep the homepage outside the four documentation paths.
+# Generated tool pages remain accessible through Reference > Available tools and search.
+# Include virtual legacy addresses here; their source folders no longer exist.
 not_in_nav: |
   index.md
-  tools/*/*.md
+  reference/tools/**/*.md
+  tools/**
+  start/**
+  handbook/**
+  registry/**
+  internals/**
+  design/**
+  status.md
+
 
 # -----------------------------------------------------------------------------
 # Appearance
@@ -34,7 +42,7 @@ theme:
   palette:
     scheme: slate      # Match the app's dark appearance.
   features:
-    - navigation.tabs      # Show the five documentation sections as tabs.
+    - navigation.tabs      # Show the four documentation paths as tabs.
     - navigation.sections
     - navigation.indexes   # Use each section's index page as its landing page.
     - content.code.copy
@@ -65,6 +73,9 @@ markdown_extensions:
   - toc:
       permalink: true
 
+hooks:
+  - tools/documentation_locations.py
+
 plugins:
   - search
   - offline               # Support local-file browsing and search; fonts/diagrams may need network access.
@@ -73,47 +84,68 @@ plugins:
 # Navigation
 # -----------------------------------------------------------------------------
 nav:
-  - Start here:
-      - start/index.md
-      - Install and open the app: start/install-and-open.md
-      - Your first pipeline: handbook/your-first-pipeline.md
-      - What is not built yet: status.md
-  - Handbook:
-      - handbook/index.md
-      - The product loop: handbook/product-loop.md
-      - Core words: handbook/core-words.md
-      - RNA-seq example: handbook/rnaseq-example.md
-      - The builder: handbook/builder.md
-      - Reviewing decisions: handbook/reviewing-decisions.md
-      - Inputs in the alpha: handbook/inputs-alpha.md
-      - Running pipelines: handbook/running-pipelines.md
-      - Watching runs: handbook/watching-runs.md
-      - Understanding tool choice:
-          - The four tiers: handbook/the-four-tiers.md
-          - How tools get chosen: handbook/how-tools-get-chosen.md
-      - Local development stack: handbook/the-stack.md
-      - Reference:
-          - handbook/reference/glossary.md
-          - handbook/reference/diagnostics.md
-          - handbook/reference/pipeline-schema.md
-          - handbook/reference/goal-schema.md
-          - Advanced CLI reference: handbook/reference/cli.md
-  - Tools:
-      - tools/index.md
-      # Generate this page with make wiki-tools; the wiki targets do that for you.
-      - tools/catalogue.md
-  - Registry:
-      - registry/index.md
-      - Using the forge: registry/using-the-forge.md
-      - Writing a contract: registry/writing-a-contract.md
-      - Making a choice depend on your data: registry/making-a-choice-depend-on-your-data.md
-      - Your lab's own layer: registry/your-labs-own-layer.md
-      - Reference:
-          - registry/reference/contract-schema.md
-          - registry/reference/rule-schema.md
-          - registry/reference/vocabulary-schema.md
-          - registry/reference/measurement-schema.md
-  - Internals:
-      - internals/index.md
-      - Documentation style: internals/documentation-style.md
-      - Releasing: internals/releasing.md
+  - Tutorials:
+      - tutorials/index.md
+      - Your first pipeline: tutorials/first-pipeline.md
+      - RNA-seq example: tutorials/rnaseq-example.md
+  - How-to guides:
+      - how-to/index.md
+      - Use Comeni:
+          - Install and open the app: how-to/install.md
+          - Work with the builder: how-to/pipelines/build.md
+          - Answer with a sample: how-to/pipelines/answer-with-sample.md
+          - Review decisions: how-to/pipelines/review.md
+          - Run a pipeline: how-to/pipelines/run.md
+          - Watch a run: how-to/pipelines/watch.md
+      - Maintain registry data:
+          - Draft and review tools: how-to/registry/review-proposals.md
+          - Write a contract: how-to/registry/add-tool.md
+          - Write a data-dependent rule: how-to/registry/write-rule.md
+          - Add a lab layer: how-to/registry/add-layer.md
+      - Develop the platform:
+          - Contribute a change: how-to/development/contribute.md
+          - Run the development stack: how-to/development/local-stack.md
+          - Configure a model: how-to/development/configure-model.md
+          - Walk and investigate behavior: how-to/development/investigate.md
+          - Release a package: how-to/development/release.md
+          - Maintain documentation: how-to/development/documentation.md
+  - Reference:
+      - reference/index.md
+      - Pipelines and commands:
+          - Glossary: reference/pipelines/glossary.md
+          - Builder interface: reference/pipelines/builder-interface.md
+          - CLI: reference/pipelines/cli.md
+          - Pipeline schema: reference/pipelines/pipeline-schema.md
+          - Goal schema: reference/pipelines/goal-schema.md
+          - Diagnostics: reference/pipelines/diagnostics.md
+      - Registry declarations:
+          - Contract schema: reference/registry/contract-schema.md
+          - Rule schema: reference/registry/rule-schema.md
+          - Vocabulary schema: reference/registry/vocabulary-schema.md
+          - Measurement schema: reference/registry/measurement-schema.md
+      - Available tools:
+          - reference/tools.md
+          - reference/tools/catalogue.md
+      - Development services: reference/development-services.md
+      - Documentation status: reference/status.md
+  - Explanation:
+      - explanation/index.md
+      - Workflow and decisions:
+          - The product loop: explanation/pipeline-lifecycle.md
+          - Core concepts: explanation/pipeline-concepts.md
+          - The four tiers: explanation/decision-tiers.md
+          - How tools get chosen: explanation/tool-selection.md
+          - Build inputs and run inputs: explanation/inputs-and-data.md
+      - Registry design:
+          - Registry knowledge: explanation/registry.md
+          - Tool contracts: explanation/tool-contracts.md
+          - Data-backed rules: explanation/data-backed-rules.md
+          - Registry layers: explanation/registry-layers.md
+      - Architecture: explanation/architecture.md
+      - Design boundaries:
+          - Invariants: explanation/invariants.md
+          - Authoring protocol: explanation/authoring-protocol.md
+          - Product voice: explanation/product-language.md
+          - Protocol diagrams:
+              - explanation/diagrams/index.md
+              - explanation/diagrams/authoring-protocol.md

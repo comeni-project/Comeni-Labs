@@ -14,8 +14,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from documentation_locations import moved_docs
+
 ROOT = Path(__file__).resolve().parent.parent
-FILES = ["CLAUDE.md", "docs/notes/now.md", "docs/design/invariants.md"]
+FILES = ["CLAUDE.md", "docs/notes/now.md", "docs/explanation/invariants.md"]
 _TICK = re.compile(r"`([^`\n]+)`")
 _LINE_REF = re.compile(r":\d+(-\d+)?$")
 _EXT = (".md", ".py", ".yml", ".yaml", ".toml", ".ts", ".tsx", ".json", ".nf", ".html", ".sh")
@@ -38,7 +40,7 @@ def tracked_names(root: Path) -> set[str]:
     return {Path(line).name for line in out.stdout.splitlines()}
 
 
-def _exists(token: str, root: Path, names: set[str]) -> bool:
+def _exists(token: str, root: Path, names: set[str], locations: dict[str, str]) -> bool:
     bare = _LINE_REF.sub("", token).rstrip("/")
     if "/" not in bare:
         # **A bare filename is live if the repository has a file by that name.** `tokens.test.ts`
@@ -46,15 +48,18 @@ def _exists(token: str, root: Path, names: set[str]) -> bool:
         return bare in names or (root / bare).exists()
     if (root / bare).exists():
         return True
+    if bare in locations:
+        return (root / locations[bare]).is_file()
     return any((src / bare).exists() for src in root.glob("packages/*/src"))
 
 
 def dead_paths(text: str, root: Path, names: set[str] | None = None) -> list[tuple[int, str]]:
     names = tracked_names(root) if names is None else names
+    locations = moved_docs(root)
     dead = []
     for number, line in enumerate(text.splitlines(), start=1):
         for token in _TICK.findall(line):
-            if _looks_like_path(token) and not _exists(token, root, names):
+            if _looks_like_path(token) and not _exists(token, root, names, locations):
                 dead.append((number, token))
     return dead
 

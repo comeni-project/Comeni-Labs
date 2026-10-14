@@ -146,7 +146,7 @@ docs-status:  ## check wiki implementation-status labels
 	uv run python tools/docs_status.py --check
 
 wiki-tools:  ## generate the tool catalogue and registry documentation
-	uv run mendel docs --registry registry/ --out docs/tools/
+	uv run mendel docs --registry registry/ --out docs/reference/tools/
 	uv run python tools/generate_tools_catalogue.py
 
 # Generate the tool catalogue before MkDocs builds: mkdocs.yml links to that generated page.

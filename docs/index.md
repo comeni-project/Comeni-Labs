@@ -1,34 +1,21 @@
 ---
-title: Comeni Labs
-description: One platform for planning, running and watching bioinformatics analyses.
+title: Comeni Labs documentation
+description: Learn Comeni, complete a task, look up an interface, or understand its design.
 ---
 
-# Describe an analysis. Get a pipeline you can defend.
+# Comeni Labs documentation
 
-Comeni Labs is a low-code way to create real Nextflow pipelines with AI help kept inside
-reviewable boundaries. You work in the app. Comeni explains what it chose. The artifact that
-comes out is plain Nextflow that your lab can run where its data already lives.
+Comeni builds Nextflow pipelines from tool contracts, rules and facts about the data.
+You review the choices, run the pipeline and inspect the results in the app.
+Unsettled choices become questions; recorded decisions explain how the pipeline was built.
 
-```mermaid
-flowchart TD
-  A[Describe the analysis] --> B[Build a draft]
-  B --> C[Review decisions]
-  C --> D[Gate and run]
-  D --> E[Watch results]
-  E -. missing tool or rule .-> F[Improve the registry]
-  F -. next build .-> B
-```
+| Path | Use it when | First page |
+|---|---|---|
+| [Tutorials](tutorials/index.md) | You want to learn by working through an example. | [Your first pipeline](tutorials/first-pipeline.md) |
+| [How-to guides](how-to/index.md) | You have a task to complete. | [Install and open the app](how-to/install.md) |
+| [Reference](reference/index.md) | You need precise commands, fields or definitions. | [Glossary](reference/pipelines/glossary.md) |
+| [Explanation](explanation/index.md) | You want to understand the concepts and design. | [How tools get chosen](explanation/tool-selection.md) |
 
-The loop is intentionally small. Most users live in the first five boxes; registry maintainers
-step into the last one when the app needs new scientific knowledge.
-
-| Book | Start here if |
-|---|---|
-| [Start here](start/index.md) | you want the first successful path through the app |
-| [Handbook](handbook/index.md) | you use Comeni to build, review, run, and inspect analyses |
-| [Tools](tools/index.md) | you want to know which tools this registry can use today |
-| [Registry](registry/index.md) | you add tools, rules, measurements, or lab conventions |
-| [Internals](internals/index.md) | you work on the platform itself |
-
-Comeni Labs is **Alpha, pre-MVP**. User guides describe the current app workflow and call out
-surfaces that are expected to move, especially inputs, run submission, and AI-assisted drafting.
+Comeni is **Alpha, pre-MVP**. Guides cover the local app; model-assisted authoring
+requires a configured model, and some workflow details may change. The generated
+[status page](reference/status.md) collects explicit future-feature notices in the documentation.

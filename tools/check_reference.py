@@ -1,23 +1,7 @@
-"""The reference pages under `docs/*/reference/` document exactly what the code has — no more,
-no fewer.
+"""Check reference fields, CLI coverage, egress counts and executable rule examples.
 
-**Every reference page in this repository had drifted from its model by 2026-09-02**, and the
-drift was invisible because nothing compared them. `vocabulary-schema.md` was the worst: it named
-`Vocabulary` and documented `states` and `entry_channel`, and the real `Vocabulary` has neither —
-it is the stacked registry now, and the per-file shape is `TypeDeclaration`, whose seven fields
-the page documented two of. Meanwhile `docs/README.md` promised *"a field named here exists in
-the code"*, which was false in both directions on that page.
-
-**This does not generate the pages, and that is deliberate.** The models carry no `description=`,
-so a generated table would be name, type and default — the mechanical third, and not the part
-anybody opens a reference page for. What a field *means* is prose and stays prose. What can be
-derived is *coverage*, so that is what is derived: a page must document every field its model has
-and no field it does not.
-
-The same shape holds `cli.md` against the two `argparse` parsers, which is where `mendel
-conformance` and `mendel lint` were missing entirely and all twelve `forge` verbs were absent.
-
-Run by `make docs` beside the diagnostics check, and by CI.
+Schema pages declare their models with Model: lines. Their first field table is checked
+against those models; prose remains authored. Run with --check through make docs.
 """
 
 from __future__ import annotations
@@ -29,15 +13,12 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).parent.parent
-# The schema pages split across two books when the wiki landed: a reader of `pipeline.yml`
-# is in the Handbook, and a contract author is in Registry. Both are still held to their
-# models by this file — the split is a nav decision, never a weakening.
+# Keep schema coverage for both pipeline users and registry authors.
 REFERENCE_DIRS = (
-    ROOT / "docs" / "handbook" / "reference",
-    ROOT / "docs" / "registry" / "reference",
+    ROOT / "docs" / "reference" / "pipelines",
+    ROOT / "docs" / "reference" / "registry",
 )
-#: `cli.md` documents both `mendel` and `forge`, and it lives in the Handbook alone — there is
-#: no Registry-side CLI to split it against.
+# CLI reference covers both mendel and forge.
 CLI_DOC = REFERENCE_DIRS[0] / "cli.md"
 
 #: Each page names its own subjects in `Model:` lines, so the mapping is not repeated here —
@@ -137,7 +118,9 @@ def cli_problems() -> list[str]:
         assert verbs, f"read no verbs at all from {module}; the check is not checking"
         for verb in sorted(verbs):
             if not re.search(rf"`{prog} {verb}`", text):
-                found.append(f"docs/*/reference/cli.md: `{prog} {verb}` exists and is undocumented")
+                found.append(
+                    f"{page.relative_to(ROOT)}: `{prog} {verb}` exists and is undocumented"
+                )
     return found
 
 
@@ -261,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
         for line in problems:
             print(f"  {line}")
         return 1
-    print(f"docs/*/reference/ agrees with the code ({len(_paths())} schema pages + cli.md)")
+    print(f"docs/reference/ agrees with the code ({len(_paths())} schema pages + cli.md)")
     return 0
 
 

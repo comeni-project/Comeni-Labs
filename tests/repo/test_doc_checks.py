@@ -29,6 +29,21 @@ def test_a_package_module_path_resolves_under_src(tmp_path):
     assert cdp.dead_paths("`pkg/mod.py` and `pkg/mod.py:12`", root) == []
 
 
+def test_a_moved_path_requires_its_canonical_destination(tmp_path):
+    import json
+
+    (tmp_path / "tools").mkdir()
+    destination = tmp_path / "docs" / "explanation" / "current.md"
+    destination.parent.mkdir(parents=True)
+    (tmp_path / "tools" / "documentation_locations.json").write_text(
+        json.dumps({"docs/design/old.md": "docs/explanation/current.md"})
+    )
+    text = "`docs/design/old.md`"
+    assert cdp.dead_paths(text, tmp_path) == [(1, "docs/design/old.md")]
+    destination.write_text("# Current documentation\n")
+    assert cdp.dead_paths(text, tmp_path) == []
+
+
 def test_what_is_not_a_path_is_not_reported(tmp_path):
     """A checker whose output is mostly noise stops being read (check_links.py's lesson)."""
     root = _tree(tmp_path)

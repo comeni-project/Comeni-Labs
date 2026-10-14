@@ -1,4 +1,4 @@
-"""Every path `ARCHITECTURE.md` names exists.
+"""Every path `docs/explanation/architecture.md` names exists.
 
 The whole argument for grouping `comeni-core` by lifecycle stage is that a reader's document
 and their directory agree — so the document naming a directory that is not there is the one
@@ -56,26 +56,26 @@ def _resolve(named: str) -> pathlib.Path:
 
 
 def test_every_path_architecture_names_exists():
-    named = sorted(set(PATH.findall((ROOT / "ARCHITECTURE.md").read_text())))
+    named = sorted(set(PATH.findall((ROOT / "docs/explanation/architecture.md").read_text())))
     assert named, (
-        "ARCHITECTURE.md names no module path at all — §1's `Lives in` column is how a reader "
+        "Architecture names no module path at all — §1's `Lives in` column is how a reader "
         "gets from a stage to a directory, and it has gone"
     )
     missing = [name for name in named if not _resolve(name).exists()]
     assert missing == [], (
-        "ARCHITECTURE.md names paths that do not exist:\n  " + "\n  ".join(missing)
+        "Architecture names paths that do not exist:\n  " + "\n  ".join(missing)
     )
 
 
 def test_the_five_packages_are_all_named():
     """A stage whose directory the document does not name is a stage a reader cannot find."""
-    text = (ROOT / "ARCHITECTURE.md").read_text()
+    text = (ROOT / "docs/explanation/architecture.md").read_text()
     missing = [
         f"comeni_core/{group}/"
         for group in ("declared", "goal", "plan", "artifact", "spell")
         if f"comeni_core/{group}/" not in text
     ]
-    assert missing == [], f"ARCHITECTURE.md does not name these packages: {missing}"
+    assert missing == [], f"Architecture does not name these packages: {missing}"
 
 
 def test_no_document_or_tool_still_says_docs_internal():
@@ -181,18 +181,12 @@ def test_every_documented_clone_command_gets_the_submodule():
 
 
 def test_a_generated_page_is_not_reported():
-    """`docs/tools/index.md -> catalogue.md` is a correct link to a page `make wiki-tools`
-    renders, and the checker reported it as broken until 2026-09-04.
-
-    The mechanism asks git, so this asserts against the real case rather than a fabricated
-    one: the catalogue must be recognised as generated, and recognised *because the ignore
-    rules say so* rather than because a list somewhere names it.
-    """
+    """Generated catalogue links are exempt according to the real Git ignore rules."""
     root = ROOT
     sys.path.insert(0, str(root / "tools"))
     import check_links
 
-    catalogue = (root / "docs" / "tools" / "catalogue.md").resolve()
+    catalogue = (root / "docs" / "reference" / "tools" / "catalogue.md").resolve()
     assert check_links._generated({catalogue}) == {catalogue}, (
         "the catalogue is not recognised as generated — `make links` will report a correct "
         "link, which is what this test exists to prevent"
@@ -200,18 +194,7 @@ def test_a_generated_page_is_not_reported():
 
 
 def test_a_missing_page_is_still_reported():
-    """The other half, and the one that matters.
-
-    Exempting generated targets is a hole if it exempts too much. A documentation page outside
-    the generated tree is not ignored, so it must still be reported — otherwise the fix for one
-    false positive has turned the checker off.
-
-    **This was watched failing, and the first attempt at it passed for the wrong reason.** The
-    probe was originally `docs/tools/a-page-nobody-wrote.md`, which the ignore rule covers, so
-    the checker stayed green on a genuine 404 and the exemption looked airtight when it was
-    not. The probe has to sit outside `docs/tools/`; the cost inside it is what the test below
-    bounds.
-    """
+    """An absent authored page must not receive the generated-page exemption."""
     root = ROOT
     sys.path.insert(0, str(root / "tools"))
     import check_links
@@ -224,26 +207,10 @@ def test_a_missing_page_is_still_reported():
 
 
 def test_the_generated_exemption_covers_only_the_generated_tree():
-    """The blind spot is `docs/tools/`, and it must not spread.
+    """Probe all documentation directories; only generated tool pages may be exempt.
 
-    The ignore rule covers that whole directory, so a link *into* it naming a page the
-    generator does not produce is unreported. That is accepted — a checkout genuinely cannot
-    answer "is there a page for this tool", which is the same reason `mkdocs.yml` excludes
-    `tools/*/*.md` from its nav check — but it is accepted for **one** directory.
-
-    A prefix exclusion is a blocklist, and this repository has learned twice what a blocklist
-    costs. So this asserts the complement: probe every directory under `docs/` with a name that
-    does not exist, and nothing outside the `docs/tools/` tree may come back ignored.
-
-    **It asserted `== {docs/tools}` until 2026-09-09, and that made it depend on whether
-    somebody had built the wiki.** `mendel docs` writes one page per tool *nested under its
-    org*, so `docs/tools/nf-core/` and `docs/tools/comeni/` exist in a built checkout and not
-    in a fresh one — and the ignore rule is `/docs/tools/**/*.md`, which covers them because
-    they are the generated tree this test is named for. The set was one directory in CI and
-    three on any machine that had run `make wiki`, and `make dev` runs it now. Containment is
-    what the docstring above always claimed; equality was a stricter thing that happened to
-    hold while nobody had generated anything.
-    """
+    Containment permits organization subdirectories present after a site build.
+    An ignored target within that tree cannot be checked until generation."""
     root = ROOT
     sys.path.insert(0, str(root / "tools"))
     import check_links
@@ -255,13 +222,13 @@ def test_the_generated_exemption_covers_only_the_generated_tree():
     probes = {(d / "__a_page_nobody_wrote__.md").resolve() for d in directories}
     ignored = {p.parent.relative_to(root) for p in check_links._generated(probes)}
 
-    tools = pathlib.Path("docs/tools")
+    tools = pathlib.Path("docs/reference/tools")
     assert tools in ignored, (
-        "docs/tools/ is no longer exempt — either the ignore rule moved or the probe is wrong"
+        "docs/reference/tools/ is no longer recognized as generated"
     )
     strays = {d for d in ignored if d != tools and tools not in d.parents}
     assert not strays, (
-        "the generated-page exemption covers a directory outside docs/tools/. A link into "
+        "the generated-page exemption covers a directory outside docs/reference/tools/: "
         f"one of these is now unchecked and nothing says so:\n  {sorted(map(str, strays))}"
     )
 

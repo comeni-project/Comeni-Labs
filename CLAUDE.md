@@ -12,12 +12,12 @@ introducing the project: a model's contribution must remain visible and reviewab
 ## Before working
 
 - Read [current work](docs/notes/now.md), then the relevant source and tests. The
-  [journal](docs/notes/journal/) records completed work; GitHub issue #119 is the task tree.
+  [journal](docs/notes/journal) records completed work; GitHub issue #119 is the task tree.
 - Check the branch, worktree and working tree before editing. Use a feature branch and
   preserve other agents' changes. Worktree submodule configuration is shared: never run
   `git submodule deinit` inside a worktree.
-- Treat [ARCHITECTURE.md](ARCHITECTURE.md) as background requiring verification against
-  code. It is awaiting revision. Current notes and design documents can also lag the code;
+- Treat [ARCHITECTURE.md](docs/explanation/architecture.md) as background requiring verification against
+  code. Its detailed sections are awaiting revision. Current notes and design documents can also lag the code;
   distinguish an implemented behavior from a proposal.
 - This brief has a 300-line budget, checked by `make doc-sizes`. Put temporary status in
   current notes, detailed rationale in design documents, and local caveats beside the code.
@@ -28,7 +28,7 @@ introducing the project: a model's contribution must remain visible and reviewab
   implementation problems separately. Do not turn an audit into an unsolicited refactor.
 - Record defects in GitHub issues before implementation. For rule, protocol or ownership
   changes, explain the alternatives and costs so the operator can choose. The
-  [walking procedure](docs/internals/walking.md) describes the issue and decision workflow.
+  [walking procedure](docs/how-to/development/investigate.md) describes the issue and decision workflow.
 - Before code changes, agree on the approach. Design work proceeds through an approved
   spec and plan; a mechanical fix needs a short approved approach. Existing explicit
   authorization carries forward, including the user's choice to proceed without those steps.
@@ -48,7 +48,7 @@ introducing the project: a model's contribution must remain visible and reviewab
 
 ## Boundaries to preserve
 
-Read [the invariants](docs/design/invariants.md) for rationale; verify implementation
+Read [the invariants](docs/explanation/invariants.md) for rationale; verify implementation
 claims in source and guards before repeating them.
 
 - Pure packages (`comeni-core`, `mendel-resolver`, `mendel-compiler`, `mendel-authoring`,
@@ -79,10 +79,15 @@ claims in source and guards before repeating them.
 
 ## Documentation and public claims
 
-Write purpose and behavior first, with short usage context where a new reader needs it.
-Preserve operational constraints; move long explanations to a linked page. Keep comments
-about current intent, not the history of how a defect was discovered. Derive volatile counts
-from commands or source rather than copying them into prose.
+Use the [documentation style guide](docs/how-to/development/documentation.md) when editing
+pages. The [docs homepage](docs/index.md) connects tutorials, how-to guides, reference and
+explanation. Give each maintained subject one home and link to it from other paths.
+
+Before rewriting, inventory useful behavior, constraints, prerequisites, examples and
+rationale. Retain them or record where they moved; report meaningful removals. Use
+`redocument-file` for a file or related group when available. Keep comments about current
+purpose; put release history in `CHANGELOG.md` and session history in working notes.
+Derive volatile counts from commands or source rather than copying them into prose.
 
 User-facing pages should use the user's task and vocabulary. Package and service names
 belong in developer documentation when they help explain ownership. Do not imply that AI
@@ -129,7 +134,8 @@ lockfile without checking freshness. See [uv's locking guide](https://docs.astra
 
 ## Checks and operational cautions
 
-`make help` describes available commands. Read [the testing guide](tests/README.md) before
+The [contributing guide](docs/how-to/development/contribute.md) owns human setup and review
+instructions. `make help` describes available commands. Read [the testing guide](tests/README.md) before
 adding tests. Run Python tests from the repository root and use `support.paths` for root
 lookup. Assert that collections are nonempty before checking each item. Use deterministic
 fixtures for pure behavior and recorded responses for model calls; do not call live models
@@ -160,7 +166,7 @@ outside the container. Mendel's development API reloads mounted source; backgrou
 need a restart after changes. Check Compose mounts before deciding whether a rebuild is needed.
 
 Packages version independently with tags such as `comeni-core-v0.2.0`. Read
-[the release procedure](docs/internals/releasing.md) before tagging. `CHANGELOG.md` records
+[the release procedure](docs/how-to/development/release.md) before tagging. `CHANGELOG.md` records
 notable unreleased changes by package, not every commit; registry changes belong in its own
 repository. Preserve historical release entries. GitHub Actions are pinned by commit SHA.
 Releases go to GitHub Releases, not PyPI. Code is Apache-2.0; registry data is CC-BY-4.0.

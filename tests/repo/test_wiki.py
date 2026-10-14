@@ -1,7 +1,7 @@
-"""The wiki's structure is a claim the build checks, not a convention anybody remembers.
+"""Documentation navigation preserves reader paths, catalogue access and existing URLs.
 
-`mkdocs.yml`'s `nav:` is the one place book order is declared — the folder layout mirrors it
-so the two cannot drift, and this file is what says so.
+Diátaxis paths organize navigation independently of the physical page directories.
+Historical notes and plans remain outside the published site.
 """
 
 import pathlib
@@ -16,7 +16,7 @@ from mendel_resolver import layers
 ROOT = pathlib.Path(__file__).parent.parent.parent
 CONFIG = ROOT / "mkdocs.yml"
 
-BOOKS = ["Start here", "Handbook", "Tools", "Registry", "Internals"]
+PATHS = ["Tutorials", "How-to guides", "Reference", "Explanation"]
 
 
 def _config() -> dict:
@@ -31,18 +31,18 @@ def _nav_titles(nav: list) -> list[str]:
     return [next(iter(entry)) for entry in nav if isinstance(entry, dict)]
 
 
-def test_the_five_books_are_the_top_level_nav_in_order():
+def test_the_four_reader_paths_are_the_top_level_nav_in_order():
     nav = _config()["nav"]
-    assert _nav_titles(nav) == BOOKS, (
-        "mkdocs.yml's top-level nav is the book order and it is a spec decision (§4). "
-        f"Expected {BOOKS}."
-    )
+    assert _nav_titles(nav) == PATHS, f"Expected documentation paths {PATHS}."
 
 
-def test_every_book_has_a_landing_page():
-    for slug in ["start", "handbook", "tools", "registry", "internals"]:
-        index = ROOT / "docs" / slug / "index.md"
+def test_every_reader_path_has_a_landing_page():
+    nav = _config()["nav"]
+    for title, slug in zip(PATHS, ["tutorials", "how-to", "reference", "explanation"], strict=True):
+        relative = f"{slug}/index.md"
+        index = ROOT / "docs" / relative
         assert index.is_file(), f"{index.relative_to(ROOT)} is missing"
+        assert next(entry[title] for entry in nav if title in entry)[0] == relative
 
 
 def test_provenance_is_excluded_from_the_site():
@@ -62,16 +62,11 @@ def test_the_stage_stamp_is_declared_once():
 
 
 def test_the_tools_book_is_generated_not_committed():
-    """Spec §6: a generated page in the repository is a page that can disagree with its source.
-
-    `index.md` is the one hand-written file under `docs/tools/`; everything else arrives from
-    `mendel docs` at build time and is ignored.
-    """
+    """Generated tool pages are ignored; their authored introduction is outside that tree."""
     ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
-    assert "/docs/tools/*.md" in ignore
-    assert "!/docs/tools/index.md" in ignore, (
-        "index.md is authored and must be negated out of the ignore rule"
-    )
+    assert "/docs/reference/tools/*.md" in ignore
+    assert (ROOT / "docs/reference/tools.md").is_file()
+    assert not (ROOT / "docs/tools").exists()
 
 
 def test_building_the_wiki_generates_the_catalogue_first():
@@ -83,18 +78,13 @@ def test_building_the_wiki_generates_the_catalogue_first():
 
 
 def test_the_catalogue_is_reachable_by_clicking_not_only_searching():
-    """A reader must be able to browse into the tool pages, not only find one by search.
-
-    `docs/tools/index.md` is the one authored file under `docs/tools/`; the catalogue itself
-    is generated (`tools/generate_tools_catalogue.py`, run by `make wiki-tools`) and gitignored
-    like every other page `mendel docs` writes — but the *entry point* to it is a real nav
-    reference, not a pointer to the search box.
-    """
+    """Reference navigation exposes the authored introduction and generated catalogue."""
     nav = _config()["nav"]
-    tools_entry = next(entry for entry in nav if next(iter(entry)) == "Tools")
-    assert "tools/catalogue.md" in tools_entry["Tools"], (
-        "the Tools nav must reference the generated catalogue page, so a reader reaches the "
-        "tool pages by clicking through it"
+    reference = next(entry["Reference"] for entry in nav if "Reference" in entry)
+    tools = next(entry["Available tools"] for entry in reference
+                 if isinstance(entry, dict) and "Available tools" in entry)
+    assert "reference/tools.md" in tools and "reference/tools/catalogue.md" in tools, (
+        "Reference must expose both the tool introduction and generated catalogue"
     )
 
 
@@ -129,38 +119,40 @@ def test_the_catalogue_links_to_real_tool_pages_not_an_empty_shell():
     assert missing == [], f"catalogue is missing a link to: {missing}"
 
 
-MOVED = {
-    "handbook/your-first-pipeline.md",
-    "handbook/the-four-tiers.md",
-    "handbook/how-tools-get-chosen.md",
-    "handbook/the-stack.md",
-    "handbook/reference/cli.md",
-    "handbook/reference/pipeline-schema.md",
-    "handbook/reference/goal-schema.md",
-    "handbook/reference/diagnostics.md",
-    "handbook/reference/glossary.md",
-    "registry/writing-a-contract.md",
-    "registry/making-a-choice-depend-on-your-data.md",
-    "registry/your-labs-own-layer.md",
-    "registry/reference/contract-schema.md",
-    "registry/reference/rule-schema.md",
-    "registry/reference/vocabulary-schema.md",
-    "registry/reference/measurement-schema.md",
-    "internals/releasing.md",
+CANONICAL_PAGES = {
+    "tutorials/first-pipeline.md",
+    "explanation/decision-tiers.md",
+    "explanation/tool-selection.md",
+    "how-to/development/local-stack.md",
+    "reference/pipelines/cli.md",
+    "reference/pipelines/pipeline-schema.md",
+    "reference/pipelines/goal-schema.md",
+    "reference/pipelines/diagnostics.md",
+    "reference/pipelines/glossary.md",
+    "how-to/registry/add-tool.md",
+    "how-to/registry/write-rule.md",
+    "how-to/registry/add-layer.md",
+    "reference/registry/contract-schema.md",
+    "reference/registry/rule-schema.md",
+    "reference/registry/vocabulary-schema.md",
+    "reference/registry/measurement-schema.md",
+    "how-to/development/release.md",
 }
 
-RETIRED = ["concepts", "guides", "reference", "tutorial.md", "README.md"]
+RETIRED = [
+    "concepts", "guides", "reference/cli.md", "tutorial.md", "README.md",
+    "design", "handbook", "internals", "registry", "start", "tools", "status.md",
+]
 
 
-@pytest.mark.parametrize("rel", sorted(MOVED))
-def test_every_surviving_page_landed_in_its_book(rel: str):
-    assert (ROOT / "docs" / rel).is_file(), f"docs/{rel} is missing — see the spec §7 move table"
+@pytest.mark.parametrize("rel", sorted(CANONICAL_PAGES))
+def test_maintained_pages_have_their_canonical_destinations(rel: str):
+    assert (ROOT / "docs" / rel).is_file(), f"docs/{rel} is missing"
 
 
 @pytest.mark.parametrize("rel", RETIRED)
 def test_the_old_layout_is_gone(rel: str):
-    """The books ARE the folders. A leftover `guides/` is a second answer to 'where does
-    this go', which is how the old split drifted from its own index pages."""
+    """Retired locations stay absent; reference/index.md is now a reader-path entry."""
     assert not (ROOT / "docs" / rel).exists(), f"docs/{rel} should have been moved or deleted"
 
 

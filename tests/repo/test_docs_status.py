@@ -83,11 +83,11 @@ def test_the_status_page_lists_every_marker(tmp_path):
     assert "Plan 3" in page
 
 
-def test_an_internals_page_without_a_serves_line_is_a_problem(tmp_path):
+def test_a_development_guide_without_a_serves_line_is_a_problem(tmp_path):
     """Spec §3.2 — accuracy was never the problem with the old docs; orphaning was."""
-    d = tmp_path / "docs" / "internals"
+    d = tmp_path / "docs" / "how-to" / "development"
     d.mkdir(parents=True)
-    (d / "f.md").write_text("# Some internals page\n\nBody.\n", encoding="utf-8")
+    (d / "f.md").write_text("# Some development guide\n\nBody.\n", encoding="utf-8")
     problems = docs_status.problems(docs_status.scan(tmp_path / "docs"),
                                     root=tmp_path / "docs")
     assert any("Serves:" in p for p in problems)
@@ -104,10 +104,10 @@ def test_a_collapsible_marker_is_found_too(tmp_path):
 
 def test_a_serves_line_naming_a_step_outside_the_loop_is_a_problem(tmp_path):
     """`STEPS` must be checked, not just quoted in the error message for a missing line."""
-    d = tmp_path / "docs" / "internals"
+    d = tmp_path / "docs" / "how-to" / "development"
     d.mkdir(parents=True)
     (d / "i.md").write_text(
-        "# Some internals page\n\n*Serves: **fly to the moon**. Nonsense.*\n\nBody.\n",
+        "# Some development guide\n\n*Serves: **fly to the moon**. Nonsense.*\n\nBody.\n",
         encoding="utf-8",
     )
     problems = docs_status.problems(docs_status.scan(tmp_path / "docs"),

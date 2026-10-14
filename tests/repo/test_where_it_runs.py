@@ -11,7 +11,7 @@ WORDS = {"server": "this server", "lab": "the lab's machine", "browser": "the br
 
 
 def _table() -> str:
-    page = (ROOT / "docs/design/authoring-protocol.md").read_text()
+    page = (ROOT / "docs/explanation/authoring-protocol.md").read_text()
     assert "## Where each measurer runs" in page, "the protocol page has no where-it-runs table"
     return page.split("## Where each measurer runs", 1)[1].split("\n## ", 1)[0]
 

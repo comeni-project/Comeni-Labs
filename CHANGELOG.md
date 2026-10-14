@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Packages version independently,
 using tags such as `comeni-core-v0.2.0`. Each version has one `###` heading per package;
 [the release workflow](.github/workflows/release.yml) extracts that package's section.
-See [the release procedure](docs/internals/releasing.md) before tagging.
+See [the release procedure](docs/how-to/development/release.md) before tagging.
 
 Registry data lives in [comeni-registry](https://github.com/comeni-project/comeni-registry),
 mounted here as a submodule. Its changes and releases are recorded in that repository.

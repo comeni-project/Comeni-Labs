@@ -1,7 +1,7 @@
 """The authoring protocol as one declarative object: who acts, in which stage, and what moves.
 
 **This is the only definition.** `state.TRANSITIONS` and `state.RETRY_TARGETS` are computed from
-the built edges here, and `docs/design/diagrams/` is generated from the whole object (one
+the built edges here, and `docs/explanation/diagrams/` is generated from the whole object (one
 diagram, with sections), so the picture a person argues about and the machine that runs cannot
 drift apart. The design lives here too, **planned** (`built=False`) and
 drawn dashed; each substep that builds a part flips it. The rules' prose stays on the protocol
@@ -102,7 +102,7 @@ class Edge(_Frozen):
 class Protocol(_Frozen):
     title: str = "The authoring protocol"
     slug: str = "authoring-protocol"
-    """The diagram's file name in `docs/design/diagrams/`, without `.md`."""
+    """The diagram's file name in `docs/explanation/diagrams/`, without `.md`."""
     stages: tuple[Stage, ...]
     nodes: tuple[Node, ...]
     edges: tuple[Edge, ...]
