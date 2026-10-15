@@ -170,16 +170,22 @@ def _found(done: subprocess.CompletedProcess) -> str:
     )
 
 
-@needs_db
-def test_the_models_match_the_migrated_database():
-    """Issue 279: the models and the migrations had drifted (two indexes the models did not
-    declare), and nothing here compared indexes or nullability. `alembic check` compares
-    tables, columns, types, nullability, indexes, unique and foreign keys, and checks by name,
-    against the real dialect."""
+@pytest.fixture(scope="module")
+def at_head():
+    """Every comparison with the database first asks whether it is at head: behind it, a
+    difference is the migrations not yet applied, not drift, and the fix is `make test-db`."""
     current = _alembic("current")
     assert "(head)" in current.stdout, (
         "the test database is not at head, so a difference would be a phantom: `make test-db`"
     )
+
+
+@needs_db
+def test_the_models_match_the_migrated_database(at_head):
+    """Issue 279: the models and the migrations had drifted (two indexes the models did not
+    declare), and nothing here compared indexes or nullability. `alembic check` compares
+    tables, columns, types, nullability, indexes, unique and foreign keys, and checks by name,
+    against the real dialect."""
     done = _alembic("check")
     assert done.returncode == 0, f"the models and the migrations disagree:\n{_found(done)}"
 
@@ -202,7 +208,7 @@ def _model_checks() -> dict[str, list[str]]:
 
 
 @needs_db
-def test_each_check_names_exactly_its_enum():
+def test_each_check_names_exactly_its_enum(at_head):
     """`alembic check` compares check constraints by name only. An enum that gains a member
     keeps the name and changes the values, so this compares what is inside (issue 274)."""
     with session_scope() as session:

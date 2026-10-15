@@ -31,7 +31,7 @@ def clean():
         session.execute(
             truncate(
                 "TRUNCATE TABLE gate_run, pipeline_authoring_proposal, pipeline_authoring_turn, "
-                "pipeline_authoring_session, pipeline_draft, gate_run"
+                "pipeline_authoring_session, pipeline_draft"
             )
         )
         for draft_id in ("d1", "d2"):

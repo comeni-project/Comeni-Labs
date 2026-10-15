@@ -37,7 +37,7 @@ jobs:
           POSTGRES_DB: mendel
         ports: ["5442:5432"]
         options: >-
-          --health-cmd "pg_isready -U mendel" --health-interval 2s --health-timeout 5s
+          --health-cmd "pg_isready -h 127.0.0.1 -U mendel" --health-interval 2s --health-timeout 5s
           --health-retries 20
     env:
       MENDEL_TEST_DATABASE_URL: postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel
