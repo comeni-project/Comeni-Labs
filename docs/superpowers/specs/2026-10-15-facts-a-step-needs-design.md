@@ -44,26 +44,24 @@ The fix puts the second way through the same rule as the first.
 | How the engine knows a tool reads a fact | **Derived from the tool's code**, which `ModuleSpec.meta_reads` already parses. No new declaration: a `needs:` field was considered and rejected as a third copy of what the fact's `meta_key` and the module's code already say, kept honest only by a check. |
 | Where it is decided | In the resolver, so the CLI, the browser and a self-hosted install agree (invariant 13), and the record is replayable. |
 
-## 4. The resolver learns what each tool reads, through a port
+## 4. The resolver is handed what each tool reads, as data
 
-The resolver is pure and does not import the compiler (the arrow points adapter → resolver,
-`mendel_resolver/ports.py`). It gains a port:
+The resolver is pure and does not import the compiler. It does not need an interface either:
+`resolve` takes one more argument, a plain mapping.
 
 ```python
-class ReadsOfTools(Protocol):
-    def facts_read(self, contract_id: str) -> frozenset[str] | None:
-        """The declared measurements whose `meta_key` this tool's module reads, or None when
-        its source cannot be read."""
+facts_read: Mapping[str, frozenset[str] | None] | None = None
+"""Per contract id, the declared measurements whose `meta_key` its module reads; None for a
+contract whose source cannot be read. The argument None: nobody looked (today's behaviour)."""
 ```
 
-- The adapter lives in `mendel-compiler`: for each contract's module, `ModuleSpec.parse(path)
-  .meta_reads` (variable `meta`), mapped through the measurements' `meta_key`s, minus the keys
-  that are always set (`conformance._ALWAYS_SET`, today `{"id"}`). It is computed once per
-  registry, as conformance already does.
-- Every caller of `resolve` that has the stack's modules passes it: the CLI build
-  (`mendel_compiler.orchestrate`) and `mendel-api`'s blueprint resolution. A caller without
-  module sources passes none, and nothing changes for it (a lab's bare-container layer).
-- Sorted sets throughout (invariant 10).
+- Computed in `mendel-compiler`, next to conformance, from what it already parses:
+  `ModuleSpec.parse(path).meta_reads` (variable `meta`), mapped through the measurements'
+  `meta_key`s, minus the keys always set (`conformance._ALWAYS_SET`, today `{"id"}`). Once per
+  registry.
+- Passed by the two callers that have the stack's modules: the CLI build
+  (`mendel_compiler.orchestrate`) and `mendel-api`'s blueprint resolution.
+- Sorted when iterated (invariant 10).
 
 ## 5. An unsupplied fact is tier 4 at the step that reads it
 
@@ -75,6 +73,9 @@ In `resolve`, for each chosen contract, for each fact its tool reads:
   `comeni_core/plan/decision.py`, keyed `<node>.fact.<measurement>`, with `unknown=[measurement]`
   and `candidates` = the measurement's declared values. Flagged like every tier 4 (invariant 6),
   listed in `needs_review()`.
+  **Why a new record kind rather than a `ParamDecision`:** a setting's answer is stored as that
+  one step's setting, so two steps reading strandedness would ask twice and could disagree; this
+  answer is stored as the fact, once, for every step. It is the one new type in this design.
 - **Source unreadable** (`facts_read` is `None`): no decision, and the step's `why` says its
   reads could not be checked, as conformance marks an unreadable module `unverified`.
 
@@ -127,7 +128,7 @@ between waiting and a version 7 that Plan B then extends.
 - Resolver (pure, golden): the spine with strandedness unknown has a tier-4 `FactDecision` on
   featureCounts and HISAT2 align, `unknown == ["strandedness"]`, candidates the declared values;
   with strandedness `reverse`, no `FactDecision` and byte-identical `.nf` to today
-  (invariant 10); with no port, identical to today.
+  (invariant 10); with no mapping passed, identical to today.
 - `mendel-authoring`: `need_of` returns `NeedKind.FACT` for a step with a `FactDecision`.
 - `mendel-api`: gathering does not ask strandedness for counts; the walk stops at the first step
   that reads it with *tell me*; answering `reverse` records the fact and settles the other step;
