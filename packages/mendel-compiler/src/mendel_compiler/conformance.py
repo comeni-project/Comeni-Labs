@@ -322,6 +322,34 @@ def _meta_keys(
     return found
 
 
+def facts_read(
+    registry: Registry, modules: Mapping[str, Module], measurements: MeasurementRegistry
+) -> dict[str, frozenset[str] | None]:
+    """Per contract, the declared facts its module reads off the sample's label (#338).
+
+    Derived from the code, as `_meta_keys` is: a declaration of the same thing would be a third
+    copy of what the measurement's `meta_key` and the module already say. `None` when the source
+    cannot be read; nothing is assumed about a module nobody could look at.
+    """
+    by_key = {
+        measurements.get(m).meta_key: m
+        for m in measurements.ids()
+        if measurements.get(m).meta_key
+    }
+    found: dict[str, frozenset[str] | None] = {}
+    for contract in sorted(registry.all(), key=lambda c: c.id):
+        path = module_path(contract, modules)
+        if path is None or not path.exists():
+            found[contract.id] = None
+            continue
+        found[contract.id] = frozenset(
+            by_key[entry.key]
+            for entry in ModuleSpec.parse(path).meta_reads
+            if entry.variable == "meta" and entry.key not in _ALWAYS_SET and entry.key in by_key
+        )
+    return found
+
+
 def _dead_ext_routes(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diagnostic]:
     """`MD0108` — a setting routed to an `ext` key the module never reads.
 
