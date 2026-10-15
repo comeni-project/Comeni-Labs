@@ -128,6 +128,7 @@ def test_a_retract_takes_the_kind_its_subject_implies(stack):
     [
         Understanding(wants=[{"type": "made.up"}]),
         ChatReply(facts=[{"subject": "read_length", "value": -3}]),
+        ChatReply(facts=[{"subject": "read_length", "value": "fifty"}]),
         ChatReply(pins=[{"type": "alignment.bam", "tool": "nf-core/nothing@1.0.0"}]),
         ChatReply(requires=[{"type": "counts.matrix", "states": ["no_such_state"]}]),
     ],
@@ -135,6 +136,19 @@ def test_a_retract_takes_the_kind_its_subject_implies(stack):
 def test_an_undeclared_id_is_refused_at_admission(stack, reply):
     with pytest.raises(ValueError, match="MI0204"):
         replies.admit(reply, stack)
+
+
+def test_a_number_written_as_text_is_read_by_its_declared_kind(stack):
+    """Issue 323, from the walk: `"50"` for an integer measurement refused the whole reply.
+    It is read as the declaration says, and heard when the quote holds the number."""
+    got = _issued(
+        stack,
+        ChatReply(facts=[{"subject": "read_length", "value": "150", "quote": "150 bp"},
+                         {"subject": "paired", "value": "true", "quote": "paired-end"}]),
+    )
+    heard = {c.subject: c.value for c in got.heard}
+    assert heard == {"read_length": 150, "paired": True}
+    assert type(heard["read_length"]) is int
 
 
 def test_a_quote_is_checked_against_what_the_person_typed_in_this_session():

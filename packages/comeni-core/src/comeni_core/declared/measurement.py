@@ -11,6 +11,7 @@ a perfectly valid string. A categorical declares its values instead, which also 
 over it be checked for exhaustiveness.
 """
 
+import re
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
@@ -341,6 +342,30 @@ class MeasurementRegistry(BaseModel):
             f"  and `id: {measurement_id}`. Since comeni-registry#1 the path is free;\n"
             f"  the convention is <layer>/measurements/{measurement_id}.yml."
         )
+
+    def coerce(
+        self, measurement_id: str, value: ParamValue | list[ParamValue]
+    ) -> ParamValue | list[ParamValue]:
+        """`value` read as the declaration's kind when it arrived as text, else unchanged.
+
+        A model writes `"50"` for an integer (issue 323). The kind says how to read it: whole
+        digits for an integer, a decimal for a number, `true`/`false` for a boolean. Text that
+        is not the kind (`"fifty"`, `"50 bp"`, `"50.5"` for an integer) comes back as it was,
+        so `check` still refuses it: this reads a type, it never guesses a value.
+        """
+        if isinstance(value, list):
+            return [self.coerce(measurement_id, element) for element in value]
+        if not isinstance(value, str):
+            return value
+        kind, text = self.get(measurement_id).kind, value.strip()
+        if kind is MeasurementKind.INTEGER and re.fullmatch(r"[+-]?\d+", text):
+            return int(text)
+        if kind is MeasurementKind.NUMBER and re.fullmatch(r"[+-]?(\d+\.?\d*|\.\d+)", text):
+            number = float(text)
+            return int(number) if re.fullmatch(r"[+-]?\d+", text) else number
+        if kind is MeasurementKind.BOOLEAN and text.lower() in ("true", "false"):
+            return text.lower() == "true"
+        return value
 
     def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:
         """Raise unless `value` satisfies the declaration for `measurement_id`.

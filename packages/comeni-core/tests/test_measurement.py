@@ -117,6 +117,58 @@ def test_a_wrong_type_is_refused(base):
         registry.check("read_length", "one hundred and fifty")
 
 
+@pytest.fixture
+def every_kind(tmp_path):
+    return _layer(
+        tmp_path,
+        "kinds",
+        {
+            "read_length.yml": READ_LENGTH,
+            "strandedness.yml": STRANDEDNESS,
+            "paired.yml": "kind: boolean\ndescription: Paired-end\n",
+            "gc.yml": "kind: number\ndescription: GC fraction\n",
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("measurement", "text", "value"),
+    [
+        ("read_length", "50", 50),
+        ("read_length", " 150 ", 150),
+        ("gc", "0.42", 0.42),
+        ("gc", "1", 1),
+        ("paired", "true", True),
+        ("paired", "False", False),
+        ("strandedness", "reverse", "reverse"),
+    ],
+)
+def test_text_is_read_by_the_declared_kind(every_kind, measurement, text, value):
+    """Issue 323: a model writes `"50"` for an integer; the declaration says how to read it."""
+    registry = MeasurementRegistry.load(every_kind)
+    got = registry.coerce(measurement, text)
+    assert got == value and type(got) is type(value)
+    registry.check(measurement, got)
+
+
+@pytest.mark.parametrize(
+    ("measurement", "text"),
+    [("read_length", "fifty"), ("read_length", "50.5"), ("read_length", "50 bp"),
+     ("paired", "yes please"), ("gc", "")],
+)
+def test_text_that_is_not_the_kind_is_left_for_check_to_refuse(every_kind, measurement, text):
+    registry = MeasurementRegistry.load(every_kind)
+    assert registry.coerce(measurement, text) == text
+    with pytest.raises(BadMeasurementValueError):
+        registry.check(measurement, registry.coerce(measurement, text))
+
+
+def test_a_value_already_of_its_kind_and_a_list_are_read_element_by_element(every_kind):
+    registry = MeasurementRegistry.load(every_kind)
+    assert registry.coerce("read_length", 100) == 100
+    assert registry.coerce("read_length", ["50", 75]) == [50, 75]
+
+
 def test_an_undeclared_measurement_says_what_exists(base):
     registry = MeasurementRegistry.load(base)
     with pytest.raises(UnknownMeasurementError) as exc:

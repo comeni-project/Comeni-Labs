@@ -45,9 +45,17 @@ def person_turns(session_id: str) -> list[tuple[int, str]]:
 def admit(reply: Understanding | ChatReply, stack) -> Understanding | ChatReply:
     """Every id against what the registry declares, before anything reads the reply (`MI0204`).
     A value a measurement refuses is refused the same way: the reply named something this
-    registry cannot hold."""
+    registry cannot hold. Returns the reply with each fact's value read by its declared kind,
+    which is what is recorded."""
     types, measurements = stack.vocabulary.types, stack.measurements
     unknown: list[str] = []
+    # A value written as text is read by its measurement's declared kind first (issue 323);
+    # what does not read as the kind is left for `check` to refuse.
+    reply = reply.model_copy(update={"facts": [
+        item if item.subject in types or item.subject not in measurements.measurements
+        else item.model_copy(update={"value": measurements.coerce(item.subject, item.value)})
+        for item in reply.facts
+    ]})
 
     def _type(type_id: str, states=()) -> None:
         if type_id not in types:
