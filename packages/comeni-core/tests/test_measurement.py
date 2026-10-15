@@ -154,7 +154,7 @@ def test_text_is_read_by_the_declared_kind(every_kind, measurement, text, value)
 @pytest.mark.parametrize(
     ("measurement", "text"),
     [("read_length", "fifty"), ("read_length", "50.5"), ("read_length", "50 bp"),
-     ("paired", "yes please"), ("gc", "")],
+     ("paired", "yes please"), ("gc", ""), ("read_length", "²"), ("gc", "1.2.3")],
 )
 def test_text_that_is_not_the_kind_is_left_for_check_to_refuse(every_kind, measurement, text):
     registry = MeasurementRegistry.load(every_kind)

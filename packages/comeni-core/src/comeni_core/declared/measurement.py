@@ -11,7 +11,6 @@ a perfectly valid string. A categorical declares its values instead, which also 
 over it be checked for exhaustiveness.
 """
 
-import re
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
@@ -358,11 +357,14 @@ class MeasurementRegistry(BaseModel):
         if not isinstance(value, str):
             return value
         kind, text = self.get(measurement_id).kind, value.strip()
-        if kind is MeasurementKind.INTEGER and re.fullmatch(r"[+-]?\d+", text):
+        digits = text[1:] if text[:1] in "+-" else text
+        whole = digits.isdecimal()
+        if kind is MeasurementKind.INTEGER and whole:
             return int(text)
-        if kind is MeasurementKind.NUMBER and re.fullmatch(r"[+-]?(\d+\.?\d*|\.\d+)", text):
-            number = float(text)
-            return int(number) if re.fullmatch(r"[+-]?\d+", text) else number
+        if kind is MeasurementKind.NUMBER and (
+            whole or (digits.count(".") == 1 and digits.replace(".", "", 1).isdecimal())
+        ):
+            return int(text) if whole else float(text)
         if kind is MeasurementKind.BOOLEAN and text.lower() in ("true", "false"):
             return text.lower() == "true"
         return value
