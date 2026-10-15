@@ -1,4 +1,5 @@
-# Provisioned, so nobody clicks it into existence and then cannot say what they clicked.
+# Provision the ClickHouse data source used by the committed Wiener dashboards.
+# The account matches the local Compose telemetry profile and collector configuration.
 apiVersion: 1
 datasources:
   - name: ClickHouse

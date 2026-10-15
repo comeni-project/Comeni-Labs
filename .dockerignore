@@ -2,20 +2,38 @@
 
 # Host Git metadata.
 .git
+**/.git
+
+# Local secrets at any depth. Keep distributable configuration examples.
+**/.env*
+!**/.env.example
+!**/.env.*.example
 
 # Installed dependencies and generated frontend assets.
 .venv
+**/.venv
 node_modules
 frontend/node_modules
 frontend/dist
 
 # Build outputs, runtime state, local worktrees, and Python caches.
 build/
+profile-build/
+workspace/
+var/wiener/
+.forge/
+.forge-demo/
 .run
 .worktrees
+**/.worktrees
+.claude/worktrees
 **/__pycache__
-*.pyc
-*.egg-info
+**/*.py[cod]
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+.coverage
+htmlcov/
 
 # The bundled registry cannot commit updates: its submodule pointer refers to excluded
 # host Git metadata. Compose mounts the writable clone prepared by make dev instead.

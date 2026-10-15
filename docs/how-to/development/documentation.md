@@ -76,3 +76,20 @@ all incoming links have been updated.
 Checks detect selected kinds of drift; they do not verify every behavioral claim or establish
 that a tutorial can be completed. Review the reader's route separately. Document any steps
 that were checked only against source and those exercised in the running app.
+
+## Stage badge and offline use
+
+Set `extra.stage` in `mkdocs.yml` to change the header badge. The theme hook generates
+`assets/stage.css` from that value; avoid duplicating the label in authored CSS.
+
+The built site supports reading and search through `file://` without network access.
+The search worker shim is bundled under `docs/assets/vendor/iframe-worker/`, with its license
+and version recorded beside it. Keep `extra.polyfills` pointed at that local copy.
+Custom Geist fonts use a CDN and fall back to installed sans-serif and monospace fonts offline.
+Local-file browsing displays Mermaid diagrams as readable source, keeping search usable without
+the external renderer. Use a local HTTP server with network access to view rendered diagrams.
+
+After changing the theme or offline plugin, build the site and open `site/index.html` with a
+fresh browser profile and network access disabled. Verify readable content, the configured
+badge and a search that returns known pages. Repeat from a nested page to check relative
+asset paths. A warm browser cache can conceal missing bundled dependencies.

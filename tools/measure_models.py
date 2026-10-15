@@ -1,19 +1,14 @@
-"""Measure which local model serves each builder purpose — issue 187, part 14.7.5.7.
+"""Compare models through the running builder's purpose-specific settings.
 
-Drives the running stack through its own APIs. For each model it points every purpose in
-Settings → Models at it, starts one builder session per sentence, answers the first question
-with a fixed reply, waits for the session to settle, and reads every call it made. Prints, per
-model and purpose: calls, admitted, refused, failed, and the median time and tokens.
+Select models from a configured connection, temporarily assign each to the purposes in
+PURPOSES, create sessions and submit a fixed reply. Print call outcomes and median latency
+and token usage by purpose. The API, workers and model connection must be available.
 
-    uv run python tools/measure_models.py --connection "Local Ollama" \\
-        ollama_chat/gemma3:4b ollama_chat/qwen2.5:7b ollama_chat/gemma3:12b
+Pinned purpose settings are refused. A finally block attempts to restore each prior
+setting; created sessions and call records remain. The script makes real model calls.
+Record the API's MENDEL_FAMILY_STEP_FROM value when comparing results.
 
-**The purposes, not the default.** The default model may be pinned by `.env` (it is on the
-operator's machine), and the five purposes are not; setting them reaches every builder call
-without touching `.env`. Each purpose is put back as it was found, even after an error.
-
-A measuring tool, run by hand; its numbers are recorded on issue 187.
-"""
+    uv run python tools/measure_models.py --connection "Local Ollama" ollama_chat/gemma3:4b"""
 
 import argparse
 import statistics

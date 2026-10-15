@@ -15,6 +15,13 @@ mounted here as a submodule. Its changes and releases are recorded in that repos
 
 ## [Unreleased]
 
+### Deployment
+
+- Mendel and Wiener share one PostgreSQL server with separate non-superuser roles, databases
+  and migration histories. A new data volume preserves both legacy volumes; migration tooling
+  backs up, restores and verifies data before Make permits cutover.
+- Production requires separate administrator, Mendel and Wiener database passwords.
+
 These notes consolidate the earlier unreleased entries and backfill notable changes
 through the explain-inputs and retention work on this branch. They are not a new release
 or a complete commit history.
@@ -173,6 +180,12 @@ or a complete commit history.
 
 - A separate inspection package processes bounded uploaded samples in subprocesses, producing
   measured facts. Compressed samples support truncated stream inspection with expansion limits.
+
+#### Fixed
+
+- Preserve available decompressed bytes from truncated gzip samples, including on Python 3.14.
+  The truncated FASTQ fixture now reports all 998 complete records; the previous report lost
+  its final 20 records to buffered reads.
 
 ### mendel-forge
 

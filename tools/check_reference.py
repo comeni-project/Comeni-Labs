@@ -147,7 +147,7 @@ def egress_problems() -> list[str]:
     """
     import ast
 
-    source = ast.parse((ROOT / "tests" / "guards" / "test_egress.py").read_text())
+    source = ast.parse((ROOT / "tests" / "support" / "egress.py").read_text())
     real = None
     for node in source.body:
         if not isinstance(node, ast.Assign):

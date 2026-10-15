@@ -54,7 +54,9 @@ def test_an_inspected_meta_value_says_which_pieces_measured_it_and_on_how_much()
             ),
         ]
     )
-    entry = _meta_entry("read_length", measurements.get("read_length"), 151, profile)
+    entry = _meta_entry(
+        "read_length", measurements.get("read_length"), 151, profile.measurements[0]
+    )
     assert entry.why.reason.startswith(
         "measured by fastq@1.0.0 + read_length@1.0.0, on 8,412 reads"
     )
@@ -67,7 +69,9 @@ def test_a_profiled_meta_value_still_names_its_contract():
     profile = measurements.profile_of(
         [MeasuredEntry("read_length", 151, ValueSource.MEASURED, by="comeni/profile/fastqc@0.12.1")]
     )
-    entry = _meta_entry("read_length", measurements.get("read_length"), 151, profile)
+    entry = _meta_entry(
+        "read_length", measurements.get("read_length"), 151, profile.measurements[0]
+    )
     assert entry.why.reason.startswith("measured by comeni/profile/fastqc@0.12.1")
 
 
@@ -76,10 +80,15 @@ def _reason(entry_evidence, measurement="read_length", value=151):
 
     measurements = _measurements()
     profile = measurements.profile_of(
-        [MeasuredEntry(measurement, value, ValueSource.MEASURED, pieces=PIECES,
-                       evidence=entry_evidence)]
+        [
+            MeasuredEntry(
+                measurement, value, ValueSource.MEASURED, pieces=PIECES, evidence=entry_evidence
+            )
+        ]
     )
-    return _meta_entry(measurement, measurements.get(measurement), value, profile).why.reason
+    return _meta_entry(
+        measurement, measurements.get(measurement), value, profile.measurements[0]
+    ).why.reason
 
 
 def test_paireds_rows_are_cited_when_it_counted_no_records():

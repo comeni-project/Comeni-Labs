@@ -7,7 +7,7 @@
 # Check changes: make test-db, then make check. Use make verify for pipeline execution checks.
 # Each target below describes a command you can run as `make <name>`.
 
-.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
+.PHONY: help registry-present names-free prepare database-ready check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -15,22 +15,20 @@
 # 1. Configuration
 # -----------------------------------------------------------------------------
 # Run containers as the host user to keep mounted files writable and Git ownership consistent.
-export DOCKER_UID := $(shell id -u)
-export DOCKER_GID := $(shell id -g)
+export DOCKER_UID := $(or $(DOCKER_UID),$(shell tools/command_env.py --setting DOCKER_UID $(shell id -u)))
+export DOCKER_GID := $(or $(DOCKER_GID),$(shell tools/command_env.py --setting DOCKER_GID $(shell id -g)))
 
-# Load the same settings as Compose so commands and printed addresses use the configured ports.
--include .env
+# Load dotenv in the recipe environment through Compose; never parse it as Make syntax.
+SHELL := $(CURDIR)/tools/command_env.py
 export
 
 DC       := docker compose
 RUN_DIR  := .run
 PIDFILE  := $(RUN_DIR)/vite.pid
-LOGFILE  := $(RUN_DIR)/vite.log
-DEVREG   := $(RUN_DIR)/registry
 # npm updates this installation marker; compare it with the frontend lockfile.
 NODEDEPS := frontend/node_modules/.package-lock.json
 # Use the same wiki port for the container and host server; 8010 avoids the API default of 8000.
-WIKI_PORT := $(or $(WIKI_HOST_PORT),8010)
+WIKI_PORT := $(shell tools/command_env.py --setting WIKI_HOST_PORT 8010)
 
 # Test fixtures truncate rows. Use an isolated test server instead of the development database.
 # Start and migrate it with make test-db before running database tests.
@@ -92,14 +90,14 @@ forge-ai-eval:  ## build the Forge evaluation corpus and check answer keys; ARGS
 
 # Point tests at the isolated server; unavailable database cases may skip unless required by CI.
 test:  ## run tests against the isolated database prepared by test-db
-	MENDEL_DATABASE_URL=$(TEST_MENDEL_URL) WIENER_TEST_DATABASE_URL=$(TEST_WIENER_URL) uv run pytest -v
+	MENDEL_TEST_DATABASE_URL=$(TEST_MENDEL_URL) WIENER_TEST_DATABASE_URL=$(TEST_WIENER_URL) uv run pytest -v
 
 # Reuse or create the test server on localhost:5442, then migrate both databases.
 test-db:  ## start isolated PostgreSQL on localhost:5442 and migrate Mendel and Wiener
 	@docker start $(TEST_DB_CONTAINER) >/dev/null 2>&1 || docker run -d --name $(TEST_DB_CONTAINER) \
 	  -e POSTGRES_USER=mendel -e POSTGRES_PASSWORD=mendel -e POSTGRES_DB=mendel \
 	  -p 127.0.0.1:5442:5432 $(TEST_DB_IMAGE) >/dev/null
-	@until docker exec $(TEST_DB_CONTAINER) psql -U mendel -qtAc 'SELECT 1' >/dev/null 2>&1; do sleep 1; done
+	python3 tools/dev_services.py wait-db $(TEST_DB_CONTAINER)
 	@docker exec $(TEST_DB_CONTAINER) psql -U mendel -qtAc "SELECT 1 FROM pg_database WHERE datname = 'wiener'" \
 	  | grep -q 1 || docker exec $(TEST_DB_CONTAINER) psql -U mendel -qc 'CREATE DATABASE wiener'
 	cd packages/mendel-api && MENDEL_DATABASE_URL=$(TEST_MENDEL_URL) uv run alembic upgrade head
@@ -222,27 +220,19 @@ wiener-migrate:  ## apply Wiener database migrations
 # -----------------------------------------------------------------------------
 # Prepare the registry, host frontend dependencies, and tool catalogue before starting Compose.
 # The host Vite server refreshes the browser as frontend source files change.
-dev: names-free $(DEVREG) dev-refresh $(NODEDEPS) wiki-tools  ## start the app and refresh the browser as frontend code changes
-	@test -f .env || cp .env.example .env
-	@# Create bind-mount directories as the host user; Docker would create missing ones as root.
-	@mkdir -p .run/wiener/artifacts .run/wiener/work .run/drafts workspace
+database-ready: prepare  ## refuse an unverified switch from legacy PostgreSQL volumes
+	python3 tools/consolidate_postgres.py check
+
+prepare:  ## prepare writable local state and safely refresh the registry
+	python3 tools/dev_services.py prepare
+
+dev: database-ready prepare names-free $(NODEDEPS) wiki-tools  ## start the app with bounded Vite startup
 	$(DC) up -d --build
-	@mkdir -p $(RUN_DIR)
-	@if [ -f $(PIDFILE) ] && kill -0 `cat $(PIDFILE)` 2>/dev/null; then \
-		echo "Vite already running (pid `cat $(PIDFILE)`)"; \
-	else \
-		setsid sh -c 'cd frontend && exec npm run dev' > $(LOGFILE) 2>&1 & \
-		echo $$! > $(PIDFILE); sleep 1; \
-	fi
-	@echo ""
-	@# Print configured Compose ports; the host Vite server uses its development port.
-	@echo "  Home (HMR):     http://localhost:5173/"
-	@echo "  Home (built):   http://localhost:$(or $(WEB_HOST_PORT),80)/"
-	@echo "  Registry:       http://localhost:5173/forge"
-	@echo "  API:            http://localhost:$(or $(API_HOST_PORT),8000)/docs"
-	@echo "  Runs:           http://localhost:5173/runs"
-	@echo "  Wiki:           http://localhost:$(WIKI_PORT)/"
-	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
+	python3 tools/dev_services.py vite
+	@echo "Built app: http://localhost:$${WEB_HOST_PORT:-80}/"
+	@echo "Mendel API: http://localhost:$${API_HOST_PORT:-8000}/docs"
+	@echo "Wiki: http://localhost:$(WIKI_PORT)/"
+	@echo "Logs: make dev-logs; Vite: .run/vite.log"
 
 # Refresh host frontend dependencies when the lockfile changes, before Vite starts.
 $(NODEDEPS): frontend/package-lock.json
@@ -275,26 +265,8 @@ names-free:
 	  exit 1; \
 	fi
 
-# Create a writable Git clone: the submodule's .git pointer cannot resolve inside containers.
-$(DEVREG):
-	@mkdir -p $(RUN_DIR)
-	git clone -q registry $(DEVREG)
-	@echo "cloned the registry to $(DEVREG) — this is what the containers write to"
-
-# Leave uncommitted edits alone. Reset a clean clone to the commit checked out in registry/.
-# Fetch origin HEAD because the source submodule can be detached; a branch name may be stale.
-# This reset also replaces local commits in a clean clone.
-dev-refresh:  ## refresh a clean development registry clone from registry/
-	@if [ ! -d $(DEVREG) ]; then echo "no dev registry yet"; exit 0; fi; \
-	if [ -n "`git -C $(DEVREG) status --porcelain`" ]; then \
-		echo "dev registry has uncommitted work — left alone"; exit 0; fi; \
-	want=`git -C registry rev-parse HEAD`; \
-	have=`git -C $(DEVREG) rev-parse HEAD`; \
-	if [ "$$want" = "$$have" ]; then echo "dev registry is current ($$(echo $$want | cut -c1-8))"; \
-	else \
-		git -C $(DEVREG) fetch -q origin HEAD && git -C $(DEVREG) reset -q --hard FETCH_HEAD && \
-		echo "dev registry $$(echo $$have | cut -c1-8) -> $$(echo $$want | cut -c1-8)"; \
-	fi
+# Preparation creates the clone before attempting any refresh, even under make -j.
+dev-refresh: prepare  ## fast-forward a clean registry; preserve dirty, ahead or divergent work
 
 # Stop the recorded Vite process group and Compose containers; keep named volumes.
 dev-down:  ## stop Vite and the development stack
@@ -310,10 +282,9 @@ dev-logs:  ## follow Mendel API and worker logs
 # -----------------------------------------------------------------------------
 # Start local models explicitly. ai-up may pull the server image; ai-pull downloads model weights.
 # ai-down stops the server and keeps downloaded models.
-AI_MODEL ?= qwen2.5-coder:14b
-
+AI_MODEL ?= $(shell tools/command_env.py --setting AI_MODEL qwen2.5-coder:14b)
 # Set OLLAMA_GPU=rocm to add the AMD device overlay; leave unset for the base configuration.
-OLLAMA_GPU ?=
+OLLAMA_GPU ?= $(shell tools/command_env.py --setting OLLAMA_GPU "")
 DC_AI = $(DC) $(if $(OLLAMA_GPU),-f docker-compose.yml -f docker-compose.ollama-$(OLLAMA_GPU).yml)
 
 # Print a Compose service URL: workers reach Ollama at ollama:11434, not their own localhost.
@@ -342,9 +313,9 @@ ai-down:  ## stop Ollama and retain downloaded models
 # -----------------------------------------------------------------------------
 # 8. Production overrides
 # -----------------------------------------------------------------------------
-# Apply the production overlay. Registry and directory preparation remain a follow-up in #313.
+# Prepare writable state before applying the production overlay.
 # Use to exercise the built browser app and production overrides, without the host Vite server.
-prod:  ## start the stack with production overrides
+prod: database-ready prepare  ## prepare state and start the stack with production overrides
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 prod-down:  ## stop the production stack and retain named volumes

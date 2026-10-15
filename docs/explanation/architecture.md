@@ -19,7 +19,8 @@ This page explains component ownership and the construction path. Use the
 | `mendel-authoring` | Protocol, interpreter, commands and draft projections | Pure |
 | `wiener-core` | Run-state transitions and decisions from supplied events | Pure |
 | `dag-core` | Graph layout shared by the canvases | Pure |
-| `comeni-ai`, `mendel-ai` | Provider transport and model integration | I/O adapters |
+| `comeni-ai` | Provider transport and reusable model integration | I/O adapters |
+| `mendel-ai` | Deprecated re-exports of `comeni-ai` | Compatibility only |
 | `mendel-forge` | Registry proposals, scaffolds, source discovery and validation | I/O adapters |
 | `comeni-vendor` | Fetching module source and checking its pins | I/O adapters |
 | `comeni-inspect` | Sample-inspection subprocesses | I/O adapters |
@@ -30,6 +31,9 @@ This page explains component ownership and the construction path. Use the
 Pure components keep calculation separate from network access. Guards provide partial
 static and runtime coverage; they do not constitute a security sandbox. API clients in
 `frontend/src/api/` are generated with `make client`.
+
+See [package responsibilities](package-boundaries.md) for source groups, dependencies, consumers
+and runtime owners, and [Mendel AI ownership](mendel-ai-ownership.md) for model call paths.
 
 ## Construction topics
 
@@ -92,9 +96,9 @@ that resolves differently as it changes.
 This checks the serialization round trip on every build. A field that does not survive
 YAML causes the build to be refused (`MD0206`).
 
-**`cli.py` is the only thing that touches disk.** Everything else takes objects and returns
-objects, which is what makes the golden-file tests possible at all: a stage you can only
-exercise through the filesystem is a stage whose output you compare by hand.
+The compiler separates emission from its adapters. CLI commands read inputs and compose
+operations; artifact-file, staging, conformance and gate modules also perform filesystem or
+subprocess work. The emission calculation can be tested from supplied models.
 
 `mendel build` reads a goal file; `mendel profile` constructs the same `Goal` in memory and
 runs the identical remaining path. A test asserts their `main.nf` are byte-identical, because
@@ -616,24 +620,20 @@ with the `IREdge.states` serialiser deleted. Anything new that serialises a set 
 
 ## 9. The seam a model plugs into
 
-`mendel_resolver/ports.py` declares `AmbiguityResolver` as a `Protocol`; `FlagOnlyResolver` is
-the shipped implementation, which picks the first candidate, flags it, and never guesses
-cleverly. The dependency arrow points `comeni-ai → mendel-resolver`, never the reverse, and
-`tests/guards/test_purity.py` is what holds it.
+`mendel_resolver/ports.py` declares `AmbiguityResolver` as a protocol. `FlagOnlyResolver`
+is the current blueprint path's implementation: it flags unresolved choices for the person.
+`mendel_api/authoring/resolver.py` implements `ModelResolver`, but
+`mendel_api/services/blueprint.py` leaves that adapter unwired.
 
-**Nothing implements `AmbiguityResolver` over a model yet** (checked 2026-09-04). `comeni-ai`
-exists and is transport — `generate(shape)` over LiteLLM and closed-choice helpers — and the
-forge uses it through a *different* seam, `HoleFiller`. So `mendel build` has no model path at
-all: the tier-4 resolver is the thing that would add one.
+The application adapter imports both the resolver port and `comeni-ai`; shared provider
+transport does not depend on Mendel's resolver, and the resolver does not import transport.
+Builder calls outside blueprint resolution include understanding, follow-up, phrasing,
+read-back and sample characterisation. Their current owners and admission/storage boundaries
+are described in [Mendel AI ownership](mendel-ai-ownership.md).
 
-That is why `--no-ai` is still not a flag. There is nothing to switch off, and nothing that can
-be left accidentally on. When the tier-4 resolver lands, the flag becomes meaningful and becomes
-the mode CI runs in.
-
-Runtime AI stays confined to four declared points — goal extraction, tier-4 resolution,
-compiler repair, and characterisation (a model reading the start of an uploaded sample nothing
-here reads, at protection level 0) — and tier 3 remains a pure lookup whose miss demotes to tier
-4 rather than reaching for a model.
+Tier 3 remains a lookup over declared rules. An unresolved choice does not make that lookup
+reach a model. Egress shapes are declared in `comeni_core/egress/boundaries.py`; callers own
+protection checks and transport.
 
 ---
 

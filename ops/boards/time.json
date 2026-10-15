@@ -1,7 +1,7 @@
 {
   "uid": "wiener-where-time-goes",
   "title": "Wiener \u00b7 Where the time goes",
-  "description": "Per process, not per task \u2014 a 400-task run has 400 traces and nobody reads 400 rows. **The maximum is what kills a run and the mean is what hides it.**",
+  "description": "Attempt duration by process: median, p95 and maximum, alongside inferred queue wait.",
   "tags": [
     "wiener",
     "runs"

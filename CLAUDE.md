@@ -16,7 +16,7 @@ introducing the project: a model's contribution must remain visible and reviewab
 - Check the branch, worktree and working tree before editing. Use a feature branch and
   preserve other agents' changes. Worktree submodule configuration is shared: never run
   `git submodule deinit` inside a worktree.
-- Treat [ARCHITECTURE.md](docs/explanation/architecture.md) as background requiring verification against
+- Treat [Architecture](docs/explanation/architecture.md) as background requiring verification against
   code. Its detailed sections are awaiting revision. Current notes and design documents can also lag the code;
   distinguish an implemented behavior from a proposal.
 - This brief has a 300-line budget, checked by `make doc-sizes`. Put temporary status in

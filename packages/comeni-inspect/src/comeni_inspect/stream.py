@@ -42,7 +42,10 @@ class Capped(io.RawIOBase):
 
     def readinto(self, buffer) -> int:
         try:
-            chunk = self.inner.read(len(buffer))
+            # A buffered read may lose decoded bytes when filling the request raises EOFError.
+            # read1 returns available output before asking the codec for another chunk.
+            read = getattr(self.inner, "read1", self.inner.read)
+            chunk = read(len(buffer))
         except EOFError:
             return 0
         except (zlib.error, gzip.BadGzipFile):

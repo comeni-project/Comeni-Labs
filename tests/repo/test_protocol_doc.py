@@ -25,14 +25,11 @@ def _generator():
     return module
 
 
-def test_one_page_per_diagram_and_an_index():
+def test_each_generated_page_contains_a_diagram():
     pages = _generator().pages()
-    assert {"index.md", "authoring-protocol.md"} <= set(pages)
-    diagrams = [name for name in pages if name != "index.md"]
-    assert diagrams, "no diagram pages: the loop below would assert nothing"
-    for name in diagrams:
-        assert f"({name})" in pages["index.md"], f"{name} is not listed in the index"
-        assert "```mermaid\nflowchart" in pages[name]
+    assert pages, "no diagram pages: the loop below would assert nothing"
+    for content in pages.values():
+        assert "```mermaid\nflowchart" in content
 
 
 def test_check_fails_on_an_orphan(tmp_path, monkeypatch):
@@ -70,9 +67,9 @@ def test_a_hand_written_page_is_never_deleted(tmp_path, monkeypatch):
     assert (tmp_path / "notes.md").exists()
 
 
-def test_one_diagram_with_sections_and_its_index():
+def test_one_diagram_with_sections():
     """14.7.8.1: the sample's inside is a section of the one diagram, not a page of its own."""
     pages = _generator().pages()
-    assert set(pages) == {"index.md", "authoring-protocol.md"}
+    assert set(pages) == {"authoring-protocol.md"}
     assert 'subgraph sample ["②a Inside: reading a sample"]' in pages["authoring-protocol.md"]
     assert "mendel_authoring/protocol.py" in pages["authoring-protocol.md"]

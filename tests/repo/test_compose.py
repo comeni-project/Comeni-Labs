@@ -10,9 +10,11 @@ everything prod can — that is spec §3.1, and `test_the_overlay_names_only_ser
 is the structural half of it.
 """
 
+import json
 
 import pytest
 import yaml
+from support.compose import configuration
 from support.paths import ROOT
 
 
@@ -24,6 +26,13 @@ def base() -> dict:
     # of them. Asserted at the fixture rather than in each test, because it is one fact.
     assert parsed.get("services"), "docker-compose.yml parsed to no services"
     return parsed
+
+
+@pytest.fixture(scope="function")
+def effective_prod(tmp_path):
+    result = configuration(tmp_path, production=True, token="synthetic-test-token")
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
 
 
 def env_of(service: dict) -> dict[str, str | None]:
@@ -91,22 +100,19 @@ def _publish_a_host_port(base) -> set[str]:
     return {name for name, service in _default_stack(base).items() if service.get("ports")}
 
 
-def test_the_default_stack_is_these_eleven_services(base):
-    """Named literally: adding one means editing this test, which is where somebody notices
-    that a new service needs a healthcheck and a place in the overlay.
-
-    **It has worked three times**, which is the whole return on a literal list.
-    `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test is what stopped them
-    arriving with a host-published port the prod overlay had never heard of. `ai-worker` arrived
-    on 2026-09-05 and it fired again, for the same reason — Task 12 said "add the services" and
-    said nothing about the overlay. `wiki` arrived on 2026-09-09 and **failed five tests in this
-    file**: no healthcheck, no restart policy, and a host port the overlay did not close.
-
-    All three were written as a service and nothing else. The list is the only thing that
-    notices, because everything a new service is missing is missing *quietly*."""
+def test_the_default_stack_has_the_expected_services(base):
+    """A new default service requires a deliberate review of its deployment wiring."""
     assert sorted(_default_stack(base)) == [
-        "ai-worker", "api", "mendel-worker", "postgres", "redis", "web",
-        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "wiki",
+        "ai-worker",
+        "api",
+        "mendel-worker",
+        "postgres",
+        "redis",
+        "web",
+        "wiener-api",
+        "wiener-ingest",
+        "wiener-worker",
+        "wiki",
     ]
 
 
@@ -186,7 +192,9 @@ def test_every_service_is_healthchecked_or_waits_for_one_that_is(base):
 def test_the_api_and_the_worker_share_one_image(base):
     """They import the same packages and read the same declared data; only the command
     differs. Two images would be two places to keep one dependency pin honest."""
-    assert base["services"]["api"]["build"] == base["services"]["mendel-worker"]["build"] == "."
+    build = base["services"]["api"]["build"]
+    assert build == base["services"]["mendel-worker"]["build"]
+    assert build["context"] == "."
 
 
 def test_the_registry_and_the_vendored_modules_reach_the_api(base):
@@ -233,16 +241,13 @@ def test_no_command_uses_a_login_shell(base):
         assert "sh -lc" not in str(command), f"{name} uses a login shell"
 
 
-def test_prod_mounts_no_code(base, prod):
-    """The half that must fail otherwise: dev mounts `./packages` live, and prod must not —
-    the code is the image. The registry and the workspace stay mounted, because a commit
-    needs a checkout and drafts need to survive a restart."""
-    dev_mounts = " ".join(base["services"]["api"]["volumes"])
-    assert "./packages:" in dev_mounts, "dev stopped mounting code — this test is now vacuous"
-
-    for service in ("api", "mendel-worker"):
-        for mount in prod["services"][service]["volumes"]:
-            assert "./packages" not in mount, f"prod mounts code into {service}"
+def test_prod_mounts_no_code(base, effective_prod):
+    """Check effective mounts after Compose merges all Mendel services."""
+    assert any("/app/packages" in mount for mount in base["services"]["api"]["volumes"])
+    for name in ("api", "mendel-worker", "ai-worker"):
+        targets = {mount["target"] for mount in effective_prod["services"][name]["volumes"]}
+        assert "/app/packages" not in targets, name
+        assert {"/app/registry", "/app/workspace", "/app/drafts"} <= targets, name
 
 
 def test_prod_does_not_reload(base, prod):
@@ -286,21 +291,16 @@ def test_prod_closes_the_ports_with_reset_rather_than_an_empty_list(base, prod_t
     )
 
 
-def test_prod_publishes_the_web_port_and_nothing_else(base, prod):
-    """`web` is the only way in, and it keeps the base's port rather than restating it.
-
-    **The list is derived from the base.** It was written out — `("postgres", "redis", "api")`
-    — which meant a service added to the base was not checked here at all: the test would have
-    passed with `wiener-postgres` published on the host in production."""
-    assert "ports" not in prod["services"]["web"]
-    for service in sorted(_publish_a_host_port(base) - {"web"}):
-        assert prod["services"][service].get("ports") == [], (
-            f"{service} publishes a host port in the base and the overlay does not close it"
-        )
+def test_prod_publishes_the_web_port_and_nothing_else(effective_prod):
+    """Optional profiles must also keep their unauthenticated interfaces internal."""
+    published = {
+        name for name, service in effective_prod["services"].items() if service.get("ports")
+    }
+    assert published == {"web"}
 
 
-def test_prod_restarts_everything(prod):
-    for name, service in prod["services"].items():
+def test_prod_restarts_everything(effective_prod):
+    for name, service in effective_prod["services"].items():
         assert service.get("restart") == "unless-stopped", name
 
 
@@ -353,7 +353,8 @@ def test_every_database_in_the_base_stack_is_migrated_by_exactly_one_service(bas
     """
     for url, services in _database_owners(base["services"]).items():
         migrators = [
-            s for s in services
+            s
+            for s in services
             if "alembic upgrade head" in str(base["services"][s].get("command", ""))
         ]
         assert len(migrators) == 1, (
@@ -410,8 +411,7 @@ def test_the_forge_services_agree_on_where_the_workspace_is(base):
     refuses with `MF0008` for a draft that is right there — and the refusal names the draft
     rather than the mount, so nobody would think to look here."""
     declared = {
-        name: env_of(base["services"][name])["MENDEL_WORKSPACE_ROOT"]
-        for name in FORGE_SERVICES
+        name: env_of(base["services"][name])["MENDEL_WORKSPACE_ROOT"] for name in FORGE_SERVICES
     }
     assert len(set(declared.values())) == 1, declared
 
@@ -425,8 +425,7 @@ def test_the_forge_services_agree_on_where_the_registry_is(base):
     make *green* a statement about a different registry than the one a contract lands in —
     which is the fact `MF0301`'s stale-base refusal exists to catch one level up."""
     declared = {
-        name: env_of(base["services"][name])["MENDEL_REGISTRY_ROOT"]
-        for name in FORGE_SERVICES
+        name: env_of(base["services"][name])["MENDEL_REGISTRY_ROOT"] for name in FORGE_SERVICES
     }
     assert len(set(declared.values())) == 1, declared
 
@@ -525,7 +524,6 @@ def test_nothing_but_the_ai_worker_runs_the_ai_queue(base):
         if "ai_worker.AIWorkerSettings" in str(service.get("command", ""))
     ]
     assert running == ["ai-worker"]
-
 
 
 def test_the_model_server_keeps_the_model_loaded_and_serves_one_slot(base):

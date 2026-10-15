@@ -1,13 +1,10 @@
 #!/usr/bin/env python
-"""Render `docs/explanation/diagrams/` from `mendel_authoring.protocol`: the one diagram, with its
-sections, and an index.
+"""Render the authoring protocol diagram from its executable declaration.
 
-Whole generated files, not blocks spliced into the hand-written protocol page:
-`generate_diagnostics_doc.py` records why (`--check` could only ever see the block). **The
-folder is checked whole**: a stale page, a missing one and one nothing generates any more all
-fail `--check`. **One diagram** (14.7.8.1): a part with steps of its own is a section of it, never
-a second source.
-"""
+Check the entire diagram directory: stale, missing and orphaned pages fail --check. Write
+mode replaces current generated pages and removes obsolete ones carrying the generator
+banner. Hand-written pages are preserved and reported for manual relocation. The protocol's
+nested sections appear inside its single diagram."""
 
 import sys
 from pathlib import Path
@@ -36,14 +33,8 @@ def _page() -> str:
     return f"{header}\n\n{FENCE}mermaid\n{to_mermaid(PROTOCOL)}{FENCE}\n"
 
 
-def _index() -> str:
-    says = "the whole conversation, from what you want to what is built"
-    lines = [BANNER, "# Diagrams", "", f"- [{PROTOCOL.title}]({PROTOCOL.slug}.md): {says}"]
-    return "\n".join(lines) + "\n"
-
-
 def pages() -> dict[str, str]:
-    return {f"{PROTOCOL.slug}.md": _page(), "index.md": _index()}
+    return {f"{PROTOCOL.slug}.md": _page()}
 
 
 def main(argv: list[str] | None = None) -> int:

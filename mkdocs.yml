@@ -16,6 +16,7 @@ use_directory_urls: true
 exclude_docs: |
   notes/
   superpowers/
+  assets/vendor/**/README.md
   /README.md
 
 # Keep the homepage outside the four documentation paths.
@@ -38,6 +39,7 @@ not_in_nav: |
 # -----------------------------------------------------------------------------
 theme:
   name: material
+  custom_dir: tools/documentation_theme
   font: false          # Custom CSS loads the Geist fonts.
   palette:
     scheme: slate      # Match the app's dark appearance.
@@ -52,8 +54,10 @@ extra_css:
   - assets/comeni.css
 
 extra:
-  # Product-stage metadata; the visible stage label currently lives in custom CSS.
+  # Authoritative label for the generated stage badge.
   stage: "Alpha · pre-MVP"
+  polyfills:
+    - assets/vendor/iframe-worker/shim.js
 
 # -----------------------------------------------------------------------------
 # Markdown and plugins
@@ -75,6 +79,7 @@ markdown_extensions:
 
 hooks:
   - tools/documentation_locations.py
+  - tools/documentation_theme.py
 
 plugins:
   - search
@@ -142,10 +147,10 @@ nav:
           - Data-backed rules: explanation/data-backed-rules.md
           - Registry layers: explanation/registry-layers.md
       - Architecture: explanation/architecture.md
+      - Package responsibilities: explanation/package-boundaries.md
+      - Mendel AI ownership: explanation/mendel-ai-ownership.md
       - Design boundaries:
           - Invariants: explanation/invariants.md
           - Authoring protocol: explanation/authoring-protocol.md
           - Product voice: explanation/product-language.md
-          - Protocol diagrams:
-              - explanation/diagrams/index.md
-              - explanation/diagrams/authoring-protocol.md
+          - Protocol diagram: explanation/diagrams/authoring-protocol.md

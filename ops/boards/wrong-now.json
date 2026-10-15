@@ -1,7 +1,7 @@
 {
   "uid": "wiener-wrong-now",
   "title": "Wiener \u00b7 Is anything wrong now",
-  "description": "Runs in flight, what failed, and what stopped talking. The one board you look at without being asked to.",
+  "description": "Active-run metrics, failure counts, and outcomes of completed runs.",
   "tags": [
     "wiener",
     "runs"

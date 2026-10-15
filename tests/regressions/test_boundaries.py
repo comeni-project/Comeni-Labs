@@ -39,12 +39,12 @@ def test_a2_resolve_refuses_an_unvalidated_profile():
     # `mendel build` already catches on, so the CLI's error handling needs no change.
     with pytest.raises(UnknownMeasurementError, match="sample_name"):
         resolve(
-        goal,
-        loaded.registry,
-        loaded.rules,
-        loaded.measurements,
-        vocabulary=loaded.vocabulary,
-    )
+            goal,
+            loaded.registry,
+            loaded.rules,
+            loaded.measurements,
+            vocabulary=loaded.vocabulary,
+        )
 
 
 def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_path):
@@ -108,7 +108,7 @@ def test_a6_the_egress_guard_knows_mapping_and_bytes():
     from typing import Annotated
 
     from comeni_core.spell.marks import MeasurementId, ParamValue
-    from guards.test_egress import _mentions_binary, _mentions_mapping
+    from support.egress import _mentions_binary, _mentions_mapping
 
     assert _mentions_mapping(Mapping[MeasurementId, ParamValue])
     assert _mentions_mapping(MutableMapping[str, str])
@@ -157,7 +157,11 @@ def test_a3_a_path_shaped_parameter_is_refused(value):
 
     with pytest.raises(ValidationError):
         ParamDecision(
-            key="k", subject="s", chosen=None, reason="r", resolved_by="human",
+            key="k",
+            subject="s",
+            chosen=None,
+            reason="r",
+            resolved_by="human",
             human_override=value,
         )
 
@@ -173,7 +177,11 @@ def test_a3_a_registry_shaped_parameter_still_validates(value):
     from comeni_core.plan.decision import ParamDecision
 
     record = ParamDecision(
-        key="k", subject="s", chosen=None, reason="r", resolved_by="human",
+        key="k",
+        subject="s",
+        chosen=None,
+        reason="r",
+        resolved_by="human",
         human_override=value,
     )
     assert record.human_override == value
@@ -218,15 +226,23 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
     from comeni_core.plan.decision import ParamDecision, SourceDecision
 
     record = SourceDecision(
-        key="dual.source:bam", subject="source:bam", candidates=["dual.bam", "solo.bam"],
-        chosen="dual.bam", reason="r", resolved_by="flag-only",
+        key="dual.source:bam",
+        subject="source:bam",
+        candidates=["dual.bam", "solo.bam"],
+        chosen="dual.bam",
+        reason="r",
+        resolved_by="flag-only",
     )
     assert record.chosen == "dual.bam"
 
     # The same string typed by a person is still refused, which is the whole scoping.
     with pytest.raises(ValidationError):
         ParamDecision(
-            key="k", subject="s", chosen=None, reason="r", resolved_by="human",
+            key="k",
+            subject="s",
+            chosen=None,
+            reason="r",
+            resolved_by="human",
             human_override="/data/patients/PT-4471023/S1_R1.fastq.gz",
         )
 
@@ -252,12 +268,15 @@ def test_a34_a_process_name_is_an_identifier_or_it_does_not_load(tmp_path):
     vocab = Vocabulary.load(tmp_path)
     bad = tmp_path / "evil.yml"
     bad.write_text(
-        _declared(bad, "id: lab/evil@1.0.0\n"
-        "nf_process: \"LAB_SORT }\\nprintln 'OWNED'\\nprocess X {\"\n"
-        "nf_include: modules/lab/evil/main\n"
-        "consumes: []\n"
-        "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
-        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n")
+        _declared(
+            bad,
+            "id: lab/evil@1.0.0\n"
+            "nf_process: \"LAB_SORT }\\nprintln 'OWNED'\\nprocess X {\"\n"
+            "nf_include: modules/lab/evil/main\n"
+            "consumes: []\n"
+            "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+            "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n",
+        )
     )
 
     with pytest.raises(ValidationError, match="nf_process"):
@@ -276,12 +295,15 @@ def test_a34_an_include_path_cannot_leave_the_pipeline(tmp_path):
     vocab = Vocabulary.load(tmp_path)
     bad = tmp_path / "escape.yml"
     bad.write_text(
-        _declared(bad, "id: lab/escape@1.0.0\n"
-        "nf_process: LAB_ESCAPE\n"
-        "nf_include: ../../../etc/passwd\n"
-        "consumes: []\n"
-        "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
-        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n")
+        _declared(
+            bad,
+            "id: lab/escape@1.0.0\n"
+            "nf_process: LAB_ESCAPE\n"
+            "nf_include: ../../../etc/passwd\n"
+            "consumes: []\n"
+            "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+            "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n",
+        )
     )
 
     with pytest.raises(ValidationError, match="nf_include"):
@@ -365,9 +387,7 @@ def test_a27_no_resolver_prose_reaches_main_nf_at_all():
                 ext_args="",
                 inputs=[],
                 call=[],
-                settings=[
-                    Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)
-                ],
+                settings=[Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)],
             )
         ],
         channels=[],
@@ -440,9 +460,7 @@ def test_a27_prose_cannot_forge_a_key_even_with_every_type_bypassed():
                 process="SAMTOOLS_SORT",
                 include="modules/nf-core/samtools/sort/main",
                 why=why,
-                settings=[
-                    Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)
-                ],
+                settings=[Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)],
             )
         ],
     )
@@ -492,9 +510,7 @@ def test_a29_a_goal_type_id_must_name_a_declared_type():
 
     # Root E refuses the *reference*: this one is shaped exactly like a type id and names
     # nothing. A plausible-looking undeclared id is safe to emit and still wrong.
-    goal = Goal.model_validate(
-        {"have": [{"type_id": "patient.notes"}], "want": ["counts.matrix"]}
-    )
+    goal = Goal.model_validate({"have": [{"type_id": "patient.notes"}], "want": ["counts.matrix"]})
     with pytest.raises(UnknownTypeError, match="not a declared type"):
         resolve(
             goal,
@@ -569,5 +585,4 @@ def test_a29_upgrade_refuses_a_pipeline_carrying_an_undeclared_type(tmp_path):
     doc["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
     published.write_text(_declared(published, yaml.safe_dump(doc, sort_keys=False)))
 
-    assert main(["upgrade", str(published), "--out", str(tmp_path / "up"),
-                 "--root", "."]) == 2
+    assert main(["upgrade", str(published), "--out", str(tmp_path / "up"), "--root", "."]) == 2

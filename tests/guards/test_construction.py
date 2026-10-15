@@ -16,8 +16,7 @@ Treating a spelling-matcher as the guarantee is exactly how A18 was written: `if
 import ast
 
 from support.paths import ROOT
-
-from guards.test_purity import (  # the one alias resolver and one package list
+from support.purity import (  # the one alias resolver and one package list
     BANLIST_PACKAGES,
     CLOSED_PACKAGES,
     _imported_names,
@@ -131,9 +130,7 @@ def _constructions(
             # `DataProfile.model_construct(...)` or `_DP.model_validate_json(...)` — a
             # bypass on a name that resolves to the model.
             bypass = (
-                func.value.id in aliases
-                and func.attr in BYPASSES
-                and func.attr not in permitted
+                func.value.id in aliases and func.attr in BYPASSES and func.attr not in permitted
             )
             # `profile.DataProfile(...)` — the model reached through its module.
             through_module = func.attr in aliases and func.value.id in modules
@@ -182,9 +179,7 @@ PIPELINE_READERS = {
     # Note what is exempted: the **spelling**, not the file. `Pipeline(...)` here is still an
     # offence, and `model_construct` — which skips validation entirely, so `MD0207`,
     # `MD0211`, `MD0212` and `MD0215` would never fire — still is too.
-    "packages/mendel-compiler/src/mendel_compiler/pipeline_file.py": frozenset(
-        {"model_validate"}
-    ),
+    "packages/mendel-compiler/src/mendel_compiler/pipeline_file.py": frozenset({"model_validate"}),
 }
 
 
@@ -235,8 +230,7 @@ def test_a_subclass_is_resolved(tmp_path):
     """The other spelling. A subclass is the class for construction purposes, and
     `class _P(Pipeline)` binds a name the import-only resolver never saw."""
     tree = ast.parse(
-        "from comeni_core.artifact.pipeline import Pipeline\n"
-        "class _P(Pipeline):\n    pass\n"
+        "from comeni_core.artifact.pipeline import Pipeline\nclass _P(Pipeline):\n    pass\n"
     )
     assert "_P" in _aliases_of(tree, "Pipeline")
 

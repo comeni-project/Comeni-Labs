@@ -1,13 +1,8 @@
-"""Every backticked repository path in the agent brief and its two companions exists (#118).
+"""Check backticked source paths in the agent brief, current-work note and invariants.
 
-`make links` checks Markdown links, and CLAUDE.md cites paths in backticks, which is how 29 dead
-references to docs deleted on 2026-09-02 went unseen. This checks those.
-
-**Only tokens that look like paths**, and the exclusions are the ones `check_links.py` learned the
-hard way: a checker whose output is mostly noise is a checker people stop reading. A token with a
-space is a command line, `*` or `{}` is a glob, `<>` is a template, `$` or `^` is shell or a git
-revision, and `://` is a URL. A `module.attribute` has no slash and no file extension.
-"""
+Resolve repository paths, package source modules and documented moves. Commands, globs,
+URLs, templates and revision expressions are excluded so they are not mistaken for files.
+This complements the Markdown link checker and reads only the files named in FILES."""
 
 import re
 import subprocess

@@ -5,6 +5,7 @@ Historical notes and plans remain outside the published site.
 """
 
 import pathlib
+import shutil
 import sys
 import tempfile
 
@@ -55,10 +56,31 @@ def test_provenance_is_excluded_from_the_site():
         )
 
 
-def test_the_stage_stamp_is_declared_once():
-    """Spec §6.1: stamp the stage, do not version the books."""
-    extra = _config().get("extra", {})
-    assert extra.get("stage") == "Alpha · pre-MVP"
+def test_the_configured_stage_is_emitted_into_the_built_site(tmp_path):
+    from mkdocs.commands.build import build
+    from mkdocs.config import load_config
+
+    source = tmp_path / "docs"
+    source.mkdir()
+    (source / "index.md").write_text("# Stage preview\n")
+    shutil.copytree(ROOT / "docs/assets/vendor", source / "assets/vendor")
+    config = load_config(
+        config_file=str(CONFIG),
+        docs_dir=str(source),
+        site_dir=str(tmp_path / "site"),
+        nav=[{"Preview": "index.md"}],
+        hooks=[str(ROOT / "tools/documentation_theme.py")],
+        extra={**_config()["extra"], "stage": "Review · Beta"},
+    )
+    build(config)
+    assert '"Review · Beta"' in (tmp_path / "site/assets/stage.css").read_text()
+    html = (tmp_path / "site/index.html").read_text()
+    assert "assets/stage.css" in html
+    assert 'src="assets/vendor/iframe-worker/shim.js"' in html
+    assert "https://unpkg.com/iframe-worker" not in html
+    assert (tmp_path / "site/assets/vendor/iframe-worker/shim.js").is_file()
+    css = (ROOT / "docs/assets/comeni.css").read_text()
+    assert "content: var(--comeni-stage)" in css
 
 
 def test_the_tools_book_is_generated_not_committed():

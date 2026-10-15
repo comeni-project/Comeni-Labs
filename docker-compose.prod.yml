@@ -1,104 +1,54 @@
-# Production overrides for docker-compose.yml. Run with `make prod`, or:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-#
-# Changes from the base stack:
-#   - Remove host ports for both databases, Redis, Mendel's API, Ollama, and the wiki.
-#     Access the app through the web service.
-#   - Disable Mendel API auto-reload.
-#   - Start the wiki only when you enable `--profile wiki`.
-#   - Set `restart: unless-stopped` for the services listed below, including Ollama.
-#
-# The services keep their shared registry, workspace, and draft paths.
-# Compose also retains the base file's source and example mounts when merging volumes.
-#
-# Sections: 1. Shared infrastructure, 2. Mendel, 3. Local AI,
-#           4. Web and documentation, 5. Wiener.
+# Production differences from docker-compose.yml. Requires Docker Compose 2.24.4+.
+# make prod prepares host-owned state before starting this model. Set WIENER_API_TOKEN.
+# Source and example files come from the image; registry/workspace/draft data remain mounted.
 services:
-  # -----------------------------------------------------------------------------
-  # 1. Shared infrastructure
-  # -----------------------------------------------------------------------------
-  # Keep Mendel's database on the Compose network, with no published host port.
   postgres:
-    restart: unless-stopped
-    # Use !reset to remove inherited ports; Compose merges an empty list with the base.
-    ports: !reset []   # reachable on the compose network only
-
-  # Keep the shared job broker and event streams on the Compose network.
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD for production}
+      MENDEL_DB_PASSWORD: ${MENDEL_DB_PASSWORD:?Set MENDEL_DB_PASSWORD for production}
+      WIENER_DB_PASSWORD: ${WIENER_DB_PASSWORD:?Set WIENER_DB_PASSWORD for production}
   redis:
-    restart: unless-stopped
     ports: !reset []
 
-  # -----------------------------------------------------------------------------
-  # 2. Mendel
-  # -----------------------------------------------------------------------------
-  # Serve Mendel's API for pipeline building, registry browsing, and tool adaptation.
   api:
-    restart: unless-stopped
-    ports: !reset []   # nginx reaches it on the compose network
-    # Share registry, workspace, and draft paths with the other Mendel services.
-    volumes:
+    ports: !reset []
+    volumes: !override
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
-    # Run migrations and serve the API with development auto-reload disabled.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
-
-  # Run Mendel's background jobs: gates, source checks, and tool adaptation tasks.
   mendel-worker:
-    restart: unless-stopped
-    # Share registry, workspace, and draft paths with the other Mendel services.
-    volumes:
+    volumes: !override
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
-
-  # Run model calls for pipeline conversations, sample characterisation, and Forge.
   ai-worker:
-    restart: unless-stopped
-    # Share registry, workspace, and draft paths with the other Mendel services.
-    volumes:
+    volumes: !override
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
 
-  # -----------------------------------------------------------------------------
-  # 3. Local AI
-  # -----------------------------------------------------------------------------
-  # Serve local AI models for Mendel through Ollama's HTTP API.
   ollama:
     restart: unless-stopped
-    # Keep model access on the Compose network.
-    ports: !reset []   # the workers reach it on the compose network
-
-  # -----------------------------------------------------------------------------
-  # 4. Web and documentation
-  # -----------------------------------------------------------------------------
-  # Serve the browser app through nginx and route API requests to Mendel and Wiener.
+    ports: !reset []
   web:
-    restart: unless-stopped
-
-  # Enable the documentation server with --profile wiki; keep its port internal.
+    ports: !override ["${WEB_BIND_ADDRESS:-0.0.0.0}:${WEB_HOST_PORT:-80}:80"]
   wiki:
-    profiles: ["wiki"]
+    profiles: [wiki]
     restart: unless-stopped
     ports: !reset []
 
-  # -----------------------------------------------------------------------------
-  # 5. Wiener
-  # -----------------------------------------------------------------------------
-  # Store Wiener's run and task state independently of Mendel's database.
-  wiener-postgres:
-    restart: unless-stopped
-    ports: !reset []   # reachable on the compose network only
-
-  # Serve run submission, monitoring, artifact uploads, and execution settings.
   wiener-api:
-    restart: unless-stopped
+    environment:
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:?Set WIENER_API_TOKEN for production execution}
 
-  # Receive Nextflow execution events for recording and live monitoring.
-  wiener-ingest:
+  # Optional monitoring services stay internal in production, including when enabled.
+  clickhouse:
     restart: unless-stopped
-
-  # Launch pipeline runs through Nextflow and manage background execution jobs.
-  wiener-worker:
+  otel-collector:
     restart: unless-stopped
+    ports: !reset []
+  grafana:
+    restart: unless-stopped
+    ports: !reset []

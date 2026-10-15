@@ -1,9 +1,7 @@
-"""A line budget for the files every session reads first (#118). Compact, don't raise it.
+"""Report files exceeding the configured line budgets.
 
-`CLAUDE.md` reached 1,441 lines by accretion, each addition reasonable on its own. A number that
-fails the build is the only thing that has ever stopped that in this repository: the rules for
-what goes where are in `docs/notes/compaction.md`, and this is what makes them get read.
-"""
+Checks CLAUDE.md and docs/notes/now.md without modifying them. The limits keep frequently
+loaded guidance concise; move supporting detail to its documentation home when compacting."""
 
 import sys
 from pathlib import Path

@@ -1,19 +1,11 @@
-"""Declarations to a typed stub. Derived, never authoritative.
+"""Generate the profile type stub from registry measurement declarations.
 
-`DataProfile.get` returns a union at runtime because the value type depends on the
-measurement, and the declaration knows more than Python does. `Literal` overloads close
-that gap for every editor and type checker — PEP 561 stubs work in mypy, pyright, Pylance
-and PyCharm alike, where a mypy plugin would work only in mypy and therefore not in
-Pylance, which is what most people actually use.
+Literal overloads describe the value type returned by DataProfile.get for each measurement.
+A .pyi replaces its module for type checkers, so the generated stub includes the remaining
+public profile types too. Runtime validation is owned by the implementation.
 
-A stale stub costs autocomplete and never correctness, which is the property that makes
-generation safe here. `--check` is what stops it rotting unnoticed.
-
-A `.pyi` **replaces** its module for a type checker rather than adding to it, so this file
-declares the whole public surface of `comeni_core.goal.profile`, not only the overloads. A stub
-covering half a module makes the other half invisible — which is a correctness cost, and
-would have voided the paragraph above.
-"""
+Default mode overwrites the stub; --check reports stale output without writing. Review
+measurement declarations and the generated diff together."""
 
 import sys
 import textwrap

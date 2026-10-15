@@ -9,30 +9,18 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
 
-# Copy manifests first so source edits can reuse the dependency layer.
-# Include README and LICENSE files required by package metadata.
+# Resolve third-party dependencies from the lock before workspace source is copied.
+# Frozen mode is required here because package manifests are not present yet.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-workspace --no-dev --all-packages
+
+# Include package metadata, licences and source together, then validate the lockfile.
 COPY pyproject.toml uv.lock README.md LICENSE ./
-COPY packages/comeni-core/pyproject.toml packages/comeni-core/README.md packages/comeni-core/LICENSE ./packages/comeni-core/
-COPY packages/mendel-resolver/pyproject.toml packages/mendel-resolver/README.md packages/mendel-resolver/LICENSE ./packages/mendel-resolver/
-COPY packages/mendel-compiler/pyproject.toml packages/mendel-compiler/README.md packages/mendel-compiler/LICENSE ./packages/mendel-compiler/
-COPY packages/mendel-forge/pyproject.toml packages/mendel-forge/README.md packages/mendel-forge/LICENSE ./packages/mendel-forge/
-COPY packages/comeni-ai/pyproject.toml packages/comeni-ai/README.md packages/comeni-ai/LICENSE ./packages/comeni-ai/
-# Include the deprecated mendel-ai wrapper while it remains a workspace member.
-COPY packages/mendel-ai/pyproject.toml packages/mendel-ai/README.md packages/mendel-ai/LICENSE ./packages/mendel-ai/
-COPY packages/mendel-authoring/pyproject.toml packages/mendel-authoring/README.md packages/mendel-authoring/LICENSE ./packages/mendel-authoring/
-COPY packages/mendel-api/pyproject.toml ./packages/mendel-api/
-COPY packages/dag-core/pyproject.toml ./packages/dag-core/
-COPY packages/wiener-core/pyproject.toml ./packages/wiener-core/
-COPY packages/wiener-api/pyproject.toml ./packages/wiener-api/
-COPY packages/comeni-vendor/pyproject.toml packages/comeni-vendor/README.md packages/comeni-vendor/LICENSE ./packages/comeni-vendor/
-COPY packages/comeni-inspect/pyproject.toml packages/comeni-inspect/README.md packages/comeni-inspect/LICENSE ./packages/comeni-inspect/
-
-# Install dependencies for both subsystems from the lockfile, without development tools.
-RUN uv sync --frozen --no-install-project --no-dev --all-packages
-
-# Add package sources and finish installing the workspace.
 COPY packages/ ./packages/
-RUN uv sync --frozen --no-dev --all-packages
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --all-packages
 
 # -----------------------------------------------------------------------------
 # 2. Assemble the runtime
@@ -54,6 +42,7 @@ COPY packages/ ./packages/
 
 # Bundle registry declarations and modules; Compose mounts a writable clone here.
 COPY registry/ ./registry/
+COPY examples/ ./examples/
 
 # -----------------------------------------------------------------------------
 # 3. Prepare Nextflow and the default API command
@@ -61,9 +50,11 @@ COPY registry/ ./registry/
 ENV NXF_HOME=/app/.nextflow
 # Download the Nextflow runtime during the build, before a worker needs it.
 # Its launcher writes temporary files in the working directory; run it while /app is writable.
-# Cache ownership matches Compose's default UID/GID; adjust it when using another user.
+# Cache ownership follows the runtime identity supplied by Compose at build time.
+ARG RUNTIME_UID=1000
+ARG RUNTIME_GID=1000
 RUN nextflow -version \
- && chown -R 1000:1000 /app/.nextflow
+ && chown -R ${RUNTIME_UID}:${RUNTIME_GID} /app/.nextflow
 
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000

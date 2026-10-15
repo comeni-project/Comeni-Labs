@@ -1,24 +1,12 @@
-"""§5.9's evaluation corpus: the cases, their answer keys, and the scorer over them.
+"""Report registry-backed evaluation cases and available answer-key fields.
 
-    make forge-ai-eval          # build the corpus from the registry and report what it covers
-    make forge-ai-eval ARGS=--json
+Load the selected registry and derive expected fields from landed contracts for the cases
+in CASES. Print text or --json; return 1 if a required contract is missing. Cases without
+landed contracts deliberately have no answer key. This command calls no model and computes
+no response score; it prepares an inventory for evaluating proposals.
 
-**The corpus is landed contracts with their answers hidden.** For each case the forge adapts the
-upstream source as if for the first time, and the contract a human already approved is the
-answer key. That is the only way to measure a prompt without a person reading every response,
-and the registry is the only place a known-good answer exists.
-
-**What this command does today is build and check the answer keys.** It does not call a model,
-and there is no `MODEL=` switch, because generating a response needs the AI worker that Task 7
-builds — and six hand-written "recorded" responses would measure this harness rather than any
-prompt, while looking exactly like a measurement. The number that matters arrives with the
-worker; what arrives now is everything needed to produce it, checkable on its own.
-
-So the useful output is: which cases have an answer key, how many holes each one would put to a
-model, and how many of those the registry can actually judge. A case whose answer key covers
-three of eleven holes is a case that would report a precision figure over three answers, and
-knowing that before running a model is worth more than the figure.
-"""
+    make forge-ai-eval
+    make forge-ai-eval ARGS=--json"""
 
 import argparse
 import json

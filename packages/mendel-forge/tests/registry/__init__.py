@@ -1,0 +1,1 @@
+"""Forge registry tests."""

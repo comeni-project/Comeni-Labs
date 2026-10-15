@@ -8,11 +8,19 @@ modulegen tests assert against a module that already exists, which is not the ca
 about.
 """
 
+import sys
+from pathlib import Path
+
 import pytest
 from comeni_core.declared.layered import DeclaredKind
 from comeni_core.review import ValueSource
 from mendel_forge.observe import Excerpt, Fact, Observation
 from mendel_forge.scaffold import FilledValue, Scaffold
+from support.paths import ROOT as REPOSITORY_ROOT
+
+_TESTS = str(Path(__file__).resolve().parent)
+if _TESTS not in sys.path:
+    sys.path.insert(0, _TESTS)
 
 
 def _derived(value):
@@ -104,9 +112,9 @@ def orphan_scaffold(complete_scaffold) -> Scaffold:
         update={
             "filled": {
                 **complete_scaffold.filled,
-                "produces[0].type_id": complete_scaffold.filled[
-                    "produces[0].type_id"
-                ].model_copy(update={"value": "counts.matrix"}),
+                "produces[0].type_id": complete_scaffold.filled["produces[0].type_id"].model_copy(
+                    update={"value": "counts.matrix"}
+                ),
             }
         }
     )
@@ -116,11 +124,8 @@ def orphan_scaffold(complete_scaffold) -> Scaffold:
 def broken_registry(tmp_path):
     """A copy of the shipped registry with one contract made to disagree with its module.
 
-    **A factory, not a directory**, because phase 5 needs several breakages: a value drift on
-    `nf_process`, a structural one on a `produces[].name`, and two of them on one file. It was
-    a module-private helper in `test_ops_maintain.py` until three files needed it.
-
-    The copy is made once and mutated in place, so two calls break two fields of one registry.
+    Returns a mutation factory so a test can change `nf_process`, a `produces[].name` or both
+    on the same copy. The copy is made once and mutated in place.
 
     `.git` is excluded: the registry is a submodule, so the copy would otherwise carry a
     `gitdir:` pointer at a worktree that has nothing to do with `tmp_path` — the same defect
@@ -129,7 +134,7 @@ def broken_registry(tmp_path):
     import shutil
     from pathlib import Path
 
-    root = Path(__file__).resolve().parents[3]
+    root = REPOSITORY_ROOT
 
     def _break(relative: str, was: str, now: str) -> Path:
         copy = tmp_path / "registry"

@@ -1,20 +1,10 @@
 #!/usr/bin/env python
-"""One package's notes for one version, read out of the shared `CHANGELOG.md`.
+"""Print one package's release notes from the shared changelog.
 
-The release workflow calls this to fill a GitHub Release's body. One changelog with a section
-per package under each version heading, rather than a changelog per package: the repository is
-one repository today, and four files describing the same commits is worse than one file with
-headings. Reading *by heading* is what lets the split happen later without changing anything
-here.
-
-**Refuses rather than returning nothing.** A release cut with empty notes is worse than a
-release that failed to cut: it looks finished. `MD0200`'s reasoning, applied to a shell script —
-a value that reaches nothing should be refused at the point it is produced.
-
-Deliberately not a general markdown parser. It finds `## [<version>]`, then `### <package>`
-beneath it, and stops at the next heading of the same level or above. A changelog that needs
-more structure than that is a changelog that has stopped being readable.
-"""
+The release workflow supplies a package and version. Read the body under `### <package>`
+within `## [<version>]`, stopping at the next peer or parent heading. Missing headings and
+`Unreleased` return exit code 2; successful extraction prints the body to stdout. This does
+not parse arbitrary Markdown or write files."""
 
 import argparse
 import pathlib

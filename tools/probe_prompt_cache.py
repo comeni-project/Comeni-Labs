@@ -1,17 +1,16 @@
-"""Measure whether Ollama re-reads a prompt's fixed part — issue 185.
+"""Compare Ollama timings for repeated prompts and shared instruction prefixes.
 
-Sends the builder's goal prompt to /api/chat three ways and prints Ollama's own timings: a
-warm-up, the same prompt again (a repeat should read almost nothing), and a second request
-sharing the fixed part (prefix reuse across different questions). Run inside the api container:
+Send a warm-up request, an identical request and a different question sharing the fixed
+instructions. Print Ollama's loading, prompt-evaluation and generation timings and token
+counts. These are real model requests, with a 600-second timeout each.
+
+Run inside the API container, where registry/prompt helpers and ollama:11434 are available:
 
     docker cp tools/probe_prompt_cache.py mendel-api:/tmp/
-    docker exec mendel-api python /tmp/probe_prompt_cache.py [model] [--split]
+    docker exec mendel-api python /tmp/probe_prompt_cache.py gemma3:12b --split
 
-`--split` sends the prompt as the builder does since 14.7.4.3: a system message (the fixed part)
-and a user message (the per-call part), so a shared fixed part can be reused.
-
-A measuring tool, run by hand; its numbers are recorded on issue 185.
-"""
+The optional model defaults to gemma3:12b. --split separates fixed instructions into a
+system message and the question into a user message. Otherwise send the combined prompt."""
 
 import json
 import sys

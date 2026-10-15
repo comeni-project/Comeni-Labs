@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="WIENER_", extra="forbid")
 
-    database_url: str = "postgresql+psycopg://wiener:wiener@localhost:5433/wiener"
+    database_url: str = "postgresql+psycopg://wiener:wiener@localhost:5432/wiener"
     redis_url: str = "redis://localhost:6379/1"
     artifact_root: Path = Path("./var/wiener/artifacts")
     """Where an uploaded pipeline directory lands. **Server-chosen, never client-supplied** —

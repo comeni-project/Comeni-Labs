@@ -7,6 +7,7 @@ command with `harness.run_case(case, command=[...])`.
 import gzip
 import random
 import time
+import zlib
 
 import pytest
 from comeni_inspect import harness, run, wire
@@ -29,13 +30,31 @@ def test_a_case_never_raises(case):
     assert wire.Report.model_validate_json(harness.run_case(case))
 
 
+def test_truncated_gzip_reports_every_complete_record_in_the_available_bytes():
+    case = next(c for c in CASES if c.name == "fastq/truncated_gzip")
+    raw = (case.folder / "t.fq.gz").read_bytes()
+    decoded = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(raw)
+    lines = decoded.splitlines(keepends=True)
+    complete = [
+        lines[i : i + 4] for i in range(0, len(lines) - 3, 4) if lines[i + 3].endswith(b"\n")
+    ]
+    assert len(complete) == 998
+    assert all(
+        head.startswith(b"@")
+        and plus.startswith(b"+")
+        and len(sequence.rstrip(b"\r\n")) == len(quality.rstrip(b"\r\n"))
+        for head, sequence, plus, quality in complete
+    )
+    report = wire.Report.model_validate_json(harness.run_case(case))
+    assert report.unreadable is None and report.facts
+    assert all(fact.evidence["rows"] == len(complete) for fact in report.facts.values())
+
+
 def test_the_process_gives_the_same_report_as_in_process():
     """The command path of the harness, against the shipped runner: what another language's
     implementation will be held to."""
     case = next(c for c in CASES if c.name == "fastq/pair_150")
-    assert harness.run_case(case, command=["uv", "run", "comeni-inspect"]) == harness.run_case(
-        case
-    )
+    assert harness.run_case(case, command=["uv", "run", "comeni-inspect"]) == harness.run_case(case)
 
 
 def test_the_speed_budget():

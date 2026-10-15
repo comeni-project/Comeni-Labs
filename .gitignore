@@ -11,6 +11,7 @@ __pycache__/
 *.egg-info/
 dist/
 /build/
+/profile-build/
 
 # Forge demonstration and tool-adaptation workspaces.
 /.forge/
@@ -32,8 +33,9 @@ frontend/dist/
 *.tsbuildinfo
 
 # Local configuration and operating-system files.
-.env
-.env.local
+.env*
+!.env.example
+!.env.*.example
 .DS_Store
 
 # Editor settings and agent-created worktrees.
@@ -44,6 +46,7 @@ frontend/dist/
 # Mendel's local workspace and Compose runtime state.
 /workspace/
 .run/
+/var/wiener/
 
 # Generated design previews. Keep .dc.html artboards, partials, and canvas metadata.
 # Add each preview explicitly; a broad HTML pattern would also hide authored sources.
@@ -60,7 +63,6 @@ frontend/dist/
 /site/
 
 # Generated catalogue and tool pages, including nested organisation directories.
-# Keep the authored index page; generated content comes from make wiki-tools.
-/docs/tools/*.md
-/docs/tools/**/*.md
-!/docs/tools/index.md
+# The authored introduction is docs/reference/tools.md, outside the generated tree.
+/docs/reference/tools/*.md
+/docs/reference/tools/**/*.md

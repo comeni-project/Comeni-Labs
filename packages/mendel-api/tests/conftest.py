@@ -1,46 +1,9 @@
 """Fixtures for the API tests."""
 
 import pytest
-from mendel_postgres import truncate
-
-
-@pytest.fixture
-def g_case(monkeypatch):
-    from mendel_api.db import session_scope
-    from part_g_setup import at_aligner
-
-    monkeypatch.setenv("COMENI_BUILD_PACING", "together")
-    with session_scope() as db:
-        db.execute(truncate("TRUNCATE TABLE forge_message, forge_event, forge_revision, "
-                            "forge_adaptation, forge_catalogue_item, forge_source_snapshot, "
-                            "ai_invocation, pipeline_authoring_proposal, pipeline_authoring_turn, "
-                            "pipeline_authoring_session, pipeline_draft, gate_run"))
-    return at_aligner()
-
-
-@pytest.fixture(autouse=True)
-def one_step_by_default(monkeypatch):
-    """**The first call is one step in this suite unless a test says otherwise** (#194).
-
-    Production chooses a family first (`family_step_from = 0`). Nearly every test here feeds the
-    goal call's answer as the model's first reply, which the family step would now receive; the
-    one-step path stays a supported setting, and the tests of the family step switch it on.
-    """
-    from mendel_api.settings import settings
-
-    monkeypatch.setattr(settings, "family_step_from", 10**9)
-
-
-@pytest.fixture(autouse=True)
-def together_by_default(monkeypatch):
-    """**The walk stops at every step in this suite unless a test says otherwise** (14.7.8.3b).
-
-    Production asks how to pace each build (`building.pacing` defaults to *ask*). Most tests
-    here walk a pipeline a step at a time, which is *together*; the tests of pacing itself clear
-    or change this. Pinned through the setting's own environment variable, the way an operator
-    would pin it.
-    """
-    monkeypatch.setenv("COMENI_BUILD_PACING", "together")
+from mendel_api_tests.canvas_scenarios import authoring_case as authoring_case
+from mendel_api_tests.database import truncate
+from support.paths import ROOT as REPOSITORY_ROOT
 
 
 @pytest.fixture
@@ -60,26 +23,12 @@ def clean_db():
 
 @pytest.fixture
 def clean_forge():
-    """An empty forge workflow around each test.
+    """Start each requested scenario with empty Forge and invocation-related tables.
 
-    **All seven in one `TRUNCATE`, not seven statements.** Every foreign key in that block is
-    `RESTRICT`, so truncating `forge_catalogue_item` on its own is refused while an adaptation
-    points at it — which is the constraint working, and exactly what these tests are for.
-    Naming them together in one statement is how Postgres is told the whole set is going.
-
-    `ai_invocation` is in the list despite not being named `forge_*`: it is referenced by
-    `forge_message`, and leaving it out makes the truncation fail on the first test that
-    records a model call.
-
-    **The two `pipeline_authoring_*` tables are here for exactly that reason, one agent later.**
-    `ai_invocation` was built to be shared — `agent` is the column that says whose call it was —
-    and on 2026-09-09 the living pipeline became the second agent to reference it. Truncating
-    `ai_invocation` without them is refused, and `pipeline_authoring_turn` cannot go without
-    `pipeline_authoring_proposal`, which references it.
-
-    This fixture is the cost of a shared audit table, and it is the right cost: the alternative
-    the docstring above rejects is one invocation table per agent, which is a lie the second
-    time. A third agent adds a line here.
+    PostgreSQL requires these tables in one TRUNCATE because their foreign keys use RESTRICT.
+    Forge messages and pipeline-authoring turns both reference the shared `ai_invocation`
+    table; authoring proposals reference those turns. Any new table referencing these rows
+    must join the truncation list.
     """
     from mendel_api.db import session_scope
 
@@ -106,7 +55,7 @@ def broken_registry_copy(tmp_path):
     import shutil
     from pathlib import Path
 
-    root = Path(__file__).resolve().parents[3]
+    root = REPOSITORY_ROOT
 
     def _break(relative: str, was: str, now: str) -> Path:
         copy = tmp_path / "registry"
@@ -130,6 +79,8 @@ def clean_settings():
     with session_scope() as session:
         session.execute(truncate("TRUNCATE TABLE installation_setting"))
     yield
+
+
 class _MemoryStore:
     def __init__(self):
         self.rows = {}
@@ -143,11 +94,11 @@ class _MemoryStore:
 
 @pytest.fixture(autouse=True)
 def settings_in_memory(request, monkeypatch):
-    """**Settings start empty and live in memory** unless a test is marked `real_settings`.
+    """Isolate installation settings in memory unless the test uses `real_settings`.
 
-    `model_access()` reads the settings store since part 14.7.5.4. Most of this suite configures
-    a model through the environment and has no database; an empty store keeps those tests
-    meaning exactly what they meant. Yields the store so a test can choose a model.
+    Model access consults this store. Starting empty lets environment-configured model tests
+    run without database access or settings left by another case. Yield the store so a test
+    can explicitly configure an installation value.
     """
     if request.node.get_closest_marker("real_settings"):
         yield None

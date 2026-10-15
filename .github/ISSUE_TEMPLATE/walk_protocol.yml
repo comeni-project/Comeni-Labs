@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Brainstormed as options, the operator chooses, the decision is commented here and labelled
-        `decided`, then implemented. Never worked around. See `docs/internals/walking.md`.
+        `decided`, then implemented. Never worked around. See `docs/how-to/development/investigate.md`.
   - type: input
     id: where
     attributes:

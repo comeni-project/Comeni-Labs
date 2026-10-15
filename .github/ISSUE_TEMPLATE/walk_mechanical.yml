@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Fixed test-first and closed citing the commit. If fixing it would change what the product
-        asks, allows or promises, use **Walk: protocol** instead. See `docs/internals/walking.md`.
+        asks, allows or promises, use **Walk: protocol** instead. See `docs/how-to/development/investigate.md`.
   - type: input
     id: where
     attributes:

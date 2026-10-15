@@ -1,22 +1,11 @@
-# The SPA, built and then served by nginx.
-#
-# **nginx rather than FastAPI, and it is forced rather than chosen.** Serving static files from
-# the API needs `app.mount`, and phase 6's `test_the_served_surface_is_the_openapi_document`
-# refuses that — measured: the mount appears in `app.routes` and the guard fails. The rule it
-# holds is that the served surface is exactly the OpenAPI document, and a directory of files is
-# precisely a surface that is not in it.
-#
-# **The build context is the repository root**, not `frontend/`, because `ops/nginx/default.conf`
-# lives with the rest of the deployment config — it describes how the API and the SPA share one
-# origin, which is not a frontend detail. Docker cannot COPY above its context, so the context
-# moves rather than the file. It sat in a top-level `nginx/` until 2026-09-02; `ops/` is where
-# the collector config and the Grafana provisioning already were, and this is the same kind of
-# thing — a file a container mounts, not a file a developer runs.
+# Compile the browser app, then serve static files and proxy API requests through nginx.
+# Application APIs retain their own OpenAPI-described surfaces.
+# Use the repository root as build context so ops/nginx/default.conf is available to COPY.
 FROM node:22-alpine AS builder
 WORKDIR /app
-# The lockfile first, so editing a component does not reinstall the world.
+# Copy dependency manifests first so source edits can reuse the installed dependency layer.
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend/ ./
 RUN npm run build
 

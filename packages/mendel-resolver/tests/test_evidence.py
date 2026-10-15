@@ -13,7 +13,8 @@ from comeni_core.plan.decision import ProducerAsked
 from comeni_core.plan.tiers import Tier
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.resolve import resolve
-from test_resolution_applies import _goal, tied  # noqa: F401  (pytest fixture)
+from mendel_resolver_tests import _goal  # noqa: F401  (pytest fixture)
+from mendel_resolver_tests import tied as tied
 
 
 class _Captures(FlagOnlyResolver):
@@ -36,9 +37,7 @@ class _Captures(FlagOnlyResolver):
 def _producer_question(tied) -> ProducerAsked:  # noqa: F811
     registry, rules, measurements, vocabulary = tied
     captured = _Captures()
-    ir = resolve(
-        _goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=captured
-    )
+    ir = resolve(_goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=captured)
     assert ir.nodes, "the fixture must build something for there to be a question about"
     assert captured.asked, "two tied aligners must produce a producer question"
     return captured.asked[0]
@@ -90,7 +89,11 @@ def test_the_tie_is_still_tier_four(tied):  # noqa: F811
     """Evidence is for the reviewer, not a way of settling the question. Invariant 6."""
     registry, rules, measurements, vocabulary = tied
     ir = resolve(
-        _goal(), registry, rules, measurements, vocabulary=vocabulary,
+        _goal(),
+        registry,
+        rules,
+        measurements,
+        vocabulary=vocabulary,
         resolver=FlagOnlyResolver(),
     )
 

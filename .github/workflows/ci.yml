@@ -27,7 +27,7 @@ jobs:
 
     # **The database tests used to skip here**, because nothing was reachable — so every guard
     # about storage was green in CI by not running. `COMENI_REQUIRE_DB` turns an unreachable
-    # database into a failure (`packages/mendel-api/tests/mendel_postgres.py`).
+    # database into a failure (`packages/mendel-api/tests/mendel_api_tests/database.py`).
     services:
       postgres:
         image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
@@ -40,7 +40,7 @@ jobs:
           --health-cmd "pg_isready -U mendel" --health-interval 2s --health-timeout 5s
           --health-retries 20
     env:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel
+      MENDEL_TEST_DATABASE_URL: postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel
       WIENER_TEST_DATABASE_URL: postgresql+psycopg://mendel:mendel@127.0.0.1:5442/wiener
       COMENI_REQUIRE_DB: "1"
 
@@ -60,7 +60,7 @@ jobs:
       - name: Bring both databases to head
         run: |
           docker exec ${{ job.services.postgres.id }} psql -U mendel -qc 'CREATE DATABASE wiener'
-          (cd packages/mendel-api && uv run alembic upgrade head)
+          (cd packages/mendel-api && MENDEL_DATABASE_URL=$MENDEL_TEST_DATABASE_URL uv run alembic upgrade head)
           (cd packages/wiener-api && WIENER_DATABASE_URL=$WIENER_TEST_DATABASE_URL uv run alembic upgrade head)
 
       - name: Lint
