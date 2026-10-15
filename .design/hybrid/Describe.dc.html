@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; background: #F4F5F8; }
+    a { color: #2F6FEB; text-decoration: none; } a:hover { color: #171A26; }
+  </style>
+</helmet>
+<div style="width:1440px;height:1180px;display:flex;flex-direction:column;background:#F4F5F8;color:#171A26;font-family:'Lexend', system-ui, sans-serif;overflow:hidden">
+<header style="height:60px;flex:none;display:flex;align-items:center;gap:26px;padding:0 28px;border-bottom:1px solid #E1E4EC;background:#F4F5F8">
+  <div style="display:flex;align-items:center;gap:10px">
+  <svg width="30" height="16" viewBox="0 0 30 16"><line x1="3" y1="8" x2="27" y2="8" style="stroke:#0F9D7A;stroke-width:4;stroke-linecap:round"></line><circle cx="4" cy="8" r="3.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:2"></circle><circle cx="15" cy="8" r="3.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:2"></circle><circle cx="26" cy="8" r="3.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:2"></circle></svg>
+  <span style="font-size:17px;font-weight:700;letter-spacing:-.01em">Comeni Labs</span></div>
+  <nav style="display:flex;align-items:center;gap:4px;font-size:14px"><span style="padding:6px 14px;border-radius:8px;background:#FFFFFF;border:1px solid #E1E4EC;color:#171A26;font-weight:600">Build</span><span style="padding:6px 12px;border:1px solid transparent;color:#474D63">Runs</span><span style="padding:6px 12px;border:1px solid transparent;color:#474D63">Registry</span></nav>
+  <div style="display:flex;align-items:center;gap:10px;width:400px;height:38px;padding:0 14px;border-radius:10px;border:1px solid #C9CEDB;background:#FFFFFF;color:#666C84;font-size:13.5px;margin-left:auto">
+    <svg width="15" height="15" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" style="fill:none;stroke:currentColor;stroke-width:1.6"></circle><path d="M11 11l3.5 3.5" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round"></path></svg><span>Describe an analysis, or jump to one</span><span style="margin-left:auto"><span style="font-family:'Geist Mono', ui-monospace, monospace;font-size:11px;padding:1px 6px;border-radius:5px;border:1px solid #C9CEDB;background:#F4F5F8;color:#474D63">⌘K</span></span></div>
+  <div style="display:flex;align-items:center;gap:16px;font-size:13px;color:#474D63">
+    <span style="display:inline-flex;align-items:center;gap:7px"><svg width="22" height="10" viewBox="0 0 22 10"><line x1="2" y1="5" x2="20" y2="5" style="stroke:#0F9D7A;stroke-width:3;stroke-linecap:round"></line><circle cx="4" cy="5" r="2.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:1.5"></circle><circle cx="18" cy="5" r="2.5" style="fill:#FFFFFF;stroke:#171A26;stroke-width:1.5"></circle></svg>Learn in Code</span>
+    <span style="width:28px;height:28px;border-radius:50%;border:1px solid #C9CEDB;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#474D63">?</span>
+    <span style="display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:999px;border:1px solid #E1E4EC;background:#FFFFFF;color:#171A26">
+      <span style="width:24px;height:24px;border-radius:50%;background:#E6EEFD;color:#2F6FEB;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">FL</span>Ferreira lab<svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3" style="fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"></path></svg></span>
+  </div>
+</header>
+  <main style="flex:1;display:flex;justify-content:center;padding:44px 28px">
+    <div style="width:860px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:6px"><h1 style="margin:0;font-size:32px;font-weight:600;letter-spacing:-.02em;line-height:1.15;text-wrap:balance">What do you want to analyse?</h1><span style="font-size:15px;color:#474D63">Say it the way you would to a colleague. You’ll see what was understood before anything is built.</span></div>
+      <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;border-color:#2F6FEB;box-shadow:0 0 0 3px #E6EEFD">
+        <span style="font-size:16px;line-height:1.6">I have 12 paired-end RNA-seq samples from mouse liver, treated and control, and I want gene counts so I can run a differential expression analysis.</span>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;color:#666C84">The model reads this sentence. It never sees your files.</span><span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;background:#FFFFFF;border:1px solid #C9CEDB;color:#171A26;font-size:13px;font-weight:500">Read it again</span></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span style="font-size:12.5px;color:#666C84">Or start from</span><span style="padding:5px 12px;border-radius:999px;border:1px solid #C9CEDB;background:#FFFFFF;font-size:12.5px;color:#474D63">Call variants from whole-genome reads</span><span style="padding:5px 12px;border-radius:999px;border:1px solid #C9CEDB;background:#FFFFFF;font-size:12.5px;color:#474D63">Find ATAC-seq peaks</span><span style="padding:5px 12px;border-radius:999px;border:1px solid #C9CEDB;background:#FFFFFF;font-size:12.5px;color:#474D63">Profile a 16S community</span><span style="padding:5px 12px;border-radius:999px;border:1px solid #C9CEDB;background:#FFFFFF;font-size:12.5px;color:#474D63">Open a pipeline.yml</span></div>
+
+      <div style="background:#FFFFFF;border:1px solid #E1E4EC;border-radius:14px;padding:18px 20px 8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px"><span style="font-size:15px;font-weight:600;font-size:17px">What was understood</span><span style="display:flex;gap:8px;align-items:center"><span style="font-size:12.5px;color:#666C84">Wrong? Click a line to correct it</span></span></div>
+        <div style="display:grid;grid-template-columns:110px minmax(0, 1fr) auto;gap:14px;align-items:start;padding:12px 0;border-top:1px solid #E1E4EC">
+    <span style="font-size:12.5px;color:#666C84;padding-top:2px">You have</span>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px"><span style="font-family:'Geist Mono', ui-monospace, monospace;">fastq.reads[paired]</span> × 12 samples</span><span style="font-size:12.5px;color:#474D63;line-height:1.5">From “12 paired-end RNA-seq samples”. You’ll point at the files when you run it.</span></div>
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;border:1px solid #C9CEDB;color:#474D63;font-weight:500">you said</span></div>
+        <div style="display:grid;grid-template-columns:110px minmax(0, 1fr) auto;gap:14px;align-items:start;padding:12px 0;border-top:1px solid #E1E4EC">
+    <span style="font-size:12.5px;color:#666C84;padding-top:2px">You want</span>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px"><span style="font-family:'Geist Mono', ui-monospace, monospace;">counts.matrix</span> — reads per gene</span><span style="font-size:12.5px;color:#474D63;line-height:1.5">From “gene counts … differential expression”. The pipeline stops at counts; the statistics are yours.</span></div>
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;border:1px solid #C9CEDB;color:#474D63;font-weight:500">you said</span></div>
+        <div style="display:grid;grid-template-columns:110px minmax(0, 1fr) auto;gap:14px;align-items:start;padding:12px 0;border-top:1px solid #E1E4EC">
+    <span style="font-size:12.5px;color:#666C84;padding-top:2px">Organism</span>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px">Mouse · reference GRCm39 with GENCODE M35 genes</span><span style="font-size:12.5px;color:#474D63;line-height:1.5">From “mouse”. The newest assembly is the convention unless you name another.</span></div>
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;border:1px solid #C9CEDB;color:#474D63;font-weight:500">convention</span></div>
+        <div style="display:grid;grid-template-columns:110px minmax(0, 1fr) auto;gap:14px;align-items:start;padding:12px 0;border-top:1px solid #E1E4EC">
+    <span style="font-size:12.5px;color:#666C84;padding-top:2px">Read length</span>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px">Measured when you add files</span><span style="font-size:12.5px;color:#474D63;line-height:1.5">Alignment settings depend on it, so it is read from your reads rather than assumed.</span></div>
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;background:#FBF0DC;color:#9A5B00;font-weight:600">will be measured</span></div>
+        <div style="display:grid;grid-template-columns:110px minmax(0, 1fr) auto;gap:14px;align-items:start;padding:12px 0;border-top:1px solid #E1E4EC">
+    <span style="font-size:12.5px;color:#666C84;padding-top:2px">Strandedness</span>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px">Not known yet</span><span style="font-size:12.5px;color:#474D63;line-height:1.5">Your sentence doesn’t say, and counting with the wrong strand can drop half your reads. It won’t be guessed: you’ll be asked, or a step can measure it.</span></div>
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;background:#FCE5E6;color:#C92F36;font-weight:600">needs you</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:15px;font-weight:600;">How do you want to build it?</span>
+        <div style="display:flex;gap:14px">
+          <div style="flex:1;display:flex;gap:12px;padding:16px;border-radius:12px;background:#FFFFFF;border:2px solid #2F6FEB">
+    <span style="width:16px;height:16px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;border:1.5px solid #2F6FEB"><span style="width:8px;height:8px;border-radius:50%;background:#2F6FEB"></span></span><div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:14.5px;font-weight:600">Step by step, with me</span><span style="font-size:13px;color:#474D63;line-height:1.5">Each step is proposed with its reason and the alternatives. You add it, ask why, or pick another.</span><span style="margin-top:4px"><span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;background:#DDF3EC;color:#0B7F63;font-weight:600">good for a first pipeline</span></span></div></div>
+          <div style="flex:1;display:flex;gap:12px;padding:16px;border-radius:12px;background:#FFFFFF;border:1px solid #C9CEDB">
+    <span style="width:16px;height:16px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;border:1.5px solid #C9CEDB"></span><div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:14.5px;font-weight:600">All at once</span><span style="font-size:13px;color:#474D63;line-height:1.5">Everything a rule can settle is built in one go. Then only the open questions are left for you.</span></div></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px">
+        <span style="font-size:12.5px;color:#666C84">The same description always gives the same pipeline.</span>
+        <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 26px;border-radius:10px;background:#0B7F63;color:#FFFFFF;font-size:14.5px;font-weight:600;box-shadow:0 3px 0 #075C48"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"></path></svg>Start building</span>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>

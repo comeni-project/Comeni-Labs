@@ -55,6 +55,7 @@ frontend/dist/
 /.design/runs-board/runs-board.html
 /.design/forge-registry-boards.html
 /.design/living-pipeline/living-pipeline.html
+/.design/hybrid/comeni-labs-hybrid.html
 
 # JetBrains checkout settings.
 .idea/
