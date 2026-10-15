@@ -49,6 +49,7 @@ class DecisionKind(StrEnum):
     PARAM = "param"
     PRODUCER = "producer"
     SOURCE = "source"
+    FACT = "fact"
 
 
 class Ambiguity(Question):
@@ -292,8 +293,24 @@ class SourceDecision(_Decided):
     model_override: EdgeRef | None = None
 
 
+class FactDecision(_Decided):
+    """A fact a chosen tool's code reads, that nobody supplied (#338).
+
+    Not a `ParamDecision`: a setting's answer is stored as that one step's setting, so two
+    steps reading strandedness would ask twice and could disagree. This one's answer is stored
+    as the **fact**, once, and the re-resolved pipeline has no record left. It exists only
+    while the fact is unknown, so it is never replayed.
+    """
+
+    kind: Literal[DecisionKind.FACT] = DecisionKind.FACT
+    candidates: list[ParamValue] = Field(default_factory=list)
+    chosen: ParamValue = None
+    """Nothing is chosen here: the answer is recorded as the fact."""
+    unknown: list[MeasurementId]
+
+
 DecisionRecord = Annotated[
-    ParamDecision | ProducerDecision | SourceDecision,
+    ParamDecision | ProducerDecision | SourceDecision | FactDecision,
     Field(discriminator="kind"),
 ]
 """A decision, discriminated on `kind`.
