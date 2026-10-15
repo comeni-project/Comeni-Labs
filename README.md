@@ -1,17 +1,21 @@
 # Comeni Labs
 
-*After John Comenius, who argued that knowledge belongs to everyone.*
+Comeni Labs helps researchers build, review, run and monitor Nextflow pipelines.
+The builder uses declared tool contracts, rules and facts about the data to choose
+steps and settings. Choices it cannot settle become questions for review. Model
+assistance works through that process, and its contributions remain recorded.
 
-Comeni Labs is a Nextflow-based platform for closing the gap between the wet lab and the dry lab. 
-It gives researchers a low-code, modular way to create, deploy, and maintain real pipelines, 
-with AI agents designed around recent MIT and Cambridge work on augmentation rather than automation:
-the agent assists the scientist, it doesn't replace them. What comes out is plain Nextflow - run it on
-your laptop, your HPC cluster, Kubernetes, or your own cloud account.
+The output includes plain Nextflow and a saved pipeline record with the reasons for
+its decisions. You can inspect the files and run the workflow outside Comeni.
 
----
-## Try it
+Comeni is **Alpha, pre-MVP**. The app supports local execution; generated Kubernetes
+and AWS Batch profiles are not integrated launch targets. Model-assisted authoring
+needs a configured provider or local model. Manual building is available without one.
 
-You need [`uv`](https://docs.astral.sh/uv/) and Docker.
+## Start locally
+
+Install `uv`, Docker with Compose, and Node.js with npm. The development command
+installs frontend dependencies, builds the service images and starts the app.
 
 ```bash
 git clone --recurse-submodules https://github.com/comeni-project/Comeni-Labs
@@ -20,44 +24,35 @@ uv sync
 make dev
 ```
 
-Open **http://localhost:5173** — build a pipeline, run it, watch it.
-
-
-**[The tutorial](docs/handbook/your-first-pipeline.md)** takes fifteen minutes and walks all of it, including
-changing one fact about your data and watching a different aligner get chosen for a stated
-reason.
-
----
+Open [http://localhost:5173](http://localhost:5173).
+See [installation and troubleshooting](docs/how-to/install.md) for setup
+details, and stop the stack with `make dev-down` when finished.
 
 ## Documentation
 
-| You want to | Read |
+| You need to | Start here |
 |---|---|
-| build your first pipeline | [Tutorial](docs/handbook/your-first-pipeline.md) |
-| run and watch pipelines | [Running the platform](docs/handbook/the-stack.md) · Watching a run |
-| add a tool it does not know | [Adding a tool](docs/registry/writing-a-contract.md) · Drafting one faster |
-| make a choice depend on your data | [Writing a rule](docs/registry/making-a-choice-depend-on-your-data.md) |
-| understand a decision it made | [The four tiers](docs/handbook/the-four-tiers.md) · [How tools get chosen](docs/handbook/how-tools-get-chosen.md) |
-| work on the code | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Learn through a worked example | [Tutorials](docs/tutorials/index.md) |
+| Complete a specific task | [How-to guides](docs/how-to/index.md) |
+| Look up commands, schemas or terminology | [Reference](docs/reference/index.md) |
+| Understand the design and its boundaries | [Explanation](docs/explanation/index.md) |
 
-Everything is in [`docs/`](docs/).
+The [documentation homepage](docs/index.md) connects these paths.
+Developers can start with [architecture](docs/explanation/architecture.md) and
+[contributor setup](docs/how-to/development/contribute.md).
 
----
+## Contribute
 
-## Contributing
+Registry contributions add tools, measurements, vocabulary and cited rules.
+Tool contracts are YAML declarations bound to real module source; writing a
+contract does not require Python. See [writing a contract](docs/how-to/registry/add-tool.md).
 
-Adding or contributing to a tool needs no Python. It is a YAML file with a citation, and it is the most useful
-contribution anyone can make, because tool definitions are what the compiler builds from. One
-definition makes that tool available to every analysis it fits.
+Registry changes belong in [comeni-registry](https://github.com/comeni-project/comeni-registry);
+platform changes belong here. The [contributing guide](.github/CONTRIBUTING.md)
+explains setup, checks and review requirements.
 
-Write it by hand with [adding a tool](docs/registry/writing-a-contract.md), or let
-the forge draft most of it from the tool's own documentation
-and hand you what is left. Definitions live in
-[comeni-registry](https://github.com/comeni-project/comeni-registry); code lives here, and
-[CONTRIBUTING.md](.github/CONTRIBUTING.md) has the rest.
+## Name and licence
 
-## Licence
-
-Code is Apache-2.0 ([`LICENSE`](LICENSE)). Tool definitions are CC-BY-4.0 in their own
-repository — they cite papers, and attribution matters. Bundled `nf-core` modules keep their own
-licences.
+Comeni is named after John Comenius, who argued that knowledge belongs to everyone.
+Code is Apache-2.0 ([LICENSE](LICENSE)). Registry data is CC-BY-4.0 in its own
+repository. Vendored `nf-core` modules retain their own licences.

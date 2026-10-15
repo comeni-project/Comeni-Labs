@@ -14,7 +14,6 @@ choice nobody made would owe `mendel explain` an answer to a question that was n
 `upgrade` would replay it forever.
 """
 
-
 import pytest
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.draft import DraftChannel, DraftEdge, DraftGraph, DraftNode
@@ -48,7 +47,11 @@ def _graph(*channels: DraftChannel) -> DraftGraph:
 
 def _built(graph: DraftGraph, stack) -> Pipeline:
     return Pipeline.of(
-        ir_of(graph, stack), stack.registry, stack.vocabulary, stack.measurements, stack.paths,
+        ir_of(graph, stack),
+        stack.registry,
+        stack.vocabulary,
+        stack.measurements,
+        stack.paths,
         goal=goal_of(graph, stack),
     )
 
@@ -111,9 +114,7 @@ def test_the_override_changes_what_is_emitted(stack):
     shared = emit(_built(_graph(), stack))
     assert ".first()" in next(one for one in shared.splitlines() if "ch_gtf =" in one)
 
-    split = emit(
-        _built(_graph(DraftChannel(ports=("align.gtf",), scope="sample")), stack)
-    )
+    split = emit(_built(_graph(DraftChannel(ports=("align.gtf",), scope="sample")), stack))
     # Two gtf channels now — the override *split* it, which is phase 3's mechanism doing the
     # work: `ch_gtf` is the overridden one and stays a queue, `ch_gtf_2` keeps the type's
     # default and is a value channel. That both appear is the point: a person said these two
@@ -155,7 +156,7 @@ def test_the_scope_override_added_no_free_text_field():
     to write down and what A33 is about. `FREE_TEXT_FIELDS` is the count; this asserts the thing
     it is actually about.
     """
-    from guards.test_egress import FREE_TEXT_FIELDS
+    from support.egress import FREE_TEXT_FIELDS
 
     assert FREE_TEXT_FIELDS, "an empty set would make the check below assert nothing"
     channel_fields = {

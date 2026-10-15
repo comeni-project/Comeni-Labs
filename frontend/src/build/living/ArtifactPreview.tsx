@@ -43,6 +43,7 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
     const say: Record<string, string> = {
       empty: "Nothing has been added yet, so there is no pipeline to show.",
       illegal: "The draft is not a legal pipeline right now, so there is no pipeline.yml to show.",
+      outdated: "Your answers changed. Follow the chat to rebuild before keeping or running this pipeline.",
       unavailable: "This draft cannot be written as a pipeline.yml yet.",
     };
     return (

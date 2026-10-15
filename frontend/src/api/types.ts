@@ -57,8 +57,18 @@ export type AuthoringPreview = S["AuthoringPreview"];
 export type BeginAuthoring = S["BeginAuthoring"];
 export type DecideProposal = S["DecideProposal"];
 export type AuthoringVocabulary = S["AuthoringVocabulary"];
+export type AuthoringCall = S["AuthoringCallView"];
 export type AuthoringEdited = S["AuthoringEdited"];
+/** What one uploaded sample measured, and what that settled (issue 134). */
+export type SampleInspected = S["SampleInspected"];
+export type SampleReading = S["SampleReading"];
+/** What a question is about and why it is asked (Part I.1). */
+export type Explanation = S["Explanation"];
+export type InspectedFact = S["InspectedFactView"];
+/** A change the model offered, waiting for one click (Part I.0). */
+export type AuthoringSuggestion = S["AuthoringSuggestionView"];
 /** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
 export type AiHealth = S["AiHealth"];
+export type AiConfigured = S["AiConfigured"];
 /** A goal as the goal card edits it — FastAPI's input half of `Goal`; see the note at the top. */
 export type GoalIn = S["Goal-Input"];

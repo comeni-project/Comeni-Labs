@@ -2,6 +2,8 @@
 
 import os
 
+import pytest
+
 
 def test_site_config_turns_on_the_two_things_wiener_needs(a_run):
     """§4.3 finding 6: without `trace.enabled` the resource fields are absent entirely, and
@@ -45,7 +47,6 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     three tests above cover the strings it assembles, not the thing it does with them.
     """
     from wiener_api import repository
-    from wiener_api.models import RunArtifact
     from wiener_api.services import launcher
     from wiener_api.settings import settings
 
@@ -55,10 +56,6 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     (stored / "modules").mkdir(parents=True)
     (stored / "main.nf").write_text("workflow {}\n")
 
-    repository.add(session, a_run.lab_id, RunArtifact(
-        id=a_run.artifact_id, uploaded_by="test",
-        uploaded_at=a_run.submitted_at, digest="sha256:" + "0" * 64, size_bytes=1,
-    ))
     session.commit()
 
     spawned: list[tuple[list[str], str]] = []
@@ -150,3 +147,29 @@ def test_wiener_never_asks_a_person_for_an_output_directory(tmp_path, monkeypatc
 
     assert artifacts.declared_holes("abc") == {"input", "gtf"}
     assert "outdir" in artifacts.SUPPLIED_BY_WIENER
+
+
+@pytest.mark.parametrize("phase", ["launching", "running", "succeeded", "cancelled"])
+def test_a_run_already_claimed_is_not_launched_again(a_run, session, tmp_path, monkeypatch,
+                                                      phase):
+    """Issue 273: arq delivers at least once, and a worker restarted mid-launch re-delivers
+    `launch_job`. `launch` never looked at the phase, so a second Nextflow started in the same
+    work directory. Only a `queued` run is claimed; any other is skipped, not failed — the
+    redelivery is the queue working, and failing it would only make arq try again."""
+    from wiener_api import repository
+    from wiener_api.services import launcher
+    from wiener_api.settings import settings
+
+    monkeypatch.setattr(settings, "artifact_root", tmp_path / "artifacts")
+    monkeypatch.setattr(settings, "work_root", tmp_path / "work")
+    (settings.artifact_root / a_run.artifact_id).mkdir(parents=True)
+    (settings.artifact_root / a_run.artifact_id / "main.nf").write_text("workflow {}\n")
+    repository.run(session, a_run.lab_id, a_run.id).phase = phase
+    session.commit()
+    spawned = []
+    monkeypatch.setattr(launcher, "_spawn", lambda argv, cwd: spawned.append(argv))
+
+    assert launcher.launch(a_run.id) is False
+    assert spawned == [], f"a {phase} run was launched again"
+    assert not launcher.work_dir(a_run.id).exists(), "the work directory was touched"
+    assert repository.run(session, a_run.lab_id, a_run.id).phase == phase

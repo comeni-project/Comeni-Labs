@@ -7,12 +7,11 @@ list of verbs instead of a sanitiser.
 """
 
 import os
-import secrets
 import subprocess
 import sys
-from datetime import UTC, datetime
 
 import pytest
+import wiener_rows
 from wiener_api import repository
 from wiener_api.models import Run, RunIntent
 from wiener_api.services import launcher, verbs
@@ -20,16 +19,8 @@ from wiener_api.settings import settings
 
 
 def _run(session, **overrides) -> Run:
-    fields = {
-        "id": secrets.token_hex(16), "lab_id": settings.lab_id,
-        "artifact_id": secrets.token_hex(16), "submitted_by": "operator",
-        "submitted_at": datetime.now(UTC), "phase": "running", "executor": "local",
-        "ingest_secret": secrets.token_hex(16),
-    }
-    row = Run(**{**fields, **overrides})
-    session.add(row)
-    session.commit()
-    return row
+    return wiener_rows.a_run(session, **{"submitted_by": "operator", "phase": "running",
+                                         **overrides})
 
 
 def _sleeper() -> subprocess.Popen:

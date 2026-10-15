@@ -1,0 +1,12 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "items": {
+    "additionalProperties": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "type": "object"
+  },
+  "type": "array"
+}

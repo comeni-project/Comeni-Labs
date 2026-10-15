@@ -100,3 +100,63 @@ def test_projection_matches_replay(ingest_client, a_run, session):
             f"the record folds to {task.status!r}/{task.latest_exit!r}"
         )
         assert [a["n"] for a in row.attempts] == [a.n for a in task.attempts]
+
+
+def _post_all(ingest_client, a_run, fixture=FIXTURE) -> int:
+    lines = [line for line in fixture.read_text().splitlines() if line.strip()]
+    for line in lines:
+        response = ingest_client.post(f"/events/{a_run.id}/{a_run.ingest_secret}",
+                                      json=json.loads(line))
+        assert response.status_code == 204
+    return len(lines)
+
+
+def test_ingest_never_replays_the_run(ingest_client, a_run, monkeypatch):
+    """Issue 282: every event replayed the run's whole record to learn the state before it —
+    O(n²) over a run, and each ingest slower than the last. The state before an event is
+    restored from the projection; the replay is the rebuild, never the ingest path."""
+    from wiener_api.services import projection
+
+    def replayed(*args, **kwargs):
+        raise AssertionError("ingest replayed the run's record")
+
+    monkeypatch.setattr(projection, "state_of", replayed)
+    assert _post_all(ingest_client, a_run) > 3
+
+
+def test_the_projection_restores_the_folded_state_at_every_event(ingest_client, a_run, session):
+    """The projection now stands in for the replay, so it has to hold everything the fold
+    needs: what it restores must be what the record folds to, after every event — the whole
+    `RunState`, not a few of its fields."""
+    from wiener_api.services import projection
+
+    lines = [line for line in FIXTURE.read_text().splitlines() if line.strip()]
+    assert lines, "no events: this would compare nothing"
+    for line in lines:
+        ingest_client.post(f"/events/{a_run.id}/{a_run.ingest_secret}", json=json.loads(line))
+        assert projection.restored(session, a_run.lab_id, a_run.id) == projection.state_of(
+            session, a_run.lab_id, a_run.id
+        )
+
+
+def test_seq_is_allocated_from_the_run_in_the_order_received(ingest_client, a_run, session):
+    """Issue 282: `seq` was `max + 1` with no lock, so two writers could take the same number.
+    It is taken from the locked run row, ingest, heartbeat and cancel alike."""
+    from wiener_api import repository
+    from wiener_api.services import projection
+
+    count = _post_all(ingest_client, a_run)
+    projection.beat(session, a_run.lab_id, a_run.id, at_ms=1_800_000_000_000)
+    seqs = [row.seq for row in repository.events(session, a_run.lab_id, a_run.id)]
+    assert seqs == list(range(count + 1))
+    assert repository.run(session, a_run.lab_id, a_run.id).last_seq == count
+
+
+def test_the_ingest_route_does_not_block_the_event_loop():
+    """It does blocking database work; as `async def` it held the one event loop while it did,
+    so every other post waited. A plain `def` runs in FastAPI's thread pool."""
+    import inspect
+
+    from wiener_api.routes import ingest
+
+    assert not inspect.iscoroutinefunction(ingest.ingest)

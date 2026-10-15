@@ -9,26 +9,6 @@ It keeps the platform name rather than the product name because its IR is the in
 the execution layer will consume.
 """
 
-from comeni_core.artifact.egress import (
-    DECLARED,
-    DOORS,
-    PATHS,
-    AmbiguityRequest,
-    AuthoringRequest,
-    AuthoringRole,
-    AuthoringTurn,
-    Door,
-    DoorPath,
-    EgressPayload,
-    ErrorCategory,
-    ForgeReviewRequest,
-    GateFailure,
-    KnownStep,
-    RepairRequest,
-    ReviewRole,
-    ReviewTurn,
-    doors_on,
-)
 from comeni_core.declared.contract import (
     Alternative,
     InputPort,
@@ -48,6 +28,19 @@ from comeni_core.declared.measurement import (
 )
 from comeni_core.declared.registry import Registry, module_key
 from comeni_core.declared.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
+from comeni_core.egress.authoring import AuthoringRequest, AuthoringRole, AuthoringTurn, KnownStep
+from comeni_core.egress.base import EgressPayload
+from comeni_core.egress.boundaries import (
+    BOUNDARIES,
+    FLOWS,
+    PAYLOADS,
+    Boundary,
+    BoundaryFlow,
+    payloads_for,
+)
+from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
+from comeni_core.egress.repair import ErrorCategory, GateFailure, RepairRequest
+from comeni_core.egress.resolution import AmbiguityRequest
 from comeni_core.goal.asked import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.decision import Ambiguity, DecisionRecord, Resolution
@@ -76,13 +69,13 @@ __all__ = [
     "Constraints",
     "DataProfile",
     "DecisionRecord",
-    "DECLARED",
+    "BOUNDARIES",
     "DeclaredKind",
     "Displacement",
-    "Door",
-    "DoorPath",
-    "DOORS",
-    "doors_on",
+    "Boundary",
+    "BoundaryFlow",
+    "PAYLOADS",
+    "payloads_for",
     "DraftChannel",
     "DraftEdge",
     "DraftGraph",
@@ -114,7 +107,7 @@ __all__ = [
     "ParamBinding",
     "ParamOverride",
     "ParamValue",
-    "PATHS",
+    "FLOWS",
     "PipelineIR",
     "AuthoringRequest",
     "AuthoringRole",

@@ -14,6 +14,7 @@ over it be checked for exhaustiveness.
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -28,7 +29,7 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.diagnostics import coded
-from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.goal.profile import DataProfile, Evidence, Measured
 from comeni_core.plan.tiers import ValueSource
 from comeni_core.spell.marks import MeasurementId, ParamValue, TypeId
 
@@ -124,6 +125,9 @@ class Measurement(BaseModel):
     unit: str | None = None
     description: str = ""
     cite: str | None = None
+    explain: str | None = Field(default=None, min_length=1, max_length=600)
+    """What it is and how a person finds it out, one short paragraph (Part I.1). Its name is
+    `description`. Read by nothing that builds."""
     edam: str | None = None
     describes: TypeId | None = None
     """Which type this is a property of, e.g. `fastq.reads`.
@@ -262,6 +266,17 @@ def _merge_measurement(
     return old.model_copy(update={"values": [*old.values, *new.add_values]})
 
 
+class MeasuredEntry(NamedTuple):
+    """One fact for `profile_of`: its value, who settled it, and what measured it (#134)."""
+
+    measurement: str
+    value: ParamValue | list[ParamValue]
+    source: ValueSource
+    by: str | None = None
+    pieces: tuple[str, ...] = ()
+    evidence: Evidence | None = None
+
+
 class MeasurementRegistry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -387,12 +402,38 @@ class MeasurementRegistry(BaseModel):
         path skipping validation would produce an unchecked profile flowing straight into
         routing, which is the class of bug that left `subject: aligner` dead for months.
         """
-        for measurement_id, value in mapping.items():
-            self.check(measurement_id, value)
+        return self.profile_of([MeasuredEntry(k, v, source, by) for k, v in mapping.items()])
+
+    def profile_of(self, entries: Sequence["MeasuredEntry | tuple"]) -> DataProfile:
+        """`profile()` for entries that do not share a source.
+
+        Gathering folds facts from a person, an inspector and a model into one goal, and
+        `profile()` stamps a single source on every entry. This is the one other validating
+        constructor, in the same file `tests/guards/test_construction.py` already allows.
+
+        A bare `(measurement, value, source, by)` tuple is still accepted: it is a
+        `MeasuredEntry` with no pieces and no evidence.
+        """
+        given = [MeasuredEntry(*entry) for entry in entries]
+        for entry in given:
+            if isinstance(entry.pieces, str):
+                # A string is iterable, so it was read letter by letter (issue 225).
+                raise ValueError(
+                    f"{entry.measurement}: pieces is a tuple of piece refs, not one string "
+                    f"({entry.pieces!r}); write ({entry.pieces!r},)"
+                )
+            self.check(entry.measurement, entry.value)
         return DataProfile(
             measurements=[
-                Measured(measurement=k, value=v, source=source, by=by)
-                for k, v in sorted(mapping.items())
+                Measured(
+                    measurement=entry.measurement,
+                    value=entry.value,
+                    source=entry.source,
+                    by=entry.by,
+                    pieces=list(entry.pieces),
+                    evidence=entry.evidence,
+                )
+                for entry in sorted(given, key=lambda entry: entry.measurement)
             ]
         )
 
@@ -429,30 +470,29 @@ class MeasurementRegistry(BaseModel):
     def meta_sources_for(
         self, type_id: str, profile: DataProfile
     ) -> dict[str, tuple["Measurement", ParamValue]]:
-        """The same entries, each with the measurement that produced it.
+        """Return metadata values and their declarations for one input type."""
+        return self.meta_sources_by_type({type_id}, profile).get(type_id, {})
 
-        `meta_for` answers *what value* and is what emission needs. This answers *on whose
-        authority*, which is what the artifact needs and did not have: `strandedness: reverse`
-        becomes featureCounts' `-s 2` — the classic way to a matrix of zeroes — and it reached
-        the tool with no provenance of any kind while the measurement's own declared `cite`
-        stopped at the registry. Audit A80.
+    def meta_sources_by_type(
+        self, type_ids: set[str], profile: DataProfile
+    ) -> dict[str, dict[str, tuple["Measurement", ParamValue]]]:
+        """Collect metadata for the requested types in one registry pass.
 
-        Two accessors rather than one richer return, because the callers want different
-        things and `meta_for`'s three test callers assert on a plain mapping. This is the
-        provenance-carrying one; that one stays the value-carrying one and is now derived from
-        it, so they cannot disagree about which entries exist.
+        Profile values are indexed once. Measurement ID order preserves the
+        existing precedence when declarations share a metadata key.
         """
-        found: dict[str, tuple[Measurement, ParamValue]] = {}
+        values = {entry.measurement: entry.value for entry in reversed(profile.measurements)}
+        found: dict[str, dict[str, tuple[Measurement, ParamValue]]] = {}
         for measurement_id in self.ids():
             measurement = self.get(measurement_id)
-            if measurement.describes != type_id or not measurement.meta_key:
+            if measurement.describes not in type_ids or not measurement.meta_key:
                 continue
-            value = profile.get(measurement_id)
+            value = values.get(measurement_id)
             if value is None:
                 continue
             for translation in measurement.meta_values:
                 if translation.when == value:
                     value = translation.then
                     break
-            found[measurement.meta_key] = (measurement, value)
+            found.setdefault(measurement.describes, {})[measurement.meta_key] = (measurement, value)
         return found

@@ -16,6 +16,7 @@ one file at a time while every commit stays green.
 import pathlib
 
 from mendel_resolver import layers
+from support.audit import declare_families
 from support.paths import ROOT
 
 _KIND_OF_DIR = {
@@ -89,6 +90,7 @@ def _layer(root: pathlib.Path) -> pathlib.Path:
     (layer / "vocabularies" / "qc.report.yml").write_text(
         _declared(layer / "vocabularies" / "qc.report.yml", REPORT)
     )
+    declare_families(layer, "fastq", "qc", "genome", "measurement")
     return layer
 
 
@@ -155,6 +157,11 @@ def _flat(root: pathlib.Path, **files: str) -> pathlib.Path:
     (layer / "registry.yml").write_text(_declared(layer / "registry.yml", "name: flat\n"))
     for name, body in files.items():
         (layer / f"{name}.yml").write_text(_declared(layer / f"{name}.yml", body))
+    # Flat too: a family file is found wherever it sits, like every other kind (#194).
+    for family_id in ("fastq", "qc", "measurement"):
+        (layer / f"family-{family_id}.yml").write_text(
+            f"declares: family\nid: {family_id}\ndescription: {family_id} data, for a test\n"
+        )
     return layer
 
 
@@ -178,6 +185,7 @@ def test_deeply_nested_is_just_as_good(tmp_path):
     (layer / "shared" / "types.yml").write_text(_declared(layer / "shared" / "types.yml", TYPE))
     (layer / "shared" / "report.yml").write_text(_declared(layer / "shared" / "report.yml", REPORT))
     (layer / "shared" / "roles.yml").write_text(_declared(layer / "shared" / "roles.yml", ROLES))
+    declare_families(layer / "shared", "fastq", "qc", "measurement")
     assert layers.load(layer).registry.contracts
 
 
@@ -198,6 +206,8 @@ def test_moving_a_file_changes_what_the_layer_digests_to(tmp_path):
     (two / "deep" / "thing.yml").write_text(_declared(two / "deep" / "thing.yml", CONTRACT))
     for name, body in (("t", TYPE), ("r", REPORT), ("j", ROLES)):
         (two / f"{name}.yml").write_text(_declared(two / f"{name}.yml", body))
+    for family in (one / "family-fastq.yml", one / "family-qc.yml", one / "family-measurement.yml"):
+        (two / family.name).write_bytes(family.read_bytes())
 
     assert layers.load(one).registry.contracts == layers.load(two).registry.contracts
     assert digest_of_directory(one) != digest_of_directory(two)

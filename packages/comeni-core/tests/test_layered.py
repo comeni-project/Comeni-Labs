@@ -35,9 +35,7 @@ def _declared(path, body: str) -> str:
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
     # names it.
-    kind = next(
-        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
-    )
+    kind = next((_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None)
     if kind is None or body.lstrip().startswith("declares:"):
         return body
     header = f"declares: {kind}\n"
@@ -125,9 +123,7 @@ def test_a_merge_policy_extends_instead_of_replacing(tmp_path):
     def merge(old, new):
         return {**old, "values": [*old["values"], *new["values"]]}
 
-    result = stack(
-        _layers(tmp_path, "base", "lab"), _kind(policy=Policy.MERGE, merge=merge)
-    )
+    result = stack(_layers(tmp_path, "base", "lab"), _kind(policy=Policy.MERGE, merge=merge))
 
     assert result.entries["m"]["values"] == ["a", "b", "c"]
     assert len(result.displaced) == 1, "merging is still a displacement worth reporting"
@@ -282,7 +278,7 @@ def test_a_displacement_satisfies_the_egress_leaf_rule():
     import typing
 
     sys.path.insert(0, str(pathlib.Path(__file__).parents[3] / "tests"))
-    from guards.test_egress import _leaf_problems
+    from support.egress import _leaf_problems
 
     hints = typing.get_type_hints(Displacement, include_extras=True)
     problems: list[str] = []

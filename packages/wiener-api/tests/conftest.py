@@ -10,12 +10,11 @@ there. The migration is applied against real Postgres by hand (`make wiener-migr
 the compose stack; these tests are about behaviour, not about DDL.
 """
 
-import secrets
-from datetime import UTC, datetime
 
 import pytest
+import wiener_rows
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from wiener_api.db import Base
@@ -48,6 +47,10 @@ def session(monkeypatch):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
+    # SQLite ignores foreign keys unless asked, per connection; Postgres never does (issue 274).
+    event.listen(
+        engine, "connect", lambda connection, _: connection.execute("PRAGMA foreign_keys=ON")
+    )
     Base.metadata.create_all(engine)
     maker = sessionmaker(bind=engine, expire_on_commit=False)
     session = maker()
@@ -77,19 +80,7 @@ def session(monkeypatch):
 
 @pytest.fixture
 def a_run(session) -> Run:
-    row = Run(
-        id=secrets.token_hex(16),
-        lab_id=settings.lab_id,
-        artifact_id=secrets.token_hex(16),
-        submitted_by="test",
-        submitted_at=datetime.now(UTC),
-        phase="queued",
-        executor="local",
-        ingest_secret=secrets.token_hex(16),
-    )
-    session.add(row)
-    session.commit()
-    return row
+    return wiener_rows.a_run(session)
 
 
 @pytest.fixture

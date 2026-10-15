@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from wiener_api.routes.ingest import create_ingest_app
 from wiener_api.routes.runs import router as runs_router
+from wiener_api.routes.settings import router as settings_router
 from wiener_api.settings import settings
 
 log = logging.getLogger(__name__)
@@ -77,6 +78,8 @@ def create_app() -> FastAPI:
                                     content={"detail": "a bearer token is required"})
         return await call_next(request)
     app.include_router(runs_router)
+    # Running, as Wiener has it: Mendel's settings menu merges it (spec 2026-10-01 §7).
+    app.include_router(settings_router)
 
     @app.get("/api/health", operation_id="health", summary="Is Wiener up")
     def health() -> dict[str, str]:

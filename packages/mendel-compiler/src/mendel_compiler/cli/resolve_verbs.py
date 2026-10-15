@@ -18,9 +18,11 @@ from pathlib import Path
 import yaml
 from comeni_core import yaml_strict
 from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.diagnostics import coded
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.replay import ReplayResolver
+from mendel_resolver.resolve import inert_pins
 from mendel_resolver.router import UnroutableError
 
 from mendel_compiler import orchestrate, pipeline_file, staging
@@ -140,6 +142,22 @@ def run(args, parser) -> int:
         )
         return 2
     ir, pipeline = built.ir, built.pipeline
+
+    # **A tool you chose that applies nowhere is said, never dropped** (MD0230, the final review
+    # of 3c run 1). `build` reports it and goes on; `upgrade` refuses before anything is written,
+    # as it does an orphaned override, because re-resolving would quietly hand back the engine's
+    # pick.
+    inert = inert_pins(ir, goal.constraints.producers)
+    for pin in inert:
+        print(
+            "  " + coded("MD0230", f"{pin.contract} applies nowhere at {pin.site.type_id}"
+                         f"{sorted(pin.site.states) or ''}"),
+            file=sys.stderr,
+        )
+    if inert and args.command == "upgrade":
+        print("\nmendel: nothing was written. `mendel explain MD0230` for the long form.",
+              file=sys.stderr)
+        return 2
 
     # **Before anything is written.** A refused upgrade must leave nothing behind — A4's
     # posture, and `MD0203` is a refusal — and reporting after the write meant an orphaned

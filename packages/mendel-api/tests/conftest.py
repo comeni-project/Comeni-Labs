@@ -1,6 +1,9 @@
 """Fixtures for the API tests."""
 
 import pytest
+from mendel_api_tests.canvas_scenarios import authoring_case as authoring_case
+from mendel_api_tests.database import truncate
+from support.paths import ROOT as REPOSITORY_ROOT
 
 
 @pytest.fixture
@@ -12,38 +15,22 @@ def clean_db():
     leaving rows behind makes them order-dependent.
     """
     from mendel_api.db import session_scope
-    from sqlalchemy import text
 
     with session_scope() as session:
-        session.execute(text("TRUNCATE TABLE queue_visit"))
+        session.execute(truncate("TRUNCATE TABLE queue_visit"))
     yield
 
 
 @pytest.fixture
 def clean_forge():
-    """An empty forge workflow around each test.
+    """Start each requested scenario with empty Forge and invocation-related tables.
 
-    **All seven in one `TRUNCATE`, not seven statements.** Every foreign key in that block is
-    `RESTRICT`, so truncating `forge_catalogue_item` on its own is refused while an adaptation
-    points at it — which is the constraint working, and exactly what these tests are for.
-    Naming them together in one statement is how Postgres is told the whole set is going.
-
-    `ai_invocation` is in the list despite not being named `forge_*`: it is referenced by
-    `forge_message`, and leaving it out makes the truncation fail on the first test that
-    records a model call.
-
-    **The two `pipeline_authoring_*` tables are here for exactly that reason, one agent later.**
-    `ai_invocation` was built to be shared — `agent` is the column that says whose call it was —
-    and on 2026-09-09 the living pipeline became the second agent to reference it. Truncating
-    `ai_invocation` without them is refused, and `pipeline_authoring_turn` cannot go without
-    `pipeline_authoring_proposal`, which references it.
-
-    This fixture is the cost of a shared audit table, and it is the right cost: the alternative
-    the docstring above rejects is one invocation table per agent, which is a lie the second
-    time. A third agent adds a line here.
+    PostgreSQL requires these tables in one TRUNCATE because their foreign keys use RESTRICT.
+    Forge messages and pipeline-authoring turns both reference the shared `ai_invocation`
+    table; authoring proposals reference those turns. Any new table referencing these rows
+    must join the truncation list.
     """
     from mendel_api.db import session_scope
-    from sqlalchemy import text
 
     tables = (
         "forge_message, forge_event, forge_revision, forge_adaptation, "
@@ -51,7 +38,7 @@ def clean_forge():
         "pipeline_authoring_proposal, pipeline_authoring_turn"
     )
     with session_scope() as session:
-        session.execute(text(f"TRUNCATE TABLE {tables}"))
+        session.execute(truncate(f"TRUNCATE TABLE {tables}"))
     yield
 
 
@@ -68,7 +55,7 @@ def broken_registry_copy(tmp_path):
     import shutil
     from pathlib import Path
 
-    root = Path(__file__).resolve().parents[3]
+    root = REPOSITORY_ROOT
 
     def _break(relative: str, was: str, now: str) -> Path:
         copy = tmp_path / "registry"
@@ -81,3 +68,43 @@ def broken_registry_copy(tmp_path):
         return copy
 
     return _break
+
+
+@pytest.fixture
+def clean_settings():
+    """An empty `installation_setting` around each test. Nothing references it, so it truncates
+    alone."""
+    from mendel_api.db import session_scope
+
+    with session_scope() as session:
+        session.execute(truncate("TRUNCATE TABLE installation_setting"))
+    yield
+
+
+class _MemoryStore:
+    def __init__(self):
+        self.rows = {}
+
+    def values(self):
+        return dict(self.rows)
+
+    def put(self, key, value, by):
+        self.rows[key] = value
+
+
+@pytest.fixture(autouse=True)
+def settings_in_memory(request, monkeypatch):
+    """Isolate installation settings in memory unless the test uses `real_settings`.
+
+    Model access consults this store. Starting empty lets environment-configured model tests
+    run without database access or settings left by another case. Yield the store so a test
+    can explicitly configure an installation value.
+    """
+    if request.node.get_closest_marker("real_settings"):
+        yield None
+        return
+    from mendel_api.services import installation
+
+    store = _MemoryStore()
+    monkeypatch.setattr(installation, "_store", lambda: store)
+    yield store

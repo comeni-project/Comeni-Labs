@@ -61,12 +61,23 @@ def test_a_short_read_profile_pins_the_other_aligner(spine):
     assert "star_align" not in [n.id for n in ir.nodes]
 
 
-def test_a_priority_resolved_choice_is_convention(spine):
-    """No profile, so no rule fires: star and hisat2 tie on surplus and priority breaks it."""
+def test_a_rule_that_cannot_apply_is_a_question_not_a_priority_win(spine):
+    """#174: no read length, so the alignment rule cannot choose. That is invariant 4's rule
+    miss, not an absent rule: tier 4, naming what is unknown — never priority, silently."""
     ir = spine(want=["alignment.bam"], profile={})
     node = next(n for n in ir.nodes if n.id == "star_align")
-    assert node.selection.tier is Tier.CONVENTION
-    assert "priority" in node.selection.reason
+    assert node.selection.tier is Tier.AMBIGUOUS
+    assert "read_length" in node.selection.reason
+
+
+def test_an_unapplied_rule_asks_between_its_own_contracts_placing_the_priority_pick(spine):
+    """The question holds the rule's contracts in rank order, so the flag-only placement is
+    the registry's priority pick (STAR), not the first id alphabetically (HISAT2)."""
+    ir = spine(want=["alignment.bam"], profile={})
+    asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
+    assert len(asked) == 1
+    assert asked[0].candidates == ["nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.2"]
+    assert asked[0].chosen == "nf-core/star/align@1.11.0"
 
 
 def test_a_pin_that_cannot_route_raises_naming_the_rule(spine_without_hisat2_index):
@@ -135,3 +146,31 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
     chosen = ir.nodes[0]
     assert chosen.selection.tier is Tier.AMBIGUOUS
     assert ir.needs_review() != []
+
+
+def test_a_rule_that_cannot_apply_records_the_facts_it_lacked(spine):
+    """The facts reach the record typed, so the build plan can ask for them; until now they
+    reached it only as prose in the reason."""
+    ir = spine(want=["alignment.bam"], profile={})
+    asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
+    assert len(asked) == 1
+    assert asked[0].unknown == ["read_length"]
+
+
+def test_an_empty_unknown_is_left_out_of_the_dump():
+    """Every pipeline.yml written before this field stays byte-identical."""
+    from comeni_core.plan.decision import ProducerDecision
+
+    record = ProducerDecision(
+        key="producer:alignment.bam",
+        subject="producer:alignment.bam",
+        candidates=["nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.2"],
+        chosen="nf-core/star/align@1.11.0",
+        reason="r",
+        resolved_by="flag-only",
+        unknown=[],
+    )
+    assert "unknown" not in record.model_dump(mode="json")
+    assert record.model_copy(update={"unknown": ["read_length"]}).model_dump(mode="json")[
+        "unknown"
+    ] == ["read_length"]

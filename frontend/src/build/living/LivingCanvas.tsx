@@ -9,7 +9,7 @@ import { useView } from "../useView";
 import type { MotionEvent } from "./authoringReducer";
 import { Flowline, flowLabel, flowTag, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
 import type { Author } from "./format";
-import { LivingNode } from "./LivingNode";
+import { LivingNode, type ReviewState } from "./LivingNode";
 import { motionFor, wireSubject } from "./motion";
 
 type Channel = components["schemas"]["ChannelView"];
@@ -36,10 +36,14 @@ export function LivingCanvas({
   selected,
   onSelect,
   footer,
-  instead = null,
+  readOnly = false,
   events = [],
   onPlayed = () => undefined,
   reveal = {},
+  empty,
+  stale = false,
+  reviews = {},
+  working = false,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -54,20 +58,33 @@ export function LivingCanvas({
   selected: string | null;
   onSelect: (node: string | null) => void;
   footer?: React.ReactNode;
-  /** An alternative being previewed for the ghost's slot — drawn *in* the slot, never beside it. */
-  instead?: string | null;
+  /** A complete preview: nothing here can be moved, selected or changed. */
+  readOnly?: boolean;
   events?: MotionEvent[];
   onPlayed?: (event: MotionEvent) => void;
   /** Spawn's first-arrival reveal: a delay per step, in ms. Empty on reload. */
   reveal?: Record<string, number>;
+  /** What the empty canvas says instead of the invitation — after an honest stop, why. */
+  empty?: string;
+  /** The frame is the last pipeline built, and answers have changed since: said, never hidden. */
+  stale?: boolean;
+  /** Whether each drawn step's review still holds — said in words, never by repainting its tier. */
+  reviews?: Record<string, ReviewState>;
+  /** A decision is on its way: the last complete frame stays, marked as being updated. */
+  working?: boolean;
 }) {
   const view = useView();
   const [moved, setMoved] = useState<Positions>({});
   const drag = useRef<{ id: string; from: Point; origin: Point; travelled: boolean } | null>(null);
 
   const at: Positions = { ...positions, ...moved };
-  const ids = [...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])];
+  // **Each step once.** A frame's graph already holds the step on offer; the ghost names which one
+  // it is, and its wires are drawn dashed, not also solid.
+  const ids = [...new Set([...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])])];
   const visible = new Set(ids);
+  const wireKey = (e: DraftEdge) => `${e.from_node}.${e.from_port}>${e.to_node}.${e.to_port}`;
+  const dashed = new Set(ghostEdges.map(wireKey));
+  const solid = graph.edges.filter((e) => !dashed.has(wireKey(e)));
 
   if (ids.length === 0) {
     return (
@@ -75,7 +92,7 @@ export function LivingCanvas({
            data-testid="canvas-empty">
         <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">Nothing built yet</span>
         <span className="text-[12.5px] text-ink-2">
-          Confirm the goal on the right and the steps arrive one at a time
+          {empty ?? "Confirm the goal on the right and the steps arrive one at a time"}
         </span>
         {footer}
       </div>
@@ -151,6 +168,12 @@ export function LivingCanvas({
       footer={
         <>
           {footer}
+          {(stale || working) && (
+            <span role="status" data-testid={stale ? "canvas-stale" : "canvas-working"}
+                  className="absolute left-5 top-4 font-data text-[10px] tracking-[.1em] uppercase text-ink-2">
+              {stale ? "Outdated — the last pipeline built" : "Updating…"}
+            </span>
+          )}
           {Object.keys(moved).length > 0 && (
             <button type="button" data-testid="tidy" onClick={() => setMoved({})}
                     className="absolute right-5 bottom-5 font-data text-[11px] px-3 py-[6px] bg-transparent
@@ -176,7 +199,7 @@ export function LivingCanvas({
             );
           }),
         )}
-        {graph.edges.map((edge) => {
+        {solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
           if (!from || !to) return null;
@@ -227,18 +250,19 @@ export function LivingCanvas({
             author={authors[id] ?? "resolver"}
             ports={steps[id]?.ports ?? []}
             settled={steps[id]?.settings.length}
+            reviewState={isGhost ? (reviews[id] === "again" ? "again" : "proposed") : reviews[id] ?? "unknown"}
             runs={steps[id] ? runs : undefined}
             perItem={steps[id]?.runs === "per_item"}
             ghost={isGhost}
-            instead={isGhost ? instead : null}
             selected={selected === id}
             className={id in reveal ? "living-reveal" : played?.className}
             delay={reveal[id]}
             onAnimationEnd={played ? () => onPlayed(played.event) : undefined}
             onSelect={() => {
-              if (!drag.current?.travelled) onSelect(id);
+              if (!readOnly && !drag.current?.travelled) onSelect(id);
             }}
             onPointerDown={(e) => {
+              if (readOnly) return;
               drag.current = { id, from: { x: e.clientX, y: e.clientY }, origin: at[id], travelled: false };
               (e.target as Element).setPointerCapture?.(e.pointerId);
             }}

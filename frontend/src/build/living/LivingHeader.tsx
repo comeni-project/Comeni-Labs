@@ -1,5 +1,8 @@
+import { useState } from "react";
+
 import type { AuthoringSession } from "../../api/types";
-import { phaseWords, progressWords } from "./format";
+import { CallPanel } from "./CallPanel";
+import { phaseWords, progressWords, usageWords } from "./format";
 
 /** The page's one strip: the pipeline's name, its mode, where it is, the view toggle, and Run.
  *
@@ -29,6 +32,8 @@ export function LivingHeader({
   runnable?: boolean;
 }) {
   const progress = progressWords(session);
+  const spent = usageWords(session.usage);
+  const [calls, setCalls] = useState(false);
   const waiting = session.phase === "failed" || session.turns.some((t) => t.state === "pending");
 
   return (
@@ -36,18 +41,22 @@ export function LivingHeader({
       <h1 className="m-0 text-title font-semibold tracking-[-.03em] text-ink">
         {session.name || "Untitled analysis"}
       </h1>
-      <span
-        data-testid="mode"
-        className="font-data text-[9.5px] tracking-[.12em] uppercase text-ink-2 px-2 py-[3px] border"
-        style={{ borderColor: "var(--line-2)" }}
-      >
-        {session.mode}
-      </span>
       <span className="font-data text-[11px] text-ink-3" data-testid="living-status">
         <span style={{ color: waiting ? "var(--measured)" : undefined }}>{phaseWords(session)}</span>
         {progress && <> · {progress}</>}
+        {session.projection_current === false && " · pipeline outdated"}
         {` · revision ${session.revision}`}
       </span>
+      {spent && (
+        // The session's tokens and calls, carried by the poll the page already makes; the list
+        // behind it is fetched only when opened (issue 191).
+        <button type="button" data-testid="living-usage" aria-expanded={calls}
+                onClick={() => setCalls(!calls)}
+                className="bg-transparent border-0 p-0 cursor-pointer font-data text-[11px]
+                           text-ink-3 hover:text-ink focus-visible:shadow-[var(--ring)]">
+          {spent}
+        </button>
+      )}
 
       <div className="ml-auto flex items-center gap-4">
         <div className="flex border" style={{ borderColor: "var(--line-2)" }}>
@@ -83,6 +92,7 @@ export function LivingHeader({
           </span>
         )}
       </div>
+      <CallPanel sessionId={session.id} calls={session.usage?.calls ?? 0} open={calls} />
     </div>
   );
 }

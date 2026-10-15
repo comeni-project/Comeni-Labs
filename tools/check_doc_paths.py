@@ -1,0 +1,78 @@
+"""Check backticked source paths in the agent brief, current-work note and invariants.
+
+Resolve repository paths, package source modules and documented moves. Commands, globs,
+URLs, templates and revision expressions are excluded so they are not mistaken for files.
+This complements the Markdown link checker and reads only the files named in FILES."""
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+from documentation_locations import moved_docs
+
+ROOT = Path(__file__).resolve().parent.parent
+FILES = ["CLAUDE.md", "docs/notes/now.md", "docs/explanation/invariants.md"]
+_TICK = re.compile(r"`([^`\n]+)`")
+_LINE_REF = re.compile(r":\d+(-\d+)?$")
+_EXT = (".md", ".py", ".yml", ".yaml", ".toml", ".ts", ".tsx", ".json", ".nf", ".html", ".sh")
+
+
+def _looks_like_path(token: str) -> bool:
+    if any(c in token for c in " *{}<>$^") or "://" in token or token.startswith(("-", "~", "/")):
+        return False
+    if re.fullmatch(r"\.[A-Za-z0-9]+", token):
+        return False  # a bare extension — `.nf`, `.pyi` — names a kind of file, not a file
+    bare = _LINE_REF.sub("", token)
+    return "/" in bare or bare.endswith(_EXT)
+
+
+def tracked_names(root: Path) -> set[str]:
+    """Every tracked file's name, for a bare filename written without its directory."""
+    out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True)
+    if out.returncode != 0:
+        return set()  # not a repository: nothing is tracked, so only real paths resolve
+    return {Path(line).name for line in out.stdout.splitlines()}
+
+
+def _exists(token: str, root: Path, names: set[str], locations: dict[str, str]) -> bool:
+    bare = _LINE_REF.sub("", token).rstrip("/")
+    if "/" not in bare:
+        # **A bare filename is live if the repository has a file by that name.** `tokens.test.ts`
+        # is a reference; `wiener.md`, deleted on 2026-09-02, exists nowhere and is dead.
+        return bare in names or (root / bare).exists()
+    if (root / bare).exists():
+        return True
+    if bare in locations:
+        return (root / locations[bare]).is_file()
+    return any((src / bare).exists() for src in root.glob("packages/*/src"))
+
+
+def dead_paths(text: str, root: Path, names: set[str] | None = None) -> list[tuple[int, str]]:
+    names = tracked_names(root) if names is None else names
+    locations = moved_docs(root)
+    dead = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        for token in _TICK.findall(line):
+            if _looks_like_path(token) and not _exists(token, root, names, locations):
+                dead.append((number, token))
+    return dead
+
+
+def main() -> int:
+    failed = 0
+    for name in FILES:
+        path = ROOT / name
+        if not path.exists():
+            continue
+        for number, token in dead_paths(path.read_text(), ROOT):
+            print(f"{name}:{number}: `{token}` does not exist")
+            failed += 1
+    if failed:
+        print(f"{failed} dead path(s). Fix the path, or cite a removed file as "
+              "`git show <commit>^:<path>`.")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

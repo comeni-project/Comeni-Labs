@@ -1,10 +1,9 @@
 """The builder's tier-4 adapter — egress door 2, and the one place a model picks a module.
 
-**Spawn's resolver, and Build's is unchanged.** §1.2 is two policies over one engine: Build
-resolves tier 4 with `FlagOnlyResolver` so the question stays visible and unanswered, Spawn
-resolves it here. Nothing else differs, which is why this is a resolver rather than a second
-builder — the `AmbiguityResolver` port already existed for exactly this, declared in Plan 1 and
-unimplemented until now.
+**Built for Spawn, unwired since 14.7.8.3b** (spec §13.1 of the consultant build): Build and Spawn
+are retired, and tier 4 always stops for a person. It is kept for the designed *Tier-4 answers*
+setting, a later fork that lets a model answer, flagged. A resolver rather than a second builder,
+because the `AmbiguityResolver` port already existed for exactly this.
 
 **It can only choose what it was offered.** `choose_one` checks membership and refuses a value
 outside the set, and a refusal falls through to the flag-only path — so a model that answers
@@ -29,7 +28,7 @@ import re
 from typing import NamedTuple
 
 from comeni_ai import Client, Option, choose_one
-from comeni_core.artifact.egress import AmbiguityRequest
+from comeni_core.egress.resolution import AmbiguityRequest
 from comeni_core.plan.decision import Ambiguity, Resolution
 from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver, NoCandidatesError
@@ -71,6 +70,8 @@ class Call(NamedTuple):
     prompt_digest: str
     refusal: str | None
     """The coded refusal, when there was one. `None` on success."""
+    response: str | None = None
+    """What the model actually returned, admitted or refused, for the audit row (#182)."""
 
 
 class ModelResolver:
@@ -113,10 +114,12 @@ class ModelResolver:
             # offer the model the literal string "None" to choose. Left to the flag.
             return self._fallback.resolve(ambiguity)
 
-        rendered = prompts.template(prompts.TIER4).render(
-            {"asking": _asking(request), "evidence": _evidence(request)}
-        )
-        answer = choose_one(self._client, rendered.text, options, [])
+        values = {"asking": _asking(request), "evidence": _evidence(request)}
+        template = prompts.template(prompts.TIER4)
+        rendered = template.render(values)
+        system, asked = template.render_split(values)
+        # The framing cached as a system message; the question and its options after it (#183).
+        answer = choose_one(self._client, asked, options, [], system=system)
         # Over what crossed the wire — the framing plus the options and schema `choose_one`
         # appended — for `authoring_ai._record`'s reason: a stored row is compared against a
         # re-render, and a digest of less than was sent cannot be.
@@ -130,6 +133,7 @@ class ModelResolver:
                 prompt_id=rendered.prompt_id,
                 prompt_digest=hashlib.sha256(sent.encode()).hexdigest(),
                 refusal=None if answer else self._client.last_refusal,
+                response=self._client.last_response,
             )
         )
         if answer is None:

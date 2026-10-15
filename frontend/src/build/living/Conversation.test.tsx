@@ -13,6 +13,7 @@ import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { guidedStart } from "./guided";
 import { GuidedLiving } from "./LivingBuilder";
 import { LivingSurface } from "./LivingSurface";
+import { framed } from "./frame";
 
 /** Task 10: the cards a person answers, and the two ways the checkpoint says they must be
  *  answerable — with only the keyboard, and with a pointer that cannot hover. */
@@ -60,15 +61,28 @@ describe("completing a guided pipeline", () => {
       expect(screen.getByTestId(`living-node-${step}`)).not.toHaveAttribute("data-ghost");
     }
 
-    // The sorter offers an alternative. With no hover, Preview is the way to see it in the slot.
+    // The sorter offers an alternative. With no hover, Preview is the way to see the whole
+    // pipeline it gives; pressing it again gives the build back as it was.
     await tap(screen.getByTestId("preview-alt_1"));
-    expect(screen.getByTestId("node-name-samtools_sort")).toHaveTextContent("SAMTOOLS_SORMADUP");
-    expect(screen.getByTestId("living-node-samtools_sort")).toHaveTextContent("INSTEAD");
+    const preview = await screen.findByTestId("alternative-preview");
+    expect(within(preview).getByTestId("living-node-samtools_sormadup")).toHaveTextContent("PROPOSED");
+    expect(screen.getByTestId("build-canvas")).toHaveClass("hidden");
     await tap(screen.getByTestId("preview-alt_1"));
-    expect(screen.getByTestId("node-name-samtools_sort")).toHaveTextContent("SAMTOOLS_SORT");
+    expect(screen.queryByTestId("alternative-preview")).toBeNull();
+    expect(screen.getByTestId("build-canvas")).not.toHaveClass("hidden");
 
     await tap(screen.getByTestId("accept-step"));
     expect(screen.getByTestId("living-status")).toHaveTextContent("complete");
+  });
+
+  it("redraws a step from proposed to placed without mixing border shorthands", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    mount(<GuidedLiving />);
+    await user.click(screen.getByTestId("accept-goal"));
+    await user.click(screen.getByTestId("accept-step"));
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/conflicting property/);
+    errors.mockRestore();
   });
 
   it("names every choice for a screen reader", () => {
@@ -92,6 +106,18 @@ describe("the goal card", () => {
   const goal = guidedStart().pending_proposal!;
   const vocabulary = { "counts.matrix": ["gene_level"], "qc.report": ["aggregated"] };
 
+  it("asks before a changed goal replaces what was edited by hand (spec §14.9)", () => {
+    const onConfirm = vi.fn();
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={onConfirm}
+                    onReject={vi.fn()} replaces="you removed MULTIQC" />);
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This rebuilds the pipeline and replaces what you changed by hand: you removed MULTIQC");
+    fireEvent.click(screen.getByTestId("replace-hand-edits"));
+    expect(onConfirm).toHaveBeenCalledWith();
+  });
+
   it("confirms an unedited goal without sending one", () => {
     const onConfirm = vi.fn();
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={onConfirm}
@@ -112,6 +138,185 @@ describe("the goal card", () => {
     fireEvent.change(add, { target: { value: "qc.report" } });
     fireEvent.click(screen.getByTestId("accept-goal"));
     expect(onConfirm.mock.calls[0][0].want).toEqual(["counts.matrix", "qc.report"]);
+  });
+
+  it("says which pieces measured a fact, and from one sample (issue 134)", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "fastq.reads", source: "measured", states: [], pieces: [] },
+      { kind: "measurement", subject: "read_length", source: "measured", states: [], value: 151,
+        pieces: ["fastq@1.0.0", "read_length@1.0.0"], evidence: { records: 8412 } },
+      { kind: "measurement", subject: "strandedness", source: "person_said", states: [],
+        value: "reverse", pieces: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/read_length: 151/))
+      .toHaveTextContent("measured · fastq 1.0.0 · from 1 sample");
+    expect(within(said).getByText(/strandedness: reverse/)).toHaveTextContent("you said");
+  });
+
+  it("says measured, plainly, for a measured fact with no pieces", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "measurement", subject: "read_length", source: "measured", states: [], value: 150,
+        pieces: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/read_length: 150/).textContent).toMatch(/· measured$/);
+  });
+
+  it("lists each input with where it came from, and what was left open", () => {
+    // 14.7.3: the card is composed from gathered facts, so it can say who each one came from.
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "genome.fasta", source: "person_said", states: [], pieces: [] },
+      { kind: "measurement", subject: "paired", source: "person_said", states: [], pieces: [], value: true },
+      { kind: "measurement", subject: "read_length", source: "open", states: [], pieces: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    // Issue 172: each input once — its source on its chip — and the facts list for measurements.
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByText(/genome\.fasta/).closest("li")).toHaveTextContent("you said");
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).queryByText(/genome\.fasta/)).toBeNull();
+    expect(within(said).getByText(/paired/)).toHaveTextContent("yes");
+    const open = screen.getByRole("list", { name: "Left open, you'll choose during the build" });
+    expect(within(open).getByText("read_length")).toBeInTheDocument();
+  });
+
+  it("shows the words a fact was heard in, so a misreading is caught (issue 307)", () => {
+    // Review Focus 1 of Part I.0 A: *"not paired-end"* holds *"paired-end"*; the quote is how
+    // the person sees what the model took it from.
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "fastq.reads", source: "person_said", states: [], pieces: [],
+        heard: "my Illumina reads" },
+      { kind: "measurement", subject: "paired", source: "person_said", states: [], pieces: [],
+        value: true, heard: "paired-end" },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/^paired: yes/).closest("li")).toHaveTextContent('"paired-end"');
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByText(/fastq\.reads/).closest("li")).toHaveTextContent(
+      '"my Illumina reads"');
+  });
+
+  it("labels an input and a fact the AI read as read by AI (issue 135)", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "input", subject: "genome.fasta", source: "model_read", states: [], pieces: [] },
+      { kind: "measurement", subject: "paired", source: "model_read", states: [], pieces: [], value: true },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByText(/genome\.fasta/).closest("li")).toHaveTextContent("read by AI");
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    expect(within(said).getByText(/paired/)).toHaveTextContent("read by AI");
+  });
+
+  it("shows the engine's sentence until the read-back lands, then the AI's words, labelled", () => {
+    // Issue 176: the read-back is written from the composed goal, and says whose words it is.
+    const waiting = { ...goal, block: { ...goal.block, readback_pending: true } } as typeof goal;
+    const { rerender } = mount(<GoalCard proposal={waiting} vocabulary={vocabulary} busy={false}
+                                         onConfirm={vi.fn()} onReject={vi.fn()} />);
+    expect(screen.queryByText("in the AI's words")).toBeNull();
+    const landed = { ...goal, block: { ...goal.block, readback_pending: false,
+      readback: "You'll get a table of gene counts from your paired reads." } } as typeof goal;
+    rerender(<QueryClientProvider client={new QueryClient()}>
+      <GoalCard proposal={landed} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                onReject={vi.fn()} />
+    </QueryClientProvider>);
+    expect(screen.getByText("You'll get a table of gene counts from your paired reads."))
+      .toBeInTheDocument();
+    expect(screen.getByText("in the AI's words")).toBeInTheDocument();
+  });
+
+  it("offers suggested constraints, and sends only the ones kept", () => {
+    // Issue 176: *gene_level, normalised* reached the typed goal unasked; now they are offered.
+    const suggesting = { ...goal, block: { ...goal.block, suggested: [
+      { type_id: "counts.matrix", states: ["gene_level"] },
+      { type_id: "counts.matrix", states: ["normalised"] },
+    ] } } as typeof goal;
+    const onConfirm = vi.fn();
+    mount(<GoalCard proposal={suggesting} vocabulary={vocabulary} busy={false}
+                    onConfirm={onConfirm} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "keep counts.matrix [gene_level]" }));
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(onConfirm.mock.calls[0][0].constraints.required_states).toEqual([
+      { type_id: "counts.matrix", states: ["gene_level"] },
+    ]);
+  });
+
+  it("shows the states it is asking the person to confirm", () => {
+    // **Found by the first walk with a real model (2026-09-28).** `gemma3:12b` wrote
+    // `fastq.reads[deduplicated]` for *paired-end RNA-seq*, and the chip said `fastq.reads` —
+    // the one field the model got wrong was the one the card exists to check, and it was hidden.
+    // `LivingGoal` draws it as `fastq.reads[paired]`.
+    const withStates = {
+      ...goal,
+      block: { ...goal.block,
+        goal: { have: [{ type_id: "fastq.reads", states: ["deduplicated", "trimmed"] }],
+          want: ["counts.matrix"],
+          constraints: { required_states: [{ type_id: "counts.matrix", states: ["gene_level"] }] } },
+        have: "reads.", do: "count them.", get: "a matrix." },
+    } as typeof goal;
+    mount(<GoalCard proposal={withStates} vocabulary={vocabulary} busy={false}
+                    onConfirm={vi.fn()} onReject={vi.fn()} />);
+    const have = screen.getByRole("list", { name: "what you have" });
+    expect(within(have).getByRole("listitem").textContent).toContain("fastq.reads[deduplicated, trimmed]");
+    const want = screen.getByRole("list", { name: "what you want" });
+    expect(within(want).getByRole("listitem").textContent).toContain("counts.matrix[gene_level]");
+    // and the sentences are joined without doubling the full stop a model already wrote
+    expect(screen.getByText(/^reads — count them — a matrix\.$/)).toBeTruthy();
+  });
+
+  it("lets a person take a state off — by itself, or by removing the type and adding it back", () => {
+    // Found by the first walk (issue 111): the card restored states by type id from the model's
+    // goal, so an invented `deduplicated` came back with the type, and there was no other way
+    // to remove it.
+    const withStates = {
+      ...goal,
+      block: { ...goal.block, goal: { have: [{ type_id: "fastq.reads", states: ["deduplicated"] },
+        { type_id: "genome.fasta", states: [] }], want: ["counts.matrix"] } },
+    } as typeof goal;
+    const vocab = { ...vocabulary, "fastq.reads": ["deduplicated", "trimmed"], "genome.fasta": [] };
+
+    const byState = vi.fn();
+    const first = mount(<GoalCard proposal={withStates} vocabulary={vocab} busy={false}
+                                  onConfirm={byState} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "remove state deduplicated from fastq.reads" }));
+    expect(screen.getByRole("list", { name: "what you have" })).not.toHaveTextContent("deduplicated");
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(byState.mock.calls[0][0].have).toEqual([
+      { type_id: "fastq.reads", states: [] }, { type_id: "genome.fasta", states: [] }]);
+    first.unmount();
+
+    const byReadding = vi.fn();
+    mount(<GoalCard proposal={withStates} vocabulary={vocab} busy={false}
+                    onConfirm={byReadding} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "remove fastq.reads from what you have" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "add to what you have" }),
+      { target: { value: "fastq.reads" } });
+    fireEvent.click(screen.getByTestId("accept-goal"));
+    expect(byReadding.mock.calls[0][0].have).toContainEqual({ type_id: "fastq.reads", states: [] });
+  });
+
+  it("says the sentence is the model's reading once the person has changed the goal", () => {
+    // Found by the first walk (issue 116): with `deduplicated` taken off, the sentence under the
+    // chips still said *deduplicated FASTQ files*, and nothing said which one was current.
+    const withStates = {
+      ...goal,
+      block: { ...goal.block, goal: { have: [{ type_id: "fastq.reads", states: ["deduplicated"] }],
+        want: ["counts.matrix"] }, have: "deduplicated reads", do: "count them", get: "a matrix" },
+    } as typeof goal;
+    mount(<GoalCard proposal={withStates} vocabulary={vocabulary} busy={false}
+                    onConfirm={vi.fn()} onReject={vi.fn()} />);
+    expect(screen.queryByText(/before your edit/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "remove state deduplicated from fastq.reads" }));
+    expect(screen.getByText(/before your edit/)).toBeInTheDocument();
   });
 
   it("keeps the states of an input the person did not touch", () => {
@@ -188,15 +393,14 @@ describe("saying something", () => {
     const quiet = { ...FAKE_SESSION, turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending") };
     mount(
       <LivingSurface
-        session={quiet as AuthoringSession}
+        session={framed(quiet as AuthoringSession, FAKE_STEPS)}
         graph={quiet.graph}
-        steps={FAKE_STEPS}
         state={{ ...initialAuthoring, snapshot: quiet as AuthoringSession, saying: "and the sorter?" }}
         preview={null}
         busy={() => false}
         onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()} onSelect={vi.fn()}
         onCompose={vi.fn()} onSay={vi.fn()} onRetry={vi.fn()} onAddStep={vi.fn()}
-        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()}
+        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
       />,
     );
     expect(screen.getByTestId("saying")).toHaveTextContent("and the sorter?");
@@ -222,4 +426,26 @@ describe("the card and the canvas point at each other", () => {
     expect(screen.getByRole("button", { name: /STAR_GENOMEGENERATE step 1/ }))
       .toHaveAttribute("aria-pressed", "true");
   });
+});
+
+it("restores a source-labelled disagreement and allows an explicit keyboard choice", async () => {
+  const { DisagreementCard } = await import("./blocks/DisagreementCard");
+  const answer = vi.fn().mockResolvedValue(undefined);
+  const proposal = { id: "conflict", kind: "disagreement", envelope: {
+    offer: "disagreement", subject: "paired", current_value: false, observed_value: true,
+    current_origin: "person_said", observed_origin: "measured", block: {
+      kind: "question", id: "check", asks: "You said no, but we measured yes. Which should we use?",
+      why_open: "Evidence never replaces your answer automatically.", options: [
+        { id: "keep_current", label: "Keep no (you said)" },
+        { id: "use_measurement", label: "Use yes (measured)" },
+        { id: "correct", label: "Use another answer" },
+        { id: "unknown", label: "Return to unknown" },
+      ],
+    },
+  } } as unknown as import("../../api/types").AuthoringProposal;
+  render(<DisagreementCard proposal={proposal} busy={false} onAnswer={answer} />);
+  screen.getByRole("button", { name: "Keep no (you said)" }).focus();
+  await userEvent.setup().keyboard("{Enter}");
+  expect(answer).toHaveBeenCalledWith("keep_current", undefined);
+  expect(screen.getByText(/never replaces/)).toBeInTheDocument();
 });

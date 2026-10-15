@@ -44,6 +44,11 @@ _ID = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*\.v\d+$")
 exists to prevent, so it cannot be spelled."""
 
 
+DIVIDER = "<!-- then, per call -->"
+"""The line that splits a prompt into what never changes between calls — sent first, as the
+system message, and cached by the provider — and what does (#183)."""
+
+
 class UnknownPromptError(ValueError):
     """No committed file carries that id, or its name is not a versioned one. `MA0008`."""
 
@@ -83,6 +88,21 @@ class PromptTemplate(BaseModel):
                 + f"\n  known: {', '.join(known) or '(none)'}"
             )
         return cls(prompt_id=prompt_id, body=path.read_text())
+
+    def render_split(self, values: dict[str, str]) -> tuple[str, str]:
+        """The rendered template as `(fixed part, per-call part)`, cut at `DIVIDER` (#183).
+
+        **Exactly one divider, or a refusal naming the prompt.** None means the template was
+        never split (a retired one, which still renders whole through `render`); two means a
+        caller cannot tell which half is cacheable.
+        """
+        count = self.body.count(DIVIDER)
+        if count != 1:
+            raise ValueError(
+                coded("MA0009", f"{self.prompt_id}: a split prompt has one divider, not {count}")
+            )
+        fixed, per_call = self.render(values).text.split(DIVIDER)
+        return fixed.strip("\n"), per_call.strip("\n")
 
     def placeholders(self) -> set[str]:
         return set(_PLACEHOLDER.findall(self.body))

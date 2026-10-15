@@ -88,7 +88,8 @@ def test_a_pre_ai_file_claiming_a_model_is_not_refused(tmp_path):
     Pipeline.model_validate(raw)  # must not raise
 
 
-def test_the_three_ai_points_are_the_three_invariant_3_declares():
-    """Invariant 3: runtime AI is confined to three declared points. If a fourth is added to
-    this enum, the invariant moved and this test is where somebody has to say so."""
-    assert [point.value for point in AiPoint] == ["prompt", "tier-4", "repair"]
+def test_the_four_ai_points_are_the_four_invariant_3_declares():
+    """Invariant 3: runtime AI is confined to four declared points. If a fifth is added to
+    this enum, the invariant moved and this test is where somebody has to say so. The fourth,
+    characterisation, arrived in 14.7.7 at protection level 0 (a recorded loosening)."""
+    assert [point.value for point in AiPoint] == ["prompt", "tier-4", "repair", "characterise"]

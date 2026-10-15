@@ -271,6 +271,10 @@
           "note": "declared type"
         },
         {
+          "value": "measurement.quality_encoding",
+          "note": "declared type"
+        },
+        {
           "value": "measurement.read_length",
           "note": "declared type — used by profile/collect, profile/fastqc"
         },
@@ -412,6 +416,10 @@
           "note": "declared type"
         },
         {
+          "value": "measurement.quality_encoding",
+          "note": "declared type"
+        },
+        {
           "value": "measurement.read_length",
           "note": "declared type — used by profile/collect, profile/fastqc"
         },
@@ -521,6 +529,10 @@
           "note": "declared type"
         },
         {
+          "value": "measurement.quality_encoding",
+          "note": "declared type"
+        },
+        {
           "value": "measurement.read_length",
           "note": "declared type — used by profile/collect, profile/fastqc"
         },
@@ -627,6 +639,10 @@
         },
         {
           "value": "measurement.purpose",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.quality_encoding",
           "note": "declared type"
         },
         {

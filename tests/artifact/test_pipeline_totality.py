@@ -17,7 +17,7 @@ reason rather than allowed by silence.
 
 import typing
 
-from comeni_core.artifact.egress import Emitted, EmittedFile
+from comeni_core.artifact.emitted import Emitted, EmittedFile
 from comeni_core.artifact.lockfile import LockedContract, LockedLayer, Lockfile
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.layered import Displacement
@@ -271,6 +271,8 @@ CARRIED_AS: dict[str, str] = {
     "PipelineIR.unverified": "registry.unverified",
     "IRNode.id": "steps.id",
     "IRNode.contract_id": "steps.module.contract_id",
+    # Written only where a person pinned a tool: the site is excluded from the IR's own dump.
+    "IRNode.site": "goal.constraints.producers.site",
     "IREdge.type_id": "channels.type_id",
     "IREdge.states": "steps.inputs.states",
     "ParamBinding.name": "steps.settings.name",

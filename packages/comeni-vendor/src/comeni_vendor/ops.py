@@ -21,7 +21,7 @@ MANIFEST = "module.yml"
 """The declaration, which sits **beside** `module/` and never inside it.
 
 `add` writes the directory by deleting and replacing it wholesale, so anything inside it would
-be destroyed on the next re-vendor. `layered._in_module` is the other half of this: everything
+be destroyed on the next re-vendor. `layered._in_source` is the other half of this: everything
 under `module/` is upstream's and is not read as declared data.
 """
 

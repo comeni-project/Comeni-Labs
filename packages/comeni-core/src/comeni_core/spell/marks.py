@@ -50,6 +50,9 @@ class Mark(StrEnum):
     RESOLVER_ID = "resolver-id"
     MEASUREMENT_ID = "measurement-id"
     DIGEST = "digest"
+    PIECE_REF = "piece-ref"
+    """An inspector piece and its version, `fastq@1.0.0`: what a measured fact names when no
+    contract measured it (#134)."""
     LAYER_NAME = "layer-name"
     TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
@@ -109,6 +112,11 @@ class Mark(StrEnum):
     FREE_TEXT = "free-text"
     """Text a human typed or a tool printed. Unbounded, and the thing the egress boundary
     exists to contain. Only the fields named in the guard's allowlist may carry it."""
+    SAMPLE = "sample"
+    """**Data from a person's file.** The start of a sample, decoded to text, for the
+    characteriser (14.7.7). Not `FREE_TEXT`: nobody typed it, and it is the one thing this
+    system holds that came from inside someone's data. Bounded by its type (`SampleText`), and
+    reachable from door 6 only (`tests/guards/test_egress.py`)."""
 
     OPTION_ID = "option-id"
     """One answer a person may pick, addressed by id rather than by value.
@@ -304,6 +312,28 @@ Line = Annotated[str, Mark.FREE_TEXT, AfterValidator(_single_line)]
 """Free prose that reaches a generated file. **The same `Mark.FREE_TEXT`**, so root A's
 `FREE_TEXT_FIELDS` allowlist and its count are unaffected: the split is by destination, not
 by prose-ness."""
+
+EXCERPT_BYTES = 8 * 1024
+"""The most of a sample a model may be shown, in bytes of UTF-8 (14.7.7, spec §5)."""
+EXCERPT_LINES = 200
+"""…and in lines, whichever comes first."""
+
+
+def _sample_text(value: str) -> str:
+    """At most `EXCERPT_BYTES` and `EXCERPT_LINES`. **A bound, not a shape**: what a sample says
+    is not this code's to check, but how much of it may leave is."""
+    if len(value.encode()) > EXCERPT_BYTES:
+        raise ValueError(f"an excerpt is at most {EXCERPT_BYTES} bytes")
+    # Lines are what `\n` separates, as the cutter counts them (issue 237): `splitlines` also
+    # breaks on U+2028 and friends, and refused excerpts the cutter had kept to 200 lines.
+    lines = value.count("\n") + (1 if value and not value.endswith("\n") else 0)
+    if lines > EXCERPT_LINES:
+        raise ValueError(f"an excerpt is at most {EXCERPT_LINES} lines")
+    return value
+
+
+SampleText = Annotated[str, Mark.SAMPLE, AfterValidator(_sample_text)]
+"""The start of a sample, as door 6 carries it (14.7.7)."""
 
 def _edge_ref(value: str) -> str:
     """`<node>.<port>`, both Groovy identifiers.
@@ -558,6 +588,32 @@ def _digest(value: str) -> str:
     return value
 
 
+_PIECE_CHARACTERS = set("abcdefghijklmnopqrstuvwxyz0123456789_")
+
+
+def _piece_ref(value: str) -> str:
+    """`<piece>@<major>.<minor>.<patch>` — an inspector piece, as a fact records it.
+
+    By string methods rather than a pattern: `re` is not on `comeni-core`'s import allowlist.
+    The id half is capped at 64, as a piece's id is, and each version part at nine digits.
+    """
+    piece, separator, version = value.partition("@")
+    parts = version.split(".")
+    if (
+        not separator
+        or not piece
+        or not set(piece) <= _PIECE_CHARACTERS
+        or len(piece) > 64
+        or len(parts) != 3
+        or not all(part.isascii() and part.isdigit() and len(part) <= 9 for part in parts)
+    ):
+        raise ValueError(
+            f"{value!r} is not a piece ref. They are `<piece>@<version>`, e.g. `fastq@1.0.0`."
+        )
+    return value
+
+
+PieceRef = Annotated[str, Mark.PIECE_REF, AfterValidator(_piece_ref)]
 ContractId = Annotated[str, Mark.CONTRACT_ID, AfterValidator(_contract_id)]
 TypeId = Annotated[str, Mark.TYPE_ID, AfterValidator(_type_id)]
 NodeId = Annotated[str, Mark.NODE_ID, AfterValidator(_identifier("node id"))]

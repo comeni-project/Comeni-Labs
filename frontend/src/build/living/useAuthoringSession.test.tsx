@@ -22,7 +22,6 @@ function view(turnState: "pending" | "answered", overrides: Record<string, unkno
   return {
     id: "s1",
     draft_id: "d1",
-    mode: "build",
     phase: "understanding",
     failed_from: null,
     goal: null,
@@ -130,4 +129,126 @@ describe("a refused decision", () => {
     await waitFor(() => expect(result.current.state.notice?.code).toBe("MI0201"));
     await waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(before));
   });
+});
+
+describe("uploading a sample", () => {
+  // Issue 228: the answer carries the session as it now is; reading it again was a round-trip
+  // for nothing.
+  it("sends the files with the proposal, as a form, and takes the session it answered with", async () => {
+    const inspected = {
+      outcome: "measured", type_id: "fastq.reads", facts: [], reason: null,
+      steps: ["read the first 4 MB of 1 file(s)"], recorded: ["read_length"], kept: [],
+      disagreed: [], session: view("answered", { row_version: 9 }),
+    };
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : url.endsWith("/samples") ? ok(inspected)
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(result.current.session).not.toBeNull());
+    const reads = () => fetch.mock.calls.filter(([u]) => String(u).endsWith("/authoring/s1")).length;
+    const before = reads();
+
+    const gap = { id: "p1", kind: "gap" } as never;
+    const file = new File(["@r\nA\n+\nI\n"], "s_R1.fq");
+    let got: { outcome: string } | undefined;
+    await act(async () => {
+      got = await result.current.upload(gap, [file]);
+    });
+    expect(got?.outcome).toBe("measured");
+
+    const [url, init] = fetch.mock.calls.find(([u]) => String(u).endsWith("/samples"))! as unknown as [string, RequestInit];
+    expect(url).toBe("/api/pipeline/authoring/s1/samples");
+    expect(init.method).toBe("POST");
+    expect(init.headers).toBeUndefined();
+    const body = init.body as FormData;
+    expect(body.get("proposal_id")).toBe("p1");
+    expect((body.getAll("files")[0] as File).name).toBe("s_R1.fq");
+    await waitFor(() => expect(result.current.session?.row_version).toBe(9));
+    expect(reads()).toBe(before);
+  });
+
+  it("re-reads the session when the upload failed", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : url.endsWith("/samples") ? { ok: false, status: 502, json: async () => null }
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(result.current.session).not.toBeNull());
+    const reads = () => fetch.mock.calls.filter(([u]) => String(u).endsWith("/authoring/s1")).length;
+    const before = reads();
+    await act(async () => {
+      await result.current.upload({ id: "p1", kind: "gap" } as never,
+        [new File(["x"], "a.fq")]).catch(() => undefined);
+    });
+    await waitFor(() => expect(reads()).toBeGreaterThan(before));
+  });
+});
+
+describe("what an upload sends", () => {
+  it("sends only the first 4 MB of each file, under its own name", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : url.endsWith("/samples") ? ok({ outcome: "measured", session: view("answered") })
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(result.current.session).not.toBeNull());
+    const big = new File([new Uint8Array(6 * 2 ** 20)], "big_R1.fq.gz");
+    await act(async () => {
+      await result.current.upload({ id: "p1", kind: "gap" } as never, [big]);
+    });
+    const [, init] = fetch.mock.calls.find(([u]) => String(u).endsWith("/samples"))! as unknown as [string, RequestInit];
+    const sent = (init.body as FormData).get("files") as File;
+    expect(sent.name).toBe("big_R1.fq.gz");
+    expect(sent.size).toBe(4 * 2 ** 20);
+  });
+});
+
+
+describe("coming back to the page (issue 230)", () => {
+  it("asks again when the page is shown, so a reading that landed while hidden appears", async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : ok(view("answered")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const sessionReads = () =>
+      fetch.mock.calls.filter(([url]) => String(url).endsWith("/authoring/s1")).length;
+    renderHook(() => useAuthoringSession("s1", { pollMs: 100 }), { wrapper: wrap(fresh()) });
+    await waitFor(() => expect(sessionReads()).toBe(1));
+    act(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => expect(sessionReads()).toBe(2));
+  });
+});
+
+it("sends the three current versions and follows a corrected manual fork", async () => {
+  const follow = vi.fn();
+  const fetch = vi.fn(async (url: string, request?: RequestInit) => request?.method === "POST"
+    ? ok({ session_id: "s2", draft_id: "d2", phase: "building", revision: 8, decision_revision: 3,
+      next_proposal: "p2", projection_current: true })
+    : url.endsWith("/vocabulary") ? ok({ types: {}, measurements: {} })
+    : url.endsWith("/preview") ? ok({ revision: 7, text: "" })
+    : ok(view("answered", { phase: "complete", decision_revision: 2, revision: 7, row_version: 9 })));
+  vi.stubGlobal("fetch", fetch);
+  const { result } = renderHook(() => useAuthoringSession("s1", { onFork: follow }), { wrapper: wrap(fresh()) });
+  await waitFor(() => expect(result.current.session?.revision).toBe(7));
+  await act(async () => { await result.current.correct("read_length", 50, "measurement"); });
+  const sent = fetch.mock.calls.find(([url, request]) => url.endsWith("/facts/read_length") && request?.method === "POST")!;
+  expect(JSON.parse(sent[1]!.body as string)).toEqual({ value: 50, kind: "measurement",
+    expected_decision_revision: 2, expected_draft_revision: 7, expected_session_version: 9 });
+  expect(follow).toHaveBeenCalledWith("s2");
 });

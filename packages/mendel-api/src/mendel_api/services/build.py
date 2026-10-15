@@ -314,44 +314,14 @@ def _because(layers, contract_id: str, name: str) -> str:
     return param.because if param else ""
 
 
-def _view(ir, pipeline, layers) -> BuiltPipeline:
-    """The IR, laid out, as the canvas reads it.
-
-    **Takes the three parts rather than an `orchestrate.Built`** so a *drawn* graph can render
-    through the same view: `materialise.ir_of` produces a `PipelineIR` and `layout.of` takes one,
-    so a hand-drawn pipeline reaches the existing canvas with no component change at all. That is
-    spec §2's "the same knowledge from a different route" arriving where it is cheapest.
-
-    Layout stays in Python for the reason `CLAUDE.md` gives — the canvas is as deterministic as
-    the emitted `.nf` — so a drawn graph must not be laid out in the browser either.
-    """
+def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[StepView]:
+    """Declared ports and recorded values, shared by resolved and authored canvases."""
     by_id = {step.id: step for step in pipeline.steps}
-
-    # **The declared ports, not the wired ones.** The canvas spreads its chevrons over every
-    # port a contract declares; layout spread its anchors over the ports that happened to have
-    # wires, so for `featurecounts` — two declared inputs, one wired — the chevron sat at x=77
-    # and the wire ended at x=116. Thirty-nine pixels onto nothing, and only ever right when a
-    # node was fully wired. Found by the operator dragging.
-    declared: dict[str, tuple[list[str], list[str]]] = {}
-    for step in pipeline.steps:
-        contract = layers.registry.get(step.module.contract_id)
-        declared[step.id] = (
-            [port.name for port in contract.consumes],
-            [port.name for port in contract.produces],
-        )
-    placed = layout.of(ir, ports=declared)
-    # **An input is met by an edge OR by an entry channel**, and getting that wrong is worse
-    # than not drawing ports at all. `star_align`'s `gtf` has no incoming edge — the annotation
-    # arrives from `params.gtf` — so checking edges alone drew a hollow *unmet* dot on a
-    # perfectly satisfied input, on the one encoding that exists to flag real problems. A
-    # false alarm on it costs more than the signal is worth.
-    fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
-    gathered = {
-        (step.id, item.port) for step in pipeline.steps for item in step.inputs if item.gather
-    }
+    fed = fed if fed is not None else {(s.id, i.port) for s in pipeline.steps
+                                       for i in s.inputs if i.source}
+    entered = entered if entered is not None else {c.type_id for c in pipeline.channels}
+    gathered = {(s.id, i.port) for s in pipeline.steps for i in s.inputs if i.gather}
     runs = _runs(pipeline)
-    entered = {channel.type_id for channel in pipeline.channels}
-
     def ports_of(node_id: str) -> list[PortView]:
         step = by_id.get(node_id)
         if step is None:
@@ -375,15 +345,10 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
             for port in contract.produces
         ]
 
-    steps = [
-        StepView(
-            id=node.id,
-            process=by_id[node.id].process if node.id in by_id else node.id,
-            contract_id=by_id[node.id].module.contract_id if node.id in by_id else "",
-            tier=node.tier,
-            runs=runs.get(node.id, "once"),
-            reason=by_id[node.id].why.reason if node.id in by_id else "",
-            ports=ports_of(node.id),
+    return [
+        StepView(id=step.id, process=step.process, contract_id=step.module.contract_id,
+                 tier=int(step.why.tier), runs=runs[step.id], reason=step.why.reason,
+                 ports=ports_of(step.id),
             settings=[
                 SettingView(
                     name=setting.name,
@@ -392,15 +357,44 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                     tier=int(setting.why.tier),
                     reason=setting.why.reason,
                     axis_reason=setting.why.axis_reason,
-                    domain=_domain(layers, by_id[node.id].module.contract_id, setting.name),
-                    because=_because(layers, by_id[node.id].module.contract_id, setting.name),
+                    domain=_domain(layers, step.module.contract_id, setting.name),
+                    because=_because(layers, step.module.contract_id, setting.name),
                     premise=[record.prose() for record in setting.why.premise],
                 )
-                for setting in (by_id[node.id].settings if node.id in by_id else [])
+                for setting in (step.settings)
             ],
         )
-        for node in placed.nodes
+        for node_id in (ids if ids is not None else list(by_id))
+        for step in [by_id[node_id]]
     ]
+
+
+def _view(ir, pipeline, layers) -> BuiltPipeline:
+    """The IR, laid out, as the canvas reads it.
+
+    **Takes the three parts rather than an `orchestrate.Built`** so a *drawn* graph can render
+    through the same view: `materialise.ir_of` produces a `PipelineIR` and `layout.of` takes one,
+    so a hand-drawn pipeline reaches the existing canvas with no component change at all. That is
+    spec §2's "the same knowledge from a different route" arriving where it is cheapest.
+
+    Layout stays in Python for the reason `CLAUDE.md` gives — the canvas is as deterministic as
+    the emitted `.nf` — so a drawn graph must not be laid out in the browser either.
+    """
+    # **The declared ports, not the wired ones.** The canvas spreads its chevrons over every
+    # port a contract declares; layout spread its anchors over the ports that happened to have
+    # wires, so for `featurecounts` — two declared inputs, one wired — the chevron sat at x=77
+    # and the wire ended at x=116. Thirty-nine pixels onto nothing, and only ever right when a
+    # node was fully wired. Found by the operator dragging.
+    declared: dict[str, tuple[list[str], list[str]]] = {}
+    for step in pipeline.steps:
+        contract = layers.registry.get(step.module.contract_id)
+        declared[step.id] = (
+            [port.name for port in contract.consumes],
+            [port.name for port in contract.produces],
+        )
+    placed = layout.of(ir, ports=declared)
+    steps = step_views(pipeline, layers, ids=[node.id for node in placed.nodes],
+                       fed={(e.to_node, e.to_port) for e in ir.edges})
 
     # **Every decision, step and setting.** The bar counted steps only and reported *0 needing
     # your decision* on a pipeline whose `seq_platform` exits at tier 4 — understating on the one

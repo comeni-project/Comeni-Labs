@@ -3,6 +3,8 @@ import { HEAD_H, NODE_H, NODE_W, PORT_ROW, portOffset } from "../geometry";
 import type { Author } from "./format";
 import { processName } from "./format";
 
+export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
+
 /** One step on the living canvas — the 172×112 symbol every canvas in the product draws.
  *
  * **Geometry from `geometry.ts`, never a literal here.** A wire lands on a port because both read
@@ -26,10 +28,10 @@ export function LivingNode({
   author,
   ports,
   settled,
+  reviewState = "unknown",
   ghost = false,
   selected = false,
   onSelect,
-  instead = null,
   runs,
   perItem = false,
   className,
@@ -47,13 +49,11 @@ export function LivingNode({
   /** How many values this step settled. **Absent on a ghost**: a number it does not have yet is
    *  the fastest way to make provisional read as committed. */
   settled?: number;
+  /** Whether a review of this step holds, is asked for again, or is on offer now. */
+  reviewState?: ReviewState;
   ghost?: boolean;
   selected?: boolean;
   onSelect?: () => void;
-  /** **One slot, one box**: an alternative being previewed replaces the ghost's name and says
-   *  `INSTEAD`. The design record's operator finding — a substitution drawn as a second node reads
-   *  as a pipeline that gained a module. */
-  instead?: string | null;
   /** `runs 12×` or `runs once` — the server's `StepView.runs`, said in the footer. */
   runs?: string;
   /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
@@ -92,7 +92,11 @@ export function LivingNode({
         height: NODE_H,
         background: ghost ? "var(--panel)" : "var(--node)",
         opacity: ghost ? 0.62 : 1,
-        border: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
+        // Three sides and the left bar, never `border` beside `borderLeft`: React cannot redraw a
+        // shorthand next to its own longhand (a ghost becoming placed warned on every accept).
+        borderTop: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
+        borderRight: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
+        borderBottom: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
         borderLeft: `3px ${author === "model" ? "dashed" : "solid"} ${selected ? "var(--link)" : bar}`,
         boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--link) 26%, transparent)" : undefined,
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
@@ -137,13 +141,17 @@ export function LivingNode({
         style={{ height: HEAD_H, borderBottom: `1px solid ${ghost ? "var(--line-soft)" : "var(--node-rule)"}` }}
       >
         <span className="font-data text-[11px] font-medium text-ink truncate" data-testid={`node-name-${id}`}>
-          {instead ?? processName(id)}
+          {processName(id)}
         </span>
-        {ghost && (
+        {(ghost || reviewState === "proposed") ? (
           <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
-            {instead ? "INSTEAD" : "PROPOSED"}
+            {reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
           </span>
-        )}
+        ) : reviewState === "reviewed" ? (
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-ink-3">REVIEWED</span>
+        ) : reviewState === "again" ? (
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">REVIEW AGAIN</span>
+        ) : null}
       </span>
       {/* **No top padding, measured rather than read.** The artboard's CSS says `padding:5px 0`,
           and its render puts the first row's centre at 306 — the header rule plus half a row.
@@ -168,7 +176,7 @@ export function LivingNode({
           className="h-[24px] flex items-center px-[10px] w-full shrink-0 font-data text-[9px] text-ink-3"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
-          {runs ? `${runs} · ` : ""}{settled ?? 0} settled
+          {[runs, settled === undefined ? null : `${settled} settled`].filter(Boolean).join(" · ")}
         </span>
       )}
     </button>

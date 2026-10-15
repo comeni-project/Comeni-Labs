@@ -1,0 +1,1135 @@
+{
+  "sections": [
+    {
+      "key": "appearance",
+      "title": "Appearance",
+      "lede": "How Comeni looks in this browser.",
+      "order": 1,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "appearance.theme",
+            "label": "Theme",
+            "help": "Light or dark. Kept by this browser, so another browser or another person keeps their own. Match the system follows your operating system's setting.",
+            "kind": "choice",
+            "default": "system",
+            "env": null,
+            "options": [
+              {
+                "value": "system",
+                "label": "Match the system",
+                "designed": null
+              },
+              {
+                "value": "light",
+                "label": "Light",
+                "designed": null
+              },
+              {
+                "value": "dark",
+                "label": "Dark",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "browser",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "system",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "building",
+      "title": "Building",
+      "lede": "How the build walks you through a pipeline, and how much it explains on the way.",
+      "order": 2,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "building.pacing",
+            "label": "Pacing",
+            "help": "How the build walks you through its steps: together, step by step, or set up at once and stopping only where it needs you. Ask me every time asks at the start of each build.",
+            "kind": "choice",
+            "default": "ask",
+            "env": "COMENI_BUILD_PACING",
+            "options": [
+              {
+                "value": "together",
+                "label": "Go through it together",
+                "designed": null
+              },
+              {
+                "value": "stop_where_needed",
+                "label": "Set it up, stop only where you need me",
+                "designed": null
+              },
+              {
+                "value": "ask",
+                "label": "Ask me every time",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "ask",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "building.explain",
+            "label": "Explain each question",
+            "help": "Under each question about your data: what it is, where it usually comes from, and why this analysis needs it. Kept by this browser. Each explanation can still be opened or folded on its own.",
+            "kind": "choice",
+            "default": "open",
+            "env": null,
+            "options": [
+              {
+                "value": "open",
+                "label": "Open",
+                "designed": null
+              },
+              {
+                "value": "collapsed",
+                "label": "Collapsed",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "browser",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "open",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "building.tier4",
+            "label": "Choices no rule settles",
+            "help": "What happens at a tier-4 choice, where no rule decides. In the consultant build it always stops for you; letting a model propose the answer, always flagged as a model's, is designed.",
+            "kind": "choice",
+            "default": "stop",
+            "env": "COMENI_BUILD_TIER4",
+            "options": [
+              {
+                "value": "stop",
+                "label": "Always stop for me",
+                "designed": null
+              },
+              {
+                "value": "model",
+                "label": "Let a model answer, flagged",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "designed",
+              "where": "letting a model answer comes after the consultant build",
+              "says": "Designed, not built yet: letting a model answer comes after the consultant build."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "stop",
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "designed",
+              "where": "letting a model answer comes after the consultant build",
+              "says": "Designed, not built yet: letting a model answer comes after the consultant build."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "models",
+      "title": "Models",
+      "lede": "Where models are reached, and which one answers each part of the conversation.",
+      "order": 3,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "models.connections",
+            "label": "Connections",
+            "help": "Where models are reached: a model server on this machine or your network, or a provider with a key. Add one, test it, then choose a model for each purpose below.",
+            "kind": "collection",
+            "default": [],
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [
+              {
+                "key": "connection.name",
+                "label": "Name",
+                "help": "What this connection is called here, e.g. Local Ollama.",
+                "kind": "text",
+                "default": "",
+                "env": null,
+                "options": [],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              },
+              {
+                "key": "connection.server",
+                "label": "Server",
+                "help": "What answers at the endpoint. It decides how model ids are written.",
+                "kind": "choice",
+                "default": "ollama",
+                "env": null,
+                "options": [
+                  {
+                    "value": "ollama",
+                    "label": "Ollama",
+                    "designed": null
+                  },
+                  {
+                    "value": "openai_compatible",
+                    "label": "Another OpenAI-compatible server (vLLM, LM Studio)",
+                    "designed": null
+                  },
+                  {
+                    "value": "hosted",
+                    "label": "A hosted provider",
+                    "designed": null
+                  }
+                ],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              },
+              {
+                "key": "connection.endpoint",
+                "label": "Endpoint",
+                "help": "The server's address, e.g. http://ollama:11434. Empty for a hosted provider.",
+                "kind": "text",
+                "default": "",
+                "env": null,
+                "options": [],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              },
+              {
+                "key": "connection.key",
+                "label": "Key",
+                "help": "The provider's API key. Stored sealed; shown only as its last four characters.",
+                "kind": "secret",
+                "default": null,
+                "env": null,
+                "options": [],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "of": null
+              }
+            ],
+            "item_name": "name",
+            "from_env": {
+              "name": "From .env",
+              "present_when": [
+                "COMENI_AI_MODEL",
+                "COMENI_AI_MODEL_WANT",
+                "COMENI_AI_MODEL_TALK",
+                "COMENI_AI_MODEL_TIER4",
+                "COMENI_AI_MODEL_READBACK",
+                "COMENI_AI_MODEL_FORGE"
+              ],
+              "fields": {
+                "endpoint": "COMENI_AI_BASE_URL",
+                "key": "COMENI_AI_API_KEY"
+              }
+            },
+            "actions": [
+              "test",
+              "models"
+            ],
+            "of": null
+          },
+          "shown": {
+            "value": [],
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.default",
+            "label": "Default model",
+            "help": "The model every purpose uses unless it names its own. COMENI_AI_MODEL in .env sets it, through the From .env connection.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.want",
+            "label": "Understanding what you want",
+            "help": "Reads what you asked for and picks what it should produce. The call most worth a strong model.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_WANT",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.talk",
+            "label": "Talking with you",
+            "help": "Phrases the questions the build asks you and reads your replies. A small model is enough.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_TALK",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.tier4",
+            "label": "Choosing where the rules cannot",
+            "help": "Proposes an answer to a choice no rule settles (tier 4). Always shown to you as a model's.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_TIER4",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.readback",
+            "label": "Reading the plan back",
+            "help": "Says back, in a sentence, what the pipeline will do, so you can check it was understood.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_READBACK",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.forge",
+            "label": "Adapting tools",
+            "help": "Drafts a new tool's contract in the registry's workshop, for a person to review.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_FORGE",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "privacy",
+      "title": "Privacy & data",
+      "lede": "What a model may see, and where each purpose's data goes.",
+      "order": 4,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "privacy.protection",
+            "label": "Protection level",
+            "help": "How much of your data a model may see. Level 0 lets you upload a sample, measured on this server, and a model may read it. Open, guarded and sealed send less, down to nothing at all.",
+            "kind": "choice",
+            "default": "level_0",
+            "env": "COMENI_PROTECTION_LEVEL",
+            "options": [
+              {
+                "value": "level_0",
+                "label": "Level 0: a sample may be uploaded and read",
+                "designed": null
+              },
+              {
+                "value": "open",
+                "label": "Open",
+                "designed": "designed, not built (issue 71)"
+              },
+              {
+                "value": "guarded",
+                "label": "Guarded",
+                "designed": "designed, not built (issue 71)"
+              },
+              {
+                "value": "sealed",
+                "label": "Sealed",
+                "designed": "designed, not built (issue 71)"
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "level_0",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "privacy.where",
+            "label": "Where each purpose goes",
+            "help": "For each purpose, whether what it sends stays on this machine or your network, or goes to a provider. Worked out from the connection each purpose uses.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "worked out from Settings → Models",
+              "says": "Shown here, set elsewhere: worked out from Settings → Models."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "worked out from Settings → Models",
+              "says": "Shown here, set elsewhere: worked out from Settings → Models."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "retention",
+      "title": "Data retention",
+      "lede": "How long this installation keeps what it stores while you build. Anything not listed is kept until you delete it.",
+      "order": 5,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "retention.model_replies_days",
+            "label": "Model replies",
+            "help": "The text a model sent back, including anything it quoted from a sample it read, is cleared after this long. The record that the call happened, and every decision, stay.",
+            "kind": "choice",
+            "default": "30",
+            "env": "COMENI_RETENTION_MODEL_REPLIES_DAYS",
+            "options": [
+              {
+                "value": "keep",
+                "label": "Kept until deleted",
+                "designed": null
+              },
+              {
+                "value": "1",
+                "label": "After 1 day",
+                "designed": null
+              },
+              {
+                "value": "7",
+                "label": "After 7 days",
+                "designed": null
+              },
+              {
+                "value": "30",
+                "label": "After 30 days",
+                "designed": null
+              },
+              {
+                "value": "90",
+                "label": "After 90 days",
+                "designed": null
+              },
+              {
+                "value": "365",
+                "label": "After 365 days",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "30",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "retention.drafts_days",
+            "label": "Drafts and conversations",
+            "help": "A pipeline nobody has changed for this long is deleted, with its conversation, its decisions and its gate results. Its runs stay: they are kept under Data retention: runs.",
+            "kind": "choice",
+            "default": "keep",
+            "env": "COMENI_RETENTION_DRAFTS_DAYS",
+            "options": [
+              {
+                "value": "keep",
+                "label": "Kept until deleted",
+                "designed": null
+              },
+              {
+                "value": "1",
+                "label": "After 1 day",
+                "designed": null
+              },
+              {
+                "value": "7",
+                "label": "After 7 days",
+                "designed": null
+              },
+              {
+                "value": "30",
+                "label": "After 30 days",
+                "designed": null
+              },
+              {
+                "value": "90",
+                "label": "After 90 days",
+                "designed": null
+              },
+              {
+                "value": "365",
+                "label": "After 365 days",
+                "designed": null
+              }
+            ],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "keep",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "registry",
+      "title": "Registry & sources",
+      "lede": "Where tools and types are read from, and what the forge can reach.",
+      "order": 8,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "registry.root",
+            "label": "Registry",
+            "help": "The folder the tools and types are read from. Set as MENDEL_REGISTRY_ROOT in .env.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.layers",
+            "label": "Layers",
+            "help": "Each layer stacked on the registry, in order. A later layer can replace an earlier one's tool.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.github",
+            "label": "GitHub token",
+            "help": "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.dockerhub",
+            "label": "Docker Hub account",
+            "help": "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env",
+              "says": "Shown here, set elsewhere: a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.source_check",
+            "label": "Nightly source check",
+            "help": "When the worker re-reads every source to see whether an upstream tool moved.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "system",
+      "title": "System",
+      "lede": "Who is recorded as working here, what is installed, and whether each part answers.",
+      "order": 9,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "system.author",
+            "label": "Your name",
+            "help": "Written beside what is done here: a pipeline started, an answer given, a tool approved. Attribution, not an account: everyone using this installation is recorded under it. Empty uses the name git knows, if it knows one.",
+            "kind": "text",
+            "default": "",
+            "env": "COMENI_AUTHOR",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.versions",
+            "label": "Versions",
+            "help": "The version of each part of this installation.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.database",
+            "label": "Database",
+            "help": "Whether Mendel's database answers.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.redis",
+            "label": "Job queue",
+            "help": "Whether the queue that runs model jobs answers.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "system.model",
+            "label": "Default model's server",
+            "help": "Whether anything answers at the default model's endpoint. A hosted provider is not probed.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    },
+    {
+      "key": "dev",
+      "title": "Developer",
+      "lede": "For the people fixing the registry: what the build would otherwise route around.",
+      "order": 99,
+      "served_by": "mendel",
+      "entries": [
+        {
+          "setting": {
+            "key": "dev.mode",
+            "label": "Dev mode",
+            "help": "Add registry detail to the build: each gap's kind and the file that would fix it, and a stop at every step with a gap. Off, the build still says what the registry lacks and still stops wherever it needs you.",
+            "kind": "toggle",
+            "default": false,
+            "env": "COMENI_DEV_MODE",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": false,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        }
+      ]
+    }
+  ]
+}

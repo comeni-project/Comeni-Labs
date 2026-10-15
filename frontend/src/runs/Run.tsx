@@ -7,6 +7,7 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Cancel } from "./Cancel";
+import { DeleteRun } from "./DeleteRun";
 import { Console } from "./Console";
 import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
@@ -46,6 +47,8 @@ type RunState = {
    *  without one, and the header draws `run <id>` — never a name derived from the digest,
    *  which a reader could not tell from one somebody chose. */
   name?: string;
+  /** Retention deleted this run's working files (Part H); its results and record stay. */
+  work_cleared?: boolean;
   /** When the fold last saw anything happen. **The *moving* panel is the only reader**, and it
    *  is the question a watched run actually raises: four tasks running and nothing completing
    *  for twenty minutes looks identical to a healthy run on every other panel. */
@@ -272,6 +275,7 @@ export function Run() {
               )}
             </span>
             {!TERMINAL.has(run.phase) && <Cancel runId={id} />}
+            <DeleteRun runId={id} phase={run.phase} />
           </span>
         </div>
 
@@ -282,6 +286,12 @@ export function Run() {
            className="text-[12.5px] text-ink-3 mt-[11px] m-0">
           {sentence}
         </p>
+        {run.work_cleared && (
+          <p data-testid="work-cleared" className="text-secondary text-ink-3 mt-1 m-0">
+            Working files cleared by this installation's retention setting. The results and the
+            record stay.
+          </p>
+        )}
 
       </header>
 

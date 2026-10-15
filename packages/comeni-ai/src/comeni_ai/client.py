@@ -8,10 +8,12 @@ model may not speak, but that nothing it says is taken on trust.
 than an open hole, because the hole is visible to a reviewer and the half-built value is not.
 `None` is a legal, expected answer.
 
-**JSON is requested and validated here rather than delegated to a provider's structured-output
-mode.** Invariant 13 says a local model must work identically, and schema support varies by
-provider; one code path that always validates is the honest shape. A provider that supports
-schemas natively is an optimisation on top, not a second path.
+**JSON is validated here, always, whatever the provider did.** Invariant 13 says a local model
+must work identically, and schema support varies by provider; one code path that always
+validates is the honest shape. **Where a provider's server enforces the shape** (`formats.py`,
+#194), the schema is handed to it as the reply format instead of being written into the prompt —
+an optimisation on top, not a second path: the reply is still validated here, and a provider
+not verified gets the schema in the prompt as before.
 
 **`Transport` is a seam for the same reason `HoleFiller` is.** It lets every test run with no
 network, and it is what the recorded fixtures plug into.
@@ -25,6 +27,7 @@ from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from comeni_ai.access import ModelAccess, NoModelError
+from comeni_ai.formats import InPrompt, ReplyFormat, reply_format_for, with_choices
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -56,7 +59,15 @@ class Transport(Protocol):
     and it does not catch an argument changing. A type checker is what catches the second.
     """
 
-    def send(self, access: ModelAccess, prompt: str) -> str: ...
+    def send(
+        self,
+        access: ModelAccess,
+        prompt: "str | list[dict]",
+        response_format: dict | None = None,
+    ) -> str:
+        """`response_format` is passed only to a transport declaring `enforces_formats = True`,
+        and only by keyword, so a fake that takes two arguments keeps working (#194)."""
+        ...
 
 
 class Usage(BaseModel):
@@ -78,6 +89,9 @@ class Usage(BaseModel):
     duration_ms: int
     input_tokens: int | None = None
     output_tokens: int | None = None
+    cached_tokens: int | None = None
+    """Input tokens the provider served from its prompt cache (#183). `None` when it said
+    nothing, which a local endpoint usually does."""
     finish_reason: str | None = None
 
 
@@ -92,7 +106,12 @@ class Metered(Protocol):
     the same distinction `Usage`'s nullable fields draw one level down.
     """
 
-    def deliver(self, access: ModelAccess, prompt: str) -> tuple[str, Usage]: ...
+    def deliver(
+        self,
+        access: ModelAccess,
+        prompt: "str | list[dict]",
+        response_format: dict | None = None,
+    ) -> tuple[str, Usage]: ...
 
 
 class Client:
@@ -113,6 +132,14 @@ class Client:
         over from a previous call would be attributed to this one by an audit row that reads it
         afterwards, which is worse than recording nothing.
         """
+        self.last_response: str | None = None
+        """The raw text of the most recent reply, for the audit row (#182). **Set before the reply
+        is validated**, so a refused reply is kept too — it is the one somebody needs to read.
+        `None` when no reply arrived.
+        """
+        self.last_format: str | None = None
+        """Which reply format the last call used (`in_prompt`, `ollama`, …), for the audit row
+        (#194). A reader of a refusal needs to know whether the shape was enforced."""
         self.last_prompt: str | None = None
         """The exact text sent, for the caller that has to store a digest of it.
 
@@ -121,45 +148,174 @@ class Client:
         the wrong string cannot be compared against a re-render later.
         """
 
-    def generate(self, instruction: str, shape: type[T], evidence: list[str]) -> T | None:
+    def generate(
+        self,
+        instruction: str,
+        shape: type[T],
+        evidence: list[str],
+        choices: dict[str, list] | None = None,
+    ) -> T | None:
         """Ask, then validate. `None` when the model declines or its answer will not fit.
 
         Composition plus `respond`. The two are separate because a caller that has already
         composed its own prompt — the Forge, whose §5.3 fixes the order of ten sections down
         to which one comes last — must not have `_prompt` frame it again.
         """
-        return self.respond(_prompt(instruction, shape, evidence), shape)
+        chosen, schema = self._format(shape, choices)
+        prompt = _prompt(instruction, schema, evidence, in_prompt=chosen.in_prompt)
+        return self._send(prompt, prompt, shape, chosen, schema)
 
-    def respond(self, prompt: str, shape: type[T]) -> T | None:
+    def respond(
+        self, prompt: str, shape: type[T], choices: dict[str, list] | None = None
+    ) -> T | None:
         """Send an already-composed prompt and validate the answer against `shape`.
 
         The lower half of `generate`, and the whole of what a caller with its own prompt
         needs. It sets `last_prompt`, `last_usage` and `last_refusal` exactly as `generate`
         does, so an audit row is written the same way whichever entry point produced it.
+
+        **The caller's prompt is never rewritten**: the Forge composes its own, schema included.
+        Only the format is added, where the server enforces one.
         """
+        chosen, schema = self._format(shape, choices)
+        return self._send(prompt, prompt, shape, chosen, schema)
+
+    def chat(
+        self, system: str, user: str, shape: type[T], choices: dict[str, list] | None = None
+    ) -> T | None:
+        """A split prompt: the fixed part as a system message, the per-call part as the user's.
+
+        **For caching** (#183): providers reuse a byte-identical prefix, so everything that does
+        not change between calls — instructions, vocabulary, the reply schema — goes first, and
+        only what does change goes after it. The user part closes with one fixed line asking for
+        JSON: the lesson in `_prompt` (*the instruction has to be the last thing read*), kept in
+        a form that does not break the cached prefix. `last_prompt` is both parts as one string,
+        so a stored digest still covers everything sent.
+        """
+        chosen, schema = self._format(shape, choices)
+        messages = _messages(self.access, system, user, schema, in_prompt=chosen.in_prompt)
+        sent = "\n\n".join(_text_of(m["content"]) for m in messages)
+        return self._send(messages, sent, shape, chosen, schema)
+
+    def _format(
+        self, shape: type[BaseModel], choices: dict[str, list] | None
+    ) -> tuple[ReplyFormat, dict]:
+        """The reply format for this call, and the schema with its allowed lists (#194).
+
+        **Enforced only through a transport that says it can pass a format** — every fake and
+        recorded transport stays `InPrompt`, byte for byte, so no recording's key moves. A
+        format that has nothing to send for this schema (a hosted scaffold over its cap) falls
+        back to `InPrompt` too: a schema neither sent nor written would be no shape at all.
+        """
+        written = shape.model_json_schema()
+        enforcing = getattr(self._transport, "enforces_formats", False)
+        chosen = reply_format_for(self.access.model, enforcing=enforcing)
+        # **The allowed lists go only where they are enforced.** Written into the prompt they
+        # would say twice what the prompt's own text already lists, and move every recording.
+        schema = with_choices(written, choices) if choices and not chosen.in_prompt else written
+        if not chosen.in_prompt and not chosen.extra(schema, shape.__name__):
+            chosen, schema = InPrompt(), written
+        self.last_format = chosen.name
+        return chosen, schema
+
+    def _send(
+        self,
+        payload: "str | list[dict]",
+        sent: str,
+        shape: type[T],
+        chosen: ReplyFormat,
+        schema: dict,
+    ) -> T | None:
+        extra = chosen.extra(schema, shape.__name__)
+        if extra:
+            # **The digest covers the schema sent as the format**, so a stored row can still be
+            # compared against everything the model received.
+            sent += f"\n\n[reply format: {chosen.name}]\n" + json.dumps(
+                schema, indent=2, sort_keys=True
+            )
+        return self._exchange(payload, sent, shape, extra.get("response_format"))
+
+    def _exchange(
+        self,
+        payload: "str | list[dict]",
+        sent: str,
+        shape: type[T],
+        response_format: dict | None = None,
+    ) -> T | None:
         self.last_refusal = None
         self.last_usage = None
-        self.last_prompt = prompt
+        self.last_response = None
+        self.last_prompt = sent
         try:
+            given = {"response_format": response_format} if response_format else {}
             if isinstance(self._transport, Metered):
-                body, self.last_usage = self._transport.deliver(self.access, prompt)
+                body, self.last_usage = self._transport.deliver(self.access, payload, **given)
             else:
-                body = self._transport.send(self.access, prompt)
+                body = self._transport.send(self.access, payload, **given)
         except TimeoutError as failure:
             self.last_refusal = str(failure)
             return None
-        payload = _json_in(body)
-        if payload is None:
+        self.last_response = body
+        payload_json = _json_in(body)
+        if payload_json is None:
             self.last_refusal = coded("MA0004", "the answer was empty")
             return None
         try:
-            return shape.model_validate_json(payload)
+            return shape.model_validate_json(payload_json)
         except ValidationError as failure:
             self.last_refusal = _why_refused(shape, failure)
             return None
 
 
-def _prompt(instruction: str, shape: type[BaseModel], evidence: list[str]) -> str:
+CACHE_BREAK = "<!-- cache -->"
+"""A line in a split prompt's fixed part that ends one cacheable block (#183). Providers that
+take cache markers (Anthropic) get one at each break; the line itself is never sent."""
+
+_SCHEMA_INTRO = (
+    "Answer with JSON only, matching this schema exactly. Output nothing else — no "
+    "explanation, no commentary, no markdown outside the JSON:"
+)
+_CLOSING = "Answer with JSON only, matching the schema above."
+_CLOSING_ENFORCED = "Answer with JSON only."
+
+
+def _messages(
+    access: ModelAccess, system: str, user: str, schema: dict, *, in_prompt: bool = True
+) -> list[dict]:
+    """`[system, user]`, the schema at the end of the system part, cache markers where honoured.
+
+    **No schema at all when the server enforces it** (`in_prompt=False`, #194): the format
+    carries the shape, and the prompt's own prose says what each field means.
+
+    **Markers only for `anthropic/` models.** LiteLLM passes `cache_control` through to whatever
+    provider it reaches, and one that does not know the field may reject the request; OpenAI and
+    Ollama cache an identical prefix without being told.
+    """
+    parts = [part.strip("\n") for part in system.split(CACHE_BREAK)]
+    if in_prompt:
+        written = json.dumps(schema, indent=2, sort_keys=True)
+        parts[-1] = f"{parts[-1]}\n\n{_SCHEMA_INTRO}\n{written}"
+    if access.model.startswith("anthropic/"):
+        content: str | list[dict] = [
+            {"type": "text", "text": part, "cache_control": {"type": "ephemeral"}}
+            for part in parts
+        ]
+    else:
+        content = "\n".join(parts)
+    return [
+        {"role": "system", "content": content},
+        {
+            "role": "user",
+            "content": f"{user.rstrip()}\n\n{_CLOSING if in_prompt else _CLOSING_ENFORCED}",
+        },
+    ]
+
+
+def _text_of(content: "str | list[dict]") -> str:
+    return content if isinstance(content, str) else "\n".join(b["text"] for b in content)
+
+
+def _prompt(instruction: str, schema: dict, evidence: list[str], *, in_prompt: bool = True) -> str:
     """The shape is shown, not described. A model asked for a shape it never saw cannot
     produce it, and the JSON Schema is the shape's own account of itself — including any
     declared length limit, so the model is told the constraint rather than punished for not
@@ -174,13 +330,10 @@ def _prompt(instruction: str, shape: type[BaseModel], evidence: list[str]) -> st
     parts = []
     if evidence:
         parts += ["Evidence:", *(f"- {line}" for line in evidence), ""]
-    parts += [
-        instruction,
-        "",
-        "Answer with JSON only, matching this schema exactly. Output nothing else — no "
-        "explanation, no commentary, no markdown outside the JSON:",
-        json.dumps(shape.model_json_schema(), indent=2, sort_keys=True),
-    ]
+    if not in_prompt:
+        # The server enforces the shape (#194); the last line still says JSON and nothing else.
+        return "\n".join([*parts, instruction, "", _CLOSING_ENFORCED])
+    parts += [instruction, "", _SCHEMA_INTRO, json.dumps(schema, indent=2, sort_keys=True)]
     return "\n".join(parts)
 
 
@@ -204,7 +357,10 @@ def _why_refused(shape: type[BaseModel], failure: ValidationError) -> str:
     if too_long:
         fields = ", ".join(".".join(str(part) for part in e["loc"]) for e in too_long)
         return coded("MA0006", f"{fields} was longer than the field allows")
-    return coded("MA0004", f"the answer did not match {shape.__name__}")
+    # **Where, and never what.** A location is the shape's own field names; the offending input
+    # is the model's text and stays out, so this line is as safe to show as the shape itself.
+    where = sorted({".".join(str(part) for part in e["loc"]) or "(root)" for e in failure.errors()})
+    return coded("MA0004", f"the answer did not match {shape.__name__}: {', '.join(where)}")
 
 
 class LiteLLMTransport:
@@ -214,10 +370,24 @@ class LiteLLMTransport:
     what lets the no-model lane remain the default rather than a degraded one.
     """
 
-    def send(self, access: ModelAccess, prompt: str) -> str:
-        return self.deliver(access, prompt)[0]
+    enforces_formats = True
+    """It can hand a reply format to the provider (#194). Whether one is sent is
+    `formats.reply_format_for`'s decision, per provider."""
 
-    def deliver(self, access: ModelAccess, prompt: str) -> tuple[str, Usage]:
+    def send(
+        self,
+        access: ModelAccess,
+        prompt: "str | list[dict]",
+        response_format: dict | None = None,
+    ) -> str:
+        return self.deliver(access, prompt, response_format)[0]
+
+    def deliver(
+        self,
+        access: ModelAccess,
+        prompt: "str | list[dict]",
+        response_format: dict | None = None,
+    ) -> tuple[str, Usage]:
         import time
 
         import litellm
@@ -226,11 +396,14 @@ class LiteLLMTransport:
         try:
             response = litellm.completion(
                 model=access.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=(
+                    prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
+                ),
                 api_key=access.api_key,
                 base_url=access.base_url,
                 timeout=access.timeout_seconds,
                 temperature=access.temperature,
+                **({"response_format": response_format} if response_format else {}),
             )
         except litellm.AuthenticationError as failure:
             raise ModelUnavailableError(
@@ -265,11 +438,13 @@ def _usage(access: ModelAccess, response: object, started: float) -> Usage:
 
     elapsed = int((time.monotonic() - started) * 1000)
     usage = getattr(response, "usage", None)
+    details = getattr(usage, "prompt_tokens_details", None)
     choices = getattr(response, "choices", None) or []
     return Usage(
         model=getattr(response, "model", None) or access.model,
         duration_ms=elapsed,
         input_tokens=getattr(usage, "prompt_tokens", None),
         output_tokens=getattr(usage, "completion_tokens", None),
+        cached_tokens=getattr(details, "cached_tokens", None),
         finish_reason=getattr(choices[0], "finish_reason", None) if choices else None,
     )

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { useCallback, useEffect } from "react";
+import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router";
 
+import { SettingsOverlay } from "../preferences/SettingsOverlay";
 import { Field } from "../ui/Field";
+import { painted, useTheme } from "./useTheme";
 
 
 /** The frame: identity, then two workspaces, then the sections of the one you are in.
@@ -76,22 +78,38 @@ function Tab({ to, children }: { to: string; children: string }) {
 }
 
 export function Shell() {
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    const saved = localStorage.getItem("comeni-theme");
-    if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  });
-
+  const [theme] = useTheme();
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("comeni-theme", theme);
+    document.documentElement.dataset.theme = painted(theme);
   }, [theme]);
 
   // **One field for the whole application, and the route picks where it is thrown from.**
   // The front door's arcs bloom from below the prompt (`OverviewFirst`); every other board
   // throws them from the lower-left corner (`_field.html`). Two mounted fields stacked their
   // gradients into a grey wash, which is exactly what the first attempt looked like.
-  const bloom = useLocation().pathname === "/";
+  const location = useLocation();
+  const bloom = location.pathname === "/";
+
+  // **Settings is an overlay over the page you are on**, opened by `?settings=<section>` (the
+  // overlay's design, 2026-10-01). The address carries it, so it can be linked, and closing it
+  // removes only that parameter: the page and its own state stay as they were.
+  const [params, setParams] = useSearchParams();
+  const settings = params.get("settings");
+  const withSettings = (section: string | null) => {
+    const next = new URLSearchParams(params);
+    if (section === null) next.delete("settings");
+    else next.set("settings", section);
+    return next;
+  };
+  const gear = `${location.pathname}?${withSettings("").toString()}`;
+  const openSection = (section: string) => setParams(withSettings(section), { replace: true });
+  const closeSettings = useCallback(() => {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("settings");
+      return next;
+    });
+  }, [setParams]);
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh">
@@ -138,18 +156,22 @@ export function Shell() {
         <Tab to="/build">Builder</Tab>
         <Tab to="/runs">Runs</Tab>
         <Tab to="/forge">Registry</Tab>
-        <button
-          type="button"
-          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="ml-auto pb-[3px] border-b border-transparent bg-transparent text-[12.5px]
-                     text-ink-3 hover:text-ink cursor-pointer"
+        {/* **Settings live behind a gear at the right**, where most applications put it. The
+            theme toggle that sat here moved into Settings → Appearance (spec §7). */}
+        <Link
+          to={gear}
+          aria-label="Settings"
+          title="Settings"
+          className="ml-auto pb-[3px] border-b border-transparent text-[14px] text-ink-3
+                     hover:text-ink no-underline"
         >
-          {theme === "dark" ? "Light" : "Dark"}
-        </button>
+          ⚙
+        </Link>
       </nav>
       <Outlet />
+      {settings !== null && (
+        <SettingsOverlay section={settings} onSelect={openSection} onClose={closeSettings} />
+      )}
     </div>
   );
 }

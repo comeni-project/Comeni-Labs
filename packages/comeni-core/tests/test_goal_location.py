@@ -32,10 +32,10 @@ def test_the_publication_payload_carries_the_goal():
     The reason `Goal` lives in `comeni-core` is unchanged by the swap — the publication
     payload carries one, and `comeni-core` must not depend on `mendel-resolver`.
     """
-    from comeni_core.artifact.egress import DOORS
+    from comeni_core.egress.boundaries import PAYLOADS
     from comeni_core.goal.asked import Goal
 
-    payload = DOORS["publication"](goal=Goal(want=["counts.matrix"]))
+    payload = PAYLOADS["publication"](goal=Goal(want=["counts.matrix"]))
     assert payload.goal.want == ["counts.matrix"]
 
 

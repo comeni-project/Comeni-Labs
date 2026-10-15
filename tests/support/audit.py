@@ -41,6 +41,21 @@ def _declared(path, body: str) -> str:
     return header + body
 
 
+def declare_families(layer, *family_ids: str) -> None:
+    """Declare families in a hand-built layer, one file each (#194).
+
+    A type whose family no layer declares fails to load with `MD0316`, so every layer a test
+    builds by hand names the families its types belong to — explicitly, rather than derived from
+    the types, because a helper that declared whatever was needed would hide the check it feeds.
+    """
+    directory = Path(layer) / "families"
+    directory.mkdir(parents=True, exist_ok=True)
+    for family_id in family_ids:
+        (directory / f"{family_id}.yml").write_text(
+            f"declares: family\nid: {family_id}\ndescription: {family_id} data, for a test\n"
+        )
+
+
 def _published_pipeline(tmp_path, root, name="published"):
     """Build and certify a pipeline, and hand back the file that names it.
 

@@ -60,7 +60,7 @@ def test_a_page_names_every_contract_and_its_process():
     loaded = _layers()
     tools = tool_docs.tools_of(loaded.registry)
     page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
-    assert "# nf-core/star" in page
+    assert "# STAR" in page and "`nf-core/star`" in page
     assert "`nf-core/star/align@1.11.0`" in page
     assert "STAR_ALIGN" in page
     assert "`nf-core/star/genomegenerate@1.11.0`" in page

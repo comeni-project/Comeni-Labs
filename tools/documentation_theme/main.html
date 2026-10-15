@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block scripts %}
+  {# Material's Mermaid loader needs a CDN and can interrupt search on failure.
+     Local-file browsing keeps readable source instead of starting that loader. #}
+  <script>
+    if (location.protocol === "file:") {
+      document.querySelectorAll("pre.mermaid").forEach(block => {
+        block.classList.remove("mermaid");
+        block.dataset.diagramSource = "mermaid";
+      });
+    }
+  </script>
+  {{ super() }}
+{% endblock %}

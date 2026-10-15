@@ -16,19 +16,29 @@ a declared code, written by the job; this file never catches a provider exceptio
 formats one.
 """
 
+from datetime import datetime
 from typing import Literal
 
 from comeni_core.artifact.pipeline import AiProvenance
+from comeni_core.declared.measurement import Measurement
+from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftProvenance
-from comeni_core.spell.marks import OptionId
-from fastapi import APIRouter, status
+from comeni_core.spell.marks import HumanParamValue, OptionId
+from fastapi import APIRouter, HTTPException, Request, status
+from mendel_authoring import commands as c
+from mendel_authoring.decisions import ActorKind, InputDecision
+from mendel_authoring.payloads import DecisionChange
+from mendel_authoring.progress import WalkProgress
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
+from mendel_api.authoring.canvas import AlternativePreview, CanvasFrame
+from mendel_api.authoring.envelopes import HistoryOffer, Offer, OfferContext
 from mendel_api.authoring.types import (
     Block,
-    Mode,
+    Fact,
     Phase,
     ProposalState,
     Prose,
@@ -37,10 +47,22 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
-from mendel_api.services import authoring, authoring_jobs, drafts
+from mendel_api.services import authoring_preview, drafts, session
 from mendel_api.settings import model_access
+from mendel_api.stages import building, gathering, goal
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
+
+
+@router.get("/{session_id}/proposals/{proposal_id}/alternatives/{option_id}",
+            operation_id="previewAuthoringAlternative", responses=REFUSES)
+def preview_alternative(session_id: str, proposal_id: str, option_id: OptionId,
+                        expected_revision: int, expected_decision_revision: int,
+                        expected_session_version: int, expected_registry: str,
+                        ) -> AlternativePreview:
+    return authoring_preview.read(session_id, proposal_id, option_id, OfferContext(
+        draft_revision=expected_revision, decision_revision=expected_decision_revision,
+        session_version=expected_session_version, registry=expected_registry))
 
 _FROZEN = ConfigDict(extra="forbid", frozen=True)
 
@@ -49,9 +71,10 @@ _FROZEN = ConfigDict(extra="forbid", frozen=True)
 
 
 class BeginAuthoring(BaseModel):
-    """What somebody wants, in their own words, and how much they want to be asked.
+    """What somebody wants, in their own words.
 
-    **Prose and a mode, and nothing else.** No name, no path, no registry, no model id — a body
+    **Prose, and nothing else.** No mode (Build and Spawn are retired, spec §13.1), no name,
+    no path, no registry, no model id — a body
     that accepted a model id would let a browser choose what a provider is sent to, and that is
     the operator's decision, made in the environment.
     """
@@ -59,7 +82,6 @@ class BeginAuthoring(BaseModel):
     model_config = _FROZEN
 
     prompt: Prose = Field(min_length=1)
-    mode: Mode = Mode.BUILD
 
 
 class SayToAuthoring(BaseModel):
@@ -81,9 +103,14 @@ class DecideProposal(BaseModel):
     """For a goal: the goal as the person edited it on the card, when they changed a field. Held to
     the declared vocabulary — `MI0204` — exactly as a model's goal is. Ignored for a step."""
     option: OptionId | None = None
-    """For a step: `keep`, or one of the alternative ids the proposal offered. Ignored for a
-    goal. **An id the engine minted, never a contract id** — a value chosen by id cannot be a
-    value nobody offered."""
+    """For a step: `keep`, or one of the changes its card offered — an alternative tool
+    (`alt_N`) or a fact (`fact_<measurement>`, with `value`). Ignored for a goal. **An id the
+    engine minted, never a contract id** — a value chosen by id cannot be a value nobody
+    offered."""
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    """For a gap answered with the `value` option, or a step's `fact_<measurement>`: the typed
+    value, held to the measurement's declaration before anything is recorded (`MI0208`).
+    Ignored otherwise."""
 
 
 # ── what comes out ────────────────────────────────────────────────────────────────────────
@@ -114,28 +141,87 @@ class AuthoringDecisionView(BaseModel):
 
     model_config = _FROZEN
 
+    envelope: HistoryOffer
     id: str
-    kind: Literal["goal", "step"]
+    kind: Literal["goal", "step", "gap", "pacing", "disagreement"]
     state: ProposalState
     block: Block
     by: str | None
+    actor_kind: ActorKind = ActorKind.UNKNOWN
+    applicability: Literal["retained", "superseded", "removed"] | None = None
     chosen_option: str | None
     chosen_contract: str | None
     """The contract the chosen option stood for, so a row can name a substitution."""
+    answer: str | None = None
+    """For an answered gap, what was said: the typed value, or the chosen option's label."""
     at: str
 
 
 class AuthoringProposalView(BaseModel):
     model_config = _FROZEN
 
+    envelope: Offer
+
     id: str
-    kind: Literal["goal", "step"]
+    kind: Literal["goal", "step", "gap", "pacing", "disagreement"]
     draft_revision: int
     block: Block
     options: list[str]
     """Every id this proposal accepts. The block renders labels; this is what may be posted."""
     edges: list[DraftEdge] = []
     """The wires accepting it as proposed would add — what an optimistic reveal draws."""
+
+
+class AuthoringUsage(BaseModel):
+    """What the session's model calls have cost so far — the header's count (#191)."""
+
+    model_config = _FROZEN
+
+    input: int = 0
+    output: int = 0
+    cached: int = 0
+    """Input tokens served from a provider's prompt cache (#183)."""
+    calls: int = 0
+    in_flight: bool = False
+    """Whether a model call is on its way right now: the header says *thinking…*."""
+
+
+class AuthoringCallView(BaseModel):
+    """One model call in the session, for the call panel (#182, #191)."""
+
+    model_config = _FROZEN
+
+    id: str
+    purpose: str
+    model: str
+    input: int | None
+    output: int | None
+    cached: int | None
+    duration_ms: int | None
+    state: str
+    response: str | None
+    """Exactly what the model returned — a level-0 store (#182)."""
+    cleared: Literal["deleted", "retention"] | None = None
+    """Why `response` is empty though the model answered (Part H): the installation's retention
+    limit passed, or its draft was deleted."""
+    reply_format: str | None = None
+    """`in_prompt`, or the provider format the server enforced (#194)."""
+    at: str
+
+
+class AuthoringSuggestionView(BaseModel):
+    model_config = _FROZEN
+
+    id: str
+    says: str
+    heard: bool
+    quote: str | None = None
+    kind: str
+    subject: str
+
+
+class DecideSuggestion(BaseModel):
+    decision: Literal["apply", "dismiss"]
 
 
 class AuthoringSessionView(BaseModel):
@@ -146,24 +232,49 @@ class AuthoringSessionView(BaseModel):
     id: str
     draft_id: str
     name: str
-    mode: Mode
     phase: Phase
     failed_from: Phase | None
     goal: Goal | None
+    facts: list[Fact] = []
+    inputs: list[InputDecision] = []
+    fact_subjects: list[str] = []
+    decision_revision: int = 0
+    projection_current: bool = True
+    ownership: Literal["authored", "manual"] = "authored"
+    retired: bool = False
+    forked_from: str | None = None
+    forked_from_session: str | None = None
+    review_applicability: dict[str, Literal["retained", "superseded", "removed"]] = {}
+    usage: AuthoringUsage = AuthoringUsage()
+    """The session's model calls, totalled — carried by the poll the page already makes."""
+    """What gathering learned, each with where it came from. Empty until 14.7.3's gathering."""
     revision: int
     graph: DraftGraph
     """The draft as the server holds it — the canvas restores from this, not from the transcript."""
+    canvas: CanvasFrame | None = None
+    """The visible graph with its step metadata and entry channels, read from what was recorded.
+    `None` before a blueprint exists, or for an empty manual draft."""
+    progress: WalkProgress | None = None
+    """Where the walk is in the plan as it now stands. `None` before a blueprint, and for a
+    draft the person owns by hand."""
+    show_gap_details: bool = False
+    """Dev mode as this build recorded it: whether gap kinds and repository paths are shown."""
     steps_total: int = 0
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
     """Where each visible step sits in the finished pipeline, so nothing moves as it grows."""
+    hand_edits: str | None = None
+    """What was changed by hand since the walk ended, as its receipt says it, or `None`. A goal
+    changed now replaces the draft with the new blueprint's, so the page asks first."""
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
-    Build and Spawn need one, and why, rather than spinning on a turn nobody will answer."""
+    the builder needs one, and why, rather than spinning on a turn nobody will answer."""
     turns: list[AuthoringTurnView]
     history: list[AuthoringDecisionView] = []
     """Every answered proposal, oldest first — the pipeline's provenance, made navigable."""
+    suggestions: list[AuthoringSuggestionView] = []
+    """The model's suggestions waiting for one click (Part I.0 §5.3)."""
     pending_proposal: AuthoringProposalView | None
 
 
@@ -191,8 +302,8 @@ class AuthoringDecided(BaseModel):
     revision: int
     next_proposal: str | None
     queued: bool
-    """Whether a Spawn blueprint was handed to the AI worker. Always `False` for Build, which
-    resolves inline and has its first step waiting in `next_proposal`."""
+    """Always `False` now: a blueprint is resolved inline, its first stop waiting in
+    `next_proposal`. Kept for the client until the response is next reshaped."""
 
 
 class AuthoringRetried(BaseModel):
@@ -203,29 +314,43 @@ class AuthoringRetried(BaseModel):
 
 
 class EditAuthoringDraft(BaseModel):
-    """The whole graph after a direct edit. **The graph and nothing else** — no summary: the server
+    """The graph and the revision it was based on, with no client-composed summary: the server
     composes the receipt from the difference, so the log cannot be told something that did not
     happen."""
 
     model_config = _FROZEN
 
     graph: DraftGraph
+    expected_revision: int = Field(ge=0)
 
 
 class AuthoringEdited(BaseModel):
     model_config = _FROZEN
 
     revision: int
-    reoffered: str | None
-    """A pending step proposal made stale by the edit and offered again at the new revision."""
+
+
+class MeasurerView(BaseModel):
+    """One way a measurement can be measured, and where that runs (#134)."""
+
+    model_config = _FROZEN
+
+    measurement: str
+    kind: Literal["inspector", "profiler"]
+    by: str
+    runs: Literal["server", "lab", "browser"]
+    trusted: bool
 
 
 class AuthoringVocabulary(BaseModel):
-    """Every declared type and its states — what a goal card may be edited to say."""
+    """Every declared type and its states — what a goal card may be edited to say — and who
+    can measure each measurement."""
 
     model_config = _FROZEN
 
     types: dict[str, list[str]]
+    measurers: list[MeasurerView] = []
+    measurements: dict[str, Measurement] = {}
 
 
 class AuthoringPreview(BaseModel):
@@ -234,12 +359,80 @@ class AuthoringPreview(BaseModel):
     model_config = _FROZEN
 
     revision: int
-    state: Literal["ready", "empty", "illegal", "unavailable"]
+    state: Literal["ready", "empty", "illegal", "unavailable", "outdated"]
     """`ready` carries text; the other three carry none — a partial pipeline is never YAML."""
     text: str
     """`pipeline.yml` as it would read now, byte for byte what Keep would write."""
     findings: list[str] = []
     """Why there is no text, as coded sentences."""
+
+
+class CorrectionContext(BaseModel):
+    model_config = _FROZEN
+    expected_decision_revision: int = Field(ge=0)
+    expected_draft_revision: int = Field(ge=0)
+    expected_session_version: int = Field(ge=0)
+
+
+class CorrectAuthoringFact(CorrectionContext):
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    kind: Literal["measurement", "input"] = "measurement"
+
+
+class ChangeAuthoring(CorrectionContext):
+    """Any change to intent or facts, as the person makes it (Part I.0 §5.1)."""
+
+    change: DecisionChange
+
+
+class AnswerEvidenceQuestion(CorrectionContext):
+    option: Literal["keep_current", "use_measurement", "correct", "unknown"]
+    value: HumanParamValue | list[HumanParamValue] | None = None
+
+
+class ReleaseToolChoice(CorrectionContext):
+    type_id: str
+    states: list[str] = Field(default_factory=list)
+
+
+class AuthoringCorrected(BaseModel):
+    model_config = _FROZEN
+    session_id: str
+    draft_id: str
+    phase: Phase
+    revision: int
+    decision_revision: int
+    next_proposal: str | None
+    projection_current: bool
+
+
+class FactHistoryEntry(BaseModel):
+    model_config = _FROZEN
+    seq: int
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    origin: Literal["person_said", "measured", "model_read", "open"]
+    selected: bool
+    current: bool
+    revision_id: str | None = None
+    observation_id: str | None = None
+    actor_kind: ActorKind = ActorKind.UNKNOWN
+    who: str | None = None
+    action: Literal["select", "retain", "retract", "inherit", "import", "observed"]
+    at: datetime
+    observed_at: datetime | None = None
+    acknowledged_as: Literal["agreement", "retained", "selected", "obsolete"] | None = None
+    acknowledged_at: datetime | None = None
+    acknowledged_by: str | None = None
+    acknowledged_kind: ActorKind | None = None
+    inherited: bool = False
+    legacy: bool = False
+    source_draft_id: str | None = None
+
+
+class FactHistoryView(BaseModel):
+    model_config = _FROZEN
+    subject: str
+    entries: list[FactHistoryEntry]
 
 
 # ── operations ────────────────────────────────────────────────────────────────────────────
@@ -255,9 +448,9 @@ class AuthoringPreview(BaseModel):
 async def begin(body: BeginAuthoring) -> AuthoringStarted:
     """An empty draft, a session, the first turn, and one queued model call — the pending reply
     is visible in the response, so the page never shows a blank while the worker starts."""
-    session_id, seq = authoring.begin(body.prompt, mode=body.mode, who=identity.default_author())
-    queued = await authoring_jobs.enqueue_turn(session_id, seq)
-    return AuthoringStarted(session=_view(session_id), queued=queued)
+    done = await session.act(c.Begin(body.prompt, identity.default_author()))
+    session_id, _ = done.result
+    return AuthoringStarted(session=_view(session_id), queued=all(done.queued))
 
 
 @router.get(
@@ -269,10 +462,16 @@ def vocabulary() -> AuthoringVocabulary:
     """Declared, public registry data — the same list a model is shown, served to the card that
     lets a person correct what the model wrote. Registered before `/{session_id}`, which would
     otherwise read `vocabulary` as a session id."""
+    from mendel_api.services import measurers
     from mendel_api.services import registry as registry_service
 
-    types = registry_service.stack().vocabulary.types
-    return AuthoringVocabulary(types={t: sorted(types[t]) for t in sorted(types)})
+    stack = registry_service.stack()
+    types = stack.vocabulary.types
+    return AuthoringVocabulary(
+        types={t: sorted(types[t]) for t in sorted(types)},
+        measurements=stack.measurements.measurements,
+        measurers=[MeasurerView(**m.model_dump()) for m in measurers.index(stack)],
+    )
 
 
 @router.get(
@@ -285,6 +484,31 @@ def read(session_id: str) -> AuthoringSessionView:
     return _view(session_id)
 
 
+@router.get(
+    "/{session_id}/facts/{subject}/history", operation_id="authoringFactHistory", responses=REFUSES
+)
+def fact_history(session_id: str, subject: str) -> FactHistoryView:
+    from mendel_api.services import decisions
+
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="authoring session not found")
+        entries = decisions.history(row.draft_id, subject)
+    return FactHistoryView(subject=subject, entries=entries)
+
+
+@router.get(
+    "/{session_id}/calls",
+    operation_id="listAuthoringCalls",
+    summary="The session's model calls, with what each returned",
+    responses=REFUSES,
+)
+def list_calls(session_id: str) -> list[AuthoringCallView]:
+    """Fetched when the call panel opens, and again only when the session's call count moves."""
+    return [AuthoringCallView(**call) for call in session.calls(session_id)]
+
+
 @router.post(
     "/{session_id}/messages",
     operation_id="sayToAuthoring",
@@ -293,14 +517,14 @@ def read(session_id: str) -> AuthoringSessionView:
     responses=REFUSES,
 )
 async def say(session_id: str, body: SayToAuthoring) -> AuthoringSaid:
-    seq = authoring.say(session_id, body.text)
-    return AuthoringSaid(seq=seq, queued=await authoring_jobs.enqueue_turn(session_id, seq))
+    done = await session.act(c.Say(session_id, body.text))
+    return AuthoringSaid(seq=done.result, queued=all(done.queued))
 
 
 @router.post(
     "/{session_id}/proposals/{proposal_id}/decide",
     operation_id="decideAuthoringProposal",
-    summary="Accept or reject a goal or a step",
+    summary="Accept or reject a goal or a step, or answer a question about your data",
     responses=REFUSES,
 )
 async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> AuthoringDecided:
@@ -314,31 +538,14 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     decision = ProposalState(body.decision)
     who = identity.default_author()
 
-    if kind == authoring_jobs.GOAL:
-        outcome, phase = authoring.decide_goal(
-            proposal_id,
-            decision,
-            expected_revision=body.expected_revision,
-            by=who,
-            edited=body.goal,
-        )
-        if outcome.refusal is not None:
-            raise ValueError(outcome.refusal)
-        return await _after_goal(session_id, phase)
-
-    stepped = authoring.settle_step(
-        proposal_id,
-        decision,
-        expected_revision=body.expected_revision,
-        by=who,
-        chosen_option=body.option,
-    )
-    if stepped.settlement.refusal is not None:
-        raise ValueError(stepped.settlement.refusal)
-    if _view(session_id).mode is Mode.SPAWN:
-        # A person answered the card Spawn stopped on; the policy carries on from there. Every
-        # step it takes is settled — no model call — so it runs in the request.
-        authoring.spawn_forward(session_id)
+    if kind == gathering.GAP:
+        if decision is not ProposalState.ACCEPTED or body.option is None:
+            raise ValueError(
+                coded("MI0205", "a question about your data is answered with one of its options")
+            )
+        # The next question and the one after are phrased while the person reads (#186): `ask`
+        # queued them, after the commit. A button click is not put behind a model.
+        await session.act(c.AnswerGap(proposal_id, body.option, body.value, who))
         after = _view(session_id)
         return AuthoringDecided(
             phase=after.phase,
@@ -346,6 +553,58 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
             next_proposal=after.pending_proposal.id if after.pending_proposal else None,
             queued=False,
         )
+
+    if kind == building.PACING_PROPOSAL:
+        if decision is not ProposalState.ACCEPTED or body.option is None:
+            raise ValueError(
+                coded("MI0205", "the pacing question is answered with one of its paces")
+            )
+        await session.act(c.ChoosePacing(proposal_id, body.option, who))
+        after = _view(session_id)
+        return AuthoringDecided(
+            phase=after.phase,
+            revision=after.revision,
+            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
+            queued=False,
+        )
+
+    if kind == goal.GOAL:
+        done = await session.act(
+            c.DecideGoal(
+                proposal_id,
+                decision.value,
+                body.expected_revision,
+                who,
+                None if body.goal is None else body.goal.model_dump(mode="json"),
+            )
+        )
+        outcome, phase = done.result
+        if outcome.refusal is not None:
+            raise ValueError(outcome.refusal)
+        return await _after_goal(session_id, phase)
+
+    # A step's card is kept as it is (`keep`: *Continue*) or changed by one of the amendments it
+    # offered, by id (spec §14.5). It is never skipped: the draft is the blueprint's reviewed
+    # steps, and removing one is a hand edit, after the walk.
+    if decision is not ProposalState.ACCEPTED:
+        raise ValueError(
+            coded("MI0205", "a step is kept or changed, not skipped")
+            + "\n  to remove a step, edit the draft once the walk is done"
+        )
+    command = (
+        c.SettleStep(proposal_id, body.expected_revision, who)
+        if body.option in (None, "keep")
+        else c.Amend(
+            proposal_id,
+            body.option,
+            body.value,
+            who,
+            expected_draft_revision=body.expected_revision,
+        )
+    )
+    stepped = (await session.act(command)).result
+    if stepped.settlement.refusal is not None:
+        raise ValueError(stepped.settlement.refusal)
     return AuthoringDecided(
         phase=stepped.phase,
         revision=stepped.revision,
@@ -361,11 +620,10 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
     responses=REFUSES,
 )
 async def retry(session_id: str) -> AuthoringRetried:
-    phase, seq = authoring.retry(session_id)
+    done = await session.act(c.Retry(session_id))
+    phase, seq = done.result
     if seq is not None:
-        return AuthoringRetried(
-            phase=phase, queued=await authoring_jobs.enqueue_turn(session_id, seq)
-        )
+        return AuthoringRetried(phase=phase, queued=all(done.queued))
     decided = await _after_goal(session_id, phase)
     return AuthoringRetried(phase=decided.phase, queued=decided.queued)
 
@@ -379,10 +637,15 @@ async def retry(session_id: str) -> AuthoringRetried:
 def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
     """A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
     receipt the server composes — never narrated by a model."""
-    revision, reoffered = authoring.record_edit(
-        session_id, body.graph, by=identity.default_author()
-    )
-    return AuthoringEdited(revision=revision, reoffered=reoffered)
+    revision = session.perform(
+        c.RecordEdit(
+            session_id,
+            body.graph.model_dump(mode="json"),
+            identity.default_author(),
+            body.expected_revision,
+        )
+    ).result
+    return AuthoringEdited(revision=revision)
 
 
 @router.get(
@@ -396,10 +659,15 @@ def preview(session_id: str) -> AuthoringPreview:
         row = db.get(PipelineAuthoringSession, session_id)
         if row is None:
             raise KeyError(session_id)
-        draft_id, mode = row.draft_id, Mode(row.mode)
+        draft_id = row.draft_id
         stored = db.get(PipelineDraft, draft_id)
         provenance = DraftProvenance.model_validate(stored.provenance or {})
-    shown = drafts.preview(draft_id, ai=_ai_for(mode, provenance))
+        from mendel_api.services import authoring_decisions
+
+        read_by_ai = session.characterised(
+            [f.model_dump(mode="json") for f in authoring_decisions.facts(row.draft_id)]
+        )
+    shown = drafts.preview(draft_id, ai=_ai_for(provenance, characterised=read_by_ai))
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
     )
@@ -409,19 +677,14 @@ def preview(session_id: str) -> AuthoringPreview:
 
 
 async def _after_goal(session_id: str, phase: Phase) -> AuthoringDecided:
-    """A confirmed goal starts the blueprint: inline for Build, on the AI queue for Spawn."""
+    """A confirmed goal starts the blueprint, inline: resolving it calls no model."""
     view = _view(session_id)
     if phase is not Phase.RESOLVING:
         return AuthoringDecided(
             phase=phase, revision=view.revision, next_proposal=None, queued=False
         )
-    if view.mode is Mode.SPAWN:
-        queued = await authoring_jobs.enqueue_build(session_id, view.row_version)
-        return AuthoringDecided(
-            phase=phase, revision=view.revision, next_proposal=None, queued=queued
-        )
     try:
-        first = authoring.start_building(session_id)
+        first = (await session.act(c.StartBuilding(session_id))).result
     except Exception as failure:
         if isinstance(failure, ValueError):
             raise  # a coded refusal — 422 with its code
@@ -446,19 +709,38 @@ def _kind_in(session_id: str, proposal_id: str) -> str:
 
 
 def _view(session_id: str) -> AuthoringSessionView:
-    picture = authoring.read(session_id)
+    picture = session.read(session_id)
     pending = picture["pending_proposal"]
     return AuthoringSessionView(
         id=picture["id"],
         draft_id=picture["draft_id"],
         name=picture["name"],
-        mode=Mode(picture["mode"]),
         phase=Phase(picture["phase"]),
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
-        goal=Goal.model_validate(picture["goal"]) if picture["goal"] else None,
+        goal=gathering.as_goal(picture["goal"]),
+        facts=picture["facts"],
+        **{
+            key: picture[key]
+            for key in (
+                "inputs",
+                "fact_subjects",
+                "decision_revision",
+                "projection_current",
+                "ownership",
+                "retired",
+                "forked_from",
+                "forked_from_session",
+                "review_applicability",
+            )
+        },
+        usage=AuthoringUsage(**picture["usage"]),
         revision=picture["revision"],
         graph=DraftGraph.model_validate(picture["graph"] or {}),
+        canvas=picture["canvas"],
+        progress=picture["progress"],
+        show_gap_details=picture["show_gap_details"],
         placement=picture["placement"],
+        hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],
         row_version=picture["row_version"],
         model_configured=model_access() is not None,
@@ -482,6 +764,7 @@ def _view(session_id: str) -> AuthoringSessionView:
                 id=pending["id"],
                 kind=pending["kind"],
                 draft_revision=pending["draft_revision"],
+                envelope=pending["payload"],
                 block=pending["payload"]["block"],
                 options=sorted(pending["payload"].get("options", {})),
                 edges=pending["payload"].get("edges", []),
@@ -490,7 +773,230 @@ def _view(session_id: str) -> AuthoringSessionView:
     )
 
 
-def _ai_for(mode: Mode, provenance: DraftProvenance) -> AiProvenance:
-    """`authoring.ai_for`, kept under this name for its Task 12 test. The mode is not an input."""
-    del mode
-    return authoring.ai_for(provenance)
+def _ai_for(provenance: DraftProvenance, *, characterised: bool = False) -> AiProvenance:
+    """`session.ai_for`, kept under this name for its Task 12 test."""
+    return session.ai_for(provenance, characterised=characterised)
+
+
+class InspectedFactView(BaseModel):
+    model_config = _FROZEN
+
+    measurement: str
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    undetermined: str | None = None
+    pieces: list[str] = []
+    evidence: dict[str, int | float | bool | str] = {}
+
+
+class SampleInspected(BaseModel):
+    """What one uploaded sample measured, and what that settled (14.7.6.4)."""
+
+    model_config = _FROZEN
+
+    outcome: Literal["measured", "unreadable", "no_inspector", "tie", "reading"]
+    type_id: str | None
+    facts: list[InspectedFactView]
+    reason: str | None
+    steps: list[str]
+    """What was done, in order: returned with the answer, not streamed."""
+    recorded: list[str]
+    kept: list[str]
+    disagreed: list[str]
+    session: AuthoringSessionView
+
+
+_UPLOAD_BODY = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["proposal_id", "files"],
+                    "properties": {
+                        "proposal_id": {"type": "string"},
+                        "files": {
+                            "type": "array",
+                            "items": {"type": "string", "format": "binary"},
+                            "minItems": 1,
+                            "maxItems": 2,
+                        },
+                    },
+                }
+            }
+        },
+    }
+}
+
+
+@router.post(
+    "/{session_id}/samples",
+    operation_id="uploadAuthoringSample",
+    summary="Answer a question about your data with a sample: one file, or a pair",
+    responses={**REFUSES, 403: {"description": "`MI0213`: the protection level refuses it."}},
+    openapi_extra=_UPLOAD_BODY,
+)
+async def upload_sample(session_id: str, request: Request) -> SampleInspected:
+    """**Only the first 4 MB of each file is kept**, in memory; the rest is read through and
+    dropped, and nothing is written to disk (14.7.6's ruling: nothing deletes a session yet, so
+    nothing about a sample is kept). The protection level is asked before a byte is read."""
+    from mendel_api.services import inspect, protection, sample_upload
+
+    if not protection.allows(protection.Crossing.UPLOAD):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, protection.refuse(protection.Crossing.UPLOAD)
+        )
+    try:
+        heads = await sample_upload.read_heads(request, head=inspect.HEAD_BYTES)
+    except ValueError as refused:
+        raise ValueError(coded("MI0214", str(refused))) from None
+    if not 1 <= heads.count <= 2:
+        raise ValueError(coded("MI0214", f"{heads.count} files: upload one file, or a pair"))
+    proposal_id = heads.fields.get("proposal_id")
+    # **Every database call off the event loop** (issue 226): a slow answer here would hold
+    # every other request.
+    kind = await run_in_threadpool(_kind_in, session_id, proposal_id) if proposal_id else None
+    if kind != gathering.GAP:
+        raise ValueError(coded("MI0205", "a sample answers a question about your data"))
+    # The rest is one action (plan 1c): refused before a byte is inspected, a hand-back claimed
+    # by the recorded type only, and a type nothing here reads handed to the AI.
+    done = await session.act(
+        c.UploadSample(session_id, proposal_id, tuple(heads.files), identity.default_author())
+    )
+    up = done.result
+    view = await run_in_threadpool(_view, session_id)
+    if up.reading:
+        return SampleInspected(
+            outcome="reading",
+            type_id=None,
+            facts=[],
+            reason=None,
+            steps=[*up.inspection.steps, "nothing here reads its type: the AI is reading it"],
+            recorded=[],
+            kept=[],
+            disagreed=[],
+            session=view,
+        )
+    return SampleInspected(
+        outcome=up.inspection.outcome,
+        type_id=up.inspection.type_id,
+        facts=[InspectedFactView(**f.model_dump()) for f in up.inspection.facts],
+        reason=up.inspection.reason,
+        steps=up.inspection.steps,
+        recorded=up.answer.recorded,
+        kept=up.answer.kept,
+        disagreed=up.answer.disagreed,
+        session=view,
+    )
+
+
+@router.post(
+    "/{session_id}/facts/{subject}",
+    operation_id="correctAuthoringFact",
+    summary="Correct a selected fact or return it to unknown",
+    responses=REFUSES,
+)
+async def correct_fact(
+    session_id: str, subject: str, body: CorrectAuthoringFact
+) -> AuthoringCorrected:
+    done = await session.act(
+        c.CorrectFact(
+            session_id,
+            subject,
+            body.value,
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+            body.kind,
+        )
+    )
+    return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post(
+    "/{session_id}/changes",
+    operation_id="changeAuthoring",
+    summary="DecisionChange what you want or what is known about your data",
+    responses=REFUSES,
+)
+async def change_authoring(session_id: str, body: ChangeAuthoring) -> AuthoringCorrected:
+    done = await session.act(
+        c.Change(
+            session_id,
+            body.change.model_dump(mode="json"),
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+        )
+    )
+    return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post(
+    "/{session_id}/suggestions/{suggestion_id}",
+    operation_id="decideAuthoringSuggestion",
+    summary="Apply or set aside one of the model's suggestions",
+    responses=REFUSES,
+)
+async def decide_suggestion(
+    session_id: str, suggestion_id: str, body: DecideSuggestion
+) -> AuthoringCorrected | None:
+    from starlette.concurrency import run_in_threadpool
+
+    from mendel_api.services import suggestions
+
+    if body.decision == "dismiss":
+        await run_in_threadpool(suggestions.dismiss, session_id, suggestion_id,
+                                by=identity.default_author())
+        return None
+    return AuthoringCorrected.model_validate(
+        await suggestions.apply(session_id, suggestion_id, by=identity.default_author())
+    )
+
+
+@router.post(
+    "/{session_id}/release-tool",
+    operation_id="releaseAuthoringTool",
+    summary="Let the engine choose a producer again",
+    responses=REFUSES,
+)
+async def release_tool(session_id: str, body: ReleaseToolChoice) -> AuthoringCorrected:
+    done = await session.act(
+        c.ReleaseProducer(
+            session_id,
+            body.type_id,
+            tuple(body.states),
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+        )
+    )
+    return AuthoringCorrected.model_validate(done.result)
+
+
+@router.post(
+    "/{session_id}/disagreements/{proposal_id}",
+    operation_id="answerAuthoringDisagreement",
+    summary="Choose which answer to use after an evidence disagreement",
+    responses=REFUSES,
+)
+async def answer_disagreement(
+    session_id: str, proposal_id: str, body: AnswerEvidenceQuestion
+) -> AuthoringCorrected:
+    if await run_in_threadpool(_kind_in, session_id, proposal_id) != "disagreement":
+        raise ValueError(coded("MI0205", "that proposal is not an evidence question"))
+    done = await session.act(
+        c.AnswerDisagreement(
+            proposal_id,
+            body.option,
+            body.value,
+            identity.default_author(),
+            body.expected_decision_revision,
+            body.expected_draft_revision,
+            body.expected_session_version,
+        )
+    )
+    return AuthoringCorrected.model_validate(done.result)

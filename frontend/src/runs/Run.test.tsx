@@ -152,6 +152,23 @@ it("does not offer cancel on a run that has already ended", async () => {
   expect(screen.queryByTestId("cancel-run")).toBeNull();
 });
 
+it("offers delete once a run has ended, beside no cancel (Part H)", async () => {
+  at({ ...STATE, phase: "failed" }, PAGE, "overview");
+  expect(await screen.findByTestId("delete-run")).toBeInTheDocument();
+  expect(screen.queryByTestId("cancel-run")).toBeNull();
+});
+
+it("says when retention cleared a run's working files, and that results stay", async () => {
+  at({ ...STATE, phase: "succeeded", work_cleared: true }, PAGE, "overview");
+  expect(await screen.findByTestId("work-cleared")).toHaveTextContent(/results and the\s+record stay/);
+});
+
+it("says nothing about working files while they are there", async () => {
+  at({ ...STATE, phase: "succeeded", work_cleared: false }, PAGE, "overview");
+  await screen.findByTestId("run-panels");
+  expect(screen.queryByTestId("work-cleared")).toBeNull();
+});
+
 it("opens on the run itself, and the console is not on it", async () => {
   // **W2's ending condition, and the bands make it stronger.** §18: you can read a 400-task
   // run without reading text — which is a statement that the console cannot be what the page

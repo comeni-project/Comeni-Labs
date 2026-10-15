@@ -8,10 +8,10 @@ split out for the same reason and says so.
 evidence, and the two answer different questions about the same value.
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.plan.tiers import PremiseOrigin
-from comeni_core.spell.marks import MeasurementId, ParamValue
+from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 
 class PremiseRecord(BaseModel):
@@ -32,22 +32,34 @@ class PremiseRecord(BaseModel):
     id: MeasurementId
     value: ParamValue | list[ParamValue]
     origin: PremiseOrigin
+    by: ContractId | None = Field(default=None, exclude_if=lambda by: by is None)
+    """The profiler's contract that measured it, when one did."""
+    pieces: list[PieceRef] = Field(default_factory=list, exclude_if=lambda pieces: not pieces)
+    """The inspector pieces that measured it, when they did (issue 233). Both are left out of
+    the dump when empty, so a record nothing measured reads and serialises as before."""
 
     def prose(self) -> str:
-        """`read_length is 150, measured` — the sentence, not the mapping.
+        """`read_length is 101, measured by fastq@1.0.0 + read_length@1.0.0` — the sentence.
 
         Spec §6.1: no structured value is a reader's only account of itself. The **value**
         comes first because it is what a reviewer checks against the sample sheet; the
-        **origin** second because it is what tells them whether checking is worth the time.
+        **origin** second because it is what tells them whether checking is worth the time;
+        and **what measured it**, when something did, because a tier-3 decision asks the
+        reader to check its premise, and that says what to check (issue 233, decided A).
         """
-        return f"{self.id} is {self.value}, {_ORIGIN_PROSE[self.origin]}"
+        said = f"{self.id} is {self.value}, {_ORIGIN_PROSE[self.origin]}"
+        measurer = " + ".join(self.pieces) if self.pieces else self.by
+        if measurer and self.origin is PremiseOrigin.MEASURED:
+            return f"{said} by {measurer}"
+        return said
 
 _ORIGIN_PROSE = {
     PremiseOrigin.MEASURED: "measured",
+    PremiseOrigin.MODEL_READ: "read by AI",
     PremiseOrigin.ASSERTED: "asserted, not measured",
     PremiseOrigin.GOAL: "declared in the goal",
     PremiseOrigin.DERIVED: "inferred — nothing measured it",
     PremiseOrigin.UNMEASURED: "not measured",
 }
-"""Total over `PremiseOrigin` and read with `[]`, so a sixth member forces somebody to write
+"""Total over `PremiseOrigin` and read with `[]`, so a new member forces somebody to write
 its sentence rather than defaulting into silence. A38's tripwire, in a third place."""

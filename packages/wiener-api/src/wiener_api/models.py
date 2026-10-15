@@ -6,11 +6,36 @@ three days of events on every page load — they are a cache with a rebuild path
 """
 
 from datetime import datetime
+from enum import StrEnum
 
-from sqlalchemy import JSON, BigInteger, DateTime, Float, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
+from wiener_core.events import EventKind, TaskStatus
+from wiener_core.policy import IntentKind, Outcome, Reason
+from wiener_core.state import RunPhase
 
 from wiener_api.db import Base
+from wiener_api.shape_versions import stamp
+from wiener_api.shapes import Json
+
+
+def _one_of(enum: type[StrEnum], length: int, name: str) -> Enum:
+    """A `VARCHAR(length)` that holds only `enum`'s values, with a CHECK named
+    `ck_<table>_<name>` (issue 274). `mendel_api.models._one_of` carries the argument; the two
+    services share no code, so it is written twice."""
+    return Enum(enum, native_enum=False, create_constraint=True, validate_strings=True,
+                length=length, name=name, values_callable=lambda e: [m.value for m in e])
 
 
 class Run(Base):
@@ -18,12 +43,21 @@ class Run(Base):
     gate runs Mendel's own artifact on public data and lives in `mendel-api`'s `gate_run`."""
 
     __tablename__ = "run"
+    shape_version: Mapped[int] = stamp("run")
+    __table_args__ = (
+        UniqueConstraint("lab_id", "id", name="uq_run_lab_id_id"),
+        # Its artifact, in its lab (issue 274).
+        ForeignKeyConstraint(["lab_id", "artifact_id"], ["run_artifact.lab_id", "run_artifact.id"],
+                             name="fk_run_artifact", ondelete="RESTRICT"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     """**On every table from day one** — `docs/design/wiener.md` §7.1, decided 2026-08-23.
     Cheap now; a migration touching every table later. The named cost is that a filter you can
-    forget is a leak, which is why Step 7a adds a guard rather than a convention."""
+    forget is a leak, which is why Step 7a adds a guard rather than a convention. **Children
+    are held to it by key, not by copy** (issue 274): each one's `(lab_id, run_id)` points at
+    `(lab_id, id)` here, so a child row in another lab's run cannot exist."""
     artifact_id: Mapped[str] = mapped_column(String(32), index=True)
 
     # --- what was spawned, so a verb has something to signal -----------------------------
@@ -45,7 +79,7 @@ class Run(Base):
     submitted_by: Mapped[str] = mapped_column(String(200))
     """ATTRIBUTION, not authentication — and §12.1 says that is a gap in W1, not a design."""
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    phase: Mapped[str] = mapped_column(String(16), index=True)
+    phase: Mapped[str] = mapped_column(_one_of(RunPhase, 16, "phase"), index=True)
     executor: Mapped[str] = mapped_column(String(16), default="local")
     ingest_secret: Mapped[str] = mapped_column(String(64))
     """Generated at launch and carried in the head process's weblog URL — §13.1."""
@@ -53,33 +87,67 @@ class Run(Base):
     exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # --- what the fold needs and no other column holds (issue 282) --------------------
+    #
+    # With these, `run` and its `run_task` rows are enough for `wiener_core.state.restore` to
+    # rebuild the state before an event, so ingest folds one event instead of replaying the
+    # run. Counts and phase are not here: `restore` works them out as the fold does.
+    last_seq: Mapped[int] = mapped_column(Integer, default=-1, server_default="-1")
+    """The highest `seq` folded, and what the next one is taken from, under the row's lock."""
+    last_activity_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    started_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    terminal_seen: Mapped[list] = mapped_column(Json, default=list, server_default="[]")
+    """Which terminal kinds have arrived (`completed`, `error`, `cancelled`), sorted: a set
+    from a closed vocabulary of three, never queried."""
+    run_succeeded: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    work_cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                             nullable=True)
+    """When retention deleted this run's working files (Part H). Its results and record stay;
+    the run page says *Working files cleared* instead of offering them."""
+
 
 class RunEventRow(Base):
     """The record. Every projection is derivable from these rows and nothing else."""
 
     __tablename__ = "run_event"
+    shape_version: Mapped[int] = stamp("run_event")
+    __table_args__ = (
+        # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
+        # lab's run (issue 274).
+        ForeignKeyConstraint(["lab_id", "run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_event_run", ondelete="RESTRICT"),
+    )
 
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     seq: Mapped[int] = mapped_column(Integer, primary_key=True)
-    kind: Mapped[str] = mapped_column(String(24))
+    kind: Mapped[str] = mapped_column(_one_of(EventKind, 24, "kind"))
     at_ms: Mapped[int] = mapped_column(BigInteger)
-    payload: Mapped[dict] = mapped_column(JSON)
+    payload: Mapped[dict] = mapped_column(Json)
     """The ADMITTED event, not the raw body — §4.4."""
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class RunTask(Base):
     __tablename__ = "run_task"
+    shape_version: Mapped[int] = stamp("run_task")
+    __table_args__ = (
+        # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
+        # lab's run (issue 274).
+        ForeignKeyConstraint(["lab_id", "run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_task_run", ondelete="RESTRICT"),
+    )
 
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     process: Mapped[str] = mapped_column(String(200), index=True)
-    status: Mapped[str] = mapped_column(String(16), index=True)
-    attempts: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(_one_of(TaskStatus, 16, "status"), index=True)
+    attempts: Mapped[list] = mapped_column(Json, default=list)
     latest_exit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_change_ms: Mapped[int] = mapped_column(BigInteger)
+    first_seen_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    """When the task was first seen — kept for `restore` (issue 282)."""
 
     # --- derived from the latest attempt, so the table can be ORDERED BY --------------
     #
@@ -101,7 +169,7 @@ class RunTask(Base):
     #
     # Deliberately NOT indexed. The column exists so a task row can say `sample_07`, not so
     # anybody can search a deployment for a patient.
-    labels: Mapped[list] = mapped_column(JSON, default=list)
+    labels: Mapped[list] = mapped_column(Json, default=list)
 
     # --- the latest attempt's tag, so ONE RUN's tasks can be filtered by it -----------
     #
@@ -143,16 +211,24 @@ class RunIntent(Base):
     """
 
     __tablename__ = "run_intent"
+    __table_args__ = (
+        # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
+        # lab's run (issue 274).
+        ForeignKeyConstraint(["lab_id", "run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_intent_run", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["lab_id", "resulting_run_id"], ["run.lab_id", "run.id"],
+                             name="fk_run_intent_resulting_run", ondelete="RESTRICT"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
     run_id: Mapped[str] = mapped_column(String(32), index=True)
-    kind: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(_one_of(IntentKind, 32, "kind"))
     """A member of `wiener_core.intent.IntentKind`, stored as its value. **A closed vocabulary
     written down twice would drift**, so the enum is the authority and this column is its
     spelling on disk — the same relationship `run.phase` has with `Phase`."""
 
-    because: Mapped[str] = mapped_column(String(32))
+    because: Mapped[str] = mapped_column(_one_of(Reason, 32, "because"))
     """A member of `wiener_core.policy.Reason` — **a declared enum, never free text**, which is
     §5.2's rule and the reason that enum exists. `OPERATOR_REQUEST` is what a person clicking
     *cancel* writes; a policy that cancels on its own would write its own reason, and the audit
@@ -176,13 +252,13 @@ class RunIntent(Base):
     why: Mapped[str] = mapped_column(Text, default="")
     """Free text somebody typed to justify a verb. Displayed, never interpreted."""
 
-    prior_phase: Mapped[str] = mapped_column(String(16))
+    prior_phase: Mapped[str] = mapped_column(_one_of(RunPhase, 16, "prior_phase"))
     """What the run was before the verb. **The audit's most load-bearing field**: a cancel on a
     run that was already failing is a different act from one on a healthy run, and the phase
     afterwards cannot distinguish them."""
 
     resulting_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    outcome: Mapped[str] = mapped_column(String(32), default="")
+    outcome: Mapped[str] = mapped_column(_one_of(Outcome, 32, "outcome"))
     """What the verb actually did, in a closed set. A request that was accepted and then found
     nothing to signal is not the same as one that stopped a running process, and an audit that
     cannot tell them apart is an audit of intentions rather than of effects."""
@@ -192,6 +268,7 @@ class RunArtifact(Base):
     """A gated pipeline directory somebody uploaded. Wiener owns it — §12."""
 
     __tablename__ = "run_artifact"
+    __table_args__ = (UniqueConstraint("lab_id", "id", name="uq_run_artifact_lab_id_id"),)
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     lab_id: Mapped[str] = mapped_column(String(32), index=True)
@@ -221,3 +298,33 @@ class RunArtifact(Base):
     # in the §8 sense — it names a pipeline shape, not a sample — but it is user-authored, so
     # it must not reach a span attribute or a log line without the same care.
     name: Mapped[str] = mapped_column(String(200), default="")
+
+
+class WienerSetting(Base):
+    """**The sixth table, and its argument** (Part H, operator 2026-10-12: *make sure it appears
+    on the settings menus so people can know it exists*): a laboratory changes how long runs are
+    kept from the Settings page, and only Wiener reads Wiener's settings, so Wiener stores them.
+    One row per setting per lab; the `running` section stays reported, never stored."""
+
+    __tablename__ = "wiener_setting"
+    shape_version: Mapped[int] = stamp("wiener_setting")
+
+    lab_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[object] = mapped_column(Json, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_by: Mapped[str] = mapped_column(String(200))
+
+
+class RetentionSweep(Base):
+    """**The seventh table, and its argument** (Part H): a laboratory must be able to see that
+    deletion happened, on the Settings page. One row per category per pass; a pass with nothing
+    to do writes its zeros, because silence would read as a sweep that never ran."""
+
+    __tablename__ = "retention_sweep"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
+    ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    category: Mapped[str] = mapped_column(String(32))
+    removed: Mapped[int] = mapped_column(Integer)

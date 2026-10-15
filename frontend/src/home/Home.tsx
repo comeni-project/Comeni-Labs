@@ -8,8 +8,10 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { get as fromWiener } from "../wiener/api/client";
 import type { components as wiener } from "../wiener/api/schema";
+import { Describe } from "./Describe";
 import { First } from "./First";
 import { Now } from "./Now";
+import { useAiConfigured } from "./useAiConfigured";
 import { ByPipeline, ByRun } from "./Work";
 
 type Attention = components["schemas"]["Attention"];
@@ -68,7 +70,13 @@ export function Home() {
     retry: false,
   });
 
-  if (attention.isLoading || drafts.isLoading) return <Loading what="the lab's work" />;
+  // **Whether a model is configured is waited for with the rest** (issue 268): it decides
+  // whether the describe box is drawn, and a box arriving after the page lost what was typed.
+  const model = useAiConfigured();
+
+  if (attention.isLoading || drafts.isLoading || model.pending) {
+    return <Loading what="the lab's work" />;
+  }
   if (attention.error) return <Failed error={attention.error} />;
   if (drafts.error) return <Failed error={drafts.error} />;
 
@@ -108,6 +116,10 @@ export function Home() {
             of the page. It renders only when there IS a NOW band: a rule under nothing is a
             line drawn for its own sake, and the quiet page is meant to be shorter. */}
         {band && <div className="mt-7 h-px bg-line" />}
+
+        {/* **A new conversation starts here once there is work** (issue 229); `First` is where
+            it starts before there is any. It renders nothing without a model. */}
+        <Describe />
 
         {/* **24px under the rule, 34px without one** — the ACTIVE and QUIET artboards differ by
             exactly that, because on the quiet page there is no rule to separate Work from and

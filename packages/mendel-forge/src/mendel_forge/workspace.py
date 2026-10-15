@@ -146,12 +146,52 @@ class Workspace(BaseModel):
 
         Unlike `write_bundle` this overwrites, because it is the *working* object: the bundle is
         the immutable record of what was derived, and the draft moves every time a hole is
-        answered.
+        answered. Each revision's candidate is kept apart by `keep_revision`.
         """
         path = self.root / "forge" / draft.name / "draft.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(draft.model_dump_json(indent=2) + "\n")
         return path
+
+    def keep_revision(self, adaptation_id: str, revision_id: str) -> Path:
+        """Keep the working candidate as `revision_id`'s, once (issue 280).
+
+        `draft.json` is overwritten by the next generation, and `ForgeRevision` promises the
+        superseded candidate survives: a reviewer must be able to read what they asked to
+        change. So each revision's is copied to `revisions/<revision_id>/draft.json`, and **never
+        overwritten** — a second keep for one revision is refused, not a silent replacement.
+        """
+        target = self._revision(adaptation_id, revision_id)
+        if target.exists():
+            raise ValueError(
+                coded("MF0012", f"revision {revision_id!r} of {adaptation_id!r} is already kept")
+            )
+        working = self.root / "forge" / adaptation_id / "draft.json"
+        if not working.exists():
+            raise ValueError(
+                coded("MF0008", f"no working candidate for adaptation {adaptation_id!r}")
+                + "\n  a generation writes it before its revision is kept"
+            )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(working.read_bytes())  # the bytes it was, not a re-serialisation
+        return target
+
+    def _revision(self, adaptation_id: str, revision_id: str) -> Path:
+        """Where a revision's candidate is kept. **Both ids plain names**: `_inside` alone would
+        let `../other` through while it stays in the workspace, into another revision's place."""
+        for name in (adaptation_id, revision_id):
+            self._dir(name)
+        return self._inside(f"forge/{adaptation_id}/revisions/{revision_id}/draft.json")
+
+    def read_revision(self, adaptation_id: str, revision_id: str) -> Draft:
+        """The candidate `revision_id` produced, as `keep_revision` kept it."""
+        path = self._revision(adaptation_id, revision_id)
+        if not path.exists():
+            raise ValueError(
+                coded("MF0008", f"no kept candidate for revision {revision_id!r}")
+                + "\n  a generation keeps one when it produces a candidate"
+            )
+        return Draft.model_validate_json(path.read_text())
 
     def read_holes(self, adaptation_id: str) -> tuple["ScaffoldHole", ...]:
         """The questions the scaffold opened, read back from the manifest beside the files.

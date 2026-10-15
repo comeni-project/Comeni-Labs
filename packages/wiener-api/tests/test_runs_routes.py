@@ -43,7 +43,7 @@ def test_submitting_a_run_returns_an_opaque_id_and_queues_work(client, a_bundle)
     response = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
                                               "params": params, "executor": "local"})
     assert response.status_code == 202 and len(response.json()["run_id"]) == 32
-    assert client.queued == [("launch_job", (response.json()["run_id"], params))]
+    assert client.queued == [("launch_job", (response.json()["run_id"],))]
 
 
 def test_a_key_the_artifact_never_declared_is_refused(client, a_bundle):
@@ -74,7 +74,7 @@ def test_a_hole_left_unfilled_is_refused(client, a_bundle):
 
 def test_the_params_reach_a_params_file_and_the_argv(client, a_bundle, session, tmp_path,
                                                      monkeypatch):
-    """End of the path: submit -> job argument -> params.json -> `-params-file`.
+    """End of the path: submit -> the run's params.json -> launch -> `-params-file`.
 
     A **list** value survives, which a `--input` splice could not carry — the emitted spine
     reads `params.input instanceof List`, so this is not hypothetical.
@@ -89,14 +89,13 @@ def test_the_params_reach_a_params_file_and_the_argv(client, a_bundle, session, 
     params = {"input": ["r1.fastq.gz", "r2.fastq.gz"], "fasta": "/refs/GRCh38.fa"}
     run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
                                             "params": params}).json()["run_id"]
-    _, (queued_id, queued_params) = client.queued[0]
-    assert (queued_id, queued_params) == (run_id, params)
+    assert client.queued == [("launch_job", (run_id,))]
 
     # The launcher records what it spawned (Plan 6 phase 1), so a stand-in for a process
     # has to look like one. `os.getpid()` because the pid is verified against `/proc`.
     monkeypatch.setattr(launcher, "_spawn",
                         lambda argv, cwd: type("P", (), {"pid": os.getpid()})())
-    launcher.launch(run_id, queued_params)
+    launcher.launch(run_id)
 
     workdir = launcher.work_dir(run_id)
     assert json.loads((workdir / "params.json").read_text()) == params
@@ -256,3 +255,15 @@ def test_the_board_hands_back_the_join_key(client, a_run, a_real_bundle, session
     row = next(r for r in client.get("/api/runs").json()["runs"] if r["id"] == a_run.id)
     assert row["pipeline_digest"], "the board cannot join a run to its pipeline"
     assert row["pipeline_digest"].startswith("sha256:")
+
+
+def test_an_unknown_phase_or_status_is_a_422_naming_the_vocabulary(client, a_run):
+    """Issue 274's CHECKs made the columns `Enum`s, which refuse an unknown value even in a
+    WHERE: `?phase=done` was a 500. A closed filter takes its enum, so FastAPI answers 422 and
+    lists what is allowed, as Mendel's closed filters do."""
+    board = client.get("/api/runs", params={"phase": "done"})
+    assert board.status_code == 422, board.text
+    assert "succeeded" in board.text
+    tasks = client.get(f"/api/runs/{a_run.id}/tasks", params={"status": "failed"})
+    assert tasks.status_code == 422, tasks.text
+    assert "FAILED" in tasks.text

@@ -47,7 +47,6 @@ function session(overrides: Partial<AuthoringSession> = {}): AuthoringSession {
   return {
     id: "s1",
     draft_id: "d1",
-    mode: "build",
     phase: "building",
     failed_from: null,
     goal: null,
@@ -268,4 +267,33 @@ describe("when to poll", () => {
     expect(isWaiting(session({ phase: "failed", turns: [answered] }))).toBe(false);
     expect(isWaiting(null)).toBe(false);
   });
+});
+
+describe("waiting for a model's words (issues 167 and 176)", () => {
+  const offered = (block: Record<string, unknown>) =>
+    session({ pending_proposal: { id: "p", kind: "gap", draft_revision: 0, options: [], edges: [],
+      block: { kind: "question", id: "q", asks: "?", why_open: "", options: [],
+        exhaustive: true, phrasing: "none", ...block } } } as Partial<AuthoringSession>);
+
+  it("polls while a question is being phrased, and stops once it is", () => {
+    expect(isWaiting(offered({ phrasing: "pending" }))).toBe(true);
+    expect(isWaiting(offered({ phrasing: "done" }))).toBe(false);
+    expect(isWaiting(offered({ phrasing: "none" }))).toBe(false);
+  });
+
+  it("polls while a card's read-back is being written", () => {
+    expect(isWaiting(offered({ readback_pending: true }))).toBe(true);
+  });
+
+  it("waits while the AI reads a sample, and stops once its reading arrived (issue 135)", () => {
+    expect(isWaiting(offered({ reading: { state: "pending", attempt: 1 } }))).toBe(true);
+    expect(isWaiting(offered({ reading: { state: "read", attempt: 1 } }))).toBe(false);
+  });
+});
+
+it("keeps composed text on a correction revision refusal", () => {
+  const typed = authoringReducer(initialAuthoring, { type: "compose", text: "my unsent correction" });
+  const refused = authoringReducer(typed, { type: "refused", proposalId: "", detail: "MI0201: reload before correcting" });
+  expect(refused.composer).toBe("my unsent correction");
+  expect(refused.notice?.code).toBe("MI0201");
 });

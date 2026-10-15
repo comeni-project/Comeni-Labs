@@ -1,16 +1,8 @@
-"""What on these pages is vision, and what is real — derived, never asserted.
+"""Validate future-feature notices and render their documentation inventory.
 
-`Start here`, `Handbook` and `Registry` are written in the present tense to the product as it
-will be, with a marker wherever reality has not caught up. That is only honest if the markers
-are enforced, because a claim maintained by remembering is a claim that goes stale — which is
-the failure this repository has had from stale counts three times.
-
-So: every marker must name a plan, and every marker must say what happens today instead. Both
-are build failures, and `docs/status.md` is generated from the same scan.
-
-`Internals` is the other register. It is written to what exists, and its pages carry a
-`Serves:` line naming which part of the loop they belong to — accuracy was never the problem
-with the old documentation, orphaning was.
+Each notice must identify tracked work and describe the current alternative. This checks
+the notices that exist; it cannot establish feature completeness or verify every claim.
+Development-guide scope markers identify which part of the product loop they serve.
 """
 
 from __future__ import annotations
@@ -61,7 +53,7 @@ def scan(root: pathlib.Path) -> list[Marker]:
     found: list[Marker] = []
     for path in sorted(root.rglob("*.md")):
         rel = path.relative_to(root).as_posix()
-        if rel.startswith(("notes/", "superpowers/", "tools/")):
+        if rel.startswith(("notes/", "superpowers/", "reference/tools/")):
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines):
@@ -91,12 +83,12 @@ def problems(markers: list[Marker], root: pathlib.Path | None = None) -> list[st
                 "A marker that only reports an absence strands the reader."
             )
     if root is not None:
-        for path in sorted((root / "internals").rglob("*.md")):
+        for path in sorted((root / "how-to" / "development").rglob("*.md")):
             text = path.read_text(encoding="utf-8")
             rel = path.relative_to(root).as_posix()
             if not SERVES.search(text):
                 out.append(
-                    f"{rel}: an Internals page needs a `Serves:` line naming which part of "
+                    f"{rel}: a development guide needs a `Serves:` line naming which part of "
                     f"the loop it belongs to — one of {sorted(STEPS)}."
                 )
                 continue
@@ -115,29 +107,29 @@ def problems(markers: list[Marker], root: pathlib.Path | None = None) -> list[st
 
 
 def render(markers: list[Marker]) -> str:
-    """`docs/status.md` — one page answering 'how much of this is real'."""
+    """`docs/reference/status.md` — one page answering 'how much of this is real'."""
     head = (
         "---\n"
         "title: What is not built yet\n"
         "description: Every page that describes something the product does not do yet.\n"
         "---\n\n"
         "# What is not built yet\n\n"
-        "Comeni Labs is **Alpha, pre-MVP**. The user-facing books are written to the product "
-        "as it will be, and every place reality has not caught up carries a marker. This page "
-        "is generated from those markers, so it cannot go stale.\n\n"
+        "Comeni Labs is **Alpha, pre-MVP**. This page lists explicit future-feature "
+        "notices found in the documentation. It is generated from those notices and is "
+        "not a complete assessment of implementation status.\n\n"
     )
     if not markers:
         return (
             head
-            + "Nothing is marked as future-only. The pages describe current alpha behavior, "
-            "including surfaces that may still change.\n"
+            + "No future-feature notices were found. This does not establish that all "
+            "documented behavior has been verified.\n"
         )
     rows = "\n".join(
         f"| [{m.page}]({m.page}) | {m.plan or '—'} | {m.body} |" for m in markers
     )
     return (
         head
-        + f"**{len(markers)} marked** across the books.\n\n"
+        + f"**{len(markers)} marked** across the documentation.\n\n"
         + "| Page | Tracked in | What happens today |\n|---|---|---|\n"
         + rows
         + "\n"
@@ -159,16 +151,16 @@ def main() -> int:
         return 1
 
     page = render(markers)
-    out = root / "status.md"
+    out = root / "reference" / "status.md"
     if args.check:
         if not out.is_file() or out.read_text(encoding="utf-8") != page:
-            print("docs/status.md is stale — run `make docs-status`")
+            print("docs/reference/status.md is stale — run `make docs-status`")
             return 1
-        print(f"docs/status.md is current ({len(markers)} marked)")
+        print(f"docs/reference/status.md is current ({len(markers)} marked)")
         return 0
 
     out.write_text(page, encoding="utf-8")
-    print(f"docs/status.md written ({len(markers)} marked)")
+    print(f"docs/reference/status.md written ({len(markers)} marked)")
     return 0
 
 

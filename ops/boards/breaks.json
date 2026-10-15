@@ -1,7 +1,7 @@
 {
   "uid": "wiener-what-breaks",
   "title": "Wiener \u00b7 What breaks",
-  "description": "Exit codes per process over time, and what needed a second try. A signature that keeps coming back is what \u00a714's loop turns into a registry proposal.",
+  "description": "Failed attempts by process and exit code, retry counts, and recent failure details.",
   "tags": [
     "wiener",
     "runs"

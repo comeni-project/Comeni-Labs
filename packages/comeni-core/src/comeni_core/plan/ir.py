@@ -10,6 +10,7 @@ from pydantic import (
 )
 
 from comeni_core.declared.layered import Displacement
+from comeni_core.goal.asked import Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
 from comeni_core.plan.decision import DecisionRecord
@@ -142,6 +143,10 @@ class IRNode(BaseModel):
 
     id: NodeId
     contract_id: ContractId
+    site: Site | None = Field(default=None, exclude=True)
+    """Where this node's tool was chosen (`RouteStep.site`). **Carried in memory, never
+    serialised**: the authoring blueprint reads it to offer a step's alternatives and to place
+    a person's pin, and the IR's bytes — the publication bundle, the goldens — are unchanged."""
     params: list[ParamBinding] = Field(default_factory=list)
     selection: ResolvedValue = Field(
         default_factory=lambda: ResolvedValue(

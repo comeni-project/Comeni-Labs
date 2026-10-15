@@ -8,20 +8,40 @@ on screen would explain.
 """
 
 import json
+import logging
 import pathlib
 import shutil
 import socket
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
+
+from comeni_core.diagnostics import coded
+from wiener_core.state import RunPhase
 
 from wiener_api import db, repository
 from wiener_api.models import Run
+from wiener_api.services.artifacts import declared_holes
 from wiener_api.settings import settings
+
+log = logging.getLogger(__name__)
 
 
 def work_dir(run_id: str) -> Path:
     """Server-chosen, from an opaque id. Never a client-supplied path."""
     return settings.work_root / run_id
+
+
+def params_path(run_id: str) -> Path:
+    """Where a run's parameters wait for launch: in its own directory, never in a table
+    (invariant 15), so deleting the run deletes them and a lost queue loses none (#273)."""
+    return work_dir(run_id) / "params.json"
+
+
+def write_params(run_id: str, params: dict[str, object]) -> None:
+    path = params_path(run_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(params, indent=2, sort_keys=True))
 
 
 def results_dir(run_id: str) -> Path:
@@ -147,9 +167,10 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     that launches runs and is allowed to hold run data, which is the whole reason the two are
     separate services.
 
-    **Written into the workdir, never into a table.** `docs/design/wiener.md` §7.1: no table
-    holds a samplesheet. The workdir is transient by nature and is deleted with the run, which
-    is the right lifetime for the one artefact that names a laboratory's files.
+    **Written into the workdir, never into a table** (invariant 15,
+    `docs/design/invariants.md`): no table holds a samplesheet. The workdir is transient by
+    nature and is deleted with the run, which is the right lifetime for the one artefact that
+    names a laboratory's files.
 
     A `str` value is passed through unchanged — that is a path the laboratory already has, and
     a person who wants to point at their own samplesheet still can. The browser's table editor
@@ -170,16 +191,28 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     return written
 
 
-def launch(run_id: str, params: dict[str, object] | None = None) -> None:
+def launch(run_id: str) -> bool:
     """Copy the artifact somewhere Wiener owns, write the site config, and start Nextflow.
+    Answers whether it launched.
 
     The artifact is COPIED rather than run in place: a second run of the same artifact must not
     share a working directory with the first, and Wiener owns what it executes — §12.
+
+    **Only a `queued` run is launched, and claimed first** (issue 273). arq delivers at least
+    once, so a worker restarted mid-launch re-delivers this job; without the claim a second
+    Nextflow started in the same work directory. The row is locked, the phase read, and
+    `launching` written in one transaction, so a redelivery waits on the lock and then finds the
+    run claimed. A run claimed already is skipped, not failed: failing would make arq retry.
     """
     with db.session_scope() as session:
-        run = repository.run(session, settings.lab_id, run_id)
+        run = repository.run(session, settings.lab_id, run_id, lock=True)
         if run is None:
             raise LookupError(f"no run {run_id}")
+        if run.phase != "queued":
+            log.info("run %s is %s, not queued: already claimed, not launched again",
+                     run_id, run.phase)
+            return False
+        run.phase = "launching"
         artifact = repository.artifact(session, settings.lab_id, run.artifact_id)
         if artifact is None:
             raise LookupError(f"run {run_id} names artifact {run.artifact_id}, which is gone")
@@ -191,12 +224,21 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
         # instead of 404ing, which reads as *no such run* — absence is absence, and the two
         # absences are different facts.
         results_dir(run_id).mkdir(parents=True, exist_ok=True)
+        stored = params_path(run_id)
+        params = json.loads(stored.read_text()) if stored.exists() else {}
+        if not params and declared_holes(artifact.id):
+            # **Failed, said so, never launched empty** (review finding 3): a declared input
+            # with nothing to fill it would run with every one of them null. An observation
+            # written on the row, as the heartbeat writes `lost`; no event will come.
+            log.error(coded("MW0102", f"run {run_id} has no parameters to launch with"))
+            run.phase = RunPhase.FAILED
+            run.ended_at = datetime.now(UTC)
+            return False
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
         if params:
             params = _materialise_tables(params, workdir)
-            (workdir / "params.json").write_text(json.dumps(params, indent=2, sort_keys=True))
-        run.phase = "launching"
+            stored.write_text(json.dumps(params, indent=2, sort_keys=True))
         argv = command(run, workdir=str(workdir), has_params=bool(params))
 
     spawned = _spawn(argv, cwd=workdir)
@@ -214,3 +256,4 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
             run.pid = spawned.pid
             run.pid_started_at = process_started_at(spawned.pid)
             run.pid_host = socket.gethostname()
+    return True

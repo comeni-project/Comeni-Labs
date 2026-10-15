@@ -16,13 +16,13 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_api import identity, jobs
-from mendel_api.refusals import REFUSES
+from mendel_api.refusals import REFUSES, Refusal
 from mendel_api.services import build as service
 from mendel_api.services import bundle as bundle_service
-from mendel_api.services import candidates, registry
+from mendel_api.services import candidates, deletion, draft_mutations, registry
 from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
 from mendel_api.services import gates as gate_service
@@ -152,7 +152,17 @@ class DraftIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     graph: DraftGraph
-    name: str = ""
+    name: str | None = None
+    """`None` leaves a saved draft's name as it is (issue 271); a new draft gets `""`."""
+
+
+class DraftSave(BaseModel):
+    """A checked save; omitting graph permits a metadata-only rename."""
+
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(ge=0)
+    graph: DraftGraph | None = None
+    name: str | None = None
 
 
 class DraftOut(BaseModel):
@@ -161,6 +171,7 @@ class DraftOut(BaseModel):
     id: str
     name: str
     graph: DraftGraph
+    revision: int
 
 
 class Kept(BaseModel):
@@ -205,8 +216,9 @@ def list_drafts(after: int = 0, limit: int = 50) -> DraftsPage:
 def create_draft(body: DraftIn) -> DraftOut:
     """The id is opaque and server-generated. `routes/build.py`'s own header records why the
     API cannot take a path, and a draft addressed by one would be that rule undone."""
-    draft_id = draft_service.create(body.graph, body.name, identity.default_author())
-    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+    name = body.name or ""
+    draft_id = draft_service.create(body.graph, name, identity.default_author())
+    return DraftOut(id=draft_id, name=name, graph=body.graph, revision=0)
 
 
 @router.get("/drafts/{draft_id}", operation_id="readDraft", summary="A draft as it stands")
@@ -215,18 +227,33 @@ def read_draft(draft_id: str) -> DraftOut:
         row = draft_service.read(draft_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
-    return DraftOut(id=row.id, name=row.name, graph=DraftGraph.model_validate(row.graph))
+    return DraftOut(id=row.id, name=row.name, graph=DraftGraph.model_validate(row.graph),
+                    revision=row.revision)
 
 
-@router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a draft")
-def save_draft(draft_id: str, body: DraftIn) -> DraftOut:
-    """One write per save, not per edit. The client owns the working graph and sends it whole —
-    a schema that could hold half a graph would be a second definition of what a graph is."""
+@router.delete("/drafts/{draft_id}", status_code=204, operation_id="deleteDraft",
+               summary="Delete a draft and everything about it, permanently", responses=REFUSES)
+def delete_draft(draft_id: str) -> None:
+    """**Permanent.** The draft, its conversations, decisions and gate results go; its model
+    calls keep their record without their text, and a fork of it keeps what it inherited
+    (Part H)."""
+    deletion.delete_draft(draft_id)
+
+
+@router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a checked draft",
+            responses={**REFUSES, 409: {"model": Refusal,
+                        "description": "MI0201: stale save; "
+                                       "MI0217: authored work is in progress."}})
+def save_draft(draft_id: str, body: DraftSave) -> DraftOut:
     try:
-        draft_service.update(draft_id, body.graph)
+        row = draft_mutations.save(draft_id, graph=body.graph, name=body.name,
+                                   expected_revision=body.expected_revision)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
-    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+    except draft_mutations.Conflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    return DraftOut(id=row.id, name=row.name, graph=DraftGraph.model_validate(row.graph),
+                    revision=row.revision)
 
 
 @router.post(
@@ -238,14 +265,14 @@ def save_draft(draft_id: str, body: DraftIn) -> DraftOut:
 def keep_draft(draft_id: str) -> Kept:
     """**Where `validate` reports and this refuses.** An illegal finding answers 422 with its
     code; `mendel explain <code>` expands it, the same as everywhere else."""
-    from mendel_api.services import authoring as authoring_service
+    from mendel_api.services import session as authoring_session
 
     try:
         # **An authored draft states its AI points, the same way its preview does.** Without them
         # a Spawn draft carrying a model's tier-4 choice is refused by `MD0225` — correctly, since
         # the file would otherwise claim no AI point was available to make it.
         return Kept(
-            path=str(draft_service.keep(draft_id, ai=authoring_service.ai_for_draft(draft_id)))
+            path=str(draft_service.keep(draft_id, ai=authoring_session.ai_for_draft(draft_id)))
         )
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
@@ -393,9 +420,12 @@ async def start_gate(draft_id: str, body: GateIn) -> gate_service.GateView:
     # Every other route here is a plain `def`, which FastAPI already runs in a threadpool; an
     # `async def` doing a synchronous Postgres session blocks the event loop for every other
     # request in flight.
-    run_id = await run_in_threadpool(
-        gate_service.request, draft_id, body.gate, identity.default_author()
-    )
+    try:
+        run_id = await run_in_threadpool(
+            gate_service.request, draft_id, body.gate, identity.default_author()
+        )
+    except ValueError as busy:  # MI0003: one live gate per draft (issue 278)
+        raise HTTPException(status_code=409, detail=str(busy)) from None
     await jobs.enqueue("run_gate_job", run_id)
     return await run_in_threadpool(gate_service.read, run_id)
 

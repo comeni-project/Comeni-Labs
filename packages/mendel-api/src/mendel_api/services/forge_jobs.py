@@ -160,6 +160,15 @@ async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
         },
         prompt_versions={attempt.prompt_id: attempt.prompt_digest for attempt in outcome.attempts},
     )
+    if outcome.succeeded():
+        from mendel_forge.workspace import Workspace
+
+        # **The candidate survives the next generation** (issue 280): `_generate` wrote it to
+        # the working `draft.json`, which the next one overwrites, so it is kept as this
+        # revision's. A run that produced nothing has no candidate to keep.
+        await asyncio.to_thread(
+            Workspace(root=settings.workspace_root).keep_revision, adaptation_id, revision_id
+        )
     await asyncio.to_thread(
         _record_verdict,
         revision_id,
@@ -261,7 +270,7 @@ def _answer(adaptation_id: str, message_id: str):
     prompt is how a model reads it. Building the payload and not using it would be a declared
     boundary nothing crosses, which is worse than none — it reads as checked.
     """
-    from comeni_core.artifact.egress import ForgeReviewRequest, ReviewRole, ReviewTurn
+    from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
     from mendel_forge import prompts
     from mendel_forge.ai.schemas import ChatAnswer, admit_answer
     from mendel_forge.workspace import Workspace
@@ -461,7 +470,7 @@ def _client():
     from comeni_ai import Client
     from comeni_ai.access import BASE_URL, MODEL
 
-    access = model_access()
+    access = model_access("forge", "analysis")  # every forge purpose maps to one setting
     if access is None:
         raise NoModelConfigured(
             coded("MI0106", "no model is configured, so nothing can be generated")
@@ -480,7 +489,7 @@ def _model_id() -> str:
     and *which* model proposed a port type is exactly what somebody re-reading a contract in six
     months needs. `how` already carries that it was a model at all.
     """
-    access = model_access()
+    access = model_access("forge", "analysis")  # every forge purpose maps to one setting
     return access.model if access else ""
 
 

@@ -159,3 +159,28 @@ def test_a_deprecated_measurement_names_its_replacement(tmp_path):
     registry = MeasurementRegistry.load(layer)
     assert registry.get("read_length").deprecated is True
     assert registry.get("read_length").replaced_by == "read_length_median"
+
+
+def test_profile_of_keeps_each_entrys_own_source(base):
+    """Gathering folds facts from a person, an inspector and a model into one goal (14.7.3)."""
+    from comeni_core.review.answer import ValueSource
+
+    registry = MeasurementRegistry.load(base)
+    profile = registry.profile_of(
+        [
+            ("strandedness", "reverse", ValueSource.MODEL, None),
+            ("read_length", 150, ValueSource.GOAL, None),
+        ]
+    )
+    assert [(m.measurement, m.source) for m in profile.measurements] == [
+        ("read_length", ValueSource.GOAL),
+        ("strandedness", ValueSource.MODEL),
+    ]
+
+
+def test_profile_of_validates_like_profile(base):
+    from comeni_core.review.answer import ValueSource
+
+    registry = MeasurementRegistry.load(base)
+    with pytest.raises(BadMeasurementValueError, match="minimum"):
+        registry.profile_of([("read_length", -5, ValueSource.GOAL, None)])

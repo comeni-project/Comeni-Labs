@@ -8,7 +8,7 @@ import json
 
 from comeni_ai.access import ModelAccess
 from comeni_ai.client import Client, Transport
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 ACCESS = ModelAccess(model="test/model")
 
@@ -79,6 +79,21 @@ def test_a_shape_mismatch_is_reported_with_its_code() -> None:
     client = Client(ACCESS, transport=Fixed('{"value": "qc"}'))
     assert client.generate("pick one", Answer, []) is None
     assert "MA0004" in (client.last_refusal or "")
+
+
+def test_a_shape_mismatch_names_the_fields_that_did_not_fit() -> None:
+    """*did not match GoalUnderstanding* was the whole of the first real refusal the builder
+    showed, and finding which two fields were wrong took a reproduction script. Field paths are
+    the shape's own names and never the model's text, so naming them costs nothing at egress."""
+    class Strict(Answer):
+        model_config = ConfigDict(extra="forbid")
+
+    client = Client(ACCESS, transport=Fixed('{"value": "qc", "want": ["x"]}'))
+    assert client.generate("pick one", Strict, []) is None
+    refusal = client.last_refusal or ""
+    assert "MA0004" in refusal
+    assert "why" in refusal and "want" in refusal
+    assert '"x"' not in refusal and "['x']" not in refusal
 
 
 def test_an_overlong_field_is_refused_with_its_own_code() -> None:

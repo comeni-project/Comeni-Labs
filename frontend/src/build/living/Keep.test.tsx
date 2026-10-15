@@ -8,6 +8,7 @@ import { ArtifactPreview } from "./ArtifactPreview";
 import { initialAuthoring } from "./authoringReducer";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingSurface } from "./LivingSurface";
+import { framed } from "./frame";
 import { useAuthoringSession } from "./useAuthoringSession";
 
 /** Task 13: the preview the server writes, and Keep/Run over the session's own draft.
@@ -76,7 +77,7 @@ describe("the preview is asked for once the revision settles", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let revision = 0;
     const session = () => ({
-      id: "s1", draft_id: "d1", mode: "spawn", phase: "building", failed_from: null, goal: null,
+      id: "s1", draft_id: "d1", phase: "building", failed_from: null, goal: null,
       revision, graph: { nodes: [], edges: [] }, row_version: 1, model_configured: true,
       turns: [{ seq: 0, role: "assistant", state: revision < 5 ? "pending" : "answered", text: "",
                 blocks: [], base_revision: 0 }],
@@ -154,12 +155,12 @@ function surface(session: AuthoringSession, run: Parameters<typeof LivingSurface
   render(
     <QueryClientProvider client={fresh()}>
       <LivingSurface
-        session={session} graph={session.graph} steps={FAKE_STEPS}
+        session={framed(session, FAKE_STEPS)} graph={session.graph}
         state={{ ...initialAuthoring, snapshot: session }}
         preview={ready(session.revision, "version: 6\n")}
         busy={() => false} onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()}
         onSelect={vi.fn()} onCompose={vi.fn()} onSay={vi.fn()} onRetry={vi.fn()} onAddStep={vi.fn()}
-        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()}
+        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
         run={run}
       />
     </QueryClientProvider>,

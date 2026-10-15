@@ -24,13 +24,15 @@ def _loaded():
 
 
 def _measured_by(loaded) -> set[str]:
-    """Every measurement some contract in the stack actually produces."""
-    return {
+    """Every measurement some contract or inspector piece in the stack actually produces."""
+    by_contracts = {
         port.type_id.removeprefix("measurement.")
         for contract in loaded.registry.all()
         for port in contract.produces
         if port.type_id.startswith("measurement.")
     }
+    by_pieces = {piece.measures for piece in loaded.inspection.measures.values()}
+    return by_contracts | by_pieces
 
 
 def test_every_measurement_declares_whether_a_tool_can_produce_it():
@@ -43,7 +45,10 @@ def test_every_measurement_declares_whether_a_tool_can_produce_it():
     for name in loaded.measurements.ids():
         measurement = loaded.measurements.get(name)
         if measurement.assertion_only and name in measurable:
-            wrong.append(f"{name}: declares `assertion_only` and a contract produces it")
+            wrong.append(
+                f"{name}: declares `assertion_only` and a contract or an inspector piece "
+                "produces it"
+            )
         if not measurement.assertion_only and name not in measurable:
             wrong.append(
                 f"{name}: nothing in this stack produces `measurement.{name}`, so a goal can "
@@ -79,3 +84,12 @@ def test_every_measurement_describes_what_it_is_about():
                 f"{name} declares a `meta_key` and describes nothing — it would be carried "
                 f"into the meta map of a thing it is not a property of"
             )
+
+
+def test_paired_and_quality_encoding_are_measured_by_inspector_pieces():
+    """Neither has a contract producing it; an inspector piece is what wired them (#134)."""
+    loaded = _loaded()
+    measured = {piece.measures for piece in loaded.inspection.measures.values()}
+    assert {"paired", "quality_encoding", "read_length"} <= measured
+    assert not loaded.measurements.get("paired").assertion_only
+    assert not loaded.measurements.get("quality_encoding").assertion_only

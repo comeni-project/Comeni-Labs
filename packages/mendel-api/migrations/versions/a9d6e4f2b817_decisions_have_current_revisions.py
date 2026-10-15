@@ -1,0 +1,354 @@
+"""Draft-owned typed decisions, retained revisions and evidence (#269).
+
+Additive migration. Legacy session fields remain for the populated-data conversion.
+DDL is frozen here; no application model is imported by a migration.
+"""
+
+from alembic import op
+
+revision = "a9d6e4f2b817"
+down_revision = "f8b4d2c6a913"
+branch_labels = None
+depends_on = None
+
+STATEMENTS = (
+    """CREATE TABLE pipeline_input (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(400) NOT NULL,
+        position INTEGER DEFAULT 0 NOT NULL,
+        current_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_input_owner UNIQUE (id, draft_id),
+        CONSTRAINT uq_pipeline_input_subject UNIQUE (draft_id, subject_key),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE INDEX ix_pipeline_input_draft_id ON pipeline_input (draft_id)""",
+    """CREATE TABLE pipeline_want (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(400) NOT NULL,
+        position INTEGER DEFAULT 0 NOT NULL,
+        current_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_want_owner UNIQUE (id, draft_id),
+        CONSTRAINT uq_pipeline_want_subject UNIQUE (draft_id, subject_key),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE INDEX ix_pipeline_want_draft_id ON pipeline_want (draft_id)""",
+    """CREATE TABLE pipeline_fact (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(400) NOT NULL,
+        position INTEGER DEFAULT 0 NOT NULL,
+        current_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_fact_owner UNIQUE (id, draft_id),
+        CONSTRAINT uq_pipeline_fact_subject UNIQUE (draft_id, subject_key),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE INDEX ix_pipeline_fact_draft_id ON pipeline_fact (draft_id)""",
+    """CREATE TABLE pipeline_producer (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(400) NOT NULL,
+        position INTEGER DEFAULT 0 NOT NULL,
+        current_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_producer_owner UNIQUE (id, draft_id),
+        CONSTRAINT uq_pipeline_producer_subject UNIQUE (draft_id, subject_key),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE INDEX ix_pipeline_producer_draft_id ON pipeline_producer (draft_id)""",
+    """CREATE TABLE pipeline_parameter (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(400) NOT NULL,
+        position INTEGER DEFAULT 0 NOT NULL,
+        current_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_parameter_owner UNIQUE (id, draft_id),
+        CONSTRAINT uq_pipeline_parameter_subject UNIQUE (draft_id, subject_key),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE INDEX ix_pipeline_parameter_draft_id ON pipeline_parameter (draft_id)""",
+    """CREATE TABLE pipeline_review (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(400) NOT NULL,
+        position INTEGER DEFAULT 0 NOT NULL,
+        current_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_review_owner UNIQUE (id, draft_id),
+        CONSTRAINT uq_pipeline_review_subject UNIQUE (draft_id, subject_key),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE INDEX ix_pipeline_review_draft_id ON pipeline_review (draft_id)""",
+    """CREATE TABLE pipeline_observation (
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject VARCHAR(128) NOT NULL,
+        value JSON,
+        origin VARCHAR(16) NOT NULL,
+        pieces JSON NOT NULL,
+        evidence JSON,
+        measured_by VARCHAR(200),
+        invocation_id VARCHAR(32),
+        seq INTEGER NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        PRIMARY KEY (id),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_observation_origin CHECK (origin IN ('person_said', 'measured',
+        'model_read', 'open'))
+)""",
+    """CREATE INDEX ix_pipeline_observation_draft_id ON pipeline_observation (draft_id)""",
+    """CREATE TABLE pipeline_phrasing (
+        draft_id VARCHAR(32) NOT NULL,
+        subject VARCHAR(128) NOT NULL,
+        decision_revision INTEGER NOT NULL,
+        context_digest VARCHAR(64) NOT NULL,
+        asked JSON,
+        PRIMARY KEY (draft_id, subject, decision_revision, context_digest),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT
+)""",
+    """CREATE TABLE pipeline_input_revision (
+        type_id VARCHAR(128) NOT NULL,
+        name VARCHAR(128),
+        states JSON NOT NULL,
+        present BOOLEAN DEFAULT true NOT NULL,
+        origin VARCHAR(16) NOT NULL,
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_id VARCHAR(32) NOT NULL,
+        seq INTEGER DEFAULT 0 NOT NULL,
+        actor_kind VARCHAR(16) DEFAULT 'person' NOT NULL,
+        who VARCHAR(200) DEFAULT '' NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        action VARCHAR(16) DEFAULT 'select' NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        turn_id INTEGER,
+        proposal_id VARCHAR(32),
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_input_revision_owner UNIQUE (id, subject_id, draft_id),
+        CONSTRAINT fk_pipeline_input_revision_subject FOREIGN KEY(subject_id, draft_id)
+        REFERENCES pipeline_input (id, draft_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_input_revision_unknown_is_legacy CHECK (actor_kind != 'unknown'
+        OR legacy),
+        CONSTRAINT ck_pipeline_input_revision_origin CHECK (origin IN ('person_said',
+        'measured', 'model_read', 'open')),
+        CONSTRAINT ck_pipeline_input_revision_actor_kind CHECK (actor_kind IN ('person',
+        'model', 'resolver', 'unknown')),
+        CONSTRAINT ck_pipeline_input_revision_action CHECK (action IN ('select', 'retain',
+        'retract', 'inherit', 'import'))
+)""",
+    """CREATE INDEX ix_pipeline_input_revision_draft_id ON pipeline_input_revision (draft_id)""",
+    """CREATE INDEX ix_pipeline_input_revision_subject_id
+        ON pipeline_input_revision (subject_id)""",
+    """CREATE TABLE pipeline_want_revision (
+        type_id VARCHAR(128) NOT NULL,
+        states JSON NOT NULL,
+        present BOOLEAN DEFAULT true NOT NULL,
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_id VARCHAR(32) NOT NULL,
+        seq INTEGER DEFAULT 0 NOT NULL,
+        actor_kind VARCHAR(16) DEFAULT 'person' NOT NULL,
+        who VARCHAR(200) DEFAULT '' NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        action VARCHAR(16) DEFAULT 'select' NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        turn_id INTEGER,
+        proposal_id VARCHAR(32),
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_want_revision_owner UNIQUE (id, subject_id, draft_id),
+        CONSTRAINT fk_pipeline_want_revision_subject FOREIGN KEY(subject_id, draft_id)
+        REFERENCES pipeline_want (id, draft_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_want_revision_unknown_is_legacy CHECK (actor_kind != 'unknown'
+        OR legacy),
+        CONSTRAINT ck_pipeline_want_revision_actor_kind CHECK (actor_kind IN ('person',
+        'model', 'resolver', 'unknown')),
+        CONSTRAINT ck_pipeline_want_revision_action CHECK (action IN ('select', 'retain',
+        'retract', 'inherit', 'import'))
+)""",
+    """CREATE INDEX ix_pipeline_want_revision_draft_id ON pipeline_want_revision (draft_id)""",
+    """CREATE INDEX ix_pipeline_want_revision_subject_id ON pipeline_want_revision (subject_id)""",
+    """CREATE TABLE pipeline_producer_revision (
+        type_id VARCHAR(128) NOT NULL,
+        states JSON NOT NULL,
+        contract VARCHAR(200),
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_id VARCHAR(32) NOT NULL,
+        seq INTEGER DEFAULT 0 NOT NULL,
+        actor_kind VARCHAR(16) DEFAULT 'person' NOT NULL,
+        who VARCHAR(200) DEFAULT '' NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        action VARCHAR(16) DEFAULT 'select' NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        turn_id INTEGER,
+        proposal_id VARCHAR(32),
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_producer_revision_owner UNIQUE (id, subject_id, draft_id),
+        CONSTRAINT fk_pipeline_producer_revision_subject FOREIGN KEY(subject_id, draft_id)
+        REFERENCES pipeline_producer (id, draft_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_producer_revision_unknown_is_legacy CHECK (actor_kind !=
+        'unknown' OR legacy),
+        CONSTRAINT ck_pipeline_producer_revision_actor_kind CHECK (actor_kind IN ('person',
+        'model', 'resolver', 'unknown')),
+        CONSTRAINT ck_pipeline_producer_revision_action CHECK (action IN ('select', 'retain',
+        'retract', 'inherit', 'import'))
+)""",
+    """CREATE INDEX ix_pipeline_producer_revision_draft_id
+        ON pipeline_producer_revision (draft_id)""",
+    """CREATE INDEX ix_pipeline_producer_revision_subject_id ON pipeline_producer_revision
+        (subject_id)""",
+    """CREATE TABLE pipeline_parameter_revision (
+        name VARCHAR(128) NOT NULL,
+        value JSON,
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_id VARCHAR(32) NOT NULL,
+        seq INTEGER DEFAULT 0 NOT NULL,
+        actor_kind VARCHAR(16) DEFAULT 'person' NOT NULL,
+        who VARCHAR(200) DEFAULT '' NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        action VARCHAR(16) DEFAULT 'select' NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        turn_id INTEGER,
+        proposal_id VARCHAR(32),
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_parameter_revision_owner UNIQUE (id, subject_id, draft_id),
+        CONSTRAINT fk_pipeline_parameter_revision_subject FOREIGN KEY(subject_id, draft_id)
+        REFERENCES pipeline_parameter (id, draft_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_parameter_revision_unknown_is_legacy CHECK (actor_kind !=
+        'unknown' OR legacy),
+        CONSTRAINT ck_pipeline_parameter_revision_actor_kind CHECK (actor_kind IN ('person',
+        'model', 'resolver', 'unknown')),
+        CONSTRAINT ck_pipeline_parameter_revision_action CHECK (action IN ('select', 'retain',
+        'retract', 'inherit', 'import'))
+)""",
+    """CREATE INDEX ix_pipeline_parameter_revision_draft_id
+        ON pipeline_parameter_revision (draft_id)""",
+    """CREATE INDEX ix_pipeline_parameter_revision_subject_id ON pipeline_parameter_revision
+        (subject_id)""",
+    """CREATE TABLE pipeline_review_revision (
+        node VARCHAR(128) NOT NULL,
+        contract VARCHAR(200) NOT NULL,
+        fingerprint VARCHAR(64) NOT NULL,
+        status VARCHAR(16) NOT NULL,
+        decision_revision INTEGER NOT NULL,
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_id VARCHAR(32) NOT NULL,
+        seq INTEGER DEFAULT 0 NOT NULL,
+        actor_kind VARCHAR(16) DEFAULT 'person' NOT NULL,
+        who VARCHAR(200) DEFAULT '' NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        action VARCHAR(16) DEFAULT 'select' NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        turn_id INTEGER,
+        proposal_id VARCHAR(32),
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_review_revision_owner UNIQUE (id, subject_id, draft_id),
+        CONSTRAINT fk_pipeline_review_revision_subject FOREIGN KEY(subject_id, draft_id)
+        REFERENCES pipeline_review (id, draft_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_review_revision_unknown_is_legacy CHECK (actor_kind !=
+        'unknown' OR legacy),
+        CONSTRAINT ck_pipeline_review_revision_status CHECK (status IN ('reviewed',
+        'superseded', 'removed')),
+        CONSTRAINT ck_pipeline_review_revision_actor_kind CHECK (actor_kind IN ('person',
+        'model', 'resolver', 'unknown')),
+        CONSTRAINT ck_pipeline_review_revision_action CHECK (action IN ('select', 'retain',
+        'retract', 'inherit', 'import'))
+)""",
+    """CREATE INDEX ix_pipeline_review_revision_draft_id ON pipeline_review_revision (draft_id)""",
+    """CREATE INDEX ix_pipeline_review_revision_subject_id
+        ON pipeline_review_revision (subject_id)""",
+    """CREATE TABLE pipeline_evidence_access (
+        draft_id VARCHAR(32) NOT NULL,
+        observation_id VARCHAR(32) NOT NULL,
+        inherited BOOLEAN DEFAULT false NOT NULL,
+        PRIMARY KEY (draft_id, observation_id),
+        FOREIGN KEY(draft_id) REFERENCES pipeline_draft (id) ON DELETE RESTRICT,
+        FOREIGN KEY(observation_id) REFERENCES pipeline_observation (id) ON DELETE RESTRICT
+)""",
+    """CREATE TABLE pipeline_fact_revision (
+        observation_id VARCHAR(32),
+        id VARCHAR(32) NOT NULL,
+        draft_id VARCHAR(32) NOT NULL,
+        subject_id VARCHAR(32) NOT NULL,
+        seq INTEGER DEFAULT 0 NOT NULL,
+        actor_kind VARCHAR(16) DEFAULT 'person' NOT NULL,
+        who VARCHAR(200) DEFAULT '' NOT NULL,
+        legacy BOOLEAN DEFAULT false NOT NULL,
+        action VARCHAR(16) DEFAULT 'select' NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL,
+        turn_id INTEGER,
+        proposal_id VARCHAR(32),
+        PRIMARY KEY (id),
+        CONSTRAINT uq_pipeline_fact_revision_owner UNIQUE (id, subject_id, draft_id),
+        CONSTRAINT fk_pipeline_fact_revision_subject FOREIGN KEY(subject_id, draft_id)
+        REFERENCES pipeline_fact (id, draft_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_fact_revision_unknown_is_legacy CHECK (actor_kind != 'unknown'
+        OR legacy),
+        CONSTRAINT fk_pipeline_fact_evidence FOREIGN KEY(draft_id, observation_id) REFERENCES
+        pipeline_evidence_access (draft_id, observation_id) ON DELETE RESTRICT,
+        CONSTRAINT ck_pipeline_fact_revision_actor_kind CHECK (actor_kind IN ('person',
+        'model', 'resolver', 'unknown')),
+        CONSTRAINT ck_pipeline_fact_revision_action CHECK (action IN ('select', 'retain',
+        'retract', 'inherit', 'import'))
+)""",
+    """CREATE INDEX ix_pipeline_fact_revision_subject_id ON pipeline_fact_revision (subject_id)""",
+    """CREATE INDEX ix_pipeline_fact_revision_draft_id ON pipeline_fact_revision (draft_id)""",
+    """ALTER TABLE pipeline_input ADD CONSTRAINT fk_pipeline_input_current FOREIGN KEY(current_id,
+        id, draft_id) REFERENCES pipeline_input_revision (id, subject_id, draft_id) ON DELETE
+        RESTRICT DEFERRABLE INITIALLY DEFERRED""",
+    """ALTER TABLE pipeline_want ADD CONSTRAINT fk_pipeline_want_current FOREIGN KEY(current_id, id,
+        draft_id) REFERENCES pipeline_want_revision (id, subject_id, draft_id) ON DELETE
+        RESTRICT DEFERRABLE INITIALLY DEFERRED""",
+    """ALTER TABLE pipeline_fact ADD CONSTRAINT fk_pipeline_fact_current FOREIGN KEY(current_id, id,
+        draft_id) REFERENCES pipeline_fact_revision (id, subject_id, draft_id) ON DELETE
+        RESTRICT DEFERRABLE INITIALLY DEFERRED""",
+    """ALTER TABLE pipeline_review ADD CONSTRAINT fk_pipeline_review_current FOREIGN KEY(current_id,
+        id, draft_id) REFERENCES pipeline_review_revision (id, subject_id, draft_id) ON DELETE
+        RESTRICT DEFERRABLE INITIALLY DEFERRED""",
+    """ALTER TABLE pipeline_producer ADD CONSTRAINT fk_pipeline_producer_current FOREIGN
+        KEY(current_id, id, draft_id) REFERENCES pipeline_producer_revision (id, subject_id,
+        draft_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED""",
+    """ALTER TABLE pipeline_parameter ADD CONSTRAINT fk_pipeline_parameter_current FOREIGN
+        KEY(current_id, id, draft_id) REFERENCES pipeline_parameter_revision (id, subject_id,
+        draft_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED""",
+    """ALTER TABLE pipeline_draft ADD COLUMN ownership VARCHAR(16) DEFAULT 'manual' NOT NULL""",
+    """ALTER TABLE pipeline_draft ADD COLUMN decision_revision INTEGER DEFAULT 0 NOT NULL""",
+    """ALTER TABLE pipeline_draft ADD COLUMN decision_sequence INTEGER DEFAULT 0 NOT NULL""",
+    """ALTER TABLE pipeline_draft ADD COLUMN projection_revision INTEGER""",
+    """ALTER TABLE pipeline_draft ADD COLUMN projection_current BOOLEAN DEFAULT true NOT NULL""",
+    """ALTER TABLE pipeline_draft ADD COLUMN forked_from VARCHAR(32)""",
+    """ALTER TABLE pipeline_draft ADD CONSTRAINT ck_pipeline_draft_ownership CHECK (ownership IN
+        ('authored', 'manual'))""",
+    """ALTER TABLE pipeline_authoring_session ADD COLUMN extraction JSON""",
+    """ALTER TABLE pipeline_authoring_session ADD COLUMN retired BOOLEAN DEFAULT false NOT NULL""",
+    """ALTER TABLE pipeline_authoring_session ADD COLUMN retirement_reason VARCHAR(32)""",
+    """ALTER TABLE pipeline_authoring_session ADD COLUMN pacing VARCHAR(32)""",
+    """ALTER TABLE pipeline_authoring_session ADD COLUMN show_gaps BOOLEAN""",
+    """ALTER TABLE pipeline_authoring_session ADD CONSTRAINT
+        ck_pipeline_authoring_session_retirement_reason CHECK (retirement_reason IN
+        ('ambiguous', 'obsolete_protocol'))""",
+    """ALTER TABLE pipeline_authoring_session ADD CONSTRAINT ck_pipeline_authoring_session_pacing
+        CHECK (pacing IN ('together', 'stop_where_needed'))""",
+    """ALTER TABLE pipeline_draft ADD CONSTRAINT fk_pipeline_draft_forked_from FOREIGN KEY
+        (forked_from) REFERENCES pipeline_draft(id) ON DELETE RESTRICT""",
+)
+
+
+def upgrade():
+    for statement in STATEMENTS:
+        op.execute(statement)
+
+
+def downgrade():
+    raise RuntimeError(
+        "restore the pre-migration backup; retained decision history "
+        "has no lossless legacy downgrade"
+    )

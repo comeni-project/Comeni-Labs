@@ -78,7 +78,7 @@ def _declared(path: Path, root: Path) -> bool:
 
     The allowlist is *by extension* rather than by directory, because a layer no longer has
     kind directories to enumerate (comeni-registry#1) — with one exception, `module/`, which
-    holds a tool's own source in whatever extensions upstream ships. See `_in_module`.
+    holds a tool's own source in whatever extensions upstream ships. See `_in_source`.
 
     What it must still exclude is what issue
     #46 found: a submodule's `.git` file holds
@@ -98,7 +98,13 @@ def _declared(path: Path, root: Path) -> bool:
     arriving a second time by a different route. Where a layer sits cannot decide what it
     contains.
     """
-    if _in_module(path, root):
+    if "__pycache__" in path.relative_to(root).parts or path.suffix == ".pyc":
+        # **Bytecode is never layer data**, inside `piece/` or anywhere (review of #134). Running
+        # a piece writes `__pycache__/*.pyc`, which embeds the source's mtime and the
+        # interpreter's version in its name: the layer digest would move on every test run and
+        # differ between clones — issue #46's machine-dependent digest by a third route.
+        return False
+    if _in_source(path, root):
         # **Before the dot rule, not after it, and running `comeni-vendor add` is what found
         # that.** nf-core ships `.conda-lock/linux_amd64-….txt` inside a module — the pinned
         # environment, which is as pipeline-affecting as `main.nf` — and the dot rule was
@@ -120,8 +126,24 @@ def _declared(path: Path, root: Path) -> bool:
 MODULE_DIR = "module"
 """The directory a tool's own source lives in, beside the `module.yml` that declares it."""
 
+PIECE_DIR = "piece"
+PIECE_DECLARATIONS = ("codec.yml", "format.yml", "measure.yml")
+"""A `piece/` is code only beside one of these (issue 224): a tool may name a folder `piece`."""
 
-def _in_module(path: Path, root: Path) -> bool:
+
+def in_piece(path: Path, root: Path) -> bool:
+    """Is this under a `piece/` that sits beside a codec, format or measure declaration?"""
+    rel = path.relative_to(root)
+    for depth, part in enumerate(rel.parts[:-1]):
+        if part == PIECE_DIR:
+            beside = root.joinpath(*rel.parts[:depth])
+            if any((beside / name).is_file() for name in PIECE_DECLARATIONS):
+                return True
+    return False
+"""An inspector piece's own code, tests and fixtures, beside the declaration that names it."""
+
+
+def _in_source(path: Path, root: Path) -> bool:
     """Is this file the tool's own source rather than a declaration about it?
 
     **Plan 5A §9.1, and it is the reason `_declared` is not simply an extension allowlist.**
@@ -149,8 +171,12 @@ def _in_module(path: Path, root: Path) -> bool:
     `declares:` line, so loading it would fail every module in the registry with `MD0010`. The
     declaration that *is* layer data is `module.yml`, which sits **beside** `module/` rather
     than inside it, for exactly this reason.
+
+    **`piece/` too, since #134**: an inspector piece's code, tests and fixtures. Same two
+    answers for the same two callers: the digest covers everything here, the loader parses
+    nothing here. Only a `piece/` beside a piece's declaration (`in_piece`, issue 224).
     """
-    return MODULE_DIR in path.relative_to(root).parts
+    return MODULE_DIR in path.relative_to(root).parts or in_piece(path, root)
 
 
 class DeclaredKind(StrEnum):
@@ -184,6 +210,23 @@ class DeclaredKind(StrEnum):
     not ship must be able to name it in an overlay, and because a rule targeting a *type*
     is what audit A119 and A123 both are.
     """
+
+    FAMILIES = "families"
+    """The first level of the type choice (#194): a model reading what somebody wants picks a
+    family from a short described list, then a type from that family, shown whole. Every type
+    belongs to the family before its first dot, and a family nothing declares fails to load."""
+
+    TOOLS = "tools"
+    """What each tool is — `comeni_core.declared.tools` (#216)."""
+
+    CODECS = "codecs"
+    """A piece of an inspection — `comeni_core.declared.inspection` (#134)."""
+
+    FORMATS = "formats"
+    """A piece of an inspection — `comeni_core.declared.inspection` (#134)."""
+
+    MEASURES = "measures"
+    """A piece of an inspection — `comeni_core.declared.inspection` (#134)."""
 
 
 class Policy(StrEnum):
@@ -357,7 +400,7 @@ def _files(directory: Path) -> list[Path]:
     """
     found = {*directory.rglob("*.yml"), *directory.rglob("*.yaml")}
     return sorted(
-        p for p in found if _declared(p, directory) and not _in_module(p, directory)
+        p for p in found if _declared(p, directory) and not _in_source(p, directory)
     )
 
 
@@ -377,6 +420,11 @@ _KIND_OF = {
     "measurement": DeclaredKind.MEASUREMENTS,
     "role": DeclaredKind.ROLES,
     "module": DeclaredKind.MODULES,
+    "family": DeclaredKind.FAMILIES,
+    "tool": DeclaredKind.TOOLS,
+    "codec": DeclaredKind.CODECS,
+    "format": DeclaredKind.FORMATS,
+    "measure": DeclaredKind.MEASURES,
 }
 """The singular a file writes, to the kind it means. Derived from `DeclaredKind` by hand rather
 than by stripping an `s`, because `vocabularies` is not `vocabularys`."""

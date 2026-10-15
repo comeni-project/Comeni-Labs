@@ -1,0 +1,177 @@
+{
+  "steps": [
+    {
+      "node": "fastqc",
+      "contract": "nf-core/fastqc@0.12.1",
+      "brief": {
+        "does": {
+          "text": "FastQC checks the quality of raw reads.",
+          "source": "curated"
+        },
+        "why": [
+          {
+            "text": "the only contract producing qc.report",
+            "source": "engine"
+          }
+        ],
+        "makes": [
+          {
+            "text": "quality reports",
+            "source": "curated"
+          }
+        ],
+        "check": []
+      },
+      "need": {
+        "kind": "nothing",
+        "facts": [],
+        "choices": []
+      },
+      "gaps": []
+    },
+    {
+      "node": "star_align",
+      "contract": "nf-core/star/align@1.11.0",
+      "brief": {
+        "does": {
+          "text": "STAR aligns RNA-seq reads to a genome, splice-aware.",
+          "source": "curated"
+        },
+        "why": [
+          {
+            "text": "read length 150 ≥ 100: STAR",
+            "source": "engine"
+          },
+          {
+            "text": "read length decides which aligner is appropriate (Dobin et al. 2013)",
+            "source": "engine"
+          }
+        ],
+        "makes": [
+          {
+            "text": "reads placed on a reference",
+            "source": "curated"
+          }
+        ],
+        "check": [
+          {
+            "text": "read_length is 150, measured by fastq@1.1.0 + read_length@1.0.0",
+            "source": "engine"
+          }
+        ]
+      },
+      "need": {
+        "kind": "nothing",
+        "facts": [],
+        "choices": []
+      },
+      "gaps": []
+    },
+    {
+      "node": "featurecounts",
+      "contract": "nf-core/subread/featurecounts@2.0.6",
+      "brief": {
+        "does": {
+          "text": "featureCounts counts reads per gene.",
+          "source": "curated"
+        },
+        "why": [
+          {
+            "text": "registry priority 10",
+            "source": "engine"
+          }
+        ],
+        "makes": [
+          {
+            "text": "reads counted per feature",
+            "source": "curated"
+          }
+        ],
+        "check": []
+      },
+      "need": {
+        "kind": "nothing",
+        "facts": [],
+        "choices": []
+      },
+      "gaps": []
+    },
+    {
+      "node": "multiqc",
+      "contract": "nf-core/multiqc@1.25.1",
+      "brief": {
+        "does": null,
+        "why": [
+          {
+            "text": "uncontested",
+            "source": "engine"
+          }
+        ],
+        "makes": [
+          {
+            "text": "quality reports",
+            "source": "curated"
+          }
+        ],
+        "check": []
+      },
+      "need": {
+        "kind": "nothing",
+        "facts": [],
+        "choices": []
+      },
+      "gaps": [
+        {
+          "kind": "no_description",
+          "subject": "nf-core/multiqc",
+          "fix": "registry/tools/nf-core/multiqc/tool.yml"
+        }
+      ]
+    }
+  ],
+  "wrap_up": {
+    "gets": [
+      {
+        "id": "counts.matrix",
+        "what": {
+          "text": "reads counted per feature",
+          "source": "curated"
+        }
+      }
+    ],
+    "inputs": [
+      {
+        "id": "params.input",
+        "what": {
+          "text": "raw sequencing reads",
+          "source": "curated"
+        }
+      }
+    ],
+    "unset": [],
+    "gaps": [
+      {
+        "kind": "no_description",
+        "subject": "nf-core/multiqc",
+        "fix": "registry/tools/nf-core/multiqc/tool.yml"
+      }
+    ],
+    "decided": [
+      {
+        "tier": 1,
+        "source": "resolver",
+        "count": 1
+      },
+      {
+        "tier": 2,
+        "source": "resolver",
+        "count": 2
+      },
+      {
+        "tier": 3,
+        "source": "resolver",
+        "count": 1
+      }
+    ]
+  }
+}

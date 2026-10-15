@@ -2,9 +2,9 @@
 
 **This file is the whole of the builder's side of egress door 1.** Every call composes an
 `AuthoringRequest`, renders it into a committed template, sends it, and admits the answer against
-the vocabulary and the ids the engine itself issued. `services/authoring.py` next door holds rows
-and knows nothing about providers; that split is what lets its tests run against a database with
-no model, and this file's tests run against a fake transport with no database.
+the vocabulary and the ids the engine itself issued. The stage modules (`mendel_api/stages/`)
+hold rows and know nothing about providers; that split is what lets their tests run against a
+database with no model, and this file's tests run against a fake transport with no database.
 
 **Three things are checked on the way back in, and they are different checks.** The shape is
 checked by `comeni-ai`, which will not hand over an answer that does not validate. The
@@ -30,30 +30,36 @@ import re
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import NamedTuple
 
 from comeni_ai import Client, ModelAccess, ModelUnavailableError, Usage
-from comeni_core.artifact.egress import (
-    AuthoringRequest,
-    AuthoringRole,
-    AuthoringTurn,
-    KnownStep,
-)
 from comeni_core.diagnostics import coded
-from mendel_forge.workflow import InvocationState
+from comeni_core.egress.authoring import AuthoringRequest, AuthoringRole, AuthoringTurn, KnownStep
+from comeni_core.egress.characterisation import CharacteriseRequest
+from mendel_forge.workflow import Agent, InvocationState
 
 from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
     CHAT_TAIL,
+    AskedGap,
     AuthoringIntent,
+    CharacteriseFamilies,
+    CharacteriseReply,
+    ChatReply,
+    FamilyChoice,
+    GapReply,
     GoalUnderstanding,
+    Purpose,  # noqa: F401 (re-exported: it lived here; models.py needs it without a cycle)
+    ReadBack,
+    Understanding,
+    WantUnderstanding,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import AiInvocation
+from mendel_api.services import registry, replies
 from mendel_api.settings import model_access
 
-AGENT = "builder"
+AGENT = Agent.BUILDER
 """What goes in `ai_invocation.agent` for every row this file writes.
 
 The column exists because the transport is shared and an audit table named `forge_*` would be a
@@ -70,20 +76,6 @@ passing the code beside the message it already contains, which is two things to 
 """
 
 
-class Purpose(StrEnum):
-    """Which of the builder's two calls this was — one member per committed prompt id.
-
-    **Scoped by `agent`, not spelled to be globally unique.** The forge declares a `chat` purpose
-    too, and `agent='builder' AND purpose='chat'` is what tells them apart, which is precisely
-    what that column is for. Inventing `builder_chat` here would put the agent name in two
-    columns and let them disagree.
-    """
-
-    GOAL = "goal"
-    CHAT = "chat"
-    TIER4 = "tier4"
-
-
 class Outcome(NamedTuple):
     """What a call produced, whether or not it produced an answer.
 
@@ -96,7 +88,10 @@ class Outcome(NamedTuple):
     the transcript stores the other.
     """
 
-    reply: GoalUnderstanding | AuthoringIntent | None
+    reply: (
+        WantUnderstanding | GoalUnderstanding | AuthoringIntent | GapReply | AskedGap | ReadBack
+        | CharacteriseFamilies | CharacteriseReply | None
+    )
     invocation_id: str | None
     refusal: str | None
     code: str | None
@@ -153,20 +148,31 @@ def _conversation_text(turns: Sequence[AuthoringTurn]) -> str:
     return "\n\n".join(f"{turn.role.value}: {turn.content}" for turn in turns)
 
 
-def _vocabulary_text(stack) -> str:
+def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     """Every declared type with its states, and every measurement. **Whole, never a selection.**
+
+    `types`, when given, is **each chosen family whole** (#194) — never a hand-picked subset. The
+    prompt says so, and a model shown one family is told it is seeing all of it.
 
     `mendel_forge.ai.select`'s argument, and it is the one worth restating: a model shown nine of
     eleven values does not know it was shown nine. Its answer then passes every check on the way
     back, because the thing it could not say is the thing nobody asked about.
     """
     lines = ["Types, each with the states declared for it:"]
+    shown = stack.vocabulary.types if types is None else set(types)
     for type_id, states in sorted(stack.vocabulary.types.items()):
+        if type_id not in shown:
+            continue
         spelled = ", ".join(sorted(states)) if states else "(no states)"
         lines.append(f"  {type_id} — {spelled}")
-    lines += ["", "Measurements that may appear in the profile:"]
-    for measurement_id in sorted(stack.measurements.measurements):
-        lines.append(f"  {measurement_id}")
+    # **Each measurement with what it can hold and what it means** (#170): a bare `paired` gave a
+    # model nothing to connect *paired-end* to, and `stated` came back empty.
+    lines += ["", "Measurements, each with what it can hold (what a person may state):"]
+    for measurement_id, m in sorted(stack.measurements.measurements.items()):
+        holds = ", ".join(str(v) for v in m.values) if m.values else m.kind.value
+        unit = f" {m.unit}" if m.unit else ""
+        about = f" — {m.description}" if m.description else ""
+        lines.append(f"  {measurement_id} ({holds}{unit}){about}")
     return "\n".join(lines)
 
 
@@ -203,52 +209,399 @@ def _options_text(options: Sequence[str]) -> str:
 # ── the two calls ─────────────────────────────────────────────────────────────────────────
 
 
-def understand(request: AuthoringRequest, *, stack, client: Client | None = None) -> Outcome:
-    """Prose in, a typed `Goal` plus a summary out, or a visible coded refusal.
+def choose_families(
+    request: AuthoringRequest,
+    *,
+    stack,
+    memory: str = "",
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """Prose in, the families what the person wants belongs to and an acknowledgement out (#194).
 
-    The first call has no pipeline to talk about, which is why it is a different prompt and a
-    different shape from `follow_up` rather than one call with half its fields empty.
+    The first of the two type-choice calls. It is shown every family with its description.
+    **`fits` first** (#202): anything but `yes` with a family listed makes the engine ask.
     """
     return _call(
         request,
-        purpose=Purpose.GOAL,
-        prompt_id=prompts.GOAL,
-        shape=GoalUnderstanding,
+        purpose=Purpose.FAMILY,
+        prompt_id=prompts.FAMILY,
+        shape=FamilyChoice,
         values={
-            "vocabulary": _vocabulary_text(stack),
+            "families": _families_text(stack),
+            "memory": memory or "(nothing is known yet)",
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: _admit_goal(reply, stack),
+        admit=lambda reply: _admit_families(reply, stack),
         client=client,
+        session_id=session_id,
+        choices={"families": sorted(stack.families.families)},
     )
 
 
-def follow_up(request: AuthoringRequest, *, client: Client | None = None) -> Outcome:
+def _families_text(stack) -> str:
+    return "\n".join(
+        f"  {family.id} — {family.description}"
+        for family in sorted(stack.families.families.values(), key=lambda f: f.id)
+    )
+
+
+def _admit_families(reply: FamilyChoice | CharacteriseFamilies, stack):
+    """Every family id declared, or `MI0204` — the vocabulary check, one level up."""
+    unknown = sorted(set(reply.families) - set(stack.families.families))
+    if unknown:
+        raise ValueError(
+            coded("MI0204", f"the answer names families nothing declares: {', '.join(unknown)}")
+        )
+    return reply
+
+
+def understand(
+    request: AuthoringRequest,
+    *,
+    stack,
+    families: Sequence[str] | None = None,
+    memory: str = "",
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """Prose in, what the person wants and what they said as changes out (`Understanding`,
+    `goal.v8`, #307), or a visible coded refusal.
+
+    **`families` given** (#194): `goal.v7`, shown every type of those families and held to them.
+    **`None`**, the family step switched off: `goal.v6`, shown every type, acknowledging as it
+    goes. The first call has no pipeline to talk about, which is why it is a different prompt
+    and a different shape from `follow_up` rather than one call with half its fields empty.
+    """
+    shown = (
+        sorted(stack.vocabulary.types)
+        if families is None
+        else stack.families.types_of(families, stack.vocabulary.types)
+    )
+    return _call(
+        request,
+        purpose=Purpose.GOAL,
+        prompt_id=prompts.GOAL_ONE_STEP if families is None else prompts.GOAL,
+        shape=Understanding,
+        values={
+            "vocabulary": _vocabulary_text(stack, None if families is None else shown),
+            "memory": memory or "(nothing is known yet)",
+            "conversation": _conversation_text(request.turns),
+            "request": request.prompt
+            + ("\n\n(Acknowledge them in `say`: nothing has yet.)" if families is None else ""),
+        },
+        admit=lambda reply: _admit_wanted(replies.admit(reply, stack), shown),
+        client=client,
+        session_id=session_id,
+        choices={
+            "wants.type": shown,
+            "inputs.type": sorted(stack.vocabulary.types),
+            "requires.type": shown,
+            # A fact names a measurement, or a type the person said they hold.
+            "facts.subject": _subjects(stack),
+        },
+    )
+
+
+def _subjects(stack) -> list[str]:
+    return sorted(set(stack.vocabulary.types) | set(stack.measurements.measurements))
+
+
+def _admit_wanted(understanding, shown: Sequence[str]):
+    """A want outside the families it was shown is refused (`MI0204`), as `_admit_shown` holds
+    for the older shape."""
+    outside = sorted({w.type for w in understanding.wants} - set(shown))
+    if outside:
+        raise ValueError(
+            coded("MI0204", f"the want names types it was not shown: {', '.join(outside)}")
+        )
+    return understanding
+
+
+def follow_up(
+    request: AuthoringRequest,
+    *,
+    stack=None,
+    memory: str = "",
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
     """A follow-up turn in, exactly one declared intent out, or a visible coded refusal.
 
     Takes no stack: an intent names ids the engine issued and never a type id, so the vocabulary
     is not what this call is held to. Asking for one anyway would be a parameter that exists to
     look symmetrical.
     """
+    stack = stack if stack is not None else registry.stack()
     return _call(
         request,
         purpose=Purpose.CHAT,
         prompt_id=prompts.CHAT,
-        shape=AuthoringIntent,
+        shape=ChatReply,
         values={
+            "memory": memory or "(nothing is known yet)",
             "pipeline": _pipeline_text(request),
             "options": _options_text(request.options),
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: _admit_intent(reply, request),
+        admit=lambda reply: replies.admit(reply, stack),
         client=client,
+        session_id=session_id,
+        choices={
+            "wants.type": sorted(stack.vocabulary.types),
+            "inputs.type": sorted(stack.vocabulary.types),
+            "requires.type": sorted(stack.vocabulary.types),
+            "pins.type": sorted(stack.vocabulary.types),
+            "pins.tool": sorted(c.id for c in stack.registry.all()),
+            "facts.subject": _subjects(stack),
+            "retract.subject": _subjects(stack),
+        },
     )
 
 
-def _call(
+def phrase_gap(
     request: AuthoringRequest,
+    *,
+    gap: dict,
+    stack,
+    memory: str = "",
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """One gathering question, phrased for this person (#167; `ask.v2`, words only, #307).
+
+    `gap` carries `subject`, `kind`, `asks` (the engine's wording), `description` and `options`
+    (id → label); `request.prompt` is the person's first sentence and `request.options` the
+    gap's option ids, so admission compares `already_option` against what was written down
+    before the call went out.
+    """
+    return _call(
+        request,
+        purpose=Purpose.ASK,
+        prompt_id=prompts.ASK,
+        shape=AskedGap,
+        values={
+            "gap": gap["asks"],
+            "description": gap.get("description") or gap["subject"],
+            "options": _options_text([f"{k} — {v}" for k, v in gap["options"].items()]),
+            "first_sentence": request.prompt,
+            "memory": memory or gap.get("facts") or "(nothing is known yet)",
+        },
+        admit=lambda reply: _admit_asked(reply, gap, stack),
+        client=client,
+        session_id=session_id,
+    )
+
+
+def read_back(
+    request: AuthoringRequest,
+    *,
+    goal: str,
+    memory: str = "",
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """What is known, read back in plain words for the card (#176; `readback.v2`, #307)."""
+    return _call(
+        request,
+        purpose=Purpose.READBACK,
+        prompt_id=prompts.READBACK,
+        shape=ReadBack,
+        values={"memory": memory or goal},
+        admit=lambda reply: reply,
+        client=client,
+        session_id=session_id,
+    )
+
+
+# ── the characteriser (14.7.7) ─────────────────────────────────────────────────────────────
+
+
+def compose_characterise(
+    excerpt: str, *, binary_before: bool, registry: str | None
+) -> CharacteriseRequest:
+    """Door 6's payload. The excerpt is bounded by its own type (`marks.SampleText`)."""
+    return CharacteriseRequest(excerpt=excerpt, binary_before=binary_before, registry=registry)
+
+
+def _excerpt_values(request: CharacteriseRequest) -> dict[str, str]:
+    return {
+        "excerpt": request.excerpt,
+        "binary_before": (
+            "binary bytes came before this text"
+            if request.binary_before
+            else "no binary bytes before this text"
+        ),
+    }
+
+
+def offered(stack, type_id: str) -> tuple[set[str], set[str]]:
+    """The states a type declares, and the measurements whose `describes:` names it (spec §2:
+    the registry decides which facts a model may read; a bench fact can never be offered)."""
+    states = set(stack.vocabulary.types.get(type_id, ()))
+    measurements = {
+        m_id for m_id, m in stack.measurements.measurements.items() if m.describes == type_id
+    }
+    return states, measurements
+
+
+def _types_text(stack, types: Sequence[str]) -> str:
+    """Each type with its states, then the measurements describing it. **Each family whole.**"""
+    lines = []
+    for type_id in sorted(types):
+        states, measured = offered(stack, type_id)
+        lines.append(f"  {type_id} — states: {', '.join(sorted(states)) or '(none)'}")
+        for m_id in sorted(measured):
+            m = stack.measurements.get(m_id)
+            holds = ", ".join(str(v) for v in m.values) if m.values else m.kind.value
+            unit = f" {m.unit}" if m.unit else ""
+            lines.append(f"      {m_id} ({holds}{unit}) — {m.description}")
+    return "\n".join(lines)
+
+
+def characterise_families(
+    request: CharacteriseRequest,
+    *,
+    stack,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """The start of a sample in, the families it could be out (14.7.7). An empty list is an
+    answer: none fits, or the model cannot tell."""
+    return _call(
+        request,
+        purpose=Purpose.CHARACTERISE_FAMILY,
+        prompt_id=prompts.CHARACTERISE_FAMILY,
+        shape=CharacteriseFamilies,
+        values={"families": _families_text(stack), **_excerpt_values(request)},
+        admit=lambda reply: _admit_families(reply, stack),
+        client=client,
+        session_id=session_id,
+        choices={"families": sorted(stack.families.families)},
+    )
+
+
+def characterise(
+    request: CharacteriseRequest,
+    *,
+    stack,
+    families: Sequence[str] | None,
+    client: Client | None = None,
+    session_id: str | None = None,
+) -> Outcome:
+    """The start of a sample in, its type, states and facts out, admitted (14.7.7).
+
+    `families` from the first call shows each family whole; `None`, with the family step off,
+    shows every type. A value outside its declaration is dropped, as an inspector's would be;
+    an id outside what was offered refuses the whole reply.
+    """
+    shown = sorted(
+        stack.vocabulary.types
+        if families is None
+        else stack.families.types_of(families, stack.vocabulary.types)
+    )
+    measured = sorted({m for t in shown for m in offered(stack, t)[1]})
+    return _call(
+        request,
+        purpose=Purpose.CHARACTERISE,
+        prompt_id=prompts.CHARACTERISE,
+        shape=CharacteriseReply,
+        values={"types": _types_text(stack, shown), **_excerpt_values(request)},
+        admit=lambda reply: _admit_characterised(reply, shown, stack, request.excerpt),
+        client=client,
+        session_id=session_id,
+        # **Every id list held at the server** (issue 243): walked live, a model wrote free-text
+        # states and states into `undetermined`. The union over the types shown; admission still
+        # holds each to the chosen type's own. An empty list is left unconstrained by `_call`.
+        choices={
+            "type_id": list(shown),
+            # On a state's `id`, never on the state itself (issue 245).
+            "states.id": sorted({s for t in shown for s in offered(stack, t)[0]}),
+            "undetermined": measured,
+            "measurements.id": measured,
+        },
+    )
+
+
+EVIDENCE_FLOOR = 8
+"""The shortest quote that can prove anything (#244, raised in #246): `@HD` is in every BAM and
+`@r1` in many FASTQs, so a quote must be long enough to tell one file from another."""
+
+
+def _evidenced(quote: str, excerpt: str) -> bool:
+    """Whether `quote` is within **one line** of the excerpt, runs of whitespace compared as one
+    space (#244). One line, because squashing newlines let a quote join two (#246)."""
+
+    def squash(text: str) -> str:
+        return " ".join(text.split())
+
+    found = squash(quote)
+    return len(found) >= EVIDENCE_FLOOR and any(
+        found in squash(line) for line in excerpt.splitlines()
+    )
+
+
+def _admit_characterised(
+    reply: CharacteriseReply, shown: Sequence[str], stack, excerpt: str
+) -> CharacteriseReply:
+    """MI0204 for a type not shown; MI0205 for a state or measurement that type does not offer.
+    A value outside its declaration is dropped, never refused (spec §7). **A property whose
+    quoted line is not in the excerpt is dropped**, and the rest stands (spec §14, #244)."""
+    if reply.type_id is None:
+        return reply.model_copy(update={"states": [], "measurements": [], "undetermined": []})
+    if reply.type_id not in shown:
+        raise ValueError(
+            coded("MI0204", f"the answer names a type it was not shown: {reply.type_id}")
+        )
+    states, measured = offered(stack, reply.type_id)
+    read = [m.id for m in reply.measurements]
+    # **Each list against its own set** (issue 237): a measurement id is not a state, and one
+    # reply cannot read a measurement twice.
+    foreign = sorted(({s.id for s in reply.states} - states) | (set(read) - measured))
+    if foreign:
+        raise ValueError(
+            coded("MI0205", f"{reply.type_id} offers none of these there: {', '.join(foreign)}")
+        )
+    twice = sorted({m for m in read if read.count(m) > 1})
+    if twice:
+        raise ValueError(coded("MI0205", f"the answer reads {', '.join(twice)} more than once"))
+    # What records nothing is dropped, never refused (#244): an `undetermined` id nothing
+    # offered, or one that was read.
+    undetermined = [m for m in reply.undetermined if m in measured and m not in read]
+    proven = [s for s in reply.states if _evidenced(s.evidence, excerpt)]
+    kept = []
+    for m in reply.measurements:
+        try:
+            stack.measurements.check(m.id, m.value)
+        except (ValueError, KeyError):
+            continue
+        if _evidenced(m.evidence, excerpt):
+            kept.append(m)
+    return reply.model_copy(
+        update={"states": proven, "measurements": kept, "undetermined": undetermined}
+    )
+
+
+def _admit_asked(asked: AskedGap, gap: dict, stack) -> AskedGap:
+    """`asks` is prose and kept; an `already` the gap did not offer, or a value its measurement
+    refuses, is **dropped, not refused** — the phrasing is still worth having (#167)."""
+    option, value = asked.already_option, asked.already_value
+    if option is not None and option not in gap["options"]:
+        option = None
+    if value is not None:
+        try:
+            if "value" not in gap["options"]:
+                raise ValueError("no value was offered")
+            stack.measurements.check(gap["subject"], value)
+        except (ValueError, KeyError, TypeError):
+            value = None
+    return asked.model_copy(update={"already_option": option, "already_value": value})
+
+
+def _call(
+    request: AuthoringRequest | CharacteriseRequest,
     *,
     purpose: Purpose,
     prompt_id: str,
@@ -256,8 +609,13 @@ def _call(
     values: dict[str, str],
     admit,
     client: Client | None,
+    session_id: str | None = None,
+    choices: dict[str, list] | None = None,
 ) -> Outcome:
     """Render, send, admit, record. The one path, so every row is written the same way.
+
+    `choices` names the ids each field may hold, and **it is exactly what the prompt shows**
+    (#194): enforced by the server where it can be, and checked by `admit` either way.
 
     **The schema is appended by `Client.generate` rather than written into the template.** The
     Forge composes its own prompt and calls `respond` because §5.3 fixes the order of ten
@@ -267,7 +625,7 @@ def _call(
     would go stale the first time a field moved.
     """
     if client is None:
-        access = model_access()
+        access = model_access("builder", purpose)
         if access is None:
             return Outcome(
                 None,
@@ -279,11 +637,19 @@ def _call(
             )
         client = Client(access)
 
-    rendered = prompts.template(prompt_id).render(values)
+    template = prompts.template(prompt_id)
+    rendered = template.render(values)
+    # **Sent split** (#183): the fixed part as a system message a provider caches, the per-call
+    # part after it. `rendered` stays for the row's prompt id.
+    system, user = template.render_split(values)
     started = datetime.now(UTC)
 
     try:
-        reply = client.generate(rendered.text, shape, [])
+        # An empty list is sent too (#244): `with_choices` turns it into *no items* on an array,
+        # and leaves a scalar unconstrained, since an `enum` of nothing is a schema a server may
+        # reject. Admission refuses any id that was not offered either way.
+        held = dict(choices) if choices else None
+        reply = client.chat(system, user, shape, choices=held)
     except (ModelUnavailableError, TimeoutError) as failure:
         # The provider is broken rather than the answer being wrong, and the two are separate
         # findings: this one is retried, a refusal is a prompt or a model that cannot do the job.
@@ -299,6 +665,7 @@ def _call(
                 state=InvocationState.FAILED,
                 failure_code=_code_in(str(failure)) or "MA0007",
                 started=started,
+                session_id=session_id,
             ),
             coded("MA0007", "the model could not be reached"),
             _code_in(str(failure)) or "MA0007",
@@ -316,6 +683,7 @@ def _call(
                 state=InvocationState.REFUSED,
                 failure_code=_code_in(refusal) or "MA0004",
                 started=started,
+                session_id=session_id,
             ),
             refusal,
             _code_in(refusal) or "MA0004",
@@ -336,6 +704,7 @@ def _call(
                 state=InvocationState.REFUSED,
                 failure_code=_code_in(str(refused)) or "MI0205",
                 started=started,
+                session_id=session_id,
             ),
             str(refused),
             _code_in(str(refused)),
@@ -351,6 +720,7 @@ def _call(
             state=InvocationState.SUCCEEDED,
             failure_code="",
             started=started,
+            session_id=session_id,
         ),
         None,
         None,
@@ -416,43 +786,12 @@ def admit_goal(goal, stack) -> None:
         )
 
 
-def _admit_intent(intent: AuthoringIntent, request: AuthoringRequest) -> AuthoringIntent:
-    """Every id in the reply against the ids the engine issued. `MI0205`.
-
-    **This is the product claim made mechanical.** *A model cannot produce a value outside the
-    candidate set* is a sentence about a comparison, and this is the comparison — against
-    `request.options` and `request.steps`, both of which were written down before the call went
-    out, so neither can have been widened by the answer.
-    """
-    offered = set(request.options)
-    steps = {step.node for step in request.steps}
-    invented: list[str] = []
-
-    if intent.chose and intent.chose not in offered:
-        invented.append(f"option {intent.chose}")
-    for node in intent.refers_to:
-        if node not in steps:
-            invented.append(f"step {node}")
-    if intent.setting is not None:
-        if intent.setting.node not in steps:
-            invented.append(f"step {intent.setting.node}")
-        if intent.setting.chose and intent.setting.chose not in offered:
-            invented.append(f"option {intent.setting.chose}")
-
-    if invented:
-        raise ValueError(
-            coded("MI0205", "the reply names an option or a step that was never offered")
-            + "".join(f"\n  {item}" for item in invented)
-            + f"\n  offered: {', '.join(sorted(offered)) or '(none)'}"
-            + f"\n  steps: {', '.join(sorted(steps)) or '(none)'}"
-        )
-    return intent
-
-
 # ── the audit row ─────────────────────────────────────────────────────────────────────────
 
 
-def record_calls(calls, *, client: Client, registry: str) -> list[str]:
+def record_calls(
+    calls, *, client: Client, registry: str, session_id: str | None = None
+) -> list[str]:
     """One `ai_invocation` row per tier-4 call a blueprint made. Returns their ids.
 
     **Written after the build, not during it.** `ModelResolver` runs inside the resolver's own
@@ -491,6 +830,8 @@ def record_calls(calls, *, client: Client, registry: str) -> list[str]:
                     duration_ms=None,
                     input_tokens=None,
                     output_tokens=None,
+                    response=call.response,
+                    session_id=session_id,
                 )
             )
             written.append(invocation_id)
@@ -501,11 +842,12 @@ def _record(
     *,
     purpose: Purpose,
     rendered,
-    request: AuthoringRequest,
+    request: AuthoringRequest | CharacteriseRequest,
     client: Client,
     state: InvocationState,
     failure_code: str,
     started: datetime,
+    session_id: str | None = None,
 ) -> str:
     """One `ai_invocation` row, written once, after the call.
 
@@ -547,6 +889,10 @@ def _record(
                 ),
                 input_tokens=usage.input_tokens if usage else None,
                 output_tokens=usage.output_tokens if usage else None,
+                cached_tokens=usage.cached_tokens if usage else None,
+                response=client.last_response,
+                session_id=session_id,
+                reply_format=client.last_format,
             )
         )
     return invocation_id

@@ -214,7 +214,7 @@ def test_every_tier_4_resolution_emits_a_decision_record(setup):
     )
     ir = resolve(goal, registry, rules, measurements, vocabulary=vocabulary)
     keys = [d.key for d in ir.decisions]
-    assert "featurecounts.strandedness" in keys
+    assert keys == ["featurecounts.strandedness"]
     assert ir.decisions[0].resolved_by == "flag-only"
 
 
@@ -446,7 +446,10 @@ def test_a_replayed_override_backed_by_its_record_is_still_honoured():
     goal = Goal(
         have=[GoalInput(type_id=t) for t in ("fastq.reads", "annotation.gtf", "genome.fasta")],
         want=["counts.matrix"],
-        profile=loaded.measurements.profile({}),
+        # A read length, so the alignment rule applies and `seq_platform` is the only question
+        # left: since #174 an unknown read length is a question of its own, and this test is
+        # about replaying one answer, not about how many questions a goal leaves open.
+        profile=loaded.measurements.profile({"read_length": 150}),
     )
     # `key` is `{node_id}.{subject}` — `Ambiguity.key()`. `chosen=None` with a
     # `human_override` is the real recorded shape: nothing was resolved, a person answered.
@@ -476,3 +479,48 @@ def test_a_replayed_override_backed_by_its_record_is_still_honoured():
     assert value.value == "illumina"
     assert ir.needs_review() == [], "an answered question was re-flagged"
     assert ir.overrides(), "the answer vanished from overrides()"
+
+
+def test_a_tier_3_reason_names_what_measured_its_premise(setup):
+    """Issue 233 (decided A): *check the premise* needs to say what to check."""
+    from comeni_core.declared.measurement import MeasuredEntry
+    from comeni_core.plan.tiers import ValueSource
+
+    registry, rules, measurements, vocabulary = setup
+    for entry, says in [
+        (MeasuredEntry("strandedness", "reverse", ValueSource.MEASURED,
+                       pieces=("fastq@1.0.0", "strandedness@1.0.0")),
+         "measured by fastq@1.0.0 + strandedness@1.0.0"),
+        (MeasuredEntry("strandedness", "reverse", ValueSource.MEASURED,
+                       by="comeni/profile/rseqc@5.0.1"),
+         "measured by comeni/profile/rseqc@5.0.1"),
+    ]:
+        goal = Goal(
+            have=[GoalInput(type_id="alignment.bam")],
+            want=["counts.matrix"],
+            profile=measurements.profile_of([entry]),
+        )
+        ir = resolve(goal, registry, rules, measurements, vocabulary=vocabulary)
+        param = next(n for n in ir.nodes if n.id == "featurecounts").param("strandedness")
+        assert param.reason.endswith(f"strandedness is reverse, {says}"), param.reason
+
+
+def test_parameter_resolution_returns_its_unresolved_question_without_mutating_context(setup):
+    from mendel_resolver.ports import FlagOnlyResolver
+    from mendel_resolver.resolve import ParamContext, _resolve_param
+
+    registry, rules, measurements, _ = setup
+    contract = registry.get("nf-core/subread/featurecounts@2.0.6")
+    goal = Goal(have=[GoalInput(type_id="alignment.bam")], want=["counts.matrix"])
+    context = ParamContext(
+        node_id="counts", roles=tuple(contract.roles), implementation=contract.id,
+        from_layer="base", goal=goal, rules=rules, premises={},
+        resolver=FlagOnlyResolver(), backed={},
+    )
+    value, decision = _resolve_param(contract.params[0], context)
+    assert value.value is None and value.tier is Tier.AMBIGUOUS
+    assert decision.key == "counts.strandedness" and decision.chosen is None
+    conventional, no_question = _resolve_param(contract.params[1], context)
+    assert conventional.value == "illumina" and conventional.tier is Tier.CONVENTION
+    assert no_question is None
+    assert context.backed == {} and context.premises == {}

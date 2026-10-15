@@ -1,75 +1,90 @@
-"""The image's package list is hand-maintained, and it has now been wrong three times.
+"""The Python builder receives every workspace package and its build metadata.
 
-`uv sync --frozen --all-packages` resolves the whole workspace, so **every** member's
-`pyproject.toml` has to be in the layer-cached COPY block — including members the served API
-never imports. A missing line fails with `Distribution not found at: file:///app/packages/<x>`,
-which is a clear message about a fact nobody can see from the Dockerfile alone.
-
-It went wrong for `mendel-ai`, then for `dag-core` — whose comment says *"a missing line here
-fails the build with `Distribution not found`, which is how this was found"* — and then for
-`comeni-vendor` in Plan 5A, in a phase whose whole subject was deleting a directory the same
-file copied.
-
-**`make check` cannot see any of this.** Its lane builds no image, so the only thing that has
-ever caught it is somebody running `docker build`, which is why it recurs. This is the
-`test_every_package_is_classified` shape applied to a second hand-maintained list: it makes a
-new package fail here rather than in a build somebody runs a week later.
+Replay its COPY instructions through Docker so coverage follows actual context filtering,
+including directory copies, rather than requiring a hand-maintained COPY per package.
 """
 
-import re
+import shutil
+import subprocess
+import tomllib
 
+import pytest
 from support.paths import ROOT
 
-DOCKERFILE = (ROOT / "Dockerfile").read_text()
-
-COPIED = re.compile(r"^COPY packages/([\w-]+)/pyproject\.toml", re.M)
+pytestmark = pytest.mark.slow
 
 
-def _members() -> set[str]:
+def _members():
     return {p.name for p in (ROOT / "packages").iterdir() if (p / "pyproject.toml").is_file()}
 
 
-def test_every_workspace_member_reaches_the_image():
-    """The one that has failed three times."""
-    missing = sorted(_members() - set(COPIED.findall(DOCKERFILE)))
-    assert missing == [], (
-        "these packages are in the workspace and not in the Dockerfile's COPY block. "
-        "`uv sync --all-packages` resolves the whole workspace, so the build dies with "
-        f"`Distribution not found at: file:///app/packages/<x>`:\n  {missing}"
+@pytest.fixture(scope="module")
+def builder_inputs(tmp_path_factory):
+    if shutil.which("docker") is None:
+        pytest.skip("Docker is unavailable")
+    temporary = tmp_path_factory.mktemp("builder-inputs")
+    instructions = []
+    builder = False
+    for line in (ROOT / "Dockerfile").read_text().splitlines():
+        if line.startswith("FROM "):
+            builder = line.endswith(" AS builder")
+        elif builder and line.startswith("COPY "):
+            instructions.append(line)
+    assert instructions, "no builder COPY instructions were found"
+    dockerfile = temporary / "Probe.Dockerfile"
+    dockerfile.write_text("FROM scratch\nWORKDIR /app\n" + "\n".join(instructions) + "\n")
+    output = temporary / "output"
+    result = subprocess.run(
+        [
+            "docker",
+            "buildx",
+            "build",
+            "--network=none",
+            "-f",
+            str(dockerfile),
+            "--output",
+            f"type=local,dest={output}",
+            str(ROOT),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
     )
+    assert result.returncode == 0, result.stderr
+    return output / "app"
 
 
-def test_the_dockerfile_names_no_package_that_does_not_exist():
-    """The other direction, and it is the quieter failure: a COPY of a path that is not there
-    fails the build too, but a *renamed* package leaves a line that looks maintained."""
-    stray = sorted(set(COPIED.findall(DOCKERFILE)) - _members())
-    assert stray == [], f"the Dockerfile copies packages that do not exist: {stray}"
+def test_every_workspace_member_reaches_the_image(builder_inputs):
+    missing = [
+        name
+        for name in _members()
+        if not (builder_inputs / "packages" / name / "pyproject.toml").is_file()
+    ]
+    assert missing == []
 
 
-def test_the_scan_found_something():
-    """A regex that matches nothing reports no missing packages and passes.
-
-    The same guard-of-the-guard `test_purity.py` carries, and for the same reason: this file's
-    failure mode is silence in the direction nobody investigates.
-    """
-    assert len(COPIED.findall(DOCKERFILE)) > 5, "the COPY pattern has drifted from the Dockerfile"
-    assert len(_members()) > 5, "packages/ was not read"
+def test_the_dockerfile_names_no_package_that_does_not_exist(builder_inputs):
+    copied = {p.parent.name for p in (builder_inputs / "packages").glob("*/pyproject.toml")}
+    assert copied == _members()
 
 
-def test_a_package_that_needs_its_readme_gets_it():
-    """`uv sync` fails without `readme =`'s target, so a package declaring one needs it copied.
+def test_the_scan_found_something(builder_inputs):
+    assert _members()
+    assert (builder_inputs / "pyproject.toml").is_file()
+    assert (builder_inputs / "uv.lock").is_file()
 
-    Not every member does — `mendel-api` and the Wiener packages copy only their manifest — so
-    this reads each `pyproject.toml` rather than assuming.
-    """
-    wrong = []
-    for name in sorted(_members()):
-        manifest = (ROOT / "packages" / name / "pyproject.toml").read_text()
-        if "readme = " not in manifest:
-            continue
-        if f"packages/{name}/README.md" not in DOCKERFILE:
-            wrong.append(name)
-    assert wrong == [], (
-        "these packages declare `readme =` and the Dockerfile does not copy their README, so "
-        f"`uv sync` cannot read the manifest it just copied:\n  {wrong}"
-    )
+
+def test_a_package_that_needs_its_readme_gets_it(builder_inputs):
+    for name in _members():
+        source = ROOT / "packages" / name
+        copied = builder_inputs / "packages" / name
+        metadata = tomllib.loads((source / "pyproject.toml").read_text())["project"]
+        readme = metadata.get("readme")
+        filename = readme.get("file") if isinstance(readme, dict) else readme
+        if filename:
+            assert (copied / filename).read_bytes() == (source / filename).read_bytes(), name
+        for pattern in metadata.get("license-files", []):
+            licences = list(source.glob(pattern))
+            assert licences, (name, pattern)
+            for licence in licences:
+                assert (copied / licence.relative_to(source)).read_bytes() == licence.read_bytes()

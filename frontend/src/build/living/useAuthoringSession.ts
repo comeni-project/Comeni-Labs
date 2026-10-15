@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useState } from "react";
 
-import { get, post, Refused } from "../../api/client";
+import type { components } from "../../api/schema";
+import type { FactValue } from "./FactEditor";
+
+import { get, post, postForm, Refused } from "../../api/client";
 import type {
   AuthoringDecided,
   AuthoringEdited,
@@ -13,6 +16,7 @@ import type {
   AuthoringVocabulary,
   DraftGraph,
   GoalIn,
+  SampleInspected,
 } from "../../api/types";
 import {
   authoringReducer,
@@ -41,7 +45,10 @@ const key = (sessionId: string) => ["authoring", sessionId] as const;
  * **Nothing here touches `localStorage`.** The transcript and the prompt are durable on the
  * server; a half-typed message is component state and is allowed to vanish on reload.
  */
-export function useAuthoringSession(sessionId: string, options: { pollMs?: number } = {}) {
+/** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
+export const HEAD_BYTES = 4 * 2 ** 20;
+
+export function useAuthoringSession(sessionId: string, options: { pollMs?: number; onFork?: (sessionId: string) => void } = {}) {
   const pollMs = options.pollMs ?? POLL_MS;
   const client = useQueryClient();
   const [state, dispatch] = useReducer(authoringReducer, initialAuthoring);
@@ -94,7 +101,8 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
 
   const edit = useMutation({
     mutationFn: (graph: DraftGraph) =>
-      post<AuthoringEdited>(`/pipeline/authoring/${sessionId}/edits`, { graph }),
+      post<AuthoringEdited>(`/pipeline/authoring/${sessionId}/edits`, { graph,
+        expected_revision: session.data?.revision }),
     onSuccess: () => void refresh(),
     onError: (error) =>
       dispatch({
@@ -111,14 +119,18 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       option: string;
       expectedRevision: number;
       goal?: GoalIn;
+      value?: string | number;
     }) =>
       post<AuthoringDecided>(
         `/pipeline/authoring/${sessionId}/proposals/${input.proposal.id}/decide`,
         {
           decision: input.decision,
           expected_revision: input.expectedRevision,
-          option: input.proposal.kind === "step" ? input.option : null,
+          option: input.proposal.kind === "goal" ? null : input.option,
           goal: input.proposal.kind === "goal" ? (input.goal ?? null) : null,
+          // A gap's typed answer, or a fact told on a step's card (`fact_<measurement>`).
+          value: input.proposal.kind === "gap" || input.option.startsWith("fact_")
+            ? (input.value ?? null) : null,
         },
       ),
     onMutate: (input) => {
@@ -150,18 +162,74 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     },
   });
 
+  const upload = useMutation({
+    mutationFn: (input: { proposal: AuthoringProposal; files: File[] }) => {
+      const form = new FormData();
+      form.append("proposal_id", input.proposal.id);
+      // **Only the head leaves the browser** (review of issue 134): the server reads the first
+      // 4 MB and no more, so sending the rest would move a person's whole file for nothing,
+      // and the card says the rest never leaves their computer.
+      for (const file of input.files) {
+        form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
+      }
+      return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
+    },
+    // **The answer carries the session as it now is** (issue 228): taken as it is, rather than
+    // read again. A failure re-reads it, since the server may have recorded the sample before
+    // the answer was lost.
+    onSuccess: (inspected) => client.setQueryData(key(sessionId), inspected.session),
+    onError: () => void refresh(),
+  });
+
   const retry = useMutation({
     mutationFn: () => post<AuthoringRetried>(`/pipeline/authoring/${sessionId}/retry`, {}),
     onSuccess: () => void refresh(),
   });
 
+  const correction = useMutation({
+    mutationFn: (input: { subject?: string; kind?: "input" | "measurement";
+      proposal?: AuthoringProposal; option?: string; value: FactValue; release?: { type_id: string; states: string[] } }) => {
+      const current = session.data;
+      if (!current) throw new Error("Reload the session before correcting");
+      const context = { expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version };
+      const path = input.release ? "release-tool" : input.proposal ? `disagreements/${input.proposal.id}` :
+        `facts/${encodeURIComponent(input.subject!)}`;
+      return post<components["schemas"]["AuthoringCorrected"]>(
+        `/pipeline/authoring/${sessionId}/${path}`, { ...context, ...(input.release ?? { value: input.value,
+          ...(input.proposal ? { option: input.option } : { kind: input.kind }) }) });
+    },
+    onSuccess: answer => {
+      if (answer.session_id !== sessionId) options.onFork?.(answer.session_id);
+      else void refresh();
+    },
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
+  // **The model's suggestions wait for one click** (Part I.0): applied as the person's own change,
+  // or set aside.
+  const suggestion = useMutation({
+    mutationFn: (input: { id: string; decision: "apply" | "dismiss" }) =>
+      post<components["schemas"]["AuthoringCorrected"] | null>(
+        `/pipeline/authoring/${sessionId}/suggestions/${input.id}`, { decision: input.decision }),
+    onSuccess: () => void refresh(),
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
   const accept = useCallback(
-    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn) =>
+    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number) =>
       decide.mutate({
         proposal,
         decision: "accepted",
         option,
         goal,
+        value,
         expectedRevision: session.data?.revision ?? 0,
       }),
     [decide, session.data?.revision],
@@ -191,10 +259,24 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     accept,
     reject,
     say: (text: string) => say.mutate(text),
+    /** Answer a gap with a sample: one file, or a pair. Resolves with what it measured. */
+    upload: (proposal: AuthoringProposal, files: File[]) =>
+      upload.mutateAsync({ proposal, files }),
     retry: () => retry.mutate(),
     /** A direct edit, recorded as the person's with a receipt the server composes. */
     edit: (graph: DraftGraph) => edit.mutate(graph),
     vocabulary: vocabulary.data?.types ?? null,
+    measurements: vocabulary.data?.measurements,
+    correcting: correction.isPending,
+    releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
+      release: { type_id, states }, value: null }),
+    correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>
+      correction.mutateAsync({ subject, value, kind }),
+    applySuggestion: (id: string) => suggestion.mutate({ id, decision: "apply" }),
+    dismissSuggestion: (id: string) => suggestion.mutate({ id, decision: "dismiss" }),
+    suggesting: suggestion.isPending,
+    answerDisagreement: (proposal: AuthoringProposal, option: string, value: FactValue = null) =>
+      correction.mutateAsync({ proposal, option, value }),
     previewOption: (option: string | null) => dispatch({ type: "preview", option }),
     select: (node: string | null) => dispatch({ type: "select", node }),
     compose: (text: string) => dispatch({ type: "compose", text }),

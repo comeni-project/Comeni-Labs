@@ -107,3 +107,25 @@ def test_the_manifest_is_read_once(monkeypatch):
     layers.load(REGISTRY)
 
     assert Counter(parsed)[REGISTRY / layered.MANIFEST] == 1
+
+
+def test_the_shipped_registry_loads_its_tools():
+    """Every tool folder's `tool.yml` loads, under the id its path gives (issue 223: this
+    asserted only that a dict came back, which an empty registry passes)."""
+    from mendel_resolver import layers
+
+    folders = {
+        str(path.parent.relative_to(REGISTRY / "tools"))
+        for path in (REGISTRY / "tools").rglob("tool.yml")
+    }
+    assert folders, "the shipped registry has no tool.yml"
+    assert set(layers.load(REGISTRY).tools.tools) == folders
+
+
+def test_the_shipped_registry_refuses_none_of_its_inspector_pieces():
+    """MD0317 and MD0318 drop a piece quietly from what runs; the shipped layer has none."""
+    from mendel_resolver import layers
+
+    loaded = layers.load(REGISTRY)
+    assert loaded.inspection.formats, "the shipped registry has no inspector formats"
+    assert loaded.refused_pieces == []

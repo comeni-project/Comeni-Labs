@@ -4,10 +4,10 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, field_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from comeni_core import yaml_strict
-from comeni_core.artifact.load import _param_refs
+from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
@@ -126,6 +126,14 @@ class TypeDeclaration(BaseModel):
     same split as `name` and keeps both facts where they can be read.
     """
     test_data: str | list[str] | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    """What a person calls it, as it reads mid-sentence: *gene annotation (GTF)*. Shown wherever a
+    person reads the type; absent, the id is shown. **Read by nothing that builds**: the
+    resolver, the router and the emitter never see it (Part I.1)."""
+    explain: str | None = Field(default=None, min_length=1, max_length=600)
+    """What it is and where it usually comes from, one short paragraph, written to
+    `docs/design/voice.md`. Shown under a question about it, marked *curated*, and handed to the
+    AI as a source (protocol rule 12)."""
 
     @model_validator(mode="after")
     def _an_entry_channel_names_no_param_of_its_own(self) -> "TypeDeclaration":
@@ -159,7 +167,7 @@ class TypeDeclaration(BaseModel):
         """
         if self.entry_channel is None:
             return self
-        hardcoded = _param_refs(self.entry_channel.replace("params.{param}", ""))
+        hardcoded = extract_param_refs(self.entry_channel.replace("params.{param}", ""))
         if hardcoded:
             raise ValueError(
                 coded(
@@ -255,6 +263,10 @@ class Vocabulary(BaseModel):
     params: dict[str, str] = {}
     """The default param name for each type that declares one. See `TypeDeclaration.param` —
     absent means the type id's last segment, which is every type but `fastq.reads`."""
+    names: dict[str, str] = {}
+    """Type id → its declared `name`, for the types that declare one (Part I.1)."""
+    explains: dict[str, str] = {}
+    """Type id → its declared `explain`, for the types that declare one (Part I.1)."""
 
     columns: dict[str, int] = {}
     """Type id -> how many CSV columns one sample of it occupies. See
@@ -305,6 +317,8 @@ class Vocabulary(BaseModel):
         scopes: dict[str, str] = {}
         columns: dict[str, int] = {}
         params: dict[str, str] = {}
+        names: dict[str, str] = {}
+        explains: dict[str, str] = {}
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
                 raise ValueError(
@@ -317,6 +331,10 @@ class Vocabulary(BaseModel):
                 entry_channels[type_id] = entry.entry_channel
             if entry.param:
                 params[type_id] = entry.param
+            if entry.name:
+                names[type_id] = entry.name
+            if entry.explain:
+                explains[type_id] = entry.explain
             if entry.test_data:
                 test_data[type_id] = entry.test_data
         return cls(
@@ -325,6 +343,8 @@ class Vocabulary(BaseModel):
             scopes=scopes,
             columns=columns,
             params=params,
+            names=names,
+            explains=explains,
             test_data=test_data,
             displaced=list(stacked.displaced),
         )

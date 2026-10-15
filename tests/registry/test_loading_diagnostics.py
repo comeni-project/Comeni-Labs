@@ -13,6 +13,7 @@ import pathlib
 
 import pytest
 from mendel_resolver import layers
+from support.audit import declare_families
 
 _KIND_OF_DIR = {
     "contracts": "contract",
@@ -84,6 +85,7 @@ def _layer(root: pathlib.Path) -> pathlib.Path:
     # At the layer root, so nothing above it names a kind — it declares explicitly.
     (layer / "roles.yml").write_text(ROLES)
     (layer / "registry.yml").write_text(_declared(layer / "registry.yml", "name: test-layer\n"))
+    declare_families(layer, "fastq", "qc", "measurement")
     return layer
 
 

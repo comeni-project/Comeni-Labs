@@ -1,0 +1,181 @@
+"""How an authoring session moves, and when a proposal may still be applied.
+
+**Pure.** No database, no clock, no model. A phase and an event in, a phase out; a proposal's
+situation in, an outcome out. The shell's stage modules (`mendel_api/stages/`) read rows and
+write them, and hold none of these rules.
+
+That split is the forge's workflow's, and it is worth restating why it earns its file. The
+rules here are the ones that are easy to get right in one caller and wrong in the next: what may
+follow what, and whether a decision made a moment ago still applies. Encoded in a service, each
+becomes an `if` somebody remembers — and the second caller is where the memory fails.
+
+The phases and the arrows are the living-pipeline plan's §2 state diagram, **transcribed rather
+than invented**, so the picture stays the specification.
+"""
+
+from typing import NamedTuple
+
+from comeni_core.diagnostics import coded
+
+from mendel_authoring.protocol import PROTOCOL
+from mendel_authoring.types import Event, Phase, ProposalState
+
+TRANSITIONS: dict[tuple[Phase, Event], Phase] = PROTOCOL.transitions()
+"""Every legal move, **derived** from the built event edges of `protocol.PROTOCOL`: change the
+protocol, not this line.
+
+**`failed` is deliberately not a source here.** Leaving it needs a second input — which phase
+failed — so `advance` handles `RETRY` against `RETRY_TARGETS` before consulting this table.
+
+`building --> building` on `PROPOSAL_SETTLED` is a real arrow and not a no-op: it is what makes
+answering a proposal legal at all, and its absence would refuse every acceptance.
+"""
+
+RETRY_TARGETS: frozenset[Phase] = PROTOCOL.retry_targets()
+"""Where a retry may resume: the targets of the protocol's return edges."""
+
+RETRY_FALLBACK = Phase.UNDERSTANDING
+"""Where a retry resumes when nothing recorded which phase failed.
+
+**The safe reading**, and the same one `workflow.retry_target` takes: an unrecorded stage costs
+one extra model call and cannot skip a step. Guessing `resolving` would resume a build against a
+goal that may never have been confirmed.
+"""
+
+
+def advance(phase: Phase, event: Event, failed_from: Phase | None = None) -> Phase:
+    """The phase after `event`, or a coded refusal.
+
+    Raises rather than returns, unlike `workflow.refuse` next door, and the difference is what
+    the caller holds. The forge's caller has already read a row and needs to record an event and
+    roll back, so it wants a message. Here every caller is inside one transaction that should
+    not commit at all if the move was illegal, and an exception is what makes forgetting to check
+    impossible rather than merely visible.
+    """
+    if event is Event.RETRY:
+        if phase is not Phase.FAILED:
+            raise ValueError(_refusal(phase, event))
+        target = failed_from or RETRY_FALLBACK
+        if target not in RETRY_TARGETS:
+            onward = ", ".join(sorted(p.value for p in RETRY_TARGETS))
+            raise ValueError(
+                coded("MI0212", f"a retry cannot resume into {target.value}")
+                + f"\n  a retry may resume into: {onward}"
+            )
+        return target
+
+    try:
+        return TRANSITIONS[(phase, event)]
+    except KeyError:
+        raise ValueError(_refusal(phase, event)) from None
+
+
+def _refusal(phase: Phase, event: Event) -> str:
+    """Names what *can* happen, so the recovery is one request rather than a guess."""
+    onward = sorted(e.value for (source, e) in TRANSITIONS if source is phase)
+    if phase is Phase.FAILED:
+        onward = [Event.RETRY.value]
+    return coded("MI0200", f"a session in {phase.value} cannot handle {event.value}") + (
+        f"\n  from {phase.value} it can handle: {', '.join(onward) or '(nothing)'}"
+    )
+
+
+def failed_from(phase: Phase) -> Phase:
+    """The value to record in `failed_from` when `phase` fails.
+
+    Trivial today and named anyway: the column is only useful if it is written, and a service
+    writing `session.phase` directly would be correct by accident until the day a failure is
+    recorded one transition after it happened.
+
+    **Gathering fails back to understanding.** It fails only when nothing can make the want,
+    which is the want's fault, not the gathering's: a retry re-reads what the person asked for.
+    Resuming gathering would compute the same empty answer, and there is no return edge into it.
+    """
+    return Phase.UNDERSTANDING if phase is Phase.GATHERING else phase
+
+
+class Settlement(NamedTuple):
+    """What may be done about a proposal, and what to record.
+
+    A `NamedTuple` rather than three return values, because `applies` and `state` are read
+    together and a caller that reads one without the other is the bug this type prevents:
+    writing `state` while ignoring `applies` is exactly how a stale proposal gets applied.
+    """
+
+    state: ProposalState
+    """What the proposal's state should be afterwards. Unchanged when the request is refused."""
+    applies: bool
+    """Whether the caller may act on the draft. **Never true for a stale or conflicting one.**"""
+    refusal: str | None
+    """The coded refusal to answer with, or `None` when the settlement stands.
+
+    **A `coded()` message, not a bare code.** It was the bare code for one commit, and
+    `test_every_declared_code_is_emitted` caught what that meant: `MI0202` was declared, appeared
+    in the generated diagnostics page, answered `mendel explain` — and no code path could ever
+    produce it, because the string was assembled by hand. A caller holding only `"MI0202"` has to
+    write the sentence itself, which is how two transports come to explain one refusal
+    differently."""
+    bumps_revision: bool
+    """Whether the draft's revision moves. Only an acceptance changes the pipeline."""
+
+
+def settle(
+    *,
+    current: ProposalState,
+    proposal_revision: int,
+    draft_revision: int,
+    expected_revision: int,
+    decision: ProposalState,
+) -> Settlement:
+    """Whether a proposal may still be settled, and how.
+
+    Three questions in one place, in the order that makes each answer unambiguous:
+
+    1. **Has it already been settled?** A duplicate delivery — a retried request, a double click
+       — must get the same answer rather than a second effect (`MI0203`).
+    2. **Was the client looking at the current draft?** `expected_revision` is compared against a
+       number the client was *shown*. Not a timestamp: two writes inside one clock tick are
+       indistinguishable by time, which is precisely when this matters (`MI0201`).
+    3. **Was the proposal made about the current draft?** If the draft moved after the proposal
+       was offered, applying it writes a decision made about a pipeline that no longer looks that
+       way. It becomes `stale` — **not** `rejected`, because nobody rejected it (`MI0202`).
+
+    Order matters between 2 and 3. A client on an older view *and* a proposal from an older
+    revision is reported as the conflict, because that is the one the person can act on: re-read
+    and try again. Telling them their proposal went stale when their whole view is behind sends
+    them to fix the wrong thing.
+    """
+    if decision not in (ProposalState.ACCEPTED, ProposalState.REJECTED):
+        raise ValueError(f"a proposal settles to accepted or rejected, not {decision.value}")
+
+    if current is not ProposalState.PENDING:
+        return Settlement(
+            current,
+            False,
+            coded("MI0203", "this proposal has already been settled")
+            + f"\n  it is {current.value}",
+            False,
+        )
+
+    if expected_revision != draft_revision:
+        return Settlement(
+            current,
+            False,
+            coded("MI0201", "this draft moved while you were looking at it")
+            + f"\n  you expected revision {expected_revision}; it is at {draft_revision}"
+            + "\n  re-read it before accepting",
+            False,
+        )
+
+    if proposal_revision != draft_revision:
+        return Settlement(
+            ProposalState.STALE,
+            False,
+            coded("MI0202", "this proposal was made against an older draft")
+            + f"\n  it was offered at revision {proposal_revision}; the draft is at "
+            + f"{draft_revision}"
+            + "\n  nothing was applied, and it is now marked stale",
+            False,
+        )
+
+    return Settlement(decision, True, None, decision is ProposalState.ACCEPTED)

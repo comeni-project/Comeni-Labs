@@ -43,7 +43,7 @@ from comeni_core.plan.tiers import Tier, ValueSource
 from mendel_resolver.layers import Layers
 from mendel_resolver.ports import FlagOnlyResolver
 from mendel_resolver.premises import build_premises
-from mendel_resolver.resolve import _layer_of, _resolve_param
+from mendel_resolver.resolve import ParamContext, _layer_of, _resolve_param
 
 __all__ = ["channels_of", "goal_of", "ir_of"]
 
@@ -311,9 +311,7 @@ def ir_of(
 
     decisions: list = []
 
-    def _recorded(
-        entry: Settled | None, value: object, fallback: ResolvedValue
-    ) -> ResolvedValue:
+    def _recorded(entry: Settled | None, value: object, fallback: ResolvedValue) -> ResolvedValue:
         """A recorded decision, or the drawn-by-hand fallback when nothing recorded one.
 
         The fallback is built by the caller rather than here, so that the no-sidecar path
@@ -419,31 +417,27 @@ def ir_of(
                     )
                 )
                 continue
-            ir_node.set_param(
-                param.name,
-                _resolve_param(
+            value, decision = _resolve_param(
+                param,
+                ParamContext(
                     node_id=ir_node.id,
-                    param_name=param.name,
-                    roles=contract.roles,
+                    roles=tuple(contract.roles),
                     implementation=contract.id,
-                    tier_hint=param.tier_hint,
-                    default=param.default,
-                    because=param.because,
                     from_layer=_layer_of(layers.registry, contract.id),
                     goal=goal,
                     rules=layers.rules,
                     premises=premises,
                     resolver=resolver,
                     backed={},
-                    decisions=decisions,
                 ),
             )
+            ir_node.set_param(param.name, value)
+            if decision is not None:
+                decisions.append(decision)
 
     edges = []
     for edge in graph.edges:
-        port = next(
-            p for p in contracts[edge.from_node].produces if p.name == edge.from_port
-        )
+        port = next(p for p in contracts[edge.from_node].produces if p.name == edge.from_port)
         edges.append(
             IREdge(
                 from_node=edge.from_node,

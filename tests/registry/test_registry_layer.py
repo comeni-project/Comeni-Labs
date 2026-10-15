@@ -64,6 +64,7 @@ def test_the_layer_loads_from_its_new_home():
         "organism",
         "paired",
         "purpose",
+        "quality_encoding",
         "read_length",
         "rrna_fraction",
         "strandedness",

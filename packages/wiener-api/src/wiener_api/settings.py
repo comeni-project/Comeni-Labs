@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="WIENER_", extra="forbid")
 
-    database_url: str = "postgresql+psycopg://wiener:wiener@localhost:5433/wiener"
+    database_url: str = "postgresql+psycopg://wiener:wiener@localhost:5432/wiener"
     redis_url: str = "redis://localhost:6379/1"
     artifact_root: Path = Path("./var/wiener/artifacts")
     """Where an uploaded pipeline directory lands. **Server-chosen, never client-supplied** —
@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     telemetry is fire-and-forget. `ops/telemetry/README.md` is how to point it somewhere."""
     stream_maxlen: int = 10_000
     """§7.2, and a starting number rather than a measurement — §17 carries it."""
+    stream_ttl_seconds: int = 3600
+    """How long a run's live tail outlives the run (issue 274). Postgres is the record and a
+    reader pages it before it subscribes, so a finished run's tail is only for a console that
+    was watching as it ended."""
 
 
 settings = Settings()

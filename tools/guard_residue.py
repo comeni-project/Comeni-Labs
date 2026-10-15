@@ -1,17 +1,8 @@
-"""How much of A14 is left, counted per **guard** rather than per file.
+"""Report refusal-shaped tests without failure evidence recorded in the guard ledger.
 
-A69 (issue #33): the ledger's residue was tracked per file, and by that measure 46 of 47 test
-files were covered — so A14 read as nearly closed while three of its four guarded invariants
-fell in one audit round. Its actual condition is per guard, a guard being a test whose purpose
-is to refuse something, and counted that way roughly a fifth had a recorded revert.
-
-**The point is that the number is derived, not asserted.** `CLAUDE.md` says no count is
-repeated in it because two counts were stale for three plans, and the ledger is the thing that
-can be counted. This is what counts it.
-
-Not a gate. A14 is open by design and a target that fails CI would be a target somebody
-deletes; `make residue` prints it, and the ledger is where the work is recorded.
-"""
+Scan repository and package tests using source-text markers, then match test function names
+against tests/fixtures/guard-ledger.md. `--list` includes the unmatched cases. This is a
+heuristic report for choosing tests to investigate, not a coverage measure or CI gate."""
 
 import ast
 import pathlib

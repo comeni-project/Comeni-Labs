@@ -24,7 +24,7 @@ import signal
 from datetime import UTC, datetime
 
 from wiener_core.events import EventKind, RunEvent
-from wiener_core.policy import IntentKind, Reason
+from wiener_core.policy import IntentKind, Outcome, Reason  # noqa: F401 (Outcome re-exported)
 from wiener_core.state import RunPhase
 
 from wiener_api import db, repository
@@ -36,18 +36,6 @@ TERMINAL = {RunPhase.SUCCEEDED, RunPhase.FAILED, RunPhase.CANCELLED, RunPhase.LO
 
 class Refused(Exception):
     """The verb was not performed, and the message says why in a sentence a person can act on."""
-
-
-class Outcome:
-    """What a verb actually did — a closed set, because *accepted* and *it worked* differ.
-
-    An audit that records only what was asked for is an audit of intentions. A cancel that found
-    no process is a real answer and a different one from a cancel that stopped a running
-    pipeline; a reader chasing an orphaned container needs to tell them apart.
-    """
-
-    SIGNALLED = "signalled"
-    ALREADY_GONE = "already_gone"
 
 
 def cancel(run_id: str, *, who: str, why: str = "") -> tuple[str, str]:
@@ -110,7 +98,7 @@ def cancel(run_id: str, *, who: str, why: str = "") -> tuple[str, str]:
         # `next_seq` is the ingest path's own, so a cancel takes its place in the same order
         # everything else does — §6.2's *the order Wiener received things in*.
         projection.append(session, settings.lab_id, run_id, RunEvent(
-            run_id=run_id, seq=repository.next_seq(session, settings.lab_id, run_id),
+            run_id=run_id, seq=projection.next_seq(session, settings.lab_id, run_id),
             kind=EventKind.CANCELLED, at_ms=now_ms,
         ))
 

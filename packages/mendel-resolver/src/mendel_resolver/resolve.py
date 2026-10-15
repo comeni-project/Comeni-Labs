@@ -1,11 +1,13 @@
 """The four-tier ladder. Every value exits at exactly one tier and carries it."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
-from comeni_core.declared.contract import InputPort
+from comeni_core.declared.contract import InputPort, Param
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
+from comeni_core.goal.asked import ProducerPin
 from comeni_core.plan.decision import (
     DecisionRecord,
     ParamAsked,
@@ -22,6 +24,21 @@ from mendel_resolver.premises import Premise, build_premises
 from mendel_resolver.router import _layer_name as _layer_of
 from mendel_resolver.router import route
 from mendel_resolver.rules import RuleTable
+
+
+@dataclass(frozen=True, slots=True)
+class ParamContext:
+    """The fixed resolution inputs shared by every parameter of one node."""
+
+    node_id: str
+    roles: tuple[str, ...]
+    implementation: str
+    from_layer: str | None
+    goal: Goal
+    rules: RuleTable
+    premises: Mapping[str, Premise]
+    resolver: AmbiguityResolver
+    backed: Mapping[str, object]
 
 
 def resolve(
@@ -77,17 +94,14 @@ def resolve(
     # Built once, here, and threaded. Not rebuilt per decision: a premise set is a function
     # of the goal and the derivations, so building it twice is two chances to build it
     # differently — and `same goal in -> same pipeline out` is the claim that would pay.
-    premises = build_premises(
-        goal=goal, derivations=rules.derivations, measurements=measurements
-    )
+    premises = build_premises(goal=goal, derivations=rules.derivations, measurements=measurements)
     # A `presence: absent` decision is read here rather than inside `route()`, because it is
     # a *decision* and the router does not hold a rule table's semantics — it holds a graph.
     # Roles rather than contract ids for the same reason the decision targets one.
     absent = frozenset(
         role
         for role in _roles_in(registry)
-        if (fired := rules.presence_for(role, premises)) is not None
-        and fired.value == "absent"
+        if (fired := rules.presence_for(role, premises)) is not None and fired.value == "absent"
     )
     plan = route(goal, registry, rules, resolver, premises=premises, absent_roles=absent)
     ir = PipelineIR(
@@ -121,6 +135,7 @@ def resolve(
         node = IRNode(
             id=step.node_id,
             contract_id=contract.id,
+            site=step.site,
             selection=ResolvedValue(
                 value=contract.id,
                 tier=step.selection_tier,
@@ -141,31 +156,23 @@ def resolve(
             ),
         )
 
+        # The contract's layer is distinct from the layer whose rule selected the step.
+        context = ParamContext(
+            node_id=node.id,
+            roles=tuple(contract.roles),
+            implementation=contract.id,
+            from_layer=_layer_of(registry, contract.id),
+            goal=goal,
+            rules=rules,
+            premises=premises,
+            resolver=resolver,
+            backed=backed,
+        )
         for param in contract.params:
-            node.set_param(param.name, _resolve_param(
-                node_id=node.id,
-                param_name=param.name,
-                # The roles this contract fills, in the order it declares them. A param
-                # decision is keyed on a role, so a value decided for `alignment` reaches
-                # STAR and does not reach a sorter that happens to declare the same name.
-                # Audit A123, at the point of use.
-                roles=contract.roles,
-                implementation=contract.id,
-                tier_hint=param.tier_hint,
-                default=param.default,
-                because=param.because,
-                # The layer the *contract* came from, which is not `step.from_layer`: that is
-                # the layer whose rule decided the *selection*, and the two differ whenever an
-                # overlay's rule reroutes to a base-layer module. A22's distinction, applied
-                # to the value rather than to the module.
-                from_layer=_layer_of(registry, contract.id),
-                goal=goal,
-                rules=rules,
-                premises=premises,
-                resolver=resolver,
-                backed=backed,
-                decisions=ir.decisions,
-            ))
+            value, decision = _resolve_param(param, context)
+            node.set_param(param.name, value)
+            if decision is not None:
+                ir.decisions.append(decision)
 
         for port in contract.consumes:
             source = _source_for(produced, port, node.id, ir.decisions, resolver)
@@ -297,34 +304,23 @@ def _roles_in(registry: Registry) -> list[str]:
 
 
 def _resolve_param(
-    *,
-    node_id: str,
-    param_name: str,
-    roles: Sequence[str],
-    implementation: str,
-    tier_hint: int | None,
-    default: object,
-    because: str,
-    from_layer: str | None,
-    goal: Goal,
-    rules: RuleTable,
-    premises: dict[str, Premise],
-    resolver: AmbiguityResolver,
-    decisions: list[DecisionRecord],
-    backed: dict[str, object],
-) -> ResolvedValue:
+    param: Param,
+    context: ParamContext,
+) -> tuple[ResolvedValue, ParamDecision | None]:
     # Tier 1 — the goal states it outright. No choice exists.
-    override = next((o for o in goal.constraints.params if o.name == param_name), None)
+    override = next((o for o in context.goal.constraints.params if o.name == param.name), None)
     if override is not None:
         return ResolvedValue(
             value=override.value,
             tier=Tier.STRUCTURAL,
             source=ValueSource.GOAL,
-            reason=f"specified in the goal as {param_name}",
-        )
+            reason=f"specified in the goal as {param.name}",
+        ), None
 
     # Tier 3 — a declared rule matches the measured profile.
-    pin = rules.value_for(roles, param_name, premises, implementation=implementation)
+    pin = context.rules.value_for(
+        context.roles, param.name, context.premises, implementation=context.implementation
+    )
     if pin is not None:
         return ResolvedValue(
             value=pin.value,
@@ -345,33 +341,33 @@ def _resolve_param(
             # other consumer of the same table forgot both. Audit A15, A22.
             from_layer=pin.from_layer,
             displaced_layer=pin.displaced_layer,
-        )
+        ), None
 
     # Tier 2 — a documented default exists for this context.
-    if default is not None:
+    if param.default is not None:
         # The *document*, and the layer that wrote it. Both were missing: the reason was
         # `contract default for {name}`, which names the field it is explaining rather than
         # justifying it, and `from_layer` stayed null even when an overlay supplied the
         # value — so a laboratory raising featureCounts' `-Q` from 0 to 30, discarding every
         # read below mapping quality 30, produced a byte-identical justification. A76, A128.
         return ResolvedValue(
-            value=default,
+            value=param.default,
             tier=Tier.CONVENTION,
-            reason=because or "the contract declares this default and states no reason",
-            from_layer=from_layer,
-        )
+            reason=param.because or "the contract declares this default and states no reason",
+            from_layer=context.from_layer,
+        ), None
 
     # Tier 4 — nothing decided it. Ask the port, record it, flag it.
     ambiguity = ParamAsked(
-        node_id=node_id,
-        subject=param_name,
+        node_id=context.node_id,
+        subject=param.name,
         # Tier 2 already returned when a default existed, so there is exactly one
         # candidate and it is None. Real alternatives arrive with the rule-tables
         # spec, which gives a parameter a declared domain to draw them from.
         candidates=[None],
-        tier_hint=tier_hint,
+        tier_hint=param.tier_hint,
     )
-    resolution = resolver.resolve(ambiguity)
+    resolution = context.resolver.resolve(ambiguity)
     # **This site trusts the answer; the other two do not, and the asymmetry is deliberate.**
     # `router._choose` and `_source_for` fall back when a resolver names something that is
     # not a candidate, because there the candidates are a closed set drawn from the registry
@@ -396,19 +392,19 @@ def _resolve_param(
     # tier 4 stays flagged, and demoting restores exactly that. Raising would let a broken or
     # hostile adapter halt a laboratory's build instead — a denial of service in exchange for
     # a guarantee demotion already gives.
-    override = backed.get(ambiguity.key())
+    # A person's *tool* (a pin in `goal.constraints.producers`) never reaches here: the router
+    # honours it before the resolver is asked, and the goal itself is its evidence.
+    override = context.backed.get(ambiguity.key())
     honoured = resolution.how is ValueSource.HUMAN and override == resolution.value
-    decisions.append(
-        ParamDecision(
-            key=ambiguity.key(),
-            subject=param_name,
-            candidates=ambiguity.candidates,
-            chosen=resolution.value,
-            reason=resolution.why,
-            confidence=resolution.confidence,
-            resolved_by=resolution.by,
-            human_override=resolution.value if honoured else None,
-        )
+    decision = ParamDecision(
+        key=ambiguity.key(),
+        subject=param.name,
+        candidates=ambiguity.candidates,
+        chosen=resolution.value,
+        reason=resolution.why,
+        confidence=resolution.confidence,
+        resolved_by=resolution.by,
+        human_override=resolution.value if honoured else None,
     )
     # **Tier 4 stays tier 4 when a human answers it.** Collapsing an override to tier 1
     # would read as "no choice existed", which is what a *goal pin* means and is exactly
@@ -426,7 +422,7 @@ def _resolve_param(
         # which is what keeps the value in `needs_review()`.
         source=ValueSource.HUMAN if honoured else ValueSource.RESOLVER,
         reason=resolution.why,
-    )
+    ), decision
 
 
 def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
@@ -440,6 +436,7 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
         [held.type_id for held in goal.have]
         + list(goal.want)
         + [required.type_id for required in goal.constraints.required_states]
+        + [pin.site.type_id for pin in goal.constraints.producers]
     )
     for type_id in named:
         if type_id not in vocabulary.types:
@@ -454,4 +451,19 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
         # bundle as a *key*, and a state that no type declares is a goal asking for
         # something no contract can satisfy.
         vocabulary.validate(required.type_id, required.states)
+    for pin in goal.constraints.producers:
+        # A person's pin names a site; held to the vocabulary like every type a goal names.
+        vocabulary.validate(pin.site.type_id, pin.site.states)
 
+
+def inert_pins(ir: PipelineIR, pins: Sequence[ProducerPin]) -> list[ProducerPin]:
+    """The person's pins that applied nowhere in `ir` — its tool fills no step at the pin's site.
+
+    A pin is inert when its tool is not a candidate there (the registry dropped it) or its site
+    is asked nowhere (a typed state). The router passes over such a pin, so a caller must say
+    so: a person's choice that quietly did nothing is the silent guess this product exists to
+    remove (§14.3 of the consultant build; final review of 3c run 1). `ir` must be fresh from
+    `resolve()`: a node's `site` is carried in memory, not in a dump.
+    """
+    placed = {(node.site, node.contract_id) for node in ir.nodes if node.site is not None}
+    return [pin for pin in pins if (pin.site, pin.contract) not in placed]

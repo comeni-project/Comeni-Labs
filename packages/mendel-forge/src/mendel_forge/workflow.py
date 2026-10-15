@@ -283,6 +283,14 @@ class MessageState(StrEnum):
     FAILED = "failed"
 
 
+class Agent(StrEnum):
+    """Whose model call an `ai_invocation` row records. A purpose is scoped by its agent: the
+    forge and the builder both declare a `chat` (issue 274)."""
+
+    FORGE = "forge"
+    BUILDER = "builder"
+
+
 class InvocationPurpose(StrEnum):
     """Which of §3's calls this was.
 

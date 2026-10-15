@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "AskedGap": {
+      "additionalProperties": false,
+      "properties": {
+        "already_option": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "already_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ],
+          "default": null
+        },
+        "asks": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "asks"
+      ],
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/AskedGap"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}

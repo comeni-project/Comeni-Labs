@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MENDEL_", extra="forbid")
 
     workspace_root: Path = Path("./workspace")
+    trusted_layers: list[int] = [0]
+    """Layer indexes whose inspector pieces may run on this server (spec §2). **The base layer
+    by default**: a piece is code, and only a layer the operator trusts may bring code. A lab
+    overlay's pieces are listed and not run until its index is named here, as a JSON list in
+    `MENDEL_TRUSTED_LAYERS`."""
     registry_root: Path = Path("./registry")
     """The layer. **One root** since Plan 5A — it used to be two, `registry_root` for the
     declarations and `source_root` for the module code they describe, on two release cadences
@@ -46,6 +51,14 @@ class Settings(BaseSettings):
     """What the configured model can hold. The dossier is budgeted against it — see
     `mendel_forge.ai.context.Budget`, which reserves room for the answer because a context
     window is shared between the prompt and the response."""
+
+    family_step_from: int = 0
+    """From how many declared types the first call picks a family before a type (#194).
+
+    `0`, the default, means always: the type choice is two calls, the families and then each
+    chosen family whole. A number above the vocabulary's size switches the family step off, and
+    the want call is shown every type — which is how the benchmark (#198) compares one step with
+    two without a code change. `MENDEL_FAMILY_STEP_FROM`."""
 
     ai_max_jobs: int = 1
     """How many provider calls the AI worker runs at once.
@@ -96,8 +109,8 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def model_access() -> "ModelAccess | None":
-    """How to reach the configured model, or `None` when none is.
+def model_access(agent: str | None = None, purpose: str | None = None) -> "ModelAccess | None":
+    """How to reach the model for one call, or `None` when none is configured.
 
     **One spelling for the whole lane, and it is `comeni-ai`'s.** `mendel-api` declared
     `MENDEL_AI_MODEL` and `MENDEL_AI_BASE_URL` of its own while `comeni_ai.access` declared
@@ -113,7 +126,13 @@ def model_access() -> "ModelAccess | None":
     **`os.environ` at call time, not at import.** A worker holding one would ignore a changed
     environment on restart, which is the one moment an operator most expects it to be read —
     the argument `_client` already makes about not caching a module global.
-    """
-    from comeni_ai import ModelAccess
 
-    return ModelAccess.from_env(os.environ)
+    **Per purpose since 14.7.5.4.** `agent` and `purpose` name the call (`"builder"`, `"ask"`)
+    and Settings → Models says which model answers it; with neither, the question is *is any
+    model configured*. `services/models.py` holds the map and the fallback order, which ends at
+    the environment exactly as this function read it before settings existed.
+    """
+    from mendel_api.services.installation import installation
+    from mendel_api.services.models import access_for
+
+    return access_for(installation(), os.environ, agent, purpose)

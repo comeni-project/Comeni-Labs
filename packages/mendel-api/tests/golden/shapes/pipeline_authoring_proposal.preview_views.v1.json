@@ -1,0 +1,669 @@
+{
+  "$defs": {
+    "AlternativePreview": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "frame": {
+          "$ref": "#/$defs/CanvasFrame"
+        },
+        "observed_context": {
+          "$ref": "#/$defs/OfferContext"
+        },
+        "option_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id",
+        "contract",
+        "frame",
+        "observed_context"
+      ],
+      "type": "object"
+    },
+    "CanvasFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "channels": {
+          "items": {
+            "$ref": "#/$defs/ChannelView"
+          },
+          "type": "array"
+        },
+        "context": {
+          "$ref": "#/$defs/OfferContext"
+        },
+        "current": {
+          "type": "boolean"
+        },
+        "graph": {
+          "$ref": "#/$defs/DraftGraph"
+        },
+        "placement": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "type": "object"
+        },
+        "proposal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepView"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "context",
+        "proposal_id",
+        "current",
+        "graph",
+        "steps",
+        "channels",
+        "placement"
+      ],
+      "type": "object"
+    },
+    "ChannelView": {
+      "properties": {
+        "count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        },
+        "ports": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "default": "sample",
+          "enum": [
+            "run",
+            "sample"
+          ],
+          "type": "string"
+        },
+        "states": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "param",
+        "type_id",
+        "ports"
+      ],
+      "type": "object"
+    },
+    "DataProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/Measured"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "DomainView": {
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "DraftChannel": {
+      "additionalProperties": false,
+      "properties": {
+        "ports": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "why": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ports"
+      ],
+      "type": "object"
+    },
+    "DraftEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "from_node": {
+          "type": "string"
+        },
+        "from_port": {
+          "type": "string"
+        },
+        "to_node": {
+          "type": "string"
+        },
+        "to_port": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_node",
+        "from_port",
+        "to_node",
+        "to_port"
+      ],
+      "type": "object"
+    },
+    "DraftGraph": {
+      "additionalProperties": false,
+      "properties": {
+        "channels": {
+          "items": {
+            "$ref": "#/$defs/DraftChannel"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/DraftEdge"
+          },
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/DraftLabel"
+          },
+          "type": "array"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/DraftNode"
+          },
+          "type": "array"
+        },
+        "profile": {
+          "$ref": "#/$defs/DataProfile"
+        }
+      },
+      "type": "object"
+    },
+    "DraftLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "DraftNode": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_id": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/DraftParam"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "contract_id"
+      ],
+      "type": "object"
+    },
+    "DraftParam": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "why": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "records": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "Measured": {
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measurement": {
+          "type": "string"
+        },
+        "pieces": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/ValueSource",
+          "default": "goal"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "measurement",
+        "value"
+      ],
+      "type": "object"
+    },
+    "OfferContext": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "draft_revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "registry": {
+          "type": "string"
+        },
+        "session_version": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "draft_revision",
+        "decision_revision",
+        "session_version",
+        "registry"
+      ],
+      "type": "object"
+    },
+    "PortView": {
+      "properties": {
+        "gathers": {
+          "default": false,
+          "type": "boolean"
+        },
+        "met": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "side": {
+          "type": "string"
+        },
+        "states": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type_id",
+        "side",
+        "met"
+      ],
+      "type": "object"
+    },
+    "SettingView": {
+      "properties": {
+        "axis_reason": {
+          "type": "string"
+        },
+        "because": {
+          "default": "",
+          "type": "string"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "type": "string"
+        },
+        "premise": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "integer"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "via",
+        "tier",
+        "reason",
+        "axis_reason"
+      ],
+      "type": "object"
+    },
+    "StepView": {
+      "properties": {
+        "contract_id": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/PortView"
+          },
+          "type": "array"
+        },
+        "process": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "runs": {
+          "default": "once",
+          "enum": [
+            "once",
+            "per_item"
+          ],
+          "type": "string"
+        },
+        "settings": {
+          "items": {
+            "$ref": "#/$defs/SettingView"
+          },
+          "type": "array"
+        },
+        "tier": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "process",
+        "contract_id",
+        "tier",
+        "reason",
+        "ports",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "ValueSource": {
+      "enum": [
+        "resolver",
+        "goal",
+        "human",
+        "model",
+        "measured",
+        "derived"
+      ],
+      "type": "string"
+    }
+  },
+  "anyOf": [
+    {
+      "additionalProperties": {
+        "$ref": "#/$defs/AlternativePreview"
+      },
+      "type": "object"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}

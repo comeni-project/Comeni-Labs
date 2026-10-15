@@ -433,3 +433,15 @@ def test_a_transform_without_a_source_is_refused():
         Derivation.model_validate(
             {k: v for k, v in _SJDB_OVERHANG.items() if k != "source"}
         )
+
+
+def test_a_value_a_model_read_is_a_premise_read_by_ai():
+    """14.7.7: `_BY_SOURCE` is total over `ValueSource` and read with `[]`, so `MODEL` reaching
+    it threw `KeyError` the first time a characterised fact did."""
+    from comeni_core.goal.premise import PremiseRecord
+    from mendel_resolver.premises import _BY_SOURCE
+
+    assert _BY_SOURCE[ValueSource.MODEL] is PremiseOrigin.MODEL_READ
+    record = PremiseRecord(id="paired", value=True, origin=PremiseOrigin.MODEL_READ)
+    assert record.prose() == "paired is True, read by AI"
+

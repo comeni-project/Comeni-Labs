@@ -53,7 +53,7 @@ def test_a_layer_with_no_layout_is_unenforced(tmp_path):
 def test_a_misfiled_document_is_refused(layer):
     """MD0013. It **loads perfectly** — the loader reads `declares:`, not the path — and is
     invisible to everyone reading the tree."""
-    moved = layer / "measurements" / "sneaky.yml"
+    moved = layer / "vocabulary" / "measurements" / "sneaky.yml"
     moved.write_text((layer / "rules" / "alignment.yml").read_text())
     found = lint(layer)
     assert codes(found) == ["MD0013"]
@@ -63,15 +63,15 @@ def test_a_misfiled_document_is_refused(layer):
 def test_a_file_named_for_something_it_does_not_declare_is_refused(layer):
     """MD0014. Identity is the `id:` since `MD0012`, so the filename carries no meaning to the
     loader — which is exactly why it has to name its subject for a human."""
-    target = layer / "measurements" / "read_length.yml"
-    target.rename(layer / "measurements" / "how_long_the_reads_are.yml")
+    target = layer / "vocabulary" / "measurements" / "read_length.yml"
+    target.rename(layer / "vocabulary" / "measurements" / "how_long_the_reads_are.yml")
     assert codes(lint(layer)) == ["MD0014"]
 
 
 def test_several_roles_in_one_file_are_refused(layer):
     """MD0015. `roles.yml` held all nine and a diff touching it said only that *some* job
     changed."""
-    (layer / "roles" / "trimming.yml").write_text(
+    (layer / "vocabulary" / "roles" / "trimming.yml").write_text(
         "declares: role\nroles:\n  - trimming\n  - alignment\n"
     )
     assert "MD0015" in codes(lint(layer))
@@ -96,11 +96,21 @@ def test_a_shared_type_hidden_inside_a_tool_is_refused(layer):
     assert "MD0017" in codes(lint(layer))
 
 
+def test_md0017_says_where_shared_types_live_now(layer):
+    """Issue 223: the inline fix said *move it to types/*, a folder the new layout does not have."""
+    (layer / "tools" / "nf-core" / "star" / "alignment.bam.yml").write_text(
+        "declares: vocabulary\nid: alignment.bam\nstates: []\n"
+    )
+    found = [f for f in lint(layer) if f.code == "MD0017"]
+    assert found, "MD0017 did not fire"
+    assert all("vocabulary/types/" in f.fix for f in found), [f.fix for f in found]
+
+
 def test_a_type_namespaced_by_its_tool_is_fine(layer):
-    """The other half — `genome.index.star` under `tools/nf-core/star/` is the arrangement
+    """The other half — `genome.index.star` under `tools/nf-core/star/types/` is the arrangement
     this layout exists to produce, and it must not fire on it."""
     assert lint(layer) == []
-    assert (layer / "tools" / "nf-core" / "star" / "genome.index.star.yml").exists()
+    assert (layer / "tools" / "nf-core" / "star" / "types" / "genome.index.star.yml").exists()
 
 
 def test_two_versions_of_one_module_in_one_layer_are_refused(layer):
@@ -136,3 +146,134 @@ def test_the_lint_is_not_vacuous(layer):
     from mendel_compiler.registry_lint import _declared_files
 
     assert len(list(_declared_files(layer))) > 30
+
+
+def _layer(root, files: dict[str, str], layout_has_tool: bool = True):
+    layout = {
+        "contract": ["tools/", "profilers/"], "module": ["tools/"],
+        "vocabulary": ["vocabulary/types/", "tools/"], "measurement": ["vocabulary/measurements/"],
+        "role": ["vocabulary/roles/"], "family": ["vocabulary/families/"], "rule": ["rules/"],
+    }
+    if layout_has_tool:
+        layout["tool"] = ["tools/"]
+    import yaml
+
+    (root / "registry.yml").write_text(yaml.safe_dump({
+        "name": "t", "version": "0.1.0", "requires_format": 2, "licence": "CC-BY-4.0",
+        "description": "t", "layout": layout,
+    }))
+    for rel, text in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    return root
+
+
+TOOL = "declares: tool\nid: nf-core/x\nname: X\ndescription: Does x.\n"
+MODULE = (
+    "declares: module\nid: {id}\nlicence: MIT\n"
+    "upstream: {{repo: r, sha: s, path: p}}\ndigest: sha256:0\n"
+)
+TYPE = "declares: vocabulary\nid: genome.index.x\nstates: []\n"
+
+
+def _codes(root):
+    return sorted({f.code for f in lint(root)})
+
+
+def test_a_module_whose_folder_is_not_its_id_is_refused(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/other/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert "MD0021" in _codes(root)
+
+
+def test_a_tool_folder_without_tool_yml_is_refused(tmp_path):
+    root = _layer(tmp_path, {"tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort")})
+    assert "MD0022" in _codes(root)
+
+
+def test_a_tools_own_type_outside_its_types_folder_is_refused(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/genome.index.x.yml": TYPE,
+    })
+    assert "MD0023" in _codes(root)
+
+
+def test_the_arranged_layer_is_clean(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/types/genome.index.x.yml": TYPE,
+        "tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert not {"MD0021", "MD0022", "MD0023"} & set(_codes(root))
+
+
+def test_a_layout_without_the_tool_kind_is_not_held_to_it(tmp_path):
+    """Opt-in: today's registry, and any overlay that has not moved, lints as before."""
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/other/module.yml": MODULE.format(id="nf-core/x/sort"),
+    }, layout_has_tool=False)
+    assert not {"MD0021", "MD0022", "MD0023"} & set(_codes(root))
+
+
+def test_a_tool_yml_whose_id_is_not_its_folder_is_refused(tmp_path):
+    """Review of #216: a misspelt id loaded as a tool that does not exist, and lint passed."""
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL.replace("nf-core/x", "nf-core/y"),
+        "tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert "MD0021" in _codes(root)
+
+
+def test_a_tool_yml_that_declares_something_else_is_refused(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TYPE.replace("genome.index.x", "x.thing"),
+        "tools/nf-core/x/sort/module.yml": MODULE.format(id="nf-core/x/sort"),
+    })
+    assert "MD0022" in _codes(root)
+
+
+def test_a_type_loose_under_tools_is_refused(tmp_path):
+    """Review of #216: `tools/nf-core/qc.report.yml` belonged to no tool and passed."""
+    root = _layer(tmp_path, {"tools/nf-core/genome.index.x.yml": TYPE})
+    assert "MD0023" in _codes(root)
+
+
+def _contract(id_: str, type_id: str) -> str:
+    return (
+        f"declares: contract\nid: {id_}@1.0.0\n"
+        f"consumes: [{{name: index, type_id: {type_id}, state_required: []}}]\n"
+    )
+
+
+def test_a_tools_own_type_used_by_another_tool_is_refused(tmp_path):
+    """Spec §3: a type in a tool's `types/` is used only by that tool (MD0024)."""
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/types/genome.index.x.yml": TYPE,
+        "tools/nf-core/y/tool.yml": TOOL.replace("nf-core/x", "nf-core/y"),
+        "tools/nf-core/y/align/contract.yml": _contract("nf-core/y/align", "genome.index.x"),
+    })
+    assert "MD0024" in _codes(root)
+
+
+def test_a_tools_own_type_used_by_that_tool_is_fine(tmp_path):
+    root = _layer(tmp_path, {
+        "tools/nf-core/x/tool.yml": TOOL,
+        "tools/nf-core/x/types/genome.index.x.yml": TYPE,
+        "tools/nf-core/x/align/contract.yml": _contract("nf-core/x/align", "genome.index.x"),
+    })
+    assert "MD0024" not in _codes(root)
+
+
+def test_a_tools_own_piece_folder_is_linted_as_data(tmp_path):
+    """Issue 224: only a `piece/` beside a codec, format or measure declaration is code."""
+    from mendel_compiler.registry_lint import _declared_files
+
+    declared = tmp_path / "tools" / "acme" / "piece" / "types" / "acme.piece.yml"
+    declared.parent.mkdir(parents=True)
+    declared.write_text("declares: vocabulary\nid: acme.piece\nstates: []\n")
+    assert declared in [path for path, _ in _declared_files(tmp_path)]

@@ -1,0 +1,426 @@
+"""Every setting this installation has, by section (spec §7).
+
+**Each section arrived with its consumer.** Appearance came first (the theme, read by
+`frontend/src/app/Shell.tsx`); Models and Privacy & data with 14.7.5.4, which made every model
+call read its purpose's model. Building arrived with 14.7.5.5; Pacing is read by the consultant
+build's fork (14.7.8.3b), Tier-4 answers still designed; Developer (Dev mode) arrived with
+14.7.8.3b; the read-only ones arrive in 14.7.5.6.
+"""
+
+from comeni_core.settings.declare import FROM_ENV, EnvItem, Setting, Where
+from comeni_core.settings.reasons import Designed, ReadOnlyHere
+from comeni_core.settings.retention import CHOICES, WHEN_IT_ENDS
+from comeni_core.settings.sections import Catalogue, Section
+
+THEME = Setting.choice(
+    key="appearance.theme",
+    label="Theme",
+    help=(
+        "Light or dark. Kept by this browser, so another browser or another person keeps "
+        "their own. Match the system follows your operating system's setting."
+    ),
+    options=[("system", "Match the system"), ("light", "Light"), ("dark", "Dark")],
+    default="system",
+    where=Where.BROWSER,
+)
+
+APPEARANCE = Section(
+    key="appearance",
+    title="Appearance",
+    lede="How Comeni looks in this browser.",
+    order=1,
+    settings=(THEME,),
+)
+
+PACING = Setting.choice(
+    key="building.pacing",
+    label="Pacing",
+    help=(
+        "How the build walks you through its steps: together, step by step, or set up at once "
+        "and stopping only where it needs you. Ask me every time asks at the start of each build."
+    ),
+    options=[
+        ("together", "Go through it together"),
+        ("stop_where_needed", "Set it up, stop only where you need me"),
+        ("ask", "Ask me every time"),
+    ],
+    default="ask",
+    env="COMENI_BUILD_PACING",
+)
+
+EXPLAIN = Setting.choice(
+    key="building.explain",
+    label="Explain each question",
+    help=(
+        "Under each question about your data: what it is, where it usually comes from, and why "
+        "this analysis needs it. Kept by this browser. Each explanation can still be opened or "
+        "folded on its own."
+    ),
+    options=[("open", "Open"), ("collapsed", "Collapsed")],
+    default="open",
+    where=Where.BROWSER,
+)
+
+TIER4_ANSWERS = Setting.choice(
+    key="building.tier4",
+    label="Choices no rule settles",
+    help=(
+        "What happens at a tier-4 choice, where no rule decides. In the consultant build it "
+        "always stops for you; letting a model propose the answer, always flagged as a model's, "
+        "is designed."
+    ),
+    options=[("stop", "Always stop for me"), ("model", "Let a model answer, flagged")],
+    default="stop",
+    env="COMENI_BUILD_TIER4",
+    unavailable=Designed(where="letting a model answer comes after the consultant build"),
+)
+
+BUILDING = Section(
+    key="building",
+    title="Building",
+    lede="How the build walks you through a pipeline, and how much it explains on the way.",
+    order=2,
+    settings=(PACING, EXPLAIN, TIER4_ANSWERS),
+)
+
+PURPOSE_NAMES = ("want", "talk", "tier4", "readback", "forge")
+"""Each purpose a model can be chosen for; its `.env` pin is `COMENI_AI_MODEL_<NAME>`."""
+
+
+CONNECTIONS = Setting.collection(
+    key="models.connections",
+    label="Connections",
+    help=(
+        "Where models are reached: a model server on this machine or your network, or a "
+        "provider with a key. Add one, test it, then choose a model for each purpose below."
+    ),
+    fields=(
+        Setting.text(
+            key="connection.name",
+            label="Name",
+            help="What this connection is called here, e.g. Local Ollama.",
+        ),
+        Setting.choice(
+            key="connection.server",
+            label="Server",
+            help="What answers at the endpoint. It decides how model ids are written.",
+            options=[
+                ("ollama", "Ollama"),
+                ("openai_compatible", "Another OpenAI-compatible server (vLLM, LM Studio)"),
+                ("hosted", "A hosted provider"),
+            ],
+            default="ollama",
+        ),
+        Setting.text(
+            key="connection.endpoint",
+            label="Endpoint",
+            help="The server's address, e.g. http://ollama:11434. Empty for a hosted provider.",
+        ),
+        Setting.secret(
+            key="connection.key",
+            label="Key",
+            help="The provider's API key. Stored sealed; shown only as its last four characters.",
+        ),
+    ),
+    from_env=EnvItem(
+        name=FROM_ENV,
+        # The default model, or any purpose pinned in .env (review I3).
+        present_when=(
+            "COMENI_AI_MODEL",
+            *(f"COMENI_AI_MODEL_{name.upper()}" for name in PURPOSE_NAMES),
+        ),
+        fields={"endpoint": "COMENI_AI_BASE_URL", "key": "COMENI_AI_API_KEY"},
+    ),
+    actions=("test", "models"),
+)
+
+
+def _purpose(name: str, label: str, help: str) -> Setting:
+    return Setting.model(
+        key=f"models.{name}",
+        label=label,
+        help=help,
+        of="models.connections",
+        env=f"COMENI_AI_MODEL_{name.upper()}",
+    )
+
+
+DEFAULT_MODEL = Setting.model(
+    key="models.default",
+    label="Default model",
+    help=(
+        "The model every purpose uses unless it names its own. COMENI_AI_MODEL in .env sets "
+        "it, through the From .env connection."
+    ),
+    of="models.connections",
+    env="COMENI_AI_MODEL",
+)
+MODEL_WANT = _purpose(
+    "want",
+    "Understanding what you want",
+    "Reads what you asked for and picks what it should produce. The call most worth a strong "
+    "model.",
+)
+MODEL_TALK = _purpose(
+    "talk",
+    "Talking with you",
+    "Phrases the questions the build asks you and reads your replies. A small model is enough.",
+)
+MODEL_TIER4 = _purpose(
+    "tier4",
+    "Choosing where the rules cannot",
+    "Proposes an answer to a choice no rule settles (tier 4). Always shown to you as a model's.",
+)
+MODEL_READBACK = _purpose(
+    "readback",
+    "Reading the plan back",
+    "Says back, in a sentence, what the pipeline will do, so you can check it was understood.",
+)
+MODEL_FORGE = _purpose(
+    "forge",
+    "Adapting tools",
+    "Drafts a new tool's contract in the registry's workshop, for a person to review.",
+)
+PURPOSE_SETTINGS = (MODEL_WANT, MODEL_TALK, MODEL_TIER4, MODEL_READBACK, MODEL_FORGE)
+
+WHERE_PURPOSES = Setting.readonly(
+    key="privacy.where",
+    label="Where each purpose goes",
+    help=(
+        "For each purpose, whether what it sends stays on this machine or your network, or "
+        "goes to a provider. Worked out from the connection each purpose uses."
+    ),
+    unavailable=ReadOnlyHere(why="worked out from Settings → Models"),
+)
+
+MODELS = Section(
+    key="models",
+    title="Models",
+    lede="Where models are reached, and which one answers each part of the conversation.",
+    order=3,
+    settings=(CONNECTIONS, DEFAULT_MODEL, *PURPOSE_SETTINGS),
+)
+
+RO = ReadOnlyHere(why="reported by the server; not changed here")
+
+PROTECTION = Setting.choice(
+    key="privacy.protection",
+    label="Protection level",
+    help=(
+        "How much of your data a model may see. Level 0 lets you upload a sample, measured on "
+        "this server, and a model may read it. Open, guarded and sealed send less, down to "
+        "nothing at all."
+    ),
+    env="COMENI_PROTECTION_LEVEL",
+    options=[
+        ("level_0", "Level 0: a sample may be uploaded and read"),
+        ("open", "Open"),
+        ("guarded", "Guarded"),
+        ("sealed", "Sealed"),
+    ],
+    # **Level 0 is built (14.7.6); the others are designed** (issue 71). They are offered
+    # greyed, so the menu says what is coming without a choice nothing would honour.
+    designed={o: "designed, not built (issue 71)" for o in ("open", "guarded", "sealed")},
+    default="level_0",
+)
+
+
+def _reported(key: str, label: str, help: str, why: ReadOnlyHere = RO) -> Setting:
+    return Setting.readonly(key=key, label=label, help=help, unavailable=why)
+
+
+REGISTRY_ROOT = _reported(
+    "registry.root",
+    "Registry",
+    "The folder the tools and types are read from. Set as MENDEL_REGISTRY_ROOT in .env.",
+)
+REGISTRY_LAYERS = _reported(
+    "registry.layers",
+    "Layers",
+    "Each layer stacked on the registry, in order. A later layer can replace an earlier "
+    "one's tool.",
+)
+GITHUB_TOKEN = _reported(
+    "registry.github",
+    "GitHub token",
+    "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
+    ReadOnlyHere(why="a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env"),
+)
+DOCKERHUB = _reported(
+    "registry.dockerhub",
+    "Docker Hub account",
+    "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
+    ReadOnlyHere(why="a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env"),
+)
+SOURCE_CHECK = _reported(
+    "registry.source_check",
+    "Nightly source check",
+    "When the worker re-reads every source to see whether an upstream tool moved.",
+)
+VERSIONS = _reported(
+    "system.versions", "Versions", "The version of each part of this installation."
+)
+DATABASE = _reported("system.database", "Database", "Whether Mendel's database answers.")
+REDIS = _reported("system.redis", "Job queue", "Whether the queue that runs model jobs answers.")
+MODEL_SERVER = _reported(
+    "system.model",
+    "Default model's server",
+    "Whether anything answers at the default model's endpoint. A hosted provider is not probed.",
+)
+
+PRIVACY = Section(
+    key="privacy",
+    title="Privacy & data",
+    lede="What a model may see, and where each purpose's data goes.",
+    order=4,
+    settings=(PROTECTION, WHERE_PURPOSES),
+)
+def _limit(key: str, label: str, help: str, default: str, env: str,
+           *, when_it_ends: bool = False) -> Setting:
+    """A retention limit: a choice in words, `keep` first (Part H)."""
+    options = [CHOICES[0], WHEN_IT_ENDS, *CHOICES[1:]] if when_it_ends else CHOICES
+    return Setting.choice(key=key, label=label, help=help, options=options, default=default,
+                          env=env)
+
+
+MODEL_REPLIES = _limit(
+    "retention.model_replies_days", "Model replies",
+    "The text a model sent back, including anything it quoted from a sample it read, is "
+    "cleared after this long. The record that the call happened, and every decision, stay.",
+    "30", "COMENI_RETENTION_MODEL_REPLIES_DAYS",
+)
+DRAFTS = _limit(
+    "retention.drafts_days", "Drafts and conversations",
+    "A pipeline nobody has changed for this long is deleted, with its conversation, its "
+    "decisions and its gate results. Its runs stay: they are kept under Data retention: runs.",
+    "keep", "COMENI_RETENTION_DRAFTS_DAYS",
+)
+RETENTION = Section(
+    key="retention",
+    title="Data retention",
+    lede="How long this installation keeps what it stores while you build. Anything not listed "
+         "is kept until you delete it.",
+    order=5,
+    settings=(MODEL_REPLIES, DRAFTS),
+)
+
+WORK_SUCCEEDED = _limit(
+    "retention_runs.work_succeeded_days", "Working files of a run that succeeded",
+    "Nextflow's intermediate files, which hold data from your samples, are deleted after this "
+    "long. The results and the run's record stay.",
+    "0", "WIENER_RETENTION_WORK_SUCCEEDED_DAYS", when_it_ends=True,
+)
+WORK_FAILED = _limit(
+    "retention_runs.work_failed_days", "Working files of a run that failed or was stopped",
+    "Kept a while so a failure can be looked into, then deleted. The results and the run's "
+    "record stay.",
+    "7", "WIENER_RETENTION_WORK_FAILED_DAYS", when_it_ends=True,
+)
+RUNS = _limit(
+    "retention_runs.runs_days", "Runs and results",
+    "A finished run is deleted whole after this long: its record, its results and its files.",
+    "keep", "WIENER_RETENTION_RUNS_DAYS",
+)
+RETENTION_RUNS = Section(
+    key="retention_runs",
+    title="Data retention: runs",
+    lede="How long Wiener keeps what a run leaves behind.",
+    order=6,
+    served_by="wiener",
+    settings=(WORK_SUCCEEDED, WORK_FAILED, RUNS),
+)
+
+
+REGISTRY = Section(
+    key="registry",
+    title="Registry & sources",
+    lede="Where tools and types are read from, and what the forge can reach.",
+    order=8,
+    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
+)
+AUTHOR = Setting.text(
+    key="system.author",
+    label="Your name",
+    help=(
+        "Written beside what is done here: a pipeline started, an answer given, a tool "
+        "approved. Attribution, not an account: everyone using this installation is recorded "
+        "under it. Empty uses the name git knows, if it knows one."
+    ),
+    env="COMENI_AUTHOR",
+)
+
+SYSTEM = Section(
+    key="system",
+    title="System",
+    lede="Who is recorded as working here, what is installed, and whether each part answers.",
+    order=9,
+    settings=(AUTHOR, VERSIONS, DATABASE, REDIS, MODEL_SERVER),
+)
+
+WIENER_ENV = ReadOnlyHere(why="Wiener reads this from its own .env")
+
+CONTAINER_RUNTIME = _reported(
+    "running.runtime",
+    "Container runtime",
+    "What runs each step's container: docker or singularity. WIENER_CONTAINER_PROFILE.",
+    WIENER_ENV,
+)
+LOST_AFTER = _reported(
+    "running.lost_after",
+    "Call a run lost after",
+    "How long a run may say nothing before it is called lost. Longer than the slowest step.",
+    WIENER_ENV,
+)
+EXECUTOR = Setting.choice(
+    key="running.executor",
+    label="Where runs execute",
+    help="This machine, a Kubernetes cluster or AWS Batch. Only this machine launches today.",
+    options=[("local", "This machine"), ("k8s", "Kubernetes"), ("awsbatch", "AWS Batch")],
+    default="local",
+    unavailable=Designed(where="k8s and awsbatch profiles are emitted, not launched"),
+)
+API_TOKEN = _reported(
+    "running.token",
+    "Who may submit runs",
+    "Whether Wiener asks for a token. Open is fine on a laptop; anything reachable needs one.",
+    WIENER_ENV,
+)
+TELEMETRY = _reported(
+    "running.telemetry",
+    "Telemetry",
+    "Whether run traces and metrics are sent anywhere. Off unless WIENER_OTLP_ENDPOINT is set; "
+    "a privacy matter, kept here because Wiener is what sends them.",
+    WIENER_ENV,
+)
+RUNNING = Section(
+    key="running",
+    title="Running",
+    lede="How runs execute, as Wiener reports it from its own settings.",
+    order=7,
+    served_by="wiener",
+    settings=(EXECUTOR, CONTAINER_RUNTIME, LOST_AFTER, API_TOKEN, TELEMETRY),
+)
+
+DEV_MODE = Setting.toggle(
+    key="dev.mode",
+    label="Dev mode",
+    help=(
+        "Add registry detail to the build: each gap's kind and the file that would fix it, and "
+        "a stop at every step with a gap. Off, the build still says what the registry lacks "
+        "and still stops wherever it needs you."
+    ),
+    default=False,
+    env="COMENI_DEV_MODE",
+)
+DEVELOPER = Section(
+    key="dev",
+    title="Developer",
+    lede="For the people fixing the registry: what the build would otherwise route around.",
+    order=99,
+    settings=(DEV_MODE,),
+)
+
+CATALOGUE = Catalogue(
+    sections=(APPEARANCE, BUILDING, MODELS, PRIVACY, RETENTION, RETENTION_RUNS, RUNNING, REGISTRY,
+              SYSTEM, DEVELOPER)
+)

@@ -9,6 +9,8 @@ with the storage monkeypatched. A `keep` that reached straight into a session wo
 only a developer machine could check.
 """
 
+import hashlib
+import json
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,7 +36,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
-from mendel_api.services import registry
+from mendel_api.services import decisions, registry
 from mendel_api.services import validate as validation
 from mendel_api.settings import settings
 
@@ -131,7 +133,10 @@ class DraftRow(BaseModel):
     """
 
     kept: bool
-    """Whether `keep` has ever written an artifact for this draft."""
+    """Whether `keep` has ever written an artifact for this draft — `PipelineDraft.kept_at`."""
+    changed_since_kept: bool = False
+    """Whether the graph differs from the one that was kept (issue 277), compared by content, so
+    the digest and outputs beside it describe an older state. Always false for an unkept draft."""
     digest: str | None = None
     """`Pipeline.content_digest()` of the kept artifact — **the join key to a run.**
 
@@ -239,22 +244,23 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
             .all()
         )
         listed = [
-            (row.id, row.name, row.who, row.updated_at,
-             len(DraftGraph.model_validate(row.graph).nodes))
+            (row.id, row.name, row.who, row.updated_at, DraftGraph.model_validate(row.graph),
+             row.kept_at is not None, row.kept_graph, row.kept_digest)
             for row in rows
         ]
 
     out: list[DraftRow] = []
-    for draft_id, name, who, updated_at, steps in listed:
-        row = DraftRow(id=draft_id, name=name, who=who, updated_at=updated_at, steps=steps,
-                       kept=False)
+    for draft_id, name, who, updated_at, graph, was_kept, kept_graph, digest in listed:
+        row = DraftRow(id=draft_id, name=name, who=who, updated_at=updated_at,
+                       steps=len(graph.nodes), kept=False)
         artifact = _output_root() / draft_id / "pipeline.yml"
-        if artifact.is_file():
+        if was_kept and artifact.is_file():
             kept = pipeline_file.load(artifact)
             provenance, named, unnamed = _provenance_of(kept)
             row = row.model_copy(update={
                 "kept": True,
-                "digest": kept.content_digest(),
+                "changed_since_kept": fingerprint(graph) != kept_graph,
+                "digest": digest,
                 "provenance": provenance,
                 "open_values": named,
                 "open_not_named": unnamed,
@@ -388,6 +394,18 @@ class Stored(NamedTuple):
     graph: DraftGraph
     provenance: DraftProvenance | None
     goal: Goal | None
+    projection_current: bool = True
+
+
+def _record_kept(draft_id: str, graph: str, digest: str) -> None:
+    """The storage seam `keep` writes through, beside `_load`: what was kept, and when."""
+    with session_scope() as session:
+        row = session.get(PipelineDraft, draft_id)
+        if row is None:
+            raise KeyError(draft_id)
+        row.kept_at = datetime.now(UTC)
+        row.kept_graph = graph
+        row.kept_digest = digest
 
 
 def _load(draft_id: str) -> Stored:
@@ -403,7 +421,8 @@ def _load(draft_id: str) -> Stored:
         return Stored(
             graph=DraftGraph.model_validate(row.graph),
             provenance=DraftProvenance.model_validate(row.provenance) if row.provenance else None,
-            goal=Goal.model_validate(row.goal) if row.goal else None,
+            goal=decisions.confirmed_goal(draft_id),
+            projection_current=row.projection_current,
         )
 
 
@@ -420,22 +439,13 @@ def read(draft_id: str) -> PipelineDraft:
         return row
 
 
-def update(draft_id: str, graph: DraftGraph) -> None:
-    """Store the new graph, and carry the provenance of everything it did not change.
+def update(draft_id: str, graph: DraftGraph, *, name: str | None = None,
+           expected_revision: int | None = None) -> str:
+    """Internal saves share the revision owner; HTTP requires an expected revision."""
+    from mendel_api.services import draft_mutations
 
-    **The sidecar is computed here and never accepted from the client** — §1.8. A browser that
-    could post provenance could post `source: resolver` on a value it typed, and *nothing was
-    guessed silently* would become a claim the client makes about itself.
-    """
-    with session_scope() as session:
-        row = session.get(PipelineDraft, draft_id)
-        if row is None:
-            raise KeyError(draft_id)
-        before = DraftGraph.model_validate(row.graph)
-        prior = DraftProvenance.model_validate(row.provenance or {})
-        row.graph = graph.model_dump(mode="json")
-        row.provenance = _restamped(graph, before, prior).model_dump(mode="json")
-        row.updated_at = datetime.now(UTC)
+    return draft_mutations.save(draft_id, graph=graph, name=name,
+                                expected_revision=expected_revision).name
 
 
 
@@ -482,7 +492,14 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     # so `staging.stage` is one implementation shared with `mendel build` rather than a second
     # `copytree` that can go missing again.
     staging.stage(pipeline, stack.modules, out)
+    _record_kept(draft_id, fingerprint(graph), pipeline.content_digest())
     return out / "pipeline.yml"
+
+
+def fingerprint(graph: DraftGraph) -> str:
+    """The graph's content, as a digest: what *changed since kept* compares (issue 277)."""
+    canonical = json.dumps(graph.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class Preview(NamedTuple):
@@ -516,6 +533,9 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
     stored = _load(draft_id)
     with session_scope() as session:
         revision = session.get(PipelineDraft, draft_id).revision
+    if not stored.projection_current:
+        return Preview(revision, "outdated", "", [coded("MI0201",
+            "the selected facts changed; resolve the corrected pipeline before keeping it")])
     if not stored.graph.nodes:
         return Preview(revision, "empty", "", [])
     verdict = validation.of(stored.graph)
@@ -532,6 +552,9 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
 
 def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:
     """A stored draft as a `Pipeline`, for `keep` and `preview` alike."""
+    if not stored.projection_current:
+        raise ValueError(coded("MI0201",
+            "the selected facts changed; resolve the corrected pipeline before keeping it"))
     graph = stored.graph
     return Pipeline.of(
         ir_of(graph, stack, by=by, provenance=stored.provenance),

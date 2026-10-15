@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -16,7 +16,7 @@ import { routes } from "../app/router";
 const PIPELINE = {
   id: "aaaa1111", name: "rnaseq-counts", who: "R. Correia",
   updated_at: "2026-08-29T10:00:00Z", steps: 4, makes: ["counts.matrix"],
-  kept: true, digest: "sha256:" + "a".repeat(64),
+  kept: true, changed_since_kept: false, digest: "sha256:" + "a".repeat(64),
   provenance: { settled: 9, measured: 1, open: 1, by_person: 4, by_model: 0 },
   open_values: [{ step: "align", setting: "seq_platform" }],
   open_not_named: 0,
@@ -44,9 +44,18 @@ const FINISHED = {
 
 /** Route each request to the half that owns it — the page reads three sources and joins them
  *  in the browser, which is the whole point of `wiener.md` §12. */
-function at({ drafts = [PIPELINE, SETTLED], runs = [RUNNING, FINISHED], mendel = [] as unknown[] }) {
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+function at({ drafts = [PIPELINE, SETTLED], runs = [RUNNING, FINISHED], mendel = [] as unknown[],
+              model = false, begin = vi.fn() }) {
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/pipeline/authoring") && init?.method === "POST") {
+      begin(JSON.parse(String(init.body)));
+      return { ok: true, status: 201, json: async () => ({ session: { id: "s42" }, queued: true }) };
+    }
+    // The diagnostic never answers, as when the model server is down (issue 268): nothing on the
+    // front door may wait on it. Whether a model is configured is asked on its own.
+    if (url.endsWith("/health/ai")) return new Promise(() => {});
     const body = url.includes("/attention") ? { forge: [], mendel }
+      : url.endsWith("/settings/ai") ? { configured: model }
       : url.includes("/pipeline/drafts") ? { drafts, total: drafts.length }
       : url.includes("/api/runs") ? { runs, total: runs.length }
       : {};
@@ -153,6 +162,26 @@ describe("the front door", () => {
     expect(screen.getByText("not kept")).toBeTruthy();
   });
 
+  it("says a kept pipeline changed since it was kept, beside its name", async () => {
+    // Issue 277: the outputs and the bar describe the kept artifact, which an edit has left
+    // behind. Nothing says so for one unchanged since.
+    const edited = { ...PIPELINE, changed_since_kept: true };
+    at({ drafts: [edited, { ...SETTLED, changed_since_kept: false }], runs: [] });
+    await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
+    const table = within(screen.getByRole("table"));
+    expect(table.getAllByText("changed since kept")).toHaveLength(1);
+    const row = table.getByText("changed since kept").closest("tr")!;
+    expect(within(row).getByText("rnaseq-counts")).toBeTruthy();
+  });
+
+  it("lays the describe box out with the page, never after it", async () => {
+    // Issue 268: the box appeared seconds after the page, and what a person typed meanwhile
+    // went nowhere. The page arrives whole, so the box is there when the work is.
+    at({ model: true });
+    await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
+    expect(screen.getByRole("form", { name: "describe a new analysis" })).toBeTruthy();
+  });
+
   it("offers the first-run composition when the lab has nothing yet", async () => {
     at({ drafts: [], runs: [] });
     await waitFor(() => expect(screen.getByText("What do you want to make?")).toBeTruthy());
@@ -162,6 +191,25 @@ describe("the front door", () => {
     await waitFor(() => expect(screen.getByText(/No model is configured/)).toBeTruthy());
     expect(screen.getByPlaceholderText(/RNA-seq/)).toBeDisabled();
     expect(screen.getByRole("link", { name: /draw it yourself/i })).toBeTruthy();
+  });
+
+  // Issue 229: the conversation was reachable only from an empty home, so a lab with work could
+  // start one only through the API. With a model, home always offers it, above the work.
+  it("offers a conversation above the work once the lab has pipelines", async () => {
+    const begin = vi.fn();
+    at({ model: true, begin });
+    const form = await screen.findByRole("form", { name: "describe a new analysis" });
+    expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0);
+    fireEvent.change(within(form).getByRole("textbox"), { target: { value: "  variants from WGS " } });
+    fireEvent.click(within(form).getByRole("button", { name: "Start" }));
+    await waitFor(() => expect(begin).toHaveBeenCalledWith({ prompt: "variants from WGS" }));
+  });
+
+  it("offers no conversation on home without a model, and still the canvas", async () => {
+    at({});
+    await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
+    expect(screen.queryByRole("form", { name: "describe a new analysis" })).toBeNull();
+    expect(screen.getByRole("link", { name: "New pipeline" })).toHaveAttribute("href", "/build");
   });
 
   it("still lists the lab's pipelines when Wiener is unreachable", async () => {

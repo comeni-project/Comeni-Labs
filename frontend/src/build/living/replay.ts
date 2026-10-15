@@ -1,6 +1,7 @@
-/** Spawn's staged reveal: once on first arrival, never again on reload.
+/** The staged reveal: once on first arrival, never again on reload.
  *
- * A Spawn session can arrive with a whole pipeline already built. Showing it all at once loses the
+ * A session can arrive with many steps already placed (Spawn did; a walk paced *stop only where
+ * needed* does, spec §13 of the consultant build). Showing it all at once loses the
  * one thing the reveal is for — that each step arrived by a decision, in order — and replaying ten
  * seconds of animation on every reload is a page that makes somebody wait to see what they already
  * saw. So the reveal plays over the steps accepted **since this tab last looked**, and remembers

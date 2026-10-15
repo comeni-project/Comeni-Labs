@@ -1,3 +1,5 @@
+# Load dashboard JSON from the Compose mount of ops/boards into the Wiener folder.
+# UI edits are allowed; export changes back to the repository to retain them in source.
 apiVersion: 1
 providers:
   - name: wiener

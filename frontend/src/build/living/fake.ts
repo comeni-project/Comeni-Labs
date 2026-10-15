@@ -1,4 +1,5 @@
 import type { AuthoringSession, Step } from "../../api/types";
+import type { AlternativePreview } from "./useAlternativePreview";
 
 /** A static session carrying **every block state** — Task 9's checkpoint, before any API.
  *
@@ -19,7 +20,6 @@ export const FAKE_SESSION = {
   id: "fake",
   draft_id: "fake-draft",
   name: "rnaseq-counts",
-  mode: "build",
   phase: "building",
   failed_from: null,
   goal: null,
@@ -27,6 +27,7 @@ export const FAKE_SESSION = {
   row_version: 9,
   model_configured: true,
   steps_total: 5,
+  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false } },
   graph: {
     nodes: [
       { id: "star_genomegenerate", contract_id: INDEX, params: [] },
@@ -96,21 +97,21 @@ export const FAKE_SESSION = {
       blocks: [] },
   ],
   history: [
-    { id: "h-goal", kind: "goal", state: "accepted", by: "person", chosen_option: null,
+    { id: "h-goal", kind: "goal", state: "accepted", by: "person", actor_kind: "person", chosen_option: null,
       chosen_contract: null, at: at(2),
       block: { kind: "goal_summary", id: "goal-1", goal: { have: [], want: [] }, have: "", do: "",
         get: "a gene-level counts matrix" } },
-    { id: "h-index", kind: "step", state: "accepted", by: "person", chosen_option: "keep",
+    { id: "h-index", envelope: { offer: "step", progress: { position: 1, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
       chosen_contract: INDEX, at: at(3),
       block: { kind: "step_proposal", id: "step-star_genomegenerate", node: "star_genomegenerate",
         contract: INDEX, produces: ["genome.index.star"], reason: "STAR needs an index.", tier: 2,
         alternatives: [] } },
-    { id: "h-trim", kind: "step", state: "accepted", by: "person", chosen_option: "keep",
+    { id: "h-trim", envelope: { offer: "step", progress: { position: 2, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
       chosen_contract: TRIM, at: at(4),
       block: { kind: "step_proposal", id: "step-trimgalore", node: "trimgalore", contract: TRIM,
         produces: ["fastq.reads"], reason: "STAR asks for trimmed reads.", tier: 2,
         alternatives: [] } },
-    { id: "h-align", kind: "step", state: "accepted", by: "person", chosen_option: "keep",
+    { id: "h-align", envelope: { offer: "step", progress: { position: 3, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
       chosen_contract: ALIGN, at: at(5),
       block: { kind: "step_proposal", id: "step-star_align", node: "star_align", contract: ALIGN,
         produces: ["alignment.bam"], reason: "The rule for 150bp paired reads.", tier: 3,
@@ -119,6 +120,7 @@ export const FAKE_SESSION = {
   pending_proposal: {
     id: "p-sort",
     kind: "step",
+    envelope: { offer: "step", preview_options: ["alt_1"] },
     draft_revision: 4,
     options: ["alt_1", "keep"],
     edges: [{ from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam" }],
@@ -176,6 +178,7 @@ export const COLLECT_SESSION = {
   name: "rnaseq-counts",
   phase: "complete",
   steps_total: 4,
+  progress: { reviewed: 4, total: 4, active: null },
   graph: {
     nodes: [
       { id: "star_align", contract_id: ALIGN, params: [] },
@@ -218,3 +221,70 @@ export const COLLECT_CHANNELS = [
   { name: "reads", param: "input", type_id: "fastq.reads", scope: "sample", count: 12,
     states: ["paired"], ports: ["trimgalore.reads"] },
 ] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];
+
+/** Part F: asserted answers remain selected while a sample disagrees. */
+export const CONFLICT_SESSION = {
+  ...FAKE_SESSION,
+  turns: FAKE_SESSION.turns.filter(turn => turn.seq <= 1).map(turn => ({ ...turn,
+    blocks: turn.blocks.filter(block => block.kind === "goal_summary") })),
+  phase: "building", decision_revision: 2, projection_current: false, ownership: "authored",
+  facts: [{ kind: "measurement", subject: "paired", value: false, source: "person_said", states: [], pieces: [] }],
+  inputs: [{ key: "fastq.reads", type_id: "fastq.reads", present: true, origin: "person_said", states: [] }],
+  pending_proposal: {
+    id: "disagree-paired", kind: "disagreement", draft_revision: 4, edges: [],
+    options: ["keep_current", "use_measurement", "correct", "unknown"],
+    envelope: {
+      offer: "disagreement", context: { draft_revision: 4, decision_revision: 2, session_version: 3, registry: "fixture" },
+      subject: "paired", observation_id: "observation-paired", current_revision_id: "selected-paired",
+      current_value: false, current_origin: "person_said", observed_value: true, observed_origin: "measured", continuation: "build",
+      options: { keep_current: "Keep no (you said)", use_measurement: "Use yes (measured)", correct: "Use another answer", unknown: "Return to unknown" },
+      block: { kind: "question", id: "disagreement-3", asks: "For paired, your answer is no (you said), but this sample says yes (measured). Which should we use?",
+        why_open: "Evidence never replaces your selected answer automatically.", exhaustive: true, phrasing: "none",
+        options: [ { id: "keep_current", recommended: false, label: "Keep no (you said)" }, { id: "use_measurement", recommended: false, label: "Use yes (measured)" },
+          { id: "correct", recommended: false, label: "Use another answer" }, { id: "unknown", recommended: false, label: "Return to unknown" } ] },
+    },
+    block: { kind: "question", id: "disagreement-3", asks: "For paired, your answer is no (you said), but this sample says yes (measured). Which should we use?",
+      why_open: "Evidence never replaces your selected answer automatically.", exhaustive: true, phrasing: "none",
+      options: [ { id: "keep_current", recommended: false, label: "Keep no (you said)" }, { id: "use_measurement", recommended: false, label: "Use yes (measured)" },
+        { id: "correct", recommended: false, label: "Use another answer" }, { id: "unknown", recommended: false, label: "Return to unknown" } ] },
+  },
+} as AuthoringSession;
+
+const SORMADUP = "nf-core/samtools/sormadup@1.21.0";
+
+/** The sorter's one alternative as its **complete saved preview**: the whole pipeline it gives,
+ *  read the way a live session reads one, so the fixtures exercise the same preview canvas. */
+export function fakePreview(session: AuthoringSession, option: string): AlternativePreview {
+  const context = session.canvas?.context ?? { draft_revision: session.revision, decision_revision: 0,
+                                               session_version: session.row_version ?? 0, registry: "fixture" };
+  const kept = ["star_genomegenerate", "trimgalore", "star_align"];
+  return {
+    option_id: option,
+    contract: SORMADUP,
+    observed_context: context,
+    frame: {
+      context, proposal_id: session.pending_proposal?.id ?? null, current: true,
+      graph: {
+        nodes: [...kept.map((id) => ({ id, contract_id: FAKE_STEPS[id].contract_id, params: [] })),
+                { id: "samtools_sormadup", contract_id: SORMADUP, params: [] }],
+        edges: [
+          { from_node: "trimgalore", from_port: "reads", to_node: "star_align", to_port: "reads" },
+          { from_node: "star_genomegenerate", from_port: "index", to_node: "star_align", to_port: "index" },
+          { from_node: "star_align", from_port: "bam", to_node: "samtools_sormadup", to_port: "bam" },
+        ],
+      },
+      steps: [...kept.map((id) => FAKE_STEPS[id]),
+        { id: "samtools_sormadup", process: "SAMTOOLS_SORMADUP", contract_id: SORMADUP, tier: 2,
+          runs: "per_item", reason: "", settings: [],
+          ports: [port("bam", "alignment.bam", "in"),
+                  port("bam", "alignment.bam", "out", ["coordinate_sorted", "duplicates_marked"])] },
+      ] as unknown as AlternativePreview["frame"]["steps"],
+      channels: FAKE_CHANNELS,
+      placement: { ...FAKE_SESSION.placement, samtools_sormadup: FAKE_SESSION.placement.samtools_sort },
+    },
+  };
+}
+
+/** A fixture's preview reader: the option is the path's last segment, before its query. */
+export const readFakePreview = (session: AuthoringSession) => (path: string) =>
+  Promise.resolve(fakePreview(session, path.split("?")[0].split("/").pop() ?? ""));

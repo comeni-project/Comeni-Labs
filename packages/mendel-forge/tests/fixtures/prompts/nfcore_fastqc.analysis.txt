@@ -98,7 +98,7 @@ asks: the semantic type of the input the module calls reads
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
 answer with: a single value
-legal values (these are the only legal answers): fastq.reads, alignment.bai, alignment.bam, annotation.gtf, counts.matrix, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+legal values (these are the only legal answers): fastq.reads, alignment.bai, alignment.bam, annotation.gtf, counts.matrix, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.quality_encoding, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
 The semantic type of a port: what the data *is*, independent of how it is stored and of what this
@@ -133,7 +133,7 @@ asks: the semantic type of the output the module emits as html
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
 answer with: a single value
-legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.quality_encoding, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
 The semantic type of a port: what the data *is*, independent of how it is stored and of what this
@@ -151,7 +151,7 @@ asks: the semantic type of the output the module emits as versions_fastqc
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
 answer with: a single value
-legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.quality_encoding, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
 The semantic type of a port: what the data *is*, independent of how it is stored and of what this
@@ -169,7 +169,7 @@ asks: the semantic type of the output the module emits as zip
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
 answer with: a single value
-legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.quality_encoding, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
 The semantic type of a port: what the data *is*, independent of how it is stored and of what this

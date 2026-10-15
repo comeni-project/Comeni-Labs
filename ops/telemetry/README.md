@@ -1,42 +1,101 @@
-# Where the telemetry goes
+# Execution telemetry
 
-**Wiener speaks OTLP and nothing else.** The backend is named in `docs/design/wiener.md` §8 and
-depended on nowhere — it is a thing you point at, not a thing this repository composes.
+Wiener exports execution traces and metrics over OTLP/gRPC when `WIENER_OTLP_ENDPOINT` is set.
+The optional local backend receives them through an OpenTelemetry collector, stores them in
+ClickHouse and displays them in Grafana. Wiener stores application run records in PostgreSQL.
 
-Set one variable and Wiener exports; leave it unset and it does not:
+## Start the local backend
 
-```bash
-WIENER_OTLP_ENDPOINT=http://localhost:4317
-```
-
-**Off by default**, which is `CLAUDE.md`'s standing rule for telemetry and §8's for this: spans
-reaching a *hosted* vendor are an undeclared egress path, and worse than the model one because
-telemetry is fire-and-forget.
-
-## Running SigNoz
-
-**It is not in `docker-compose.yml` on purpose.** SigNoz deprecated its bundled Compose files in
-v0.130.0 and installs through **Foundry**, a CLI that renders and runs its own stack; it is not
-designed to be embedded in somebody else's compose file. Vendoring the deprecated manifest to
-keep one-file tidiness would mean running an unmaintained copy of somebody else's stack.
-
-Development:
+From the repository root:
 
 ```bash
-curl -fsSL https://signoz.io/foundry.sh | bash
-foundryctl cast -f casting.yaml     # OTLP on 4317, UI on 8080
+make telemetry
 ```
 
-Production is Kubernetes, where SigNoz has a Helm chart and this question does not arise.
+This starts `clickhouse`, `otel-collector` and `grafana` through the Compose `telemetry` profile.
+Docker with Compose is required; startup may pull their images. Grafana automatically loads the
+ClickHouse data source and the [committed dashboards](../boards/README.md).
+The local profile enables anonymous Grafana access with the Admin role and uses the `otel`
+ClickHouse account configured in Compose, the collector and Grafana provisioning.
 
-## The boards
+| Endpoint | Default host address | Override |
+|---|---|---|
+| OTLP/gRPC collector | `http://localhost:4317` | `OTLP_HOST_PORT` |
+| Grafana | `http://localhost:3001` | `GRAFANA_HOST_PORT` |
 
-`ops/boards/` holds them as JSON, so they are part of the repository rather than something
-somebody clicked once. Import them into whichever backend is running — they read the CI/CD
-attribute names, which are the conventions' rather than ours, so a board is not tied to a
-vendor either.
+The collector also listens for OTLP/HTTP on port 4318 inside the Compose network. Compose
+publishes only its gRPC port, and Wiener's exporter uses gRPC.
 
-## Anything else that speaks OTLP
+## Enable Wiener export
 
-Jaeger renders traces and stores no metrics; Grafana over ClickHouse renders both and wants its
-schema hand-built. Either works — `spans()` and the five metrics know nothing about the far end.
+Export is disabled when the endpoint is empty. For a Wiener process running on the host,
+set the variable in its environment before starting it:
+
+```bash
+export WIENER_OTLP_ENDPOINT=http://localhost:4317
+```
+
+Use the configured host port if `OTLP_HOST_PORT` was changed. For Wiener services in Compose,
+the collector address is `http://otel-collector:4317`.
+
+The current Compose files do not forward `WIENER_OTLP_ENDPOINT` to Wiener. Exporting it in the
+host shell alone will not enable container export. Add it to the exporting services through a
+local Compose override, for example:
+
+```yaml
+services:
+  wiener-ingest:
+    environment:
+      WIENER_OTLP_ENDPOINT: http://otel-collector:4317
+  wiener-api:
+    environment:
+      WIENER_OTLP_ENDPOINT: http://otel-collector:4317
+  wiener-worker:
+    environment:
+      WIENER_OTLP_ENDPOINT: http://otel-collector:4317
+```
+
+The event receiver records normal execution transitions; API actions and worker recovery can
+also record terminal transitions. Apply the override with the same Compose files used to start
+those services, and recreate them to load the environment. Restart a host process after changing
+its endpoint; settings and exporters are initialized in the process.
+
+The current exporter uses an insecure gRPC connection and exposes no exporter authentication
+settings. An alternative receiver must support that connection, or sit behind a compatible local
+collector. This repository supplies the local ClickHouse/Grafana backend; other receivers need
+separate deployment configuration and views. The dashboard JSON is specific to Grafana and
+ClickHouse's OTLP tables.
+
+## What arrives and when
+
+Wiener updates the active-run metric when a run enters and leaves the running state. It exports
+run and attempt spans after a terminal transition, using recorded timestamps. Each retry is a
+separate attempt span. Duration and error metrics are recorded on completion.
+
+Trace-based timing, capacity and failure panels therefore describe finished runs. Missing trace
+measurements remain absent in span attributes. Export failures are logged; the telemetry store
+is separate from the application record.
+
+The [collector configuration](../otel/collector.yaml) batches traces and metrics, creates the
+ClickHouse schema and sets a 720-hour retention TTL. It includes no sampling processor.
+ClickHouse data persists in the `wiener-clickhouse` Docker volume.
+
+## Check and stop the backend
+
+Inspect service logs from the repository root:
+
+```bash
+docker compose --profile telemetry logs --tail=100 otel-collector clickhouse grafana
+```
+
+Check the exporting Wiener process's logs and environment as well. Empty Grafana panels can
+mean no matching data, a disconnected exporter or a backend/query failure; their placeholder
+messages alone do not establish which condition occurred.
+
+To stop only the telemetry services while retaining their stored data:
+
+```bash
+docker compose --profile telemetry stop grafana otel-collector clickhouse
+```
+
+See the [operations index](../README.md) for configuration ownership and service mounts.

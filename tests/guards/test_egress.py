@@ -1,195 +1,49 @@
-"""Invariant 14: data leaves through five declared doors and no others.
+"""Invariant 14: data leaves through six declared doors and no others.
 
 The doors are listed here, literally, on purpose. Adding one means editing a file
 whose contents say "these are all the ways data leaves this building" — which is
 the moment a person should be thinking, and this test is what makes them.
 
-**Five since 2026-09-05, on two paths.** Four carry pipeline data along one prompt-taint path;
+**Six since 2026-10-04 (door 6, the characteriser); five since 2026-09-05, on two
+paths.** Five carry pipeline data along one prompt-taint path, door 6 the start of a sample;
 `forge_review` carries a curator's message to a model about a candidate the forge proposed.
 The forge stayed off this list for as long as it had no prompt — one of the three legs the
 2026-08-17 exemption stood on, beside taking no `Goal` and writing no `pipeline.yml` — and a
 review chat breaks exactly that leg. The other two still hold, which is what `DoorPath` records.
 
 A separate `FORGE_DOORS` was considered and rejected: two files creates a cheaper file, and the
-less-scrutinised one is where a door that belonged on the other list eventually goes.
-"""
+less-scrutinised one is where a door that belonged on the other list eventually goes."""
 
 import enum
-import types
 import typing
-from collections import abc
 
 import pytest
-from comeni_core.artifact import egress
+from comeni_core.egress import boundaries as egress
+from comeni_core.egress.authoring import AuthoringRequest
+from comeni_core.egress.base import EgressPayload
+from comeni_core.egress.characterisation import CharacteriseRequest
+from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
 from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import Mark
-from pydantic import BaseModel, ValidationError, computed_field
+from pydantic import ValidationError, computed_field
+from support.egress import (
+    BUILDERS,
+    DOORS,
+    FORGE_DOORS,
+    FREE_TEXT_FIELDS,
+    PIPELINE_DOORS,
+    SAMPLE_FIELDS,
+    _fields,
+    _has_bare_str,
+    _leaf_problems,
+    _marks_in,
+    _mentions_any,
+    _mentions_binary,
+    _mentions_mapping,
+    _payload_types,
+    _serialised_hints,
+)
 from support.walk import reachable
-
-PIPELINE_DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
-"""Invariant 14's original four, and the sentence *pipeline data leaves through four doors*
-stays checkable against this set rather than against the whole list."""
-
-FORGE_DOORS = {"forge_review"}
-"""Registry authoring. Public tool documentation in, reviewed registry data out, and no `Goal`
-anywhere in it — a different path with a different author and the same rules."""
-
-DOORS = PIPELINE_DOORS | FORGE_DOORS
-
-_BINARY = (bytes, bytearray, memoryview)
-"""No payload may carry a blob. A signature field on a lockfile is the obvious way this
-arrives, and it is still a blob — sign the artifact beside the bundle, not inside it."""
-
-# Free text is the taint source, and **this set is the count** — not any sentence about it.
-#
-# This comment said "exactly two" for three plans while the set below held four, then six,
-# then seven; A33 is the same drift in `CLAUDE.md` invariant 14, and round four found this
-# copy of it. Naming a number in prose beside a literal set creates two sources of truth and
-# only one of them is executable, so the number is deliberately not repeated here. Widening
-# the boundary means adding a line below, which is a diff that says *these are all the ways
-# data leaves*.
-#
-# Every increase so far arrived by a refactor rather than by a new kind of string crossing —
-# A16 splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly
-# what a literal list exists to make somebody look at.
-FREE_TEXT_FIELDS = {
-    ("GateFailure", "tool_message"),
-    # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
-    # prose explaining a choice — genuinely free text, and named here rather than
-    # exempted, because an audit found these riding along unexamined inside a nested
-    # model the guard never opened.
-    ("ResolvedValue", "reason"),
-    # One per decision kind since A16 split `DecisionRecord` into three. Four entries
-    # became six by a refactor rather than by a new field crossing the boundary — which is
-    # exactly the sort of change this literal list exists to make someone notice.
-    ("ParamDecision", "reason"),
-    ("ProducerDecision", "reason"),
-    ("SourceDecision", "reason"),
-    # Seventh, and expected: `Pipeline` became door 4's payload in Plan 1.10 Task 11, and
-    # `Why.reason` is the citation beside every value — the legibility the whole artifact
-    # exists for. It is a `Line`, so it is `FREE_TEXT` with a single-line validator, and it
-    # reaches this set through exactly the same door the four `reason` fields above do.
-    #
-    # It is listed rather than exempted for the reason the whole list is literal: widening
-    # the boundary should mean editing a file that says *these are all the ways data leaves*.
-    ("Why", "reason"),
-    # Eleventh through fourteenth, Plan 2.5, and they arrive as a GROUP for one reason:
-    # `Ambiguity` became a `comeni_core.review.Question`, so the four fields the forge had
-    # always carried on a `Hole` now reach door 2 as well. Two are prose and two are the
-    # excerpt they point at.
-    #
-    # **Why they were let through rather than stripped.** The forge measured a local model
-    # re-deriving shipped contracts at 69% and then 88%, and two of the three fixes behind
-    # that were exactly *the question never said what it was about* (`what`) and *the
-    # evidence was a Python repr nobody could read* (`evidence`). Door 2 hands a tier-4
-    # question to a model. Carrying candidates and nothing else would rebuild the measured
-    # 69% configuration on the build path, having already paid to learn it.
-    # `test_the_door_carries_what_the_forge_measured_a_model_needs` is that argument as a
-    # test, so removing them fails rather than silently regressing.
-    ("AmbiguityRequest", "what"),
-    ("AmbiguityRequest", "why_open"),
-    # **`Excerpt` is the first author on this list that is not an author.** Every other entry
-    # is composed by somebody — a user, a contract author, a rule author, the resolver, a
-    # reviewer. These two are *quoted*: a source file already contains the text and an
-    # excerpt copies it, with `locator` naming where. That is a weaker claim than the rest of
-    # the list makes and it is written down rather than assumed, because "it is only quoted"
-    # is exactly the kind of reasoning that widens a boundary without anybody noticing.
-    #
-    # What bounds it is the source: excerpts are read from vendored modules and registry
-    # files, which are public data, and never from a prompt or a goal.
-    ("Excerpt", "locator"),
-    ("Excerpt", "text"),
-    # Eighth and ninth, Plan 1.14 Task 5, and they are **one field splitting in two** rather
-    # than a new kind of string crossing — the same pattern as A16 turning four `reason`
-    # entries into six. `reason` was answering two questions at once: why this decision is
-    # made this way at all (a rule block's methodology) and why *this answer* won (the row's
-    # choice). Carrying both in one field is how the shipped registry came to cite the STAR
-    # paper as the reason HISAT2 was chosen — A79 and A107.
-    #
-    # Same author, same source, same door: registry data written by a contract or rule
-    # author, reaching this set through `RepairRequest.ir` and `Pipeline` exactly as
-    # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
-    ("ResolvedValue", "axis_reason"),
-    ("Why", "axis_reason"),
-    # Tenth, Plan 1.14 Task 8, and the **first one that is genuinely new** rather than a
-    # split of something already crossing. The nine above are written by a contract author, a
-    # rule author, or the resolver. This one is written by *the person answering a tier-4
-    # question*, in the artifact, after resolution — a new author, and the only free-text
-    # field in the system a reviewer fills in themselves.
-    #
-    # It is listed rather than exempted for exactly that reason. Tier 4 is the honesty
-    # mechanism and the one tier where a person supplies the answer, and until now they had
-    # nowhere to say why: `upgrade` replaced a hand-written sentence with "selected the first
-    # of 1 candidates without judgement" under `source: human` (A77). The alternative to this
-    # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
-    # more declared string crossing a door somebody has to argue for.
-    ("ParamDecision", "override_reason"),
-    # Fifteenth and sixteenth, 2026-09-05, and they arrive with a **new door** rather than by a
-    # refactor — the second time that has happened, after `override_reason`.
-    #
-    # `ReviewTurn.content` is the load-bearing one: a curator types it, at request time, and it
-    # goes to a provider. That is what `AuthoringRequest.prompt` is on the pipeline side, and it
-    # is precisely the leg the forge's 2026-08-17 exemption stood on — *it has no prompt*. The
-    # chat is a prompt, so the exemption stopped covering it and a door was declared instead of
-    # the argument being stretched.
-    #
-    # `ForgeReviewRequest.candidate` is the proposed contract or module as a reviewer sees it.
-    # It is composed rather than typed by anybody, from vendored modules and registry files —
-    # the same public bound that keeps `Excerpt` on this list honest.
-    #
-    # What is NOT here, deliberately: the generation dossier. It is composed entirely from
-    # those same public sources, so the line drawn is *who authored the string* rather than
-    # *how much text crosses*, and by that line generating a proposal is not a door.
-    ("ReviewTurn", "content"),
-    ("ForgeReviewRequest", "candidate"),
-    # Seventeenth, 2026-09-09, and it is **the same field it replaced**. Door 1's payload grew
-    # from `PromptRequest` — one prompt, one call — into `AuthoringRequest`, because the living
-    # pipeline is a conversation and not a single extraction. `prompt` is still exactly what it
-    # was: the string a person just typed, the single taint source invariant 14 is written
-    # around. The name on the left changed; nothing new crosses here.
-    ("AuthoringRequest", "prompt"),
-    # Eighteenth, and it IS new: the bounded tail. A follow-up turn is only answerable with
-    # what was already said, so prior turns are quoted back the way `ReviewTurn` does for door
-    # 5 — and this is the pipeline path, where the same shape had to be argued for separately
-    # rather than inherited.
-    #
-    # **What bounds it is that a turn is not a transcript.** The tail is capped (`CHAT_TAIL`,
-    # the Forge's precedent), and a `MODEL` turn is text this system produced from typed data.
-    # A `PERSON` turn is prose the person typed — the same author, the same door, one more
-    # sentence of the same conversation `prompt` already carries.
-    ("AuthoringTurn", "content"),
-}
-
-
-def _payload_types() -> set[type[BaseModel]]:
-    """Every model reachable from a declared payload, not just the payload itself.
-
-    The first version returned only `EgressPayload` subclasses, and every check walked
-    `typing.get_args`, which returns `()` at a nested `BaseModel`. So nothing ever looked
-    inside `RepairRequest.ir`, and a payload serialised a patient path and an SSN while
-    this file reported green. Transitive expansion is the fix; exempting nested models
-    would be the hole.
-
-    **The roots come from `DOORS`**, not from what happens to be defined in `egress.py`.
-    That distinction had no consequences until Plan 1.10 Task 11 moved the publication
-    payload to `comeni_core.artifact.pipeline`: scanning `vars(egress)` then found three doors
-    out of four, and `Pipeline` — the door with no undo — crossed the boundary entirely
-    unchecked
-    while this file reported ten passed.
-
-    `DOORS` is the declaration of what actually leaves. The subclass scan stays beside it,
-    so a payload type declared and not yet wired to a door is still covered; the union is
-    what makes both "declared but unused" and "used but declared elsewhere" visible.
-    """
-    roots = set(egress.DOORS.values())
-    roots |= {
-        obj
-        for obj in vars(egress).values()
-        if isinstance(obj, type)
-        and issubclass(obj, egress.EgressPayload)
-        and obj is not egress.EgressPayload
-    }
-    return reachable(*roots)
 
 
 def test_every_door_is_walked_by_the_checks_below():
@@ -200,195 +54,8 @@ def test_every_door_is_walked_by_the_checks_below():
     run to say so.
     """
     walked = _payload_types()
-    for name, payload in egress.DOORS.items():
+    for name, payload in egress.PAYLOADS.items():
         assert payload in walked, f"door {name} carries {payload.__name__}, and nothing walks it"
-
-
-def _mentions(annotation: object, marker: object) -> bool:
-    """Walk an annotation tree. `Text | None` hides its metadata one level down.
-
-    `marker` is a `Mark` member or `typing.Any`. Identity rather than equality: a `Mark` is a
-    `StrEnum`, so `"free-text" == Mark.FREE_TEXT` is true while `"free-text" is Mark.FREE_TEXT`
-    is not — and the whole point of closing the vocabulary (A20) is that a bare string must not
-    read as a declared marker.
-    """
-    metadata = getattr(annotation, "__metadata__", ())
-    if any(meta is marker for meta in metadata):
-        return True
-    return any(_mentions(arg, marker) for arg in typing.get_args(annotation))
-
-
-def _has_bare_str(annotation: object) -> bool:
-    """True if `str` is reachable without passing through an `Annotated[...]` wrapper.
-
-    `Annotated` is the declaration. `NodeId`, `Text` and friends all carry metadata,
-    and a `StrEnum` is a closed vocabulary rather than free text, so neither trips
-    this. A plain `str` is the thing with nothing said about it.
-    """
-    if annotation is str:
-        return True
-    if getattr(annotation, "__metadata__", None):
-        return False
-    return any(_has_bare_str(arg) for arg in typing.get_args(annotation))
-
-
-def _mentions_mapping(annotation: object) -> bool:
-    """Any mapping, not just the concrete `dict`.
-
-    This tested `issubclass(origin, dict)`, and `collections.abc.Mapping` is a
-    *superclass* of `dict` rather than a subclass — so `Mapping[MeasurementId,
-    ParamValue]` walked straight through a rule whose own docstring forbids it, while
-    being an ordinary dict at runtime with arbitrary keys. Audit A6.
-
-    Testing against `Mapping` catches `dict`, `MutableMapping`, `OrderedDict`, `Counter`
-    and `defaultdict` in one, because all of them are subclasses of it and that is the
-    direction the check has to run.
-    """
-    origin = typing.get_origin(annotation)
-    if origin is not None and isinstance(origin, type) and issubclass(origin, abc.Mapping):
-        return True
-    if getattr(annotation, "__metadata__", None):
-        return any(_mentions_mapping(arg) for arg in typing.get_args(annotation)[:1])
-    return any(_mentions_mapping(arg) for arg in typing.get_args(annotation))
-
-
-def _mentions_any(annotation: object) -> bool:
-    """`Any` is the annotation, never metadata — which is why the old rule could not fire.
-
-    `test_no_payload_carries_an_untyped_container` called `_mentions(annotation, typing.Any)`,
-    and `_mentions` searches `__metadata__` for a marker object. `typing.Any` is never an
-    `Annotated` metadata element, so the predicate was `False` for every annotation that has
-    ever existed and the rule had never been able to fail. Audit A20.
-    """
-    if annotation is typing.Any:
-        return True
-    return any(_mentions_any(arg) for arg in typing.get_args(annotation))
-
-
-def _mentions_binary(annotation: object) -> bool:
-    """`bytes` is not `str`, not a mapping, not `Any`, and carried no marker.
-
-    So it was invisible to every rule in this file while being an unbounded channel for
-    exactly the free text the boundary exists to contain — a prompt, a path and a
-    diagnosis all fit in one, and none of them is inspectable by anything here. Banned
-    outright rather than annotated, because there is no declared-ID version of a blob:
-    an `Annotated[bytes, ...]` is a blob with a label on it. Audit A6.
-    """
-    if isinstance(annotation, type) and issubclass(annotation, _BINARY):
-        return True
-    return any(_mentions_binary(arg) for arg in typing.get_args(annotation))
-
-
-def _serialised_hints(model: type[BaseModel]) -> dict[str, object]:
-    """Name → annotation for everything that reaches the JSON, not everything declared.
-
-    A57. `model_fields` is what a payload *declares*; a `@computed_field` lands in
-    `model_computed_fields` and crosses the door all the same. Every rule below asks this
-    instead, because the question a door guard has to answer is what is **serialised** — not
-    what was annotated.
-
-    A `@model_serializer` is the third route and cannot be covered here: it replaces the dump
-    wholesale, so there is no per-key annotation to return. `test_no_payload_replaces_its_own_dump`
-    forbids it outright, which is the only enforceable rule about a shape with nothing to check.
-    """
-    hints = typing.get_type_hints(model, include_extras=True)
-    serialised: dict[str, object] = {
-        name: annotation for name, annotation in hints.items() if name in model.model_fields
-    }
-    serialised.update(
-        {name: info.return_type for name, info in model.model_computed_fields.items()}
-    )
-    return serialised
-
-
-def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
-    return {
-        (model.__name__, name)
-        for name, annotation in _serialised_hints(model).items()
-        if _mentions(annotation, marker)
-    }
-
-
-_PERMITTED_TERMINALS = (int, float, bool, type(None))
-_PERMITTED_CONTAINERS = (list, frozenset)
-
-
-def _leaf_problems(
-    annotation: object, where: str, models: set[type[BaseModel]], marked: bool = False
-) -> list[str]:
-    """Every leaf of an annotation that is not a declared shape. **An allowlist.**
-
-    The four rules below this one enumerate forbidden shapes, which is why each audit finds
-    the next one — `Mapping` and `bytes` in round one, then `object`, `Path` and `Any` in
-    round two. The space of Python annotations is open and a blocklist can only forbid what
-    somebody named.
-
-    This asks the opposite question. The permitted set is a transcription of what the payload
-    graph already holds: 22 models, `list` and `frozenset` and nothing else, eight terminal
-    kinds. Anything outside it fails and the person adding it edits this function.
-
-    `marked` tracks whether an enclosing `Annotated` carried a `Mark`, because that is what
-    makes a `str` declared. It is *some* metadata element, never all — `HumanParamValue`
-    legitimately carries an `AfterValidator` alongside, and requiring all would break A3's fix.
-    """
-    metadata = getattr(annotation, "__metadata__", ())
-    if metadata:
-        inner = typing.get_args(annotation)[0]
-        seen = marked or any(isinstance(meta, Mark) for meta in metadata)
-        return _leaf_problems(inner, where, models, seen)
-
-    origin = typing.get_origin(annotation)
-    if origin is typing.Literal:
-        # A discriminator. `Literal[DecisionKind.PARAM]` is *narrower* than the enum it
-        # draws from — one member rather than any — so it is permitted for the same reason
-        # an enum is, and only for values that would themselves be permitted leaves.
-        return [
-            problem
-            for value in typing.get_args(annotation)
-            for problem in _leaf_problems(type(value), where, models, marked)
-        ]
-    if origin in (typing.Union, types.UnionType) or origin in _PERMITTED_CONTAINERS:
-        return [
-            problem
-            for arg in typing.get_args(annotation)
-            for problem in _leaf_problems(arg, where, models, marked)
-        ]
-    if origin is not None:
-        name = getattr(origin, "__name__", repr(origin))
-        return [f"{where}: `{name}` is not a declared container (only list and frozenset are)"]
-
-    if annotation is str:
-        if marked:
-            return []
-        return [f"{where}: a bare `str` — annotate it with a `Mark`"]
-    if annotation in _PERMITTED_TERMINALS:
-        return []
-    if isinstance(annotation, type):
-        if issubclass(annotation, enum.Enum):
-            # **A closed vocabulary, and "closed" is a claim about the class.** `_missing_`
-            # is the documented hook for accepting an *undeclared* value and can synthesise
-            # a member from anything, so an enum that defines one is an open vocabulary
-            # wearing a closed one's type. A63: a reviewer added such a field to `GateFailure`
-            # and crossed an arbitrary path string with fifteen tests passing.
-            #
-            # Every class below `Enum` is checked, not only this one — a `_missing_` on a base
-            # is the same hook one level up, and `vars(cls)` alone would miss it.
-            opened = [
-                base.__name__
-                for base in annotation.__mro__
-                if base not in (enum.Enum, enum.StrEnum, enum.IntEnum, str, int, object)
-                and "_missing_" in vars(base)
-            ]
-            if opened:
-                return [
-                    f"{where}: `{annotation.__name__}` defines `_missing_` "
-                    f"(on {', '.join(opened)}), so it accepts undeclared values — that is an "
-                    "open vocabulary with a closed one's type"
-                ]
-            return []
-        if issubclass(annotation, BaseModel) and annotation in models:
-            return []
-    return [f"{where}: `{annotation}` is not a declared shape"]
 
 
 def test_every_payload_field_is_a_declared_shape():
@@ -407,32 +74,22 @@ def test_every_payload_field_is_a_declared_shape():
 
 
 def test_the_doors_are_exactly_the_ones_listed_here():
-    assert set(egress.DOORS) == DOORS
+    """Require the boundary registry to match the explicitly allowed names."""
+    assert set(egress.PAYLOADS) == DOORS
 
 
-def test_pipeline_data_still_leaves_through_exactly_four():
-    """**Invariant 14's original sentence, kept checkable.**
-
-    Adding door 5 could have made *pipeline data leaves through four doors* untestable, which
-    is the real cost of a fifth entry and the reason `DoorPath` exists. It does not: the claim
-    is now about a subset, and this is that subset.
-
-    A forge door mis-tagged as `PIPELINE` fails here, which is the failure mode a separate
-    `FORGE_DOORS` list would have hidden — there, the mistake is putting a pipeline door on the
-    quieter list, and nothing compares the two.
-    """
-    assert set(egress.doors_on(egress.DoorPath.PIPELINE)) == PIPELINE_DOORS
-    assert set(egress.doors_on(egress.DoorPath.FORGE)) == FORGE_DOORS
+def test_pipeline_data_leaves_through_exactly_the_pipeline_doors():
+    """Check that pipeline and forge payloads are assigned to the intended flows."""
+    assert set(egress.payloads_for(egress.BoundaryFlow.PIPELINE)) == PIPELINE_DOORS
+    assert set(egress.payloads_for(egress.BoundaryFlow.FORGE)) == FORGE_DOORS
 
 
 def test_every_door_declares_which_path_it_is_on():
-    """`DOORS` and `PATHS` are projections of one `DECLARED` mapping rather than two dicts kept
-    in step by hand — a pair that must agree is the shape this repository keeps finding to be
-    one mechanism and one decoration. This is the assertion that they are projections."""
-    assert set(egress.PATHS) == set(egress.DOORS) == set(egress.DECLARED)
-    for name, door in egress.DECLARED.items():
-        assert egress.DOORS[name] is door.payload
-        assert egress.PATHS[name] is door.path
+    """Check that payload and flow lookups are derived from the same boundary registry."""
+    assert set(egress.FLOWS) == set(egress.PAYLOADS) == set(egress.BOUNDARIES)
+    for name, door in egress.BOUNDARIES.items():
+        assert egress.PAYLOADS[name] is door.payload
+        assert egress.FLOWS[name] is door.flow
 
 
 def test_the_forge_review_door_is_grounded_on_a_revision():
@@ -444,8 +101,8 @@ def test_the_forge_review_door_is_grounded_on_a_revision():
     candidate nobody is looking at, and the reviewer reading the answer has no way to tell.
     """
     with pytest.raises(ValidationError):
-        egress.ForgeReviewRequest(candidate="a contract")
-    assert egress.ForgeReviewRequest(revision="sha256:" + "a" * 64, candidate="a contract")
+        ForgeReviewRequest(candidate="a contract")
+    assert ForgeReviewRequest(revision="sha256:" + "a" * 64, candidate="a contract")
 
 
 def test_the_forge_review_door_carries_codes_rather_than_a_tools_output():
@@ -457,24 +114,24 @@ def test_the_forge_review_door_carries_codes_rather_than_a_tools_output():
     has no room for a path — which is the point of the alias rather than a side effect of it.
     """
     grounded = {"revision": "sha256:" + "a" * 64, "candidate": "x"}
-    assert egress.ForgeReviewRequest(**grounded, validation=["MD0105", "MF0401"])
+    assert ForgeReviewRequest(**grounded, validation=["MD0105", "MF0401"])
     with pytest.raises(ValidationError):
-        egress.ForgeReviewRequest(**grounded, validation=["/work/ab/cd12 failed: no such file"])
+        ForgeReviewRequest(**grounded, validation=["/work/ab/cd12 failed: no such file"])
 
 
 def test_a_review_turn_says_who_wrote_it_from_a_closed_set():
     """The curator/model distinction is the whole reason this door exists: one is a string a
     person typed at request time and the other is what came back. A free-text author field
     would make the two indistinguishable in the record."""
-    assert set(egress.ReviewRole) == {egress.ReviewRole.CURATOR, egress.ReviewRole.MODEL}
+    assert set(ReviewRole) == {ReviewRole.CURATOR, ReviewRole.MODEL}
     with pytest.raises(ValidationError):
-        egress.ReviewTurn(role="reviewer", content="hello")
+        ReviewTurn(role="reviewer", content="hello")
 
 
 def test_every_door_declares_an_egress_payload():
-    assert egress.DOORS, "no door is declared — invariant 14 says there are four"
-    for name, payload in egress.DOORS.items():
-        assert issubclass(payload, egress.EgressPayload), name
+    assert egress.PAYLOADS, "no outbound boundary is declared"
+    for name, payload in egress.PAYLOADS.items():
+        assert issubclass(payload, EgressPayload), name
 
 
 def test_free_text_lives_only_where_declared():
@@ -489,6 +146,53 @@ def test_free_text_lives_only_where_declared():
     for payload in _payload_types():
         found |= _fields(payload, Mark.FREE_TEXT)
     assert found == FREE_TEXT_FIELDS
+
+
+def test_sample_data_lives_only_where_declared():
+    found: set[tuple[str, str]] = set()
+    for payload in _payload_types():
+        found |= _fields(payload, Mark.SAMPLE)
+    assert found == SAMPLE_FIELDS
+
+
+def test_only_the_characterisation_door_can_reach_a_sample():
+    """A sample field nested in any other door's payload, through any path, fails here."""
+    reaching = {
+        name
+        for name, payload in egress.PAYLOADS.items()
+        for model in reachable(payload)
+        if _fields(model, Mark.SAMPLE)
+    }
+    assert reaching == {"characterisation"}
+
+
+def test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file():
+    """Spec §6: no file name, no extension, no session, no question, no conversation."""
+    door = egress.PAYLOADS["characterisation"]
+    assert list(door.model_fields) == ["excerpt", "binary_before", "registry"]
+    assert reachable(door) == {door}, "the payload holds no nested model that could grow a field"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["x" * 8193, "a\n" * 201, "é" * 4097],
+    ids=["bytes", "lines", "bytes-as-utf8"],
+)
+def test_an_excerpt_over_its_bound_is_refused_by_its_type(text):
+    with pytest.raises(ValidationError):
+        CharacteriseRequest(excerpt=text)
+
+
+@pytest.mark.parametrize("separator", ["\u2028", "\x85", "\x0c"], ids=["u2028", "nel", "ff"])
+def test_an_excerpt_counts_lines_as_the_cutter_does(separator):
+    """Issue 237: 200 newline-separated lines are 200 lines, whatever else they hold."""
+    text = "\n".join(f"a{separator}b" for _ in range(200))
+    assert CharacteriseRequest(excerpt=text).excerpt
+
+
+def test_an_excerpt_at_its_bound_is_accepted():
+    assert CharacteriseRequest(excerpt="a\n" * 199 + "a").excerpt
+    assert CharacteriseRequest(excerpt="x" * 8192).excerpt
 
 
 def test_payloads_forbid_unknown_fields():
@@ -581,7 +285,7 @@ def test_every_ambiguity_field_can_cross_the_door():
     see it fail. `type_id` and `required` were already in that state when this was written.
     """
 
-    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.egress.resolution import AmbiguityRequest
     from comeni_core.plan.decision import Ambiguity, AmbiguityKinds
 
     # `model_fields`, not `_serialised_hints`, and deliberately: this asks whether each
@@ -614,7 +318,7 @@ def test_every_tier_four_question_can_actually_cross_the_door():
     and two kinds still could not get through. Construct one of each instead.
     """
 
-    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.egress.resolution import AmbiguityRequest
     from comeni_core.plan.decision import ParamAsked, ProducerAsked, SourceAsked
 
     for asked in (
@@ -642,8 +346,6 @@ def test_every_tier_four_question_can_actually_cross_the_door():
 
 
 # --- Plan 1.10 Task 11: Pipeline is door 4's payload ----------------------------------
-
-
 def test_publication_carries_a_pipeline():
     """The artifact a person reads before publishing and the thing that crosses the boundary
     are one document. `PublishBundle` held goal + IR + decisions + lockfile — the same
@@ -651,7 +353,7 @@ def test_publication_carries_a_pipeline():
     was on disk."""
     from comeni_core.artifact.pipeline import Pipeline
 
-    assert egress.DOORS["publication"] is Pipeline
+    assert egress.PAYLOADS["publication"] is Pipeline
 
 
 def test_publish_bundle_is_gone():
@@ -711,7 +413,7 @@ def test_a_computed_field_cannot_cross_a_door_unchecked():
     now; the hole and the fix are the same one.)
     """
 
-    class Sneaky(egress.AuthoringRequest):
+    class Sneaky(AuthoringRequest):
         @computed_field
         @property
         def context(self) -> str:
@@ -745,8 +447,6 @@ def test_no_payload_replaces_its_own_dump():
 
 
 # --- Round four's carried egress findings: A63, A65, A66 ---------------------------------
-
-
 def test_an_enum_with_a_missing_hook_is_not_a_declared_shape():
     """A63, issue #27. `_leaf_problems` returned `[]` for any `Enum`, on the premise that an
     enum is closed vocabulary. `Enum._missing_` is the documented hook for accepting
@@ -802,20 +502,6 @@ def test_the_ambiguity_kinds_tuple_is_the_subclass_set():
     )
 
 
-BUILDERS = frozenset({"PipelineIR", "IRNode", "IREdge", "ParamBinding", "ResolvedValue"})
-"""The IR, which is door **3**'s payload and is deliberately mutable.
-
-A66 says every payload-reachable model should be frozen, and that is right for door 4 and
-wrong for door 3 — because door 3's payload is *the thing being repaired*. `RepairRequest.ir`
-is handed to a model precisely so the IR can change, and invariant 5 says repair patches the
-IR and re-emits. Freezing these breaks 109 tests, which is the resolver saying the same thing
-less politely: it builds an `IRNode` and then fills its parameters in.
-
-So the rule is scoped to the door it is about. `Pipeline` is door 4 — publication, the door
-with no undo — and what a person reviewed must be what is sent. An IR that changes between
-review and repair is the mechanism working."""
-
-
 def test_every_publication_payload_model_is_frozen():
     """A66, issue #30. `EgressPayload` was frozen and every nested model was a plain
     `BaseModel`, so `Emitted.files[0].digest` could be reassigned after review — on the one
@@ -827,7 +513,7 @@ def test_every_publication_payload_model_is_frozen():
     """
     mutable = sorted(
         model.__name__
-        for model in reachable(egress.DOORS["publication"])
+        for model in reachable(egress.PAYLOADS["publication"])
         if not model.model_config.get("frozen", False)
     )
     assert mutable == [], (
@@ -840,9 +526,7 @@ def test_the_only_unfrozen_payload_models_are_the_ir_builders():
     """The residue, named so it is a decision rather than an oversight — and pinned, so a
     *new* mutable model cannot join them quietly."""
     mutable = {
-        model.__name__
-        for model in _payload_types()
-        if not model.model_config.get("frozen", False)
+        model.__name__ for model in _payload_types() if not model.model_config.get("frozen", False)
     }
     assert mutable == BUILDERS, (
         "the unfrozen set moved. Anything outside the IR that a payload can reach must be "
@@ -851,8 +535,6 @@ def test_the_only_unfrozen_payload_models_are_the_ir_builders():
 
 
 # --- A64, issue #28: a declared ID alias that validates nothing is a `str` with a label ---
-
-
 @pytest.mark.parametrize(
     "alias, bad, why",
     [
@@ -865,6 +547,7 @@ def test_the_only_unfrozen_payload_models_are_the_ir_builders():
         ("Subject", "dx: carcinoma\nnotes: /mnt/phi/4471.pdf", "a newline"),
         ("DecisionKey", "a\nb", "a newline"),
         ("LayerName", "x\ny", "a newline"),
+        ("PieceRef", "fastq@1.0.0 PT-4471023", "a patient id after a piece"),
     ],
 )
 def test_a_declared_id_alias_refuses_free_text(alias, bad, why):
@@ -896,6 +579,7 @@ def test_a_declared_id_alias_refuses_free_text(alias, bad, why):
         ("Subject", "seq_platform"),
         ("DecisionKey", "star_align.seq_platform"),
         ("LayerName", "comeni-registry-examples"),
+        ("PieceRef", "read_length@1.0.0"),
     ],
 )
 def test_a_declared_id_alias_accepts_what_the_repository_writes(alias, good):
@@ -942,7 +626,7 @@ def test_the_door_carries_what_the_forge_measured_a_model_needs():
     configuration tested, six points below closing it, so whether the candidate list binds
     is something the model must be told rather than left to infer.
     """
-    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.egress.resolution import AmbiguityRequest
 
     for needed in ("what", "why_open", "closed", "evidence"):
         assert needed in AmbiguityRequest.model_fields, (
@@ -977,7 +661,7 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
     none of the ten models reachable from here has a field that could hold one, and this test
     is what notices if one gains it.
     """
-    door = egress.DOORS["goal_extraction"]
+    door = egress.PAYLOADS["goal_extraction"]
     models = reachable(door)
     assert len(models) > 5, "the walk is not walking"
 
@@ -1000,6 +684,9 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
         Mark.PORT_NAME,
         Mark.CHANNEL_NAME,
         Mark.DIGEST,
+        # Through `Goal.profile`: a fact an inspector measured names its pieces, `fastq@1.0.0`
+        # (#134). A declared id with a validated shape, never prose.
+        Mark.PIECE_REF,
         Mark.MEASUREMENT_ID,
         Mark.PARAM_LITERAL,
     }, f"door 1 reaches a mark nobody argued for: {sorted(m.value for m in marks)}"
@@ -1010,9 +697,12 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
     )
 
 
-def _marks_in(annotation: object) -> set[Mark]:
-    """Every `Mark` anywhere in an annotation tree, containers and unions included."""
-    found = {meta for meta in getattr(annotation, "__metadata__", ()) if isinstance(meta, Mark)}
-    for arg in typing.get_args(annotation):
-        found |= _marks_in(arg)
-    return found
+def test_unregistered_payloads_in_separate_modules_are_also_walked(monkeypatch):
+    from comeni_core.egress import authoring
+
+    class UnregisteredPayload(EgressPayload):
+        pass
+
+    monkeypatch.setattr(authoring, "UnregisteredPayload", UnregisteredPayload, raising=False)
+    assert UnregisteredPayload not in egress.PAYLOADS.values()
+    assert UnregisteredPayload in _payload_types()

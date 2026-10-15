@@ -4,6 +4,10 @@
 model all read, and keeping it inert is what lets Task 3's state machine be pure and Task 8's
 reducer be a switch rather than a pile of `if`s.
 
+`Phase`, `Event` and `ProposalState` are re-exported from `mendel_authoring.types`: the core owns
+the session's vocabulary, because the protocol is drawn in it (14.7.8.1), and this path stays
+for the shell's own readers.
+
 Three rules run through everything below, each written down because the alternative is what a
 protocol drifts into:
 
@@ -21,11 +25,16 @@ phases are that section's state diagram, and they are transcribed rather than in
 diagram stays the specification.
 """
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal, Self, get_args
 
-from comeni_core.goal.asked import Goal
+from comeni_core.goal.asked import Constraints, Goal, RequiredStates
 from comeni_core.spell.marks import ContractId, HumanParamValue, NodeId, OptionId, TypeId
+from mendel_authoring.brief import Brief
+from mendel_authoring.gaps import Gap
+from mendel_authoring.needs import Need
+from mendel_authoring.types import Event, Phase, ProposalState  # noqa: F401 (re-exported)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # **The Forge's number, not a new one.** `forge_jobs.CHAT_TAIL` bounds what a model is shown of
@@ -48,53 +57,6 @@ egress guard's allowlist meaningless by flooding it.
 """
 
 
-class Mode(StrEnum):
-    """How much the person is asked.
-
-    **Two policies over one engine**, which is §1.2 and the reason this is an enum rather than
-    two services. Spawn is not "Build with the questions skipped by a different code path" — it
-    is the same proposal stream with every safe proposal auto-accepted and the declared tier-4
-    resolver answering what remains. If the two ever need different engines, that is a design
-    change and this enum is where it surfaces.
-    """
-
-    BUILD = "build"
-    SPAWN = "spawn"
-
-
-class Phase(StrEnum):
-    """Where a session is in §2's diagram.
-
-    Transcribed from that diagram rather than derived from what the code happens to need, so the
-    picture stays the specification. `failed` is a phase and not a flag, because a session that
-    failed to reach a provider must be able to retry *into a named place* — §2 draws two arrows
-    out of it, back to `understanding` and to `resolving`.
-    """
-
-    UNDERSTANDING = "understanding"
-    GOAL_REVIEW = "goal_review"
-    RESOLVING = "resolving"
-    BUILDING = "building"
-    COMPLETE = "complete"
-    FAILED = "failed"
-
-
-class ProposalState(StrEnum):
-    """What became of a proposal.
-
-    **`stale` is the member that earns the enum.** A proposal made against revision 4 and
-    answered after revision 5 landed was not rejected — nobody rejected it — and it is not
-    pending, because applying it would write over work the person did in between. Without a name
-    for that, the service layer has to encode it as "pending but the revision does not match",
-    which is a rule living in whichever caller remembered it.
-    """
-
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
-    STALE = "stale"
-
-
 class TurnState(StrEnum):
     """Whether an assistant turn has landed.
 
@@ -106,6 +68,49 @@ class TurnState(StrEnum):
     PENDING = "pending"
     ANSWERED = "answered"
     FAILED = "failed"
+
+
+class Purpose(StrEnum):
+    """Which of the builder's calls an `ai_invocation` row records — one member per committed
+    prompt id. Here rather than in `services.authoring_ai` (which re-exports it) so `models.py`
+    can build its CHECK without an import cycle (issue 274).
+
+    **Scoped by `agent`, not spelled to be globally unique.** The forge declares a `chat` purpose
+    too, and `agent='builder' AND purpose='chat'` is what tells them apart, which is precisely
+    what that column is for. Inventing `builder_chat` here would put the agent name in two
+    columns and let them disagree.
+    """
+
+    GOAL = "goal"
+    FAMILY = "family"
+    CHAT = "chat"
+    TIER4 = "tier4"
+    GAP = "gap"
+    ASK = "ask"
+    READBACK = "readback"
+    CHARACTERISE_FAMILY = "characterise_family"
+    CHARACTERISE = "characterise"
+
+
+class TurnRole(StrEnum):
+    """Who wrote a turn of the conversation, as stored (issue 274).
+
+    `AuthoringRole` (door 5's payload) says person or *model*; the stored turn says assistant.
+    They are different spellings for different places and stay apart.
+    """
+
+    PERSON = "person"
+    ASSISTANT = "assistant"
+
+
+class ProposalKind(StrEnum):
+    """What a proposal asks the person to settle (issue 274)."""
+
+    STEP = "step"
+    GOAL = "goal"
+    GAP = "gap"
+    PACING = "pacing"
+    DISAGREEMENT = "disagreement"
 
 
 class BlockKind(StrEnum):
@@ -152,6 +157,47 @@ class _Shape(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class FactKind(StrEnum):
+    INPUT = "input"
+    MEASUREMENT = "measurement"
+
+
+class FactSource(StrEnum):
+    """Where a fact came from, which is what the goal card and the tier-3 premise show."""
+
+    MEASURED = "measured"  # an inspector read the file (14.7.6)
+    MODEL_READ = "model_read"  # the characteriser read it (14.7.7)
+    PERSON_SAID = "person_said"  # the person stated it
+    OPEN = "open"  # nobody knows; the tiers carry it as tier 4
+
+
+class Fact(_Shape):
+    """One thing gathering learned, and who it came from. Nothing is guessed (protocol rule 5)."""
+
+    kind: FactKind
+    subject: str = Field(min_length=1, max_length=128)
+    """A type id for an input, a measurement id for a measurement."""
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    states: list[str] = []
+    source: FactSource
+    sample: str | None = Field(default=None, max_length=64)
+    pieces: list[str] = []
+    """The inspector pieces that measured it, `fastq@1.0.0` then `read_length@1.0.0` (#134).
+    Empty for anything a person said."""
+    evidence: dict[str, int | float] | None = None
+    """How much they read, counts only. Session state, not a door payload: the goal gets the
+    typed `Evidence`, which holds only the counts it declares."""
+    heard: Prose | None = None
+    """The person's own words it was taken from, when a model heard it (Part I.0 §5.4): shown on
+    the goal card so a misreading (*"not paired-end"*) is caught there. Session state only."""
+
+    @model_validator(mode="after")
+    def _open_has_no_value(self) -> Self:
+        if self.source is FactSource.OPEN and self.value is not None:
+            raise ValueError("an open fact has no value: nobody knows it")
+        return self
+
+
 class Option(_Shape):
     """One answer a person may pick.
 
@@ -194,6 +240,63 @@ class GoalSummary(_Block):
     have: Prose
     do: Prose
     get: Prose
+    readback: Prose | None = None
+    """The goal read back in the model's words, written from the composed goal (#176), shown
+    labelled *in the AI's words*; the chips beside it are what gets built."""
+    readback_pending: bool = False
+    """Whether the read-back is still being written: the page's one poll keeps running."""
+    suggested: list[RequiredStates] = []
+    """Constraints the model wrote, offered for the person to keep or dismiss (#176). Only kept
+    ones reach the goal, through the card's edited goal."""
+
+
+class SampleReading(_Shape):
+    """The AI reading a sample nothing here reads (14.7.7), as the question's card shows it.
+
+    `pending` while the job is out; `read` when what it admitted was recorded; `could_not_tell`
+    when it named no family or no type; `refused` when an id it named is undeclared (`code`);
+    `no_answer` when no model answered, or the job never came back; `hand_back` when it named a
+    type the engine reads, so the browser sends the file again; `handed` once it has.
+    `attempt` keys the job, so a retry is a new job and a late answer to an old one is ignored.
+    """
+
+    state: Literal[
+        "pending", "read", "could_not_tell", "refused", "no_answer", "hand_back", "handed"
+    ]
+    attempt: int = 1
+    decision_revision: int | None = None
+    session_version: int | None = None
+    started_at: datetime | None = None
+    type_id: str | None = None
+    states: list[str] = []
+    recorded: list[str] = []
+    kept: list[str] = []
+    disagreed: list[str] = []
+    code: str | None = None
+
+
+class Reason(_Shape):
+    """One line of why a question is asked, and where it comes from (Part I.1)."""
+
+    text: Prose
+    detail: Prose | None = None
+    """A tool's declared description, or a rule's citation."""
+
+
+class Explanation(_Shape):
+    """What a question is about and why it is asked: `what` is curated (the registry's
+    `explain`), the rest the engine's, derived from the gap walk (Part I.1 §4). I.3 hands the same
+    fields to the AI as its sources."""
+
+    name: Prose
+    what: Prose | None = None
+    needed: list[Reason] = []
+    reads: Literal["steps", "rule"] | None = None
+    """How `needed` reads: the steps that can read an input, or the rule a measurement decides."""
+    settles: list[Prose] = []
+    """For an input: what a sample of it would answer, by name, among the questions still open."""
+    read_by: Literal["inspector", "ai"] | None = None
+    """Who would read a sample of it: an inspector, the AI, or nothing here."""
 
 
 class Question(_Block):
@@ -209,6 +312,16 @@ class Question(_Block):
     why_open: Prose
     options: list[Option] = []
     exhaustive: bool = True
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    """A value to pre-fill an open field with — a candidate the person confirms, never an
+    answer (#170, #171)."""
+    phrasing: Literal["pending", "done", "none"] = "none"
+    """Whether a model is phrasing this question for the person (#167): `pending` while it is,
+    `done` once `asks` is its words, `none` when the engine's words stand (no model, or it
+    failed). The page keeps its one poll running while a pending question is `pending`."""
+    reading: SampleReading | None = None
+    """The AI reading a sample for this question (14.7.7). The page keeps its one poll running
+    while it is `pending`."""
 
 
 class StepProposal(_Block):
@@ -228,6 +341,18 @@ class StepProposal(_Block):
     reason: Prose
     tier: int = Field(ge=1, le=4)
     alternatives: list[Option] = []
+    brief: Brief | None = None
+    """The card's four fields, from declared data (spec §4.2), as written."""
+    need: Need | None = None
+    """What the step needs from the person: nothing, a fact, or a choice (spec §4.3)."""
+    gaps: list[Gap] = []
+    """Registry gaps, with the file that would fix each; shown in detail only under Dev mode."""
+    unresolved_settings: list[str] = []
+    """Settings the registry lists no values for, named in plain words whatever Dev mode says:
+    the person learns what stays unset without being shown a repository path."""
+    stop: Literal["tier_four", "gap", "together"] | None = None
+    """Why the walk stopped here (spec §14.4): a tier-4 step, a registry gap shown under Dev mode,
+    or every step under *together*."""
 
 
 class SettingRequest(_Block):
@@ -366,15 +491,20 @@ class GoalUnderstanding(_Shape):
     model doing worst on. The first call has no pipeline to talk about; a later one has nothing
     else to talk about.
 
-    `have`/`do`/`get` are the plain-language reading the person checks the `Goal` against. The
-    model writes both halves and the person is shown both, so a misunderstanding is visible at
-    review time rather than after a build.
+    `summary_have`/`summary_do`/`summary_get` are the plain-language reading the person checks
+    the `Goal` against. The model writes both halves and the person is shown both, so a
+    misunderstanding is visible at review time rather than after a build.
+
+    **Prefixed so no name is shared with `Goal`.** They were `have`/`do`/`get` beside a `goal`
+    holding `have`/`want`, and the first real model to answer put the typed list at the top
+    level and added a `want` there too. The block the page draws, `GoalSummary`, keeps the
+    short names: it is read by a person, not written by a model.
     """
 
     goal: Goal
-    have: Prose
-    do: Prose
-    get: Prose
+    summary_have: Prose
+    summary_do: Prose
+    summary_get: Prose
     questions: list[AskedQuestion] = []
     """What could not be settled from what the person said.
 
@@ -383,6 +513,232 @@ class GoalUnderstanding(_Shape):
     `Goal` stating a sample structure nobody confirmed, and that goal validates, resolves and
     builds.
     """
+
+
+class Stated(_Shape):
+    """Something the person said about their data, as a model heard it: a **candidate**, never a
+    fact. It pre-fills the gap it answers, and only the person's click records it (#170)."""
+
+    kind: FactKind
+    subject: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | list[HumanParamValue] | None = None
+
+
+class AskedGap(_Shape):
+    """One gathering question, phrased for the person by `builder.ask.v1` (#167).
+
+    `asks` is prose and replaces the engine's wording in place; the options never change.
+    `already_option` / `already_value` name an answer the person already gave, if the model
+    heard one — a suggestion the person confirms, held to the offered ids and the measurement's
+    declaration, and dropped (never refused) when it fails them.
+    """
+
+    asks: Prose
+    already_option: OptionId | None = None
+    already_value: HumanParamValue | list[HumanParamValue] | None = None
+
+
+class ReadBack(_Shape):
+    """The goal read back to the person, by `builder.readback.v1` (#176)."""
+
+    text: Prose
+
+
+class FamilyChoice(_Shape):
+    """The first of the two type-choice calls, `builder.family.v2` (#194, #202).
+
+    `families` names which declared families what the person wants belongs to — held to the
+    declared ids by the reply format and by admission.
+
+    **`fits` comes first, on purpose** (#202). The reply is written left to right, so the model
+    commits to whether anything fits before it can start a list; under v1 an empty list was a
+    way out it had to skip to, and gemma3:12b wrote the nearest family instead. The engine reads
+    the verdict, not the list: anything but `yes` with a family listed is a question.
+    """
+
+    fits: Literal["yes", "no", "unsure"]
+    """Whether one of the families holds what the person wants to end up with."""
+    families: list[str] = []
+    ack: Prose
+    """The acknowledgement the person sees first, moved here from `goal.v6`."""
+    unclear: Prose | None = None
+    """One short question, when the verdict is not `yes`."""
+
+
+class CharacteriseFamilies(_Shape):
+    """The characteriser's first call (14.7.7): the families a sample could belong to. Empty
+    means *none fits, or it cannot tell* — an answer, never a refusal."""
+
+    families: list[str] = []
+
+
+class StateRead(_Shape):
+    """A declared state a sample's start states, and the line that states it (#244)."""
+
+    id: str
+    evidence: Prose
+
+
+class ReadMeasurement(_Shape):
+    """One declared measurement a sample's start states, as a model read it, and the line that
+    states it (#244)."""
+
+    id: str
+    value: HumanParamValue
+    evidence: Prose = ""
+
+
+class Unmatched(_Shape):
+    """Something a sample states that no declared id can hold (14.7.7). **Stored only**:
+    never admitted, never shown, never queued. #236 reads these to propose vocabulary."""
+
+    kind: Literal["type", "state", "measurement"]
+    name: Prose
+    cite: Prose
+
+
+class CharacteriseReply(_Shape):
+    """The characteriser's second call (14.7.7). Every id is admitted against the chosen
+    type's declarations before anything reads it."""
+
+    type_id: str | None = None
+    states: list[StateRead] = []
+    measurements: list[ReadMeasurement] = []
+    undetermined: list[str] = []
+    unmatched: list[Unmatched] = []
+
+
+class WantUnderstanding(_Shape):
+    """The first call's answer under `builder.goal.v3`: what the person wants, and nothing else.
+
+    **No `have`, no `profile`, on purpose (#105).** A shape with a place for inputs is a place a
+    model will guess them; v2's model wrote `deduplicated` onto reads nobody had deduplicated.
+    The engine works out what the want needs (`services.gaps`) and asks the person for it, so a
+    fact always comes from the person, a file, or stays open (protocol rule 5).
+    """
+
+    want: list[TypeId] = Field(min_length=1)
+    constraints: Constraints = Constraints()
+    """Only what the person pinned themselves: a state on an output, a parameter they named."""
+    ack: Prose | None = None
+    """A short acknowledgement of what they asked for, shown as the model's reply (#176, v6).
+    It replaces the up-front summary, which made claims before anything was known. **Empty under
+    `goal.v7`** (#194): the family call acknowledges, having read the person's words first."""
+    questions: list[AskedQuestion] = []
+    """Only when the want itself is ambiguous. What they have is the engine's to ask."""
+    stated: list[Stated] = []
+    """What the person said they have, or stated about their data (v4). Candidates the engine
+    pre-fills gaps with; it still asks, and the person confirms (#170)."""
+
+
+# ── what a model hands over: changes, as flat lists (Part I.0 §7.1) ───────────────────────
+# One list per kind of change and **no tagged union**: a local model that cannot reliably pick
+# a variant tag can still fill a list (`AuthoringIntent`'s reason). Every item may carry `quote`,
+# the person's own words it comes from; the engine checks it (`mendel_authoring.heard`) and
+# records a change only when it checks — otherwise the change is offered as a suggestion.
+
+_Quote = Annotated[str, Field(max_length=500)]
+
+
+class WantItem(_Shape):
+    type: str = Field(min_length=1, max_length=128)
+    quote: _Quote | None = None
+
+
+class InputItem(_Shape):
+    """An input the person says they have."""
+
+    type: str = Field(min_length=1, max_length=128)
+    quote: _Quote | None = None
+
+
+class FactItem(_Shape):
+    subject: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | list[HumanParamValue]
+    quote: _Quote | None = None
+
+
+class RequireItem(_Shape):
+    type: str = Field(min_length=1, max_length=128)
+    states: list[str] = Field(min_length=1)
+    quote: _Quote | None = None
+
+
+class PinItem(_Shape):
+    type: str = Field(min_length=1, max_length=128)
+    tool: str = Field(min_length=1, max_length=200)
+    quote: _Quote | None = None
+
+
+class ParameterItem(_Shape):
+    name: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | list[HumanParamValue]
+    quote: _Quote | None = None
+
+
+class RetractItem(_Shape):
+    subject: str = Field(min_length=1, max_length=128)
+    quote: _Quote | None = None
+
+
+class NotOfferedItem(_Shape):
+    """Something the person asked for that nothing here can make, in their own words: never
+    without a quote, since claiming they asked for something they did not is the one thing it
+    must not do."""
+
+    quote: _Quote
+
+
+class Understanding(_Shape):
+    """`builder.goal.v8`: what the person wants and what they said, as changes (Part I.0 §7.2).
+    Replaces `WantUnderstanding`'s `stated` candidates."""
+
+    say: Prose | None = None
+    wants: list[WantItem] = Field(min_length=1)
+    inputs: list[InputItem] = []
+    facts: list[FactItem] = []
+    requires: list[RequireItem] = []
+    not_offered: list[NotOfferedItem] = []
+    questions: list[AskedQuestion] = []
+
+
+class ChatReply(_Shape):
+    """`builder.chat.v3`: typed words anywhere after the want is read, as something to say and
+    the changes they ask for (Part I.0 §7.2). Replaces `AuthoringIntent` and `GapReply`."""
+
+    say: Prose | None = None
+    wants: list[WantItem] = []
+    inputs: list[InputItem] = []
+    facts: list[FactItem] = []
+    requires: list[RequireItem] = []
+    pins: list[PinItem] = []
+    parameters: list[ParameterItem] = []
+    retract: list[RetractItem] = []
+    not_offered: list[NotOfferedItem] = []
+    questions: list[AskedQuestion] = []
+    proceed: bool = False
+    """*Go on*: the waiting step is settled. Nothing else is asked."""
+
+
+class GapReply(_Shape):
+    """A person's typed answer to one gap, read back by a model (`builder.gap.v1`).
+
+    **One option id, or one typed value, or `unsure`**, never two of them. The ids are the
+    engine's, so admission can hold `chose` to what was offered (MI0205); a value goes through
+    the measurement's declaration (MI0208). `unsure` is the honest answer to words that do not
+    say, and the engine re-offers the options rather than guess (protocol rule 5).
+    """
+
+    chose: OptionId | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
+    unsure: bool = False
+
+    @model_validator(mode="after")
+    def _one_answer(self) -> Self:
+        given = [self.chose is not None, self.value is not None, self.unsure]
+        if sum(given) > 1:
+            raise ValueError("a reply is one option, one value, or unsure — never two")
+        return self
 
 
 class SettingProposal(_Shape):
@@ -400,7 +756,7 @@ class SettingProposal(_Shape):
     node: NodeId
     setting: str = Field(min_length=1, max_length=128)
     chose: OptionId | None = None
-    value: HumanParamValue | None = None
+    value: HumanParamValue | list[HumanParamValue] | None = None
     because: Prose
 
 

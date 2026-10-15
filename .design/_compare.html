@@ -19,13 +19,20 @@
   <div class="half"><iframe id="b" src=""></iframe></div>
 </div>
 <script>
+  const query = new URLSearchParams(location.search);
+  if (query.get("living")) {
+    document.querySelector(".bar span").textContent = "artboard — LivingConflict";
+    document.querySelectorAll(".bar span")[1].textContent = "live — conflicting evidence";
+    document.getElementById("a").src = "http://localhost:8899/living-pipeline/LivingConflict.dc.html";
+  }
   const run = new URLSearchParams(location.search).get("run") || "";
-  document.getElementById("b").src = `http://localhost:5173/runs/${run}`;
+  document.getElementById("b").src = query.get("living") ? "http://localhost:5173/build/living?fake=conflict" : `http://localhost:5173/runs/${run}`;
   function fit() {
     const scale = (window.innerWidth / 2) / 1400;
     for (const f of document.querySelectorAll("iframe")) {
+      if (query.get("living")) f.style.height = "900px";
       f.style.transform = `scale(${scale})`;
-      f.parentElement.style.height = `${2400 * scale}px`;
+      f.parentElement.style.height = `${(query.get("living") ? 900 : 2400) * scale}px`;
     }
   }
   fit();

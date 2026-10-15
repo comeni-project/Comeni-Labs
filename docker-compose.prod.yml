@@ -1,103 +1,54 @@
-# **Safety, not capability.** Every service the base defines is here; what changes is that code
-# is baked rather than mounted, nothing auto-reloads, and the database and redis are not on the
-# host's network. Dev can do everything this can — that is the whole shape of the split, and it
-# is why this is an overlay rather than a second stack that would drift from the first.
-#
-#     docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-#     make prod
-#
-# **This is not a deployment posture.** No TLS, no auth — auth is deferred (interface spec §9)
-# — and no published image. It is the same stack with the unsafe parts removed, which is what
-# makes it worth having locally: the path prod serves is the path you can test.
+# Production differences from docker-compose.yml. Requires Docker Compose 2.24.4+.
+# make prod prepares host-owned state before starting this model. Set WIENER_API_TOKEN.
+# Source and example files come from the image; registry/workspace/draft data remain mounted.
 services:
   postgres:
-    restart: unless-stopped
-    # **`!reset`, not `[]`.** Compose MERGES sequences across files, so an empty list adds
-    # nothing and the base's published port survives. Measured: postgres was still open
-    # on 5432 with `ports: []` in this file.
-    ports: !reset []   # reachable on the compose network only
-
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD for production}
+      MENDEL_DB_PASSWORD: ${MENDEL_DB_PASSWORD:?Set MENDEL_DB_PASSWORD for production}
+      WIENER_DB_PASSWORD: ${WIENER_DB_PASSWORD:?Set WIENER_DB_PASSWORD for production}
   redis:
-    restart: unless-stopped
     ports: !reset []
 
   api:
-    restart: unless-stopped
-    ports: !reset []   # nginx reaches it on the compose network
-    # No `./packages` mount: the code is the image. The registry stays a mounted CLONE,
-    # because accepting a drift is a commit and a baked copy of files cannot take one —
-    # MF0107 says so rather than crashing.
-    #
-    # **`.run/drafts` is here now, and its absence was a real defect.** The base carries a
-    # comment explaining that `keep` (api) writes the artifact and the gate job (worker) runs
-    # Nextflow in it, and that setting the env var with nothing backing it put the file in one
-    # container's ephemeral layer where the other could not see it — fixed in the base on
-    # 2026-08-23 and never carried into this overlay, so `make prod` still had exactly that
-    # bug. Found by writing `test_compose.py` for Task 12's *identical paths* box.
-    volumes:
+    ports: !reset []
+    volumes: !override
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
-
-  worker:
-    restart: unless-stopped
-    volumes:
+  mendel-worker:
+    volumes: !override
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
-
   ai-worker:
-    restart: unless-stopped
-    # **The same three mounts as `api` and `worker`, and that is the whole point.** A
-    # generation job reads the scaffold this API wrote; a workspace that differed between them
-    # would refuse with `MF0008` for a draft that is right there.
-    volumes:
+    volumes: !override
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
 
   ollama:
-    # Listed so the overlay covers every service the base defines — its own header says so.
-    # It stays behind the `ai` profile here too; prod is the same stack with the unsafe parts
-    # removed, not a different set of services.
     restart: unless-stopped
-    ports: !reset []   # the workers reach it on the compose network
-
+    ports: !reset []
   web:
-    restart: unless-stopped
-
-  # **Not started here**, and a profile is how compose says that — there is no "off" switch for
-  # an inherited service. `mkdocs serve` is a live-reload development server watching a mounted
-  # source tree; the prod answer for the wiki is a built `site/` (`make wiki`) behind a real
-  # server, and until something serves it this stack does not pretend to.
-  #
-  #     docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile wiki up -d
-  #
-  # brings it up anyway — **on the compose network only.** The port is reset like every other
-  # service's, so opting in gets you a wiki another container can reach and the internet
-  # cannot. That is the overlay's rule holding: a profile says *not started*, and it may not
-  # also mean *and published on the host if you ask twice*.
+    ports: !override ["${WEB_BIND_ADDRESS:-0.0.0.0}:${WEB_HOST_PORT:-80}:80"]
   wiki:
-    profiles: ["wiki"]
+    profiles: [wiki]
     restart: unless-stopped
     ports: !reset []
 
-  wiener-postgres:
-    restart: unless-stopped
-    ports: !reset []   # reachable on the compose network only
-
   wiener-api:
-    restart: unless-stopped
-    # No `ports` reset: it publishes none in the base either. nginx is the way in.
-    #
-    # **No `command` override either, and that is the fix rather than an omission.** This file
-    # carried the only copy of `alembic upgrade head` for Wiener, so prod migrated and dev did
-    # not. The base now runs it — and `wiener-api` has no `--reload` to strip, so unlike `api`
-    # there is nothing left for prod to say here.
+    environment:
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:?Set WIENER_API_TOKEN for production execution}
 
-  wiener-ingest:
+  # Optional monitoring services stay internal in production, including when enabled.
+  clickhouse:
     restart: unless-stopped
-
-  wiener-worker:
+  otel-collector:
     restart: unless-stopped
+    ports: !reset []
+  grafana:
+    restart: unless-stopped
+    ports: !reset []

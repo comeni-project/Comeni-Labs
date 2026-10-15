@@ -13,14 +13,52 @@ files would mean two answers to *where does the database get touched*.
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import case, func, select
+from sqlalchemy import Integer, case, delete, func, select
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.functions import GenericFunction
 
-from wiener_api.models import Run, RunArtifact, RunEventRow, RunTask
+from wiener_api.models import (
+    RetentionSweep,
+    Run,
+    RunArtifact,
+    RunEventRow,
+    RunIntent,
+    RunTask,
+    WienerSetting,
+)
+from wiener_api.task_query import TaskQuery
 
 
-def run(session: Session, lab_id: str, run_id: str) -> Run | None:
-    return session.scalar(select(Run).where(Run.lab_id == lab_id, Run.id == run_id))
+class _array_length(GenericFunction):
+    """How many items a JSON array holds, `NULL` for anything that is not an array.
+
+    **Two spellings because the column is two types**: `JSONB` in Postgres, whose
+    `jsonb_array_length` raises on a scalar (a JSON `null` is what a Python `None` stores), and
+    plain JSON in the SQLite the suite runs on, whose `json_array_length` answers 0 for one.
+    """
+
+    type = Integer()
+    inherit_cache = True
+    name = "wiener_array_length"
+
+
+@compiles(_array_length)
+def _sqlite_length(element, compiler, **kw):
+    return f"json_array_length({compiler.process(element.clauses, **kw)})"
+
+
+@compiles(_array_length, "postgresql")
+def _postgres_length(element, compiler, **kw):
+    arg = compiler.process(element.clauses, **kw)
+    return f"CASE WHEN jsonb_typeof({arg}) = 'array' THEN jsonb_array_length({arg}) END"
+
+
+def run(session: Session, lab_id: str, run_id: str, *, lock: bool = False) -> Run | None:
+    """One run. `lock` holds its row until the transaction ends (`FOR UPDATE`), for a writer
+    that reads the run and decides on what it read: a claim, a `seq`."""
+    query = select(Run).where(Run.lab_id == lab_id, Run.id == run_id)
+    return session.scalar(query.with_for_update() if lock else query)
 
 
 def runs(session: Session, lab_id: str, limit: int = 50) -> list[Run]:
@@ -265,6 +303,34 @@ def unfinished(session: Session, lab_id: str) -> list[Run]:
     ))
 
 
+def delete_run(session: Session, lab_id: str, run_id: str) -> int:
+    """A run's rows, children first (Part H). Permanent: `run_intent` is its audit, and the
+    person asked for the run to go."""
+    removed = 0
+    for model in (RunEventRow, RunTask, RunIntent):
+        removed += session.execute(delete(model).where(
+            model.lab_id == lab_id, model.run_id == run_id)).rowcount
+    removed += session.execute(delete(Run).where(Run.lab_id == lab_id, Run.id == run_id)).rowcount
+    return removed
+
+
+def artifact_in_use(session: Session, lab_id: str, artifact_id: str) -> bool:
+    """Whether any run still names this pipeline: it is kept while one does."""
+    return session.scalar(select(func.count()).select_from(Run).where(
+        Run.lab_id == lab_id, Run.artifact_id == artifact_id)) > 0
+
+
+def delete_artifact(session: Session, lab_id: str, artifact_id: str) -> None:
+    session.execute(delete(RunArtifact).where(RunArtifact.lab_id == lab_id,
+                                              RunArtifact.id == artifact_id))
+
+
+def queued(session: Session, lab_id: str) -> list[Run]:
+    """Runs submitted and not yet claimed, oldest first: what a starting worker queues again."""
+    return list(session.scalars(select(Run).where(Run.lab_id == lab_id, Run.phase == "queued")
+                                .order_by(Run.submitted_at)))
+
+
 def artifact(session: Session, lab_id: str, artifact_id: str) -> RunArtifact | None:
     return session.scalar(
         select(RunArtifact).where(RunArtifact.lab_id == lab_id, RunArtifact.id == artifact_id)
@@ -280,18 +346,12 @@ def events(session: Session, lab_id: str, run_id: str) -> list[RunEventRow]:
     ))
 
 
-def next_seq(session: Session, lab_id: str, run_id: str) -> int:
-    """The order Wiener received things in, which is the honest claim — §6.2.
-
-    Not the order Nextflow emitted them in, which nothing can promise over a network.
-    """
-    highest = session.scalar(
-        select(RunEventRow.seq)
-        .where(RunEventRow.lab_id == lab_id, RunEventRow.run_id == run_id)
-        .order_by(RunEventRow.seq.desc())
-        .limit(1)
-    )
-    return 0 if highest is None else highest + 1
+def tasks(session: Session, lab_id: str, run_id: str) -> list[RunTask]:
+    """Every task of one run, in one query: what `projection.restored` rebuilds from."""
+    return list(session.scalars(
+        select(RunTask).where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
+        .order_by(RunTask.task_id)
+    ))
 
 
 def task(session: Session, lab_id: str, run_id: str, task_id: int) -> RunTask | None:
@@ -317,22 +377,21 @@ is the only reading that is not a claim.
 """
 
 
-def _tasks_query(lab_id: str, run_id: str, process, status, retried_only, attempt=None,
-                 tag=None):
+def _tasks_query(lab_id: str, run_id: str, filters: TaskQuery):
     query = select(RunTask).where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
-    if process:
-        query = query.where(RunTask.process == process)
-    if tag:
+    if filters.process:
+        query = query.where(RunTask.process == filters.process)
+    if filters.tag:
         # **Equality, never a prefix or a LIKE.** `RunTask.tag` is unindexed on purpose
         # (A200), and the bound that makes that safe is `run_id` above it: this scans one
         # run's tasks. A pattern match would invite the cross-run search the column was
         # deliberately shaped to refuse, and answers a question nobody on this screen asked.
-        query = query.where(RunTask.tag == tag)
-    if status:
-        query = query.where(RunTask.status == status)
-    if retried_only:
-        query = query.where(func.json_array_length(RunTask.attempts) > 1)
-    if attempt:
+        query = query.where(RunTask.tag == filters.tag)
+    if filters.status:
+        query = query.where(RunTask.status == filters.status)
+    if filters.retried_only:
+        query = query.where(_array_length(RunTask.attempts) > 1)
+    if filters.attempt:
         # **This mirrors `TaskOut`'s `len(row.attempts or []) or 1` in SQL, exactly**, and
         # every piece is load-bearing. A task with no recorded attempt still had one:
         # `attempts` can be SQL NULL, the JSON value `null` (what SQLAlchemy stores for a
@@ -341,14 +400,16 @@ def _tasks_query(lab_id: str, run_id: str, process, status, retried_only, attemp
         # asks for — silently, because an empty table looks like a filter that matched
         # nothing. `nullif(..., 0)` folds the two zeroes into NULL; the coalesce makes all
         # three 1.
-        tries = func.coalesce(func.nullif(func.json_array_length(RunTask.attempts), 0), 1)
-        query = query.where(tries >= 3 if attempt >= 3 else tries == attempt)
+        tries = func.coalesce(func.nullif(_array_length(RunTask.attempts), 0), 1)
+        query = query.where(tries >= 3 if filters.attempt >= 3 else tries == filters.attempt)
     return query
 
 
-def tasks_page(session: Session, lab_id: str, run_id: str, *, process=None, status=None,
-               retried_only=False, attempt=None, tag=None, sort="task_id", after=0,
-               limit=100) -> list[RunTask]:
+DEFAULT_TASK_QUERY = TaskQuery()
+
+
+def tasks_page(session: Session, lab_id: str, run_id: str,
+               filters: TaskQuery = DEFAULT_TASK_QUERY) -> list[RunTask]:
     """One page of a run's tasks — filtered, sorted and paged in SQL.
 
     **A191.** `attempts` is a JSON blob, so ordering by peak memory across a 5,000-task run
@@ -358,16 +419,16 @@ def tasks_page(session: Session, lab_id: str, run_id: str, *, process=None, stat
     `RunTask.task_id` is appended to every sort, because a page boundary needs a total order:
     two tasks with the same peak would otherwise be free to swap between page 1 and page 2.
     """
-    query = (_tasks_query(lab_id, run_id, process, status, retried_only, attempt, tag)
-             .order_by(SORTS.get(sort, SORTS["task_id"]), RunTask.task_id)
-             .offset(after).limit(min(limit, 500)))
+    query = (_tasks_query(lab_id, run_id, filters)
+             .order_by(SORTS[filters.sort], RunTask.task_id)
+             .offset(filters.after).limit(filters.limit))
     return list(session.scalars(query))
 
 
-def tasks_total(session: Session, lab_id: str, run_id: str, *, process=None, status=None,
-                retried_only=False, attempt=None, tag=None) -> int:
+def tasks_total(session: Session, lab_id: str, run_id: str,
+                filters: TaskQuery = DEFAULT_TASK_QUERY) -> int:
     """How many the same filters match. A table that says *404 more* has to know."""
-    query = _tasks_query(lab_id, run_id, process, status, retried_only, attempt, tag)
+    query = _tasks_query(lab_id, run_id, filters)
     return session.scalar(
         select(func.count()).select_from(query.subquery())
     ) or 0
@@ -377,3 +438,48 @@ def add(session: Session, lab_id: str, row) -> None:
     """Insert, with the laboratory stamped here rather than at the call site."""
     row.lab_id = lab_id
     session.add(row)
+
+
+def setting_values(session: Session, lab_id: str) -> dict[str, object]:
+    """This lab's stored settings, by key."""
+    rows = session.execute(select(WienerSetting.key, WienerSetting.value)
+                           .where(WienerSetting.lab_id == lab_id))
+    return {key: value for key, value in rows}
+
+
+def put_setting(session: Session, lab_id: str, key: str, value: object, by: str) -> None:
+    """One setting's value, inserted or replaced. Read, then written: fine for a menu a person
+    clicks, and the same on the suite's SQLite as on Postgres."""
+    row = session.get(WienerSetting, (lab_id, key))
+    if row is None:
+        session.add(WienerSetting(lab_id=lab_id, key=key, value=value,
+                                  updated_at=datetime.now(UTC), updated_by=by))
+    else:
+        row.value, row.updated_at, row.updated_by = value, datetime.now(UTC), by
+
+
+def finished_before(session: Session, lab_id: str, phases: set[str], before: datetime,
+                    *, uncleared: bool = False) -> list[Run]:
+    """Runs in `phases` that ended at or before `before`, oldest first: what a retention limit
+    reaches. `uncleared` keeps only those whose working files are still there."""
+    query = select(Run).where(Run.lab_id == lab_id, Run.phase.in_(sorted(phases)),
+                              Run.ended_at.is_not(None), Run.ended_at <= before)
+    if uncleared:
+        query = query.where(Run.work_cleared_at.is_(None))
+    return list(session.scalars(query.order_by(Run.ended_at)))
+
+
+def record_sweep(session: Session, lab_id: str, ran_at: datetime, removed: dict[str, int]) -> None:
+    for category, count in removed.items():
+        session.add(RetentionSweep(lab_id=lab_id, ran_at=ran_at, category=category,
+                                   removed=count))
+
+
+def last_sweep(session: Session, lab_id: str) -> tuple[datetime, dict[str, int]] | None:
+    ran_at = session.scalar(select(func.max(RetentionSweep.ran_at))
+                            .where(RetentionSweep.lab_id == lab_id))
+    if ran_at is None:
+        return None
+    rows = session.execute(select(RetentionSweep.category, RetentionSweep.removed).where(
+        RetentionSweep.lab_id == lab_id, RetentionSweep.ran_at == ran_at)).all()
+    return ran_at, dict(rows)

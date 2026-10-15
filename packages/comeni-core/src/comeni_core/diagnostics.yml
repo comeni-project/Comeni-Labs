@@ -20,7 +20,7 @@
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
 #   MD0500-MD0599  validating a hand-built graph
-#   MD0013-MD0019  a layer is not arranged the way its own manifest says
+#   MD0013-MD0019, MD0021-MD0024  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
@@ -31,7 +31,10 @@
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: the forge workflow's durable state, and the workers that move it
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
+#   MI0300-MI0399  the API: settings — what the menu may change
+#   MI0400-MI0499  the API: what is stored — shapes and retention
 #   MW0001-MW0099  wiener: ingesting a run's events
+#   MW0100-MW0199  wiener: what is stored — shapes, parameters and retention
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
@@ -810,6 +813,25 @@ MD0224:
     call carrying two values of the same name that disagreed, and `MD0108` did not catch it
     because it checked `ext` keys only.
 
+MD0230:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a tool you chose applies nowhere in this pipeline"
+  fires_on: [build, upgrade]
+  refuses: false
+  fix: |
+    The goal's `constraints.producers` names a tool for a site, and no step at that site can
+    use it: the tool cannot make that type there, or the registry no longer has it, or the site
+    is not one this pipeline asks for. Correct the pin's `site`, or remove the pin. `build`
+    reports it and goes on; `upgrade` refuses, because re-resolving would quietly replace your
+    choice with the engine's.
+  explanation: |
+    A person's tool lives in the goal, and the resolver honours it before any rule. When it
+    applies nowhere the resolver has nothing to honour, and the pipeline comes out as if you
+    had chosen nothing. Saying so is the point: **a choice that quietly did nothing is a silent
+    guess**, which is what this product exists to remove. `upgrade` treats it as `MD0203`
+    treats an override that answers nothing — a refusal, with nothing written.
+
 MD0229:
   emitted_by: core
   concern: pipeline-file
@@ -952,6 +974,57 @@ MD0302:
 
     Audit A119 and A123.
 
+MD0316:
+  emitted_by: core
+  concern: routing
+  says: "a type names a family no layer in the stack declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Declare the family, or rename the type into one that exists. A type's family is the part
+    of its id before the first dot, so `variants.vcf` needs a `variants` family:
+
+        # <layer>/families/variants.yml
+        declares: family
+        id: variants
+        description: Differences between the reads and a reference genome
+
+    A lab that needs a family the public registry does not have declares it in its own
+    overlay; families stack like every other kind.
+  explanation: |
+    Invariant 7 — vocabularies are closed — and the families are the first level of the type
+    choice (#194). A model reading what somebody wants is shown the families with their
+    descriptions, picks one or more, and is then shown every type of those families, whole. A
+    type whose family is undeclared could never be shown at all: nothing a model could pick
+    would lead to it, and the person asking for it would be told that nothing fits.
+
+MD0317:
+  emitted_by: core
+  concern: loading
+  says: "an inspector piece names a type or measurement no layer declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Declare the id in the vocabulary, or fix the piece. A format names the types it reads in
+    `reads:`, and a measure the measurement it produces in `measures:`.
+  explanation: |
+    Invariant 7: vocabularies are closed, and an inspector piece is held to them like a
+    contract is. **The piece is not loaded; the others are.** One bad piece does not stop a
+    sample's other files from being inspected, and its files go to the characteriser like any
+    type nothing reads.
+MD0318:
+  emitted_by: core
+  concern: loading
+  says: "an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Put the piece's code where `entry:` says, inside its `piece/` folder; name the folder for
+    the piece's `id`; and list in `needs:` only pieces some layer declares.
+  explanation: |
+    A piece is selected by its folder and labelled on every fact by its id, so the two must
+    agree, and a declaration whose code is missing would load and then fail every inspection
+    it was matched to. **The piece is not loaded; the others are**, as for MD0317.
 MD0303:
   emitted_by: resolver
   concern: routing
@@ -1737,8 +1810,9 @@ MD0017:
   fires_on: [registry lint]
   refuses: true
   fix: |
-    Move it to `types/` if several tools touch it, or name it for the tool it belongs to —
-    `genome.index.star`, under `tools/nf-core/star/`.
+    Move it to the layer's shared types (`vocabulary/types/` in the public registry) if several
+    tools touch it, or name it for the tool it belongs to — `genome.index.star`, under
+    `tools/nf-core/star/types/`.
   explanation: |
     A thing belongs at the shallowest level that owns it. `genome.index.star` is produced by
     `star/genomegenerate` and consumed by `star/align`, so it is the *tool's* and sits at the
@@ -1820,6 +1894,56 @@ MD0020:
     **It had to ship before any registry could use the feature it protects**, which is the
     part worth remembering: a compatibility check that arrives with the change it guards is
     a check every older install has already failed to run.
+MD0021:
+  emitted_by: compiler
+  concern: layout
+  says: "a tool's file sits in a folder that is not its id"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move the file to the folder its id names, or fix the id if it is the id that is wrong.
+  explanation: |
+    In a layer whose `layout:` declares the `tool` kind, the path is the id: the contract or
+    module `nf-core/samtools/sort` lives in `tools/nf-core/samtools/sort/`, and a profiler's in
+    `profilers/<its id>/`. Finding a file is then never a search, and `forge land` writes
+    straight to it.
+MD0022:
+  emitted_by: compiler
+  concern: layout
+  says: "a tool folder has no tool.yml saying what the tool is"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Add `tool.yml` to the tool's folder: `declares: tool`, its id, name and a description.
+  explanation: |
+    Every `tools/<org>/<tool>/` folder carries a `tool.yml` with the tool's name and a
+    description. The description is what an explanation is allowed to quote, so a tool without
+    one cannot be explained from a source.
+MD0023:
+  emitted_by: compiler
+  concern: layout
+  says: "a type only one tool uses sits outside that tool's types/ folder"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move it to `tools/<org>/<tool>/types/`, or to `vocabulary/types/` if several tools use it.
+  explanation: |
+    A type only one tool touches lives with that tool, in `tools/<org>/<tool>/types/`, so the
+    tool's folder reads as subtools plus its own words. A type several tools touch belongs in
+    `vocabulary/types/`.
+MD0024:
+  emitted_by: compiler
+  concern: layout
+  says: "a type one tool keeps as its own is used by another tool's contract"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move the type to the shared vocabulary (`vocabulary/types/` in the public registry): two
+    tools use it, so neither owns it.
+  explanation: |
+    A tool's `types/` holds the types only that tool touches, so the tool can be reviewed, moved
+    or deleted as a unit. A contract elsewhere using one of them means deleting the tool would
+    take a type another tool depends on with it.
 MD0226:
   emitted_by: core
   concern: pipeline-file
@@ -2164,6 +2288,21 @@ MF0011:
     **It warns rather than refusing**, because a scaffold is *supposed* to have open sections;
     that is what a scaffold is. What must not happen is one reaching a registry, and
     `MF0107` is where that becomes a refusal.
+
+MF0012:
+  emitted_by: forge
+  concern: workspace
+  says: "this revision's candidate is already kept, and a kept candidate is never overwritten"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Nothing to do for the revision: its candidate is on disk as it was produced. A new
+    candidate is a new revision, with its own id.
+  explanation: |
+    A generation overwrites the working `draft.json`, so each revision's candidate is kept
+    beside it under `revisions/<revision id>/` (issue 280). That copy is the record of what a
+    reviewer read and asked to change. Overwriting it would make the record say something the
+    reviewer never saw, so a second keep for one revision is refused.
 
 MF0100:
   emitted_by: forge
@@ -3328,6 +3467,49 @@ MI0001:
     refused the duplicate rather than letting the second win. The sentence was the thing that
     was wrong; it is corrected at the top of this file.
 
+MI0002:
+  emitted_by: api
+  concern: gates
+  says: "the gate could not run to a result"
+  fires_on: [gate worker]
+  refuses: false
+  fix: |
+    Read the reason after the code: it is the error the gate stopped on. Gate again once it
+    is addressed; a worker that was shutting down needs nothing but a second try.
+  explanation: |
+    A gate that fails on its own terms (Nextflow reports an error) is `failed` with Nextflow's
+    output. This is the other way a gate ends: the work around Nextflow broke, or the worker
+    was stopped while it ran. Either used to leave the row `running` for good, because only a
+    coded refusal was caught (issue 278). The row is now always moved to an end state.
+
+MI0003:
+  emitted_by: api
+  concern: gates
+  says: "a gate is already running on this pipeline"
+  fires_on: [gate]
+  refuses: true
+  fix: |
+    Wait for it to finish, then gate again. The gate in progress is on the pipeline's page.
+  explanation: |
+    A gate emits `main.nf` and `nextflow.config` into the pipeline's directory and stamps its
+    `pipeline.yml`. Two at once would write over each other's files and stamp whichever
+    finished last, so a draft has at most one live gate, held by a partial unique index
+    (issue 278).
+
+MI0004:
+  emitted_by: api
+  concern: gates
+  says: "this gate was lost: no result came back within its time limit"
+  fires_on: [gate worker]
+  refuses: false
+  fix: |
+    Gate again. If it keeps happening, check that the worker is running.
+  explanation: |
+    Every gate has a hard time limit, after which Nextflow is stopped. A gate still queued or
+    running well past it has no worker left to finish it: the worker died, or the queue lost
+    the job. A sweep marks it failed with this code, so it neither reads as running for ever
+    nor holds up the next gate on its pipeline (issue 278).
+
 MI0100:
   emitted_by: api
   concern: workflow
@@ -3466,7 +3648,7 @@ MI0201:
     clock tick are indistinguishable by time, which is precisely when this matters.
 
 MI0202:
-  emitted_by: api
+  emitted_by: authoring
   concern: workflow
   says: "this proposal was made against an older draft and can no longer be applied"
   fires_on: [authoring]
@@ -3564,3 +3746,242 @@ MI0206:
     Applying it anyway would write a choice made against one registry into a draft that will be
     built against another. **The proposal is marked stale rather than rejected**, because nobody
     rejected it: the engine withdrew it, and the transcript has to be able to say which.
+
+MI0207:
+  emitted_by: api
+  concern: workflow
+  says: "the confirmed goal cannot be built: it needs an input nothing produces"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Nothing was built. Start the analysis again and say that you have the input named here — a
+    reference genome or an annotation is the usual case. The type named is one the pipeline needs
+    and that no tool in the registry can make from what the goal said you have.
+  explanation: |
+    The resolver works backwards from what you want, and every chain has to end at something you
+    have. When one ends at a type nothing produces, the goal is missing an input rather than the
+    registry missing a tool: nothing makes a reference genome, it is supplied.
+MI0208:
+  emitted_by: api
+  concern: workflow
+  says: "that value does not fit what this measurement can be"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Answer again with a value in the range or list the question describes, or choose *not sure*
+    or *can't share it*. Nothing was recorded, and the same question is still waiting.
+  explanation: |
+    Every measurement is declared with what it may hold: a read length is a positive whole
+    number, strandedness is one of three words. A value outside that would reach a rule that
+    decides on it, and a rule deciding on an impossible value decides wrongly without saying so.
+MI0209:
+  emitted_by: api
+  concern: workflow
+  says: "the analysis cannot be built: nothing can make what it asks for"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Retry, and describe what you want to end up with in other words. The type named here is
+    declared, but no tool in the registry produces it; if it is something you already have, it
+    is an input rather than a result.
+  explanation: |
+    Before asking you anything, the engine works backwards from what you want to what it needs.
+    When nothing can make the thing you asked for, every question it could ask would be wasted,
+    so it stops here instead of showing you a goal it already knows cannot be built.
+MI0212:
+  emitted_by: authoring
+  concern: workflow
+  says: "a failed authoring session cannot resume into this phase"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Retry from where the failure happened. The refusal names the phases a retry may resume into;
+    anything else is a client or a stored session asking to skip a step.
+  explanation: |
+    A retry leaves `failed` for the phase that failed, and only where the authoring protocol
+    draws a return edge (`mendel_authoring/protocol.py`). Resuming anywhere else would enter a
+    phase whose preconditions nobody checked: a build against a goal nobody confirmed.
+MI0213:
+  emitted_by: api
+  concern: workflow
+  says: "the protection level does not allow this crossing"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Level 0 is the only level built: it lets a sample be uploaded and read. Open, guarded and
+    sealed are designed (issue 71); until they are, a lab that needs one does not upload.
+  explanation: |
+    Every place data could cross (an upload reaching this server, a model reading a sample, the
+    characterise payload leaving) asks the protection level first. Each level's row says which
+    crossings it allows; a level whose row is not built allows none, so tightening is filling in
+    a row, never a crossing that forgot to ask.
+MI0214:
+  emitted_by: api
+  concern: workflow
+  says: "an upload was refused: one file or a pair, nothing else"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Upload one file, or the two files of a pair (R1 and R2).
+  explanation: |
+    A sample answers a question about the data, and one file or one pair is what a question
+    about the data can be answered from. Nothing is read before the count is checked.
+MI0215:
+  emitted_by: api
+  concern: workflow
+  says: "a sample is already being read for this question"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Wait for the AI's reading to arrive on the card. If it says the AI didn't answer, measure
+    again.
+  explanation: |
+    A sample nothing here reads is read by the AI on the AI worker, which takes a while. One
+    reading per question at a time keeps two answers from racing, as a sample being measured
+    holds the question's other answers.
+MI0216:
+  emitted_by: authoring
+  concern: workflow
+  says: "that is not possible from here"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Read where the conversation is: the action named is not one of the ways on from there.
+  explanation: |
+    The authoring protocol is the program the builder runs (docs/design/diagrams/). From each
+    place in it, only the arrows drawn lead on; an action or an outcome that names no arrow from
+    where the session is, is refused here rather than half-done.
+MI0218:
+  emitted_by: api
+  concern: workflow
+  says: "this older offer has no saved alternative preview"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Continue with the existing offer, or review a new offer after a deliberate change.
+    Viewing this older card does not recompute or replace the options it offered.
+  explanation: |
+    Complete previews are saved with new step offers. Older offers have no saved view;
+    resolving again while hovering could show a pipeline different from the one offered.
+MI0217:
+  emitted_by: api
+  concern: workflow
+  says: "editing opens when the walk is done"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Finish the walk first. During it, change a step's tool or tell it a fact on the step's card;
+    once the wrap-up is shown, the draft can be edited by hand.
+  explanation: |
+    During the walk the draft is the projection of the blueprint: the steps you have reviewed,
+    rebuilt from the goal after every change. A hand edit would have nowhere to live — the next
+    change would rebuild the draft without it — so it is refused rather than quietly lost.
+MI0300:
+  emitted_by: api
+  concern: settings
+  says: "this setting is locked and cannot be changed here"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Read the reason beside the setting. If it is pinned by .env, change the variable there and
+    restart; if it is not built yet, it cannot be changed anywhere.
+  explanation: |
+    A value in .env beats the menu, so a deployment's files stay the truth. A setting that is
+    designed but not built is shown so the menu says what is coming, and refuses a change
+    because nothing would read it.
+MI0301:
+  emitted_by: api
+  concern: settings
+  says: "a setting was saved with no value"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Send {"value": ...}. To go back to the default, choose the default value.
+  explanation: |
+    An empty save would store nothing a person chose, and the menu would then report a value
+    nobody set.
+MI0302:
+  emitted_by: api
+  concern: settings
+  says: "this value is not one this setting can hold"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Choose one of the values the setting offers, or a number inside its bounds.
+  explanation: |
+    Every setting declares what it can hold, and a value outside that is refused before it is
+    stored, so the code that reads the setting never meets one.
+MI0303:
+  emitted_by: api
+  concern: settings
+  says: "a setting's option is designed and cannot be chosen yet"
+  fires_on: [settings]
+  refuses: true
+  fix: |
+    Choose one of the options that is built; the menu draws the others greyed, with why.
+  explanation: |
+    An option that is designed but not built is shown so the menu says what is coming, and
+    refused because nothing would honour it.
+MI0400:
+  emitted_by: api
+  concern: storage
+  says: "a stored row is in an older shape than this server reads"
+  fires_on: [load]
+  refuses: true
+  fix: |
+    Run the migrations (`make migrate`). A restored backup is upgraded by the same command.
+  explanation: |
+    Every table holding JSON records which shape its rows are in. A row in an older shape is
+    refused rather than read, because reading it as the current shape would silently show
+    something it does not say.
+MW0100:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a stored run row is in an older shape than this server reads"
+  fires_on: [load]
+  refuses: true
+  fix: |
+    Run Wiener's migrations (`make wiener-migrate`). A restored backup is upgraded by the same
+    command.
+  explanation: |
+    Every Wiener table holding JSON records which shape its rows are in. A row in an older shape
+    is refused rather than read, because a run read in the wrong shape would show a history it
+    does not have.
+MW0101:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a run's parameters could not be written; nothing was queued"
+  fires_on: [submit]
+  refuses: true
+  fix: |
+    Free space on, or fix permissions of, Wiener's work directory (WIENER_WORK_ROOT), then
+    submit the run again.
+  explanation: |
+    A run's parameters wait in its own directory until it launches, so a queue that loses the
+    job loses a delay rather than the run. A run is never recorded without them: when they
+    cannot be written, the submission is refused whole.
+MI0401:
+  emitted_by: api
+  concern: storage
+  says: "a draft with a gate running cannot be deleted"
+  fires_on: [delete]
+  refuses: true
+  fix: |
+    Let the gate finish (or fail), then delete the draft.
+  explanation: |
+    A gate writes into the draft's directory while it runs. Deleting the draft underneath it
+    would leave a gate reporting on a pipeline that no longer exists.
+MW0102:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a run had no parameters to launch with, so it was failed rather than started empty"
+  fires_on: [launch]
+  refuses: true
+  fix: |
+    Submit the run again. Its parameters wait in its own directory until it launches; this run's
+    were missing, which happens when the directory was removed by hand or the run was queued by
+    an older version whose job was lost.
+  explanation: |
+    A pipeline started with none of its declared inputs would run with every one of them empty,
+    and fail somewhere deep inside with a message about a missing file. Failing it before it
+    starts says what is actually wrong.

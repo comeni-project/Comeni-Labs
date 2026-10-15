@@ -1,210 +1,202 @@
-# The stack. `docker-compose.prod.yml` is an OVERLAY over this one that removes the unsafe
-# parts — a live code mount, an auto-reloader, a database port on the host — and nothing else.
-# Dev can do everything prod can; that is the whole shape of the split.
+# Comeni Labs: APIs and workers for building and running pipelines, with databases,
+# a browser app, and a documentation server. Start the development stack with `make dev`.
 #
-# The registry is NOT seeded here and never will be: declared data is files by decision
-# (issue #43), so there is nothing to migrate for it. What IS mounted is a writable CLONE of
-# it, because accepting a drift is a commit and a submodule's `.git` is a pointer that
-# resolves to nothing inside a container. `make dev` makes the clone.
+# Sections:
+#   1. Shared infrastructure: PostgreSQL and Redis
+#   2. Mendel: pipeline-building API and workers
+#   3. Local AI: optional Ollama model server (`--profile ai`)
+#   4. Web and documentation: browser app and wiki
+
+
+#   5. Wiener: event receiver, worker, and API
+#   6. Telemetry: optional collector, storage, and dashboards (`--profile telemetry`)
+#   7. Named volumes: persistent databases, telemetry, and model files
+#
+# The Python services share the root Dockerfile; the web service uses frontend/Dockerfile.
+# Use docker-compose.prod.yml alongside this file for the production overrides.
+#
+# `make dev` prepares a writable registry clone at .run/registry. Mendel services mount
+# it at /app/registry so they can read declarations and commit accepted registry changes.
+x-python-build: &python-build
+  context: .
+  args:
+    RUNTIME_UID: ${DOCKER_UID:-1000}
+    RUNTIME_GID: ${DOCKER_GID:-1000}
+
 services:
+  # -----------------------------------------------------------------------------
+  # 1. Shared infrastructure
+  # -----------------------------------------------------------------------------
+  # One server; separate database owners and migration histories for each subsystem.
+  # A new volume preserves the two legacy volumes for verified migration and rollback.
   postgres:
     image: postgres:17-alpine
-    container_name: ${DB_CONTAINER_NAME:-mendel-db}
+    container_name: ${DB_CONTAINER_NAME:-comeni-db}
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: mendel
-      POSTGRES_PASSWORD: mendel
-      POSTGRES_DB: mendel
-    ports: ["${DB_HOST_PORT:-5432}:5432"]
-    volumes: ["mendel-pg:/var/lib/postgresql/data"]
+      POSTGRES_USER: comeni_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-comeni-local-admin}
+      POSTGRES_DB: postgres
+      MENDEL_DB_PASSWORD: ${MENDEL_DB_PASSWORD:-mendel}
+      WIENER_DB_PASSWORD: ${WIENER_DB_PASSWORD:-wiener}
+    ports: ["127.0.0.1:${DB_HOST_PORT:-5432}:5432"]
+    volumes:
+      - comeni-pg:/var/lib/postgresql/data
+      - ./ops/postgres/validate-passwords.sh:/docker-entrypoint-initdb.d/00-validate-passwords.sh:ro
+      - ./ops/postgres/init.sql:/docker-entrypoint-initdb.d/10-applications.sql:ro
+      - ./ops/postgres/healthcheck.sh:/usr/local/bin/comeni-postgres-health:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mendel"]
+      # The entrypoint's temporary init server accepts sockets only, so test TCP readiness.
+      test: ["CMD", "sh", "/usr/local/bin/comeni-postgres-health"]
       interval: 2s
       timeout: 2s
       retries: 30
 
+  # Queue background jobs for Mendel and Wiener, and hold Wiener's live event streams.
+  # Mendel uses Redis database 0; Wiener uses database 1.
   redis:
     image: redis:7-alpine
     container_name: ${REDIS_CONTAINER_NAME:-mendel-redis}
-    ports: ["${REDIS_HOST_PORT:-6379}:6379"]
+    restart: unless-stopped  # see postgres, same thing
+    ports: ["127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
       timeout: 2s
       retries: 30
 
+  # -----------------------------------------------------------------------------
+  # 2. Mendel
+  # -----------------------------------------------------------------------------
+  # Serve Mendel's API for pipeline building, registry browsing, and tool adaptation.
   api:
-    build: .
+    build: *python-build
     container_name: ${API_CONTAINER_NAME:-mendel-api}
-    # **Runs as the host user, not root.** Two things break otherwise, and both were found by
-    # running it: git refuses a bind-mounted repository owned by a different uid ("detected
-    # dubious ownership"), so accepting a drift returns MF0107 against a perfectly good clone;
-    # and every draft written into `./workspace` lands root-owned and undeletable by whoever
-    # started the stack. CLAUDE.md records the same trap for Nextflow's work directories.
+    restart: unless-stopped
+    # Use the host UID/GID to keep mounted files writable and Git ownership consistent.
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
+      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
-      # **Read here to REPORT, never to call.** `/api/health/ai` says whether a model is
-      # configured and whether it answers, and it cannot say either without the same three
-      # names the worker gets. Nothing on this service enqueues to the AI queue and nothing
-      # on it builds a `Client` — `ai_worker.AIWorkerSettings.functions` is the allowlist of
-      # what may reach a provider, and it is a different process.
-      # **All six, the same six the worker gets.** It shipped with three — model, base URL and
-      # key — on the reasoning that the API only reports. That was wrong twice over: it builds
-      # a real `ModelAccess` through `model_access()`, so a missing `COMENI_AI_TIMEOUT_SECONDS`
-      # silently gave it the 60s default while the worker had the configured value; and two
-      # containers disagreeing about one configuration is precisely what having one spelling
-      # was for. Found by running a generation and watching it time out at 60s with 600
-      # configured.
+      # Share model settings with the AI worker for configuration and health reporting.
       COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
       COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
       COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+      COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
+      COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
+      COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
+      COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
+      COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
+      # Decrypt model credentials saved through Settings.
+      COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # **A GitHub rate limit, not an access grant.** Both catalogue adapters read public
-      # repositories; anonymous GitHub allows sixty requests an hour and one full nf-core sync
-      # costs about two thousand, so without this a full catalogue is not slow, it is
-      # impossible. Unset is the anonymous lane and works — for one tool at a time.
+      # Authenticate GitHub catalogue requests to raise the upstream rate limit.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
       COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
       COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
-    ports: ["${API_HOST_PORT:-8000}:8000"]
+    ports: ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
     volumes:
+      # Mount local code for development.
       - ./packages:/app/packages
-      # **A CLONE, not the submodule.** A submodule's `.git` is a pointer at a host path that
-      # resolves to nothing in here, so accepting a drift would refuse with MF0107 — and dev
-      # must be able to do what prod can. `make dev` creates it.
+      # Writable registry clone prepared by make dev for accepted tool updates.
       - ./.run/registry:/app/registry
-      # What the builder opens on. Read-only: a committed example, not state.
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
-      # **Shared, because two containers meet here.** `keep` (api) writes the artifact and
-      # the gate job (worker) runs Nextflow in it. This was set as an env var on both
-      # services with nothing backing it until 2026-08-23, so the file lived in one
-      # container's ephemeral layer and the other could not see it.
+      # Share saved pipelines with mendel-worker for gates.
       - ./.run/drafts:/app/drafts
-    # **`sh -c`, never `sh -lc`.** A LOGIN shell re-reads `/etc/profile`, which resets `PATH`
-    # and drops `/app/.venv/bin` — so `alembic: not found` and the container exits. Measured:
-    # `sh -lc` gives `/usr/local/sbin:...` with no venv; `sh -c` keeps it. Cladewright uses
-    # `-lc` and gets away with it because its python is the system one.
-    #
-    # One line on purpose: a folded (>) block keeps a newline before the over-indented flag
-    # and `--reload` is silently dropped.
+    # Migrate the database before serving; exec forwards shutdown signals to Uvicorn.
+    # Use sh -c to preserve the virtualenv PATH, and keep command flags on one line.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  worker:
-    build: .
+  # Run Mendel's background jobs: gates, source checks, and tool adaptation tasks.
+  mendel-worker:
+    build: *python-build
     container_name: ${WORKER_CONTAINER_NAME:-mendel-worker}
-    # **A worker that outlives its broker's restart, and it did not.** Found by running the
-    # stack on 2026-09-05: `redis` was recreated while both workers were already up, they died
-    # on the dropped connection, and they stayed dead — `docker ps` showed a green stack with no
-    # worker in it, and the only thing that said so was `/api/health/ai`'s `worker_available`.
-    #
-    # `web` has carried this since Plan 4 with a comment about nginx resolving its upstream once
-    # and dying if it cannot. A worker has the same shape and had none of the protection: it
-    # connects to Redis at startup and has no reconnect of its own.
+    # Restart if a lost Redis connection causes the worker to exit.
     restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
+      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
-      # **Read to DECIDE, never to call**, which is the same reason the API carries these.
-      # `scaffold_forge_adaptation` runs here and has to know whether a next stage exists: with
-      # a model configured it queues the generation, and without one it leaves the row in
-      # `queued` — waiting for a model or for a curator filling holes by hand — rather than
-      # failing every adaptation on `MI0106` the instant its scaffold lands. Nothing on this
-      # service builds a `Client`; `ai_worker.AIWorkerSettings.functions` is still the whole
-      # allowlist of what may reach a provider.
+      # Read model settings to decide whether to queue AI generation.
       COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
       COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
       COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+      COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
+      COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
+      COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
+      COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
+      COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
+      # Decrypt model credentials saved through Settings.
+      COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # **This worker is the one that spends it.** `sync_forge_sources` walks a whole catalogue
-      # and `scaffold_forge_adaptation` fetches one tool's files; both run here, on the default
-      # queue. The API carries the same line for the reason the AI block does — two containers
-      # disagreeing about one configuration is what having a single spelling was for.
+      # Authenticate GitHub catalogue requests to raise the upstream rate limit.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
       COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
       COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
+    # Match the API paths so jobs can read its saved pipelines and tool adaptation files.
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
-      # What the builder opens on. Read-only: a committed example, not state.
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
-      # **Shared, because two containers meet here.** `keep` (api) writes the artifact and
-      # the gate job (worker) runs Nextflow in it. This was set as an env var on both
-      # services with nothing backing it until 2026-08-23, so the file lived in one
-      # container's ephemeral layer and the other could not see it.
       - ./.run/drafts:/app/drafts
     command: arq mendel_api.worker.WorkerSettings
 
+  # Run model calls for pipeline conversations, sample characterisation, and Forge.
+  # A separate queue keeps long model calls from delaying other background jobs.
   ai-worker:
-    # **The one process allowed to reach a provider**, and the reason it is separate is
-    # starvation: a model call was measured at 227s for one module, a source sync is seconds,
-    # and somebody is watching for the sync's answer. On one queue with a shared concurrency
-    # budget the sync waits behind whatever generation is in flight.
-    #
-    # **In the default stack, not behind the `ai` profile**, even though it does nothing
-    # without a model configured. Two reasons, and neither is convenience: it is the image
-    # `api` and `worker` already build, so it costs no download; and without it the AI queue
-    # never drains, so an adaptation sits at `queued` forever with nothing saying why.
-    # `/api/health/ai` reports a missing worker, and it can only report it if the ordinary
-    # arrangement is that one exists.
-    #
-    # **Every mount is the same path as `api` and `worker`.** The scaffold is written by one
-    # container and read by another: a generation job reads `read_source` and `read_holes` out
-    # of the workspace this API wrote, and a path that differed between them would produce
-    # `MF0008` for a draft that is right there. `test_compose.py` holds it rather than trusting
-    # this comment — the same lesson `geometry.ts` taught about a comment claiming a guard.
-    build: .
+    build: *python-build
     container_name: ${AI_WORKER_CONTAINER_NAME:-mendel-ai-worker}
-    restart: unless-stopped  # see `worker`
+    restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
+      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
-      # **The shared surface, and the whole of what changes between lanes.** Unset by default,
-      # which is the no-AI lane rather than a missing setting — `MI0106`, and there is nothing
-      # to reach a provider *with*. `make ai-up` prints the two lines for a local Ollama;
-      # a hosted deployment sets the model and a key and changes nothing else.
+      # Configure local or hosted models; Settings can also supply these values.
       COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
       COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
       COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+      COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
+      COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
+      COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
+      COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
+      COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
+      # Decrypt model credentials saved through Settings.
+      COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # **A GitHub rate limit, not an access grant.** Both catalogue adapters read public
-      # repositories; anonymous GitHub allows sixty requests an hour and one full nf-core sync
-      # costs about two thousand, so without this a full catalogue is not slow, it is
-      # impossible. Unset is the anonymous lane and works — for one tool at a time.
+      # Authenticate GitHub catalogue requests to raise the upstream rate limit.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
       COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
       COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
+    # Match the API paths so jobs can read its saved pipelines and tool adaptation files.
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
@@ -213,238 +205,143 @@ services:
       - ./.run/drafts:/app/drafts
     command: arq mendel_api.ai_worker.AIWorkerSettings
 
+  # -----------------------------------------------------------------------------
+  # 3. Local AI (optional)
+  # -----------------------------------------------------------------------------
+  # Serve local AI models for Mendel through Ollama's HTTP API.
   ollama:
-    # **Opt-in, `make ai-up` or `--profile ai`.** This pulls a multi-gigabyte model on first
-    # use, and `make dev` must not — somebody working on the catalogue should not wait for a
-    # 9GB download to see a page. The `telemetry` profile makes the same argument about
-    # ClickHouse.
-    #
-    # **The model volume is named and outlives the container**, which is the difference
-    # between `make ai-down && make ai-up` costing nothing and costing the download again.
-    #
-    # **No published port by default.** The API and the worker reach it on the compose
-    # network; publishing it would put an unauthenticated inference endpoint on the host's
-    # interface, and the one thing an operator gains is `curl` from a terminal —
-    # `OLLAMA_HOST_PORT` is there for whoever decides that trade for themselves.
-    #
-    # **Both of the next two lines default to exactly what they were.** They are settings
-    # because the two things an operator most often already has are a model server image
-    # matching their GPU and a directory of weights they have already downloaded, and neither
-    # is worth re-acquiring inside a container. `OLLAMA_IMAGE=ollama/ollama:0.6.5-rocm` with
-    # `docker-compose.ollama-rocm.yml` is the AMD lane; `OLLAMA_MODELS=$HOME/.ollama` reuses a
-    # host install's models in place, which is a bind mount rather than a copy.
-    image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.5}
+    # Use a ROCm image with docker-compose.ollama-rocm.yml for AMD GPU access.
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.34.4}
     container_name: ${OLLAMA_CONTAINER_NAME:-mendel-ollama}
+    # Start with make ai-up or --profile ai when you need local models.
     profiles: [ai]
+    # Keep downloaded models across restarts; OLLAMA_MODELS can reuse a host directory.
     volumes: ["${OLLAMA_MODELS:-ollama-models}:/root/.ollama"]
     environment:
-      # **Ollama's own default is 2048 tokens and the forge budgets a dossier at 32,000.** A
-      # server with a smaller window does not refuse the prompt — it silently drops the front
-      # of it, so the model answers about the tail of a dossier and nothing says so. Raising it
-      # costs VRAM per request, which is why it is the operator's number rather than ours.
-      #
-      # The bare-name form, so unset stays unset and the image keeps its own default.
+      # Set the prompt context size to suit the workload and available memory.
+      # Pass through only when set, so an unset value keeps Ollama's default.
       - OLLAMA_CONTEXT_LENGTH
-    ports: ["${OLLAMA_HOST_PORT:-11434}:11434"]
+      # Keep models loaded between requests to avoid reload delays.
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-1h}
+      # Limit concurrent requests to control memory use.
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
+    # Publish the model API on the host; other services use http://ollama:11434.
+    ports: ["127.0.0.1:${OLLAMA_HOST_PORT:-11434}:11434"]
     healthcheck:
-      # `ollama list` rather than a socket probe: the server answers HTTP before it can serve
-      # a model, so a port check reports healthy on something that refuses every request.
+      # Check the server API; this does not verify model inference.
       test: ["CMD", "ollama", "list"]
       interval: 5s
       timeout: 5s
       retries: 30
 
-  # **In the base, not only in prod**, so dev serves the same path prod does — nginx in front,
-  # the SPA built, `/api` proxied. Vite on the host is ADDITIONAL, for HMR: dev has strictly
-  # more than prod, never less.
+  # -----------------------------------------------------------------------------
+  # 4. Web and documentation
+  # -----------------------------------------------------------------------------
+  # Serve the browser app through nginx and route API requests to Mendel and Wiener.
   web:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: ${WEB_CONTAINER_NAME:-mendel-web}
     depends_on: [api]
-    # **nginx resolves its upstream once, at startup, and dies if it cannot.** `depends_on`
-    # waits for the container to start rather than for it to serve, so a slow migration or a
-    # crashed api takes nginx down with it and it does not come back. Restarting is the fix
-    # compose gives for exactly this.
+    # Restart nginx if it exits during startup while an API is unavailable.
     restart: unless-stopped
-    ports: ["${WEB_HOST_PORT:-80}:80"]
+    ports: ["127.0.0.1:${WEB_HOST_PORT:-80}:80"]
 
-  # **The wiki, beside the app it documents.** `make wiki-serve` runs the same server on the
-  # host, and it wanted port 8000 — which `api` already publishes, so the two could not be up
-  # at once and the documented command failed with "address already in use" for anybody with
-  # the stack running. Here it is a service like the rest, on 8010, printed by `make dev`.
-  #
-  # **The official Material image, not our own.** This is the one container that shares nothing
-  # with the application image: it needs mkdocs and mkdocs-material and none of the workspace,
-  # and baking a docs toolchain into the runtime image would put it in every API and worker
-  # container for the sake of one process.
-  #
-  # `tools/catalogue.md` is NOT in git — `make wiki-tools` renders it from the registry, which
-  # is why `dev` depends on that target. Without it mkdocs serves everything else and answers
-  # 404 on the one page the Tools tab links to.
+  # Serve the project documentation with MkDocs and reload it when source files change.
   wiki:
+    # Keep the documentation toolchain in its own image.
     image: squidfunk/mkdocs-material:9
     container_name: ${WIKI_CONTAINER_NAME:-mendel-wiki}
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
-    # Read-only, both of them: the server builds in memory and writes nothing back. It watches
-    # these paths, so editing a page on the host reloads the browser.
+    # Mount documentation read-only; make wiki-tools generates the tool catalogue.
     volumes:
       - ./mkdocs.yml:/docs/mkdocs.yml:ro
+      - ./tools:/docs/tools:ro
       - ./docs:/docs/docs:ro
-    ports: ["${WIKI_HOST_PORT:-8010}:8000"]
-    # The image's ENTRYPOINT is `mkdocs`, so this is its arguments and not a command.
-    # `--dev-addr=0.0.0.0` because the default binds 127.0.0.1 *inside* the container, where
-    # a published port reaches nothing.
+    ports: ["127.0.0.1:${WIKI_HOST_PORT:-8010}:8000"]
+    # The image runs mkdocs; bind its server to the container network interface.
     command: ["serve", "--dev-addr=0.0.0.0:8000"]
-    # busybox `wget`, the same spelling `clickhouse` uses — the image is Alpine and has no
-    # curl. **Thirty retries at five seconds**, because `mkdocs serve` builds the whole site
-    # before it binds, and a wiki that is merely slow to start must not read as unhealthy.
+    # Allow time for the initial documentation build before the server responds.
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8000/"]
       interval: 5s
       timeout: 3s
       retries: 30
 
-  wiener-postgres:
-    # **Wiener's own database, not a schema in Mendel's.** `execution-boundary.md` §8 names the
-    # failure mode as run state entangling with the deterministic half, and a shared server is
-    # where that starts: one connection string, one migration chain, one `Base.metadata`, and
-    # the first join across the line is easy to write and hard to notice.
-    image: postgres:17-alpine
-    container_name: ${WIENER_DB_CONTAINER_NAME:-wiener-db}
-    environment:
-      POSTGRES_USER: wiener
-      POSTGRES_PASSWORD: wiener
-      POSTGRES_DB: wiener
-    ports: ["${WIENER_DB_HOST_PORT:-5433}:5432"]
-    volumes: ["wiener-pg:/var/lib/postgresql/data"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wiener"]
-      interval: 2s
-      timeout: 2s
-      retries: 30
-
+  # -----------------------------------------------------------------------------
+  # 5. Wiener
+  # -----------------------------------------------------------------------------
+  # Receive Nextflow execution events for recording and live monitoring.
+  # Keep event collection independent of worker restarts; use the internal service URL.
   wiener-ingest:
-    # **Where the head process posts.** Its own service, and its port is never published —
-    # reachable on the compose network and from nowhere else.
-    #
-    # Not in the worker beside Nextflow, which was the other candidate. Two facts decided it,
-    # both checked on 2026-08-24 rather than assumed:
-    #
-    # - **The head process moves.** `kuberun` is deprecated and the production Kubernetes
-    #   pattern is a pod that runs Nextflow, so in W5 the head is not a child of this worker
-    #   and `127.0.0.1` reaches nothing. Topology that only works while the head is a child is
-    #   topology that gets rewritten under pressure.
-    # - **`nf-weblog` does not retry and does not flush on exit** (nextflow-io/nextflow#1010),
-    #   so any moment this is unavailable loses events *permanently*. It must therefore have
-    #   the fewest reasons to restart of anything here — which is the exact opposite of the
-    #   container that runs pipeline code and is redeployed whenever that changes.
-    #
-    # §13.1's guarantee is unchanged in substance and its wording had to move: *not on the
-    # public app*, and *a per-run secret*. Loopback was one implementation of "the internet
-    # cannot reach this"; an unpublished port is another.
-    build: .
+    build: *python-build
     container_name: ${WIENER_INGEST_CONTAINER_NAME:-wiener-ingest}
-    restart: unless-stopped  # see `worker`
+    restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
-      wiener-postgres: {condition: service_healthy}
+      postgres: {condition: service_healthy}
     environment:
-      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1
       WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
     volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
+    # Listen on the Compose network without publishing a host port.
     command: uvicorn wiener_api.main:create_ingest_app --factory --host 0.0.0.0 --port 8099
 
+  # Launch pipeline runs through Nextflow and manage background execution jobs.
   wiener-worker:
-    # Where a run is actually launched. It spawns Nextflow, so it is the container that needs
-    # Nextflow and Java on its PATH — and the one that gets redeployed most often.
-    build: .
+    build: *python-build
     container_name: ${WIENER_WORKER_CONTAINER_NAME:-wiener-worker}
-    restart: unless-stopped  # see `worker`
+    restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
-      wiener-postgres: {condition: service_healthy}
+      postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
-      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1
       WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
       WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
       WIENER_INGEST_BASE_URL: http://wiener-ingest:8099
       WIENER_CONTAINER_PROFILE: docker
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
     volumes:
-      # **The Docker socket, and what that means, said plainly.**
-      #
-      # Nextflow launches a container per task, and this container is where Nextflow runs — so
-      # it needs a container runtime. Mounting the host's socket gives whatever runs here the
-      # ability to start containers on the host, which is root-equivalent: a container can
-      # mount `/`. **Whoever can submit a run can therefore reach the host**, and the thing
-      # standing in front of that is `WIENER_API_TOKEN`.
-      #
-      # That is the posture every CI runner takes — Jenkins agents, GitLab runners — and the
-      # rule is the same: *the runner is as trusted as what it runs*. Here that is the
-      # laboratory's own gated pipelines from a registry it curates. `docs/design/wiener.md`
-      # §12.1 records it as a cost rather than leaving it to be discovered.
-      #
-      # **It goes away in W5.** With `-profile k8s` or `awsbatch` Nextflow submits jobs to a
-      # scheduler and starts no local containers, so this line is a `local`-executor concession
-      # and not an architectural one.
-      #
-      # The alternative considered and rejected for the MVP: Apptainer in this image, which is
-      # rootless and needs unprivileged user namespaces, `/dev/fuse` and a seccomp exception —
-      # it works here and not on an Ubuntu 24.04 host, which is the opposite of "works
-      # anywhere".
+      # Let Nextflow launch task containers through the host Docker daemon.
+      # Socket access grants host-level control; run trusted pipelines.
       - /var/run/docker.sock:/var/run/docker.sock
-      # **Mounted at the SAME absolute path inside and out**, which is not tidiness. Nextflow
-      # asks the host's daemon to bind-mount a task's work directory, and the daemon resolves
-      # that path against the HOST filesystem — so a container path of `/var/wiener/work` would
-      # mount a directory the host does not have, and every task would see an empty workdir.
+      # Keep host and container paths identical: the host daemon mounts task directories.
       - ${PWD}/.run/wiener:${PWD}/.run/wiener
-    # The socket is owned by root:docker; this container runs as the host user, which needs to
-    # be in that group to open it.
+    # Use the host Docker socket group so the worker can open it.
     group_add: ["${DOCKER_GID_SOCK:-957}"]
     command: arq wiener_api.worker.WorkerSettings
 
+  # Serve run submission, monitoring, artifact uploads, and execution settings.
   wiener-api:
-    build: .
+    build: *python-build
     container_name: ${WIENER_API_CONTAINER_NAME:-wiener-api}
+    restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
-      wiener-postgres: {condition: service_healthy}
+      postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
-      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1
       WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
       WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
-      # **Unset by default, and the API says so at startup.** Right for a laptop and wrong for
-      # anything reachable — §12.1. `WIENER_API_TOKEN=$(openssl rand -hex 24)` in a `.env`.
+      # Require a bearer token for run-management requests; unset disables authentication.
       WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+    # Share run artifacts and work paths with the worker and event receiver.
     volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
-    # **No published port.** nginx is the way in — one origin, split by path, the same split
-    # `vite.config.ts` already makes in development, which is why that file proxies Wiener at
-    # nginx rather than at a port this service does not open.
-    #
-    # **It migrates its own database, like `api` does.** This ran `alembic upgrade head` in
-    # `docker-compose.prod.yml` and nowhere else, so `make prod` came up migrated and `make dev`
-    # came up with no `run` table — the stack looked green and the first request to `/api/runs`
-    # was a 500 naming a relation that does not exist. A migration belongs where the service is
-    # defined; the overlay is for what prod removes, not for what dev was missing.
+    # Migrate before serving. The web service proxies requests to this internal API.
     command: sh -c "cd packages/wiener-api && alembic upgrade head && cd /app && exec uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001"
 
-  # ---- telemetry: opt-in, `make telemetry` or `--profile telemetry` -------------------
-  #
-  # **Not in the default stack**, because `make dev` should not grow a ClickHouse for people
-  # who are working on the forge. **Not a separate file either**, because two compose files
-  # drift — which is the argument `docker-compose.prod.yml`'s own header makes about overlays.
-  #
-  # **ClickHouse and Grafana rather than SigNoz** (2026-08-24). SigNoz is what §8 named and it
-  # deprecated bundled Compose in v0.130.0, installing through a CLI that renders its own
-  # stack; vendoring that manifest means running an unmaintained copy of somebody else's
-  # deployment. These are first-party images, the store is the same ClickHouse either way, and
-  # the boards are JSON in `ops/boards/` rather than something clicked into a vendor's UI.
+  # -----------------------------------------------------------------------------
+  # 6. Telemetry (optional)
+  # -----------------------------------------------------------------------------
+  # Store execution traces and metrics for telemetry dashboards.
+  # Wiener keeps its application run records in PostgreSQL.
   clickhouse:
     image: clickhouse/clickhouse-server:25.3-alpine
     container_name: ${CLICKHOUSE_CONTAINER_NAME:-wiener-clickhouse}
@@ -461,6 +358,7 @@ services:
       timeout: 3s
       retries: 30
 
+  # Receive OpenTelemetry traces and metrics, then forward them to ClickHouse.
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.121.0
     container_name: ${OTEL_CONTAINER_NAME:-wiener-otel}
@@ -469,33 +367,35 @@ services:
     volumes: ["./ops/otel/collector.yaml:/etc/otel/collector.yaml:ro"]
     depends_on:
       clickhouse: {condition: service_healthy}
-    ports: ["${OTLP_HOST_PORT:-4317}:4317"]
+    ports: ["127.0.0.1:${OTLP_HOST_PORT:-4317}:4317"]
 
+  # Display execution telemetry from ClickHouse through the provisioned dashboards.
   grafana:
     image: grafana/grafana:11.6.0
     container_name: ${GRAFANA_CONTAINER_NAME:-wiener-grafana}
     profiles: [telemetry]
     environment:
+      # Allow dashboard access without a login for the local telemetry setup.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
     volumes:
-      # **The whole provisioning tree, not one directory of it.** Grafana reads
-      # `provisioning/datasources/` and `provisioning/dashboards/` as separate providers, and
-      # mounting `ops/grafana` onto the datasources directory alone meant the dashboard
-      # provider was never seen: "starting to provision dashboards / finished" with nothing
-      # between, and an empty search.
+      # Load both data-source and dashboard provisioning, plus the dashboard files.
       - ./ops/grafana:/etc/grafana/provisioning:ro
       - ./ops/boards:/etc/grafana/boards:ro
     depends_on:
       clickhouse: {condition: service_healthy}
-    ports: ["${GRAFANA_HOST_PORT:-3001}:3000"]
+    ports: ["127.0.0.1:${GRAFANA_HOST_PORT:-3001}:3000"]
 
+# -----------------------------------------------------------------------------
+# 7. Named volumes
+# -----------------------------------------------------------------------------
+# Persist service data across container replacement.
 volumes:
-  mendel-pg:
-  wiener-pg:
+  # Separate Mendel and Wiener databases on the shared server. Legacy volumes are retained.
+  comeni-pg:
+  # Telemetry stored in ClickHouse.
   wiener-clickhouse:
-  # Named, so a pulled model survives `down` and `up`. An anonymous volume here would make
-  # every restart a re-download, which is the whole cost this service has.
+  # Downloaded Ollama models; OLLAMA_MODELS can select a host directory instead.
   ollama-models:

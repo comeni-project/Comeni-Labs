@@ -146,17 +146,10 @@
 }
 .md-typeset table:not([class]) td { border-top: 1px solid var(--line); }
 
-/* The stage stamp, beside the site name. Spec §6.1.
- *
- * Material's header.html emits TWO .md-header__topic elements — the site-name one, and a
- * second, `data-md-component="header-topic"`, that core header JS swaps in to show the
- * current page's title once the header collapses on scroll. Without `:first-child` this rule
- * matches both, and because they never render at once the badge appears to detach from the
- * site name and reattach to whatever page the reader has scrolled — "Your first pipeline ·
- * Alpha · pre-MVP" reads as a claim about that page, not the product. `:first-child` is
- * Material's own idiom for telling the two apart (its bundled CSS does the same). */
+/* Attach the product-stage badge only to the site name. Material also renders a
+ * second header topic for the current page title when the header collapses. */
 .md-header__topic:first-child .md-ellipsis::after {
-  content: "Alpha · pre-MVP";
+  content: var(--comeni-stage);
   margin-left: .6rem;
   padding: .1rem .45rem;
   border: 1px solid var(--line-2);

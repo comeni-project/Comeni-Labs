@@ -1,78 +1,10 @@
-"""Every relative markdown link in `docs/`, `.github/`, `.design/` and the root resolves.
+"""Check local Markdown link targets in maintained docs and repository entry points.
 
-Nothing checked this before issue #41, which is why the move it was written for is worth doing
-*with* a checker rather than without one: a mechanical repair verified by hand is a repair
-nobody can re-verify next time.
-
-**Two scoping decisions, both learned by running it first.**
-
-Fenced code blocks are skipped. `assert x == [actual, expected]` is not a link, and a first
-draft reported eleven of them — a checker whose output is mostly noise is a checker people stop
-reading.
-
-`.github/` and `.design/` are checked, both added 2026-09-02 when the sanitization moved files
-into them. `.design/`'s four READMEs are the index of every design canvas and the record of the
-Artifact URL each was published at — and moving three directories there broke three of their
-links at once, none of which any gate could see. A directory whose whole job is pointing at
-things is the last place to leave unchecked.
-That move was only safe *because* the checker followed them: a community health file is one
-GitHub renders and a stranger reads, so its links have exactly the audience the paragraph below
-says `docs/` has, and leaving them unchecked would have traded a tidier root for a page of dead
-links nobody would notice.
-
-`docs/notes/` and `docs/superpowers/` are **excluded**, and they are the only two. The working
-notes moved under `docs/` on 2026-09-02, and the reason they were never checked did not move
-with them: a plan naming a file its own tasks create is *correct* at the moment it executes and
-broken until then, so checking them makes `make check` red for the duration of every plan. The
-cost of a broken link also differs by audience — in `docs/` a reader hits a 404; in the notes a
-future reader meets a dated document that already says it describes work not yet done.
-`docs/superpowers/` holds the same kind of provenance — plans and specs — and joined the
-exclusion in Task 4 for the same reason: a spec links forward to a plan, or a plan to a task,
-that may not exist yet.
-
-**The exclusion is a path prefix, and that is a weaker guarantee than it was.** While the notes
-sat in their own top-level directory the separation was structural: `_markdown()` enumerated
-`docs/` and never reached them. Now a new directory under `docs/` is checked by default and the
-notes are checked by exception, so the failure mode inverts — the old shape could not
-accidentally check the notes, and this one can accidentally stop checking a real documentation
-directory whose name someone nests under `docs/notes/` or `docs/superpowers/`.
-`test_notes_are_the_only_docs_exclusion` holds the exclusion to exactly these two prefixes.
-
-**A generated page is checked for being generated, not for being present.** `docs/tools/` is
-written by `make wiki-tools` — `mendel docs` renders one page per tool and
-`generate_tools_catalogue.py` renders the catalogue that groups them — so those files exist in
-a built site and not in a checkout. `docs/tools/index.md` linking to `catalogue.md` is
-*correct*, and reporting it costs somebody the ten minutes it takes to discover that.
-
-The question is asked of **git, not of a list here**: a path under `docs/` that git ignores is
-one a make target writes, because that is what those ignore rules exist to say
-(`.gitignore` §"The tool catalogue is generated from the registry"). A second list naming the
-generated pages would be a second thing to keep honest, and this repository has a Dockerfile
-that went wrong three times for exactly that reason.
-
-**What this costs, stated rather than discovered.** The ignore rule is `/docs/tools/*.md` plus
-`/docs/tools/**/*.md`, so it covers the whole directory — which means a link *into* `docs/tools/`
-naming a page the generator does not produce is no longer reported either. That blind spot was
-found by breaking the checker on purpose and watching it stay green, not by reading this.
-
-It is accepted because the alternative is worse and because the same limit is already accepted
-next door: `mkdocs.yml`'s `not_in_nav: tools/*/*.md` exists because the page set is a function
-of `--registry` and *cannot be known ahead of time*. A checkout genuinely does not hold the
-answer to "is there a page for this tool"; only a build does. Reporting every correct link as
-broken to catch a hypothetical typo is the trade that made somebody spend ten minutes on
-`catalogue.md`.
-
-The blind spot is bounded and pinned. `docs/tools/` is the only directory under `docs/` where
-any `.md` is ignored, and `test_the_generated_exemption_covers_only_the_generated_tree` fails
-if a second one appears — so this cannot spread to a real documentation directory the way a
-prefix exclusion silently can. Outside that tree an absent page is still reported, which
-`test_a_missing_page_is_still_reported` holds.
-
-It is scoped to `docs/` deliberately. Elsewhere an ignored target is more likely to be a build
-artifact somebody linked by mistake than a page a target renders.
-
-Anchors (`#section`) are not checked — that needs a markdown parser, and the failure mode is a
-reader scrolling rather than a reader hitting a 404.
+Scan docs/, .github/, .design/ and root Markdown files. Exclude working notes and plans,
+whose historical or forward references are deliberate. Links to gitignored generated
+pages under docs/ are exempt; the strict site build checks the generated catalogue.
+This exemption cannot detect a typo inside the generated tree until the site is built.
+Section anchors are not checked. External links are outside this local check.
 """
 
 import pathlib
@@ -132,7 +64,10 @@ def _generated(paths: set[pathlib.Path]) -> set[pathlib.Path]:
     try:
         result = subprocess.run(
             ["git", "-C", str(ROOT), "check-ignore", "--stdin"],
-            input="\n".join(str(p) for p in under_docs),
+            # Feed repository-relative paths. Git's stdin interface treats absolute paths
+            # differently across versions and runner environments; relative paths also make
+            # the output stable to parse below.
+            input="\n".join(p.relative_to(ROOT).as_posix() for p in under_docs),
             capture_output=True,
             text=True,
             check=False,
@@ -142,7 +77,7 @@ def _generated(paths: set[pathlib.Path]) -> set[pathlib.Path]:
     # `check-ignore` exits 1 when nothing matched, which is an ordinary answer and not an error.
     if result.returncode not in (0, 1):
         return set()
-    return {pathlib.Path(line) for line in result.stdout.splitlines() if line}
+    return {(ROOT / line).resolve() for line in result.stdout.splitlines() if line}
 
 
 def broken() -> list[str]:

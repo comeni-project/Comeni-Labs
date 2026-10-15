@@ -1,26 +1,13 @@
-/** Wiener's typed fetch wrapper.
- *
- * Separate from `../../api/client` because the **refusal shape differs**: Mendel answers 422
- * with a coded `Refusal` string, and Wiener's submit answers with the parameters an artifact
- * declares and which of them are unknown or missing (§12). One wrapper trying to be both would
- * turn the useful half of that into "refused, with no reason given".
- *
- * The paths are the API's own — `/api/runs`, `/api/artifacts` — and the dev proxy sends exactly
- * those to 8001.
- */
-
-/** A 401 from Wiener: the token is missing or wrong.
- *
- * **A distinct class rather than a status number in a message string**, because two screens
- * have to react to it — the board and the builder's submit panel — and both must offer the
- * same thing: a field to paste the token into. Matching on `"→ 401"` in a message is how one
- * of them stops recognising it.
- */
+/** Wiener HTTP wrapper. Callers supply complete /api paths.
+ * Requests carry the browser-held bearer token; write responses preserve parameter details
+ * and server refusal sentences. The development proxy reaches Wiener through nginx. */
+/** Signals a missing or rejected token so callers can offer the shared token-entry UI. */
 export class Unauthorized extends Error {}
 
+/** A submission refusal, including declared, unknown and missing parameter keys. */
 export class Refused extends Error {
-  // Plain fields and an explicit assignment: `readonly` parameter properties are
-  // constructor-side syntax, and this project builds with `erasableSyntaxOnly`.
+
+  // Explicit fields and assignments comply with the project's erasableSyntaxOnly setting.
   declared: string[];
   unknownKeys: string[];
   missing: string[];
@@ -43,27 +30,23 @@ type ParamRefusal = {
 
 const TOKEN_KEY = "wiener.token";
 
-/** The bearer token, held in the browser rather than baked into the bundle.
- *
- * **A build-time env var would put the credential in a JavaScript file** served to anyone who
- * asks for the page, which is a worse place for it than a request header. This is deliberately
- * the smallest thing that works for one deployment and one token — §12.1's check is real, and
- * OAuth is issue #83.
- */
+/** Read the token from local storage; return null when storage is unavailable.
+ * The credential is supplied at runtime, rather than embedded in the browser bundle. */
 export function token(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
   } catch {
-    return null;   // a private window, or storage the browser refuses
+    return null;
   }
 }
 
+/** Store or clear the token. If storage is unavailable, later requests can still prompt on 401. */
 export function setToken(value: string | null): void {
   try {
     if (value) localStorage.setItem(TOKEN_KEY, value);
     else localStorage.removeItem(TOKEN_KEY);
   } catch {
-    /* nothing to do: the request will 401 and the page will ask again */
+
   }
 }
 
@@ -91,6 +74,8 @@ export async function get<T>(path: string): Promise<T> {
  *  typed and a URL is the one place this repository has a rule about: invariant 15's shape,
  *  and the privacy rule that personal data never goes in a query string. A name is not
  *  personal data, but the habit is the guard. */
+/** Upload a file and accompanying fields as multipart data.
+ * Let the browser supply Content-Type and its boundary. Names travel in the body. */
 export async function upload<T>(path: string, field: string, file: Blob,
                                 filename: string,
                                 fields: Record<string, string> = {}): Promise<T> {
@@ -125,6 +110,37 @@ export async function post<T>(path: string, payload: unknown): Promise<T> {
     // server said the useful thing and this function threw it away.
     const detail = ((await r.json().catch(() => null)) as { detail?: string } | null)?.detail;
     throw new Error(detail || `${path} → 409`);
+  }
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return (await r.json()) as T;
+}
+
+/** `DELETE` (Part H): a finished run. A 409 is the server's sentence — *cancel it first* — and
+ *  a 204 answers nothing. */
+/** Delete a resource, accepting an empty 204 response and preserving 409/422 explanations. */
+export async function remove(path: string): Promise<void> {
+  const r = await fetch(path, { method: "DELETE", headers: headers() });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
+  if (r.status === 204) return;
+  if (r.status === 409 || r.status === 422) {
+    const detail = ((await r.json().catch(() => null)) as { detail?: string } | null)?.detail;
+    throw new Error(detail || `${path} → ${r.status}`);
+  }
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+}
+
+/** `PUT` (Part H): one of Wiener's own settings. Its refusals are sentences, as `remove`'s. */
+/** Replace a setting or resource, preserving the server's 409/422 explanation. */
+export async function put<T>(path: string, payload: unknown): Promise<T> {
+  const r = await fetch(path, {
+    method: "PUT",
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
+  if (r.status === 409 || r.status === 422) {
+    const detail = ((await r.json().catch(() => null)) as { detail?: string } | null)?.detail;
+    throw new Error(detail || `${path} → ${r.status}`);
   }
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;

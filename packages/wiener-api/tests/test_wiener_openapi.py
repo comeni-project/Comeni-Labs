@@ -18,6 +18,9 @@ def test_every_operation_is_named_by_hand():
     assert got == {
         ("/api/artifacts", "post"): "uploadArtifact",
         ("/api/runs", "post"): "submitRun",
+        ("/api/wiener/settings", "get"): "readWienerSettings",
+        ("/api/wiener/settings/{key}", "put"): "writeWienerSetting",
+        ("/api/wiener/retention/last", "get"): "readLastWienerRetentionSweep",
         ("/api/runs", "get"): "listRuns",
         ("/api/runs/summary", "get"): "readBoardSummary",
         ("/api/runs/{run_id}", "get"): "readRun",
@@ -29,5 +32,6 @@ def test_every_operation_is_named_by_hand():
         ("/api/runs/{run_id}/series", "get"): "readSeries",
         ("/api/runs/{run_id}/timeline", "get"): "readTimeline",
         ("/api/runs/{run_id}/cancel", "post"): "cancelRun",
+        ("/api/runs/{run_id}", "delete"): "deleteRun",
         ("/api/health", "get"): "health",
     }

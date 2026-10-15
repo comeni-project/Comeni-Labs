@@ -2,7 +2,7 @@ name: Release
 
 # **Tag-driven, one package per tag** — `comeni-core-v0.2.0`, `mendel-resolver-v0.1.3`. The tag
 # *is* the request; nothing here decides a version. Versions are independent per package, and
-# which number to move is a judgement documented in docs/guides/releasing.md rather than a rule
+# which number to move is a judgement documented in docs/how-to/development/release.md rather than a rule
 # a workflow could apply: nothing mechanical can tell a fix from a feature.
 #
 # What this *can* check is that the tag and the package's own `pyproject.toml` agree. A tag is a

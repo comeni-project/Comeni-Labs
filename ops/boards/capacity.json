@@ -1,7 +1,7 @@
 {
   "uid": "wiener-where-capacity-goes",
   "title": "Wiener \u00b7 Where the capacity goes",
-  "description": "Asked against used, worst case kept. A bare peak_rss means nothing without what was requested \u2014 over-allocation is the commonest waste in bioinformatics.",
+  "description": "Requested and observed CPU and memory, plus total I/O by process. Resource panels retain maxima.",
   "tags": [
     "wiener",
     "runs"

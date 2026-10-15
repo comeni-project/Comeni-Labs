@@ -2,7 +2,7 @@
 
 One source, two consumers. `Diagnostic` validates its `code` against this, so an undeclared
 code cannot be constructed; and `tools/generate_diagnostics_doc.py` renders
-`docs/handbook/reference/diagnostics.md` from it, so the public page cannot drift from the codes it
+`docs/reference/pipelines/diagnostics.md` from it, so the public page cannot drift from the codes it
 lists.
 
 Both of those were previously conventions. `EXPLANATIONS` was a Python dict beside a
@@ -64,6 +64,10 @@ class EmittedBy(StrEnum):
     and **output** (an answer that will not fit the shape it was asked for). Neither is about a
     pipeline, which is why they are their own concern rather than an extension of routing."""
     API = "api"
+    AUTHORING = "authoring"
+    """`mendel-authoring` — the conversation's protocol: which move is legal from where a session
+    is. Split from `api` on 2026-10-04 (14.7.8.1), when the state machine moved into its own pure
+    package, so the codes it raises name the package that raises them."""
     WIENER = "wiener"
     """`wiener-core` — run management: what may enter, and what a run is doing.
 
@@ -73,6 +77,10 @@ class EmittedBy(StrEnum):
     `mendel explain` can answer for all of them. `MW` is the prefix; `W` was reserved for
     Wiener when the bands were laid out, before anything could emit one.
     """
+    WIENER_API = "wiener-api"
+    """`wiener-api` — what Wiener stores and serves: a row in an older shape, a run's parameters
+    that could not be written. Split from `wiener` on 2026-10-12 (Part H), when the API first
+    raised a code of its own, so `wiener` keeps meaning the pure run-state package."""
     VENDOR = "vendor"
     """`comeni-vendor` — fetching a tool's source into a registry layer, and checking it.
 

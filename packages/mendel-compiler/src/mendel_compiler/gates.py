@@ -1,5 +1,4 @@
 """Validation gates, cheapest first. Each is a subprocess call to nextflow."""
-
 import subprocess
 from pathlib import Path
 
@@ -49,6 +48,9 @@ _TIMEOUTS: dict[Gate, int] = {
     Gate.STUB: 900,
     Gate.TEST: 3600,
 }
+
+LONGEST: int = max(_TIMEOUTS.values())
+"""The longest any gate may run, in seconds: what a worker running gates must outlast."""
 
 
 class GateResult(BaseModel):

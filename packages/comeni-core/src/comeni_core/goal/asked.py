@@ -21,13 +21,23 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_valid
 from comeni_core.goal.profile import DataProfile, Measured  # noqa: F401  (re-exported)
 from comeni_core.spell.marks import (
     ChannelName,
+    ContractId,
     HumanParamValue,
     PortName,
     StateName,
     TypeId,
 )
 
-__all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
+__all__ = [
+    "Constraints",
+    "DataProfile",
+    "Goal",
+    "GoalInput",
+    "Measured",
+    "ParamOverride",
+    "ProducerPin",
+    "Site",
+]
 
 
 class GoalInput(BaseModel):
@@ -93,6 +103,35 @@ class RequiredStates(BaseModel):
     states: list[StateName] = Field(default_factory=list)
 
 
+class Site(BaseModel):
+    """Where the router chooses a tool: the type it must produce, with these states.
+
+    One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
+    step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
+    which place they mean.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type_id: TypeId
+    states: frozenset[StateName] = frozenset()
+
+    @field_serializer("states")
+    def _sorted(self, states: frozenset[str]) -> list[str]:
+        return sorted(states)
+
+
+class ProducerPin(BaseModel):
+    """A person's tool at a site. Honoured by the router before any rule, and recorded as the
+    person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
+    longer proven from the data, and a reader sees who decided."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    site: Site
+    contract: ContractId
+
+
 class Constraints(BaseModel):
     """Everything a goal may pin. `extra="forbid"` is the whole point of the type."""
 
@@ -100,6 +139,11 @@ class Constraints(BaseModel):
 
     required_states: list[RequiredStates] = Field(default_factory=list)
     params: list[ParamOverride] = Field(default_factory=list)
+    producers: list[ProducerPin] = Field(
+        default_factory=list, exclude_if=lambda producers: not producers
+    )
+    """Tools a person chose, each at its site. **Omitted from a dump when empty**, so a goal
+    with none emits exactly the bytes it did before the field existed (invariant 10)."""
 
     @model_validator(mode="before")
     @classmethod
@@ -117,6 +161,10 @@ class Constraints(BaseModel):
                 {"type_id": k, "states": v} for k, v in sorted(data["required_states"].items())
             ]
         return data
+
+    def producer_at(self, site: Site) -> ProducerPin | None:
+        """The pin at `site`: the last one, so a later amendment wins."""
+        return next((p for p in reversed(self.producers) if p.site == site), None)
 
     def states_for(self, type_id: str) -> frozenset[StateName]:
         return frozenset(

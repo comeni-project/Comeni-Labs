@@ -116,6 +116,19 @@ def _contract_section(contract: ModuleContract) -> list[str]:
     ]
 
 
+def _heading(tool: str, loaded) -> list[str]:
+    """The tool's own words when a `tool.yml` declares it (#216), else its key."""
+    described = loaded.tools.tools.get(tool)
+    if described is None:
+        return [f"# {tool}", ""]
+    lines = [f"# {described.name}", "", f"`{tool}`", "", described.description, ""]
+    if described.homepage:
+        lines += [f"Homepage: {described.homepage}", ""]
+    if described.cite:
+        lines += [f"Cite: {described.cite}", ""]
+    return lines
+
+
 def render(tool: str, contracts: list[ModuleContract], loaded) -> str:
     """One page. Every line traces to a field of a declared file.
 
@@ -128,8 +141,7 @@ def render(tool: str, contracts: list[ModuleContract], loaded) -> str:
     lines = [
         _BANNER,
         "",
-        f"# {tool}",
-        "",
+        *_heading(tool, loaded),
         f"{len(contracts)} contract(s) in this layer stack.",
         "",
     ]

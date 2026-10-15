@@ -1,0 +1,310 @@
+import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+import { Refused } from "../../api/client";
+import type { SampleInspected, SampleReading } from "../../api/types";
+import { SampleResult, SampleUpload } from "./blocks/SampleUpload";
+
+/** Issue 134: a person who is not sure uploads one file or a pair and sees what it measured. */
+
+const fq = (name: string) => new File(["@r\nACGT\n+\nIIII\n"], name);
+const LABEL = "Not sure — measure it from a sample";
+
+const result = (extra: Partial<SampleInspected> = {}): SampleInspected => ({
+  outcome: "measured", type_id: "fastq.reads", reason: null, recorded: ["read_length"], kept: [],
+  disagreed: [],
+  steps: ["read the first 4 MB of 2 file(s)", "unpacked gzip", "confirmed FASTQ", "measured 3 fact(s)"],
+  facts: [{
+    measurement: "read_length", value: 151, undetermined: null,
+    pieces: ["fastq@1.0.0", "read_length@1.0.0"], evidence: { records: 8412, share: 0.97 },
+  }],
+  session: { pending_proposal: { id: "p-gap" } } as never,
+  ...extra,
+});
+
+function setup(onUpload = vi.fn().mockResolvedValue(result()), onAnswered = vi.fn()) {
+  render(
+    <SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={onAnswered} />,
+  );
+  return { onUpload, onAnswered };
+}
+
+describe("uploading a sample", () => {
+  it("lists a picked pair with sizes before anything is sent", async () => {
+    const { onUpload } = setup();
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("s_R1.fq.gz"), fq("s_R2.fq.gz")]);
+    expect(screen.getByText("s_R1.fq.gz")).toBeTruthy();
+    expect(screen.getByText("s_R2.fq.gz")).toBeTruthy();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it("measures and says what it found and how, when the question stays", async () => {
+    const { onUpload, onAnswered } = setup();
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("s_R1.fq.gz"), fq("s_R2.fq.gz")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(onUpload).toHaveBeenCalledWith([expect.any(File), expect.any(File)]);
+    expect(await screen.findByText(/read_length 151/)).toBeTruthy();
+    expect(screen.getByText(/fastq 1\.0\.0 · 8,412 reads, 97% at 151/)).toBeTruthy();
+    expect(onAnswered).not.toHaveBeenCalled();
+  });
+
+  it("hands the result up when it answered this question", async () => {
+    const answered = result({ session: { pending_proposal: { id: "p-next" } } as never });
+    const { onAnswered } = setup(vi.fn().mockResolvedValue(answered));
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("s_R1.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    await waitFor(() => expect(onAnswered).toHaveBeenCalledWith(answered, ["s_R1.fq"]));
+  });
+
+  it("refuses three files on the card, before any request", async () => {
+    const { onUpload } = setup();
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq"), fq("b.fq"), fq("c.fq")]);
+    expect(screen.getByRole("alert").textContent).toMatch(/3 files: choose one file, or both files if your reads are paired/);
+    expect(screen.queryByRole("button", { name: "Measure" })).toBeNull();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it("says why a file could not be read", async () => {
+    setup(vi.fn().mockResolvedValue(result({
+      outcome: "unreadable", facts: [], recorded: [],
+      reason: "x.fastq is named like fastq, but does not start like one",
+    })));
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("x.fastq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByText(/does not start like one/)).toBeTruthy();
+    expect(screen.getByText(/nothing was recorded/i)).toBeTruthy();
+  });
+
+  it("says when nothing reads the type", async () => {
+    setup(vi.fn().mockResolvedValue(result({
+      outcome: "no_inspector", facts: [], recorded: [], reason: "nothing reads this type yet",
+    })));
+    // A person can pick any file through the dialog's "All files"; `accept` only guides.
+    const user = userEvent.setup({ applyAccept: false });
+    await user.upload(screen.getByLabelText(LABEL), [fq("r.bam")]);
+    await user.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByText(/nothing reads \.bam files yet/)).toBeTruthy();
+  });
+
+  it("shows an undetermined fact with its reason", async () => {
+    setup(vi.fn().mockResolvedValue(result({
+      recorded: [],
+      facts: [{ measurement: "read_length", value: null, undetermined: "lengths vary: 139–151, trimmed?",
+        pieces: ["fastq@1.0.0", "read_length@1.0.0"], evidence: {} }],
+    })));
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("t.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByText(/lengths vary: 139–151, trimmed\?/)).toBeTruthy();
+  });
+
+  it("is never stuck inspecting when the request fails", async () => {
+    setup(vi.fn().mockRejectedValue(new Error("Failed to fetch")));
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    await waitFor(() => expect(screen.getByText(/could not be sent/i)).toBeTruthy());
+    expect(screen.queryByText(/measuring/i)).toBeNull();
+    expect(screen.getByLabelText(LABEL)).toBeTruthy();
+  });
+
+  // Issue 228: the sentence said *Try again* and offered nothing to try again with.
+  it("measures the same files again after the request failed", async () => {
+    const onUpload = vi.fn().mockRejectedValueOnce(new Error("Failed to fetch"))
+      .mockResolvedValue(result());
+    setup(onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Measure again" }));
+    expect(onUpload).toHaveBeenCalledTimes(2);
+    expect(onUpload.mock.calls[1][0][0].name).toBe("a.fq");
+    expect(await screen.findByText(/read_length 151/)).toBeTruthy();
+  });
+
+  it("does not look pickable while the card is busy", () => {
+    render(
+      <SampleUpload proposalId="p-gap" label={LABEL} busy onUpload={vi.fn()}
+        onAnswered={vi.fn()} />,
+    );
+    const label = screen.getByText(LABEL).closest("label")!;
+    expect(label.className).toContain("cursor-not-allowed");
+    expect(label.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("shows a refusal's own sentence", async () => {
+    setup(vi.fn().mockRejectedValue(new Refused("MI0213: the protection level is sealed")));
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByText(/MI0213: the protection level is sealed/)).toBeTruthy();
+  });
+});
+
+describe("what a sample measured", () => {
+  it("shows a difference from what the person said, and that their word stands", () => {
+    render(<SampleResult result={result({ kept: ["paired"], disagreed: ["paired"], facts: [
+      ...result().facts,
+      { measurement: "paired", value: true, undetermined: null, pieces: ["fastq@1.0.0", "paired@1.0.0"],
+        evidence: { pairs: 4206, agreeing: 4206 } },
+    ] })} files={["s_R1.fq.gz", "s_R2.fq.gz"]} />);
+    expect(screen.getByText(/the sample reads it as yes/)).toBeTruthy();
+    expect(screen.getByText(/what you said stands/i)).toBeTruthy();
+  });
+});
+
+describe("dropping and waiting", () => {
+  it("takes files dropped on it, and refuses three dropped", async () => {
+    const { onUpload } = setup();
+    const target = screen.getByLabelText(LABEL).closest("label")!;
+    const drop = (files: File[]) =>
+      fireEvent.drop(target, { dataTransfer: { files, types: ["Files"] } });
+    drop([fq("a.fq"), fq("b.fq"), fq("c.fq")]);
+    expect(screen.getByRole("alert").textContent).toMatch(/3 files/);
+    drop([fq("s_R1.fq")]);
+    expect(screen.getByText("s_R1.fq")).toBeTruthy();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it("stops the browser opening a file dragged over it", () => {
+    setup();
+    const target = screen.getByLabelText(LABEL).closest("label")!;
+    const event = createEvent.dragOver(target);
+    fireEvent(target, event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("says it is measuring while the request is out", async () => {
+    let finish: (r: SampleInspected) => void = () => {};
+    const onMeasuring = vi.fn();
+    render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false}
+      onUpload={() => new Promise((r) => { finish = r; })} onAnswered={vi.fn()}
+      onMeasuring={onMeasuring} />);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(onMeasuring).toHaveBeenLastCalledWith(true);
+    finish(result());
+    await waitFor(() => expect(onMeasuring).toHaveBeenLastCalledWith(false));
+  });
+
+  it("keeps a fact whose undetermined reason is empty", () => {
+    render(<SampleResult result={result({ facts: [{ measurement: "read_length", value: null,
+      undetermined: "", pieces: [], evidence: {} }] })} files={["a.fq"]} />);
+    expect(screen.getByText(/undetermined/)).toBeTruthy();
+  });
+});
+
+const reading = (state: string, extra = {}) => ({ state, attempt: 1, type_id: null, states: [],
+  recorded: [], kept: [], disagreed: [], code: null, ...extra }) as SampleReading;
+
+function setupReading(props: Record<string, unknown> = {}, onUpload = vi.fn()) {
+  const view = render(
+    <SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} {...props} />,
+  );
+  return { onUpload, ...view };
+}
+
+describe("the AI reading a sample (issue 135)", () => {
+  it("accepts any file, and says how to choose without talking about bytes (Part I.1)", () => {
+    setupReading();
+    const input = screen.getByLabelText(LABEL) as HTMLInputElement;
+    expect(input.accept).toBe("");
+    expect(screen.getByText(/Choose one file, or both files if your reads are paired/))
+      .toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/4 MB|8 KB|the AI to read/);
+  });
+
+  it("waits while the AI reads", async () => {
+    const onUpload = vi.fn().mockResolvedValue(result({ outcome: "reading", facts: [], recorded: [] }));
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("x.bam")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={reading("pending")} />);
+    expect(await screen.findByText(/being read by AI/)).toBeTruthy();
+  });
+
+  it("shows what the AI read, each line read by AI", () => {
+    setupReading({ reading: reading("read", { type_id: "alignment.bam",
+      states: ["coordinate_sorted"], recorded: ["alignment.bam"] }) });
+    expect(screen.getByText("alignment.bam")).toBeTruthy();
+    expect(screen.getByText("coordinate_sorted")).toBeTruthy();
+    expect(screen.getAllByText(/read by AI/).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("says which file it read and why the question stays (issue 135, artboard A4)", async () => {
+    const onUpload = vi.fn().mockResolvedValue(result({ outcome: "reading", facts: [], recorded: [] }));
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("ali.bam")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={reading("read", { type_id: "alignment.bam",
+        states: ["coordinate_sorted"], recorded: ["alignment.bam"] })} />);
+    expect(await screen.findByText("from ali.bam")).toBeTruthy();
+    expect(screen.getByText(/kept as something you have, and this question stays/)).toBeTruthy();
+  });
+
+  it("says when the AI couldn't tell, when it was refused, and when it didn't answer", () => {
+    const { rerender } = setupReading({ reading: reading("could_not_tell") });
+    expect(screen.getByText(/the AI couldn't tell what this file is/)).toBeTruthy();
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
+      onAnswered={vi.fn()} reading={reading("refused", { code: "MI0204" })} />);
+    expect(screen.getByText(/named something this registry doesn't declare · nothing was recorded/)).toBeTruthy();
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
+      onAnswered={vi.fn()} reading={reading("no_answer", { code: "MA0007" })} />);
+    expect(screen.getByText(/the AI didn't answer/)).toBeTruthy();
+  });
+
+  it("re-sends the same files once when the AI names a type the engine reads", async () => {
+    const onUpload = vi.fn()
+      .mockResolvedValueOnce(result({ outcome: "reading", facts: [], recorded: [] }))
+      .mockResolvedValueOnce(result());
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("reads.txt")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    const handBack = reading("hand_back", { type_id: "fastq.reads" });
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={handBack} />);
+    await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(2));
+    expect(onUpload.mock.calls[1][0][0].name).toBe("reads.txt");
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={{ ...handBack }} />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onUpload).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/type read by AI/)).toBeTruthy();
+  });
+
+  it("a re-send that fails says why, never measuring (issue 246)", async () => {
+    const onUpload = vi.fn()
+      .mockResolvedValueOnce(result({ outcome: "reading", facts: [], recorded: [] }))
+      .mockRejectedValueOnce(new Refused("MI0213: the protection level is sealed"));
+    const { rerender } = setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("reads.txt")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    rerender(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} reading={reading("hand_back", { type_id: "fastq.reads" })} />);
+    expect(await screen.findByText(/MI0213/)).toBeTruthy();
+    expect(screen.queryByText(/measuring…/)).toBeNull();
+  });
+
+  it("files picked again after a reload are not said to be measuring before Measure (issue 246)",
+    async () => {
+      setupReading({ reading: reading("hand_back", { type_id: "fastq.reads" }) });
+      await userEvent.upload(screen.getByLabelText(/Measure as fastq\.reads/), [fq("reads.txt")]);
+      expect(screen.queryByText(/measuring…/)).toBeNull();
+    });
+
+  it("offers Measure as … when the files are gone", () => {
+    setupReading({ reading: reading("hand_back", { type_id: "fastq.reads" }) });
+    expect(screen.getByText(/looks like fastq\.reads/)).toBeTruthy();
+    expect(screen.getByLabelText(/Measure as fastq\.reads/)).toBeTruthy();
+  });
+
+  it("keeps a refusal's sentence and stays usable", async () => {
+    const onUpload = vi.fn().mockRejectedValue(new Refused("MI0215: a sample is already being read for this question"));
+    setupReading({}, onUpload);
+    await userEvent.upload(screen.getByLabelText(LABEL), [fq("x.bam")]);
+    await userEvent.click(screen.getByRole("button", { name: "Measure" }));
+    expect(await screen.findByText(/MI0215/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Measure again" })).toBeTruthy();
+  });
+});

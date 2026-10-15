@@ -4,6 +4,7 @@ A layer is a directory of files that each declare their own `DeclaredKind`, and 
 not independent:
 
     measurements  ->  vocabulary (a measurement derives a `measurement.<id>` type)
+                  ->  families   (every type, derived ones too, belongs to a declared family)
                   ->  registry   (contracts are validated against that vocabulary,
                   ->              and against the roles they claim to fill)
                   ->  rules      (a rule is validated against all of the above)
@@ -22,6 +23,8 @@ nothing above it depends on a role.
 from collections.abc import Sequence
 from pathlib import Path
 
+from comeni_core.declared.families import FamilyVocabulary
+from comeni_core.declared.inspection import InspectionCatalogue
 from comeni_core.declared.layered import (
     Displacement,
     bucket,
@@ -33,6 +36,7 @@ from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.module import Module
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
+from comeni_core.declared.tools import ToolCatalogue
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,6 +51,14 @@ class Layers(BaseModel):
 
     measurements: MeasurementRegistry
     vocabulary: Vocabulary
+    families: FamilyVocabulary
+    """The first level of the type choice (#194). Every type in `vocabulary` belongs to one."""
+    tools: ToolCatalogue
+    """What each tool is (#216). Read by the docs and, from 14.7.8, by explanations."""
+    inspection: InspectionCatalogue = Field(default_factory=InspectionCatalogue)
+    """The inspector pieces that name only declared ids (#134); the refused are absent."""
+    refused_pieces: list[str] = Field(default_factory=list)
+    """One `MD0317` message per piece `inspection` dropped. A refusal never stops the load."""
     registry: Registry
     roles: RoleVocabulary
     rules: RuleTable
@@ -142,6 +154,16 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
+    declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
+    families = FamilyVocabulary.of(declared_families)
+    declared_tools = stack(stacked, ToolCatalogue.kind(), buckets=buckets)
+    pieces = [stack(stacked, kind, buckets=buckets) for kind in InspectionCatalogue.kinds()]
+    inspection, refused_pieces = InspectionCatalogue.of(*pieces).check(
+        set(vocabulary.types), set(measurements.measurements)
+    )
+    # **After `with_measurements`**, so the derived `measurement.*` types are held to a family
+    # too — the same ordering lesson as this module's docstring (#194).
+    families.check(vocabulary.types)
     named_roles = stack(stacked, RoleVocabulary.kind(), buckets=buckets)
     vendored = stack(stacked, Module.kind(), buckets=buckets)
     roles = RoleVocabulary(names=frozenset(named_roles.entries))
@@ -171,6 +193,10 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     return Layers(
         measurements=measurements,
         vocabulary=vocabulary,
+        families=families,
+        tools=ToolCatalogue.of(declared_tools),
+        inspection=inspection,
+        refused_pieces=refused_pieces,
         registry=registry,
         roles=roles,
         rules=rules,
@@ -179,6 +205,9 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         displaced=[
             *measured.displaced,
             *declared_types.displaced,
+            *declared_families.displaced,
+            *declared_tools.displaced,
+            *(displaced for kind in pieces for displaced in kind.displaced),
             *named_roles.displaced,
             *vendored.displaced,
             *contracts.displaced,

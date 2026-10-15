@@ -2,6 +2,7 @@ import { Link } from "react-router";
 
 import type { components } from "../api/schema";
 import type { components as wiener } from "../wiener/api/schema";
+import { DeleteDraft } from "./DeleteDraft";
 
 type DraftRow = components["schemas"]["DraftRow"];
 type RunRow = wiener["schemas"]["RunRow"];
@@ -109,6 +110,7 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
             <th className={`${HEAD} text-right`}>Runs</th>
             <th className={`${HEAD} text-right`}>Last outcome</th>
             <th className={`${HEAD} text-right`}>Owner</th>
+            <th className={HEAD} aria-label="actions" />
           </tr>
         </thead>
         <tbody className="stagger">
@@ -128,6 +130,11 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                                                                  inline-block px-1 -mx-1 rounded-r">
                     {row.name || row.id.slice(0, 8)}
                   </Link>
+                  {/* The outputs and the bar describe the kept artifact; an edit since has left
+                      them behind (issue 277). */}
+                  {row.changed_since_kept && (
+                    <span className="ml-2 text-secondary text-ink-3">changed since kept</span>
+                  )}
                 </td>
                 <td className={`${CELL} text-ink-2 font-data text-secondary`}>
                   {row.makes.length ? row.makes.join(", ") : <span className="text-ink-3">—</span>}
@@ -153,6 +160,8 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                   )}
                 </td>
                 <td className={`${CELL} text-right text-secondary text-ink-2`}>{row.who}</td>
+                {/* After the row's link, never inside it: a delete is its own act (Part H). */}
+                <td className={`${CELL} text-right`}><DeleteDraft id={row.id} name={row.name} /></td>
               </tr>
             );
           })}

@@ -18,6 +18,8 @@ rot references that are still being read.
 | [`runs-board/`](runs-board/) | the across-runs boards | [55693858](https://claude.ai/code/artifact/55693858-69a2-49f1-baaf-33e0cf199d92) |
 | `./Forge*.dc.html` (flat) | the Forge MVP §8 boards — the Registry section, nine artboards. **Current** | [51526cef](https://claude.ai/code/artifact/51526cef-d6a5-4a33-acc8-7273b975f814) |
 | [`living-pipeline/`](living-pipeline/) | the conversational builder — eleven artboards. **Current** | [0877ba13](https://claude.ai/code/artifact/0877ba13-690f-44cc-9ba8-d92036441653) |
+| (published only) | the settings overlay, 2026-10-01 — three artboards: Models and Building on a desk, Privacy on a phone. **Current** | [WLLBS69h](https://claude.ai/artifact/WLLBS69h6NMfSnEULja7Jj) |
+| (published only) | uploading a sample, 2026-10-02 — eleven artboards: the gap card's upload states on a desk and a phone, and the goal card's measured label. Approved as the MVP's look; a clarity and design pass comes at the MVP's last step. Since 2026-10-04 a second page, *Read by AI*: twelve artboards of the AI reading a sample (nine on a desk, two on a phone, the goal card), approved. **Current** | [DEhSpA4k](https://claude.ai/artifact/DEhSpA4kEZPvq9soyapJTM) |
 | [`hybrid/`](hybrid/) | Labs in the hybrid identity shared with Comeni Code — thirteen artboards, 2026-09-17. **The target of the visual update**; the canvases above stay the reference for behaviour until each screen is updated | [K4PDRcfb](https://claude.ai/artifact/K4PDRcfbUC6U1jmJmwqvTM) |
 
 **Only one canvas owns `Main.dc.html`.** The 2026-08-29

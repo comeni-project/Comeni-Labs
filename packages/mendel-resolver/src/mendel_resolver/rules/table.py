@@ -327,6 +327,29 @@ class RuleTable(BaseModel):
     def implementation_for(self, role: str, premises: "dict[str, object]") -> Pin | None:
         return self._for(f"{Effect.IMPLEMENTATION}:{role}", premises)
 
+    def unapplied_implementation(
+        self, roles: Sequence[str], premises: "dict[str, object]"
+    ) -> "tuple[Decision, list[str]] | None":
+        """The first decision choosing an implementation for one of `roles` that no row of
+        answers, and the premises its rows read that nobody knows.
+
+        **A rule that cannot apply is invariant 4's rule miss, not an absent rule** (#174). The
+        router asks the person instead of falling through to priority, and names what is unknown
+        so the question can ask for the fact before the tool.
+        """
+        for role in roles:
+            key = f"{Effect.IMPLEMENTATION}:{role}"
+            for decision in self.decisions:
+                if key not in {target.key() for target in decision.targets()}:
+                    continue
+                if any(matches(row.when, premises) for row in decision.rows):
+                    continue
+                unknown = sorted(
+                    {fact for row in decision.rows for fact in row.when if fact not in premises}
+                )
+                return decision, unknown
+        return None
+
     def presence_for(self, role: str, premises: "dict[str, object]") -> Pin | None:
         return self._for(f"{Effect.PRESENCE}:{role}", premises)
 
@@ -347,7 +370,13 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
         if premise is None:
             continue
         read.append(
-            PremiseRecord(id=premise.id, value=premise.value, origin=premise.origin)
+            PremiseRecord(
+                id=premise.id,
+                value=premise.value,
+                origin=premise.origin,
+                by=premise.by,
+                pieces=premise.pieces,
+            )
         )
     return read
 

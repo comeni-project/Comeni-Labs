@@ -35,6 +35,7 @@ export function guidedStart(): AuthoringSession {
     phase: "goal_review",
     revision: 0,
     graph: { nodes: [], edges: [] },
+    progress: null,
     turns: [FAKE_SESSION.turns[0], { ...FAKE_SESSION.turns[1], blocks: [goal] }],
     history: [],
     pending_proposal: {
@@ -55,7 +56,8 @@ export function guidedDecide(
   const history = [
     ...session.history,
     {
-      id: pending.id, kind: pending.kind, state: decision, block: pending.block, by: "person",
+      id: pending.id, kind: pending.kind, state: decision, block: pending.block, by: "person", actor_kind: "person",
+      envelope: { offer: pending.kind, progress: session.progress?.active ?? null },
       chosen_option: pending.kind === "step" ? option : null,
       chosen_contract: pending.block.kind === "step_proposal" ? pending.block.contract : null,
       at: at(session.history.length + 1),
@@ -81,8 +83,10 @@ export function guidedDecide(
   }
 
   const next = STEPS[index];
+  const reviewed = history.filter((d) => d.kind === "step" && d.state === "accepted").length;
   if (!next || next.kind !== "step_proposal") {
-    return { ...session, phase: "complete", graph, revision, history, pending_proposal: null };
+    return { ...session, phase: "complete", graph, revision, history, pending_proposal: null,
+             progress: { reviewed, total: STEPS.length, active: null } };
   }
   const present = new Set([...graph.nodes.map((n) => n.id), next.node]);
   return {
@@ -91,8 +95,11 @@ export function guidedDecide(
     graph,
     revision,
     history,
+    progress: { reviewed, total: STEPS.length,
+                active: { position: index + 1, total: STEPS.length, again: false } },
     pending_proposal: {
       id: `p-${next.node}`, kind: "step", draft_revision: revision,
+      envelope: { offer: "step", preview_options: next.node === "samtools_sort" ? ["alt_1"] : [] },
       options: ["keep", ...next.alternatives.map((option) => option.id)],
       edges: (WIRES[next.node] ?? []).filter((w) => present.has(w.from_node) && present.has(w.to_node)),
       block: next,

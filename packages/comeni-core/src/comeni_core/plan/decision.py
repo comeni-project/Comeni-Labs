@@ -33,6 +33,7 @@ from comeni_core.spell.marks import (
     EdgeRef,
     HumanParamValue,
     Line,
+    MeasurementId,
     NodeId,
     ParamValue,
     ResolverId,
@@ -270,6 +271,15 @@ class ProducerDecision(_Decided):
     chosen: ContractId
     human_override: ContractId | None = None
     model_override: ContractId | None = None
+    unknown: list[MeasurementId] = Field(
+        default_factory=list, exclude_if=lambda unknown: not unknown
+    )
+    """The facts a rule needed and nobody knew, when that is why this question is open (#174).
+
+    Typed so the build plan can ask for the fact before the tool; the reason states the same
+    thing in prose, which nothing should parse. **Empty means not waiting on a fact, or recorded
+    before this field existed**: `Why.premise` reads the same way. Left out of the dump when
+    empty, so a `pipeline.yml` written before it stays byte-identical."""
 
 
 class SourceDecision(_Decided):

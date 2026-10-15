@@ -99,3 +99,26 @@ def test_placeholders_are_reported(tmp_path) -> None:
     """What a caller asks before assembling: which keys does this version want."""
     _write(tmp_path, "a.v1.md", "{{one}} {{two}} {{one}}")
     assert PromptTemplate.load(tmp_path, "a.v1").placeholders() == {"one", "two"}
+
+
+# ── the split (14.7.4, #183) ──────────────────────────────────────────────────────────────
+
+
+def test_a_split_template_renders_its_fixed_part_and_its_per_call_part():
+    from comeni_ai.prompts import DIVIDER
+
+    template = PromptTemplate(
+        prompt_id="t.v1", body=f"fixed {{{{vocabulary}}}}\n{DIVIDER}\nasked: {{{{request}}}}\n"
+    )
+    system, user = template.render_split({"vocabulary": "V", "request": "R"})
+    assert system == "fixed V" and user == "asked: R"
+
+
+def test_a_template_without_a_divider_or_with_two_is_refused_by_the_split():
+    from comeni_ai.prompts import DIVIDER
+
+    with pytest.raises(ValueError, match="t.v1"):
+        PromptTemplate(prompt_id="t.v1", body="no divider here").render_split({})
+    with pytest.raises(ValueError, match="t.v2"):
+        PromptTemplate(prompt_id="t.v2", body=f"a\n{DIVIDER}\nb\n{DIVIDER}\nc").render_split({})
+    assert PromptTemplate(prompt_id="t.v3", body="old style").render({}).text == "old style"

@@ -21,7 +21,13 @@ from pathlib import Path
 
 from comeni_core import yaml_strict
 from comeni_core.declared.layer import LayerManifest
-from comeni_core.declared.layered import _KIND_OF, MANIFEST, MODULE_DIR, declared_kind
+from comeni_core.declared.layered import (
+    _KIND_OF,
+    MANIFEST,
+    MODULE_DIR,
+    declared_kind,
+    in_piece,
+)
 from comeni_core.diagnostics import coded
 
 from mendel_compiler.conformance import Diagnostic
@@ -63,18 +69,27 @@ def lint(root: Path) -> list[Diagnostic]:
     found += _tool_types_are_namespaced(root)
     found += _one_version_per_module(root)
     found += _nothing_reaches_out_of_its_tool(root)
+    # **Opt-in by manifest** (#216): a layer that has not moved to one folder per tool, and
+    # every private overlay, lints exactly as before.
+    if "tool" in manifest.layout:
+        found += _path_is_the_id(root)
+        found += _every_tool_says_what_it_is(root)
+        found += _tool_types_in_types(root)
+        found += _tool_types_are_its_own(root)
     return sorted(found, key=lambda f: (f.where, f.code))
 
 
 def _declared_files(root: Path) -> Iterable[tuple[Path, str]]:
     """Every file that declares a kind, with the singular it declares.
 
-    Skips anything under a `module/` — that is upstream's tree, is not layer data, and ships
-    its own `meta.yml` with no `declares:` line.
+    Skips anything under a `module/`, or a `piece/` beside a piece's declaration — that is code
+    the layer carries, not layer data;
+    upstream ships its own `meta.yml` with no `declares:` line.
     """
     for path in sorted({*root.rglob("*.yml"), *root.rglob("*.yaml")}):
         rel = path.relative_to(root)
-        if any(part.startswith(".") for part in rel.parts) or MODULE_DIR in rel.parts:
+        hidden = any(part.startswith(".") for part in rel.parts)
+        if hidden or MODULE_DIR in rel.parts or in_piece(path, root):
             continue
         if path.name == MANIFEST and path.parent == root:
             continue
@@ -212,7 +227,7 @@ def _tool_types_are_namespaced(root: Path) -> list[Diagnostic]:
         if singular != "vocabulary" or not path.is_relative_to(tools):
             continue
         declared = (yaml_strict.load(path) or {}).get("id", "")
-        # `tools/nf-core/star/genome.index.star.yml` -> the tool is `star`.
+        # `tools/nf-core/star/types/genome.index.star.yml` -> the tool is `star`.
         parts = path.parent.relative_to(tools).parts
         if len(parts) < 2:
             continue
@@ -227,7 +242,10 @@ def _tool_types_are_namespaced(root: Path) -> list[Diagnostic]:
                         f"sits under ({tool})"
                     ),
                     detail="",
-                    fix=f"move it to types/ if several tools touch it, or name it for {tool}",
+                    fix=(
+                        "move it to vocabulary/types/ if several tools touch it, "
+                        f"or name it for {tool}"
+                    ),
                 )
             )
     return found
@@ -294,6 +312,142 @@ def _nothing_reaches_out_of_its_tool(root: Path) -> list[Diagnostic]:
                 )
             )
             break
+    return found
+
+
+_ID_ROOTS = ("tools", "profilers")
+
+
+def _path_is_the_id(root: Path) -> list[Diagnostic]:
+    """MD0021. A contract, module or tool whose folder is not its id.
+
+    **The id is the address.** `nf-core/samtools/sort` is at `tools/nf-core/samtools/sort/`, so a
+    lookup, a review and `forge land` all go straight to it. Only the kinds whose file names are
+    fixed (`contract.yml`, `module.yml`, `tool.yml`), so the folder is the only place the id can
+    be spelled. **`tool` was missed at first**: a misspelt `tool.yml` id loaded as a tool that
+    does not exist, and the page fell back to the bare key with lint green.
+    """
+    found = []
+    for path, singular in _declared_files(root):
+        if singular not in ("contract", "module", "tool"):
+            continue
+        rel = path.parent.relative_to(root)
+        if not rel.parts or rel.parts[0] not in _ID_ROOTS:
+            continue
+        key = str((yaml_strict.load(path) or {}).get("id", "")).split("@")[0]
+        where = "/".join(rel.parts[1:])
+        if key != where:
+            found.append(
+                Diagnostic(
+                    code="MD0021",
+                    where=_at(path, root),
+                    summary=f"declares `{key}` and sits in {rel.parts[0]}/{where}/",
+                    detail="",
+                    fix=f"move it to {rel.parts[0]}/{key}/",
+                )
+            )
+    return found
+
+
+def _tool_folders(root: Path) -> set[Path]:
+    """`tools/<org>/<tool>/` for every module key under `tools/`."""
+    folders = set()
+    for path, singular in _declared_files(root):
+        if singular not in ("contract", "module"):
+            continue
+        rel = path.parent.relative_to(root)
+        if len(rel.parts) >= 3 and rel.parts[0] == "tools":
+            folders.add(root / Path(*rel.parts[:3]))
+    return folders
+
+
+def _every_tool_says_what_it_is(root: Path) -> list[Diagnostic]:
+    """MD0022. A tool folder with no `tool.yml`, or one that declares some other kind."""
+    return [
+        Diagnostic(
+            code="MD0022",
+            where=_at(folder, root),
+            summary="is a tool folder and has no tool.yml",
+            detail="",
+            fix="add tool.yml: `declares: tool`, its id, name and a description",
+        )
+        for folder in sorted(_tool_folders(root))
+        if not (folder / "tool.yml").exists() or declared_kind(folder / "tool.yml") != _TOOL
+    ]
+
+
+_TOOL = _KIND_OF["tool"]
+
+
+def _tool_types_in_types(root: Path) -> list[Diagnostic]:
+    """MD0023. A vocabulary file under `tools/` that is not in a tool's `types/`.
+
+    **Loose ones too**: `tools/nf-core/qc.report.yml` belongs to no tool, and passed both this
+    and MD0017 until the review of #216 tried it.
+    """
+    found = []
+    for path, singular in _declared_files(root):
+        if singular != "vocabulary":
+            continue
+        rel = path.relative_to(root)
+        if rel.parts[0] != "tools":
+            continue
+        if len(rel.parts) < 5 or rel.parts[3] != "types":
+            found.append(
+                Diagnostic(
+                    code="MD0023",
+                    where=_at(path, root),
+                    summary="is a type under a tool and not in that tool's types/",
+                    detail="",
+                    fix=(
+                        f"move it to {'/'.join(rel.parts[:3])}/types/"
+                        if len(rel.parts) >= 4
+                        else "move it into the tool that uses it, under <tool>/types/"
+                    ),
+                )
+            )
+    return found
+
+
+def _port_types(path: Path) -> set[str]:
+    """Every `type_id` a contract's ports name."""
+    data = yaml_strict.load(path) or {}
+    return {
+        str(port.get("type_id"))
+        for side in ("consumes", "produces")
+        for port in data.get(side) or []
+        if isinstance(port, dict) and port.get("type_id")
+    }
+
+
+def _tool_types_are_its_own(root: Path) -> list[Diagnostic]:
+    """MD0024. A type in one tool's `types/` that another tool's or a profiler's contract uses.
+
+    Spec §3: *a type in a tool's `types/` is used only by that tool*. MD0017 checks only the
+    name, so `genome.index.star` in `star/types/` consumed by a HISAT2 contract passed it.
+    """
+    owner: dict[str, Path] = {}
+    for path, singular in _declared_files(root):
+        rel = path.relative_to(root)
+        if singular == "vocabulary" and len(rel.parts) >= 5 and rel.parts[0] == "tools":
+            type_id = str((yaml_strict.load(path) or {}).get("id", ""))
+            owner[type_id] = Path(*rel.parts[:3])
+    found = []
+    for path, singular in _declared_files(root):
+        if singular != "contract":
+            continue
+        rel = path.relative_to(root)
+        for type_id in sorted(_port_types(path) & set(owner)):
+            if not rel.is_relative_to(owner[type_id]):
+                found.append(
+                    Diagnostic(
+                        code="MD0024",
+                        where=_at(path, root),
+                        summary=f"uses `{type_id}`, which {owner[type_id]}/types/ keeps as its own",
+                        detail="",
+                        fix=f"move {type_id} to the shared vocabulary, since two tools use it",
+                    )
+                )
     return found
 
 

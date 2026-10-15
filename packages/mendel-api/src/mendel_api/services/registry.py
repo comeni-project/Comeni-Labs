@@ -20,7 +20,9 @@ O(files), and nobody is near it.
 current reader takes `.registry`, `.vocabulary` or `.rules` and reads.
 """
 
+import os
 from functools import lru_cache
+from pathlib import Path
 
 from comeni_core.artifact.digest import digest_of_directory
 from mendel_resolver import layers
@@ -37,14 +39,64 @@ def _load(digest: str) -> Layers:
     return layers.load(settings.registry_root)
 
 
+def signature() -> tuple[tuple[str, int, int, int, int], ...]:
+    """Every file's size and modification time under the layer, never its bytes (#216).
+
+    **What a request pays to learn nothing changed.** The digest read every byte of the layer,
+    module sources included, on every request: 10.7ms measured on 2026-10-01, and growing with
+    each tool. `stat` is enough to know whether to look again; the exact digest is still what a
+    pipeline pins, computed only when this moves. Nanoseconds, the inode and the change time, so
+    an edit that keeps a file's size, even within one modification-time tick, is still seen.
+
+    **Every file, not `declared_entries`.** That allowlist cost 6ms of the 10.7 on its own,
+    pathlib per file. A superset of what the digest covers is safe — a README edit costs one
+    needless re-hash, never a stale answer — so this walks with `os.walk` and skips only the
+    root's `.git`: a submodule's `.git` file names the checkout (issue #46), and a clone's `.git`
+    directory would make its object store the most expensive thing here. A `.git` deeper down is
+    the layer's own content, and the digest covers it. A symlinked folder is recorded, not
+    followed, so adding one is seen and the load decides what it means (issue 223).
+    """
+    root = str(settings.registry_root)
+    found = []
+
+    def entry(path: str) -> tuple[str, int, int, int, int]:
+        status = os.lstat(path)
+        return (
+            os.path.relpath(path, root),
+            status.st_size,
+            status.st_mtime_ns,
+            status.st_ctime_ns,
+            status.st_ino,
+        )
+
+    for folder, folders, files in os.walk(root):
+        at_root = folder == root
+        folders[:] = sorted(name for name in folders if not (at_root and name == ".git"))
+        for name in folders:
+            if os.path.islink(os.path.join(folder, name)):
+                found.append(entry(os.path.join(folder, name)))
+        for name in sorted(files):
+            if at_root and name == ".git":
+                continue
+            found.append(entry(os.path.join(folder, name)))
+    return tuple(found)
+
+
+@lru_cache(maxsize=4)
+def _digest_for(root: Path, _signature: tuple) -> str:
+    """**The root is part of the key**: `copytree` keeps modification times, so a copy's
+    signature can equal the original's, and one registry would answer for another."""
+    return str(digest_of_directory(root))
+
+
 def digest() -> str:
     """The cache key, borrowed as an ETag.
 
     The same string that decides whether `_load` reloads decides whether a client's copy is
-    stale — one definition of "the registry changed", not two. It costs 4.6ms per call, which
-    the performance audit measured and which is the real per-request floor.
+    stale — one definition of "the registry changed", not two. Exact, and recomputed only when
+    `signature()` moves.
     """
-    return str(digest_of_directory(settings.registry_root))
+    return _digest_for(settings.registry_root, signature())
 
 
 def stack() -> Layers:

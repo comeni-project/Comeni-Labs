@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-"""Seed the running website with a demo pipeline.
+"""Create or refresh a demo draft through the running Mendel API.
 
-The browser's empty-state path can show the example pipeline, but the home page reads stored
-drafts. This script turns a goal file into the same `DraftGraph` shape the builder saves and
-posts it through the public API, so a demo starts with a visible pipeline row.
-"""
+Read the goal, build its draft graph and save it by name. Keep the draft as an artifact by
+default; --no-keep skips that write, and --fresh bypasses reuse of an existing draft.
+
+Fake-run options also upload a kept bundle to Wiener and insert simulated execution data
+through Docker Compose's shared postgres service using psql. They require local kept draft
+files, write database/projection rows and do not launch Nextflow. Use a demo stack."""
 
 from __future__ import annotations
 
@@ -363,7 +365,7 @@ def seed_fake_runs(
             "compose",
             "exec",
             "-T",
-            "wiener-postgres",
+            "postgres",
             "psql",
             "-U",
             "wiener",

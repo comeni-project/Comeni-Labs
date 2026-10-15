@@ -506,14 +506,16 @@ export interface paths {
         };
         /** A draft as it stands */
         get: operations["readDraft"];
-        /**
-         * Save a draft
-         * @description One write per save, not per edit. The client owns the working graph and sends it whole —
-         *     a schema that could hold half a graph would be a second definition of what a graph is.
-         */
+        /** Save a checked draft */
         put: operations["saveDraft"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete a draft and everything about it, permanently
+         * @description **Permanent.** The draft, its conversations, decisions and gate results go; its model
+         *     calls keep their record without their text, and a fork of it keeps what it inherited
+         *     (Part H).
+         */
+        delete: operations["deleteDraft"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1035,6 +1037,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/alternatives/{option_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Alternative */
+        get: operations["previewAuthoringAlternative"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring": {
         parameters: {
             query?: never;
@@ -1095,6 +1114,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/facts/{subject}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fact History */
+        get: operations["authoringFactHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The session's model calls, with what each returned
+         * @description Fetched when the call panel opens, and again only when the session's call count moves.
+         */
+        get: operations["listAuthoringCalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring/{session_id}/messages": {
         parameters: {
             query?: never;
@@ -1122,7 +1178,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Accept or reject a goal or a step
+         * Accept or reject a goal or a step, or answer a question about your data
          * @description A deterministic request: the answer is in the response, never behind the queue.
          *
          *     A refusal — a stale revision, a moved registry, an option never offered — answers 422 with
@@ -1191,6 +1247,204 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a question about your data with a sample: one file, or a pair
+         * @description **Only the first 4 MB of each file is kept**, in memory; the rest is read through and
+         *     dropped, and nothing is written to disk (14.7.6's ruling: nothing deletes a session yet, so
+         *     nothing about a sample is kept). The protection level is asked before a byte is read.
+         */
+        post: operations["uploadAuthoringSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/facts/{subject}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Correct a selected fact or return it to unknown */
+        post: operations["correctAuthoringFact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** DecisionChange what you want or what is known about your data */
+        post: operations["changeAuthoring"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/suggestions/{suggestion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply or set aside one of the model's suggestions */
+        post: operations["decideAuthoringSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/release-tool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Let the engine choose a producer again */
+        post: operations["releaseAuthoringTool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/disagreements/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose which answer to use after an evidence disagreement */
+        post: operations["answerAuthoringDisagreement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/retention/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** When retention last ran here, and what it removed */
+        get: operations["readLastRetentionSweep"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every setting, its value and its source */
+        get: operations["readSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether a model is configured, from settings alone
+         * @description **A settings fact, asked on its own** (issue 268). Whether to offer describing an analysis
+         *     in words depends only on this; `/health/ai` answers it too, but also asks Redis and probes
+         *     the model server, which takes seconds exactly when something is down. The describe box
+         *     waited on that, undrawn, and what a person typed meanwhile went nowhere.
+         */
+        get: operations["aiConfigured"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change one setting for this installation */
+        put: operations["writeSetting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/{key}/items/{name}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask one record of a setting to do something: test a connection, list its models */
+        post: operations["runSettingAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1221,6 +1475,23 @@ export interface components {
             /** Commit */
             commit: string;
         };
+        /** ActionResult */
+        ActionResult: {
+            /** Ok */
+            ok: boolean | null;
+            /** Says */
+            says: string;
+            /**
+             * Values
+             * @default []
+             */
+            values: string[];
+        };
+        /**
+         * ActorKind
+         * @enum {string}
+         */
+        ActorKind: "person" | "model" | "resolver" | "unknown";
         /**
          * Adaptation
          * @description One adaptation in full: where it is, what it produced, and what happened to it.
@@ -1283,6 +1554,11 @@ export interface components {
          * @enum {string}
          */
         AdaptationState: "scaffolding" | "queued" | "generating" | "validating" | "review" | "changes_requested" | "publishing" | "published" | "failed" | "archived";
+        /** AiConfigured */
+        AiConfigured: {
+            /** Configured */
+            configured: boolean;
+        };
         /**
          * AiHealth
          * @description Three separate facts, because they fail separately and are fixed separately.
@@ -1356,6 +1632,15 @@ export interface components {
          * @enum {string}
          */
         Alignment: "same" | "differs" | "yours-only" | "mendel-only";
+        /** AlternativePreview */
+        AlternativePreview: {
+            /** Option Id */
+            option_id: string;
+            /** Contract */
+            contract: string;
+            frame: components["schemas"]["CanvasFrame"];
+            observed_context: components["schemas"]["OfferContext"];
+        };
         /** AnswerAllRequest */
         AnswerAllRequest: {
             /** Subject */
@@ -1366,6 +1651,22 @@ export interface components {
             why: string;
             /** By */
             by?: string | null;
+        };
+        /** AnswerEvidenceQuestion */
+        AnswerEvidenceQuestion: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            /**
+             * Option
+             * @enum {string}
+             */
+            option: "keep_current" | "use_measurement" | "correct" | "unknown";
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
         };
         /** AnswerRequest */
         AnswerRequest: {
@@ -1459,6 +1760,52 @@ export interface components {
             /** Mendel */
             mendel?: components["schemas"]["Call"][];
         };
+        /**
+         * AuthoringCallView
+         * @description One model call in the session, for the call panel (#182, #191).
+         */
+        AuthoringCallView: {
+            /** Id */
+            id: string;
+            /** Purpose */
+            purpose: string;
+            /** Model */
+            model: string;
+            /** Input */
+            input: number | null;
+            /** Output */
+            output: number | null;
+            /** Cached */
+            cached: number | null;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** State */
+            state: string;
+            /** Response */
+            response: string | null;
+            /** Cleared */
+            cleared?: ("deleted" | "retention") | null;
+            /** Reply Format */
+            reply_format?: string | null;
+            /** At */
+            at: string;
+        };
+        /** AuthoringCorrected */
+        AuthoringCorrected: {
+            /** Session Id */
+            session_id: string;
+            /** Draft Id */
+            draft_id: string;
+            phase: components["schemas"]["Phase"];
+            /** Revision */
+            revision: number;
+            /** Decision Revision */
+            decision_revision: number;
+            /** Next Proposal */
+            next_proposal: string | null;
+            /** Projection Current */
+            projection_current: boolean;
+        };
         /** AuthoringDecided */
         AuthoringDecided: {
             phase: components["schemas"]["Phase"];
@@ -1474,22 +1821,30 @@ export interface components {
          * @description A proposal that has been answered — one collapsed row of the decision log.
          */
         AuthoringDecisionView: {
+            /** Envelope */
+            envelope: (components["schemas"]["GoalOffer"] | components["schemas"]["GapOffer"] | components["schemas"]["StepOffer"] | components["schemas"]["PacingOffer"] | components["schemas"]["DisagreementOffer"]) | components["schemas"]["LegacyOffer"];
             /** Id */
             id: string;
             /**
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step";
+            kind: "goal" | "step" | "gap" | "pacing" | "disagreement";
             state: components["schemas"]["ProposalState"];
             /** Block */
             block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
             /** By */
             by: string | null;
+            /** @default unknown */
+            actor_kind: components["schemas"]["ActorKind"];
+            /** Applicability */
+            applicability?: ("retained" | "superseded" | "removed") | null;
             /** Chosen Option */
             chosen_option: string | null;
             /** Chosen Contract */
             chosen_contract: string | null;
+            /** Answer */
+            answer?: string | null;
             /** At */
             at: string;
         };
@@ -1497,8 +1852,6 @@ export interface components {
         AuthoringEdited: {
             /** Revision */
             revision: number;
-            /** Reoffered */
-            reoffered: string | null;
         };
         /** AuthoringPosition */
         AuthoringPosition: {
@@ -1518,7 +1871,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "ready" | "empty" | "illegal" | "unavailable";
+            state: "ready" | "empty" | "illegal" | "unavailable" | "outdated";
             /** Text */
             text: string;
             /**
@@ -1529,13 +1882,15 @@ export interface components {
         };
         /** AuthoringProposalView */
         AuthoringProposalView: {
+            /** Envelope */
+            envelope: components["schemas"]["GoalOffer"] | components["schemas"]["GapOffer"] | components["schemas"]["StepOffer"] | components["schemas"]["PacingOffer"] | components["schemas"]["DisagreementOffer"];
             /** Id */
             id: string;
             /**
              * Kind
              * @enum {string}
              */
-            kind: "goal" | "step";
+            kind: "goal" | "step" | "gap" | "pacing" | "disagreement";
             /** Draft Revision */
             draft_revision: number;
             /** Block */
@@ -1572,13 +1927,76 @@ export interface components {
             draft_id: string;
             /** Name */
             name: string;
-            mode: components["schemas"]["Mode"];
             phase: components["schemas"]["Phase"];
             failed_from: components["schemas"]["Phase"] | null;
             goal: components["schemas"]["Goal-Output"] | null;
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["Fact"][];
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: components["schemas"]["InputDecision"][];
+            /**
+             * Fact Subjects
+             * @default []
+             */
+            fact_subjects: string[];
+            /**
+             * Decision Revision
+             * @default 0
+             */
+            decision_revision: number;
+            /**
+             * Projection Current
+             * @default true
+             */
+            projection_current: boolean;
+            /**
+             * Ownership
+             * @default authored
+             * @enum {string}
+             */
+            ownership: "authored" | "manual";
+            /**
+             * Retired
+             * @default false
+             */
+            retired: boolean;
+            /** Forked From */
+            forked_from?: string | null;
+            /** Forked From Session */
+            forked_from_session?: string | null;
+            /**
+             * Review Applicability
+             * @default {}
+             */
+            review_applicability: {
+                [key: string]: "retained" | "superseded" | "removed";
+            };
+            /**
+             * @default {
+             *       "input": 0,
+             *       "output": 0,
+             *       "cached": 0,
+             *       "calls": 0,
+             *       "in_flight": false
+             *     }
+             */
+            usage: components["schemas"]["AuthoringUsage"];
             /** Revision */
             revision: number;
             graph: components["schemas"]["DraftGraph"];
+            canvas?: components["schemas"]["CanvasFrame"] | null;
+            progress?: components["schemas"]["WalkProgress"] | null;
+            /**
+             * Show Gap Details
+             * @default false
+             */
+            show_gap_details: boolean;
             /**
              * Steps Total
              * @default 0
@@ -1591,6 +2009,8 @@ export interface components {
             placement: {
                 [key: string]: components["schemas"]["AuthoringPosition"];
             };
+            /** Hand Edits */
+            hand_edits?: string | null;
             /** Row Version */
             row_version: number;
             /** Model Configured */
@@ -1602,6 +2022,11 @@ export interface components {
              * @default []
              */
             history: components["schemas"]["AuthoringDecisionView"][];
+            /**
+             * Suggestions
+             * @default []
+             */
+            suggestions: components["schemas"]["AuthoringSuggestionView"][];
             pending_proposal: components["schemas"]["AuthoringProposalView"] | null;
         };
         /** AuthoringStarted */
@@ -1609,6 +2034,21 @@ export interface components {
             session: components["schemas"]["AuthoringSessionView"];
             /** Queued */
             queued: boolean;
+        };
+        /** AuthoringSuggestionView */
+        AuthoringSuggestionView: {
+            /** Id */
+            id: string;
+            /** Says */
+            says: string;
+            /** Heard */
+            heard: boolean;
+            /** Quote */
+            quote?: string | null;
+            /** Kind */
+            kind: string;
+            /** Subject */
+            subject: string;
         };
         /** AuthoringTurnView */
         AuthoringTurnView: {
@@ -1630,13 +2070,57 @@ export interface components {
             at: string;
         };
         /**
+         * AuthoringUsage
+         * @description What the session's model calls have cost so far — the header's count (#191).
+         */
+        AuthoringUsage: {
+            /**
+             * Input
+             * @default 0
+             */
+            input: number;
+            /**
+             * Output
+             * @default 0
+             */
+            output: number;
+            /**
+             * Cached
+             * @default 0
+             */
+            cached: number;
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /**
+             * In Flight
+             * @default false
+             */
+            in_flight: boolean;
+        };
+        /**
          * AuthoringVocabulary
-         * @description Every declared type and its states — what a goal card may be edited to say.
+         * @description Every declared type and its states — what a goal card may be edited to say — and who
+         *     can measure each measurement.
          */
         AuthoringVocabulary: {
             /** Types */
             types: {
                 [key: string]: string[];
+            };
+            /**
+             * Measurers
+             * @default []
+             */
+            measurers: components["schemas"]["MeasurerView"][];
+            /**
+             * Measurements
+             * @default {}
+             */
+            measurements: {
+                [key: string]: components["schemas"]["Measurement"];
             };
         };
         /**
@@ -1652,17 +2136,16 @@ export interface components {
         Band: "drift" | "routing" | "cosmetic" | "prose" | "blocked";
         /**
          * BeginAuthoring
-         * @description What somebody wants, in their own words, and how much they want to be asked.
+         * @description What somebody wants, in their own words.
          *
-         *     **Prose and a mode, and nothing else.** No name, no path, no registry, no model id — a body
+         *     **Prose, and nothing else.** No mode (Build and Spawn are retired, spec §13.1), no name,
+         *     no path, no registry, no model id — a body
          *     that accepted a model id would let a browser choose what a provider is sent to, and that is
          *     the operator's decision, made in the environment.
          */
         BeginAuthoring: {
             /** Prompt */
             prompt: string;
-            /** @default build */
-            mode: components["schemas"]["Mode"];
         };
         /** Board */
         Board: {
@@ -1717,6 +2200,19 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** Brief */
+        Brief: {
+            does?: components["schemas"]["Said"] | null;
+            /** Why */
+            why: components["schemas"]["Said"][];
+            /** Makes */
+            makes: components["schemas"]["Said"][];
+            /**
+             * Check
+             * @default []
+             */
+            check: components["schemas"]["Said"][];
+        };
         /** BuiltPipeline */
         BuiltPipeline: {
             /** Steps */
@@ -1758,6 +2254,25 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /** CanvasFrame */
+        CanvasFrame: {
+            context: components["schemas"]["OfferContext"];
+            /** Proposal Id */
+            proposal_id: string | null;
+            /** Current */
+            current: boolean;
+            graph: components["schemas"]["DraftGraph"];
+            /** Steps */
+            steps: components["schemas"]["StepView"][];
+            /** Channels */
+            channels: components["schemas"]["ChannelView"][];
+            /** Placement */
+            placement: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
         };
         /**
          * CatalogueItem
@@ -1896,6 +2411,23 @@ export interface components {
             item: components["schemas"]["CatalogueItem"];
             standing: components["schemas"]["Standing"];
         };
+        /** Change */
+        Change: {
+            value?: components["schemas"]["JsonValue"];
+        };
+        /**
+         * ChangeAuthoring
+         * @description Any change to intent or facts, as the person makes it (Part I.0 §5.1).
+         */
+        ChangeAuthoring: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            change: components["schemas"]["DecisionChange"];
+        };
         /**
          * ChangeSet
          * @description Exactly what a conversational revision would touch, before it touches it.
@@ -1974,6 +2506,29 @@ export interface components {
             states: string[];
             /** Ports */
             ports: string[];
+        };
+        /** Choice */
+        Choice: {
+            /** Key */
+            key: string;
+            /** Candidates */
+            candidates: components["schemas"]["Offered"][];
+        };
+        /** ChoiceOption */
+        ChoiceOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+            /** Designed */
+            designed?: string | null;
+        };
+        /**
+         * ChooseTool
+         * @description Use this tool at its site: adds the pin, or replaces the one already there.
+         */
+        ChooseTool: {
+            pin: components["schemas"]["ProducerPin-Output"];
         };
         /**
          * Citation
@@ -2088,11 +2643,25 @@ export interface components {
          * Constraints
          * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
          */
-        Constraints: {
+        "Constraints-Input": {
             /** Required States */
             required_states?: components["schemas"]["RequiredStates"][];
             /** Params */
             params?: components["schemas"]["ParamOverride"][];
+            /** Producers */
+            producers?: components["schemas"]["ProducerPin-Input"][];
+        };
+        /**
+         * Constraints
+         * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
+         */
+        "Constraints-Output": {
+            /** Required States */
+            required_states?: components["schemas"]["RequiredStates"][];
+            /** Params */
+            params?: components["schemas"]["ParamOverride"][];
+            /** Producers */
+            producers?: components["schemas"]["ProducerPin-Output"][];
         };
         /**
          * ContainerRef
@@ -2139,6 +2708,23 @@ export interface components {
              */
             evidence_ids: string[];
         };
+        /** CorrectAuthoringFact */
+        CorrectAuthoringFact: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /**
+             * Kind
+             * @default measurement
+             * @enum {string}
+             */
+            kind: "measurement" | "input";
+        };
         /**
          * DataProfile
          * @description Measured properties of the input data.
@@ -2170,6 +2756,8 @@ export interface components {
             goal?: components["schemas"]["Goal-Input"] | null;
             /** Option */
             option?: string | null;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
         };
         /** DecideRequest */
         DecideRequest: {
@@ -2184,6 +2772,14 @@ export interface components {
             id?: string | null;
             /** By */
             by?: string | null;
+        };
+        /** DecideSuggestion */
+        DecideSuggestion: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "apply" | "dismiss";
         };
         /** Decided */
         Decided: {
@@ -2205,6 +2801,59 @@ export interface components {
          * @enum {string}
          */
         Decision: "open" | "approved" | "rejected";
+        /**
+         * DecisionChange
+         * @description One change to intent or facts, from any caller — the person's click or edit, the chat
+         *     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
+         *     was taken from, already checked (`heard.find`); `retract` removes what `subject` names.
+         */
+        DecisionChange: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation";
+            /** Subject */
+            subject: string;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /** States */
+            states?: string[];
+            /**
+             * Retract
+             * @default false
+             */
+            retract: boolean;
+            /** Heard */
+            heard?: string | null;
+            /** Heard Seq */
+            heard_seq?: number | null;
+            /**
+             * Actor
+             * @default person
+             * @enum {string}
+             */
+            actor: "person" | "model";
+            /** Invocation Id */
+            invocation_id?: string | null;
+            /** Observation Id */
+            observation_id?: string | null;
+        };
+        /**
+         * Designed
+         * @description Designed, not built: shown so the menu tells the truth about what is coming.
+         */
+        Designed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "designed";
+            /** Where */
+            where: string;
+            /** Says */
+            readonly says: string;
+        };
         /** Diagnostic */
         Diagnostic: {
             /** Code */
@@ -2217,6 +2866,37 @@ export interface components {
             detail: string;
             /** Fix */
             fix: string;
+        };
+        /** DisagreementOffer */
+        DisagreementOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "disagreement";
+            /** Subject */
+            subject: string;
+            /** Observation Id */
+            observation_id: string;
+            /** Current Revision Id */
+            current_revision_id: string | null;
+            /** Current Value */
+            current_value?: number | boolean | string | null | (number | boolean | string | null)[];
+            current_origin: components["schemas"]["FactSource"];
+            /** Observed Value */
+            observed_value: number | boolean | string | null | (number | boolean | string | null)[];
+            observed_origin: components["schemas"]["FactSource"];
+            /**
+             * Continuation
+             * @enum {string}
+             */
+            continuation: "gather" | "goal" | "build" | "complete" | "stopped";
+            block: components["schemas"]["Question"];
         };
         /**
          * DomainView
@@ -2309,11 +2989,8 @@ export interface components {
          */
         DraftIn: {
             graph: components["schemas"]["DraftGraph"];
-            /**
-             * Name
-             * @default
-             */
-            name: string;
+            /** Name */
+            name?: string | null;
         };
         /**
          * DraftLabel
@@ -2374,6 +3051,8 @@ export interface components {
             /** Name */
             name: string;
             graph: components["schemas"]["DraftGraph"];
+            /** Revision */
+            revision: number;
         };
         /**
          * DraftParam
@@ -2443,6 +3122,11 @@ export interface components {
             makes?: string[];
             /** Kept */
             kept: boolean;
+            /**
+             * Changed Since Kept
+             * @default false
+             */
+            changed_since_kept: boolean;
             /** Digest */
             digest?: string | null;
             provenance?: components["schemas"]["Provenance"] | null;
@@ -2453,6 +3137,17 @@ export interface components {
              * @default 0
              */
             open_not_named: number;
+        };
+        /**
+         * DraftSave
+         * @description A checked save; omitting graph permits a metadata-only rename.
+         */
+        DraftSave: {
+            /** Expected Revision */
+            expected_revision: number;
+            graph?: components["schemas"]["DraftGraph"] | null;
+            /** Name */
+            name?: string | null;
         };
         /**
          * DraftsPage
@@ -2484,12 +3179,36 @@ export interface components {
         };
         /**
          * EditAuthoringDraft
-         * @description The whole graph after a direct edit. **The graph and nothing else** — no summary: the server
+         * @description The graph and the revision it was based on, with no client-composed summary: the server
          *     composes the receipt from the difference, so the log cannot be told something that did not
          *     happen.
          */
         EditAuthoringDraft: {
             graph: components["schemas"]["DraftGraph"];
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** Entry */
+        Entry: {
+            setting: components["schemas"]["Setting"];
+            shown: components["schemas"]["Shown"];
+        };
+        /**
+         * EnvItem
+         * @description A record built from the environment, shown first and locked (spec §6).
+         *
+         *     `fields` maps a record field to the variable that fills it; the record exists when
+         *     `present_when` is set. Declared, so the facade needs no code that knows about models.
+         */
+        EnvItem: {
+            /** Name */
+            name: string;
+            /** Present When */
+            present_when: string[];
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
         };
         /** Event */
         Event: {
@@ -2505,6 +3224,19 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /**
+         * Evidence
+         * @description How much an inspector read to decide a fact. Counts only: the goal is reachable from the
+         *     doors, so this carries no prose (the reason a fact was undetermined never reaches a goal).
+         */
+        Evidence: {
+            /** Records */
+            records?: number | null;
+            /** Rows */
+            rows?: number | null;
+            /** Share */
+            share?: number | null;
         };
         /**
          * Excerpt
@@ -2541,6 +3273,140 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * Explanation
+         * @description What a question is about and why it is asked: `what` is curated (the registry's
+         *     `explain`), the rest the engine's, derived from the gap walk (Part I.1 §4). I.3 hands the same
+         *     fields to the AI as its sources.
+         */
+        Explanation: {
+            /** Name */
+            name: string;
+            /** What */
+            what?: string | null;
+            /**
+             * Needed
+             * @default []
+             */
+            needed: components["schemas"]["Reason-Output"][];
+            /** Reads */
+            reads?: ("steps" | "rule") | null;
+            /**
+             * Settles
+             * @default []
+             */
+            settles: string[];
+            /** Read By */
+            read_by?: ("inspector" | "ai") | null;
+        };
+        /**
+         * Fact
+         * @description One thing gathering learned, and who it came from. Nothing is guessed (protocol rule 5).
+         */
+        Fact: {
+            kind: components["schemas"]["FactKind"];
+            /** Subject */
+            subject: string;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            source: components["schemas"]["FactSource"];
+            /** Sample */
+            sample?: string | null;
+            /**
+             * Pieces
+             * @default []
+             */
+            pieces: string[];
+            /** Evidence */
+            evidence?: {
+                [key: string]: number;
+            } | null;
+            /** Heard */
+            heard?: string | null;
+        };
+        /** FactHistoryEntry */
+        FactHistoryEntry: {
+            /** Seq */
+            seq: number;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "person_said" | "measured" | "model_read" | "open";
+            /** Selected */
+            selected: boolean;
+            /** Current */
+            current: boolean;
+            /** Revision Id */
+            revision_id?: string | null;
+            /** Observation Id */
+            observation_id?: string | null;
+            /** @default unknown */
+            actor_kind: components["schemas"]["ActorKind"];
+            /** Who */
+            who?: string | null;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "select" | "retain" | "retract" | "inherit" | "import" | "observed";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Observed At */
+            observed_at?: string | null;
+            /** Acknowledged As */
+            acknowledged_as?: ("agreement" | "retained" | "selected" | "obsolete") | null;
+            /** Acknowledged At */
+            acknowledged_at?: string | null;
+            /** Acknowledged By */
+            acknowledged_by?: string | null;
+            acknowledged_kind?: components["schemas"]["ActorKind"] | null;
+            /**
+             * Inherited
+             * @default false
+             */
+            inherited: boolean;
+            /**
+             * Legacy
+             * @default false
+             */
+            legacy: boolean;
+            /** Source Draft Id */
+            source_draft_id?: string | null;
+        };
+        /** FactHistoryView */
+        FactHistoryView: {
+            /** Subject */
+            subject: string;
+            /** Entries */
+            entries: components["schemas"]["FactHistoryEntry"][];
+        };
+        /**
+         * FactKind
+         * @enum {string}
+         */
+        FactKind: "input" | "measurement";
+        /**
+         * FactOrigin
+         * @enum {string}
+         */
+        FactOrigin: "person_said" | "measured" | "model_read" | "open";
+        /**
+         * FactSource
+         * @description Where a fact came from, which is what the goal card and the tier-3 premise show.
+         * @enum {string}
+         */
+        FactSource: "measured" | "model_read" | "person_said" | "open";
         /** FieldCheck */
         FieldCheck: {
             /** Field */
@@ -2613,16 +3479,49 @@ export interface components {
          * @enum {string}
          */
         Freshness: "unadapted" | "in_progress" | "current" | "outdated" | "unsupported";
+        /** Gap */
+        Gap: {
+            kind: components["schemas"]["GapKind"];
+            /** Subject */
+            subject: string;
+            /** Fix */
+            fix: string;
+        };
+        /**
+         * GapKind
+         * @enum {string}
+         */
+        GapKind: "no_domain" | "no_description" | "unverified";
+        /** GapOffer */
+        GapOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "gap";
+            /** Subject */
+            subject: string;
+            kind: components["schemas"]["FactKind"];
+            /** Why */
+            why: string;
+            /** States */
+            states?: string[];
+            block: components["schemas"]["Question"];
+            explain?: components["schemas"]["Explanation"] | null;
+        };
         /**
          * Gate
-         * @description Cheapest first. Each is strictly more evidence than the one above it.
+         * @description Validation checks, ordered from linting to execution on test data.
          *
-         *     The ladder matters to a reader of a published bundle rather than only to a build:
-         *     `lint` proves the file parses, and only `test` runs the tools on real data. nf-core
-         *     stubs never read their inputs, so a contract pointing a channel at the wrong upstream
-         *     output passes conformance, `lint`, `preview` and `stub` alike — audit A4. A bundle
-         *     that records `stub` is not a bundle that was checked less carefully; it is a bundle
-         *     whose wiring nothing has checked at all.
+         *     LINT runs Nextflow's linter on the generated workflow.
+         *     PREVIEW previews the workflow without executing its processes.
+         *     STUB runs the workflow using substitute process commands.
+         *     TEST runs the actual tools with test data.
          * @enum {string}
          */
         Gate: "lint" | "preview" | "stub" | "test";
@@ -2667,7 +3566,7 @@ export interface components {
             have?: components["schemas"]["GoalInput-Input"][];
             /** Want */
             want?: string[];
-            constraints?: components["schemas"]["Constraints"];
+            constraints?: components["schemas"]["Constraints-Input"];
             profile?: components["schemas"]["DataProfile"];
         };
         /** Goal */
@@ -2676,7 +3575,7 @@ export interface components {
             have?: components["schemas"]["GoalInput-Output"][];
             /** Want */
             want?: string[];
-            constraints?: components["schemas"]["Constraints"];
+            constraints?: components["schemas"]["Constraints-Output"];
             profile?: components["schemas"]["DataProfile"];
         };
         /**
@@ -2716,6 +3615,21 @@ export interface components {
             /** States */
             states?: string[];
         };
+        /** GoalOffer */
+        GoalOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "goal";
+            block: components["schemas"]["GoalSummary"];
+            goal: components["schemas"]["Goal-Output"];
+        };
         /**
          * GoalSummary
          * @description The typed `Goal` beside the plain-language reading of it.
@@ -2740,6 +3654,18 @@ export interface components {
             do: string;
             /** Get */
             get: string;
+            /** Readback */
+            readback?: string | null;
+            /**
+             * Readback Pending
+             * @default false
+             */
+            readback_pending: boolean;
+            /**
+             * Suggested
+             * @default []
+             */
+            suggested: components["schemas"]["RequiredStates"][];
         };
         /**
          * GraphPort
@@ -2835,6 +3761,45 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /** InputDecision */
+        InputDecision: {
+            /** Key */
+            key: string;
+            /** Type Id */
+            type_id: string;
+            /** Name */
+            name?: string | null;
+            /** States */
+            states?: string[];
+            /**
+             * Present
+             * @default true
+             */
+            present: boolean;
+            /** @default person_said */
+            origin: components["schemas"]["FactOrigin"];
+        };
+        /** InspectedFactView */
+        InspectedFactView: {
+            /** Measurement */
+            measurement: string;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /** Undetermined */
+            undetermined?: string | null;
+            /**
+             * Pieces
+             * @default []
+             */
+            pieces: string[];
+            /**
+             * Evidence
+             * @default {}
+             */
+            evidence: {
+                [key: string]: number | boolean | string;
+            };
+        };
         /**
          * IoGraph
          * @description Inputs on the left, one process node, outputs on the right.
@@ -2866,10 +3831,46 @@ export interface components {
              */
             params: number;
         };
+        JsonValue: unknown;
         /** Kept */
         Kept: {
             /** Path */
             path: string;
+        };
+        /**
+         * Kind
+         * @enum {string}
+         */
+        Kind: "choice" | "text" | "number" | "toggle" | "secret" | "readonly" | "model" | "collection";
+        /** LastSweep */
+        LastSweep: {
+            /**
+             * Ran At
+             * Format: date-time
+             */
+            ran_at: string;
+            /** Removed */
+            removed: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * LegacyOffer
+         * @description An archived snapshot, never accepted as a live mutation offer.
+         */
+        LegacyOffer: {
+            /**
+             * Offer
+             * @default legacy
+             * @constant
+             */
+            offer: "legacy";
+            /** Kind */
+            kind: string;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
         };
         /**
          * Level
@@ -2893,6 +3894,120 @@ export interface components {
             source: components["schemas"]["ValueSource"];
             /** By */
             by?: string | null;
+            /** Pieces */
+            pieces?: string[];
+            evidence?: components["schemas"]["Evidence"] | null;
+        };
+        /** Measurement */
+        Measurement: {
+            /** Id */
+            id: string;
+            kind: components["schemas"]["MeasurementKind"];
+            /** Values */
+            values?: string[];
+            /**
+             * Extensible
+             * @default false
+             */
+            extensible: boolean;
+            /**
+             * Per Sample
+             * @default false
+             */
+            per_sample: boolean;
+            /**
+             * Assertion Only
+             * @default false
+             */
+            assertion_only: boolean;
+            /**
+             * Assertion Only Because
+             * @default
+             */
+            assertion_only_because: string;
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Cite */
+            cite?: string | null;
+            /** Explain */
+            explain?: string | null;
+            /** Edam */
+            edam?: string | null;
+            /** Describes */
+            describes?: string | null;
+            /** Meta Key */
+            meta_key?: string | null;
+            /** Meta Values */
+            meta_values?: components["schemas"]["MetaValue"][];
+            /**
+             * Deprecated
+             * @default false
+             */
+            deprecated: boolean;
+            /** Replaced By */
+            replaced_by?: string | null;
+        };
+        /**
+         * MeasurementKind
+         * @enum {string}
+         */
+        MeasurementKind: "integer" | "number" | "boolean" | "enum";
+        /**
+         * MeasurerView
+         * @description One way a measurement can be measured, and where that runs (#134).
+         */
+        MeasurerView: {
+            /** Measurement */
+            measurement: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "inspector" | "profiler";
+            /** By */
+            by: string;
+            /**
+             * Runs
+             * @enum {string}
+             */
+            runs: "server" | "lab" | "browser";
+            /** Trusted */
+            trusted: boolean;
+        };
+        /** Menu */
+        Menu: {
+            /** Sections */
+            sections: components["schemas"]["MenuSection"][];
+        };
+        /** MenuSection */
+        MenuSection: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /**
+             * Lede
+             * @default
+             */
+            lede: string;
+            /** Order */
+            order: number;
+            /**
+             * Served By
+             * @enum {string}
+             */
+            served_by: "mendel" | "wiener";
+            /** Entries */
+            entries: components["schemas"]["Entry"][];
         };
         /**
          * MessageRole
@@ -2910,17 +4025,19 @@ export interface components {
          */
         MessageState: "pending" | "answered" | "failed";
         /**
-         * Mode
-         * @description How much the person is asked.
+         * MetaValue
+         * @description One value translation between our vocabulary and a module's.
          *
-         *     **Two policies over one engine**, which is §1.2 and the reason this is an enum rather than
-         *     two services. Spawn is not "Build with the questions skipped by a different code path" — it
-         *     is the same proposal stream with every safe proposal auto-accepted and the declared tier-4
-         *     resolver answering what remains. If the two ever need different engines, that is a design
-         *     change and this enum is where it surfaces.
-         * @enum {string}
+         *     A list of records rather than a mapping, matching `ParamBinding` and `Measured`: a
+         *     typed key does not prove a declared key, and `Measurement` is one field away from
+         *     being reachable from a publish bundle.
          */
-        Mode: "build" | "spawn";
+        MetaValue: {
+            /** When */
+            when: number | boolean | string | null;
+            /** Then */
+            then: number | boolean | string | null;
+        };
         /** ModulePage */
         ModulePage: {
             /** Id */
@@ -2998,6 +4115,40 @@ export interface components {
              * @default []
              */
             refers_to: string[];
+        };
+        /** Need */
+        Need: {
+            kind: components["schemas"]["NeedKind"];
+            /**
+             * Facts
+             * @default []
+             */
+            facts: string[];
+            /**
+             * Choices
+             * @default []
+             */
+            choices: components["schemas"]["Choice"][];
+        };
+        /**
+         * NeedKind
+         * @enum {string}
+         */
+        NeedKind: "nothing" | "fact" | "choice";
+        /**
+         * Needs
+         * @description Something else has to be set first.
+         */
+        Needs: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "needs";
+            /** What */
+            what: string;
+            /** Says */
+            readonly says: string;
         };
         /**
          * NeedsYou
@@ -3084,6 +4235,39 @@ export interface components {
              * @default prose
              */
             kind: string;
+        };
+        /** OfferContext */
+        OfferContext: {
+            /** Draft Revision */
+            draft_revision: number;
+            /** Decision Revision */
+            decision_revision: number;
+            /** Session Version */
+            session_version: number;
+            /** Registry */
+            registry: string;
+        };
+        /**
+         * OfferProgress
+         * @description One offer's place: step `position` of `total`, and whether that step was reviewed before.
+         */
+        OfferProgress: {
+            /** Position */
+            position: number;
+            /** Total */
+            total: number;
+            /**
+             * Again
+             * @default false
+             */
+            again: boolean;
+        };
+        /** Offered */
+        Offered: {
+            /** Value */
+            value: number | boolean | string | null;
+            /** Does */
+            does?: string | null;
         };
         /**
          * OpenHole
@@ -3229,6 +4413,20 @@ export interface components {
             ai_lane: components["schemas"]["AiLane"];
             attention: components["schemas"]["NeedsYou"];
         };
+        /** PacingOffer */
+        PacingOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "pacing";
+            block: components["schemas"]["Question"];
+        };
         /**
          * Page
          * @description A slice, and how to ask for the next one. **No total.**
@@ -3271,7 +4469,22 @@ export interface components {
          *     out of it, back to `understanding` and to `resolving`.
          * @enum {string}
          */
-        Phase: "understanding" | "goal_review" | "resolving" | "building" | "complete" | "failed";
+        Phase: "understanding" | "gathering" | "goal_review" | "resolving" | "building" | "complete" | "failed" | "correcting" | "stopped";
+        /**
+         * Pinned
+         * @description A value in `.env` beats every layer. The variable is named so a person knows where to go.
+         */
+        Pinned: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "pinned";
+            /** Env */
+            env: string;
+            /** Says */
+            readonly says: string;
+        };
         /** PlacedNode */
         PlacedNode: {
             /** Id */
@@ -3361,6 +4574,28 @@ export interface components {
              * @default false
              */
             gathers: boolean;
+        };
+        /**
+         * ProducerPin
+         * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
+         *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
+         *     longer proven from the data, and a reader sees who decided.
+         */
+        "ProducerPin-Input": {
+            site: components["schemas"]["Site-Input"];
+            /** Contract */
+            contract: string;
+        };
+        /**
+         * ProducerPin
+         * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
+         *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
+         *     longer proven from the data, and a reader sees who decided.
+         */
+        "ProducerPin-Output": {
+            site: components["schemas"]["Site-Output"];
+            /** Contract */
+            contract: string;
         };
         /**
          * Proposal
@@ -3498,6 +4733,15 @@ export interface components {
              * @default true
              */
             exhaustive: boolean;
+            /** Value */
+            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            /**
+             * Phrasing
+             * @default none
+             * @enum {string}
+             */
+            phrasing: "pending" | "done" | "none";
+            reading?: components["schemas"]["SampleReading"] | null;
         };
         /** QueueResponse */
         QueueResponse: {
@@ -3523,6 +4767,21 @@ export interface components {
             queued: boolean;
         };
         /**
+         * ReadOnlyHere
+         * @description Reported here, set somewhere else.
+         */
+        ReadOnlyHere: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "read_only_here";
+            /** Why */
+            why: string;
+            /** Says */
+            readonly says: string;
+        };
+        /**
          * Reason
          * @description Every state-changing request carries one, and it is the only field.
          *
@@ -3531,9 +4790,19 @@ export interface components {
          *     test that says *these are all the fields* would be describing a model rather than a
          *     boundary.
          */
-        Reason: {
+        "Reason-Input": {
             /** Reason */
             reason: string;
+        };
+        /**
+         * Reason
+         * @description One line of why a question is asked, and where it comes from (Part I.1).
+         */
+        "Reason-Output": {
+            /** Text */
+            text: string;
+            /** Detail */
+            detail?: string | null;
         };
         /**
          * Receipt
@@ -3576,6 +4845,19 @@ export interface components {
             draft: string;
             /** Detail */
             detail: string;
+        };
+        /** ReleaseToolChoice */
+        ReleaseToolChoice: {
+            /** Expected Decision Revision */
+            expected_decision_revision: number;
+            /** Expected Draft Revision */
+            expected_draft_revision: number;
+            /** Expected Session Version */
+            expected_session_version: number;
+            /** Type Id */
+            type_id: string;
+            /** States */
+            states?: string[];
         };
         /**
          * RequiredStates
@@ -3670,6 +4952,90 @@ export interface components {
          * @enum {string}
          */
         RowKind: "question" | "drift";
+        /** Said */
+        Said: {
+            /** Text */
+            text: string;
+            source: components["schemas"]["TextSource"];
+        };
+        /**
+         * SampleInspected
+         * @description What one uploaded sample measured, and what that settled (14.7.6.4).
+         */
+        SampleInspected: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "measured" | "unreadable" | "no_inspector" | "tie" | "reading";
+            /** Type Id */
+            type_id: string | null;
+            /** Facts */
+            facts: components["schemas"]["InspectedFactView"][];
+            /** Reason */
+            reason: string | null;
+            /** Steps */
+            steps: string[];
+            /** Recorded */
+            recorded: string[];
+            /** Kept */
+            kept: string[];
+            /** Disagreed */
+            disagreed: string[];
+            session: components["schemas"]["AuthoringSessionView"];
+        };
+        /**
+         * SampleReading
+         * @description The AI reading a sample nothing here reads (14.7.7), as the question's card shows it.
+         *
+         *     `pending` while the job is out; `read` when what it admitted was recorded; `could_not_tell`
+         *     when it named no family or no type; `refused` when an id it named is undeclared (`code`);
+         *     `no_answer` when no model answered, or the job never came back; `hand_back` when it named a
+         *     type the engine reads, so the browser sends the file again; `handed` once it has.
+         *     `attempt` keys the job, so a retry is a new job and a late answer to an old one is ignored.
+         */
+        SampleReading: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "read" | "could_not_tell" | "refused" | "no_answer" | "hand_back" | "handed";
+            /**
+             * Attempt
+             * @default 1
+             */
+            attempt: number;
+            /** Decision Revision */
+            decision_revision?: number | null;
+            /** Session Version */
+            session_version?: number | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Type Id */
+            type_id?: string | null;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            /**
+             * Recorded
+             * @default []
+             */
+            recorded: string[];
+            /**
+             * Kept
+             * @default []
+             */
+            kept: string[];
+            /**
+             * Disagreed
+             * @default []
+             */
+            disagreed: string[];
+            /** Code */
+            code?: string | null;
+        };
         /**
          * SayToAuthoring
          * @description A follow-up. **No revision**: saying something proposes no change, so it cannot conflict.
@@ -3677,6 +5043,50 @@ export interface components {
         SayToAuthoring: {
             /** Text */
             text: string;
+        };
+        /** Setting */
+        Setting: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Help */
+            help: string;
+            kind: components["schemas"]["Kind"];
+            default?: components["schemas"]["JsonValue"];
+            /** Env */
+            env?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: components["schemas"]["ChoiceOption"][];
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Unavailable */
+            unavailable?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
+            /** @default installation */
+            where: components["schemas"]["Where"];
+            /**
+             * Fields
+             * @default []
+             */
+            fields: components["schemas"]["Setting"][];
+            /**
+             * Item Name
+             * @default name
+             */
+            item_name: string;
+            from_env?: components["schemas"]["EnvItem"] | null;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: string[];
+            /** Of */
+            of?: string | null;
         };
         /**
          * SettingRequest
@@ -3745,6 +5155,58 @@ export interface components {
              */
             premise: string[];
         };
+        /**
+         * Shown
+         * @description What a server may say about a value. For a secret, `value` is always `None`.
+         */
+        Shown: {
+            value: components["schemas"]["JsonValue"];
+            source: components["schemas"]["Source"];
+            /** Locked */
+            locked: boolean;
+            /** Reason */
+            reason?: (components["schemas"]["Pinned"] | components["schemas"]["Designed"] | components["schemas"]["Needs"] | components["schemas"]["ReadOnlyHere"]) | null;
+            /** Set */
+            set?: boolean | null;
+            /** Last4 */
+            last4?: string | null;
+        };
+        /**
+         * Site
+         * @description Where the router chooses a tool: the type it must produce, with these states.
+         *
+         *     One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
+         *     step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
+         *     which place they mean.
+         */
+        "Site-Input": {
+            /** Type Id */
+            type_id: string;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+        };
+        /**
+         * Site
+         * @description Where the router chooses a tool: the type it must produce, with these states.
+         *
+         *     One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
+         *     step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
+         *     which place they mean.
+         */
+        "Site-Output": {
+            /** Type Id */
+            type_id: string;
+            /** States */
+            states?: string[];
+        };
+        /**
+         * Source
+         * @enum {string}
+         */
+        Source: "default" | "installation" | "environment" | "reported";
         /**
          * SourceCapabilities
          * @description What a source can prove, as opposed to what a tool happens to have.
@@ -3909,6 +5371,34 @@ export interface components {
          * @enum {string}
          */
         Status: "drifted" | "unverifiable" | "matching";
+        /** StepOffer */
+        StepOffer: {
+            context: components["schemas"]["OfferContext"];
+            /** Options */
+            options: {
+                [key: string]: string;
+            };
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            offer: "step";
+            /** Node */
+            node: string;
+            block: components["schemas"]["StepProposal"];
+            /** Amendments */
+            amendments: {
+                [key: string]: components["schemas"]["ChooseTool"];
+            };
+            /** Edges */
+            edges: components["schemas"]["DraftEdge"][];
+            /**
+             * Preview Options
+             * @default []
+             */
+            preview_options: string[];
+            progress?: components["schemas"]["OfferProgress"] | null;
+        };
         /**
          * StepProposal
          * @description A step the engine proposes, with what it would replace and why.
@@ -3948,6 +5438,20 @@ export interface components {
              * @default []
              */
             alternatives: components["schemas"]["Option"][];
+            brief?: components["schemas"]["Brief"] | null;
+            need?: components["schemas"]["Need"] | null;
+            /**
+             * Gaps
+             * @default []
+             */
+            gaps: components["schemas"]["Gap"][];
+            /**
+             * Unresolved Settings
+             * @default []
+             */
+            unresolved_settings: string[];
+            /** Stop */
+            stop?: ("tier_four" | "gap" | "together") | null;
         };
         /**
          * StepView
@@ -3992,6 +5496,11 @@ export interface components {
             /** Checked At */
             checked_at: string | null;
         };
+        /**
+         * TextSource
+         * @enum {string}
+         */
+        TextSource: "engine" | "curated";
         /**
          * TierCard
          * @description One tier, as an interface needs to say it.
@@ -4104,6 +5613,24 @@ export interface components {
              */
             seen_at: string;
         };
+        /**
+         * WalkProgress
+         * @description How many of the plan's steps hold a review, and the step offered now, if any.
+         */
+        WalkProgress: {
+            /** Reviewed */
+            reviewed: number;
+            /** Total */
+            total: number;
+            active?: components["schemas"]["OfferProgress"] | null;
+        };
+        /**
+         * Where
+         * @description Where a value is kept. **`browser` is per browser and never reaches the server**: the
+         *     theme is one. The server still declares it, so the menu draws it with everything else.
+         * @enum {string}
+         */
+        Where: "installation" | "browser";
         /**
          * Candidate
          * @description One thing that may be answered, and where it comes from.
@@ -4986,7 +6513,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DraftIn"];
+                "application/json": components["schemas"]["DraftSave"];
             };
         };
         responses: {
@@ -4999,13 +6526,69 @@ export interface operations {
                     "application/json": components["schemas"]["DraftOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description MI0201: stale save; MI0217: authored work is in progress. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    deleteDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };
@@ -5675,7 +7258,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Reason"];
+                "application/json": components["schemas"]["Reason-Input"];
             };
         };
         responses: {
@@ -5778,7 +7361,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Reason"];
+                "application/json": components["schemas"]["Reason-Input"];
             };
         };
         responses: {
@@ -5848,7 +7431,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Reason"];
+                "application/json": components["schemas"]["Reason-Input"];
             };
         };
         responses: {
@@ -5868,6 +7451,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previewAuthoringAlternative: {
+        parameters: {
+            query: {
+                expected_revision: number;
+                expected_decision_revision: number;
+                expected_session_version: number;
+                expected_registry: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                proposal_id: string;
+                option_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlternativePreview"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };
@@ -5952,6 +7582,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthoringSessionView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    authoringFactHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                subject: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactHistoryView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listAuthoringCalls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCallView"][];
                 };
             };
             /** @description The id in the path names nothing. */
@@ -6165,6 +7876,438 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthoringPreview"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    uploadAuthoringSample: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    proposal_id: string;
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleInspected"];
+                };
+            };
+            /** @description `MI0213`: the protection level refuses it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    correctAuthoringFact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                subject: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectAuthoringFact"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    changeAuthoring: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeAuthoring"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    decideAuthoringSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideSuggestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"] | null;
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    releaseAuthoringTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseToolChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    answerAuthoringDisagreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerEvidenceQuestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringCorrected"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readLastRetentionSweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastSweep"] | null;
+                };
+            };
+        };
+    };
+    readSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Menu"];
+                };
+            };
+        };
+    };
+    aiConfigured: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiConfigured"];
+                };
+            };
+        };
+    };
+    writeSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Change"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shown"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description `MI0300`: the setting is locked; `MI0303`: the option is designed, not built. The detail says why. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    runSettingAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                name: string;
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResult"];
                 };
             };
             /** @description The id in the path names nothing. */

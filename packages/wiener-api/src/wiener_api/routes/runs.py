@@ -9,16 +9,18 @@ import secrets
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
+from comeni_core.diagnostics import coded
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
+from wiener_core.events import TaskStatus
 from wiener_core.series import Series, series
 from wiener_core.signals import signal_of
-from wiener_core.state import Attempt
+from wiener_core.state import Attempt, RunPhase
 from wiener_core.timeline import Timeline, lanes
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
-from wiener_api.services import launcher, stream, verbs
+from wiener_api.services import deletion, launcher, stream, verbs
 from wiener_api.services.artifacts import (
     declared_holes,
     input_shape,
@@ -27,6 +29,7 @@ from wiener_api.services.artifacts import (
 )
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
+from wiener_api.task_query import TaskQuery
 
 router = APIRouter(prefix="/api")
 
@@ -44,8 +47,9 @@ class SubmitRequest(BaseModel):
     unknown key and a missing one are both refused, for any pipeline, including one Mendel
     never built.
 
-    **Not stored** — §7.1: no table holds a samplesheet. These ride to the launcher as a job
-    argument, which is transient by nature and the right lifetime for run data.
+    **Not stored in a table** — invariant 15 (`docs/design/invariants.md`). They are written to
+    the run's own `params.json` at submit, so a lost job loses a delay rather than the run, and
+    deleting the run deletes them (#273).
 
     **A value may be a list of rows**, which is a samplesheet composed in the browser: the
     launcher writes it as a CSV into the run's workdir and points the parameter at that file.
@@ -231,12 +235,34 @@ async def submit(body: SubmitRequest) -> RunAccepted:
             submitted_at=datetime.now(UTC), phase="queued", executor=body.executor,
             ingest_secret=secrets.token_hex(16),
         ))
-    await jobs.enqueue("launch_job", run_id, body.params)
+        # **Written before the row commits** (#273): a run never exists without its
+        # parameters, and they live in its own directory rather than in the job, so a Redis
+        # that loses the job loses a delay, not the run.
+        try:
+            launcher.write_params(run_id, body.params)
+        except OSError as exc:
+            raise HTTPException(status_code=507, detail=coded(
+                "MW0101", f"the run's parameters could not be written: {exc.strerror}",
+            )) from exc
+    await jobs.enqueue("launch_job", run_id)
     return RunAccepted(run_id=run_id)
 
 
+@router.delete("/runs/{run_id}", status_code=204, operation_id="deleteRun",
+               summary="Delete a finished run, its files and its record, permanently")
+def delete_run(run_id: str) -> None:
+    """**Permanent**, and only for a finished run: a live one is refused with what to do first.
+    Its pipeline goes too when no other run uses it (Part H)."""
+    try:
+        deletion.delete_run(run_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="no such run") from None
+    except deletion.Refused as refused:
+        raise HTTPException(status_code=409, detail=str(refused)) from None
+
+
 @router.get("/runs", operation_id="listRuns", summary="The board")
-def board(phase: str | None = None, who: str | None = None, executor: str | None = None,
+def board(phase: RunPhase | None = None, who: str | None = None, executor: str | None = None,
           after: int = 0, limit: int = 25) -> RunsPage:
     """One page of runs, newest first, with each row's task tally beside it."""
     with db.session_scope() as session:
@@ -297,6 +323,8 @@ def read(run_id: str) -> dict:
         # `local · started 21:04`, and the executor was on the board's rows and nowhere on the
         # run itself — so the page that shows one run could not say where it ran.
         state["executor"] = row.executor
+        # Part H: retention deleted its working files; results and record stay.
+        state["work_cleared"] = row.work_cleared_at is not None
     return state
 
 
@@ -546,7 +574,7 @@ class TasksOut(BaseModel):
 
 @router.get("/runs/{run_id}/tasks", operation_id="readTasks",
             summary="A run's tasks, filtered, sorted and paged")
-def run_tasks(run_id: str, process: str | None = None, status: str | None = None,
+def run_tasks(run_id: str, process: str | None = None, status: TaskStatus | None = None,
               retried_only: bool = False, attempt: int | None = None,
               tag: str | None = None,
               sort: str = "task_id", after: int = 0, limit: int = 100) -> TasksOut:
@@ -561,11 +589,10 @@ def run_tasks(run_id: str, process: str | None = None, status: str | None = None
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
-        filters = {"process": process, "status": status, "retried_only": retried_only,
-                   "attempt": attempt, "tag": tag}
-        rows = repository.tasks_page(session, settings.lab_id, run_id,
-                                     sort=sort, after=after, limit=limit, **filters)
-        total = repository.tasks_total(session, settings.lab_id, run_id, **filters)
+        query = TaskQuery(process=process, status=status, retried_only=retried_only,
+                          attempt=attempt, tag=tag, sort=sort, after=after, limit=limit)
+        rows = repository.tasks_page(session, settings.lab_id, run_id, query)
+        total = repository.tasks_total(session, settings.lab_id, run_id, query)
         tasks = [
             TaskOut(
                 task_id=row.task_id, process=row.process, status=row.status,

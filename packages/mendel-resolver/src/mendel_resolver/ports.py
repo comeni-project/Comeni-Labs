@@ -32,7 +32,7 @@ class FlagOnlyResolver:
         return Resolution(
             value=ambiguity.candidates[0],
             why=(
-                f"no rule covered {ambiguity.subject!r}; selected the first of "
+                f"nothing decided {ambiguity.subject!r}; selected the first of "
                 f"{len(ambiguity.candidates)} candidates without judgement — please review"
             ),
             confidence=0.0,

@@ -20,7 +20,7 @@ checked against its pin by `comeni-vendor check`.
 **`module.yml` lives beside `module/`, never inside it.** That is load-bearing rather than
 tidy: everything under `module/` is upstream's, and upstream ships a `meta.yml` of its own with
 no `declares:` line. A statement about the module has to sit where the loader can read it and
-the vendor tool will never overwrite it — see `layered._in_module`.
+the vendor tool will never overwrite it — see `layered._in_source`.
 """
 
 from collections.abc import Sequence

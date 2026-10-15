@@ -1,6 +1,7 @@
 import pathlib
 
 from mendel_compiler.cli import main
+from support.audit import declare_families
 from support.paths import ROOT
 
 _KIND_OF_DIR = {
@@ -101,6 +102,7 @@ def test_a_registry_with_no_profiling_contract_says_so(tmp_path, capsys):
     (layer / "measurements" / "read_length.yml").write_text(
         _declared(layer / "measurements" / "read_length.yml", "kind: integer\nminimum: 1\n")
     )
+    declare_families(layer, "measurement")
     assert main([
         "profile", "--have", "fastq.reads", "--out", str(tmp_path / "p"),
         "--root", str(ROOT), "--registry", str(layer),

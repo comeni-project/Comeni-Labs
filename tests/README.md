@@ -1,90 +1,109 @@
-# Tests
+# Test index
 
-## The three homes — this directory is one of them
+Use this page to find the behavior you want to check, identify its dependencies and run the
+appropriate suite. Package tests stay beside their implementation; repository tests cover
+shared boundaries, declared registry data and interactions across packages.
 
-Tests live in three places, and **most of them are not here**. Look in all three before
-concluding something is untested.
+## Run tests
 
-| Where | What it holds |
-|---|---|
-| **`packages/<name>/tests/`** | **The bulk of the suite** — one directory per package, beside the code it exercises. `comeni-core`, `mendel-resolver`, `mendel-compiler`, `comeni-ai`, `mendel-forge`, `mendel-api`, `wiener-core`, `wiener-api`, `dag-core`, `comeni-vendor` |
-| **`frontend/src/`** | `Component.test.tsx` beside `Component.tsx`, the Vitest convention |
-| **`tests/`** (here) | Only what belongs to **no single package**: a pipeline built end to end, a scan over the whole repository, an invariant held across a boundary |
+Run commands from the repository root. `uv sync` installs Python test dependencies.
 
-`pyproject.toml` sets `testpaths = ["tests", "packages"]`, so `uv run pytest` collects the
-first and third together; the frontend runs under `npm test` in `frontend/`.
-
-**No count is written down here**, for the reason `CLAUDE.md` gives: a number in prose goes
-stale while everything around it stays true. Derive it:
-
-```bash
-find packages/*/tests tests -name 'test_*.py' | cut -d/ -f1-2 | sort | uniq -c | sort -rn
-```
-
-**A test belongs in its package unless it cannot.** Ask what would have to be true for it to
-move there: if the answer is "nothing — it only imports one package", move it. What is left
-here either builds a real pipeline through the resolver *and* the compiler, reads files the
-repository owns, or holds a rule that would be unenforced if any one package could drop it.
-
-## Where a test goes inside `tests/`
-
-| Directory | What it holds | The question it answers |
+| Check | Command | Requirements |
 |---|---|---|
-| `guards/` | purity, purity-runtime, egress, construction, the clock scan, the live-model scan, the forge write boundary | **is an invariant still held?** |
-| `registry/` | declared identity and loading, layer stacking, `lint`, the submodule check, vocabularies, the rule corpus, module specs, conformance | **does declared data load, and does it agree with the modules?** |
-| `artifact/` | `pipeline.yml` round-trips, totality, the lockfile, `upgrade`, `publish`, AI provenance | **does the artifact say what happened, and can it be read back?** |
-| `emit/` | the emitted Nextflow — runnability, channels, fan-in and fan-out, joins, samplesheets, scopes, and the counts matrix | **does what comes out run, and is it right?** |
-| `diagnostics/` | code ownership and the code registry | **is every code declared once and emitted through `coded()`?** |
-| `repo/` | `ARCHITECTURE.md`'s paths, the changelog splitter, compose, the Dockerfile, packaging, the release workflow, action pins, the generated stub | **do the repository's own files still describe the repository?** |
-| `regressions/` | one test per audit finding, named for it — `test_a9_…`, `test_a125_…` | **is A9 still closed?** |
+| Regular Python suite | `make test` | Registry submodule; database tests need the isolated server. |
+| Prepare test databases | `make test-db` | Docker; starts Postgres on localhost:5442 and migrates both databases. |
+| Require database coverage | `COMENI_REQUIRE_DB=1 make test` | Both test databases reachable and migrated. |
+| Repository checks | `make check` | Lint, regular tests, generated types and documentation checks. |
+| Invariant guards | `make guards` | Focused Python boundary tests. |
+| Real workflow execution | `make slow` | Docker, Nextflow and Java; may download tool images. |
+| Full verification | `make verify` | Regular checks, slow execution tests and guards. |
+| Frontend components | `cd frontend && npx vitest run` | Frontend npm dependencies; in-process DOM environment. |
+| Frontend types | `cd frontend && npx tsc -b` | Frontend npm dependencies. |
 
-Two supporting directories carry no tests: `support/` holds helpers (`paths.py` for the
-repository root, `walk.py` for annotation walking, `audit.py` for the regression fixtures), and
-`fixtures/` and `golden/` hold data.
+Ordinary pytest runs exclude `slow` tests. Python collection includes `tests/`, `packages/`
+and `registry/inspectors/`; frontend tests run separately through Vitest. To inspect collection
+without executing test bodies, use `uv run pytest --collect-only -q`.
 
-`guards/` is named in `make guards` and in `CLAUDE.md`'s invariants; `emit/test_counts.py` is
-what `make verify` adds beyond `make check`. Moving a file out of either is a change to a
-documented command, not a tidy-up.
+### Database isolation
 
-## Two rules that are not obvious
+The startup plugin `tests/support/pytest_bootstrap.py`, loaded through `pyproject.toml`,
+selects test database URLs before application settings are imported, including package-only runs.
+Inherited `MENDEL_DATABASE_URL` and `WIENER_DATABASE_URL` are replaced with isolated test
+configuration. To use another disposable server, set `MENDEL_TEST_DATABASE_URL` and
+`WIENER_TEST_DATABASE_URL`. `make test` supplies the URLs prepared by `make test-db`.
 
-**Ask `support.paths` for the repository root.** Every file used to spell it
-`Path(__file__).parent.parent`, which is a claim about how deep the file sits — true while the
-suite was flat, false the moment anything moved. Write `from support.paths import ROOT`
-instead. `REGISTRY`, `FIXTURES`, `GOLDEN`, `EXAMPLES` and `PACKAGES` are there too.
+The two legacy-schema migration tests create disposable databases. When application test roles
+are restricted, supply `MENDEL_TEST_ADMIN_DATABASE_URL` for administration on the same isolated
+server. That account creates/drops test databases owned by the application role; migrations
+and data checks still use the application connection. The default local test server can use
+its existing administrative test account.
 
-**A loop is not an assertion.** A test whose only assertions sit inside `for x in <something
-derived>` passes when the collection is empty, and says nothing. Assert the collection is
-non-empty first, with a message that says so:
+Fixtures truncate tables. Explicit test URLs must refer to databases whose contents can be
+discarded. Database tests may skip when their server is unavailable; `COMENI_REQUIRE_DB=1`
+makes an unavailable required database fail instead. Some execution tests also skip when
+Docker or Nextflow is unavailable; read their prerequisite checks when interpreting results.
 
-```python
-assert rows, "nothing at all is open — this test is measuring nothing"
-for row in rows:
-    ...
-```
+## Repository behavior and boundaries
 
-Three tests in this repository were found asserting over an empty loop, and one of them was
-the standing check for a documented rule. `tests/guards/test_no_clock.py` carries the pattern
-as a separate named test where the collection is a file scan.
+| Behavior | Location | Focus |
+|---|---|---|
+| Saved pipelines | [artifact/](artifact/README.md) | Serialization, provenance, compatibility, validation, emission and publication. |
+| Generated workflows | [emit/](emit/README.md) | Channels, joins, fan-out, samplesheets and real execution. |
+| Registry data | [registry/](registry/README.md) | Loading, declared identity, rule corpus, module binding and conformance. |
+| Design boundaries | [guards/](guards/README.md) | Purity, egress, measurement construction, secrets and model isolation. |
+| Diagnostic ownership | [diagnostics/](diagnostics/README.md) | Declared codes and their emitting packages. |
+| Repository configuration | [repo/](repo/README.md) | Packaging, Compose, images, workflows, documentation and test configuration. |
+| Historical defect coverage | [regressions/](regressions/README.md) | Retained regressions grouped by behavior, with audit IDs preserved. |
 
-## When to add a directory
+Run a group with `uv run pytest tests/<group> -q`, or a case with
+`uv run pytest path/to/test_file.py::test_name -q`. Start test databases first if the group
+needs them. `make guards` and `make slow` have deliberate execution scopes; update their
+callers before moving a test they select explicitly.
 
-Rarely. Seven is already close to the number at which a reader has to guess, and the cost of a
-wrong guess is a test written twice. Add one only when **all** of these hold:
+## Package and frontend suites
 
-1. **Three or more files want it.** Two files are a pair, not a category — put them in the
-   closest existing directory and leave a line here saying why.
-2. **You can name the question it answers** in the third column of that table above, in one
-   sentence, without the word "and". If the sentence needs an "and", the directory is two
-   directories or it is one of the existing ones.
-3. **No existing directory's question already covers it.** `registry/` is about declared data,
-   not about the registry package; `emit/` is about output, not about the compiler. The
-   directories are named for subjects, not for the code under test — that is what lets a test
-   crossing three packages have one obvious home.
+| Owner | Location | Coverage and dependencies |
+|---|---|---|
+| Shared declarations and artifacts | [comeni-core tests](../packages/comeni-core/tests/) | Pure schemas, layers, goals, settings and artifact models. |
+| Routing and rules | [resolver tests](../packages/mendel-resolver/tests/) | Pure routing, rules, premises and resolution. |
+| Nextflow construction | [compiler tests](../packages/mendel-compiler/tests/) | Emission, gates, derivability and generated tool documentation. |
+| Conversation protocol | [authoring tests](../packages/mendel-authoring/tests/) | Pure protocol, commands, decisions, projections and review planning. |
+| Build API and persistence | [API test index](../packages/mendel-api/tests/README.md) | Authoring, samples, decisions, Forge integration, settings and pipelines; some require Postgres. |
+| Registry authoring | [Forge test index](../packages/mendel-forge/tests/README.md) | Recorded source adapters, scaffolds, models, validation, landing and CLI. |
+| Model transport | [comeni-ai tests](../packages/comeni-ai/tests/) and [Mendel shim tests](../packages/mendel-ai/tests/) | Provider formats and recorded or fake responses. |
+| Inspection subprocesses | [inspection tests](../packages/comeni-inspect/tests/) | Wire protocol and subprocess isolation. |
+| Module fetching | [vendor tests](../packages/comeni-vendor/tests/) | Fetching and pin checks against controlled fixtures. |
+| Run-state calculation | [wiener-core tests](../packages/wiener-core/tests/) | Pure event admission, folding, decisions and projections. |
+| Execution API | [wiener-api tests](../packages/wiener-api/tests/) | SQLite-backed routes and streams; PostgreSQL-specific cases use the isolated server. |
+| Graph layout | [dag-core tests](../packages/dag-core/tests/) | Deterministic layout geometry. |
+| Inspector pieces | [registry/inspectors/](../registry/inspectors/) | Codec, format and measurement pieces owned by the registry submodule. |
+| Browser components | [frontend/src/](../frontend/src/) | Colocated `.test.ts` and `.test.tsx` files; shared setup in `setupTests.ts`. |
 
-Prefer a new **file** in an existing directory. A directory of fifteen well-named files is
-easier to read than five directories of three, and the file name is where the subject belongs.
+## Organize a test or helper
 
-If a file grows past roughly a thousand lines, split the *file* by subject and keep the
-directory: that is what `regressions/` is — one 2,389-line file that became seven, with the
-test names unchanged so every `aNN` finding is still greppable by its number.
+Choose the owner and behavior first. Group a larger suite by responsibilities readers already
+recognize. Keep smaller cohesive suites flat. Split a file when its subjects need different
+setup or are difficult to find together, rather than applying a line-count threshold.
+
+Within a file, lead with its contract and dependencies, keep local fixtures small, and group
+cases by behavior. Shared scenarios and fixtures belong in explicit helper modules, not in
+another collected test module. Helpers should expose relevant inputs and outcomes rather than
+hide the operation being tested. Directory-local `conftest.py` files own fixtures with that
+scope; package-wide autouse fixtures must be justified by every test they affect.
+
+Import shared pytest fixtures explicitly as re-exports, for example
+`from mendel_api_tests.http import clean as clean`. Pytest injects them by parameter name;
+ordinary unused-import cleanup can otherwise remove their registration.
+
+`support.paths` provides repository, registry, package and fixture paths independent of file
+depth. `support.pipeline` owns shared saved-pipeline setup; `support.audit` supports retained
+regressions. `support.egress` owns payload-boundary declarations and traversal helpers;
+`support.purity` owns import-policy declarations and scanning helpers. Package helper
+namespaces are documented in their local indexes. Keep committed
+fixtures and golden outputs distinct from generated temporary data.
+
+Assertions should describe observable behavior or a deliberate architectural boundary. A loop
+over a derived collection needs a non-empty assertion when emptiness would make it pass
+without exercising the contract. Independently review expected outputs, and verify a new
+regression test fails for the intended defect before relying on it. Preserve diagnostic IDs,
+regression IDs, parameterized cases and guard evidence when reorganizing tests.

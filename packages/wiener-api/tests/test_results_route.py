@@ -55,16 +55,16 @@ def test_a_run_that_published_nothing_is_not_a_run_that_cannot_publish(client, a
     assert after["total"] == 0
 
 
-def test_results_are_scoped_to_a_lab(client, a_run, session):
+def test_results_are_scoped_to_a_lab(client, session):
     """`repository.py`'s header: a filter you can forget is a leak — and this hands back
-    filenames, which is the shape a leak takes here."""
-    from wiener_api.models import Run
+    filenames, which is the shape a leak takes here. The run is another lab's from the start:
+    moving one there would leave its artifact behind, which its key refuses (issue 274)."""
+    import wiener_rows
 
-    session.query(Run).filter(Run.id == a_run.id).update({"lab_id": "somebody-else"})
-    session.commit()
-    _publish(a_run.id, {"trimgalore/secret.txt": "x"})
+    theirs = wiener_rows.a_run(session, "somebody-else")
+    _publish(theirs.id, {"trimgalore/secret.txt": "x"})
 
-    assert client.get(f"/api/runs/{a_run.id}/results").status_code == 404
+    assert client.get(f"/api/runs/{theirs.id}/results").status_code == 404
 
 
 def test_an_unknown_run_is_a_404_and_not_an_empty_list(client):
