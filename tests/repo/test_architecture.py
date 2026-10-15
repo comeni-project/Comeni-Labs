@@ -216,7 +216,14 @@ def test_the_generated_exemption_covers_only_the_generated_tree():
     import check_links
 
     docs = root / "docs"
-    directories = [docs, *(p for p in docs.rglob("*") if p.is_dir())]
+    # `docs/reference/tools/` is generated and gitignored, so a clean CI checkout does not
+    # contain it yet. Probe that expected output path explicitly rather than relying on a
+    # previous local site build to have left the directory behind.
+    directories = {
+        docs,
+        *(p for p in docs.rglob("*") if p.is_dir()),
+        docs / "reference" / "tools",
+    }
     assert len(directories) > 10, "the probe is not probing"
 
     probes = {(d / "__a_page_nobody_wrote__.md").resolve() for d in directories}
