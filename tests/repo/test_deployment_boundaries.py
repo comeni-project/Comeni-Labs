@@ -155,3 +155,28 @@ def test_python_image_cache_ownership_matches_configured_runtime_identity(tmp_pa
         assert services[name]["user"] == "12001:12002"
         assert services[name]["build"]["args"]["RUNTIME_UID"] == "12001"
         assert services[name]["build"]["args"]["RUNTIME_GID"] == "12002"
+
+
+# Each process that reads a database the API migrates, with the API that migrates it (issue 330).
+MIGRATED_BY = {
+    "mendel-worker": "api",
+    "ai-worker": "api",
+    "wiener-worker": "wiener-api",
+    "wiener-ingest": "wiener-api",
+}
+
+
+@pytest.mark.parametrize("production", [False, True])
+def test_a_worker_starts_after_the_api_that_migrates_its_database(tmp_path, production):
+    """Issue 330: on a fresh database the AI worker's startup sweep queried `forge_adaptation`
+    before the API had created it. Postgres being healthy is not the schema being there."""
+    result = _compose(tmp_path, production=production, token="synthetic-test-token")
+    assert result.returncode == 0, result.stderr
+    services = json.loads(result.stdout)["services"]
+    for api in set(MIGRATED_BY.values()):
+        assert services[api].get("healthcheck"), f"{api} has no healthcheck to wait on"
+    for worker, api in MIGRATED_BY.items():
+        if worker not in services:
+            continue
+        wait = services[worker].get("depends_on", {}).get(api, {})
+        assert wait.get("condition") == "service_healthy", f"{worker} does not wait for {api}"
