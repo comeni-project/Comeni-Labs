@@ -266,3 +266,15 @@ def test_a_model_question_with_choices_is_still_a_card(clean, monkeypatch):
                            "choices": ["gene", "transcript"]}]})
     [card] = _blocks(sid, "question")
     assert [o["label"] for o in card["options"]] == ["gene", "transcript"]
+
+
+def test_a_quote_from_an_earlier_turn_is_not_heard(clean, monkeypatch):
+    """#337 (operator: A), from the second walk: the DE sentence, typed two turns earlier, made a
+    read-length retraction read as *you said*. Only the turn being answered can be quoted."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(monkeypatch, sid, "they are 150 bp", {"say": "Noted."})
+    _typed(monkeypatch, sid, "and the library is from mouse liver",
+           {"facts": [{"subject": "read_length", "value": 150, "quote": "150 bp"}]})
+    assert _value(sid, "read_length") != 150
+    assert [v.change.subject for v in suggestions.pending(sid)] == ["read_length"]

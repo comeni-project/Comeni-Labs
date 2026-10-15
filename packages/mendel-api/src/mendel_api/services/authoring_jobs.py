@@ -338,8 +338,10 @@ def _follow_up(session_id: str, seq: int, context) -> None:
 
     reply: ChatReply = outcome.reply
     draft_id, wanted = _draft_and_wants(session_id)
+    # **Only the turn being answered** (#337): earlier words were read when they were said.
+    answered = [turn for turn in replies.person_turns(session_id) if turn[0] < seq][-1:]
     issued = replies.issue(
-        reply, turns=replies.person_turns(session_id), stack=stack,
+        reply, turns=answered, stack=stack,
         invocation_id=outcome.invocation_id, wanted=wanted,
     )
     blocks = []
