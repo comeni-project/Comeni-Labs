@@ -264,7 +264,10 @@ def receipt(ctx, suffix=""):
         # person's words is the model's reading of them, never *your correction*.
         by_model = change.change is not None and change.change.actor == "model"
         summary = (
-            f'Heard "{change.change.heard}": {said}. {suffix}' if by_model and change.change.heard
+            # Not offered: the phrase *is* what was heard, so it is quoted once (#327).
+            f"{said[:1].upper()}{said[1:]}. {suffix}"
+            if by_model and change.kind == "asked" and change.change.heard
+            else f'Heard "{change.change.heard}": {said}. {suffix}' if by_model and change.change.heard
             else f"The model's reading: {said}. {suffix}" if by_model
             else f"Your correction: {said}. {suffix}"
         ).strip()

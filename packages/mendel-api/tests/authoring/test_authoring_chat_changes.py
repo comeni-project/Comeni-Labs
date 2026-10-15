@@ -226,3 +226,41 @@ def test_words_naming_what_was_set_aside_are_not_shown(clean, monkeypatch):
     )
     assert not any("sequenced_read_length" in text for text in _said(sid))
     assert [n["code"] for n in _notices(sid)] == ["MI0204"]
+
+
+def _blocks(sid: str, kind: str) -> list[dict]:
+    return [block for turn in facade.read(sid)["turns"] for block in turn["blocks"]
+            if block.get("kind") == kind]
+
+
+def test_what_is_not_offered_is_quoted_once(clean, monkeypatch):
+    """Issue 327 item 3, from the walk: *Heard "also I want differential expression…": you asked
+    for also I want differential expression…, which is not offered here*."""
+    sid = _gathering(want=["counts.matrix"])
+    phrase = "also I want differential expression between fed and fasted mice"
+    _typed(monkeypatch, sid, phrase, {"not_offered": [{"quote": phrase}]})
+    [summary] = [r["summary"] for r in _blocks(sid, "receipt") if phrase in r["summary"]]
+    assert summary.count(phrase) == 1
+    assert summary.startswith("Not offered here:")
+    assert "you asked for also" not in summary
+
+
+def test_a_model_question_with_no_choices_is_said_not_carded(clean, monkeypatch):
+    """Issue 327 item 2: a model's question with no choices became a card marked *every
+    option* with nothing to choose, left open after the goal was confirmed. It is said; the
+    person answers in their own words."""
+    sid = _gathering(want=["counts.matrix"])
+    asks = "What is the desired state for the differential expression analysis?"
+    _typed(monkeypatch, sid, "and differential expression",
+           {"questions": [{"asks": asks, "why_open": "I do not know what state you want."}]})
+    assert _blocks(sid, "question") == []
+    assert any(asks in text for text in _said(sid))
+
+
+def test_a_model_question_with_choices_is_still_a_card(clean, monkeypatch):
+    sid = _gathering(want=["counts.matrix"])
+    _typed(monkeypatch, sid, "which one?",
+           {"questions": [{"asks": "Gene or transcript level?", "why_open": "Both are possible.",
+                           "choices": ["gene", "transcript"]}]})
+    [card] = _blocks(sid, "question")
+    assert [o["label"] for o in card["options"]] == ["gene", "transcript"]

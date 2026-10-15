@@ -352,6 +352,12 @@ def _follow_up(session_id: str, seq: int, context) -> None:
             text=_set_aside_text(outcome.refusal), code=outcome.code,
         ).model_dump(mode="json"))
     for index, asked in enumerate(reply.questions, start=1):
+        if not asked.choices:
+            # **No choices, no card** (#327): a card marked *every option* with nothing to choose
+            # stayed open after the goal moved on. Said instead; they answer in their own words.
+            blocks.append(Narrative(id=f"question-{seq}-{index}",
+                                    text=asked.asks).model_dump(mode="json"))
+            continue
         blocks.append(Question(
             id=f"question-{seq}-{index}", asks=asked.asks, why_open=asked.why_open,
             options=[Option(id=f"q{index}_{n}", label=label)
