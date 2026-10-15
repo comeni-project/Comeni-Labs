@@ -142,3 +142,24 @@ def test_a_click_before_the_job_starts_still_wins(clean, monkeypatch):
     assert [(v.change.subject, v.change.value) for v in suggestions.pending(sid)] == [
         ("paired", False)
     ]
+
+
+def test_a_refusal_says_what_it_refused(clean, monkeypatch):
+    """Issue 325, from the walk: the notice kept only *"the reply names something this registry
+    does not declare"*, so nobody could tell what. The walk's reply, word for word."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(
+        monkeypatch,
+        sid,
+        "I already said: 2x100, so 100 bp",
+        {"parameters": [{"name": "sequenced_read_length", "value": "100"}]},
+    )
+    [notice] = [
+        block
+        for turn in facade.read(sid)["turns"]
+        for block in turn["blocks"]
+        if block.get("notice") == "refusal"
+    ]
+    assert notice["code"] == "MI0204"
+    assert "setting sequenced_read_length" in notice["text"]

@@ -401,7 +401,10 @@ class MeasurementRegistry(BaseModel):
                 raise BadMeasurementValueError(f"{measurement_id!r} is a boolean, got {value!r}")
             return
         if isinstance(value, bool) or not isinstance(value, int | float):
-            raise BadMeasurementValueError(f"{measurement_id!r} is a {kind}, got {value!r}")
+            article = "an" if kind is MeasurementKind.INTEGER else "a"
+            raise BadMeasurementValueError(
+                f"{measurement_id!r} is {article} {kind}, got {value!r}"
+            )
         if kind is MeasurementKind.INTEGER and not isinstance(value, int):
             raise BadMeasurementValueError(f"{measurement_id!r} is an integer, got {value!r}")
         if measurement.minimum is not None and value < measurement.minimum:

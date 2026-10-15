@@ -424,6 +424,16 @@ def _refused(session_id: str, seq: int, context, outcome) -> None:
     """A refusal, a missing model, or an unreachable one — as a notice, with its code."""
     code = outcome.code or "MA0004"
     first_line = (outcome.refusal or "").splitlines()[0] if outcome.refusal else code
+    # **What was refused** (issue 325): admission lists each id it could not accept on an
+    # indented line beneath its sentence. Those lines name registry ids and the model's own
+    # values, so they are kept; any other refusal stays its first line.
+    named = [
+        line.strip()[:200]
+        for line in (outcome.refusal or "").splitlines()[1:]
+        if line.startswith("  ") and line.strip()
+    ]
+    if named:
+        first_line = f"{first_line}: {'; '.join(named)}"
     _answered(
         session_id,
         seq,
