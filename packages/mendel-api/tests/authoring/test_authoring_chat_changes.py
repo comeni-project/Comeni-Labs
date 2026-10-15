@@ -163,3 +163,25 @@ def test_a_refusal_says_what_it_refused(clean, monkeypatch):
     ]
     assert notice["code"] == "MI0204"
     assert "setting sequenced_read_length" in notice["text"]
+
+
+def test_the_model_is_told_what_the_waiting_question_asks(clean, monkeypatch):
+    """Issue 324: with the read-length question waiting, the prompt names `read_length`, so a
+    typed answer has an id to land on."""
+    sent: list[str] = []
+
+    class Seen:
+        def send(self, access, prompt) -> str:
+            sent.append(prompt if isinstance(prompt, str)
+                        else "\n".join(m["content"] for m in prompt))
+            return json.dumps({"say": "Noted."})
+
+    monkeypatch.setattr(
+        authoring_jobs, "_client",
+        lambda *_: Client(ModelAccess(model="fake/test"), transport=Seen()),
+    )
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    seq = facade.perform(commands.Say(sid, "100 bp")).result
+    asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
+    assert sent and '"subject": "read_length"' in sent[-1]

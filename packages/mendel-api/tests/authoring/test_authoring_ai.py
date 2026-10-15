@@ -574,3 +574,32 @@ def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges
     assert goal.choices[0]["wants.type"] == sorted(stack.vocabulary.types)
     assert _rows()[0].prompt_id == "builder.goal.v8"
     assert "Acknowledge them in `say`" in goal.last_prompt
+
+
+# ── what the chat call is shown (issue 324) ───────────────────────────────────────────────
+
+
+def _chat_call(monkeypatch, stack, **kwargs) -> dict:
+    seen: dict = {}
+    monkeypatch.setattr(ai, "_call", lambda request, **kw: seen.update(kw))
+    ai.follow_up(DRAFT, stack=stack, **kwargs)
+    return seen
+
+
+def test_the_chat_call_is_shown_every_measurement_with_what_it_holds(monkeypatch, stack):
+    """From the walk: never shown a measurement id, the model answered *"so 100 bp"* with an
+    invented setting, `sequenced_read_length`. It is shown what the goal call is shown."""
+    values = _chat_call(monkeypatch, stack)["values"]
+    assert "read_length (integer bp) — Sequenced read length" in values["vocabulary"]
+    assert "(nothing is waiting for an answer)" in values["open"]
+
+
+def test_the_chat_call_is_told_which_measurement_the_open_question_asks(monkeypatch, stack):
+    values = _chat_call(monkeypatch, stack, open_question="read_length")["values"]
+    assert '"subject": "read_length"' in values["open"]
+
+
+def test_a_setting_name_is_held_to_the_declared_ones(monkeypatch, stack):
+    names = _chat_call(monkeypatch, stack)["choices"]["parameters.name"]
+    declared = {p.name for c in stack.registry.all() for p in c.params}
+    assert names and set(names) == declared

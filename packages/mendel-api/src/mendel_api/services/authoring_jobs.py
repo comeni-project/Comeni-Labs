@@ -305,6 +305,14 @@ def _answer_blocks(session_id: str, seq: int, context, invocation_id, blocks: li
     )
 
 
+def _open_subject(session_id: str) -> str | None:
+    """The subject id of the gathering question waiting for an answer, if one is (#324)."""
+    pending = session_mod.read(session_id).get("pending_proposal")
+    if pending is None or pending["kind"] != "gap":
+        return None
+    return pending["payload"].get("subject")
+
+
 def _follow_up(session_id: str, seq: int, context) -> None:
     """Typed words anywhere after the want is read (`chat.v3`, #307): something to say, and the
     changes they ask for. **Before the goal is confirmed** a heard change is recorded, through
@@ -321,6 +329,7 @@ def _follow_up(session_id: str, seq: int, context) -> None:
     )
     outcome = authoring_ai.follow_up(
         request, stack=stack, memory=known.text(session_id),
+        open_question=_open_subject(session_id),
         client=_client(authoring_ai.Purpose.CHAT), session_id=session_id,
     )
     if not outcome.admitted:

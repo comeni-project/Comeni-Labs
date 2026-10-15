@@ -304,6 +304,20 @@ def understand(
     )
 
 
+def _open_text(stack, subject: str | None) -> str:
+    """The question waiting for an answer, by the id a typed answer names (#324)."""
+    if subject is None:
+        return "(nothing is waiting for an answer)"
+    if subject in stack.measurements.measurements:
+        how = "the value it holds"
+    else:
+        how = "`true` if they have it, `false` if not"
+    return (
+        f"It asks about `{subject}`. A typed answer to it is "
+        f'`{{"subject": "{subject}", "value": <{how}>}}` in `facts`.'
+    )
+
+
 def _subjects(stack) -> list[str]:
     return sorted(set(stack.vocabulary.types) | set(stack.measurements.measurements))
 
@@ -324,14 +338,15 @@ def follow_up(
     *,
     stack=None,
     memory: str = "",
+    open_question: str | None = None,
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """A follow-up turn in, exactly one declared intent out, or a visible coded refusal.
+    """A follow-up turn in, the changes it asks for out, or a visible coded refusal.
 
-    Takes no stack: an intent names ids the engine issued and never a type id, so the vocabulary
-    is not what this call is held to. Asking for one anyway would be a parameter that exists to
-    look symmetrical.
+    **Shown what it is held to** (#324): the vocabulary with every measurement, and
+    `open_question`, the subject id of the question waiting for an answer. Every id it names is
+    checked against the same stack, and a setting's name is enforced from the declared ones.
     """
     stack = stack if stack is not None else registry.stack()
     return _call(
@@ -341,6 +356,8 @@ def follow_up(
         shape=ChatReply,
         values={
             "memory": memory or "(nothing is known yet)",
+            "vocabulary": _vocabulary_text(stack),
+            "open": _open_text(stack, open_question),
             "pipeline": _pipeline_text(request),
             "options": _options_text(request.options),
             "conversation": _conversation_text(request.turns),
@@ -357,6 +374,7 @@ def follow_up(
             "pins.tool": sorted(c.id for c in stack.registry.all()),
             "facts.subject": _subjects(stack),
             "retract.subject": _subjects(stack),
+            "parameters.name": sorted({p.name for c in stack.registry.all() for p in c.params}),
         },
     )
 

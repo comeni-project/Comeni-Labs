@@ -52,9 +52,11 @@ that.
 RETIRED: tuple[PromptId, ...] = (
     # Superseded by the change lists and the memory (#307): goal.v6 and v7 by goal.v8, chat.v2
     # and gap.v2 by chat.v3, ask.v1 by ask.v2, readback.v1 by readback.v2, family.v3 by v4.
+    # chat.v3 by chat.v4 (#324).
     "builder.goal.v6",
     "builder.goal.v7",
     "builder.chat.v2",
+    "builder.chat.v3",
     "builder.gap.v2",
     "builder.ask.v1",
     "builder.readback.v1",
@@ -88,10 +90,16 @@ a family holds the result itself, never a step on the way (ChIP-seq peaks were r
 `alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
 the shared block, as every template does."""
 
-CHAT: PromptId = "builder.chat.v3"
+CHAT: PromptId = "builder.chat.v4"
 """Typed words anywhere after the want is read, in; something to say and the changes they ask
-for out (`ChatReply`), each quoting the person (#307). Replaces chat.v2's six intents, which
-changed nothing, and `gap.v2`: a typed answer to the open question is a `fact`."""
+for out (`ChatReply`), each quoting the person (#307).
+
+**v4 (2026-10-15, #324)** is shown the vocabulary, every measurement with what it holds, and
+which subject the waiting question asks about. Never shown a measurement id, v3 answered *"so
+100 bp"* on the read-length question with an invented setting, `sequenced_read_length`.
+
+**v3 (2026-10-13, #307)** replaced chat.v2's six intents, which changed nothing, and `gap.v2`: a
+typed answer to the open question is a `fact`."""
 
 TIER4: PromptId = "builder.tier4.v2"
 """One tier-4 ambiguity in, one of its own candidates out. Egress door 2.
