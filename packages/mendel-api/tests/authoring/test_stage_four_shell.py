@@ -292,3 +292,43 @@ def test_two_answers_at_once_to_one_card_one_is_refused(clean):
             _amend(session_id, _hisat2(card)["id"], proposal_id=card["id"])
     finally:
         holder.join()
+
+
+# ── a fact a tool reads (#338) ─────────────────────────────────────────────────────────────
+def _goal_without_strandedness():
+    from comeni_core import yaml_strict
+    from mendel_resolver.goal import Goal
+    from support.paths import ROOT
+
+    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data["profile"].pop("strandedness")
+    data["profile"]["read_length"] = 50  # HISAT2: two steps read strandedness
+    return Goal.model_validate(data)
+
+
+def _strandedness(session_id: str):
+    from mendel_api.services import decisions
+
+    draft = facade.read(session_id)["draft_id"]
+    return next((f.value for f in decisions.read(draft).facts if f.subject == "strandedness"),
+                None)
+
+
+def test_an_unknown_fact_stops_the_first_tool_that_reads_it_and_one_answer_settles_both(clean):
+    """#338, Review Focus 3: HISAT2 align and featureCounts both read strandedness off the
+    label. The walk asks at the first; the answer is the fact, so the second does not ask."""
+    session_id = _built(_goal_without_strandedness())
+    card = _walk_to_node(session_id, "hisat2_align")
+    assert "fact_strandedness" in card["payload"]["options"]
+    _amend(session_id, "fact_strandedness", "reverse")
+    assert _strandedness(session_id) == "reverse"
+    asked_again = []
+    for _ in range(50):
+        pending = _pending(session_id)
+        if pending is None:
+            break
+        if "fact_strandedness" in pending["payload"]["options"]:
+            asked_again.append(_pending_node(session_id))
+        _continue(session_id)
+    assert asked_again == []
+    assert "subread_featurecounts" in _ids(session_id)

@@ -3,6 +3,8 @@
 - **A fact**, when a rule would decide the step and its premise is unknown (#174): the resolver
   recorded the facts in `ProducerDecision.unknown`. The tools still travel with it, so *choose a
   tool instead* is possible.
+- **A fact**, when a chosen tool's code reads it off the sample's label and nobody supplied it
+  (`FactDecision`, #338). Its answer is the fact, so it is never a choice of this step's own.
 - **A choice**, when a decision on the step — its tool or a setting — is tier 4 and waits on no
   fact. Candidates are the resolver's own, never authored.
 - **Nothing** for a setting with no declared domain: there is nothing to choose between (issue
@@ -15,7 +17,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 
 from comeni_core.artifact.pipeline import Step
-from comeni_core.plan.decision import DecisionRecord, ProducerDecision
+from comeni_core.plan.decision import DecisionRecord, FactDecision, ProducerDecision
 from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, ConfigDict
@@ -79,7 +81,8 @@ def need_of(step: Step, decisions: Sequence[DecisionRecord], declared: Declared)
     if not open_:
         return Need(kind=NeedKind.NOTHING)
     facts = sorted(
-        {fact for r in open_ if isinstance(r, ProducerDecision) for fact in r.unknown}
+        {fact for r in open_ if isinstance(r, ProducerDecision | FactDecision)
+         for fact in r.unknown}
     )
     return Need(
         kind=NeedKind.FACT if facts else NeedKind.CHOICE,
@@ -87,6 +90,7 @@ def need_of(step: Step, decisions: Sequence[DecisionRecord], declared: Declared)
         choices=[
             Choice(key=r.key, candidates=[_candidate(r, value, declared) for value in r.candidates])
             for r in open_
+            if not isinstance(r, FactDecision)
         ],
     )
 
@@ -99,6 +103,10 @@ def _answered(step: Step, record: DecisionRecord) -> bool:
     record's `human_override`; and a setting's `human_override` cannot tell *answered null* from
     *unanswered*. `why.source` is the signal `needs_review()` already reads.
     """
+    if isinstance(record, FactDecision):
+        # It exists only while the fact is unknown: answered, the fact is recorded and the
+        # re-resolved pipeline has no record left.
+        return False
     if record.human_override is not None:
         return True
     if isinstance(record, ProducerDecision):

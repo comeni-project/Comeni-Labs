@@ -113,3 +113,21 @@ def test_a_setting_with_no_declared_domain_is_not_a_choice(rnaseq, declared):
     )
     need = need_of(blueprint.step("star_align"), [record], declared)
     assert need.kind is NeedKind.NOTHING
+
+
+def test_an_unknown_fact_a_tool_reads_asks_for_the_fact(rnaseq, declared):
+    """#338: featureCounts reads strandedness off the label and nobody supplied it. The step
+    asks for the fact (*tell me*), not for a setting of featureCounts' own."""
+    from comeni_core.plan.decision import FactDecision
+
+    blueprint = rnaseq(150)
+    record = FactDecision(
+        key="featurecounts.fact.strandedness", subject="strandedness",
+        reason="nf-core/subread/featurecounts reads strandedness, and it is not known",
+        resolved_by="flag-only", candidates=["forward", "reverse", "unstranded"],
+        unknown=["strandedness"],
+    )
+    need = need_of(blueprint.step("featurecounts"), [record], declared)
+    assert need.kind is NeedKind.FACT
+    assert need.facts == ["strandedness"]
+    assert need.choices == []
