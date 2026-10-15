@@ -224,7 +224,8 @@ def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolve
     """
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    star = next(layer.rglob("align/contract.yml"))
+    star = layer / "tools/nf-core/star/align/contract.yml"
+    assert star.is_file()
     star.write_text(
         _declared(
             star,

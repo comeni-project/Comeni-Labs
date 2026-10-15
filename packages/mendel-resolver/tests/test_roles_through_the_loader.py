@@ -90,7 +90,8 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
     a stack that is in fact consistent.
     """
     base = _registry_copy(tmp_path)
-    star = next(base.rglob("align/contract.yml"))
+    star = base / "tools/nf-core/star/align/contract.yml"
+    assert star.is_file()
     # Added rather than substituted. Since Task 4 the shipped `implementation: alignment`
     # rule refuses a row naming a contract that does not fill that role, so replacing
     # STAR's role here would make the fixture inconsistent and this test would fail for

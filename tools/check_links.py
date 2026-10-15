@@ -64,7 +64,10 @@ def _generated(paths: set[pathlib.Path]) -> set[pathlib.Path]:
     try:
         result = subprocess.run(
             ["git", "-C", str(ROOT), "check-ignore", "--stdin"],
-            input="\n".join(str(p) for p in under_docs),
+            # Feed repository-relative paths. Git's stdin interface treats absolute paths
+            # differently across versions and runner environments; relative paths also make
+            # the output stable to parse below.
+            input="\n".join(p.relative_to(ROOT).as_posix() for p in under_docs),
             capture_output=True,
             text=True,
             check=False,
@@ -74,7 +77,7 @@ def _generated(paths: set[pathlib.Path]) -> set[pathlib.Path]:
     # `check-ignore` exits 1 when nothing matched, which is an ordinary answer and not an error.
     if result.returncode not in (0, 1):
         return set()
-    return {pathlib.Path(line) for line in result.stdout.splitlines() if line}
+    return {(ROOT / line).resolve() for line in result.stdout.splitlines() if line}
 
 
 def broken() -> list[str]:

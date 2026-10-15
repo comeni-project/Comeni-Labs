@@ -55,7 +55,7 @@ jobs:
           enable-cache: true
 
       - name: Sync the workspace
-        run: uv sync --locked --python ${{ matrix.python-version }}
+        run: uv sync --locked --python ${{ matrix.python-version }} --group docs
 
       - name: Bring both databases to head
         run: |
