@@ -74,6 +74,14 @@ def test_a_sample_is_as_many_files_as_a_format_reading_it_takes(scene):
     assert _explained(scene, "read_length", files=files).files == 1
 
 
+def test_a_measurement_sample_is_as_many_files_as_the_types_that_measure_it(scene):
+    """The second walk: read length's upload said *Choose one file.* A read-length sample is
+    the reads, which may be a pair."""
+    got = _explained(scene, "read_length", measured={"read_length": {"fastq.reads"}},
+                     files={"fastq.reads": 2})
+    assert got.files == 2
+
+
 def test_the_counts_come_from_each_formats_declared_range():
     from mendel_api.stages import gathering
 

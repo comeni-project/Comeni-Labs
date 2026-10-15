@@ -62,5 +62,9 @@ def explanation(gap: Gap, found: list[Gap], stack, *, measured: dict[str, set[st
                    if g.kind is FactKind.MEASUREMENT and gap.subject in measured.get(g.subject, ())]
         read_by = "inspector" if gap.subject in read else ("ai" if characterisable else None)
         most = (files or {}).get(gap.subject, 1)
+    elif gap.kind is FactKind.MEASUREMENT:
+        # A sample answering a measurement is one of the types that measure it (the reads, for
+        # read length), so it may be as many files as they may (#328, the second walk).
+        most = max(((files or {}).get(t, 1) for t in measured.get(gap.subject, ())), default=1)
     return Explanation(name=name_of(stack, gap.kind, gap.subject), what=_what(stack, gap),
                        needed=needed, reads=reads, settles=settles, read_by=read_by, files=most)
