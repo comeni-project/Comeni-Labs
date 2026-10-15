@@ -387,8 +387,6 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         for change in issued.suggested:
             suggestions.offer(session_id, change, heard=False,
                               invocation_id=change.invocation_id)
-    if reply.proceed:
-        _proceed(session_id)
 
 
 def _draft_and_wants(session_id: str):
@@ -423,16 +421,6 @@ def _record(session_id: str, draft_id: str, change, expected: int | None = None)
         log.info("a heard change was offered instead: %s", str(refused).splitlines()[0])
         return False
     return True
-
-
-def _proceed(session_id: str) -> None:
-    """*Go on*: the waiting step is settled, as its card's *continue* would. Elsewhere there is
-    nothing to continue, and nothing happens."""
-    view = session_mod.read(session_id)
-    pending = view.get("pending_proposal")
-    if pending is None or pending["kind"] != "step":
-        return
-    _perform(c.SettleStep(pending["id"], view["revision"], "person"))
 
 
 def _noted(issued) -> str:

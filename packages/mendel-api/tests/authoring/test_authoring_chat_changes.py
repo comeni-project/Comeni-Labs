@@ -105,16 +105,17 @@ def test_a_reading_that_lands_after_a_click_is_offered_not_recorded(clean, monke
     ]
 
 
-def test_go_on_settles_the_waiting_step_and_does_nothing_at_a_question(clean, monkeypatch):
+def test_the_model_cannot_settle_a_waiting_step(clean, monkeypatch):
+    """#336 (operator: C), from the second walk: the model's `proceed` settled TrimGalore and
+    STAR_ALIGN, and the log read *you chose*. Continue is the person's button; a reply that
+    still carries `proceed` settles nothing."""
+    from mendel_api.authoring.types import ChatReply
+
+    assert "proceed" not in ChatReply.model_fields
     sid = _resolving()
     first = authoring_setup.start_building(sid)
     _typed(monkeypatch, sid, "looks good, go on", {"say": "Carrying on.", "proceed": True})
-    assert facade.pending_id(sid) != first
-
-    gathering_sid = _gathering(want=["counts.matrix"])
-    waiting = facade.pending_id(gathering_sid)
-    _typed(monkeypatch, gathering_sid, "go on", {"proceed": True})
-    assert facade.pending_id(gathering_sid) == waiting
+    assert facade.pending_id(sid) == first
 
 
 def test_something_to_say_alone_records_nothing(clean, monkeypatch):

@@ -312,7 +312,7 @@ def test_the_prompt_that_was_sent_carries_the_steps_and_the_option_ids(clean_for
     If the options were rendered as labels, a reply naming a label would be refused by a check
     the model was never given the means to satisfy.
     """
-    client = _client(json.dumps({"proceed": True}))
+    client = _client(json.dumps({"say": "Noted."}))
     ai.follow_up(DRAFT, client=client)
 
     sent = client.last_prompt  # both parts of the split, as one string (#183)
@@ -362,7 +362,7 @@ def test_the_two_calls_are_told_apart_by_purpose_under_one_agent(stack, clean_fo
     """One member per committed prompt id, scoped by `agent` rather than spelled to be globally
     unique — the Forge declares a `chat` purpose too, and that column is what separates them."""
     ai.understand(ai.compose(prompt="count genes"), stack=stack, client=_client(_goal_answer()))
-    ai.follow_up(DRAFT, client=_client(json.dumps({"proceed": True})))
+    ai.follow_up(DRAFT, client=_client(json.dumps({"say": "Noted."})))
 
     assert {row.purpose for row in _rows()} == {"goal", "chat"}
     assert {row.agent for row in _rows()} == {"builder"}
