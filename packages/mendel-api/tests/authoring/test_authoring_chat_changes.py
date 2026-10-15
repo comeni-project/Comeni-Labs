@@ -155,12 +155,7 @@ def test_a_refusal_says_what_it_refused(clean, monkeypatch):
         "I already said: 2x100, so 100 bp",
         {"parameters": [{"name": "sequenced_read_length", "value": "100"}]},
     )
-    [notice] = [
-        block
-        for turn in facade.read(sid)["turns"]
-        for block in turn["blocks"]
-        if block.get("notice") == "refusal"
-    ]
+    [notice] = _notices(sid)
     assert notice["code"] == "MI0204"
     assert "setting sequenced_read_length" in notice["text"]
 
@@ -185,3 +180,49 @@ def test_the_model_is_told_what_the_waiting_question_asks(clean, monkeypatch):
     seq = facade.perform(commands.Say(sid, "100 bp")).result
     asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
     assert sent and '"subject": "read_length"' in sent[-1]
+
+
+def _notices(sid: str) -> list[dict]:
+    return [block for turn in facade.read(sid)["turns"] for block in turn["blocks"]
+            if block.get("kind") == "notice"]
+
+
+def _said(sid: str) -> list[str]:
+    return [block["text"] for turn in facade.read(sid)["turns"] for block in turn["blocks"]
+            if block.get("kind") == "narrative" and turn["role"] == "assistant"]
+
+
+def test_one_refused_item_sets_itself_aside_and_the_rest_is_kept(clean, monkeypatch):
+    """Issue 326 (operator: B), the walk's scene 3: a correct fact beside an undeclared setting
+    lost both, and the model's words. The fact is kept, the words shown, the setting named."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(
+        monkeypatch,
+        sid,
+        "they're 100 bp",
+        {"say": "Got it, 100 bp.",
+         "facts": [{"subject": "read_length", "value": 100, "quote": "100 bp"}],
+         "parameters": [{"name": "sequenced_read_length", "value": "100"}]},
+    )
+    assert _value(sid, "read_length") == 100
+    assert "Got it, 100 bp." in _said(sid)
+    [notice] = _notices(sid)
+    assert notice["notice"] == "validation" and notice["code"] == "MI0204"
+    assert "setting sequenced_read_length" in notice["text"]
+
+
+def test_words_naming_what_was_set_aside_are_not_shown(clean, monkeypatch):
+    """The reply text shows unless it names something refused: it would speak of a thing that
+    does not exist here as if it did."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(
+        monkeypatch,
+        sid,
+        "set it to 100",
+        {"say": "I set sequenced_read_length to 100.",
+         "parameters": [{"name": "sequenced_read_length", "value": "100"}]},
+    )
+    assert not any("sequenced_read_length" in text for text in _said(sid))
+    assert [n["code"] for n in _notices(sid)] == ["MI0204"]

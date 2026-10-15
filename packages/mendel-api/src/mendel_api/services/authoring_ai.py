@@ -363,7 +363,8 @@ def follow_up(
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: replies.admit(reply, stack),
+        # Item by item (#326): an id it may not name is set aside, and the rest is kept.
+        admit=lambda reply: replies.sift(reply, stack),
         client=client,
         session_id=session_id,
         choices={
@@ -728,6 +729,13 @@ def _call(
             _code_in(str(refused)),
         )
 
+    # **Some items set aside** (#326): the answer stands, so the call succeeded; the code stays
+    # on the row so a partial refusal is still counted, and the lines go to the notice.
+    set_aside: list[str] = []
+    if isinstance(admitted, replies.Sifted):
+        admitted, set_aside = admitted.reply, admitted.set_aside
+    aside = (coded("MI0204", "set aside, not something this registry declares")
+             + "".join(f"\n  {line}" for line in set_aside)) if set_aside else None
     return Outcome(
         admitted,
         _record(
@@ -736,12 +744,12 @@ def _call(
             request=request,
             client=client,
             state=InvocationState.SUCCEEDED,
-            failure_code="",
+            failure_code="MI0204" if set_aside else "",
             started=started,
             session_id=session_id,
         ),
-        None,
-        None,
+        aside,
+        "MI0204" if set_aside else None,
     )
 
 

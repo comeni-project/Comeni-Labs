@@ -345,6 +345,12 @@ def _follow_up(session_id: str, seq: int, context) -> None:
     blocks = []
     if reply.say:
         blocks.append(Narrative(id=f"reply-{seq}", text=reply.say).model_dump(mode="json"))
+    if outcome.refusal:
+        # What admission set aside (#326), named the way a refusal names it (#325).
+        blocks.append(Notice(
+            id=f"notice-{seq}", notice=NoticeKind.VALIDATION,
+            text=_set_aside_text(outcome.refusal), code=outcome.code,
+        ).model_dump(mode="json"))
     for index, asked in enumerate(reply.questions, start=1):
         blocks.append(Question(
             id=f"question-{seq}-{index}", asks=asked.asks, why_open=asked.why_open,
@@ -429,20 +435,20 @@ def _noted(issued) -> str:
     return "I could not tell what to change from that; say it another way."
 
 
+def _set_aside_text(refusal: str) -> str:
+    """The first line, then each indented line admission wrote, joined (#325)."""
+    first, *rest = refusal.splitlines()
+    named = [line.strip()[:200] for line in rest if line.startswith("  ") and line.strip()]
+    return (f"{first}: {'; '.join(named)}" if named else first)[:2000]
+
+
 def _refused(session_id: str, seq: int, context, outcome) -> None:
     """A refusal, a missing model, or an unreachable one — as a notice, with its code."""
     code = outcome.code or "MA0004"
-    first_line = (outcome.refusal or "").splitlines()[0] if outcome.refusal else code
     # **What was refused** (issue 325): admission lists each id it could not accept on an
     # indented line beneath its sentence. Those lines name registry ids and the model's own
     # values, so they are kept; any other refusal stays its first line.
-    named = [
-        line.strip()[:200]
-        for line in (outcome.refusal or "").splitlines()[1:]
-        if line.startswith("  ") and line.strip()
-    ]
-    if named:
-        first_line = f"{first_line}: {'; '.join(named)}"
+    first_line = _set_aside_text(outcome.refusal) if outcome.refusal else code
     _answered(
         session_id,
         seq,

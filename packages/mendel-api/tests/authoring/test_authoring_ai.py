@@ -203,22 +203,24 @@ def test_a_correction_in_words_comes_back_as_a_fact_quoting_them(clean_forge):
 
 def test_a_tool_the_registry_does_not_declare_is_refused(clean_forge):
     """**The product claim, as a test.** A model cannot produce a value outside the candidate
-    set: a pin names a declared tool or the reply is refused."""
+    set: a pin names a declared tool or it is set aside, and never reaches what is recorded.
+    Since #326 the rest of the reply stands; the row keeps the code, so it is still counted."""
     client = _client(
         json.dumps({"pins": [{"type": "alignment.bam", "tool": "nf-core/salmon/quant@1.0.0"}]})
     )
     outcome = ai.follow_up(DRAFT, client=client)
 
-    assert not outcome.admitted
+    assert outcome.reply.pins == []
     assert outcome.code == "MI0204"
     assert "salmon" in outcome.refusal
+    assert (_rows()[0].state, _rows()[0].failure_code) == ("succeeded", "MI0204")
 
 
 def test_a_setting_no_step_declares_is_refused(clean_forge):
     client = _client(json.dumps({"parameters": [{"name": "libtype", "value": "A"}]}))
     outcome = ai.follow_up(DRAFT, client=client)
 
-    assert not outcome.admitted
+    assert outcome.reply.parameters == []
     assert outcome.code == "MI0204"
 
 

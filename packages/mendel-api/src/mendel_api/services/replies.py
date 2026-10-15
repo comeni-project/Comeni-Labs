@@ -96,6 +96,44 @@ def admit(reply: Understanding | ChatReply, stack) -> Understanding | ChatReply:
     return reply
 
 
+_ITEMS = ("wants", "inputs", "facts", "requires", "pins", "parameters", "retract")
+
+
+@dataclass(frozen=True)
+class Sifted:
+    """A chat reply with only what admission accepts, and a line for each item set aside."""
+
+    reply: ChatReply
+    set_aside: list[str]
+
+
+def _names(item) -> set[str]:
+    return {v for k in ("type", "subject", "name", "tool")
+            if isinstance(v := getattr(item, k, None), str)}
+
+
+def sift(reply: ChatReply, stack) -> Sifted:
+    """**Item by item** (#326, operator: B): each item is admitted on its own, through `admit`,
+    so a value is still read by its kind. What is refused is set aside, named, and never
+    recorded; the rest goes through. The reply's words are kept unless they name something set
+    aside: they would speak of it as if it existed here."""
+    kept: dict[str, list] = {}
+    set_aside: list[str] = []
+    refused: set[str] = set()
+    for field in _ITEMS:
+        kept[field] = []
+        for item in getattr(reply, field):
+            try:
+                kept[field] += getattr(admit(ChatReply(**{field: [item]}), stack), field)
+            except ValueError as why:
+                set_aside += [line.strip() for line in str(why).splitlines()[1:] if line.strip()]
+                refused |= _names(item)
+    say = reply.say
+    if say and any(name in say for name in refused):
+        say = None
+    return Sifted(reply.model_copy(update={**kept, "say": say}), set_aside)
+
+
 def _changes(reply, stack, wanted: frozenset[str]) -> list[tuple[DecisionChange, str | None]]:
     """Each item as the change it asks for, with its quote."""
     types = stack.vocabulary.types
