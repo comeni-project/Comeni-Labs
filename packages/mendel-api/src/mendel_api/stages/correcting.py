@@ -424,6 +424,7 @@ def blocked(ctx: Ctx):
         explained = explain.explanation(
             gap._replace(used_by=walked.used_by), found, stack, measured=measured, read=read,
             characterisable=gathering._characterisable(),
+            files=gathering._sample_files(stack),
         )
         _rows.propose(
             row.id,

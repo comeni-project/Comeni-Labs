@@ -297,6 +297,9 @@ class Explanation(_Shape):
     """For an input: what a sample of it would answer, by name, among the questions still open."""
     read_by: Literal["inspector", "ai"] | None = None
     """Who would read a sample of it: an inspector, the AI, or nothing here."""
+    files: int = 1
+    """The most files one sample of it may be: 2 where a format reads it as a pair (issue
+    328). The upload card says *both files if your reads are paired* only then."""
 
 
 class Question(_Block):

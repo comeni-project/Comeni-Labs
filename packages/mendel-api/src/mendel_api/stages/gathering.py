@@ -102,6 +102,19 @@ def _inspectable(stack) -> tuple[dict[str, set[str]], set[str]]:
     return measured, read
 
 
+def _sample_files(stack) -> dict[str, int]:
+    """The most files one sample of each input type may be, from the trusted formats that read
+    it (`files: 1..2` is a file or a pair). A type no format reads is absent: the AI reads one
+    file of it (issue 328)."""
+    from mendel_api.services import measurers
+
+    counts: dict[str, int] = {}
+    for fmt in measurers.usable_pieces(stack).formats.values():
+        for type_id in fmt.reads:
+            counts[type_id] = max(counts.get(type_id, 1), fmt.file_counts[1])
+    return counts
+
+
 def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | None:
     """What was said to an answered gap, for the log: the typed value, or the option's label.
     `None` for anything that is not a gap (issue 169)."""
@@ -301,7 +314,8 @@ def offer_gap_or_card(session_id: str) -> str:
     question = _gap_question(gap, options, stack, version)
     measured, read = _inspectable(stack)
     explained = explain.explanation(gap, found, stack, measured=measured, read=read,
-                                    characterisable=_characterisable())
+                                    characterisable=_characterisable(),
+                                    files=_sample_files(stack))
     # **A suggestion pre-fills the question it answers** (Part I.0 §5.3): the model's reading,
     # marked as such, sent only by the person's click.
     offered = next(

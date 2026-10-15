@@ -58,6 +58,25 @@ describe("uploading a sample", () => {
     await waitFor(() => expect(onAnswered).toHaveBeenCalledWith(answered, ["s_R1.fq"]));
   });
 
+  it("asks for one file where a sample is one file, and refuses a second (issue 328)", async () => {
+    const onUpload = vi.fn();
+    render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+      onAnswered={vi.fn()} files={1} />);
+    expect(screen.getByText("Choose one file.")).toBeTruthy();
+    expect(screen.queryByText(/paired/)).toBeNull();
+    const input = screen.getByLabelText(LABEL) as HTMLInputElement;
+    expect(input.multiple).toBe(false);
+    fireEvent.drop(input.closest("label")!,
+      { dataTransfer: { files: [fq("genome.fa"), fq("other.fa")], types: ["Files"] } });
+    expect(screen.getByRole("alert").textContent).toMatch(/2 files: choose one file\./);
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it("offers a pair where a sample may be two files", () => {
+    setup();
+    expect(screen.getByText(/both files if your reads are paired/)).toBeTruthy();
+  });
+
   it("refuses three files on the card, before any request", async () => {
     const { onUpload } = setup();
     await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq"), fq("b.fq"), fq("c.fq")]);
