@@ -58,7 +58,8 @@ def test_a_quoted_typed_answer_is_recorded_and_the_next_question_follows(clean, 
     assert _value(sid, "read_length") == 150
     assert decisions.heard_of(_draft(sid))[("fact", "read_length")][0] == "150 bp"
     pending = facade.pending_id(sid)
-    assert pending is None or _payload(pending)["subject"] != "read_length"
+    # The goal card has no subject: read_length is the last question since #338.
+    assert pending is None or _payload(pending).get("subject") != "read_length"
 
 
 def test_an_unquoted_typed_answer_pre_fills_and_records_nothing(clean, monkeypatch):

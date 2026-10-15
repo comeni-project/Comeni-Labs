@@ -80,6 +80,9 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
 
     An `OPEN` fact settles its gap too: *can't share it* is an answer, and asking again would
     be the protocol ignoring it (review focus 2).
+
+    A fact only a tool reads off the sample's label, that no rule reads and no trusted inspector
+    measures, is not a gap (#338): the step that reads it stops for it instead.
     """
     known = {(f.kind, f.subject) for f in facts}
     leaves: list[str] = []
@@ -116,11 +119,16 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
             return Unreachable(type_id)
         walk(type_id, frozenset())
 
+    from mendel_api.services import measurers
+
     premises = _premise_measurements(stack)
+    measurable = {piece.measures for piece in measurers.usable_pieces(stack).measures.values()}
+    # **Not asked: what only a tool reads and no sample can measure** (#338). It is left
+    # unknown, and each step whose tool reads it stops for it on the board, as tier 4.
     measurements = set(premises) | {
         m.id
         for m in stack.measurements.measurements.values()
-        if m.meta_key and m.describes in leaves
+        if m.meta_key and m.describes in leaves and m.id in measurable
     }
     out = [
         Gap(FactKind.INPUT, t, "the pipeline needs it and nothing can make it",

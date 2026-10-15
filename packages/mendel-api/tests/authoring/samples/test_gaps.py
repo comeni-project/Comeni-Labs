@@ -15,7 +15,8 @@ def test_gene_counts_needs_reads_a_genome_an_annotation_and_the_facts_rules_read
     inputs = [s for k, s in got if k == "input"]
     measurements = [s for k, s in got if k == "measurement"]
     assert set(inputs) == {"fastq.reads", "genome.fasta", "annotation.gtf"}
-    assert {"read_length", "paired", "strandedness"} <= set(measurements)
+    # Not strandedness since #338: only a tool reads it, and the tool's step asks.
+    assert {"read_length", "paired"} <= set(measurements)
     # inputs first, then measurements
     assert got.index(("input", inputs[-1])) < got.index(("measurement", measurements[0]))
 
@@ -78,3 +79,12 @@ def test_a_measurement_two_rules_read_lists_both_in_table_order():
         "read length determines which aligner is appropriate",
         "a second reason",
     ]
+
+
+def test_a_fact_only_a_tool_reads_and_no_sample_measures_is_not_asked():
+    """#338: strandedness is read by featureCounts and HISAT2 off the label, no rule reads it,
+    and no inspector measures it. It is left unknown and each step that reads it stops for it."""
+    subjects = [gap.subject for gap in g.gaps(["counts.matrix"], [], registry.stack())]
+    assert "strandedness" not in subjects
+    assert "read_length" in subjects  # a rule reads it
+    assert "paired" in subjects  # a sample measures it

@@ -38,10 +38,18 @@ def test_an_input_an_inspector_reads_offers_upload(clean):
     assert "upload" in options and "have_it" in options
 
 
-def test_a_measurement_no_inspector_measures_keeps_not_sure(clean):
+def test_a_measurement_no_inspector_measures_and_no_rule_reads_is_not_asked(clean):
+    """#338: strandedness was the measurement no inspector measures, asked with *Not sure* and
+    no upload. Only a tool reads it, so it is not asked at all: each step that reads it stops."""
     sid = _gathering(["counts.matrix"])
-    options = _payload(_pending_for(sid, "strandedness"))["options"]
-    assert "not_sure" in options and "upload" not in options
+    asked = []
+    while (pid := facade.pending_id(sid)) and (subject := _payload(pid).get("subject")):
+        asked.append(subject)
+        options = [o for o in _payload(pid)["options"]
+                   if o not in ("dont_have", "value", "not_sure", "upload")]
+        facade.perform(commands.AnswerGap(pid, options[0] if options else "value",
+                                          150 if not options else None, "ana"))
+    assert asked and "strandedness" not in asked
 
 
 def test_clicking_upload_records_nothing(clean):

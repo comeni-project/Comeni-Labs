@@ -341,6 +341,16 @@ def test_a_direct_edit_writes_a_receipt_the_server_composed(client, clean, queue
     could be told to the log. Editing opens once the walk is done (spec §14.5)."""
     monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
     built, _ = _building(client, queue, monkeypatch)
+    # #338: strandedness is not asked while gathering; the step whose tool reads it stops.
+    stop = built["pending_proposal"]
+    assert "fact_strandedness" in stop["options"]
+    answered = client.post(
+        f"/api/pipeline/authoring/{built['id']}/proposals/{stop['id']}/decide",
+        json={"decision": "accepted", "expected_revision": built["revision"],
+              "option": "fact_strandedness", "value": "reverse"},
+    )
+    assert answered.status_code == 200, answered.text
+    built = _session(client, built["id"])
     assert built["phase"] == "complete"
     graph = built["graph"]
     graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
