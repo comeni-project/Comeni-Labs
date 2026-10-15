@@ -127,8 +127,14 @@ the tier-3 colour already asks a reader to check.
 | `MEASURED`: an inspector read the file | 3, data-profiled | yellow border: check the premise (a measurement) |
 | `PERSON-SAID`: the person stated it | 3, data-profiled | yellow border, premise marked *asserted* |
 | `MODEL-READ`: the characteriser read it | 3, data-profiled | yellow border, premise marked *read by AI* (decided 2026-09-28) |
-| open: nobody knows | **4**, ambiguous | red border: always flagged, a person answers |
-| no rule reads it | 1 or 2 as today | — |
+| open: nobody knows, and a rule or a chosen tool reads it | **4**, ambiguous | red border: always flagged, a person answers |
+| no rule and no chosen tool reads it | 1 or 2 as today | — |
+
+**Whatever a tool reads comes from somewhere** (2026-10-15, #338). A fact a chosen tool's code
+reads off the sample's label (`meta.strandedness`), that nobody supplied, makes that step tier 4,
+as an unsupplied setting already does; the answer is recorded as the fact, so every step that
+reads it is settled once. Such a fact is not asked while gathering when no rule reads it and no
+sample could measure it: the step stops for it instead.
 
 ## Where each measurer runs
 
@@ -260,6 +266,7 @@ tightening is filling in a row, not rewiring.
 | 2026-10-06 | stage ④ built: overview count, the Pacing and Dev forks, the walk on the build plan (fact first, asked once; choices from the resolver's tools; tier 4 stops; gaps shown or routed around), the wrap-up; Build/Spawn and `Mode` retired | 14.7.8.3b (#136, #117, #252), operator's brainstorm |
 | 2026-10-07 | the blueprint decides, the walk reviews: every decision an amendment to the goal (a tool pinned at its site, a fact in the profile), the draft a projection of the resolved blueprint, any step swappable for a compatible tool shown as a whole pipeline; one step card and one `amend` node; Dev decided before the walk; edits after the walk | 14.7.8.3c (#136, #253–#259), operator's brainstorm |
 | 2026-10-07 | level 0 lets a waiting sample excerpt reach disk in Redis's snapshot; a later level turns the queue's snapshots off | 14.7.8.3d (#281), operator's decision: *for 0 we can leave it be written* |
+| 2026-10-15 | whatever a tool reads comes from somewhere, or is tier 4; strandedness left to the board until a profiler measures it (#339); the chat model cannot settle a step, and quotes only the turn it answers | operator, #338, #336, #337 |
 
 | 2026-10-11 | retained decisions compose the goal; conflicting evidence asks an explicit choice; corrections cascade semantic reviews; manual work forks; history now and undo later | 14.7.8.3d Part F (#290), operator decisions in the approved spec |
 
