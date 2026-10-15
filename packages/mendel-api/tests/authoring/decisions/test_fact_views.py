@@ -17,7 +17,8 @@ def test_authoring_get_restores_disagreement_and_current_context(clean):
     assert response.status_code == 200
     view = response.json()
     assert view["pending_proposal"]["kind"] == "disagreement"
-    assert view["decision_revision"] > 0 and view["projection_current"] is False
+    # Gathering, so nothing is built: not outdated (issue 329; this said `is False`, the defect).
+    assert view["decision_revision"] > 0 and view["projection_current"] is True
     assert view["ownership"] == "authored" and view["forked_from"] is None
     assert view["inputs"] and view["review_applicability"] == {}
 
@@ -81,3 +82,12 @@ def test_a_historical_typed_answer_does_not_change_when_the_current_fact_changes
     decisions.set_fact(draft_id, "read_length", 50, who="ana")
     answer = next(d for d in session.read(sid)["history"] if d["id"] == pid)
     assert answer["answer"] == "150"
+
+
+def test_nothing_built_is_not_outdated(clean):
+    """Issue 329, from the walk: a new session said *pipeline outdated* from its first question,
+    before anything existed to be outdated. Outdated is a built pipeline the answers moved past."""
+    sid = _gathering(["counts.matrix"])
+    view = TestClient(create_app()).get(f"/api/pipeline/authoring/{sid}").json()
+    assert view["decision_revision"] > 0, "the session has answers, so the old rule fires"
+    assert view["projection_current"] is True
