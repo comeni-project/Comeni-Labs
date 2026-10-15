@@ -757,6 +757,7 @@ def _view(session_id: str) -> AuthoringSessionView:
             for turn in picture["turns"]
         ],
         history=[AuthoringDecisionView(**decision) for decision in picture["history"]],
+        suggestions=[AuthoringSuggestionView(**s) for s in picture["suggestions"]],
         pending_proposal=(
             None
             if pending is None
