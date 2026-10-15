@@ -363,7 +363,9 @@ def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeyp
     assert queued == []
 
 
-def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, monkeypatch):
+def test_phrasing_is_queued_for_this_gap_only_once_not_per_poll(clean, monkeypatch):
+    """Issue 331: the next question's phrasing was always invalidated by the answer before it,
+    so every question was phrased twice. Only the question on offer is phrased (operator, B)."""
     import asyncio
 
     from mendel_api import jobs
@@ -380,8 +382,8 @@ def test_phrasing_is_queued_for_this_gap_and_the_next_once_not_per_poll(clean, m
     asyncio.run(_queue_phrasing(sid))
     asyncio.run(_queue_phrasing(sid))
     ids = [kw["job_id"] for _, kw in queued]
-    assert len(set(ids)) == 2 and all(":phrase:" in i for i in ids)
-    assert [args[2] for args, _ in queued[:2]] == ["fastq.reads", "genome.fasta"]
+    assert len(set(ids)) == 1 and all(":phrase:" in i for i in ids)
+    assert [args[2] for args, _ in queued[:1]] == ["fastq.reads"]
 
 
 def test_a_question_waiting_for_its_words_counts_as_in_flight(clean, monkeypatch):

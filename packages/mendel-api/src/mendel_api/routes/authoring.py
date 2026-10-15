@@ -543,8 +543,8 @@ async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> Aut
             raise ValueError(
                 coded("MI0205", "a question about your data is answered with one of its options")
             )
-        # The next question and the one after are phrased while the person reads (#186): `ask`
-        # queued them, after the commit. A button click is not put behind a model.
+        # The next question is phrased while the person reads: `ask` queues it after the commit
+        # (#331: only the one on offer). A button click is not put behind a model.
         await session.act(c.AnswerGap(proposal_id, body.option, body.value, who))
         after = _view(session_id)
         return AuthoringDecided(

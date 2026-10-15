@@ -508,8 +508,10 @@ def _pending_gap(db, session_id: str):
 
 
 def to_phrase(session_id: str) -> list[str]:
-    """The subjects worth phrasing now: the question on offer and the next one (#186), minus any
-    already phrased. Empty with no model, or outside gathering."""
+    """The subject worth phrasing now: the question on offer, unless already phrased. Empty with
+    no model, or outside gathering. Not the next one too, as #186 did: its phrasing is keyed on
+    the decision revision, which the answer before it always moves, so every question was
+    phrased twice (#331, operator: stop)."""
     if session.current_phase(session_id) is not Phase.GATHERING:
         return []
     return _unphrased(session_id)
@@ -524,7 +526,7 @@ def _unphrased(session_id: str) -> list[str]:
     found = gaps.gaps(wanted.get("want", []), facts, registry.stack())
     if isinstance(found, gaps.Unreachable):
         return []
-    return [g.subject for g in found[:2] if not cached_phrasing(session_id, g.subject)[0]]
+    return [g.subject for g in found[:1] if not cached_phrasing(session_id, g.subject)[0]]
 
 
 def gap_context(session_id: str, subject: str) -> dict | None:
@@ -721,8 +723,8 @@ def answered(ctx: Ctx) -> str:
 
 @handles("ask")
 def ask(ctx: Ctx) -> None:
-    """The question on offer and the next, phrased while the person reads (#167, #186; ruling 6
-    of plan 1c). Passes straight through to `reply`."""
+    """The question on offer, phrased while the person reads (#167; ruling 6 of plan 1c; not the
+    next one since #331). Passes straight through to `reply`."""
     queue_phrasing(ctx)
     return None
 
