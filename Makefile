@@ -7,7 +7,7 @@
 # Check changes: make test-db, then make check. Use make verify for pipeline execution checks.
 # Each target below describes a command you can run as `make <name>`.
 
-.PHONY: help registry-present names-free prepare database-ready check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
+.PHONY: help registry-present buildx-present names-free prepare database-ready check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -226,7 +226,15 @@ database-ready: prepare  ## refuse an unverified switch from legacy PostgreSQL v
 prepare:  ## prepare writable local state and safely refresh the registry
 	python3 tools/dev_services.py prepare
 
-dev: database-ready prepare names-free $(NODEDEPS) wiki-tools  ## start the app with bounded Vite startup
+# The images use BuildKit cache mounts; without buildx Compose falls back to the legacy builder
+# and stops partway with a bare `--mount` error (#320). Say what to install before building.
+buildx-present:
+	@docker buildx version >/dev/null 2>&1 || { \
+	  echo "docker buildx is not installed, and the images need BuildKit."; \
+	  echo "Install it: docker-buildx on Arch, docker-buildx-plugin on Debian or Ubuntu."; \
+	  exit 1; }
+
+dev: database-ready prepare names-free buildx-present $(NODEDEPS) wiki-tools  ## start the app with bounded Vite startup
 	$(DC) up -d --build
 	python3 tools/dev_services.py vite
 	@echo "Built app: http://localhost:$${WEB_HOST_PORT:-80}/"

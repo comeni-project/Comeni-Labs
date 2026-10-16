@@ -30,6 +30,57 @@ class SuggestionView:
     change: DecisionChange
     heard: bool
     says: str
+    measured: object = None
+    """The measured value a stated one contradicts (#345): the card asks *are you sure?*, and
+    *yes* records what the person said."""
+
+
+def measured_against(draft_id: str, change: DecisionChange):
+    """The value the sample measured for this subject, when the change states another (#345).
+
+    A person may know better than an inspector, but a contradiction of the sample is asked
+    about once before it is followed, never recorded on a model's reading alone."""
+    from mendel_api.authoring.types import FactKind, FactSource
+    from mendel_api.services import authoring_decisions
+
+    if change.kind != "measurement" or change.retract:
+        return None
+    return next((fact.value for fact in authoring_decisions.facts(draft_id)
+                 if fact.kind is FactKind.MEASUREMENT and fact.subject == change.subject
+                 and fact.source is FactSource.MEASURED and fact.value != change.value), None)
+
+
+def unchanged(draft_id: str, change: DecisionChange) -> bool:
+    """The record already says this, so there is nothing to offer. Walk 3's model listed the
+    known want and inputs again beside the one fact it was told, and each became a card."""
+    from mendel_api.services import decisions
+
+    if change.retract:
+        return False
+    current = decisions.read(draft_id)
+
+    def same_states(states) -> bool:
+        return not change.states or sorted(change.states) == sorted(states)
+
+    if change.kind == "want":
+        return any(w.present and w.type_id == change.subject and same_states(w.states)
+                   for w in current.wants)
+    if change.kind == "input" and change.value is not False:
+        return any(i.present and i.type_id == change.subject and same_states(i.states)
+                   for i in current.inputs)
+    if change.kind == "measurement":
+        return any(f.subject == change.subject and f.value == change.value
+                   for f in current.facts)
+    return False
+
+
+def _says(change: DecisionChange, measured) -> str:
+    from mendel_api.services import changes
+
+    if measured is None:
+        return changes.describe(change)
+    label = change.subject.replace("_", " ")
+    return f"Are you sure the {label} is {change.value}? Your sample measured {measured}."
 
 
 def offer(
@@ -53,9 +104,8 @@ def offer(
 
 
 def pending(session_id: str) -> list[SuggestionView]:
-    from mendel_api.services import changes
-
     with session_scope() as db:
+        draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
         rows = db.scalars(
             select(PipelineAuthoringSuggestion)
             .where(
@@ -65,9 +115,12 @@ def pending(session_id: str) -> list[SuggestionView]:
             .order_by(PipelineAuthoringSuggestion.created_at)
         ).all()
         found = [(row.id, DecisionChange.model_validate(row.change), row.heard) for row in rows]
-    return [
-        SuggestionView(id=i, change=ch, heard=h, says=changes.describe(ch)) for i, ch, h in found
-    ]
+    views = []
+    for i, ch, h in found:
+        measured = measured_against(draft_id, ch)
+        views.append(SuggestionView(id=i, change=ch, heard=h, says=_says(ch, measured),
+                                    measured=measured))
+    return views
 
 
 def state(suggestion_id: str) -> str:

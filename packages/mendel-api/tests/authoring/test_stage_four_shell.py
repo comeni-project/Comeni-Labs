@@ -332,3 +332,13 @@ def test_an_unknown_fact_stops_the_first_tool_that_reads_it_and_one_answer_settl
         _continue(session_id)
     assert asked_again == []
     assert "subread_featurecounts" in _ids(session_id)
+
+
+def test_the_card_for_an_unknown_fact_offers_its_values_says_why_and_is_tier_four(clean):
+    """#341, from the walk: the card said tier 2, explained itself as *the rule that picks this
+    tool reads it*, and asked for strandedness as free text."""
+    session_id = _built(_goal_without_strandedness())
+    block = _walk_to_node(session_id, "hisat2_align")["payload"]["block"]
+    assert block["tier"] == 4
+    assert block["need"]["fact_values"]["strandedness"] == ["forward", "reverse", "unstranded"]
+    assert "reads strandedness" in block["need"]["fact_reasons"]["strandedness"]

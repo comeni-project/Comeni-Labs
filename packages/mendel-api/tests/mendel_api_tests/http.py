@@ -84,7 +84,7 @@ GOAL = json.dumps(
         "questions": [],
     }
 )
-"""The model's answer under `builder.goal.v8` (#307): the want, and a state it suggests (no
+"""The model's answer under `builder.goal.v9` (#307, #327): the want, and a state it suggests (no
 quote, so offered on the card, as the old `constraints` were). What it needs is gathered."""
 
 

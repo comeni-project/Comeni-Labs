@@ -62,7 +62,7 @@ export function DecisionLog({
   selected: string | null;
   busy: (proposalId: string) => boolean;
   onAccept: (
-    proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: string | number,
+    proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: string | number | boolean,
   ) => void;
   onReject: (proposal: AuthoringProposal) => void;
   onPreview: (option: string | null, mode: "temporary" | "pinned") => void;
