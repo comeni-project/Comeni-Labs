@@ -119,7 +119,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       option: string;
       expectedRevision: number;
       goal?: GoalIn;
-      value?: string | number;
+      value?: string | number | boolean;
     }) =>
       post<AuthoringDecided>(
         `/pipeline/authoring/${sessionId}/proposals/${input.proposal.id}/decide`,
@@ -223,7 +223,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
   });
 
   const accept = useCallback(
-    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number) =>
+    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number | boolean) =>
       decide.mutate({
         proposal,
         decision: "accepted",

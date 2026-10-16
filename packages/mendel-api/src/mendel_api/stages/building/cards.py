@@ -11,6 +11,7 @@ from comeni_core.plan.draft import DraftGraph
 from mendel_authoring.alternatives import alternatives_of
 from mendel_authoring.blueprint import edges_touching
 from mendel_authoring.gaps import GapKind
+from mendel_authoring.needs import NeedKind
 from mendel_authoring.pacing import Stop
 from mendel_authoring.plan import BuildPlan, PlannedStep, plan_of
 from mendel_authoring.progress import progress_of
@@ -66,7 +67,8 @@ def step_payload(
         consumes=sorted({port.type_id for port in contract.consumes if port.type_id}),
         produces=sorted({output.type_id for output in contract.produces}),
         reason=step.why.reason,
-        tier=int(step.why.tier),
+        # A step waiting on a fact nobody supplied is tier 4, whatever its tool's tier (#341).
+        tier=4 if planned.need.kind is NeedKind.FACT else int(step.why.tier),
         alternatives=[
             Option(
                 id=a.id,

@@ -74,7 +74,7 @@ export function LivingSurface({
   preview: components["schemas"]["AuthoringPreview"] | null;
   busy: (proposalId: string) => boolean;
   onAccept: (
-    proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: string | number,
+    proposal: AuthoringProposal, option?: string, goal?: GoalIn, value?: string | number | boolean,
   ) => void;
   onReject: (proposal: AuthoringProposal) => void;
   onPreviewOption: (option: string | null) => void;

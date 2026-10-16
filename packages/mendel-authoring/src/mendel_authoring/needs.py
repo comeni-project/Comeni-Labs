@@ -20,7 +20,7 @@ from comeni_core.artifact.pipeline import Step
 from comeni_core.plan.decision import DecisionRecord, FactDecision, ProducerDecision
 from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import ParamValue
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_authoring.brief import tool_of
 from mendel_authoring.gaps import no_domain
@@ -54,6 +54,15 @@ class Need(BaseModel):
     kind: NeedKind
     facts: list[str] = []
     choices: list[Choice] = []
+    fact_values: dict[str, list[ParamValue]] = Field(
+        default_factory=dict, exclude_if=lambda values: not values
+    )
+    """For a fact a tool reads (`FactDecision`), the answers it can take, so the card offers them
+    rather than a text box (#341). Absent for a rule's missing premise: read length is typed."""
+    fact_reasons: dict[str, str] = Field(
+        default_factory=dict, exclude_if=lambda reasons: not reasons
+    )
+    """Why each such fact is asked, from its record: *a tool reads it*, not a rule (#341)."""
 
 
 def decisions_of(step: Step, decisions: Sequence[DecisionRecord]) -> list[DecisionRecord]:
@@ -84,9 +93,12 @@ def need_of(step: Step, decisions: Sequence[DecisionRecord], declared: Declared)
         {fact for r in open_ if isinstance(r, ProducerDecision | FactDecision)
          for fact in r.unknown}
     )
+    read = [r for r in open_ if isinstance(r, FactDecision)]
     return Need(
         kind=NeedKind.FACT if facts else NeedKind.CHOICE,
         facts=facts,
+        fact_values={r.subject: list(r.candidates) for r in read},
+        fact_reasons={r.subject: r.reason for r in read},
         choices=[
             Choice(key=r.key, candidates=[_candidate(r, value, declared) for value in r.candidates])
             for r in open_
