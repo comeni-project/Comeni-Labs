@@ -162,12 +162,12 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     # `measurement.read_length` for the measurement `read_length`.
     lines = ["Types (files and results; a want, an input or a state names one), each with its "
              "declared states:"]
-    shown = stack.vocabulary.types if types is None else set(types)
-    for type_id, states in sorted(stack.vocabulary.types.items()):
-        # The derived `measurement.<id>` types route profiling; listed here, the walk's model
-        # required `measurement.read_length` for *read length is 50*. Each is listed below as
-        # the measurement it is.
-        if type_id not in shown or type_id.startswith("measurement."):
+    shown = set(registry.builder_types(stack)) if types is None else set(types)
+    for type_id, states in sorted(registry.builder_types(stack).items()):
+        # The derived `measurement.<id>` types are not among them (#346); listed here, the walk's
+        # model required `measurement.read_length` for *read length is 50*. Each is listed below
+        # as the measurement it is.
+        if type_id not in shown:
             continue
         spelled = ", ".join(sorted(states)) if states else "(no states)"
         lines.append(f"  {type_id} — {spelled}")
@@ -282,9 +282,9 @@ def understand(
     and a different shape from `follow_up` rather than one call with half its fields empty.
     """
     shown = (
-        sorted(stack.vocabulary.types)
+        sorted(registry.builder_types(stack))
         if families is None
-        else stack.families.types_of(families, stack.vocabulary.types)
+        else stack.families.types_of(families, registry.builder_types(stack))
     )
     return _call(
         request,
@@ -303,7 +303,7 @@ def understand(
         session_id=session_id,
         choices={
             "wants.type": shown,
-            "inputs.type": sorted(stack.vocabulary.types),
+            "inputs.type": sorted(registry.builder_types(stack)),
             "requires.type": shown,
             # A fact names a measurement, or a type the person said they hold.
             "facts.subject": _subjects(stack),
@@ -326,7 +326,7 @@ def _open_text(stack, subject: str | None) -> str:
 
 
 def _subjects(stack) -> list[str]:
-    return sorted(set(stack.vocabulary.types) | set(stack.measurements.measurements))
+    return sorted(set(registry.builder_types(stack)) | set(stack.measurements.measurements))
 
 
 def _admit_wanted(understanding, shown: Sequence[str]):
@@ -375,10 +375,10 @@ def follow_up(
         client=client,
         session_id=session_id,
         choices={
-            "wants.type": sorted(stack.vocabulary.types),
-            "inputs.type": sorted(stack.vocabulary.types),
-            "requires.type": sorted(stack.vocabulary.types),
-            "pins.type": sorted(stack.vocabulary.types),
+            "wants.type": sorted(registry.builder_types(stack)),
+            "inputs.type": sorted(registry.builder_types(stack)),
+            "requires.type": sorted(registry.builder_types(stack)),
+            "pins.type": sorted(registry.builder_types(stack)),
             "pins.tool": sorted(c.id for c in stack.registry.all()),
             "facts.subject": _subjects(stack),
             "retract.subject": _subjects(stack),
@@ -524,9 +524,9 @@ def characterise(
     an id outside what was offered refuses the whole reply.
     """
     shown = sorted(
-        stack.vocabulary.types
+        registry.builder_types(stack)
         if families is None
-        else stack.families.types_of(families, stack.vocabulary.types)
+        else stack.families.types_of(families, registry.builder_types(stack))
     )
     measured = sorted({m for t in shown for m in offered(stack, t)[1]})
     return _call(
@@ -787,7 +787,7 @@ def admit_goal(goal, stack) -> None:
     the id — `tests/guards/test_construction.py` exists to stop a second one being written, and a
     hand-rolled `in` test beside it is that second one arriving by another name.
     """
-    declared = stack.vocabulary.types
+    declared = registry.builder_types(stack)
     unknown: list[str] = []
 
     def _type(type_id: str, states=()) -> None:

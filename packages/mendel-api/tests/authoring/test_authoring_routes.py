@@ -421,6 +421,13 @@ def test_the_vocabulary_a_goal_card_may_use_is_the_registrys():
     assert "gene_level" in types["counts.matrix"]
 
 
+def test_the_goal_card_is_not_offered_a_measurement_as_a_type():
+    """#346, walk 3: *+ add a type* listed `measurement.read_length` beside `fastq.reads`."""
+    types = TestClient(create_app()).get("/api/pipeline/authoring/vocabulary").json()["types"]
+    assert types
+    assert not [t for t in types if t.startswith("measurement.")]
+
+
 def test_an_edit_body_is_the_graph_and_nothing_else():
     assert set(routes.EditAuthoringDraft.model_fields) == {"graph", "expected_revision"}
 
