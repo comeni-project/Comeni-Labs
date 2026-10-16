@@ -198,11 +198,12 @@ def test_the_chat_prompt_names_every_list_and_changes_nothing_itself():
         "**`parameters`**",
         "**`retract`**",
         "**`not_offered`**",
-        "**`proceed`**",
         "There is no general-purpose command",
         "You change nothing yourself",
     ):
         assert required in body, f"the chat prompt no longer says: {required!r}"
+    # #336: settling a step is the person's Continue; the model is not offered it.
+    assert "proceed" not in body
 
 
 def test_the_chat_prompt_refuses_an_arbitrary_tool_id():

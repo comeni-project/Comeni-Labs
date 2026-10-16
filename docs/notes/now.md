@@ -15,8 +15,8 @@ history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is kept verbatim
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
 - **14.7.8.3d Parts A–H are implemented** (#285–#292). Part I (#293) is I.1 explain the inputs
   (done), I.2 say what was narrowed, I.3 a conversation; **Part I.0** (#307, grounded changes) came
-  first: Plan A is done, **next its walk with a model, then Plan B** (the save file). Undo: #302.
-  (2026-10-11, 2026-10-12, 2026-10-13)
+  first: Plan A is done and walked (#321); #338 (ask nothing a sample or sentence answers) is
+  built and walked. **Next: merge #332, `facts-a-step-needs`; then Plan B.** Undo: #302. (10-16)
 
 ## How work is done now
 

@@ -69,6 +69,9 @@ FREE_TEXT_FIELDS = {
     ("ParamDecision", "reason"),
     ("ProducerDecision", "reason"),
     ("SourceDecision", "reason"),
+    # The fourth kind (#338): a fact a tool reads and nobody supplied. Its reason names the
+    # tool and the fact, both declared ids; the same door as the three above.
+    ("FactDecision", "reason"),
     # Seventh, and expected: `Pipeline` became door 4's payload in Plan 1.10 Task 11, and
     # `Why.reason` is the citation beside every value — the legibility the whole artifact
     # exists for. It is a `Line`, so it is `FREE_TEXT` with a single-line validator, and it

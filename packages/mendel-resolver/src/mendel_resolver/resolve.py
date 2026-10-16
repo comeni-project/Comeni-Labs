@@ -4,12 +4,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from comeni_core.declared.contract import InputPort, Param
-from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
 from comeni_core.goal.asked import ProducerPin
 from comeni_core.plan.decision import (
     DecisionRecord,
+    FactDecision,
     ParamAsked,
     ParamDecision,
     SourceAsked,
@@ -51,8 +52,13 @@ def resolve(
     resolver: AmbiguityResolver | None = None,
     layer_names: Sequence[str] = (),
     prior: Sequence[DecisionRecord] = (),
+    facts_read: Mapping[str, frozenset[str] | None] | None = None,
 ) -> PipelineIR:
-    """`prior` is the evidence behind a `source: HUMAN` claim, and it comes from the caller
+    """`facts_read` is, per contract, the facts its tool's code reads off the sample's label
+    (`mendel_compiler.conformance.facts_read`); one of them nobody supplied is tier 4 (#338).
+    None, the default, is nobody having looked: nothing is recorded, as before.
+
+    `prior` is the evidence behind a `source: HUMAN` claim, and it comes from the caller
     rather than from the resolver. A56: a resolver that says `HUMAN` clears its own tier-4
     review, so the claim has to be checkable against something the resolver did not write.
 
@@ -174,6 +180,23 @@ def resolve(
             if decision is not None:
                 ir.decisions.append(decision)
 
+        # **What a tool reads comes from somewhere** (#338): a fact its code reads off the
+        # sample's label, and nobody supplied, is tier 4, as an unsupplied setting is.
+        known = {entry.measurement for entry in goal.profile.measurements}
+        for fact in sorted((facts_read or {}).get(contract.id) or ()):
+            if fact in known:
+                continue
+            ir.decisions.append(
+                FactDecision(
+                    key=f"{node.id}.fact.{fact}",
+                    subject=fact,
+                    reason=f"{contract.id} reads {fact}, and it is not known",
+                    resolved_by="flag-only",
+                    candidates=_values_of(measurements.get(fact)),
+                    unknown=[fact],
+                )
+            )
+
         for port in contract.consumes:
             source = _source_for(produced, port, node.id, ir.decisions, resolver)
             if source is not None:
@@ -291,6 +314,13 @@ def _source_for(
             )
         )
     return chosen
+
+
+def _values_of(measurement) -> list:
+    """The answers a person can give: an enum's values, or yes and no."""
+    if measurement.kind is MeasurementKind.BOOLEAN:
+        return [True, False]
+    return list(measurement.values)
 
 
 def _roles_in(registry: Registry) -> list[str]:

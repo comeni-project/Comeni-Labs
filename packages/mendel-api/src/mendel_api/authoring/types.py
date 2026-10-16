@@ -719,8 +719,8 @@ class ChatReply(_Shape):
     retract: list[RetractItem] = []
     not_offered: list[NotOfferedItem] = []
     questions: list[AskedQuestion] = []
-    proceed: bool = False
-    """*Go on*: the waiting step is settled. Nothing else is asked."""
+    # No `proceed` (#336, operator: C): settling a step is the person's Continue, never the
+    # model's reading of what they typed. It settled steps recorded as *you chose*.
 
 
 class GapReply(_Shape):

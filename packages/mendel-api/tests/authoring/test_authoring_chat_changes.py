@@ -58,7 +58,8 @@ def test_a_quoted_typed_answer_is_recorded_and_the_next_question_follows(clean, 
     assert _value(sid, "read_length") == 150
     assert decisions.heard_of(_draft(sid))[("fact", "read_length")][0] == "150 bp"
     pending = facade.pending_id(sid)
-    assert pending is None or _payload(pending)["subject"] != "read_length"
+    # The goal card has no subject: read_length is the last question since #338.
+    assert pending is None or _payload(pending).get("subject") != "read_length"
 
 
 def test_an_unquoted_typed_answer_pre_fills_and_records_nothing(clean, monkeypatch):
@@ -104,16 +105,17 @@ def test_a_reading_that_lands_after_a_click_is_offered_not_recorded(clean, monke
     ]
 
 
-def test_go_on_settles_the_waiting_step_and_does_nothing_at_a_question(clean, monkeypatch):
+def test_the_model_cannot_settle_a_waiting_step(clean, monkeypatch):
+    """#336 (operator: C), from the second walk: the model's `proceed` settled TrimGalore and
+    STAR_ALIGN, and the log read *you chose*. Continue is the person's button; a reply that
+    still carries `proceed` settles nothing."""
+    from mendel_api.authoring.types import ChatReply
+
+    assert "proceed" not in ChatReply.model_fields
     sid = _resolving()
     first = authoring_setup.start_building(sid)
     _typed(monkeypatch, sid, "looks good, go on", {"say": "Carrying on.", "proceed": True})
-    assert facade.pending_id(sid) != first
-
-    gathering_sid = _gathering(want=["counts.matrix"])
-    waiting = facade.pending_id(gathering_sid)
-    _typed(monkeypatch, gathering_sid, "go on", {"proceed": True})
-    assert facade.pending_id(gathering_sid) == waiting
+    assert facade.pending_id(sid) == first
 
 
 def test_something_to_say_alone_records_nothing(clean, monkeypatch):
@@ -264,3 +266,15 @@ def test_a_model_question_with_choices_is_still_a_card(clean, monkeypatch):
                            "choices": ["gene", "transcript"]}]})
     [card] = _blocks(sid, "question")
     assert [o["label"] for o in card["options"]] == ["gene", "transcript"]
+
+
+def test_a_quote_from_an_earlier_turn_is_not_heard(clean, monkeypatch):
+    """#337 (operator: A), from the second walk: the DE sentence, typed two turns earlier, made a
+    read-length retraction read as *you said*. Only the turn being answered can be quoted."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(monkeypatch, sid, "they are 150 bp", {"say": "Noted."})
+    _typed(monkeypatch, sid, "and the library is from mouse liver",
+           {"facts": [{"subject": "read_length", "value": 150, "quote": "150 bp"}]})
+    assert _value(sid, "read_length") != 150
+    assert [v.change.subject for v in suggestions.pending(sid)] == ["read_length"]

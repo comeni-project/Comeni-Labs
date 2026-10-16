@@ -313,16 +313,17 @@ def test_a_phrasing_that_arrives_after_the_answer_changes_nothing(clean):
 
 
 def test_a_prefetched_phrasing_expires_when_earlier_answers_change_its_context(clean):
+    # read_length is the last question asked since #338 (strandedness is not asked).
     sid = _gathering(want=["counts.matrix"])
     facade.perform(
         commands.StorePhrasing(
             sid,
-            "strandedness",
+            "read_length",
             _asked("Which way was the library made?").model_dump(mode="json"),
-            stamp=gathering.phrasing_context(sid, "strandedness"),
+            stamp=gathering.phrasing_context(sid, "read_length"),
         )
     )
-    pid = _pending_for(sid, "strandedness")
+    pid = _pending_for(sid, "read_length")
     block = _payload(pid)["block"]
     assert block["asks"] != "Which way was the library made?"
     assert block["phrasing"] == "none"
@@ -335,13 +336,13 @@ def test_a_refused_prefetch_is_retried_for_a_new_decision_context(clean, monkeyp
     sid = _gathering(want=["counts.matrix"])
     facade.perform(
         commands.PhrasingFailed(
-            sid, "strandedness", stamp=gathering.phrasing_context(sid, "strandedness")
+            sid, "read_length", stamp=gathering.phrasing_context(sid, "read_length")
         )
     )
-    assert "strandedness" not in gathering.to_phrase(sid)
-    block = _payload(_pending_for(sid, "strandedness"))["block"]
+    assert "read_length" not in gathering.to_phrase(sid)
+    block = _payload(_pending_for(sid, "read_length"))["block"]
     assert block["phrasing"] == "pending"
-    assert "strandedness" in gathering.to_phrase(sid)
+    assert "read_length" in gathering.to_phrase(sid)
 
 
 def test_without_a_model_nothing_is_pending_and_nothing_is_queued(clean, monkeypatch):

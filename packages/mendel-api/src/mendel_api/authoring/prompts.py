@@ -52,11 +52,12 @@ that.
 RETIRED: tuple[PromptId, ...] = (
     # Superseded by the change lists and the memory (#307): goal.v6 and v7 by goal.v8, chat.v2
     # and gap.v2 by chat.v3, ask.v1 by ask.v2, readback.v1 by readback.v2, family.v3 by v4.
-    # chat.v3 by chat.v4 (#324).
+    # chat.v3 by chat.v4 (#324), chat.v4 by chat.v5 (#336).
     "builder.goal.v6",
     "builder.goal.v7",
     "builder.chat.v2",
     "builder.chat.v3",
+    "builder.chat.v4",
     "builder.gap.v2",
     "builder.ask.v1",
     "builder.readback.v1",
@@ -90,9 +91,12 @@ a family holds the result itself, never a step on the way (ChIP-seq peaks were r
 `alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
 the shared block, as every template does."""
 
-CHAT: PromptId = "builder.chat.v4"
+CHAT: PromptId = "builder.chat.v5"
 """Typed words anywhere after the want is read, in; something to say and the changes they ask
 for out (`ChatReply`), each quoting the person (#307).
+
+**v5 (2026-10-15, #336)** has no `proceed`: Continue is the person's. v4's settled two steps
+in the second walk, recorded as the person's choice.
 
 **v4 (2026-10-15, #324)** is shown the vocabulary, every measurement with what it holds, and
 which subject the waiting question asks about. Never shown a measurement id, v3 answered *"so

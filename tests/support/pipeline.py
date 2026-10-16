@@ -258,6 +258,7 @@ _GOAL_MODELS = frozenset(
         "ParamDecision",
         "ProducerDecision",
         "SourceDecision",
+        "FactDecision",
         "Displacement",
     }
 )
