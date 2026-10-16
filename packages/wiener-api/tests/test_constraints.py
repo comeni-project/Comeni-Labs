@@ -26,12 +26,34 @@ def test_an_event_for_a_run_that_does_not_exist_is_refused(session):
         _event(session, run_id="nope", lab_id="local")
 
 
-def test_an_event_in_another_lab_than_its_run_is_refused(session, a_run):
+# Each key's child row, written for a run that exists in `local` but claiming `another-lab`.
+OTHER_LAB = {
+    "run_event": "INSERT INTO run_event (run_id, lab_id, seq, kind, at_ms, payload, received_at) "
+                 "VALUES (:run, 'another-lab', 0, 'heartbeat', 0, '{}', '2026-01-01')",
+    "run_task": "INSERT INTO run_task (run_id, lab_id, task_id, process, status, attempts, "
+                "last_change_ms, labels) VALUES (:run, 'another-lab', 1, 'P', 'RUNNING', '[]', 0, "
+                "'[]')",
+    "run_intent": "INSERT INTO run_intent (id, lab_id, run_id, kind, because, who, at, why, "
+                  "prior_phase, outcome) VALUES ('i9', 'another-lab', :run, 'cancel', "
+                  "'operator_request', 'op', '2026-01-01', '', 'running', 'signalled')",
+    "run_intent.resulting_run_id": "INSERT INTO run_intent (id, lab_id, run_id, kind, because, "
+                  "who, at, why, prior_phase, resulting_run_id, outcome) VALUES ('i8', 'local', "
+                  ":run, 'relaunch', 'operator_request', 'op', '2026-01-01', '', 'failed', "
+                  "'nope', 'signalled')",
+    "run.artifact_id": "INSERT INTO run (id, lab_id, artifact_id, submitted_by, submitted_at, "
+                       "phase, executor, ingest_secret, last_seq, terminal_seen) VALUES ('r9', "
+                       "'another-lab', (SELECT artifact_id FROM run WHERE id = :run), 't', "
+                       "'2026-01-01', 'queued', 'local', 's', -1, '[]')",
+}
+
+
+@pytest.mark.parametrize("key", sorted(OTHER_LAB))
+def test_a_child_in_another_lab_than_its_parent_is_refused(session, a_run, key):
     """`lab_id` was copied onto every child and nothing made it equal its parent's: the leak
-    the models' docstrings name. The key is `(lab_id, run_id)`, so the other lab has no such
-    run."""
+    the models' docstrings name. Each key is `(lab_id, …)`, so the other lab has no such parent
+    (issue 274; every key here since issue 297)."""
     with pytest.raises(IntegrityError, match="FOREIGN KEY"):
-        _event(session, run_id=a_run.id, lab_id="another-lab")
+        session.execute(text(OTHER_LAB[key]), {"run": a_run.id})
 
 
 def test_an_intent_with_no_resulting_run_is_accepted(session, a_run):

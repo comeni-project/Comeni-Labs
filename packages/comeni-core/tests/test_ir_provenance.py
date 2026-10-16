@@ -75,7 +75,7 @@ def test_a_resolved_ir_carries_the_displacements(tmp_path):
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    sort = next(base.rglob("sort/contract.yml"))
+    sort = base / "tools/nf-core/samtools/sort/contract.yml"
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",
@@ -110,7 +110,7 @@ def test_a_displacement_names_the_layer_and_never_its_path(tmp_path):
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    sort = next(base.rglob("sort/contract.yml"))
+    sort = base / "tools/nf-core/samtools/sort/contract.yml"
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",
@@ -148,7 +148,7 @@ def test_the_ir_round_trips_with_its_provenance(tmp_path):
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    sort = next(base.rglob("sort/contract.yml"))
+    sort = base / "tools/nf-core/samtools/sort/contract.yml"
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",

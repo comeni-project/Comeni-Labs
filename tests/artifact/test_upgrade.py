@@ -144,7 +144,7 @@ def test_drift_is_reported_even_when_nothing_resolved_differently(tmp_path, caps
     the lockfile no longer describes what is on disk, and that is worth knowing."""
 
     def touch(layer):
-        sort = next(layer.rglob("sort/contract.yml"))
+        sort = layer / "tools/nf-core/samtools/sort/contract.yml"
         sort.write_text(_declared(sort, sort.read_text().replace("priority: 0", "priority: 3")))
 
     bundle = _published(tmp_path)
@@ -480,7 +480,7 @@ def test_a_replayed_value_frozen_against_a_moved_contract_is_reported(tmp_path, 
     bundle = _published(tmp_path)
 
     def bump_a_default(layer):
-        counts = next(layer.rglob("featurecounts/contract.yml"))
+        counts = layer / "tools/nf-core/subread/featurecounts/contract.yml"
         counts.write_text(
             _declared(
                 counts,
@@ -511,7 +511,7 @@ def _a_and_a_different_b(tmp_path):
     """A built from the base registry, B from an overlay that bumps a default — so B is a
     genuinely different pipeline, not a byte-identical rebuild the guard would (rightly) allow."""
     def bump(layer):
-        counts = next(layer.rglob("featurecounts/contract.yml"))
+        counts = layer / "tools/nf-core/subread/featurecounts/contract.yml"
         counts.write_text(
             _declared(
                 counts,

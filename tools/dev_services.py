@@ -154,7 +154,10 @@ def wait_postgres(container: str, timeout=30.0) -> None:
     while time.monotonic() < deadline:
         try:
             ready = subprocess.run(
-                ["docker", "exec", container, "psql", "-U", "mendel", "-qtAc", "SELECT 1"],
+                # Over TCP: the image's first-start init server answers on the socket only,
+                # then restarts.
+                ["docker", "exec", container, "pg_isready", "-q", "-h", "127.0.0.1",
+                 "-U", "mendel", "-d", "mendel"],
                 capture_output=True,
                 timeout=3,
                 check=False,
