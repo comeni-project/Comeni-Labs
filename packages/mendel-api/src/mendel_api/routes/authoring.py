@@ -468,7 +468,7 @@ def vocabulary() -> AuthoringVocabulary:
     from mendel_api.services import registry as registry_service
 
     stack = registry_service.stack()
-    types = stack.vocabulary.types
+    types = registry_service.builder_types(stack)
     return AuthoringVocabulary(
         types={t: sorted(types[t]) for t in sorted(types)},
         measurements=stack.measurements.measurements,

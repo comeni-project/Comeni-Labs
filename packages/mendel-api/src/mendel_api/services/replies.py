@@ -18,6 +18,7 @@ from sqlalchemy import select
 from mendel_api.authoring.types import ChatReply, TurnRole, Understanding
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringTurn
+from mendel_api.services import registry
 
 
 @dataclass(frozen=True)
@@ -47,7 +48,7 @@ def admit(reply: Understanding | ChatReply, stack) -> Understanding | ChatReply:
     A value a measurement refuses is refused the same way: the reply named something this
     registry cannot hold. Returns the reply with each fact's value read by its declared kind,
     which is what is recorded."""
-    types, measurements = stack.vocabulary.types, stack.measurements
+    types, measurements = registry.builder_types(stack), stack.measurements
     unknown: list[str] = []
     # A value written as text is read by its measurement's declared kind first (issue 323);
     # what does not read as the kind is left for `check` to refuse.
@@ -136,7 +137,7 @@ def sift(reply: ChatReply, stack) -> Sifted:
 
 def _changes(reply, stack, wanted: frozenset[str]) -> list[tuple[DecisionChange, str | None]]:
     """Each item as the change it asks for, with its quote."""
-    types = stack.vocabulary.types
+    types = registry.builder_types(stack)
     out: list[tuple[DecisionChange, str | None]] = []
     for item in reply.wants:
         out.append((DecisionChange(kind="want", subject=item.type), item.quote))
