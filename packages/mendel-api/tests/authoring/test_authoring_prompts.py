@@ -224,7 +224,10 @@ def test_the_chat_prompt_grounds_an_explanation_on_known_step_ids():
 
 
 def test_the_chat_prompt_is_grounded_on_the_pipeline_the_options_and_a_bounded_tail():
+    """And, since v4 (#324), on the vocabulary and the subject of the waiting question."""
     assert prompts.template(prompts.CHAT).placeholders() == {
+        "vocabulary",
+        "open",
         "memory",
         "pipeline",
         "options",
@@ -335,6 +338,7 @@ def test_the_python_running_this_can_import_the_package():
 
 PER_CALL = {  # two different sessions' values for every per-call placeholder
     "conversation": ("person: hello", "person: something else entirely"),
+    "open": ("(nothing is waiting for an answer)", "It asks about `read_length`."),
     "request": ("gene counts", "variant calls"),
     "pipeline": ("step a", "step b"),
     "options": ("keep", "alt_1"),

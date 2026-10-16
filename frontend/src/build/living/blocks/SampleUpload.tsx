@@ -25,12 +25,15 @@ type Stage =
   | { at: "failed"; files: File[]; why: string };
 
 const PAIR = "choose one file, or both files if your reads are paired";
+const ONE = "choose one file";
 /** How to choose, in the person's terms (Part I.1). **Nothing about bytes or the AI read on the
  *  card** (operator, 2026-10-13, replacing issue 135's line): on an install a lab runs itself it
- *  reads as a warning; Settings → Privacy says where each purpose goes. */
-const CHOOSE =
+ *  reads as a warning; Settings → Privacy says where each purpose goes. A pair only where a
+ *  sample of the type may be two files (issue 328): never under a genome. */
+const CHOOSE_PAIR =
   "Choose one file, or both files if your reads are paired. Paired files are usually named "
   + "_R1 and _R2, or _1 and _2.";
+const CHOOSE_ONE = "Choose one file.";
 
 export function SampleUpload({
   proposalId,
@@ -41,6 +44,7 @@ export function SampleUpload({
   onMeasuring = () => {},
   onPicked = () => {},
   reading = null,
+  files = 2,
 }: {
   proposalId: string;
   label: string;
@@ -54,6 +58,8 @@ export function SampleUpload({
   onPicked?: (picked: boolean) => void;
   /** The AI reading this question's sample (issue 135), as the server keeps it. */
   reading?: SampleReading | null;
+  /** The most files one sample may be: the question's `explain.files` (issue 328). */
+  files?: number;
 }) {
   const field = useId();
   const [stage, setStageOnly] = useState<Stage>({ at: "offered" });
@@ -63,11 +69,12 @@ export function SampleUpload({
   };
   const [refusal, setRefusal] = useState<string | null>(null);
 
+  const most = files;
   const pick = (list: FileList | null) => {
     const files = Array.from(list ?? []);
     if (files.length === 0) return;
-    if (files.length > 2) {
-      setRefusal(`${files.length} files: ${PAIR}.`);
+    if (files.length > most) {
+      setRefusal(`${files.length} files: ${most > 1 ? PAIR : ONE}.`);
       setStage({ at: "offered" });
       return;
     }
@@ -141,7 +148,7 @@ export function SampleUpload({
         <input
           id={field}
           type="file"
-          multiple
+          multiple={most > 1}
           className="sr-only"
           disabled={busy}
           onChange={(e) => {
@@ -172,7 +179,7 @@ export function SampleUpload({
         <div className="flex flex-col gap-[6px] md:items-start">
           {picker}
           <p className="m-0 text-[11.5px] text-ink-3">
-            {handBackGone ? "Choose the file again to measure it." : CHOOSE}
+            {handBackGone ? "Choose the file again to measure it." : most > 1 ? CHOOSE_PAIR : CHOOSE_ONE}
           </p>
         </div>
       )}

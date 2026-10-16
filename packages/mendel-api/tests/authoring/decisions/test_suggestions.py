@@ -76,6 +76,20 @@ def test_the_session_view_lists_what_is_waiting(clean):
     assert [s["says"] for s in facade.read(sid)["suggestions"]] == ["read length is 50"]
 
 
+def test_the_route_lists_what_is_waiting(clean):
+    """Issue 322: the service listed the suggestion and the route dropped it, so the page never
+    had one to offer. An empty list is what the bug returned, so this asserts one comes back."""
+    from fastapi.testclient import TestClient
+    from mendel_api.main import create_app
+
+    sid = _built()
+    offered = suggestions.offer(sid, FIFTY, heard=True, invocation_id="inv-1")
+    view = TestClient(create_app()).get(f"/api/pipeline/authoring/{sid}").json()
+    assert [(s["id"], s["says"], s["heard"]) for s in view["suggestions"]] == [
+        (offered, "read length is 50", True)
+    ]
+
+
 def test_the_route_applies_and_dismisses(clean):
     from fastapi.testclient import TestClient
     from mendel_api.main import create_app

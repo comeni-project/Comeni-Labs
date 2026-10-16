@@ -109,6 +109,7 @@ export function GapCard({
             onMeasuring={setMeasuring}
             onPicked={setPicked}
             reading={block.reading ?? null}
+            files={explained?.files ?? 1}
           />
         </div>
       )}

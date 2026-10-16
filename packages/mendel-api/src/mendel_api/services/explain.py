@@ -43,8 +43,10 @@ def _lower(text: str) -> str:
 
 
 def explanation(gap: Gap, found: list[Gap], stack, *, measured: dict[str, set[str]],
-                read: set[str], characterisable: bool) -> Explanation:
-    """`found` is every gap still open, so `settles` promises only questions still to come."""
+                read: set[str], characterisable: bool,
+                files: dict[str, int] | None = None) -> Explanation:
+    """`found` is every gap still open, so `settles` promises only questions still to come.
+    `files` is the most files a sample of each input type may be (`gathering._sample_files`)."""
     if gap.decides:
         needed = [Reason(text=d.because or f"decides the {d.targets()[0].of}", detail=d.cite)
                   for d in gap.decides]
@@ -54,9 +56,15 @@ def explanation(gap: Gap, found: list[Gap], stack, *, measured: dict[str, set[st
         reads = "steps" if needed else None
     settles: list[str] = []
     read_by = None
+    most = 1
     if gap.kind is FactKind.INPUT:
         settles = [_lower(name_of(stack, FactKind.MEASUREMENT, g.subject)) for g in found
                    if g.kind is FactKind.MEASUREMENT and gap.subject in measured.get(g.subject, ())]
         read_by = "inspector" if gap.subject in read else ("ai" if characterisable else None)
+        most = (files or {}).get(gap.subject, 1)
+    elif gap.kind is FactKind.MEASUREMENT:
+        # A sample answering a measurement is one of the types that measure it (the reads, for
+        # read length), so it may be as many files as they may (#328, the second walk).
+        most = max(((files or {}).get(t, 1) for t in measured.get(gap.subject, ())), default=1)
     return Explanation(name=name_of(stack, gap.kind, gap.subject), what=_what(stack, gap),
-                       needed=needed, reads=reads, settles=settles, read_by=read_by)
+                       needed=needed, reads=reads, settles=settles, read_by=read_by, files=most)

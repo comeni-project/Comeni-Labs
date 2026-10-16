@@ -102,6 +102,19 @@ def _inspectable(stack) -> tuple[dict[str, set[str]], set[str]]:
     return measured, read
 
 
+def _sample_files(stack) -> dict[str, int]:
+    """The most files one sample of each input type may be, from the trusted formats that read
+    it (`files: 1..2` is a file or a pair). A type no format reads is absent: the AI reads one
+    file of it (issue 328)."""
+    from mendel_api.services import measurers
+
+    counts: dict[str, int] = {}
+    for fmt in measurers.usable_pieces(stack).formats.values():
+        for type_id in fmt.reads:
+            counts[type_id] = max(counts.get(type_id, 1), fmt.file_counts[1])
+    return counts
+
+
 def _answer_of(proposal: PipelineAuthoringProposal, facts: list[dict]) -> str | None:
     """What was said to an answered gap, for the log: the typed value, or the option's label.
     `None` for anything that is not a gap (issue 169)."""
@@ -301,7 +314,8 @@ def offer_gap_or_card(session_id: str) -> str:
     question = _gap_question(gap, options, stack, version)
     measured, read = _inspectable(stack)
     explained = explain.explanation(gap, found, stack, measured=measured, read=read,
-                                    characterisable=_characterisable())
+                                    characterisable=_characterisable(),
+                                    files=_sample_files(stack))
     # **A suggestion pre-fills the question it answers** (Part I.0 §5.3): the model's reading,
     # marked as such, sent only by the person's click.
     offered = next(
@@ -494,8 +508,10 @@ def _pending_gap(db, session_id: str):
 
 
 def to_phrase(session_id: str) -> list[str]:
-    """The subjects worth phrasing now: the question on offer and the next one (#186), minus any
-    already phrased. Empty with no model, or outside gathering."""
+    """The subject worth phrasing now: the question on offer, unless already phrased. Empty with
+    no model, or outside gathering. Not the next one too, as #186 did: its phrasing is keyed on
+    the decision revision, which the answer before it always moves, so every question was
+    phrased twice (#331, operator: stop)."""
     if session.current_phase(session_id) is not Phase.GATHERING:
         return []
     return _unphrased(session_id)
@@ -510,7 +526,7 @@ def _unphrased(session_id: str) -> list[str]:
     found = gaps.gaps(wanted.get("want", []), facts, registry.stack())
     if isinstance(found, gaps.Unreachable):
         return []
-    return [g.subject for g in found[:2] if not cached_phrasing(session_id, g.subject)[0]]
+    return [g.subject for g in found[:1] if not cached_phrasing(session_id, g.subject)[0]]
 
 
 def gap_context(session_id: str, subject: str) -> dict | None:
@@ -707,8 +723,8 @@ def answered(ctx: Ctx) -> str:
 
 @handles("ask")
 def ask(ctx: Ctx) -> None:
-    """The question on offer and the next, phrased while the person reads (#167, #186; ruling 6
-    of plan 1c). Passes straight through to `reply`."""
+    """The question on offer, phrased while the person reads (#167; ruling 6 of plan 1c; not the
+    next one since #331). Passes straight through to `reply`."""
     queue_phrasing(ctx)
     return None
 

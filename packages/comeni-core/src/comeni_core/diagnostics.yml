@@ -3687,9 +3687,11 @@ MI0204:
   fires_on: [authoring]
   refuses: true
   fix: |
-    Nothing was applied. The refusal names the ids that are not declared; say what you want in
-    different words, or add the missing type or measurement to a registry layer through the
-    forge, which is the reviewed path for new vocabulary (invariant 2).
+    Nothing undeclared is applied. A first reading is refused whole; in the conversation only
+    the items naming an undeclared id are set aside, and the rest of the reply stands (#326).
+    The notice names those ids; say what you want in different words, or add the missing type
+    or measurement to a registry layer through the forge, which is the reviewed path for new
+    vocabulary (invariant 2).
   explanation: |
     A goal is expressed entirely in declared vocabulary — type ids, states, and measurement ids
     that a registry layer declares. The prompt shows a model that vocabulary and tells it to

@@ -11,7 +11,7 @@ const GTF: Explanation = {
   name: "gene annotation (GTF)",
   what: "A table of where each gene and its exons lie on the genome.",
   needed: [{ text: "STAR", detail: "Aligns reads." }, { text: "featureCounts", detail: null }],
-  reads: "steps", settles: [], read_by: "ai",
+  reads: "steps", settles: [], read_by: "ai", files: 1,
 };
 
 describe("what a question is about", () => {

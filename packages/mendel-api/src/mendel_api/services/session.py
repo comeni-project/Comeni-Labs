@@ -543,7 +543,8 @@ def read(session_id: str) -> dict:
             "show_gap_details": details,
             "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
             "decision_revision": draft.decision_revision,
-            "projection_current": draft.projection_current,
+            # Outdated is a built pipeline the answers moved past; nothing built is not (#329).
+            "projection_current": draft.projection_current or draft.projection_revision is None,
             "ownership": draft.ownership,
             "retired": row.retired,
             "forked_from": draft.forked_from,

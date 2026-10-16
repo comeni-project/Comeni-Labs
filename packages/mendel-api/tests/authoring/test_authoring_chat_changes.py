@@ -142,3 +142,125 @@ def test_a_click_before_the_job_starts_still_wins(clean, monkeypatch):
     assert [(v.change.subject, v.change.value) for v in suggestions.pending(sid)] == [
         ("paired", False)
     ]
+
+
+def test_a_refusal_says_what_it_refused(clean, monkeypatch):
+    """Issue 325, from the walk: the notice kept only *"the reply names something this registry
+    does not declare"*, so nobody could tell what. The walk's reply, word for word."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(
+        monkeypatch,
+        sid,
+        "I already said: 2x100, so 100 bp",
+        {"parameters": [{"name": "sequenced_read_length", "value": "100"}]},
+    )
+    [notice] = _notices(sid)
+    assert notice["code"] == "MI0204"
+    assert "setting sequenced_read_length" in notice["text"]
+
+
+def test_the_model_is_told_what_the_waiting_question_asks(clean, monkeypatch):
+    """Issue 324: with the read-length question waiting, the prompt names `read_length`, so a
+    typed answer has an id to land on."""
+    sent: list[str] = []
+
+    class Seen:
+        def send(self, access, prompt) -> str:
+            sent.append(prompt if isinstance(prompt, str)
+                        else "\n".join(m["content"] for m in prompt))
+            return json.dumps({"say": "Noted."})
+
+    monkeypatch.setattr(
+        authoring_jobs, "_client",
+        lambda *_: Client(ModelAccess(model="fake/test"), transport=Seen()),
+    )
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    seq = facade.perform(commands.Say(sid, "100 bp")).result
+    asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
+    assert sent and '"subject": "read_length"' in sent[-1]
+
+
+def _notices(sid: str) -> list[dict]:
+    return [block for turn in facade.read(sid)["turns"] for block in turn["blocks"]
+            if block.get("kind") == "notice"]
+
+
+def _said(sid: str) -> list[str]:
+    return [block["text"] for turn in facade.read(sid)["turns"] for block in turn["blocks"]
+            if block.get("kind") == "narrative" and turn["role"] == "assistant"]
+
+
+def test_one_refused_item_sets_itself_aside_and_the_rest_is_kept(clean, monkeypatch):
+    """Issue 326 (operator: B), the walk's scene 3: a correct fact beside an undeclared setting
+    lost both, and the model's words. The fact is kept, the words shown, the setting named."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(
+        monkeypatch,
+        sid,
+        "they're 100 bp",
+        {"say": "Got it, 100 bp.",
+         "facts": [{"subject": "read_length", "value": 100, "quote": "100 bp"}],
+         "parameters": [{"name": "sequenced_read_length", "value": "100"}]},
+    )
+    assert _value(sid, "read_length") == 100
+    assert "Got it, 100 bp." in _said(sid)
+    [notice] = _notices(sid)
+    assert notice["notice"] == "validation" and notice["code"] == "MI0204"
+    assert "setting sequenced_read_length" in notice["text"]
+
+
+def test_words_naming_what_was_set_aside_are_not_shown(clean, monkeypatch):
+    """The reply text shows unless it names something refused: it would speak of a thing that
+    does not exist here as if it did."""
+    sid = _gathering(want=["counts.matrix"])
+    _pending_for(sid, "read_length")
+    _typed(
+        monkeypatch,
+        sid,
+        "set it to 100",
+        {"say": "I set sequenced_read_length to 100.",
+         "parameters": [{"name": "sequenced_read_length", "value": "100"}]},
+    )
+    assert not any("sequenced_read_length" in text for text in _said(sid))
+    assert [n["code"] for n in _notices(sid)] == ["MI0204"]
+
+
+def _blocks(sid: str, kind: str) -> list[dict]:
+    return [block for turn in facade.read(sid)["turns"] for block in turn["blocks"]
+            if block.get("kind") == kind]
+
+
+def test_what_is_not_offered_is_quoted_once(clean, monkeypatch):
+    """Issue 327 item 3, from the walk: *Heard "also I want differential expression…": you asked
+    for also I want differential expression…, which is not offered here*."""
+    sid = _gathering(want=["counts.matrix"])
+    phrase = "also I want differential expression between fed and fasted mice"
+    _typed(monkeypatch, sid, phrase, {"not_offered": [{"quote": phrase}]})
+    [summary] = [r["summary"] for r in _blocks(sid, "receipt") if phrase in r["summary"]]
+    assert summary.count(phrase) == 1
+    assert summary.startswith("Not offered here:")
+    assert "you asked for also" not in summary
+
+
+def test_a_model_question_with_no_choices_is_said_not_carded(clean, monkeypatch):
+    """Issue 327 item 2: a model's question with no choices became a card marked *every
+    option* with nothing to choose, left open after the goal was confirmed. It is said; the
+    person answers in their own words."""
+    sid = _gathering(want=["counts.matrix"])
+    asks = "What is the desired state for the differential expression analysis?"
+    _typed(monkeypatch, sid, "and differential expression",
+           {"questions": [{"asks": asks, "why_open": "I do not know what state you want."}]})
+    assert _blocks(sid, "question") == []
+    assert any(asks in text for text in _said(sid))
+
+
+def test_a_model_question_with_choices_is_still_a_card(clean, monkeypatch):
+    sid = _gathering(want=["counts.matrix"])
+    _typed(monkeypatch, sid, "which one?",
+           {"questions": [{"asks": "Gene or transcript level?", "why_open": "Both are possible.",
+                           "choices": ["gene", "transcript"]}]})
+    [card] = _blocks(sid, "question")
+    assert [o["label"] for o in card["options"]] == ["gene", "transcript"]

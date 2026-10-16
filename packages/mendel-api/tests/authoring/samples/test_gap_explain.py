@@ -12,7 +12,8 @@ def scene():
     return stack, found, {g.subject: g for g in found}
 
 
-def _explained(scene, subject, *, measured=None, read=frozenset(), ai=False, found=None):
+def _explained(scene, subject, *, measured=None, read=frozenset(), ai=False, found=None,
+               files=None):
     stack, all_found, by = scene
     return explain.explanation(
         by[subject],
@@ -21,6 +22,7 @@ def _explained(scene, subject, *, measured=None, read=frozenset(), ai=False, fou
         measured=measured or {},
         read=set(read),
         characterisable=ai,
+        files=files or {},
     )
 
 
@@ -62,6 +64,30 @@ def test_a_sample_settles_only_what_is_still_open(scene):
 def test_a_type_no_inspector_reads_is_read_by_the_ai_when_it_may(scene):
     assert _explained(scene, "annotation.gtf", ai=True).read_by == "ai"
     assert _explained(scene, "annotation.gtf", ai=False).read_by is None
+
+
+def test_a_sample_is_as_many_files_as_a_format_reading_it_takes(scene):
+    """Issue 328, from the walk: the pair hint showed under the genome and the annotation."""
+    files = {"fastq.reads": 2}
+    assert _explained(scene, "fastq.reads", read={"fastq.reads"}, files=files).files == 2
+    assert _explained(scene, "genome.fasta", ai=True, files=files).files == 1
+    assert _explained(scene, "read_length", files=files).files == 1
+
+
+def test_a_measurement_sample_is_as_many_files_as_the_types_that_measure_it(scene):
+    """The second walk: read length's upload said *Choose one file.* A read-length sample is
+    the reads, which may be a pair."""
+    got = _explained(scene, "read_length", measured={"read_length": {"fastq.reads"}},
+                     files={"fastq.reads": 2})
+    assert got.files == 2
+
+
+def test_the_counts_come_from_each_formats_declared_range():
+    from mendel_api.stages import gathering
+
+    counts = gathering._sample_files(registry.stack())
+    assert counts["fastq.reads"] == 2
+    assert "genome.fasta" not in counts
 
 
 def test_a_type_with_nothing_declared_falls_back_to_its_id(scene):

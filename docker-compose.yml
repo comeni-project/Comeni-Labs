@@ -116,6 +116,13 @@ services:
     # Migrate the database before serving; exec forwards shutdown signals to Uvicorn.
     # Use sh -c to preserve the virtualenv PATH, and keep command flags on one line.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
+    # Healthy once migrated and serving: each worker that reads this database waits on it (#330).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
 
   # Run Mendel's background jobs: gates, source checks, and tool adaptation tasks.
   mendel-worker:
@@ -125,6 +132,7 @@ services:
     restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
+      api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
@@ -169,6 +177,7 @@ services:
     restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
+      api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
@@ -280,6 +289,7 @@ services:
     restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
+      wiener-api: {condition: service_healthy}
       postgres: {condition: service_healthy}
     environment:
       WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
@@ -296,6 +306,7 @@ services:
     restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
+      wiener-api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     environment:
@@ -336,6 +347,13 @@ services:
     volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
     # Migrate before serving. The web service proxies requests to this internal API.
     command: sh -c "cd packages/wiener-api && alembic upgrade head && cd /app && exec uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001"
+    # Healthy once migrated and serving: each worker that reads this database waits on it (#330).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
 
   # -----------------------------------------------------------------------------
   # 6. Telemetry (optional)

@@ -225,7 +225,9 @@ def describe(change: DecisionChange) -> str:
     if change.kind == "parameter":
         return f"cleared {subject}" if change.retract else f"{subject} is {change.value}"
     if change.kind == "asked":
-        return f"you asked for {subject}, which is not offered here"
+        # The subject is the person's own phrase, which need not read after "you asked for"
+        # (#327: "you asked for also I want …").
+        return f'not offered here: "{subject}"'
     if change.kind == "retain":
         return f"kept your selected answer for {subject}"
     return f"selected the evidence for {subject}"

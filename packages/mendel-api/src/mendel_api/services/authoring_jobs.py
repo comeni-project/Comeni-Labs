@@ -305,6 +305,14 @@ def _answer_blocks(session_id: str, seq: int, context, invocation_id, blocks: li
     )
 
 
+def _open_subject(session_id: str) -> str | None:
+    """The subject id of the gathering question waiting for an answer, if one is (#324)."""
+    pending = session_mod.read(session_id).get("pending_proposal")
+    if pending is None or pending["kind"] != "gap":
+        return None
+    return pending["payload"].get("subject")
+
+
 def _follow_up(session_id: str, seq: int, context) -> None:
     """Typed words anywhere after the want is read (`chat.v3`, #307): something to say, and the
     changes they ask for. **Before the goal is confirmed** a heard change is recorded, through
@@ -321,6 +329,7 @@ def _follow_up(session_id: str, seq: int, context) -> None:
     )
     outcome = authoring_ai.follow_up(
         request, stack=stack, memory=known.text(session_id),
+        open_question=_open_subject(session_id),
         client=_client(authoring_ai.Purpose.CHAT), session_id=session_id,
     )
     if not outcome.admitted:
@@ -336,7 +345,19 @@ def _follow_up(session_id: str, seq: int, context) -> None:
     blocks = []
     if reply.say:
         blocks.append(Narrative(id=f"reply-{seq}", text=reply.say).model_dump(mode="json"))
+    if outcome.refusal:
+        # What admission set aside (#326), named the way a refusal names it (#325).
+        blocks.append(Notice(
+            id=f"notice-{seq}", notice=NoticeKind.VALIDATION,
+            text=_set_aside_text(outcome.refusal), code=outcome.code,
+        ).model_dump(mode="json"))
     for index, asked in enumerate(reply.questions, start=1):
+        if not asked.choices:
+            # **No choices, no card** (#327): a card marked *every option* with nothing to choose
+            # stayed open after the goal moved on. Said instead; they answer in their own words.
+            blocks.append(Narrative(id=f"question-{seq}-{index}",
+                                    text=asked.asks).model_dump(mode="json"))
+            continue
         blocks.append(Question(
             id=f"question-{seq}-{index}", asks=asked.asks, why_open=asked.why_open,
             options=[Option(id=f"q{index}_{n}", label=label)
@@ -420,10 +441,20 @@ def _noted(issued) -> str:
     return "I could not tell what to change from that; say it another way."
 
 
+def _set_aside_text(refusal: str) -> str:
+    """The first line, then each indented line admission wrote, joined (#325)."""
+    first, *rest = refusal.splitlines()
+    named = [line.strip()[:200] for line in rest if line.startswith("  ") and line.strip()]
+    return (f"{first}: {'; '.join(named)}" if named else first)[:2000]
+
+
 def _refused(session_id: str, seq: int, context, outcome) -> None:
     """A refusal, a missing model, or an unreachable one — as a notice, with its code."""
     code = outcome.code or "MA0004"
-    first_line = (outcome.refusal or "").splitlines()[0] if outcome.refusal else code
+    # **What was refused** (issue 325): admission lists each id it could not accept on an
+    # indented line beneath its sentence. Those lines name registry ids and the model's own
+    # values, so they are kept; any other refusal stays its first line.
+    first_line = _set_aside_text(outcome.refusal) if outcome.refusal else code
     _answered(
         session_id,
         seq,

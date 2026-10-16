@@ -342,6 +342,33 @@ class MeasurementRegistry(BaseModel):
             f"  the convention is <layer>/measurements/{measurement_id}.yml."
         )
 
+    def coerce(
+        self, measurement_id: str, value: ParamValue | list[ParamValue]
+    ) -> ParamValue | list[ParamValue]:
+        """`value` read as the declaration's kind when it arrived as text, else unchanged.
+
+        A model writes `"50"` for an integer (issue 323). The kind says how to read it: whole
+        digits for an integer, a decimal for a number, `true`/`false` for a boolean. Text that
+        is not the kind (`"fifty"`, `"50 bp"`, `"50.5"` for an integer) comes back as it was,
+        so `check` still refuses it: this reads a type, it never guesses a value.
+        """
+        if isinstance(value, list):
+            return [self.coerce(measurement_id, element) for element in value]
+        if not isinstance(value, str):
+            return value
+        kind, text = self.get(measurement_id).kind, value.strip()
+        digits = text[1:] if text[:1] in "+-" else text
+        whole = digits.isdecimal()
+        if kind is MeasurementKind.INTEGER and whole:
+            return int(text)
+        if kind is MeasurementKind.NUMBER and (
+            whole or (digits.count(".") == 1 and digits.replace(".", "", 1).isdecimal())
+        ):
+            return int(text) if whole else float(text)
+        if kind is MeasurementKind.BOOLEAN and text.lower() in ("true", "false"):
+            return text.lower() == "true"
+        return value
+
     def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:
         """Raise unless `value` satisfies the declaration for `measurement_id`.
 
@@ -376,7 +403,10 @@ class MeasurementRegistry(BaseModel):
                 raise BadMeasurementValueError(f"{measurement_id!r} is a boolean, got {value!r}")
             return
         if isinstance(value, bool) or not isinstance(value, int | float):
-            raise BadMeasurementValueError(f"{measurement_id!r} is a {kind}, got {value!r}")
+            article = "an" if kind is MeasurementKind.INTEGER else "a"
+            raise BadMeasurementValueError(
+                f"{measurement_id!r} is {article} {kind}, got {value!r}"
+            )
         if kind is MeasurementKind.INTEGER and not isinstance(value, int):
             raise BadMeasurementValueError(f"{measurement_id!r} is an integer, got {value!r}")
         if measurement.minimum is not None and value < measurement.minimum:

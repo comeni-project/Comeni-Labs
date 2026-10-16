@@ -3298,6 +3298,11 @@ export interface components {
             settles: string[];
             /** Read By */
             read_by?: ("inspector" | "ai") | null;
+            /**
+             * Files
+             * @default 1
+             */
+            files: number;
         };
         /**
          * Fact

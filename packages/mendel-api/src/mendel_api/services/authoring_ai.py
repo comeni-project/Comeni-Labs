@@ -304,6 +304,20 @@ def understand(
     )
 
 
+def _open_text(stack, subject: str | None) -> str:
+    """The question waiting for an answer, by the id a typed answer names (#324)."""
+    if subject is None:
+        return "(nothing is waiting for an answer)"
+    if subject in stack.measurements.measurements:
+        how = "the value it holds"
+    else:
+        how = "`true` if they have it, `false` if not"
+    return (
+        f"It asks about `{subject}`. A typed answer to it is "
+        f'`{{"subject": "{subject}", "value": <{how}>}}` in `facts`.'
+    )
+
+
 def _subjects(stack) -> list[str]:
     return sorted(set(stack.vocabulary.types) | set(stack.measurements.measurements))
 
@@ -324,14 +338,15 @@ def follow_up(
     *,
     stack=None,
     memory: str = "",
+    open_question: str | None = None,
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """A follow-up turn in, exactly one declared intent out, or a visible coded refusal.
+    """A follow-up turn in, the changes it asks for out, or a visible coded refusal.
 
-    Takes no stack: an intent names ids the engine issued and never a type id, so the vocabulary
-    is not what this call is held to. Asking for one anyway would be a parameter that exists to
-    look symmetrical.
+    **Shown what it is held to** (#324): the vocabulary with every measurement, and
+    `open_question`, the subject id of the question waiting for an answer. Every id it names is
+    checked against the same stack, and a setting's name is enforced from the declared ones.
     """
     stack = stack if stack is not None else registry.stack()
     return _call(
@@ -341,12 +356,15 @@ def follow_up(
         shape=ChatReply,
         values={
             "memory": memory or "(nothing is known yet)",
+            "vocabulary": _vocabulary_text(stack),
+            "open": _open_text(stack, open_question),
             "pipeline": _pipeline_text(request),
             "options": _options_text(request.options),
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,
         },
-        admit=lambda reply: replies.admit(reply, stack),
+        # Item by item (#326): an id it may not name is set aside, and the rest is kept.
+        admit=lambda reply: replies.sift(reply, stack),
         client=client,
         session_id=session_id,
         choices={
@@ -357,6 +375,7 @@ def follow_up(
             "pins.tool": sorted(c.id for c in stack.registry.all()),
             "facts.subject": _subjects(stack),
             "retract.subject": _subjects(stack),
+            "parameters.name": sorted({p.name for c in stack.registry.all() for p in c.params}),
         },
     )
 
@@ -710,6 +729,13 @@ def _call(
             _code_in(str(refused)),
         )
 
+    # **Some items set aside** (#326): the answer stands, so the call succeeded; the code stays
+    # on the row so a partial refusal is still counted, and the lines go to the notice.
+    set_aside: list[str] = []
+    if isinstance(admitted, replies.Sifted):
+        admitted, set_aside = admitted.reply, admitted.set_aside
+    aside = (coded("MI0204", "set aside, not something this registry declares")
+             + "".join(f"\n  {line}" for line in set_aside)) if set_aside else None
     return Outcome(
         admitted,
         _record(
@@ -718,12 +744,12 @@ def _call(
             request=request,
             client=client,
             state=InvocationState.SUCCEEDED,
-            failure_code="",
+            failure_code="MI0204" if set_aside else "",
             started=started,
             session_id=session_id,
         ),
-        None,
-        None,
+        aside,
+        "MI0204" if set_aside else None,
     )
 
 

@@ -203,22 +203,24 @@ def test_a_correction_in_words_comes_back_as_a_fact_quoting_them(clean_forge):
 
 def test_a_tool_the_registry_does_not_declare_is_refused(clean_forge):
     """**The product claim, as a test.** A model cannot produce a value outside the candidate
-    set: a pin names a declared tool or the reply is refused."""
+    set: a pin names a declared tool or it is set aside, and never reaches what is recorded.
+    Since #326 the rest of the reply stands; the row keeps the code, so it is still counted."""
     client = _client(
         json.dumps({"pins": [{"type": "alignment.bam", "tool": "nf-core/salmon/quant@1.0.0"}]})
     )
     outcome = ai.follow_up(DRAFT, client=client)
 
-    assert not outcome.admitted
+    assert outcome.reply.pins == []
     assert outcome.code == "MI0204"
     assert "salmon" in outcome.refusal
+    assert (_rows()[0].state, _rows()[0].failure_code) == ("succeeded", "MI0204")
 
 
 def test_a_setting_no_step_declares_is_refused(clean_forge):
     client = _client(json.dumps({"parameters": [{"name": "libtype", "value": "A"}]}))
     outcome = ai.follow_up(DRAFT, client=client)
 
-    assert not outcome.admitted
+    assert outcome.reply.parameters == []
     assert outcome.code == "MI0204"
 
 
@@ -574,3 +576,32 @@ def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges
     assert goal.choices[0]["wants.type"] == sorted(stack.vocabulary.types)
     assert _rows()[0].prompt_id == "builder.goal.v8"
     assert "Acknowledge them in `say`" in goal.last_prompt
+
+
+# ── what the chat call is shown (issue 324) ───────────────────────────────────────────────
+
+
+def _chat_call(monkeypatch, stack, **kwargs) -> dict:
+    seen: dict = {}
+    monkeypatch.setattr(ai, "_call", lambda request, **kw: seen.update(kw))
+    ai.follow_up(DRAFT, stack=stack, **kwargs)
+    return seen
+
+
+def test_the_chat_call_is_shown_every_measurement_with_what_it_holds(monkeypatch, stack):
+    """From the walk: never shown a measurement id, the model answered *"so 100 bp"* with an
+    invented setting, `sequenced_read_length`. It is shown what the goal call is shown."""
+    values = _chat_call(monkeypatch, stack)["values"]
+    assert "read_length (integer bp) — Sequenced read length" in values["vocabulary"]
+    assert "(nothing is waiting for an answer)" in values["open"]
+
+
+def test_the_chat_call_is_told_which_measurement_the_open_question_asks(monkeypatch, stack):
+    values = _chat_call(monkeypatch, stack, open_question="read_length")["values"]
+    assert '"subject": "read_length"' in values["open"]
+
+
+def test_a_setting_name_is_held_to_the_declared_ones(monkeypatch, stack):
+    names = _chat_call(monkeypatch, stack)["choices"]["parameters.name"]
+    declared = {p.name for c in stack.registry.all() for p in c.params}
+    assert names and set(names) == declared
