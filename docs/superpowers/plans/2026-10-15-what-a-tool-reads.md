@@ -41,7 +41,7 @@
 **Interfaces:**
 - Produces: `comeni_core.plan.decision.FactDecision(key, subject, reason, resolved_by, candidates: list[ParamValue], unknown: list[MeasurementId], chosen: ParamValue = None)`, `kind == DecisionKind.FACT == "fact"`, `tier` defaults to `Tier.AMBIGUOUS`. Member of `DecisionRecord`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """A fact a chosen tool reads and nobody supplied is a tier-4 record (#338)."""
@@ -77,12 +77,12 @@ def test_it_is_listed_for_review():
     assert "featurecounts.fact.strandedness" in ir.needs_review()
 ```
 
-- [ ] **Step 2: Run them, expect failure**
+- [x] **Step 2: Run them, expect failure**
 
 Run: `T packages/comeni-core/tests/test_fact_decision.py -q`
 Expected: FAIL, `ImportError: cannot import name 'FactDecision'`. If `PipelineIR()` needs arguments, build it as the nearest existing test in `packages/comeni-core/tests/` does and keep the assertion.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `DecisionKind`, add `FACT = "fact"`. After `SourceDecision`:
 
@@ -105,12 +105,12 @@ class FactDecision(_Decided):
 
 Add `FactDecision` to the `DecisionRecord` union.
 
-- [ ] **Step 4: Run them, expect pass; then the format guards**
+- [x] **Step 4: Run them, expect pass; then the format guards**
 
 Run: `T packages/comeni-core/tests/test_fact_decision.py tests/guards/test_egress.py tests/artifact -q`
 Expected: PASS. If `test_egress.py` counts declared free-text fields and the count moved because `FactDecision` inherits `reason`, update that one number deliberately and say so in the commit. Then `uv run python tools/check_reference.py --check`; if the schema reference pages drifted, regenerate them with the same script without `--check` and include them.
 
-- [ ] **Step 5: Lint, then commit**
+- [x] **Step 5: Lint, then commit**
 
 ```bash
 uv run ruff check packages/comeni-core
@@ -130,7 +130,7 @@ git commit -m "feat(core): FactDecision, a fact a tool reads that nobody supplie
 - Consumes: `ModuleSpec.parse(path).meta_reads` (`MetaRead.variable`, `MetaRead.key`), `module_path(contract, modules)`, `_ALWAYS_SET`, `MeasurementRegistry.ids()/get(id).meta_key`.
 - Produces: `mendel_compiler.conformance.facts_read(registry, modules, measurements) -> dict[str, frozenset[str] | None]`: per contract id, the measurement ids whose `meta_key` its module reads on `meta`; `None` when its source is missing.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Which facts each tool's code reads, from the code (#338)."""
@@ -169,12 +169,12 @@ def test_a_tool_whose_source_is_missing_is_none(tmp_path):
 
 Read `tests/README.md` for where `support.paths` is importable from a package's tests; if `support` is not on the path there, put this file in `tests/registry/` instead.
 
-- [ ] **Step 2: Run, expect failure**
+- [x] **Step 2: Run, expect failure**
 
 Run: `T packages/mendel-compiler/tests/test_facts_read.py -q`
 Expected: FAIL, `AttributeError: module 'mendel_compiler.conformance' has no attribute 'facts_read'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 def facts_read(
@@ -205,11 +205,11 @@ def facts_read(
     return found
 ```
 
-- [ ] **Step 4: Run, expect pass**
+- [x] **Step 4: Run, expect pass**
 
 Run: `T packages/mendel-compiler/tests/test_facts_read.py -q` → PASS.
 
-- [ ] **Step 5: Lint, then commit**
+- [x] **Step 5: Lint, then commit**
 
 ```bash
 uv run ruff check packages/mendel-compiler
@@ -231,7 +231,7 @@ git commit -m "feat(compiler): facts_read, which facts each tool's code reads (#
 - Consumes: `FactDecision` (Task 1), `conformance.facts_read` (Task 2).
 - Produces: `resolve(..., facts_read: Mapping[str, frozenset[str] | None] | None = None)`; records keyed `f"{node.id}.fact.{measurement}"`.
 
-- [ ] **Step 1: Write the guard (it must fail against today's code)**
+- [x] **Step 1: Write the guard (it must fail against today's code)**
 
 ```python
 """Whatever a chosen tool reads comes from somewhere, or is tier 4 (#338, #340).
@@ -275,12 +275,12 @@ def test_a_tool_reading_an_unknown_fact_is_flagged(fact):
 
 The goal is loaded as the API's own tests load it (`test_blueprint.py`): `Goal.model_validate(yaml_strict.load(...))`, with the profile as the YAML mapping.
 
-- [ ] **Step 2: Run, expect failure**
+- [x] **Step 2: Run, expect failure**
 
 Run: `T tests/guards/test_unknown_facts.py -q`
 Expected: the two parametrised cases FAIL with `assert 'featurecounts….fact.strandedness' in [...]`: today nothing is flagged. Record this in the ledger in Step 7.
 
-- [ ] **Step 3: Write the resolver's pure test**
+- [x] **Step 3: Write the resolver's pure test**
 
 ```python
 """The resolver's half: unknown facts a chosen tool reads become tier-4 records (#338)."""
@@ -327,7 +327,7 @@ def test_an_unreadable_tool_records_nothing():
 
 Run: `T packages/mendel-resolver/tests/test_unknown_facts.py -q` → FAIL, `unexpected keyword argument 'facts_read'`.
 
-- [ ] **Step 4: Implement in `resolve()`**
+- [x] **Step 4: Implement in `resolve()`**
 
 Add the keyword to the signature (after `prior`) and document it in the docstring in one sentence. After `for param in contract.params: …` inside the step loop:
 
@@ -363,16 +363,16 @@ def _values_of(measurement) -> list:
 
 `"flag-only"` is what `FlagOnlyResolver` (`mendel_resolver/ports.py`) writes as `by`. Add `from comeni_core.declared.measurement import MeasurementKind` (beside the existing `MeasurementRegistry` import) and `FactDecision` to the existing `comeni_core.plan.decision` import.
 
-- [ ] **Step 5: Pass it from the build**
+- [x] **Step 5: Pass it from the build**
 
 In `orchestrate.build`, at the `resolve(` call: `facts_read=conformance.facts_read(loaded.registry, loaded.modules, loaded.measurements),`.
 
-- [ ] **Step 6: Run both, expect pass; then everything that resolves**
+- [x] **Step 6: Run both, expect pass; then everything that resolves**
 
 Run: `T packages/mendel-resolver/tests/test_unknown_facts.py tests/guards/test_unknown_facts.py -q` → PASS.
 Run: `T packages/mendel-resolver packages/mendel-compiler tests/emit tests/artifact tests/regressions -q`. Any golden that changed is a goal without `strandedness` or `paired` gaining a flagged record: list each one, check that is the only change in it, regenerate it the way that suite documents, and name them in the commit.
 
-- [ ] **Step 7: Ledger, lint, commit**
+- [x] **Step 7: Ledger, lint, commit**
 
 Ledger row: the guard RED with today's code (quote the message), GREEN after. Then:
 
@@ -395,7 +395,7 @@ git commit -m "feat(resolver): an unknown fact a tool reads is tier 4, not the m
 - Consumes: `FactDecision.unknown` (Task 1); the resolver records (Task 3).
 - Produces: `need_of` returns `NeedKind.FACT` with `facts` including a `FactDecision`'s `unknown`.
 
-- [ ] **Step 1: The failing unit test**
+- [x] **Step 1: The failing unit test**
 
 Mirror the existing `need_of` test that builds a `Step` and a `ProducerDecision` with `unknown=["read_length"]`; replace the record with:
 
@@ -409,7 +409,7 @@ and assert `need.kind is NeedKind.FACT and need.facts == ["strandedness"]`.
 
 Run: `T packages/mendel-authoring/tests -q -k need` → FAIL (`NeedKind.CHOICE`, empty `facts`).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 In `need_of`, read facts from both kinds:
 
@@ -424,13 +424,13 @@ and keep a `FactDecision` out of `choices` (its answer is the fact, offered as *
 
 Run: `T packages/mendel-authoring/tests -q` → PASS.
 
-- [ ] **Step 3: The failing walk test, two readers settled by one answer**
+- [x] **Step 3: The failing walk test, two readers settled by one answer**
 
 In the API building tests, with a session resolved from a goal lacking strandedness (use the helper that builds a walk from a goal; pass the example profile without `strandedness`): walk until the pending step offers `fact_strandedness`; answer it `reverse` through the same command the existing `fact_read_length` test uses; then assert the decisions read back have `strandedness == "reverse"`, and that no later step offers `fact_strandedness`.
 
 Run it → FAIL before Step 2 is in (if Step 2 is in already, revert it locally to see it fail, then restore). Then → PASS.
 
-- [ ] **Step 4: Lint, commit**
+- [x] **Step 4: Lint, commit**
 
 ```bash
 uv run ruff check packages
@@ -450,7 +450,7 @@ git commit -m "feat(authoring): a step asks for the unknown fact its tool reads 
 **Interfaces:**
 - Consumes: `measurers.usable_pieces(stack).measures` (`.measures` is the measurement id each measure piece fills).
 
-- [ ] **Step 1: The failing test**
+- [x] **Step 1: The failing test**
 
 ```python
 def test_a_fact_only_a_tool_reads_and_no_sample_measures_is_not_asked():
@@ -465,7 +465,7 @@ def test_a_fact_only_a_tool_reads_and_no_sample_measures_is_not_asked():
 
 Run: `T packages/mendel-api/tests/authoring/samples/test_gaps.py -q` → FAIL (`strandedness` is in the list).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 In `gaps()`, where `measurements` is built:
 
@@ -484,11 +484,11 @@ In `gaps()`, where `measurements` is built:
 
 Update `gaps()`'s docstring with the same sentence.
 
-- [ ] **Step 3: Run the gap tests, then fix the tests that walked to strandedness**
+- [x] **Step 3: Run the gap tests, then fix the tests that walked to strandedness**
 
 Run: `T packages/mendel-api/tests -q -x`. Each failure that waited for the strandedness question: point it at another subject that is still asked (`paired`, `quality_encoding`, `read_length`), or, where the test is *about* strandedness (`test_heard_replies.py` quoting *"reverse-stranded"*), keep it, since the chat can still state it. `forge/test_attention.py` uses strandedness as an example measurement name: change nothing there unless it fails. List every test changed and why in the commit.
 
-- [ ] **Step 4: Lint, commit**
+- [x] **Step 4: Lint, commit**
 
 ```bash
 uv run ruff check packages
@@ -507,7 +507,7 @@ git commit -m "feat(api): gathering does not ask what only a tool reads and no s
 - Modify: `packages/mendel-api/src/mendel_api/services/authoring_jobs.py` (remove `if reply.proceed: _proceed(...)` and `_proceed`)
 - Test: `packages/mendel-api/tests/authoring/test_authoring_chat_changes.py`
 
-- [ ] **Step 1: The failing test**
+- [x] **Step 1: The failing test**
 
 ```python
 def test_the_model_cannot_settle_a_waiting_step(clean, monkeypatch):
@@ -522,9 +522,9 @@ and replace the existing `test_go_on_settles_the_waiting_step_and_does_nothing_a
 
 Run → FAIL.
 
-- [ ] **Step 2: Implement** — delete the field, the call, `_proceed`; write `builder.chat.v5.md` as v4 minus the `proceed` bullet; `CHAT = "builder.chat.v5"`, add `"builder.chat.v4"` to `RETIRED`, one paragraph in `CHAT`'s docstring (*v5 (2026-10-15, #336): no `proceed`; Continue is the person's*). Update `test_authoring_prompts.py` only if it pins v4's text.
+- [x] **Step 2: Implement** — delete the field, the call, `_proceed`; write `builder.chat.v5.md` as v4 minus the `proceed` bullet; `CHAT = "builder.chat.v5"`, add `"builder.chat.v4"` to `RETIRED`, one paragraph in `CHAT`'s docstring (*v5 (2026-10-15, #336): no `proceed`; Continue is the person's*). Update `test_authoring_prompts.py` only if it pins v4's text.
 
-- [ ] **Step 3: Run, lint, commit**
+- [x] **Step 3: Run, lint, commit**
 
 Run: `T packages/mendel-api/tests/authoring -q` → PASS.
 
@@ -542,7 +542,7 @@ git commit -m "fix(api): the chat model cannot approve a step; Continue is the p
 - Modify: `packages/mendel-api/src/mendel_api/services/authoring_jobs.py` (`_follow_up`, the `turns=` passed to `replies.issue`)
 - Test: `packages/mendel-api/tests/authoring/test_authoring_chat_changes.py`
 
-- [ ] **Step 1: The failing test**
+- [x] **Step 1: The failing test**
 
 ```python
 def test_a_quote_from_an_earlier_turn_is_not_heard(clean, monkeypatch):
@@ -559,7 +559,7 @@ def test_a_quote_from_an_earlier_turn_is_not_heard(clean, monkeypatch):
 
 Run → FAIL (the old quote is heard and recorded).
 
-- [ ] **Step 2: Implement** — in `_follow_up`:
+- [x] **Step 2: Implement** — in `_follow_up`:
 
 ```python
     # **Only the turn being answered** (#337): earlier words were read when they were said.
@@ -568,7 +568,7 @@ Run → FAIL (the old quote is heard and recorded).
 
 and pass `turns=answered` to `replies.issue`.
 
-- [ ] **Step 3: Run, lint, commit**
+- [x] **Step 3: Run, lint, commit**
 
 Run: `T packages/mendel-api/tests/authoring -q` → PASS.
 
@@ -587,13 +587,13 @@ git commit -m "fix(api): a chat change quotes only the turn it answers (#337)"
 - Modify: `docs/notes/now.md`, a journal entry under `docs/notes/journal/`
 - Modify: this plan's checkboxes and execution record
 
-- [ ] **Step 1: Protocol** — in *How a fact's source reaches the tiers*, change the open row to *"open: nobody knows, and a rule or a chosen tool reads it"*, and the last row to *"no rule and no chosen tool reads it"*. Decision-log row: *2026-10-15 | whatever a tool reads comes from somewhere, or is tier 4; strandedness left to the board until a profiler measures it | operator, #338*.
+- [x] **Step 1: Protocol** — in *How a fact's source reaches the tiers*, change the open row to *"open: nobody knows, and a rule or a chosen tool reads it"*, and the last row to *"no rule and no chosen tool reads it"*. Decision-log row: *2026-10-15 | whatever a tool reads comes from somewhere, or is tier 4; strandedness left to the board until a profiler measures it | operator, #338*.
 
-- [ ] **Step 2: `make verify`** (Docker). Expected: PASS. Name any failure.
+- [x] **Step 2: `make verify`** (Docker). Expected: PASS. Name any failure.
 
-- [ ] **Step 3: The walk (spec §11)** — `make ai-up OLLAMA_GPU=rocm`, `make dev`, Chrome. Sentence: *Gene counts from paired-end RNA-seq of yeast.* Upload `SRR6357070_1.fastq.gz` and `_2` (scratchpad `walk-data/`) on the reads question; *I have it* for the genome and annotation; confirm; *Set it up, stop only where you need me*. Expected: read length, pairing, quality not asked; strandedness not asked; one stop for strandedness; answer `reverse`; the build completes; *Keep*; the emitted `.nf` passes `-s 2` to featureCounts. Screenshot each; every defect is an issue first.
+- [x] **Step 3: The walk (spec §11)** — `make ai-up OLLAMA_GPU=rocm`, `make dev`, Chrome. Sentence: *Gene counts from paired-end RNA-seq of yeast.* Upload `SRR6357070_1.fastq.gz` and `_2` (scratchpad `walk-data/`) on the reads question; *I have it* for the genome and annotation; confirm; *Set it up, stop only where you need me*. Expected: read length, pairing, quality not asked; strandedness not asked; one stop for strandedness; answer `reverse`; the build completes; *Keep*; the emitted `.nf` passes `-s 2` to featureCounts. Screenshot each; every defect is an issue first.
 
-- [ ] **Step 4: Notes, commit**
+- [x] **Step 4: Notes, commit**
 
 ```bash
 git add docs
@@ -602,4 +602,35 @@ git commit -m "docs: what a tool reads comes from somewhere, walked (#338)"
 
 ## Execution record
 
-(Filled in while executing: deviations, with the reason.)
+Executed inline (2026-10-15/16) on `facts-a-step-needs`, `346fbbf` through `de879f5`, from
+`fix/i0-walk-findings` (#332). `make verify` green (4170, the 19 real-tool tests, 96 guards).
+
+Deviations, each a ruling:
+
+- **Task 1:** two declaration lists needed the new record, not only the egress count:
+  `tests/support/egress.py` (`FactDecision.reason`) and `tests/support/pipeline.py`
+  (`_GOAL_MODELS`). That is what those guards demand of a new record.
+- **Task 2:** the test lives in `tests/registry/test_facts_read.py`: it reads the shipped
+  registry, which `tests/README.md` puts in the repository suite.
+- **Task 3:** Review Focus 4 (a yes/no fact offers `[True, False]`) is pinned in the resolver
+  test, where candidates are made. No golden changed: every goal the suite resolves states both
+  label-carried facts.
+- **Task 4:** the RED was an `AttributeError` in `need_of._answered` (a `FactDecision` has no
+  `human_override`), not the predicted wrong kind; `_answered` returns False for it first. The
+  API test checks that no later card asks for strandedness, rather than walking to a
+  featureCounts card: with the fact known, featureCounts needs nothing and is placed quietly.
+- **Task 5:** `test_a_measurement_no_inspector_measures_keeps_not_sure` became
+  `…_and_no_rule_reads_is_not_asked` (its only example is no longer asked for counts);
+  `test_a_direct_edit_writes_a_receipt_the_server_composed` now answers the strandedness stop
+  through the decide route before editing. Three phrasing and chat tests use `read_length`, now
+  the last question asked.
+- **Task 6:** the retired `AuthoringIntent` keeps its `proceed`; only `ChatReply`'s went.
+  `_proceed` had settled the step as `"person"`, which is why the walk read *you chose*.
+- **Task 8 walk:** the browser tool cannot upload files outside the session's shared folders,
+  so the sample went to the card's own endpoint (`POST …/samples`) with curl, and the page was
+  reloaded. Everything else was clicked. Result: from *"Gene counts from paired-end RNA-seq of
+  yeast."* plus `SRR6357070_1/_2.fastq.gz`, the only questions were the three input files;
+  read length (101), pairing and quality (phred33) were measured; the build under *Set it up*
+  stopped once, at featureCounts, for strandedness; `reverse` completed it, and the emitted
+  pipeline carries `strandedness: reverse` on the reads' label. The card's tier, reason wording
+  and free-text answer are #341.
