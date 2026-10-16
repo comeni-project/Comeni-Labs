@@ -164,7 +164,10 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
              "declared states:"]
     shown = stack.vocabulary.types if types is None else set(types)
     for type_id, states in sorted(stack.vocabulary.types.items()):
-        if type_id not in shown:
+        # The derived `measurement.<id>` types route profiling; listed here, the walk's model
+        # required `measurement.read_length` for *read length is 50*. Each is listed below as
+        # the measurement it is.
+        if type_id not in shown or type_id.startswith("measurement."):
             continue
         spelled = ", ".join(sorted(states)) if states else "(no states)"
         lines.append(f"  {type_id} — {spelled}")

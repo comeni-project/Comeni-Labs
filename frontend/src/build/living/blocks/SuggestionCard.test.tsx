@@ -32,4 +32,18 @@ describe("a suggestion", () => {
     expect(onApply).toHaveBeenCalledWith("s1");
     expect(onDismiss).toHaveBeenCalledWith("s1");
   });
+
+  it("asks Yes or No when the value is against what the sample measured (#345)", () => {
+    const onApply = vi.fn();
+    const onDismiss = vi.fn();
+    const asked = { ...OFFERED, heard: true, quote: "read length is 50", measured: 101,
+                    says: "Are you sure the read length is 50? Your sample measured 101." };
+    render(<SuggestionCard suggestion={asked} busy={false} onApply={onApply}
+                           onDismiss={onDismiss} />);
+    expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    expect(onApply).toHaveBeenCalledWith("s1");
+    expect(onDismiss).toHaveBeenCalledWith("s1");
+  });
 });

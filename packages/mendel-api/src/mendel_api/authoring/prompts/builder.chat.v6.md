@@ -39,6 +39,7 @@ suggestion. Quote when they said it; leave `quote` empty when it is your own rea
   `{"name": …, "value": …}`. Something about their data (a read length, whether reads are
   paired) is never a setting: it is a `fact`.
 - **`retract`** — something they want forgotten: `{"subject": <type or measurement id>}`.
+  A new value is a fact, not a retraction: never retract a fact to replace it.
 - **`not_offered`** — what they asked for that nothing here can make, in their own words: the
   phrase, not the whole sentence (*differential expression between fed and fasted mice*). Then
   `say` it is not offered here and what they will get instead. **Never** say it will be done.
@@ -68,8 +69,9 @@ Every id you may name is here. A fact's subject is one of these measurements, or
 
 # What is known
 
-What is known is the record. If the conversation seems to say otherwise, the record wins; ask
-rather than contradict it, and never list again what is already known.
+What is known is the record, and the record wins until the person confirms otherwise; never list
+again what is already known. When the person states a value that differs from it, give their
+value as a fact quoting them: the engine asks them before it changes anything.
 
 {{memory}}
 

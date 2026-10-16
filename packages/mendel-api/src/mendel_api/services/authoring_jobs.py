@@ -17,6 +17,7 @@ leave the turn spinning.
 """
 
 import logging
+from dataclasses import replace
 
 from comeni_ai import Client
 from mendel_authoring import commands as c
@@ -344,6 +345,11 @@ def _follow_up(session_id: str, seq: int, context) -> None:
         reply, turns=answered, stack=stack,
         invocation_id=outcome.invocation_id, wanted=wanted,
     )
+    # What the record already says is not offered again.
+    issued = replace(issued,
+                     heard=[ch for ch in issued.heard if not suggestions.unchanged(draft_id, ch)],
+                     suggested=[ch for ch in issued.suggested
+                                if not suggestions.unchanged(draft_id, ch)])
     blocks = []
     if reply.say:
         blocks.append(Narrative(id=f"reply-{seq}", text=reply.say).model_dump(mode="json"))
@@ -383,7 +389,9 @@ def _follow_up(session_id: str, seq: int, context) -> None:
             # The first is held to the spoken-at revision itself, so a click landing between the
             # check and the write is refused by the command's own version check (review I3).
             expected = context.decision_revision if index == 0 else None
-            if not (current and _record(session_id, draft_id, change, expected)):
+            # A value against what the sample measured is asked about first (#345).
+            if (suggestions.measured_against(draft_id, change) is not None
+                    or not (current and _record(session_id, draft_id, change, expected))):
                 suggestions.offer(session_id, change, heard=True,
                                   invocation_id=change.invocation_id)
         for change in issued.suggested:
@@ -427,7 +435,8 @@ def _record(session_id: str, draft_id: str, change, expected: int | None = None)
 
 def _noted(issued) -> str:
     if issued.heard or issued.suggested:
-        return "Noted."
+        # Not *Noted.*: a change is offered or asked about before it is recorded (#327).
+        return "Check what I understood below."
     return "I could not tell what to change from that; say it another way."
 
 

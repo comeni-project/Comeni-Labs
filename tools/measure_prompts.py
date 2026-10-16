@@ -29,7 +29,8 @@ SETS = {
 }
 """The prompt sets compared: the walks ran `before`."""
 
-CLAIM = re.compile(r"\b(I'?ve|I have|I'll|I will|I)\s+(recorded|saved|noted|set|added)\b", re.I)
+CLAIM = re.compile(r"\b(I'?ve|I have|I'll|I will|I)\s+(recorded|saved|noted|set|added)\b"
+                   r"|[—-]\s*(recorded|saved|noted)\b|\bis now\b", re.I)
 PROMISE = re.compile(r"(recorded that you want|will (do|run|perform|add|include))", re.I)
 STOCK = "I cannot see that from here"
 
@@ -87,22 +88,28 @@ def chat_not_offered(stack, client):
     out = _chat(stack, client, "also I want differential expression between fed and fasted mice")
     if not out.admitted:
         return [f"refused {out.code}"]
+    # A question about the request is the walks' failure; another question (the replay sends no
+    # goal, so `purpose` is open) is counted apart, not as that failure.
+    about = [q for q in out.reply.questions if "differential" in q.asks.lower()]
     return ((["nothing not_offered"] if not out.reply.not_offered else [])
-            + (["asks about it"] if out.reply.questions else []) + _say_ok(out.reply))
+            + (["asks about it"] if about else [])
+            + (["asks something else"] if len(out.reply.questions) > len(about) else [])
+            + _say_ok(out.reply))
 
 
 STEPS = (("star_align", "nf-core/star/align@1.11.0"), ("trimgalore", "nf-core/trimgalore@0.6.10"))
 
 
 def chat_mid_build(stack, client):
-    """Walk 2: the type `measurement.read_length` for the measurement, as a retract and a want."""
+    """Walk 2: the type `measurement.read_length` for the measurement, as a retract and a want;
+    walk 3: as a requirement."""
     out = _chat(stack, client, "actually the reads are 50 bp", steps=STEPS)
     if not out.admitted:
         return [f"refused {out.code}"]
     fact = _facts(out.reply).get("read_length")
     found = [] if fact is not None and fact.value in (50, "50") else ["read length not a fact"]
     mistaken = any("measurement." in str(getattr(i, "type", "") or getattr(i, "subject", ""))
-                   for i in [*out.reply.wants, *out.reply.retract])
+                   for i in [*out.reply.wants, *out.reply.retract, *out.reply.requires])
     return found + (["a type for the fact"] if mistaken else []) + _say_ok(out.reply)
 
 
@@ -115,6 +122,66 @@ def chat_quoted(stack, client):
     if fact is None:
         return ["read length not a fact"]
     return [] if fact.quote and "50" in fact.quote else ["not quoted"]
+
+
+WALK3_TAIL = (
+    ("person", "Gene counts from paired-end RNA-seq of yeast."),
+    ("model", "Gene counts from paired-end RNA-seq of yeast — got it."),
+    ("model", "5 steps; 1 needs you."),
+    ("person", "also I want differential expression between fed and fasted yeast"),
+    ("model", "Differential expression between fed and fasted yeast is not offered here. The "
+              "current pipeline builds a gene counts matrix."),
+)
+WALK3_STEPS = (("star_genomegenerate", "nf-core/star/genomegenerate@1.11.0"),
+               ("trimgalore", "nf-core/trimgalore@0.6.10"),
+               ("star_align", "nf-core/star/align@1.11.0"),
+               ("samtools_sort", "nf-core/samtools/sort@1.21.0"),
+               ("subread_featurecounts", "nf-core/subread/featurecounts@2.0.6"))
+WALK3_GOAL = {"have": [{"type_id": t} for t in ("annotation.gtf", "fastq.reads", "genome.fasta")],
+              "want": ["counts.matrix"],
+              "profile": {"measurements": [
+                  {"measurement": "paired", "value": True, "source": "goal"},
+                  {"measurement": "quality_encoding", "value": "phred33", "source": "measured"},
+                  {"measurement": "read_length", "value": 101, "source": "measured"},
+                  {"measurement": "strandedness", "value": "reverse", "source": "goal"}]}}
+WALK3_MEMORY = """What is known (recorded; do not ask for it again):
+
+What you want:
+- gene counts matrix · you said · "Gene counts"
+
+Inputs you have:
+- gene annotation (GTF) · you said
+- sequencing reads (FASTQ) · measured from your sample
+- reference genome (FASTA) · you said
+
+Facts about your data:
+- paired: yes · you said · "paired-end"
+- quality encoding: phred33 · measured from your sample
+- read length: 101 · measured from your sample
+- strandedness: reverse · you said
+
+The goal is confirmed; changes are offered to the person before they apply."""
+"""Walk 3's call when *read length is 50* was typed, as `describe.turn_context` built it: the
+sample had measured 101 and the build was complete."""
+
+
+def chat_contradicts_measured(stack, client):
+    """Walk 3: *read length is 50* against a measured 101 came back as the type
+    `measurement.read_length` required, then as a retraction, each with *— noted.* The person's
+    value is handed over as a fact; the engine asks *are you sure?* (#345)."""
+    out = ai.follow_up(ai.compose(prompt="sorry, I was wrong earlier: read length is 50",
+                                  turns=WALK3_TAIL, goal=gathering.as_goal(WALK3_GOAL),
+                                  steps=WALK3_STEPS),
+                       stack=stack, memory=WALK3_MEMORY, client=client)
+    if not out.admitted:
+        return [f"refused {out.code}"]
+    fact = _facts(out.reply).get("read_length")
+    mistaken = any("measurement." in str(getattr(i, "type", "") or getattr(i, "subject", ""))
+                   for i in [*out.reply.wants, *out.reply.retract, *out.reply.requires])
+    return ((["no fact of 50"] if fact is None or fact.value not in (50, "50") else [])
+            + (["retracts it"] if any(i.subject == "read_length" for i in out.reply.retract)
+               else [])
+            + (["a type for the fact"] if mistaken else []) + _say_ok(out.reply))
 
 
 def ask_strandedness(stack, client):
@@ -143,6 +210,7 @@ CASES: dict[str, Callable] = {
     "chat: not offered": chat_not_offered,
     "chat: mid-build fact": chat_mid_build,
     "chat: quoted fact": chat_quoted,
+    "chat: against measured": chat_contradicts_measured,
     "ask: strandedness": ask_strandedness,
 }
 

@@ -2049,6 +2049,8 @@ export interface components {
             kind: string;
             /** Subject */
             subject: string;
+            /** Measured */
+            measured?: number | boolean | string | null;
         };
         /** AuthoringTurnView */
         AuthoringTurnView: {

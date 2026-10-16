@@ -605,3 +605,12 @@ def test_a_setting_name_is_held_to_the_declared_ones(monkeypatch, stack):
     names = _chat_call(monkeypatch, stack)["choices"]["parameters.name"]
     declared = {p.name for c in stack.registry.all() for p in c.params}
     assert names and set(names) == declared
+
+
+def test_the_prompt_lists_a_measurement_as_a_measurement_and_never_as_a_type(stack):
+    """The walk's model required the type `measurement.read_length` for *read length is 50*."""
+    assert any(t.startswith("measurement.") for t in stack.vocabulary.types)
+    text = ai._vocabulary_text(stack)
+    types, measurements = text.split("Measurements (", 1)
+    assert "measurement." not in types
+    assert "  read_length (" in measurements

@@ -278,3 +278,52 @@ def test_a_quote_from_an_earlier_turn_is_not_heard(clean, monkeypatch):
            {"facts": [{"subject": "read_length", "value": 150, "quote": "150 bp"}]})
     assert _value(sid, "read_length") != 150
     assert [v.change.subject for v in suggestions.pending(sid)] == ["read_length"]
+
+
+def _measured(sid: str, subject: str, value) -> None:
+    from mendel_api.authoring.types import Fact, FactKind, FactSource
+    from mendel_api.services import authoring_decisions
+
+    authoring_decisions.record(_draft(sid), Fact(kind=FactKind.MEASUREMENT, subject=subject,
+                                                 value=value, source=FactSource.MEASURED),
+                               who="inspector")
+
+
+def _source(sid: str, subject: str) -> str:
+    return next(f.origin for f in decisions.read(_draft(sid)).facts if f.subject == subject)
+
+
+def test_a_value_against_the_sample_is_asked_about_and_followed_on_yes(clean, monkeypatch):
+    """#345, operator: ask *are you sure?*, and if they are, follow what they said. Walk 3: the
+    sample measured 101 and *read length is 50* was typed."""
+    sid = _gathering(want=["counts.matrix"])
+    _measured(sid, "read_length", 101)
+    _typed(monkeypatch, sid, "sorry, I was wrong earlier: read length is 50",
+           {"facts": [{"subject": "read_length", "value": 50, "quote": "read length is 50"}]})
+    assert _value(sid, "read_length") == 101
+    [offered] = suggestions.pending(sid)
+    assert offered.says == "Are you sure the read length is 50? Your sample measured 101."
+    assert facade.read(sid)["suggestions"][0]["measured"] == 101
+
+    asyncio.run(suggestions.apply(sid, offered.id, by="ana"))
+    assert (_value(sid, "read_length"), _source(sid, "read_length")) == (50, "person_said")
+
+
+def test_a_value_the_sample_agrees_with_is_heard_as_before(clean, monkeypatch):
+    sid = _gathering(want=["counts.matrix"])
+    _measured(sid, "read_length", 50)
+    _typed(monkeypatch, sid, "read length is 50",
+           {"facts": [{"subject": "read_length", "value": 50, "quote": "read length is 50"}]})
+    assert suggestions.pending(sid) == []
+
+
+def test_what_the_record_already_says_is_not_offered_again(clean, monkeypatch):
+    """Walk 3: the model listed the known want and inputs beside the one new fact, and each became
+    a card to apply. Only the new fact is offered; the engine does not say *Noted.*"""
+    sid = _gathering(want=["counts.matrix"])
+    _measured(sid, "read_length", 101)
+    _typed(monkeypatch, sid, "sorry, I was wrong earlier: read length is 50",
+           {"wants": [{"type": "counts.matrix", "quote": "Gene counts"}],
+            "facts": [{"subject": "read_length", "value": 50, "quote": "read length is 50"}]})
+    assert [v.change.subject for v in suggestions.pending(sid)] == ["read_length"]
+    assert "Noted." not in _said(sid)

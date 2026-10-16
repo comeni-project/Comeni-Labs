@@ -206,6 +206,15 @@ def test_the_chat_prompt_names_every_list_and_changes_nothing_itself():
     assert "proceed" not in body
 
 
+def test_the_chat_prompt_hands_over_a_value_against_the_record():
+    """#345: *the record wins; ask* had the walk's model retract the measured read length rather
+    than give the person's 50. The engine asks *are you sure?*; the model hands the value over."""
+    body = " ".join(prompts.template(prompts.CHAT).body.split())
+    assert "the record wins until the person confirms otherwise" in body
+    assert "give their value as a fact quoting them" in body
+    assert "never retract a fact to replace it" in body
+
+
 def test_the_chat_prompt_refuses_an_arbitrary_tool_id():
     """§1.3: the model never names a module the engine did not offer; the reply format also
     holds `pins.tool` to the registry's ids."""

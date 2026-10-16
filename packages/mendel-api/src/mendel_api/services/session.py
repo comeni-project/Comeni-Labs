@@ -617,7 +617,7 @@ def read(session_id: str) -> dict:
             "suggestions": [
                 {"id": view.id, "says": view.says, "heard": view.heard,
                  "quote": view.change.heard, "kind": view.change.kind,
-                 "subject": view.change.subject}
+                 "subject": view.change.subject, "measured": view.measured}
                 for view in _suggestions.pending(session_id)
             ],
             "pending_proposal": (
