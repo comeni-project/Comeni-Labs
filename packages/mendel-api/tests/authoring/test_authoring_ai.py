@@ -331,8 +331,8 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(s
     assert row.id == outcome.invocation_id
     assert row.agent == "builder"
     assert row.purpose == "goal"
-    assert row.prompt_id == "builder.goal.v8"
-    assert row.prompt_version == "v8"
+    assert row.prompt_id == "builder.goal.v9"
+    assert row.prompt_version == "v9"
     assert row.provider == "local"
     assert row.state == "succeeded"
     assert row.failure_code == ""
@@ -565,7 +565,7 @@ def test_the_goal_call_is_shown_only_the_chosen_families_whole(stack, clean_forg
     counts = sorted(t for t in stack.vocabulary.types if t.startswith("counts."))
     assert goal.choices[0]["wants.type"] == counts
     assert "fastq.reads" not in goal.last_prompt and "counts.matrix" in goal.last_prompt
-    assert _rows()[0].prompt_id == "builder.goal.v8"
+    assert _rows()[0].prompt_id == "builder.goal.v9"
 
 
 def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges(
@@ -574,7 +574,7 @@ def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=None, client=goal)
     assert goal.choices[0]["wants.type"] == sorted(stack.vocabulary.types)
-    assert _rows()[0].prompt_id == "builder.goal.v8"
+    assert _rows()[0].prompt_id == "builder.goal.v9"
     assert "Acknowledge them in `say`" in goal.last_prompt
 
 

@@ -26,9 +26,13 @@ every built artifact, and the symptom would be an empty prompt rather than an im
 `test_the_templates_ship_inside_the_built_wheel` builds one and looks.
 """
 
-GOAL: PromptId = "builder.goal.v8"
+GOAL: PromptId = "builder.goal.v9"
 """Prose in, what the person wants and what they said about their data out, as **changes**, each
 quoting their words (`Understanding`). Egress door 1.
+
+**v9 (2026-10-16, #327)**: *2x100 bp* is pairing and a read length of 100; `say` claims nothing
+recorded and never promises what is not offered. The walks: *2x100* went unread, and the model
+said *I've recorded that you want differential expression*.
 
 **v8 (2026-10-13, #307)** replaces `stated` candidates with lists of changes — `wants`, `inputs`,
 `facts`, `requires`, `not_offered` — each carrying the person's own words; the engine records a
@@ -52,12 +56,16 @@ that.
 RETIRED: tuple[PromptId, ...] = (
     # Superseded by the change lists and the memory (#307): goal.v6 and v7 by goal.v8, chat.v2
     # and gap.v2 by chat.v3, ask.v1 by ask.v2, readback.v1 by readback.v2, family.v3 by v4.
-    # chat.v3 by chat.v4 (#324), chat.v4 by chat.v5 (#336).
+    # chat.v3 by chat.v4 (#324), chat.v4 by chat.v5 (#336); chat.v5, goal.v8 and ask.v2 by
+    # chat.v6, goal.v9 and ask.v3 (#327).
     "builder.goal.v6",
     "builder.goal.v7",
     "builder.chat.v2",
     "builder.chat.v3",
     "builder.chat.v4",
+    "builder.chat.v5",
+    "builder.goal.v8",
+    "builder.ask.v2",
     "builder.gap.v2",
     "builder.ask.v1",
     "builder.readback.v1",
@@ -91,9 +99,14 @@ a family holds the result itself, never a step on the way (ChIP-seq peaks were r
 `alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
 the shared block, as every template does."""
 
-CHAT: PromptId = "builder.chat.v5"
+CHAT: PromptId = "builder.chat.v6"
 """Typed words anywhere after the want is read, in; something to say and the changes they ask
 for out (`ChatReply`), each quoting the person (#307).
+
+**v6 (2026-10-16, #327)**: never claims to record or promises what is not offered; quotes the
+words that state a fact; asks nothing about what is not offered; a fact's subject is a
+measurement, never a type that resembles it; no stock sentence for *I cannot see that* (the
+model repeated v5's example verbatim).
 
 **v5 (2026-10-15, #336)** has no `proceed`: Continue is the person's. v4's settled two steps
 in the second walk, recorded as the person's choice.
@@ -118,9 +131,13 @@ GAP: PromptId = "builder.gap.v2"
 """A person's typed answer to one gap in, one offered option id or a typed value out, or
 *unsure*. Egress door 1. Clicking an option never reaches this: it needs no model (14.7.3)."""
 
-ASK: PromptId = "builder.ask.v2"
+ASK: PromptId = "builder.ask.v3"
 """One gathering question in, the question in the person's words out, and any answer they
-already gave (#167). Prose only: the options and the fact stay the engine's."""
+already gave (#167). Prose only: the options and the fact stay the engine's.
+
+**v3 (2026-10-16, #327)** asks what the thing is, never how it was determined, and never names
+the answers, which are buttons: v2 asked *how the library strandedness was determined …,
+choosing from forward, reverse, unstranded, Not sure, or I can't share it*."""
 
 READBACK: PromptId = "builder.readback.v2"
 """The composed goal in, one or two plain sentences out, for the goal card (#176). Written from

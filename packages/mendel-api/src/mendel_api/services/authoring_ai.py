@@ -158,7 +158,10 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     eleven values does not know it was shown nine. Its answer then passes every check on the way
     back, because the thing it could not say is the thing nobody asked about.
     """
-    lines = ["Types, each with the states declared for it:"]
+    # **Labelled by what each list is** (#327): the walk's model took the type
+    # `measurement.read_length` for the measurement `read_length`.
+    lines = ["Types (files and results; a want, an input or a state names one), each with its "
+             "declared states:"]
     shown = stack.vocabulary.types if types is None else set(types)
     for type_id, states in sorted(stack.vocabulary.types.items()):
         if type_id not in shown:
@@ -167,7 +170,8 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
         lines.append(f"  {type_id} — {spelled}")
     # **Each measurement with what it can hold and what it means** (#170): a bare `paired` gave a
     # model nothing to connect *paired-end* to, and `stated` came back empty.
-    lines += ["", "Measurements, each with what it can hold (what a person may state):"]
+    lines += ["", "Measurements (facts about the data; a fact's subject is one of these), each "
+              "with what it can hold:"]
     for measurement_id, m in sorted(stack.measurements.measurements.items()):
         holds = ", ".join(str(v) for v in m.values) if m.values else m.kind.value
         unit = f" {m.unit}" if m.unit else ""
@@ -267,7 +271,7 @@ def understand(
     session_id: str | None = None,
 ) -> Outcome:
     """Prose in, what the person wants and what they said as changes out (`Understanding`,
-    `goal.v8`, #307), or a visible coded refusal.
+    `goal.v9`, #307, #327), or a visible coded refusal.
 
     **`families` given** (#194): `goal.v7`, shown every type of those families and held to them.
     **`None`**, the family step switched off: `goal.v6`, shown every type, acknowledging as it
@@ -389,7 +393,7 @@ def phrase_gap(
     client: Client | None = None,
     session_id: str | None = None,
 ) -> Outcome:
-    """One gathering question, phrased for this person (#167; `ask.v2`, words only, #307).
+    """One gathering question, phrased for this person (#167; `ask.v3`, words only, #307, #327).
 
     `gap` carries `subject`, `kind`, `asks` (the engine's wording), `description` and `options`
     (id → label); `request.prompt` is the person's first sentence and `request.options` the
