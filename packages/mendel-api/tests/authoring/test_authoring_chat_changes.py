@@ -247,6 +247,19 @@ def test_what_is_not_offered_is_quoted_once(clean, monkeypatch):
     assert "you asked for also" not in summary
 
 
+def test_once_confirmed_what_is_not_offered_is_noted_without_a_click(clean, monkeypatch):
+    """#347, walk 3: after the goal was confirmed, the not-offered request came back as a card
+    with *Apply*, which reads as a pipeline change. It changes nothing, so it is recorded as it
+    is before confirmation, and said."""
+    sid = _resolving()
+    _answer_all(sid, authoring_setup.start_building(sid))
+    phrase = "also I want differential expression between fed and fasted yeast"
+    _typed(monkeypatch, sid, phrase, {"not_offered": [{"quote": phrase}]})
+    assert suggestions.pending(sid) == []
+    assert [a.phrase for a in decisions.read_asked(_draft(sid))] == [phrase]
+    assert any(r["summary"].startswith("Not offered here:") for r in _blocks(sid, "receipt"))
+
+
 def test_a_model_question_with_no_choices_is_said_not_carded(clean, monkeypatch):
     """Issue 327 item 2: a model's question with no choices became a card marked *every
     option* with nothing to choose, left open after the goal was confirmed. It is said; the
