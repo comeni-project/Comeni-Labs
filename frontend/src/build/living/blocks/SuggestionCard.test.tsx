@@ -33,7 +33,7 @@ describe("a suggestion", () => {
     expect(onDismiss).toHaveBeenCalledWith("s1");
   });
 
-  it("asks Yes or No when the value is against what the sample measured (#345)", () => {
+  it("asks Yes or No when the value is against what the sample measured (issue 345)", () => {
     const onApply = vi.fn();
     const onDismiss = vi.fn();
     const asked = { ...OFFERED, heard: true, quote: "read length is 50", measured: 101,

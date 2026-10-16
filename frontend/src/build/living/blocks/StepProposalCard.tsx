@@ -51,7 +51,7 @@ export function StepProposalCard({
   const group = useId();
   const [chosen, setChosen] = useState("keep");
   const [told, setTold] = useState("");
-  /** A fact with declared values is picked, not typed (#341). */
+  /** A fact with declared values is picked, not typed (issue 341). */
   const [pick, setPick] = useState<string | number | boolean | null>(null);
   if (block.kind !== "step_proposal") return null;
 

@@ -7,7 +7,7 @@ import { Primary, Secondary } from "./parts";
  * reading it is: *suggested by AI* when the model did not quote them, or the words it heard when
  * it did but the goal was already confirmed — every change mid-build is shown before it applies.
  * A value against what the sample measured is a question, *are you sure?*, answered Yes or No
- * (#345): Yes records what they said.
+ * (issue 345): Yes records what they said.
  */
 export function SuggestionCard({
   suggestion,

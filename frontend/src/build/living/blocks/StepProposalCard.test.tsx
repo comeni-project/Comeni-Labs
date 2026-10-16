@@ -140,7 +140,7 @@ describe("changing a step (spec §14 of the consultant build)", () => {
 });
 
 
-describe("a fact the tool reads (#341)", () => {
+describe("a fact the tool reads (issue 341)", () => {
   function factCard(onAccept = vi.fn()) {
     const p = proposal();
     p.options = ["keep", "fact_strandedness"];
