@@ -465,8 +465,11 @@ function DecisionEntry({
   if (block.kind !== "step_proposal") return null;
   const author = authorOf(decision);
   const tick: Tick = author === "model" ? "model" : author === "person" ? "person" : author === "unknown" ? "quiet" : "resolver";
+  // **A withdrawn offer says why** (#354): the engine withdraws one when the answers it was
+  // built on change. It was never decided, so its tier's *open* does not apply.
+  const went = decision.state === "rejected" || decision.state === "stale";
   const verb =
-    decision.state === "rejected" ? "skipped" : decision.state === "stale" ? "withdrawn"
+    decision.state === "rejected" ? "skipped" : decision.state === "stale" ? "answers changed"
       : author === "model" ? "model chose" : author === "person" ? "you chose" : author === "unknown" ? "chooser unknown" : "settled";
   const replaced =
     decision.chosen_contract && decision.chosen_contract !== block.contract
@@ -477,7 +480,7 @@ function DecisionEntry({
     <Turn tick={tick} anchor={block.node}>
       <Collapsed
         name={processName(block.node)}
-        detail={`${progress ? stepWords(progress).toLowerCase() : ""}${TIER_WORD[block.tier] ?? ""}${replaced}${decision.applicability && decision.applicability !== "retained" ? ` · ${decision.applicability}` : ""}`.replace(/^ · /, "")}
+        detail={`${progress ? stepWords(progress).toLowerCase() : ""}${went ? "" : TIER_WORD[block.tier] ?? ""}${replaced}${decision.applicability && decision.applicability !== "retained" ? ` · ${decision.applicability}` : ""}`.replace(/^ · /, "")}
         by={verb}
         selected={selected === block.node}
         onClick={() => onSelect(block.node)}

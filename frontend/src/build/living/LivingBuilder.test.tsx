@@ -135,6 +135,24 @@ describe("progress", () => {
     expect(within(log).getByText(/step 2 of 5/)).toBeInTheDocument();
     expect(within(log).queryByText(/step 1\b/)).toBeNull();
   });
+
+  it("says why a tier-4 offer went, and calls it open only once decided", async () => {
+    // #354, walk 4: answering strandedness withdrew featureCounts' offer, and its row read
+    // *step 5 of 5 · open  withdrawn* — open, though nothing was left to answer.
+    const offer = (state: string, node: string) => ({
+      id: `h-${node}`, envelope: { offer: "step", progress: { position: 5, total: 5, again: false } },
+      kind: "step", state, by: "engine", actor_kind: "engine", at: "2026-10-18T10:00:00Z",
+      block: { kind: "step_proposal", id: `step-${node}`, node, contract: "nf-core/subread/featurecounts@2.0.6",
+               produces: ["counts.matrix"], reason: "uncontested", tier: 4, alternatives: [] } });
+    open(live({ history: [...FAKE_SESSION.history, offer("stale", "subread_featurecounts"),
+                          offer("accepted", "featurecounts_again")] }));
+    await screen.findByTestId("living-node-star_align");
+    const log = screen.getByRole("list", { name: "decisions and conversation" });
+    const [went, decided] = within(log).getAllByText(/step 5 of 5/);
+    expect(went.closest("li")).toHaveTextContent("answers changed");
+    expect(went.closest("li")).not.toHaveTextContent(/open|withdrawn/);
+    expect(decided).toHaveTextContent("· open");
+  });
 });
 
 describe("registry gaps", () => {
