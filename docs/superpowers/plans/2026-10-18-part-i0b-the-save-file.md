@@ -95,7 +95,7 @@ def test_said_is_what_is_written():
 - Produces: `Locator(source: RepoUrl | None, commit: CommitSha | None, dirty: bool | None)` in `lockfile.py`; `LockedLayer` gains the same three fields, all `None` by default and dropped from the dump when `None`; `Pipeline.of(ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None, locators: Mapping[LayerName, Locator] | None = None)`. In `mendel_compiler.locate`: `locate(layer: Path) -> Locator`, `locators(layers: Sequence[Path]) -> dict[LayerName, Locator]`.
 - `RepoUrl`: `https://host/path`, `ssh://host/path` or `user@host:path`; no userinfo on `http(s)`; no local path or `file://`. `CommitSha`: 40 lowercase hex.
 
-- [ ] **Step 1: Write the failing tests** (`test_locate.py`, each in a `tmp_path` git repo made with `git init`, one commit, `git remote add origin …`):
+- [x] **Step 1: Write the failing tests** (`test_locate.py`, each in a `tmp_path` git repo made with `git init`, one commit, `git remote add origin …`):
   - `test_a_clean_layer_names_its_remote_and_commit`: `locate(layer) == Locator(source="https://github.com/comeni-project/comeni-registry", commit=<rev-parse HEAD>, dirty=False)`.
   - `test_an_edited_layer_is_dirty`: an untracked file under the layer → `dirty is True`; an edit **outside** the layer's folder → `dirty is False`.
   - `test_a_layer_outside_git_records_nothing`: `locate(tmp_path) == Locator(source=None, commit=None, dirty=None)`.
@@ -103,10 +103,10 @@ def test_said_is_what_is_written():
   - `test_a_local_remote_records_no_source`: origin `/home/someone/registry` → `source is None`, `commit` set.
   - In `packages/comeni-core/tests/`: `test_repo_url_refuses_userinfo_and_paths` (`RepoUrl` rejects `https://a:b@h/p`, `/abs/path`, `file:///x`).
   - In `tests/artifact/`: `test_build_warns_for_an_unversioned_and_a_dirty_layer` (CLI `build` against an un-versioned copy of `registry/` prints `MD0231`; against a dirty clone prints `MD0232`; both exit 0).
-- [ ] **Step 2: Run them; expect `ModuleNotFoundError: mendel_compiler.locate`.**
-- [ ] **Step 3: Implement.** `locate` runs `git -C <layer>`: `rev-parse --show-toplevel` (fails → not in git), `remote get-url origin` (absent → `source=None`), `rev-parse HEAD`, `status --porcelain -- .`; strip userinfo before validating; a local path → `None`. `orchestrate.build` and `drafts._materialised` pass `locators(paths)`. MD0231 (*a layer is not in git; this pipeline cannot be rebuilt from its file alone*) and MD0232 (*a layer has uncommitted edits*): `emitted_by: compiler`, `refuses: false`, `fires_on: [build, upgrade]`.
-- [ ] **Step 4: Run `make test` and `make guards`; expect PASS,** including the purity guards (git only in `mendel-compiler`) and `test_no_payload_carries_an_undeclared_string`.
-- [ ] **Step 5: Commit** `feat: each registry layer in pipeline.yml names its source and commit (Plan B)`.
+- [x] **Step 2: Run them; expect `ModuleNotFoundError: mendel_compiler.locate`.**
+- [x] **Step 3: Implement.** `locate` runs `git -C <layer>`: `rev-parse --show-toplevel` (fails → not in git), `remote get-url origin` (absent → `source=None`), `rev-parse HEAD`, `status --porcelain -- .`; strip userinfo before validating; a local path → `None`. `orchestrate.build` and `drafts._materialised` pass `locators(paths)`. MD0231 (*a layer is not in git; this pipeline cannot be rebuilt from its file alone*) and MD0232 (*a layer has uncommitted edits*): `emitted_by: compiler`, `refuses: false`, `fires_on: [build, upgrade]`.
+- [x] **Step 4: Run `make test` and `make guards`; expect PASS,** including the purity guards (git only in `mendel-compiler`) and `test_no_payload_carries_an_undeclared_string`.
+- [x] **Step 5: Commit** `feat: each registry layer in pipeline.yml names its source and commit (Plan B)`.
 
 ### Task 4: `mendel upgrade` says which commit to check out
 
@@ -117,11 +117,11 @@ def test_said_is_what_is_written():
 **Interfaces:**
 - Consumes: `LockedLayer.source`, `LockedLayer.commit` (Task 3).
 
-- [ ] **Step 1: Write the failing test** `test_a_changed_layer_names_the_commit_it_was_locked_at`: a lock whose layer has `source` and `commit`, compared with a changed layer → the line reads `layer comeni-registry has changed since it was locked; it was locked at <commit> of <source>`. A layer with no locator keeps today's sentence exactly (`test_a_changed_layer_without_a_locator_reads_as_before`).
-- [ ] **Step 2: Run; expect FAIL** on the missing clause.
-- [ ] **Step 3: Implement** the clause in `drift_against`, only when both are known.
-- [ ] **Step 4: Run `make test`; expect PASS.**
-- [ ] **Step 5: Commit** `feat(upgrade): a changed layer names the commit it was locked at (Plan B)`.
+- [x] **Step 1: Write the failing test** `test_a_changed_layer_names_the_commit_it_was_locked_at`: a lock whose layer has `source` and `commit`, compared with a changed layer → the line reads `layer comeni-registry has changed since it was locked; it was locked at <commit> of <source>`. A layer with no locator keeps today's sentence exactly (`test_a_changed_layer_without_a_locator_reads_as_before`).
+- [x] **Step 2: Run; expect FAIL** on the missing clause.
+- [x] **Step 3: Implement** the clause in `drift_against`, only when both are known.
+- [x] **Step 4: Run `make test`; expect PASS.**
+- [x] **Step 5: Commit** `feat(upgrade): a changed layer names the commit it was locked at (Plan B)`.
 
 ### Task 5: one file to start from
 

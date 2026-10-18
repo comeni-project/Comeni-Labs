@@ -155,6 +155,9 @@ class Lockfile(BaseModel):
         else:
             for locked_layer, (name, digest) in zip(self.layers, current, strict=True):
                 if locked_layer.digest != digest:
-                    found.append(f"layer {name} has changed since it was locked")
+                    # Which commit to check out, when the build recorded one (Plan B, §8.2).
+                    where = (f"; it was locked at {locked_layer.commit} of {locked_layer.source}"
+                             if locked_layer.commit and locked_layer.source else "")
+                    found.append(f"layer {name} has changed since it was locked{where}")
 
         return found
