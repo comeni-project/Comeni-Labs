@@ -34,7 +34,7 @@ export function StepProposalCard({
   showGapDetails?: boolean;
   busy: boolean;
   /** `keep` (*Continue*), an alternative's id, or `fact_<measurement>` with the typed value. */
-  onAccept: (option: string, value?: string | number) => void;
+  onAccept: (option: string, value?: string | number | boolean) => void;
   /** Hover and focus look at an option for a moment; **Preview** pins it until pressed again,
    *  closed, or Escape. A moment's look never clears a pinned one. */
   onPreview: (option: string | null, mode: "temporary" | "pinned") => void;
@@ -51,6 +51,8 @@ export function StepProposalCard({
   const group = useId();
   const [chosen, setChosen] = useState("keep");
   const [told, setTold] = useState("");
+  /** A fact with declared values is picked, not typed (issue 341). */
+  const [pick, setPick] = useState<string | number | boolean | null>(null);
   if (block.kind !== "step_proposal") return null;
 
 
@@ -65,11 +67,15 @@ export function StepProposalCard({
       .filter((option) => offered.has(option.id))
       .map((option) => ({ id: option.id, label: option.label, note: option.note ?? "",
                           recommended: false })),
-    ...facts.map((id) => ({ id, label: `Tell me the ${id.slice(FACT.length)}`,
-                            note: "the rule that picks this tool reads it", recommended: false })),
+    ...facts.map((id) => ({ id, label: `Tell me the ${id.slice(FACT.length).replaceAll("_", " ")}`,
+                            note: block.need?.fact_reasons?.[id.slice(FACT.length)]
+                              ?? "the rule that picks this tool reads it",
+                            recommended: false })),
   ];
   const fact = chosen.startsWith(FACT) ? chosen.slice(FACT.length) : null;
-  const accept = () => onAccept(chosen, fact ? typed(told) : undefined);
+  const values = fact ? block.need?.fact_values?.[fact] ?? null : null;
+  const answer = values ? pick : typed(told);
+  const accept = () => onAccept(chosen, fact ? answer ?? undefined : undefined);
   const unresolved = block.unresolved_settings ?? [];
 
   return (
@@ -79,7 +85,7 @@ export function StepProposalCard({
       aside={`tier ${block.tier}`}
       actions={
         <>
-          <Primary data-testid="accept-step" disabled={busy || (fact !== null && told.trim() === "")}
+          <Primary data-testid="accept-step" disabled={busy || (fact !== null && (values ? pick === null : told.trim() === ""))}
                    onClick={accept}>
             {busy ? "Working…" : chosen === "keep" ? "Continue" : "Change it"}
           </Primary>
@@ -196,7 +202,22 @@ export function StepProposalCard({
           );
         })}
       </div>
-      {fact && (
+      {fact && values && (
+        <div role="radiogroup" aria-label={fact.replaceAll("_", " ")} className="flex flex-wrap gap-2 mb-2">
+          {values.map((value) => (
+            <label key={String(value)}
+                   className="flex items-center gap-[6px] px-[10px] py-1 border cursor-pointer font-data
+                              text-[11px] text-ink focus-within:shadow-[var(--ring)]"
+                   style={{ borderColor: pick === value ? "var(--link)" : "var(--line-2)" }}>
+              <input type="radio" name={`${group}-${fact}`} className="sr-only"
+                     aria-label={valueWords(value)} checked={pick === value}
+                     onChange={() => setPick(value)} />
+              {valueWords(value)}
+            </label>
+          ))}
+        </div>
+      )}
+      {fact && !values && (
         <label className="block mb-2 text-[12px] text-ink-2">
           <span className="block mb-1 font-data text-[10px] tracking-[.08em] uppercase text-ink-3">
             {fact}
@@ -222,6 +243,11 @@ export function StepProposalCard({
 }
 
 const FACT = "fact_";
+
+/** A declared value as a person reads it: yes and no for a yes-or-no fact. */
+function valueWords(value: string | number | boolean): string {
+  return value === true ? "yes" : value === false ? "no" : String(value);
+}
 
 /** A typed fact as the server checks it: a number when it reads as one. */
 function typed(text: string): string | number {

@@ -218,6 +218,8 @@ class AuthoringSuggestionView(BaseModel):
     quote: str | None = None
     kind: str
     subject: str
+    measured: HumanParamValue | None = None
+    """The measured value this contradicts (#345): the card asks *are you sure?* with Yes/No."""
 
 
 class DecideSuggestion(BaseModel):

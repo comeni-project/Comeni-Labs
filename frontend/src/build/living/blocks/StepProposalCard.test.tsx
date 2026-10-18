@@ -139,3 +139,39 @@ describe("changing a step (spec §14 of the consultant build)", () => {
   });
 });
 
+
+describe("a fact the tool reads (issue 341)", () => {
+  function factCard(onAccept = vi.fn()) {
+    const p = proposal();
+    p.options = ["keep", "fact_strandedness"];
+    if (p.block.kind === "step_proposal") {
+      p.block.need = {
+        kind: "fact", facts: ["strandedness"], choices: [],
+        fact_values: { strandedness: ["forward", "reverse", "unstranded"] },
+        fact_reasons: {
+          strandedness: "nf-core/subread/featurecounts reads strandedness, and it is not known",
+        },
+      };
+    }
+    render(<StepProposalCard proposal={p} progress={null} busy={false} onAccept={onAccept}
+                             onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />);
+    return onAccept;
+  }
+
+  it("says why from its record, not a rule", () => {
+    factCard();
+    const option = screen.getByTestId("option-fact_strandedness");
+    expect(option).toHaveTextContent("Tell me the strandedness");
+    expect(option).toHaveTextContent("reads strandedness, and it is not known");
+    expect(option).not.toHaveTextContent("the rule that picks this tool");
+  });
+
+  it("offers its values to pick, and sends the one picked", async () => {
+    const onAccept = factCard();
+    await userEvent.click(screen.getByTestId("option-fact_strandedness"));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "reverse" }));
+    await userEvent.click(screen.getByTestId("accept-step"));
+    expect(onAccept).toHaveBeenCalledWith("fact_strandedness", "reverse");
+  });
+});

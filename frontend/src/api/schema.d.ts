@@ -2049,6 +2049,8 @@ export interface components {
             kind: string;
             /** Subject */
             subject: string;
+            /** Measured */
+            measured?: number | boolean | string | null;
         };
         /** AuthoringTurnView */
         AuthoringTurnView: {
@@ -4134,6 +4136,14 @@ export interface components {
              * @default []
              */
             choices: components["schemas"]["Choice"][];
+            /** Fact Values */
+            fact_values?: {
+                [key: string]: (number | boolean | string | null)[];
+            };
+            /** Fact Reasons */
+            fact_reasons?: {
+                [key: string]: string;
+            };
         };
         /**
          * NeedKind

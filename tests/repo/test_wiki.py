@@ -83,12 +83,17 @@ def test_the_configured_stage_is_emitted_into_the_built_site(tmp_path):
     assert "content: var(--comeni-stage)" in css
 
 
+STALE_TOOLS = (
+    "docs/tools/ is a leftover local build: the tool pages used to be generated there and now go "
+    "to docs/reference/tools/ (#334). It is not tracked; delete it (`rm -r docs/tools`)."
+)
+
 def test_the_tools_book_is_generated_not_committed():
     """Generated tool pages are ignored; their authored introduction is outside that tree."""
     ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "/docs/reference/tools/*.md" in ignore
     assert (ROOT / "docs/reference/tools.md").is_file()
-    assert not (ROOT / "docs/tools").exists()
+    assert not (ROOT / "docs/tools").exists(), STALE_TOOLS
 
 
 def test_building_the_wiki_generates_the_catalogue_first():
@@ -175,7 +180,9 @@ def test_maintained_pages_have_their_canonical_destinations(rel: str):
 @pytest.mark.parametrize("rel", RETIRED)
 def test_the_old_layout_is_gone(rel: str):
     """Retired locations stay absent; reference/index.md is now a reader-path entry."""
-    assert not (ROOT / "docs" / rel).exists(), f"docs/{rel} should have been moved or deleted"
+    assert not (ROOT / "docs" / rel).exists(), (
+        STALE_TOOLS if rel == "tools" else f"docs/{rel} should have been moved or deleted"
+    )
 
 
 def test_no_shipped_message_points_at_a_deleted_guide():

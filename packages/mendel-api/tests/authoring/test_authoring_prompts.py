@@ -206,6 +206,15 @@ def test_the_chat_prompt_names_every_list_and_changes_nothing_itself():
     assert "proceed" not in body
 
 
+def test_the_chat_prompt_hands_over_a_value_against_the_record():
+    """#345: *the record wins; ask* had the walk's model retract the measured read length rather
+    than give the person's 50. The engine asks *are you sure?*; the model hands the value over."""
+    body = " ".join(prompts.template(prompts.CHAT).body.split())
+    assert "the record wins until the person confirms otherwise" in body
+    assert "give their value as a fact quoting them" in body
+    assert "never retract a fact to replace it" in body
+
+
 def test_the_chat_prompt_refuses_an_arbitrary_tool_id():
     """§1.3: the model never names a module the engine did not offer; the reply format also
     holds `pins.tool` to the registry's ids."""
@@ -219,7 +228,7 @@ def test_the_chat_prompt_grounds_an_explanation_on_known_step_ids():
     body = prompts.template(prompts.CHAT).body
     for required in (
         "refer to steps by the ids listed below",
-        "If the answer is not in what you were given, say so",
+        "If the answer is not in what you were given, say what you cannot see",
     ):
         assert required in body, f"the chat prompt no longer says: {required!r}"
 
@@ -443,3 +452,42 @@ def test_the_characteriser_asks_each_property_to_quote_its_line():
     assert prompts.CHARACTERISE == "builder.characterise.v2"
     assert "`evidence`" in body and "quoted exactly" in body
     assert "builder.characterise.v1" in prompts.RETIRED
+
+
+# ── what the walks found the model doing (#327) ───────────────────────────────────────────
+
+
+def _text(prompt_id: str) -> str:
+    return (prompts.HERE / f"{prompt_id}.md").read_text(encoding="utf-8")
+
+
+def test_no_conversational_prompt_lets_the_model_claim_it_recorded_anything():
+    """The model said *Okay, I've recorded that* three times; only the engine records."""
+    for prompt_id in (prompts.GOAL, prompts.CHAT):
+        assert "You record nothing" in _text(prompt_id), prompt_id
+
+
+def test_what_is_not_offered_is_never_promised_or_asked_about():
+    """*I've recorded that you want differential expression*, then a question about its state."""
+    chat = _text(prompts.CHAT)
+    assert "Never** say it will be done" in chat
+    assert "never about something\n  under `not_offered`" in chat
+    assert "never say something under `not_offered`\nwill be done" in _text(prompts.GOAL)
+
+
+def test_two_by_a_hundred_is_a_read_length_of_a_hundred():
+    """The most common way a facility writes it went unread in both walks."""
+    goal = _text(prompts.GOAL)
+    assert '"subject": "read_length", "value": 100, "quote": "2x100 bp"' in goal
+
+
+def test_the_honesty_rule_gives_no_sentence_to_copy():
+    """`chat.v5`'s example *I cannot see that from here* came back verbatim, three times."""
+    assert "I cannot see that from here" not in _text(prompts.CHAT)
+
+
+def test_a_question_asks_what_and_never_names_its_answers():
+    """`ask.v2`: *how the library strandedness was determined …, choosing from forward, …*."""
+    ask = _text(prompts.ASK)
+    assert "never how it was determined" in ask
+    assert "never names" in ask

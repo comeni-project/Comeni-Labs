@@ -6,6 +6,8 @@ import { Primary, Secondary } from "./parts";
  * **One click applies it, as the person's own change**; nothing moves until then. It says whose
  * reading it is: *suggested by AI* when the model did not quote them, or the words it heard when
  * it did but the goal was already confirmed — every change mid-build is shown before it applies.
+ * A value against what the sample measured is a question, *are you sure?*, answered Yes or No
+ * (issue 345): Yes records what they said.
  */
 export function SuggestionCard({
   suggestion,
@@ -18,6 +20,7 @@ export function SuggestionCard({
   onApply: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
+  const asks = suggestion.measured != null;
   return (
     <div data-testid="suggestion" className="flex items-center gap-3 px-[10px] py-2 border"
          style={{ borderColor: "var(--line-2)" }}>
@@ -28,8 +31,10 @@ export function SuggestionCard({
             : "suggested by AI"}
         </p>
       </div>
-      <Primary disabled={busy} onClick={() => onApply(suggestion.id)}>Apply</Primary>
-      <Secondary disabled={busy} onClick={() => onDismiss(suggestion.id)}>Dismiss</Secondary>
+      <Primary disabled={busy} onClick={() => onApply(suggestion.id)}>{asks ? "Yes" : "Apply"}</Primary>
+      <Secondary disabled={busy} onClick={() => onDismiss(suggestion.id)}>
+        {asks ? "No" : "Dismiss"}
+      </Secondary>
     </div>
   );
 }

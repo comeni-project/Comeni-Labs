@@ -64,6 +64,7 @@ application deliberately; session and demo records remain after the command fini
 |---|---|---|
 | [seed_demo.py](seed_demo.py) | Running Mendel API; the default RNA-seq goal and registry. Fake runs also need Wiener, kept draft files and Docker Compose access to its database. | Creates or refreshes a draft by name and keeps it by default. `--fresh` creates another draft; `--no-keep` skips keeping. Fake-run flags upload an artifact and insert simulated run/projection data through `psql`; they do not launch Nextflow. |
 | [measure_models.py](measure_models.py) | Running builder and AI worker, a configured model connection and available models. Purpose settings must be editable. | Temporarily changes purpose-specific model settings, creates sessions and calls models. Prints outcome counts and median latency/token usage; attempts to restore prior settings in `finally`. Session/call records remain. |
+| [measure_prompts.py](measure_prompts.py) | The configured model and the database `.env` names. No API needed. | Runs the walks' sentences through the builder's calls once per prompt set (`before`, `after`) and checks what each reply says: a fact read, nothing claimed or promised, nothing asked of what is not offered. Prints passes per case. Calls are recorded like any other. |
 | [probe_prompt_cache.py](probe_prompt_cache.py) | API container, registry and an Ollama server reachable as `ollama:11434`, with the selected model available. | Sends three direct model requests and prints server timings/token counts. `--split` separates fixed instructions from the question. Its internal prompt helpers must agree with the current application. |
 
 For a local demo, use `make demo-seed` for completed fake runs or `make demo-fake-run` for a
@@ -77,6 +78,7 @@ Model comparison:
 
 ```bash
 uv run python tools/measure_models.py --connection "Local Ollama" ollama_chat/gemma3:4b
+uv run python tools/measure_prompts.py --runs 3
 ```
 
 The cache probe runs on the Compose network. With default container names:
