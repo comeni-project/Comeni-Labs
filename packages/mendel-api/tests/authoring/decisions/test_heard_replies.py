@@ -131,6 +131,10 @@ def test_a_retract_takes_the_kind_its_subject_implies(stack):
         ChatReply(facts=[{"subject": "read_length", "value": "fifty"}]),
         ChatReply(pins=[{"type": "alignment.bam", "tool": "nf-core/nothing@1.0.0"}]),
         ChatReply(requires=[{"type": "counts.matrix", "states": ["no_such_state"]}]),
+        # A derived profiling type is no builder's to name (#346). A `requires` of one names a
+        # state it does not have; a want or an input of one met no check at all.
+        Understanding(wants=[{"type": "measurement.read_length"}]),
+        ChatReply(inputs=[{"type": "measurement.read_length"}]),
     ],
 )
 def test_an_undeclared_id_is_refused_at_admission(stack, reply):

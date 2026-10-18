@@ -101,3 +101,20 @@ def digest() -> str:
 
 def stack() -> Layers:
     return _load(digest())
+
+
+def builder_types(stack: Layers) -> dict[str, frozenset[str]]:
+    """The types a builder want, input, state or pin may name: the declared vocabulary without
+    the `measurement.<id>` types `Vocabulary.with_measurements` derives (#346).
+
+    Those route profiling, and the `mendel profile` CLI wants them; nothing in the builder does.
+    Offered on the goal card, the walk saw `measurement.read_length` beside `fastq.reads`, and a
+    model's `requires measurement.read_length` with no states would have been admitted. **One
+    filter for every builder door** — the card, the prompt, each reply and each change — so a
+    door added later does not reopen it by reading `stack.vocabulary.types` directly.
+    """
+    return {
+        type_id: states
+        for type_id, states in stack.vocabulary.types.items()
+        if not type_id.startswith("measurement.")
+    }

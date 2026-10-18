@@ -129,7 +129,7 @@ def test_the_type_call_is_shown_only_the_chosen_families_types(stack, clean_forg
 def test_with_the_family_step_off_every_type_is_shown(stack, clean_forge):
     client = Choosing(_reply())
     ai.characterise(_request(), stack=stack, families=None, client=client)
-    assert client.choices[0]["type_id"] == sorted(stack.vocabulary.types)
+    assert client.choices[0]["type_id"] == sorted(registry.builder_types(stack))
 
 
 def test_a_type_outside_the_chosen_families_is_refused(stack, clean_forge):

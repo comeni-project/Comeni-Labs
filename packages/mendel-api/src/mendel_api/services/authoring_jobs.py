@@ -380,6 +380,11 @@ def _follow_up(session_id: str, seq: int, context) -> None:
     if authoring_decisions.confirmed(draft_id):
         for change, heard in [*((c, True) for c in issued.heard),
                               *((c, False) for c in issued.suggested)]:
+            # **A request not offered here is a note, not a change** (#347): *Apply* on it read
+            # as a pipeline change. Recorded as before the goal is confirmed; offered only if
+            # the record refuses it.
+            if heard and change.kind == "asked" and _record(session_id, draft_id, change):
+                continue
             suggestions.offer(session_id, change, heard=heard, invocation_id=change.invocation_id)
     else:
         # **Only if nothing moved since the person spoke** (Review Focus 2 of plan A): a click

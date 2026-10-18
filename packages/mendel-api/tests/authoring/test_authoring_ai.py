@@ -494,9 +494,9 @@ def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_forge):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="count genes"), stack=stack, client=goal)
     [held] = goal.choices
-    assert held["wants.type"] == sorted(stack.vocabulary.types)
+    assert held["wants.type"] == sorted(registry.builder_types(stack))
     measured = set(stack.measurements.measurements)
-    assert set(held["facts.subject"]) == set(stack.vocabulary.types) | measured
+    assert set(held["facts.subject"]) == set(registry.builder_types(stack)) | measured
 
     gap = {
         "subject": "paired",
@@ -573,7 +573,7 @@ def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges
 ):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=None, client=goal)
-    assert goal.choices[0]["wants.type"] == sorted(stack.vocabulary.types)
+    assert goal.choices[0]["wants.type"] == sorted(registry.builder_types(stack))
     assert _rows()[0].prompt_id == "builder.goal.v9"
     assert "Acknowledge them in `say`" in goal.last_prompt
 

@@ -21,7 +21,7 @@ def _revision(draft_id: str) -> int:
 
 
 def _type(stack, type_id: str) -> None:
-    if type_id not in stack.vocabulary.types:
+    if type_id not in registry.builder_types(stack):
         raise ValueError(coded("MI0204", f"{type_id} is not a type this registry declares"))
 
 
