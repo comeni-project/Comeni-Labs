@@ -13,7 +13,8 @@ in the workflow that no module read.
 
 A `pipeline.yml` is **generated, never hand-authored from nothing**. Resolution needs a
 registry and always will. This is the output of resolution that you may then edit; it is not a
-second way in. `mendel build --goal` is the only way to make one.
+second way in. `mendel build` is the only way to make one, from a starter: the same file
+with only its `intent` and `facts` ([goal-schema.md](goal-schema.md)).
 
 **It is a save file, and you are not its only reader.** Mendel is the engine and the AI is its
 primary operator (`docs/design/mendel.md` §1, decided 2026-08-14): an agent writes one of these,

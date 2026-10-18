@@ -185,7 +185,7 @@ def test_the_spine_is_still_a_glob(stack, tmp_path):
     channel emits what it always emitted, and `tests/test_counts.py` — the only check
     exercising the v1 criterion — runs that shape."""
     subprocess.run(
-        ["uv", "run", "mendel", "build", "--goal", "examples/rnaseq-goal.yml",
+        ["uv", "run", "mendel", "build", "--goal", "tests/fixtures/goal-v6/rnaseq-goal.yml",
          "--registry", "registry", "--out", str(tmp_path / "b")],
         check=True, cwd=ROOT, capture_output=True,
     )

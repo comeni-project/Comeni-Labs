@@ -80,7 +80,7 @@ def test_a2_a_declared_profile_still_resolves():
     from mendel_resolver.resolve import resolve
 
     loaded = layers_mod.load("registry")
-    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.model_validate(yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text()))
     ir = resolve(
         goal,
         loaded.registry,

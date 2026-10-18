@@ -16,7 +16,6 @@ import sys
 from pathlib import Path
 
 import yaml
-from comeni_core import yaml_strict
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.diagnostics import coded
 from mendel_resolver import layers
@@ -118,9 +117,16 @@ def run(args, parser) -> int:
     elif args.command == "profile":
         goal = _profiling_goal(args, loaded)
     else:
-        if args.goal is None:
-            parser.error(f"{args.command} needs --goal")
-        goal = Goal.read(yaml_strict.load(args.goal))
+        # A starter as the target (`mendel build examples/rnaseq.yml`), or `--goal`, which
+        # also reads the old goal format: one reader either way (Plan B, spec §8.5).
+        source = Path(args.target) if args.target else args.goal
+        if source is None:
+            parser.error(f"{args.command} needs a starter file or --goal")
+        try:
+            goal = pipeline_file.goal_from(source)
+        except pipeline_file.NotAStarter as refused:
+            print(f"mendel: {refused}", file=sys.stderr)
+            return 2
         # The profile used to be rebuilt here through `MeasurementRegistry.profile()`,
         # the one validating constructor — belt and braces over a check that did not
         # exist anywhere else. It exists now, in `resolve()`, which is the only way past

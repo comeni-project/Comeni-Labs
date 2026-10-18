@@ -18,11 +18,10 @@ expiry to get wrong — the same shape `services/registry.py` uses.
 from functools import lru_cache
 from typing import Literal
 
-from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.draft import DraftGraph
-from mendel_compiler import layout, orchestrate
+from mendel_compiler import layout, orchestrate, pipeline_file
 from mendel_resolver.goal import Goal
 from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel
@@ -532,7 +531,7 @@ def modules() -> list[ModuleView]:
 
 def example() -> BuiltPipeline:
     """The spine, from the goal committed in `examples/`."""
-    return of(Goal.read(yaml_strict.load(settings.example_goal)))
+    return of(pipeline_file.goal_from(settings.example_goal))
 
 
 def _runs(pipeline) -> dict[str, str]:

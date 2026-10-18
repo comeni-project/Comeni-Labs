@@ -113,7 +113,7 @@ def test_check_is_refused_on_a_verb_that_is_not_docs(tmp_path, capsys):
     `--force` each carry a guard for."""
     code = None
     try:
-        main(["build", "--goal", str(ROOT / "examples/rnaseq-goal.yml"),
+        main(["build", "--goal", str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
               "--out", str(tmp_path), "--check"])
     except SystemExit as exit_:
         code = exit_.code

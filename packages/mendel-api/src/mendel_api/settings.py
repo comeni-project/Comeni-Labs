@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     is addressed by an opaque id; this is where the server chooses to put the artifact it
     writes, which is a different fact from a client naming a file.
     """
-    example_goal: Path = Path("./examples/rnaseq-goal.yml")
+    example_goal: Path = Path("./examples/rnaseq.yml")
     """The goal the builder opens on.
 
     **A setting rather than a constant, because a bare relative path resolves against the

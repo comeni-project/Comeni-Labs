@@ -123,7 +123,7 @@ def test_a_real_build_opens_no_socket_and_spawns_no_process():
     try:
         loaded = layers.load(ROOT / "registry")
         goal = Goal.model_validate(
-            yaml.safe_load((ROOT / "examples/rnaseq-goal.yml").read_text())
+            yaml.safe_load((ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml").read_text())
         )
         ir = resolve(
             goal,
@@ -194,7 +194,7 @@ def test_the_watched_region_covers_the_stage_that_reads_stranger_files():
     try:
         loaded = layers.load(ROOT / "registry")
         goal = Goal.model_validate(
-            yaml.safe_load((ROOT / "examples/rnaseq-goal.yml").read_text())
+            yaml.safe_load((ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml").read_text())
         )
         emit(
             _pipe(

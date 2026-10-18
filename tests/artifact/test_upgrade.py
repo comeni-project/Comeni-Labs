@@ -44,7 +44,7 @@ def _declared(path, body: str) -> str:
         header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
     return header + body
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
 
 
 def _published(tmp_path, name="published"):

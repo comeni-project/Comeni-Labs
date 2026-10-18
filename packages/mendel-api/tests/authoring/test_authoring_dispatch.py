@@ -222,7 +222,7 @@ def _confirmed(sid):
     from mendel_resolver.goal import Goal
 
     root = REPOSITORY_ROOT
-    goal = Goal.model_validate(yaml_strict.load(root / "examples" / "rnaseq-goal.yml"))
+    goal = Goal.model_validate(yaml_strict.load(root / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"))
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.move(sid, st.Event.NOTHING_MISSING, row_version=2)
     authoring_setup.move(

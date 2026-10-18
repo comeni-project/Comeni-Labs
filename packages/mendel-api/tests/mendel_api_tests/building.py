@@ -41,11 +41,11 @@ def clean():
 
 
 def _goal() -> Goal:
-    return Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
+    return Goal.model_validate(yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"))
 
 
 def _without_read_length() -> Goal:
-    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
     data["profile"].pop("read_length")
     return Goal.model_validate(data)
 

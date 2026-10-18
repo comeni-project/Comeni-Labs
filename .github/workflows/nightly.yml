@@ -62,7 +62,7 @@ jobs:
         uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3.0.1
 
       - name: Build the RNA-seq spine and run the stub gate
-        run: uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
+        run: uv run mendel build examples/rnaseq.yml --out build/ --gate stub
 
       - name: The spine runs on the nf-core test dataset and counts correctly
         run: uv run pytest -m slow -v

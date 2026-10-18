@@ -42,7 +42,7 @@ def _declared(path, body: str) -> str:
 def test_builds_a_pipeline_from_the_example_goal(tmp_path):
     exit_code = main([
         "build",
-        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
     ])
@@ -64,7 +64,7 @@ def test_the_measured_strandedness_reaches_the_tool(tmp_path):
     """
     main([
         "build",
-        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
     ])
@@ -96,7 +96,7 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
 
     exit_code = main([
         "build",
-        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
         "--registry", str(ROOT / "registry"),
@@ -148,7 +148,7 @@ def test_two_builds_produce_identical_output(tmp_path):
     for name in ["a", "b"]:
         main([
             "build",
-            "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+            "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
             "--out", str(tmp_path / name),
             "--root", str(ROOT),
         ])
@@ -179,7 +179,7 @@ def test_output_is_identical_across_hash_seeds(tmp_path):
         env = {**os.environ, "PYTHONHASHSEED": seed}
         result = subprocess.run(
             [sys.executable, "-m", "mendel_compiler.cli", "build",
-             "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+             "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
              "--out", str(out), "--root", str(ROOT)],
             env=env, capture_output=True, text=True, check=False,
         )

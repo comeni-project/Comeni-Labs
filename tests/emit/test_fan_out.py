@@ -50,7 +50,7 @@ def _ran(log: pathlib.Path, process: str) -> set[str]:
 def spine(tmp_path_factory):
     out = tmp_path_factory.mktemp("fan-out")
     subprocess.run(
-        ["uv", "run", "mendel", "build", "--goal", "examples/rnaseq-goal.yml",
+        ["uv", "run", "mendel", "build", "--goal", "tests/fixtures/goal-v6/rnaseq-goal.yml",
          "--registry", "registry", "--out", str(out), "--gate", "stub"],
         check=True, cwd=ROOT, capture_output=True,
     )

@@ -52,7 +52,7 @@ def test_a_conformant_build_succeeds(tmp_path):
             [
                 "build",
                 "--goal",
-                str(ROOT / "examples/rnaseq-goal.yml"),
+                str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
                 "--out",
                 str(tmp_path / "p"),
                 "--root",
@@ -80,7 +80,7 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
         [
             "build",
             "--goal",
-            str(ROOT / "examples/rnaseq-goal.yml"),
+            str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
             "--out",
             str(tmp_path / "p"),
             "--root",
@@ -112,7 +112,7 @@ def _build_with_no_module_source(tmp_path) -> int:
         [
             "build",
             "--goal",
-            str(ROOT / "examples/rnaseq-goal.yml"),
+            str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
             "--out",
             str(tmp_path / "p"),
             "--registry",
@@ -148,7 +148,7 @@ def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
         [
             "build",
             "--goal",
-            str(ROOT / "examples/rnaseq-goal.yml"),
+            str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
             "--out",
             str(tmp_path / "p"),
             "--root",

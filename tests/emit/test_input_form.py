@@ -30,7 +30,7 @@ from support.paths import ROOT
 def spine(tmp_path_factory) -> Pipeline:
     out = tmp_path_factory.mktemp("input-form")
     subprocess.run(
-        ["uv", "run", "mendel", "build", "--goal", "examples/rnaseq-goal.yml",
+        ["uv", "run", "mendel", "build", "--goal", "tests/fixtures/goal-v6/rnaseq-goal.yml",
          "--registry", "registry", "--out", str(out)],
         check=True, cwd=ROOT, capture_output=True,
     )

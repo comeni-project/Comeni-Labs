@@ -19,7 +19,7 @@ from mendel_compiler.emit import emit, emit_config
 from mendel_resolver.goal import Goal
 
 ROOT = Path(__file__).resolve().parents[3]
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
 
 
 def _goal() -> Goal:

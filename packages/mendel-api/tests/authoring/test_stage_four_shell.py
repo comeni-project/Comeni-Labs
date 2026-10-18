@@ -300,7 +300,7 @@ def _goal_without_strandedness():
     from mendel_resolver.goal import Goal
     from support.paths import ROOT
 
-    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
     data["profile"].pop("strandedness")
     data["profile"]["read_length"] = 50  # HISAT2: two steps read strandedness
     return Goal.model_validate(data)

@@ -24,7 +24,7 @@ def test_the_demo_graph_uses_the_example_profile():
             ]
         },
     }
-    goal = seed_demo.load_goal(ROOT / "examples" / "rnaseq-goal.yml")
+    goal = seed_demo.load_goal(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
 
     graph = seed_demo.graph_of(built, goal)
 
@@ -68,7 +68,7 @@ def test_seeding_refreshes_a_named_demo_draft():
             argparse.Namespace(
                 api="http://api/api",
                 web="http://web",
-                goal=ROOT / "examples" / "rnaseq-goal.yml",
+                goal=ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml",
                 name="RNA-seq demo",
                 fresh=False,
                 keep=True,

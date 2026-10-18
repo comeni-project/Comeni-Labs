@@ -255,7 +255,7 @@ def _resolved(resolver=None, mutate=None, prior=()):
     from mendel_resolver.resolve import resolve
 
     loaded = _loaded()
-    raw = yaml_strict.load(Path("examples/rnaseq-goal.yml"))
+    raw = yaml_strict.load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml"))
     if mutate is not None:
         mutate(raw)
     return resolve(

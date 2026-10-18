@@ -52,7 +52,7 @@ def _complete(*, walk: bool = True) -> tuple[str, str]:
     session_id = facade.perform(commands.OpenSession(draft_id, "ana")).result
     authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
-    goal = Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
+    goal = Goal.model_validate(yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"))
     authoring_setup.move(
         session_id, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json")
     )

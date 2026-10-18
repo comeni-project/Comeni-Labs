@@ -84,7 +84,7 @@ def test_the_layer_loads_from_anywhere(tmp_path):
 def test_the_goal_file_stayed_behind():
     """`Registry.load` globs `*.yml` recursively, so a goal file inside a layer would be
     read as a contract. It lives one level up for that reason."""
-    assert (ROOT / "examples" / "rnaseq-goal.yml").exists()
+    assert (ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml").exists()
     assert not list((ROOT / "registry").glob("*-goal.yml"))
 
 

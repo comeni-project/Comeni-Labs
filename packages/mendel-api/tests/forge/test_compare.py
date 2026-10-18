@@ -14,7 +14,7 @@ import yaml
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
 
-GOAL = yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text())
+GOAL = yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text())
 
 STAR = "nf-core/star/align@1.11.0"
 HISAT2 = "nf-core/hisat2/align@2.2.2"

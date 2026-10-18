@@ -937,7 +937,7 @@ MD0301:
     "HISAT2, because it handles short reads with a smaller index" is the row. One field
     carried both, so the block's citation was printed as the row's reason and the shipped
     registry stated that HISAT2 was chosen because of the paper describing STAR — reachable
-    by changing one number in `examples/rnaseq-goal.yml`. Audit A79 and A107, found from
+    by changing one number in `examples/rnaseq.yml`. Audit A79 and A107, found from
     opposite ends by two reviewers who could not confer.
 
     `Why.axis_reason` now carries the block's justification beside the row's, so a reader can

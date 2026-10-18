@@ -31,7 +31,7 @@ SORT = "nf-core/samtools/sort@1.21.0"
 
 
 def _rnaseq() -> Goal:
-    return Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
+    return Goal.model_validate(yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"))
 
 
 def _one_step() -> Goal:
@@ -118,7 +118,7 @@ def test_every_offered_option_id_maps_to_a_contract_the_server_holds():
     """The block the browser renders and the set the server enforces are written together
     (spec §14.4): *keep*, each alternative that can be built, and the fact the rule lacked —
     and every alternative id stands for the amendment stored beside it."""
-    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
     data["profile"].pop("read_length")
     blueprint, _ = bp.resolve(Goal.model_validate(data))
     offered = _payload(blueprint, "star_align", goal=Goal.model_validate(data))

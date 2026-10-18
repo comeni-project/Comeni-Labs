@@ -1,27 +1,31 @@
-# Goal schema
+# Starter file (goal schema)
 
-A goal says **what you have, what you want, and what your data looks like**. It never says which
-tools to use — that is what Mendel works out.
+A starter says **what you want and what you know about your data**. It never says which tools
+to use — that is what Mendel works out. It is a [`pipeline.yml`](pipeline-schema.md) with only
+its top half, `intent` and `facts`; building it writes the rest.
 
 ```yaml
-# examples/rnaseq-goal.yml
-have:
-  - type_id: fastq.reads
-  - type_id: annotation.gtf
-  - type_id: genome.fasta
-want:
-  - counts.matrix
-constraints:
-  required_states:
-    counts.matrix: [gene_level]
-profile:
-  read_length: 150
-  strandedness: reverse
-  n_samples: 12
-  paired: true
+# examples/rnaseq.yml
+version: 7
+intent:
+  want: [counts.matrix]
+  constraints:
+    required_states:
+      - {type_id: counts.matrix, states: [gene_level]}
+facts:
+  inputs:
+    - {type_id: fastq.reads}
+    - {type_id: annotation.gtf}
+    - {type_id: genome.fasta}
+  measurements:
+    - {measurement: n_samples, value: 12, source: said}
+    - {measurement: paired, value: true, source: said}
+    - {measurement: read_length, value: 150, source: said}
+    - {measurement: strandedness, value: reverse, source: said}
 ```
 
-Pass it with `mendel build --goal <file>`.
+Build it with `mendel build <file>`. A file that also has `steps:` is a whole pipeline, not a
+starter: re-resolve that with `mendel upgrade`.
 
 **There is nowhere to put a filename, a path or a sample name**, and that is enforced rather
 than encouraged. A goal is a *shape*. What leaves the platform on the build path, and when, is
@@ -29,16 +33,17 @@ its own page — not yet written.
 
 ## Fields
 
-Model: `mendel_resolver.goal.Goal`
+Model: `comeni_core.artifact.starter.Starter`
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `have` | [input] | `[]` | the types you already hold |
-| `want` | [type id] | `[]` | the types you want produced |
-| `constraints` | object | empty | states you require, and parameters you are fixing |
-| `profile` | object | empty | measured or asserted facts about your data |
+| `version` | 7 | 7 | the `pipeline.yml` schema version |
+| `intent.want` | [type id] | `[]` | the types you want produced |
+| `intent.constraints` | object | empty | states you require, parameters you fix, tools you choose |
+| `facts.inputs` | [input] | `[]` | the types you already hold |
+| `facts.measurements` | [measured] | `[]` | what is known about your data, and where it came from |
 
-### `have` — one entry per type you hold
+### `facts.inputs` — one entry per type you hold
 
 Model: `comeni_core.goal.asked.GoalInput`
 
@@ -51,11 +56,11 @@ Model: `comeni_core.goal.asked.GoalInput`
 `name` matters when a pipeline takes two channels of the same type. Naming them is what makes
 them two parameters rather than one.
 
-### `want` — the types you want at the end
+### `intent.want` — the types you want at the end
 
-A list of type ids. Everything between `have` and `want` is what routing works out.
+A list of type ids. Everything between the inputs and what you want is what routing works out.
 
-### `constraints`
+### `intent.constraints`
 
 Model: `comeni_core.goal.asked.Constraints`
 
@@ -112,13 +117,9 @@ constraints:
 Internally that becomes a list. The ergonomic form to *write* and the safe representation to
 *store* are different decisions, and this keeps them from being the same one.
 
-### `profile` — what your data looks like
+### `facts.measurements` — what your data looks like
 
-Model: `comeni_core.goal.profile.DataProfile`
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `measurements` | [measured] | `[]` | one entry per declared measurement |
+One entry per declared measurement.
 
 Model: `comeni_core.goal.profile.Measured`
 
@@ -126,15 +127,15 @@ Model: `comeni_core.goal.profile.Measured`
 |---|---|---|---|
 | `measurement` | string | *required* | a declared measurement id, e.g. `read_length` |
 | `value` | int \| float \| bool \| string | *required* | the value |
-| `source` | enum | asserted | how it was obtained |
+| `source` | enum | `said` | how it was obtained: `said` (a person stated it), `measured`, `model` (read by AI) |
 | `by` | string \| null | `null` | the contract that measured it, when something did |
 | `pieces` | [string] | `[]` | the inspector pieces that measured an uploaded sample, e.g. `[fastq@1.1.0, read_length@1.0.0]`; left out when empty, and never set together with `by` |
 | `evidence` | object \| null | `null` | how much the pieces read: `records`, `rows`, `share` (counts only, each written only when known, at least one); left out when there is none |
 
-Written as a mapping, as in the example at the top. **Only declared measurements are accepted** —
-an unknown key is refused, which is what stops `profile: {sample_name: ...}` from ever building.
+**Only declared measurements are accepted** — an unknown one is refused, which is what stops a
+`sample_name` from ever building.
 
-`source` is why this matters. A value you typed is **asserted**; a value a tool produced is
+`source` is why this matters. A value you typed (`said`) is **asserted**; a value a tool produced is
 **measured**. Both build, and the difference travels all the way into the reason beside every
 choice that read it:
 
@@ -144,9 +145,23 @@ rule implementation:alignment where read_length is 150, asserted, not measured: 
 
 Profiling and measurement support is how you turn the first into the second.
 
+## The older goal format
+
+Before version 7 a goal was its own file, and `mendel build --goal <file>` still reads it, so
+nothing that built stops building. It holds the same things under other names: `have` (the
+inputs), `want`, `constraints`, and `profile` (the measurements), where a measurement may be
+written as a mapping and `source: goal` means what `said` means now:
+
+```yaml
+have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
+want: [counts.matrix]
+constraints: {required_states: {counts.matrix: [gene_level]}}
+profile: {read_length: 150, strandedness: reverse, n_samples: 12, paired: true}
+```
+
 ## See also
 
 - [Your first pipeline](../../tutorials/first-pipeline.md) — the app loop this file supports
 - [Measurement schema](../registry/measurement-schema.md) — what may appear under
-  `profile`
-- [`pipeline.yml`](pipeline-schema.md) — what a goal turns into
+  `facts.measurements`
+- [`pipeline.yml`](pipeline-schema.md) — what a starter turns into

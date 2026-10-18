@@ -14,7 +14,7 @@ from mendel_compiler.cli import main
 from support.audit import _declared
 from support.paths import ROOT
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
 
 
 def _build(tmp_path, name="p"):

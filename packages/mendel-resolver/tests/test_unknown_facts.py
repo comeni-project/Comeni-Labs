@@ -7,7 +7,7 @@ from mendel_resolver.resolve import resolve
 from support.paths import ROOT
 
 LOADED = layers.load(ROOT / "registry")
-EXAMPLE = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+EXAMPLE = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
 WITHOUT = {k: v for k, v in EXAMPLE["profile"].items() if k != "strandedness"}
 
 

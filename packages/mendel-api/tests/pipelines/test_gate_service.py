@@ -12,7 +12,7 @@ from mendel_compiler.cli import main
 from mendel_compiler.gates import GateResult
 from support.paths import ROOT
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
 
 
 def _kept(tmp_path):

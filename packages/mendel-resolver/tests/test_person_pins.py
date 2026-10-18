@@ -23,7 +23,7 @@ HISAT2_ALIGN = "nf-core/hisat2/align@2.2.2"
 @pytest.fixture
 def resolve_rnaseq(stack):
     def run(*, read_length=True, pins=(), resolver=None):
-        data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+        data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
         if not read_length:
             data["profile"].pop("read_length")
         data.setdefault("constraints", {})["producers"] = [

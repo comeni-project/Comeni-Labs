@@ -36,7 +36,7 @@ def _built(tmp_path: pathlib.Path) -> Pipeline:
     # does not — so `--gate lint` here was green locally and failed in CI, which is the exact
     # mistake issue #46 recorded one day earlier. Nothing in this file is about gates.
     assert main([
-        "build", "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        "build", "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
         "--out", str(out), "--root", str(ROOT),
     ]) == 0
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))

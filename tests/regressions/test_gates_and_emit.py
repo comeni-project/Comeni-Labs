@@ -67,7 +67,7 @@ def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch)
     monkeypatch.setattr(artifact_verbs, "run_gate", _passes)
     out = tmp_path / "p"
     assert cli.main([
-        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "build", "--goal", str(Path("tests/fixtures/goal-v6/rnaseq-goal.yml")),
         "--out", str(out), "--root", ".",
     ]) == 0
     assert cli.main([
@@ -100,7 +100,7 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(artifact_verbs, "run_gate", failed)
     out = tmp_path / "p"
     assert cli.main([
-        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "build", "--goal", str(Path("tests/fixtures/goal-v6/rnaseq-goal.yml")),
         "--out", str(out), "--root", ".",
     ]) == 0
     assert cli.main([

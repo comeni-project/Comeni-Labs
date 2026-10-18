@@ -63,7 +63,7 @@ def _gate_always_passes(monkeypatch):
     monkeypatch.setattr(
         artifact_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
 
 
 def _built(tmp_path, name="p", extra=()):
@@ -232,7 +232,7 @@ def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolve
             star,
             star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN")))
 
-    goal = ROOT / "examples" / "rnaseq-goal.yml"
+    goal = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
     code = main(
         ["build", "--goal", str(goal), "--out", str(tmp_path / "b"),
          "--root", str(ROOT), "--registry", str(layer)]
@@ -317,7 +317,7 @@ def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path, mon
 
     _gate_always_passes(monkeypatch)
     root = ROOT
-    goal = root / "examples" / "rnaseq-goal.yml"
+    goal = root / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
     out = tmp_path / "b"
     assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(root)]) == 0
     # Answer a tier-4 question by editing the file, then emit, then publish.

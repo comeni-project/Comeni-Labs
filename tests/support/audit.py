@@ -65,7 +65,7 @@ def _published_pipeline(tmp_path, root, name="published"):
     from mendel_compiler.cli import main
 
     out = tmp_path / name
-    assert main(["build", "--goal", str(root / "examples" / "rnaseq-goal.yml"),
+    assert main(["build", "--goal", str(root / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
                  "--out", str(out), "--root", str(root)]) == 0
     assert main(["publish", str(out / "pipeline.yml"), "--root", str(root)]) == 0
     return out / "pipeline.yml"
@@ -132,7 +132,7 @@ def _resolve_stacked_from(loaded):
     from comeni_core.goal.asked import Goal
     from mendel_resolver.resolve import resolve
 
-    goal = Goal.read(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.read(yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text()))
     return resolve(
         goal,
         loaded.registry,

@@ -35,7 +35,7 @@ class Case:
 
 
 def _accepted(pacing: str, goal: Goal | None = None) -> tuple[str, Goal]:
-    goal = goal or Goal.model_validate(yaml_strict.load(ROOT / "examples/rnaseq-goal.yml"))
+    goal = goal or Goal.model_validate(yaml_strict.load(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"))
     draft = drafts.create(DraftGraph(), "rnaseq", "ana")
     sid = facade.perform(commands.OpenSession(draft, "ana")).result
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
@@ -60,7 +60,7 @@ def placed_quietly() -> str:
 
 def with_hisat2() -> str:
     """A session whose accepted goal already pins HISAT2, walked together from its first step."""
-    goal = Goal.model_validate(yaml_strict.load(ROOT / "examples/rnaseq-goal.yml"))
+    goal = Goal.model_validate(yaml_strict.load(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"))
     pinned = ChooseTool(pin=ProducerPin(site=Site(type_id="alignment.bam"), contract=HISAT2))
     sid, _ = _accepted("together", pinned.apply(goal))
     authoring_setup.start_building(sid)

@@ -14,7 +14,9 @@ from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_bytes
 from comeni_core.artifact.emitted import Emitted
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.artifact.starter import Starter
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import Goal
 from comeni_core.plan.tiers import Tier
 
 FILENAME = "pipeline.yml"
@@ -58,6 +60,25 @@ def dump(pipeline: Pipeline) -> str:
         width=96,
     )
     return HEADER + "\n" + body
+
+
+class NotAStarter(ValueError):
+    """A whole `pipeline.yml` given where a starter was expected."""
+
+
+def goal_from(path: Path) -> Goal:
+    """What to build, from a starter (`intent` and `facts` only) or the old goal format
+    (`have`, `want`, `profile`) — one reader, so nothing that built stops building (spec §8.5).
+    A whole `pipeline.yml` is not a starter: it is upgraded, never rebuilt from its top half."""
+    data = yaml_strict.load(path)
+    if isinstance(data, dict) and ("intent" in data or "facts" in data):
+        extra = sorted(set(data) - {"version", "intent", "facts"})
+        if extra:
+            raise NotAStarter(
+                f"{path} is a whole pipeline.yml ({', '.join(extra)}), not a starter: "
+                "re-resolve it with `mendel upgrade`, or keep only `intent:` and `facts:`")
+        return Starter.model_validate(data).goal
+    return Goal.read(data)
 
 
 def load(path: Path) -> Pipeline:

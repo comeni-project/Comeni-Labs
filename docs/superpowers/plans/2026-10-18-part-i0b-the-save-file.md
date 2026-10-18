@@ -133,15 +133,15 @@ def test_said_is_what_is_written():
 - Consumes: `Intent`, `Facts`, `Goal.of` (Task 2).
 - Produces: `Starter(version: Literal[7], intent: Intent, facts: Facts)` with `.goal -> Goal`, `extra="forbid"`; `pipeline_file.goal_from(path: Path) -> Goal` reading a starter, or the old goal format (`have`/`want`/`profile`).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_a_starter_builds_the_spine_byte_for_byte`: `mendel build examples/rnaseq.yml --out <tmp>` writes a v7 `pipeline.yml` and a `main.nf` equal to `tests/golden/spine/main.nf`.
   - `test_the_old_goal_format_still_builds`: `mendel build --goal <the old rnaseq-goal.yml content in tmp>` → the same `main.nf`.
   - `test_a_starter_with_steps_is_not_a_starter`: `goal_from` on a full `pipeline.yml` raises with a sentence saying a full file is upgraded with `mendel upgrade`, not built.
   - `test_the_example_starter_is_intent_and_facts_only`: `set(yaml.safe_load(examples/rnaseq.yml)) == {"version", "intent", "facts"}`.
-- [ ] **Step 2: Run; expect FAIL** (no `Starter`, `examples/rnaseq.yml` missing).
-- [ ] **Step 3: Implement.** Write `examples/rnaseq.yml` from the current example's meaning (`source: said` for `paired`, `read_length`, `strandedness`; `n_samples` as in the old file). `build` takes the positional `target` or `--goal`, both through `goal_from`; neither given is the existing `parser.error`. `settings.example_goal` defaults to `./examples/rnaseq.yml`.
-- [ ] **Step 4: Run `make test`; expect PASS.** Update the four docs pages to the starter form; `goal-schema.md` becomes the starter's reference, saying the old format still reads.
-- [ ] **Step 5: Commit** `feat(cli): a starter is a v7 pipeline.yml with only intent and facts (Plan B)`.
+- [x] **Step 2: Run; expect FAIL** (no `Starter`, `examples/rnaseq.yml` missing).
+- [x] **Step 3: Implement.** Write `examples/rnaseq.yml` from the current example's meaning (`source: said` for `paired`, `read_length`, `strandedness`; `n_samples` as in the old file). `build` takes the positional `target` or `--goal`, both through `goal_from`; neither given is the existing `parser.error`. `settings.example_goal` defaults to `./examples/rnaseq.yml`.
+- [x] **Step 4: Run `make test`; expect PASS.** Update the four docs pages to the starter form; `goal-schema.md` becomes the starter's reference, saying the old format still reads.
+- [x] **Step 5: Commit** `feat(cli): a starter is a v7 pipeline.yml with only intent and facts (Plan B)`.
 
 ### Task 6: finish
 

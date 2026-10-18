@@ -22,7 +22,7 @@ HISAT2 = "nf-core/hisat2/align@2.2.2"
 
 
 def _rnaseq(**profile_without) -> Goal:
-    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
     for key in profile_without:
         data["profile"].pop(key)
     return Goal.model_validate(data)

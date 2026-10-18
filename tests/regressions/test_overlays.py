@@ -63,7 +63,7 @@ def test_a5_a_single_layer_build_reports_nothing(tmp_path):
     from mendel_resolver.resolve import resolve
 
     loaded = layers_mod.load("registry")
-    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.model_validate(yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text()))
     ir = resolve(
         goal,
         loaded.registry,
@@ -98,7 +98,7 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     shutil.rmtree(lab / "rules")
 
     loaded = layers_mod.load([base, lab])
-    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.model_validate(yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text()))
     ir = resolve(
         goal,
         loaded.registry,

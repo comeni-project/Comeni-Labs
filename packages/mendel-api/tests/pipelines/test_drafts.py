@@ -130,7 +130,7 @@ def test_kept_draft_emits_byte_identical_nextflow(client, tmp_path):
             "mendel",
             "build",
             "--goal",
-            "examples/rnaseq-goal.yml",
+            "tests/fixtures/goal-v6/rnaseq-goal.yml",
             "--out",
             str(reference),
         ],

@@ -56,7 +56,7 @@ def test_via_meta_reaches_the_channel_meta_map(tmp_path):
     goal.write_text(
         _declared(
             goal,
-            (ROOT / "examples" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", ""),
+            (ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", ""),
         )
     )
     ov = _overlay_with(tmp_path, "  - {name: single_end, default: false, via: meta}\n")

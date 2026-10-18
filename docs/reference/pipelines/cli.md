@@ -42,12 +42,13 @@ A registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` 
 ## `mendel build`
 
 ```bash
-uv run mendel build --goal examples/rnaseq-goal.yml --out build/
+uv run mendel build examples/rnaseq.yml --out build/
 ```
 
 | Option | Meaning |
 |---|---|
-| `--goal PATH` | goal file — see [goal-schema.md](goal-schema.md) |
+| `FILE` | a starter: `pipeline.yml` with only `intent` and `facts` — see [goal-schema.md](goal-schema.md) |
+| `--goal PATH` | the same, or a goal in the older format (`have`, `want`, `profile`) |
 
 Writes:
 

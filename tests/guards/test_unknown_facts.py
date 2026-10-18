@@ -14,7 +14,7 @@ from support.paths import ROOT
 
 LOADED = layers.load(ROOT / "registry")
 READ = conformance.facts_read(LOADED.registry, LOADED.modules, LOADED.measurements)
-EXAMPLE = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+EXAMPLE = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
 CARRIED = sorted(
     m for m in LOADED.measurements.ids()
     if LOADED.measurements.get(m).meta_key and m in EXAMPLE["profile"]
