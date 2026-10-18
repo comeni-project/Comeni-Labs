@@ -16,13 +16,16 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
-> **The newest entry is
-> [`2026-09-17-labs-in-the-hybrid-identity.md`](2026-09-17-labs-in-the-hybrid-identity.md)**
-> — a design session, not code: Labs redrawn in the identity it now shares with Comeni Code, the
-> decision to stay on FastAPI, and the order the screens move in. **Read it before changing how a
-> screen looks. It is not the build handoff** — the entry below still is.
+> **Read [`now.md`](../now.md) first**: it is compacted through 2026-10-18, and every entry it
+> covers is in [`archive/`](archive/). The newest is
+> [`2026-10-18-walks-three-and-four.md`](archive/2026-10-18-walks-three-and-four.md), Part I.0's
+> third and fourth walks with a model. The design entry before the walks is
+> [`2026-09-17-labs-in-the-hybrid-identity.md`](archive/2026-09-17-labs-in-the-hybrid-identity.md):
+> read it before changing how a screen looks.
 >
-> Before it, **the build handoff,**
+> What follows is the older reading order, from before the archive.
+>
+> **The build handoff,**
 > [`2026-09-13-the-living-pipeline-built-not-walked.md`](2026-09-13-the-living-pipeline-built-not-walked.md)
 > — thirteen of the living pipeline's fourteen tasks, and a handoff. Build and Spawn converge on one
 > draft and one YAML in tests; **nobody has yet described an analysis in a browser with a real model
