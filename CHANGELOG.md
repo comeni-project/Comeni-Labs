@@ -47,9 +47,14 @@ or a complete commit history.
 
 #### Changed
 
-- The saved artifact schema is now version 6. Readers reject newer unsupported versions;
-  compatibility handling for older formats lives in the artifact loader. Schema version
-  changes are distinct from package release versions.
+- The saved artifact schema is now version 7: `intent` (what is wanted) and `facts` (inputs
+  and measurements, each with its source) at the top, in place of `goal`, which is now
+  computed from them. A value a person stated has `source: said` (was `goal`). Only version 7
+  is read: before v0.1.0 any other version is refused (`MD0207`) and an older file is rebuilt
+  from its starter, not upgraded. Schema version changes are distinct from package release
+  versions.
+- Each locked registry layer may record where to fetch it: `source` (a network URL, never a
+  path or credentials), `commit` and `dirty`, left out when unknown.
 - Publication payloads use the saved pipeline itself. Emission integrity includes the
   digest of the artifact used to generate the Nextflow files.
 
@@ -91,6 +96,12 @@ or a complete commit history.
 
 #### Added
 
+- `mendel build <starter>` builds from a starter: a version-7 `pipeline.yml` with only
+  `intent` and `facts` (`examples/rnaseq.yml`). `--goal` and the separate goal format are
+  removed.
+- Builds record each layer's git source and commit, and warn when a layer has no network
+  source (`MD0231`) or uncommitted edits (`MD0232`); `mendel upgrade` names the commit a
+  changed layer was locked at.
 - `mendel emit` regenerates Nextflow from a saved pipeline without registry access;
   `mendel upgrade` re-resolves against current layers, replays answers and reports drift,
   changes, replayed, stale and orphaned decisions. Dry runs do not write files.

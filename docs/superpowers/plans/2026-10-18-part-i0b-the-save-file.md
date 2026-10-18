@@ -146,7 +146,7 @@ def test_said_is_what_is_written():
 ### Task 6: finish
 
 - [ ] **Step 1:** `make check` (expect exit 0), then `make verify` (resolution, emission and the saved schema changed: it needs Docker and Nextflow; ask the operator before starting it, since it uses the machine).
-- [ ] **Step 2:** `CHANGELOG.md`, under Unreleased → `comeni-core` and `mendel-compiler`: schema 7 (breaking for readers of `goal:`; v6 still loads), `said`, layer locators, the starter, MD0231/MD0232.
+- [x] **Step 2:** `CHANGELOG.md`, under Unreleased → `comeni-core` and `mendel-compiler`: schema 7 (breaking for readers of `goal:`; v6 still loads), `said`, layer locators, the starter, MD0231/MD0232.
 - [ ] **Step 3:** A journal entry; tick this plan; one line in `now.md` under *The emitted pipeline*.
 - [ ] **Step 4:** Commit `docs: Plan B, the save file`; open a PR closing nothing but referring to #307 and #357.
 
@@ -158,4 +158,33 @@ def test_said_is_what_is_written():
 
 ## Execution notes
 
-*(Deviations and rulings recorded here as the work proceeds.)*
+Executed inline on `plan-b-save-file`, 2026-10-18. Commits `574b7853` (Tasks 1–2), `03a20a43`
+(3), `e62dfb4a` (4), `c8b92d86` (5), `d7a239c3` (no backward compatibility).
+
+- **No backward compatibility before v0.1.0** (operator, mid-execution: *"there are no users …
+  we dont and should not keep backward compatibility until v0.1.0"*; chose to remove all of
+  it). This supersedes the plan's upgrader (§8.3), the `"goal"`-still-reads rulings and
+  `--goal` (§8.5's *"--goal keeps reading the old format"*). `Pipeline` reads version 7 only
+  and refuses any other with MD0207; every upgrader and `predates_schema` went; the `said`
+  rename has no migration, the dev and test databases were reset, and the shape goldens were
+  rewritten at their existing numbers.
+- **Task 1's alias was refused by the egress guard** (an enum accepting undeclared values), and
+  the shape guard required a migration: the operator chose the rename, then the reset above.
+- **Tasks 1 and 2 landed together**: once `goal` was not a source, nothing older could load
+  until the regrouping did.
+- **No v6 fixture existed** (the spine fixture was v5); one was built with `main`'s code, then
+  deleted with the rest of compatibility. Its `main.nf` stays as `tests/golden/example/main.nf`:
+  the example emits it byte for byte. `tests/golden/spine/main.nf` is a different, older spine.
+- **The golden v7 file is compared without layer records and emitted digests**, which follow the
+  registry checkout.
+- **MD0231 fires for any layer with no network source** (outside git, a local-folder remote, or
+  none), not only outside git.
+- **Locators only where a file is written or shown** (CLI build and upgrade, keep and preview),
+  as planned.
+- **`DataProfile` is never constructed outside its guarded modules**: `Goal.of` validates
+  through `Goal`.
+- **Wiener's spine fixture**, paired with a recorded run, was converted once to v7 with the
+  deleted upgrader so its step and channel names stay; tests reach the example through
+  `tests/support/example.py`.
+- The frozen legacy conversion (`decisions_v1`) writes `said` into proposals; its
+  interpretation of old snapshots is unchanged.
