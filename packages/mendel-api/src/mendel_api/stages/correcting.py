@@ -291,7 +291,10 @@ def select_correction(ctx: Ctx):
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, ctx.session_id)
         draft = db.get(PipelineDraft, row.draft_id)
-        previous = draft.decision_revision
+        previous, was_current = draft.decision_revision, draft.projection_current
+        # **A note is not in the pipeline** (#354): once the goal is confirmed, what is not
+        # offered here is recorded, and nothing is projected, reviewed or summed up again.
+        noted = change.kind == "asked" and authoring_decisions.confirmed(draft.id)
         # **One writer for every change** (Part I.0 §5.1): the correction's own kinds and the
         # general `DecisionChange` both go through `changes.apply`, which holds the vocabulary.
         written = change.change or DecisionChange(
@@ -305,6 +308,13 @@ def select_correction(ctx: Ctx):
         stale_proposals(db, row.id)
         row.row_version = session.changed_version(db, row.id, row.row_version)
         row.updated_at = _rows.now()
+        if noted:
+            draft.projection_revision = draft.decision_revision
+            draft.projection_current = was_current
+            receipt(ctx, "Nothing in the pipeline changes.")
+            return "retained_" + (
+                "gather" if change.continuation == "stopped" else change.continuation
+            )
         if draft.decision_revision != previous:
             draft_mutations.touch(db, draft)
         if (
@@ -380,9 +390,10 @@ def cascade_reviews(ctx: Ctx):
         row.blueprint = fresh.model_dump(mode="json")
         row.registry_digest = fresh.registry
         project(db, row, fresh)
-        suffix = (
-            diff_of(change.before, fresh).sentence() if change.before else "The build is ready."
-        )
+        # The diff's clause reads after a subject (*Your change adds …*); here it is a sentence
+        # of its own, after the correction's (#354).
+        said = diff_of(change.before, fresh).sentence() if change.before else ""
+        suffix = f"{said[:1].upper()}{said[1:]}." if said else "The build is ready."
         receipt(ctx, suffix + " Affected steps will be reviewed again.")
     return "review_again"
 

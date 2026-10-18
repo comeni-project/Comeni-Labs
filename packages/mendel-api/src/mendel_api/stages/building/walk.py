@@ -19,6 +19,7 @@ from mendel_authoring.draft import drafted, next_step
 from mendel_authoring.pacing import Pacing, Policy, stops
 from mendel_authoring.types import Command
 from mendel_resolver.router import UnroutableError
+from sqlalchemy import select
 
 from mendel_api.authoring.types import (
     Narrative,
@@ -572,12 +573,33 @@ def wrap(ctx: Ctx) -> str | None:
             + ", ".join(f"{p.contract} for {p.site.type_id}" for p in inert)
             + "."
         )
+    summary = " ".join(lines)
+    with session_scope() as db:
+        # **Said once per revision** (#354): a note, or an answer that stays, returns here with
+        # nothing changed; the same wrap-up again is noise between the person and their reply.
+        if _wrapped(db, ctx.session_id) == (revision, summary):
+            return None
     _rows.engine_turn(
         ctx.session_id,
         lambda seq: [
             Receipt(
-                id=f"wrap-{seq}", summary=" ".join(lines), revision=revision, by="resolver"
+                id=f"wrap-{seq}", summary=summary, revision=revision, by="resolver"
             ).model_dump(mode="json")
         ],
     )
+    return None
+
+
+def _wrapped(db, session_id: str) -> tuple[int, str] | None:
+    """The last wrap-up this session said: its revision and words."""
+    turns = db.scalars(
+        select(PipelineAuthoringTurn.blocks)
+        .where(PipelineAuthoringTurn.session_id == session_id,
+               PipelineAuthoringTurn.role == TurnRole.ASSISTANT)
+        .order_by(PipelineAuthoringTurn.seq.desc())
+    )
+    for blocks in turns:
+        for block in reversed(blocks or []):
+            if block.get("kind") == "receipt" and str(block.get("id", "")).startswith("wrap-"):
+                return block.get("revision"), block.get("summary")
     return None

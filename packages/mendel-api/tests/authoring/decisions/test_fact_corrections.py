@@ -290,4 +290,4 @@ def test_settings_only_correction_receipt_explains_change_with_same_tools(clean)
         for b in t["blocks"]
         if b["kind"] == "receipt" and b["id"].startswith("correction-")
     ]
-    assert "updates" in receipts[-1]
+    assert "Updates star_align settings" in receipts[-1]

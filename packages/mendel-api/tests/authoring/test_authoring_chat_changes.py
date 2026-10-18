@@ -340,3 +340,36 @@ def test_what_the_record_already_says_is_not_offered_again(clean, monkeypatch):
             "facts": [{"subject": "read_length", "value": 50, "quote": "read length is 50"}]})
     assert [v.change.subject for v in suggestions.pending(sid)] == ["read_length"]
     assert "Noted." not in _said(sid)
+
+
+def _receipts(sid: str) -> list[str]:
+    return [r["summary"] for r in _blocks(sid, "receipt")]
+
+
+def test_once_built_what_is_not_offered_changes_nothing_and_says_so(clean, monkeypatch):
+    """#354, walk 4: the note read *changes nothing Affected steps will be reviewed again*, made
+    a revision, and repeated the wrap-up. A note is not in the pipeline: no revision, no review,
+    nothing repeated, and the projection stays current."""
+    sid = _resolving()
+    _answer_all(sid, authoring_setup.start_building(sid))
+    before, receipts = facade.read(sid)["revision"], _receipts(sid)
+    phrase = "also I want differential expression between fed and fasted yeast"
+    _typed(monkeypatch, sid, phrase, {"not_offered": [{"quote": phrase}]})
+    after = facade.read(sid)
+    assert _receipts(sid)[len(receipts):] == [
+        f'Not offered here: "{phrase}". Nothing in the pipeline changes.']
+    assert (after["revision"], after["projection_current"]) == (before, True)
+
+
+def test_a_correction_receipt_reads_as_sentences(clean, monkeypatch):
+    """#354, walk 4: *read length is 50. adds hisat2_build, …; updates trimgalore, samtools_sort
+    settings, wiring or evidence Affected steps will be reviewed again.*"""
+    sid = _resolving()
+    _answer_all(sid, authoring_setup.start_building(sid))
+    _typed(monkeypatch, sid, "read length is 50",
+           {"facts": [{"subject": "read_length", "value": 50, "quote": "read length is 50"}]})
+    [offered] = suggestions.pending(sid)
+    asyncio.run(suggestions.apply(sid, offered.id, by="ana"))
+    [summary] = [s for s in _receipts(sid) if "read length is 50" in s]
+    assert "Adds hisat2_build" in summary, summary
+    assert "settings, wiring or evidence. Affected steps will be reviewed again." in summary
