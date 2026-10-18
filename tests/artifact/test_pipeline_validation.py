@@ -203,11 +203,13 @@ def test_a_duplicate_decision_key_is_refused(tmp_path, capsys):
 # Regression evidence: A48
 # --- A48: a pipeline.yml with no goal is refused, not upgraded to empty ---
 def test_a_pipeline_with_no_goal_is_refused(tmp_path, capsys):
-    """`goal` is what `upgrade` re-resolves. Missing, it defaulted to an empty Goal and upgrade
-    produced `steps: []` at exit 0 — an empty pipeline from the likeliest hand-edit mistake."""
+    """`intent` and `facts` (version 6's `goal`) are what `upgrade` re-resolves. Missing, the
+    goal defaulted to an empty one and upgrade produced `steps: []` at exit 0 — an empty
+    pipeline from the likeliest hand-edit mistake."""
     out = _build(tmp_path)
     doc = yaml.safe_load((out / "pipeline.yml").read_text())
-    doc.pop("goal")
+    doc.pop("intent")
+    doc.pop("facts")
     (out / "pipeline.yml").write_text(
         _declared(out / "pipeline.yml", yaml.safe_dump(doc, sort_keys=False))
     )

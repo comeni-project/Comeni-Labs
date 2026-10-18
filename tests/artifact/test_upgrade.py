@@ -622,7 +622,7 @@ def test_a_genuinely_edited_pipeline_is_still_reported_as_edited(tmp_path, capsy
     """
     bundle = _published(tmp_path)
     data = yaml.safe_load(bundle.read_text())
-    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
+    data["intent"]["want"] = ["counts.matrix", "counts.matrix"]
     bundle.write_text(_declared(bundle, yaml.safe_dump(data, sort_keys=False)))
 
     main(["upgrade", str(bundle), "--registry", str(ROOT / "registry"),

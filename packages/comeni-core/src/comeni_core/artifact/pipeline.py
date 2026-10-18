@@ -33,7 +33,7 @@ from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.layered import Displacement
 from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
-from comeni_core.goal.asked import Goal
+from comeni_core.goal.asked import Facts, Goal, Intent, stated_as_said
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.tiers import (
@@ -69,7 +69,7 @@ from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 # ---------------- CONSTANTS ----------------
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 """Current output schema version and highest accepted input version.
 
 Bump when the serialized shape changes; content digests depend on that shape.
@@ -448,7 +448,7 @@ class Pipeline(EgressPayload):
         """Apply supported schema normalization steps in their required order before validation."""
         if not isinstance(data, dict):
             return data
-        for migration in (cls._v1_to_v2, cls._v5_to_v6):
+        for migration in (cls._v1_to_v2, cls._v5_to_v6, cls._v6_to_v7):
             data = migration(data)
         return data
 
@@ -459,7 +459,7 @@ class Pipeline(EgressPayload):
             return data
         legacy = {
             "tier": Tier.STRUCTURAL,
-            "source": ValueSource.GOAL,
+            "source": ValueSource.SAID,
             "reason": (
                 "provenance was not recorded: this pipeline predates schema 2, which is when "
                 "measured facts began carrying where they came from"
@@ -519,6 +519,27 @@ class Pipeline(EgressPayload):
             }
             for step in data.get("steps") or []
         ]
+        data["version"] = 6
+        return data
+
+    @classmethod
+    def _v6_to_v7(cls, data: dict) -> dict:
+        """Regroup `goal` into `intent` and `facts`, and read a stated value's `goal` as `said`.
+
+        Also how `Pipeline(goal=...)` is built: a `goal` key is regrouped at any version. A
+        layer's locator is left absent, unknown and never invented (spec §8.3).
+        """
+        old = data.get("version", SCHEMA_VERSION) < 7
+        if not old and "goal" not in data:
+            return data
+        if "goal" in data and ("intent" in data or "facts" in data):
+            raise ValueError("a pipeline.yml has `goal:` (version 6) or `intent:` and `facts:` "
+                             "(version 7), never both")
+        data = stated_as_said(data) if old else dict(data)
+        if "goal" in data:
+            # Read as a `Goal`, as version 6 read it (a profile's mapping shorthand included).
+            goal = Goal.model_validate(data.pop("goal"))
+            data["intent"], data["facts"] = goal.intent, goal.facts
         data["version"] = SCHEMA_VERSION
         return data
 
@@ -527,8 +548,10 @@ class Pipeline(EgressPayload):
     version: int = SCHEMA_VERSION
     """Artifact schema version, defaulting to SCHEMA_VERSION."""
 
-    goal: Goal
-    """Required goal; upgrade re-resolves it, while emission uses the saved steps."""
+    intent: Intent
+    """What is wanted. With `facts`, the input `upgrade` re-resolves; emission reads the steps."""
+    facts: Facts
+    """What is known about the data, each measurement with its source; no person's words."""
     registry: RegistryProvenance = Field(default_factory=RegistryProvenance)
     ai: AiProvenance = Field(default_factory=AiProvenance)
     """Recorded AI availability and usage for this build."""
@@ -547,6 +570,11 @@ class Pipeline(EgressPayload):
     Validation requires a samplesheet to have at least two such channels and
     rejects channels sharing an input parameter.
     """
+
+    @property
+    def goal(self) -> Goal:
+        """The resolver's input, projected from `intent` and `facts` (spec §8.1)."""
+        return Goal.of(self.intent, self.facts)
 
     # ---------------- VALIDATION ----------------
 

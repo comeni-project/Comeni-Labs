@@ -50,7 +50,7 @@ class Premise(BaseModel):
 _BY_SOURCE = {
     ValueSource.MEASURED: PremiseOrigin.MEASURED,
     ValueSource.MODEL: PremiseOrigin.MODEL_READ,
-    ValueSource.GOAL: PremiseOrigin.ASSERTED,
+    ValueSource.SAID: PremiseOrigin.ASSERTED,
     ValueSource.HUMAN: PremiseOrigin.ASSERTED,
     ValueSource.RESOLVER: PremiseOrigin.ASSERTED,
 }

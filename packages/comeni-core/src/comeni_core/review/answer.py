@@ -30,11 +30,13 @@ class ValueSource(StrEnum):
     """
 
     RESOLVER = "resolver"
-    GOAL = "goal"
+    SAID = "said"
+    """The person stated it: in the goal, or in their own words to the builder (Plan B renamed
+    it from `goal`)."""
     HUMAN = "human"
     """A person answered an ambiguity **after** resolution had faced it and flagged it.
 
-    Deliberately not the same as `GOAL`, and the tier is what makes the difference visible.
+    Deliberately not the same as `SAID`, and the tier is what makes the difference visible.
     A goal pin is tier 1: the user removed the ambiguity before anything looked at it, so no
     choice existed to be made. An override is tier 4 that stayed tier 4 — resolution met a
     real ambiguity, could not settle it, and a human settled it in the artifact.
@@ -49,7 +51,7 @@ class ValueSource(StrEnum):
     MODEL = "model"
     """A model answered an ambiguity the deterministic ladder could not settle.
 
-    Distinct from `HUMAN` for the reason `HUMAN` is distinct from `GOAL`: *who* settled a
+    Distinct from `HUMAN` for the reason `HUMAN` is distinct from `SAID`: *who* settled a
     thing is what a reviewer needs, and the three answers oblige different amounts of trust.
 
     **Nothing writes this until Plan 2.** It is declared now rather than then so that a model

@@ -175,6 +175,17 @@ class Constraints(BaseModel):
         )
 
 
+def stated_as_said(value):
+    """`value` with each `source: goal` as `said`: version 7 renamed who settled a value the
+    person stated (Plan B). Only the key `source`: a premise's `origin: goal` is another enum."""
+    if isinstance(value, dict):
+        return {k: ("said" if k == "source" and v == "goal" else stated_as_said(v))
+                for k, v in value.items()}
+    if isinstance(value, list):
+        return [stated_as_said(v) for v in value]
+    return value
+
+
 class Goal(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -182,3 +193,41 @@ class Goal(BaseModel):
     want: list[TypeId] = Field(default_factory=list)
     constraints: Constraints = Field(default_factory=Constraints)
     profile: DataProfile = Field(default_factory=DataProfile)
+
+    @property
+    def intent(self) -> "Intent":
+        return Intent(want=self.want, constraints=self.constraints)
+
+    @property
+    def facts(self) -> "Facts":
+        return Facts(inputs=self.have, measurements=self.profile.measurements)
+
+    @classmethod
+    def read(cls, data: object) -> "Goal":
+        """A goal as any version wrote it: a stated value's `source: goal` reads as `said`."""
+        return cls.model_validate(stated_as_said(data))
+
+    @classmethod
+    def of(cls, intent: "Intent", facts: "Facts") -> "Goal":
+        """The resolver's input, projected from what is wanted and what is known."""
+        return cls.model_validate({"have": facts.inputs, "want": intent.want,
+                                   "constraints": intent.constraints,
+                                   "profile": {"measurements": facts.measurements}})
+
+
+class Intent(BaseModel):
+    """What is wanted: the types to end with, and what the person pinned (spec §8.1)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    want: list[TypeId] = Field(default_factory=list)
+    constraints: Constraints = Field(default_factory=Constraints)
+
+
+class Facts(BaseModel):
+    """What is known: the inputs held, and each measurement with its source (spec §8.1)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    inputs: list[GoalInput] = Field(default_factory=list)
+    measurements: list[Measured] = Field(default_factory=list)

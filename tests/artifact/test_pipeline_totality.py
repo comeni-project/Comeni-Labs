@@ -121,7 +121,10 @@ def test_every_replaced_field_has_a_home():
         f"{model.__name__}.{name}"
         for model in REPLACED
         for name in model.model_fields
-        if name not in homes and f"{model.__name__}.{name}" not in NOT_CARRIED
+        if name not in homes
+        and f"{model.__name__}.{name}" not in NOT_CARRIED
+        # Renamed, with its path checked by `test_every_carried_field_is_where_it_says`.
+        and f"{model.__name__}.{name}" not in CARRIED_AS
     ]
     assert missing == [], (
         "these fields have nowhere to go in Pipeline — carry them, or add an entry to "
@@ -188,8 +191,6 @@ def test_pipeline_holds_no_registry():
 
 VERBATIM = frozenset(
     {
-        "Goal",
-        "DataProfile",
         "Displacement",
         "Emitted",
         "EmittedFile",
@@ -266,13 +267,19 @@ the reason is the part worth keeping.
 
 CARRIED_AS: dict[str, str] = {
     "PipelineIR.decisions": "decisions",
-    "PipelineIR.profile": "goal.profile",
+    "PipelineIR.profile": "facts.measurements",
     "PipelineIR.displaced": "registry.displaced",
     "PipelineIR.unverified": "registry.unverified",
     "IRNode.id": "steps.id",
     "IRNode.contract_id": "steps.module.contract_id",
     # Written only where a person pinned a tool: the site is excluded from the IR's own dump.
-    "IRNode.site": "goal.constraints.producers.site",
+    "IRNode.site": "intent.constraints.producers.site",
+    # Version 7 regroups the goal: what is wanted, then what is known (Plan B, spec §8.1).
+    "Goal.want": "intent.want",
+    "Goal.constraints": "intent.constraints",
+    "Goal.have": "facts.inputs",
+    "Goal.profile": "facts.measurements",
+    "DataProfile.measurements": "facts.measurements",
     "IREdge.type_id": "channels.type_id",
     "IREdge.states": "steps.inputs.states",
     "ParamBinding.name": "steps.settings.name",

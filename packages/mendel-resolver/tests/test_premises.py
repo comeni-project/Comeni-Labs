@@ -53,7 +53,7 @@ def test_an_asserted_fact_is_not_a_measured_one():
     an asserted `strandedness`, and the premise layer must not flatten them into one claim.
     """
     premises = build_premises(
-        goal=_goal(ValueSource.GOAL, strandedness="reverse"),
+        goal=_goal(ValueSource.SAID, strandedness="reverse"),
         derivations=[],
         measurements=LOADED.measurements,
     )
@@ -83,7 +83,7 @@ def test_a_goal_declared_purpose_is_a_premise():
     file. `n_samples` is the precedent: a measurement describing the study, not a read.
     """
     premises = build_premises(
-        goal=_goal(ValueSource.GOAL, purpose="variant_calling"),
+        goal=_goal(ValueSource.SAID, purpose="variant_calling"),
         derivations=[],
         measurements=LOADED.measurements,
     )

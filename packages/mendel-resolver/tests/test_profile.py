@@ -69,7 +69,7 @@ def test_an_unmeasured_value_is_none():
 def test_a_bare_scalar_is_an_assertion():
     """A human typed it, so it is asserted. The syntax matches the meaning."""
     profile = DataProfile(read_length=150)
-    assert profile.measurements[0].source is ValueSource.GOAL
+    assert profile.measurements[0].source is ValueSource.SAID
 
 
 def test_a_registry_built_profile_validates(measurements):

@@ -152,7 +152,7 @@ def test_a_hand_written_profile_is_asserted():
     from comeni_core.plan.tiers import ValueSource
     from mendel_resolver.goal import DataProfile
 
-    assert DataProfile(read_length=150).measurements[0].source is ValueSource.GOAL
+    assert DataProfile(read_length=150).measurements[0].source is ValueSource.SAID
 
 
 def test_profiling_from_an_input_the_measurer_cannot_reach_fails_clearly(tmp_path, capsys):

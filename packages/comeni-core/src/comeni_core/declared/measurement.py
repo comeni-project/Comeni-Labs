@@ -422,7 +422,7 @@ class MeasurementRegistry(BaseModel):
         self,
         mapping: dict[str, ParamValue | list[ParamValue]],
         *,
-        source: ValueSource = ValueSource.GOAL,
+        source: ValueSource = ValueSource.SAID,
         by: str | None = None,
     ) -> DataProfile:
         """The one validated way to build a `DataProfile`.

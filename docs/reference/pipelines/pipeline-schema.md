@@ -47,17 +47,17 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 4
+version: 7
 
-goal:                          # what was asked for
-  have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
+intent:                        # what was wanted
   want: [counts.matrix]
   constraints: {required_states: [{type_id: counts.matrix, states: [gene_level]}]}
                                # producers: [{site: {type_id: alignment.bam, states: []},
                                #   contract: nf-core/hisat2/align@2.2.2}]  — a tool you chose
-  profile:
-    measurements:
-      - {measurement: strandedness, value: reverse, source: goal, by: null}
+facts:                         # what is known, each with where it came from
+  inputs: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
+  measurements:
+    - {measurement: strandedness, value: reverse, source: said, by: null}
 
 ai:                            # what could have been consulted, and what was
   available: []                # nothing was wired to a model
@@ -134,14 +134,15 @@ emitted:                       # what was written, and what it was written from
 gate: test                     # the strongest gate this pipeline actually passed
 ```
 
-## The ten top-level keys
+## The eleven top-level keys
 
 Model: `comeni_core.artifact.pipeline.Pipeline`
 
 | Key | What it holds |
 |---|---|
 | `version` | the schema version. A newer one is **refused**, not partially read |
-| `goal` | what was asked for — the goal file, preserved |
+| `intent` | what was wanted: the types to end with, and anything pinned |
+| `facts` | what is known: the inputs held, and each measurement with its source |
 | `registry` | every layer that was loaded, pinned by content digest |
 | `ai` | which model, if any, touched this. `available: []` means none was wired |
 | `steps` | every process: the tool, why it was chosen, and every setting with its reason |
@@ -174,25 +175,32 @@ change as a human edit.
 | 1 | the file itself, replacing `pipeline.ir.json`, `mendel.lock.yml` and the publish bundle |
 | 2 | `why.for_value`, `why.axis_reason`, and a reason on every value that reaches a tool |
 | 3 | `step.presence`, `why.premise`, `why.review_level` |
+| 7 | `intent` and `facts` in place of `goal`; a stated value's `source` is `said` (was `goal`) |
 
-### `goal` — inert to `emit`
+A version-6 file is read by regrouping its `goal:` into `intent:` and `facts:` and reading
+each `source: goal` as `said`, in memory. It emits the same Nextflow it did.
 
-What was asked for. **Editing this changes nothing until `mendel upgrade`.**
+### `intent` and `facts` — inert to `emit`
+
+What was wanted, and what is known about the data. **Editing either changes nothing until
+`mendel upgrade`.** Together they are the input to resolution; version 6 kept them as one
+`goal:`, and `mendel` still reads that.
 
 That is worth stating rather than leaving implicit, for two reasons. A reader who finds
-`profile: {strandedness: reverse}` in a file they were told to edit will reasonably expect
+`strandedness: reverse` under `facts:` in a file they were told to edit will reasonably expect
 changing it to matter. And `emit` could not honour it even in principle: validating a profile
 needs the measurement registry, and `emit` has no registry by design. The facts emission needs
 are already materialised into `channels[].meta`.
 
-To change the goal, edit it and run `mendel upgrade`, which re-resolves against a registry.
+To change what was wanted or what is known, edit it and run `mendel upgrade`, which re-resolves
+against a registry.
 
-`constraints.producers` holds the tools a person chose: each names a `site` (the type a step
+`intent.constraints.producers` holds the tools a person chose: each names a `site` (the type a step
 makes, with its states) and the `contract` to use there. The resolver uses it in place of its
 own pick, at tier 4 with your name on it and the engine's pick in the reason, and `upgrade`
 keeps it. It is left out of the file when you chose none.
 
-Each entry under `profile.measurements` says where its value came from: `source: goal` for
+Each entry under `facts.measurements` says where its value came from: `source: said` for
 something a person said, `source: measured` for something measured from the data. A measured
 value names what measured it, in one of two ways:
 

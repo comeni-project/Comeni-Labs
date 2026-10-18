@@ -53,7 +53,7 @@ class Measured(BaseModel):
     value: ParamValue | list[ParamValue]
     """A list only where the measurement declares `per_sample` — `MeasurementRegistry.check`
     is what enforces that, since the declaration lives there and not here."""
-    source: ValueSource = ValueSource.GOAL
+    source: ValueSource = ValueSource.SAID
     by: ContractId | None = None
     """Which contract produced this value. `None` for anything a person asserted, and for
     anything inspector pieces measured (they are `pieces`)."""

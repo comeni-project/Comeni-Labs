@@ -161,7 +161,7 @@ def test_a_kept_draft_reads_back_as_a_pipeline(client, tmp_path):
     draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
     path = Path(client.post(f"/api/pipeline/drafts/{draft_id}/keep").json()["path"])
     doc = yaml.safe_load(path.read_text())
-    assert doc["goal"]["want"] == ["counts.matrix"]
+    assert doc["intent"]["want"] == ["counts.matrix"]
     assert len(doc["steps"]) == 4
 
 

@@ -75,7 +75,7 @@ _UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
 
 
 _SOURCE = {
-    FactSource.PERSON_SAID: ValueSource.GOAL,
+    FactSource.PERSON_SAID: ValueSource.SAID,
     FactSource.MODEL_READ: ValueSource.MODEL,
     FactSource.MEASURED: ValueSource.MEASURED,
 }

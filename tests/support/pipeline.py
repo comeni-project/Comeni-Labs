@@ -145,7 +145,8 @@ def _why() -> Why:
 SERIALISED_SHAPE = {
     "Pipeline": [
         "version",
-        "goal",
+        "intent",
+        "facts",
         "registry",
         "ai",
         "steps",

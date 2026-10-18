@@ -59,7 +59,7 @@ def test_unknown_and_withdrawn_values_are_not_in_the_goal():
 @pytest.mark.parametrize(
     ("origin", "expected"),
     [
-        ("person_said", "goal"),
+        ("person_said", "said"),
         ("measured", "measured"),
         ("model_read", "model"),
     ],

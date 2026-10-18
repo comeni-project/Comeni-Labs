@@ -62,8 +62,8 @@ def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_pa
     published = _published_pipeline(tmp_path, root)
 
     doc = yaml.safe_load(published.read_text())
-    doc["goal"]["profile"]["measurements"].append(
-        {"measurement": "sample_name", "value": "PATIENT-00417", "source": "goal", "by": None}
+    doc["facts"]["measurements"].append(
+        {"measurement": "sample_name", "value": "PATIENT-00417", "source": "said", "by": None}
     )
     published.write_text(_declared(published, yaml.safe_dump(doc, sort_keys=False)))
 
@@ -582,7 +582,7 @@ def test_a29_upgrade_refuses_a_pipeline_carrying_an_undeclared_type(tmp_path):
 
     published = _published_pipeline(tmp_path, Path("."))
     doc = yaml.safe_load(published.read_text())
-    doc["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
+    doc["facts"]["inputs"][0]["type_id"] = "PT-4471023 Jane Doe"
     published.write_text(_declared(published, yaml.safe_dump(doc, sort_keys=False)))
 
     assert main(["upgrade", str(published), "--out", str(tmp_path / "up"), "--root", "."]) == 2

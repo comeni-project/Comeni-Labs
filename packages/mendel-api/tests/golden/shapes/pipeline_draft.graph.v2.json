@@ -1,0 +1,315 @@
+{
+  "$defs": {
+    "DataProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/Measured"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "DraftChannel": {
+      "additionalProperties": false,
+      "properties": {
+        "ports": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "why": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ports"
+      ],
+      "type": "object"
+    },
+    "DraftEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "from_node": {
+          "type": "string"
+        },
+        "from_port": {
+          "type": "string"
+        },
+        "to_node": {
+          "type": "string"
+        },
+        "to_port": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_node",
+        "from_port",
+        "to_node",
+        "to_port"
+      ],
+      "type": "object"
+    },
+    "DraftLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "DraftNode": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_id": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/DraftParam"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "contract_id"
+      ],
+      "type": "object"
+    },
+    "DraftParam": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "why": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "records": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "Measured": {
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measurement": {
+          "type": "string"
+        },
+        "pieces": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/ValueSource",
+          "default": "said"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "measurement",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ValueSource": {
+      "enum": [
+        "resolver",
+        "said",
+        "human",
+        "model",
+        "measured",
+        "derived"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "channels": {
+      "items": {
+        "$ref": "#/$defs/DraftChannel"
+      },
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/DraftEdge"
+      },
+      "type": "array"
+    },
+    "labels": {
+      "items": {
+        "$ref": "#/$defs/DraftLabel"
+      },
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/DraftNode"
+      },
+      "type": "array"
+    },
+    "profile": {
+      "$ref": "#/$defs/DataProfile"
+    }
+  },
+  "type": "object"
+}

@@ -124,7 +124,8 @@ def test_the_pipeline_file_carries_every_part_a_recipient_needs(tmp_path):
     doc = yaml.safe_load((_publish(tmp_path) / "pipeline.yml").read_text())
     assert set(doc) == {
         "version",
-        "goal",
+        "intent",
+        "facts",
         "registry",
         "ai",
         "steps",
@@ -134,7 +135,7 @@ def test_the_pipeline_file_carries_every_part_a_recipient_needs(tmp_path):
         "emitted",
         "gate",
     }
-    assert doc["goal"]["want"] == ["counts.matrix"]
+    assert doc["intent"]["want"] == ["counts.matrix"]
     assert len(doc["steps"]) == 5
     assert doc["registry"]["layers"]
     assert doc["decisions"]

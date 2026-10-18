@@ -532,7 +532,7 @@ def modules() -> list[ModuleView]:
 
 def example() -> BuiltPipeline:
     """The spine, from the goal committed in `examples/`."""
-    return of(Goal.model_validate(yaml_strict.load(settings.example_goal)))
+    return of(Goal.read(yaml_strict.load(settings.example_goal)))
 
 
 def _runs(pipeline) -> dict[str, str]:

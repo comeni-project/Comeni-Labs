@@ -343,7 +343,7 @@ def _resolve_param(
         return ResolvedValue(
             value=override.value,
             tier=Tier.STRUCTURAL,
-            source=ValueSource.GOAL,
+            source=ValueSource.SAID,
             reason=f"specified in the goal as {param.name}",
         ), None
 

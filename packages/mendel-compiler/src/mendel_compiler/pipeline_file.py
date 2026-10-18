@@ -33,9 +33,9 @@ HEADER = """\
 # it came from, and the citation behind it. That is the point of the file: one place that
 # answers "what settings does this pipeline use, and why".
 #
-# `goal:` is INERT to `mendel emit`. It is the input to *resolution*, and the facts emission
-# needs are already materialised into `channels[].meta`, so editing `profile:` or `want:`
-# changes nothing until `mendel upgrade` re-resolves against a registry.
+# `intent:` and `facts:` are INERT to `mendel emit`. They are the input to *resolution*, and
+# the facts emission needs are already materialised into `channels[].meta`, so editing `want:`
+# or a measurement changes nothing until `mendel upgrade` re-resolves against a registry.
 #
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.

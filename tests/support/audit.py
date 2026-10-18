@@ -132,7 +132,7 @@ def _resolve_stacked_from(loaded):
     from comeni_core.goal.asked import Goal
     from mendel_resolver.resolve import resolve
 
-    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.read(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
     return resolve(
         goal,
         loaded.registry,

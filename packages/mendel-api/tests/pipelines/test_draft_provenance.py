@@ -321,7 +321,7 @@ def test_a_stored_goal_reaches_the_artifact_instead_of_one_derived_from_the_canv
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
     written = drafts.keep(spawned_draft, ai=_ai_was_wired())
 
-    recorded = yaml.safe_load(written.read_text())["goal"]
+    recorded = yaml.safe_load(written.read_text())["intent"]
     assert set(recorded["want"]) == {"counts.matrix", "qc.report"}, (
         "the canvas replaced what the researcher asked for"
     )
@@ -338,7 +338,7 @@ def test_a_draft_with_no_stored_goal_still_derives_one(spawned_draft, monkeypatc
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path)
     written = drafts.keep(spawned_draft, ai=_ai_was_wired())
 
-    recorded = yaml.safe_load(written.read_text())["goal"]
+    recorded = yaml.safe_load(written.read_text())["intent"]
     assert "qc.report" not in recorded["want"], "a goal nobody stored was invented"
     assert recorded["want"], "the derived goal is empty"
 

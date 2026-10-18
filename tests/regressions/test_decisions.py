@@ -330,7 +330,7 @@ def test_a_goal_pin_is_still_tier_one_and_still_says_goal():
     ir = _resolved(mutate=pin)
     value = _binding(ir, "seq_platform")
     assert value.tier is Tier.STRUCTURAL
-    assert value.source is ValueSource.GOAL
+    assert value.source is ValueSource.SAID
     assert ir.overrides() == [], "a pin is not an override; the two must not merge"
 
 

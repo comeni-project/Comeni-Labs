@@ -42,12 +42,12 @@ def test_a_contract_and_pieces_together_are_refused():
 
 
 def test_an_empty_measured_serialises_exactly_as_before():
-    """Every pipeline.yml written so far must stay byte-identical."""
+    """No pieces or evidence key when there are none (the v7 spelling of the source is `said`)."""
     m = Measured(measurement="strandedness", value="reverse")
     assert m.model_dump(mode="json") == {
         "measurement": "strandedness",
         "value": "reverse",
-        "source": "goal",
+        "source": "said",
         "by": None,
     }
 
@@ -70,7 +70,7 @@ def test_evidence_that_says_nothing_is_refused():
         Evidence()
 
 
-@pytest.mark.parametrize("source", [ValueSource.GOAL, ValueSource.HUMAN])
+@pytest.mark.parametrize("source", [ValueSource.SAID, ValueSource.HUMAN])
 def test_pieces_or_evidence_on_a_value_nobody_measured_are_refused(source):
     """Its reason would say *asserted* while its entry names what measured it."""
     with pytest.raises(ValidationError, match="measured"):

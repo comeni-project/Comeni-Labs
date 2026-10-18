@@ -362,7 +362,7 @@ def test_an_asserted_fact_and_a_measured_one_are_distinguishable(loaded):
     )
     meta = {entry.key: entry for channel in pipeline.channels for entry in channel.meta}
 
-    assert meta["strandedness"].why.source is ValueSource.GOAL
+    assert meta["strandedness"].why.source is ValueSource.SAID
     assert "goal" in meta["strandedness"].why.reason.lower()
 
 

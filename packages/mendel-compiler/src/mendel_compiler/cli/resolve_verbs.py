@@ -120,7 +120,7 @@ def run(args, parser) -> int:
     else:
         if args.goal is None:
             parser.error(f"{args.command} needs --goal")
-        goal = Goal.model_validate(yaml_strict.load(args.goal))
+        goal = Goal.read(yaml_strict.load(args.goal))
         # The profile used to be rebuilt here through `MeasurementRegistry.profile()`,
         # the one validating constructor — belt and braces over a check that did not
         # exist anywhere else. It exists now, in `resolve()`, which is the only way past

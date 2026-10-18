@@ -102,8 +102,9 @@ def of(
         )
 
     return Pipeline(
-        # Save the resolved profile alongside the original goal.
-        goal=goal.model_copy(update={"profile": ir.profile}),
+        # Save the resolved profile with the original intent and inputs.
+        intent=goal.intent,
+        facts=goal.model_copy(update={"profile": ir.profile}).facts,
         registry=RegistryProvenance(
             layers=list(lock.layers),
             displaced=list(ir.displaced),
@@ -149,7 +150,7 @@ def _meta_entry(
     Records whether the value was measured, read by AI, or asserted in the goal,
     including available measurement counts, citations, and descriptions.
     """
-    source = entry.source if entry is not None else ValueSource.GOAL
+    source = entry.source if entry is not None else ValueSource.SAID
     by = entry.by if entry is not None else None
 
     if source is ValueSource.MEASURED:
