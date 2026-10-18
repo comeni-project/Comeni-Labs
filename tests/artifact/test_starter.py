@@ -31,3 +31,18 @@ def test_build_needs_a_starter(capsys):
     with pytest.raises(SystemExit):
         main(["build", "--out", "x"])
     assert "needs a starter file" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("verb", ["emit", "publish"])
+def test_a_starter_is_not_emitted_or_published(tmp_path, capsys, verb):
+    """Review #2: a starter is a valid `Pipeline` with no steps, and `emit` wrote `workflow {}`
+    at exit 0. A file with nothing resolved is built, never emitted."""
+    target = tmp_path / "starter"
+    target.mkdir()
+    (target / "modules").mkdir()
+    (target / "pipeline.yml").write_text(STARTER.read_text())
+    args = ["emit", str(target / "pipeline.yml"), "--out", str(target)] if verb == "emit" \
+        else ["publish", str(target / "pipeline.yml")]
+    assert main(args) == 2
+    assert "mendel build" in capsys.readouterr().err
+    assert not (target / "main.nf").exists()

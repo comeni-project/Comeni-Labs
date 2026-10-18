@@ -116,6 +116,7 @@ decline to curate one.
 | `MD0230` | a tool you chose applies nowhere in this pipeline |
 | `MD0231` | a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone |
 | `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
+| `MD0233` | a starter has nothing resolved to emit or publish |
 
 ## Routing and resolution
 

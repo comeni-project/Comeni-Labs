@@ -863,6 +863,22 @@ MD0231:
     who has only the file can check a registry they already hold, and cannot fetch one. The
     build goes on: the pipeline is correct, it is just not self-contained.
 
+MD0233:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a starter has nothing resolved to emit or publish"
+  fires_on: [emit, publish]
+  refuses: true
+  fix: |
+    Build it first. A starter (`intent:` and `facts:` only) is what `mendel build` takes:
+
+        mendel build examples/rnaseq.yml --out build/
+
+    That resolves it and writes the whole `pipeline.yml`, which `emit` and `publish` read.
+  explanation: |
+    A starter is the same file format as a built pipeline, so it loads — with no steps. Emitting
+    it would write an empty workflow at exit 0, a pipeline that runs and does nothing.
+
 MD0232:
   emitted_by: compiler
   concern: pipeline-file

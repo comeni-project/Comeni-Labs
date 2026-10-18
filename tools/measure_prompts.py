@@ -144,10 +144,10 @@ WALK3_STEPS = (("star_genomegenerate", "nf-core/star/genomegenerate@1.11.0"),
 WALK3_GOAL = {"have": [{"type_id": t} for t in ("annotation.gtf", "fastq.reads", "genome.fasta")],
               "want": ["counts.matrix"],
               "profile": {"measurements": [
-                  {"measurement": "paired", "value": True, "source": "goal"},
+                  {"measurement": "paired", "value": True, "source": "said"},
                   {"measurement": "quality_encoding", "value": "phred33", "source": "measured"},
                   {"measurement": "read_length", "value": 101, "source": "measured"},
-                  {"measurement": "strandedness", "value": "reverse", "source": "goal"}]}}
+                  {"measurement": "strandedness", "value": "reverse", "source": "said"}]}}
 WALK3_MEMORY = """What is known (recorded; do not ask for it again):
 
 What you want:

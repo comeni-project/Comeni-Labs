@@ -66,3 +66,32 @@ def test_a_repository_with_no_remote_records_its_commit(tmp_path):
 def test_locators_are_keyed_by_layer_name(tmp_path):
     _repo_, layer, head = _repo(tmp_path)
     assert locators([layer]) == {"layer": locate(layer)}  # no registry.yml: the folder names it
+
+
+def test_a_repository_with_no_commits_records_no_commit(tmp_path):
+    """Review #1: a freshly `git init`-ed layer has no HEAD. Its files are all untracked, so it
+    is dirty, and there is no commit to name."""
+    layer = tmp_path / "fresh"
+    layer.mkdir()
+    (layer / "contract.yml").write_text("id: x\n")
+    _git("init", "-q", cwd=layer)
+    assert locate(layer) == Locator(source=None, commit=None, dirty=True)
+
+
+def test_a_sha256_repository_records_its_commit(tmp_path):
+    """Review #9: a SHA-256 object-format repository's HEAD is 64 hex digits, and a 40-digit-
+    only `CommitSha` crashed `locate`, and with it the build."""
+    layer = tmp_path / "sha256"
+    layer.mkdir()
+    (layer / "contract.yml").write_text("id: x\n")
+    _git("init", "-q", "--object-format=sha256", cwd=layer)
+    _git("add", ".", cwd=layer)
+    _git("commit", "-q", "-m", "one", cwd=layer)
+    found = locate(layer)
+    assert found.commit is not None and len(found.commit) == 64
+
+
+def test_a_remote_with_a_token_in_its_query_records_no_source(tmp_path):
+    """Review #8: `?private_token=…` is a credential as surely as userinfo is."""
+    _repo_, layer, head = _repo(tmp_path, origin="https://gitlab.example.org/x/y?private_token=t")
+    assert locate(layer) == Locator(source=None, commit=head, dirty=False)

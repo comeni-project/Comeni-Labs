@@ -27,6 +27,17 @@ from mendel_compiler.gates import (
 )
 
 
+def _refuse_a_starter(pipeline: Pipeline, target: Path) -> int | None:
+    """A file with nothing resolved (no steps, no emitted record) is a starter: built, never
+    emitted or published (MD0233, review #2 of Plan B)."""
+    if pipeline.steps or pipeline.emitted is not None:
+        return None
+    print("mendel: " + coded("MD0233", f"{target} has nothing resolved in it: it is a starter. "
+                             f"Build it with `mendel build {target} --out <dir>`."),
+          file=sys.stderr)
+    return 2
+
+
 def _emit_verb(target: Path, out: Path) -> int:
     """`mendel emit <pipeline.yml> --out <dir>` — the Nextflow, rebuilt from the file.
 
@@ -42,6 +53,8 @@ def _emit_verb(target: Path, out: Path) -> int:
     be edited. The refusal belongs on the verbs that treat the generated files as evidence.
     """
     pipeline = pipeline_file.load(target)
+    if (refused := _refuse_a_starter(pipeline, target)) is not None:
+        return refused
 
     # Beside the file, not beside the output: `modules/` is part of the pipeline a laboratory
     # archives, and `pipeline.yml` is what names it.
@@ -129,6 +142,8 @@ def _publish_verb(target: Path, gate: "Gate | None") -> int:
     `mendel emit` (which surfaces the change via `MD0213` and regenerates), then `publish`.
     """
     pipeline = pipeline_file.load(target)
+    if (refused := _refuse_a_starter(pipeline, target)) is not None:
+        return refused
     directory = target.parent
     refusal = _refuse_a_divergent_directory(target, pipeline, "publish")
     if refusal is not None:

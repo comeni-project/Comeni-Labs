@@ -18,7 +18,9 @@ def test_a_network_url_is_a_source(url):
 
 @pytest.mark.parametrize("url", ["https://bot:s3cret@github.com/x/y", "https://token@github.com/x/y",
                                  "ssh://git:pw@example.org/x", "/home/someone/registry",
-                                 "file:///home/someone/registry", "registry", "http://host/a b"])
+                                 "file:///home/someone/registry", "registry", "http://host/a b",
+                                 "https://host/r?private_token=abc", "https://host/r#frag",
+                                 "git@host:r?token=abc"])
 def test_repo_url_refuses_userinfo_and_paths(url):
     with pytest.raises(ValidationError):
         URL.validate_python(url)
@@ -44,3 +46,9 @@ def test_a_located_layer_carries_its_locator():
     layer = LockedLayer(name="x", digest="sha256:" + "0" * 64, **found.model_dump())
     assert layer.model_dump(mode="json")["commit"] == "b" * 40
     assert layer.model_dump(mode="json")["dirty"] is False
+
+
+def test_a_sha256_commit_is_sixty_four_lowercase_hex():
+    assert SHA.validate_python("d" * 64) == "d" * 64
+    with pytest.raises(ValidationError):
+        SHA.validate_python("d" * 50)

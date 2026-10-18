@@ -37,3 +37,14 @@ def test_build_warns_for_a_dirty_local_clone_and_records_its_commit(tmp_path, ca
     assert "MD0232" in err and "MD0231" in err
     assert len(layer["commit"]) == 40 and layer["dirty"] is True
     assert "source" not in layer, "a clone of a local path names no network source"
+
+
+def test_build_warns_for_a_layer_repository_with_no_commits(tmp_path, capsys):
+    """Review #1: `layer.commit[:12]` on `None` crashed the build, so nothing was written."""
+    fresh = tmp_path / "fresh"
+    shutil.copytree(ROOT / "registry", fresh, ignore=shutil.ignore_patterns(".git"))
+    subprocess.run(["git", "init", "-q", str(fresh)], check=True)
+    code, err, [layer] = _build(tmp_path, fresh, capsys)
+    assert code == 0
+    assert "MD0231" in err and "MD0232" in err
+    assert "commit" not in layer and layer["dirty"] is True

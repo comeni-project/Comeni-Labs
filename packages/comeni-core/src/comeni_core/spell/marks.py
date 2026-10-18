@@ -57,7 +57,7 @@ class Mark(StrEnum):
     REPO_URL = "repo-url"
     """Where a registry layer's repository can be fetched: a network URL, never a path (Plan B)."""
     COMMIT_SHA = "commit-sha"
-    """A git commit, the full forty hex: which state of that repository a layer was."""
+    """A git commit in full: which state of that repository a layer was."""
     TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
@@ -771,8 +771,9 @@ _HEX = frozenset("0123456789abcdef")
 
 
 def _commit_sha(value: str) -> str:
-    if len(value) != 40 or not set(value) <= _HEX:
-        raise ValueError(f"{value!r} is not a full commit: forty lowercase hex digits")
+    # Forty for a SHA-1 repository, sixty-four for a SHA-256 one: git's two object formats.
+    if len(value) not in (40, 64) or not set(value) <= _HEX:
+        raise ValueError(f"{value!r} is not a full commit: 40 or 64 lowercase hex digits")
     return value
 
 
@@ -782,6 +783,9 @@ def _repo_url(value: str) -> str:
     the URL must never reach it."""
     if any(c.isspace() or ord(c) < 32 for c in value):
         raise ValueError(f"{value!r} is not a repository URL: it contains whitespace")
+    if "?" in value or "#" in value:
+        # A query or fragment is where a token rides (`?private_token=…`); a clone needs neither.
+        raise ValueError("a repository URL must not carry a query or fragment")
     scheme, found, rest = value.partition("://")
     if found:
         host, _, path = rest.partition("/")
@@ -804,7 +808,7 @@ RepoUrl = Annotated[str, Mark.REPO_URL, AfterValidator(_repo_url)]
 No password or token, and never a local path (Plan B, spec §8.2)."""
 
 CommitSha = Annotated[str, Mark.COMMIT_SHA, AfterValidator(_commit_sha)]
-"""A git commit, the full forty hex digits, so it names one state and no other."""
+"""A git commit in full (40 hex digits, or 64 in a SHA-256 repository): one state, no other."""
 
 ContainerRef = Annotated[str, Mark.CONTAINER_REF]
 """A container image reference as a contract declares it, tag and all.

@@ -171,8 +171,9 @@ def run(args, parser) -> int:
                                "this pipeline cannot be rebuilt from its file alone"),
                   file=sys.stderr)
         if layer.dirty:
-            print("  " + coded("MD0232", f"layer {layer.name} has uncommitted edits; commit "
-                               f"{layer.commit[:12]} does not hold what was built"),
+            held = (f"commit {layer.commit[:12]} does not hold what was built" if layer.commit
+                    else "it has no commit yet")
+            print("  " + coded("MD0232", f"layer {layer.name} has uncommitted edits; {held}"),
                   file=sys.stderr)
 
     # **Before anything is written.** A refused upgrade must leave nothing behind — A4's
