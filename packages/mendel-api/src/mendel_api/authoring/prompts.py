@@ -57,13 +57,14 @@ RETIRED: tuple[PromptId, ...] = (
     # Superseded by the change lists and the memory (#307): goal.v6 and v7 by goal.v8, chat.v2
     # and gap.v2 by chat.v3, ask.v1 by ask.v2, readback.v1 by readback.v2, family.v3 by v4.
     # chat.v3 by chat.v4 (#324), chat.v4 by chat.v5 (#336); chat.v5, goal.v8 and ask.v2 by
-    # chat.v6, goal.v9 and ask.v3 (#327).
+    # chat.v6, goal.v9 and ask.v3 (#327); chat.v6 by chat.v7 (#354).
     "builder.goal.v6",
     "builder.goal.v7",
     "builder.chat.v2",
     "builder.chat.v3",
     "builder.chat.v4",
     "builder.chat.v5",
+    "builder.chat.v6",
     "builder.goal.v8",
     "builder.ask.v2",
     "builder.gap.v2",
@@ -99,9 +100,14 @@ a family holds the result itself, never a step on the way (ChIP-seq peaks were r
 `alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
 the shared block, as every template does."""
 
-CHAT: PromptId = "builder.chat.v6"
+CHAT: PromptId = "builder.chat.v7"
 """Typed words anywhere after the want is read, in; something to say and the changes they ask
 for out (`ChatReply`), each quoting the person (#307).
+
+**v7 (2026-10-18, #354)**: suggests no step for what is not offered (walk 4: *you would need to
+add a step for that analysis*), and does not accept a value against a measured one before the
+engine asks *are you sure?* (walk 4: *Read length is 50 — got it.*). It no longer says the engine
+asks about every differing value: it asks only against a measured one.
 
 **v6 (2026-10-16, #327)**: never claims to record or promises what is not offered; quotes the
 words that state a fact; asks nothing about what is not offered; a fact's subject is a

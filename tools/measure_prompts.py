@@ -24,15 +24,19 @@ from mendel_api.services.authoring_jobs import _client
 from mendel_api.stages import gathering
 
 SETS = {
-    "before": {"GOAL": "builder.goal.v8", "CHAT": "builder.chat.v5", "ASK": "builder.ask.v2"},
-    "after": {"GOAL": "builder.goal.v9", "CHAT": "builder.chat.v6", "ASK": "builder.ask.v3"},
+    "before": {"GOAL": "builder.goal.v9", "CHAT": "builder.chat.v6", "ASK": "builder.ask.v3"},
+    "after": {"GOAL": "builder.goal.v9", "CHAT": "builder.chat.v7", "ASK": "builder.ask.v3"},
 }
-"""The prompt sets compared: the walks ran `before`."""
+"""The prompt sets compared: walk 4 ran `before` (#354). #327 compared goal.v8, chat.v5 and
+ask.v2 with what is now `before`."""
 
 CLAIM = re.compile(r"\b(I'?ve|I have|I'll|I will|I)\s+(recorded|saved|noted|set|added)\b"
                    r"|[—-]\s*(recorded|saved|noted)\b|\bis now\b", re.I)
 PROMISE = re.compile(r"(recorded that you want|will (do|run|perform|add|include))", re.I)
 STOCK = "I cannot see that from here"
+ADD_STEP = re.compile(r"\badd (a |another |the )?steps?\b|need to add|(can|could) add", re.I)
+ACCEPTS = re.compile(r"\b(got it|understood|okay|noted|updated|corrected|changed it|will use)\b",
+                     re.I)
 
 
 def _facts(reply) -> dict:
@@ -184,6 +188,38 @@ def chat_contradicts_measured(stack, client):
             + (["a type for the fact"] if mistaken else []) + _say_ok(out.reply))
 
 
+def _walk3(stack, client, text, tail=WALK3_TAIL):
+    return ai.follow_up(ai.compose(prompt=text, turns=tail, goal=gathering.as_goal(WALK3_GOAL),
+                                   steps=WALK3_STEPS),
+                        stack=stack, memory=WALK3_MEMORY, client=client)
+
+
+def chat_no_step_to_add(stack, client):
+    """Walk 4: *To perform differential expression, you would need to add a step for that
+    analysis.* — no step can be added for what nothing here makes."""
+    out = _walk3(stack, client, "also I want differential expression between fed and fasted yeast",
+                 tail=WALK3_TAIL[:3])
+    if not out.admitted:
+        return [f"refused {out.code}"]
+    return ((["nothing not_offered"] if not out.reply.not_offered else [])
+            + (["suggests adding a step"] if ADD_STEP.search(out.reply.say or "") else [])
+            + _say_ok(out.reply))
+
+
+def chat_does_not_accept(stack, client):
+    """Walk 4: *Read length is 50 — got it.* above the engine's *Are you sure?* (#345). A value
+    against the record is the engine's to question, so the reply does not accept it first."""
+    out = _walk3(stack, client, "sorry, I was wrong earlier: read length is 50")
+    if not out.admitted:
+        return [f"refused {out.code}"]
+    fact = _facts(out.reply).get("read_length")
+    said = out.reply.say or ""
+    return ((["no fact of 50"] if fact is None or fact.value not in (50, "50") else [])
+            + (["accepts it"] if ACCEPTS.search(said) else [])
+            # The prompt's example measured 150 and was told 75; its numbers are not these.
+            + (["copies the example"] if re.search(r"\b(150|75)\b", said) else []))
+
+
 def ask_strandedness(stack, client):
     """Walk 1 and 2: *how … was determined …, choosing from forward, reverse, unstranded, …*."""
     # Strandedness is no longer a gathering gap (#338); the question is phrased directly.
@@ -211,6 +247,8 @@ CASES: dict[str, Callable] = {
     "chat: mid-build fact": chat_mid_build,
     "chat: quoted fact": chat_quoted,
     "chat: against measured": chat_contradicts_measured,
+    "chat: no step to add": chat_no_step_to_add,
+    "chat: does not accept": chat_does_not_accept,
     "ask: strandedness": ask_strandedness,
 }
 
