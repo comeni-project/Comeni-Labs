@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     **A setting rather than a constant, because a bare relative path resolves against the
     process's working directory** — which is the repository root under pytest and `/app` in a
-    container. It shipped as `Path("examples/rnaseq-goal.yml")`, passed every test, and answered
+    container. It shipped as a bare relative `Path("examples/…")`, passed every test, and answered
     500 the first time the stack came up. Checkpoint 1 is what found it.
     """
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"

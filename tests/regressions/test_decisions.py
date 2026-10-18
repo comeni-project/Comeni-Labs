@@ -12,6 +12,7 @@ import pytest
 from comeni_core.plan.tiers import Tier
 from pydantic import ValidationError
 from support.audit import _declared, _pipe, _published_pipeline
+from support.example import example_mapping
 from support.paths import ROOT
 
 
@@ -250,12 +251,11 @@ def _resolved(resolver=None, mutate=None, prior=()):
     records — passing the resolver alone leaves the value flagged, which is the safe
     direction and the one `mendel upgrade` relies on.
     """
-    from comeni_core import yaml_strict
     from mendel_resolver.goal import Goal
     from mendel_resolver.resolve import resolve
 
     loaded = _loaded()
-    raw = yaml_strict.load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml"))
+    raw = example_mapping()
     if mutate is not None:
         mutate(raw)
     return resolve(

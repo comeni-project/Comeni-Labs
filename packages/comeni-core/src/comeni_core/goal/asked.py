@@ -175,17 +175,6 @@ class Constraints(BaseModel):
         )
 
 
-def stated_as_said(value):
-    """`value` with each `source: goal` as `said`: version 7 renamed who settled a value the
-    person stated (Plan B). Only the key `source`: a premise's `origin: goal` is another enum."""
-    if isinstance(value, dict):
-        return {k: ("said" if k == "source" and v == "goal" else stated_as_said(v))
-                for k, v in value.items()}
-    if isinstance(value, list):
-        return [stated_as_said(v) for v in value]
-    return value
-
-
 class Goal(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -201,11 +190,6 @@ class Goal(BaseModel):
     @property
     def facts(self) -> "Facts":
         return Facts(inputs=self.have, measurements=self.profile.measurements)
-
-    @classmethod
-    def read(cls, data: object) -> "Goal":
-        """A goal as any version wrote it: a stated value's `source: goal` reads as `said`."""
-        return cls.model_validate(stated_as_said(data))
 
     @classmethod
     def of(cls, intent: "Intent", facts: "Facts") -> "Goal":

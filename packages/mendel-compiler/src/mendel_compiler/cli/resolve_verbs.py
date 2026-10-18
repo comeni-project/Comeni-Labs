@@ -42,7 +42,7 @@ from mendel_compiler.gates import (
 def run(args, parser) -> int:
     """The shared flow. `args` is the parsed namespace; the verb is `args.command`.
 
-    Takes the `parser` because `parser.error` is how a missing `--goal` is refused: it prints
+    Takes the `parser` because `parser.error` is how a missing starter is refused: it prints
     the usage line and exits 2, which is argparse's contract with the user. Building a second
     parser here to call `error` on would be a second usage string, and two would drift.
     """
@@ -69,7 +69,7 @@ def run(args, parser) -> int:
     # answered and supply the proof; these records come from the file on disk.
     prior: list = []
     if args.command == "upgrade":
-        # `upgrade` takes its goal from the file rather than from a `--goal` argument:
+        # `upgrade` takes its goal from the file rather than from a starter:
         # re-resolving a *different* goal and calling the result an upgrade is how "only what
         # you touched moved" would quietly become false. (`publish` no longer shares this path —
         # it certifies without re-resolving, A50.)
@@ -117,13 +117,11 @@ def run(args, parser) -> int:
     elif args.command == "profile":
         goal = _profiling_goal(args, loaded)
     else:
-        # A starter as the target (`mendel build examples/rnaseq.yml`), or `--goal`, which
-        # also reads the old goal format: one reader either way (Plan B, spec §8.5).
-        source = Path(args.target) if args.target else args.goal
-        if source is None:
-            parser.error(f"{args.command} needs a starter file or --goal")
+        # A starter: `pipeline.yml` with only `intent` and `facts` (Plan B, spec §8.5).
+        if not args.target:
+            parser.error(f"{args.command} needs a starter file: `mendel build <starter>`")
         try:
-            goal = pipeline_file.goal_from(source)
+            goal = pipeline_file.goal_from(Path(args.target))
         except pipeline_file.NotAStarter as refused:
             print(f"mendel: {refused}", file=sys.stderr)
             return 2

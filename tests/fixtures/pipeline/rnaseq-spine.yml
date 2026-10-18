@@ -6,22 +6,15 @@
 # it came from, and the citation behind it. That is the point of the file: one place that
 # answers "what settings does this pipeline use, and why".
 #
-# `goal:` is INERT to `mendel emit`. It is the input to *resolution*, and the facts emission
-# needs are already materialised into `channels[].meta`, so editing `profile:` or `want:`
-# changes nothing until `mendel upgrade` re-resolves against a registry.
+# `intent:` and `facts:` are INERT to `mendel emit`. They are the input to *resolution*, and
+# the facts emission needs are already materialised into `channels[].meta`, so editing `want:`
+# or a measurement changes nothing until `mendel upgrade` re-resolves against a registry.
 #
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
 
-version: 5
-goal:
-  have:
-  - type_id: fastq.reads
-    states: []
-  - type_id: annotation.gtf
-    states: []
-  - type_id: genome.fasta
-    states: []
+version: 7
+intent:
   want:
   - counts.matrix
   constraints:
@@ -30,24 +23,34 @@ goal:
       states:
       - gene_level
     params: []
-  profile:
-    measurements:
-    - measurement: n_samples
-      value: 12
-      source: goal
-      by: null
-    - measurement: paired
-      value: true
-      source: goal
-      by: null
-    - measurement: read_length
-      value: 150
-      source: goal
-      by: null
-    - measurement: strandedness
-      value: reverse
-      source: goal
-      by: null
+facts:
+  inputs:
+  - type_id: fastq.reads
+    name: null
+    states: []
+  - type_id: annotation.gtf
+    name: null
+    states: []
+  - type_id: genome.fasta
+    name: null
+    states: []
+  measurements:
+  - measurement: n_samples
+    value: 12
+    source: said
+    by: null
+  - measurement: paired
+    value: true
+    source: said
+    by: null
+  - measurement: read_length
+    value: 150
+    source: said
+    by: null
+  - measurement: strandedness
+    value: reverse
+    source: said
+    by: null
 registry:
   layers:
   - name: comeni-registry-examples
@@ -100,7 +103,8 @@ steps:
   inputs:
   - port: reads
     source: null
-    channel: fastq.reads
+    channel: reads
+    gather: false
     states: []
   call:
   - ports:
@@ -153,11 +157,13 @@ steps:
   inputs:
   - port: fasta
     source: null
-    channel: genome.fasta
+    channel: fasta
+    gather: false
     states: []
   - port: gtf
     source: null
-    channel: annotation.gtf
+    channel: gtf
+    gather: false
     states: []
   call:
   - ports:
@@ -229,15 +235,18 @@ steps:
   - port: reads
     source: trimgalore.reads
     channel: null
+    gather: false
     states:
     - trimmed
   - port: index
     source: star_genomegenerate.index
     channel: null
+    gather: false
     states: []
   - port: gtf
     source: null
-    channel: annotation.gtf
+    channel: gtf
+    gather: false
     states: []
   call:
   - ports:
@@ -346,6 +355,7 @@ steps:
   - port: bam
     source: star_align.bam
     channel: null
+    gather: false
     states: []
   call:
   - ports:
@@ -438,11 +448,13 @@ steps:
   - port: bam
     source: samtools_sort.bam
     channel: null
+    gather: false
     states:
     - coordinate_sorted
   - port: annotation
     source: null
-    channel: annotation.gtf
+    channel: gtf
+    gather: false
     states: []
   call:
   - ports:
@@ -473,7 +485,12 @@ steps:
       displaced_layer: null
       review_level: none
 channels:
-- type_id: annotation.gtf
+- name: gtf
+  param: gtf
+  why: null
+  scope: sample
+  columns: []
+  type_id: annotation.gtf
   params:
   - gtf
   expression: 'Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName],
@@ -481,7 +498,12 @@ channels:
   meta: []
   test_data:
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genes.gtf
-- type_id: fastq.reads
+- name: reads
+  param: input
+  why: null
+  scope: sample
+  columns: []
+  type_id: fastq.reads
   params:
   - input
   expression: '( params.input instanceof List ? Channel.of([ [id: ''test''], params.input.collect
@@ -492,7 +514,7 @@ channels:
     value: false
     why:
       tier: 1
-      source: goal
+      source: said
       reason: asserted in the goal; no profiling run established it; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8
         — Whether the library was sequenced paired-end
       premise: []
@@ -505,7 +527,7 @@ channels:
     value: reverse
     why:
       tier: 1
-      source: goal
+      source: said
       reason: asserted in the goal; no profiling run established it; Signal et al. 2022, doi:10.1186/s12859-022-04572-7
         — Library strandedness determined by the prep protocol
       premise: []
@@ -517,7 +539,12 @@ channels:
   test_data:
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_1.fastq.gz
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_2.fastq.gz
-- type_id: genome.fasta
+- name: fasta
+  param: fasta
+  why: null
+  scope: sample
+  columns: []
+  type_id: genome.fasta
   params:
   - fasta
   expression: 'Channel.fromPath(params.fasta, checkIfExists: true).map { f -> [ [id: f.baseName],
@@ -550,3 +577,4 @@ emitted:
     digest: sha256:e32f314f6bee7075330cc498d93a73cabe7ddd111efb167f7576c678dfcc9464
   from_digest: sha256:85de0775f80380421ab37ec7df3148157c7db8d9ebf0895289bbd50d8b67c627
 gate: null
+input_form: direct

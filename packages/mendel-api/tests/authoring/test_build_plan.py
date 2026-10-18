@@ -4,7 +4,6 @@ This is the test that holds Task 1 and the plan together. The pure tests use a h
 blueprint that already carries `unknown`; only this one proves the resolver writes it.
 """
 
-from comeni_core import yaml_strict
 from comeni_core.goal.asked import ProducerPin, Site
 from mendel_api.services import blueprint as bp
 from mendel_api.services import declared, registry
@@ -14,6 +13,7 @@ from mendel_authoring.needs import NeedKind
 from mendel_authoring.plan import plan_of
 from mendel_authoring.wrapup import wrap_up
 from mendel_resolver.goal import Goal
+from support.example import example_mapping
 from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
@@ -22,7 +22,7 @@ HISAT2 = "nf-core/hisat2/align@2.2.2"
 
 
 def _rnaseq(**profile_without) -> Goal:
-    data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
+    data = example_mapping()
     for key in profile_without:
         data["profile"].pop(key)
     return Goal.model_validate(data)

@@ -25,16 +25,15 @@ reading as a chain.
 from pathlib import Path
 
 import pytest
-from comeni_core import yaml_strict
 from mendel_compiler import layout, orchestrate
-from mendel_resolver.goal import Goal
+from support.example import example_goal
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture(scope="module")
 def spine():
-    goal = Goal.model_validate(yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"))
+    goal = example_goal()
     return orchestrate.build(
         goal, registry_root=ROOT / "registry"
     ).ir

@@ -53,19 +53,16 @@ def test_via_meta_reaches_the_channel_meta_map(tmp_path):
     measurement, which is what this goal does.
     """
     goal = tmp_path / "goal.yml"
-    goal.write_text(
-        _declared(
-            goal,
-            (ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", ""),
-        )
-    )
+    paired = "    - {measurement: paired, value: true, source: said}\n"
+    example = (ROOT / "examples" / "rnaseq.yml").read_text()
+    assert paired in example, "the example states `paired`; this test removes it"
+    goal.write_text(_declared(goal, example.replace(paired, "")))
     ov = _overlay_with(tmp_path, "  - {name: single_end, default: false, via: meta}\n")
     out = tmp_path / "b"
     assert (
         main(
             [
                 "build",
-                "--goal",
                 str(goal),
                 "--registry",
                 str(ROOT / "registry"),
@@ -116,7 +113,6 @@ def test_two_ext_args_settings_still_compose(tmp_path):
         main(
             [
                 "build",
-                "--goal",
                 str(GOAL),
                 "--registry",
                 str(ROOT / "registry"),

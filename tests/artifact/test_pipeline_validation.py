@@ -85,7 +85,6 @@ def test_a_contract_missing_via_emits_MD0200_and_blames_the_contract(tmp_path, c
     code = main(
         [
             "build",
-            "--goal",
             str(GOAL),
             "--registry",
             str(ROOT / "registry"),
@@ -139,7 +138,6 @@ def test_two_ext_settings_on_one_prefix_are_refused(tmp_path):
     code = main(
         [
             "build",
-            "--goal",
             str(GOAL),
             "--registry",
             str(ROOT / "registry"),
@@ -167,7 +165,6 @@ def test_a_meta_setting_shadowing_a_measurement_is_refused(tmp_path):
     code = main(
         [
             "build",
-            "--goal",
             str(GOAL),
             "--registry",
             str(ROOT / "registry"),

@@ -12,7 +12,7 @@ from support.pipeline import GOAL
 
 def _build(tmp_path, layer, capsys):
     out = tmp_path / "out"
-    code = main(["build", "--goal", str(GOAL), "--registry", str(layer), "--out", str(out),
+    code = main(["build", str(GOAL), "--registry", str(layer), "--out", str(out),
                  "--root", str(ROOT)])
     layers = yaml.safe_load((out / "pipeline.yml").read_text())["registry"]["layers"]
     return code, capsys.readouterr().err, layers

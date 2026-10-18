@@ -59,8 +59,9 @@ def test_replay_scans_goal_pins_once_and_only_omits_matching_overrides():
         update={"key": "different.producer:qc.report", "subject": "producer:qc.report"}
     )
     remaining = [different_contract, unanswered, different_type]
-    pipeline = Pipeline.model_validate({"goal": goal, "decisions": [*decisions, *remaining]})
-    # Reading `goal:` validates a fresh copy of the pins; count the list the pipeline holds.
+    pipeline = Pipeline.model_validate(
+        {"intent": goal.intent, "facts": goal.facts, "decisions": [*decisions, *remaining]})
+    # Validation may copy the pins; count the list the pipeline holds.
     pipeline = pipeline.model_copy(
         update={"intent": pipeline.intent.model_copy(update={"constraints": constraints})})
     pins.scans = 0

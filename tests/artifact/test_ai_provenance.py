@@ -36,7 +36,7 @@ def _built(tmp_path: pathlib.Path) -> Pipeline:
     # does not — so `--gate lint` here was green locally and failed in CI, which is the exact
     # mistake issue #46 recorded one day earlier. Nothing in this file is about gates.
     assert main([
-        "build", "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
+        "build", str(ROOT / "examples" / "rnaseq.yml"),
         "--out", str(out), "--root", str(ROOT),
     ]) == 0
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))
@@ -61,28 +61,25 @@ def test_MD0225_a_value_cannot_claim_a_model_that_was_not_available(tmp_path):
     assert key in str(caught.value), "the refusal must name which value claims it"
 
 
-def test_a_file_from_before_the_question_states_nothing(tmp_path):
+def test_a_file_with_no_ai_record_states_nothing(tmp_path):
     """Absence and emptiness differ — the lesson `for_value` taught in #48, one field over.
 
-    A `version: 3` artifact was written before anything asked about models. Loading it as
-    `available: []` would invent a statement nobody made, and `MD0225` would then be
-    enforcing it.
+    A file with no `ai:` says nothing about models. Loading it as `available: []` would invent
+    a statement nobody made, and `MD0225` would then be enforcing it.
     """
     pipeline = _built(tmp_path)
     raw = pipeline.model_dump(mode="json")
-    raw["version"] = 3
     del raw["ai"]
     older = Pipeline.model_validate(raw)
     assert older.ai.available is None
     assert older.ai.used is None
 
 
-def test_a_pre_ai_file_claiming_a_model_is_not_refused(tmp_path):
-    """`MD0225` fires on `available == []`, never on `None`. A v3 file makes no claim about
-    what was available, so it cannot contradict one."""
+def test_a_file_with_no_ai_record_claiming_a_model_is_not_refused(tmp_path):
+    """`MD0225` fires on `available == []`, never on `None`. A file with no `ai:` makes no
+    claim about what was available, so it cannot contradict one."""
     pipeline = _built(tmp_path)
     raw = pipeline.model_dump(mode="json")
-    raw["version"] = 3
     del raw["ai"]
     _claim_a_model(raw)
     Pipeline.model_validate(raw)  # must not raise

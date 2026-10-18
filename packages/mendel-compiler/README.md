@@ -4,7 +4,7 @@ Pipeline IR to Nextflow DSL2, the validation gates, and the `mendel` CLI for
 [Comeni Labs](https://github.com/comeni-project/Comeni-Labs).
 
 ```bash
-uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
+uv run mendel build examples/rnaseq.yml --out build/ --gate stub
 uv run mendel profile --have fastq.reads --out profile-build/
 ```
 

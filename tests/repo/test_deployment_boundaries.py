@@ -28,7 +28,7 @@ PRIVATE_PATHS = [
 AUTHORED_PATHS = [
     ".env.example",
     "frontend/.env.example",
-    "tests/fixtures/goal-v6/rnaseq-goal.yml",
+    "examples/rnaseq.yml",
     "packages/demo/pyproject.toml",
     "packages/demo/src/demo/build/__init__.py",
     "frontend/src/app.tsx",

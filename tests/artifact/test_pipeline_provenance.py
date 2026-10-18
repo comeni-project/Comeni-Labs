@@ -65,9 +65,9 @@ def test_the_file_records_the_goal_it_was_built_from(tmp_path):
     """
     raw = yaml.safe_load((_build(tmp_path) / "pipeline.yml").read_text())
     declared = yaml.safe_load(GOAL.read_text())
-    assert raw["intent"]["want"] == declared["want"]
+    assert raw["intent"]["want"] == declared["intent"]["want"]
     assert [item["type_id"] for item in raw["facts"]["inputs"]] == [
-        item["type_id"] for item in declared["have"]
+        item["type_id"] for item in declared["facts"]["inputs"]
     ]
     measured = {m["measurement"]: m["value"] for m in raw["facts"]["measurements"]}
     assert measured["strandedness"] == "reverse"

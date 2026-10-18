@@ -153,7 +153,7 @@ def test_a_coded_refusal_tells_the_reader_how_to_read_it(corpus_data, tmp_path, 
     (layer / "rules").mkdir()
     shutil.copy(CORPUS / "rules" / "R20.yml", layer / "rules")
     code = main([
-        "build", "--goal", str(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
+        "build", str(ROOT / "examples" / "rnaseq.yml"),
         "--registry", str(ROOT / "registry"), "--registry", str(layer),
         "--out", str(tmp_path / "out"), "--root", str(ROOT), "--gate", "lint",
     ])

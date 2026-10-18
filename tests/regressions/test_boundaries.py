@@ -11,6 +11,7 @@ import pytest
 from comeni_core.plan.tiers import Tier
 from pydantic import ValidationError
 from support.audit import _declared, _pipe, _published_pipeline
+from support.example import example_mapping
 from support.paths import ROOT
 
 
@@ -50,7 +51,7 @@ def test_a2_resolve_refuses_an_unvalidated_profile():
 def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_path):
     """The reachable route, end to end: a `pipeline.yml` is a *downloaded* artifact.
 
-    `mendel upgrade` reads its goal from that file rather than from a `--goal`, so it was the
+    `mendel upgrade` reads its goal from that file rather than from a starter, so it was the
     one verb reading something a stranger wrote and the one verb with no check. Reproduced
     in the audit as exit 0 with `sample_name: PATIENT-00417` in the emitted IR, and
     re-published verbatim by any following `mendel publish`.
@@ -74,13 +75,12 @@ def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_pa
 
 def test_a2_a_declared_profile_still_resolves():
     """The refusal must not cost the normal case."""
-    import yaml
     from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
     loaded = layers_mod.load("registry")
-    goal = Goal.model_validate(yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text()))
+    goal = Goal.model_validate(example_mapping())
     ir = resolve(
         goal,
         loaded.registry,

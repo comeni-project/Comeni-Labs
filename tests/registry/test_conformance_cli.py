@@ -51,8 +51,7 @@ def test_a_conformant_build_succeeds(tmp_path):
         main(
             [
                 "build",
-                "--goal",
-                str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
+                str(ROOT / "examples/rnaseq.yml"),
                 "--out",
                 str(tmp_path / "p"),
                 "--root",
@@ -79,8 +78,7 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
     code = main(
         [
             "build",
-            "--goal",
-            str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
+            str(ROOT / "examples/rnaseq.yml"),
             "--out",
             str(tmp_path / "p"),
             "--root",
@@ -111,8 +109,7 @@ def _build_with_no_module_source(tmp_path) -> int:
     return main(
         [
             "build",
-            "--goal",
-            str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
+            str(ROOT / "examples/rnaseq.yml"),
             "--out",
             str(tmp_path / "p"),
             "--registry",
@@ -147,8 +144,7 @@ def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
     main(
         [
             "build",
-            "--goal",
-            str(ROOT / "tests/fixtures/goal-v6/rnaseq-goal.yml"),
+            str(ROOT / "examples/rnaseq.yml"),
             "--out",
             str(tmp_path / "p"),
             "--root",
@@ -272,10 +268,11 @@ def test_a_refused_profile_prints_a_message_a_person_can_read(tmp_path, capsys):
     """
     goal = tmp_path / "goal.yml"
     goal.write_text(
-        "have:\n  - type_id: fastq.reads\nwant:\n  - counts.matrix\n"
-        "profile:\n  sample_name: nope\n"
+        "version: 7\nintent: {want: [counts.matrix]}\nfacts:\n"
+        "  inputs: [{type_id: fastq.reads}]\n"
+        "  measurements: [{measurement: sample_name, value: nope, source: said}]\n"
     )
-    code = main(["build", "--goal", str(goal), "--out", str(tmp_path / "out")])
+    code = main(["build", str(goal), "--out", str(tmp_path / "out")])
     printed = capsys.readouterr().err
 
     assert code == 2

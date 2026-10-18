@@ -7,6 +7,8 @@ helper is written once and every file that needs it says so in an import.
 import pathlib
 from pathlib import Path
 
+from support.example import example_goal
+
 _KIND_OF_DIR = {
     "contracts": "contract",
     "vocabularies": "vocabulary",
@@ -65,7 +67,7 @@ def _published_pipeline(tmp_path, root, name="published"):
     from mendel_compiler.cli import main
 
     out = tmp_path / name
-    assert main(["build", "--goal", str(root / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"),
+    assert main(["build", str(root / "examples" / "rnaseq.yml"),
                  "--out", str(out), "--root", str(root)]) == 0
     assert main(["publish", str(out / "pipeline.yml"), "--root", str(root)]) == 0
     return out / "pipeline.yml"
@@ -127,12 +129,10 @@ def _stacked(tmp_path):
 
 
 def _resolve_stacked_from(loaded):
-    import yaml
     from comeni_core.declared.layer import layer_name
-    from comeni_core.goal.asked import Goal
     from mendel_resolver.resolve import resolve
 
-    goal = Goal.read(yaml.safe_load(Path("tests/fixtures/goal-v6/rnaseq-goal.yml").read_text()))
+    goal = example_goal()
     return resolve(
         goal,
         loaded.registry,

@@ -373,13 +373,20 @@ MD0206:
 MD0207:
   emitted_by: core
   concern: pipeline-file
-  says: "`version:` is newer than this Mendel understands"
+  says: "`version:` is not the one this Mendel reads"
   fires_on: [emit, upgrade, publish]
   refuses: true
   fix: |
-    Upgrade Mendel. Do not edit the version number down — that only moves the failure to
-    somewhere less obvious than this message.
+    A **newer** file: upgrade Mendel. Do not edit the version number down — that only moves
+    the failure to somewhere less obvious than this message.
+
+    An **older** file: rebuild it. Until v0.1.0 there is no upgrade path between versions:
+    copy what it wanted and what it knew into a starter (`intent:` and `facts:` only) and run
+    `mendel build <starter>`.
   explanation: |
+    Before v0.1.0 nobody depends on an older file, so none is carried: one format, read one
+    way.
+
     Forward compatibility is a promise this format has not made. An older Mendel reading the
     parts of a newer file it happens to recognise would emit a pipeline missing whatever the
     unrecognised section carried, and would say nothing, because from its point of view the

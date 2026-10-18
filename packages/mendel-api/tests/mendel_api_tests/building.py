@@ -1,7 +1,6 @@
 """Reusable building scenarios and fixtures for API tests."""
 
 import pytest
-from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
@@ -15,6 +14,7 @@ from mendel_api.services import session as facade
 from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_resolver.goal import Goal
+from support.example import example_goal, example_mapping
 from support.paths import ROOT as REPOSITORY_ROOT
 
 from mendel_api_tests import session_setup as authoring_setup
@@ -41,11 +41,11 @@ def clean():
 
 
 def _goal() -> Goal:
-    return Goal.model_validate(yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"))
+    return example_goal()
 
 
 def _without_read_length() -> Goal:
-    data = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
+    data = example_mapping()
     data["profile"].pop("read_length")
     return Goal.model_validate(data)
 

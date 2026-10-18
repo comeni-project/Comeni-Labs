@@ -1,9 +1,7 @@
 """Saved-pipeline compatibility: observable CLI and artifact behavior."""
 
-import yaml
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline, Setting, Why
 from support.pipeline import (
-    ARCHIVED,
     RELEASED_SCHEMA_VERSION,
     SERIALISED_SHAPE,
     _build,
@@ -43,7 +41,6 @@ def test_a_schema_change_bumps_the_version():
         CallArg,
         ExtArgs,
         MetaEntry,
-        Pipeline,
         Step,
     )
     from comeni_core.goal.premise import PremiseRecord
@@ -98,23 +95,3 @@ def test_a_file_written_before_for_value_still_emits(tmp_path, capsys):
     code, err = _emit(out, capsys)
 
     assert code == 0, err
-
-
-# Regression evidence: A108, A127
-def test_an_archived_document_backfills_an_empty_premise(tmp_path):
-    """A document written before the field existed cannot answer, and requiring it of one
-    asserts the premise is *missing* rather than *never recorded* — Plan 1.14 Task 0's
-    lesson, which cost a plan the first time."""
-    raw = yaml.safe_load(ARCHIVED.read_text())
-    # **The FILE is old; the loaded object is not.** This asserted `loaded.version <
-    # SCHEMA_VERSION`, which held only while migrations left the version alone. A migration
-    # that rewrites the shape and not the number would produce an object claiming to be
-    # version 5 with version-6 content, so the 5 → 6 branch stamps it — and the claim this
-    # test is actually making belongs on the bytes.
-    #
-    # `MD0213` is unaffected, and by an existing design rather than by luck:
-    # `Emitted.schema_version` records the version `from_digest` was taken under, precisely so
-    # `is_stale` can tell *you edited this* from *the schema moved*. Nothing here touches it.
-    assert raw["version"] < SCHEMA_VERSION
-    loaded = Pipeline.model_validate(raw)
-    assert all(step.why.premise == [] for step in loaded.steps)

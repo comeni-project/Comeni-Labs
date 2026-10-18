@@ -63,13 +63,13 @@ def _gate_always_passes(monkeypatch):
     monkeypatch.setattr(
         artifact_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
 
-GOAL = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
+GOAL = ROOT / "examples" / "rnaseq.yml"
 
 
 def _built(tmp_path, name="p", extra=()):
     out = tmp_path / name
     code = main(
-        ["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT), *extra]
+        ["build", str(GOAL), "--out", str(out), "--root", str(ROOT), *extra]
     )
     assert code == 0
     return out
@@ -232,9 +232,9 @@ def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolve
             star,
             star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN")))
 
-    goal = ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
+    goal = ROOT / "examples" / "rnaseq.yml"
     code = main(
-        ["build", "--goal", str(goal), "--out", str(tmp_path / "b"),
+        ["build", str(goal), "--out", str(tmp_path / "b"),
          "--root", str(ROOT), "--registry", str(layer)]
     )
     assert code == 2  # the non-conformant contract never reaches a publishable artifact
@@ -282,7 +282,7 @@ def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path, mo
     _gate_always_passes(monkeypatch)
     root = ROOT
     out = tmp_path / "b"
-    assert main(["build", "--goal", str(GOAL), "--registry", str(root / "registry"),
+    assert main(["build", str(GOAL), "--registry", str(root / "registry"),
                  "--out", str(out), "--root", str(root)]) == 0
     before = (out / "pipeline.yml").read_text()
 
@@ -317,9 +317,9 @@ def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path, mon
 
     _gate_always_passes(monkeypatch)
     root = ROOT
-    goal = root / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml"
+    goal = root / "examples" / "rnaseq.yml"
     out = tmp_path / "b"
-    assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(root)]) == 0
+    assert main(["build", str(goal), "--out", str(out), "--root", str(root)]) == 0
     # Answer a tier-4 question by editing the file, then emit, then publish.
     doc = _yaml.safe_load((out / "pipeline.yml").read_text())
     for s in doc["steps"]:
@@ -407,7 +407,7 @@ def test_publish_refuses_to_certify_a_value_whose_reason_is_false(tmp_path, caps
     default for min_mqs` — all three false about the value that reached the tool.
     """
     out = tmp_path / "p"
-    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["build", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
 
     path = out / "pipeline.yml"
     lines = path.read_text().splitlines(keepends=True)

@@ -159,33 +159,16 @@ Each is described below.
 
 ### `version`
 
-What schema this file uses. A file declaring a version newer than your Mendel understands is
-**refused** (`MD0207`) rather than read for the parts it recognises — an older build silently
+What schema this file uses. **Only the current version is read** (`MD0207`). A newer file is
+refused rather than read for the parts this Mendel recognises — an older build silently
 ignoring a section a newer one added is how a pipeline gets emitted without whatever that
-section carried.
-
-An **older** file is read, and its new fields come back empty rather than absent-and-fatal. A
-pipeline written before version 4 has no `ai:`; one written before version 3 has no `presence`
-and no `premise`. Requiring either of one
-would assert the reason is *missing* rather than *never recorded* — a document written before a
-field existed cannot answer for it. `MD0213` is the check that would otherwise report a schema
-change as a human edit.
-
-| version | added |
-|---|---|
-| 1 | the file itself, replacing `pipeline.ir.json`, `mendel.lock.yml` and the publish bundle |
-| 2 | `why.for_value`, `why.axis_reason`, and a reason on every value that reaches a tool |
-| 3 | `step.presence`, `why.premise`, `why.review_level` |
-| 7 | `intent` and `facts` in place of `goal`; a stated value's `source` is `said` (was `goal`) |
-
-A version-6 file is read by regrouping its `goal:` into `intent:` and `facts:` and reading
-each `source: goal` as `said`, in memory. It emits the same Nextflow it did.
+section carried. Until v0.1.0 an older file is refused too, and rebuilt rather than upgraded:
+copy its intent and facts into a starter and run `mendel build`.
 
 ### `intent` and `facts` — inert to `emit`
 
 What was wanted, and what is known about the data. **Editing either changes nothing until
-`mendel upgrade`.** Together they are the input to resolution; version 6 kept them as one
-`goal:`, and `mendel` still reads that.
+`mendel upgrade`.** Together they are the input to resolution.
 
 That is worth stating rather than leaving implicit, for two reasons. A reader who finds
 `strandedness: reverse` under `facts:` in a file they were told to edit will reasonably expect

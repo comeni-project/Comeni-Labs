@@ -5,16 +5,16 @@ module counted unstranded (`-s 0`) with nothing flagged. This holds for every la
 fact the example goal states, removed one at a time."""
 
 import pytest
-from comeni_core import yaml_strict
 from mendel_compiler import conformance, orchestrate
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
+from support.example import example_mapping
 from support.paths import ROOT
 
 LOADED = layers.load(ROOT / "registry")
 READ = conformance.facts_read(LOADED.registry, LOADED.modules, LOADED.measurements)
-EXAMPLE = yaml_strict.load(ROOT / "tests" / "fixtures" / "goal-v6" / "rnaseq-goal.yml")
+EXAMPLE = example_mapping()
 CARRIED = sorted(
     m for m in LOADED.measurements.ids()
     if LOADED.measurements.get(m).meta_key and m in EXAMPLE["profile"]

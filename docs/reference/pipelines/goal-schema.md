@@ -38,6 +38,8 @@ Model: `comeni_core.artifact.starter.Starter`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `version` | 7 | 7 | the `pipeline.yml` schema version |
+| `intent` | object | *required* | what is wanted: `want` and `constraints`, below |
+| `facts` | object | *required* | what is known: `inputs` and `measurements`, below |
 | `intent.want` | [type id] | `[]` | the types you want produced |
 | `intent.constraints` | object | empty | states you require, parameters you fix, tools you choose |
 | `facts.inputs` | [input] | `[]` | the types you already hold |
@@ -144,20 +146,6 @@ rule implementation:alignment where read_length is 150, asserted, not measured: 
 ```
 
 Profiling and measurement support is how you turn the first into the second.
-
-## The older goal format
-
-Before version 7 a goal was its own file, and `mendel build --goal <file>` still reads it, so
-nothing that built stops building. It holds the same things under other names: `have` (the
-inputs), `want`, `constraints`, and `profile` (the measurements), where a measurement may be
-written as a mapping and `source: goal` means what `said` means now:
-
-```yaml
-have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
-want: [counts.matrix]
-constraints: {required_states: {counts.matrix: [gene_level]}}
-profile: {read_length: 150, strandedness: reverse, n_samples: 12, paired: true}
-```
 
 ## See also
 

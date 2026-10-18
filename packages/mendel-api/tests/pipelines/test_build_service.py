@@ -92,7 +92,7 @@ def test_a_goal_that_names_a_path_is_refused():
 def test_every_configured_root_is_absolute_in_the_compose_file():
     """**The defect checkpoint 1 found, turned into a test.**
 
-    `EXAMPLE` was `Path("tests/fixtures/goal-v6/rnaseq-goal.yml")` — a bare relative path, resolved against the
+    `EXAMPLE` was `Path("examples/rnaseq.yml")` — a bare relative path, resolved against the
     process's working directory. That is the repository root under pytest and `/app` in a
     container, so every test here passed and the endpoint answered 500 the first time the stack
     came up.
