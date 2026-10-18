@@ -54,6 +54,10 @@ class Mark(StrEnum):
     """An inspector piece and its version, `fastq@1.0.0`: what a measured fact names when no
     contract measured it (#134)."""
     LAYER_NAME = "layer-name"
+    REPO_URL = "repo-url"
+    """Where a registry layer's repository can be fetched: a network URL, never a path (Plan B)."""
+    COMMIT_SHA = "commit-sha"
+    """A git commit, the full forty hex: which state of that repository a layer was."""
     TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
@@ -762,6 +766,45 @@ choose, because the vocabulary is where it says how a type it brought arrives.
 LayerName = Annotated[str, Mark.LAYER_NAME, AfterValidator(_slashed("layer name"))]
 """A registry layer's declared name. Never a filesystem path — a path is meaningless on
 another machine and is exactly what invariant 15 keeps out of a shareable artifact."""
+
+_HEX = frozenset("0123456789abcdef")
+
+
+def _commit_sha(value: str) -> str:
+    if len(value) != 40 or not set(value) <= _HEX:
+        raise ValueError(f"{value!r} is not a full commit: forty lowercase hex digits")
+    return value
+
+
+def _repo_url(value: str) -> str:
+    """A network location with no credentials. A path or `file://` is somebody's machine, which
+    a shared file must not carry (as `LayerName` keeps paths out), and a password or token in
+    the URL must never reach it."""
+    if any(c.isspace() or ord(c) < 32 for c in value):
+        raise ValueError(f"{value!r} is not a repository URL: it contains whitespace")
+    scheme, found, rest = value.partition("://")
+    if found:
+        host, _, path = rest.partition("/")
+        user, at, _host = host.rpartition("@")
+        if scheme not in ("https", "http", "ssh", "git") or not path or not _host:
+            raise ValueError(f"{value!r} is not a network repository URL")
+        if at and (scheme != "ssh" or ":" in user):
+            raise ValueError("a repository URL must not carry credentials")
+        return value
+    # The scp form git uses: `git@host:owner/repo`.
+    head, colon, path = value.partition(":")
+    user, at, host = head.rpartition("@")
+    if not (colon and at and user and host and path) or "/" in head:
+        raise ValueError(f"{value!r} is not a network repository URL; a local path is not one")
+    return value
+
+
+RepoUrl = Annotated[str, Mark.REPO_URL, AfterValidator(_repo_url)]
+"""Where a layer's repository is fetched from: `https://…`, `ssh://…` or `git@host:path`.
+No password or token, and never a local path (Plan B, spec §8.2)."""
+
+CommitSha = Annotated[str, Mark.COMMIT_SHA, AfterValidator(_commit_sha)]
+"""A git commit, the full forty hex digits, so it names one state and no other."""
 
 ContainerRef = Annotated[str, Mark.CONTAINER_REF]
 """A container image reference as a contract declares it, tag and all.

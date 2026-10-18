@@ -14,10 +14,10 @@ Pydantic model validation has additional costs; this is not an O(n) guarantee
 for the complete call. The indexes require O(n) additional memory.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from comeni_core.artifact.lockfile import Lockfile
+from comeni_core.artifact.lockfile import Locator, Lockfile
 from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.artifact.pipeline import (
     AiPoint,
@@ -44,7 +44,7 @@ from comeni_core.goal.asked import Goal
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import InputForm, Scope, Tier, ValueSource
-from comeni_core.spell.marks import ParamValue
+from comeni_core.spell.marks import LayerName, ParamValue
 
 # ---------------- PIPELINE CONSTRUCTION ----------------
 
@@ -58,6 +58,7 @@ def of(
     *,
     goal: Goal,
     ai: AiProvenance | None = None,
+    locators: Mapping[LayerName, Locator] | None = None,
 ) -> Pipeline:
     """Build a Pipeline from resolved nodes, edges, decisions, and declarations.
 
@@ -66,7 +67,7 @@ def of(
     and AI provenance. Model construction validates the resulting artifact.
     """
 
-    lock = Lockfile.of(ir, registry, layers)
+    lock = Lockfile.of(ir, registry, layers, locators)
     pinned = {entry.id: entry for entry in lock.contracts}
 
     incoming_edges = {(edge.to_node, edge.to_port): edge for edge in ir.edges}

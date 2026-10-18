@@ -831,12 +831,13 @@ class Pipeline(EgressPayload):
 
     @classmethod
     def of(
-        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None
+        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None, locators=None
     ) -> "Pipeline":
         """Build a fully materialised Pipeline by delegating to materialise.of()."""
         # Import locally because materialise imports these models.
         from comeni_core.artifact import materialise
 
         return materialise.of(
-            ir, registry, vocab, measurements=measurements, layers=layers, goal=goal, ai=ai
+            ir, registry, vocab, measurements=measurements, layers=layers, goal=goal, ai=ai,
+            locators=locators,
         )

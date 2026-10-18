@@ -159,6 +159,18 @@ def run(args, parser) -> int:
               file=sys.stderr)
         return 2
 
+    # **Where each layer is fetched from** (Plan B, spec §8.2): said, never refused. A layer
+    # nobody can fetch, or one with edits its commit does not hold, still builds correctly.
+    for layer in pipeline.registry.layers:
+        if layer.source is None:
+            print("  " + coded("MD0231", f"layer {layer.name} has no network source in git; "
+                               "this pipeline cannot be rebuilt from its file alone"),
+                  file=sys.stderr)
+        if layer.dirty:
+            print("  " + coded("MD0232", f"layer {layer.name} has uncommitted edits; commit "
+                               f"{layer.commit[:12]} does not hold what was built"),
+                  file=sys.stderr)
+
     # **Before anything is written.** A refused upgrade must leave nothing behind — A4's
     # posture, and `MD0203` is a refusal — and reporting after the write meant an orphaned
     # override produced a directory that looked upgraded and then said it was not.

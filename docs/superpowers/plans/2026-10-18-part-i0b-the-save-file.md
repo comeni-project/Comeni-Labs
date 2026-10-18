@@ -47,7 +47,7 @@
 **Interfaces:**
 - Produces: `ValueSource.SAID = "said"`; `ValueSource("goal") is ValueSource.SAID`. `PremiseOrigin.GOAL` is a different enum and is not touched.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_goal_is_read_as_said():
@@ -58,10 +58,10 @@ def test_said_is_what_is_written():
     assert Measured(measurement="paired", value=True).model_dump(mode="json")["source"] == "said"
 ```
 
-- [ ] **Step 2: Run them; expect `AttributeError: SAID`.** `uv run pytest packages/comeni-core/tests/test_review_base.py -q` (pure package: no database).
-- [ ] **Step 3: Rename `GOAL` to `SAID = "said"`** and add `_missing_` mapping `"goal"` to `SAID`, with a one-line comment citing this plan; replace every `ValueSource.GOAL`. Update docstrings that say *goal* for this source.
-- [ ] **Step 4: Run `make test`; expect PASS.** The golden `.nf` does not change (sources are not emitted).
-- [ ] **Step 5: Commit** `refactor(core): who settled a value the person stated is "said", and "goal" still reads (Plan B)`.
+- [x] **Step 2: Run them; expect `AttributeError: SAID`.** `uv run pytest packages/comeni-core/tests/test_review_base.py -q` (pure package: no database).
+- [x] **Step 3: Rename `GOAL` to `SAID = "said"`** and add `_missing_` mapping `"goal"` to `SAID`, with a one-line comment citing this plan; replace every `ValueSource.GOAL`. Update docstrings that say *goal* for this source.
+- [x] **Step 4: Run `make test`; expect PASS.** The golden `.nf` does not change (sources are not emitted).
+- [x] **Step 5: Commit** `refactor(core): who settled a value the person stated is "said", and "goal" still reads (Plan B)`.
 
 ### Task 2: version 7 — `intent` and `facts` at the top, and the v6 upgrader
 
@@ -73,16 +73,16 @@ def test_said_is_what_is_written():
 - Consumes: `ValueSource.SAID` (Task 1).
 - Produces: `Intent(want: list[TypeId], constraints: Constraints)`, `Facts(inputs: list[GoalInput], measurements: list[Measured])`, both `extra="forbid"`; `Goal.of(intent: Intent, facts: Facts) -> Goal`; `Goal.intent -> Intent`, `Goal.facts -> Facts`. `Pipeline.intent`, `Pipeline.facts` (declared right after `version`, so they dump first); `Pipeline.goal -> Goal` (property, not serialised). `Pipeline(goal=...)` keeps working through the upgrader.
 
-- [ ] **Step 1: Write the failing tests** in `tests/artifact/test_pipeline_v7.py`:
+- [x] **Step 1: Write the failing tests** in `tests/artifact/test_pipeline_v7.py`:
   - `test_a_v7_file_puts_intent_and_facts_first`: `list(yaml.safe_load(pipeline_file.dump(p)))[:3] == ["version", "intent", "facts"]` for the spine build.
   - `test_the_golden_v7_file_is_what_the_spine_builds`: building `examples/rnaseq-goal.yml` dumps exactly `tests/fixtures/pipeline-v7/pipeline.yml`.
   - `test_a_v6_file_upgrades_with_the_same_goal_and_nf`: `tests/fixtures/pipeline/rnaseq-spine.yml` loads; `version == 7`; `p.goal` equals the v6 `goal:` with every `source: goal` read as `said`; emitting it equals `tests/golden/spine/main.nf`.
   - `test_a_stamped_v6_file_predates_the_schema_not_hand_edited`: a spine build stamped, its `version` set to 6 and `intent`/`facts` folded back into `goal:` by hand in the YAML; `pipeline_file.predates_schema(load(...))` is `True` and `hand_edited(...) == []`.
   - `test_goal_beside_intent_is_refused`: a mapping with `goal:` and `intent:` raises `ValidationError` whose message names both keys.
-- [ ] **Step 2: Run them; expect failures** (`AttributeError: intent`, version 6). `uv run pytest tests/artifact/test_pipeline_v7.py -q`.
-- [ ] **Step 3: Implement.** `_v6_to_v7` runs last in `_migrate`, when `"goal" in data`: refuse if `intent` or `facts` is also present; else `intent = {want, constraints}`, `facts = {inputs: have, measurements: profile.measurements}`, and `version = SCHEMA_VERSION`. Layer locators stay absent. `materialise.of` passes `intent=goal.intent, facts=goal.facts`. `SERIALISED_SHAPE["Pipeline"]` lists `intent`, `facts` in place of `goal`. Generate the golden v7 fixture once from `mendel build`, read it, and commit it.
-- [ ] **Step 4: Run `make test`; expect PASS,** including `test_a_schema_change_bumps_the_version` and the spine golden `.nf`. Update `pipeline-schema.md` (v7 layout, `said`, the upgrade from 6).
-- [ ] **Step 5: Commit** `feat(core): pipeline.yml v7 puts intent and facts at the top; v6 upgrades in memory (Plan B)`.
+- [x] **Step 2: Run them; expect failures** (`AttributeError: intent`, version 6). `uv run pytest tests/artifact/test_pipeline_v7.py -q`.
+- [x] **Step 3: Implement.** `_v6_to_v7` runs last in `_migrate`, when `"goal" in data`: refuse if `intent` or `facts` is also present; else `intent = {want, constraints}`, `facts = {inputs: have, measurements: profile.measurements}`, and `version = SCHEMA_VERSION`. Layer locators stay absent. `materialise.of` passes `intent=goal.intent, facts=goal.facts`. `SERIALISED_SHAPE["Pipeline"]` lists `intent`, `facts` in place of `goal`. Generate the golden v7 fixture once from `mendel build`, read it, and commit it.
+- [x] **Step 4: Run `make test`; expect PASS,** including `test_a_schema_change_bumps_the_version` and the spine golden `.nf`. Update `pipeline-schema.md` (v7 layout, `said`, the upgrade from 6).
+- [x] **Step 5: Commit** `feat(core): pipeline.yml v7 puts intent and facts at the top; v6 upgrades in memory (Plan B)`.
 
 ### Task 3: each layer says where to fetch it
 

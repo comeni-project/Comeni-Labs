@@ -832,6 +832,44 @@ MD0230:
     guess**, which is what this product exists to remove. `upgrade` treats it as `MD0203`
     treats an override that answers nothing — a refusal, with nothing written.
 
+MD0231:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone"
+  fires_on: [build, upgrade]
+  refuses: false
+  fix: |
+    Build from a layer that is a git checkout with a network remote, and `pipeline.yml`
+    records where to fetch it and at which commit:
+
+        registry:
+          layers:
+          - name: comeni-registry
+            digest: sha256:…
+            source: https://github.com/comeni-project/comeni-registry
+            commit: 396a5c6…
+
+    A layer outside git, or whose remote is a folder on this machine, records no `source`:
+    keep it as it is and archive it beside the pipeline.
+  explanation: |
+    A layer's `digest` says what it was, never where to find it. Without a locator a reader
+    who has only the file can check a registry they already hold, and cannot fetch one. The
+    build goes on: the pipeline is correct, it is just not self-contained.
+
+MD0232:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a registry layer has uncommitted edits, so its commit does not rebuild it"
+  fires_on: [build, upgrade]
+  refuses: false
+  fix: |
+    Commit (and push) the edits to the layer's repository, then build again: the file then
+    names a commit that holds exactly what was built. `dirty: true` stays in the file until
+    you do.
+  explanation: |
+    The `commit` recorded is the layer's last commit, and the build read the files as they are
+    now. The `digest` still pins what was built; what the commit cannot do is fetch it.
+
 MD0229:
   emitted_by: core
   concern: pipeline-file

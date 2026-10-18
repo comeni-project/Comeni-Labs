@@ -114,6 +114,8 @@ decline to curate one.
 | `MD0227` | a port names a channel the pipeline does not declare |
 | `MD0229` | a samplesheet with one column, or two channels reading one parameter |
 | `MD0230` | a tool you chose applies nowhere in this pipeline |
+| `MD0231` | a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone |
+| `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
 
 ## Routing and resolution
 

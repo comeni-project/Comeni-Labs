@@ -1,0 +1,68 @@
+"""Reading where a registry layer lives, with git (Plan B, spec §8.2). Each test makes a real
+repository: a fake would test the fake."""
+
+import subprocess
+
+from comeni_core.artifact.lockfile import Locator
+from mendel_compiler.locate import locate, locators
+
+
+def _git(*args, cwd):
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+                   env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+                        "HOME": str(cwd), "PATH": "/usr/bin:/bin"})
+
+
+def _repo(tmp_path, origin="https://github.com/comeni-project/comeni-registry"):
+    repo = tmp_path / "repo"
+    layer = repo / "layer"
+    layer.mkdir(parents=True)
+    (layer / "contract.yml").write_text("id: x\n")
+    (repo / "elsewhere.txt").write_text("a\n")
+    _git("init", "-q", cwd=repo)
+    _git("add", ".", cwd=repo)
+    _git("commit", "-q", "-m", "one", cwd=repo)
+    if origin:
+        _git("remote", "add", "origin", origin, cwd=repo)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True,
+                          text=True, check=True).stdout.strip()
+    return repo, layer, head
+
+
+def test_a_clean_layer_names_its_remote_and_commit(tmp_path):
+    _repo_, layer, head = _repo(tmp_path)
+    assert locate(layer) == Locator(source="https://github.com/comeni-project/comeni-registry",
+                                    commit=head, dirty=False)
+
+
+def test_an_edited_layer_is_dirty_and_an_edit_beside_it_is_not(tmp_path):
+    repo, layer, _head = _repo(tmp_path)
+    (repo / "elsewhere.txt").write_text("b\n")
+    assert locate(layer).dirty is False
+    (layer / "new.yml").write_text("x: 1\n")
+    assert locate(layer).dirty is True
+
+
+def test_a_layer_outside_git_records_nothing(tmp_path):
+    assert locate(tmp_path) == Locator(source=None, commit=None, dirty=None)
+
+
+def test_a_remote_with_credentials_records_no_userinfo(tmp_path):
+    _repo_, layer, _head = _repo(tmp_path, origin="https://bot:s3cret@github.com/x/y")
+    assert locate(layer).source == "https://github.com/x/y"
+
+
+def test_a_local_remote_records_no_source(tmp_path):
+    _repo_, layer, head = _repo(tmp_path, origin="/home/someone/registry")
+    assert locate(layer) == Locator(source=None, commit=head, dirty=False)
+
+
+def test_a_repository_with_no_remote_records_its_commit(tmp_path):
+    _repo_, layer, head = _repo(tmp_path, origin=None)
+    assert locate(layer) == Locator(source=None, commit=head, dirty=False)
+
+
+def test_locators_are_keyed_by_layer_name(tmp_path):
+    _repo_, layer, head = _repo(tmp_path)
+    assert locators([layer]) == {"layer": locate(layer)}  # no registry.yml: the folder names it

@@ -165,6 +165,15 @@ def test_a_kept_draft_reads_back_as_a_pipeline(client, tmp_path):
     assert len(doc["steps"]) == 4
 
 
+def test_a_kept_draft_names_the_commit_of_each_layer(client):
+    """Plan B, spec §8.2: what is kept says where its registry is fetched, as a CLI build does.
+    The stack here is the `registry/` checkout, so its commit is known."""
+    draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    path = Path(client.post(f"/api/pipeline/drafts/{draft_id}/keep").json()["path"])
+    layers = yaml.safe_load(path.read_text())["registry"]["layers"]
+    assert layers and all(len(layer["commit"]) == 40 for layer in layers)
+
+
 # --- the listing, which had no query at all until Plan 4 phase 2 -------------------------
 
 

@@ -222,6 +222,19 @@ contracts had no module source to check against. `emit` reads none of it.
 Layer **names** rather than paths, deliberately. A path is meaningless on the machine that
 reads the file, and invariant 15 keeps filesystem paths out of anything shareable.
 
+Each layer also says **where to fetch it**, kept apart from what it is (the `digest`), when
+the build ran on a git checkout:
+
+| Field | Holds |
+|---|---|
+| `source` | the repository's network URL, with any password or token removed. Left out for a layer outside git, or whose remote is a folder on that machine |
+| `commit` | the full commit the layer was at |
+| `dirty` | `true` when the layer had uncommitted edits, so its commit does not hold what was built |
+
+A layer with no `source` cannot be fetched from the file alone (`MD0231`), and one with
+`dirty: true` cannot be rebuilt from its commit (`MD0232`). Both warn; neither refuses.
+`mendel upgrade` names the commit a changed layer was locked at.
+
 ### `steps` — what runs, pinned, with its reasons
 
 One entry per process. `module` pins the contract by content digest and records the container

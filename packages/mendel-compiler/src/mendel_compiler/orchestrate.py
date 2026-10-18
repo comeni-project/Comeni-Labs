@@ -35,7 +35,7 @@ from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver
 from mendel_resolver.resolve import resolve
 
-from mendel_compiler import conformance
+from mendel_compiler import conformance, locate
 
 
 class ConformanceRefused(ValueError):
@@ -124,7 +124,8 @@ def build(
     ir.unverified = [d.where for d in diagnostics if d.code == "MD0100"]
 
     pipeline = Pipeline.of(
-        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
+        locators=locate.locators(loaded.paths),
     )
     return Built(pipeline=pipeline, ir=ir, layers=loaded, unverified=ir.unverified)
 
