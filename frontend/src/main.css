@@ -48,7 +48,7 @@
 
   /* THE FRONT DOOR ONLY. The type roles govern the tool, where the title is the
      largest thing on a dense working screen and must stay that way — a hero size loose in the
-     forge is exactly the drift this indirection exists to stop. These two exist because a
+     builder is exactly the drift this indirection exists to stop. These two exist because a
      landing page has a job the tool does not: be understood by a stranger in ten seconds.
      If either appears outside `src/home/`, one of the two scales is wrong. */
   --text-hero: 32px;

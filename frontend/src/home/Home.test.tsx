@@ -54,7 +54,7 @@ function at({ drafts = [PIPELINE, SETTLED], runs = [RUNNING, FINISHED], mendel =
     // The diagnostic never answers, as when the model server is down (issue 268): nothing on the
     // front door may wait on it. Whether a model is configured is asked on its own.
     if (url.endsWith("/health/ai")) return new Promise(() => {});
-    const body = url.includes("/attention") ? { forge: [], mendel }
+    const body = url.includes("/attention") ? { mendel }
       : url.endsWith("/settings/ai") ? { configured: model }
       : url.includes("/pipeline/drafts") ? { drafts, total: drafts.length }
       : url.includes("/api/runs") ? { runs, total: runs.length }
@@ -218,7 +218,7 @@ describe("the front door", () => {
     // would make them one server in practice.
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.includes("/api/runs")) throw new Error("connection refused");
-      const body = url.includes("/attention") ? { forge: [], mendel: [] }
+      const body = url.includes("/attention") ? { mendel: [] }
         : { drafts: [PIPELINE], total: 1 };
       return { ok: true, status: 200, json: async () => body };
     }));

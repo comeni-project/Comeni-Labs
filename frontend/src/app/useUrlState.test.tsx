@@ -6,7 +6,7 @@ import { useUrlState } from "./useUrlState";
 
 function at(search: string) {
   return ({ children }: { children: React.ReactNode }) => (
-    <MemoryRouter initialEntries={[`/forge/queue${search}`]}>{children}</MemoryRouter>
+    <MemoryRouter initialEntries={[`/runs${search}`]}>{children}</MemoryRouter>
   );
 }
 

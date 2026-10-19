@@ -4,9 +4,8 @@
  * into `Foo-Input` and `Foo-Output` when it appears in both a request and a response with
  * differing optionality, and merges them back when it does not — so `DraftGraph` was
  * `DraftGraph-Input` for one commit and `DraftGraph` the next, purely because a nested field
- * changed type. It also namespaces a name that collides: three classes are called `Verdict`
- * (`comeni_core.review.verdict`, `mendel_forge.verify`, `mendel_forge.drift`), so none of them
- * gets the short name.
+ * changed type. It also namespaces a name that collides: when two classes share a name, neither
+ * gets the short one.
  *
  * Neither is a bug in the generator — both are it telling the truth about an ambiguous name.
  * What is a bug is spreading that truth across six files, so a regenerate breaks them one at a
@@ -30,7 +29,7 @@ export type Setting = S["SettingView"];
 export type PortView = S["PortView"];
 export type Module = S["ModuleView"];
 
-export type Verdict = S["comeni_core__review__verdict__Verdict"];
+export type Verdict = S["Verdict"];
 export type Finding = S["Finding"];
 export type Compatibility = S["Compatibility"];
 export type Comparison = S["Comparison"];

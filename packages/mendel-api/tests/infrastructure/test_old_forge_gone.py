@@ -52,7 +52,7 @@ def test_no_code_or_configuration_names_the_old_forge():
         rel = path.relative_to(REPOSITORY_ROOT).as_posix()
         if not path.is_file() or any(s in "/" + rel for s in skip) or rel.startswith(tuple(skip)):
             continue
-        if path.suffix not in {".py", ".toml", ".yml", ".yaml"} and path.name != "Makefile":
+        if path.suffix not in {".py", ".toml", ".yml", ".yaml", ".ts", ".tsx"} and path.name != "Makefile":
             continue
         text = path.read_text(errors="ignore")
         if "mendel_forge" in text or "mendel-forge" in text:

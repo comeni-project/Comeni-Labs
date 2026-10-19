@@ -4,7 +4,7 @@ import { isRouteErrorResponse, useRouteError } from "react-router";
  *
  * It shows what actually broke rather than a friendly nothing: a curator who hits an error
  * needs the string to send on, and the API's refusals are coded precisely so they can be
- * looked up with `forge explain`.
+ * looked up with `mendel explain`.
  */
 export function ErrorBoundary() {
   const error = useRouteError();

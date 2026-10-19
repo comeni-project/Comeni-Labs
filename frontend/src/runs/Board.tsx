@@ -131,8 +131,8 @@ function Swatch({ colour, label }: { colour: string; label: string }) {
 
 /** One run.
  *
- * **Phase is drawn as a colour AND a word.** The colour is the same vocabulary the builder and
- * the forge use; the word is what makes `failed` and `lost` — which share a hue on purpose —
+ * **Phase is drawn as a colour AND a word.** The colour is the same vocabulary the builder
+ * uses; the word is what makes `failed` and `lost` — which share a hue on purpose —
  * distinguishable, and what makes the row legible to somebody who cannot separate the two.
  *
  * **`tasks` is a bar and a fraction**, the same pair the run overview uses, so a board row and

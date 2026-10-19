@@ -75,11 +75,11 @@
 - Modify: `frontend/src/app/router.tsx` (the `/forge…` routes and redirects), `frontend/src/app/Shell.tsx` (the *Registry* tab), `frontend/src/app/Shell.test.tsx`, `frontend/src/app/router.test.tsx`, `frontend/src/app/useUrlState.test.tsx`, `frontend/src/home/Home.tsx` and its test (the `Attention` type without `forge`), anything else `tsc` reports
 - Regenerate: `make client`
 
-- [ ] **Step 1: Update the tests first**: the shell's sections are `["Build", "Runs"]` (part 1 restores *Registry*); the router test asserts `/forge` and `/forge/catalogue` render the not-found page (or the app's existing unknown-route behaviour), and drops the forge subnav and redirect cases; `useUrlState.test.tsx` loses forge-specific cases.
-- [ ] **Step 2: Run** `npx vitest run` — FAIL on the changed expectations.
-- [ ] **Step 3: Delete and edit**; `make client`; fix what `npx tsc -b` reports.
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint`, and `npx vitest run src/tokens.test.ts` — PASS.
-- [ ] **Step 5: Commit** `refactor(frontend): the old forge's screens go (#361)`.
+- [x] **Step 1: Update the tests first**: the shell's sections are `["Build", "Runs"]` (part 1 restores *Registry*); the router test asserts `/forge` and `/forge/catalogue` render the not-found page (or the app's existing unknown-route behaviour), and drops the forge subnav and redirect cases; `useUrlState.test.tsx` loses forge-specific cases.
+- [x] **Step 2: Run** `npx vitest run` — FAIL on the changed expectations.
+- [x] **Step 3: Delete and edit**; `make client`; fix what `npx tsc -b` reports.
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint`, and `npx vitest run src/tokens.test.ts` — PASS.
+- [x] **Step 5: Commit** `refactor(frontend): the old forge's screens go (#361)`.
 
 ### Task 4: Documentation, and the record
 
@@ -121,3 +121,17 @@
   - `.gitignore` and `.dockerignore` lost `.forge/` and `.forge-demo/`.
   - The Makefile lost the `forge`, `forge-ai-eval` and `forge-rework` targets. The
     frontend's `FORGE-REWORK` markers go with Task 3.
+- **Task 3 deleted more of the frontend than its file list names.** Regenerating the client
+  left these with nothing to call or nothing calling them:
+  - `useAnswer`, `useAnswerAll`, `useDecide`, `useDraft`, `usePropose` and their tests;
+  - `registry.test.ts`;
+  - `app/useKeys.ts` and `ui/Term.tsx`, which only the forge screens imported;
+  - `ui/glossary.ts` and `Glossary.test.tsx`: `Term` was the glossary's only consumer, and
+    no screen shows its words now.
+  `types.ts`'s `Verdict` now takes its short generated name, since the forge's two
+  `Verdict`s no longer collide with it. `legacyRoutes` went with the screens it mounted.
+- **The refusal hint now reads `mendel explain <code>`**, test first. `forge explain` no longer
+  exists, and `mendel explain` covers every code.
+- **`/forge` and its old deep links answer as unknown pages** (the router's existing 404), with
+  no redirects. Checked in headless Chrome at 1280×800 because the extension was not connected:
+  Home loads with *Build* and *Runs*, and `/forge` shows the 404.
