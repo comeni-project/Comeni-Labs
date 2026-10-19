@@ -17,10 +17,7 @@ from mendel_authoring.decisions import ActorKind
 from mendel_authoring.pacing import Pacing
 from mendel_forge.workflow import (
     AdaptationState,
-    Agent,
     EventKind,
-    InvocationPurpose,
-    InvocationState,
     MessageRole,
     MessageState,
     RevisionState,
@@ -51,6 +48,7 @@ from mendel_api.authoring.types import (
     TurnState,
 )
 from mendel_api.db import Base
+from mendel_api.invocations import Agent, InvocationPurpose, InvocationState
 from mendel_api.shape_versions import stamp
 from mendel_api.shapes import Json
 

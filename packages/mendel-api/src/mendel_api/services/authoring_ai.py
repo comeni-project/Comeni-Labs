@@ -36,7 +36,6 @@ from comeni_ai import Client, ModelAccess, ModelUnavailableError, Usage
 from comeni_core.diagnostics import coded
 from comeni_core.egress.authoring import AuthoringRequest, AuthoringRole, AuthoringTurn, KnownStep
 from comeni_core.egress.characterisation import CharacteriseRequest
-from mendel_forge.workflow import Agent, InvocationState
 
 from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
@@ -55,6 +54,7 @@ from mendel_api.authoring.types import (
     WantUnderstanding,
 )
 from mendel_api.db import session_scope
+from mendel_api.invocations import Agent, InvocationState
 from mendel_api.models import AiInvocation
 from mendel_api.services import registry, replies
 from mendel_api.settings import model_access
