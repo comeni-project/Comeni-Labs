@@ -90,3 +90,4 @@
 - **The jump tests host on `/build` with unknown addresses answered 404**, because the runs board and the builder crash on a stub's minimal rows; that is those pages' robustness, not the shell's.
 - **Found in the browser check:** on an installation with nothing saved, the dialog was a bare field; it now says *No saved pipelines or runs yet*.
 - **Not changed here:** at 390 px the runs board's own stats row still scrolls sideways (noted on #380).
+- **Found in the final review and fixed:** the dialog rendered inside the header, under the settings overlay and run sheet (now in `body`, last; checked in Chrome with Settings open); Tab left it; Esc returned focus to the button instead of where you were; a Mendel error read as an empty installation; *Nothing matches* could show while runs were loading; arrows stepped from a stale index. The other six minors are #383.
