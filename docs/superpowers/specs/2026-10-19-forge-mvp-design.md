@@ -188,6 +188,11 @@ default for forging is an API model, with local models still selectable *(spec)*
 
 ## Order of work, and what is cut first
 
+0. The platform redesign's first two parts (#370: tokens and type #371, the shell #372), so the
+   forge is built in the identity shared with Comeni Code (light-first, Lexend and Geist Mono)
+   and every existing page moves to it at once *(operator, 2026-10-19)*. The forge's pages are
+   drawn in the canvas "Forge MVP pages"; they replace the hybrid set's Registry, Work queue and
+   Adaptation boards.
 1. Sources, catalogue and the dashboard (nf-core).
 2. Forging: proposals, approvals, chat — contract and parameters first, then vocabulary and
    rules.
