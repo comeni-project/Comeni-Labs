@@ -268,6 +268,9 @@ or a complete commit history.
   colour (done, the main action, measured, needs you, selected/now), rounder controls and a
   raised main button. The animated background field is removed. The rules are in
   `docs/explanation/visual-identity.md`.
+- The header carries the product's mark, *Build · Runs · Registry*, a jump search over saved
+  pipelines and recent runs (⌘K or Ctrl+K from any page), help linking to the documentation,
+  and settings.
 
 ### Repository
 

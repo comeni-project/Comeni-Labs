@@ -5350,3 +5350,4 @@ Each guard is in `frontend/src/tokens.test.ts`. Every break below was reverted w
 | 2026-10-19 | rounds corners with the three named radii only (widened) | the run graph's node `rx={10}` set back to `rx={3}` | failed | `expected [ 'runs/Graph.tsx' ] to deeply equal []` |
 | 2026-10-19 | sizes the type roles as the boards do (body) | `body { font-size }` set back to `13px` | failed | `expected '…' to match /font-size:\s*var\(--text-body\);/` |
 | 2026-10-19 | `forge/registry/origins.test.tsx`: keys a model's proposal amber | the model origin's tone set back to `var(--now)` | failed | `expected 'var(--now)' to be 'var(--measured)'` |
+| 2026-10-19 | `app/Jump.test.tsx`: draws above the settings overlay, which comes later in the page | the palette rendered inside the header (before the portal) | failed | the jump dialog was not the last dialog and sat inside `<header>`; the browser showed it hidden under Settings while holding focus |
