@@ -173,6 +173,36 @@ def test_a_kept_draft_names_the_commit_of_each_layer(client):
     assert layers and all(len(layer["commit"]) == 40 for layer in layers)
 
 
+def _unlocated(monkeypatch):
+    """Every layer as if built from a folder outside git, as the web stack's registry clone is
+    for its source (Plan B review #3)."""
+    from comeni_core.artifact.lockfile import Locator
+    from mendel_api.services import drafts
+
+    monkeypatch.setattr(drafts.locate, "locators",
+                        lambda paths: {name: Locator() for name in map(drafts.locate.layer_name,
+                                                                        paths)})
+
+
+def test_keep_says_when_the_file_cannot_be_rebuilt_alone(client, monkeypatch):
+    """Review #3 (operator: say it in keep/preview): the CLI warns MD0231, and the app did not."""
+    _unlocated(monkeypatch)
+    draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    kept = client.post(f"/api/pipeline/drafts/{draft_id}/keep").json()
+    assert kept["findings"] and all(f.startswith("MD0231") for f in kept["findings"])
+
+
+def test_preview_says_when_the_file_cannot_be_rebuilt_alone(client, monkeypatch):
+    from comeni_core.plan.draft import DraftGraph
+    from mendel_api.services import drafts
+
+    _unlocated(monkeypatch)
+    draft_id = drafts.create(DraftGraph.model_validate(SPINE), "spine", "ana")
+    shown = drafts.preview(draft_id)
+    assert shown.state == "ready"
+    assert shown.findings and all(f.startswith("MD0231") for f in shown.findings)
+
+
 # --- the listing, which had no query at all until Plan 4 phase 2 -------------------------
 
 

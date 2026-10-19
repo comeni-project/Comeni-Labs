@@ -33,7 +33,7 @@ def _repo(tmp_path, origin="https://github.com/comeni-project/comeni-registry"):
 def test_a_clean_layer_names_its_remote_and_commit(tmp_path):
     _repo_, layer, head = _repo(tmp_path)
     assert locate(layer) == Locator(source="https://github.com/comeni-project/comeni-registry",
-                                    commit=head, dirty=False)
+                                    commit=head, dirty=False, path="layer")
 
 
 def test_an_edited_layer_is_dirty_and_an_edit_beside_it_is_not(tmp_path):
@@ -55,12 +55,12 @@ def test_a_remote_with_credentials_records_no_userinfo(tmp_path):
 
 def test_a_local_remote_records_no_source(tmp_path):
     _repo_, layer, head = _repo(tmp_path, origin="/home/someone/registry")
-    assert locate(layer) == Locator(source=None, commit=head, dirty=False)
+    assert locate(layer) == Locator(source=None, commit=head, dirty=False, path="layer")
 
 
 def test_a_repository_with_no_remote_records_its_commit(tmp_path):
     _repo_, layer, head = _repo(tmp_path, origin=None)
-    assert locate(layer) == Locator(source=None, commit=head, dirty=False)
+    assert locate(layer) == Locator(source=None, commit=head, dirty=False, path="layer")
 
 
 def test_locators_are_keyed_by_layer_name(tmp_path):
@@ -94,4 +94,10 @@ def test_a_sha256_repository_records_its_commit(tmp_path):
 def test_a_remote_with_a_token_in_its_query_records_no_source(tmp_path):
     """Review #8: `?private_token=…` is a credential as surely as userinfo is."""
     _repo_, layer, head = _repo(tmp_path, origin="https://gitlab.example.org/x/y?private_token=t")
-    assert locate(layer) == Locator(source=None, commit=head, dirty=False)
+    assert locate(layer) == Locator(source=None, commit=head, dirty=False, path="layer")
+
+
+def test_a_layer_at_the_top_of_its_repository_records_no_path(tmp_path):
+    """Review #4: the path is left out when the layer is the repository itself."""
+    repo, _layer, _head = _repo(tmp_path)
+    assert locate(repo).path is None

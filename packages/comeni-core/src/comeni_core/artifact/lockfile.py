@@ -20,6 +20,7 @@ from comeni_core.spell.marks import (
     ContractId,
     Digest,
     LayerName,
+    RepoPath,
     RepoUrl,
 )
 
@@ -49,6 +50,8 @@ class Locator(BaseModel):
     commit: CommitSha | None = None
     dirty: bool | None = None
     """Uncommitted edits under the layer: the commit alone does not rebuild it."""
+    path: RepoPath | None = None
+    """The layer's folder in the repository; `None` when it is the repository's top folder."""
 
 
 def _unknown(value: object) -> bool:
@@ -65,6 +68,7 @@ class LockedLayer(BaseModel):
     source: RepoUrl | None = Field(default=None, exclude_if=_unknown)
     commit: CommitSha | None = Field(default=None, exclude_if=_unknown)
     dirty: bool | None = Field(default=None, exclude_if=_unknown)
+    path: RepoPath | None = Field(default=None, exclude_if=_unknown)
 
 
 class Lockfile(BaseModel):
@@ -156,8 +160,9 @@ class Lockfile(BaseModel):
             for locked_layer, (name, digest) in zip(self.layers, current, strict=True):
                 if locked_layer.digest != digest:
                     # Which commit to check out, when the build recorded one (Plan B, §8.2).
+                    folder = f", in {locked_layer.path}" if locked_layer.path else ""
                     where = (f"; it was locked at {locked_layer.commit} of {locked_layer.source}"
-                             if locked_layer.commit and locked_layer.source else "")
+                             f"{folder}" if locked_layer.commit and locked_layer.source else "")
                     found.append(f"layer {name} has changed since it was locked{where}")
 
         return found

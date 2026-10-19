@@ -8,8 +8,9 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.artifact.lockfile import Locator
+from comeni_core.artifact.lockfile import Locator, LockedLayer
 from comeni_core.declared.layer import layer_name
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import LayerName, RepoUrl
 from pydantic import TypeAdapter, ValidationError
 
@@ -44,12 +45,30 @@ def _source(layer: Path) -> str | None:
 
 
 def locate(layer: Path) -> Locator:
-    """The layer's remote, commit, and whether it has uncommitted edits under it."""
+    """The layer's remote, commit, folder in the repository, and whether it has uncommitted
+    edits under it."""
     if _git(layer, "rev-parse", "--show-toplevel") is None:
         return Locator()
+    folder = (_git(layer, "rev-parse", "--show-prefix") or "").rstrip("/")
     return Locator(source=_source(layer), commit=_git(layer, "rev-parse", "HEAD"),
-                   dirty=bool(_git(layer, "status", "--porcelain", "--", ".")))
+                   dirty=bool(_git(layer, "status", "--porcelain", "--", ".")),
+                   path=folder or None)
 
 
 def locators(layers: Sequence[Path]) -> dict[LayerName, Locator]:
     return {layer_name(layer): locate(layer) for layer in layers}
+
+
+def findings(layers: Sequence[LockedLayer]) -> list[str]:
+    """What a built file cannot do on its own, one coded sentence each (MD0231, MD0232): said by
+    the CLI on `build` and `upgrade`, and by keep and preview in the app (review #3)."""
+    said = []
+    for layer in layers:
+        if layer.source is None:
+            said.append(coded("MD0231", f"layer {layer.name} has no network source in git; "
+                              "this pipeline cannot be rebuilt from its file alone"))
+        if layer.dirty:
+            held = (f"commit {layer.commit[:12]} does not hold what was built" if layer.commit
+                    else "it has no commit yet")
+            said.append(coded("MD0232", f"layer {layer.name} has uncommitted edits; {held}"))
+    return said

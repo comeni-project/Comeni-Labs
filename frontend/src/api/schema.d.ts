@@ -3843,6 +3843,11 @@ export interface components {
         Kept: {
             /** Path */
             path: string;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: string[];
         };
         /**
          * Kind

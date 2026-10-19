@@ -14,6 +14,7 @@ from comeni_core.plan.draft import DraftGraph
 from comeni_core.review.verdict import Verdict
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from mendel_compiler import locate, pipeline_file
 from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict, Field
@@ -180,6 +181,8 @@ class Kept(BaseModel):
     path: str
     """Where the server wrote it. **Returned, never accepted** — invariant 15 is about what
     an input may carry, and a server saying where it put something is the opposite direction."""
+    findings: list[str] = []
+    """What the kept file cannot do on its own (MD0231, MD0232), one coded sentence each."""
 
 
 class DraftsPage(BaseModel):
@@ -271,9 +274,9 @@ def keep_draft(draft_id: str) -> Kept:
         # **An authored draft states its AI points, the same way its preview does.** Without them
         # a Spawn draft carrying a model's tier-4 choice is refused by `MD0225` — correctly, since
         # the file would otherwise claim no AI point was available to make it.
-        return Kept(
-            path=str(draft_service.keep(draft_id, ai=authoring_session.ai_for_draft(draft_id)))
-        )
+        path = draft_service.keep(draft_id, ai=authoring_session.ai_for_draft(draft_id))
+        kept = pipeline_file.load(path)
+        return Kept(path=str(path), findings=locate.findings(kept.registry.layers))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
 

@@ -24,7 +24,7 @@ from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import inert_pins
 from mendel_resolver.router import UnroutableError
 
-from mendel_compiler import orchestrate, pipeline_file, staging
+from mendel_compiler import locate, orchestrate, pipeline_file, staging
 from mendel_compiler.cli.artifact_verbs import _refuse_a_divergent_directory
 from mendel_compiler.cli.report import (
     _displacement_line,
@@ -165,16 +165,8 @@ def run(args, parser) -> int:
 
     # **Where each layer is fetched from** (Plan B, spec §8.2): said, never refused. A layer
     # nobody can fetch, or one with edits its commit does not hold, still builds correctly.
-    for layer in pipeline.registry.layers:
-        if layer.source is None:
-            print("  " + coded("MD0231", f"layer {layer.name} has no network source in git; "
-                               "this pipeline cannot be rebuilt from its file alone"),
-                  file=sys.stderr)
-        if layer.dirty:
-            held = (f"commit {layer.commit[:12]} does not hold what was built" if layer.commit
-                    else "it has no commit yet")
-            print("  " + coded("MD0232", f"layer {layer.name} has uncommitted edits; {held}"),
-                  file=sys.stderr)
+    for finding in locate.findings(pipeline.registry.layers):
+        print("  " + finding, file=sys.stderr)
 
     # **Before anything is written.** A refused upgrade must leave nothing behind — A4's
     # posture, and `MD0203` is a refusal — and reporting after the write meant an orphaned

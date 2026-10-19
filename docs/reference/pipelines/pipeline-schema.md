@@ -214,9 +214,11 @@ the build ran on a git checkout:
 | `source` | the repository's network URL, with any password or token removed. Left out for a layer outside git, or whose remote is a folder on that machine |
 | `commit` | the full commit the layer was at |
 | `dirty` | `true` when the layer had uncommitted edits, so its commit does not hold what was built |
+| `path` | the layer's folder inside the repository, e.g. `registry`. Left out when the layer is the repository's top folder |
 
 A layer with no `source` cannot be fetched from the file alone (`MD0231`), and one with
-`dirty: true` cannot be rebuilt from its commit (`MD0232`). Both warn; neither refuses.
+`dirty: true` cannot be rebuilt from its commit (`MD0232`). Both warn; neither refuses. The
+builder's preview of `pipeline.yml` shows the same warnings beside the file.
 `mendel upgrade` names the commit a changed layer was locked at.
 
 ### `steps` — what runs, pinned, with its reasons

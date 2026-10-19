@@ -308,3 +308,19 @@ def test_a_changed_layer_without_a_locator_reads_as_before(built, tmp_path):
     [name] = [layer.name for layer in lock.layers]
     assert f"layer {name} has changed since it was locked" in lock.drift_against(
         ir, changed.registry, changed.paths)
+
+
+def test_a_changed_layer_in_a_folder_names_the_folder(built, tmp_path):
+    """Review #4: a layer in a subfolder of its repository is found by its folder too."""
+    ir, loaded = built
+    lock = Lockfile.of(ir, loaded.registry, loaded.paths)
+    lock = lock.model_copy(update={"layers": [
+        layer.model_copy(update={"source": "https://github.com/x/y", "commit": "c" * 40,
+                                 "path": "registry"})
+        for layer in lock.layers]})
+    drift = lock.drift_against(ir, *_registry_and_paths(_changed_layer(tmp_path)))
+    assert any(line.endswith("of https://github.com/x/y, in registry") for line in drift), drift
+
+
+def _registry_and_paths(changed):
+    return changed.registry, changed.paths

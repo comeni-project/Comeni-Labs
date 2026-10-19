@@ -54,7 +54,8 @@ or a complete commit history.
   from its starter, not upgraded. Schema version changes are distinct from package release
   versions.
 - Each locked registry layer may record where to fetch it: `source` (a network URL, never a
-  path or credentials), `commit` and `dirty`, left out when unknown.
+  path, credentials, query or fragment), `commit` (SHA-1 or SHA-256), `dirty`, and `path` (its
+  folder in the repository), each left out when unknown.
 - Publication payloads use the saved pipeline itself. Emission integrity includes the
   digest of the artifact used to generate the Nextflow files.
 
@@ -100,8 +101,9 @@ or a complete commit history.
   `intent` and `facts` (`examples/rnaseq.yml`). `--goal` and the separate goal format are
   removed.
 - Builds record each layer's git source and commit, and warn when a layer has no network
-  source (`MD0231`) or uncommitted edits (`MD0232`); `mendel upgrade` names the commit a
-  changed layer was locked at.
+  source (`MD0231`) or uncommitted edits (`MD0232`); keep and the builder's preview say the
+  same. `mendel upgrade` names the commit and folder a changed layer was locked at. `emit` and
+  `publish` refuse a starter, which has nothing resolved (`MD0233`).
 - `mendel emit` regenerates Nextflow from a saved pipeline without registry access;
   `mendel upgrade` re-resolves against current layers, replays answers and reports drift,
   changes, replayed, stale and orphaned decisions. Dry runs do not write files.

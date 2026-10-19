@@ -188,3 +188,9 @@ Executed inline on `plan-b-save-file`, 2026-10-18. Commits `574b7853` (Tasks 1â€
   `tests/support/example.py`.
 - The frozen legacy conversion (`decisions_v1`) writes `said` into proposals; its
   interpretation of old snapshots is unchanged.
+- **Final review** (fresh reviewer): fixed a no-commit layer repository and a SHA-256 one
+  crashing `build`, a query or fragment passing `RepoUrl`, `emit`/`publish` writing an empty
+  workflow from a starter (now MD0233), and a leftover `source: goal` in
+  `tools/measure_prompts.py`. Operator: keep and preview return MD0231/MD0232 (the web stack's
+  registry clone has a local remote, so its files never name a source), and a layer records
+  its repository folder as `path`.

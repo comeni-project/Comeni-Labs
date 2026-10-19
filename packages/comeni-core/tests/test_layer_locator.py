@@ -52,3 +52,14 @@ def test_a_sha256_commit_is_sixty_four_lowercase_hex():
     assert SHA.validate_python("d" * 64) == "d" * 64
     with pytest.raises(ValidationError):
         SHA.validate_python("d" * 50)
+
+
+def test_a_layer_path_is_inside_its_repository():
+    """Review #4: where in the repository the layer sits — never a path on this machine."""
+    from comeni_core.spell.marks import RepoPath
+
+    path = TypeAdapter(RepoPath)
+    assert path.validate_python("registry/layer") == "registry/layer"
+    for bad in ("/home/someone/registry", "../elsewhere", "~/registry"):
+        with pytest.raises(ValidationError):
+            path.validate_python(bad)

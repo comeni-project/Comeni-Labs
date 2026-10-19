@@ -65,6 +65,14 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
       <p className="m-0 mb-3 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3" data-testid="preview-label">
         Preview · revision {preview.revision} · not kept
       </p>
+      {preview.findings.length > 0 && (
+        // What the file cannot do on its own, e.g. no fetchable registry (MD0231). Plan B review #3.
+        <ul data-testid="preview-findings" className="m-0 mb-3 p-0">
+          {preview.findings.map((finding) => (
+            <li key={finding} className="list-none font-data text-[11px] text-ink-3">{finding}</li>
+          ))}
+        </ul>
+      )}
       <pre data-testid="artifact-text" className="m-0 font-data text-[11px] leading-[1.6] text-ink-2 whitespace-pre">
         {lines.map((line, index) => (
           <span

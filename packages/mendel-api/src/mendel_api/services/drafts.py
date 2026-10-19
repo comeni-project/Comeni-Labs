@@ -547,7 +547,9 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
         pipeline = _materialised(stored, registry.stack(), by="", ai=ai)
     except ValueError as refused:
         return Preview(revision, "unavailable", "", [str(refused).splitlines()[0]])
-    return Preview(revision, "ready", pipeline_file.dump(pipeline), [])
+    # What the file cannot do on its own is said beside it (review #3 of Plan B).
+    return Preview(revision, "ready", pipeline_file.dump(pipeline),
+                   locate.findings(pipeline.registry.layers))
 
 
 def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:

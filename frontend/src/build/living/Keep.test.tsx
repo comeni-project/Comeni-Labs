@@ -119,6 +119,14 @@ describe("ArtifactPreview", () => {
     expect(screen.getByTestId("artifact-text")).toHaveTextContent("version: 6");
   });
 
+  it("says beside a ready file what it cannot do on its own", () => {
+    // Plan B review #3: a kept file whose registry has no network source cannot be rebuilt alone.
+    render(<ArtifactPreview preview={{ ...ready(4, "version: 7\n"),
+      findings: ["MD0231: layer comeni-registry has no network source in git"] }} />);
+    expect(screen.getByTestId("artifact-text")).toHaveTextContent("version: 7");
+    expect(screen.getByTestId("preview-findings")).toHaveTextContent("MD0231");
+  });
+
   it("shows why there is no file, never half a document", () => {
     const { rerender } = render(
       <ArtifactPreview preview={{ revision: 0, state: "empty", text: "", findings: [] }} />,

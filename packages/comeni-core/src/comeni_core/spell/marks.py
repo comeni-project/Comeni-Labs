@@ -56,6 +56,9 @@ class Mark(StrEnum):
     LAYER_NAME = "layer-name"
     REPO_URL = "repo-url"
     """Where a registry layer's repository can be fetched: a network URL, never a path (Plan B)."""
+    REPO_PATH = "repo-path"
+    """Where in its repository a layer sits, e.g. `registry/`: inside the repository, never a
+    path on a machine."""
     COMMIT_SHA = "commit-sha"
     """A git commit in full: which state of that repository a layer was."""
     TEST_DATA_REF = "test-data-ref"
@@ -806,6 +809,10 @@ def _repo_url(value: str) -> str:
 RepoUrl = Annotated[str, Mark.REPO_URL, AfterValidator(_repo_url)]
 """Where a layer's repository is fetched from: `https://…`, `ssh://…` or `git@host:path`.
 No password or token, and never a local path (Plan B, spec §8.2)."""
+
+RepoPath = Annotated[str, Mark.REPO_PATH, AfterValidator(_relative_path)]
+"""A layer's folder inside its repository (`git rev-parse --show-prefix`), relative and
+staying inside it. Absent when the layer is the repository's top folder."""
 
 CommitSha = Annotated[str, Mark.COMMIT_SHA, AfterValidator(_commit_sha)]
 """A git commit in full (40 hex digits, or 64 in a SHA-256 repository): one state, no other."""
