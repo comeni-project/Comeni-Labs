@@ -48,7 +48,7 @@ function Start({ row, onClose }: { row: BoardRow; onClose: () => void }) {
   const [version, setVersion] = useState("");
   const draft = useDraft();
   const go = useNavigate();
-  const field = "border border-line-2 rounded-button px-2 py-1 bg-surface text-body text-ink";
+  const field = "border border-line-2 rounded-control px-2 py-1 bg-surface text-body text-ink";
 
   return (
     <div className="col-span-full flex flex-wrap items-center gap-3 pt-3">

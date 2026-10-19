@@ -21,7 +21,7 @@ export function NothingFits({ draft, subject }: { draft: string; subject: string
 
   const ready = id.trim() && description.trim() && why.trim();
 
-  const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-button bg-surface";
+  const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-control bg-surface";
   const label = "text-label font-semibold text-ink-3";
 
   if (!open) {

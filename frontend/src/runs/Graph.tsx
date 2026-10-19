@@ -104,14 +104,14 @@ function RunNode({ node, bind }: { node: Placed; bind?: object }) {
         : node.total && node.done === node.total ? "done" : "waiting"
     }>
       <rect
-        x={node.x} y={node.y} width={node.width} height={node.height} rx={3}
+        x={node.x} y={node.y} width={node.width} height={node.height} rx={10}
         fill={fillOf(node)} stroke={strokeOf(node)} strokeWidth={1.5}
       />
       {/* **A second ring means something retried** — §9.1. One ring is not an absence of
           information, so a task that ran once draws nothing extra. */}
       {node.attempts > 1 && (
         <rect
-          x={node.x - 5} y={node.y - 5} width={node.width + 10} height={node.height + 10} rx={3}
+          x={node.x - 5} y={node.y - 5} width={node.width + 10} height={node.height + 10} rx={10}
           fill="none" stroke="var(--measured)" strokeWidth={1}
           strokeDasharray="3 3" opacity={0.9}
         />

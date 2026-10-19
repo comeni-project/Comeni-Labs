@@ -93,7 +93,7 @@ function Activity({ days }: { days: Summary["days"] }) {
                 {total === 0 && <i className="block h-[2px] bg-line" />}
                 {day.failed > 0 && (
                   <>
-                    <i className="block rounded-t-[3px]"
+                    <i className="block rounded-t-xs"
                        style={{ height: bar(day.failed), background: "var(--needs-you)" }} />
                     {/* A 2px gap, so the boundary between the two fills is a gap and never a
                         hairline that reads as a third value. */}
@@ -101,9 +101,8 @@ function Activity({ days }: { days: Summary["days"] }) {
                   </>
                 )}
                 {day.succeeded > 0 && (
-                  <i className="block"
-                     style={{ height: bar(day.succeeded), background: "var(--done)",
-                              borderRadius: day.failed ? "0 0 3px 3px" : "3px" }} />
+                  <i className={`block ${day.failed ? "rounded-b-xs" : "rounded-xs"}`}
+                     style={{ height: bar(day.succeeded), background: "var(--done)" }} />
                 )}
               </div>
               {/* **Four ticks, not fourteen.** One under every column is fourteen numbers

@@ -143,6 +143,7 @@ export function Node({
         // The tier is the LEFT BORDER, not an inner bar — so it cannot take width from the
         // content and cannot be mistaken for a fill.
         borderLeftWidth: 3,
+        borderRadius: "var(--radius-button)",
         borderLeftColor: open
           ? "var(--needs-you)"
           : measured

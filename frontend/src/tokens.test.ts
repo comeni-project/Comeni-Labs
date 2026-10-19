@@ -364,8 +364,8 @@ it("keeps retired colour names retired", () => {
 it("draws labels in the interface face, not shouted", () => {
   const shouting = sources()
     .filter(([path]) => path.endsWith(".tsx"))
-    .flatMap(([path, text]) => [...text.matchAll(/className=(?:"|{`)([^"`]*)/g)]
-      .filter((m) => /\buppercase\b/.test(m[1]))
+    .flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+      .filter((m) => /\buppercase\b/.test(m[2]) && !/^\s*\*|\/\//.test(m[2]))
       .map(() => path.slice(SRC.length + 1)));
   expect(shouting).toEqual([]);
 });
@@ -376,11 +376,16 @@ it("sizes the type roles as the boards do", () => {
     ["body", 14], ["secondary", 13], ["label", 12], ["brand", 17]] as const) {
     expect(main, `--text-${role}`).toMatch(new RegExp(`--text-${role}: ${px}px;`));
   }
+  // Text that wears no role inherits the body's size, so the body is the body role.
+  const body = main.slice(main.search(/\nbody\s*{/));
+  expect(body.slice(0, body.indexOf("}"))).toMatch(/font-size:\s*var\(--text-body\);/);
 });
 
 it("rounds corners with the three named radii only", () => {
   const square = sources().filter(([, text]) =>
-    /\brounded-r\b|rounded-\[\d+px\]|rounded-\[var\(--r\)\]|var\(--r\)|--radius-r:/.test(text))
+    // Side variants and Tailwind's own defaults too (`rounded-t-[3px]`, `rounded-l`), inline
+    // `borderRadius` in pixels, and an SVG `rx` that is not the node radius.
+    /\brounded-r\b|\brounded(?:-[trblse]{1,2})?-\[(?!var\(--radius-)[^\]]+\]|\brounded-[trblse]{1,2}(?![\w-])|var\(--r\)|--radius-r:|borderRadius:\s*["'`]?\d|\brx=\{(?!10\})/.test(text))
     .map(([p]) => p.slice(SRC.length + 1));
   expect(square).toEqual([]);
 });
