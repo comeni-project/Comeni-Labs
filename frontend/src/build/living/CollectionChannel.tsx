@@ -137,17 +137,17 @@ export function SourceNode({
         height: SOURCE_H,
         background: "var(--paper-2)",
         border: "1px dashed var(--line-2)",
-        borderLeft: "3px solid var(--link)",
+        borderLeft: "3px solid var(--now)",
       }}
     >
-      <span className="font-data text-[8px] tracking-[.15em] uppercase text-link">input</span>
+      <span className="font-data text-[8px] tracking-[.15em] uppercase text-now-ink">input</span>
       <span className="font-data text-[11px] text-ink">{name}</span>
       <span className="font-data text-[8.5px] text-ink-3 truncate">
         {typeId}
         {states.length > 0 ? `[${states.join(", ")}]` : ""}
       </span>
       {scope === "sample" && (
-        <span className="font-data text-[8.5px] text-link">{multiplicity(count)}</span>
+        <span className="font-data text-[8.5px] text-now-ink">{multiplicity(count)}</span>
       )}
     </div>
   );

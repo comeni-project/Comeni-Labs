@@ -58,17 +58,17 @@ export function Failure({ failed }: { failed: Failed }) {
 
   return (
     /* **A tinted block with a full border, not a white card with a red stripe.** The artboard
-       fills the banner with `--undecided-soft` and outlines it in `--undecided`, which is what
+       fills the banner with `--needs-you-soft` and outlines it in `--needs-you`, which is what
        makes it read as *the run stopped here* before a word of it is read. The left-stripe
        card was the same treatment the console gives one failed LINE — using it for the whole
        banner flattened the difference between the run failing and a task failing. */
     <section
       data-testid="failure"
       className="rounded-[var(--r)] shadow-e2 p-[15px] flex flex-col gap-2.5"
-      style={{ background: "var(--undecided-soft)", border: "1px solid var(--undecided)" }}
+      style={{ background: "var(--needs-you-soft)", border: "1px solid var(--needs-you)" }}
     >
       <div className="flex items-baseline gap-2.5">
-        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--fault)" }}>
+        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--needs-you)" }}>
           {failed.process ?? "no task failed — the run stopped before one started"}
           {failed.process && (
             <>
@@ -98,7 +98,7 @@ export function Failure({ failed }: { failed: Failed }) {
             <span className="block h-full"
                   style={{ width: `${Math.min(100, Math.round(
                     (failed.peak_rss_bytes! / failed.asked_bytes!) * 100))}%`,
-                    background: "var(--undecided)" }} />
+                    background: "var(--needs-you)" }} />
           </span>
           <span className="font-data text-body text-ink-2">
             peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked

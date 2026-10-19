@@ -41,7 +41,7 @@ function Points({ title, ids }: { title: string; ids: string[] }) {
         <Link
           key={id}
           to={`/forge/contracts/${id}`}
-          className="block font-data text-secondary text-pea no-underline py-1"
+          className="block font-data text-secondary text-done-ink no-underline py-1"
         >
           {id}
         </Link>

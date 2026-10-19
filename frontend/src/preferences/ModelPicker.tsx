@@ -57,7 +57,7 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
       {/* One line however many connections failed, naming them; the server's own words are in
           its title. A connection whose list could not be read still offers *Other…*. */}
       {failed.length > 0 && (
-        <span className="basis-full text-label text-fault" title={failed.map((f) => f.says).join("\n")}>
+        <span className="basis-full text-label text-needs-you-ink" title={failed.map((f) => f.says).join("\n")}>
           Could not list models on {failed.map((f) => f.name).join(", ")}.
         </span>
       )}
@@ -73,7 +73,7 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
                  className={FIELD} />
           <button type="button" disabled={!other.model.includes("/")}
                   onClick={() => { onWrite(other); setOther(null); }}
-                  className="bg-transparent text-link cursor-pointer text-secondary">Use</button>
+                  className="bg-transparent text-now-ink cursor-pointer text-secondary">Use</button>
         </>
       )}
     </span>

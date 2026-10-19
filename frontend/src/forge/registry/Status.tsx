@@ -14,13 +14,13 @@ import type { AdaptationState } from "../../api/registry";
  */
 const SHAPE: Record<string, { clip?: string; round?: boolean; hollow?: boolean; tone: string }> = {
   // A filled square: settled, and the quietest thing on the page.
-  done: { tone: "bg-[var(--pea)]" },
+  done: { tone: "bg-[var(--done)]" },
   // A triangle: something is waiting on a person.
   review: { clip: "polygon(50% 0,100% 100%,0 100%)", tone: "bg-[var(--measured)]" },
   // A diamond: it stopped.
-  fail: { clip: "polygon(50% 0,100% 50%,50% 100%,0 50%)", tone: "bg-[var(--fault)]" },
+  fail: { clip: "polygon(50% 0,100% 50%,50% 100%,0 50%)", tone: "bg-[var(--needs-you)]" },
   // A circle: a worker is holding it.
-  run: { round: true, tone: "bg-[var(--running)]" },
+  run: { round: true, tone: "bg-[var(--now)]" },
   // An outline: nothing has happened to it yet.
   open: { hollow: true, tone: "" },
 };

@@ -130,7 +130,7 @@ function Row({
                   className={
                     CHIP +
                     (on
-                      ? " border-link bg-[var(--link-soft)] text-link"
+                      ? " border-now bg-[var(--now-soft)] text-now-ink"
                       : " border-line-2 text-ink-2 hover:text-ink")
                   }
                 >
@@ -144,7 +144,7 @@ function Row({
             data-testid="setting-field"
             className={
               "font-data text-body rounded-r border px-2 py-0.5 bg-bg text-ink w-full " +
-              (open ? "border-[var(--undecided)]" : "border-line")
+              (open ? "border-[var(--needs-you)]" : "border-line")
             }
             type={
               setting.domain?.kind === "integer" || setting.domain?.kind === "number"
@@ -168,7 +168,7 @@ function Row({
           its tier and its band; what separates it from one nobody has touched is this word, and
           without it the two are drawn identically. */}
       {setting.answered && (
-        <div data-testid="setting-yours" className="text-label font-data text-link pt-[7px]">
+        <div data-testid="setting-yours" className="text-label font-data text-now-ink pt-[7px]">
           yours
         </div>
       )}
@@ -186,7 +186,7 @@ function Row({
           {setting.because}
         </div>
       )}
-      <div className="text-label text-ink-4 pt-[5px] font-data">via {setting.via}</div>
+      <div className="text-label text-ink-3 pt-[5px] font-data">via {setting.via}</div>
     </div>
   );
 }
@@ -237,7 +237,7 @@ export function Settings({
       >
         <span className="font-data text-body font-medium text-ink">{step.process}</span>
         <div className="flex items-baseline gap-4">
-          <span className="font-data text-label text-ink-4">
+          <span className="font-data text-label text-ink-3">
             {step.settings.length} {step.settings.length === 1 ? "setting" : "settings"}
           </span>
           <button
@@ -262,13 +262,13 @@ export function Settings({
           data-open={still || undefined}
           className={
             "settle px-[15px] pt-3 pb-1 border-b border-line " +
-            (still > 0 ? "bg-[color-mix(in_srgb,var(--undecided)_5%,transparent)]" : "")
+            (still > 0 ? "bg-[color-mix(in_srgb,var(--needs-you)_5%,transparent)]" : "")
           }
         >
           {/* Invariant 6: tier 4 is always flagged, and this is one of its four places. The
               heading changes when nothing here is open any more; the band does not go away. */}
           <div
-            className={`${BAND} pb-[11px] ${still > 0 ? "text-[var(--undecided)]" : "text-link"}`}
+            className={`${BAND} pb-[11px] ${still > 0 ? "text-[var(--needs-you)]" : "text-now-ink"}`}
           >
             {still > 0
               ? `${words.group(NEEDS_YOU)} · ${still}`
@@ -306,7 +306,7 @@ export function Settings({
                        bg-transparent border-0 cursor-pointer lift text-left"
           >
             <span className="text-body text-ink-2">{settled.length} settled</span>
-            <span className="font-data text-label text-link">
+            <span className="font-data text-label text-now-ink">
               {showing ? "hide ▴" : "show ▾"}
             </span>
           </button>
@@ -320,7 +320,7 @@ export function Settings({
         </div>
       )}
 
-      <p className="text-label text-ink-4 px-[15px] py-3 m-0 border-t border-line">
+      <p className="text-label text-ink-3 px-[15px] py-3 m-0 border-t border-line">
         {/* Said on the screen, not only in a docstring. */}
         {onSet
           ? "A value you answer exits at tier 4 and is recorded as yours."

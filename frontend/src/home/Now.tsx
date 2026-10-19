@@ -57,7 +57,7 @@ export function Now({ running, waiting, named }: {
                   </span>
                   {/* Elapsed SNAPS, in tabular figures — numbers never tween. The cursor beside
                       it is the artboard's mark that this number is still moving. */}
-                  <span className="text-running tnum font-data text-[14px]">
+                  <span className="text-now-ink tnum font-data text-[14px]">
                     {elapsed(run.submitted_at)}<span className="blink">▮</span>
                   </span>
                 </span>
@@ -74,14 +74,14 @@ export function Now({ running, waiting, named }: {
                     read as *steps* rather than as a percentage. */}
                 <span className="mt-[13px] flex gap-[3px] h-[9px]">
                   <i
-                    className="bg-pea"
+                    className="bg-done"
                     style={{
                       flex: run.tasks_seen
                         ? `0 0 ${(run.tasks_done / run.tasks_seen) * 100}%`
                         : "0 0 0%",
                     }}
                   />
-                  <i className="flow bg-running w-[44px] shrink-0" />
+                  <i className="flow bg-now w-[44px] shrink-0" />
                   {/* What has not started. `--surface-2`, so the bar has a full width and the
                       done fraction is read against it rather than against the page. */}
                   <i className="bg-surface-2 grow" />
@@ -108,7 +108,7 @@ export function Now({ running, waiting, named }: {
               <Link
                 key={call.where}
                 to={call.where}
-                className="settle no-underline block border-l-2 border-[var(--undecided)] pl-4
+                className="settle no-underline block border-l-2 border-[var(--needs-you)] pl-4
                            lift py-1 rounded-r"
               >
                 {/* **It names the values.** `strandedness and fragment size`, not `2 items` —

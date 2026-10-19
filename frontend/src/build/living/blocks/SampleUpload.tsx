@@ -136,9 +136,9 @@ export function SampleUpload({
         // click it cannot take.
         className={`inline-flex items-center justify-center gap-[8px] min-h-[44px] md:min-h-0
                    px-[14px] py-[7px] text-[12.5px] font-semibold border border-dashed
-                   text-link bg-[var(--link-soft)] has-[:focus-visible]:shadow-[var(--ring)]
+                   text-now-ink bg-[var(--now-soft)] has-[:focus-visible]:shadow-[var(--ring)]
                    ${busy ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-        style={{ borderColor: "var(--link)" }}
+        style={{ borderColor: "var(--now)" }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="square" aria-hidden="true">
@@ -183,7 +183,7 @@ export function SampleUpload({
           </p>
         </div>
       )}
-      {refusal && <p role="alert" className="m-0 text-[11.5px] text-[var(--undecided)]">{refusal}</p>}
+      {refusal && <p role="alert" className="m-0 text-[11.5px] text-[var(--needs-you)]">{refusal}</p>}
 
       {(stage.at === "picked" || stage.at === "measuring") && (
         <div className="flex flex-col gap-[10px]">
@@ -222,7 +222,7 @@ export function SampleUpload({
       )}
       {stage.at === "failed" && (
         <div className="flex flex-col gap-[8px] md:items-start">
-          <p role="alert" className="m-0 text-[11.5px] text-[var(--undecided)]">{stage.why}</p>
+          <p role="alert" className="m-0 text-[11.5px] text-[var(--needs-you)]">{stage.why}</p>
           {/* The same files, again: the sentence says *try again* (issue 228). A sample the
               server did record answers with its own refusal, which says so. */}
           <Secondary disabled={busy} onClick={() => void measure(stage.files)}>
@@ -304,7 +304,7 @@ function ReadingSaid({ reading, files }: { reading: SampleReading | null; files:
 function Said({ head, sub, alert = false }: { head: React.ReactNode; sub: string; alert?: boolean }) {
   return (
     <div className="px-[10px] py-[9px] border" role={alert ? "alert" : undefined}
-      style={{ borderColor: "var(--line-2)", background: alert ? "var(--undecided-soft)" : "var(--surface)" }}>
+      style={{ borderColor: "var(--line-2)", background: alert ? "var(--needs-you-soft)" : "var(--surface)" }}>
       <p className="m-0 font-data text-[12px] text-ink">{head}</p>
       {sub && <p className="m-0 mt-[6px] text-[11px] text-ink-2">{sub}</p>}
     </div>
@@ -340,10 +340,10 @@ function Outcome({ result, files }: { result: SampleInspected; files: string[] }
       : result.reason ?? "it could not be read";
   return (
     <div className="px-[10px] py-[9px] border"
-      style={{ borderColor: "var(--line-2)", background: "var(--undecided-soft)" }}>
+      style={{ borderColor: "var(--line-2)", background: "var(--needs-you-soft)" }}>
       <p className="m-0 font-data text-[12px] text-ink">
         {result.outcome === "unreadable" && (
-          <span className="text-[var(--undecided)]">couldn't read it — </span>
+          <span className="text-[var(--needs-you)]">couldn't read it — </span>
         )}
         {said}
       </p>
@@ -365,9 +365,9 @@ export function SampleResult({ result, files }: { result: SampleInspected; files
       <p className="m-0 font-data text-[10px] text-ink-3">from {files.join(" + ")}</p>
       {open.map((f) => (
         <p key={f.measurement} className="m-0 px-[10px] py-[9px] font-data text-[12px] border"
-          style={{ borderColor: "var(--line-2)", background: "var(--undecided-soft)" }}>
+          style={{ borderColor: "var(--line-2)", background: "var(--needs-you-soft)" }}>
           <span className="text-ink">{f.measurement.replace(/_/g, " ")}:</span>{" "}
-          <span className="text-[var(--undecided)]">undetermined</span>{" "}
+          <span className="text-[var(--needs-you)]">undetermined</span>{" "}
           <span className="text-ink">— {f.undetermined}</span>
         </p>
       ))}

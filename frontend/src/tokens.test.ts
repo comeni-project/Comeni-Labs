@@ -130,7 +130,7 @@ it("maps every palette token worn as a colour utility into the theme", () => {
 });
 
 it("reaches the utilities it checks, so it cannot pass by finding none", () => {
-  expect(tokenUtilities().has("text-ink-4")).toBe(true);
+  expect(tokenUtilities().has("text-now-ink")).toBe(true);
   expect(tokenUtilities().has("text-ink-3")).toBe(true);
   expect(tokenUtilities().size).toBeGreaterThan(5);
 });
@@ -286,4 +286,80 @@ it("watches classes that are actually worn, so it cannot pass by finding none", 
   // `live` and `breathe` predate the system and have known callers — `runs/Graph.tsx` and
   // `runs/Console.tsx`. If `live` stops being found, the walk broke rather than the code.
   expect(worn.has("live")).toBe(true);
+});
+
+/** The custom properties one theme sets: the light `:root`, the explicit dark choice, or the
+ *  dark block a dark system turns on. Read from `tokens.css` as text, comments removed. */
+function palette(theme: "light" | "dark" | "media"): Map<string, string> {
+  const css = readFileSync(join(SRC, "tokens.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const opener = {
+    light: /(?:^|\n):root\s*{/,
+    dark: /:root\[data-theme="dark"\]\s*{/,
+    media: /@media \(prefers-color-scheme: dark\)\s*{\s*:root:not\(\[data-theme="light"\]\)\s*{/,
+  }[theme];
+  const start = css.search(opener);
+  if (start < 0) return new Map();
+  const open = css.indexOf("{", css.indexOf(":root", start) + 1);
+  const body = css.slice(open + 1, css.indexOf("}", open));
+  return new Map([...body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+}
+
+/** The WCAG 2 contrast ratio of two `#RRGGBB` colours. */
+function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+it("sets the same tokens in every theme", () => {
+  const light = [...palette("light").keys()].sort();
+  expect(light.length).toBeGreaterThan(30);
+  expect([...palette("dark").keys()].sort()).toEqual(light);
+  expect([...palette("media").keys()].sort()).toEqual(light);
+  expect(palette("media")).toEqual(palette("dark"));
+});
+
+it("lets an explicit light choice beat a dark system", () => {
+  const css = readFileSync(join(SRC, "tokens.css"), "utf8");
+  expect(css).toMatch(/@media \(prefers-color-scheme: dark\)\s*{\s*:root:not\(\[data-theme="light"\]\)/);
+  // The ring is theme-independent (the last `:root`), so it is read from the file, not a palette.
+  expect(css).toMatch(/--ring:[^;]*var\(--now\)/);
+});
+
+it("keeps every text colour readable on the grounds it is drawn on", () => {
+  const TEXT_ON_GROUNDS: [string, string[]][] = [
+    ["--ink", ["--paper", "--surface", "--canvas"]],
+    ["--ink-2", ["--paper", "--surface", "--canvas"]],
+    ["--ink-3", ["--paper", "--surface", "--canvas"]],
+    ["--done-ink", ["--paper", "--surface", "--done-soft"]],
+    ["--now-ink", ["--paper", "--surface", "--now-soft"]],
+    ["--measured-ink", ["--paper", "--surface", "--measured-soft"]],
+    ["--needs-you-ink", ["--paper", "--surface", "--needs-you-soft"]],
+    ["--on-action", ["--action"]],
+  ];
+  const failing: string[] = [];
+  for (const theme of ["light", "dark"] as const) {
+    const p = palette(theme);
+    for (const [text, grounds] of TEXT_ON_GROUNDS) {
+      for (const ground of grounds) {
+        const [fg, bg] = [p.get(text), p.get(ground)];
+        if (!fg || !bg) { failing.push(`${theme}: ${text} or ${ground} is not set`); continue; }
+        const ratio = contrast(fg, bg);
+        if (ratio < 4.5) failing.push(`${theme}: ${text} on ${ground} is ${ratio.toFixed(2)}`);
+      }
+    }
+  }
+  expect(failing).toEqual([]);
+});
+
+it("keeps retired colour names retired", () => {
+  // A utility prefix or `--` is required: `dead-link` is a word, `text-link` is a token.
+  const NAMES = "pea|on-pea|undecided|fault|running|link|ink-4";
+  const RETIRED = new RegExp(`--(?:${NAMES}|grid-3)\\b|\\b(?:text|bg|border|fill|stroke|ring|outline|decoration|accent|caret|divide|placeholder|from|via|to)-(?:${NAMES})(?:-soft|-line)?\\b`);
+  const found = sources().filter(([, text]) => RETIRED.test(text)).map(([path]) => path.slice(SRC.length + 1));
+  expect(found).toEqual([]);
 });

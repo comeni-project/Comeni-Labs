@@ -14,7 +14,7 @@ const WORDS: Record<Level, { label: string; what: string; colour: string }> = {
   illegal: {
     label: "Illegal",
     what: "cannot be emitted",
-    colour: "var(--undecided)",
+    colour: "var(--needs-you)",
   },
   unmet: {
     label: "Unmet",

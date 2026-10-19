@@ -117,8 +117,8 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
         // artboard's treatment, and the reason a failing row is findable in a wall of them
         // without reading the exit column.
         ...(failed
-          ? { background: "var(--undecided-soft)",
-              boxShadow: "inset 2px 0 0 var(--undecided)" }
+          ? { background: "var(--needs-you-soft)",
+              boxShadow: "inset 2px 0 0 var(--needs-you)" }
           : {}),
       }}
     >
@@ -127,7 +127,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
       )}
 
       <span data-testid="task"
-            className={`truncate ${failed ? "text-[var(--undecided)]" : "text-ink"}`}>
+            className={`truncate ${failed ? "text-[var(--needs-you)]" : "text-ink"}`}>
         {task.tag ?? `task ${task.task_id}`}
       </span>
 
@@ -146,7 +146,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
         ) : exit === 0 ? (
           <span className="text-ink-2">0</span>
         ) : (
-          <span data-testid="mark" className="text-[var(--undecided)]">{exit}</span>
+          <span data-testid="mark" className="text-[var(--needs-you)]">{exit}</span>
         )}
       </span>
 
@@ -154,7 +154,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
       <span data-testid="cpu" className="text-ink-2">{percent(task.pct_cpu)}</span>
       <span data-testid="time" className="text-ink-2">{seconds(task.realtime_ms)}</span>
       <span data-testid="note"
-            className={failed ? "text-[var(--undecided)]" : "text-ink-3"}>{mark}</span>
+            className={failed ? "text-[var(--needs-you)]" : "text-ink-3"}>{mark}</span>
     </div>
     {menu.at && <Menu items={items} at={menu.at} onClose={menu.close} />}
     </>

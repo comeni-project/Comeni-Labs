@@ -143,9 +143,9 @@ export function StepProposalCard({
               onMouseEnter={() => onPreview(option.id, "temporary")}
               onMouseLeave={() => onPreview(null, "temporary")}
               className="flex items-start gap-[9px] px-[10px] py-2 mb-[6px] border cursor-pointer
-                         focus-within:shadow-[0_0_0_1px_color-mix(in_oklab,var(--link)_30%,transparent)]"
+                         focus-within:shadow-[0_0_0_1px_color-mix(in_oklab,var(--now)_30%,transparent)]"
               style={{
-                borderColor: picked ? "var(--link-line)" : "var(--line)",
+                borderColor: picked ? "var(--now-line)" : "var(--line)",
                 background: picked ? "var(--paper-2)" : "transparent",
               }}
             >
@@ -165,8 +165,8 @@ export function StepProposalCard({
                 aria-hidden
                 className="mt-[3px] shrink-0 w-[9px] h-[9px] border"
                 style={{
-                  borderColor: picked ? "var(--link)" : "var(--port-line)",
-                  background: picked ? "var(--link)" : "transparent",
+                  borderColor: picked ? "var(--now)" : "var(--port-line)",
+                  background: picked ? "var(--now)" : "transparent",
                   boxShadow: picked ? "inset 0 0 0 2px var(--paper-2)" : undefined,
                 }}
               />
@@ -174,7 +174,7 @@ export function StepProposalCard({
                 <span className="flex items-baseline gap-3">
                   <span className="font-data text-[11px] text-ink">{option.label}</span>
                   {option.recommended && (
-                    <span className="ml-auto font-data text-[9.5px] text-link">recommended</span>
+                    <span className="ml-auto font-data text-[9.5px] text-now-ink">recommended</span>
                   )}
                 </span>
                 {option.note && option.id !== "keep" && (
@@ -193,7 +193,7 @@ export function StepProposalCard({
                   }}
                   className="shrink-0 self-center font-data text-[10px] px-2 py-[2px] bg-transparent
                              text-ink-2 border cursor-pointer focus-visible:shadow-[var(--ring)]"
-                  style={{ borderColor: pinned === option.id ? "var(--link)" : "var(--line-2)" }}
+                  style={{ borderColor: pinned === option.id ? "var(--now)" : "var(--line-2)" }}
                 >
                   Preview
                 </button>
@@ -208,7 +208,7 @@ export function StepProposalCard({
             <label key={String(value)}
                    className="flex items-center gap-[6px] px-[10px] py-1 border cursor-pointer font-data
                               text-[11px] text-ink focus-within:shadow-[var(--ring)]"
-                   style={{ borderColor: pick === value ? "var(--link)" : "var(--line-2)" }}>
+                   style={{ borderColor: pick === value ? "var(--now)" : "var(--line-2)" }}>
               <input type="radio" name={`${group}-${fact}`} className="sr-only"
                      aria-label={valueWords(value)} checked={pick === value}
                      onChange={() => setPick(value)} />

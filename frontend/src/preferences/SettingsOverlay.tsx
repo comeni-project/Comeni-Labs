@@ -59,18 +59,18 @@ export function SettingsOverlay({
             <h2 id="settings-title" className="m-0 text-[19px] font-semibold tracking-[-.02em] text-ink">
               Settings
             </h2>
-            <span className="hidden md:block font-data text-label text-ink-4">
+            <span className="hidden md:block font-data text-label text-ink-3">
               this installation · every change is saved as you make it
             </span>
           </div>
-          <span className="hidden md:inline ml-auto font-data text-label text-ink-4">esc</span>
+          <span className="hidden md:inline ml-auto font-data text-label text-ink-3">esc</span>
           <button
             type="button"
             aria-label="Close settings"
             onClick={onClose}
             className="ml-auto md:ml-0 w-[44px] h-[44px] md:w-[32px] md:h-[32px] inline-flex items-center
                        justify-center bg-transparent border border-line-2 rounded-[3px]
-                       text-ink-2 hover:text-ink hover:border-ink-4 cursor-pointer"
+                       text-ink-2 hover:text-ink hover:border-ink-3 cursor-pointer"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="1.8" aria-hidden="true">

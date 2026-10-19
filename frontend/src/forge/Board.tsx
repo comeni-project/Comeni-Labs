@@ -60,7 +60,7 @@ function Figure({
       data-active={active || undefined}
       onClick={onClick}
       className="bg-transparent border-0 border-b-2 border-b-transparent p-0 pb-1 cursor-pointer
-                 text-left hover:opacity-70 data-[active]:border-b-[var(--pea)]"
+                 text-left hover:opacity-70 data-[active]:border-b-[var(--done)]"
     >
       {body}
     </button>
@@ -105,7 +105,7 @@ export function StatusBoard({ board }: { board: Board }) {
         <span
           data-testid="verdict"
           data-ok={ok}
-          className="text-body text-ink data-[ok=false]:text-[var(--undecided)]"
+          className="text-body text-ink data-[ok=false]:text-[var(--needs-you)]"
         >
           {ok ? (
             "Every contract agrees with its source."

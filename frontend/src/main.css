@@ -77,30 +77,35 @@
   --radius-r: 3px;
 
   --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-canvas: var(--canvas);
   --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
   --color-line-soft: var(--line-soft);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
-  --color-ink-4: var(--ink-4);
-  --color-line: var(--line);
-  --color-line-2: var(--line-2);
-  --color-pea: var(--pea);
-  --color-pea-soft: var(--pea-soft);
-  --color-on-pea: var(--on-pea);
+  --color-done: var(--done);
+  --color-done-soft: var(--done-soft);
+  --color-done-ink: var(--done-ink);
+  --color-action: var(--action);
+  --color-on-action: var(--on-action);
+  --color-action-edge: var(--action-edge);
   --color-measured: var(--measured);
   --color-measured-soft: var(--measured-soft);
-  --color-undecided: var(--undecided);
-  --color-undecided-soft: var(--undecided-soft);
-  --color-fault: var(--fault);
+  --color-measured-ink: var(--measured-ink);
+  --color-needs-you: var(--needs-you);
+  --color-needs-you-soft: var(--needs-you-soft);
+  --color-needs-you-ink: var(--needs-you-ink);
+  --color-now: var(--now);
+  --color-now-soft: var(--now-soft);
+  --color-now-ink: var(--now-ink);
+  --color-now-line: var(--now-line);
   --color-hover: var(--hover);
   --color-hover-strong: var(--hover-strong);
-  --color-running: var(--running);
-  --color-running-soft: var(--running-soft);
-  --color-link: var(--link);
-  --color-link-soft: var(--link-soft);
 
   /* Depth, as utilities. `shadow-e2` on a card rather than a hand-written `box-shadow`, for
      the same reason the colours are mirrored: one definition, and a seventh elevation cannot
@@ -169,7 +174,7 @@ body {
 .blink { animation: blink 1.1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 
-/* **A fourth layer, and it was missing.** A 36px rule grid at 2.6% `--link`, masked to a radial
+/* **A fourth layer, and it was missing.** A 36px rule grid at 2.6% `--now`, masked to a radial
    that fades out two thirds of the way down — so structure shows in the top-left where the shell
    and the first rows are, and the page still opens out below. `OverviewQuiet` and every board
    carrying a table has it; the arcs alone left those pages reading as a photograph rather than a

@@ -14,7 +14,7 @@
  * ═══ THREE LAYERS, EACH DOING ONE THING ══════════════════════════════════════════════════
  *
  * 1. **The arcs** — concentric circles from an origin far off the bottom of the frame, in
- *    `--link` with a second `--pea` family. `.breathe` swells them over 46s and `.slowA`
+ *    `--now` with a second `--done` family. `.breathe` swells them over 46s and `.slowA`
  *    rotates over 680s: both are far below the threshold at which anything appears to move,
  *    which is the point. It is a texture that is never caught moving.
  * 2. **The scan** — 1px lines every 3px at 1% white. A CRT reference, and the reason the
@@ -59,8 +59,8 @@ export function Field({ origin = "bottom", within = false }: {
            preserveAspectRatio="xMidYMid slice">
         <defs>
           <radialGradient id="field-pool" cx="46%" cy="34%" r="58%">
-            <stop offset="0%" stopColor="var(--link)" stopOpacity=".055" />
-            <stop offset="100%" stopColor="var(--link)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--now)" stopOpacity=".055" />
+            <stop offset="100%" stopColor="var(--now)" stopOpacity="0" />
           </radialGradient>
         </defs>
         {/* **The pool belongs to the corner variant only.** `_field.html` has it; the front
@@ -79,7 +79,7 @@ export function Field({ origin = "bottom", within = false }: {
         <g className="field-breathe" fill="none">
           {origin === "bottom" ? (
             <g className="field-spin" style={{ transformOrigin: "700px 900px" }}
-               stroke="var(--link)" strokeWidth="1">
+               stroke="var(--now)" strokeWidth="1">
               <circle cx="700" cy="900" r="470" opacity=".10" />
               <circle cx="700" cy="900" r="660" opacity=".07" />
               <circle cx="700" cy="900" r="880" opacity=".048" />
@@ -89,7 +89,7 @@ export function Field({ origin = "bottom", within = false }: {
             </g>
           ) : (
             <g className="field-spin" style={{ transformOrigin: "60px 700px" }}
-               stroke="var(--link)" strokeWidth="1">
+               stroke="var(--now)" strokeWidth="1">
               <circle cx="60" cy="700" r="380" opacity=".085" />
               <circle cx="60" cy="700" r="530" opacity=".062" />
               <circle cx="60" cy="700" r="700" opacity=".044" />
@@ -97,9 +97,9 @@ export function Field({ origin = "bottom", within = false }: {
             </g>
           )}
 
-          {/* The second family, in `--pea`. Two hues at these opacities do not read as two
+          {/* The second family, in `--done`. Two hues at these opacities do not read as two
               colours — they read as depth, which is the whole trick. */}
-          <g stroke="var(--pea)" fill="none">
+          <g stroke="var(--done)" fill="none">
             {origin === "bottom" ? (
               <circle cx="700" cy="900" r="780" opacity=".035" strokeWidth="1" />
             ) : (
@@ -118,11 +118,11 @@ export function Field({ origin = "bottom", within = false }: {
               graduations on it is a scale, and an arc without them is a swoosh. */}
           {origin === "corner" && (
             <>
-              <g stroke="var(--link)" opacity=".05" strokeWidth="1" fill="none">
+              <g stroke="var(--now)" opacity=".05" strokeWidth="1" fill="none">
                 <circle cx="560" cy="980" r="700" />
                 <circle cx="560" cy="980" r="838" />
               </g>
-              <g stroke="var(--link)" opacity=".08" strokeWidth="1" fill="none">
+              <g stroke="var(--now)" opacity=".08" strokeWidth="1" fill="none">
                 <path d="M-97.8 740.6 L-104.4 738.2" />
                 <path d="M-35.8 612.5 L-41.7 608.8" />
                 <path d="M50.8 499.6 L45.7 494.8" />
@@ -145,7 +145,7 @@ export function Field({ origin = "bottom", within = false }: {
               its two rays come off the origin instead, and adding chords on top of them made
               the front door busier than the drawing. */}
           {origin === "corner" && (
-            <g stroke="var(--link)" strokeWidth=".75" fill="none">
+            <g stroke="var(--now)" strokeWidth=".75" fill="none">
               <path d="M-80 96 L1220 402" opacity=".045" />
               <path d="M-80 520 L1220 176" opacity=".034" />
               <path d="M180 -60 L980 720" opacity=".026" />

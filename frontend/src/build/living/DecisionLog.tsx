@@ -255,8 +255,8 @@ export function DecisionLog({
           // Corrections can recover an honest stop without discarding its decisions.
           <Turn tick="open">
             {onCorrectAnswers && !session.retired && <button type="button" onClick={onCorrectAnswers}
-              className="mr-3 text-[12.5px] text-link underline">Correct current answers</button>}
-            <a href="/build" className="text-[12.5px] text-link underline focus-visible:shadow-[var(--ring)]">
+              className="mr-3 text-[12.5px] text-now-ink underline">Correct current answers</button>}
+            <a href="/build" className="text-[12.5px] text-now-ink underline focus-visible:shadow-[var(--ring)]">
               Start a new analysis
             </a>
           </Turn>
@@ -275,7 +275,7 @@ export function DecisionLog({
             <p className="m-0 text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap" data-testid="saying">
               {saying}
             </p>
-            <p className="m-0 mt-1 font-data text-[10px] text-ink-4">sending…</p>
+            <p className="m-0 mt-1 font-data text-[10px] text-ink-3">sending…</p>
           </Turn>
         )}
         {session.phase === "resolving" && (
@@ -329,7 +329,7 @@ function TurnEntry({
   if (turn.state === "failed") {
     return (
       <Turn tick="quiet">
-        <p className="m-0 font-data text-[10px] leading-[1.5] text-ink-4">
+        <p className="m-0 font-data text-[10px] leading-[1.5] text-ink-3">
           an answer arrived after the draft changed, and was not applied
         </p>
       </Turn>
@@ -454,7 +454,7 @@ function DecisionEntry({
           <span className="font-data text-[10px] text-ink-3 truncate min-w-0">{block.asks}</span>
           <span data-testid={`gap-answer-${decision.id}`}
                 className="font-data text-[11px] text-ink-2 shrink-0">{answer}</span>
-          <span className="ml-auto font-data text-[9px] text-ink-4 shrink-0">
+          <span className="ml-auto font-data text-[9px] text-ink-3 shrink-0">
             {model ? "read by AI" : aiRead ? "from your sample"
               : sampled ? "measured from your sample" : "you said"}
           </span>
@@ -513,9 +513,9 @@ function Collapsed({
       className="w-full flex items-baseline gap-[9px] py-[5px] px-0 bg-transparent border-0
                  text-left cursor-pointer focus-visible:shadow-[var(--ring)]"
     >
-      <span className={`font-data text-[11px] shrink-0 whitespace-nowrap ${selected ? "text-link" : "text-ink-2"}`}>{name}</span>
+      <span className={`font-data text-[11px] shrink-0 whitespace-nowrap ${selected ? "text-now-ink" : "text-ink-2"}`}>{name}</span>
       <span className="font-data text-[10px] text-ink-3 truncate min-w-0">{detail}</span>
-      <span className="ml-auto font-data text-[9px] text-ink-4 shrink-0">{by}</span>
+      <span className="ml-auto font-data text-[9px] text-ink-3 shrink-0">{by}</span>
     </button>
   );
 }

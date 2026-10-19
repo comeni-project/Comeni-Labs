@@ -52,7 +52,7 @@ export function StepChoice({
     <div className="px-[18px] pt-5">
       <div className="settle">
         <div className="font-data text-object font-medium text-ink">{step.process}</div>
-        <div className="font-data text-label text-ink-4 pt-1">{step.contract_id}</div>
+        <div className="font-data text-label text-ink-3 pt-1">{step.contract_id}</div>
       </div>
 
       <div className="settle pt-5" style={{ animationDelay: "40ms" }}>
@@ -69,7 +69,7 @@ export function StepChoice({
           type="button"
           data-testid="open-swap"
           onClick={() => onSwap?.(step.id)}
-          className="mt-3 border border-line-2 px-3 py-2 text-body text-link bg-transparent
+          className="mt-3 border border-line-2 px-3 py-2 text-body text-now-ink bg-transparent
                      cursor-pointer lift"
         >
           Swap for something else
@@ -85,7 +85,7 @@ export function StepChoice({
           type="button"
           data-testid="open-settings"
           onClick={() => onOpenSettings?.(step.id)}
-          className="font-data text-secondary text-link pt-2.5 bg-transparent border-0
+          className="font-data text-secondary text-now-ink pt-2.5 bg-transparent border-0
                      cursor-pointer p-0 lift"
         >
           open on the node ⋯
@@ -140,8 +140,8 @@ export function Assistant() {
           rows={3}
           placeholder="gene counts from paired-end RNA-seq of mouse liver"
           className="w-full resize-y font-ui text-body text-ink bg-transparent border px-2 py-1.5
-                     disabled:cursor-not-allowed placeholder:text-[color:var(--ink-4)]"
-          style={{ borderColor: "var(--link-line)" }}
+                     disabled:cursor-not-allowed placeholder:text-[color:var(--ink-3)]"
+          style={{ borderColor: "var(--now-line)" }}
         />
         {live ? (
           <button
@@ -149,7 +149,7 @@ export function Assistant() {
             data-testid="ask-start"
             disabled={!ready}
             className="self-start px-3 py-1.5 border-0 cursor-pointer text-body font-semibold
-                       bg-[var(--link)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                       bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
           >
             {begin.isPending ? "Starting…" : "Start"}
           </button>
@@ -161,7 +161,7 @@ export function Assistant() {
           </p>
         )}
         {begin.error && (
-          <p role="alert" className="m-0 text-secondary text-[var(--undecided)]">
+          <p role="alert" className="m-0 text-secondary text-[var(--needs-you)]">
             {begin.error.message}
           </p>
         )}
@@ -181,7 +181,7 @@ function Values({ step }: { step: AnsweredStep }) {
   const measured = step.settings.filter((one: Answered) => one.tier === 3).length;
   const total = step.settings.length;
 
-  const worst = open > 0 ? "var(--undecided)" : measured > 0 ? "var(--measured)" : "var(--pea)";
+  const worst = open > 0 ? "var(--needs-you)" : measured > 0 ? "var(--measured)" : "var(--done)";
   const said =
     total === 0
       ? "no parameters — everything is forced by the module"

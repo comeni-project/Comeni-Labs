@@ -28,7 +28,7 @@ const labelOf = (action: string) =>
   ACTION_LABEL[action] ?? action.charAt(0).toUpperCase() + action.slice(1);
 
 const GHOST = `h-[28px] px-[10px] text-[12px] text-ink-2 bg-transparent border border-line-2 rounded-[3px]
-               cursor-pointer hover:text-ink hover:border-ink-4 disabled:opacity-50`;
+               cursor-pointer hover:text-ink hover:border-ink-3 disabled:opacity-50`;
 
 export function Collection({ entry, onWrite }: { entry: Entry; onWrite: (value: unknown) => void }) {
   const setting = entry.setting as unknown as Shape;
@@ -60,10 +60,10 @@ export function Collection({ entry, onWrite }: { entry: Entry; onWrite: (value: 
       <div className="flex justify-end gap-[8px] -mt-[4px] mb-[4px]">
         {dirty && (
           <button type="button" onClick={save}
-                  className={`${GHOST} text-ink border-ink-4`}>Save connections</button>
+                  className={`${GHOST} text-ink border-ink-3`}>Save connections</button>
         )}
         <button type="button" onClick={() => setAdded({})} disabled={added !== null}
-                className={`${GHOST} inline-flex items-center gap-[6px] text-link border-[var(--link-line)]`}>
+                className={`${GHOST} inline-flex items-center gap-[6px] text-now-ink border-[var(--now-line)]`}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                strokeWidth="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Add connection
@@ -144,9 +144,9 @@ function Card({ setting, record, onRemove, onType }: {
           <span className="font-data text-[11px] text-ink-3 break-all">{facts.join(" · ")}</span>
           {status && (
             <span className={`flex items-center gap-[6px] text-secondary
-                              ${status.ok === false ? "text-fault" : status.ok ? "text-pea" : "text-ink-2"}`}>
+                              ${status.ok === false ? "text-needs-you-ink" : status.ok ? "text-done-ink" : "text-ink-2"}`}>
               <span className={`w-[6px] h-[6px] rounded-full shrink-0
-                                ${status.ok === false ? "bg-fault" : status.ok ? "bg-pea" : "bg-ink-4"}`} />
+                                ${status.ok === false ? "bg-needs-you" : status.ok ? "bg-done" : "bg-ink-3"}`} />
               {status.says}
             </span>
           )}
@@ -161,7 +161,7 @@ function Card({ setting, record, onRemove, onType }: {
           )}
           {!record.locked && (
             <button type="button" aria-label={`Remove ${name}`} onClick={onRemove}
-                    className={`${GHOST} w-[28px] px-0 inline-flex items-center justify-center hover:text-fault`}>
+                    className={`${GHOST} w-[28px] px-0 inline-flex items-center justify-center hover:text-needs-you-ink`}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>
             </button>

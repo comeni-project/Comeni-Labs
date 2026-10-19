@@ -44,11 +44,11 @@ function Bar({ of }: { of: DraftRow["provenance"] }) {
   if (!of) return <span className="text-ink-3">—</span>;
 
   const bands = [
-    { n: of.settled, className: "bg-pea", what: "settled without judgement" },
-    { n: of.by_person, className: "bg-pea opacity-[.45]", what: "answered by a person" },
-    { n: of.by_model, className: "bg-running", what: "answered by a model" },
+    { n: of.settled, className: "bg-line-2", what: "settled without judgement" },
+    { n: of.by_person, className: "bg-ink-3", what: "answered by a person" },
+    { n: of.by_model, className: "bg-measured opacity-[.55]", what: "answered by a model" },
     { n: of.measured, className: "bg-measured", what: "measured" },
-    { n: of.open, className: "bg-undecided", what: "waiting on a person" },
+    { n: of.open, className: "bg-needs-you", what: "waiting on a person" },
   ].filter((band) => band.n > 0);
   const total = bands.reduce((sum, band) => sum + band.n, 0);
 
@@ -119,11 +119,11 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
             const waiting = row.open_values.length + row.open_not_named;
             return (
               <tr key={row.id} className="settle">
-                {/* Green when nothing is waiting, `--undecided` when something is. It reads the
+                {/* Green when nothing is waiting, `--needs-you` when something is. It reads the
                     same number the *last outcome* cell does, so the two can never disagree. */}
                 <td className={CELL}>
                   <i aria-hidden className="block w-[7px] h-[7px] rounded-full"
-                     style={{ background: waiting > 0 ? "var(--undecided)" : "var(--pea)" }} />
+                     style={{ background: waiting > 0 ? "var(--needs-you)" : "var(--done)" }} />
                 </td>
                 <td className={CELL}>
                   <Link to={`/build?draft=${row.id}`} className="text-ink no-underline lift
@@ -148,11 +148,11 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                       has no useful last outcome, and saying `succeeded` beside two open values
                       reads as *ready*. */}
                   {waiting > 0 ? (
-                    <span className="text-[var(--undecided)]">
+                    <span className="text-[var(--needs-you)]">
                       {waiting} open
                     </span>
                   ) : last ? (
-                    <span className={last.phase === "running" ? "text-running" : "text-ink-2"}>
+                    <span className={last.phase === "running" ? "text-now-ink" : "text-ink-2"}>
                       {last.phase}
                     </span>
                   ) : (
@@ -240,8 +240,8 @@ export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, stri
               </td>
               <td className={`${CELL} text-secondary text-ink-2`}>{ago(run.submitted_at)}</td>
               <td className={CELL}>
-                <span className={run.phase === "failed" ? "text-[var(--undecided)]"
-                  : run.phase === "running" ? "text-running" : "text-ink-2"}>
+                <span className={run.phase === "failed" ? "text-[var(--needs-you)]"
+                  : run.phase === "running" ? "text-now-ink" : "text-ink-2"}>
                   {run.phase}
                 </span>
                 <span className="text-ink-3 text-secondary tnum">

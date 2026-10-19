@@ -15,11 +15,11 @@ import type { ContractField, FilePane } from "../../api/registry";
 
 const ORIGIN: Record<string, { tone: string; letter: string; word: string }> = {
   derived: { tone: "var(--rail)", letter: "S", word: "read from the source" },
-  model: { tone: "var(--link)", letter: "A", word: "proposed by the model" },
+  model: { tone: "var(--now)", letter: "A", word: "proposed by the model" },
   human: { tone: "var(--measured)", letter: "H", word: "answered by a person" },
-  resolver: { tone: "var(--pea)", letter: "D", word: "derived by the forge" },
-  goal: { tone: "var(--pea)", letter: "D", word: "derived by the forge" },
-  measured: { tone: "var(--pea)", letter: "D", word: "derived by the forge" },
+  resolver: { tone: "var(--done)", letter: "D", word: "derived by the forge" },
+  goal: { tone: "var(--done)", letter: "D", word: "derived by the forge" },
+  measured: { tone: "var(--done)", letter: "D", word: "derived by the forge" },
 };
 
 export function OriginKey() {

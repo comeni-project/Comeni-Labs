@@ -8,7 +8,7 @@ const CODE = /^([A-Z]{2}\d{4}):/;
 export function Refusal({ message }: { message: string }) {
   const code = CODE.exec(message)?.[1];
   return (
-    <div className="border-l-2 border-fault pl-4 py-1">
+    <div className="border-l-2 border-needs-you pl-4 py-1">
       <p className="text-body text-ink">{message}</p>
       {code && (
         <p className="text-secondary text-ink-3 mt-1">

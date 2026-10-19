@@ -109,8 +109,8 @@ function Row({ curve, series }: { curve: Curve; series: Series }) {
           </>
         ) : (
           <>
-            <path vectorEffect="non-scaling-stroke" d={area} fill="var(--pea)" fillOpacity=".07" />
-            <path vectorEffect="non-scaling-stroke" d={line} fill="none" stroke="var(--pea)" strokeWidth="1.5" />
+            <path vectorEffect="non-scaling-stroke" d={area} fill="var(--done)" fillOpacity=".07" />
+            <path vectorEffect="non-scaling-stroke" d={line} fill="none" stroke="var(--done)" strokeWidth="1.5" />
           </>
         )}
 

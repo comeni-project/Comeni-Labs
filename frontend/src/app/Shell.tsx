@@ -57,12 +57,12 @@ import { painted, useTheme } from "./useTheme";
  */
 /** 12.5px, `--ink-3`, no box — the artboards' shell has no pills in it.
  *
- * It shipped as a `--pea` inset shadow on a rounded, padded chip at `--ink-2`. Every part of
+ * It shipped as a `--done` inset shadow on a rounded, padded chip at `--ink-2`. Every part of
  * that was invented: the artboard marks the section you are in with **`--ink` and a 1px
- * `--link` underline**, 3px clear of the baseline, and leaves the others as flat text. A pill
+ * `--now` underline**, 3px clear of the baseline, and leaves the others as flat text. A pill
  * reads as a button — as something to press rather than as where you already are. */
 const nav = "pb-[3px] text-[12.5px] no-underline transition-colors border-b border-transparent";
-const here = "text-ink border-b-[var(--link)]";
+const here = "text-ink border-b-[var(--now)]";
 
 function Tab({ to, children }: { to: string; children: string }) {
   return (

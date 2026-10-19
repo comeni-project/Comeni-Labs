@@ -37,14 +37,14 @@ export function DeleteDraft({ id, name }: { id: string; name: string }) {
       <span>
         Permanent: the pipeline, its conversation, its decisions and its gate results go with
         it. Runs of it stay. Limits are in{" "}
-        <Link to={{ search: "?settings=retention" }} className="text-link">
+        <Link to={{ search: "?settings=retention" }} className="text-now-ink">
           Data retention settings
         </Link>.
       </span>
       <button type="button" data-testid="delete-draft-yes" disabled={send.isPending}
               onClick={() => send.mutate()}
               className="bg-transparent border px-2 py-[2px] cursor-pointer"
-              style={{ color: "var(--fault)", borderColor: "var(--fault)" }}>
+              style={{ color: "var(--needs-you)", borderColor: "var(--needs-you)" }}>
         {send.isPending ? "deleting…" : "delete it"}
       </button>
       <button type="button" data-testid="delete-draft-no" onClick={() => setAsking(false)}
@@ -52,7 +52,7 @@ export function DeleteDraft({ id, name }: { id: string; name: string }) {
         keep it
       </button>
       {send.error && <span role="alert" className="basis-full text-right"
-                           style={{ color: "var(--fault)" }}>{send.error.message}</span>}
+                           style={{ color: "var(--needs-you)" }}>{send.error.message}</span>}
     </span>
   );
 }

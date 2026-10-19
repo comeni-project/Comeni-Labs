@@ -197,7 +197,7 @@ export function Run() {
               guess about where you were. */}
           {from && (
             <Link to={`/build?draft=${from}`}
-                  className="ml-auto text-secondary text-pea no-underline hover:text-ink">
+                  className="ml-auto text-secondary text-done-ink no-underline hover:text-ink">
               ↩ pipeline
             </Link>
           )}
@@ -250,10 +250,10 @@ export function Run() {
           >
             {run.phase}
           </span>
-          {/* 11.5px `--ink-4`. It was `text-body`, which put the hash at the same weight as
+          {/* 11.5px `--ink-3`. It was `text-body`, which put the hash at the same weight as
               the sentence under it — the artboard makes it the quietest thing on the line. */}
           {run.name && (
-            <span className="font-data text-[11.5px] text-ink-4">{id.slice(0, 8)}</span>
+            <span className="font-data text-[11.5px] text-ink-3">{id.slice(0, 8)}</span>
           )}
 
           <span className="ml-auto flex items-center gap-[22px]">
@@ -266,7 +266,7 @@ export function Run() {
               {/* The artboard reads `local · started 21:04` — **the executor beside the
                   clock time**, because *where* a run went is the other half of *when*. */}
               {run.started_at_ms != null && (
-                <span className="block font-data text-label text-ink-4 mt-1">
+                <span className="block font-data text-label text-ink-3 mt-1">
                   {run.executor ? `${run.executor} \u00b7 ` : ""}started{" "}
                   {new Date(run.started_at_ms).toLocaleTimeString([], {
                     hour: "2-digit", minute: "2-digit",

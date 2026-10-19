@@ -130,7 +130,7 @@ export function Home() {
               Work
             </p>
             {/* **A segmented control in a hairline box, and the live half is TINTED rather than
-                filled.** `--link-soft` behind `--link` is the artboard's pairing; it shipped as
+                filled.** `--now-soft` behind `--now` is the artboard's pairing; it shipped as
                 `--surface-2` behind `--ink`, which is a grey chip that reads as pressed rather
                 than as selected. Square, because nothing in this row has a radius. */}
             <div className="flex border border-surface-2">
@@ -143,7 +143,7 @@ export function Home() {
                   className={`font-data text-[10px] uppercase tracking-[.08em] px-[13px] py-1.5
                               border-0 cursor-pointer transition-colors
                               ${view === which
-                                ? "bg-[var(--link-soft)] text-[var(--link)]"
+                                ? "bg-[var(--now-soft)] text-[var(--now)]"
                                 : "bg-transparent text-ink-3 hover:text-ink"}`}
                 >
                   By {which}
@@ -155,7 +155,7 @@ export function Home() {
             <Link
               to="/build"
               className="ml-auto px-[13px] py-1.5 no-underline text-[12.5px]
-                         border border-[var(--link-line)] text-[var(--link)] lift"
+                         border border-[var(--now-line)] text-[var(--now)] lift"
             >
               New pipeline
             </Link>

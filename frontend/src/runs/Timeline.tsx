@@ -73,11 +73,11 @@ export function tickEvery(span: number): number[] {
 }
 
 const COLOUR: Record<string, string> = {
-  COMPLETED: "var(--pea)",
+  COMPLETED: "var(--done)",
   CACHED: "var(--rail)",
-  RUNNING: "var(--running)",
-  FAILED: "var(--fault)",
-  ABORTED: "var(--fault)",
+  RUNNING: "var(--now)",
+  FAILED: "var(--needs-you)",
+  ABORTED: "var(--needs-you)",
   SUBMITTED: "var(--surface-2)",
 };
 
@@ -132,7 +132,7 @@ export function Timeline({ runId, live, onPickLane }: {
           into a titled card, which is not how these boards are drawn. */}
       <div className="shrink-0 flex items-center gap-3 px-4 pt-3 pb-2">
         <span className="text-label uppercase tracking-[.15em] text-ink-3">timeline</span>
-        <span className="ml-auto font-data text-label text-ink-4">
+        <span className="ml-auto font-data text-label text-ink-3">
           {drawn.reduce((n, lane) => n + lane.bars.length, 0)} attempts ·{" "}
           {seconds(span)}
           {data.open && " · running"}
@@ -147,7 +147,7 @@ export function Timeline({ runId, live, onPickLane }: {
               <line x1={LABELS + x(data.from_ms + offset)} y1={0}
                     x2={LABELS + x(data.from_ms + offset)} y2={total}
                     stroke="var(--line)" strokeWidth={1} />
-              <text x={LABELS + x(data.from_ms + offset)} y={total + 18} fill="var(--ink-4)"
+              <text x={LABELS + x(data.from_ms + offset)} y={total + 18} fill="var(--ink-3)"
                     fontSize={9} textAnchor="middle" className="font-data">
                 {offset === 0 ? "0" : seconds(offset)}
               </text>
@@ -164,7 +164,7 @@ export function Timeline({ runId, live, onPickLane }: {
                     role={onPickLane && lane.bars.length ? "button" : undefined}
                     style={onPickLane && lane.bars.length ? { cursor: "pointer" } : undefined}
                     onClick={lane.bars.length ? () => onPickLane?.(lane.process) : undefined}
-                    fill={lane.bars.length ? "var(--ink-2)" : "var(--ink-4)"}>
+                    fill={lane.bars.length ? "var(--ink-2)" : "var(--ink-3)"}>
                 {lane.process}
               </text>
               {lane.bars.map((bar) => {

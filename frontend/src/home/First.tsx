@@ -78,11 +78,11 @@ export function First() {
           data-testid="goal-bar"
           className={`settle w-[min(660px,100%)] flex items-center gap-3 px-[18px] py-[15px]
                       ${live ? "cursor-text" : "cursor-not-allowed"}`}
-          style={{ background: "var(--paper-2)", border: "1px solid var(--link-line)",
+          style={{ background: "var(--paper-2)", border: "1px solid var(--now-line)",
                    animationDelay: "120ms" }}
         >
           <span aria-hidden className="font-data text-[14px]"
-                style={{ color: "var(--link)" }}>&rsaquo;</span>
+                style={{ color: "var(--now)" }}>&rsaquo;</span>
           {/* **Not `grow`, and sized to its own content.** The artboard sets the chevron, the
               text and the cursor as three flex children at their natural widths, so the cursor
               sits immediately after the sentence the way a terminal's does. Stretching the
@@ -103,13 +103,13 @@ export function First() {
             size={44}
             className="bg-transparent border-0 outline-none text-[15px] text-ink disabled:cursor-not-allowed
                        max-w-full [field-sizing:content]
-                       placeholder:text-[color:var(--ink-4)]"
+                       placeholder:text-[color:var(--ink-3)]"
             placeholder="gene counts from paired-end RNA-seq of mouse liver"
           />
           {/* The blinking block. `steps(1)` — it snaps rather than fading, which is what a
               terminal cursor does and what the artboard specifies. */}
           <span aria-hidden className="font-data text-[15px] blink"
-                style={{ color: "var(--link)" }}>▮</span>
+                style={{ color: "var(--now)" }}>▮</span>
         </label>
 
         <div className="settle w-[min(660px,100%)] flex flex-wrap items-center gap-4"
@@ -117,7 +117,7 @@ export function First() {
           {live && (
             <button type="submit" data-testid="start-building" disabled={!ready}
                     className="px-[22px] py-[10px] border-0 cursor-pointer font-semibold text-[13.5px]
-                               bg-[var(--link)] text-paper disabled:cursor-not-allowed disabled:opacity-40">
+                               bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40">
               {begin.isPending ? "Starting…" : "Start building"}
             </button>
           )}
@@ -125,14 +125,14 @@ export function First() {
             {live ? "or " : model.pending
               ? "Checking whether a model is configured — meanwhile, "
               : "No model is configured on this installation, so describing it in words is off — "}
-            <Link to="/build" className="text-[var(--link)] no-underline hover:text-ink">
+            <Link to="/build" className="text-[var(--now)] no-underline hover:text-ink">
               draw it yourself
             </Link>
             {" "}— the canvas without a conversation
           </span>
         </div>
         {begin.error && (
-          <p role="alert" className="m-0 w-[min(660px,100%)] text-[12.5px] text-[var(--undecided)]">
+          <p role="alert" className="m-0 w-[min(660px,100%)] text-[12.5px] text-[var(--needs-you)]">
             {begin.error.message}
           </p>
         )}
@@ -140,8 +140,8 @@ export function First() {
         {live && (
           <div className="settle w-[min(660px,100%)] flex gap-[9px] items-baseline pt-[14px]"
                style={{ animationDelay: "300ms", borderTop: "1px solid var(--line)" }}>
-            <span className="font-data text-[9.5px] tracking-[.12em] uppercase text-ink-4">Sends</span>
-            <span className="text-[11.5px] leading-[1.5] text-ink-4">
+            <span className="font-data text-[9.5px] tracking-[.12em] uppercase text-ink-3">Sends</span>
+            <span className="text-[11.5px] leading-[1.5] text-ink-3">
               Your sentence, and nothing else. No filenames, no sample names, no paths — those belong
               to the run, not the pipeline.
             </span>

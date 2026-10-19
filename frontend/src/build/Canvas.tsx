@@ -95,8 +95,8 @@ export function Canvas({
             "linear-gradient(90deg, var(--grid-1) 1px, transparent 1px)",
             "linear-gradient(var(--grid-2) 1px, transparent 1px)",
             "linear-gradient(90deg, var(--grid-2) 1px, transparent 1px)",
-            "linear-gradient(var(--grid-3) 1px, transparent 1px)",
-            "linear-gradient(90deg, var(--grid-3) 1px, transparent 1px)",
+            "linear-gradient(var(--grid-2) 1px, transparent 1px)",
+            "linear-gradient(90deg, var(--grid-2) 1px, transparent 1px)",
           ].join(", "),
           backgroundSize: [80, 80, 40, 40, 8, 8]
             .map((n, i) => `${n * view.k}px ${[80, 80, 40, 40, 8, 8][i] * view.k}px`)

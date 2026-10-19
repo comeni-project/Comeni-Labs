@@ -69,7 +69,7 @@ function Row({ row, children }: { row: AdaptationRow; children?: React.ReactNode
       <Mark shape={LOOK[row.state].shape} />
       <Link
         to={`/forge/adaptations/${row.id}`}
-        className="text-body font-medium no-underline text-ink hover:text-link min-w-[210px]"
+        className="text-body font-medium no-underline text-ink hover:text-now-ink min-w-[210px]"
       >
         {row.display_name || row.ref}
       </Link>
@@ -115,18 +115,18 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
       {held.map((row) => (
         <div
           key={row.id}
-          className="border border-running bg-surface rounded-[var(--r)] px-4 py-[13px]
+          className="border border-now bg-surface rounded-[var(--r)] px-4 py-[13px]
                      flex items-center gap-3"
         >
           <Mark shape="run" />
           <Link
             to={`/forge/adaptations/${row.id}`}
-            className="text-[13.5px] font-medium no-underline text-ink hover:text-link"
+            className="text-[13.5px] font-medium no-underline text-ink hover:text-now-ink"
           >
             {row.display_name || row.ref}
           </Link>
           <span className="text-body text-ink-2 flex-1">{LOOK[row.state].label}</span>
-          <span className="font-data text-[11.5px] text-running">
+          <span className="font-data text-[11.5px] text-now-ink">
             {since(row.updated_at)}
             <span className="blink">▮</span>
           </span>
@@ -144,7 +144,7 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
               <Mark shape="open" />
               <Link
                 to={`/forge/adaptations/${row.id}`}
-                className="text-body flex-1 no-underline text-ink hover:text-link"
+                className="text-body flex-1 no-underline text-ink hover:text-now-ink"
               >
                 {row.display_name || row.ref}
               </Link>

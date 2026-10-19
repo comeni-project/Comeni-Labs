@@ -73,7 +73,7 @@ function Side({
         {/* **The count survives the collapse.** `dashboard.md` §4: hiding the panel must never
             hide what is blocking your run. */}
         {badge !== undefined && badge > 0 && (
-          <span className="font-data text-secondary text-[var(--undecided)]">{badge}</span>
+          <span className="font-data text-secondary text-[var(--needs-you)]">{badge}</span>
         )}
       </button>
     );
@@ -89,7 +89,7 @@ function Side({
         <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
           <span className={label}>{title}</span>
           {badge !== undefined && badge > 0 && (
-            <span className="ml-auto font-data text-secondary text-[var(--undecided)]">
+            <span className="ml-auto font-data text-secondary text-[var(--needs-you)]">
               {badge}
             </span>
           )}
@@ -395,7 +395,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em]
                           border-0 cursor-pointer transition-colors
                           ${view2 === which
-                            ? "bg-[var(--link-soft)] text-link"
+                            ? "bg-[var(--now-soft)] text-now-ink"
                             : "bg-transparent text-ink-3 hover:text-ink"}`}
             >
               {which}
@@ -412,7 +412,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           disabled={runner.busy || builder.graph.nodes.length === 0}
           onClick={() => void runner.run()}
           className="px-[26px] py-[9px] border-0 cursor-pointer lift font-semibold
-                     text-[13.5px] bg-[var(--link)] text-paper
+                     text-[13.5px] bg-[var(--now)] text-paper
                      disabled:cursor-not-allowed disabled:opacity-40"
         >
           {runner.stage === "keeping" ? "Keeping…"
@@ -507,7 +507,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               <button
                 data-testid="add-step"
                 onClick={() => setBrowsing(true)}
-                className="font-data text-label text-link border border-[var(--link-line)]
+                className="font-data text-label text-now-ink border border-[var(--now-line)]
                            px-[11px] py-[6px] bg-transparent cursor-pointer lift"
               >
                 + Add step
@@ -728,11 +728,11 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               className="font-data text-label uppercase tracking-[.09em] px-[11px] py-1.5
                          bg-transparent border-0 cursor-pointer text-ink-3 hover:text-ink
                          data-[active]:text-ink
-                         data-[active]:shadow-[inset_0_-2px_0_var(--link)]"
+                         data-[active]:shadow-[inset_0_-2px_0_var(--now)]"
             >
               {t === "ask" ? "Assistant" : t}
               {t === "problems" && builder.findings.length > 0 && (
-                <span className="ml-1.5 text-[var(--undecided)]">{builder.findings.length}</span>
+                <span className="ml-1.5 text-[var(--needs-you)]">{builder.findings.length}</span>
               )}
             </button>
           ))}
@@ -821,7 +821,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 setMenu(null);
               }}
               className="w-full text-left px-3 py-1.5 text-body bg-transparent border-0
-                         cursor-pointer hover:bg-[var(--hover)] text-[var(--undecided)]"
+                         cursor-pointer hover:bg-[var(--hover)] text-[var(--needs-you)]"
             >
               Delete step
             </button>

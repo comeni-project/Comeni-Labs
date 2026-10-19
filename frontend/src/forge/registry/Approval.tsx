@@ -123,7 +123,7 @@ export function RequestChanges({
             key={ref}
             type="button"
             onClick={() => setRefs(refs.filter((other) => other !== ref))}
-            className="font-data text-[10.5px] text-link border border-[var(--link-line)]
+            className="font-data text-[10.5px] text-now-ink border border-[var(--now-line)]
                        rounded-[var(--r)] px-2.5 py-[5px] bg-transparent"
           >
             {ref} ×
@@ -287,8 +287,8 @@ export function Approve({
               { onSuccess: onClose },
             )
           }
-          className="border border-pea text-pea bg-transparent text-[12px] rounded-[var(--r)]
-                     px-3.5 py-[7px] hover:bg-pea-soft disabled:border-line
+          className="border border-done text-done-ink bg-transparent text-[12px] rounded-[var(--r)]
+                     px-3.5 py-[7px] hover:bg-done-soft disabled:border-line
                      disabled:text-ink-3 disabled:cursor-not-allowed"
         >
           {approve.isPending ? "Publishing…" : "Approve and publish"}

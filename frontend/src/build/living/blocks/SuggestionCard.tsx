@@ -26,7 +26,7 @@ export function SuggestionCard({
          style={{ borderColor: "var(--line-2)" }}>
       <div className="flex-1 min-w-0">
         <p className="m-0 text-[12.5px] text-ink">{suggestion.says}</p>
-        <p className="m-0 font-data text-[9.5px] text-ink-4">
+        <p className="m-0 font-data text-[9.5px] text-ink-3">
           {suggestion.heard && suggestion.quote ? `you said "${suggestion.quote}"`
             : "suggested by AI"}
         </p>

@@ -90,7 +90,7 @@ function Action({ row }: { row: CatalogueRow }) {
     return (
       <Link
         to={`/forge/adaptations/${where.adaptation_id}`}
-        className="font-data text-label tracking-[.08em] uppercase no-underline text-link
+        className="font-data text-label tracking-[.08em] uppercase no-underline text-now-ink
                    border border-line-2 rounded-[var(--r)] px-[11px] py-[5px] hover:bg-surface"
       >
         Open
@@ -218,8 +218,8 @@ function Detail({
           type="button"
           onClick={onStart}
           disabled={busy}
-          className="w-full mt-1 border border-pea text-pea bg-transparent text-[12px]
-                     rounded-[var(--r)] px-3.5 py-[7px] hover:bg-pea-soft
+          className="w-full mt-1 border border-done text-done-ink bg-transparent text-[12px]
+                     rounded-[var(--r)] px-3.5 py-[7px] hover:bg-done-soft
                      disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {busy ? "Starting…" : "Adapt this tool"}

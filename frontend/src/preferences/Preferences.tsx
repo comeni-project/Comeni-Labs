@@ -87,7 +87,7 @@ export function Preferences({
             <div key={group} className="contents md:block">
               <div
                 className="hidden md:block font-data text-label uppercase tracking-[.14em]
-                           text-ink-4 px-[12px] pt-[14px] pb-[6px]"
+                           text-ink-3 px-[12px] pt-[14px] pb-[6px]"
               >
                 {group}
               </div>
@@ -112,7 +112,7 @@ export function Preferences({
                     {count && (
                       <span
                         className={`hidden md:inline font-data text-label
-                                    ${count.set ? "text-link" : "text-ink-4"}`}
+                                    ${count.set ? "text-now-ink" : "text-ink-3"}`}
                       >
                         {count.text}
                       </span>
@@ -131,7 +131,7 @@ export function Preferences({
               {wiener.error instanceof Error ? wiener.error.message : "no answer"}.
             </span>
           )}
-          <span className="hidden md:inline font-data text-label text-ink-4">a value in .env always wins</span>
+          <span className="hidden md:inline font-data text-label text-ink-3">a value in .env always wins</span>
         </div>
       </nav>
 

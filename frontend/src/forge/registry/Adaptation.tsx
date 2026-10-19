@@ -77,7 +77,7 @@ function Track({ row }: { row: AdaptationRow }) {
               <Mark shape={i < at ? "done" : i === at ? "run" : "open"} />
               <span
                 className={`text-[12px] ${
-                  i < at ? "text-ink-2" : i === at ? "text-ink font-medium" : "text-ink-4"
+                  i < at ? "text-ink-2" : i === at ? "text-ink font-medium" : "text-ink-3"
                 }`}
               >
                 {stage.label}
@@ -149,7 +149,7 @@ function Scaffold({
       </div>
       <div className="flex gap-[34px] pb-4">
         <Figure n={candidate.fields.length} what="facts read" />
-        <Figure n={candidate.holes.length} what="holes open" tone="var(--fault)" />
+        <Figure n={candidate.holes.length} what="holes open" tone="var(--needs-you)" />
         <Figure n={candidate.evidence.length} what="evidence excerpts" />
       </div>
       <div className="flex flex-col gap-[9px]">
@@ -159,13 +159,13 @@ function Scaffold({
             type="button"
             onClick={() => onSelect(hole.id)}
             className="lift flex gap-2.5 items-baseline text-left px-2.5 py-[7px]
-                       border-l-2 border-fault w-full"
+                       border-l-2 border-needs-you w-full"
           >
             <span className="font-data text-[10.5px] text-ink-3 flex-[0_0_168px] truncate">
               {hole.id}
             </span>
             <span className="text-[12px] flex-1">{hole.question}</span>
-            <span className="font-data text-[10px] text-link whitespace-nowrap">
+            <span className="font-data text-[10px] text-now-ink whitespace-nowrap">
               {hole.evidence_ids.slice(0, 1).join("") || "no evidence"}
               {hole.hint && ` · ${hole.hint}`}
             </span>
@@ -216,7 +216,7 @@ function Inspector({
   if (!hole && fields.length === 0 && cited.length === 0) return null;
 
   return (
-    <div className="border border-link bg-[var(--link-soft)] rounded-[var(--r)] px-5 py-4 mt-[22px]">
+    <div className="border border-now bg-[var(--now-soft)] rounded-[var(--r)] px-5 py-4 mt-[22px]">
       <div className="flex items-baseline justify-between pb-2.5">
         <span className="font-data text-[11px] text-ink">{selected}</span>
         <button
@@ -257,7 +257,7 @@ function Inspector({
 
       {cited.map((excerpt) => (
         <div key={excerpt.id} className="pt-3 border-t border-line-soft mt-3">
-          <p className="font-data text-[10px] text-link m-0">
+          <p className="font-data text-[10px] text-now-ink m-0">
             {excerpt.id} · {excerpt.excerpt.locator}
           </p>
           <p className="font-data text-[10.5px] text-ink-2 m-0 pt-1.5 whitespace-pre-wrap">
@@ -344,8 +344,8 @@ export function Adaptation() {
                             ? undefined
                             : approval.data?.refusals.map((r) => r.split("\n")[0]).join("; ")
                         }
-                        className="border border-pea text-pea bg-transparent text-[12px]
-                                   rounded-[var(--r)] px-3.5 py-[7px] hover:bg-pea-soft
+                        className="border border-done text-done-ink bg-transparent text-[12px]
+                                   rounded-[var(--r)] px-3.5 py-[7px] hover:bg-done-soft
                                    disabled:border-line disabled:text-ink-3
                                    disabled:cursor-not-allowed"
                       >
@@ -373,7 +373,7 @@ export function Adaptation() {
                   <> · source digest {candidate.data.source_digest.slice(0, 8)}…</>
                 )}
                 {row.failed_stage && (
-                  <span className="text-fault"> · failed at {LOOK[row.failed_stage].label}</span>
+                  <span className="text-needs-you-ink"> · failed at {LOOK[row.failed_stage].label}</span>
                 )}
               </div>
 
@@ -381,7 +381,7 @@ export function Adaptation() {
                 <div className="text-body text-ink-2 pt-2">
                   {candidate.data?.files.length ?? 0} file
                   {candidate.data?.files.length === 1 ? "" : "s"} ·{" "}
-                  <span className={current.green ? "text-pea" : "text-measured"}>
+                  <span className={current.green ? "text-done-ink" : "text-measured"}>
                     {current.green ? "checks pass" : "checks have not passed"}
                   </span>{" "}
                   · {current.unresolved_required} unresolved
@@ -442,7 +442,7 @@ export function Adaptation() {
 
                 {candidate.data && !reviewing && (
                   <>
-                    <div className="border border-running bg-surface rounded-[var(--r)] px-5 py-[18px]">
+                    <div className="border border-now bg-surface rounded-[var(--r)] px-5 py-[18px]">
                       <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-2.5">
                         Current stage
                       </div>
@@ -520,10 +520,10 @@ export function Adaptation() {
                             onClick={() => setSelected(excerpt.id)}
                             className={`lift text-left border border-line bg-surface
                                         rounded-[var(--r)] px-4 py-3 ${
-                                          selected === excerpt.id ? "border-link" : ""
+                                          selected === excerpt.id ? "border-now" : ""
                                         }`}
                           >
-                            <div className="font-data text-[10px] text-link">
+                            <div className="font-data text-[10px] text-now-ink">
                               {excerpt.id} · {excerpt.kind} · {excerpt.excerpt.locator}
                             </div>
                             <div className="font-data text-[10.5px] text-ink-2 pt-1.5 whitespace-pre-wrap">

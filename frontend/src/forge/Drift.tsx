@@ -25,12 +25,12 @@ function Verdict({ report }: { report: DriftReport }) {
     <div
       data-verdict={report.verdict}
       className="mt-6 border-l-2 pl-4 py-1 border-line-2
-                 data-[verdict=breaks]:border-fault data-[verdict=reroutes]:border-fault"
+                 data-[verdict=breaks]:border-needs-you data-[verdict=reroutes]:border-needs-you"
     >
       <div
         data-verdict={report.verdict}
-        className={`${label} data-[verdict=breaks]:text-fault
-                    data-[verdict=reroutes]:text-fault`}
+        className={`${label} data-[verdict=breaks]:text-needs-you-ink
+                    data-[verdict=reroutes]:text-needs-you-ink`}
       >
         {report.verdict}
       </div>
@@ -94,7 +94,7 @@ function Take({ id, check, by }: { id: string; check: FieldCheck; by: string }) 
         <button
           disabled={why.trim() === "" || accept.isPending}
           onClick={() => accept.mutate({ field: check.field, by: who, why })}
-          className="px-3 py-1 rounded border border-pea text-pea bg-transparent
+          className="px-3 py-1 rounded border border-done text-done-ink bg-transparent
                      cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Take the source's value

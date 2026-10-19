@@ -32,8 +32,8 @@ function Cite({ citation, onEvidence }: { citation: Citation; onEvidence: (id: s
       type="button"
       onClick={() => citation.evidence_id && onEvidence(citation.evidence_id)}
       title={citation.kind.replace("_", " ")}
-      className="font-data text-[10px] text-link border border-[var(--link-line)]
-                 rounded-[var(--r)] px-2 py-[3px] bg-transparent hover:bg-[var(--link-soft)]"
+      className="font-data text-[10px] text-now-ink border border-[var(--now-line)]
+                 rounded-[var(--r)] px-2 py-[3px] bg-transparent hover:bg-[var(--now-soft)]"
     >
       {label}
     </button>
@@ -77,7 +77,7 @@ export function ReviewChat({
           <div key={turn.id} className="py-[11px] border-b border-line-soft">
             <div
               className={`font-data text-[9.5px] tracking-[.14em] uppercase pb-[5px] ${
-                turn.role === "curator" ? "text-ink-3" : "text-link"
+                turn.role === "curator" ? "text-ink-3" : "text-now-ink"
               }`}
             >
               {turn.role === "curator" ? "You" : "Assistant"}
@@ -104,7 +104,7 @@ export function ReviewChat({
             {turn.state === "failed" && (
               <div className="flex items-center gap-2 pt-1.5">
                 <Mark shape="fail" />
-                <span className="font-data text-[10.5px] text-fault">
+                <span className="font-data text-[10.5px] text-needs-you-ink">
                   the answer did not arrive — ask again
                 </span>
               </div>

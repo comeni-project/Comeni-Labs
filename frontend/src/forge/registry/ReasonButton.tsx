@@ -62,8 +62,8 @@ export function ReasonButton({
         type="button"
         disabled={!reason.trim() || busy}
         onClick={() => onSend(reason.trim())}
-        className="font-data text-label tracking-[.08em] uppercase border border-pea text-pea
-                   rounded-[var(--r)] px-[11px] py-[6px] bg-transparent hover:bg-pea-soft
+        className="font-data text-label tracking-[.08em] uppercase border border-done text-done-ink
+                   rounded-[var(--r)] px-[11px] py-[6px] bg-transparent hover:bg-done-soft
                    disabled:border-line disabled:text-ink-3 disabled:cursor-not-allowed"
       >
         {busy ? "…" : "Go"}

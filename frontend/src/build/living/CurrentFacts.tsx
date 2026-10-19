@@ -28,7 +28,7 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
     {error && <p role="alert">{error}</p>}
     {pins.map(pin => <p key={`${pin.site.type_id}:${pin.site.states.join(",")}`}>
       Tool choice for {pin.site.type_id}: {pin.contract}
-      {onRelease && <button disabled={disabled} className="ml-2 text-link underline" onClick={() => {
+      {onRelease && <button disabled={disabled} className="ml-2 text-now-ink underline" onClick={() => {
         void onRelease(pin.site.type_id, pin.site.states).catch(failure => setError(String(failure)));
       }}>Release this tool choice</button>}
     </p>)}
@@ -39,7 +39,7 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
       source: fact.source, kind: "measurement" as const })),
     ...absent.map(subject => ({ subject, label: subject, value: null, source: "open", kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} className="border-t py-2">
       <span>{fact.label}: {factWords(fact.value)} · {sourceWords[fact.source]}</span>
-      {onCorrect && <button type="button" disabled={disabled} className="ml-2 text-link underline"
+      {onCorrect && <button type="button" disabled={disabled} className="ml-2 text-now-ink underline"
         onClick={() => setEditing(editing === fact.subject ? null : fact.subject)}>Correct {fact.label}</button>}
       {editing === fact.subject && onCorrect && <FactEditor subject={fact.subject} value={fact.value}
         kind={fact.kind} declaration={declarations?.[fact.subject]} disabled={disabled}

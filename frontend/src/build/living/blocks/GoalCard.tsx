@@ -241,7 +241,7 @@ export function GoalCard({
                             : [...chosenSuggestions, key])}
                           className={`font-data text-[11px] px-2 py-[3px] border cursor-pointer
                                       focus-visible:shadow-[var(--ring)] ${on
-                                        ? "text-link border-[var(--link)]"
+                                        ? "text-now-ink border-[var(--now)]"
                                         : "text-ink-3 border-dashed border-[var(--line-2)]"}`}>
                     {key}
                   </button>
@@ -254,7 +254,7 @@ export function GoalCard({
       {block.readback ? (
         <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-2">
           {block.readback}{" "}
-          <span className="font-data text-[9.5px] text-ink-4">in the AI's words</span>
+          <span className="font-data text-[9.5px] text-ink-3">in the AI's words</span>
         </p>
       ) : (
         <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
@@ -265,7 +265,7 @@ export function GoalCard({
         // The sentence is the model's and the chips are now the person's. Rewriting the prose
         // would be a second author putting words in the model's mouth, so it stays and says
         // which of the two runs (issue 116).
-        <p className="m-0 mt-1 font-data text-[10px] text-ink-4">
+        <p className="m-0 mt-1 font-data text-[10px] text-ink-3">
           that sentence was the model's reading, before your edit — the types above are what will be built
         </p>
       )}

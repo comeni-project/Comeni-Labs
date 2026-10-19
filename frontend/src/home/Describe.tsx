@@ -32,9 +32,9 @@ export function Describe() {
       <div className="flex flex-wrap items-stretch gap-3">
         <label
           className="grow min-w-[240px] flex items-center gap-3 px-[14px] py-[10px] cursor-text"
-          style={{ background: "var(--paper-2)", border: "1px solid var(--link-line)" }}
+          style={{ background: "var(--paper-2)", border: "1px solid var(--now-line)" }}
         >
-          <span aria-hidden className="font-data text-[13px]" style={{ color: "var(--link)" }}>
+          <span aria-hidden className="font-data text-[13px]" style={{ color: "var(--now)" }}>
             &rsaquo;
           </span>
           <input
@@ -43,7 +43,7 @@ export function Describe() {
             onChange={(e) => setPrompt(e.target.value)}
             aria-label="describe a new analysis"
             className="grow bg-transparent border-0 outline-none text-[13.5px] text-ink
-                       placeholder:text-[color:var(--ink-4)]"
+                       placeholder:text-[color:var(--ink-3)]"
             placeholder="describe a new analysis — e.g. variants from whole-genome sequencing"
           />
         </label>
@@ -51,13 +51,13 @@ export function Describe() {
           type="submit"
           disabled={!ready}
           className="px-[18px] py-[8px] border-0 cursor-pointer font-semibold text-[12.5px]
-                     bg-[var(--link)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                     bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
         >
           {begin.isPending ? "Starting…" : "Start"}
         </button>
       </div>
       {begin.error && (
-        <p role="alert" className="m-0 text-[12px] text-[var(--undecided)]">{begin.error.message}</p>
+        <p role="alert" className="m-0 text-[12px] text-[var(--needs-you)]">{begin.error.message}</p>
       )}
     </form>
   );

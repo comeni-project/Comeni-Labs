@@ -49,7 +49,7 @@ export function TokenPrompt({ onSaved }: { onSaved: () => void }) {
         <button
           type="submit"
           data-testid="token-save"
-          className="px-3 py-1 rounded-r text-body font-semibold bg-pea text-[var(--on-pea)]
+          className="px-3 py-1 rounded-r text-body font-semibold bg-action text-on-action
                      border-0"
         >
           Save

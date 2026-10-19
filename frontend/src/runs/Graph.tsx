@@ -20,8 +20,8 @@ type Wire = {
 };
 type RunGraph = { nodes: Placed[]; wires: Wire[]; width: number; height: number };
 
-/** What a node's fill says. **The run's own vocabulary, not a fifth palette** — `--pea` is
- *  settled, `--measured` is working, `--undecided` needs a person, and a step that has not
+/** What a node's fill says. **The run's own vocabulary, not a fifth palette** — `--done` is
+ *  settled, `--measured` is working, `--needs-you` needs a person, and a step that has not
  *  started is drawn as the surface it sits on rather than as a colour meaning "nothing". */
 function fillOf(node: Placed): string {
   // **The STROKE carries the state; the fill stays the surface.** Tinting the body as well
@@ -33,9 +33,9 @@ function fillOf(node: Placed): string {
 }
 
 function strokeOf(node: Placed): string {
-  if (node.failed) return "var(--undecided)";
+  if (node.failed) return "var(--needs-you)";
   if (node.running) return "var(--measured)";
-  if (node.total && node.done === node.total) return "var(--pea)";
+  if (node.total && node.done === node.total) return "var(--done)";
   if (!node.total) return "var(--line)";
   return "var(--line-2)";
 }
@@ -136,7 +136,7 @@ function RunNode({ node, bind }: { node: Placed; bind?: object }) {
  * than in the browser, and it is what makes this a figure for a methods section rather than a
  * screenshot of a moment.
  *
- * The token values are resolved into the copy: `var(--pea)` means nothing in a file opened in
+ * The token values are resolved into the copy: `var(--done)` means nothing in a file opened in
  * Inkscape, so the SVG would arrive with every stroke unset.
  */
 function svgOf(svg: SVGSVGElement | null): string {
@@ -323,9 +323,9 @@ export function Graph({ runId, onOpenConsole }: {
 
       <span className="shrink-0 flex items-center gap-4 px-6 py-2.5
                        border-t border-line bg-surface-2 text-label text-ink-3">
-        <Swatch colour="var(--pea)" label="done" />
+        <Swatch colour="var(--done)" label="done" />
         <Swatch colour="var(--measured)" label="running" />
-        <Swatch colour="var(--undecided)" label="failed" />
+        <Swatch colour="var(--needs-you)" label="failed" />
         <span className="ml-2 uppercase tracking-[.08em]">
           dag-core&rsquo;s layout &middot; the same arithmetic the builder draws
         </span>

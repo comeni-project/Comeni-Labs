@@ -76,7 +76,7 @@ function Start({ row, onClose }: { row: BoardRow; onClose: () => void }) {
         onClick={() =>
           draft.mutate({ ref: row.ref, name, version }, { onSuccess: () => go("/forge/queue") })
         }
-        className="px-3 py-1 rounded-r border border-pea text-pea bg-transparent cursor-pointer
+        className="px-3 py-1 rounded-r border border-done text-done-ink bg-transparent cursor-pointer
                    disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Draft it
@@ -131,7 +131,7 @@ function Row({ row }: { row: BoardRow }) {
       {row.contract_id ? (
         <Link
           to={`/forge/contracts/${row.contract_id}`}
-          className="font-data text-body text-ink no-underline hover:text-pea"
+          className="font-data text-body text-ink no-underline hover:text-done-ink"
         >
           {row.tool}
         </Link>
@@ -154,7 +154,7 @@ function Row({ row }: { row: BoardRow }) {
       {row.state === "undrafted" && !starting && (
         <button
           onClick={() => setStarting(true)}
-          className="text-secondary text-pea bg-transparent border-0 cursor-pointer p-0"
+          className="text-secondary text-done-ink bg-transparent border-0 cursor-pointer p-0"
         >
           draft →
         </button>

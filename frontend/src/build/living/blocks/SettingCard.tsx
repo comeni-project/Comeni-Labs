@@ -46,9 +46,9 @@ export function SettingCard({
           {block.options.map((option) => (
             <label key={option.id} className="flex items-center gap-2 mb-[6px] text-[12.5px] text-ink cursor-pointer">
               <input type="radio" name={field} value={option.label} checked={value === option.label}
-                     onChange={() => setValue(option.label)} className="accent-[var(--link)]" />
+                     onChange={() => setValue(option.label)} className="accent-[var(--now)]" />
               {option.label}
-              {option.recommended && <span className="font-data text-[9.5px] text-link">recommended</span>}
+              {option.recommended && <span className="font-data text-[9.5px] text-now-ink">recommended</span>}
             </label>
           ))}
         </div>

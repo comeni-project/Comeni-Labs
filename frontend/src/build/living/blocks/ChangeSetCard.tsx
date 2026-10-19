@@ -47,7 +47,7 @@ export function ChangeSetCard({
       <p className="m-0 mb-2 text-[12.5px] text-ink">{block.summary}</p>
       <ul aria-label="affected steps" className="m-0 p-0 font-data text-[11px]">
         {block.removes.map((node) => (
-          <li key={`-${node}`} className="list-none text-[var(--undecided)]">
+          <li key={`-${node}`} className="list-none text-[var(--needs-you)]">
             − {processName(node)} <span className="text-ink-3">removed</span>
           </li>
         ))}

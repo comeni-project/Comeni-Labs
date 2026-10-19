@@ -137,12 +137,12 @@ export function Swap({ step, graph, onApply, onClose }: {
             </p>
           )}
           {added.map((line) => (
-            <p key={line} className="text-secondary text-[var(--undecided)] m-0">
+            <p key={line} className="text-secondary text-[var(--needs-you)] m-0">
               would break · <span className="font-data">{line}</span>
             </p>
           ))}
           {fixed.map((line) => (
-            <p key={line} className="text-secondary text-pea m-0">
+            <p key={line} className="text-secondary text-done-ink m-0">
               would fix · <span className="font-data">{line}</span>
             </p>
           ))}
@@ -154,7 +154,7 @@ export function Swap({ step, graph, onApply, onClose }: {
             data-testid="apply-swap"
             disabled={would.isFetching}
             onClick={() => onApply(chosen)}
-            className="mt-3 px-3 py-1 rounded-r border border-[var(--link)] text-[var(--link)]
+            className="mt-3 px-3 py-1 rounded-r border border-[var(--now)] text-[var(--now)]
                        bg-transparent cursor-pointer text-body lift disabled:opacity-40"
           >
             Swap it

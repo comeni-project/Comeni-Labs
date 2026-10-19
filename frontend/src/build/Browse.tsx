@@ -131,7 +131,7 @@ export function Browse({ accepts, onAdd, onClose }: {
               aria-pressed={only}
               className={`px-2 py-1 rounded-r text-secondary font-data cursor-pointer border
                           ${only
-                            ? "border-[var(--link)] text-[var(--link)] bg-transparent"
+                            ? "border-[var(--now)] text-[var(--now)] bg-transparent"
                             : "border-line text-ink-3 bg-transparent"}`}
             >
               accepts {accepts.label} {only ? "×" : "+"}
@@ -183,7 +183,7 @@ export function Browse({ accepts, onAdd, onClose }: {
                         )}
                       </span>
                       {/* **The type signature IS the description** — #78. No prose slot. */}
-                      <span className="block font-data text-secondary text-[var(--link)] mt-1">
+                      <span className="block font-data text-secondary text-[var(--now)] mt-1">
                         {m.needs.join(", ") || "—"} → {m.makes.join(", ") || "—"}
                       </span>
                       <span className="block font-data text-label text-ink-3 mt-1 truncate">

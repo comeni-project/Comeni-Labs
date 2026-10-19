@@ -79,7 +79,7 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
             key={index}
             data-changed={changed.has(index) || undefined}
             className="block"
-            style={changed.has(index) ? { background: "var(--link-soft)", color: "var(--ink)" } : undefined}
+            style={changed.has(index) ? { background: "var(--now-soft)", color: "var(--ink)" } : undefined}
           >
             {line || " "}
           </span>

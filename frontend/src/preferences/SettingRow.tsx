@@ -44,7 +44,7 @@ const INLINE = new Set(["model", "text", "number", "toggle", "secret"]);
 /** The badge for where a value came from. Words are the menu's own chrome; colour says one thing:
  *  blue is *you set this here*, everything else is quiet. */
 const TONE: Record<string, string> = {
-  installation: "text-link bg-link-soft border-[var(--link-line)]",
+  installation: "text-now-ink bg-now-soft border-[var(--now-line)]",
   environment: "text-ink-2 bg-surface border-line-2",
 };
 
@@ -87,7 +87,7 @@ function Row({
           )}
           {designed && <Badge dashed>Not built</Badge>}
           {inline && (
-            <span className="basis-full text-secondary text-ink-4">{hintOf(setting.help)}</span>
+            <span className="basis-full text-secondary text-ink-3">{hintOf(setting.help)}</span>
           )}
         </div>
         {inline ? (
@@ -138,7 +138,7 @@ function Control({
                               text-[12px] border-b last:border-b-0 md:border-b-0 md:border-r
                               md:last:border-r-0 border-line-2
                               ${off ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
-                              ${on ? "bg-hover text-ink" : option.designed ? "text-ink-4" : "text-ink-3"}
+                              ${on ? "bg-hover text-ink" : option.designed ? "text-ink-3" : "text-ink-3"}
                               ${!off && !on ? "hover:text-ink" : ""}
                               has-[:focus-visible]:shadow-[var(--ring)]`}
                 >
@@ -157,7 +157,7 @@ function Control({
             })}
           </div>
           {designed.map((option) => (
-            <p key={option.value} className="text-[11px] text-ink-4">
+            <p key={option.value} className="text-[11px] text-ink-3">
               {option.label}: {option.designed}
             </p>
           ))}
@@ -228,7 +228,7 @@ function Secret({
       <span className="flex items-center gap-[12px] text-secondary text-ink-2">
         {last4 ? `Set, ending ${last4}` : "Set"}
         <button type="button" disabled={disabled} onClick={() => setReplacing(true)}
-                className="bg-transparent text-link cursor-pointer">Replace</button>
+                className="bg-transparent text-now-ink cursor-pointer">Replace</button>
       </span>
     );
   }
@@ -246,7 +246,7 @@ function Secret({
       />
       <button type="button" disabled={disabled || !draft}
               onClick={() => onWrite(draft, () => { setDraft(""); setReplacing(false); })}
-              className="bg-transparent text-link cursor-pointer">Save</button>
+              className="bg-transparent text-now-ink cursor-pointer">Save</button>
     </span>
   );
 }

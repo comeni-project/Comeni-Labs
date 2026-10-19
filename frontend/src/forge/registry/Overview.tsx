@@ -37,11 +37,11 @@ function segments(row: SourceRow) {
   const unadapted = Math.max(0, row.adaptable - row.current - row.outdated - row.in_progress);
   const to = (status: string) => `/forge/catalogue?source=${row.source}&status=${status}`;
   return [
-    { n: row.current, tone: "var(--pea)", shape: "done" as const, label: "current",
+    { n: row.current, tone: "var(--done)", shape: "done" as const, label: "current",
       to: to("current") },
     { n: row.outdated, tone: "var(--measured)", shape: "review" as const, label: "outdated",
       to: to("outdated") },
-    { n: row.in_progress, tone: "var(--running)", shape: "run" as const, label: "in progress",
+    { n: row.in_progress, tone: "var(--now)", shape: "run" as const, label: "in progress",
       to: to("in_progress") },
     // **`--surface-2`, not the artboard's `#1C262B`.** The empty part of a bar is the recessed
     // ground behind it — the same role the runs board's track has — and a hex here is a colour
@@ -204,7 +204,7 @@ function Flow({ data }: { data: Counts }) {
                 to={stage.to}
                 className={`lift no-underline text-ink px-[15px] py-[11px] min-w-[118px]
                             bg-surface rounded-[var(--r)] border ${
-                              stage.ai ? "border-running" : "border-line"
+                              stage.ai ? "border-now" : "border-line"
                             }`}
               >
                 <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-1.5">
@@ -359,7 +359,7 @@ export function Overview() {
                 />
                 <Needs
                   to="/forge/work?band=failed"
-                  tone="var(--fault)"
+                  tone="var(--needs-you)"
                   count={data.attention.failed_adaptations}
                   what="failed"
                   note="Each retries at the stage it stopped, not from the beginning."

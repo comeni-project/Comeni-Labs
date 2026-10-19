@@ -75,8 +75,8 @@ function Activity({ days }: { days: Summary["days"] }) {
       <div className="flex items-baseline gap-3">
         <span className="text-label uppercase tracking-[.08em] text-ink-3">runs per day</span>
         <span className="ml-auto flex items-center gap-3.5">
-          <Swatch colour="var(--pea)" label="succeeded" />
-          <Swatch colour="var(--undecided)" label="failed" />
+          <Swatch colour="var(--done)" label="succeeded" />
+          <Swatch colour="var(--needs-you)" label="failed" />
         </span>
       </div>
       <div className="flex-1 min-h-0 flex items-end gap-[3px] mt-2 border-b border-line">
@@ -94,7 +94,7 @@ function Activity({ days }: { days: Summary["days"] }) {
                 {day.failed > 0 && (
                   <>
                     <i className="block rounded-t-[3px]"
-                       style={{ height: bar(day.failed), background: "var(--undecided)" }} />
+                       style={{ height: bar(day.failed), background: "var(--needs-you)" }} />
                     {/* A 2px gap, so the boundary between the two fills is a gap and never a
                         hairline that reads as a third value. */}
                     <i className="block h-[2px]" style={{ background: "var(--surface)" }} />
@@ -102,7 +102,7 @@ function Activity({ days }: { days: Summary["days"] }) {
                 )}
                 {day.succeeded > 0 && (
                   <i className="block"
-                     style={{ height: bar(day.succeeded), background: "var(--pea)",
+                     style={{ height: bar(day.succeeded), background: "var(--done)",
                               borderRadius: day.failed ? "0 0 3px 3px" : "3px" }} />
                 )}
               </div>
@@ -316,14 +316,14 @@ export function Board() {
             they have something to report — a red `0` failures and an amber `0` running are
             both the good news, painted as the bad. */}
         <Tile label="needs you" figure={String(s?.failed ?? 0)}
-              colour={s?.failed ? "var(--undecided)" : "var(--ink-3)"}
+              colour={s?.failed ? "var(--needs-you)" : "var(--ink-3)"}
               note={s?.failed ? "failed, and nobody has looked" : "nothing is waiting on you"} />
         <Tile label="running now" figure={String(s?.running ?? 0)}
               colour={s?.running ? "var(--measured)" : "var(--ink-3)"}
               note={s?.running ? "on this instance" : "the instance is idle"} />
         <Tile label="succeeded · 14 days" figure={rate === null ? "—" : `${rate}%`}
               note={s ? `${s.succeeded} of ${s.succeeded + s.failed} runs` : "—"}
-              bar={rate === null ? undefined : { pct: rate, colour: "var(--pea)" }} />
+              bar={rate === null ? undefined : { pct: rate, colour: "var(--done)" }} />
         {/* **`p95_ms == null` means no run has a recorded DURATION, not that none finished.**
             The two differ, and the board showed them differing: a `succeeded` row in the table
             below and *no run has finished* in this tile, at the same time — because

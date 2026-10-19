@@ -82,10 +82,10 @@ export function Validation({ revision }: { revision: Revision | undefined }) {
  */
 export function Provenance({ origins }: { origins: Origins }) {
   const parts = [
-    { n: origins.derived, tone: "var(--pea)", what: "derived from the source" },
-    { n: origins.model, tone: "var(--link)", what: "proposed by the model" },
+    { n: origins.derived, tone: "var(--done)", what: "derived from the source" },
+    { n: origins.model, tone: "var(--now)", what: "proposed by the model" },
     { n: origins.human, tone: "var(--measured)", what: "edited by hand" },
-    { n: origins.open, tone: "var(--fault)", what: "still open" },
+    { n: origins.open, tone: "var(--needs-you)", what: "still open" },
   ];
   const total = Math.max(1, parts.reduce((sum, part) => sum + part.n, 0));
 

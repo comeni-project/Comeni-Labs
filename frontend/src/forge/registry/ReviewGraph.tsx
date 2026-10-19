@@ -15,11 +15,11 @@ import type { GraphPort, IoGraph } from "../../api/registry";
 
 const LOOK: Record<string, { border: string; tint: string; word: string }> = {
   derived: { border: "border-[var(--rail)]", tint: "bg-[var(--node)]", word: "from the source" },
-  model: { border: "border-[var(--link)]", tint: "bg-[var(--link-soft)]", word: "AI proposed" },
-  human: { border: "border-[var(--pea)]", tint: "bg-[var(--pea-soft)]", word: "answered by hand" },
+  model: { border: "border-[var(--now)]", tint: "bg-[var(--now-soft)]", word: "AI proposed" },
+  human: { border: "border-[var(--done)]", tint: "bg-[var(--done-soft)]", word: "answered by hand" },
   open: {
-    border: "border-dashed border-[var(--fault)]",
-    tint: "bg-[var(--undecided-soft)]",
+    border: "border-dashed border-[var(--needs-you)]",
+    tint: "bg-[var(--needs-you-soft)]",
     word: "unresolved",
   },
 };
@@ -46,7 +46,7 @@ function Port({
                     selected === target ? "shadow-[var(--ring)]" : ""
                   }`}
     >
-      <div className="font-data text-[10.5px] text-link">{port.type_id || port.channel}</div>
+      <div className="font-data text-[10.5px] text-now-ink">{port.type_id || port.channel}</div>
       <div className="font-data text-[9.5px] text-ink-3 pt-1">
         {/* **States in brackets, and an empty pair is not drawn.** `[]` beside a type reads as
             *no states*, which is a claim; a port whose states were never asked says nothing. */}
@@ -99,7 +99,7 @@ export function ReviewGraph({
               <div className="text-body font-medium">{graph.process || "—"}</div>
               {/* §8.5: *the parameter count on the process node opens the parameter table*. A
                   count that is not a control is a number a reviewer has to go and find. */}
-              <div className="font-data text-[9.5px] text-link pt-[5px]">
+              <div className="font-data text-[9.5px] text-now-ink pt-[5px]">
                 {graph.params} parameter{graph.params === 1 ? "" : "s"} ›
               </div>
             </button>
