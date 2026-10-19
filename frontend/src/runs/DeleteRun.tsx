@@ -32,7 +32,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
   if (!asking) {
     return (
       <button type="button" data-testid="delete-run" onClick={() => setAsking(true)}
-              className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+              className="text-label px-[15px] py-2
                          bg-transparent border border-line text-ink-3 cursor-pointer hover:text-ink">
         delete
       </button>
@@ -43,15 +43,15 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
                                                      text-secondary text-ink-2">
       <span>
         Permanent: its results, its working files and its record go with it. Limits are in{" "}
-        <Link to={{ search: "?settings=retention_runs" }} className="text-link">
+        <Link to={{ search: "?settings=retention_runs" }} className="text-now-ink">
           Data retention settings
         </Link>.
       </span>
       <button type="button" data-testid="delete-run-yes" disabled={send.isPending}
               onClick={() => send.mutate()}
-              className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+              className="text-label px-[15px] py-2
                          bg-transparent border cursor-pointer"
-              style={{ color: "var(--fault)", borderColor: "var(--fault)" }}>
+              style={{ color: "var(--needs-you-ink)", borderColor: "var(--needs-you)" }}>
         {send.isPending ? "deleting…" : "delete this run"}
       </button>
       <button type="button" onClick={() => setAsking(false)}
@@ -59,7 +59,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
         keep it
       </button>
       {send.error && <span role="alert" className="basis-full"
-                           style={{ color: "var(--fault)" }}>{send.error.message}</span>}
+                           style={{ color: "var(--needs-you-ink)" }}>{send.error.message}</span>}
     </span>
   );
 }

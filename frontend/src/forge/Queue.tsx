@@ -69,7 +69,7 @@ function Facets({ questions }: { questions: QueueResponse["questions"] }) {
   ];
   return (
     <div className="border-r border-line p-6 flex flex-col">
-      <div className="text-label uppercase tracking-[.13em] font-semibold text-ink-3 mb-3">
+      <div className="text-label font-semibold text-ink-3 mb-3">
         Needs a human
       </div>
       {rows.map(([label, n, tone]) => (

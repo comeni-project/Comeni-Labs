@@ -37,7 +37,7 @@ export function Failed({ error, padded = true }: { error: unknown; padded?: bool
     <div className={padded ? "p-6" : ""}>
       {/^[A-Z]{2}\d{4}:/.test(message)
         ? <Refusal message={message} />
-        : <p className="text-body text-fault m-0">{message}</p>}
+        : <p className="text-body text-needs-you-ink m-0">{message}</p>}
     </div>
   );
 }

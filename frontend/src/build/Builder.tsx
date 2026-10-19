@@ -30,7 +30,7 @@ import { useView } from "./useView";
 
 type Built = components["schemas"]["BuiltPipeline"];
 
-const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+const label = "text-label font-semibold text-ink-3";
 
 /** A panel that collapses to a 42px stub with a vertical label — and keeps its count. */
 function Side({
@@ -67,13 +67,13 @@ function Side({
         className="side shrink-0 flex flex-col items-center gap-3 py-4 bg-surface cursor-pointer
                    border-0 border-l border-line text-ink-3 hover:text-ink"
       >
-        <span className="[writing-mode:vertical-rl] text-label uppercase tracking-[.13em]">
+        <span className="[writing-mode:vertical-rl] text-label">
           {title}
         </span>
         {/* **The count survives the collapse.** `dashboard.md` §4: hiding the panel must never
             hide what is blocking your run. */}
         {badge !== undefined && badge > 0 && (
-          <span className="font-data text-secondary text-[var(--undecided)]">{badge}</span>
+          <span className="font-data text-secondary text-needs-you-ink">{badge}</span>
         )}
       </button>
     );
@@ -89,7 +89,7 @@ function Side({
         <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
           <span className={label}>{title}</span>
           {badge !== undefined && badge > 0 && (
-            <span className="ml-auto font-data text-secondary text-[var(--undecided)]">
+            <span className="ml-auto font-data text-secondary text-needs-you-ink">
               {badge}
             </span>
           )}
@@ -371,7 +371,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             draft.rename(e.target.value, builder.graph)}
           className="bg-transparent border-0 outline-none text-ink min-w-[8ch] w-[16ch]
                      text-title font-semibold tracking-[-.03em]
-                     focus-visible:shadow-[var(--ring)] rounded-r px-1 -mx-1
+                     focus-visible:shadow-[var(--ring)] rounded-control px-1 -mx-1
                      [field-sizing:content]"
         />
         <Status
@@ -392,10 +392,10 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               data-testid={`view-${which}`}
               onClick={() => setView2(which)}
               aria-pressed={view2 === which}
-              className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em]
+              className={` px-[15px] py-[7px] text-label
                           border-0 cursor-pointer transition-colors
                           ${view2 === which
-                            ? "bg-[var(--link-soft)] text-link"
+                            ? "bg-[var(--now-soft)] text-now-ink"
                             : "bg-transparent text-ink-3 hover:text-ink"}`}
             >
               {which}
@@ -412,7 +412,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           disabled={runner.busy || builder.graph.nodes.length === 0}
           onClick={() => void runner.run()}
           className="px-[26px] py-[9px] border-0 cursor-pointer lift font-semibold
-                     text-[13.5px] bg-[var(--link)] text-paper
+                     text-[13.5px] bg-action text-on-action shadow-raise
                      disabled:cursor-not-allowed disabled:opacity-40"
         >
           {runner.stage === "keeping" ? "Keeping…"
@@ -507,7 +507,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               <button
                 data-testid="add-step"
                 onClick={() => setBrowsing(true)}
-                className="font-data text-label text-link border border-[var(--link-line)]
+                className="font-data text-label text-now-ink border border-[var(--now-line)]
                            px-[11px] py-[6px] bg-transparent cursor-pointer lift"
               >
                 + Add step
@@ -526,7 +526,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
 
             <div
               data-zoomer
-              className="absolute right-4 bottom-[86px] flex items-center gap-1 rounded-r
+              className="absolute right-4 bottom-[86px] flex items-center gap-1 rounded-panel
                          border border-line bg-surface px-1 py-1 shadow-e1"
             >
               <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
@@ -725,14 +725,14 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               data-testid={`tab-${t}`}
               data-active={panel === t || undefined}
               onClick={() => setPanel(t)}
-              className="font-data text-label uppercase tracking-[.09em] px-[11px] py-1.5
+              className="text-label px-[11px] py-1.5
                          bg-transparent border-0 cursor-pointer text-ink-3 hover:text-ink
                          data-[active]:text-ink
-                         data-[active]:shadow-[inset_0_-2px_0_var(--link)]"
+                         data-[active]:shadow-[inset_0_-2px_0_var(--now)]"
             >
               {t === "ask" ? "Assistant" : t}
               {t === "problems" && builder.findings.length > 0 && (
-                <span className="ml-1.5 text-[var(--undecided)]">{builder.findings.length}</span>
+                <span className="ml-1.5 text-needs-you-ink">{builder.findings.length}</span>
               )}
             </button>
           ))}
@@ -799,7 +799,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           <div
             data-testid="node-menu"
             style={{ left: menu.x, top: menu.y }}
-            className="fixed z-50 min-w-[160px] rounded-r border border-line bg-surface py-1
+            className="fixed z-50 min-w-[160px] rounded-panel border border-line bg-surface py-1
                        shadow-e3"
           >
             <button
@@ -821,7 +821,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 setMenu(null);
               }}
               className="w-full text-left px-3 py-1.5 text-body bg-transparent border-0
-                         cursor-pointer hover:bg-[var(--hover)] text-[var(--undecided)]"
+                         cursor-pointer hover:bg-[var(--hover)] text-needs-you-ink"
             >
               Delete step
             </button>
@@ -923,5 +923,5 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
 }
 
 const zoomBtn =
-  "px-2 py-1 rounded-r bg-transparent border-0 cursor-pointer text-secondary text-ink-2 " +
+  "px-2 py-1 rounded-control bg-transparent border-0 cursor-pointer text-secondary text-ink-2 " +
   "hover:text-ink hover:bg-surface-2";

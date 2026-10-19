@@ -26,8 +26,8 @@ export function QueueRow({
   return (
     <>
       {heading && (
-        <div className="px-6 pt-5 pb-2 text-label uppercase tracking-[.13em]
-                        font-semibold text-ink-3 font-data">
+        <div className="px-6 pt-5 pb-2 text-label
+                        font-semibold text-ink-3">
           {heading}
         </div>
       )}
@@ -36,13 +36,13 @@ export function QueueRow({
       data-selected={selected || undefined}
       className="grid grid-cols-[72px_1fr_128px_54px] gap-6 items-baseline px-6 py-4
                  border-b border-line data-[band=cosmetic]:opacity-60
-                 data-[selected]:shadow-[inset_2px_0_0_var(--pea)]
+                 data-[selected]:shadow-[inset_2px_0_0_var(--done)]
                  data-[selected]:bg-surface-2"
     >
       <span
-        className="text-label uppercase tracking-[.13em] font-semibold
-                   data-[band=routing]:text-pea data-[band=blocked]:text-fault
-                   data-[band=drift]:text-fault"
+        className="text-label font-semibold
+                   data-[band=routing]:text-done-ink data-[band=blocked]:text-needs-you-ink
+                   data-[band=drift]:text-needs-you-ink"
         data-band={q.band}
       >
         {drift ? "Drift" : q.band === "blocked" ? "Blocked" : q.suggested ? "Confirm" : "Ask"}
@@ -66,7 +66,7 @@ export function QueueRow({
             ? `/forge/contracts/${q.about}/drift`
             : `/forge/queue/question/${encodeURIComponent(q.subject)}`
         }
-        className="text-body text-pea no-underline"
+        className="text-body text-done-ink no-underline"
       >
         {drift ? "Review" : "Answer"}
       </Link>

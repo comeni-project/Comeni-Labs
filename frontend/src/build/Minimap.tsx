@@ -31,7 +31,7 @@ const PAD = 8;
 
 const COLOUR: Record<number, string> = {
   3: "var(--measured)",
-  4: "var(--undecided)",
+  4: "var(--needs-you)",
 };
 
 /** How much room the drawn graph actually takes, in canvas coordinates.

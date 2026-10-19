@@ -25,8 +25,8 @@ export function Validation({ revision }: { revision: Revision | undefined }) {
   const ran = verdict.ran === true;
 
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[9px]">
+    <div className="border border-line bg-surface rounded-panel px-[18px] py-4">
+      <div className="text-label text-ink-3 pb-[9px]">
         Validation
       </div>
 
@@ -82,16 +82,16 @@ export function Validation({ revision }: { revision: Revision | undefined }) {
  */
 export function Provenance({ origins }: { origins: Origins }) {
   const parts = [
-    { n: origins.derived, tone: "var(--pea)", what: "derived from the source" },
-    { n: origins.model, tone: "var(--link)", what: "proposed by the model" },
-    { n: origins.human, tone: "var(--measured)", what: "edited by hand" },
-    { n: origins.open, tone: "var(--fault)", what: "still open" },
+    { n: origins.derived, tone: "var(--rail)", what: "derived from the source" },
+    { n: origins.model, tone: "var(--measured)", what: "proposed by the model" },
+    { n: origins.human, tone: "var(--ink-2)", what: "edited by hand" },
+    { n: origins.open, tone: "var(--needs-you)", what: "still open" },
   ];
   const total = Math.max(1, parts.reduce((sum, part) => sum + part.n, 0));
 
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-3">
+    <div className="border border-line bg-surface rounded-panel px-[18px] py-4">
+      <div className="text-label text-ink-3 pb-3">
         Where each value came from
       </div>
       <div className="flex gap-[3px] h-[9px]">

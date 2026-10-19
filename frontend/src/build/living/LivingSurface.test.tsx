@@ -422,7 +422,7 @@ describe("a sample that answered a question (issue 134)", () => {
     shown(READS);
     const primaries = () => within(screen.getByRole("region", { name: "a question about your data" }))
       .getAllByRole("button")
-      .filter((b) => b.className.includes("bg-[var(--link)]")).map((b) => b.textContent);
+      .filter((b) => b.className.includes("bg-action")).map((b) => b.textContent);
     expect(primaries()).toEqual(["I have it"]);
     fireEvent.change(screen.getByLabelText(/a sample$/i),
       { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
@@ -437,7 +437,7 @@ describe("a sample that answered a question (issue 134)", () => {
     fireEvent.change(screen.getByLabelText(/a sample$/i),
       { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
     expect(card().getByRole("button", { name: "Use this" }).className)
-      .not.toContain("bg-[var(--link)]");
+      .not.toContain("bg-action");
   });
 
   it("holds the question's other answers while a sample is out", async () => {

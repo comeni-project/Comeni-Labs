@@ -6,8 +6,8 @@ import type { components as wiener } from "../wiener/api/schema";
 type Call = components["schemas"]["Call"];
 type RunRow = wiener["schemas"]["RunRow"];
 
-/** The artboards' `.lb` — monospaced, 9.5px, `.15em`. It shipped in the UI face at .14em. */
-const EYEBROW = "font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0";
+/** A band's eyebrow: a label in the interface face, `--ink-3`. */
+const EYEBROW = "text-label text-ink-3 m-0";
 
 /** What is happening right now, and what is stopped until somebody decides.
  *
@@ -42,7 +42,7 @@ export function Now({ running, waiting, named }: {
               <Link
                 key={run.id}
                 to={`/runs/${run.id}`}
-                className="settle no-underline text-ink block lift px-2 -mx-2 py-1 rounded-r"
+                className="settle no-underline text-ink block lift px-2 -mx-2 py-1 rounded-button"
               >
                 {/* **Named by its PIPELINE, not by its id.** A run id is how the machine
                     addresses it; what somebody scanning the front door recognises is what it is
@@ -57,7 +57,7 @@ export function Now({ running, waiting, named }: {
                   </span>
                   {/* Elapsed SNAPS, in tabular figures — numbers never tween. The cursor beside
                       it is the artboard's mark that this number is still moving. */}
-                  <span className="text-running tnum font-data text-[14px]">
+                  <span className="text-now-ink tnum font-data text-[14px]">
                     {elapsed(run.submitted_at)}<span className="blink">▮</span>
                   </span>
                 </span>
@@ -74,14 +74,14 @@ export function Now({ running, waiting, named }: {
                     read as *steps* rather than as a percentage. */}
                 <span className="mt-[13px] flex gap-[3px] h-[9px]">
                   <i
-                    className="bg-pea"
+                    className="bg-done"
                     style={{
                       flex: run.tasks_seen
                         ? `0 0 ${(run.tasks_done / run.tasks_seen) * 100}%`
                         : "0 0 0%",
                     }}
                   />
-                  <i className="flow bg-running w-[44px] shrink-0" />
+                  <i className="flow bg-now w-[44px] shrink-0" />
                   {/* What has not started. `--surface-2`, so the bar has a full width and the
                       done fraction is read against it rather than against the page. */}
                   <i className="bg-surface-2 grow" />
@@ -108,8 +108,8 @@ export function Now({ running, waiting, named }: {
               <Link
                 key={call.where}
                 to={call.where}
-                className="settle no-underline block border-l-2 border-[var(--undecided)] pl-4
-                           lift py-1 rounded-r"
+                className="settle no-underline block border-l-2 border-[var(--needs-you)] pl-4
+                           lift py-1 rounded-button"
               >
                 {/* **It names the values.** `strandedness and fragment size`, not `2 items` —
                     a count is what you write when you have not looked (`ov-settled`). The

@@ -21,8 +21,8 @@ const GLYPH: Record<string, string> = {
 const LINE = 22;
 
 const COLOUR: Record<string, string> = {
-  COMPLETED: "var(--pea)", CACHED: "var(--ink-3)", FAILED: "var(--undecided)",
-  RUNNING: "var(--measured)", SUBMITTED: "var(--ink-3)", ABORTED: "var(--undecided)",
+  COMPLETED: "var(--done-ink)", CACHED: "var(--ink-3)", FAILED: "var(--needs-you-ink)",
+  RUNNING: "var(--now-ink)", SUBMITTED: "var(--ink-3)", ABORTED: "var(--needs-you-ink)",
 };
 
 /** One line, as text — the same thing the row draws, so a copy and a screenshot agree. */
@@ -71,7 +71,7 @@ export function Console({ events, following, process = "", onClearProcess, onFil
   const menu = useContextMenu();
   const [line, setLine] = useState<RunEvent | null>(null);
   const [status, setStatus] = useState("");
-  const control = "text-secondary bg-surface border border-line rounded-[var(--r)] px-2 py-1";
+  const control = "text-secondary bg-surface border border-line rounded-control px-2 py-1";
 
   // **Both lists come from the events in hand**, not from a constant. A status the run never
   // reported is a filter that can only ever empty the view, and a process list that outlives
@@ -188,11 +188,11 @@ export function Console({ events, following, process = "", onClearProcess, onFil
                        // and struck with a 2px rule. The artboard's treatment, and what lets
                        // a failure be found by shape instead of by reading every line.
                        ...(failed
-                         ? { background: "var(--undecided-soft)",
-                             borderRadius: "var(--r)",
+                         ? { background: "var(--needs-you-soft)",
+                             borderRadius: "var(--radius-control)",
                              marginLeft: "-8px", paddingLeft: "8px", paddingRight: "8px",
                              width: "calc(100% + 16px)",
-                             boxShadow: "inset 2px 0 0 var(--undecided)" }
+                             boxShadow: "inset 2px 0 0 var(--needs-you)" }
                          : {}) }}
             >
               <time className="text-ink-3 tabular-nums">{at(event.at_ms)}</time>
@@ -202,12 +202,12 @@ export function Console({ events, following, process = "", onClearProcess, onFil
                 {GLYPH[trace.status] ?? "\u00b7"}
               </span>
               {"  "}
-              <span className={failed ? "text-[var(--undecided)]" : "text-ink"}>
+              <span className={failed ? "text-needs-you-ink" : "text-ink"}>
                 {trace.process}
               </span>
               {tag && <span className="text-ink-3"> ({tag})</span>}
               <span style={{ float: "right" }}
-                    className={failed ? "text-[var(--undecided)]" : "text-ink-3"}>
+                    className={failed ? "text-needs-you-ink" : "text-ink-3"}>
                 {trace.status === "RUNNING"
                   ? "running"
                   : trace.realtime_ms

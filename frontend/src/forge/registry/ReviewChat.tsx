@@ -32,8 +32,8 @@ function Cite({ citation, onEvidence }: { citation: Citation; onEvidence: (id: s
       type="button"
       onClick={() => citation.evidence_id && onEvidence(citation.evidence_id)}
       title={citation.kind.replace("_", " ")}
-      className="font-data text-[10px] text-link border border-[var(--link-line)]
-                 rounded-[var(--r)] px-2 py-[3px] bg-transparent hover:bg-[var(--link-soft)]"
+      className="font-data text-[10px] text-now-ink border border-[var(--now-line)]
+                 rounded-button px-2 py-[3px] bg-transparent hover:bg-[var(--now-soft)]"
     >
       {label}
     </button>
@@ -58,9 +58,9 @@ export function ReviewChat({
   };
 
   return (
-    <aside className="border border-line bg-surface rounded-[var(--r)] flex flex-col">
+    <aside className="border border-line bg-surface rounded-panel flex flex-col">
       <div className="px-4 pt-3.5">
-        <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-1">
+        <div className="text-label text-ink-3 pb-1">
           Ask about this revision
         </div>
       </div>
@@ -76,8 +76,8 @@ export function ReviewChat({
         {turns?.map((turn) => (
           <div key={turn.id} className="py-[11px] border-b border-line-soft">
             <div
-              className={`font-data text-[9.5px] tracking-[.14em] uppercase pb-[5px] ${
-                turn.role === "curator" ? "text-ink-3" : "text-link"
+              className={`text-label pb-[5px] ${
+                turn.role === "curator" ? "text-ink-3" : "text-now-ink"
               }`}
             >
               {turn.role === "curator" ? "You" : "Assistant"}
@@ -104,7 +104,7 @@ export function ReviewChat({
             {turn.state === "failed" && (
               <div className="flex items-center gap-2 pt-1.5">
                 <Mark shape="fail" />
-                <span className="font-data text-[10.5px] text-fault">
+                <span className="font-data text-[10.5px] text-needs-you-ink">
                   the answer did not arrive — ask again
                 </span>
               </div>
@@ -139,7 +139,7 @@ export function ReviewChat({
           placeholder="Ask about this revision…"
           aria-label="Ask about this revision"
           rows={3}
-          className="w-full border border-line-2 bg-paper text-ink text-body rounded-[var(--r)]
+          className="w-full border border-line-2 bg-paper text-ink text-body rounded-control
                      px-[11px] py-[9px] resize-y placeholder:text-ink-3
                      focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
         />
@@ -159,7 +159,7 @@ export function ReviewChat({
             onClick={send}
             disabled={!draft.trim() || ask.isPending}
             className="border border-line-2 bg-transparent text-ink text-[11.5px]
-                       rounded-[var(--r)] px-3.5 py-[5px] hover:bg-surface-2
+                       rounded-button px-3.5 py-[5px] hover:bg-surface-2
                        disabled:text-ink-3 disabled:border-line disabled:cursor-not-allowed"
           >
             {ask.isPending ? "Sending…" : "Ask"}

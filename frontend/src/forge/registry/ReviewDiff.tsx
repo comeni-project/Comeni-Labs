@@ -13,13 +13,15 @@ import type { ContractField, FilePane } from "../../api/registry";
  * only way to see it is for the pane to say which it is.
  */
 
-const ORIGIN: Record<string, { tone: string; letter: string; word: string }> = {
-  derived: { tone: "var(--rail)", letter: "S", word: "read from the source" },
-  model: { tone: "var(--link)", letter: "A", word: "proposed by the model" },
-  human: { tone: "var(--measured)", letter: "H", word: "answered by a person" },
-  resolver: { tone: "var(--pea)", letter: "D", word: "derived by the forge" },
-  goal: { tone: "var(--pea)", letter: "D", word: "derived by the forge" },
-  measured: { tone: "var(--pea)", letter: "D", word: "derived by the forge" },
+/** `tone` marks the gutter; `ink` is the shade the letter wears. A model's proposal awaits review,
+ *  so it is amber; what the source or the forge settled spends no colour. */
+const ORIGIN: Record<string, { tone: string; ink: string; letter: string; word: string }> = {
+  derived: { tone: "var(--rail)", ink: "var(--ink-3)", letter: "S", word: "read from the source" },
+  model: { tone: "var(--measured)", ink: "var(--measured-ink)", letter: "A", word: "proposed by the model" },
+  human: { tone: "var(--ink-2)", ink: "var(--ink-2)", letter: "H", word: "answered by a person" },
+  resolver: { tone: "var(--line-2)", ink: "var(--ink-3)", letter: "D", word: "derived by the forge" },
+  goal: { tone: "var(--line-2)", ink: "var(--ink-3)", letter: "D", word: "derived by the forge" },
+  measured: { tone: "var(--line-2)", ink: "var(--ink-3)", letter: "D", word: "derived by the forge" },
 };
 
 export function OriginKey() {
@@ -35,7 +37,7 @@ export function OriginKey() {
               className="w-[3px] h-[13px]"
               style={{ background: origin.tone }}
             />
-            <span className="font-data text-[9.5px]" style={{ color: origin.tone }}>
+            <span className="font-data text-[9.5px]" style={{ color: origin.ink }}>
               {origin.letter}
             </span>
             {origin.word}
@@ -61,7 +63,7 @@ export function ContractPane({
   onSelect: (holeId: string) => void;
 }) {
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] min-w-0">
+    <div className="border border-line bg-surface rounded-panel min-w-0">
       <div className="flex items-baseline justify-between px-3.5 py-3 border-b border-line">
         <span className="font-data text-[11.5px] text-ink">contract.yml</span>
         <span className="font-data text-label text-ink-3">
@@ -94,7 +96,7 @@ export function ContractPane({
                 />
                 <span
                   className="font-data text-[9px] flex-[0_0_20px] text-center"
-                  style={{ color: origin.tone }}
+                  style={{ color: origin.ink }}
                 >
                   {origin.letter}
                 </span>
@@ -114,7 +116,7 @@ export function CodePane({ file }: { file: FilePane }) {
   const lines = file.text.split("\n");
   const tone = file.authored ? ORIGIN.model : ORIGIN.derived;
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] min-w-0">
+    <div className="border border-line bg-surface rounded-panel min-w-0">
       <div className="flex items-baseline justify-between px-3.5 py-3 border-b border-line">
         <span className="font-data text-[11.5px] text-ink">{file.path}</span>
         <span className="font-data text-label text-ink-3">
@@ -135,7 +137,7 @@ export function CodePane({ file }: { file: FilePane }) {
               />
               <span
                 className="font-data text-[9px] flex-[0_0_20px] text-center"
-                style={{ color: tone.tone }}
+                style={{ color: tone.ink }}
               >
                 {tone.letter}
               </span>

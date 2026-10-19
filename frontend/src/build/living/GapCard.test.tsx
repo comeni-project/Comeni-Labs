@@ -67,7 +67,7 @@ describe("a gap card", () => {
     );
     render(<GapCard proposal={INPUT} busy={false} onAnswer={vi.fn()} />);
     const primary = (name: string) =>
-      screen.getByRole("button", { name }).className.includes("bg-[var(--link)]");
+      screen.getByRole("button", { name }).className.includes("bg-action");
     expect(primary("I have it")).toBe(true);
     expect(primary("I don't have one")).toBe(false);
     expect(primary("I have it, but can't share it")).toBe(false);
@@ -86,7 +86,7 @@ describe("a gap card", () => {
     expect(screen.getByTestId("suggested")).toHaveTextContent("Yes — you mentioned it");
     expect(onAnswer).not.toHaveBeenCalled();
     const primary = (name: string) =>
-      screen.getByRole("button", { name }).className.includes("bg-[var(--link)]");
+      screen.getByRole("button", { name }).className.includes("bg-action");
     expect(primary("Yes")).toBe(true);
     expect(primary("No")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Yes" }));

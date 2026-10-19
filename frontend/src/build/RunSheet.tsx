@@ -100,15 +100,15 @@ export function RunSheet({
             <div className="text-[19px] font-semibold tracking-[-.02em] text-ink">
               Run {name}
             </div>
-            <div className="font-data text-label text-ink-4 pt-[5px]">
+            <div className="font-data text-label text-ink-3 pt-[5px]">
               the pipeline says what it needs · this is where you say where it is
             </div>
           </div>
-          <span className="font-data text-label text-ink-4">esc to close</span>
+          <span className="font-data text-label text-ink-3">esc to close</span>
         </div>
 
         <div className="px-6 pt-5 pb-1.5">
-          <div className="text-label font-data uppercase tracking-[.15em] text-ink-3 pb-3.5">
+          <div className="text-label text-ink-3 pb-3.5">
             Inputs · {sources.length}
           </div>
 
@@ -121,14 +121,14 @@ export function RunSheet({
             >
               <div className="flex items-baseline gap-3 pb-[9px]">
                 <span className="font-data text-body text-ink">{source.name}</span>
-                <span className="font-data text-label text-link">{source.type_id}</span>
+                <span className="font-data text-label text-now-ink">{source.type_id}</span>
               </div>
               <Slot what="choose where these files are" />
             </div>
           ))}
 
           <div className="settle pb-[22px]" style={{ animationDelay: "80ms" }}>
-            <div className="text-label font-data uppercase tracking-[.15em] text-ink-3 pb-[9px]">
+            <div className="text-label text-ink-3 pb-[9px]">
               Results go to
             </div>
             <Slot what="choose where the results are written" />
@@ -149,11 +149,11 @@ export function RunSheet({
           <div
             data-testid="sheet-open"
             className="settle px-6 pt-4 pb-2 border-t border-line
-                       bg-[color-mix(in_srgb,var(--undecided)_4.5%,transparent)]"
+                       bg-[color-mix(in_srgb,var(--needs-you)_4.5%,transparent)]"
             style={{ animationDelay: "120ms" }}
           >
             <div
-              className="text-label font-data uppercase tracking-[.15em] text-[var(--undecided)]
+              className="text-label text-needs-you-ink
                          pb-3.5"
             >
               {open.length} value{open.length === 1 ? " has" : "s have"} no rule
@@ -168,7 +168,7 @@ export function RunSheet({
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-data text-secondary text-ink">{setting.name}</span>
-                  <span className="font-data text-label text-ink-4">{step.process}</span>
+                  <span className="font-data text-label text-ink-3">{step.process}</span>
                 </div>
                 <div className="text-secondary text-ink-2 pt-1.5">{setting.reason}</div>
               </button>
@@ -258,7 +258,7 @@ function Slot({ what }: { what: string }) {
                  cursor-not-allowed"
     >
       <span className="font-data text-secondary text-ink-3">{what}</span>
-      <span className="font-data text-label text-ink-4">choose ▾</span>
+      <span className="font-data text-label text-ink-3">choose ▾</span>
     </button>
   );
 }

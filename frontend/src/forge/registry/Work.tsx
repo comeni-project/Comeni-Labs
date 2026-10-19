@@ -69,7 +69,7 @@ function Row({ row, children }: { row: AdaptationRow; children?: React.ReactNode
       <Mark shape={LOOK[row.state].shape} />
       <Link
         to={`/forge/adaptations/${row.id}`}
-        className="text-body font-medium no-underline text-ink hover:text-link min-w-[210px]"
+        className="text-body font-medium no-underline text-ink hover:text-now-ink min-w-[210px]"
       >
         {row.display_name || row.ref}
       </Link>
@@ -80,8 +80,8 @@ function Row({ row, children }: { row: AdaptationRow; children?: React.ReactNode
       {children}
       <Link
         to={`/forge/adaptations/${row.id}`}
-        className="font-data text-label tracking-[.08em] uppercase no-underline text-ink
-                   border border-line-2 rounded-[var(--r)] px-[11px] py-[5px] hover:bg-surface"
+        className="text-label no-underline text-ink
+                   border border-line-2 rounded-button px-[11px] py-[5px] hover:bg-surface"
       >
         Open
       </Link>
@@ -101,7 +101,7 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
 
   if (rows.length === 0) {
     return (
-      <div className="border border-line bg-surface rounded-[var(--r)] px-4 py-3.5">
+      <div className="border border-line bg-surface rounded-panel px-4 py-3.5">
         <p className="text-body text-ink-2 m-0">The lane is idle.</p>
         <p className="text-secondary text-ink-3 m-0 pt-1">
           Nothing is being scaffolded or generated. Start one from the catalogue.
@@ -115,18 +115,18 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
       {held.map((row) => (
         <div
           key={row.id}
-          className="border border-running bg-surface rounded-[var(--r)] px-4 py-[13px]
+          className="border border-now bg-surface rounded-panel px-4 py-[13px]
                      flex items-center gap-3"
         >
           <Mark shape="run" />
           <Link
             to={`/forge/adaptations/${row.id}`}
-            className="text-[13.5px] font-medium no-underline text-ink hover:text-link"
+            className="text-[13.5px] font-medium no-underline text-ink hover:text-now-ink"
           >
             {row.display_name || row.ref}
           </Link>
           <span className="text-body text-ink-2 flex-1">{LOOK[row.state].label}</span>
-          <span className="font-data text-[11.5px] text-running">
+          <span className="font-data text-[11.5px] text-now-ink">
             {since(row.updated_at)}
             <span className="blink">▮</span>
           </span>
@@ -144,7 +144,7 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
               <Mark shape="open" />
               <Link
                 to={`/forge/adaptations/${row.id}`}
-                className="text-body flex-1 no-underline text-ink hover:text-link"
+                className="text-body flex-1 no-underline text-ink hover:text-now-ink"
               >
                 {row.display_name || row.ref}
               </Link>
@@ -190,7 +190,7 @@ function Band({
 }) {
   return (
     <section className="pb-[26px]">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[11px]">
+      <div className="text-label text-ink-3 pb-[11px]">
         {label} ({rows.length})
       </div>
       {rows.length === 0 ? (
@@ -244,7 +244,7 @@ export function Work() {
                 type="button"
                 aria-current={band === key}
                 onClick={() => setBand(key)}
-                className={`font-data text-label tracking-[.08em] uppercase px-[13px] py-1.5
+                className={` text-label px-[13px] py-1.5
                             border-0 ${
                               band === key ? "bg-surface text-ink" : "bg-transparent text-ink-3 hover:text-ink"
                             }`}
@@ -263,7 +263,7 @@ export function Work() {
             {(!band || band === "ai") && (
               <div className="pb-[26px]">
                 <div className="flex items-baseline gap-3 pb-3">
-                  <span className="font-data text-label tracking-[.15em] uppercase text-ink-3">
+                  <span className="text-label text-ink-3">
                     AI lane
                   </span>
                   <span className="font-data text-[10.5px] text-ink-3">capacity 1</span>

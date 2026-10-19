@@ -62,7 +62,7 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
 
   return (
     <div>
-      <p className="m-0 mb-3 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3" data-testid="preview-label">
+      <p className="m-0 mb-3 text-label text-ink-3" data-testid="preview-label">
         Preview · revision {preview.revision} · not kept
       </p>
       {preview.findings.length > 0 && (
@@ -79,7 +79,7 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
             key={index}
             data-changed={changed.has(index) || undefined}
             className="block"
-            style={changed.has(index) ? { background: "var(--link-soft)", color: "var(--ink)" } : undefined}
+            style={changed.has(index) ? { background: "var(--now-soft)", color: "var(--ink)" } : undefined}
           >
             {line || " "}
           </span>

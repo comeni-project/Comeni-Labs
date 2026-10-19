@@ -15,11 +15,11 @@ import type { GraphPort, IoGraph } from "../../api/registry";
 
 const LOOK: Record<string, { border: string; tint: string; word: string }> = {
   derived: { border: "border-[var(--rail)]", tint: "bg-[var(--node)]", word: "from the source" },
-  model: { border: "border-[var(--link)]", tint: "bg-[var(--link-soft)]", word: "AI proposed" },
-  human: { border: "border-[var(--pea)]", tint: "bg-[var(--pea-soft)]", word: "answered by hand" },
+  model: { border: "border-[var(--measured)]", tint: "bg-[var(--measured-soft)]", word: "AI proposed" },
+  human: { border: "border-[var(--ink-2)]", tint: "bg-[var(--surface-2)]", word: "answered by hand" },
   open: {
-    border: "border-dashed border-[var(--fault)]",
-    tint: "bg-[var(--undecided-soft)]",
+    border: "border-dashed border-[var(--needs-you)]",
+    tint: "bg-[var(--needs-you-soft)]",
     word: "unresolved",
   },
 };
@@ -41,12 +41,12 @@ function Port({
       onClick={() => onSelect(target)}
       aria-pressed={selected === target}
       title={look.word}
-      className={`lift text-left border-l-[3px] border rounded-[var(--r)] px-[13px] py-[11px]
+      className={`lift text-left border-l-[3px] border rounded-button px-[13px] py-[11px]
                   min-w-[150px] ${look.border} ${look.tint} ${
                     selected === target ? "shadow-[var(--ring)]" : ""
                   }`}
     >
-      <div className="font-data text-[10.5px] text-link">{port.type_id || port.channel}</div>
+      <div className="font-data text-[10.5px] text-now-ink">{port.type_id || port.channel}</div>
       <div className="font-data text-[9.5px] text-ink-3 pt-1">
         {/* **States in brackets, and an empty pair is not drawn.** `[]` beside a type reads as
             *no states*, which is a claim; a port whose states were never asked says nothing. */}
@@ -73,10 +73,10 @@ export function ReviewGraph({
 }) {
   return (
     <>
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+      <div className="text-label text-ink-3 pb-[13px]">
         Input / output
       </div>
-      <div className="border border-line bg-surface rounded-[var(--r)] px-5 py-[22px]">
+      <div className="border border-line bg-surface rounded-panel px-5 py-[22px]">
         <div className="overflow-x-auto">
           <div className="flex items-center gap-4 min-w-[640px]">
             <div className="flex flex-col gap-2">
@@ -93,13 +93,13 @@ export function ReviewGraph({
               type="button"
               onClick={onParams}
               className="lift text-left border border-[var(--node-line)] border-l-[3px]
-                         border-l-[var(--rail)] bg-[var(--node)] rounded-[var(--r)] px-[13px] py-[11px]
+                         border-l-[var(--rail)] bg-[var(--node)] rounded-button px-[13px] py-[11px]
                          min-w-[172px]"
             >
               <div className="text-body font-medium">{graph.process || "—"}</div>
               {/* §8.5: *the parameter count on the process node opens the parameter table*. A
                   count that is not a control is a number a reviewer has to go and find. */}
-              <div className="font-data text-[9.5px] text-link pt-[5px]">
+              <div className="font-data text-[9.5px] text-now-ink pt-[5px]">
                 {graph.params} parameter{graph.params === 1 ? "" : "s"} ›
               </div>
             </button>

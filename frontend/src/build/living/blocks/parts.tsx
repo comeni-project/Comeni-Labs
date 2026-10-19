@@ -16,10 +16,10 @@ export function TickMark({ kind }: { kind: Tick }) {
     border: "1px solid var(--line-2)",
     background: "var(--paper)",
   };
-  if (kind === "you") Object.assign(style, { background: "var(--link)", borderColor: "var(--link)" });
+  if (kind === "you") Object.assign(style, { background: "var(--now)", borderColor: "var(--now)" });
   if (kind === "model") Object.assign(style, { borderStyle: "dashed", borderColor: "var(--ink-2)" });
   if (kind === "person") Object.assign(style, { background: "var(--ink-2)", borderColor: "var(--ink-2)" });
-  if (kind === "open") Object.assign(style, { borderColor: "var(--undecided)" });
+  if (kind === "open") Object.assign(style, { borderColor: "var(--needs-you)" });
   if (kind === "wait") Object.assign(style, { borderColor: "var(--measured)" });
   return <span aria-hidden data-tick={kind} className="absolute" style={style} />;
 }
@@ -67,7 +67,7 @@ export function BlockFrame({
         className="flex items-baseline justify-between gap-[10px] px-3 py-[9px]"
         style={{ borderBottom: "1px solid var(--line)" }}
       >
-        <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">{title}</span>
+        <span className="text-label text-ink-3">{title}</span>
         {aside && <span className="font-data text-[9.5px] text-ink-3">{aside}</span>}
       </header>
       <div className="px-3 py-[11px]">{children}</div>
@@ -89,7 +89,7 @@ export function Primary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
       type="button"
       {...props}
       className="text-[12.5px] font-semibold px-[15px] py-[7px] border-0 cursor-pointer
-                 bg-[var(--link)] text-paper disabled:opacity-40 disabled:cursor-not-allowed
+                 bg-action text-on-action shadow-raise disabled:opacity-40 disabled:cursor-not-allowed
                  focus-visible:shadow-[var(--ring)]"
     />
   );

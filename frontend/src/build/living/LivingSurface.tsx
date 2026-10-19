@@ -212,7 +212,7 @@ export function LivingSurface({
               {alternative.error
                 ? <>This preview could not be read. {alternative.error.message}
                     <button type="button" data-testid="preview-retry" onClick={() => void alternative.retry()}
-                            className="bg-transparent border-0 p-0 text-link underline cursor-pointer">
+                            className="bg-transparent border-0 p-0 text-now-ink underline cursor-pointer">
                       Retry
                     </button></>
                 : "Loading preview…"}
@@ -221,13 +221,13 @@ export function LivingSurface({
           {showing && (
             <div data-testid="alternative-preview" className="relative flex-1 min-h-0 flex flex-col">
               <div role="status" className="mx-5 mt-3 px-3 py-2 border flex items-baseline gap-3"
-                   style={{ borderColor: "var(--link-line)", background: "var(--paper-2)" }}>
+                   style={{ borderColor: "var(--now-line)", background: "var(--paper-2)" }}>
                 <span className="text-[12.5px] text-ink flex-1">
                   <strong className="font-semibold">Preview — not applied.</strong>{" "}
                   The whole pipeline {showing.contract} gives; nothing changes until you choose it.
                 </span>
                 <button type="button" data-testid="preview-close" onClick={closePreview}
-                        className="bg-transparent border-0 text-link cursor-pointer text-[11px]">
+                        className="bg-transparent border-0 text-now-ink cursor-pointer text-[11px]">
                   Close preview
                 </button>
               </div>
@@ -272,9 +272,9 @@ export function LivingSurface({
             footer={
               <div className="absolute left-5 bottom-5 flex gap-2">
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
-                        className="font-data text-[11px] px-3 py-[6px] bg-transparent text-link border
+                        className="font-data text-[11px] px-3 py-[6px] bg-transparent text-now-ink border
                                    cursor-pointer focus-visible:shadow-[var(--ring)]"
-                        style={{ borderColor: "var(--link-line)" }}>
+                        style={{ borderColor: "var(--now-line)" }}>
                   + Add step
                 </button>
               </div>
@@ -289,10 +289,10 @@ export function LivingSurface({
                           data-testid={`artifact-tab-${tab}`}
                           disabled={tab === "kept" && !run?.kept}
                           onClick={() => setArtifactTab(tab)}
-                          className={`font-data text-[10px] uppercase tracking-[.1em] px-3 py-[5px] border cursor-pointer
+                          className={`text-label px-3 py-[5px] border cursor-pointer
                                       disabled:opacity-40 disabled:cursor-not-allowed
-                                      ${artifactTab === tab ? "text-link" : "text-ink-3 bg-transparent"}`}
-                          style={{ borderColor: artifactTab === tab ? "var(--link-line)" : "var(--line)" }}>
+                                      ${artifactTab === tab ? "text-now-ink" : "text-ink-3 bg-transparent"}`}
+                          style={{ borderColor: artifactTab === tab ? "var(--now-line)" : "var(--line)" }}>
                     {tab === "preview" ? "as it would read" : "as kept"}
                   </button>
                 ))}
@@ -314,7 +314,7 @@ export function LivingSurface({
           {state.notice && (
             <div role="alert" data-testid="living-notice"
                  className="mx-5 mt-4 px-3 py-2 border flex items-baseline gap-3"
-                 style={{ borderColor: "var(--undecided)", background: "var(--undecided-soft)" }}>
+                 style={{ borderColor: "var(--needs-you)", background: "var(--needs-you-soft)" }}>
               <span className="text-[12.5px] text-ink flex-1">{state.notice.text}</span>
               {state.notice.code && <span className="font-data text-[10px] text-ink-2">{state.notice.code}</span>}
               <button type="button" onClick={onDismiss}
@@ -324,7 +324,7 @@ export function LivingSurface({
             </div>
           )}
           {session.retired && <p className="mx-5 mt-4 text-[12px] text-ink-2">
-            This archived conversation is read-only. <a href="/build" className="text-link underline">Start a new analysis</a>.
+            This archived conversation is read-only. <a href="/build" className="text-now-ink underline">Start a new analysis</a>.
           </p>}
           {!session.model_configured && (
             <div data-testid="no-model" className="mx-5 mt-4">
@@ -339,7 +339,7 @@ export function LivingSurface({
             {session.projection_current === false && <p role="status" className="mb-3 text-[12px] text-ink-2">
               Pipeline outdated. Your answers are saved; follow the chat to provide missing inputs or release a tool choice.
             </p>}
-            {session.forked_from_session && <a className="text-[12px] text-link underline"
+            {session.forked_from_session && <a className="text-[12px] text-now-ink underline"
               href={`/build/living?session=${encodeURIComponent(session.forked_from_session)}`}>Open preserved manual work</a>}
             <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} openRequest={factsRequest}
               disabled={correcting || session.retired || pendingTurn || session.phase === "resolving" ||

@@ -30,9 +30,9 @@ export function Composer({
         send();
       }}
       className="flex items-center gap-[10px] px-[13px] py-[11px] border"
-      style={{ background: "var(--paper-2)", borderColor: "var(--link-line)" }}
+      style={{ background: "var(--paper-2)", borderColor: "var(--now-line)" }}
     >
-      <span aria-hidden className="text-link text-[13px]">›</span>
+      <span aria-hidden className="text-now-ink text-[13px]">›</span>
       <textarea
         data-testid="composer"
         aria-label={placeholder}

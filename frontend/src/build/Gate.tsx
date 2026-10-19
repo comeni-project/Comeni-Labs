@@ -20,9 +20,9 @@ const GATES = [
 
 const COLOUR: Record<string, string> = {
   queued: "var(--ink-3)",
-  running: "var(--measured)",
-  passed: "var(--pea)",
-  failed: "var(--undecided)",
+  running: "var(--now-ink)",
+  passed: "var(--done-ink)",
+  failed: "var(--needs-you-ink)",
 };
 
 export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: string | null }) {
@@ -38,7 +38,7 @@ export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: s
           disabled={gate.running || stopped !== null}
           onClick={() => gate.start(g.id)}
           title={stopped ?? `Gate: ${g.what}. Running a pipeline is Wiener's job.`}
-          className="px-3 py-1 rounded-r text-body font-semibold bg-pea text-[var(--on-pea)]
+          className="px-3 py-1 rounded-button shadow-raise text-body font-semibold bg-action text-on-action
                      border-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {gate.active === g.id ? "Gating…" : g.label}
@@ -52,7 +52,7 @@ export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: s
         <span
           data-testid="gate-progress"
           aria-live="polite"
-          className="font-data text-secondary text-[var(--measured)] animate-pulse"
+          className="font-data text-secondary text-measured-ink animate-pulse"
         >
           running {gate.active}…
         </span>
@@ -82,14 +82,14 @@ export function GatePanel({ draftId, blocked }: { draftId: string | null; blocke
         Mendel never receives it.
       </p>
       {gate.error && (
-        <p data-testid="gate-error" className="text-secondary text-[var(--undecided)]">
+        <p data-testid="gate-error" className="text-secondary text-needs-you-ink">
           {gate.error}
         </p>
       )}
       {gate.run?.output && (
         <pre
           data-testid="gate-output"
-          className="text-secondary font-data bg-surface-2 rounded-r p-2 overflow-x-auto
+          className="text-secondary font-data bg-surface-2 rounded-panel p-2 overflow-x-auto
                      max-h-[40vh] overflow-y-auto whitespace-pre"
         >
           {gate.run.output}
@@ -130,7 +130,7 @@ export function GateVerdict({
         <span
           data-testid="gate-progress"
           aria-live="polite"
-          className="font-data text-secondary text-[var(--measured)] animate-pulse"
+          className="font-data text-secondary text-measured-ink animate-pulse"
         >
           running {gate.active}…
         </span>
@@ -147,7 +147,7 @@ export function GateVerdict({
       )}
 
       {gate.error && (
-        <p data-testid="gate-error" className="text-secondary text-[var(--undecided)] mt-1 mb-0">
+        <p data-testid="gate-error" className="text-secondary text-needs-you-ink mt-1 mb-0">
           {gate.error}
         </p>
       )}
@@ -155,7 +155,7 @@ export function GateVerdict({
       {failed && gate.run?.output && (
         <pre
           data-testid="gate-output"
-          className="text-secondary font-data bg-surface-2 rounded-r p-2 mt-2 mb-0 max-h-[30vh]
+          className="text-secondary font-data bg-surface-2 rounded-panel p-2 mt-2 mb-0 max-h-[30vh]
                      overflow-auto whitespace-pre"
         >
           {gate.run.output}

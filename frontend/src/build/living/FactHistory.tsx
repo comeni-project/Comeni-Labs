@@ -39,9 +39,9 @@ export function FactHistory({ sessionId, subject, revision }: {
         {entry.selected && <> · {entry.actor_kind === "unknown" ? "chooser unknown" :
           `${entry.actor_kind}: ${entry.who ?? "unknown"}`}</>}
         {entry.inherited && " · inherited"}
-        <time className="block text-ink-4" dateTime={entry.at}>{entry.legacy && "Migrated at "}{new Date(entry.at).toLocaleString()}</time>
+        <time className="block text-ink-3" dateTime={entry.at}>{entry.legacy && "Migrated at "}{new Date(entry.at).toLocaleString()}</time>
       </li>)}
     </ol>
-    <p className="text-ink-4">History is read-only. Undo will be added later.</p>
+    <p className="text-ink-3">History is read-only. Undo will be added later.</p>
   </details>;
 }

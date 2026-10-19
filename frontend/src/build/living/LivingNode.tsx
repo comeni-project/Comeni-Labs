@@ -67,7 +67,7 @@ export function LivingNode({
   onPointerMove?: (e: React.PointerEvent) => void;
   onPointerUp?: (e: React.PointerEvent) => void;
 }) {
-  const bar = tier === 4 ? "var(--undecided)" : tier === 3 ? "var(--measured)" : "var(--rail)";
+  const bar = tier === 4 ? "var(--needs-you)" : tier === 3 ? "var(--measured)" : "var(--rail)";
   const rows = ports.slice(0, Math.floor((NODE_H - HEAD_H - 24) / PORT_ROW));
 
   return (
@@ -90,15 +90,16 @@ export function LivingNode({
         top: at.y,
         width: NODE_W,
         height: NODE_H,
-        background: ghost ? "var(--panel)" : "var(--node)",
+        background: ghost ? "var(--surface-2)" : "var(--node)",
+        borderRadius: "var(--radius-button)",
         opacity: ghost ? 0.62 : 1,
         // Three sides and the left bar, never `border` beside `borderLeft`: React cannot redraw a
         // shorthand next to its own longhand (a ghost becoming placed warned on every accept).
-        borderTop: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
-        borderRight: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
-        borderBottom: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
-        borderLeft: `3px ${author === "model" ? "dashed" : "solid"} ${selected ? "var(--link)" : bar}`,
-        boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--link) 26%, transparent)" : undefined,
+        borderTop: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--node-line)"}`,
+        borderRight: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--node-line)"}`,
+        borderBottom: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--node-line)"}`,
+        borderLeft: `3px ${author === "model" ? "dashed" : "solid"} ${selected ? "var(--now)" : bar}`,
+        boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--now) 26%, transparent)" : undefined,
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
       }}
     >
@@ -144,13 +145,13 @@ export function LivingNode({
           {processName(id)}
         </span>
         {(ghost || reviewState === "proposed") ? (
-          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-now-ink">
             {reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
           </span>
         ) : reviewState === "reviewed" ? (
           <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-ink-3">REVIEWED</span>
         ) : reviewState === "again" ? (
-          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">REVIEW AGAIN</span>
+          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-now-ink">REVIEW AGAIN</span>
         ) : null}
       </span>
       {/* **No top padding, measured rather than read.** The artboard's CSS says `padding:5px 0`,
@@ -163,7 +164,7 @@ export function LivingNode({
             className="flex items-center gap-[7px] px-[10px] font-data text-[8.5px]"
             style={{ height: PORT_ROW }}
           >
-            <span aria-hidden className="text-ink-4">·</span>
+            <span aria-hidden className="text-ink-3">·</span>
             <span className={port.side === "in" ? "text-ink-2 truncate" : "text-ink-3 truncate"}>
               {port.type_id}
               {port.states.length > 0 ? `[${port.states.join(", ")}]` : ""}

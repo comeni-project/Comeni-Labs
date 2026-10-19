@@ -23,7 +23,7 @@ export type OverviewData = components["schemas"]["OverviewOut"];
  * `value === null` draws **nothing at all** and the figure reads `—`. A zero-length bar and a
  * zero are the same picture, and one of them is a lie.
  */
-function Bar({ testId, figureId, value, ceiling, label, tint = "var(--pea)" }: {
+function Bar({ testId, figureId, value, ceiling, label, tint = "var(--done)" }: {
   testId: string; figureId: string; value: number | null; ceiling: number | null;
   label: string; tint?: string;
 }) {
@@ -39,7 +39,7 @@ function Bar({ testId, figureId, value, ceiling, label, tint = "var(--pea)" }: {
           and a pill with a 2px radius budget is a lozenge. These three are what made a
           measured 1.27 GB against a 31 GB ask indistinguishable from nothing. */}
       <span
-        className="block h-[7px] rounded-[3px] overflow-hidden"
+        className="block h-[7px] rounded-xs overflow-hidden"
         style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}
       >
         {width !== null && (
@@ -73,7 +73,7 @@ function Count({ row }: { row: Row }) {
           {row.done} done
           {outstanding > 0 && <span className="text-ink-3"> · {outstanding} more seen</span>}
           {row.failed > 0 && (
-            <span className="text-[var(--undecided)]"> · {row.failed} failed</span>
+            <span className="text-needs-you-ink"> · {row.failed} failed</span>
           )}
         </>
       ) : (
@@ -176,7 +176,7 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
       <div className="grid grid-cols-[13rem_8rem_7rem_1fr_1fr_1fr_1fr] gap-[18px]
                       pl-6 pr-[18px] py-2
                       border-b border-line-soft
-                      font-ui text-label uppercase tracking-[.08em] font-semibold text-ink-3">
+                      font-ui text-label font-semibold text-ink-3">
         <span>process</span><span>tasks</span><span>progress</span>
         <span>memory peak / asked</span><span>cpu used / asked</span>
         <span>worst realtime</span><span>read / written</span>
@@ -218,7 +218,7 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
               <span className="font-data text-body text-ink truncate">{row.process}</span>
               {row.attempts_max > 1 && (
                 <span title={`a task of this process retried — ${row.attempts_max} attempts`}
-                      className="shrink-0 font-data text-secondary text-[var(--measured)]">
+                      className="shrink-0 font-data text-secondary text-measured-ink">
                   ↻{row.attempts_max}
                 </span>
               )}
@@ -250,14 +250,14 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
             <Bar
               testId={`bar-cpu-${row.process}`} figureId={`cpu-${row.process}`}
               value={row.cpu_used_pct} ceiling={row.cpus_asked ? row.cpus_asked * 100 : null}
-              tint="var(--pea)"
+              tint="var(--done)"
               label={row.cpu_used_pct !== null && row.cpus_asked
                 ? percent(row.cpu_used_pct / row.cpus_asked)
                 : ABSENT}
             />
             {/* **Realtime and I/O are NEUTRAL, so they are `--ink-2` and not green.** Longer is
                 not worse and there is nothing to be pleased about — but the column is scaled to
-                its own maximum, so whichever row is slowest draws a *full* bar. In `--pea`,
+                its own maximum, so whichever row is slowest draws a *full* bar. In `--done`,
                 the app's word for done and for a gate that passed, that put a full green bar on
                 the process that killed a failed run. Grey is the artboard's answer and it is
                 also the honest one. */}
@@ -293,7 +293,7 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
           that the panel fills; `--surface-2` and the border make it the artboards' bar, which
           is where the design keeps its own argument about how to read the table. */}
       <p className="mt-auto px-6 py-2.5 flex items-baseline gap-3 border-t border-line
-                    text-label uppercase tracking-[.08em] text-ink-3">
+                    text-label text-ink-3">
         <span data-testid="table-footer">
           {data.steps_declared > 0
             ? `${data.steps_declared} processes declared`

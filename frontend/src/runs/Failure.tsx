@@ -58,17 +58,17 @@ export function Failure({ failed }: { failed: Failed }) {
 
   return (
     /* **A tinted block with a full border, not a white card with a red stripe.** The artboard
-       fills the banner with `--undecided-soft` and outlines it in `--undecided`, which is what
+       fills the banner with `--needs-you-soft` and outlines it in `--needs-you`, which is what
        makes it read as *the run stopped here* before a word of it is read. The left-stripe
        card was the same treatment the console gives one failed LINE — using it for the whole
        banner flattened the difference between the run failing and a task failing. */
     <section
       data-testid="failure"
-      className="rounded-[var(--r)] shadow-e2 p-[15px] flex flex-col gap-2.5"
-      style={{ background: "var(--undecided-soft)", border: "1px solid var(--undecided)" }}
+      className="rounded-panel shadow-e2 p-[15px] flex flex-col gap-2.5"
+      style={{ background: "var(--needs-you-soft)", border: "1px solid var(--needs-you)" }}
     >
       <div className="flex items-baseline gap-2.5">
-        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--fault)" }}>
+        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--needs-you-ink)" }}>
           {failed.process ?? "no task failed — the run stopped before one started"}
           {failed.process && (
             <>
@@ -81,7 +81,7 @@ export function Failure({ failed }: { failed: Failed }) {
         {/* **Said out loud, and set opposite the headline** — because it is the difference
             between this and a chat window. Every field beside it is a value the record holds;
             nothing here is inferred. */}
-        <p className="ml-auto m-0 text-label uppercase tracking-[.08em] text-ink-3
+        <p className="ml-auto m-0 text-label text-ink-3
                       whitespace-nowrap">
           from the record · nothing interpreted
         </p>
@@ -93,12 +93,12 @@ export function Failure({ failed }: { failed: Failed }) {
           the task died, visible without reading either number. */}
       {both && (
         <div data-testid="failure-resources" className="flex items-center gap-2.5">
-          <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
+          <span className="block h-[7px] w-[170px] rounded-xs overflow-hidden shrink-0"
                 style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
             <span className="block h-full"
                   style={{ width: `${Math.min(100, Math.round(
                     (failed.peak_rss_bytes! / failed.asked_bytes!) * 100))}%`,
-                    background: "var(--undecided)" }} />
+                    background: "var(--needs-you)" }} />
           </span>
           <span className="font-data text-body text-ink-2">
             peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
@@ -121,7 +121,7 @@ export function Failure({ failed }: { failed: Failed }) {
               <span className="font-data text-ink-3 w-[54px] shrink-0 tabular-nums">
                 try {attempt.n}
               </span>
-              <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
+              <span className="block h-[7px] w-[170px] rounded-xs overflow-hidden shrink-0"
                     style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
                 <span className="block h-full"
                       style={{ width: `${((attempt.memory_bytes ?? 0) / ceiling) * 100}%`,
@@ -152,7 +152,7 @@ export function Failure({ failed }: { failed: Failed }) {
               three lines would hide the half that matters on the runs this is for. */}
           <pre
             data-testid="failure-report"
-            className="m-0 p-3 font-data text-secondary text-ink-2 rounded-[var(--r)]
+            className="m-0 p-3 font-data text-secondary text-ink-2 rounded-panel
                        max-h-72 overflow-auto whitespace-pre-wrap"
             style={{ background: "var(--surface)", border: "1px solid var(--line)",
                      boxShadow: "var(--well)", lineHeight: 1.7 }}
@@ -161,7 +161,7 @@ export function Failure({ failed }: { failed: Failed }) {
           </pre>
           {/* §18.1: nothing EXPLAINS a failure until W3. Saying so is a boundary; leaving it
               unsaid would let the banner read as an explanation that came up short. */}
-          <p className="m-0 text-label uppercase tracking-[.08em] text-ink-3">
+          <p className="m-0 text-label text-ink-3">
             Nextflow&rsquo;s own errorReport · shown, not explained — W3 explains
           </p>
         </>

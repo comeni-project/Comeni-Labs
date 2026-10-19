@@ -86,8 +86,8 @@ export function Preferences({
           return (
             <div key={group} className="contents md:block">
               <div
-                className="hidden md:block font-data text-label uppercase tracking-[.14em]
-                           text-ink-4 px-[12px] pt-[14px] pb-[6px]"
+                className="hidden md:block text-label
+                           text-ink-3 px-[12px] pt-[14px] pb-[6px]"
               >
                 {group}
               </div>
@@ -101,7 +101,7 @@ export function Preferences({
                     aria-current={here ? "page" : undefined}
                     onClick={() => onSelect(s.key)}
                     className={`shrink-0 md:w-full flex items-center justify-between gap-[12px]
-                                h-[36px] md:h-[34px] px-[12px] rounded-[3px] text-[12.5px] md:text-body
+                                h-[36px] md:h-[34px] px-[12px] rounded-button text-[12.5px] md:text-body
                                 whitespace-nowrap bg-transparent cursor-pointer
                                 transition-colors border md:border-0
                                 ${here
@@ -112,7 +112,7 @@ export function Preferences({
                     {count && (
                       <span
                         className={`hidden md:inline font-data text-label
-                                    ${count.set ? "text-link" : "text-ink-4"}`}
+                                    ${count.set ? "text-now-ink" : "text-ink-3"}`}
                       >
                         {count.text}
                       </span>
@@ -131,7 +131,7 @@ export function Preferences({
               {wiener.error instanceof Error ? wiener.error.message : "no answer"}.
             </span>
           )}
-          <span className="hidden md:inline font-data text-label text-ink-4">a value in .env always wins</span>
+          <span className="hidden md:inline font-data text-label text-ink-3">a value in .env always wins</span>
         </div>
       </nav>
 

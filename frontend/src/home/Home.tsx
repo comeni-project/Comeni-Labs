@@ -126,11 +126,11 @@ export function Home() {
             the space has to do the separating on its own. */}
         <section className={band ? "mt-6" : "mt-[34px]"}>
           <div className="flex items-center gap-5 flex-wrap">
-            <p className="font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0">
+            <p className="text-label text-ink-3 m-0">
               Work
             </p>
             {/* **A segmented control in a hairline box, and the live half is TINTED rather than
-                filled.** `--link-soft` behind `--link` is the artboard's pairing; it shipped as
+                filled.** `--now-soft` behind `--now` is the artboard's pairing; it shipped as
                 `--surface-2` behind `--ink`, which is a grey chip that reads as pressed rather
                 than as selected. Square, because nothing in this row has a radius. */}
             <div className="flex border border-surface-2">
@@ -140,10 +140,10 @@ export function Home() {
                   type="button"
                   onClick={() => setView(which)}
                   aria-pressed={view === which}
-                  className={`font-data text-[10px] uppercase tracking-[.08em] px-[13px] py-1.5
+                  className={`text-label px-[13px] py-1.5
                               border-0 cursor-pointer transition-colors
                               ${view === which
-                                ? "bg-[var(--link-soft)] text-[var(--link)]"
+                                ? "bg-[var(--now-soft)] text-now-ink"
                                 : "bg-transparent text-ink-3 hover:text-ink"}`}
                 >
                   By {which}
@@ -155,7 +155,7 @@ export function Home() {
             <Link
               to="/build"
               className="ml-auto px-[13px] py-1.5 no-underline text-[12.5px]
-                         border border-[var(--link-line)] text-[var(--link)] lift"
+                         border border-[var(--now-line)] text-now-ink lift"
             >
               New pipeline
             </Link>

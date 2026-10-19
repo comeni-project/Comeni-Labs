@@ -14,7 +14,7 @@ type PortView = components["schemas"]["PortView"];
  * > THE TIER LADDER on the canvas: settled gets NO COLOUR AT ALL. Only measured (amber) and
  * > open (red) spend any. Colour where something needs you, nowhere else.
  *
- * It shipped as a 4px inner div in `--pea` for tiers 1 and 2 — so a graph where nothing needed
+ * It shipped as a 4px inner div in `--done` for tiers 1 and 2 — so a graph where nothing needed
  * you was a wall of green, and the two nodes that did need you had to compete with it. A canvas
  * that colours everything has no way left to say *look here*.
  *
@@ -25,7 +25,7 @@ const RAIL: Record<number, string> = {
   1: "var(--rail)",
   2: "var(--rail)",
   3: "var(--measured)",
-  4: "var(--undecided)",
+  4: "var(--needs-you)",
 };
 
 /** One step on the canvas.
@@ -143,14 +143,15 @@ export function Node({
         // The tier is the LEFT BORDER, not an inner bar — so it cannot take width from the
         // content and cannot be mistaken for a fill.
         borderLeftWidth: 3,
+        borderRadius: "var(--radius-button)",
         borderLeftColor: open
-          ? "var(--undecided)"
+          ? "var(--needs-you)"
           : measured
             ? "var(--measured)"
             : RAIL[placed.tier] ?? "var(--rail)",
       }}
       className="absolute flex flex-col cursor-grab active:cursor-grabbing
-                 data-[selected]:shadow-[0_0_0_1px_var(--link)]
+                 data-[selected]:shadow-[0_0_0_1px_var(--now)]
                  transition-[box-shadow,opacity]"
     >
       {/* Ports sit ON the edges, at the one derivation — `portOffset`. An input on the left, an
@@ -190,11 +191,11 @@ export function Node({
           style={{
             right: -27,
             top: portOffset(0) - 9,
-            color: "var(--link)",
+            color: "var(--now-ink)",
             background: "var(--paper-2)",
             borderWidth: 1,
             borderStyle: "solid",
-            borderColor: "var(--link-line)",
+            borderColor: "var(--now-line)",
           }}
         >
           +
@@ -259,7 +260,7 @@ export function Node({
             left border carries the whole signal. Tier 3 says *the machinery worked, check the
             premise* — it is not a thing waiting on you, and putting it in the same sentence as
             the count that is would flatten the difference the tier ladder exists to draw. */}
-        {open && <span style={{ color: "var(--undecided)" }}>{needing} need you</span>}
+        {open && <span style={{ color: "var(--needs-you-ink)" }}>{needing} need you</span>}
         {open && settled > 0 && <span aria-hidden>·</span>}
         {settled > 0 && <span>{settled} settled</span>}
         {!open && settled === 0 && <span className="truncate">{step?.contract_id ?? ""}</span>}

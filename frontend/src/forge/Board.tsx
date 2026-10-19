@@ -30,7 +30,7 @@ function Cells({ counts }: { counts: Record<string, number> }) {
           data-testid="cell"
           data-standing={standing}
           title={STANDING[standing].title}
-          className={`w-3 h-3 rounded-[1px] ${STANDING[standing].cell}`}
+          className={`w-3 h-3 rounded-xs ${STANDING[standing].cell}`}
         />
       ))}
     </div>
@@ -51,7 +51,7 @@ function Figure({
 }) {
   const body = (
     <>
-      <b className="font-data text-object text-ink tabular-nums">{n}</b>{" "}
+      <b className="font-data text-heading text-ink tabular-nums">{n}</b>{" "}
       <span className="text-secondary text-ink-2">{of}</span>
     </>
   );
@@ -60,7 +60,7 @@ function Figure({
       data-active={active || undefined}
       onClick={onClick}
       className="bg-transparent border-0 border-b-2 border-b-transparent p-0 pb-1 cursor-pointer
-                 text-left hover:opacity-70 data-[active]:border-b-[var(--pea)]"
+                 text-left hover:opacity-70 data-[active]:border-b-[var(--done)]"
     >
       {body}
     </button>
@@ -105,7 +105,7 @@ export function StatusBoard({ board }: { board: Board }) {
         <span
           data-testid="verdict"
           data-ok={ok}
-          className="text-body text-ink data-[ok=false]:text-[var(--undecided)]"
+          className="text-body text-ink data-[ok=false]:text-needs-you-ink"
         >
           {ok ? (
             "Every contract agrees with its source."
@@ -120,7 +120,7 @@ export function StatusBoard({ board }: { board: Board }) {
               )}
               {drifted > 0 && unverifiable > 0 && " · "}
               {unverifiable > 0 && (
-                <span className="text-[var(--measured)]">
+                <span className="text-measured-ink">
                   <b className="font-data">{unverifiable}</b> cannot be re-read
                 </span>
               )}

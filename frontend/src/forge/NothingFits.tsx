@@ -21,8 +21,8 @@ export function NothingFits({ draft, subject }: { draft: string; subject: string
 
   const ready = id.trim() && description.trim() && why.trim();
 
-  const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-r bg-surface";
-  const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+  const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-control bg-surface";
+  const label = "text-label font-semibold text-ink-3";
 
   if (!open) {
     return (
@@ -89,7 +89,7 @@ export function NothingFits({ draft, subject }: { draft: string; subject: string
         <button
           onClick={() => propose.mutate({ draft, subject, id, description, why })}
           disabled={!ready || propose.isPending}
-          className="px-4 py-2 text-body font-semibold rounded-r border border-line-2
+          className="px-4 py-2 text-body font-semibold rounded-button border border-line-2
                      bg-surface cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {propose.isPending ? "Proposing…" : "Propose"}

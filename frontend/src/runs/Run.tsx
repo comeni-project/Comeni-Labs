@@ -17,7 +17,7 @@ import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
 import { Timeline } from "./Timeline";
 import { elapsed } from "./elapsed";
-import { colourOf, isPhase } from "./phases";
+import { colourOf, inkOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
 
 const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
@@ -197,7 +197,7 @@ export function Run() {
               guess about where you were. */}
           {from && (
             <Link to={`/build?draft=${from}`}
-                  className="ml-auto text-secondary text-pea no-underline hover:text-ink">
+                  className="ml-auto text-secondary text-done-ink no-underline hover:text-ink">
               ↩ pipeline
             </Link>
           )}
@@ -239,34 +239,33 @@ export function Run() {
                          tracking-[-.035em]">
             {run.name || `run ${id.slice(0, 8)}`}
           </h1>
-          {/* 9.5px / .1em / 3px 8px — the artboard's, and it was reading `text-label` with
-              looser padding, which made a status chip the size of a button. */}
+          {/* A chip: the phase's words in its `-ink`, on a tint of its mark. */}
           <span
             data-testid="run-phase"
-            className="font-data text-[9.5px] leading-none uppercase tracking-[.1em] px-2 py-[3px]"
-            style={{ color: colourOf[phase],
+            className="text-label leading-none px-2 py-[3px] rounded-full"
+            style={{ color: inkOf[phase],
                      background: `color-mix(in srgb, ${colourOf[phase]} 12%, transparent)`,
                      border: `1px solid color-mix(in srgb, ${colourOf[phase]} 27%, transparent)` }}
           >
             {run.phase}
           </span>
-          {/* 11.5px `--ink-4`. It was `text-body`, which put the hash at the same weight as
+          {/* 11.5px `--ink-3`. It was `text-body`, which put the hash at the same weight as
               the sentence under it — the artboard makes it the quietest thing on the line. */}
           {run.name && (
-            <span className="font-data text-[11.5px] text-ink-4">{id.slice(0, 8)}</span>
+            <span className="font-data text-[11.5px] text-ink-3">{id.slice(0, 8)}</span>
           )}
 
           <span className="ml-auto flex items-center gap-[22px]">
             <span className="text-right">
               <span className="block font-data text-[23px] leading-none tracking-[-.02em]
                                tabular-nums"
-                    style={{ color: TERMINAL.has(run.phase) ? "var(--ink-2)" : colourOf[phase] }}>
+                    style={{ color: TERMINAL.has(run.phase) ? "var(--ink-2)" : inkOf[phase] }}>
                 {elapsed(run.started_at_ms, run.ended_at_ms, now)}
               </span>
               {/* The artboard reads `local · started 21:04` — **the executor beside the
                   clock time**, because *where* a run went is the other half of *when*. */}
               {run.started_at_ms != null && (
-                <span className="block font-data text-label text-ink-4 mt-1">
+                <span className="block font-data text-label text-ink-3 mt-1">
                   {run.executor ? `${run.executor} \u00b7 ` : ""}started{" "}
                   {new Date(run.started_at_ms).toLocaleTimeString([], {
                     hour: "2-digit", minute: "2-digit",
@@ -344,11 +343,11 @@ export function Run() {
           the one panel that is a stream rather than a summary, and the artboard draws it
           full-height because that is what reading a log needs. */}
       {view === "console" ? (
-        <section className="flex flex-col flex-1 min-h-0 bg-panel border border-line
-                            rounded-[var(--r)] shadow-e2 overflow-hidden">
+        <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
+                            rounded-panel shadow-e2 overflow-hidden">
           <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                           border-b border-line-soft">
-            <span className="text-label uppercase tracking-[.08em] text-ink-3">console</span>
+            <span className="text-label text-ink-3">console</span>
             <button type="button" data-testid="close-console" onClick={() => setView("overview")}
                     className="bg-transparent border-0 cursor-pointer text-label text-ink-3
                                hover:text-ink px-1">
@@ -382,11 +381,11 @@ export function Run() {
               **The toggle is state, not a second screen.** Both halves read the same
               `RunState`, so switching is a render and never a fetch. */}
           <section data-testid="band-processes"
-                   className="flex flex-col bg-panel border border-line
-                              rounded-[var(--r)] shadow-e2 overflow-hidden">
+                   className="flex flex-col bg-surface border border-line
+                              rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
-              <span className="text-label uppercase tracking-[.08em] text-ink-3">processes</span>
+              <span className="text-label text-ink-3">processes</span>
               <span className="ml-auto flex items-center gap-1">
                 {(["table", "graph"] as const).map((name) => (
                   <button
@@ -396,7 +395,7 @@ export function Run() {
                     aria-pressed={board === name}
                     onClick={() => setBoard(name)}
                     className={`bg-transparent border cursor-pointer px-2.5 py-1
-                                text-label uppercase tracking-[.08em]
+                                text-label
                                 ${board === name
                                   ? "text-ink border-line bg-surface"
                                   : "text-ink-3 border-transparent hover:text-ink"}`}
@@ -429,15 +428,15 @@ export function Run() {
 
           {/* --- tasks, and the console link the artboard puts in its header ------------- */}
           <section data-testid="band-tasks"
-                   className="flex flex-col bg-panel border border-line
-                              rounded-[var(--r)] shadow-e2 overflow-hidden">
+                   className="flex flex-col bg-surface border border-line
+                              rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
-              <span className="text-label uppercase tracking-[.08em] text-ink-3">tasks</span>
+              <span className="text-label text-ink-3">tasks</span>
               <button type="button" data-testid="open-console"
                       onClick={() => setView("console")}
                       className="ml-auto bg-transparent border border-line cursor-pointer
-                                 px-2.5 py-1 text-label uppercase tracking-[.08em] text-ink-3
+                                 px-2.5 py-1 text-label text-ink-3
                                  hover:text-ink"
                       style={{ transition: `color var(--t)` }}>
                 console

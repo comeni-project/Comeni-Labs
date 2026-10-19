@@ -82,7 +82,7 @@ export function Wires({
           data-testid="pending-wire"
           d={path(elbow(pending.from, pending.to))}
           fill="none"
-          stroke="var(--undecided)"
+          stroke="var(--needs-you)"
           strokeWidth={1.5}
           strokeDasharray="4 4"
           pointerEvents="none"

@@ -66,14 +66,14 @@ export function ArtifactView({ draftId }: { draftId: string | null }) {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-line flex-wrap">
-        <span className="text-label uppercase tracking-[.13em] text-ink-3">Jump to</span>
+        <span className="text-label text-ink-3">Jump to</span>
         {artifact.data.sections.map((section) => (
           <button
             key={section}
             type="button"
             data-testid="artifact-jump"
             onClick={() => jump(section)}
-            className="px-2 py-0.5 rounded-r border border-line bg-transparent cursor-pointer
+            className="px-2 py-0.5 rounded-button border border-line bg-transparent cursor-pointer
                        font-data text-secondary text-ink-2 hover:text-ink lift"
           >
             {section}

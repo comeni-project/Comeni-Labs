@@ -48,7 +48,7 @@ function Start({ row, onClose }: { row: BoardRow; onClose: () => void }) {
   const [version, setVersion] = useState("");
   const draft = useDraft();
   const go = useNavigate();
-  const field = "border border-line-2 rounded-r px-2 py-1 bg-surface text-body text-ink";
+  const field = "border border-line-2 rounded-control px-2 py-1 bg-surface text-body text-ink";
 
   return (
     <div className="col-span-full flex flex-wrap items-center gap-3 pt-3">
@@ -76,7 +76,7 @@ function Start({ row, onClose }: { row: BoardRow; onClose: () => void }) {
         onClick={() =>
           draft.mutate({ ref: row.ref, name, version }, { onSuccess: () => go("/forge/queue") })
         }
-        className="px-3 py-1 rounded-r border border-pea text-pea bg-transparent cursor-pointer
+        className="px-3 py-1 rounded-button border border-done text-done-ink bg-transparent cursor-pointer
                    disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Draft it
@@ -131,7 +131,7 @@ function Row({ row }: { row: BoardRow }) {
       {row.contract_id ? (
         <Link
           to={`/forge/contracts/${row.contract_id}`}
-          className="font-data text-body text-ink no-underline hover:text-pea"
+          className="font-data text-body text-ink no-underline hover:text-done-ink"
         >
           {row.tool}
         </Link>
@@ -141,7 +141,7 @@ function Row({ row }: { row: BoardRow }) {
 
       <span className="font-data text-secondary text-ink-3 truncate">
         {row.open_questions > 0 ? (
-          <Link to="/forge/queue" className="text-measured no-underline">
+          <Link to="/forge/queue" className="text-measured-ink no-underline">
             {row.open_questions} open
           </Link>
         ) : row.consumes.length || row.produces.length ? (
@@ -154,7 +154,7 @@ function Row({ row }: { row: BoardRow }) {
       {row.state === "undrafted" && !starting && (
         <button
           onClick={() => setStarting(true)}
-          className="text-secondary text-pea bg-transparent border-0 cursor-pointer p-0"
+          className="text-secondary text-done-ink bg-transparent border-0 cursor-pointer p-0"
         >
           draft →
         </button>
@@ -199,7 +199,7 @@ export function Tools() {
           placeholder="filter"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="border border-line-2 rounded-r px-2 py-1 bg-surface font-data
+          className="border border-line-2 rounded-control px-2 py-1 bg-surface font-data
                      text-secondary text-ink w-[180px]"
         />
         {(state || against) && (

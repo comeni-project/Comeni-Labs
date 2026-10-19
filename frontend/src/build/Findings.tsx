@@ -14,7 +14,7 @@ const WORDS: Record<Level, { label: string; what: string; colour: string }> = {
   illegal: {
     label: "Illegal",
     what: "cannot be emitted",
-    colour: "var(--undecided)",
+    colour: "var(--needs-you)",
   },
   unmet: {
     label: "Unmet",
@@ -66,12 +66,12 @@ export function Findings({
             <button
               onClick={() => anchor && onSelect(anchor)}
               disabled={anchor === null}
-              className="w-full text-left rounded-r border border-line bg-surface p-2
+              className="w-full text-left rounded-button border border-line bg-surface p-2
                          hover:bg-[var(--hover)] disabled:cursor-default"
             >
               <span className="flex items-baseline gap-2">
                 <span
-                  className="text-label uppercase tracking-[.1em] font-semibold"
+                  className="text-label font-semibold"
                   style={{ color: words.colour }}
                 >
                   {words.label}

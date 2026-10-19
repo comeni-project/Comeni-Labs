@@ -52,25 +52,25 @@ export function SettingsOverlay({
         className="settle absolute inset-0 md:inset-auto md:left-1/2 md:top-[60px]
                    md:-translate-x-1/2 md:w-[960px] md:max-w-[calc(100vw-48px)]
                    md:h-[min(680px,calc(100dvh-96px))] flex flex-col outline-none
-                   bg-[var(--paper-2)] md:border border-line-2 md:rounded-[3px] shadow-e3"
+                   bg-[var(--paper-2)] md:border border-line-2 md:rounded-panel shadow-e3"
       >
         <header className="flex items-center gap-[16px] pl-[16px] md:pl-[24px] pr-[16px] md:pr-[20px] pt-[16px] md:pt-[18px] pb-[12px] md:pb-[16px] border-b border-line">
           <div className="flex flex-col gap-[5px]">
             <h2 id="settings-title" className="m-0 text-[19px] font-semibold tracking-[-.02em] text-ink">
               Settings
             </h2>
-            <span className="hidden md:block font-data text-label text-ink-4">
+            <span className="hidden md:block font-data text-label text-ink-3">
               this installation · every change is saved as you make it
             </span>
           </div>
-          <span className="hidden md:inline ml-auto font-data text-label text-ink-4">esc</span>
+          <span className="hidden md:inline ml-auto font-data text-label text-ink-3">esc</span>
           <button
             type="button"
             aria-label="Close settings"
             onClick={onClose}
             className="ml-auto md:ml-0 w-[44px] h-[44px] md:w-[32px] md:h-[32px] inline-flex items-center
-                       justify-center bg-transparent border border-line-2 rounded-[3px]
-                       text-ink-2 hover:text-ink hover:border-ink-4 cursor-pointer"
+                       justify-center bg-transparent border border-line-2 rounded-button
+                       text-ink-2 hover:text-ink hover:border-ink-3 cursor-pointer"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="1.8" aria-hidden="true">

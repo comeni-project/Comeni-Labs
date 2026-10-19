@@ -103,7 +103,7 @@ function Stub({ from, to }: { from: Point; to: Point }) {
       <path
         d={`M${x0},${y0} H${(x0 + x1) / 2} V${y1} H${x1}`}
         fill="none"
-        stroke="var(--link)"
+        stroke="var(--now)"
         strokeWidth={1}
         strokeDasharray="4 4"
         opacity={0.6}
@@ -134,10 +134,10 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
   return (
     <div
       style={{ left: at.x, top: at.y, width: SOCKET_W, minHeight: SOCKET_H }}
-      className={`absolute border border-dashed border-[var(--link)] px-3 py-2
-                  bg-[var(--link-soft)] ${kind === "Input" ? "rounded-r" : "rounded-l"}`}
+      className={`absolute border border-dashed border-[var(--now)] px-3 py-2
+                  bg-[var(--now-soft)] ${kind === "Input" ? "rounded-control" : "rounded-l-control"}`}
     >
-      <span className="block text-label uppercase tracking-[.13em] text-ink-3">{kind}</span>
+      <span className="block text-label text-ink-3">{kind}</span>
       {onRename
         ? (
           <input
@@ -160,7 +160,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
         : <span className="block text-body text-ink">{port.name}</span>}
       {/* **The TYPE, and there is nothing else to show.** No value, no path, no field —
           the binding happens at the run. */}
-      <span className="block font-data text-label text-[var(--link)] truncate">
+      <span className="block font-data text-label text-now-ink truncate">
         {port.type_id}
         {(port.states ?? []).length > 0 && `[${(port.states ?? []).join(", ")}]`}
       </span>
@@ -181,7 +181,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
               <button
                 onClick={() => onSplit(key)}
                 aria-label={`give ${key} its own channel`}
-                className="text-label text-[var(--link)] bg-transparent border-0 cursor-pointer
+                className="text-label text-now-ink bg-transparent border-0 cursor-pointer
                            px-1 hover:bg-[var(--hover)]"
               >
                 split
@@ -194,7 +194,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
         <button
           onClick={() => onMerge(feeds[0])}
           aria-label={`put ${feeds[0]} back on the shared channel`}
-          className="mt-1 pointer-events-auto text-label text-[var(--link)] bg-transparent
+          className="mt-1 pointer-events-auto text-label text-now-ink bg-transparent
                      border-0 cursor-pointer px-1 hover:bg-[var(--hover)]"
         >
           merge

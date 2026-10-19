@@ -45,7 +45,7 @@ export function Drawer({
            style={{ background: "var(--paper-2)", borderColor: "var(--line-2)" }}>
         <header className="flex items-center justify-between px-4 py-3"
                 style={{ borderBottom: "1px solid var(--line)" }}>
-          <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">{title}</span>
+          <span className="text-label text-ink-3">{title}</span>
           <button type="button" data-testid="drawer-close" onClick={onClose}
                   className="bg-transparent border-0 text-ink-2 cursor-pointer text-[12.5px]
                              focus-visible:shadow-[var(--ring)]">

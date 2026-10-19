@@ -17,7 +17,7 @@ export function ErrorBoundary() {
   return (
     <div className="p-6 max-w-[600px]">
       <h1 className="font-display text-title mb-4">Something broke</h1>
-      <pre className="font-data text-body text-fault whitespace-pre-wrap">{message}</pre>
+      <pre className="font-data text-body text-needs-you-ink whitespace-pre-wrap">{message}</pre>
     </div>
   );
 }

@@ -39,7 +39,7 @@ function referenced(): Map<string, string[]> {
 /** The five movements, plus the two utilities that travel with them.
  *
  *  Listed rather than discovered, because the point of the list is that adding a sixth is a
- *  design decision — `dashboard.md` §8. A name that is not here cannot be caught by this guard,
+ *  design decision — `docs/explanation/visual-identity.md`, Motion. A name that is not here cannot be caught by this guard,
  *  which is the trade: a closed list catches a deleted rule and misses an invented class, and
  *  the invented one is what code review is for.
  */
@@ -130,7 +130,7 @@ it("maps every palette token worn as a colour utility into the theme", () => {
 });
 
 it("reaches the utilities it checks, so it cannot pass by finding none", () => {
-  expect(tokenUtilities().has("text-ink-4")).toBe(true);
+  expect(tokenUtilities().has("text-now-ink")).toBe(true);
   expect(tokenUtilities().has("text-ink-3")).toBe(true);
   expect(tokenUtilities().size).toBeGreaterThan(5);
 });
@@ -176,7 +176,7 @@ it("declares one easing curve, in the source", () => {
   //
   // The compiled check is `grep -o 'cubic-bezier([^)]*)' dist/assets/*.css | sort -u`, which
   // needs a production build and so does not belong in the unit suite. It is written down in
-  // `dashboard.md` §8 so the next person can run it, and this guard holds the source half.
+  // the visual identity page so the next person can run it, and this guard holds the source half.
   // **Comments are stripped first, and the guard needed it immediately.** Both of this file's
   // sibling comments quote the curves they replaced — a value named in prose is documentation,
   // not a declaration, and a scan that cannot tell them apart makes the honest habit of writing
@@ -197,7 +197,7 @@ it("declares one easing curve, in the source", () => {
 
 it("keeps sideways scrolling inside the one container allowed to have it", () => {
   // **`.tbl` is the only horizontal scrolling the design system declares.** The page body never
-  // scrolls sideways — `dashboard.md` §4 rule 2 — and the way that guarantee is lost is a
+  // scrolls sideways — `docs/explanation/visual-identity.md`, Motion — and the way that guarantee is lost is a
   // well-meant `overflow-x` on a page shell, added to stop one wide table from clipping.
   //
   // **What this does NOT police, deliberately:** a component putting `overflow-x-auto` on its
@@ -244,10 +244,11 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   const tokens = readFileSync(join(SRC, "tokens.css"), "utf8");
   const main = readFileSync(join(SRC, "main.css"), "utf8");
 
-  for (const role of ["--font-ui", "--font-display", "--font-data"]) {
+  for (const [role, face] of [["--font-ui", /Lexend/], ["--font-display", /Lexend/],
+    ["--font-data", /Geist Mono/]] as const) {
     const line = tokens.split("\n").find((l) => l.trimStart().startsWith(`${role}:`));
     expect(line, `${role} is not declared`).toBeTruthy();
-    expect(line, `${role} names a face the artboards do not use`).toMatch(/Geist/);
+    expect(line, `${role} names a face the boards do not use`).toMatch(face);
   }
 
   // No serif anywhere: the artboards are one family in two cuts. **`sans-serif` is not a
@@ -259,23 +260,19 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   // **Bundled, not fetched** — invariant 13. A Google Fonts `<link>` would render the design on
   // the hosted instance and the fallback stack in an air-gapped laboratory, which is
   // "self-hosted is a degraded tier" arriving as a stylesheet.
-  expect(main).toMatch(/@import "@fontsource-variable\/geist"/);
+  expect(main).toMatch(/@import "@fontsource-variable\/lexend"/);
   expect(main).toMatch(/@import "@fontsource-variable\/geist-mono"/);
+  expect(main).not.toMatch(/@import "@fontsource-variable\/geist"/);
   expect(main).not.toMatch(/fonts\.googleapis\.com/);
 });
 
-it("draws the ground the artboards sit on", () => {
-  // The field was deferred through all of Plan 4 as "the three-layer arc field — decorative
-  // ambience". It is the page's **ground**: without it `body` is a flat black rectangle and
-  // every panel reads as a grey box floating on nothing, which is most of why the built screens
-  // did not look like the drawings they came from.
+it("paints a plain ground: no field, no translucent panels", () => {
   const shell = readFileSync(join(SRC, "app/Shell.tsx"), "utf8");
-  const main = readFileSync(join(SRC, "main.css"), "utf8");
-
-  expect(shell, "the shell mounts no field").toMatch(/<Field\s/);
-  for (const layer of ["field-breathe", "field-spin", "field-scan", "field-vignette"]) {
-    expect(main, `${layer} is used and never defined`).toMatch(new RegExp(`\\.${layer}[\\s,{:]`));
-  }
+  expect(shell).not.toMatch(/<Field\b/);
+  const left = sources().filter(([, text]) =>
+    /\bfield-(?:breathe|spin|scan|rule|vignette)\b|--(?:panel|scan-line|rule-line)\b|\bbg-panel\b/.test(text))
+    .map(([p]) => p.slice(SRC.length + 1));
+  expect(left).toEqual([]);
 });
 
 it("watches classes that are actually worn, so it cannot pass by finding none", () => {
@@ -286,4 +283,137 @@ it("watches classes that are actually worn, so it cannot pass by finding none", 
   // `live` and `breathe` predate the system and have known callers — `runs/Graph.tsx` and
   // `runs/Console.tsx`. If `live` stops being found, the walk broke rather than the code.
   expect(worn.has("live")).toBe(true);
+});
+
+/** The custom properties one theme sets: the light `:root`, the explicit dark choice, or the
+ *  dark block a dark system turns on. Read from `tokens.css` as text, comments removed. */
+function palette(theme: "light" | "dark" | "media"): Map<string, string> {
+  const css = readFileSync(join(SRC, "tokens.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const opener = {
+    light: /(?:^|\n):root\s*{/,
+    dark: /:root\[data-theme="dark"\]\s*{/,
+    media: /@media \(prefers-color-scheme: dark\)\s*{\s*:root:not\(\[data-theme="light"\]\)\s*{/,
+  }[theme];
+  const start = css.search(opener);
+  if (start < 0) return new Map();
+  const open = css.indexOf("{", css.indexOf(":root", start) + 1);
+  const body = css.slice(open + 1, css.indexOf("}", open));
+  return new Map([...body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+}
+
+/** The WCAG 2 contrast ratio of two `#RRGGBB` colours. */
+function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+it("sets the same tokens in every theme", () => {
+  const light = [...palette("light").keys()].sort();
+  expect(light.length).toBeGreaterThan(30);
+  expect([...palette("dark").keys()].sort()).toEqual(light);
+  expect([...palette("media").keys()].sort()).toEqual(light);
+  expect(palette("media")).toEqual(palette("dark"));
+});
+
+it("lets an explicit light choice beat a dark system", () => {
+  const css = readFileSync(join(SRC, "tokens.css"), "utf8");
+  expect(css).toMatch(/@media \(prefers-color-scheme: dark\)\s*{\s*:root:not\(\[data-theme="light"\]\)/);
+  // The ring is theme-independent (the last `:root`), so it is read from the file, not a palette.
+  expect(css).toMatch(/--ring:[^;]*var\(--now\)/);
+});
+
+it("keeps every text colour readable on the grounds it is drawn on", () => {
+  const TEXT_ON_GROUNDS: [string, string[]][] = [
+    ["--ink", ["--paper", "--surface", "--canvas"]],
+    ["--ink-2", ["--paper", "--surface", "--canvas"]],
+    ["--ink-3", ["--paper", "--surface", "--canvas"]],
+    ["--done-ink", ["--paper", "--surface", "--done-soft"]],
+    ["--now-ink", ["--paper", "--surface", "--now-soft"]],
+    ["--measured-ink", ["--paper", "--surface", "--measured-soft"]],
+    ["--needs-you-ink", ["--paper", "--surface", "--needs-you-soft"]],
+    ["--on-action", ["--action"]],
+  ];
+  const failing: string[] = [];
+  for (const theme of ["light", "dark"] as const) {
+    const p = palette(theme);
+    for (const [text, grounds] of TEXT_ON_GROUNDS) {
+      for (const ground of grounds) {
+        const [fg, bg] = [p.get(text), p.get(ground)];
+        if (!fg || !bg) { failing.push(`${theme}: ${text} or ${ground} is not set`); continue; }
+        const ratio = contrast(fg, bg);
+        if (ratio < 4.5) failing.push(`${theme}: ${text} on ${ground} is ${ratio.toFixed(2)}`);
+      }
+    }
+  }
+  expect(failing).toEqual([]);
+});
+
+it("keeps retired colour names retired", () => {
+  // A utility prefix or `--` is required: `dead-link` is a word, `text-link` is a token.
+  const NAMES = "pea|on-pea|undecided|fault|running|link|ink-4";
+  const RETIRED = new RegExp(`--(?:${NAMES}|grid-3)\\b|\\b(?:text|bg|border|fill|stroke|ring|outline|decoration|accent|caret|divide|placeholder|from|via|to)-(?:${NAMES})(?:-soft|-line)?\\b`);
+  const found = sources().filter(([, text]) => RETIRED.test(text)).map(([path]) => path.slice(SRC.length + 1));
+  expect(found).toEqual([]);
+});
+
+it("draws labels in the interface face, not shouted", () => {
+  const shouting = sources()
+    .filter(([path]) => path.endsWith(".tsx"))
+    .flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+      .filter((m) => /\buppercase\b/.test(m[2]) && !/^\s*\*|\/\//.test(m[2]))
+      .map(() => path.slice(SRC.length + 1)));
+  expect(shouting).toEqual([]);
+});
+
+it("sizes the type roles as the boards do", () => {
+  const main = readFileSync(join(SRC, "main.css"), "utf8");
+  for (const [role, px] of [["hero", 32], ["title", 22], ["heading", 16], ["lede", 15],
+    ["body", 14], ["secondary", 13], ["label", 12], ["brand", 17]] as const) {
+    expect(main, `--text-${role}`).toMatch(new RegExp(`--text-${role}: ${px}px;`));
+  }
+  // Text that wears no role inherits the body's size, so the body is the body role.
+  const body = main.slice(main.search(/\nbody\s*{/));
+  expect(body.slice(0, body.indexOf("}"))).toMatch(/font-size:\s*var\(--text-body\);/);
+});
+
+it("rounds corners with the three named radii only", () => {
+  const square = sources().filter(([, text]) =>
+    // Side variants and Tailwind's own defaults too (`rounded-t-[3px]`, `rounded-l`), inline
+    // `borderRadius` in pixels, and an SVG `rx` that is not the node radius.
+    /\brounded-r\b|\brounded(?:-[trblse]{1,2})?-\[(?!var\(--radius-)[^\]]+\]|\brounded-[trblse]{1,2}(?![\w-])|var\(--r\)|--radius-r:|borderRadius:\s*["'`]?\d|\brx=\{(?!10\})/.test(text))
+    .map(([p]) => p.slice(SRC.length + 1));
+  expect(square).toEqual([]);
+});
+
+it("raises every main button", () => {
+  const flat = sources().filter(([path]) => !/\.test\.tsx?$/.test(path)).flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+    .filter((m) => /\bbg-action\b/.test(m[2]) && !/\bshadow-raise\b/.test(m[2]))
+    .map(() => path.slice(SRC.length + 1)));
+  expect(sources().some(([, text]) => /\bbg-action\b/.test(text))).toBe(true);
+  expect(flat).toEqual([]);
+});
+
+it("draws a filled main button as the action, not as selected", () => {
+  // The old link-blue primaries were `bg-[var(--link)] text-paper`; renamed to `--now`, they
+  // painted a main button in the selected colour. A main button is `bg-action text-on-action`.
+  const blue = sources().filter(([path]) => !/\.test\.tsx?$/.test(path)).flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+    .filter((m) => /\bbg-(?:now|\[var\(--now\)\])(?=[\s"`]|$)/.test(m[2]) && /\btext-(?:paper|surface)\b/.test(m[2]))
+    .map(() => path.slice(SRC.length + 1)));
+  expect(blue).toEqual([]);
+});
+
+it("draws words in the -ink shade of a meaning, never its plain mark colour", () => {
+  // The plain marks (`--done` 3.15:1, `--now` 4.19:1 on paper) fail as text on the light
+  // ground; `-ink` is the shade the contrast guard above proves. A dot or a bar keeps the mark.
+  const M = "done|now|needs-you|measured";
+  const plain = new RegExp(
+    `\\btext-(?:${M})(?![\\w-])|\\btext-\\[var\\(--(?:${M})\\)\\]|\\bcolor:\\s*["'\`]var\\(--(?:${M})\\)`);
+  const found = sources().filter(([path, text]) => !/\.test\.tsx?$/.test(path) && plain.test(text))
+    .map(([p]) => p.slice(SRC.length + 1));
+  expect(found).toEqual([]);
 });

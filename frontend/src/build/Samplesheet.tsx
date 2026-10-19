@@ -53,7 +53,7 @@ export function Samplesheet({ columns, rows, onChange }: {
               {headers.map((column) => (
                 <th
                   key={column}
-                  className="text-left font-data text-label uppercase tracking-[.13em]
+                  className="text-left text-label
                              text-ink-3 pb-1 pr-3 font-normal"
                 >
                   {column}
@@ -72,7 +72,7 @@ export function Samplesheet({ columns, rows, onChange }: {
                       value={row[column] ?? ""}
                       onChange={(event) => set(index, column, event.target.value)}
                       placeholder={column === SAMPLE ? "a name you choose" : "a path"}
-                      className="w-full px-2 py-1 bg-surface border border-line rounded-r
+                      className="w-full px-2 py-1 bg-surface border border-line rounded-control
                                  font-data text-body text-ink"
                     />
                   </td>

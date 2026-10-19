@@ -19,7 +19,7 @@ export function Explain({ explanation }: { explanation: Explanation }) {
     <div data-testid="explain" className="mb-3 border-l pl-[10px]"
          style={{ borderColor: "var(--line-2)" }}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}
-              className="text-[11.5px] text-link bg-transparent border-0 p-0 cursor-pointer">
+              className="text-[11.5px] text-now-ink bg-transparent border-0 p-0 cursor-pointer">
         What is this? {open ? "▾" : "›"}
       </button>
       {open && (
@@ -54,7 +54,7 @@ function Half({ mark, children }: { mark: "curated" | "engine"; children: ReactN
   return (
     <div className="text-[12px] text-ink-2">
       {children}
-      <span className="font-data text-[9.5px] text-ink-4">{mark}</span>
+      <span className="font-data text-[9.5px] text-ink-3">{mark}</span>
     </div>
   );
 }

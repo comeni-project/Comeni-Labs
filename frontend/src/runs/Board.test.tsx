@@ -52,21 +52,21 @@ it("draws a run's phase as its own colour AND as a word", async () => {
   at();
   const row = await screen.findByTestId("run-4c1e9a07b2f1de40");
   expect(row).toHaveTextContent("running");
-  // The word matters as much as the hue: `failed` and `lost` share `--undecided` on purpose,
+  // The word matters as much as the hue: `failed` and `lost` share `--needs-you` on purpose,
   // and a colour alone is unreadable to somebody who cannot separate the two.
   const dot = row.querySelector("[aria-hidden]") as HTMLElement;
-  // **`--running`, and this test asserted `--measured` until 2026-09-01.** The artboards paint
-  // a running phase `#BD6DCD` and `--running` exists for exactly that; `--measured` is the
+  // **`--now`, and this test asserted `--measured` until 2026-09-01.** The artboards paint
+  // a running phase `#BD6DCD` and `--now` exists for exactly that; `--measured` is the
   // amber that means *a rule matched measured data*, so a running row was claiming a tier.
   // Found by putting the run page beside `RunView.dc.html` rather than by reading either.
-  expect(dot.style.background).toBe("var(--running)");
+  expect(dot.style.background).toBe("var(--now)");
 });
 
 it("gives failed and running different colours", async () => {
   at();
   const failed = await screen.findByTestId("run-77b21de4c3802f1a");
   const dot = failed.querySelector("[aria-hidden]") as HTMLElement;
-  expect(dot.style.background).toBe("var(--undecided)");
+  expect(dot.style.background).toBe("var(--needs-you)");
 });
 
 it("never renders a samplesheet", async () => {

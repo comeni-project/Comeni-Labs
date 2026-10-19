@@ -16,14 +16,12 @@ import { TokenPrompt } from "../wiener/Token";
 import { Samplesheet } from "./Samplesheet";
 import { useSubmit } from "./useSubmit";
 
-/** **The run sheet's primary, in `--link` and not `--pea`.** `_run_sheet.html` ends on one blue
- *  `Start run`; green is this product's *settled / passed* colour and a green primary here reads
- *  as a verdict rather than an action. The label stays `Send to Wiener` because that is what the
- *  click does — the browser is the courier and neither API learns the other exists — and calling
- *  it `Start run` would hide the second click that `docs/design/wiener.md` §12 says is the point:
- *  uploading is what discovers the parameters. */
+/** **The run sheet's primary is the main button, in `--action`.** The label stays
+ *  `Send to Wiener` because that is what the click does — the browser is the courier and neither
+ *  API learns the other exists — and calling it `Start run` would hide the second click: uploading
+ *  is what discovers the parameters. */
 const button =
-  "px-[24px] py-[9px] text-[13.5px] font-semibold bg-[var(--link)] text-paper border-0 " +
+  "px-[24px] py-[9px] text-[13.5px] font-semibold rounded-button shadow-raise bg-action text-on-action border-0 " +
   "cursor-pointer lift disabled:opacity-40 disabled:cursor-not-allowed";
 
 export function SubmitPanel({
@@ -120,7 +118,7 @@ export function SubmitPanel({
                     value={submit.values[name] ?? ""}
                     onChange={(event) => submit.set(name, event.target.value)}
                     placeholder="a path on the machine that runs this"
-                    className="flex-1 px-2 py-1 rounded-r bg-surface border border-line
+                    className="flex-1 px-2 py-1 rounded-control bg-surface border border-line
                                font-data text-body text-ink"
                   />
                 </label>
@@ -143,7 +141,7 @@ export function SubmitPanel({
         </>
       )}
       {submit.error && (
-        <p data-testid="submit-error" className="text-secondary text-[var(--undecided)]">
+        <p data-testid="submit-error" className="text-secondary text-needs-you-ink">
           {submit.error}
         </p>
       )}

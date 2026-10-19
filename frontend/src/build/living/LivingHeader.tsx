@@ -67,9 +67,9 @@ export function LivingHeader({
               data-testid={`living-view-${which}`}
               aria-pressed={view === which}
               onClick={() => onView(which)}
-              className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em] border-0
+              className={` px-[15px] py-[7px] text-label border-0
                           cursor-pointer ${view === which
-                            ? "bg-[var(--link-soft)] text-link"
+                            ? "bg-[var(--now-soft)] text-now-ink"
                             : "bg-transparent text-ink-3 hover:text-ink"}`}
             >
               {which}
@@ -82,12 +82,12 @@ export function LivingHeader({
           disabled={!runnable || running || session.graph.nodes.length === 0 || session.phase !== "complete"}
           onClick={onRun}
           className="px-[26px] py-[9px] border-0 cursor-pointer font-semibold text-[13.5px]
-                     bg-[var(--link)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                     bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40"
         >
           {stage === "keeping" ? "Keeping…" : stage === "linting" ? "Checking…" : "Run"}
         </button>
         {runError && (
-          <span role="alert" data-testid="living-run-error" className="text-secondary text-[var(--undecided)]">
+          <span role="alert" data-testid="living-run-error" className="text-secondary text-needs-you-ink">
             {runError}
           </span>
         )}

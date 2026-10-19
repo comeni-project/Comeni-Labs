@@ -90,7 +90,7 @@ export function LivingCanvas({
     return (
       <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-2"
            data-testid="canvas-empty">
-        <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">Nothing built yet</span>
+        <span className="text-label text-ink-3">Nothing built yet</span>
         <span className="text-[12.5px] text-ink-2">
           {empty ?? "Confirm the goal on the right and the steps arrive one at a time"}
         </span>
@@ -170,7 +170,7 @@ export function LivingCanvas({
           {footer}
           {(stale || working) && (
             <span role="status" data-testid={stale ? "canvas-stale" : "canvas-working"}
-                  className="absolute left-5 top-4 font-data text-[10px] tracking-[.1em] uppercase text-ink-2">
+                  className="absolute left-5 top-4 text-label text-ink-2">
               {stale ? "Outdated — the last pipeline built" : "Updating…"}
             </span>
           )}

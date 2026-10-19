@@ -261,6 +261,14 @@ or a complete commit history.
 - The canvas uses a consistent frame for retained and previewed pipelines. Session answers,
   progress and alternative views reflect saved state; duplicate React keys are corrected.
 
+#### Changed
+
+- The interface takes the identity shared with Comeni Code: light first with a dark palette
+  that follows the system, Lexend for the interface and Geist Mono for data, one meaning per
+  colour (done, the main action, measured, needs you, selected/now), rounder controls and a
+  raised main button. The animated background field is removed. The rules are in
+  `docs/explanation/visual-identity.md`.
+
 ### Repository
 
 #### Added

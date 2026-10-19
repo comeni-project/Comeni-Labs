@@ -56,7 +56,7 @@ export function Menu({ items, at, onClose }: {
       role="menu"
       style={{ position: "fixed", left: x, top: y, width: MENU_WIDTH,
                boxShadow: "var(--e3)", zIndex: 50 }}
-      className="py-1.5 bg-surface border border-line rounded-[var(--r)]"
+      className="py-1.5 bg-surface border border-line rounded-panel"
     >
       {items.map((item) => (
         <button

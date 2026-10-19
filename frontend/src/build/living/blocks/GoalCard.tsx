@@ -112,7 +112,7 @@ export function GoalCard({
 
   const list = (side: keyof Chosen, labelId: string, label: string) => (
     <div className="mb-3 grid grid-cols-[76px_1fr] gap-x-3 items-start">
-      <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[6px]">
+      <span className="text-label text-ink-3 pt-[6px]">
         {side}
       </span>
       <div>
@@ -225,7 +225,7 @@ export function GoalCard({
       {measured.length > 0 && <Facts facts={measured} />}
       {suggested.length > 0 && (
         <div className="mb-3">
-          <p className="m-0 mb-1 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">
+          <p className="m-0 mb-1 text-label text-ink-3">
             Suggested — keep what you asked for
           </p>
           <ul aria-label="suggested constraints" className="m-0 p-0 flex flex-wrap gap-[6px]">
@@ -241,7 +241,7 @@ export function GoalCard({
                             : [...chosenSuggestions, key])}
                           className={`font-data text-[11px] px-2 py-[3px] border cursor-pointer
                                       focus-visible:shadow-[var(--ring)] ${on
-                                        ? "text-link border-[var(--link)]"
+                                        ? "text-now-ink border-[var(--now)]"
                                         : "text-ink-3 border-dashed border-[var(--line-2)]"}`}>
                     {key}
                   </button>
@@ -254,7 +254,7 @@ export function GoalCard({
       {block.readback ? (
         <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-2">
           {block.readback}{" "}
-          <span className="font-data text-[9.5px] text-ink-4">in the AI's words</span>
+          <span className="font-data text-[9.5px] text-ink-3">in the AI's words</span>
         </p>
       ) : (
         <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
@@ -265,7 +265,7 @@ export function GoalCard({
         // The sentence is the model's and the chips are now the person's. Rewriting the prose
         // would be a second author putting words in the model's mouth, so it stays and says
         // which of the two runs (issue 116).
-        <p className="m-0 mt-1 font-data text-[10px] text-ink-4">
+        <p className="m-0 mt-1 font-data text-[10px] text-ink-3">
           that sentence was the model's reading, before your edit — the types above are what will be built
         </p>
       )}
@@ -289,7 +289,7 @@ function Facts({ facts }: { facts: Fact[] }) {
         {known.map((f) => (
           <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink">
             {said(f)}{" "}
-            <span className={f.source === "measured" ? "text-[var(--measured)]" : "text-ink-3"}>
+            <span className={f.source === "measured" ? "text-measured-ink" : "text-ink-3"}>
               · {sourceLabel(f)}
             </span>
           </li>
@@ -297,7 +297,7 @@ function Facts({ facts }: { facts: Fact[] }) {
       </ul>
       {open.length > 0 && (
         <>
-          <p className="m-0 mt-2 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">
+          <p className="m-0 mt-2 text-label text-ink-3">
             Left open, you'll choose during the build
           </p>
           <ul aria-label="Left open, you'll choose during the build" className="m-0 p-0">

@@ -12,8 +12,8 @@ export type Standing = "drifted" | "unverifiable" | "matching" | "drafted" | "un
 
 export const STANDING: Record<Standing, { mark: string; cell: string; title: string }> = {
   drifted: {
-    mark: "bg-[var(--undecided)]",
-    cell: "bg-[var(--undecided)]",
+    mark: "bg-[var(--needs-you)]",
+    cell: "bg-[var(--needs-you)]",
     title: "landed, and no longer agrees with its source",
   },
   unverifiable: {
@@ -22,13 +22,13 @@ export const STANDING: Record<Standing, { mark: string; cell: string; title: str
     title: "landed, and no source can re-read it",
   },
   matching: {
-    mark: "bg-pea",
-    cell: "bg-pea",
+    mark: "bg-done",
+    cell: "bg-done",
     title: "landed, and agrees with its source",
   },
   drafted: {
-    mark: "bg-transparent border border-pea",
-    cell: "bg-transparent border border-pea",
+    mark: "bg-transparent border border-done",
+    cell: "bg-transparent border border-done",
     title: "somebody is drafting it",
   },
   undrafted: {

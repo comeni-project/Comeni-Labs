@@ -4,7 +4,7 @@ import type { Entry } from "./usePreferences";
 
 /** One field style for every inline control (the design's `.pick`). */
 export const FIELD =
-  "h-[34px] w-full max-w-[280px] px-[12px] text-[12.5px] text-ink bg-surface border border-line-2 rounded-[3px] hover:border-ink-4 disabled:bg-transparent disabled:border-dashed disabled:text-ink-3 disabled:cursor-not-allowed";
+  "h-[34px] w-full max-w-[280px] px-[12px] text-[12.5px] text-ink bg-surface border border-line-2 rounded-button hover:border-ink-3 disabled:bg-transparent disabled:border-dashed disabled:text-ink-3 disabled:cursor-not-allowed";
 
 /** Where a value came from, as a person would say it. **A value stored here that equals the
  *  default is the default**: a purpose set back to *same as the default* is stored as `null`,

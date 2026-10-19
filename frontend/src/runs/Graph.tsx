@@ -20,8 +20,8 @@ type Wire = {
 };
 type RunGraph = { nodes: Placed[]; wires: Wire[]; width: number; height: number };
 
-/** What a node's fill says. **The run's own vocabulary, not a fifth palette** — `--pea` is
- *  settled, `--measured` is working, `--undecided` needs a person, and a step that has not
+/** What a node's fill says. **The run's own vocabulary, not a fifth palette** — `--done` is
+ *  settled, `--measured` is working, `--needs-you` needs a person, and a step that has not
  *  started is drawn as the surface it sits on rather than as a colour meaning "nothing". */
 function fillOf(node: Placed): string {
   // **The STROKE carries the state; the fill stays the surface.** Tinting the body as well
@@ -33,9 +33,9 @@ function fillOf(node: Placed): string {
 }
 
 function strokeOf(node: Placed): string {
-  if (node.failed) return "var(--undecided)";
+  if (node.failed) return "var(--needs-you)";
   if (node.running) return "var(--measured)";
-  if (node.total && node.done === node.total) return "var(--pea)";
+  if (node.total && node.done === node.total) return "var(--done)";
   if (!node.total) return "var(--line)";
   return "var(--line-2)";
 }
@@ -104,14 +104,14 @@ function RunNode({ node, bind }: { node: Placed; bind?: object }) {
         : node.total && node.done === node.total ? "done" : "waiting"
     }>
       <rect
-        x={node.x} y={node.y} width={node.width} height={node.height} rx={3}
+        x={node.x} y={node.y} width={node.width} height={node.height} rx={10}
         fill={fillOf(node)} stroke={strokeOf(node)} strokeWidth={1.5}
       />
       {/* **A second ring means something retried** — §9.1. One ring is not an absence of
           information, so a task that ran once draws nothing extra. */}
       {node.attempts > 1 && (
         <rect
-          x={node.x - 5} y={node.y - 5} width={node.width + 10} height={node.height + 10} rx={3}
+          x={node.x - 5} y={node.y - 5} width={node.width + 10} height={node.height + 10} rx={10}
           fill="none" stroke="var(--measured)" strokeWidth={1}
           strokeDasharray="3 3" opacity={0.9}
         />
@@ -136,7 +136,7 @@ function RunNode({ node, bind }: { node: Placed; bind?: object }) {
  * than in the browser, and it is what makes this a figure for a methods section rather than a
  * screenshot of a moment.
  *
- * The token values are resolved into the copy: `var(--pea)` means nothing in a file opened in
+ * The token values are resolved into the copy: `var(--done)` means nothing in a file opened in
  * Inkscape, so the SVG would arrive with every stroke unset.
  */
 function svgOf(svg: SVGSVGElement | null): string {
@@ -245,7 +245,7 @@ export function Graph({ runId, onOpenConsole }: {
         footer={
           <>
             <div data-zoomer
-                 className="absolute right-4 bottom-4 flex items-center gap-1 rounded-[var(--r)]
+                 className="absolute right-4 bottom-4 flex items-center gap-1 rounded-panel
                             border border-line bg-surface px-1 py-1 shadow-e1">
               <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
                 −
@@ -323,10 +323,10 @@ export function Graph({ runId, onOpenConsole }: {
 
       <span className="shrink-0 flex items-center gap-4 px-6 py-2.5
                        border-t border-line bg-surface-2 text-label text-ink-3">
-        <Swatch colour="var(--pea)" label="done" />
+        <Swatch colour="var(--done)" label="done" />
         <Swatch colour="var(--measured)" label="running" />
-        <Swatch colour="var(--undecided)" label="failed" />
-        <span className="ml-2 uppercase tracking-[.08em]">
+        <Swatch colour="var(--needs-you)" label="failed" />
+        <span className="ml-2">
           dag-core&rsquo;s layout &middot; the same arithmetic the builder draws
         </span>
       </span>
@@ -335,13 +335,13 @@ export function Graph({ runId, onOpenConsole }: {
 }
 
 const zoomBtn =
-  "px-2 py-1 rounded-[var(--r)] bg-transparent border-0 cursor-pointer text-secondary " +
+  "px-2 py-1 rounded-control bg-transparent border-0 cursor-pointer text-secondary " +
   "text-ink-2 hover:text-ink hover:bg-surface-2";
 
 function Swatch({ colour, label }: { colour: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-[2px]"
+      <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-xs"
             style={{ background: colour }} />
       {label}
     </span>

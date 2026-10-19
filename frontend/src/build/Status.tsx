@@ -68,16 +68,16 @@ export function Status({ savedAt, saving, dirty, error, valid, open, stale }: {
     // a graph that no longer existed, with nothing marking it.
     parts.push({ key: "stale", node: <span className="text-ink-3">checking…</span> });
   } else if (valid === false) {
-    parts.push({ key: "invalid", node: <span className="text-[var(--undecided)]">not valid</span> });
+    parts.push({ key: "invalid", node: <span className="text-needs-you-ink">not valid</span> });
   } else if (valid === true) {
-    parts.push({ key: "valid", node: <span className="text-pea">valid</span> });
+    parts.push({ key: "valid", node: <span className="text-done-ink">valid</span> });
   }
 
   if (open > 0) {
     parts.push({
       key: "open",
       node: (
-        <span className="text-[var(--undecided)]">
+        <span className="text-needs-you-ink">
           {open} value{open === 1 ? "" : "s"} need{open === 1 ? "s" : ""} you
         </span>
       ),

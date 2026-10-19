@@ -37,11 +37,11 @@ function segments(row: SourceRow) {
   const unadapted = Math.max(0, row.adaptable - row.current - row.outdated - row.in_progress);
   const to = (status: string) => `/forge/catalogue?source=${row.source}&status=${status}`;
   return [
-    { n: row.current, tone: "var(--pea)", shape: "done" as const, label: "current",
+    { n: row.current, tone: "var(--done)", shape: "done" as const, label: "current",
       to: to("current") },
     { n: row.outdated, tone: "var(--measured)", shape: "review" as const, label: "outdated",
       to: to("outdated") },
-    { n: row.in_progress, tone: "var(--running)", shape: "run" as const, label: "in progress",
+    { n: row.in_progress, tone: "var(--now)", shape: "run" as const, label: "in progress",
       to: to("in_progress") },
     // **`--surface-2`, not the artboard's `#1C262B`.** The empty part of a bar is the recessed
     // ground behind it — the same role the runs board's track has — and a hex here is a colour
@@ -75,15 +75,15 @@ function Source({ row }: { row: SourceRow }) {
 
   return (
     <div
-      className="settle border border-line bg-surface rounded-[var(--r)] shadow-e2
+      className="settle border border-line bg-surface rounded-panel shadow-e2
                  px-5 py-[18px]"
     >
       <div className="flex items-baseline justify-between pb-3">
-        <span className="font-data text-[10.5px] tracking-[.15em] uppercase text-ink-2">
+        <span className="text-label text-ink-2">
           {row.source}
         </span>
         {row.snapshot_stale ? (
-          <span className="font-data text-[10.5px] text-measured">
+          <span className="font-data text-[10.5px] text-measured-ink">
             stale{synced ? ` · last read ${synced.toLocaleDateString()}` : " · never read"}
           </span>
         ) : (
@@ -179,7 +179,7 @@ function Flow({ data }: { data: Counts }) {
 
   return (
     <div className="pt-[30px]">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+      <div className="text-label text-ink-3 pb-[13px]">
         The flow
       </div>
       {/* Scrolls inside itself rather than crushing its labels — `main.css`'s table rule, which
@@ -203,11 +203,11 @@ function Flow({ data }: { data: Counts }) {
               <Link
                 to={stage.to}
                 className={`lift no-underline text-ink px-[15px] py-[11px] min-w-[118px]
-                            bg-surface rounded-[var(--r)] border ${
-                              stage.ai ? "border-running" : "border-line"
+                            bg-surface rounded-button border ${
+                              stage.ai ? "border-measured" : "border-line"
                             }`}
               >
-                <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-1.5">
+                <div className="text-label text-ink-3 pb-1.5">
                   {stage.label}
                 </div>
                 <div className="text-[18px] font-semibold tracking-[-.02em] tnum">
@@ -249,7 +249,7 @@ function Needs(props: { to: string; tone: string; count: number; what: string; n
 function Health({ data }: { data: Counts }) {
   const sync = useSyncSources();
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] shadow-e2 px-4 py-3.5">
+    <div className="border border-line bg-surface rounded-panel shadow-e2 px-4 py-3.5">
       {data.sources.map((row) => (
         <div key={row.source} className="flex items-start gap-[9px] text-body pt-[11px] first:pt-0">
           <span className="mt-[5px]">
@@ -268,7 +268,7 @@ function Health({ data }: { data: Counts }) {
             <button
               type="button"
               className="border border-line-2 bg-transparent text-ink text-secondary px-3 py-1
-                         rounded-[var(--r)] hover:bg-surface-2"
+                         rounded-button hover:bg-surface-2"
               onClick={() => sync.mutate(row.source)}
               disabled={sync.isPending}
             >
@@ -306,7 +306,7 @@ export function Overview() {
           <button
             type="button"
             className="border border-line-2 bg-transparent text-ink text-[12px] px-3.5 py-[7px]
-                       rounded-[var(--r)] hover:bg-surface disabled:text-ink-3
+                       rounded-button hover:bg-surface disabled:text-ink-3
                        disabled:border-line disabled:cursor-not-allowed"
             onClick={() => data?.sources.forEach((row) => sync.mutate(row.source))}
             disabled={sync.isPending || !data?.sources.length}
@@ -324,7 +324,7 @@ export function Overview() {
                 is a first-run state, and the action that ends it is the button above — so this
                 names that action rather than describing an absence. */}
             {data.sources.length === 0 ? (
-              <div className="border border-line bg-surface rounded-[var(--r)] p-6">
+              <div className="border border-line bg-surface rounded-panel p-6">
                 <p className="text-body text-ink m-0">No source has been read yet.</p>
                 <p className="text-secondary text-ink-3 m-0 pt-1">
                   Sync a source to discover what can be adapted. Nothing else on this page can
@@ -343,7 +343,7 @@ export function Overview() {
 
             <div className="grid gap-5 pt-[30px] grid-cols-1 min-[1180px]:grid-cols-2">
               <div>
-                <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+                <div className="text-label text-ink-3 pb-[13px]">
                   Needs you
                 </div>
                 <Needs
@@ -359,7 +359,7 @@ export function Overview() {
                 />
                 <Needs
                   to="/forge/work?band=failed"
-                  tone="var(--fault)"
+                  tone="var(--needs-you)"
                   count={data.attention.failed_adaptations}
                   what="failed"
                   note="Each retries at the stage it stopped, not from the beginning."
@@ -374,7 +374,7 @@ export function Overview() {
               </div>
 
               <div>
-                <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+                <div className="text-label text-ink-3 pb-[13px]">
                   Source health
                 </div>
                 <Health data={data} />

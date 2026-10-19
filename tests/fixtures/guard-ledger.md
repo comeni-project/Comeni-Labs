@@ -5326,3 +5326,27 @@ Task suites and the final repository check verify the completed implementations.
 - `test_authoring_chat_changes.py::test_once_built_what_is_not_offered_changes_nothing_and_says_so` (issue 354, walk 4) RED on the old engine with the walk's own receipt (`'…fasted yeast". changes nothing Affected steps will be reviewed again.' != '…fasted yeast". Nothing in the pipeline changes.'`, and the wrap-up repeated); GREEN once a confirmed note retains its continuation, keeps the projection current and makes no revision, and a wrap-up already said at that revision is not said again.
 - `test_authoring_chat_changes.py::test_a_correction_receipt_reads_as_sentences` (issue 354) RED (`'Adds hisat2_build' in '…read length is 50. adds hisat2_build, …settings, wiring or evidence Affected steps…'`); GREEN once the correction's receipt makes the diff a sentence of its own. The amend receipt (*Your change adds …*) keeps the clause.
 - `LivingBuilder.test.tsx` "says why a tier-4 offer went, and calls it open only once decided" (issue 354) RED (`Received: SUBREAD_FEATURECOUNTSstep 5 of 5 · openwithdrawn`); GREEN once a withdrawn offer reads *answers changed* without its tier's *open*. The accepted tier-4 row keeps *· open*, the control.
+
+## Redesign 1, 2026-10-19 — tokens and type (#371)
+
+Each guard is in `frontend/src/tokens.test.ts`. Every break below was reverted with
+`git checkout`, and the file then ran 19/19 green.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-19 | sets the same tokens in every theme | `--now-line` removed from the dark media block | failed | `expected [ '--action', … (34) ] to deeply equal [ … (35) ]` |
+| 2026-10-19 | lets an explicit light choice beat a dark system | `:root:not([data-theme="light"])` in the dark media block became `:root` | failed | `expected '/* The token system…' to match /@media \(prefers-color-scheme: dark\)…/` |
+| 2026-10-19 | keeps every text colour readable on the grounds it is drawn on | light `--ink-3` set to `#9AA0B4` | failed | `expected [ …(3) ] to deeply equal []` (the three `--ink-3` pairs, with their ratios) |
+| 2026-10-19 | keeps retired colour names retired | `text-[var(--link)]` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | sets every face in the family the artboards use, and bundles it | `--font-display` set back to Geist | failed | `--font-display names a face the boards do not use` |
+| 2026-10-19 | draws labels in the interface face, not shouted | `uppercase` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | sizes the type roles as the boards do | `--text-body` set to 13px | failed | `--text-body: expected '@import "tailwindcss";…' to match …` |
+| 2026-10-19 | rounds corners with the three named radii only | `rounded-[3px]` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | raises every main button | `shadow-raise` removed from `build/Gate.tsx`'s main button | failed | `expected [ 'build/Gate.tsx' ] to deeply equal []` |
+| 2026-10-19 | paints a plain ground: no field, no translucent panels | a `.field-scan` rule appended to `main.css` | failed | `expected [ 'main.css' ] to deeply equal []` |
+| 2026-10-19 | draws a filled main button as the action, not as selected | `home/First.tsx`'s primary set back to `bg-[var(--now)] text-paper` | failed | `expected [ 'home/First.tsx' ] to deeply equal []` |
+| 2026-10-19 | draws words in the -ink shade of a meaning, never its plain mark colour | `text-[var(--done)]` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | draws labels in the interface face, not shouted (widened to every string literal) | `uppercase` added to the `EYEBROW` constant in `home/Now.tsx`, which the className-only scan missed | failed | `expected [ 'home/Now.tsx' ] to deeply equal []` |
+| 2026-10-19 | rounds corners with the three named radii only (widened) | the run graph's node `rx={10}` set back to `rx={3}` | failed | `expected [ 'runs/Graph.tsx' ] to deeply equal []` |
+| 2026-10-19 | sizes the type roles as the boards do (body) | `body { font-size }` set back to `13px` | failed | `expected '…' to match /font-size:\s*var\(--text-body\);/` |
+| 2026-10-19 | `forge/registry/origins.test.tsx`: keys a model's proposal amber | the model origin's tone set back to `var(--now)` | failed | `expected 'var(--now)' to be 'var(--measured)'` |
