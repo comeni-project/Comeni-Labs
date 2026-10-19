@@ -15,8 +15,12 @@ const RUNS = [
   { id: "b71e04d2aaaa", name: "star-test", phase: "running", submitted_at: "2026-10-19T09:00:00Z" },
 ];
 
-function at(path: string, { runsDown = false, empty = false } = {}) {
+function at(path: string, { runsDown = false, empty = false, draftsDown = false, runsSlow = false } = {}) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/api/runs") && runsSlow) return new Promise(() => {});
+    if (/\/pipeline\/drafts(\?|$)/.test(url) && draftsDown) {
+      return { ok: false, status: 500, json: async () => ({ detail: "down" }) };
+    }
     if (url.includes("/api/runs") && runsDown) {
       return { ok: false, status: 502, json: async () => ({ detail: "down" }) };
     }
@@ -125,5 +129,66 @@ describe("jump to a pipeline or run", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: /jump/i })).toBeNull());
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("draws above the settings overlay, which comes later in the page", async () => {
+    at("/build?settings=appearance");
+    await screen.findByRole("dialog", { name: "Settings" });
+    press();
+    const jump = await screen.findByRole("dialog", { name: /jump/i });
+    const dialogs = screen.getAllByRole("dialog");
+    expect(dialogs[dialogs.length - 1]).toBe(jump);
+    expect(jump.closest("header")).toBeNull();
+  });
+
+  it("keeps focus inside while open", async () => {
+    at("/build");
+    press();
+    const field = await screen.findByRole("combobox");
+    await userEvent.tab();
+    expect(document.activeElement).toBe(field);
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("gives focus back to the field you were typing in", async () => {
+    at("/build");
+    const field = document.createElement("textarea");
+    document.body.appendChild(field);
+    field.focus();
+    press(field);
+    await screen.findByRole("dialog", { name: /jump/i });
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /jump/i })).toBeNull());
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
+  it("says pipelines could not be read rather than that none are saved", async () => {
+    at("/build", { draftsDown: true, empty: true });
+    press();
+    expect(await screen.findByText("Pipelines could not be read")).toBeTruthy();
+    expect(screen.queryByText("No saved pipelines or runs yet")).toBeNull();
+  });
+
+  it("does not say nothing matches while runs are still on their way", async () => {
+    at("/build", { runsSlow: true });
+    press();
+    await userEvent.type(await screen.findByRole("combobox"), "zzz");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText('Nothing matches "zzz"')).toBeNull();
+  });
+
+  it("selects the first result after arrowing over an empty list", async () => {
+    at("/build");
+    press();
+    const field = await screen.findByRole("combobox");
+    await userEvent.type(field, "zzz");
+    await screen.findByText('Nothing matches "zzz"');
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+    await userEvent.clear(field);
+    await userEvent.type(field, "star");
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+    expect(screen.getAllByRole("option")[0].getAttribute("aria-selected")).toBe("true");
   });
 });

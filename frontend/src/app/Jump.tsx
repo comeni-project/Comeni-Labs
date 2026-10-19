@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 
 import { get } from "../api/client";
@@ -20,28 +21,43 @@ export function Jump() {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
 
+
+  // Focus goes back where it was when the palette opened — the field you were typing in, or
+  // this button — and to the button if that place has gone.
+  const before = useRef<HTMLElement | null>(null);
+  const isOpen = useRef(false);
+  const show = () => {
+    if (isOpen.current) return;
+    isOpen.current = true;
+    before.current = document.activeElement as HTMLElement | null;
+    setOpen(true);
+  };
+  const close = () => {
+    isOpen.current = false;
+    setOpen(false);
+    const back = before.current;
+    (back && back.isConnected && back !== document.body ? back : opener.current)?.focus();
+  };
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen(true);
+        show();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  // `show` reads only refs and a state setter, so the first render's copy stays correct.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const close = () => {
-    setOpen(false);
-    opener.current?.focus();
-  };
 
   return (
     <>
       <button
         ref={opener}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={show}
         aria-label="Jump to a pipeline or run"
         className="flex items-center gap-[10px] h-[38px] px-[14px] w-[38px] sm:w-[340px] justify-center
                    sm:justify-start rounded-button border border-line-2 bg-surface text-ink-3
@@ -56,7 +72,9 @@ export function Jump() {
         <kbd className="hidden sm:inline ml-auto font-data text-[11px] px-[6px] rounded-xs border border-line-2
                         bg-paper text-ink-2">⌘K</kbd>
       </button>
-      {open && <Palette onClose={close} />}
+      {/* In `body`, last: the settings overlay and the run sheet come after the header in the
+          page, so a palette drawn inside it would sit underneath them. */}
+      {open && createPortal(<Palette onClose={close} />, document.body)}
     </>
   );
 }
@@ -89,12 +107,15 @@ function Palette({ onClose }: { onClose: () => void }) {
       event.preventDefault();
       event.stopPropagation();
       onClose();
+    } else if (event.key === "Tab") {
+      // The field is the only thing to focus, so focus stays in it while the palette is open.
+      event.preventDefault();
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActive((i) => Math.min(i + 1, options.length - 1));
+      setActive(Math.max(0, Math.min(current + 1, options.length - 1)));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActive((i) => Math.max(i - 1, 0));
+      setActive(Math.max(current - 1, 0));
     } else if (event.key === "Enter" && options[current]) {
       event.preventDefault();
       go(options[current]);
@@ -156,11 +177,12 @@ function Palette({ onClose }: { onClose: () => void }) {
           {found.runs.length > 0 && <li role="presentation" className="px-3 pt-3 pb-1 text-label text-ink-3">Runs</li>}
           {found.runs.map(row)}
         </ul>
+        {drafts.isError && <p className="m-0 px-5 pb-3 text-secondary text-ink-3">Pipelines could not be read</p>}
         {runs.isError && <p className="m-0 px-5 pb-3 text-secondary text-ink-3">Runs could not be read</p>}
-        {!query && options.length === 0 && !drafts.isPending && !runs.isPending && (
+        {!query && options.length === 0 && drafts.isSuccess && !runs.isPending && (
           <p className="m-0 px-5 py-4 text-secondary text-ink-3">No saved pipelines or runs yet</p>
         )}
-        {query && options.length === 0 && !drafts.isPending && (
+        {query && options.length === 0 && !drafts.isPending && !runs.isPending && (
           <p className="m-0 px-5 pb-4 text-secondary text-ink-3">Nothing matches "{query}"</p>
         )}
       </div>
