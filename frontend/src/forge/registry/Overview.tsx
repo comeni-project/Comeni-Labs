@@ -204,7 +204,7 @@ function Flow({ data }: { data: Counts }) {
                 to={stage.to}
                 className={`lift no-underline text-ink px-[15px] py-[11px] min-w-[118px]
                             bg-surface rounded-button border ${
-                              stage.ai ? "border-now" : "border-line"
+                              stage.ai ? "border-measured" : "border-line"
                             }`}
               >
                 <div className="text-label text-ink-3 pb-1.5">

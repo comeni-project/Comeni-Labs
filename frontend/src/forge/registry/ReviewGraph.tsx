@@ -15,8 +15,8 @@ import type { GraphPort, IoGraph } from "../../api/registry";
 
 const LOOK: Record<string, { border: string; tint: string; word: string }> = {
   derived: { border: "border-[var(--rail)]", tint: "bg-[var(--node)]", word: "from the source" },
-  model: { border: "border-[var(--now)]", tint: "bg-[var(--now-soft)]", word: "AI proposed" },
-  human: { border: "border-[var(--done)]", tint: "bg-[var(--done-soft)]", word: "answered by hand" },
+  model: { border: "border-[var(--measured)]", tint: "bg-[var(--measured-soft)]", word: "AI proposed" },
+  human: { border: "border-[var(--ink-2)]", tint: "bg-[var(--surface-2)]", word: "answered by hand" },
   open: {
     border: "border-dashed border-[var(--needs-you)]",
     tint: "bg-[var(--needs-you-soft)]",
