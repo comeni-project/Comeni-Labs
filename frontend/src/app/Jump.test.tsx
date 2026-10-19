@@ -15,14 +15,14 @@ const RUNS = [
   { id: "b71e04d2aaaa", name: "star-test", phase: "running", submitted_at: "2026-10-19T09:00:00Z" },
 ];
 
-function at(path: string, { runsDown = false } = {}) {
+function at(path: string, { runsDown = false, empty = false } = {}) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.includes("/api/runs") && runsDown) {
       return { ok: false, status: 502, json: async () => ({ detail: "down" }) };
     }
     // The list only: a single draft's address must not answer with the list.
-    const body = /\/pipeline\/drafts(\?|$)/.test(url) ? { drafts: DRAFTS, total: DRAFTS.length }
-      : url.includes("/api/runs") ? { runs: RUNS, total: RUNS.length }
+    const body = /\/pipeline\/drafts(\?|$)/.test(url) ? { drafts: empty ? [] : DRAFTS, total: 0 }
+      : url.includes("/api/runs") ? { runs: empty ? [] : RUNS, total: 0 }
       : null;
     // Anything else is not this test's business: a 404 leaves the page in its error state
     // rather than half-drawn from an empty answer.
@@ -101,6 +101,12 @@ describe("jump to a pipeline or run", () => {
     expect(within(dialog).getAllByRole("option").map((o) => o.textContent)).toEqual([
       expect.stringContaining("chip-peaks"), expect.stringContaining("rnaseq-star"),
     ]);
+  });
+
+  it("says there is nothing to jump to yet on a new installation", async () => {
+    at("/build", { empty: true });
+    press();
+    expect(await screen.findByText("No saved pipelines or runs yet")).toBeTruthy();
   });
 
   it("says so when nothing matches", async () => {

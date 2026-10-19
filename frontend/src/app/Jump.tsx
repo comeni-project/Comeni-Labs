@@ -157,6 +157,9 @@ function Palette({ onClose }: { onClose: () => void }) {
           {found.runs.map(row)}
         </ul>
         {runs.isError && <p className="m-0 px-5 pb-3 text-secondary text-ink-3">Runs could not be read</p>}
+        {!query && options.length === 0 && !drafts.isPending && !runs.isPending && (
+          <p className="m-0 px-5 py-4 text-secondary text-ink-3">No saved pipelines or runs yet</p>
+        )}
         {query && options.length === 0 && !drafts.isPending && (
           <p className="m-0 px-5 pb-4 text-secondary text-ink-3">Nothing matches "{query}"</p>
         )}
