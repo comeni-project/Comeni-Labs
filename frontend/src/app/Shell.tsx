@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router";
 
 import { SettingsOverlay } from "../preferences/SettingsOverlay";
+import { Jump } from "./Jump";
 import { painted, useTheme } from "./useTheme";
 
 
@@ -87,6 +88,7 @@ export function Shell() {
           <Tab to="/forge">Registry</Tab>
         </nav>
         <div className="ml-auto flex items-center gap-[10px]">
+          <Jump />
           <a href={DOCS_URL} target="_blank" rel="noreferrer" aria-label="Help" title="Help"
              className={`${round} font-semibold`}>?</a>
           <Link to={gear} aria-label="Settings" title="Settings" className={round}>
