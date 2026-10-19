@@ -58,8 +58,6 @@ def test_no_reported_token_reaches_the_menu(monkeypatch):
 
     values = {
         "COMENI_FORGE_GITHUB_TOKEN": "ghp_guard_github_0001",
-        "COMENI_FORGE_DOCKERHUB_USER": "guard-user",
-        "COMENI_FORGE_DOCKERHUB_TOKEN": "dckr_guard_hub_0002",
         "COMENI_AI_API_KEY": "sk-guard-provider-0003",
     }
     for name, value in values.items():

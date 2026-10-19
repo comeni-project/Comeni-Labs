@@ -1,18 +1,4 @@
-"""What slice 1 persists, and what it deliberately does not.
-
-A drift check is a fact about a moment — it ran, it looked at N contracts, M disagreed.
-Nothing else in the system remembers that, which is why it is the one table.
-"""
-
-from datetime import UTC, datetime
-
-from mendel_api.models import SourceCheck
-
-
-def test_a_source_check_records_when_and_what():
-    c = SourceCheck(ran_at=datetime.now(UTC), checked=58, drifted=4, skipped=0)
-    assert c.checked == 58
-    assert c.drifted == 4
+"""What the API persists, and what it deliberately does not."""
 
 
 def test_the_registry_is_not_in_the_database():
@@ -41,22 +27,14 @@ def test_the_registry_is_not_in_the_database():
     column, or on `gate_run` itself would all pass. `test_a_gate_run_carries_no_input_and_no_
     credential` closes the third of those.
 
-    **Seven tables arrived at once with the forge's workflow**, and the argument for each is in
-    its own class docstring rather than here — this assertion is the list, and `models.py` is
-    where a table says why it exists. What did not change is the line: *accepted* declarations
-    are files, and everything before a human approves one is workflow state. A `forge_revision`
-    holds a candidate, which is a draft in the same sense `pipeline_draft` is.
-
     **The test of which side a row is on is whether deleting the table changes a build.** For
-    all fourteen, it does not. `forge_catalogue_item` is the one worth naming: it holds tool
-    metadata, which sounds exactly like registry data, and is a cache of what somebody else
-    publishes — read over the network, replaced on every sync, read by no build.
+    every table here, it does not: *accepted* declarations are files, and everything before a
+    human approves one is workflow state.
 
     **Three authoring tables arrived on 2026-09-09** and pass that test in the direction that
     matters: delete every session, turn and proposal and `pipeline_draft` still opens, still
     validates and still keeps. What is lost is the *account* of how the graph came to look that
-    way, which is the workflow-state side of issue #43's line — the same side a `forge_revision`
-    is on.
+    way, which is the workflow-state side of issue #43's line.
 
     They are also the closest thing yet to the §8 mistake this test guards, and the distinction
     is worth stating: a `pipeline_authoring_*` row is about **authoring an artifact**, and a run
@@ -72,18 +50,10 @@ def test_the_registry_is_not_in_the_database():
 
     tables = {v.__tablename__ for v in vars(m).values() if hasattr(v, "__tablename__")}
     assert tables == {
-        "source_check",
-        "queue_visit",
         # Part H: what each retention pass removed, so a laboratory can see deletion happened.
         "retention_sweep",
         "pipeline_draft",
         "gate_run",
-        "forge_source_snapshot",
-        "forge_catalogue_item",
-        "forge_adaptation",
-        "forge_revision",
-        "forge_event",
-        "forge_message",
         "ai_invocation",
         "pipeline_authoring_session",
         "pipeline_authoring_suggestion",
@@ -111,7 +81,7 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_decision_migration",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
-        "docstring, and a sixteenth needs the same argument written down. Two rejections in "
+        "docstring, and a new one needs the same argument written down. Two rejections in "
         "particular: a table of contracts, types or roles that a BUILD reads reverses issue "
         "#43 (declared data is files); a table of RUNS is Wiener's, and building it here "
         "because the worker is here is the exact failure docs/design/execution-boundary.md "
@@ -119,9 +89,9 @@ def test_the_registry_is_not_in_the_database():
     )
 
 
-def test_no_forge_table_holds_a_credential():
-    """`AiInvocation`'s docstring says no table in that block holds a provider key. This is
-    that sentence as a test, and it is the cheapest guard in the file.
+def test_the_model_call_audit_holds_no_credential():
+    """`AiInvocation`'s docstring says no table holds a provider key, and it is the one where one
+    would go. This is that sentence as a test, and it is the cheapest guard in the file.
 
     **A key column is one plausible line away at every point in this plan.** `ai_invocation`
     already carries `provider` and `model`; adding `api_key` beside them so a worker "does not
@@ -129,9 +99,8 @@ def test_no_forge_table_holds_a_credential():
     database dump, every backup and every row a debugging endpoint renders. The credential
     reaches `comeni_ai.access` from the environment and reaches nothing else.
 
-    Named parts rather than exact column sets: the forge tables are going to grow columns
-    through the rest of this plan, and a guard that has to be edited on every legitimate
-    addition is a guard people learn to update without reading.
+    Named parts rather than exact column sets: a guard that has to be edited on every
+    legitimate addition is a guard people learn to update without reading.
     """
     import mendel_api.models as m
 
@@ -153,7 +122,7 @@ def test_no_forge_table_holds_a_credential():
     offenders = []
     for value in vars(m).values():
         table = getattr(value, "__table__", None)
-        if table is None or not (table.name.startswith("forge_") or table.name == "ai_invocation"):
+        if table is None or table.name != "ai_invocation":
             continue
         for column in table.columns:
             if any(word in column.name.lower() for word in forbidden):
@@ -164,34 +133,6 @@ def test_no_forge_table_holds_a_credential():
         "If one of these is genuinely not a secret, rename it — the guard reads names because "
         "a name is what a reviewer reads too."
     )
-
-
-def test_the_partial_index_names_exactly_the_terminal_states():
-    """`ForgeAdaptation`'s docstring says the index's SQL is `workflow.TERMINAL` spelled out.
-
-    A comment claiming a guard exists is worse than no comment — `geometry.ts` said its
-    constants were held to `layout.py`'s by a named test, no such test existed, and by the time
-    anybody looked the two had drifted by 60 pixels. This is that named test.
-
-    **What drifts here is not the index; it is the enum.** Adding a terminal state to
-    `AdaptationState` without editing the SQL leaves the partial index treating it as active,
-    so a finished adaptation would block its catalogue item forever and the refusal would name
-    a state nobody can act on.
-    """
-    from mendel_api.models import ForgeAdaptation
-    from mendel_forge.workflow import TERMINAL
-
-    index = next(
-        i for i in ForgeAdaptation.__table__.indexes if i.name == "ix_forge_adaptation_one_active"
-    )
-    clause = str(index.dialect_options["postgresql"]["where"])
-    named = {word.strip("'") for word in clause.split("(")[-1].rstrip(")").split(", ")}
-    assert named == {state.value for state in TERMINAL}, (
-        f"the index excludes {sorted(named)} and workflow.TERMINAL is "
-        f"{sorted(s.value for s in TERMINAL)}. One active adaptation per catalogue item is the "
-        "rule; the index is the half that holds when two requests arrive together."
-    )
-    assert index.unique
 
 
 def test_a_gate_run_carries_no_input_and_no_credential():

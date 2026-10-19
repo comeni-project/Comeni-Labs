@@ -28,9 +28,9 @@ PIPELINE_DOORS = {
 this set rather than against the whole list."""
 
 
-FORGE_DOORS = {"forge_review"}
-"""Registry authoring. Public tool documentation in, reviewed registry data out, and no `Goal`
-anywhere in it — a different path with a different author and the same rules."""
+FORGE_DOORS: set[str] = set()
+"""Registry authoring: public tool documentation in, reviewed registry data out, and no `Goal`
+anywhere in it. Empty until the new forge declares its door."""
 
 
 DOORS = PIPELINE_DOORS | FORGE_DOORS
@@ -131,24 +131,6 @@ FREE_TEXT_FIELDS = {
     # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
     # more declared string crossing a door somebody has to argue for.
     ("ParamDecision", "override_reason"),
-    # Fifteenth and sixteenth, 2026-09-05, and they arrive with a **new door** rather than by a
-    # refactor — the second time that has happened, after `override_reason`.
-    #
-    # `ReviewTurn.content` is the load-bearing one: a curator types it, at request time, and it
-    # goes to a provider. That is what `AuthoringRequest.prompt` is on the pipeline side, and it
-    # is precisely the leg the forge's 2026-08-17 exemption stood on — *it has no prompt*. The
-    # chat is a prompt, so the exemption stopped covering it and a door was declared instead of
-    # the argument being stretched.
-    #
-    # `ForgeReviewRequest.candidate` is the proposed contract or module as a reviewer sees it.
-    # It is composed rather than typed by anybody, from vendored modules and registry files —
-    # the same public bound that keeps `Excerpt` on this list honest.
-    #
-    # What is NOT here, deliberately: the generation dossier. It is composed entirely from
-    # those same public sources, so the line drawn is *who authored the string* rather than
-    # *how much text crosses*, and by that line generating a proposal is not a door.
-    ("ReviewTurn", "content"),
-    ("ForgeReviewRequest", "candidate"),
     # Seventeenth, 2026-09-09, and it is **the same field it replaced**. Door 1's payload grew
     # from `PromptRequest` — one prompt, one call — into `AuthoringRequest`, because the living
     # pipeline is a conversation and not a single extraction. `prompt` is still exactly what it
@@ -156,14 +138,13 @@ FREE_TEXT_FIELDS = {
     # around. The name on the left changed; nothing new crosses here.
     ("AuthoringRequest", "prompt"),
     # Eighteenth, and it IS new: the bounded tail. A follow-up turn is only answerable with
-    # what was already said, so prior turns are quoted back the way `ReviewTurn` does for door
-    # 5 — and this is the pipeline path, where the same shape had to be argued for separately
+    # what was already said, so prior turns are quoted back, and the shape is argued for here
     # rather than inherited.
     #
-    # **What bounds it is that a turn is not a transcript.** The tail is capped (`CHAT_TAIL`,
-    # the Forge's precedent), and a `MODEL` turn is text this system produced from typed data.
-    # A `PERSON` turn is prose the person typed — the same author, the same door, one more
-    # sentence of the same conversation `prompt` already carries.
+    # **What bounds it is that a turn is not a transcript.** The tail is capped (`CHAT_TAIL`),
+    # and a `MODEL` turn is text this system produced from typed data. A `PERSON` turn is prose
+    # the person typed — the same author, the same door, one more sentence of the same
+    # conversation `prompt` already carries.
     ("AuthoringTurn", "content"),
 }
 

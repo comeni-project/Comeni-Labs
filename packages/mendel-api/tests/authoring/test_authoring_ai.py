@@ -32,11 +32,8 @@ from sqlalchemy import select
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database — run `make test-db`")
 
 
-# **`clean_forge` in `conftest.py` is the fixture, and a rival one here was written first.**
-# The shorter list — the two authoring tables plus `ai_invocation` — is refused by Postgres,
-# because `forge_message` references `ai_invocation` as well: every foreign key in that block is
-# `RESTRICT`, so the whole set is truncated in one statement or none of it is. That is the
-# constraint doing its job, and the shared fixture's docstring already said so.
+# **`clean_invocations` in `conftest.py` is the fixture**: every foreign key in its block is
+# `RESTRICT`, so the whole set is truncated in one statement or none of it is.
 
 
 @pytest.fixture
@@ -95,7 +92,7 @@ def _rows() -> list[AiInvocation]:
 # ── the goal call ─────────────────────────────────────────────────────────────────────────
 
 
-def test_a_paired_rnaseq_request_comes_back_as_a_typed_want(stack, clean_forge):
+def test_a_paired_rnaseq_request_comes_back_as_a_typed_want(stack, clean_invocations):
     """The flagship case under v3: prose in, what they want out, and nothing about what they
     have. The engine works that out and asks (14.7.3)."""
     client = _client(
@@ -113,7 +110,7 @@ def test_a_paired_rnaseq_request_comes_back_as_a_typed_want(stack, clean_forge):
     assert outcome.reply.facts[0].quote == "paired"
 
 
-def test_an_ambiguous_want_comes_back_as_a_question(stack, clean_forge):
+def test_an_ambiguous_want_comes_back_as_a_question(stack, clean_invocations):
     """A question only when the want itself is unclear. What they have is the engine's to ask."""
     client = _client(
         _goal_answer(
@@ -133,7 +130,7 @@ def test_an_ambiguous_want_comes_back_as_a_question(stack, clean_forge):
     assert len(outcome.reply.questions) == 1
 
 
-def test_a_want_naming_a_type_the_registry_does_not_declare_is_refused(stack, clean_forge):
+def test_a_want_naming_a_type_the_registry_does_not_declare_is_refused(stack, clean_invocations):
     """`MI0204`, and the reason it refuses rather than trims.
 
     `rnaseq.counts` is not a declared type. It reads perfectly, validates as a string, and
@@ -148,7 +145,9 @@ def test_a_want_naming_a_type_the_registry_does_not_declare_is_refused(stack, cl
     assert "rnaseq.counts" in outcome.refusal
 
 
-def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack, clean_forge):
+def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(
+    stack, clean_invocations
+):
     """The same code on the other axis: `counts.matrix` is real and `polished` is not one of
     its states."""
     client = _client(_goal_answer(requires=[{"type": "counts.matrix", "states": ["polished"]}]))
@@ -159,7 +158,7 @@ def test_a_constraint_naming_a_state_that_type_does_not_declare_is_refused(stack
     assert "polished" in outcome.refusal
 
 
-def test_a_fact_the_registry_refuses_refuses_the_reply(stack, clean_forge):
+def test_a_fact_the_registry_refuses_refuses_the_reply(stack, clean_invocations):
     """#307 (spec §9): an undeclared id, or a value its measurement refuses, is refused at
     admission and nothing is recorded — where #170 dropped a bad stated candidate. A change is
     recorded or offered as it stands, so one the registry cannot hold has nowhere to go."""
@@ -179,7 +178,7 @@ DRAFT = ai.compose(
 )
 
 
-def test_an_explanation_comes_back_as_something_to_say(clean_forge):
+def test_an_explanation_comes_back_as_something_to_say(clean_invocations):
     """#307: an explanation is `say`; it changes nothing."""
     client = _client(json.dumps({"say": "STAR is here because your reads are 150 bp long"}))
     outcome = ai.follow_up(DRAFT, client=client)
@@ -189,7 +188,7 @@ def test_an_explanation_comes_back_as_something_to_say(clean_forge):
     assert not outcome.reply.facts and not outcome.reply.pins
 
 
-def test_a_correction_in_words_comes_back_as_a_fact_quoting_them(clean_forge):
+def test_a_correction_in_words_comes_back_as_a_fact_quoting_them(clean_invocations):
     """*actually it is single-end* is a change to a fact, quoting them — no longer a revision
     re-read from the top (#307)."""
     client = _client(
@@ -201,7 +200,7 @@ def test_a_correction_in_words_comes_back_as_a_fact_quoting_them(clean_forge):
     assert outcome.reply.facts[0].value is False
 
 
-def test_a_tool_the_registry_does_not_declare_is_refused(clean_forge):
+def test_a_tool_the_registry_does_not_declare_is_refused(clean_invocations):
     """**The product claim, as a test.** A model cannot produce a value outside the candidate
     set: a pin names a declared tool or it is set aside, and never reaches what is recorded.
     Since #326 the rest of the reply stands; the row keeps the code, so it is still counted."""
@@ -216,7 +215,7 @@ def test_a_tool_the_registry_does_not_declare_is_refused(clean_forge):
     assert (_rows()[0].state, _rows()[0].failure_code) == ("succeeded", "MI0204")
 
 
-def test_a_setting_no_step_declares_is_refused(clean_forge):
+def test_a_setting_no_step_declares_is_refused(clean_invocations):
     client = _client(json.dumps({"parameters": [{"name": "libtype", "value": "A"}]}))
     outcome = ai.follow_up(DRAFT, client=client)
 
@@ -224,7 +223,7 @@ def test_a_setting_no_step_declares_is_refused(clean_forge):
     assert outcome.code == "MI0204"
 
 
-def test_saying_what_cannot_be_done_is_an_admitted_answer_and_not_a_refusal(clean_forge):
+def test_saying_what_cannot_be_done_is_an_admitted_answer_and_not_a_refusal(clean_invocations):
     """Saying *I cannot do that here* is the model working, not failing."""
     client = _client(
         json.dumps({"say": "I cannot add a tool to the registry from this conversation"})
@@ -238,7 +237,7 @@ def test_saying_what_cannot_be_done_is_an_admitted_answer_and_not_a_refusal(clea
 # ── what goes wrong ───────────────────────────────────────────────────────────────────────
 
 
-def test_an_answer_that_is_not_json_is_refused_and_recorded(clean_forge):
+def test_an_answer_that_is_not_json_is_refused_and_recorded(clean_invocations):
     """`comeni-ai` will not hand over an answer that does not validate, so this never reaches
     admission — and the row still has to exist, because a model that cannot produce the shape is
     the finding worth measuring."""
@@ -250,7 +249,7 @@ def test_an_answer_that_is_not_json_is_refused_and_recorded(clean_forge):
     assert _rows()[0].state == "refused"
 
 
-def test_a_provider_failure_is_recorded_as_failed_and_never_as_refused(clean_forge):
+def test_a_provider_failure_is_recorded_as_failed_and_never_as_refused(clean_invocations):
     """The distinction `InvocationState` was split for: this one is retried, a refusal is a
     prompt or a model that cannot do the job. Folding them makes the second invisible."""
     client = _client(ModelUnavailableError("MA0007: fake/test: connection refused"))
@@ -261,7 +260,7 @@ def test_a_provider_failure_is_recorded_as_failed_and_never_as_refused(clean_for
     assert _rows()[0].state == "failed"
 
 
-def test_a_provider_failure_records_a_code_and_never_the_providers_words(clean_forge):
+def test_a_provider_failure_records_a_code_and_never_the_providers_words(clean_invocations):
     """`failure_code` holds a declared code. A provider's own text carries an endpoint and
     sometimes a key prefix, and this column is rendered on a page."""
     client = _client(ModelUnavailableError("MA0002: the provider refused the credentials"))
@@ -272,7 +271,7 @@ def test_a_provider_failure_records_a_code_and_never_the_providers_words(clean_f
     assert "credentials" not in row.failure_code
 
 
-def test_no_configured_model_refuses_before_anything_is_recorded(monkeypatch, clean_forge):
+def test_no_configured_model_refuses_before_anything_is_recorded(monkeypatch, clean_invocations):
     """**No row, because nothing was called.** An `ai_invocation` for a call that never happened
     would put a zero in every aggregate that counts attempts.
 
@@ -292,7 +291,7 @@ def test_no_configured_model_refuses_before_anything_is_recorded(monkeypatch, cl
 # ── grounding and the audit row ───────────────────────────────────────────────────────────
 
 
-def test_the_tail_the_model_is_shown_is_bounded(clean_forge):
+def test_the_tail_the_model_is_shown_is_bounded(clean_invocations):
     """`CHAT_TAIL`, and it is applied where the payload is built rather than by each caller.
 
     Unbounded, a long conversation eventually pushes the pipeline out of the window and the
@@ -306,7 +305,7 @@ def test_the_tail_the_model_is_shown_is_bounded(clean_forge):
     assert request.turns[-1].content == "turn 19"
 
 
-def test_the_prompt_that_was_sent_carries_the_steps_and_the_option_ids(clean_forge):
+def test_the_prompt_that_was_sent_carries_the_steps_and_the_option_ids(clean_invocations):
     """What the model is shown and what it is held to are one list.
 
     If the options were rendered as labels, a reply naming a label would be refused by a check
@@ -320,7 +319,9 @@ def test_the_prompt_that_was_sent_carries_the_steps_and_the_option_ids(clean_for
     assert "align — nf-core/star/align@1.11.0" in sent
 
 
-def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(stack, clean_forge):
+def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
+    stack, clean_invocations
+):
     """`agent="builder"` is what the shared table was built for, and the digest is over
     `last_prompt` rather than the template render — the field exists so a stored row can be
     compared against a re-render, and the schema `generate` appends is part of what was sent."""
@@ -339,7 +340,7 @@ def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(s
     assert row.prompt_digest == hashlib.sha256(client.last_prompt.encode()).hexdigest()
 
 
-def test_the_row_says_which_reply_format_the_call_used(stack, clean_forge):
+def test_the_row_says_which_reply_format_the_call_used(stack, clean_invocations):
     """#194: a reader of a refusal needs to know whether the server enforced the shape."""
 
     class Enforcing(Answers):
@@ -358,7 +359,7 @@ def test_the_row_says_which_reply_format_the_call_used(stack, clean_forge):
     assert sorted(row.reply_format for row in _rows()) == ["in_prompt", "ollama"]
 
 
-def test_the_two_calls_are_told_apart_by_purpose_under_one_agent(stack, clean_forge):
+def test_the_two_calls_are_told_apart_by_purpose_under_one_agent(stack, clean_invocations):
     """One member per committed prompt id, scoped by `agent` rather than spelled to be globally
     unique — the Forge declares a `chat` purpose too, and that column is what separates them."""
     ai.understand(ai.compose(prompt="count genes"), stack=stack, client=_client(_goal_answer()))
@@ -384,7 +385,7 @@ def _session() -> str:
     ).result
 
 
-def test_a_call_stores_its_reply_and_its_session(stack, clean_forge):
+def test_a_call_stores_its_reply_and_its_session(stack, clean_invocations):
     sid = _session()
     ai.understand(
         ai.compose(prompt="count genes"),
@@ -397,7 +398,7 @@ def test_a_call_stores_its_reply_and_its_session(stack, clean_forge):
     assert row.session_id == sid
 
 
-def test_a_refused_call_keeps_the_reply_that_was_refused(stack, clean_forge):
+def test_a_refused_call_keeps_the_reply_that_was_refused(stack, clean_invocations):
     ai.understand(
         ai.compose(prompt="count genes"),
         stack=stack,
@@ -413,7 +414,7 @@ def test_the_session_never_enters_the_door_payload():
     assert "session_id" not in ai.AuthoringRequest.model_fields
 
 
-def test_a_builder_call_sends_the_split_and_digests_what_it_sent(stack, clean_forge):
+def test_a_builder_call_sends_the_split_and_digests_what_it_sent(stack, clean_invocations):
     """#183: the fixed part as a system message, the per-call part after it."""
     seen: list = []
 
@@ -431,7 +432,7 @@ def test_a_builder_call_sends_the_split_and_digests_what_it_sent(stack, clean_fo
     assert _rows()[0].prompt_digest == hashlib.sha256(client.last_prompt.encode()).hexdigest()
 
 
-def test_a_phrasing_keeps_its_words_and_drops_an_already_nobody_offered(stack, clean_forge):
+def test_a_phrasing_keeps_its_words_and_drops_an_already_nobody_offered(stack, clean_invocations):
     """#167: `already` is held like `chose`, but a bad one is dropped, not refused."""
     gap = {
         "subject": "paired",
@@ -456,7 +457,7 @@ def test_a_phrasing_keeps_its_words_and_drops_an_already_nobody_offered(stack, c
     assert _rows()[0].purpose == "ask"
 
 
-def test_the_read_back_call_is_given_the_goal_after_the_divider(stack, clean_forge):
+def test_the_read_back_call_is_given_the_goal_after_the_divider(stack, clean_invocations):
     seen: list = []
 
     class Records:
@@ -490,7 +491,7 @@ class _Choosing(Client):
         return super().chat(system, user, shape, choices=choices)
 
 
-def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_forge):
+def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_invocations):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="count genes"), stack=stack, client=goal)
     [held] = goal.choices
@@ -512,7 +513,7 @@ def test_each_call_holds_its_ids_to_what_it_was_shown(stack, clean_forge):
     assert asked.choices == [None]
 
 
-def test_prose_only_calls_name_no_list(clean_forge):
+def test_prose_only_calls_name_no_list(clean_invocations):
     reader = _Choosing(json.dumps({"text": "You will get a counts matrix."}))
     ai.read_back(ai.compose(prompt="p"), goal="want: counts.matrix", client=reader)
     assert reader.choices == [None]
@@ -538,7 +539,7 @@ def test_the_verdict_comes_before_any_family():
     assert "fits" in FamilyChoice.model_json_schema()["required"]
 
 
-def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_forge):
+def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_invocations):
     chooser = _Choosing(
         json.dumps({"fits": "yes", "families": ["counts"], "ack": "Gene counts — got it."})
     )
@@ -548,7 +549,7 @@ def test_the_family_call_holds_its_answer_to_the_declared_families(stack, clean_
     assert _rows()[0].purpose == "family" and _rows()[0].prompt_id == "builder.family.v4"
 
 
-def test_a_family_nothing_declares_is_refused(stack, clean_forge):
+def test_a_family_nothing_declares_is_refused(stack, clean_invocations):
     outcome = ai.choose_families(
         ai.compose(prompt="variant calls"),
         stack=stack,
@@ -559,7 +560,7 @@ def test_a_family_nothing_declares_is_refused(stack, clean_forge):
     assert not outcome.admitted and outcome.code == "MI0204"
 
 
-def test_the_goal_call_is_shown_only_the_chosen_families_whole(stack, clean_forge):
+def test_the_goal_call_is_shown_only_the_chosen_families_whole(stack, clean_invocations):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=["counts"], client=goal)
     counts = sorted(t for t in stack.vocabulary.types if t.startswith("counts."))
@@ -569,7 +570,7 @@ def test_the_goal_call_is_shown_only_the_chosen_families_whole(stack, clean_forg
 
 
 def test_with_the_family_step_off_the_goal_call_sees_every_type_and_acknowledges(
-    stack, clean_forge
+    stack, clean_invocations
 ):
     goal = _Choosing(_goal_answer())
     ai.understand(ai.compose(prompt="gene counts"), stack=stack, families=None, client=goal)

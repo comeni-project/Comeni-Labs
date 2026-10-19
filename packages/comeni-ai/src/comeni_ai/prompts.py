@@ -18,8 +18,8 @@ on the first `{"type": "object"}` it met. A placeholder syntax that cannot colli
 payload is worth more than a familiar one.
 
 **This package owns loading, rendering and identity. It owns no prompt text.** Mendel
-contracts, roles and Nextflow instructions belong to the caller — `mendel-forge` keeps its
-own `prompts/` directory. Shared infrastructure that accumulates every agent's prompts has
+contracts, roles and Nextflow instructions belong to the caller, which keeps its own
+`prompts/` directory. Shared infrastructure that accumulates every agent's prompts has
 become a shared pile rather than a boundary.
 """
 

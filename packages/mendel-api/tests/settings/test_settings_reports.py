@@ -24,13 +24,6 @@ def test_a_token_is_reported_as_set_never_as_itself(monkeypatch):
     assert reports.REPORTERS["registry.github"]() == "not set"
 
 
-def test_docker_hub_needs_both_halves(monkeypatch):
-    monkeypatch.setenv("COMENI_FORGE_DOCKERHUB_USER", "someone")
-    monkeypatch.delenv("COMENI_FORGE_DOCKERHUB_TOKEN", raising=False)
-    half = reports.REPORTERS["registry.dockerhub"]()
-    assert half == "not set (needs both the user and the token)"
-
-
 def test_versions_name_every_package():
     names = {row["part"] for row in reports.REPORTERS["system.versions"]()}
     assert {"comeni-core", "mendel-api", "comeni-ai"} <= names
@@ -41,10 +34,6 @@ def test_a_registry_that_cannot_be_read_says_so(monkeypatch, tmp_path):
 
     monkeypatch.setattr(settings, "registry_root", tmp_path / "nowhere")
     assert reports.REPORTERS["registry.layers"]().startswith("not readable")
-
-
-def test_the_source_check_time_is_the_workers_own():
-    assert reports.REPORTERS["registry.source_check"]() == "every day at 03:00"
 
 
 def test_a_database_that_does_not_answer_says_so(monkeypatch):

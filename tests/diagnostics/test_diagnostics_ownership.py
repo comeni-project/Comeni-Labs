@@ -28,7 +28,6 @@ PACKAGE_OF = {
     "core": "comeni-core",
     "resolver": "mendel-resolver",
     "compiler": "mendel-compiler",
-    "forge": "mendel-forge",
     "ai": "comeni-ai",
     "api": "mendel-api",
     "authoring": "mendel-authoring",

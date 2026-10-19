@@ -13,9 +13,7 @@ dist/
 /build/
 /profile-build/
 
-# Forge demonstration and tool-adaptation workspaces.
-/.forge/
-/.forge-demo/
+# Test, lint and coverage caches.
 .pytest_cache/
 .ruff_cache/
 .coverage

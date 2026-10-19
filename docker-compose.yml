@@ -99,10 +99,8 @@ services:
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # Authenticate GitHub catalogue requests to raise the upstream rate limit.
+      # Lets the forge open pull requests and publish releases on the registry.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
-      COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
-      COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
     ports: ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
     volumes:
       # Mount local code for development.
@@ -156,11 +154,9 @@ services:
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # Authenticate GitHub catalogue requests to raise the upstream rate limit.
+      # Lets the forge open pull requests and publish releases on the registry.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
-      COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
-      COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
-    # Match the API paths so jobs can read its saved pipelines and tool adaptation files.
+    # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
@@ -201,11 +197,9 @@ services:
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # Authenticate GitHub catalogue requests to raise the upstream rate limit.
+      # Lets the forge open pull requests and publish releases on the registry.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
-      COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
-      COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
-    # Match the API paths so jobs can read its saved pipelines and tool adaptation files.
+    # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry

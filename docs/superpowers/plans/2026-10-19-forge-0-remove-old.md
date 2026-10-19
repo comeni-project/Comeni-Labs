@@ -39,11 +39,11 @@
 **Interfaces:**
 - Produces: `mendel_api.invocations.Agent`, `InvocationPurpose`, `InvocationState` — `StrEnum`s with exactly the members `mendel_forge.workflow` has today (copy the members, not the forge's other enums).
 
-- [ ] **Step 1: Write the failing test**: `from mendel_api.invocations import Agent, InvocationPurpose, InvocationState`; assert each enum's set of values equals the current one (read the values from `mendel_forge/workflow.py` when writing the test and paste them as literals); assert `Agent.BUILDER == "builder"` and `Agent.FORGE == "forge"`.
-- [ ] **Step 2: Run** `make test-db` then `uv run pytest packages/mendel-api/tests/infrastructure/test_invocations.py` with the test database's URL (as `make test` sets it) — FAIL, module missing.
-- [ ] **Step 3: Create `invocations.py`** with the three enums and a docstring on what they record; point `models.py` and `authoring_ai.py` at it. `models.py` keeps importing the forge-only enums for the forge tables until Task 2 deletes those tables.
-- [ ] **Step 4: Run** `make test` — PASS.
-- [ ] **Step 5: Commit** `refactor(mendel-api): the model-call vocabulary moves out of the forge (#361)`.
+- [x] **Step 1: Write the failing test**: `from mendel_api.invocations import Agent, InvocationPurpose, InvocationState`; assert each enum's set of values equals the current one (read the values from `mendel_forge/workflow.py` when writing the test and paste them as literals); assert `Agent.BUILDER == "builder"` and `Agent.FORGE == "forge"`.
+- [x] **Step 2: Run** `make test-db` then `uv run pytest packages/mendel-api/tests/infrastructure/test_invocations.py` with the test database's URL (as `make test` sets it) — FAIL, module missing.
+- [x] **Step 3: Create `invocations.py`** with the three enums and a docstring on what they record; point `models.py` and `authoring_ai.py` at it. `models.py` keeps importing the forge-only enums for the forge tables until Task 2 deletes those tables.
+- [x] **Step 4: Run** `make test` — PASS.
+- [x] **Step 5: Commit** `refactor(mendel-api): the model-call vocabulary moves out of the forge (#361)`.
 
 ### Task 2: Delete the old forge from the API, worker, database and workspace
 
@@ -57,16 +57,16 @@
 - Consumes: `mendel_api.invocations` (Task 1).
 - Produces: `GET /api/attention` returns `{ "mendel": [...] }` only.
 
-- [ ] **Step 1: Write the failing tests** in `test_old_forge_gone.py`:
+- [x] **Step 1: Write the failing tests** in `test_old_forge_gone.py`:
   - `importlib.util.find_spec("mendel_forge") is None`;
   - `create_app().openapi()["paths"]` has no path starting `/api/forge`, `/api/contracts`, `/api/questions`, `/api/sources`, `/api/tools`, and still has `/api/attention`, `/api/pipeline/authoring`;
   - `Base.metadata.tables` has no name starting `forge_` and no `source_check`, `queue_visit`; still has `ai_invocation`;
   - after `alembic upgrade head` on the test database (the migration-test fixture the infrastructure tests already use), the database has no such table, and an `ai_invocation` row with `agent="forge"` inserted before the upgrade is still there;
   - a source scan: no `.py`, `.toml`, `Makefile`, `.yml` under the repository (excluding `docs/notes/`, `docs/superpowers/`, `.git`, `node_modules`, `migrations/versions/` before the new one) contains `mendel_forge` or `mendel-forge`.
-- [ ] **Step 2: Run** with `make test` — FAIL on each.
-- [ ] **Step 3: Delete and edit** per the file list. The migration drops the tables in foreign-key order (`forge_message`, `forge_event`, `forge_revision`, `forge_adaptation`, `forge_catalogue_item`, `forge_source_snapshot`, `source_check`, `queue_visit`); its `downgrade()` raises with *no backward compatibility before v0.1.0*. Diagnostics: delete each `MF`/`MI` code that nothing emits after the deletion — run the diagnostics guard (`uv run pytest tests/guards -k diagnostic` against the test DB setup) and remove what it reports as declared-but-unemitted, keeping any still used; regenerate the reference with `uv run python tools/generate_diagnostics_doc.py`. Settings: delete `DOCKERHUB` and `SOURCE_CHECK` from the Registry section; the GitHub token's help reads *Lets the forge open pull requests and publish releases on the registry*. `uv lock`.
-- [ ] **Step 4: Run** `make test`, then `make lint`, `make types`, `make guards` — PASS. Record in `tests/fixtures/guard-ledger.md` that `test_forge_write_boundary.py` was deleted with the package it scanned, and that part 5 (#366) brings the new boundary's guard.
-- [ ] **Step 5: Commit** in two commits: `refactor: the old forge's API, worker jobs and tables go (#361)` and `refactor: the mendel-forge package goes (#361)`, each with the suite green.
+- [x] **Step 2: Run** with `make test` — FAIL on each.
+- [x] **Step 3: Delete and edit** per the file list. The migration drops the tables in foreign-key order (`forge_message`, `forge_event`, `forge_revision`, `forge_adaptation`, `forge_catalogue_item`, `forge_source_snapshot`, `source_check`, `queue_visit`); its `downgrade()` raises with *no backward compatibility before v0.1.0*. Diagnostics: delete each `MF`/`MI` code that nothing emits after the deletion — run the diagnostics guard (`uv run pytest tests/guards -k diagnostic` against the test DB setup) and remove what it reports as declared-but-unemitted, keeping any still used; regenerate the reference with `uv run python tools/generate_diagnostics_doc.py`. Settings: delete `DOCKERHUB` and `SOURCE_CHECK` from the Registry section; the GitHub token's help reads *Lets the forge open pull requests and publish releases on the registry*. `uv lock`.
+- [x] **Step 4: Run** `make test`, then `make lint`, `make types`, `make guards` — PASS. Record in `tests/fixtures/guard-ledger.md` that `test_forge_write_boundary.py` was deleted with the package it scanned, and that part 5 (#366) brings the new boundary's guard.
+- [x] **Step 5: Commit** in two commits: `refactor: the old forge's API, worker jobs and tables go (#361)` and `refactor: the mendel-forge package goes (#361)`, each with the suite green.
 
 ### Task 3: Delete the old forge from the browser
 
@@ -92,3 +92,32 @@
 - [ ] **Step 3:** Tick this plan with a *Deviations* heading; set the spec's status.
 - [ ] **Step 4: Commit** `docs: the old forge leaves the documentation (#361)`.
 - [ ] **Step 5:** `make check` and `make guards` once more, then the final whole-branch review. The branch is **not merged** until part 1 (#362) is on it (spec, section 4).
+
+## Deviations
+
+- **Task 2 landed as one commit, not two.** `test_old_forge_gone.py` asserts that the package is
+  gone, so an API-only commit with the package still present could not be green.
+- **Task 2's source scan covers `.py`, `.toml`, `.yml` and `Makefile`, as the plan says**, and
+  not yet `.ts`/`.tsx`: the generated `schema.d.ts` names a `mendel_forge` type until Task 3
+  runs `make client`. Task 3 widens the scan.
+- **`test_no_pure_package_imports_an_impure_one` was widened rather than deleted.** It
+  searched for the text `mendel_forge`. It now checks each pure package's AST imports against
+  every name in `IMPURE_PACKAGES`. The ledger records the break it caught.
+- **The fixture `clean_forge` is now `clean_invocations`** (five users), and the unused
+  `clean_db` (which truncated `queue_visit`) was deleted. Every `TRUNCATE` list lost the old
+  tables, `shape_versions.py` lost their four entries, and their eight shape goldens were
+  removed.
+- **The migration test also inserts an `agent='forge'` invocation before upgrading** and checks
+  that it survives (Review Focus 2). The first draft of the test left that check out.
+- **Diagnostics:** 53 codes went (`MF0001`–`MF0406` and `MI0100`–`MI0114` except `MI0106`).
+  The band comment marks `MF0001`–`MF0499` as retired, and the new forge allocates from `MF0500`.
+  `MI0106` and the nine `MA` codes now name `authoring`, not `forge fill --model`, as where they
+  fire.
+- **Also touched to keep the suite green:**
+  - `migrations/env.py` imported `SourceCheck`.
+  - The settings menu golden was regenerated.
+  - The `CLAUDE.md` source-map row was updated.
+  - The forge test-index row in `tests/README.md` was removed.
+  - `.gitignore` and `.dockerignore` lost `.forge/` and `.forge-demo/`.
+  - The Makefile lost the `forge`, `forge-ai-eval` and `forge-rework` targets. The
+    frontend's `FORGE-REWORK` markers go with Task 3.

@@ -212,7 +212,6 @@ BANLIST_PACKAGES = ["mendel-compiler"]
 
 
 IMPURE_PACKAGES: list[str] = [
-    "mendel-forge",
     "comeni-ai",
     "mendel-ai",
     "mendel-api",
@@ -223,9 +222,8 @@ IMPURE_PACKAGES: list[str] = [
 """Packages this file deliberately does not guard, named so that *not* guarding them is a
 decision rather than an omission.
 
-`mendel-forge` ingests tool sources and, from Phase 2, calls a model. Invariant 1 names
-three packages and this is not one of them — the arrow points mendel-forge -> the pure
-packages, and `test_no_pure_package_imports_an_impure_one` is what holds that direction.
+The arrow points from these to the pure packages, and
+`test_no_pure_package_imports_an_impure_one` is what holds that direction.
 
 `comeni-vendor` arrived with Plan 5A and is the reason it is not `mendel vendor`: fetching a
 module from GitHub is a network client, and `mendel` is `mendel_compiler.cli:main`. Putting the
@@ -525,8 +523,8 @@ def _outside_allowlist(path: pathlib.Path, root: pathlib.Path, allowed: set[str]
 def _imported_roots(path: pathlib.Path) -> set[str]:
     """The top-level module of every import in a file. AST rather than a substring scan.
 
-    `"mendel_forge" in text` — which the test below uses — matches a docstring, a comment and
-    the word in a variable name, and misses nothing only because it over-matches. For an arrow
+    A substring scan such as `"mendel_api" in text` matches a docstring, a comment and the
+    word in a variable name, and misses nothing only because it over-matches. For an arrow
     between two halves of a product that is not good enough in either direction: a sentence
     naming the other half would fail the build, and nobody would trust the guard afterwards.
     """

@@ -2,10 +2,9 @@
 
 **Prompt text is here and not in `comeni-ai`.** That package loads, renders and versions a
 caller's templates; what those templates *say* about goals, vocabulary and steps belongs to the
-caller. `mendel_forge.prompts` is the same arrangement one agent over, and the reason it is two
-directories rather than one shared pile is that the two agents share a transport and share
-nothing else: the Forge's rules are about evidence ids and registry vocabulary, and these are
-about a goal, the ids the engine issued, and invariant 15.
+caller. Each agent keeps its own directory rather than one shared pile because agents share a
+transport and nothing else: these rules are about a goal, the ids the engine issued, and
+invariant 15.
 
 **Changing behaviour means adding a `v2`, never editing a `v1`.** An `ai_invocation` row cites
 the prompt id it ran under, and somebody re-reading a session six months later has to be able to

@@ -69,7 +69,6 @@ callers before moving a test they select explicitly.
 | Nextflow construction | [compiler tests](../packages/mendel-compiler/tests/) | Emission, gates, derivability and generated tool documentation. |
 | Conversation protocol | [authoring tests](../packages/mendel-authoring/tests/) | Pure protocol, commands, decisions, projections and review planning. |
 | Build API and persistence | [API test index](../packages/mendel-api/tests/README.md) | Authoring, samples, decisions, Forge integration, settings and pipelines; some require Postgres. |
-| Registry authoring | [Forge test index](../packages/mendel-forge/tests/README.md) | Recorded source adapters, scaffolds, models, validation, landing and CLI. |
 | Model transport | [comeni-ai tests](../packages/comeni-ai/tests/) and [Mendel shim tests](../packages/mendel-ai/tests/) | Provider formats and recorded or fake responses. |
 | Inspection subprocesses | [inspection tests](../packages/comeni-inspect/tests/) | Wire protocol and subprocess isolation. |
 | Module fetching | [vendor tests](../packages/comeni-vendor/tests/) | Fetching and pin checks against controlled fixtures. |

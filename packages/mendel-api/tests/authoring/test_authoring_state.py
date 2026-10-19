@@ -1,9 +1,9 @@
 """The authoring state machine, asked of the function rather than of a session.
 
 **Pure, so this file needs no database and no clock.** `state.py` reads a phase and an event and
-answers with a phase; everything that persists is the stage modules' (`stages/`). That split is the
-same one `mendel_forge.workflow` keeps, and it is what lets the diagram in the plan's §2 be
-checked directly instead of being re-implemented in a service and checked by proxy.
+answers with a phase; everything that persists is the stage modules' (`stages/`). That split is
+what lets the diagram in the plan's §2 be checked directly instead of being re-implemented in a
+service and checked by proxy.
 
 The rule the file exists to keep: **the diagram is the specification.** Every transition asserted
 here is an arrow drawn there, and an arrow that is not drawn is refused.

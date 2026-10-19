@@ -5351,3 +5351,15 @@ Each guard is in `frontend/src/tokens.test.ts`. Every break below was reverted w
 | 2026-10-19 | sizes the type roles as the boards do (body) | `body { font-size }` set back to `13px` | failed | `expected '…' to match /font-size:\s*var\(--text-body\);/` |
 | 2026-10-19 | `forge/registry/origins.test.tsx`: keys a model's proposal amber | the model origin's tone set back to `var(--now)` | failed | `expected 'var(--now)' to be 'var(--measured)'` |
 | 2026-10-19 | `app/Jump.test.tsx`: draws above the settings overlay, which comes later in the page | the palette rendered inside the header (before the portal) | failed | the jump dialog was not the last dialog and sat inside `<header>`; the browser showed it hidden under Settings while holding focus |
+
+## Forge MVP 0, 2026-10-19 — the old forge goes (#361)
+
+`tests/guards/test_forge_write_boundary.py` was deleted with `mendel-forge`, the package it
+scanned; part 5 (#366) brings the new forge's boundary and its guard.
+`test_no_pure_package_imports_an_impure_one` searched for the text `mendel_forge`. It now checks
+the AST imports of each pure package against every name in `IMPURE_PACKAGES`. The break below was
+reverted by restoring the file, and the purity guards then ran 19/19 green.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-19 | `tests/guards/test_purity.py::test_no_pure_package_imports_an_impure_one` (widened) | `if False: import mendel_api` appended to `comeni_core/__init__.py` | failed | `a pure package imports an impure one; the dependency arrow points the other way:` naming the file and `mendel_api` |

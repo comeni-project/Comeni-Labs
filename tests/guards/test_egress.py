@@ -1,15 +1,12 @@
-"""Invariant 14: data leaves through six declared doors and no others.
+"""Invariant 14: data leaves through five declared doors and no others.
 
 The doors are listed here, literally, on purpose. Adding one means editing a file
 whose contents say "these are all the ways data leaves this building" — which is
 the moment a person should be thinking, and this test is what makes them.
 
-**Six since 2026-10-04 (door 6, the characteriser); five since 2026-09-05, on two
-paths.** Five carry pipeline data along one prompt-taint path, door 6 the start of a sample;
-`forge_review` carries a curator's message to a model about a candidate the forge proposed.
-The forge stayed off this list for as long as it had no prompt — one of the three legs the
-2026-08-17 exemption stood on, beside taking no `Goal` and writing no `pipeline.yml` — and a
-review chat breaks exactly that leg. The other two still hold, which is what `DoorPath` records.
+**Five, on the pipeline path.** Four carry pipeline data along one prompt-taint path and door 6
+the start of a sample. The forge's flow is declared with no doors: the old forge's review chat
+went with it (forge MVP part 0, #361), and the new forge declares its own when it has one.
 
 A separate `FORGE_DOORS` was considered and rejected: two files creates a cheaper file, and the
 less-scrutinised one is where a door that belonged on the other list eventually goes."""
@@ -22,7 +19,6 @@ from comeni_core.egress import boundaries as egress
 from comeni_core.egress.authoring import AuthoringRequest
 from comeni_core.egress.base import EgressPayload
 from comeni_core.egress.characterisation import CharacteriseRequest
-from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
 from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import Mark
 from pydantic import ValidationError, computed_field
@@ -90,42 +86,6 @@ def test_every_door_declares_which_path_it_is_on():
     for name, door in egress.BOUNDARIES.items():
         assert egress.PAYLOADS[name] is door.payload
         assert egress.FLOWS[name] is door.flow
-
-
-def test_the_forge_review_door_is_grounded_on_a_revision():
-    """§5.8 requires an immutable revision id, so an answer is about a specific candidate rather
-    than about whatever the conversation has drifted to — the same reason `pipeline.yml` pins
-    contracts by content digest.
-
-    A chat grounded on the conversation alone is a chat that can be talked into discussing a
-    candidate nobody is looking at, and the reviewer reading the answer has no way to tell.
-    """
-    with pytest.raises(ValidationError):
-        ForgeReviewRequest(candidate="a contract")
-    assert ForgeReviewRequest(revision="sha256:" + "a" * 64, candidate="a contract")
-
-
-def test_the_forge_review_door_carries_codes_rather_than_a_tools_output():
-    """`GateFailure`'s lesson, one level up. Nextflow's stderr names work directories and input
-    filenames, which is why `ErrorCategory` is a closed vocabulary and the output stays on the
-    machine that made it.
-
-    A diagnostic code is the whole of what a reader needs in order to look something up, and it
-    has no room for a path — which is the point of the alias rather than a side effect of it.
-    """
-    grounded = {"revision": "sha256:" + "a" * 64, "candidate": "x"}
-    assert ForgeReviewRequest(**grounded, validation=["MD0105", "MF0401"])
-    with pytest.raises(ValidationError):
-        ForgeReviewRequest(**grounded, validation=["/work/ab/cd12 failed: no such file"])
-
-
-def test_a_review_turn_says_who_wrote_it_from_a_closed_set():
-    """The curator/model distinction is the whole reason this door exists: one is a string a
-    person typed at request time and the other is what came back. A free-text author field
-    would make the two indistinguishable in the record."""
-    assert set(ReviewRole) == {ReviewRole.CURATOR, ReviewRole.MODEL}
-    with pytest.raises(ValidationError):
-        ReviewTurn(role="reviewer", content="hello")
 
 
 def test_every_door_declares_an_egress_payload():

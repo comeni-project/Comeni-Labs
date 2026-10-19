@@ -24,9 +24,8 @@ from pydantic import BaseModel, ConfigDict
 class NoModelError(ValueError):
     """Nothing was configured and something asked for a model. `MA0001`.
 
-    **A `ValueError` because that is the refusal contract every caller already catches** —
-    `mendel_forge.ops`' docstring states it, and both forge transports catch it in one place
-    and turn it into an exit code or a 4xx.
+    **A `ValueError` because that is the refusal contract every caller already catches**, in
+    one place, turning it into an exit code or a 4xx.
     """
 
 

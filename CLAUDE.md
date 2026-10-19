@@ -107,7 +107,7 @@ compliance, call data anonymised, or promise cloud data handling that has not be
 | Authoring protocol and its pure interpreter | `packages/mendel-authoring/` |
 | Build sessions, API, jobs and installation settings | `packages/mendel-api/` |
 | Shared provider transport / Mendel model integration | `packages/comeni-ai/`, `packages/mendel-ai/` |
-| Registry proposals / module fetching | `packages/mendel-forge/`, `packages/comeni-vendor/` |
+| Module fetching (the forge is being rebuilt, #361) | `packages/comeni-vendor/` |
 | Sample inspection subprocesses | `packages/comeni-inspect/` |
 | Run-state fold / execution API and worker | `packages/wiener-core/`, `packages/wiener-api/` |
 | Shared graph layout / browser application | `packages/dag-core/`, `frontend/` |

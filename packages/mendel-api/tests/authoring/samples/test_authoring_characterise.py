@@ -79,7 +79,7 @@ def _reply(**over):
 # ── call 1: the families ──────────────────────────────────────────────────────────────
 
 
-def test_the_family_call_is_held_to_the_declared_families(stack, clean_forge):
+def test_the_family_call_is_held_to_the_declared_families(stack, clean_invocations):
     client = Choosing(json.dumps({"families": ["alignment"]}))
     outcome = ai.characterise_families(_request(), stack=stack, client=client)
     assert outcome.admitted and outcome.reply.families == ["alignment"]
@@ -89,21 +89,21 @@ def test_the_family_call_is_held_to_the_declared_families(stack, clean_forge):
     assert row.prompt_id == "builder.characterise-family.v1"
 
 
-def test_no_family_is_an_answer_meaning_the_ai_could_not_tell(stack, clean_forge):
+def test_no_family_is_an_answer_meaning_the_ai_could_not_tell(stack, clean_invocations):
     outcome = ai.characterise_families(
         _request(), stack=stack, client=Choosing(json.dumps({"families": []}))
     )
     assert outcome.admitted and outcome.reply.families == []
 
 
-def test_a_family_nothing_declares_is_refused(stack, clean_forge):
+def test_a_family_nothing_declares_is_refused(stack, clean_invocations):
     outcome = ai.characterise_families(
         _request(), stack=stack, client=Choosing(json.dumps({"families": ["variants"]}))
     )
     assert not outcome.admitted and outcome.code == "MI0204"
 
 
-def test_the_excerpt_and_whether_binary_came_first_reach_the_model(stack, clean_forge):
+def test_the_excerpt_and_whether_binary_came_first_reach_the_model(stack, clean_invocations):
     client = Choosing(json.dumps({"families": ["alignment"]}))
     ai.characterise_families(_request(), stack=stack, client=client)
     sent = _text(client.answers.sent[0])
@@ -114,7 +114,7 @@ def test_the_excerpt_and_whether_binary_came_first_reach_the_model(stack, clean_
 # ── call 2: the type, its states, its facts ─────────────────────────────────────────
 
 
-def test_the_type_call_is_shown_only_the_chosen_families_types(stack, clean_forge):
+def test_the_type_call_is_shown_only_the_chosen_families_types(stack, clean_invocations):
     client = Choosing(_reply())
     outcome = ai.characterise(_request(), stack=stack, families=["alignment"], client=client)
     assert outcome.admitted and outcome.reply.type_id == "alignment.bam"
@@ -126,13 +126,13 @@ def test_the_type_call_is_shown_only_the_chosen_families_types(stack, clean_forg
     assert _rows()[0].prompt_id == "builder.characterise.v2"
 
 
-def test_with_the_family_step_off_every_type_is_shown(stack, clean_forge):
+def test_with_the_family_step_off_every_type_is_shown(stack, clean_invocations):
     client = Choosing(_reply())
     ai.characterise(_request(), stack=stack, families=None, client=client)
     assert client.choices[0]["type_id"] == sorted(registry.builder_types(stack))
 
 
-def test_a_type_outside_the_chosen_families_is_refused(stack, clean_forge):
+def test_a_type_outside_the_chosen_families_is_refused(stack, clean_invocations):
     outcome = ai.characterise(
         _request(),
         stack=stack,
@@ -142,7 +142,7 @@ def test_a_type_outside_the_chosen_families_is_refused(stack, clean_forge):
     assert not outcome.admitted and outcome.code == "MI0204"
 
 
-def test_a_state_of_another_type_is_refused(stack, clean_forge):
+def test_a_state_of_another_type_is_refused(stack, clean_invocations):
     outcome = ai.characterise(
         _request(">chr1\nACGT\n", binary_before=False),
         stack=stack,
@@ -152,7 +152,7 @@ def test_a_state_of_another_type_is_refused(stack, clean_forge):
     assert not outcome.admitted and outcome.code == "MI0205"
 
 
-def test_a_measurement_the_type_does_not_offer_is_refused(stack, clean_forge):
+def test_a_measurement_the_type_does_not_offer_is_refused(stack, clean_invocations):
     outcome = ai.characterise(
         _request(),
         stack=stack,
@@ -162,7 +162,7 @@ def test_a_measurement_the_type_does_not_offer_is_refused(stack, clean_forge):
     assert not outcome.admitted and outcome.code == "MI0205"
 
 
-def test_a_value_outside_its_declaration_is_dropped_and_the_rest_admitted(stack, clean_forge):
+def test_a_value_outside_its_declaration_is_dropped_and_the_rest_admitted(stack, clean_invocations):
     # `paired` and `quality_encoding` declare `describes: fastq.reads`; `read_length` does not,
     # so a model is never offered it (spec §2's rule A, as the registry stands).
     assert {"paired", "quality_encoding"} <= ai.offered(stack, "fastq.reads")[1]
@@ -184,7 +184,7 @@ def test_a_value_outside_its_declaration_is_dropped_and_the_rest_admitted(stack,
     assert [m.id for m in outcome.reply.measurements] == ["paired"]
 
 
-def test_no_type_is_an_answer_meaning_the_ai_could_not_tell(stack, clean_forge):
+def test_no_type_is_an_answer_meaning_the_ai_could_not_tell(stack, clean_invocations):
     outcome = ai.characterise(
         _request(),
         stack=stack,
@@ -194,7 +194,7 @@ def test_no_type_is_an_answer_meaning_the_ai_could_not_tell(stack, clean_forge):
     assert outcome.admitted and outcome.reply.type_id is None
 
 
-def test_unmatched_is_kept_in_the_reply_and_never_admitted_into_anything(stack, clean_forge):
+def test_unmatched_is_kept_in_the_reply_and_never_admitted_into_anything(stack, clean_invocations):
     unmatched = [{"kind": "state", "name": "unsorted", "cite": "SAM v1.6 §1.3"}]
     outcome = ai.characterise(
         _request(),
@@ -206,7 +206,7 @@ def test_unmatched_is_kept_in_the_reply_and_never_admitted_into_anything(stack, 
     assert "unsorted" in (_rows()[0].response or "")
 
 
-def test_a_provider_that_does_not_answer_is_recorded_as_failed(stack, clean_forge):
+def test_a_provider_that_does_not_answer_is_recorded_as_failed(stack, clean_invocations):
     outcome = ai.characterise_families(
         _request(), stack=stack, client=Choosing(ModelUnavailableError("down"))
     )
@@ -234,12 +234,12 @@ def _fastq(**over):
     )
 
 
-def test_a_measurement_id_named_as_a_state_is_refused(clean_forge):
+def test_a_measurement_id_named_as_a_state_is_refused(clean_invocations):
     outcome = _fastq(states=["paired"])
     assert not outcome.admitted and outcome.code == "MI0205"
 
 
-def test_a_state_named_as_a_measurement_is_refused(clean_forge):
+def test_a_state_named_as_a_measurement_is_refused(clean_invocations):
     reply = _reply(measurements=[{"id": "coordinate_sorted", "value": True}])
     outcome = ai.characterise(
         _request(), stack=registry.stack(), families=["alignment"], client=Choosing(reply)
@@ -247,21 +247,21 @@ def test_a_state_named_as_a_measurement_is_refused(clean_forge):
     assert not outcome.admitted and outcome.code == "MI0205"
 
 
-def test_a_measurement_read_twice_is_refused(clean_forge):
+def test_a_measurement_read_twice_is_refused(clean_invocations):
     outcome = _fastq(
         measurements=[{"id": "paired", "value": True}, {"id": "paired", "value": False}]
     )
     assert not outcome.admitted and outcome.code == "MI0205"
 
 
-def test_a_measurement_read_is_not_also_undetermined(clean_forge):
+def test_a_measurement_read_is_not_also_undetermined(clean_invocations):
     outcome = _fastq(
         measurements=[{"id": "paired", "value": True}], undetermined=["paired", "quality_encoding"]
     )
     assert outcome.admitted and outcome.reply.undetermined == ["quality_encoding"]
 
 
-def test_states_and_measurement_ids_are_held_to_what_was_offered(stack, clean_forge):
+def test_states_and_measurement_ids_are_held_to_what_was_offered(stack, clean_invocations):
     """Issue 243: walked live, a model wrote free-text states and states into `undetermined`.
     Every id list is held at the server to the offered ids of the types shown, as `type_id` is."""
     client = Choosing(_reply())
@@ -279,7 +279,7 @@ def test_states_and_measurement_ids_are_held_to_what_was_offered(stack, clean_fo
 # ── evidence, checked against the excerpt (#244) ──────────────────────────────────────
 
 
-def test_a_state_proven_by_a_line_of_the_file_is_admitted(stack, clean_forge):
+def test_a_state_proven_by_a_line_of_the_file_is_admitted(stack, clean_invocations):
     reply = _reply(states=[{"id": "coordinate_sorted", "evidence": "@HD VN:1.6 SO:coordinate"}])
     outcome = ai.characterise(
         _request(), stack=stack, families=["alignment"], client=Choosing(reply)
@@ -287,7 +287,9 @@ def test_a_state_proven_by_a_line_of_the_file_is_admitted(stack, clean_forge):
     assert outcome.admitted and [s.id for s in outcome.reply.states] == ["coordinate_sorted"]
 
 
-def test_a_state_whose_quote_is_not_in_the_file_is_dropped_and_the_type_stands(stack, clean_forge):
+def test_a_state_whose_quote_is_not_in_the_file_is_dropped_and_the_type_stands(
+    stack, clean_invocations
+):
     reply = _reply(
         states=[
             {"id": "coordinate_sorted", "evidence": "SO:coordinate"},
@@ -301,7 +303,7 @@ def test_a_state_whose_quote_is_not_in_the_file_is_dropped_and_the_type_stands(s
     assert [s.id for s in outcome.reply.states] == ["coordinate_sorted"]
 
 
-def test_a_quote_too_short_to_prove_anything_is_dropped(stack, clean_forge):
+def test_a_quote_too_short_to_prove_anything_is_dropped(stack, clean_invocations):
     reply = _reply(states=[{"id": "coordinate_sorted", "evidence": "SO"}])
     outcome = ai.characterise(
         _request(), stack=stack, families=["alignment"], client=Choosing(reply)
@@ -309,12 +311,12 @@ def test_a_quote_too_short_to_prove_anything_is_dropped(stack, clean_forge):
     assert outcome.admitted and outcome.reply.states == []
 
 
-def test_a_measurement_whose_quote_is_not_in_the_file_is_dropped(stack, clean_forge):
+def test_a_measurement_whose_quote_is_not_in_the_file_is_dropped(stack, clean_invocations):
     outcome = _fastq(measurements=[{"id": "paired", "value": True, "evidence": "R1 and R2"}])
     assert outcome.admitted and outcome.reply.measurements == []
 
 
-def test_undetermined_ids_nothing_offered_are_dropped_not_refused(stack, clean_forge):
+def test_undetermined_ids_nothing_offered_are_dropped_not_refused(stack, clean_invocations):
     reply = _reply(undetermined=["deduplicated", "chromosome_length"])
     outcome = ai.characterise(
         _request(), stack=stack, families=["alignment"], client=Choosing(reply)
@@ -322,7 +324,7 @@ def test_undetermined_ids_nothing_offered_are_dropped_not_refused(stack, clean_f
     assert outcome.admitted and outcome.reply.undetermined == []
 
 
-def test_a_state_on_a_type_that_declares_none_is_still_refused(stack, clean_forge):
+def test_a_state_on_a_type_that_declares_none_is_still_refused(stack, clean_invocations):
     reply = _reply(
         type_id="genome.fasta", states=[{"id": "sorted by coordinate", "evidence": ">chr1"}]
     )
@@ -335,7 +337,7 @@ def test_a_state_on_a_type_that_declares_none_is_still_refused(stack, clean_forg
     assert not outcome.admitted and outcome.code == "MI0205"
 
 
-def test_nothing_offered_is_nothing_the_server_allows(stack, clean_forge):
+def test_nothing_offered_is_nothing_the_server_allows(stack, clean_invocations):
     client = Choosing(_reply(type_id="genome.fasta", states=[]))
     ai.characterise(
         _request(">chr1\nACGT\n" * 30, binary_before=False),
@@ -361,7 +363,7 @@ def test_evidence_must_fall_within_one_line():
     assert not ai._evidenced("coordinate @SQ SN:chr1", "@HD\tSO:coordinate\n@SQ\tSN:chr1\n")
 
 
-def test_the_schema_sent_keeps_each_state_an_object_with_its_evidence(stack, clean_forge):
+def test_the_schema_sent_keeps_each_state_an_object_with_its_evidence(stack, clean_invocations):
     """Issue 245: the enum goes on a state's `id`, never on the state; walked live, a schema
     saying a state is a string got strings back, and every reply failed its shape."""
     from comeni_ai.formats import with_choices

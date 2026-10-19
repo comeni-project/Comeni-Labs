@@ -154,7 +154,7 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     `types`, when given, is **each chosen family whole** (#194) — never a hand-picked subset. The
     prompt says so, and a model shown one family is told it is seeing all of it.
 
-    `mendel_forge.ai.select`'s argument, and it is the one worth restating: a model shown nine of
+    The argument worth restating: a model shown nine of
     eleven values does not know it was shown nine. Its answer then passes every check on the way
     back, because the thing it could not say is the thing nobody asked about.
     """

@@ -1,4 +1,4 @@
-"""Transport over `ops.py`. It holds no logic — same split as `mendel_forge.cli`."""
+"""Transport over `ops.py`. It holds no logic."""
 
 import argparse
 import sys

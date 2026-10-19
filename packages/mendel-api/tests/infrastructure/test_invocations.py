@@ -17,4 +17,6 @@ def test_the_forge_purposes_are_unchanged():
 
 
 def test_the_call_states_are_unchanged():
-    assert {s.value for s in InvocationState} == {"queued", "running", "succeeded", "failed", "refused"}
+    assert {s.value for s in InvocationState} == {
+        "queued", "running", "succeeded", "failed", "refused",
+    }

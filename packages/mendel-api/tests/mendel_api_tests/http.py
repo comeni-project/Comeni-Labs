@@ -30,8 +30,7 @@ def clean(monkeypatch):
     for name in ("COMENI_AI_MODEL", "MENDEL_MODEL"):
         monkeypatch.delenv(name, raising=False)
     tables = (
-        "forge_message, forge_event, forge_revision, forge_adaptation, forge_catalogue_item, "
-        "forge_source_snapshot, ai_invocation, pipeline_authoring_proposal, "
+        "ai_invocation, pipeline_authoring_proposal, "
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:

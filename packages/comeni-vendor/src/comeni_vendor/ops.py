@@ -1,7 +1,6 @@
 """The two verbs, as functions. `cli.py` is transport over this and holds no logic.
 
-Same split the forge uses (`mendel_forge.ops`), for the same reason: a verb that can only be
-reached through `argv` can only be tested through `argv`.
+A verb that can only be reached through `argv` can only be tested through `argv`.
 """
 
 import hashlib

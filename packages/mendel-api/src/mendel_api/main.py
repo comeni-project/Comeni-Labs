@@ -9,11 +9,6 @@ choosing them would be a second answer to a question that file answers once.
 mounted sub-app's schema into its parent, so a mounted route is a surface `frontend/src/api/`
 cannot be generated for and an agent reading the schema cannot find. `tests/test_mount.py`
 holds both halves — no mounts, and no request body carrying a path.
-
-**This used to say the forge's app was "mounted, never re-exposed route by route".** That
-stopped being true in phase 2 and stayed untrue for four phases, for the reason above. The
-mount and `mendel_forge.http` were both removed in phase 6 —
-`docs/notes/specs/2026-08-19-sources-and-drafting.md` §3.2 is the argument and what was lost.
 """
 
 from comeni_core.settings import SettingLocked
@@ -23,14 +18,9 @@ from mendel_api.refusals import locked_handler, missing_handler, refusal_handler
 from mendel_api.routes import attention as attention_routes
 from mendel_api.routes import authoring as authoring_routes
 from mendel_api.routes import build as build_routes
-from mendel_api.routes import contracts as contracts_routes
-from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
-from mendel_api.routes import questions as questions_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
-from mendel_api.routes import sources as sources_routes
-from mendel_api.routes import tools as tools_routes
 from mendel_api.services import protection
 
 TAGS = [
@@ -86,27 +76,12 @@ def create_app() -> FastAPI:
         a directory — conflating the two makes a liveness probe do real work."""
         return {"ok": True}
 
-    # **Everything under `/api`, and that is not decoration.** The frontend owns `/forge/*` as
-    # browser routes, and this app once served `/forge` too; on one origin the dev proxy sent
-    # `/forge/queue` to the API and every deep link 404'd. Found by loading a URL rather than
-    # by a test — client-side navigation never leaves the SPA, so only a hard refresh shows it.
-    app.include_router(questions_routes.router, prefix="/api")
+    # **Everything under `/api`**, so the browser owns every other path as a client-side route
+    # and a hard refresh on a deep link reaches the SPA rather than the API.
     app.include_router(health_routes.router, prefix="/api")
     app.include_router(registry_routes.router, prefix="/api")
-    app.include_router(contracts_routes.router, prefix="/api")
-    app.include_router(sources_routes.router, prefix="/api")
-    # **Before `attention`, and nowhere near a catch-all.** `/{id:path}` on the contracts
-    # router is greedy: a route registered after it returns 200 with the wrong body rather than
-    # 404, which cost phase 5 an afternoon. `/tools` has no path parameter and cannot be
-    # swallowed, but the ordering rule is cheaper to keep than to rediscover.
     app.include_router(build_routes.router, prefix="/api")
-    app.include_router(tools_routes.router, prefix="/api")
     app.include_router(attention_routes.router, prefix="/api")
-    # **Added rather than replacing anything.** Task 8 keeps the existing endpoints alive
-    # through the migration: `/tools`, `/sources` and `/contracts` are what the built SPA
-    # reads today, and removing them in the same change that adds their replacement would
-    # mean the interface is broken for exactly as long as the rework takes.
-    app.include_router(forge_routes.router, prefix="/api")
     # The living pipeline. `/pipeline/authoring` sits under the build router's own prefix and
     # declares no path parameter at its root, so it cannot be swallowed by anything above it.
     app.include_router(authoring_routes.router, prefix="/api")

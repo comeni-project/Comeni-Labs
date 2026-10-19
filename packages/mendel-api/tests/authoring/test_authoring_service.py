@@ -32,7 +32,7 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="no database — run `ma
 def clean_authoring():
     """An empty authoring workflow, and the drafts the sessions hang off.
 
-    **All four in one `TRUNCATE`**, for `clean_forge`'s reason: every foreign key here is
+    **All four in one `TRUNCATE`**, for `clean_invocations`'s reason: every foreign key here is
     `RESTRICT`, so truncating `pipeline_draft` on its own is refused while a session points at
     it — which is the constraint working, and exactly what these tests are for.
     """

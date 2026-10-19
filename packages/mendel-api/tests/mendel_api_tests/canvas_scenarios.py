@@ -121,10 +121,8 @@ def authoring_case(monkeypatch):
     with session_scope() as db:
         db.execute(
             truncate(
-                "TRUNCATE TABLE forge_message, forge_event, forge_revision, "
-                "forge_adaptation, forge_catalogue_item, forge_source_snapshot, "
-                "ai_invocation, pipeline_authoring_proposal, pipeline_authoring_turn, "
-                "pipeline_authoring_session, pipeline_draft, gate_run"
+                "TRUNCATE TABLE ai_invocation, pipeline_authoring_proposal, "
+                "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
             )
         )
     return at_aligner()

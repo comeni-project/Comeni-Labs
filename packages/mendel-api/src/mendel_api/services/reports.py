@@ -13,11 +13,10 @@ from importlib import metadata
 
 from sqlalchemy import create_engine, text
 
-from mendel_api import worker
 from mendel_api.settings import settings
 
 PARTS = (
-    "comeni-core", "comeni-ai", "mendel-resolver", "mendel-compiler", "mendel-forge",
+    "comeni-core", "comeni-ai", "mendel-resolver", "mendel-compiler",
     "mendel-api", "dag-core",
 )
 
@@ -59,13 +58,6 @@ def _first(value: int | set[int] | None) -> int:
     if value is None:
         return 0
     return value if isinstance(value, int) else min(value)
-
-
-def _source_check() -> str:
-    for job in worker.WorkerSettings.cron_jobs:
-        if job.coroutine.__name__ == "check_sources":
-            return f"every day at {_first(job.hour):02d}:{_first(job.minute):02d}"
-    return "not scheduled"
 
 
 _ENGINE = None
@@ -139,10 +131,6 @@ REPORTERS: dict[str, Callable[[], object]] = {
     "registry.root": lambda: str(settings.registry_root),
     "registry.layers": _layers,
     "registry.github": lambda: token_state("COMENI_FORGE_GITHUB_TOKEN"),
-    "registry.dockerhub": lambda: token_state(
-        "COMENI_FORGE_DOCKERHUB_USER", "COMENI_FORGE_DOCKERHUB_TOKEN"
-    ),
-    "registry.source_check": _source_check,
     "system.versions": _versions,
     "system.database": _database,
     "system.redis": _redis,

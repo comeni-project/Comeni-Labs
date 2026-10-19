@@ -21,8 +21,6 @@ build/
 profile-build/
 workspace/
 var/wiener/
-.forge/
-.forge-demo/
 .run
 .worktrees
 **/.worktrees

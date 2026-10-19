@@ -243,19 +243,8 @@ REGISTRY_LAYERS = _reported(
 GITHUB_TOKEN = _reported(
     "registry.github",
     "GitHub token",
-    "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
+    "Lets the forge open pull requests and publish releases on the registry. Set or not.",
     ReadOnlyHere(why="a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env"),
-)
-DOCKERHUB = _reported(
-    "registry.dockerhub",
-    "Docker Hub account",
-    "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
-    ReadOnlyHere(why="a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env"),
-)
-SOURCE_CHECK = _reported(
-    "registry.source_check",
-    "Nightly source check",
-    "When the worker re-reads every source to see whether an upstream tool moved.",
 )
 VERSIONS = _reported(
     "system.versions", "Versions", "The version of each part of this installation."
@@ -336,7 +325,7 @@ REGISTRY = Section(
     title="Registry & sources",
     lede="Where tools and types are read from, and what the forge can reach.",
     order=8,
-    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
+    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN),
 )
 AUTHOR = Setting.text(
     key="system.author",
