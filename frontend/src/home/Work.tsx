@@ -53,7 +53,7 @@ function Bar({ of }: { of: DraftRow["provenance"] }) {
 
   return (
     <span
-      className="grow-x flex h-[7px] w-[120px] rounded-[1px] overflow-hidden bg-surface-2"
+      className="grow-x flex h-[7px] w-[120px] rounded-xs overflow-hidden bg-surface-2"
       title={bands.map((b) => `${b.n} ${b.what}`).join(" · ")}
     >
       {bands.map((band) => (
@@ -126,7 +126,7 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                 </td>
                 <td className={CELL}>
                   <Link to={`/build?draft=${row.id}`} className="text-ink no-underline lift
-                                                                 inline-block px-1 -mx-1 rounded-r">
+                                                                 inline-block px-1 -mx-1 rounded-button">
                     {row.name || row.id.slice(0, 8)}
                   </Link>
                   {/* The outputs and the bar describe the kept artifact; an edit since has left
@@ -224,7 +224,7 @@ export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, stri
             <tr key={run.id} className="settle">
               <td className={CELL}>
                 <Link to={`/runs/${run.id}`} className="text-ink no-underline lift
-                                                        inline-block px-1 -mx-1 rounded-r">
+                                                        inline-block px-1 -mx-1 rounded-button">
                   {(run.pipeline_digest && named.get(run.pipeline_digest))
                     || <span className="text-ink-3">unknown pipeline</span>}
                 </Link>

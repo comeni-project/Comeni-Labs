@@ -382,3 +382,18 @@ it("sizes the type roles as the boards do", () => {
     expect(main, `--text-${role}`).toMatch(new RegExp(`--text-${role}: ${px}px;`));
   }
 });
+
+it("rounds corners with the three named radii only", () => {
+  const square = sources().filter(([, text]) =>
+    /\brounded-r\b|rounded-\[\d+px\]|rounded-\[var\(--r\)\]|var\(--r\)|--radius-r:/.test(text))
+    .map(([p]) => p.slice(SRC.length + 1));
+  expect(square).toEqual([]);
+});
+
+it("raises every main button", () => {
+  const flat = sources().flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+    .filter((m) => /\bbg-action\b/.test(m[2]) && !/\bshadow-raise\b/.test(m[2]))
+    .map(() => path.slice(SRC.length + 1)));
+  expect(sources().some(([, text]) => /\bbg-action\b/.test(text))).toBe(true);
+  expect(flat).toEqual([]);
+});

@@ -245,7 +245,7 @@ export function Graph({ runId, onOpenConsole }: {
         footer={
           <>
             <div data-zoomer
-                 className="absolute right-4 bottom-4 flex items-center gap-1 rounded-[var(--r)]
+                 className="absolute right-4 bottom-4 flex items-center gap-1 rounded-panel
                             border border-line bg-surface px-1 py-1 shadow-e1">
               <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
                 −
@@ -335,13 +335,13 @@ export function Graph({ runId, onOpenConsole }: {
 }
 
 const zoomBtn =
-  "px-2 py-1 rounded-[var(--r)] bg-transparent border-0 cursor-pointer text-secondary " +
+  "px-2 py-1 rounded-control bg-transparent border-0 cursor-pointer text-secondary " +
   "text-ink-2 hover:text-ink hover:bg-surface-2";
 
 function Swatch({ colour, label }: { colour: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-[2px]"
+      <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-xs"
             style={{ background: colour }} />
       {label}
     </span>

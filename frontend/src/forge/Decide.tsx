@@ -7,7 +7,7 @@ import { Refusal } from "../ui/Refusal";
 type Proposal = components["schemas"]["Proposal"];
 
 const label = "text-label font-semibold text-ink-3";
-const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-r bg-surface";
+const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-control bg-surface";
 
 /** Approve, rename or reject — design §3's *"a proposal is an item in the queue"*, decided
  *  on the question it belongs to rather than on a page of its own.
@@ -98,7 +98,7 @@ export function Decide({
                 })
               }
               disabled={!ready || decide.isPending}
-              className="px-4 py-2 text-body font-semibold rounded-r border border-line-2
+              className="px-4 py-2 text-body font-semibold rounded-button border border-line-2
                          bg-surface cursor-pointer disabled:opacity-40
                          disabled:cursor-not-allowed"
             >
@@ -109,7 +109,7 @@ export function Decide({
                 decide.mutate({ draft, subject, decision: "rejected", id: null, why })
               }
               disabled={!ready || decide.isPending}
-              className="px-4 py-2 text-body rounded-r border border-line-2 bg-surface
+              className="px-4 py-2 text-body rounded-button border border-line-2 bg-surface
                          cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Reject

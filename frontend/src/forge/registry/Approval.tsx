@@ -64,7 +64,7 @@ function Modal({
         aria-modal="true"
         aria-label={title}
         className="relative w-full max-w-[620px] border border-line-2 bg-surface
-                   rounded-[var(--r)] shadow-e3 px-[22px] py-5 max-h-[80vh] overflow-y-auto"
+                   rounded-panel shadow-e3 px-[22px] py-5 max-h-[80vh] overflow-y-auto"
       >
         {children}
       </div>
@@ -105,7 +105,7 @@ export function RequestChanges({
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         rows={4}
-        className="w-full border border-line-2 bg-paper text-ink text-body rounded-[var(--r)]
+        className="w-full border border-line-2 bg-paper text-ink text-body rounded-control
                    px-[13px] py-[11px] resize-y focus-visible:outline-none
                    focus-visible:shadow-[var(--ring)]"
       />
@@ -124,7 +124,7 @@ export function RequestChanges({
             type="button"
             onClick={() => setRefs(refs.filter((other) => other !== ref))}
             className="font-data text-[10.5px] text-now-ink border border-[var(--now-line)]
-                       rounded-[var(--r)] px-2.5 py-[5px] bg-transparent"
+                       rounded-button px-2.5 py-[5px] bg-transparent"
           >
             {ref} ×
           </button>
@@ -142,7 +142,7 @@ export function RequestChanges({
           placeholder="consumes.reads.type_id"
           aria-label="Add a reference"
           className="font-data text-[10.5px] border border-line-2 bg-paper text-ink
-                     rounded-[var(--r)] px-2.5 py-[5px] w-[220px]
+                     rounded-control px-2.5 py-[5px] w-[220px]
                      focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
         />
       </div>
@@ -162,7 +162,7 @@ export function RequestChanges({
             type="button"
             onClick={onClose}
             className="border border-line-2 bg-transparent text-ink text-[12px]
-                       rounded-[var(--r)] px-3.5 py-[7px] hover:bg-surface-2"
+                       rounded-button px-3.5 py-[7px] hover:bg-surface-2"
           >
             Cancel
           </button>
@@ -176,7 +176,7 @@ export function RequestChanges({
               )
             }
             className="border border-measured text-measured bg-transparent text-[12px]
-                       rounded-[var(--r)] px-3.5 py-[7px] hover:bg-[var(--measured-soft)]
+                       rounded-button px-3.5 py-[7px] hover:bg-[var(--measured-soft)]
                        disabled:border-line disabled:text-ink-3 disabled:cursor-not-allowed"
           >
             {changes.isPending ? "Sending…" : "Send back for changes"}
@@ -251,7 +251,7 @@ export function Approve({
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         rows={3}
-        className="w-full border border-line-2 bg-paper text-ink text-body rounded-[var(--r)]
+        className="w-full border border-line-2 bg-paper text-ink text-body rounded-control
                    px-[13px] py-[11px] resize-y focus-visible:outline-none
                    focus-visible:shadow-[var(--ring)]"
       />
@@ -273,7 +273,7 @@ export function Approve({
         <button
           type="button"
           onClick={onClose}
-          className="border border-line-2 bg-transparent text-ink text-[12px] rounded-[var(--r)]
+          className="border border-line-2 bg-transparent text-ink text-[12px] rounded-button
                      px-3.5 py-[7px] hover:bg-surface-2"
         >
           Cancel
@@ -287,7 +287,7 @@ export function Approve({
               { onSuccess: onClose },
             )
           }
-          className="border border-done text-done-ink bg-transparent text-[12px] rounded-[var(--r)]
+          className="border border-done text-done-ink bg-transparent text-[12px] rounded-button
                      px-3.5 py-[7px] hover:bg-done-soft disabled:border-line
                      disabled:text-ink-3 disabled:cursor-not-allowed"
         >
@@ -306,7 +306,7 @@ export function Approve({
 export function WhyBlocked({ approval }: { approval: ApprovalState | undefined }) {
   if (!approval || approval.can_approve) return null;
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
+    <div className="border border-line bg-surface rounded-panel px-[18px] py-4">
       <div className="text-label text-ink-3 pb-2.5">
         Why approve is unavailable
       </div>

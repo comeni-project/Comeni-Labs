@@ -57,7 +57,7 @@ function Chip({ on, children, onClick }: { on: boolean; children: string; onClic
       aria-pressed={on}
       onClick={onClick}
       className={` text-label px-3 py-1.5 border
-                  rounded-[var(--r)] ${
+                  rounded-button ${
                     on
                       ? "bg-surface-2 text-ink border-line-2"
                       : "bg-transparent text-ink-3 border-line hover:text-ink"
@@ -91,7 +91,7 @@ function Action({ row }: { row: CatalogueRow }) {
       <Link
         to={`/forge/adaptations/${where.adaptation_id}`}
         className="text-label no-underline text-now-ink
-                   border border-line-2 rounded-[var(--r)] px-[11px] py-[5px] hover:bg-surface"
+                   border border-line-2 rounded-button px-[11px] py-[5px] hover:bg-surface"
       >
         Open
       </Link>
@@ -103,7 +103,7 @@ function Action({ row }: { row: CatalogueRow }) {
       onClick={() => start.mutate(row.item.id)}
       disabled={start.isPending}
       className="text-label border border-line-2
-                 rounded-[var(--r)] px-[11px] py-[5px] bg-transparent text-ink
+                 rounded-button px-[11px] py-[5px] bg-transparent text-ink
                  hover:bg-surface disabled:text-ink-3 disabled:cursor-not-allowed"
     >
       {start.isPending ? "Starting…" : "Adapt"}
@@ -122,7 +122,7 @@ function Inspector({ id, onClose }: { id: string; onClose: () => void }) {
   const start = useStartAdaptation();
 
   return (
-    <aside className="settle border border-line bg-surface rounded-[var(--r)] shadow-e2 px-5 py-[18px]">
+    <aside className="settle border border-line bg-surface rounded-panel shadow-e2 px-5 py-[18px]">
       {isPending && <Loading what="this tool" />}
       {error && <Failed error={error} padded={false} />}
       {data && <Detail item={data} onStart={() => start.mutate(data.id)} busy={start.isPending} />}
@@ -219,7 +219,7 @@ function Detail({
           onClick={onStart}
           disabled={busy}
           className="w-full mt-1 border border-done text-done-ink bg-transparent text-[12px]
-                     rounded-[var(--r)] px-3.5 py-[7px] hover:bg-done-soft
+                     rounded-button px-3.5 py-[7px] hover:bg-done-soft
                      disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {busy ? "Starting…" : "Adapt this tool"}
@@ -294,7 +294,7 @@ export function Catalogue() {
             placeholder="Search name, description or keyword"
             aria-label="Search the catalogue"
             className="flex-1 border border-line-2 bg-surface text-ink text-body
-                       rounded-[var(--r)] px-3.5 py-[9px] placeholder:text-ink-3
+                       rounded-control px-3.5 py-[9px] placeholder:text-ink-3
                        focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
           />
           <span className="font-data text-[11px] text-ink-3 tnum">
@@ -340,7 +340,7 @@ export function Catalogue() {
               {rows.length === 0 ? (
                 /* **An empty result says which filter emptied it.** "No tools" on a page with
                    four controls set is an answer nobody can act on. */
-                <div className="border border-line bg-surface rounded-[var(--r)] p-6">
+                <div className="border border-line bg-surface rounded-panel p-6">
                   <p className="text-body text-ink m-0">Nothing matches.</p>
                   <p className="text-secondary text-ink-3 m-0 pt-1">
                     {[q && `search “${q}”`, source && `source ${source}`, status && `status ${status}`]
@@ -490,7 +490,7 @@ function Pager({
       type="button"
       disabled={disabled}
       onClick={() => onGo(to)}
-      className="border border-line-2 bg-transparent text-ink text-[11px] rounded-[var(--r)]
+      className="border border-line-2 bg-transparent text-ink text-[11px] rounded-button
                  px-3 py-[5px] hover:bg-surface disabled:text-ink-3 disabled:border-line
                  disabled:cursor-not-allowed"
     >

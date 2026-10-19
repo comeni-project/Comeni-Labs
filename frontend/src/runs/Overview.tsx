@@ -39,7 +39,7 @@ function Bar({ testId, figureId, value, ceiling, label, tint = "var(--done)" }: 
           and a pill with a 2px radius budget is a lozenge. These three are what made a
           measured 1.27 GB against a 31 GB ask indistinguishable from nothing. */}
       <span
-        className="block h-[7px] rounded-[3px] overflow-hidden"
+        className="block h-[7px] rounded-xs overflow-hidden"
         style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}
       >
         {width !== null && (

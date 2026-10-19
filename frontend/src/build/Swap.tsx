@@ -116,7 +116,7 @@ export function Swap({ step, graph, onApply, onClose }: {
             data-testid="swap-option"
             data-active={chosen === row.contract_id || undefined}
             onClick={() => setChosen(row.contract_id)}
-            className="text-left px-2 py-1.5 rounded-r border border-line bg-transparent
+            className="text-left px-2 py-1.5 rounded-button border border-line bg-transparent
                        cursor-pointer data-[active]:border-line-2 data-[active]:bg-surface-2"
           >
             <span className="font-data text-body text-ink">{row.tool}</span>
@@ -154,7 +154,7 @@ export function Swap({ step, graph, onApply, onClose }: {
             data-testid="apply-swap"
             disabled={would.isFetching}
             onClick={() => onApply(chosen)}
-            className="mt-3 px-3 py-1 rounded-r border border-[var(--now)] text-[var(--now)]
+            className="mt-3 px-3 py-1 rounded-button border border-[var(--now)] text-[var(--now)]
                        bg-transparent cursor-pointer text-body lift disabled:opacity-40"
           >
             Swap it

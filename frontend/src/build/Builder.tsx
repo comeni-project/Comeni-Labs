@@ -371,7 +371,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             draft.rename(e.target.value, builder.graph)}
           className="bg-transparent border-0 outline-none text-ink min-w-[8ch] w-[16ch]
                      text-title font-semibold tracking-[-.03em]
-                     focus-visible:shadow-[var(--ring)] rounded-r px-1 -mx-1
+                     focus-visible:shadow-[var(--ring)] rounded-control px-1 -mx-1
                      [field-sizing:content]"
         />
         <Status
@@ -526,7 +526,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
 
             <div
               data-zoomer
-              className="absolute right-4 bottom-[86px] flex items-center gap-1 rounded-r
+              className="absolute right-4 bottom-[86px] flex items-center gap-1 rounded-panel
                          border border-line bg-surface px-1 py-1 shadow-e1"
             >
               <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
@@ -799,7 +799,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           <div
             data-testid="node-menu"
             style={{ left: menu.x, top: menu.y }}
-            className="fixed z-50 min-w-[160px] rounded-r border border-line bg-surface py-1
+            className="fixed z-50 min-w-[160px] rounded-panel border border-line bg-surface py-1
                        shadow-e3"
           >
             <button
@@ -923,5 +923,5 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
 }
 
 const zoomBtn =
-  "px-2 py-1 rounded-r bg-transparent border-0 cursor-pointer text-secondary text-ink-2 " +
+  "px-2 py-1 rounded-control bg-transparent border-0 cursor-pointer text-secondary text-ink-2 " +
   "hover:text-ink hover:bg-surface-2";

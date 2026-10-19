@@ -126,7 +126,7 @@ function Control({
             aria-label={setting.label}
             // Stacked rows on a phone, one segmented line on a desk (the design's phone artboard).
             className={`flex flex-col md:inline-flex md:flex-row md:flex-wrap max-w-full
-                        rounded-[3px] border border-line-2 ${disabled ? "border-dashed" : ""}`}
+                        rounded-control border border-line-2 ${disabled ? "border-dashed" : ""}`}
           >
             {(setting.options ?? []).map((option) => {
               const on = value === option.value;

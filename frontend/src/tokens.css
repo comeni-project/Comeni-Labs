@@ -68,7 +68,6 @@
 /* What does not change with the theme. The derived values read the themed ones above, so they
    follow a theme switch without a second definition. */
 :root {
-  --r: 3px;
   --font-display: "Lexend Variable", "Lexend", system-ui, sans-serif;
   --font-ui: "Lexend Variable", "Lexend", system-ui, sans-serif;
   --font-data: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;

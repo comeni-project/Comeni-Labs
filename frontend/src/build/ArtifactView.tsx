@@ -73,7 +73,7 @@ export function ArtifactView({ draftId }: { draftId: string | null }) {
             type="button"
             data-testid="artifact-jump"
             onClick={() => jump(section)}
-            className="px-2 py-0.5 rounded-r border border-line bg-transparent cursor-pointer
+            className="px-2 py-0.5 rounded-button border border-line bg-transparent cursor-pointer
                        font-data text-secondary text-ink-2 hover:text-ink lift"
           >
             {section}

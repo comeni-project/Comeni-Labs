@@ -33,7 +33,7 @@ function Cite({ citation, onEvidence }: { citation: Citation; onEvidence: (id: s
       onClick={() => citation.evidence_id && onEvidence(citation.evidence_id)}
       title={citation.kind.replace("_", " ")}
       className="font-data text-[10px] text-now-ink border border-[var(--now-line)]
-                 rounded-[var(--r)] px-2 py-[3px] bg-transparent hover:bg-[var(--now-soft)]"
+                 rounded-button px-2 py-[3px] bg-transparent hover:bg-[var(--now-soft)]"
     >
       {label}
     </button>
@@ -58,7 +58,7 @@ export function ReviewChat({
   };
 
   return (
-    <aside className="border border-line bg-surface rounded-[var(--r)] flex flex-col">
+    <aside className="border border-line bg-surface rounded-panel flex flex-col">
       <div className="px-4 pt-3.5">
         <div className="text-label text-ink-3 pb-1">
           Ask about this revision
@@ -139,7 +139,7 @@ export function ReviewChat({
           placeholder="Ask about this revision…"
           aria-label="Ask about this revision"
           rows={3}
-          className="w-full border border-line-2 bg-paper text-ink text-body rounded-[var(--r)]
+          className="w-full border border-line-2 bg-paper text-ink text-body rounded-control
                      px-[11px] py-[9px] resize-y placeholder:text-ink-3
                      focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
         />
@@ -159,7 +159,7 @@ export function ReviewChat({
             onClick={send}
             disabled={!draft.trim() || ask.isPending}
             className="border border-line-2 bg-transparent text-ink text-[11.5px]
-                       rounded-[var(--r)] px-3.5 py-[5px] hover:bg-surface-2
+                       rounded-button px-3.5 py-[5px] hover:bg-surface-2
                        disabled:text-ink-3 disabled:border-line disabled:cursor-not-allowed"
           >
             {ask.isPending ? "Sending…" : "Ask"}

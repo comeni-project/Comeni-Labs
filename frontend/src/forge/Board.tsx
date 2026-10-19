@@ -30,7 +30,7 @@ function Cells({ counts }: { counts: Record<string, number> }) {
           data-testid="cell"
           data-standing={standing}
           title={STANDING[standing].title}
-          className={`w-3 h-3 rounded-[1px] ${STANDING[standing].cell}`}
+          className={`w-3 h-3 rounded-xs ${STANDING[standing].cell}`}
         />
       ))}
     </div>

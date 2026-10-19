@@ -345,7 +345,7 @@ export function Run() {
           full-height because that is what reading a log needs. */}
       {view === "console" ? (
         <section className="flex flex-col flex-1 min-h-0 bg-panel border border-line
-                            rounded-[var(--r)] shadow-e2 overflow-hidden">
+                            rounded-panel shadow-e2 overflow-hidden">
           <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                           border-b border-line-soft">
             <span className="text-label text-ink-3">console</span>
@@ -383,7 +383,7 @@ export function Run() {
               `RunState`, so switching is a render and never a fetch. */}
           <section data-testid="band-processes"
                    className="flex flex-col bg-panel border border-line
-                              rounded-[var(--r)] shadow-e2 overflow-hidden">
+                              rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
               <span className="text-label text-ink-3">processes</span>
@@ -430,7 +430,7 @@ export function Run() {
           {/* --- tasks, and the console link the artboard puts in its header ------------- */}
           <section data-testid="band-tasks"
                    className="flex flex-col bg-panel border border-line
-                              rounded-[var(--r)] shadow-e2 overflow-hidden">
+                              rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
               <span className="text-label text-ink-3">tasks</span>

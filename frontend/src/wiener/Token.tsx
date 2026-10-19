@@ -23,7 +23,7 @@ export function TokenPrompt({ onSaved }: { onSaved: () => void }) {
   return (
     <form
       data-testid="token-prompt"
-      className="flex flex-col gap-2 p-4 rounded-r bg-surface-2 border border-line max-w-lg"
+      className="flex flex-col gap-2 p-4 rounded-panel bg-surface-2 border border-line max-w-lg"
       onSubmit={(event) => {
         event.preventDefault();
         setToken(value.trim() || null);
@@ -43,13 +43,13 @@ export function TokenPrompt({ onSaved }: { onSaved: () => void }) {
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="paste the token"
-          className="flex-1 px-2 py-1 rounded-r bg-surface border border-line font-data
+          className="flex-1 px-2 py-1 rounded-control bg-surface border border-line font-data
                      text-body text-ink"
         />
         <button
           type="submit"
           data-testid="token-save"
-          className="px-3 py-1 rounded-r text-body font-semibold bg-action text-on-action
+          className="px-3 py-1 rounded-button shadow-raise text-body font-semibold bg-action text-on-action
                      border-0"
         >
           Save

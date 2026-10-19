@@ -71,7 +71,7 @@ export function Console({ events, following, process = "", onClearProcess, onFil
   const menu = useContextMenu();
   const [line, setLine] = useState<RunEvent | null>(null);
   const [status, setStatus] = useState("");
-  const control = "text-secondary bg-surface border border-line rounded-[var(--r)] px-2 py-1";
+  const control = "text-secondary bg-surface border border-line rounded-control px-2 py-1";
 
   // **Both lists come from the events in hand**, not from a constant. A status the run never
   // reported is a filter that can only ever empty the view, and a process list that outlives
@@ -189,7 +189,7 @@ export function Console({ events, following, process = "", onClearProcess, onFil
                        // a failure be found by shape instead of by reading every line.
                        ...(failed
                          ? { background: "var(--needs-you-soft)",
-                             borderRadius: "var(--r)",
+                             borderRadius: "var(--radius-control)",
                              marginLeft: "-8px", paddingLeft: "8px", paddingRight: "8px",
                              width: "calc(100% + 16px)",
                              boxShadow: "inset 2px 0 0 var(--needs-you)" }

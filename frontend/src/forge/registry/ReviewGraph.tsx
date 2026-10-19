@@ -41,7 +41,7 @@ function Port({
       onClick={() => onSelect(target)}
       aria-pressed={selected === target}
       title={look.word}
-      className={`lift text-left border-l-[3px] border rounded-[var(--r)] px-[13px] py-[11px]
+      className={`lift text-left border-l-[3px] border rounded-button px-[13px] py-[11px]
                   min-w-[150px] ${look.border} ${look.tint} ${
                     selected === target ? "shadow-[var(--ring)]" : ""
                   }`}
@@ -76,7 +76,7 @@ export function ReviewGraph({
       <div className="text-label text-ink-3 pb-[13px]">
         Input / output
       </div>
-      <div className="border border-line bg-surface rounded-[var(--r)] px-5 py-[22px]">
+      <div className="border border-line bg-surface rounded-panel px-5 py-[22px]">
         <div className="overflow-x-auto">
           <div className="flex items-center gap-4 min-w-[640px]">
             <div className="flex flex-col gap-2">
@@ -93,7 +93,7 @@ export function ReviewGraph({
               type="button"
               onClick={onParams}
               className="lift text-left border border-[var(--node-line)] border-l-[3px]
-                         border-l-[var(--rail)] bg-[var(--node)] rounded-[var(--r)] px-[13px] py-[11px]
+                         border-l-[var(--rail)] bg-[var(--node)] rounded-button px-[13px] py-[11px]
                          min-w-[172px]"
             >
               <div className="text-body font-medium">{graph.process || "—"}</div>

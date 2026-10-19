@@ -75,7 +75,7 @@ function Source({ row }: { row: SourceRow }) {
 
   return (
     <div
-      className="settle border border-line bg-surface rounded-[var(--r)] shadow-e2
+      className="settle border border-line bg-surface rounded-panel shadow-e2
                  px-5 py-[18px]"
     >
       <div className="flex items-baseline justify-between pb-3">
@@ -203,7 +203,7 @@ function Flow({ data }: { data: Counts }) {
               <Link
                 to={stage.to}
                 className={`lift no-underline text-ink px-[15px] py-[11px] min-w-[118px]
-                            bg-surface rounded-[var(--r)] border ${
+                            bg-surface rounded-button border ${
                               stage.ai ? "border-now" : "border-line"
                             }`}
               >
@@ -249,7 +249,7 @@ function Needs(props: { to: string; tone: string; count: number; what: string; n
 function Health({ data }: { data: Counts }) {
   const sync = useSyncSources();
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] shadow-e2 px-4 py-3.5">
+    <div className="border border-line bg-surface rounded-panel shadow-e2 px-4 py-3.5">
       {data.sources.map((row) => (
         <div key={row.source} className="flex items-start gap-[9px] text-body pt-[11px] first:pt-0">
           <span className="mt-[5px]">
@@ -268,7 +268,7 @@ function Health({ data }: { data: Counts }) {
             <button
               type="button"
               className="border border-line-2 bg-transparent text-ink text-secondary px-3 py-1
-                         rounded-[var(--r)] hover:bg-surface-2"
+                         rounded-button hover:bg-surface-2"
               onClick={() => sync.mutate(row.source)}
               disabled={sync.isPending}
             >
@@ -306,7 +306,7 @@ export function Overview() {
           <button
             type="button"
             className="border border-line-2 bg-transparent text-ink text-[12px] px-3.5 py-[7px]
-                       rounded-[var(--r)] hover:bg-surface disabled:text-ink-3
+                       rounded-button hover:bg-surface disabled:text-ink-3
                        disabled:border-line disabled:cursor-not-allowed"
             onClick={() => data?.sources.forEach((row) => sync.mutate(row.source))}
             disabled={sync.isPending || !data?.sources.length}
@@ -324,7 +324,7 @@ export function Overview() {
                 is a first-run state, and the action that ends it is the button above — so this
                 names that action rather than describing an absence. */}
             {data.sources.length === 0 ? (
-              <div className="border border-line bg-surface rounded-[var(--r)] p-6">
+              <div className="border border-line bg-surface rounded-panel p-6">
                 <p className="text-body text-ink m-0">No source has been read yet.</p>
                 <p className="text-secondary text-ink-3 m-0 pt-1">
                   Sync a source to discover what can be adapted. Nothing else on this page can

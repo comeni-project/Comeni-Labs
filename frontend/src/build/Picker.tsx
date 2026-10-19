@@ -83,7 +83,7 @@ export function Picker({ port, node, at, onPick, onClose }: {
       role="dialog"
       aria-label={`what can connect to ${port.name}`}
       style={{ left: at.x, top: at.y }}
-      className="fixed z-30 w-[340px] bg-surface border border-line-2 rounded-r shadow-e3
+      className="fixed z-30 w-[340px] bg-surface border border-line-2 rounded-control shadow-e3
                  overflow-hidden settle"
       onKeyDown={(e) => {
         if (e.key === "Escape") { e.stopPropagation(); onClose(); return; }

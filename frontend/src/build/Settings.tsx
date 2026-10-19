@@ -143,7 +143,7 @@ function Row({
           <input
             data-testid="setting-field"
             className={
-              "font-data text-body rounded-r border px-2 py-0.5 bg-bg text-ink w-full " +
+              "font-data text-body rounded-control border px-2 py-0.5 bg-bg text-ink w-full " +
               (open ? "border-[var(--needs-you)]" : "border-line")
             }
             type={

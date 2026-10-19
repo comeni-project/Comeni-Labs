@@ -38,7 +38,7 @@ export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: s
           disabled={gate.running || stopped !== null}
           onClick={() => gate.start(g.id)}
           title={stopped ?? `Gate: ${g.what}. Running a pipeline is Wiener's job.`}
-          className="px-3 py-1 rounded-r text-body font-semibold bg-action text-on-action
+          className="px-3 py-1 rounded-button shadow-raise text-body font-semibold bg-action text-on-action
                      border-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {gate.active === g.id ? "Gating…" : g.label}
@@ -89,7 +89,7 @@ export function GatePanel({ draftId, blocked }: { draftId: string | null; blocke
       {gate.run?.output && (
         <pre
           data-testid="gate-output"
-          className="text-secondary font-data bg-surface-2 rounded-r p-2 overflow-x-auto
+          className="text-secondary font-data bg-surface-2 rounded-panel p-2 overflow-x-auto
                      max-h-[40vh] overflow-y-auto whitespace-pre"
         >
           {gate.run.output}
@@ -155,7 +155,7 @@ export function GateVerdict({
       {failed && gate.run?.output && (
         <pre
           data-testid="gate-output"
-          className="text-secondary font-data bg-surface-2 rounded-r p-2 mt-2 mb-0 max-h-[30vh]
+          className="text-secondary font-data bg-surface-2 rounded-panel p-2 mt-2 mb-0 max-h-[30vh]
                      overflow-auto whitespace-pre"
         >
           {gate.run.output}

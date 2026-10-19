@@ -42,7 +42,7 @@ export function Now({ running, waiting, named }: {
               <Link
                 key={run.id}
                 to={`/runs/${run.id}`}
-                className="settle no-underline text-ink block lift px-2 -mx-2 py-1 rounded-r"
+                className="settle no-underline text-ink block lift px-2 -mx-2 py-1 rounded-button"
               >
                 {/* **Named by its PIPELINE, not by its id.** A run id is how the machine
                     addresses it; what somebody scanning the front door recognises is what it is
@@ -109,7 +109,7 @@ export function Now({ running, waiting, named }: {
                 key={call.where}
                 to={call.where}
                 className="settle no-underline block border-l-2 border-[var(--needs-you)] pl-4
-                           lift py-1 rounded-r"
+                           lift py-1 rounded-button"
               >
                 {/* **It names the values.** `strandedness and fragment size`, not `2 items` —
                     a count is what you write when you have not looked (`ov-settled`). The

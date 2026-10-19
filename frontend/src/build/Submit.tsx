@@ -21,7 +21,7 @@ import { useSubmit } from "./useSubmit";
  *  API learns the other exists — and calling it `Start run` would hide the second click: uploading
  *  is what discovers the parameters. */
 const button =
-  "px-[24px] py-[9px] text-[13.5px] font-semibold bg-action text-on-action border-0 " +
+  "px-[24px] py-[9px] text-[13.5px] font-semibold rounded-button shadow-raise bg-action text-on-action border-0 " +
   "cursor-pointer lift disabled:opacity-40 disabled:cursor-not-allowed";
 
 export function SubmitPanel({
@@ -118,7 +118,7 @@ export function SubmitPanel({
                     value={submit.values[name] ?? ""}
                     onChange={(event) => submit.set(name, event.target.value)}
                     placeholder="a path on the machine that runs this"
-                    className="flex-1 px-2 py-1 rounded-r bg-surface border border-line
+                    className="flex-1 px-2 py-1 rounded-control bg-surface border border-line
                                font-data text-body text-ink"
                   />
                 </label>

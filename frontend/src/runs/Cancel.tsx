@@ -64,7 +64,7 @@ export function Cancel({ runId }: { runId: string }) {
         value={why}
         placeholder="why (optional)"
         onChange={(event) => setWhy(event.target.value)}
-        className="text-secondary bg-surface border border-line rounded-[var(--r)] px-2 py-1"
+        className="text-secondary bg-surface border border-line rounded-control px-2 py-1"
       />
       <button
         type="button"

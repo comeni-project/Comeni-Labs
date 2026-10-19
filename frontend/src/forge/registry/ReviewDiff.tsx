@@ -61,7 +61,7 @@ export function ContractPane({
   onSelect: (holeId: string) => void;
 }) {
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] min-w-0">
+    <div className="border border-line bg-surface rounded-panel min-w-0">
       <div className="flex items-baseline justify-between px-3.5 py-3 border-b border-line">
         <span className="font-data text-[11.5px] text-ink">contract.yml</span>
         <span className="font-data text-label text-ink-3">
@@ -114,7 +114,7 @@ export function CodePane({ file }: { file: FilePane }) {
   const lines = file.text.split("\n");
   const tone = file.authored ? ORIGIN.model : ORIGIN.derived;
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] min-w-0">
+    <div className="border border-line bg-surface rounded-panel min-w-0">
       <div className="flex items-baseline justify-between px-3.5 py-3 border-b border-line">
         <span className="font-data text-[11.5px] text-ink">{file.path}</span>
         <span className="font-data text-label text-ink-3">

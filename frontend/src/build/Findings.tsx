@@ -66,7 +66,7 @@ export function Findings({
             <button
               onClick={() => anchor && onSelect(anchor)}
               disabled={anchor === null}
-              className="w-full text-left rounded-r border border-line bg-surface p-2
+              className="w-full text-left rounded-button border border-line bg-surface p-2
                          hover:bg-[var(--hover)] disabled:cursor-default"
             >
               <span className="flex items-baseline gap-2">

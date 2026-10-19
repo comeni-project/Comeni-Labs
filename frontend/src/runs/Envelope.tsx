@@ -62,7 +62,7 @@ function Row({ curve, series }: { curve: Curve; series: Series }) {
             legend cropped off is the common way this page is shared, and `derived` is the word
             that stops somebody reading an invented shape as a measured one. */}
         {derived && (
-          <span className="text-label text-ink-3 border border-line rounded-[3px] px-1.5
+          <span className="text-label text-ink-3 border border-line rounded-control px-1.5
                            py-px leading-[1.4]"
                 title="a per-task total spread uniformly over its window — the area is true and
                        the shape is invented">
@@ -155,7 +155,7 @@ export function Envelope({ runId, live }: { runId: string; live: boolean }) {
   if (!data?.curves?.length) return null;
 
   return (
-    <section className="bg-panel border border-line rounded-[var(--r)] shadow-e2 p-4
+    <section className="bg-panel border border-line rounded-panel shadow-e2 p-4
                         flex flex-col gap-4">
       <span className="flex items-baseline gap-3">
         <h2 className="text-body font-semibold text-ink m-0">what this run held</h2>

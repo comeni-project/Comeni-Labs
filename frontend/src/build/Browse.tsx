@@ -96,7 +96,7 @@ export function Browse({ accepts, onAdd, onClose }: {
         role="dialog"
         aria-label="find a tool"
         className="w-[min(900px,92vw)] max-h-[76vh] flex flex-col bg-surface border border-line-2
-                   rounded-r shadow-e3 overflow-hidden settle"
+                   rounded-control shadow-e3 overflow-hidden settle"
         onKeyDown={(e) => {
           if (e.key === "Escape") { onClose(); return; }
           if (e.key === "ArrowDown") {
@@ -129,7 +129,7 @@ export function Browse({ accepts, onAdd, onClose }: {
               data-testid="filter-accepts"
               onClick={() => setOnly((v) => !v)}
               aria-pressed={only}
-              className={`px-2 py-1 rounded-r text-secondary font-data cursor-pointer border
+              className={`px-2 py-1 rounded-button text-secondary font-data cursor-pointer border
                           ${only
                             ? "border-[var(--now)] text-[var(--now)] bg-transparent"
                             : "border-line text-ink-3 bg-transparent"}`}
@@ -169,7 +169,7 @@ export function Browse({ accepts, onAdd, onClose }: {
                       data-fits={able || undefined}
                       onMouseEnter={() => setCursor(n)}
                       onClick={() => onAdd(m.contract_id)}
-                      className="text-left p-3 rounded-r border border-line bg-transparent
+                      className="text-left p-3 rounded-button border border-line bg-transparent
                                  cursor-pointer data-[active]:border-line-2
                                  data-[active]:bg-surface-2"
                     >

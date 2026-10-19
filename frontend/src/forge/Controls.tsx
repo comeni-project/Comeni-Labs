@@ -17,7 +17,7 @@ type Band = components["schemas"]["Band"];
  * working until the user clicks somewhere neutral. They would report it as "the keys
  * sometimes do not work".
  */
-const field = "text-body border border-line-2 bg-surface rounded-r px-3 py-1 text-ink";
+const field = "text-body border border-line-2 bg-surface rounded-control px-3 py-1 text-ink";
 const label = "text-label font-semibold text-ink-3";
 
 /** Set the value, then hand focus back so `J`/`K` keep working. */

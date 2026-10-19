@@ -25,7 +25,7 @@ export function Validation({ revision }: { revision: Revision | undefined }) {
   const ran = verdict.ran === true;
 
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
+    <div className="border border-line bg-surface rounded-panel px-[18px] py-4">
       <div className="text-label text-ink-3 pb-[9px]">
         Validation
       </div>
@@ -90,7 +90,7 @@ export function Provenance({ origins }: { origins: Origins }) {
   const total = Math.max(1, parts.reduce((sum, part) => sum + part.n, 0));
 
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
+    <div className="border border-line bg-surface rounded-panel px-[18px] py-4">
       <div className="text-label text-ink-3 pb-3">
         Where each value came from
       </div>

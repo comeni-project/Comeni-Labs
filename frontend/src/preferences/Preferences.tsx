@@ -101,7 +101,7 @@ export function Preferences({
                     aria-current={here ? "page" : undefined}
                     onClick={() => onSelect(s.key)}
                     className={`shrink-0 md:w-full flex items-center justify-between gap-[12px]
-                                h-[36px] md:h-[34px] px-[12px] rounded-[3px] text-[12.5px] md:text-body
+                                h-[36px] md:h-[34px] px-[12px] rounded-button text-[12.5px] md:text-body
                                 whitespace-nowrap bg-transparent cursor-pointer
                                 transition-colors border md:border-0
                                 ${here

@@ -81,7 +81,7 @@ function Row({ row, children }: { row: AdaptationRow; children?: React.ReactNode
       <Link
         to={`/forge/adaptations/${row.id}`}
         className="text-label no-underline text-ink
-                   border border-line-2 rounded-[var(--r)] px-[11px] py-[5px] hover:bg-surface"
+                   border border-line-2 rounded-button px-[11px] py-[5px] hover:bg-surface"
       >
         Open
       </Link>
@@ -101,7 +101,7 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
 
   if (rows.length === 0) {
     return (
-      <div className="border border-line bg-surface rounded-[var(--r)] px-4 py-3.5">
+      <div className="border border-line bg-surface rounded-panel px-4 py-3.5">
         <p className="text-body text-ink-2 m-0">The lane is idle.</p>
         <p className="text-secondary text-ink-3 m-0 pt-1">
           Nothing is being scaffolded or generated. Start one from the catalogue.
@@ -115,7 +115,7 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
       {held.map((row) => (
         <div
           key={row.id}
-          className="border border-now bg-surface rounded-[var(--r)] px-4 py-[13px]
+          className="border border-now bg-surface rounded-panel px-4 py-[13px]
                      flex items-center gap-3"
         >
           <Mark shape="run" />

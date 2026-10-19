@@ -72,7 +72,7 @@ export function Samplesheet({ columns, rows, onChange }: {
                       value={row[column] ?? ""}
                       onChange={(event) => set(index, column, event.target.value)}
                       placeholder={column === SAMPLE ? "a name you choose" : "a path"}
-                      className="w-full px-2 py-1 bg-surface border border-line rounded-r
+                      className="w-full px-2 py-1 bg-surface border border-line rounded-control
                                  font-data text-body text-ink"
                     />
                   </td>

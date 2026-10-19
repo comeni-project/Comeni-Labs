@@ -40,7 +40,7 @@ function Tile({ label, figure, colour, note, bar }: {
   bar?: { pct: number; colour: string };
 }) {
   return (
-    <div className="bg-surface border border-line rounded-[var(--r)] shadow-e2
+    <div className="bg-surface border border-line rounded-panel shadow-e2
                     px-[15px] pt-[13px] pb-3.5 flex flex-col">
       <span className="text-label text-ink-3">{label}</span>
       <span className="font-data mt-[7px] leading-[1.15] tracking-[-.02em]"
@@ -49,7 +49,7 @@ function Tile({ label, figure, colour, note, bar }: {
       </span>
       <span className="text-label text-ink-3 mt-[3px] normal-case tracking-normal">{note}</span>
       {bar && (
-        <span className="block h-[7px] mt-[9px] rounded-[3px] overflow-hidden"
+        <span className="block h-[7px] mt-[9px] rounded-xs overflow-hidden"
               style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
           <span className="block h-full"
                 style={{ width: `${bar.pct}%`, background: bar.colour }} />
@@ -70,7 +70,7 @@ function Tile({ label, figure, colour, note, bar }: {
 function Activity({ days }: { days: Summary["days"] }) {
   const top = Math.max(1, ...days.map((d) => d.succeeded + d.failed));
   return (
-    <div className="bg-surface border border-line rounded-[var(--r)] shadow-e2
+    <div className="bg-surface border border-line rounded-panel shadow-e2
                     px-[15px] pt-[13px] pb-[11px] flex flex-col">
       <div className="flex items-baseline gap-3">
         <span className="text-label text-ink-3">runs per day</span>
@@ -123,7 +123,7 @@ function Activity({ days }: { days: Summary["days"] }) {
 function Swatch({ colour, label }: { colour: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 text-label text-ink-3">
-      <span aria-hidden className="inline-block w-2 h-2 rounded-[2px]"
+      <span aria-hidden className="inline-block w-2 h-2 rounded-xs"
             style={{ background: colour }} />
       {label}
     </span>
@@ -220,7 +220,7 @@ function Row({ run, medianMs }: { run: RunRow; medianMs?: number }) {
         {run.phase}
       </span>
       <span className="flex flex-col gap-1">
-        <span className="block h-[7px] rounded-[3px] overflow-hidden"
+        <span className="block h-[7px] rounded-xs overflow-hidden"
               style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
           {run.tasks_seen > 0 && (
             <span className="block h-full" style={{ width: `${pct}%`, background: colour }} />
@@ -341,11 +341,11 @@ export function Board() {
                     : "no finished run recorded how long it took"
               } />
         {s ? <Activity days={s.days} />
-           : <div className="bg-surface border border-line rounded-[var(--r)] shadow-e2" />}
+           : <div className="bg-surface border border-line rounded-control shadow-e2" />}
       </div>
 
       <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
-                          rounded-[var(--r)] shadow-e2 overflow-hidden">
+                          rounded-panel shadow-e2 overflow-hidden">
         {/* **Filters, because 49 rows already needs them** — and the board was the one screen
             with more rows than fit and no way to narrow them. */}
         <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line
@@ -420,7 +420,7 @@ export function Board() {
   );
 }
 
-const control = "text-secondary bg-surface border border-line rounded-[var(--r)] px-2 py-1";
+const control = "text-secondary bg-surface border border-line rounded-button px-2 py-1";
 const pageBtn =
-  "px-2 py-0.5 rounded-[var(--r)] border border-line bg-surface text-ink-2 cursor-pointer "
+  "px-2 py-0.5 rounded-button border border-line bg-surface text-ink-2 cursor-pointer "
   + "hover:text-ink hover:bg-[var(--hover)] disabled:cursor-not-allowed disabled:opacity-40";

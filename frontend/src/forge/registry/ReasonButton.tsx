@@ -34,7 +34,7 @@ export function ReasonButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`border bg-transparent text-[12px] rounded-[var(--r)] px-3.5 py-[7px]
+        className={`border bg-transparent text-[12px] rounded-button px-3.5 py-[7px]
                     hover:bg-surface-2 ${border}`}
       >
         {label}
@@ -54,7 +54,7 @@ export function ReasonButton({
         }}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="border border-line-2 bg-surface text-ink text-secondary rounded-[var(--r)]
+        className="border border-line-2 bg-surface text-ink text-secondary rounded-control
                    px-2.5 py-1.5 w-[240px] focus-visible:outline-none
                    focus-visible:shadow-[var(--ring)]"
       />
@@ -63,7 +63,7 @@ export function ReasonButton({
         disabled={!reason.trim() || busy}
         onClick={() => onSend(reason.trim())}
         className="text-label border border-done text-done-ink
-                   rounded-[var(--r)] px-[11px] py-[6px] bg-transparent hover:bg-done-soft
+                   rounded-button px-[11px] py-[6px] bg-transparent hover:bg-done-soft
                    disabled:border-line disabled:text-ink-3 disabled:cursor-not-allowed"
       >
         {busy ? "…" : "Go"}

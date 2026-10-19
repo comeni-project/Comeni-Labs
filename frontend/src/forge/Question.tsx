@@ -134,7 +134,7 @@ export function Question() {
               // oblige different amounts of trust — design §5.
               <span
                 className="text-label font-semibold text-ink-3
-                           border border-line-2 rounded-r px-2"
+                           border border-line-2 rounded-control px-2"
               >
                 MODEL
               </span>
@@ -154,7 +154,7 @@ export function Question() {
           value={why}
           onChange={(e) => setWhy(e.target.value)}
           rows={3}
-          className="block w-full mt-2 p-3 text-body border border-line-2 rounded-r bg-surface"
+          className="block w-full mt-2 p-3 text-body border border-line-2 rounded-control bg-surface"
         />
       </label>
 
@@ -189,7 +189,7 @@ export function Question() {
         <button
           onClick={submitOne}
           disabled={!ready || answer.isPending}
-          className="px-4 py-2 text-body font-semibold rounded-r border border-line-2
+          className="px-4 py-2 text-body font-semibold rounded-button border border-line-2
                      bg-surface cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {answer.isPending ? "Accepting…" : many ? `Accept for ${q.asked_by[0]}` : "Accept"}
@@ -199,7 +199,7 @@ export function Question() {
           <button
             onClick={submitAll}
             disabled={!ready || batch.isPending}
-            className="px-4 py-2 text-body font-semibold rounded-r border border-line-2
+            className="px-4 py-2 text-body font-semibold rounded-button border border-line-2
                        bg-surface cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {batch.isPending ? "Accepting…" : `Accept for all ${q.asked_by.length} drafts`}

@@ -64,7 +64,7 @@ export function Failure({ failed }: { failed: Failed }) {
        banner flattened the difference between the run failing and a task failing. */
     <section
       data-testid="failure"
-      className="rounded-[var(--r)] shadow-e2 p-[15px] flex flex-col gap-2.5"
+      className="rounded-panel shadow-e2 p-[15px] flex flex-col gap-2.5"
       style={{ background: "var(--needs-you-soft)", border: "1px solid var(--needs-you)" }}
     >
       <div className="flex items-baseline gap-2.5">
@@ -93,7 +93,7 @@ export function Failure({ failed }: { failed: Failed }) {
           the task died, visible without reading either number. */}
       {both && (
         <div data-testid="failure-resources" className="flex items-center gap-2.5">
-          <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
+          <span className="block h-[7px] w-[170px] rounded-xs overflow-hidden shrink-0"
                 style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
             <span className="block h-full"
                   style={{ width: `${Math.min(100, Math.round(
@@ -121,7 +121,7 @@ export function Failure({ failed }: { failed: Failed }) {
               <span className="font-data text-ink-3 w-[54px] shrink-0 tabular-nums">
                 try {attempt.n}
               </span>
-              <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
+              <span className="block h-[7px] w-[170px] rounded-xs overflow-hidden shrink-0"
                     style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
                 <span className="block h-full"
                       style={{ width: `${((attempt.memory_bytes ?? 0) / ceiling) * 100}%`,
@@ -152,7 +152,7 @@ export function Failure({ failed }: { failed: Failed }) {
               three lines would hide the half that matters on the runs this is for. */}
           <pre
             data-testid="failure-report"
-            className="m-0 p-3 font-data text-secondary text-ink-2 rounded-[var(--r)]
+            className="m-0 p-3 font-data text-secondary text-ink-2 rounded-panel
                        max-h-72 overflow-auto whitespace-pre-wrap"
             style={{ background: "var(--surface)", border: "1px solid var(--line)",
                      boxShadow: "var(--well)", lineHeight: 1.7 }}

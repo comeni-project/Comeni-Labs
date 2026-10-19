@@ -102,7 +102,7 @@ function Activity({ events }: { events: readonly Event[] }) {
       <div className="text-label text-ink-3 pb-[11px]">
         Activity
       </div>
-      <div className="border border-line bg-surface rounded-[var(--r)] px-3.5 pt-1.5 pb-2.5">
+      <div className="border border-line bg-surface rounded-panel px-3.5 pt-1.5 pb-2.5">
         {events.length === 0 && (
           <p className="text-body text-ink-3 py-2 m-0">Nothing has happened yet.</p>
         )}
@@ -143,7 +143,7 @@ function Scaffold({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="border border-line bg-surface rounded-[var(--r)] px-5 py-[18px] mt-[18px]">
+    <div className="border border-line bg-surface rounded-panel px-5 py-[18px] mt-[18px]">
       <div className="text-label text-ink-3 pb-3">
         Deterministic scaffold
       </div>
@@ -216,7 +216,7 @@ function Inspector({
   if (!hole && fields.length === 0 && cited.length === 0) return null;
 
   return (
-    <div className="border border-now bg-[var(--now-soft)] rounded-[var(--r)] px-5 py-4 mt-[22px]">
+    <div className="border border-now bg-[var(--now-soft)] rounded-panel px-5 py-4 mt-[22px]">
       <div className="flex items-baseline justify-between pb-2.5">
         <span className="font-data text-[11px] text-ink">{selected}</span>
         <button
@@ -331,7 +331,7 @@ export function Adaptation() {
                         type="button"
                         onClick={() => setDialog("changes")}
                         className="border border-line-2 bg-transparent text-ink text-[12px]
-                                   rounded-[var(--r)] px-3.5 py-[7px] hover:bg-surface-2"
+                                   rounded-button px-3.5 py-[7px] hover:bg-surface-2"
                       >
                         Request changes
                       </button>
@@ -345,7 +345,7 @@ export function Adaptation() {
                             : approval.data?.refusals.map((r) => r.split("\n")[0]).join("; ")
                         }
                         className="border border-done text-done-ink bg-transparent text-[12px]
-                                   rounded-[var(--r)] px-3.5 py-[7px] hover:bg-done-soft
+                                   rounded-button px-3.5 py-[7px] hover:bg-done-soft
                                    disabled:border-line disabled:text-ink-3
                                    disabled:cursor-not-allowed"
                       >
@@ -431,7 +431,7 @@ export function Adaptation() {
               <div className="min-w-0">
                 {candidate.isPending && moving && <Loading what="the scaffold" />}
                 {candidate.error && !candidate.data && (
-                  <div className="border border-line bg-surface rounded-[var(--r)] p-6">
+                  <div className="border border-line bg-surface rounded-panel p-6">
                     <p className="text-body text-ink m-0">Nothing has been scaffolded yet.</p>
                     <p className="text-secondary text-ink-3 m-0 pt-1">
                       The deterministic half reads the source first; there is nothing to review
@@ -442,7 +442,7 @@ export function Adaptation() {
 
                 {candidate.data && !reviewing && (
                   <>
-                    <div className="border border-now bg-surface rounded-[var(--r)] px-5 py-[18px]">
+                    <div className="border border-now bg-surface rounded-panel px-5 py-[18px]">
                       <div className="text-label text-ink-3 pb-2.5">
                         Current stage
                       </div>
@@ -519,7 +519,7 @@ export function Adaptation() {
                             type="button"
                             onClick={() => setSelected(excerpt.id)}
                             className={`lift text-left border border-line bg-surface
-                                        rounded-[var(--r)] px-4 py-3 ${
+                                        rounded-button px-4 py-3 ${
                                           selected === excerpt.id ? "border-now" : ""
                                         }`}
                           >

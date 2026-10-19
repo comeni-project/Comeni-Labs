@@ -74,7 +74,9 @@
   --spacing-8: 40px;
   --spacing-9: 60px;
 
-  --radius-r: 3px;
+  --radius-control: 8px;
+  --radius-button: 10px;
+  --radius-panel: 14px;
 
   --color-paper: var(--paper);
   --color-paper-2: var(--paper-2);
@@ -110,6 +112,7 @@
   /* Depth, as utilities. `shadow-e2` on a card rather than a hand-written `box-shadow`, for
      the same reason the colours are mirrored: one definition, and a seventh elevation cannot
      be invented by eye. */
+  --shadow-raise: 0 3px 0 var(--action-edge);
   --shadow-e1: var(--e1);
   --shadow-e2: var(--e2);
   --shadow-e3: var(--e3);
