@@ -147,7 +147,7 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                       has no useful last outcome, and saying `succeeded` beside two open values
                       reads as *ready*. */}
                   {waiting > 0 ? (
-                    <span className="text-[var(--needs-you)]">
+                    <span className="text-needs-you-ink">
                       {waiting} open
                     </span>
                   ) : last ? (
@@ -239,7 +239,7 @@ export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, stri
               </td>
               <td className={`${CELL} text-secondary text-ink-2`}>{ago(run.submitted_at)}</td>
               <td className={CELL}>
-                <span className={run.phase === "failed" ? "text-[var(--needs-you)]"
+                <span className={run.phase === "failed" ? "text-needs-you-ink"
                   : run.phase === "running" ? "text-now-ink" : "text-ink-2"}>
                   {run.phase}
                 </span>

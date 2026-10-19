@@ -51,7 +51,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
               onClick={() => send.mutate()}
               className="text-label px-[15px] py-2
                          bg-transparent border cursor-pointer"
-              style={{ color: "var(--needs-you)", borderColor: "var(--needs-you)" }}>
+              style={{ color: "var(--needs-you-ink)", borderColor: "var(--needs-you)" }}>
         {send.isPending ? "deleting…" : "delete this run"}
       </button>
       <button type="button" onClick={() => setAsking(false)}
@@ -59,7 +59,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
         keep it
       </button>
       {send.error && <span role="alert" className="basis-full"
-                           style={{ color: "var(--needs-you)" }}>{send.error.message}</span>}
+                           style={{ color: "var(--needs-you-ink)" }}>{send.error.message}</span>}
     </span>
   );
 }

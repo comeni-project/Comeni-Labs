@@ -143,7 +143,7 @@ export function Home() {
                   className={`text-label px-[13px] py-1.5
                               border-0 cursor-pointer transition-colors
                               ${view === which
-                                ? "bg-[var(--now-soft)] text-[var(--now)]"
+                                ? "bg-[var(--now-soft)] text-now-ink"
                                 : "bg-transparent text-ink-3 hover:text-ink"}`}
                 >
                   By {which}
@@ -155,7 +155,7 @@ export function Home() {
             <Link
               to="/build"
               className="ml-auto px-[13px] py-1.5 no-underline text-[12.5px]
-                         border border-[var(--now-line)] text-[var(--now)] lift"
+                         border border-[var(--now-line)] text-now-ink lift"
             >
               New pipeline
             </Link>

@@ -401,3 +401,14 @@ it("draws a filled main button as the action, not as selected", () => {
     .map(() => path.slice(SRC.length + 1)));
   expect(blue).toEqual([]);
 });
+
+it("draws words in the -ink shade of a meaning, never its plain mark colour", () => {
+  // The plain marks (`--done` 3.15:1, `--now` 4.19:1 on paper) fail as text on the light
+  // ground; `-ink` is the shade the contrast guard above proves. A dot or a bar keeps the mark.
+  const M = "done|now|needs-you|measured";
+  const plain = new RegExp(
+    `\\btext-(?:${M})(?![\\w-])|\\btext-\\[var\\(--(?:${M})\\)\\]|\\bcolor:\\s*["'\`]var\\(--(?:${M})\\)`);
+  const found = sources().filter(([path, text]) => !/\.test\.tsx?$/.test(path) && plain.test(text))
+    .map(([p]) => p.slice(SRC.length + 1));
+  expect(found).toEqual([]);
+});

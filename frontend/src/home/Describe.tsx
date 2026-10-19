@@ -34,7 +34,7 @@ export function Describe() {
           className="grow min-w-[240px] flex items-center gap-3 px-[14px] py-[10px] cursor-text"
           style={{ background: "var(--paper-2)", border: "1px solid var(--now-line)" }}
         >
-          <span aria-hidden className="font-data text-[13px]" style={{ color: "var(--now)" }}>
+          <span aria-hidden className="font-data text-[13px]" style={{ color: "var(--now-ink)" }}>
             &rsaquo;
           </span>
           <input
@@ -57,7 +57,7 @@ export function Describe() {
         </button>
       </div>
       {begin.error && (
-        <p role="alert" className="m-0 text-[12px] text-[var(--needs-you)]">{begin.error.message}</p>
+        <p role="alert" className="m-0 text-[12px] text-needs-you-ink">{begin.error.message}</p>
       )}
     </form>
   );

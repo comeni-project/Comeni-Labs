@@ -268,7 +268,7 @@ export function Settings({
           {/* Invariant 6: tier 4 is always flagged, and this is one of its four places. The
               heading changes when nothing here is open any more; the band does not go away. */}
           <div
-            className={`${BAND} pb-[11px] ${still > 0 ? "text-[var(--needs-you)]" : "text-now-ink"}`}
+            className={`${BAND} pb-[11px] ${still > 0 ? "text-needs-you-ink" : "text-now-ink"}`}
           >
             {still > 0
               ? `${words.group(NEEDS_YOU)} · ${still}`
@@ -286,7 +286,7 @@ export function Settings({
           className="settle px-[15px] pt-3 pb-1 border-b border-line"
           style={{ animationDelay: "40ms" }}
         >
-          <div className={`${BAND} text-[var(--measured)] pb-[10px]`}>
+          <div className={`${BAND} text-measured-ink pb-[10px]`}>
             {words.group(MEASURED)} · {measured.length}
           </div>
           {measured.map((setting) => (

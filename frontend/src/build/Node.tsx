@@ -190,7 +190,7 @@ export function Node({
           style={{
             right: -27,
             top: portOffset(0) - 9,
-            color: "var(--now)",
+            color: "var(--now-ink)",
             background: "var(--paper-2)",
             borderWidth: 1,
             borderStyle: "solid",
@@ -259,7 +259,7 @@ export function Node({
             left border carries the whole signal. Tier 3 says *the machinery worked, check the
             premise* — it is not a thing waiting on you, and putting it in the same sentence as
             the count that is would flatten the difference the tier ladder exists to draw. */}
-        {open && <span style={{ color: "var(--needs-you)" }}>{needing} need you</span>}
+        {open && <span style={{ color: "var(--needs-you-ink)" }}>{needing} need you</span>}
         {open && settled > 0 && <span aria-hidden>·</span>}
         {settled > 0 && <span>{settled} settled</span>}
         {!open && settled === 0 && <span className="truncate">{step?.contract_id ?? ""}</span>}

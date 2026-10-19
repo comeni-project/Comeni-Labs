@@ -227,7 +227,7 @@ function Detail({
       ) : (
         /* An unsupported tool stays visible and says what is missing — §7. Hiding it would
            make the catalogue's total disagree with what a person can see. */
-        <p className="text-body text-measured m-0">{item.unsupported_reason}</p>
+        <p className="text-body text-measured-ink m-0">{item.unsupported_reason}</p>
       )}
     </>
   );

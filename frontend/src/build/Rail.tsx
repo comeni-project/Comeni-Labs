@@ -161,7 +161,7 @@ export function Assistant() {
           </p>
         )}
         {begin.error && (
-          <p role="alert" className="m-0 text-secondary text-[var(--needs-you)]">
+          <p role="alert" className="m-0 text-secondary text-needs-you-ink">
             {begin.error.message}
           </p>
         )}

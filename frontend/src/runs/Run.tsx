@@ -17,7 +17,7 @@ import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
 import { Timeline } from "./Timeline";
 import { elapsed } from "./elapsed";
-import { colourOf, isPhase } from "./phases";
+import { colourOf, inkOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
 
 const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
@@ -239,12 +239,11 @@ export function Run() {
                          tracking-[-.035em]">
             {run.name || `run ${id.slice(0, 8)}`}
           </h1>
-          {/* 9.5px / .1em / 3px 8px — the artboard's, and it was reading `text-label` with
-              looser padding, which made a status chip the size of a button. */}
+          {/* A chip: the phase's words in its `-ink`, on a tint of its mark. */}
           <span
             data-testid="run-phase"
-            className="text-label leading-none px-2 py-[3px]"
-            style={{ color: colourOf[phase],
+            className="text-label leading-none px-2 py-[3px] rounded-full"
+            style={{ color: inkOf[phase],
                      background: `color-mix(in srgb, ${colourOf[phase]} 12%, transparent)`,
                      border: `1px solid color-mix(in srgb, ${colourOf[phase]} 27%, transparent)` }}
           >
@@ -260,7 +259,7 @@ export function Run() {
             <span className="text-right">
               <span className="block font-data text-[23px] leading-none tracking-[-.02em]
                                tabular-nums"
-                    style={{ color: TERMINAL.has(run.phase) ? "var(--ink-2)" : colourOf[phase] }}>
+                    style={{ color: TERMINAL.has(run.phase) ? "var(--ink-2)" : inkOf[phase] }}>
                 {elapsed(run.started_at_ms, run.ended_at_ms, now)}
               </span>
               {/* The artboard reads `local · started 21:04` — **the executor beside the

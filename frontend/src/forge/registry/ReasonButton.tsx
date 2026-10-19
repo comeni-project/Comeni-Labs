@@ -27,7 +27,7 @@ export function ReasonButton({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
 
-  const border = tone === "warn" ? "border-measured text-measured" : "border-line-2 text-ink";
+  const border = tone === "warn" ? "border-measured text-measured-ink" : "border-line-2 text-ink";
 
   if (!open) {
     return (

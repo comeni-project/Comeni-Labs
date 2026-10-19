@@ -75,7 +75,7 @@ export function First() {
                    animationDelay: "120ms" }}
         >
           <span aria-hidden className="font-data text-[14px]"
-                style={{ color: "var(--now)" }}>&rsaquo;</span>
+                style={{ color: "var(--now-ink)" }}>&rsaquo;</span>
           {/* **Not `grow`, and sized to its own content.** The artboard sets the chevron, the
               text and the cursor as three flex children at their natural widths, so the cursor
               sits immediately after the sentence the way a terminal's does. Stretching the
@@ -102,7 +102,7 @@ export function First() {
           {/* The blinking block. `steps(1)` — it snaps rather than fading, which is what a
               terminal cursor does and what the artboard specifies. */}
           <span aria-hidden className="font-data text-[15px] blink"
-                style={{ color: "var(--now)" }}>▮</span>
+                style={{ color: "var(--now-ink)" }}>▮</span>
         </label>
 
         <div className="settle w-[min(660px,100%)] flex flex-wrap items-center gap-4"
@@ -118,14 +118,14 @@ export function First() {
             {live ? "or " : model.pending
               ? "Checking whether a model is configured — meanwhile, "
               : "No model is configured on this installation, so describing it in words is off — "}
-            <Link to="/build" className="text-[var(--now)] no-underline hover:text-ink">
+            <Link to="/build" className="text-now-ink no-underline hover:text-ink">
               draw it yourself
             </Link>
             {" "}— the canvas without a conversation
           </span>
         </div>
         {begin.error && (
-          <p role="alert" className="m-0 w-[min(660px,100%)] text-[12.5px] text-[var(--needs-you)]">
+          <p role="alert" className="m-0 w-[min(660px,100%)] text-[12.5px] text-needs-you-ink">
             {begin.error.message}
           </p>
         )}

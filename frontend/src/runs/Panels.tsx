@@ -90,12 +90,12 @@ function Failures({ failed, retried }: { failed: number; retried: number }) {
            note={retried > 0
              ? `${retried} task${retried === 1 ? "" : "s"} retried — a retry is not a failure`
              : "nothing has failed and nothing has retried"}>
-      <span className={FIGURE} style={failed > 0 ? { color: "var(--needs-you)" } : undefined}>
+      <span className={FIGURE} style={failed > 0 ? { color: "var(--needs-you-ink)" } : undefined}>
         {failed}
       </span>
       {retried > 0 && (
-        <span className="text-label px-2 py-[3px]"
-              style={{ color: "var(--measured)", background: "color-mix(in srgb, var(--measured) 12%, transparent)",
+        <span className="text-label px-2 py-[3px] rounded-full"
+              style={{ color: "var(--measured-ink)", background: "var(--measured-soft)",
                        border: "1px solid color-mix(in srgb, var(--measured) 27%, transparent)" }}>
           {retried} retry
         </span>
@@ -194,7 +194,7 @@ function ResourceFit({ data }: { data?: OverviewData }) {
              {shortBytes(worst.memory_peak_bytes)}.{" "}
              <span className="text-[var(--ink-3)]">Worst over-ask of {rows.length} process
              {rows.length === 1 ? "" : "es"} that reported.</span></>}>
-      <span className={FIGURE} style={ratio >= 2 ? { color: "var(--measured)" } : undefined}>
+      <span className={FIGURE} style={ratio >= 2 ? { color: "var(--measured-ink)" } : undefined}>
         {ratio.toFixed(1)}×
       </span>
     </Panel>

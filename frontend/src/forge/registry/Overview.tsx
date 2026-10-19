@@ -83,7 +83,7 @@ function Source({ row }: { row: SourceRow }) {
           {row.source}
         </span>
         {row.snapshot_stale ? (
-          <span className="font-data text-[10.5px] text-measured">
+          <span className="font-data text-[10.5px] text-measured-ink">
             stale{synced ? ` · last read ${synced.toLocaleDateString()}` : " · never read"}
           </span>
         ) : (

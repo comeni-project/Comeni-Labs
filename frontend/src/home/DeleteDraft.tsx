@@ -44,7 +44,7 @@ export function DeleteDraft({ id, name }: { id: string; name: string }) {
       <button type="button" data-testid="delete-draft-yes" disabled={send.isPending}
               onClick={() => send.mutate()}
               className="bg-transparent border px-2 py-[2px] cursor-pointer"
-              style={{ color: "var(--needs-you)", borderColor: "var(--needs-you)" }}>
+              style={{ color: "var(--needs-you-ink)", borderColor: "var(--needs-you)" }}>
         {send.isPending ? "deleting…" : "delete it"}
       </button>
       <button type="button" data-testid="delete-draft-no" onClick={() => setAsking(false)}
@@ -52,7 +52,7 @@ export function DeleteDraft({ id, name }: { id: string; name: string }) {
         keep it
       </button>
       {send.error && <span role="alert" className="basis-full text-right"
-                           style={{ color: "var(--needs-you)" }}>{send.error.message}</span>}
+                           style={{ color: "var(--needs-you-ink)" }}>{send.error.message}</span>}
     </span>
   );
 }

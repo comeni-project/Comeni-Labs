@@ -105,7 +105,7 @@ export function StatusBoard({ board }: { board: Board }) {
         <span
           data-testid="verdict"
           data-ok={ok}
-          className="text-body text-ink data-[ok=false]:text-[var(--needs-you)]"
+          className="text-body text-ink data-[ok=false]:text-needs-you-ink"
         >
           {ok ? (
             "Every contract agrees with its source."
@@ -120,7 +120,7 @@ export function StatusBoard({ board }: { board: Board }) {
               )}
               {drifted > 0 && unverifiable > 0 && " · "}
               {unverifiable > 0 && (
-                <span className="text-[var(--measured)]">
+                <span className="text-measured-ink">
                   <b className="font-data">{unverifiable}</b> cannot be re-read
                 </span>
               )}

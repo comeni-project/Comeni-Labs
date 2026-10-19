@@ -127,7 +127,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
       )}
 
       <span data-testid="task"
-            className={`truncate ${failed ? "text-[var(--needs-you)]" : "text-ink"}`}>
+            className={`truncate ${failed ? "text-needs-you-ink" : "text-ink"}`}>
         {task.tag ?? `task ${task.task_id}`}
       </span>
 
@@ -135,7 +135,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
           not the first, so a retry is legible without reading the digit. */}
       <span
         data-testid={task.attempts > 1 ? "retried" : "attempt"}
-        className={task.attempts > 1 ? "text-[var(--measured)]" : "text-ink-2"}
+        className={task.attempts > 1 ? "text-measured-ink" : "text-ink-2"}
       >
         {task.attempts}
       </span>
@@ -146,7 +146,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
         ) : exit === 0 ? (
           <span className="text-ink-2">0</span>
         ) : (
-          <span data-testid="mark" className="text-[var(--needs-you)]">{exit}</span>
+          <span data-testid="mark" className="text-needs-you-ink">{exit}</span>
         )}
       </span>
 
@@ -154,7 +154,7 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
       <span data-testid="cpu" className="text-ink-2">{percent(task.pct_cpu)}</span>
       <span data-testid="time" className="text-ink-2">{seconds(task.realtime_ms)}</span>
       <span data-testid="note"
-            className={failed ? "text-[var(--needs-you)]" : "text-ink-3"}>{mark}</span>
+            className={failed ? "text-needs-you-ink" : "text-ink-3"}>{mark}</span>
     </div>
     {menu.at && <Menu items={items} at={menu.at} onClose={menu.close} />}
     </>

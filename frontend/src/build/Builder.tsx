@@ -73,7 +73,7 @@ function Side({
         {/* **The count survives the collapse.** `dashboard.md` §4: hiding the panel must never
             hide what is blocking your run. */}
         {badge !== undefined && badge > 0 && (
-          <span className="font-data text-secondary text-[var(--needs-you)]">{badge}</span>
+          <span className="font-data text-secondary text-needs-you-ink">{badge}</span>
         )}
       </button>
     );
@@ -89,7 +89,7 @@ function Side({
         <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
           <span className={label}>{title}</span>
           {badge !== undefined && badge > 0 && (
-            <span className="ml-auto font-data text-secondary text-[var(--needs-you)]">
+            <span className="ml-auto font-data text-secondary text-needs-you-ink">
               {badge}
             </span>
           )}
@@ -732,7 +732,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             >
               {t === "ask" ? "Assistant" : t}
               {t === "problems" && builder.findings.length > 0 && (
-                <span className="ml-1.5 text-[var(--needs-you)]">{builder.findings.length}</span>
+                <span className="ml-1.5 text-needs-you-ink">{builder.findings.length}</span>
               )}
             </button>
           ))}
@@ -821,7 +821,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 setMenu(null);
               }}
               className="w-full text-left px-3 py-1.5 text-body bg-transparent border-0
-                         cursor-pointer hover:bg-[var(--hover)] text-[var(--needs-you)]"
+                         cursor-pointer hover:bg-[var(--hover)] text-needs-you-ink"
             >
               Delete step
             </button>

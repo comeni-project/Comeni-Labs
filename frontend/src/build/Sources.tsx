@@ -160,7 +160,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
         : <span className="block text-body text-ink">{port.name}</span>}
       {/* **The TYPE, and there is nothing else to show.** No value, no path, no field —
           the binding happens at the run. */}
-      <span className="block font-data text-label text-[var(--now)] truncate">
+      <span className="block font-data text-label text-now-ink truncate">
         {port.type_id}
         {(port.states ?? []).length > 0 && `[${(port.states ?? []).join(", ")}]`}
       </span>
@@ -181,7 +181,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
               <button
                 onClick={() => onSplit(key)}
                 aria-label={`give ${key} its own channel`}
-                className="text-label text-[var(--now)] bg-transparent border-0 cursor-pointer
+                className="text-label text-now-ink bg-transparent border-0 cursor-pointer
                            px-1 hover:bg-[var(--hover)]"
               >
                 split
@@ -194,7 +194,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
         <button
           onClick={() => onMerge(feeds[0])}
           aria-label={`put ${feeds[0]} back on the shared channel`}
-          className="mt-1 pointer-events-auto text-label text-[var(--now)] bg-transparent
+          className="mt-1 pointer-events-auto text-label text-now-ink bg-transparent
                      border-0 cursor-pointer px-1 hover:bg-[var(--hover)]"
         >
           merge

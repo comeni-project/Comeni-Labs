@@ -141,7 +141,7 @@ export function SubmitPanel({
         </>
       )}
       {submit.error && (
-        <p data-testid="submit-error" className="text-secondary text-[var(--needs-you)]">
+        <p data-testid="submit-error" className="text-secondary text-needs-you-ink">
           {submit.error}
         </p>
       )}

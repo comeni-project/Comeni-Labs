@@ -79,7 +79,7 @@ export function Block({
           <p className="m-0 mb-2 text-[12.5px] text-ink">{block.summary}</p>
           <ul className="m-0 p-0 font-data text-[11px]">
             {block.removes.map((node) => (
-              <li key={`-${node}`} className="list-none text-[var(--needs-you)]">− {processName(node)}</li>
+              <li key={`-${node}`} className="list-none text-needs-you-ink">− {processName(node)}</li>
             ))}
             {block.adds.map((node) => (
               <li key={`+${node}`} className="list-none text-ink">+ {processName(node)}</li>

@@ -87,7 +87,7 @@ export function LivingHeader({
           {stage === "keeping" ? "Keeping…" : stage === "linting" ? "Checking…" : "Run"}
         </button>
         {runError && (
-          <span role="alert" data-testid="living-run-error" className="text-secondary text-[var(--needs-you)]">
+          <span role="alert" data-testid="living-run-error" className="text-secondary text-needs-you-ink">
             {runError}
           </span>
         )}

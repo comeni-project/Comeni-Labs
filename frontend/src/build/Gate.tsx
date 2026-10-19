@@ -20,9 +20,9 @@ const GATES = [
 
 const COLOUR: Record<string, string> = {
   queued: "var(--ink-3)",
-  running: "var(--measured)",
-  passed: "var(--done)",
-  failed: "var(--needs-you)",
+  running: "var(--now-ink)",
+  passed: "var(--done-ink)",
+  failed: "var(--needs-you-ink)",
 };
 
 export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: string | null }) {
@@ -52,7 +52,7 @@ export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: s
         <span
           data-testid="gate-progress"
           aria-live="polite"
-          className="font-data text-secondary text-[var(--measured)] animate-pulse"
+          className="font-data text-secondary text-measured-ink animate-pulse"
         >
           running {gate.active}…
         </span>
@@ -82,7 +82,7 @@ export function GatePanel({ draftId, blocked }: { draftId: string | null; blocke
         Mendel never receives it.
       </p>
       {gate.error && (
-        <p data-testid="gate-error" className="text-secondary text-[var(--needs-you)]">
+        <p data-testid="gate-error" className="text-secondary text-needs-you-ink">
           {gate.error}
         </p>
       )}
@@ -130,7 +130,7 @@ export function GateVerdict({
         <span
           data-testid="gate-progress"
           aria-live="polite"
-          className="font-data text-secondary text-[var(--measured)] animate-pulse"
+          className="font-data text-secondary text-measured-ink animate-pulse"
         >
           running {gate.active}…
         </span>
@@ -147,7 +147,7 @@ export function GateVerdict({
       )}
 
       {gate.error && (
-        <p data-testid="gate-error" className="text-secondary text-[var(--needs-you)] mt-1 mb-0">
+        <p data-testid="gate-error" className="text-secondary text-needs-you-ink mt-1 mb-0">
           {gate.error}
         </p>
       )}

@@ -30,6 +30,18 @@ export const colourOf: Record<Phase, string> = {
   lost: "var(--needs-you)",
 };
 
+/** The shade a phase's words wear: the `-ink` of its meaning, which reaches 4.5:1 on the ground
+ *  and on its own soft tint. `colourOf` stays the mark — a dot, a bar, a border. */
+export const inkOf: Record<Phase, string> = {
+  queued: "var(--ink-3)",
+  launching: "var(--ink-3)",
+  running: "var(--now-ink)",
+  succeeded: "var(--done-ink)",
+  failed: "var(--needs-you-ink)",
+  cancelled: "var(--ink-3)",
+  lost: "var(--needs-you-ink)",
+};
+
 export function isPhase(value: string): value is Phase {
   return (PHASES as readonly string[]).includes(value);
 }

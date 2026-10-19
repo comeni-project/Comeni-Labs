@@ -73,7 +73,7 @@ function Count({ row }: { row: Row }) {
           {row.done} done
           {outstanding > 0 && <span className="text-ink-3"> · {outstanding} more seen</span>}
           {row.failed > 0 && (
-            <span className="text-[var(--needs-you)]"> · {row.failed} failed</span>
+            <span className="text-needs-you-ink"> · {row.failed} failed</span>
           )}
         </>
       ) : (
@@ -218,7 +218,7 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
               <span className="font-data text-body text-ink truncate">{row.process}</span>
               {row.attempts_max > 1 && (
                 <span title={`a task of this process retried — ${row.attempts_max} attempts`}
-                      className="shrink-0 font-data text-secondary text-[var(--measured)]">
+                      className="shrink-0 font-data text-secondary text-measured-ink">
                   ↻{row.attempts_max}
                 </span>
               )}

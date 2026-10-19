@@ -137,7 +137,7 @@ export function Swap({ step, graph, onApply, onClose }: {
             </p>
           )}
           {added.map((line) => (
-            <p key={line} className="text-secondary text-[var(--needs-you)] m-0">
+            <p key={line} className="text-secondary text-needs-you-ink m-0">
               would break · <span className="font-data">{line}</span>
             </p>
           ))}
@@ -154,7 +154,7 @@ export function Swap({ step, graph, onApply, onClose }: {
             data-testid="apply-swap"
             disabled={would.isFetching}
             onClick={() => onApply(chosen)}
-            className="mt-3 px-3 py-1 rounded-button border border-[var(--now)] text-[var(--now)]
+            className="mt-3 px-3 py-1 rounded-button border border-[var(--now)] text-now-ink
                        bg-transparent cursor-pointer text-body lift disabled:opacity-40"
           >
             Swap it

@@ -153,7 +153,7 @@ export function RunSheet({
             style={{ animationDelay: "120ms" }}
           >
             <div
-              className="text-label text-[var(--needs-you)]
+              className="text-label text-needs-you-ink
                          pb-3.5"
             >
               {open.length} value{open.length === 1 ? " has" : "s have"} no rule

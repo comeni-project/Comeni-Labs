@@ -316,10 +316,10 @@ export function Board() {
             they have something to report — a red `0` failures and an amber `0` running are
             both the good news, painted as the bad. */}
         <Tile label="needs you" figure={String(s?.failed ?? 0)}
-              colour={s?.failed ? "var(--needs-you)" : "var(--ink-3)"}
+              colour={s?.failed ? "var(--needs-you-ink)" : "var(--ink-3)"}
               note={s?.failed ? "failed, and nobody has looked" : "nothing is waiting on you"} />
         <Tile label="running now" figure={String(s?.running ?? 0)}
-              colour={s?.running ? "var(--measured)" : "var(--ink-3)"}
+              colour={s?.running ? "var(--now-ink)" : "var(--ink-3)"}
               note={s?.running ? "on this instance" : "the instance is idle"} />
         <Tile label="succeeded · 14 days" figure={rate === null ? "—" : `${rate}%`}
               note={s ? `${s.succeeded} of ${s.succeeded + s.failed} runs` : "—"}

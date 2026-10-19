@@ -21,8 +21,8 @@ const GLYPH: Record<string, string> = {
 const LINE = 22;
 
 const COLOUR: Record<string, string> = {
-  COMPLETED: "var(--done)", CACHED: "var(--ink-3)", FAILED: "var(--needs-you)",
-  RUNNING: "var(--measured)", SUBMITTED: "var(--ink-3)", ABORTED: "var(--needs-you)",
+  COMPLETED: "var(--done-ink)", CACHED: "var(--ink-3)", FAILED: "var(--needs-you-ink)",
+  RUNNING: "var(--now-ink)", SUBMITTED: "var(--ink-3)", ABORTED: "var(--needs-you-ink)",
 };
 
 /** One line, as text — the same thing the row draws, so a copy and a screenshot agree. */
@@ -202,12 +202,12 @@ export function Console({ events, following, process = "", onClearProcess, onFil
                 {GLYPH[trace.status] ?? "\u00b7"}
               </span>
               {"  "}
-              <span className={failed ? "text-[var(--needs-you)]" : "text-ink"}>
+              <span className={failed ? "text-needs-you-ink" : "text-ink"}>
                 {trace.process}
               </span>
               {tag && <span className="text-ink-3"> ({tag})</span>}
               <span style={{ float: "right" }}
-                    className={failed ? "text-[var(--needs-you)]" : "text-ink-3"}>
+                    className={failed ? "text-needs-you-ink" : "text-ink-3"}>
                 {trace.status === "RUNNING"
                   ? "running"
                   : trace.realtime_ms

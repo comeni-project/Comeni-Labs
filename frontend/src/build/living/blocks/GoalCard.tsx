@@ -289,7 +289,7 @@ function Facts({ facts }: { facts: Fact[] }) {
         {known.map((f) => (
           <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink">
             {said(f)}{" "}
-            <span className={f.source === "measured" ? "text-[var(--measured)]" : "text-ink-3"}>
+            <span className={f.source === "measured" ? "text-measured-ink" : "text-ink-3"}>
               · {sourceLabel(f)}
             </span>
           </li>

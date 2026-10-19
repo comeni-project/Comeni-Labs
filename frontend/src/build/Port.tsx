@@ -165,7 +165,7 @@ export function Port({
         >
           <b className="font-semibold">{port.name}</b>
           <span className="text-ink-3"> · {port.type_id}</span>
-          {!port.met && <span className="text-[var(--needs-you)]"> · nothing feeds this</span>}
+          {!port.met && <span className="text-needs-you-ink"> · nothing feeds this</span>}
         </span>
       )}
     </button>

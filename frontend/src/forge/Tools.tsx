@@ -141,7 +141,7 @@ function Row({ row }: { row: BoardRow }) {
 
       <span className="font-data text-secondary text-ink-3 truncate">
         {row.open_questions > 0 ? (
-          <Link to="/forge/queue" className="text-measured no-underline">
+          <Link to="/forge/queue" className="text-measured-ink no-underline">
             {row.open_questions} open
           </Link>
         ) : row.consumes.length || row.produces.length ? (

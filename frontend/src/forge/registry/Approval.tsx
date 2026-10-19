@@ -175,7 +175,7 @@ export function RequestChanges({
                 { onSuccess: onClose },
               )
             }
-            className="border border-measured text-measured bg-transparent text-[12px]
+            className="border border-measured text-measured-ink bg-transparent text-[12px]
                        rounded-button px-3.5 py-[7px] hover:bg-[var(--measured-soft)]
                        disabled:border-line disabled:text-ink-3 disabled:cursor-not-allowed"
           >

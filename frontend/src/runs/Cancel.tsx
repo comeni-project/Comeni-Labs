@@ -73,7 +73,7 @@ export function Cancel({ runId }: { runId: string }) {
         onClick={() => send.mutate(why)}
         className="text-label px-[15px] py-2
                    bg-transparent border cursor-pointer"
-        style={{ color: "var(--needs-you)", borderColor: "var(--needs-you)" }}
+        style={{ color: "var(--needs-you-ink)", borderColor: "var(--needs-you)" }}
       >
         {send.isPending ? "stopping…" : "stop this run"}
       </button>
@@ -88,7 +88,7 @@ export function Cancel({ runId }: { runId: string }) {
           *cannot cancel*. Shown here rather than swallowed, because the button will otherwise
           look broken. */}
       {send.isError && (
-        <span data-testid="cancel-error" className="text-label" style={{ color: "var(--needs-you)" }}>
+        <span data-testid="cancel-error" className="text-label" style={{ color: "var(--needs-you-ink)" }}>
           {String((send.error as Error)?.message ?? "the run could not be cancelled")}
         </span>
       )}

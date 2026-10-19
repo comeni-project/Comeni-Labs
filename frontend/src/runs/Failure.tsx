@@ -68,7 +68,7 @@ export function Failure({ failed }: { failed: Failed }) {
       style={{ background: "var(--needs-you-soft)", border: "1px solid var(--needs-you)" }}
     >
       <div className="flex items-baseline gap-2.5">
-        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--needs-you)" }}>
+        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--needs-you-ink)" }}>
           {failed.process ?? "no task failed — the run stopped before one started"}
           {failed.process && (
             <>

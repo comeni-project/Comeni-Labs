@@ -381,7 +381,7 @@ export function Adaptation() {
                 <div className="text-body text-ink-2 pt-2">
                   {candidate.data?.files.length ?? 0} file
                   {candidate.data?.files.length === 1 ? "" : "s"} ·{" "}
-                  <span className={current.green ? "text-done-ink" : "text-measured"}>
+                  <span className={current.green ? "text-done-ink" : "text-measured-ink"}>
                     {current.green ? "checks pass" : "checks have not passed"}
                   </span>{" "}
                   · {current.unresolved_required} unresolved
