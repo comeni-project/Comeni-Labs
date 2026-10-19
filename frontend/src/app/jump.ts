@@ -12,6 +12,8 @@ export type Target = {
   detail: string;
   to: string;
   phase?: string;
+  /** When a run was submitted (ISO 8601). */
+  when?: string;
 };
 
 const EACH = 8;
@@ -38,7 +40,7 @@ export function jumpTargets(query: string, drafts: DraftRow[], runs: RunRow[]): 
     .slice(0, EACH)
     .map((r): Target => ({
       kind: "run", id: r.id, label: r.name || `run ${r.id.slice(0, 8)}`, detail: r.phase,
-      to: `/runs/${r.id}`, phase: r.phase,
+      to: `/runs/${r.id}`, phase: r.phase, when: r.submitted_at,
     }));
   return { pipelines, runs: found };
 }

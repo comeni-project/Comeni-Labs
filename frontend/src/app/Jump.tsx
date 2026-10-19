@@ -122,6 +122,11 @@ function Palette({ onClose }: { onClose: () => void }) {
               style={{ color: t.phase && isPhase(t.phase) ? inkOf[t.phase] : "var(--ink-3)" }}>
           {t.detail}
         </span>
+        {t.when && (
+          <time dateTime={t.when} className="shrink-0 text-secondary text-ink-3 tnum">
+            {new Date(t.when).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+          </time>
+        )}
       </li>
     );
   };

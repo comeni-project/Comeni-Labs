@@ -49,5 +49,6 @@ it("lists the newest pipelines first when nothing is typed", () => {
 it("goes where Home's links go", () => {
   const found = jumpTargets("", DRAFTS, RUNS);
   expect(found.pipelines[0]).toMatchObject({ kind: "pipeline", to: "/build?draft=d2", label: "chip-peaks", detail: "3 steps" });
-  expect(found.runs[0]).toMatchObject({ kind: "run", to: "/runs/b71e04d2aaaa", label: "star-test" });
+  expect(found.runs[0]).toMatchObject({ kind: "run", to: "/runs/b71e04d2aaaa", label: "star-test",
+    when: "2026-10-19T09:00:00Z" });
 });
