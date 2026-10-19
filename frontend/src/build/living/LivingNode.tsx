@@ -90,7 +90,7 @@ export function LivingNode({
         top: at.y,
         width: NODE_W,
         height: NODE_H,
-        background: ghost ? "var(--panel)" : "var(--node)",
+        background: ghost ? "var(--surface-2)" : "var(--node)",
         opacity: ghost ? 0.62 : 1,
         // Three sides and the left bar, never `border` beside `borderLeft`: React cannot redraw a
         // shorthand next to its own longhand (a ghost becoming placed warned on every accept).

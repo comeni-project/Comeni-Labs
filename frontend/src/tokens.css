@@ -24,7 +24,6 @@
   --grid-1: rgba(40, 60, 110, .055); --grid-2: rgba(40, 60, 110, .028);
   --shadow: rgba(23, 26, 38, .25);
   --scrim: rgba(23, 26, 38, .38);
-  --panel: #FFFFFF; --scan-line: transparent; --rule-line: transparent;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,7 +42,6 @@
     --grid-1: rgba(140, 170, 255, .06); --grid-2: rgba(140, 170, 255, .03);
     --shadow: rgba(0, 0, 0, .7);
     --scrim: rgba(0, 0, 0, .6);
-    --panel: #1A1D27; --scan-line: transparent; --rule-line: transparent;
   }
 }
 
@@ -62,7 +60,6 @@
   --grid-1: rgba(140, 170, 255, .06); --grid-2: rgba(140, 170, 255, .03);
   --shadow: rgba(0, 0, 0, .7);
   --scrim: rgba(0, 0, 0, .6);
-  --panel: #1A1D27; --scan-line: transparent; --rule-line: transparent;
 }
 
 /* What does not change with the theme. The derived values read the themed ones above, so they

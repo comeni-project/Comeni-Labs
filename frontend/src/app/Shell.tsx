@@ -2,7 +2,6 @@ import { useCallback, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router";
 
 import { SettingsOverlay } from "../preferences/SettingsOverlay";
-import { Field } from "../ui/Field";
 import { painted, useTheme } from "./useTheme";
 
 
@@ -83,16 +82,11 @@ export function Shell() {
     document.documentElement.dataset.theme = painted(theme);
   }, [theme]);
 
-  // **One field for the whole application, and the route picks where it is thrown from.**
-  // The front door's arcs bloom from below the prompt (`OverviewFirst`); every other board
-  // throws them from the lower-left corner (`_field.html`). Two mounted fields stacked their
-  // gradients into a grey wash, which is exactly what the first attempt looked like.
-  const location = useLocation();
-  const bloom = location.pathname === "/";
 
   // **Settings is an overlay over the page you are on**, opened by `?settings=<section>` (the
   // overlay's design, 2026-10-01). The address carries it, so it can be linked, and closing it
   // removes only that parameter: the page and its own state stay as they were.
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const settings = params.get("settings");
   const withSettings = (section: string | null) => {
@@ -118,15 +112,8 @@ export function Shell() {
           padding were two answers to the same question and the track won. The artboards have
           no bar at all: the shell is a line of text with the page's 28px above it and 20px
           below, ruled off. Let the content set the height and nothing is left to disagree. */}
-      {/* **Behind everything, and it is the page's ground rather than a decoration.** Every
-          artboard opens on an arc field, a scan texture and a vignette; the app had none of
-          them and drew a flat black rectangle, which is most of why the built screens did not
-          look like the drawings they came from. */}
-      <Field origin={bloom ? "bottom" : "corner"} />
-
-      {/* **Transparent, not `bg-surface`.** The artboards' shell is a hairline bottom border
-          over the field — a filled bar cuts the ground off at the top of the page and makes
-          the header read as a separate product from everything under it. */}
+      {/* **Transparent, not `bg-surface`.** The shell is a hairline bottom border over the page's
+          ground, so the header reads as part of the page rather than a separate bar. */}
       {/* **Baseline-aligned, 28px apart, and the wordmark is one word.** The artboards set
           `Comeni` at 14px/700/-.02em and the sections at 12.5px, all sitting on one baseline.
           It shipped as `● Comeni Labs` in the display face beside three pill buttons — four

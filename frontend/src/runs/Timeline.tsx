@@ -125,7 +125,7 @@ export function Timeline({ runId, live, onPickLane }: {
 
   return (
     <section data-testid="band-timeline"
-             className="bg-panel border border-line rounded-panel shadow-e2
+             className="bg-surface border border-line rounded-panel shadow-e2
                         flex flex-col overflow-hidden">
       {/* **No chrome strip.** `.pl > .hd` in the artboard has a bottom rule and no fill; the
           label and the count sit on one line inside the panel. A filled bar turned every band

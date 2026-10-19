@@ -82,7 +82,7 @@ export function Collection({ entry, onWrite }: { entry: Entry; onWrite: (value: 
         );
       })}
       {added && (
-        <div className="border border-line-2 rounded-panel bg-[var(--panel)] p-[14px] grid gap-[8px]">
+        <div className="border border-line-2 rounded-panel bg-surface p-[14px] grid gap-[8px]">
           {setting.fields.map((f) => (
             <label key={f.key} className="grid grid-cols-[90px_minmax(0,1fr)] items-center gap-[12px] text-secondary text-ink-2">
               <span>{nameOf(f)}</span>
@@ -130,7 +130,7 @@ function Card({ setting, record, onRemove, onType }: {
   }).filter(Boolean);
 
   return (
-    <div className="border border-line rounded-panel bg-[var(--panel)] px-[14px] py-[12px]">
+    <div className="border border-line rounded-panel bg-surface px-[14px] py-[12px]">
       <div className="flex flex-wrap items-center gap-x-[16px] gap-y-[8px]">
         <div className="flex flex-col gap-[5px] min-w-0 mr-auto">
           <span className="flex items-center gap-[8px] text-[13.5px] font-medium text-ink">

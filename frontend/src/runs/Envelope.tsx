@@ -155,7 +155,7 @@ export function Envelope({ runId, live }: { runId: string; live: boolean }) {
   if (!data?.curves?.length) return null;
 
   return (
-    <section className="bg-panel border border-line rounded-panel shadow-e2 p-4
+    <section className="bg-surface border border-line rounded-panel shadow-e2 p-4
                         flex flex-col gap-4">
       <span className="flex items-baseline gap-3">
         <h2 className="text-body font-semibold text-ink m-0">what this run held</h2>

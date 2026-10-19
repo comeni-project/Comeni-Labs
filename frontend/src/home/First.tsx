@@ -19,13 +19,6 @@ import { useBegin } from "./useBegin";
  * **Square, not rounded** — nothing in this product has a radius above 3px and this bar has
  * none at all.
  *
- * ═══ THE BLOOM IS THIS SCREEN'S OWN ══════════════════════════════════════════════════════
- *
- * `origin="bottom"` throws the arcs from below the prompt rather than from the lower-left
- * corner, so they radiate out of the thing you are being asked to use. Every other screen uses
- * the corner origin. That is the artboard's distinction and it is why `Field` takes an origin
- * rather than being two components.
- *
  * ═══ THE PROMPT IS LIVE WHEN A MODEL IS, AND SAYS SO WHEN IT IS NOT ═══════════════════════
  *
  * Turning a sentence into a `Goal` is **door 1**, and it exists as of the living pipeline. It was

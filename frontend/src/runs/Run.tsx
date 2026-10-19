@@ -344,7 +344,7 @@ export function Run() {
           the one panel that is a stream rather than a summary, and the artboard draws it
           full-height because that is what reading a log needs. */}
       {view === "console" ? (
-        <section className="flex flex-col flex-1 min-h-0 bg-panel border border-line
+        <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
                             rounded-panel shadow-e2 overflow-hidden">
           <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                           border-b border-line-soft">
@@ -382,7 +382,7 @@ export function Run() {
               **The toggle is state, not a second screen.** Both halves read the same
               `RunState`, so switching is a render and never a fetch. */}
           <section data-testid="band-processes"
-                   className="flex flex-col bg-panel border border-line
+                   className="flex flex-col bg-surface border border-line
                               rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
@@ -429,7 +429,7 @@ export function Run() {
 
           {/* --- tasks, and the console link the artboard puts in its header ------------- */}
           <section data-testid="band-tasks"
-                   className="flex flex-col bg-panel border border-line
+                   className="flex flex-col bg-surface border border-line
                               rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">

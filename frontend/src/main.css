@@ -83,7 +83,6 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-canvas: var(--canvas);
-  --color-panel: var(--panel);
   --color-line: var(--line);
   --color-line-2: var(--line-2);
   --color-line-soft: var(--line-soft);
@@ -147,56 +146,6 @@ body {
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-}
-
-/* ═══ THE FIELD ═══════════════════════════════════════════════════════════════════════════
-
-   The ground `Field.tsx` draws, and the two textures it lays over the arcs. Every artboard
-   opens with these three layers; the app had none of them and rendered a flat black rectangle.
-
-   **These two animations are not a sixth and seventh movement.** The five movements are about
-   how an ELEMENT arrives or changes; these are a texture that never resolves and is never
-   caught moving — 46s and 680s are both far below the threshold at which anything reads as
-   motion. The reduced-motion block above reaches them, because it reaches everything. */
-.field-breathe { animation: field-breathe 46s ease-in-out infinite alternate; }
-@keyframes field-breathe { to { opacity: 1.85; } }
-
-.field-spin { transform-box: view-box; animation: field-spin 680s linear infinite; }
-@keyframes field-spin { to { transform: rotate(360deg); } }
-
-/* 1px on, 2px off, at 1% white. The CRT reference, and what stops the ground looking printed. */
-.field-scan {
-  background-image: repeating-linear-gradient(
-    180deg, var(--scan-line) 0 1px, transparent 1px 3px);
-}
-
-/* **A terminal cursor snaps; it does not fade.** `steps(1)` rather than an eased opacity, which
-   is the artboard's own spelling and the difference between a cursor and a pulsing dot. It is
-   not a sixth movement: nothing arrives, changes state or encodes a quantity — it is the same
-   texture argument as the field. */
-.blink { animation: blink 1.1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
-
-/* **A fourth layer, and it was missing.** A 36px rule grid at 2.6% `--now`, masked to a radial
-   that fades out two thirds of the way down — so structure shows in the top-left where the shell
-   and the first rows are, and the page still opens out below. `OverviewQuiet` and every board
-   carrying a table has it; the arcs alone left those pages reading as a photograph rather than a
-   drawing. */
-.field-rule {
-  background-image:
-    linear-gradient(var(--rule-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--rule-line) 1px, transparent 1px);
-  background-size: 36px 36px;
-  /* `black` rather than `#000`: in a mask the stop is an ALPHA channel, not a palette colour,
-     and the colour guard cannot tell a hex apart from one that belongs in `tokens.css`. The
-     keyword says "fully opaque here" and leaves the guard's rule intact rather than carving an
-     exemption into it. */
-  mask-image: radial-gradient(105% 62% at 16% 0%, black 0%, transparent 66%);
-}
-
-/* Darkens toward the edges so a page holds the eye in the middle without needing a border. */
-.field-vignette {
-  background: radial-gradient(130% 92% at 50% 3%, transparent 46%, var(--paper) 100%);
 }
 
 /* ═══ FIVE MOVEMENTS, ONE CURVE. NOTHING ELSE MOVES. ═══════════════════════════════════════

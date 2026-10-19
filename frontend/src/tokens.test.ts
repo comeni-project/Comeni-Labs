@@ -266,18 +266,13 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   expect(main).not.toMatch(/fonts\.googleapis\.com/);
 });
 
-it("draws the ground the artboards sit on", () => {
-  // The field was deferred through all of Plan 4 as "the three-layer arc field — decorative
-  // ambience". It is the page's **ground**: without it `body` is a flat black rectangle and
-  // every panel reads as a grey box floating on nothing, which is most of why the built screens
-  // did not look like the drawings they came from.
+it("paints a plain ground: no field, no translucent panels", () => {
   const shell = readFileSync(join(SRC, "app/Shell.tsx"), "utf8");
-  const main = readFileSync(join(SRC, "main.css"), "utf8");
-
-  expect(shell, "the shell mounts no field").toMatch(/<Field\s/);
-  for (const layer of ["field-breathe", "field-spin", "field-scan", "field-vignette"]) {
-    expect(main, `${layer} is used and never defined`).toMatch(new RegExp(`\\.${layer}[\\s,{:]`));
-  }
+  expect(shell).not.toMatch(/<Field\b/);
+  const left = sources().filter(([, text]) =>
+    /\bfield-(?:breathe|spin|scan|rule|vignette)\b|--(?:panel|scan-line|rule-line)\b|\bbg-panel\b/.test(text))
+    .map(([p]) => p.slice(SRC.length + 1));
+  expect(left).toEqual([]);
 });
 
 it("watches classes that are actually worn, so it cannot pass by finding none", () => {
