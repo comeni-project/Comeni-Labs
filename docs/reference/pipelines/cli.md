@@ -42,12 +42,12 @@ A registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` 
 ## `mendel build`
 
 ```bash
-uv run mendel build --goal examples/rnaseq-goal.yml --out build/
+uv run mendel build examples/rnaseq.yml --out build/
 ```
 
 | Option | Meaning |
 |---|---|
-| `--goal PATH` | goal file — see [goal-schema.md](goal-schema.md) |
+| `FILE` | a starter: `pipeline.yml` with only `intent` and `facts` — see [goal-schema.md](goal-schema.md) |
 
 Writes:
 
@@ -203,7 +203,7 @@ uv run mendel upgrade build/pipeline.yml --dry-run           # report only; = ve
 ```
 
 Re-resolves a pipeline against the current registry and reports what moved. The goal comes from
-`pipeline.yml`, never from a `--goal` — re-resolving a *different* goal and calling the result
+`pipeline.yml`, never from a starter — re-resolving a *different* goal and calling the result
 an upgrade is how "only what you touched moved" quietly becomes false.
 
 **`--dry-run` is `verify`.** A separate verb comparing digests was the alternative and answers a

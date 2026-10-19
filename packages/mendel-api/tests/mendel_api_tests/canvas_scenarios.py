@@ -5,7 +5,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 import pytest
-from comeni_core import yaml_strict
 from comeni_core.goal.asked import Goal, ProducerPin, Site
 from comeni_core.plan.draft import DraftGraph
 from mendel_api.authoring.envelopes import OfferContext
@@ -17,7 +16,7 @@ from mendel_authoring import commands
 from mendel_authoring import state as st
 from mendel_authoring.amend import ChooseTool
 from sqlalchemy import event
-from support.paths import ROOT
+from support.example import example_goal
 
 from mendel_api_tests import session_setup as authoring_setup
 from mendel_api_tests.database import truncate
@@ -35,7 +34,7 @@ class Case:
 
 
 def _accepted(pacing: str, goal: Goal | None = None) -> tuple[str, Goal]:
-    goal = goal or Goal.model_validate(yaml_strict.load(ROOT / "examples/rnaseq-goal.yml"))
+    goal = goal or example_goal()
     draft = drafts.create(DraftGraph(), "rnaseq", "ana")
     sid = facade.perform(commands.OpenSession(draft, "ana")).result
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
@@ -60,7 +59,7 @@ def placed_quietly() -> str:
 
 def with_hisat2() -> str:
     """A session whose accepted goal already pins HISAT2, walked together from its first step."""
-    goal = Goal.model_validate(yaml_strict.load(ROOT / "examples/rnaseq-goal.yml"))
+    goal = example_goal()
     pinned = ChooseTool(pin=ProducerPin(site=Site(type_id="alignment.bam"), contract=HISAT2))
     sid, _ = _accepted("together", pinned.apply(goal))
     authoring_setup.start_building(sid)

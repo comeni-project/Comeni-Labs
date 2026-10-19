@@ -1,0 +1,22 @@
+# A starter: what you want and what you know, and nothing else. Build the whole pipeline with
+#
+#     mendel build examples/rnaseq.yml --out build/
+#
+# which resolves it against the registry and writes this file back, complete: steps, settings
+# and every reason. `source: said` marks something a person stated rather than measured.
+version: 7
+intent:
+  want: [counts.matrix]
+  constraints:
+    required_states:
+      - {type_id: counts.matrix, states: [gene_level]}
+facts:
+  inputs:
+    - {type_id: fastq.reads}
+    - {type_id: annotation.gtf}
+    - {type_id: genome.fasta}
+  measurements:
+    - {measurement: n_samples, value: 12, source: said}
+    - {measurement: paired, value: true, source: said}
+    - {measurement: read_length, value: 150, source: said}
+    - {measurement: strandedness, value: reverse, source: said}

@@ -109,7 +109,7 @@ class Profiles(Protocol):
 
 
 _SOURCE = {
-    FactOrigin.PERSON_SAID: ValueSource.GOAL,
+    FactOrigin.PERSON_SAID: ValueSource.SAID,
     FactOrigin.MEASURED: ValueSource.MEASURED,
     FactOrigin.MODEL_READ: ValueSource.MODEL,
 }

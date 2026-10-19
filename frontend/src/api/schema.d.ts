@@ -3843,6 +3843,11 @@ export interface components {
         Kept: {
             /** Path */
             path: string;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: string[];
         };
         /**
          * Kind
@@ -3897,7 +3902,7 @@ export interface components {
             measurement: string;
             /** Value */
             value: number | boolean | string | (number | boolean | string | null)[] | null;
-            /** @default goal */
+            /** @default said */
             source: components["schemas"]["ValueSource"];
             /** By */
             by?: string | null;
@@ -5619,7 +5624,7 @@ export interface components {
          *     here, a fact read straight off a source file.
          * @enum {string}
          */
-        ValueSource: "resolver" | "goal" | "human" | "model" | "measured" | "derived";
+        ValueSource: "resolver" | "said" | "human" | "model" | "measured" | "derived";
         /** Visited */
         Visited: {
             /**

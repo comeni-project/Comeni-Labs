@@ -4,7 +4,7 @@ These fingerprints are stored in pipeline.yml and compared with the current
 registry during mendel upgrade. Layer records use names rather than local
 paths, and omit timestamps so identical inputs produce identical records."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,7 +14,15 @@ from comeni_core.artifact.digest import digest_of, digest_of_directory
 from comeni_core.declared.layer import layer_name
 from comeni_core.declared.registry import Registry
 from comeni_core.plan.ir import PipelineIR
-from comeni_core.spell.marks import ContainerRef, ContractId, Digest, LayerName
+from comeni_core.spell.marks import (
+    CommitSha,
+    ContainerRef,
+    ContractId,
+    Digest,
+    LayerName,
+    RepoPath,
+    RepoUrl,
+)
 
 if TYPE_CHECKING:  # pragma: no cover — the import exists for the annotation only
     # `comeni_core.artifact.pipeline` imports this module, so a runtime import here would be
@@ -31,11 +39,36 @@ class LockedContract(BaseModel):
     """Container reference as declared; tags are not resolved to immutable digests here."""
 
 
+class Locator(BaseModel):
+    """Where a layer can be fetched, kept apart from what it is (`digest`), as Nix keeps a
+    source's location apart from its hash (spec §8.2). Read by `mendel_compiler.locate`, where
+    git may run; `None` is unknown, never invented."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source: RepoUrl | None = None
+    commit: CommitSha | None = None
+    dirty: bool | None = None
+    """Uncommitted edits under the layer: the commit alone does not rebuild it."""
+    path: RepoPath | None = None
+    """The layer's folder in the repository; `None` when it is the repository's top folder."""
+
+
+def _unknown(value: object) -> bool:
+    return value is None
+
+
 class LockedLayer(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: LayerName
     digest: Digest
+    # A locator's three fields, each left out of the file when unknown, so a layer nobody
+    # located is written exactly as version 6 wrote it.
+    source: RepoUrl | None = Field(default=None, exclude_if=_unknown)
+    commit: CommitSha | None = Field(default=None, exclude_if=_unknown)
+    dirty: bool | None = Field(default=None, exclude_if=_unknown)
+    path: RepoPath | None = Field(default=None, exclude_if=_unknown)
 
 
 class Lockfile(BaseModel):
@@ -48,7 +81,8 @@ class Lockfile(BaseModel):
     layers: list[LockedLayer] = Field(default_factory=list)
 
     @classmethod
-    def of(cls, ir: PipelineIR, registry: Registry, layers: Sequence[Path]) -> "Lockfile":
+    def of(cls, ir: PipelineIR, registry: Registry, layers: Sequence[Path],
+           locators: Mapping[LayerName, Locator] | None = None) -> "Lockfile":
         """Fingerprint each used contract and each supplied registry layer.
 
         Contracts are deduplicated and sorted by ID. Layer order is preserved."""
@@ -64,7 +98,8 @@ class Lockfile(BaseModel):
             ],
             layers=[
                 # Use the manifest name so moving a directory does not change its identity.
-                LockedLayer(name=layer_name(path), digest=digest_of_directory(path))
+                LockedLayer(name=layer_name(path), digest=digest_of_directory(path),
+                            **(locators or {}).get(layer_name(path), Locator()).model_dump())
                 for path in layers
             ],
         )
@@ -124,6 +159,10 @@ class Lockfile(BaseModel):
         else:
             for locked_layer, (name, digest) in zip(self.layers, current, strict=True):
                 if locked_layer.digest != digest:
-                    found.append(f"layer {name} has changed since it was locked")
+                    # Which commit to check out, when the build recorded one (Plan B, §8.2).
+                    folder = f", in {locked_layer.path}" if locked_layer.path else ""
+                    where = (f"; it was locked at {locked_layer.commit} of {locked_layer.source}"
+                             f"{folder}" if locked_layer.commit and locked_layer.source else "")
+                    found.append(f"layer {name} has changed since it was locked{where}")
 
         return found

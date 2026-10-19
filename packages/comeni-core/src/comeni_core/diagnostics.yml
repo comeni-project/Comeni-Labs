@@ -373,13 +373,20 @@ MD0206:
 MD0207:
   emitted_by: core
   concern: pipeline-file
-  says: "`version:` is newer than this Mendel understands"
+  says: "`version:` is not the one this Mendel reads"
   fires_on: [emit, upgrade, publish]
   refuses: true
   fix: |
-    Upgrade Mendel. Do not edit the version number down — that only moves the failure to
-    somewhere less obvious than this message.
+    A **newer** file: upgrade Mendel. Do not edit the version number down — that only moves
+    the failure to somewhere less obvious than this message.
+
+    An **older** file: rebuild it. Until v0.1.0 there is no upgrade path between versions:
+    copy what it wanted and what it knew into a starter (`intent:` and `facts:` only) and run
+    `mendel build <starter>`.
   explanation: |
+    Before v0.1.0 nobody depends on an older file, so none is carried: one format, read one
+    way.
+
     Forward compatibility is a promise this format has not made. An older Mendel reading the
     parts of a newer file it happens to recognise would emit a pipeline missing whatever the
     unrecognised section carried, and would say nothing, because from its point of view the
@@ -832,6 +839,60 @@ MD0230:
     guess**, which is what this product exists to remove. `upgrade` treats it as `MD0203`
     treats an override that answers nothing — a refusal, with nothing written.
 
+MD0231:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone"
+  fires_on: [build, upgrade]
+  refuses: false
+  fix: |
+    Build from a layer that is a git checkout with a network remote, and `pipeline.yml`
+    records where to fetch it and at which commit:
+
+        registry:
+          layers:
+          - name: comeni-registry
+            digest: sha256:…
+            source: https://github.com/comeni-project/comeni-registry
+            commit: 396a5c6…
+
+    A layer outside git, or whose remote is a folder on this machine, records no `source`:
+    keep it as it is and archive it beside the pipeline.
+  explanation: |
+    A layer's `digest` says what it was, never where to find it. Without a locator a reader
+    who has only the file can check a registry they already hold, and cannot fetch one. The
+    build goes on: the pipeline is correct, it is just not self-contained.
+
+MD0233:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a starter has nothing resolved to emit or publish"
+  fires_on: [emit, publish]
+  refuses: true
+  fix: |
+    Build it first. A starter (`intent:` and `facts:` only) is what `mendel build` takes:
+
+        mendel build examples/rnaseq.yml --out build/
+
+    That resolves it and writes the whole `pipeline.yml`, which `emit` and `publish` read.
+  explanation: |
+    A starter is the same file format as a built pipeline, so it loads — with no steps. Emitting
+    it would write an empty workflow at exit 0, a pipeline that runs and does nothing.
+
+MD0232:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a registry layer has uncommitted edits, so its commit does not rebuild it"
+  fires_on: [build, upgrade]
+  refuses: false
+  fix: |
+    Commit (and push) the edits to the layer's repository, then build again: the file then
+    names a commit that holds exactly what was built. `dirty: true` stays in the file until
+    you do.
+  explanation: |
+    The `commit` recorded is the layer's last commit, and the build read the files as they are
+    now. The `digest` still pins what was built; what the commit cannot do is fetch it.
+
 MD0229:
   emitted_by: core
   concern: pipeline-file
@@ -899,7 +960,7 @@ MD0301:
     "HISAT2, because it handles short reads with a smaller index" is the row. One field
     carried both, so the block's citation was printed as the row's reason and the shipped
     registry stated that HISAT2 was chosen because of the paper describing STAR — reachable
-    by changing one number in `examples/rnaseq-goal.yml`. Audit A79 and A107, found from
+    by changing one number in `examples/rnaseq.yml`. Audit A79 and A107, found from
     opposite ends by two reviewers who could not confer.
 
     `Why.axis_reason` now carries the block's justification beside the row's, so a reader can

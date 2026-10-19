@@ -14,6 +14,7 @@ from support.paths import ROOT as REPOSITORY_ROOT
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 
 BEFORE = "d3b7f1a9c582"
+AFTER = "a9d4e2c7b318"  # this migration, not `head`: later shapes move the stamp on
 BLOCKS = """[{"kind": "text", "text": "5 steps; 1 needs you."},
   {"kind": "need", "subject": "strandedness", "need": "fact"}]"""
 
@@ -49,7 +50,7 @@ def test_a_shape_one_turn_is_stamped_two_and_left_as_it_was(migration_database):
         before = _row(clone)
         assert before[1] == 1
 
-        migrate("upgrade", "head")
+        migrate("upgrade", AFTER)
         after = _row(clone)
         assert after == (before[0], 2)
 

@@ -36,11 +36,10 @@ def parser() -> argparse.ArgumentParser:
         nargs="?",
         default=None,
         help=(
-            "a diagnostic code for `explain`, or a pipeline.yml for `emit`, `upgrade` "
-            "and `publish`"
+            "a diagnostic code for `explain`, a starter for `build`, or a pipeline.yml for "
+            "`emit`, `upgrade` and `publish`"
         ),
     )
-    parser.add_argument("--goal", type=Path, default=None)
     parser.add_argument(
         "--dry-run",
         action="store_true",

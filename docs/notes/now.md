@@ -15,8 +15,8 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
   issue #119 (Task 14 → steps → substeps → tasks, each a sub-issue). (2026-09-28)
 - **14.7.8.3d Parts A–H are implemented** (#285–#292). Part I (#293): I.1 explain the inputs is
   done; **Part I.0** (#307) Plan A is done, and four walks (#321, #348, #354) now meet #338's bar.
-  **Next: Plan B (the save file), after the operator's `comeni_core/artifact/` audit; then I.2
-  (what was narrowed) and I.3 (a conversation).** Undo: #302. (2026-10-16, 2026-10-18)
+  Plan B (the save file) is built (`plan-b-save-file`). **Next: I.2 (what was narrowed) and
+  I.3 (a conversation); opening a saved file is #357.** Undo: #302. (2026-10-18)
 
 ## How work is done now
 
@@ -118,6 +118,8 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 - **The v1 criterion:** from a prompt and a test dataset, Nextflow that runs green on the nf-core
   test profile and produces a counts matrix (`tests/emit/test_counts.py`). The spine has 10
   processes, not the criterion's 15–20; whether that clause survives is #11. (2026-09-28)
+- **`pipeline.yml` v7**: `intent`, `facts`, `source: said`, layer `source`/`commit`; a starter is
+  its top half (`mendel build`). Only v7 is read: no compatibility before v0.1.0. (2026-10-18)
 - A `RUN`-scoped channel emits as a value channel; an aggregator gets `.collect()`. A samplesheet
   pipeline runs under `--gate test`, but `DraftChannel.scope` has no canvas control. (2026-09-01)
 

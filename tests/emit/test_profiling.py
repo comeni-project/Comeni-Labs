@@ -44,7 +44,8 @@ def _goal_file(tmp_path):
     path.write_text(
         _declared(
             path,
-            "have: [{type_id: fastq.reads}]\nwant: [measurement.read_length]\n"))
+            "version: 7\nintent: {want: [measurement.read_length]}\n"
+            "facts: {inputs: [{type_id: fastq.reads}]}\n"))
     return path
 
 
@@ -62,7 +63,7 @@ def test_profile_is_the_same_operation_as_a_measurement_build(tmp_path):
     """`mendel profile` is sugar. One resolver, one emitter, one set of records."""
     main(["profile", "--have", "fastq.reads", "--out", str(tmp_path / "a"), "--root", str(ROOT)])
     main([
-        "build", "--goal", str(_goal_file(tmp_path)),
+        "build", str(_goal_file(tmp_path)),
         "--out", str(tmp_path / "b"), "--root", str(ROOT),
     ])
     assert (tmp_path / "a" / "main.nf").read_text() == (tmp_path / "b" / "main.nf").read_text()
@@ -152,7 +153,7 @@ def test_a_hand_written_profile_is_asserted():
     from comeni_core.plan.tiers import ValueSource
     from mendel_resolver.goal import DataProfile
 
-    assert DataProfile(read_length=150).measurements[0].source is ValueSource.GOAL
+    assert DataProfile(read_length=150).measurements[0].source is ValueSource.SAID
 
 
 def test_profiling_from_an_input_the_measurer_cannot_reach_fails_clearly(tmp_path, capsys):

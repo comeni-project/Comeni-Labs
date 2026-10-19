@@ -13,7 +13,8 @@ in the workflow that no module read.
 
 A `pipeline.yml` is **generated, never hand-authored from nothing**. Resolution needs a
 registry and always will. This is the output of resolution that you may then edit; it is not a
-second way in. `mendel build --goal` is the only way to make one.
+second way in. `mendel build` is the only way to make one, from a starter: the same file
+with only its `intent` and `facts` ([goal-schema.md](goal-schema.md)).
 
 **It is a save file, and you are not its only reader.** Mendel is the engine and the AI is its
 primary operator (`docs/design/mendel.md` §1, decided 2026-08-14): an agent writes one of these,
@@ -47,17 +48,17 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 4
+version: 7
 
-goal:                          # what was asked for
-  have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
+intent:                        # what was wanted
   want: [counts.matrix]
   constraints: {required_states: [{type_id: counts.matrix, states: [gene_level]}]}
                                # producers: [{site: {type_id: alignment.bam, states: []},
                                #   contract: nf-core/hisat2/align@2.2.2}]  — a tool you chose
-  profile:
-    measurements:
-      - {measurement: strandedness, value: reverse, source: goal, by: null}
+facts:                         # what is known, each with where it came from
+  inputs: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
+  measurements:
+    - {measurement: strandedness, value: reverse, source: said, by: null}
 
 ai:                            # what could have been consulted, and what was
   available: []                # nothing was wired to a model
@@ -134,14 +135,15 @@ emitted:                       # what was written, and what it was written from
 gate: test                     # the strongest gate this pipeline actually passed
 ```
 
-## The ten top-level keys
+## The eleven top-level keys
 
 Model: `comeni_core.artifact.pipeline.Pipeline`
 
 | Key | What it holds |
 |---|---|
 | `version` | the schema version. A newer one is **refused**, not partially read |
-| `goal` | what was asked for — the goal file, preserved |
+| `intent` | what was wanted: the types to end with, and anything pinned |
+| `facts` | what is known: the inputs held, and each measurement with its source |
 | `registry` | every layer that was loaded, pinned by content digest |
 | `ai` | which model, if any, touched this. `available: []` means none was wired |
 | `steps` | every process: the tool, why it was chosen, and every setting with its reason |
@@ -157,42 +159,32 @@ Each is described below.
 
 ### `version`
 
-What schema this file uses. A file declaring a version newer than your Mendel understands is
-**refused** (`MD0207`) rather than read for the parts it recognises — an older build silently
+What schema this file uses. **Only the current version is read** (`MD0207`). A newer file is
+refused rather than read for the parts this Mendel recognises — an older build silently
 ignoring a section a newer one added is how a pipeline gets emitted without whatever that
-section carried.
+section carried. Until v0.1.0 an older file is refused too, and rebuilt rather than upgraded:
+copy its intent and facts into a starter and run `mendel build`.
 
-An **older** file is read, and its new fields come back empty rather than absent-and-fatal. A
-pipeline written before version 4 has no `ai:`; one written before version 3 has no `presence`
-and no `premise`. Requiring either of one
-would assert the reason is *missing* rather than *never recorded* — a document written before a
-field existed cannot answer for it. `MD0213` is the check that would otherwise report a schema
-change as a human edit.
+### `intent` and `facts` — inert to `emit`
 
-| version | added |
-|---|---|
-| 1 | the file itself, replacing `pipeline.ir.json`, `mendel.lock.yml` and the publish bundle |
-| 2 | `why.for_value`, `why.axis_reason`, and a reason on every value that reaches a tool |
-| 3 | `step.presence`, `why.premise`, `why.review_level` |
-
-### `goal` — inert to `emit`
-
-What was asked for. **Editing this changes nothing until `mendel upgrade`.**
+What was wanted, and what is known about the data. **Editing either changes nothing until
+`mendel upgrade`.** Together they are the input to resolution.
 
 That is worth stating rather than leaving implicit, for two reasons. A reader who finds
-`profile: {strandedness: reverse}` in a file they were told to edit will reasonably expect
+`strandedness: reverse` under `facts:` in a file they were told to edit will reasonably expect
 changing it to matter. And `emit` could not honour it even in principle: validating a profile
 needs the measurement registry, and `emit` has no registry by design. The facts emission needs
 are already materialised into `channels[].meta`.
 
-To change the goal, edit it and run `mendel upgrade`, which re-resolves against a registry.
+To change what was wanted or what is known, edit it and run `mendel upgrade`, which re-resolves
+against a registry.
 
-`constraints.producers` holds the tools a person chose: each names a `site` (the type a step
+`intent.constraints.producers` holds the tools a person chose: each names a `site` (the type a step
 makes, with its states) and the `contract` to use there. The resolver uses it in place of its
 own pick, at tier 4 with your name on it and the engine's pick in the reason, and `upgrade`
 keeps it. It is left out of the file when you chose none.
 
-Each entry under `profile.measurements` says where its value came from: `source: goal` for
+Each entry under `facts.measurements` says where its value came from: `source: said` for
 something a person said, `source: measured` for something measured from the data. A measured
 value names what measured it, in one of two ways:
 
@@ -213,6 +205,21 @@ contracts had no module source to check against. `emit` reads none of it.
 
 Layer **names** rather than paths, deliberately. A path is meaningless on the machine that
 reads the file, and invariant 15 keeps filesystem paths out of anything shareable.
+
+Each layer also says **where to fetch it**, kept apart from what it is (the `digest`), when
+the build ran on a git checkout:
+
+| Field | Holds |
+|---|---|
+| `source` | the repository's network URL, with any password or token removed. Left out for a layer outside git, or whose remote is a folder on that machine |
+| `commit` | the full commit the layer was at |
+| `dirty` | `true` when the layer had uncommitted edits, so its commit does not hold what was built |
+| `path` | the layer's folder inside the repository, e.g. `registry`. Left out when the layer is the repository's top folder |
+
+A layer with no `source` cannot be fetched from the file alone (`MD0231`), and one with
+`dirty: true` cannot be rebuilt from its commit (`MD0232`). Both warn; neither refuses. The
+builder's preview of `pipeline.yml` shows the same warnings beside the file.
+`mendel upgrade` names the commit a changed layer was locked at.
 
 ### `steps` — what runs, pinned, with its reasons
 

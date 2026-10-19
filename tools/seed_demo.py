@@ -27,7 +27,7 @@ from urllib.request import Request, urlopen
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+DEFAULT_STARTER = ROOT / "examples" / "rnaseq.yml"
 
 
 class Api:
@@ -95,13 +95,21 @@ class Api:
 
 
 def load_goal(path: Path) -> dict[str, Any]:
+    """A starter (`intent` and `facts`) as the goal the build route takes, with its
+    measurements as a `{measurement: value}` profile."""
     try:
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
     except FileNotFoundError as error:
-        raise RuntimeError(f"goal file does not exist: {path}") from error
-    if not isinstance(loaded, dict):
-        raise RuntimeError(f"goal file must contain a YAML object: {path}")
-    return loaded
+        raise RuntimeError(f"starter file does not exist: {path}") from error
+    if not isinstance(loaded, dict) or "intent" not in loaded:
+        raise RuntimeError(f"not a starter (`intent:` and `facts:`): {path}")
+    intent, facts = loaded["intent"], loaded.get("facts") or {}
+    return {
+        "have": facts.get("inputs") or [],
+        "want": intent.get("want") or [],
+        "constraints": intent.get("constraints") or {},
+        "profile": {m["measurement"]: m["value"] for m in facts.get("measurements") or []},
+    }
 
 
 def graph_of(built: dict[str, Any], goal: dict[str, Any]) -> dict[str, Any]:
@@ -387,7 +395,7 @@ def seed_fake_runs(
 
 def seed(args: argparse.Namespace) -> dict[str, str | None]:
     api = Api(args.api, args.timeout)
-    goal = load_goal(args.goal)
+    goal = load_goal(args.starter)
     built = api.request("POST", "/pipeline", goal)
     graph = graph_of(built, goal)
     body = {"graph": graph, "name": args.name}
@@ -433,7 +441,8 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--api", default="http://localhost:8000/api", help="Mendel API base URL")
     ap.add_argument("--wiener", default="http://localhost/api", help="Wiener API base URL")
     ap.add_argument("--web", default="http://localhost:5173", help="website base URL")
-    ap.add_argument("--goal", type=Path, default=DEFAULT_GOAL, help="goal YAML to seed")
+    ap.add_argument("--starter", type=Path, default=DEFAULT_STARTER,
+                    help="starter YAML (intent and facts) to seed")
     ap.add_argument("--name", default="RNA-seq demo", help="pipeline name shown on the home page")
     ap.add_argument(
         "--fresh",

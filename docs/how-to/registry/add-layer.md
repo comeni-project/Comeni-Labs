@@ -35,7 +35,7 @@ Every declaration needs a `declares:` field. Existing layer files can keep their
 locations when this field is added; `MD0010` identifies a file that lacks it.
 
 ```bash
-uv run mendel build --goal my-goal.yml \
+uv run mendel build my-starter.yml \
   --registry registry/ \
   --registry ./lab-registry \
   --out build/

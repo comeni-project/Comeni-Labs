@@ -273,3 +273,54 @@ def test_a_changed_layer_is_reported_as_drift(built, tmp_path):
 
     drift = lock.drift_against(ir, changed.registry, changed.paths)
     assert any("layer" in line and "registry" in line for line in drift)
+
+
+def _changed_layer(tmp_path):
+    import shutil
+
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer, ignore=shutil.ignore_patterns(".git"))
+    sort = layer / "tools/nf-core/samtools/sort/contract.yml"
+    sort.write_text(_declared(sort, sort.read_text().replace("priority: 0", "priority: 7")))
+    return layers.load(layer)
+
+
+def test_a_changed_layer_names_the_commit_it_was_locked_at(built, tmp_path):
+    """Plan B, spec §8.2: upgrade says which commit to check out when the locator is known."""
+    ir, loaded = built
+    lock = Lockfile.of(ir, loaded.registry, loaded.paths)
+    commit = "c" * 40
+    lock = lock.model_copy(update={"layers": [
+        layer.model_copy(update={"source": "https://github.com/comeni-project/comeni-registry",
+                                 "commit": commit})
+        for layer in lock.layers]})
+    changed = _changed_layer(tmp_path)
+    [name] = [layer.name for layer in lock.layers]
+    assert (f"layer {name} has changed since it was locked; it was locked at {commit} of "
+            "https://github.com/comeni-project/comeni-registry"
+            ) in lock.drift_against(ir, changed.registry, changed.paths)
+
+
+def test_a_changed_layer_without_a_locator_reads_as_before(built, tmp_path):
+    ir, loaded = built
+    lock = Lockfile.of(ir, loaded.registry, loaded.paths)
+    changed = _changed_layer(tmp_path)
+    [name] = [layer.name for layer in lock.layers]
+    assert f"layer {name} has changed since it was locked" in lock.drift_against(
+        ir, changed.registry, changed.paths)
+
+
+def test_a_changed_layer_in_a_folder_names_the_folder(built, tmp_path):
+    """Review #4: a layer in a subfolder of its repository is found by its folder too."""
+    ir, loaded = built
+    lock = Lockfile.of(ir, loaded.registry, loaded.paths)
+    lock = lock.model_copy(update={"layers": [
+        layer.model_copy(update={"source": "https://github.com/x/y", "commit": "c" * 40,
+                                 "path": "registry"})
+        for layer in lock.layers]})
+    drift = lock.drift_against(ir, *_registry_and_paths(_changed_layer(tmp_path)))
+    assert any(line.endswith("of https://github.com/x/y, in registry") for line in drift), drift
+
+
+def _registry_and_paths(changed):
+    return changed.registry, changed.paths

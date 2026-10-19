@@ -30,7 +30,7 @@ from support.paths import ROOT
 def spine(tmp_path_factory) -> Pipeline:
     out = tmp_path_factory.mktemp("input-form")
     subprocess.run(
-        ["uv", "run", "mendel", "build", "--goal", "examples/rnaseq-goal.yml",
+        ["uv", "run", "mendel", "build", "examples/rnaseq.yml",
          "--registry", "registry", "--out", str(out)],
         check=True, cwd=ROOT, capture_output=True,
     )
@@ -77,21 +77,17 @@ def test_two_channels_reading_one_parameter_are_refused(spine):
         Pipeline.model_validate(doc)
 
 
-def test_an_archived_v5_artifact_still_loads():
-    """**The arm the plan asked for would have refused every pipeline ever written here.**
+def test_three_sample_channels_with_their_own_parameters_load_as_direct():
+    """**The arm the plan asked for would have refused this spine.**
 
     §5.2 asks MD0229 to refuse *a non-samplesheet form with more than one sample-scoped
-    channel*. Every archived schema-5 artifact has three channels with three parameters and no
-    scope at all, so migration gives them the `SAMPLE` default — that arm refuses the lot, and
-    `mendel emit` stops being able to read the artifacts it exists for.
+    channel*. The spine has three channels with three parameters, all sample-scoped — that arm
+    refuses it, and `mendel emit` stops being able to read the pipeline it exists for.
 
     Sharing a *scope* is not claiming a parameter twice. This is the fixture that says so.
     """
-    archived = ROOT / "tests" / "fixtures" / "pipeline" / "rnaseq-spine.yml"
-    doc = yaml.safe_load(archived.read_text())
-    assert doc["version"] == 5, "this fixture is the point; a v6 one proves nothing"
-
-    loaded = Pipeline.model_validate(doc)
+    spine = ROOT / "tests" / "fixtures" / "pipeline" / "rnaseq-spine.yml"
+    loaded = Pipeline.model_validate(yaml.safe_load(spine.read_text()))
     assert loaded.input_form is InputForm.DIRECT
     assert len({c.param for c in loaded.channels}) == len(loaded.channels)
 

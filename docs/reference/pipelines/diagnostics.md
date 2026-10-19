@@ -91,7 +91,7 @@ decline to curate one.
 | `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
 | `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
-| `MD0207` | `version:` is newer than this Mendel understands |
+| `MD0207` | `version:` is not the one this Mendel reads |
 | `MD0208` | two writers for one destination — a non-composing `ext` key, or a meta key a measurement already writes |
 | `MD0209` | `via: directive` names something Nextflow silently ignores |
 | `MD0210` | `modules/` is absent, so the emitted `include` paths would point at nothing |
@@ -114,6 +114,9 @@ decline to curate one.
 | `MD0227` | a port names a channel the pipeline does not declare |
 | `MD0229` | a samplesheet with one column, or two channels reading one parameter |
 | `MD0230` | a tool you chose applies nowhere in this pipeline |
+| `MD0231` | a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone |
+| `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
+| `MD0233` | a starter has nothing resolved to emit or publish |
 
 ## Routing and resolution
 

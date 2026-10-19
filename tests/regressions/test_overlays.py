@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from support.audit import _declared, _resolve_stacked_from, _stacked
+from support.example import example_mapping
 from support.paths import ROOT
 
 
@@ -57,13 +58,12 @@ def test_a5_overlay_reroutes_names_both_and_needs_review_names_neither(tmp_path)
 
 def test_a5_a_single_layer_build_reports_nothing(tmp_path):
     """The refusal must not cost the normal case — a lab with no overlay sees no change."""
-    import yaml
     from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
     loaded = layers_mod.load("registry")
-    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.model_validate(example_mapping())
     ir = resolve(
         goal,
         loaded.registry,
@@ -87,7 +87,6 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     """
     import shutil
 
-    import yaml
     from comeni_core.declared.layer import layer_name
     from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
@@ -98,7 +97,7 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     shutil.rmtree(lab / "rules")
 
     loaded = layers_mod.load([base, lab])
-    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    goal = Goal.model_validate(example_mapping())
     ir = resolve(
         goal,
         loaded.registry,

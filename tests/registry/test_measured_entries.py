@@ -24,19 +24,19 @@ def test_profile_of_carries_pieces_and_evidence():
                 pieces=PIECES,
                 evidence=Evidence(records=8412, share=0.97),
             ),
-            MeasuredEntry("strandedness", "reverse", ValueSource.GOAL),
+            MeasuredEntry("strandedness", "reverse", ValueSource.SAID),
         ]
     )
     measured = {m.measurement: m for m in profile.measurements}
     assert measured["read_length"].pieces == list(PIECES)
     assert measured["read_length"].evidence.records == 8412
-    assert measured["strandedness"].source is ValueSource.GOAL
+    assert measured["strandedness"].source is ValueSource.SAID
 
 
 def test_profile_of_still_checks_every_value():
     """Review focus 4: a person's `"yes"` for `paired` is refused, as before."""
     with pytest.raises(ValueError, match="paired"):
-        _measurements().profile_of([MeasuredEntry("paired", "yes", ValueSource.GOAL)])
+        _measurements().profile_of([MeasuredEntry("paired", "yes", ValueSource.SAID)])
 
 
 def test_an_inspected_meta_value_says_which_pieces_measured_it_and_on_how_much():

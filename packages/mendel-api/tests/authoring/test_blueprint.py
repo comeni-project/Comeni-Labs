@@ -13,7 +13,6 @@ the resolver produced. Every smaller test passes on a commit that quietly drops 
 """
 
 import pytest
-from comeni_core import yaml_strict
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.decision import ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
@@ -22,6 +21,7 @@ from mendel_api.services import blueprint as bp
 from mendel_api.services import registry
 from mendel_resolver.goal import Goal
 from mendel_resolver.materialise import ir_of
+from support.example import example_goal, example_mapping
 from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
@@ -31,7 +31,7 @@ SORT = "nf-core/samtools/sort@1.21.0"
 
 
 def _rnaseq() -> Goal:
-    return Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
+    return example_goal()
 
 
 def _one_step() -> Goal:
@@ -118,7 +118,7 @@ def test_every_offered_option_id_maps_to_a_contract_the_server_holds():
     """The block the browser renders and the set the server enforces are written together
     (spec §14.4): *keep*, each alternative that can be built, and the fact the rule lacked —
     and every alternative id stands for the amendment stored beside it."""
-    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data = example_mapping()
     data["profile"].pop("read_length")
     blueprint, _ = bp.resolve(Goal.model_validate(data))
     offered = _payload(blueprint, "star_align", goal=Goal.model_validate(data))

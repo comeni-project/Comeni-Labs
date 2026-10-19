@@ -150,7 +150,8 @@ def a_real_bundle() -> bytes:
     from comeni_core.artifact.pipeline import Pipeline
     from comeni_core.goal.asked import Goal
 
-    document = yaml.safe_dump(Pipeline(goal=Goal()).model_dump(mode="json"), sort_keys=False)
+    empty = Pipeline(intent=Goal().intent, facts=Goal().facts)
+    document = yaml.safe_dump(empty.model_dump(mode="json"), sort_keys=False)
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:

@@ -14,7 +14,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.diagnostics import coded
 
 from mendel_compiler import pipeline_file
@@ -25,6 +25,17 @@ from mendel_compiler.gates import (
     materialise_test_samplesheet,
     run_gate,
 )
+
+
+def _refuse_a_starter(pipeline: Pipeline, target: Path) -> int | None:
+    """A file with nothing resolved (no steps, no emitted record) is a starter: built, never
+    emitted or published (MD0233, review #2 of Plan B)."""
+    if pipeline.steps or pipeline.emitted is not None:
+        return None
+    print("mendel: " + coded("MD0233", f"{target} has nothing resolved in it: it is a starter. "
+                             f"Build it with `mendel build {target} --out <dir>`."),
+          file=sys.stderr)
+    return 2
 
 
 def _emit_verb(target: Path, out: Path) -> int:
@@ -42,6 +53,8 @@ def _emit_verb(target: Path, out: Path) -> int:
     be edited. The refusal belongs on the verbs that treat the generated files as evidence.
     """
     pipeline = pipeline_file.load(target)
+    if (refused := _refuse_a_starter(pipeline, target)) is not None:
+        return refused
 
     # Beside the file, not beside the output: `modules/` is part of the pipeline a laboratory
     # archives, and `pipeline.yml` is what names it.
@@ -129,6 +142,8 @@ def _publish_verb(target: Path, gate: "Gate | None") -> int:
     `mendel emit` (which surfaces the change via `MD0213` and regenerates), then `publish`.
     """
     pipeline = pipeline_file.load(target)
+    if (refused := _refuse_a_starter(pipeline, target)) is not None:
+        return refused
     directory = target.parent
     refusal = _refuse_a_divergent_directory(target, pipeline, "publish")
     if refusal is not None:
@@ -231,21 +246,6 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
             file=sys.stderr,
         )
         return 2
-    if pipeline_file.predates_schema(previous):
-        # Not an error, and deliberately not `MD0213`. The digest was taken under an older
-        # SCHEMA_VERSION, so it cannot match — for every archived pipeline at once, with
-        # nobody having touched one. Saying "this file has changed" would send a laboratory
-        # looking for an edit that does not exist. The generated files are still checked
-        # above by `hand_edited`, which is the corruption that actually matters.
-        print(
-            f"note: {source} predates the current schema (written under version "
-            f"{previous.emitted.schema_version}, this Mendel writes {SCHEMA_VERSION}), so its "
-            f"content digest cannot match.\n"
-            f"  Its generated files are unaffected and were checked. Run `mendel emit "
-            f"{source} --out {directory}` to restamp it.",
-            file=sys.stderr,
-        )
-        return None
     if pipeline_file.is_stale(previous):
         print(
             "mendel: "

@@ -73,6 +73,9 @@ _PIPELINE_MODELS = frozenset(
         "RegistryProvenance",
         "AiProvenance",
         "LockedLayer",
+        # Version 7's top half (Plan B): a failure here is in the file, not in a goal.
+        "Intent",
+        "Facts",
     }
 )
 """The models a `pipeline.yml` is made of. Named so a failure in one blames the right file."""

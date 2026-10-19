@@ -30,7 +30,7 @@ body:
         verbatim — please check before you do.
       render: shell
       placeholder: |
-        uv run mendel build --goal my-goal.yml --out build/
+        uv run mendel build my-starter.yml --out build/
     validations:
       required: true
 

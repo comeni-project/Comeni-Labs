@@ -69,15 +69,16 @@ def test_derived_is_a_source_and_hand_is_not():
 
 
 def test_every_pre_existing_spelling_is_preserved():
-    """`pipeline.yml` carries these strings. Changing one is a SCHEMA_VERSION break, and
-    this refactor is not allowed to be one."""
+    """`pipeline.yml` carries these strings. Changing one is a SCHEMA_VERSION break: `goal`
+    became `said` with version 7 (Plan B); old files and rows are rewritten where they are read
+    (the v6 upgrader, the shape migration), never by the enum."""
     assert {
         ValueSource.RESOLVER,
-        ValueSource.GOAL,
+        ValueSource.SAID,
         ValueSource.HUMAN,
         ValueSource.MODEL,
         ValueSource.MEASURED,
-    } == {"resolver", "goal", "human", "model", "measured"}
+    } == {"resolver", "said", "human", "model", "measured"}
 
 
 def test_tiers_still_exports_value_source():
@@ -126,3 +127,18 @@ def test_a_resolution_keeps_its_confidence():
 
     assert "confidence" in Resolution.model_fields
     assert "confidence" not in Answer.model_fields
+
+
+def test_goal_is_no_longer_a_source():
+    """Plan B: a value the person stated is `said`. The enum stays closed (the egress guard
+    refuses one that accepts undeclared values); old data is rewritten where it is read."""
+    import pytest
+
+    with pytest.raises(ValueError):
+        ValueSource("goal")
+
+
+def test_said_is_what_is_written():
+    from comeni_core.goal.profile import Measured
+
+    assert Measured(measurement="paired", value=True).model_dump(mode="json")["source"] == "said"

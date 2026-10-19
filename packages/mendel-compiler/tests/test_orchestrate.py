@@ -13,17 +13,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-from comeni_core import yaml_strict
 from mendel_compiler import orchestrate, pipeline_file
 from mendel_compiler.emit import emit, emit_config
 from mendel_resolver.goal import Goal
 
 ROOT = Path(__file__).resolve().parents[3]
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "examples" / "rnaseq.yml"
 
 
 def _goal() -> Goal:
-    return Goal.model_validate(yaml_strict.load(GOAL))
+    return pipeline_file.goal_from(GOAL)
 
 
 def test_the_seam_builds_the_spine_without_touching_disk(tmp_path):
@@ -43,7 +42,7 @@ def test_the_seam_and_the_cli_agree_byte_for_byte(tmp_path):
     out = tmp_path / "cli"
     subprocess.run(
         [sys.executable, "-m", "mendel_compiler.cli", "build",
-         "--goal", str(GOAL), "--out", str(out)],
+         str(GOAL), "--out", str(out)],
         check=True,
         cwd=ROOT,
     )

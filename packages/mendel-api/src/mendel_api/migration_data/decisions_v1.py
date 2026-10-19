@@ -57,6 +57,18 @@ def dump(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def _written(goal):
+    """The goal as today's proposal stores it. The interpretation above is unchanged (an old
+    `source: goal` is what the person said); only the spelling written is today's, `said`
+    since `pipeline.yml` version 7 (Plan B), as the writer has always followed the schema."""
+    if isinstance(goal, dict):
+        return {k: ("said" if k == "source" and v == "goal" else _written(v))
+                for k, v in goal.items()}
+    if isinstance(goal, list):
+        return [_written(v) for v in goal]
+    return goal
+
+
 def _records(value, key):
     if isinstance(value, dict):
         return [{key: name, "states": states} for name, states in value.items()]
@@ -506,7 +518,8 @@ def apply(connection, snapshot: Snapshot, converted: Conversion, *, at):
         if converted.disposition in ("confirmed", "gathering"):
             # Offer the recovered goal for an explicit fresh review. No old step approval
             # is silently carried onto a semantic fingerprint it never recorded.
-            goal = json.loads(converted.goal) if converted.goal else _proposed_goal(converted)
+            goal = _written(
+                json.loads(converted.goal) if converted.goal else _proposed_goal(converted))
             revision, decision_revision = execute(
                 "SELECT revision, decision_revision FROM pipeline_draft WHERE id=:draft",
                 draft=snapshot.draft_id,

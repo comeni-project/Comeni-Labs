@@ -82,7 +82,7 @@ services:
       MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
+      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
       # Share model settings with the AI worker for configuration and health reporting.
@@ -139,7 +139,7 @@ services:
       MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
+      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
       # Read model settings to decide whether to queue AI generation.
@@ -184,7 +184,7 @@ services:
       MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
+      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
       # Configure local or hosted models; Settings can also supply these values.

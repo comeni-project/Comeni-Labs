@@ -12,6 +12,7 @@ import pytest
 from comeni_core.plan.tiers import Tier
 from pydantic import ValidationError
 from support.audit import _declared, _pipe, _published_pipeline
+from support.example import example_mapping
 from support.paths import ROOT
 
 
@@ -250,12 +251,11 @@ def _resolved(resolver=None, mutate=None, prior=()):
     records — passing the resolver alone leaves the value flagged, which is the safe
     direction and the one `mendel upgrade` relies on.
     """
-    from comeni_core import yaml_strict
     from mendel_resolver.goal import Goal
     from mendel_resolver.resolve import resolve
 
     loaded = _loaded()
-    raw = yaml_strict.load(Path("examples/rnaseq-goal.yml"))
+    raw = example_mapping()
     if mutate is not None:
         mutate(raw)
     return resolve(
@@ -330,7 +330,7 @@ def test_a_goal_pin_is_still_tier_one_and_still_says_goal():
     ir = _resolved(mutate=pin)
     value = _binding(ir, "seq_platform")
     assert value.tier is Tier.STRUCTURAL
-    assert value.source is ValueSource.GOAL
+    assert value.source is ValueSource.SAID
     assert ir.overrides() == [], "a pin is not an override; the two must not merge"
 
 

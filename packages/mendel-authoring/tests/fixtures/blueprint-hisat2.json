@@ -30,25 +30,8 @@
   ]
  },
  "pipeline": {
-  "version": 6,
-  "goal": {
-   "have": [
-    {
-     "type_id": "fastq.reads",
-     "name": null,
-     "states": []
-    },
-    {
-     "type_id": "annotation.gtf",
-     "name": null,
-     "states": []
-    },
-    {
-     "type_id": "genome.fasta",
-     "name": null,
-     "states": []
-    }
-   ],
+  "version": 7,
+  "intent": {
    "want": [
     "counts.matrix"
    ],
@@ -71,35 +54,52 @@
       "contract": "nf-core/hisat2/align@2.2.2"
      }
     ]
-   },
-   "profile": {
-    "measurements": [
-     {
-      "measurement": "n_samples",
-      "value": 12,
-      "source": "goal",
-      "by": null
-     },
-     {
-      "measurement": "paired",
-      "value": true,
-      "source": "goal",
-      "by": null
-     },
-     {
-      "measurement": "read_length",
-      "value": 150,
-      "source": "goal",
-      "by": null
-     },
-     {
-      "measurement": "strandedness",
-      "value": "reverse",
-      "source": "goal",
-      "by": null
-     }
-    ]
    }
+  },
+  "facts": {
+   "inputs": [
+    {
+     "type_id": "fastq.reads",
+     "name": null,
+     "states": []
+    },
+    {
+     "type_id": "annotation.gtf",
+     "name": null,
+     "states": []
+    },
+    {
+     "type_id": "genome.fasta",
+     "name": null,
+     "states": []
+    }
+   ],
+   "measurements": [
+    {
+     "measurement": "n_samples",
+     "value": 12,
+     "source": "said",
+     "by": null
+    },
+    {
+     "measurement": "paired",
+     "value": true,
+     "source": "said",
+     "by": null
+    },
+    {
+     "measurement": "read_length",
+     "value": 150,
+     "source": "said",
+     "by": null
+    },
+    {
+     "measurement": "strandedness",
+     "value": "reverse",
+     "source": "said",
+     "by": null
+    }
+   ]
   },
   "registry": {
    "layers": [
@@ -128,7 +128,7 @@
     "why": {
      "tier": 2,
      "source": "resolver",
-     "reason": "uncontested — nothing else in this stack fills trimming",
+     "reason": "uncontested \u2014 nothing else in this stack fills trimming",
      "premise": [],
      "for_value": "nf-core/trimgalore@0.6.10",
      "axis_reason": "",
@@ -196,7 +196,7 @@
     "why": {
      "tier": 2,
      "source": "resolver",
-     "reason": "uncontested — nothing else in this stack fills index_building",
+     "reason": "uncontested \u2014 nothing else in this stack fills index_building",
      "premise": [],
      "for_value": "nf-core/hisat2/build@2.2.2",
      "axis_reason": "",
@@ -426,7 +426,7 @@
       "why": {
        "tier": 4,
        "source": "resolver",
-       "reason": "nothing decided 'seq_platform'; selected the first of 1 candidates without judgement — please review",
+       "reason": "nothing decided 'seq_platform'; selected the first of 1 candidates without judgement \u2014 please review",
        "premise": [],
        "for_value": null,
        "axis_reason": "",
@@ -449,7 +449,7 @@
     "why": {
      "tier": 2,
      "source": "resolver",
-     "reason": "uncontested — nothing else in this stack fills bam_sorting",
+     "reason": "uncontested \u2014 nothing else in this stack fills bam_sorting",
      "premise": [],
      "for_value": "nf-core/samtools/sort@1.21.0",
      "axis_reason": "",
@@ -562,7 +562,7 @@
     "why": {
      "tier": 2,
      "source": "resolver",
-     "reason": "uncontested — nothing else in this stack fills quantification",
+     "reason": "uncontested \u2014 nothing else in this stack fills quantification",
      "premise": [],
      "for_value": "nf-core/subread/featurecounts@2.0.6",
      "axis_reason": "",
@@ -636,7 +636,7 @@
       "why": {
        "tier": 2,
        "source": "resolver",
-       "reason": "featureCounts' own documented default, so declaring it changes no number — it makes the mapping-quality threshold part of the record instead of part of the tool. featureCounts discards reads below it, so a laboratory comparing two runs needs it written down, and a laboratory that raises it is making a real change to which reads are counted.",
+       "reason": "featureCounts' own documented default, so declaring it changes no number \u2014 it makes the mapping-quality threshold part of the record instead of part of the tool. featureCounts discards reads below it, so a laboratory comparing two runs needs it written down, and a laboratory that raises it is making a real change to which reads are counted.",
        "premise": [],
        "for_value": 0,
        "axis_reason": "",
@@ -687,8 +687,8 @@
       "value": false,
       "why": {
        "tier": 1,
-       "source": "goal",
-       "reason": "asserted in the goal; no profiling run established it; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8 — Whether the library was sequenced paired-end",
+       "source": "said",
+       "reason": "asserted in the goal; no profiling run established it; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8 \u2014 Whether the library was sequenced paired-end",
        "premise": [],
        "for_value": false,
        "axis_reason": "",
@@ -702,8 +702,8 @@
       "value": "reverse",
       "why": {
        "tier": 1,
-       "source": "goal",
-       "reason": "asserted in the goal; no profiling run established it; Signal et al. 2022, doi:10.1186/s12859-022-04572-7 — Library strandedness determined by the prep protocol",
+       "source": "said",
+       "reason": "asserted in the goal; no profiling run established it; Signal et al. 2022, doi:10.1186/s12859-022-04572-7 \u2014 Library strandedness determined by the prep protocol",
        "premise": [],
        "for_value": "reverse",
        "axis_reason": "",
@@ -741,7 +741,7 @@
    {
     "key": "hisat2_align.seq_platform",
     "subject": "seq_platform",
-    "reason": "nothing decided 'seq_platform'; selected the first of 1 candidates without judgement — please review",
+    "reason": "nothing decided 'seq_platform'; selected the first of 1 candidates without judgement \u2014 please review",
     "confidence": 0.0,
     "resolved_by": "flag-only",
     "tier": 4,

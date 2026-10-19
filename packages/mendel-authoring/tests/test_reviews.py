@@ -95,7 +95,7 @@ def test_layout_and_irrelevant_goal_facts_preserve_reviews(rnaseq):
         update={
             "placed": {"star_align": (9, 9)},
             "pipeline": before.pipeline.model_copy(
-                update={"goal": before.pipeline.goal.model_copy(update={"want": ["qc.report"]})}
+                update={"intent": before.pipeline.intent.model_copy(update={"want": ["qc.report"]})}
             ),
         }
     )

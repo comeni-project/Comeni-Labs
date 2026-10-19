@@ -14,7 +14,9 @@ from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_bytes
 from comeni_core.artifact.emitted import Emitted
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.artifact.starter import Starter
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import Goal
 from comeni_core.plan.tiers import Tier
 
 FILENAME = "pipeline.yml"
@@ -33,9 +35,9 @@ HEADER = """\
 # it came from, and the citation behind it. That is the point of the file: one place that
 # answers "what settings does this pipeline use, and why".
 #
-# `goal:` is INERT to `mendel emit`. It is the input to *resolution*, and the facts emission
-# needs are already materialised into `channels[].meta`, so editing `profile:` or `want:`
-# changes nothing until `mendel upgrade` re-resolves against a registry.
+# `intent:` and `facts:` are INERT to `mendel emit`. They are the input to *resolution*, and
+# the facts emission needs are already materialised into `channels[].meta`, so editing `want:`
+# or a measurement changes nothing until `mendel upgrade` re-resolves against a registry.
 #
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
@@ -58,6 +60,22 @@ def dump(pipeline: Pipeline) -> str:
         width=96,
     )
     return HEADER + "\n" + body
+
+
+class NotAStarter(ValueError):
+    """A whole `pipeline.yml` given where a starter was expected."""
+
+
+def goal_from(path: Path) -> Goal:
+    """What to build, from a starter: `intent` and `facts` only (spec §8.5). A whole
+    `pipeline.yml` is not a starter: it is upgraded, never rebuilt from its top half."""
+    data = yaml_strict.load(path)
+    extra = sorted(set(data) - {"version", "intent", "facts"}) if isinstance(data, dict) else []
+    if extra:
+        raise NotAStarter(
+            f"{path} has {', '.join(extra)}, so it is not a starter: a whole pipeline.yml is "
+            "re-resolved with `mendel upgrade`; a starter has only `intent:` and `facts:`")
+    return Starter.model_validate(data).goal
 
 
 def load(path: Path) -> Pipeline:
@@ -116,8 +134,7 @@ def stamp(directory: Path, pipeline: Pipeline, gate=None) -> Pipeline:
                 directory,
                 EMITTED_FILES,
                 from_digest=stamped.content_digest(),
-                # The version the digest was taken under, so a later Mendel can tell its own
-                # schema moving from a person editing the file. See `predates_schema`.
+                # The version the digest was taken under. Only this version is read.
                 schema_version=SCHEMA_VERSION,
             )
         }
@@ -147,24 +164,11 @@ def hand_edited(directory: Path, pipeline: Pipeline) -> list[str]:
 def is_stale(pipeline: Pipeline) -> bool:
     """Has the file changed since the Nextflow was generated from it? `MD0213`.
 
-    `None` means no evidence — a build whose gate failed, or a file from before this field
-    existed. It must never read as "identical", so it is not stale either; there is simply
-    nothing to compare.
-
-    **A digest taken under an older schema is not evidence of an edit.** `from_digest` hashes
-    the model dump, so adding one field to the artifact moves it for every pipeline ever
-    archived, at once, with nobody touching one — which is what Plan 1.13's `CallArg.join`
-    did. Reporting that as "you changed this file" sends a laboratory looking for an edit that
-    does not exist, and the recovery it suggests is right for the wrong reason.
-
-    `predates_schema` is the honest reading of that case, and it is deliberately *not*
-    stale-ness: the generated files are unaffected and `files_changed` still checks them, so
-    the real corruption this diagnostic exists for is still caught. Found while executing
-    Plan 1.13; the fixture is `tests/fixtures/pipeline-v1/`.
+    `None` means no evidence — a build whose gate failed. It must never read as "identical",
+    so it is not stale either; there is simply nothing to compare. A file written under
+    another schema never gets here: it is refused on load (MD0207).
     """
     if pipeline.emitted is None or pipeline.emitted.from_digest is None:
-        return False
-    if predates_schema(pipeline):
         return False
     return pipeline.emitted.from_digest != pipeline.content_digest()
 
@@ -195,9 +199,7 @@ def stale_reasons(pipeline: Pipeline) -> list[str]:
     **Three conditions, and the third is what keeps this from being a nag.** No recorded
     value, tier 4, *and* a decision carrying a `human_override`. An **unanswered** tier-4
     setting is supposed to say "please review" and must not be flagged for doing so; a check
-    that fires on correct output is a check people stop reading. Genuinely pre-1.14 files need
-    no special case — they are `version: 1`, and `predates_schema()` suppresses the whole
-    family for them.
+    that fires on correct output is a check people stop reading.
     """
     answered = {
         decision.key for decision in pipeline.decisions if decision.human_override is not None
@@ -220,14 +222,3 @@ def stale_reasons(pipeline: Pipeline) -> list[str]:
                     f"`override_reason`, and make `why.reason` say the override answered it."
                 )
     return stale
-
-
-def predates_schema(pipeline: Pipeline) -> bool:
-    """Was this file's digest taken under an older `SCHEMA_VERSION`?
-
-    Only meaningful where there is a digest to have been taken. A file with no `emitted`
-    record predates the record itself, which `upgrade` already reports in its own words.
-    """
-    if pipeline.emitted is None or pipeline.emitted.from_digest is None:
-        return False
-    return pipeline.emitted.schema_version < SCHEMA_VERSION

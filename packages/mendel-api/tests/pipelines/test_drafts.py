@@ -129,8 +129,7 @@ def test_kept_draft_emits_byte_identical_nextflow(client, tmp_path):
             "run",
             "mendel",
             "build",
-            "--goal",
-            "examples/rnaseq-goal.yml",
+            "examples/rnaseq.yml",
             "--out",
             str(reference),
         ],
@@ -161,8 +160,47 @@ def test_a_kept_draft_reads_back_as_a_pipeline(client, tmp_path):
     draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
     path = Path(client.post(f"/api/pipeline/drafts/{draft_id}/keep").json()["path"])
     doc = yaml.safe_load(path.read_text())
-    assert doc["goal"]["want"] == ["counts.matrix"]
+    assert doc["intent"]["want"] == ["counts.matrix"]
     assert len(doc["steps"]) == 4
+
+
+def test_a_kept_draft_names_the_commit_of_each_layer(client):
+    """Plan B, spec §8.2: what is kept says where its registry is fetched, as a CLI build does.
+    The stack here is the `registry/` checkout, so its commit is known."""
+    draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    path = Path(client.post(f"/api/pipeline/drafts/{draft_id}/keep").json()["path"])
+    layers = yaml.safe_load(path.read_text())["registry"]["layers"]
+    assert layers and all(len(layer["commit"]) == 40 for layer in layers)
+
+
+def _unlocated(monkeypatch):
+    """Every layer as if built from a folder outside git, as the web stack's registry clone is
+    for its source (Plan B review #3)."""
+    from comeni_core.artifact.lockfile import Locator
+    from mendel_api.services import drafts
+
+    monkeypatch.setattr(drafts.locate, "locators",
+                        lambda paths: {name: Locator() for name in map(drafts.locate.layer_name,
+                                                                        paths)})
+
+
+def test_keep_says_when_the_file_cannot_be_rebuilt_alone(client, monkeypatch):
+    """Review #3 (operator: say it in keep/preview): the CLI warns MD0231, and the app did not."""
+    _unlocated(monkeypatch)
+    draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    kept = client.post(f"/api/pipeline/drafts/{draft_id}/keep").json()
+    assert kept["findings"] and all(f.startswith("MD0231") for f in kept["findings"])
+
+
+def test_preview_says_when_the_file_cannot_be_rebuilt_alone(client, monkeypatch):
+    from comeni_core.plan.draft import DraftGraph
+    from mendel_api.services import drafts
+
+    _unlocated(monkeypatch)
+    draft_id = drafts.create(DraftGraph.model_validate(SPINE), "spine", "ana")
+    shown = drafts.preview(draft_id)
+    assert shown.state == "ready"
+    assert shown.findings and all(f.startswith("MD0231") for f in shown.findings)
 
 
 # --- the listing, which had no query at all until Plan 4 phase 2 -------------------------

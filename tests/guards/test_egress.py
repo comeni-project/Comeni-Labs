@@ -375,9 +375,9 @@ def test_the_publication_payload_is_frozen():
     from comeni_core.goal.asked import Goal
     from pydantic import ValidationError
 
-    # A real `goal` so the refusal is the *frozen assignment*, not a missing field (A48 made
-    # `goal` required, and a bare `Pipeline()` would now raise for the wrong reason).
-    frozen = Pipeline(goal=Goal())
+    # A real intent and facts so the refusal is the *frozen assignment*, not a missing field
+    # (A48 made them required, and a bare `Pipeline()` would raise for the wrong reason).
+    frozen = Pipeline(intent=Goal().intent, facts=Goal().facts)
     with pytest.raises(ValidationError):
         frozen.gate = "test"
 

@@ -160,8 +160,8 @@ wiki-serve: wiki-tools  ## serve documentation on the host with live reload (def
 # -----------------------------------------------------------------------------
 # Check generated workflow syntax and connections before running an analysis.
 static:  ## build the RNA-seq example and run lint/preview gates (Nextflow)
-	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
-	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
+	uv run mendel build examples/rnaseq.yml --out build/ --gate lint
+	uv run mendel build examples/rnaseq.yml --out build/ --gate preview
 
 # Populate a local demo with saved examples; this writes data through the running APIs.
 demo-seed:  ## add the example pipeline and fake runs to the running stack
@@ -173,7 +173,7 @@ demo-fake-run:  ## add a running demo record without launching Nextflow
 # Exercise the workflow with lightweight tool stand-ins to check how steps connect.
 # This checks execution wiring, not the biological correctness of analysis results.
 stub:  ## build the RNA-seq example and run its stub gate (Docker and Nextflow)
-	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
+	uv run mendel build examples/rnaseq.yml --out build/ --gate stub
 
 # Generate the workflow for measuring input properties; this command does not execute it.
 profile:  ## emit an input-profiling pipeline into profile-build/

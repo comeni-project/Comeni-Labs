@@ -32,6 +32,7 @@ from mendel_api_tests.step_review import (
 )
 from mendel_authoring import commands
 from mendel_authoring.protocol import PROTOCOL
+from support.example import example_mapping
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database — run `make test-db`")
 
@@ -296,11 +297,9 @@ def test_two_answers_at_once_to_one_card_one_is_refused(clean):
 
 # ── a fact a tool reads (#338) ─────────────────────────────────────────────────────────────
 def _goal_without_strandedness():
-    from comeni_core import yaml_strict
     from mendel_resolver.goal import Goal
-    from support.paths import ROOT
 
-    data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+    data = example_mapping()
     data["profile"].pop("strandedness")
     data["profile"]["read_length"] = 50  # HISAT2: two steps read strandedness
     return Goal.model_validate(data)

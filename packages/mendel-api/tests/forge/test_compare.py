@@ -7,14 +7,13 @@ agent cannot reach, and then there are two answers to *how does my pipeline diff
 Mendel's*.
 """
 
-from pathlib import Path
 
 import pytest
-import yaml
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
+from support.example import example_mapping
 
-GOAL = yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text())
+GOAL = example_mapping()
 
 STAR = "nf-core/star/align@1.11.0"
 HISAT2 = "nf-core/hisat2/align@2.2.2"

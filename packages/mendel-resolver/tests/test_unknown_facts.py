@@ -1,13 +1,13 @@
 """The resolver's half: unknown facts a chosen tool reads become tier-4 records (#338)."""
 
-from comeni_core import yaml_strict
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal
 from mendel_resolver.resolve import resolve
+from support.example import example_mapping
 from support.paths import ROOT
 
 LOADED = layers.load(ROOT / "registry")
-EXAMPLE = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+EXAMPLE = example_mapping()
 WITHOUT = {k: v for k, v in EXAMPLE["profile"].items() if k != "strandedness"}
 
 

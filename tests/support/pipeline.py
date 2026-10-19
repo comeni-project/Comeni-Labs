@@ -1,26 +1,36 @@
 """Build, edit and read saved-pipeline examples for artifact integration tests.
 
-Helpers use the compiler CLI and temporary output directories. Archived examples remain
-committed fixtures so compatibility tests do not manufacture their own expected format.
+Helpers use the compiler CLI and temporary output directories. A build is given a starter
+(`intent` and `facts` only); `_starter` writes one from a `Goal`, the resolver's input.
 """
 
 import pathlib
 
 import yaml
 from comeni_core.artifact.pipeline import Pipeline, Why
+from comeni_core.artifact.starter import Starter
+from comeni_core.goal.asked import Goal
 from comeni_core.plan.tiers import Tier, ValueSource
 from mendel_compiler.cli import main
 
 from support.audit import _declared
 from support.paths import ROOT
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "examples" / "rnaseq.yml"
 
 
 def _build(tmp_path, name="p"):
     out = tmp_path / name
-    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["build", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
     return out
+
+
+def _starter(path, goal) -> pathlib.Path:
+    """`goal` (a `Goal` or the mapping of one) written as a starter, what `mendel build` takes."""
+    goal = goal if isinstance(goal, Goal) else Goal.model_validate(goal)
+    starter = Starter(intent=goal.intent, facts=goal.facts).model_dump(mode="json")
+    path.write_text(yaml.safe_dump(starter, sort_keys=False))
+    return path
 
 
 def _emit(out, capsys, path=None):
@@ -33,49 +43,30 @@ def _load(out) -> Pipeline:
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))
 
 
-ARCHIVED = ROOT / "tests" / "fixtures" / "pipeline-v1" / "pipeline.yml"
-"""A pipeline written before Plan 1.13, committed rather than built.
-
-A fixture produced by the code under test cannot demonstrate anything about reading what a
-laboratory archived — see the README beside it.
-"""
-
-
 def _build_measured(
     tmp_path,
     name="measured",
     source="source: measured, by: comeni/profile-fastqc@0.1.0",
-    paired="source: goal",
+    paired="source: said",
 ):
-    """The same goal, with `read_length` recorded as **measured** rather than asserted.
-
-    The mapping shorthand a goal file usually uses defaults every entry to `source: goal`, so
-    the explicit list form is the only way to write a profile a tool produced. That asymmetry
-    is deliberate: a hand-written goal *is* an assertion, and the shorthand is the honest
-    spelling of one.
-    """
-    goal = tmp_path / "measured-goal.yml"
-    goal.write_text(
-        _declared(
-            goal,
-            "have:\n"
-            "  - type_id: fastq.reads\n"
-            "  - type_id: annotation.gtf\n"
-            "  - type_id: genome.fasta\n"
-            "want: [counts.matrix]\n"
-            "constraints:\n"
-            "  required_states:\n"
-            "    counts.matrix: [gene_level]\n"
-            "profile:\n"
-            "  measurements:\n"
-            f"    - {{measurement: read_length, value: 150, {source}}}\n"
-            "    - {measurement: strandedness, value: reverse, source: goal}\n"
-            "    - {measurement: n_samples, value: 12, source: goal}\n"
-            f"    - {{measurement: paired, value: true, {paired}}}\n",
-        )
-    )
+    """The example, with `read_length` recorded as **measured** rather than asserted (`said`)."""
+    goal = _starter(tmp_path / "measured-starter.yml", yaml.safe_load(
+        "have:\n"
+        "  - type_id: fastq.reads\n"
+        "  - type_id: annotation.gtf\n"
+        "  - type_id: genome.fasta\n"
+        "want: [counts.matrix]\n"
+        "constraints:\n"
+        "  required_states:\n"
+        "    counts.matrix: [gene_level]\n"
+        "profile:\n"
+        "  measurements:\n"
+        f"    - {{measurement: read_length, value: 150, {source}}}\n"
+        "    - {measurement: strandedness, value: reverse, source: said}\n"
+        "    - {measurement: n_samples, value: 12, source: said}\n"
+        f"    - {{measurement: paired, value: true, {paired}}}\n"))
     out = tmp_path / name
-    assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["build", str(goal), "--out", str(out), "--root", str(ROOT)]) == 0
     return out
 
 
@@ -114,7 +105,6 @@ def _build_with_overlay(tmp_path, ov) -> pathlib.Path:
         main(
             [
                 "build",
-                "--goal",
                 str(GOAL),
                 "--registry",
                 str(ROOT / "registry"),
@@ -145,7 +135,8 @@ def _why() -> Why:
 SERIALISED_SHAPE = {
     "Pipeline": [
         "version",
-        "goal",
+        "intent",
+        "facts",
         "registry",
         "ai",
         "steps",

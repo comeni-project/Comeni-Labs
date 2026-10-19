@@ -388,7 +388,7 @@ class Pin(BaseModel):
           *axis* — "read length determines which aligner is appropriate", for which Dobin et
           al. is a fair citation — and it was printed as the reason for a *row*. So the
           shipped registry said HISAT2 was chosen because of the paper describing STAR,
-          reachable by changing one number in `examples/rnaseq-goal.yml`.
+          reachable by changing one number in `examples/rnaseq.yml`.
 
         The second is why this is not a reordering. The field was answering two questions, so
         it becomes two: this one, and `axis_because` below.

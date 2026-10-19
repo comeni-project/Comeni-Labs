@@ -114,7 +114,7 @@ guess fails in milliseconds instead of at pipeline launch.
 
 ```bash
 uv run pytest tests/registry/test_spine_contracts.py -q
-uv run mendel build --goal your-goal.yml --out build/ --gate stub
+uv run mendel build your-starter.yml --out build/ --gate stub
 ```
 
 Loading is itself a check: an undeclared state, a container that disagrees with the

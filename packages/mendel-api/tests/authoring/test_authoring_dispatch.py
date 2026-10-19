@@ -17,7 +17,7 @@ from mendel_authoring.interpret import Refused
 from mendel_authoring.payloads import DecisionChange
 from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
 from mendel_authoring.types import Event
-from support.paths import ROOT as REPOSITORY_ROOT
+from support.example import example_goal
 
 
 @pytest.fixture
@@ -217,12 +217,9 @@ def test_a_sample_that_answered_nothing_moves_nothing(sid):
 
 
 def _confirmed(sid):
-    from comeni_core import yaml_strict
     from mendel_authoring import state as st
-    from mendel_resolver.goal import Goal
 
-    root = REPOSITORY_ROOT
-    goal = Goal.model_validate(yaml_strict.load(root / "examples" / "rnaseq-goal.yml"))
+    goal = example_goal()
     authoring_setup.move(sid, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.move(sid, st.Event.NOTHING_MISSING, row_version=2)
     authoring_setup.move(

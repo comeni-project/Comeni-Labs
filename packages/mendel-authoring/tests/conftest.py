@@ -67,6 +67,9 @@ def _why(tier: Tier, reason: str, **more) -> Why:
     return Why(tier=tier, source=ValueSource.RESOLVER, reason=reason, **more)
 
 
+
+_GOAL = Goal.model_validate({"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]})
+
 @pytest.fixture
 def declared() -> FakeDeclared:
     return FakeDeclared()
@@ -141,9 +144,8 @@ def rnaseq():
             _step("multiqc", MULTIQC, _why(Tier.CONVENTION, "uncontested")),
         ]
         pipeline = Pipeline(
-            goal=Goal.model_validate(
-                {"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]}
-            ),
+            intent=_GOAL.intent,
+            facts=_GOAL.facts,
             steps=steps,
             channels=[
                 Channel(
@@ -170,9 +172,8 @@ def blueprint_of():
             _step(node, contract, _why(Tier.CONVENTION, "x")) for node, contract in tools.items()
         ]
         pipeline = Pipeline(
-            goal=Goal.model_validate(
-                {"have": [{"type_id": "fastq.reads"}], "want": ["counts.matrix"]}
-            ),
+            intent=_GOAL.intent,
+            facts=_GOAL.facts,
             steps=steps,
         )
         return Blueprint(registry=DIGEST, order=list(tools), pipeline=pipeline, sites=sites or {})

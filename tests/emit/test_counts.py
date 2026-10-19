@@ -39,7 +39,7 @@ def run(tmp_path_factory):
     """One real run, shared. Ten minutes is too long to pay twice."""
     out = tmp_path_factory.mktemp("spine") / "build"
     result = subprocess.run(
-        ["uv", "run", "mendel", "build", "--goal", str(ROOT / "examples/rnaseq-goal.yml"),
+        ["uv", "run", "mendel", "build", str(ROOT / "examples/rnaseq.yml"),
          "--out", str(out), "--root", str(ROOT), "--gate", "test"],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
@@ -59,7 +59,7 @@ def test_the_spine_produces_a_counts_matrix(run):
 
 @pytest.mark.slow
 def test_featurecounts_ran_with_the_strandedness_that_was_measured(run):
-    """The point of the whole plan. `examples/rnaseq-goal.yml` declares reverse, so
+    """The point of the whole plan. `examples/rnaseq.yml` declares reverse, so
     featureCounts must have run with `-s 2`. Before this plan it ran with `-s 0` and
     produced a matrix full of wrong numbers, silently, passing every gate."""
     out, _ = run

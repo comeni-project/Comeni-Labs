@@ -6,14 +6,13 @@ These records give the compiler the details needed to emit Nextflow without
 reading the registry. Pipeline.of() delegates construction to materialise.py.
 
 Validators check local values and consistency across the artifact. Loading
-also normalizes supported schema versions. Replay helpers carry edited
+reads the current schema version only (no upgraders before v0.1.0). Replay helpers carry edited
 parameter answers into upgrades; content_digest() links the artifact to its
 recorded generated files.
 
 Complexity: this module uses expected O(n) record scans and indexed lookups,
 where n includes steps, settings, channels, connections, and decisions.
-Sorting groups and diagnostics adds up to O(n log n). Schema normalization
-sorts channels and tracks name suffixes; decision replay indexes settings
+Sorting groups and diagnostics adds up to O(n log n). Decision replay indexes settings
 and goal pins once. Digesting is linear in the serialized content size.
 Indexes require O(n) extra memory. Nested model validation and text processing
 have additional costs, so these bounds are not a guarantee for the complete
@@ -33,7 +32,7 @@ from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.layered import Displacement
 from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
-from comeni_core.goal.asked import Goal
+from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.tiers import (
@@ -69,8 +68,8 @@ from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 # ---------------- CONSTANTS ----------------
 
-SCHEMA_VERSION = 6
-"""Current output schema version and highest accepted input version.
+SCHEMA_VERSION = 7
+"""The schema version written and the only one read.
 
 Bump when the serialized shape changes; content digests depend on that shape.
 """
@@ -440,86 +439,27 @@ class Pipeline(EgressPayload):
     from EgressPayload. Nested collections are not deeply immutable.
     """
 
-    # ---------------- SCHEMA NORMALIZATION ----------------
+    # ---------------- SCHEMA VERSION ----------------
 
     @model_validator(mode="before")
     @classmethod
-    def _migrate(cls, data: object) -> object:
-        """Apply supported schema normalization steps in their required order before validation."""
-        if not isinstance(data, dict):
-            return data
-        for migration in (cls._v1_to_v2, cls._v5_to_v6):
-            data = migration(data)
-        return data
+    def _this_version_only(cls, data: object) -> object:
+        """Refuse a file written under another schema before its fields are read.
 
-    @classmethod
-    def _v1_to_v2(cls, data: dict) -> dict:
-        """Fill unrecorded metadata provenance when reading schema versions below 2."""
-        if data.get("version", SCHEMA_VERSION) >= 2:
-            return data
-        legacy = {
-            "tier": Tier.STRUCTURAL,
-            "source": ValueSource.GOAL,
-            "reason": (
-                "provenance was not recorded: this pipeline predates schema 2, which is when "
-                "measured facts began carrying where they came from"
-            ),
-        }
-        data = dict(data)
-        data["channels"] = [
-            {**channel, "meta": [{**entry, "why": entry.get("why") or legacy}
-                                 for entry in channel.get("meta") or []]}
-            for channel in data.get("channels") or []
-        ]
-        return data
-
-    @classmethod
-    def _v5_to_v6(cls, data: dict) -> dict:
-        """Normalize pre-6 channel identities and input references to the current schema.
-
-        Derives channel names in type-ID order, keeps recorded parameter names
-        where possible, and rewrites step channel references. Channel and parameter
-        names use separate collision tracking.
+        Until v0.1.0 no older version is carried (no upgraders): an older file is rebuilt from
+        its intent and facts. Checked first, so the reader gets this sentence rather than a
+        complaint about a field the older shape had (MD0207).
         """
-        if data.get("version", SCHEMA_VERSION) >= 6:
-            return data
-
-        # Import locally because materialise imports these models.
-        from comeni_core.artifact import materialise
-
-        data = dict(data)
-        names: dict[str, None] = {}
-        params: dict[str, None] = {}
-        name_suffixes: dict[str, int] = {}
-        param_suffixes: dict[str, int] = {}
-        named: dict[str, str] = {}
-        channels = []
-        for channel in sorted(
-            data.get("channels") or [], key=lambda c: c.get("type_id", "")
-        ):
-            type_id = channel.get("type_id", "")
-            name = materialise._unique(materialise._stem(type_id), names, name_suffixes)
-            declared = list(channel.get("params") or [])
-            param = materialise._unique(
-                declared[0] if declared else materialise._stem(type_id), params, param_suffixes
-            )
-            named[type_id] = name
-            channels.append({**channel, "name": name, "param": param})
-        data["channels"] = channels
-
-        data["steps"] = [
-            {
-                **step,
-                "inputs": [
-                    item
-                    if item.get("channel") is None
-                    else {**item, "channel": named.get(item["channel"], item["channel"])}
-                    for item in step.get("inputs") or []
-                ],
-            }
-            for step in data.get("steps") or []
-        ]
-        data["version"] = SCHEMA_VERSION
+        if isinstance(data, dict) and data.get("version", SCHEMA_VERSION) != SCHEMA_VERSION:
+            version = data.get("version")
+            raise ValueError(coded(
+                "MD0207",
+                f"this pipeline.yml declares version {version}, and this Mendel reads version "
+                f"{SCHEMA_VERSION} only. "
+                + ("Upgrade Mendel; do not edit the version down."
+                   if isinstance(version, int) and version > SCHEMA_VERSION
+                   else "Rebuild it: copy its intent and facts into a starter and run "
+                        "`mendel build <starter>`.")))
         return data
 
     # ---------------- FIELDS ----------------
@@ -527,8 +467,10 @@ class Pipeline(EgressPayload):
     version: int = SCHEMA_VERSION
     """Artifact schema version, defaulting to SCHEMA_VERSION."""
 
-    goal: Goal
-    """Required goal; upgrade re-resolves it, while emission uses the saved steps."""
+    intent: Intent
+    """What is wanted. With `facts`, the input `upgrade` re-resolves; emission reads the steps."""
+    facts: Facts
+    """What is known about the data, each measurement with its source; no person's words."""
     registry: RegistryProvenance = Field(default_factory=RegistryProvenance)
     ai: AiProvenance = Field(default_factory=AiProvenance)
     """Recorded AI availability and usage for this build."""
@@ -548,6 +490,11 @@ class Pipeline(EgressPayload):
     rejects channels sharing an input parameter.
     """
 
+    @property
+    def goal(self) -> Goal:
+        """The resolver's input, projected from `intent` and `facts` (spec §8.1)."""
+        return Goal.of(self.intent, self.facts)
+
     # ---------------- VALIDATION ----------------
 
     @model_validator(mode="after")
@@ -558,14 +505,6 @@ class Pipeline(EgressPayload):
         references, contradictory AI claims, invalid samplesheet use, metadata
         collisions, and inconsistent parameter overrides or human-source claims.
         """
-        if self.version > SCHEMA_VERSION:
-            raise ValueError(
-                coded(
-                    "MD0207",
-                    f"this pipeline.yml declares version {self.version}, and this Mendel "
-                    f"understands version {SCHEMA_VERSION}. Upgrade Mendel; do not edit the "
-                f"version down, which would only move the failure somewhere less obvious.")
-            )
         repeated = _duplicates(step.id for step in self.steps)
         if repeated:
             raise ValueError(
@@ -803,12 +742,13 @@ class Pipeline(EgressPayload):
 
     @classmethod
     def of(
-        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None
+        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None, locators=None
     ) -> "Pipeline":
         """Build a fully materialised Pipeline by delegating to materialise.of()."""
         # Import locally because materialise imports these models.
         from comeni_core.artifact import materialise
 
         return materialise.of(
-            ir, registry, vocab, measurements=measurements, layers=layers, goal=goal, ai=ai
+            ir, registry, vocab, measurements=measurements, layers=layers, goal=goal, ai=ai,
+            locators=locators,
         )

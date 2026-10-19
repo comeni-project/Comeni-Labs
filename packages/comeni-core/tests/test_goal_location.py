@@ -35,7 +35,8 @@ def test_the_publication_payload_carries_the_goal():
     from comeni_core.egress.boundaries import PAYLOADS
     from comeni_core.goal.asked import Goal
 
-    payload = PAYLOADS["publication"](goal=Goal(want=["counts.matrix"]))
+    goal = Goal(want=["counts.matrix"])
+    payload = PAYLOADS["publication"](intent=goal.intent, facts=goal.facts)
     assert payload.goal.want == ["counts.matrix"]
 
 

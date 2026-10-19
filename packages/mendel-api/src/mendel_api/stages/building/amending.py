@@ -95,7 +95,7 @@ def _fact(measurement: str, value, goal: Goal) -> SetFact:
             for m in goal.profile.measurements
             if m.measurement != measurement
         ]
-        + [MeasuredEntry(measurement, value, ValueSource.GOAL)]
+        + [MeasuredEntry(measurement, value, ValueSource.SAID)]
     )
     return SetFact(measurement=measurement, value=value, profile=profile)
 

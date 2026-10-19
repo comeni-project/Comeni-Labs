@@ -13,15 +13,8 @@
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
 
-version: 5
-goal:
-  have:
-  - type_id: fastq.reads
-    states: []
-  - type_id: annotation.gtf
-    states: []
-  - type_id: genome.fasta
-    states: []
+version: 7
+intent:
   want:
   - counts.matrix
   constraints:
@@ -30,28 +23,38 @@ goal:
       states:
       - gene_level
     params: []
-  profile:
-    measurements:
-    - measurement: n_samples
-      value: 12
-      source: goal
-      by: null
-    - measurement: paired
-      value: true
-      source: goal
-      by: null
-    - measurement: read_length
-      value: 150
-      source: goal
-      by: null
-    - measurement: strandedness
-      value: reverse
-      source: goal
-      by: null
+facts:
+  inputs:
+  - type_id: fastq.reads
+    name: null
+    states: []
+  - type_id: annotation.gtf
+    name: null
+    states: []
+  - type_id: genome.fasta
+    name: null
+    states: []
+  measurements:
+  - measurement: n_samples
+    value: 12
+    source: said
+    by: null
+  - measurement: paired
+    value: true
+    source: said
+    by: null
+  - measurement: read_length
+    value: 150
+    source: said
+    by: null
+  - measurement: strandedness
+    value: reverse
+    source: said
+    by: null
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:3434082dd7ae87e393b85521c5cd79dfb3e0b429b32d9b0940b5926a5f4a20a2
+    digest: sha256:4ce813b5912cd496d03e55bd3bef1bb5983b52f901cc333d54435f3cce3e8f8d
   displaced: []
   unverified: []
 ai:
@@ -100,7 +103,8 @@ steps:
   inputs:
   - port: reads
     source: null
-    channel: fastq.reads
+    channel: reads
+    gather: false
     states: []
   call:
   - ports:
@@ -153,11 +157,13 @@ steps:
   inputs:
   - port: fasta
     source: null
-    channel: genome.fasta
+    channel: fasta
+    gather: false
     states: []
   - port: gtf
     source: null
-    channel: annotation.gtf
+    channel: gtf
+    gather: false
     states: []
   call:
   - ports:
@@ -229,15 +235,18 @@ steps:
   - port: reads
     source: trimgalore.reads
     channel: null
+    gather: false
     states:
     - trimmed
   - port: index
     source: star_genomegenerate.index
     channel: null
+    gather: false
     states: []
   - port: gtf
     source: null
-    channel: annotation.gtf
+    channel: gtf
+    gather: false
     states: []
   call:
   - ports:
@@ -276,7 +285,7 @@ steps:
     why:
       tier: 4
       source: resolver
-      reason: no rule covered 'seq_platform'; selected the first of 1 candidates without judgement
+      reason: nothing decided 'seq_platform'; selected the first of 1 candidates without judgement
         — please review
       premise: []
       for_value: null
@@ -346,6 +355,7 @@ steps:
   - port: bam
     source: star_align.bam
     channel: null
+    gather: false
     states: []
   call:
   - ports:
@@ -438,11 +448,13 @@ steps:
   - port: bam
     source: samtools_sort.bam
     channel: null
+    gather: false
     states:
     - coordinate_sorted
   - port: annotation
     source: null
-    channel: annotation.gtf
+    channel: gtf
+    gather: false
     states: []
   call:
   - ports:
@@ -473,7 +485,13 @@ steps:
       displaced_layer: null
       review_level: none
 channels:
-- type_id: annotation.gtf
+- name: gtf
+  param: gtf
+  why: null
+  scope: run
+  columns:
+  - gtf
+  type_id: annotation.gtf
   params:
   - gtf
   expression: 'Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName],
@@ -481,7 +499,14 @@ channels:
   meta: []
   test_data:
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genes.gtf
-- type_id: fastq.reads
+- name: reads
+  param: input
+  why: null
+  scope: sample
+  columns:
+  - reads_1
+  - reads_2
+  type_id: fastq.reads
   params:
   - input
   expression: '( params.input instanceof List ? Channel.of([ [id: ''test''], params.input.collect
@@ -492,7 +517,7 @@ channels:
     value: false
     why:
       tier: 1
-      source: goal
+      source: said
       reason: asserted in the goal; no profiling run established it; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8
         — Whether the library was sequenced paired-end
       premise: []
@@ -505,9 +530,9 @@ channels:
     value: reverse
     why:
       tier: 1
-      source: goal
+      source: said
       reason: asserted in the goal; no profiling run established it; Signal et al. 2022, doi:10.1186/s12859-022-04572-7
-        — Library strandedness determined by the prep protocol
+        — Library strandedness
       premise: []
       for_value: reverse
       axis_reason: ''
@@ -517,7 +542,13 @@ channels:
   test_data:
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_1.fastq.gz
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_2.fastq.gz
-- type_id: genome.fasta
+- name: fasta
+  param: fasta
+  why: null
+  scope: run
+  columns:
+  - fasta
+  type_id: genome.fasta
   params:
   - fasta
   expression: 'Channel.fromPath(params.fasta, checkIfExists: true).map { f -> [ [id: f.baseName],
@@ -528,7 +559,7 @@ channels:
 decisions:
 - key: star_align.seq_platform
   subject: seq_platform
-  reason: no rule covered 'seq_platform'; selected the first of 1 candidates without judgement — please
+  reason: nothing decided 'seq_platform'; selected the first of 1 candidates without judgement — please
     review
   confidence: 0.0
   resolved_by: flag-only
@@ -542,11 +573,12 @@ decisions:
   human_override: null
   override_reason: ''
 emitted:
-  schema_version: 5
+  schema_version: 7
   files:
   - name: main.nf
-    digest: sha256:76355bbf9f10d6e6cfc0eb9f1c60b60f24a5197339e7372699d42016909cee7e
+    digest: sha256:a6a2385c2e669232e6ff3d0e02456ae526a46b4702c4406e423440559233b01d
   - name: nextflow.config
     digest: sha256:3ab4940b199765adefadd05bce08200737124f67bcc3e59ee5ca3b48d3e10b10
-  from_digest: sha256:39c04199004de9bdcc01e1a13f5f43201223562067c29d06d39a4e3bf6d7467f
+  from_digest: sha256:6e33add9cf41b7f52a9f3940d3cdd09975f9c4fabf2e38ed843c6978bb1b94d9
 gate: null
+input_form: direct

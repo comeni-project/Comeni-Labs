@@ -182,3 +182,36 @@ class Goal(BaseModel):
     want: list[TypeId] = Field(default_factory=list)
     constraints: Constraints = Field(default_factory=Constraints)
     profile: DataProfile = Field(default_factory=DataProfile)
+
+    @property
+    def intent(self) -> "Intent":
+        return Intent(want=self.want, constraints=self.constraints)
+
+    @property
+    def facts(self) -> "Facts":
+        return Facts(inputs=self.have, measurements=self.profile.measurements)
+
+    @classmethod
+    def of(cls, intent: "Intent", facts: "Facts") -> "Goal":
+        """The resolver's input, projected from what is wanted and what is known."""
+        return cls.model_validate({"have": facts.inputs, "want": intent.want,
+                                   "constraints": intent.constraints,
+                                   "profile": {"measurements": facts.measurements}})
+
+
+class Intent(BaseModel):
+    """What is wanted: the types to end with, and what the person pinned (spec §8.1)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    want: list[TypeId] = Field(default_factory=list)
+    constraints: Constraints = Field(default_factory=Constraints)
+
+
+class Facts(BaseModel):
+    """What is known: the inputs held, and each measurement with its source (spec §8.1)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    inputs: list[GoalInput] = Field(default_factory=list)
+    measurements: list[Measured] = Field(default_factory=list)

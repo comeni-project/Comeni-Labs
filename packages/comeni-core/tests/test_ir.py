@@ -71,7 +71,7 @@ def test_a_goal_supplied_value_records_its_source():
 
     derived = ResolvedValue(value=2, tier=Tier.DATA_PROFILED, reason="rule")
     pinned = ResolvedValue(
-        value="illumina", tier=Tier.STRUCTURAL, source=ValueSource.GOAL, reason="goal"
+        value="illumina", tier=Tier.STRUCTURAL, source=ValueSource.SAID, reason="goal"
     )
     assert derived.source is ValueSource.RESOLVER
-    assert pinned.source is ValueSource.GOAL
+    assert pinned.source is ValueSource.SAID

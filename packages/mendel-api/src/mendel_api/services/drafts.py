@@ -30,7 +30,7 @@ from comeni_core.plan.draft import (
 from comeni_core.plan.ir import ValueSource
 from comeni_core.plan.tiers import Tier
 from comeni_core.spell.marks import NodeId, PortName
-from mendel_compiler import pipeline_file, staging
+from mendel_compiler import locate, pipeline_file, staging
 from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -547,7 +547,9 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
         pipeline = _materialised(stored, registry.stack(), by="", ai=ai)
     except ValueError as refused:
         return Preview(revision, "unavailable", "", [str(refused).splitlines()[0]])
-    return Preview(revision, "ready", pipeline_file.dump(pipeline), [])
+    # What the file cannot do on its own is said beside it (review #3 of Plan B).
+    return Preview(revision, "ready", pipeline_file.dump(pipeline),
+                   locate.findings(pipeline.registry.layers))
 
 
 def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:
@@ -574,4 +576,6 @@ def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) 
         # draft has no stored goal and keeps deriving one, exactly as it always has.
         goal=stored.goal or goal_of(graph, stack),
         ai=ai,
+        # Where each layer is fetched from (Plan B, spec §8.2): kept and previewed files say it.
+        locators=locate.locators(stack.paths),
     )

@@ -98,8 +98,8 @@ jobs:
 
       - name: Emit the spine and check it statically
         run: |
-          uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
-          uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
+          uv run mendel build examples/rnaseq.yml --out build/ --gate lint
+          uv run mendel build examples/rnaseq.yml --out build/ --gate preview
         # `lint` is syntax; `preview` is name resolution and dataflow. Neither needs Docker
         # and together they take about 25 seconds. `nextflow lint` alone accepts
         # `STAR_ALIGN.out.NOSUCHCHANNEL`; `-preview` rejects it — measured 2026-08-05.

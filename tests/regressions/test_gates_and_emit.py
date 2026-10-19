@@ -40,13 +40,14 @@ def test_a4_the_artifact_records_which_gate_it_passed():
     from comeni_core.artifact.pipeline import Pipeline
     from comeni_core.goal.asked import Goal
 
-    assert Pipeline(goal=Goal()).gate is None
-    passed = Pipeline(goal=Goal(), gate=Gate.TEST)
+    assert Pipeline(intent=Goal().intent, facts=Goal().facts).gate is None
+    passed = Pipeline(intent=Goal().intent, facts=Goal().facts, gate=Gate.TEST)
     assert passed.gate is Gate.TEST
     # `None` must be distinguishable from "passed lint" — an absent gate is not a weak
     # gate, it is no evidence at all, and a curator reads the two differently.
     assert json.loads(passed.model_dump_json())["gate"] == "test"
-    assert json.loads(Pipeline(goal=Goal()).model_dump_json())["gate"] is None
+    empty = Pipeline(intent=Goal().intent, facts=Goal().facts)
+    assert json.loads(empty.model_dump_json())["gate"] is None
 
 
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
@@ -67,7 +68,7 @@ def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch)
     monkeypatch.setattr(artifact_verbs, "run_gate", _passes)
     out = tmp_path / "p"
     assert cli.main([
-        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "build", str(Path("examples/rnaseq.yml")),
         "--out", str(out), "--root", ".",
     ]) == 0
     assert cli.main([
@@ -100,7 +101,7 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(artifact_verbs, "run_gate", failed)
     out = tmp_path / "p"
     assert cli.main([
-        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "build", str(Path("examples/rnaseq.yml")),
         "--out", str(out), "--root", ".",
     ]) == 0
     assert cli.main([

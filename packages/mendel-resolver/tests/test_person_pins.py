@@ -8,13 +8,13 @@ the person's at tier 4 with the engine's own pick kept beside it.
 from pathlib import Path
 
 import pytest
-from comeni_core import yaml_strict
 from comeni_core.goal.asked import ProducerPin, Site
 from comeni_core.plan.ir import Tier
 from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
 from mendel_resolver.resolve import UnknownTypeError, inert_pins, resolve
+from support.example import example_mapping
 
 ROOT = Path(__file__).resolve().parents[3]
 HISAT2_ALIGN = "nf-core/hisat2/align@2.2.2"
@@ -23,7 +23,7 @@ HISAT2_ALIGN = "nf-core/hisat2/align@2.2.2"
 @pytest.fixture
 def resolve_rnaseq(stack):
     def run(*, read_length=True, pins=(), resolver=None):
-        data = yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml")
+        data = example_mapping()
         if not read_length:
             data["profile"].pop("read_length")
         data.setdefault("constraints", {})["producers"] = [

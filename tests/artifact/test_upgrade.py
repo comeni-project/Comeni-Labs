@@ -44,7 +44,7 @@ def _declared(path, body: str) -> str:
         header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
     return header + body
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "examples" / "rnaseq.yml"
 
 
 def _published(tmp_path, name="published"):
@@ -55,7 +55,7 @@ def _published(tmp_path, name="published"):
     directory rather than a second writer beside `build`.
     """
     out = tmp_path / name
-    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["build", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
     assert main(["publish", str(out / "pipeline.yml"), "--root", str(ROOT)]) == 0
     return out / "pipeline.yml"
 
@@ -297,7 +297,7 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
     )
     out = tmp_path / "published-with-overlay"
     assert main([
-        "build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT),
+        "build", str(GOAL), "--out", str(out), "--root", str(ROOT),
         "--registry", str(ROOT / "registry"), "--registry", str(lab),
     ]) == 0
 
@@ -467,7 +467,7 @@ def test_dry_run_is_refused_on_a_verb_with_nothing_to_compare(tmp_path):
     import pytest
 
     with pytest.raises(SystemExit):
-        main(["build", "--goal", str(GOAL), "--out", str(tmp_path / "b"), "--dry-run"])
+        main(["build", str(GOAL), "--out", str(tmp_path / "b"), "--dry-run"])
 
 
 def test_a_replayed_value_frozen_against_a_moved_contract_is_reported(tmp_path, capsys):
@@ -518,10 +518,10 @@ def _a_and_a_different_b(tmp_path):
                 counts.read_text().replace("priority: 0", "priority: 7")))
 
     a, b = tmp_path / "A", tmp_path / "B"
-    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+    assert main(["build", str(GOAL), "--registry", str(ROOT / "registry"),
                  "--out", str(a), "--root", str(ROOT)]) == 0
     layer = _registry_with(tmp_path, bump)
-    assert main(["build", "--goal", str(GOAL), "--registry", str(layer),
+    assert main(["build", str(GOAL), "--registry", str(layer),
                  "--out", str(b), "--root", str(ROOT)]) == 0
     return a, b
 
@@ -549,7 +549,7 @@ def test_upgrade_force_overwrites_another_pipeline(tmp_path):
 def test_upgrade_into_a_fresh_directory_is_allowed(tmp_path):
     """The normal case must stay cheap — an empty `--out` is not another pipeline."""
     a = tmp_path / "A"
-    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+    assert main(["build", str(GOAL), "--registry", str(ROOT / "registry"),
                  "--out", str(a), "--root", str(ROOT)]) == 0
     code = main(["upgrade", str(a / "pipeline.yml"), "--registry", str(ROOT / "registry"),
                  "--out", str(tmp_path / "next"), "--root", str(ROOT)])
@@ -561,56 +561,12 @@ def test_upgrade_self_guard_sees_a_relative_out(tmp_path, monkeypatch):
     `.resolve()` A53 flagged as never watched. A relative `--out` that names the source
     directory must still be caught, which only works because both sides are resolved."""
     out = tmp_path / "p"
-    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+    assert main(["build", str(GOAL), "--registry", str(ROOT / "registry"),
                  "--out", str(out), "--root", str(ROOT)]) == 0
     monkeypatch.chdir(tmp_path)
     code = main(["upgrade", str(out / "pipeline.yml"), "--registry", str(ROOT / "registry"),
                  "--out", "p", "--root", str(ROOT)])
     assert code == 2, "a relative --out onto the source is still in-place"
-
-
-V1_FIXTURE = ROOT / "tests" / "fixtures" / "pipeline-v1"
-
-
-def _archived(tmp_path):
-    """A pipeline.yml written before Plan 1.13, with the files it emitted.
-
-    Committed rather than built, and that is the whole point: a fixture produced by the code
-    under test cannot demonstrate anything about reading what a laboratory archived. See the
-    README beside it.
-    """
-    out = tmp_path / "archived"
-    shutil.copytree(V1_FIXTURE, out)
-    (out / "README.md").unlink()
-    # A directory a laboratory archived has its vendored modules beside the artifact; the
-    # fixture does not carry them because they are ~1 MB of nf-core source that is already in
-    # the tree. `emit` refuses without them (`MD0210`), and rightly.
-    build = tmp_path / "for-modules"
-    assert main(["build", "--goal", str(GOAL), "--out", str(build), "--root", str(ROOT)]) == 0
-    shutil.copytree(build / "modules", out / "modules")
-    return out / "pipeline.yml"
-
-
-def test_a_pipeline_written_before_a_schema_change_is_not_reported_as_edited(tmp_path, capsys):
-    """The file did not change. The schema did. Say which.
-
-    Found while executing Plan 1.13: `emitted.from_digest` hashes the model dump, so adding
-    one field (`CallArg.join`) moved it for **every** archived pipeline and `MD0213` reported
-    the file as edited by a human. A laboratory reading that goes looking for an edit nobody
-    made — and this plan adds six more fields on top of it.
-
-    The asymmetry is the test: the artifact's self-digest moves while the emitted files still
-    hash exactly to their records, which is what says the pipeline did not change.
-    """
-    archived = _archived(tmp_path)
-
-    code = main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
-                 "--out", str(tmp_path / "up"), "--root", str(ROOT)])
-
-    err = capsys.readouterr().err
-    assert "MD0213" not in err, err
-    assert "predates the current schema" in err
-    assert code == 0
 
 
 def test_a_genuinely_edited_pipeline_is_still_reported_as_edited(tmp_path, capsys):
@@ -622,75 +578,13 @@ def test_a_genuinely_edited_pipeline_is_still_reported_as_edited(tmp_path, capsy
     """
     bundle = _published(tmp_path)
     data = yaml.safe_load(bundle.read_text())
-    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
+    data["intent"]["want"] = ["counts.matrix", "counts.matrix"]
     bundle.write_text(_declared(bundle, yaml.safe_dump(data, sort_keys=False)))
 
     main(["upgrade", str(bundle), "--registry", str(ROOT / "registry"),
           "--out", str(tmp_path / "up"), "--root", str(ROOT)])
 
     assert "MD0213" in capsys.readouterr().err
-
-
-def test_an_edit_to_a_pre_schema_pipeline_is_not_detectable_and_that_is_stated(tmp_path, capsys):
-    """The limitation, asserted rather than left to be discovered.
-
-    For a file written under an older schema the content digest cannot match **either way**,
-    so a hand edit and the schema moving are indistinguishable by that mechanism. Nothing can
-    recover the distinction after the fact; pretending otherwise would be the dishonest half
-    of this repair.
-
-    What still holds is the half that matters: the generated files are checked against their
-    own recorded digests (`MD0214`), so an edited `main.nf` is caught regardless of schema.
-    And the note tells the reader to restamp, after which edits are detectable again.
-    """
-    archived = _archived(tmp_path)
-    data = yaml.safe_load(archived.read_text())
-    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
-    archived.write_text(_declared(archived, yaml.safe_dump(data, sort_keys=False)))
-
-    main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
-          "--out", str(tmp_path / "up"), "--root", str(ROOT)])
-
-    err = capsys.readouterr().err
-    assert "predates the current schema" in err
-    assert "to restamp it" in err
-
-
-def test_emit_does_not_call_a_schema_change_an_edit_either(tmp_path, capsys):
-    """The other half, and it was **inert** until this test existed.
-
-    `is_stale` and `cli`'s `upgrade` branch both handle this case, and reverting the
-    `is_stale` short-circuit changed nothing — the `upgrade` path never reaches it. `emit`
-    does: it prints `MD0213` and then cures it, so without this an archived pipeline would be
-    told it had been edited every time somebody regenerated it, by the one verb whose job is
-    to fix exactly that.
-
-    Found by reverting a guard written in the same session and watching nothing fail. A14.
-    """
-    archived = _archived(tmp_path)
-
-    code = main(["emit", str(archived), "--out", str(tmp_path / "archived")])
-
-    assert code == 0
-    assert "MD0213" not in capsys.readouterr().err
-
-
-def test_a_v1_file_says_its_provenance_was_never_recorded(tmp_path):
-    """The backfill must make a claim a reader can act on, not fill a hole quietly.
-
-    Plan 1.14 made `channels[].meta[].why` required so nothing can construct a fact without
-    saying where it came from. A document written before that field existed cannot answer, and
-    the honest answer is *"this was never recorded"* rather than an invented citation or a
-    parse failure. Task 2.
-    """
-    from comeni_core.artifact.pipeline import Pipeline
-
-    pipeline = Pipeline.model_validate(yaml.safe_load(_archived(tmp_path).read_text()))
-    reasons = {entry.why.reason for channel in pipeline.channels for entry in channel.meta}
-
-    assert reasons, "the fixture carries meta entries, or this asserts nothing"
-    assert all("was not recorded" in reason for reason in reasons)
-    assert all("predates schema 2" in reason for reason in reasons)
 
 
 def _set(bundle, name, **fields):
@@ -776,7 +670,7 @@ def test_a111_an_answered_question_does_not_ask_for_review_of_itself(tmp_path):
 
 def _pinned_goal(tmp_path, site_type="alignment.bam", contract="nf-core/hisat2/align@2.2.2"):
     goal = yaml.safe_load(GOAL.read_text())
-    goal.setdefault("constraints", {})["producers"] = [
+    goal["intent"].setdefault("constraints", {})["producers"] = [
         {"site": {"type_id": site_type, "states": []}, "contract": contract}
     ]
     path = tmp_path / "goal.yml"
@@ -788,7 +682,7 @@ def test_a_tool_you_chose_that_applies_nowhere_is_named_on_build(tmp_path, capsy
     """Final review I1 of 3c run 1: nothing silent. HISAT2 cannot make a QC report, so the pin
     does nothing — and the build says so (MD0230) rather than letting the choice vanish."""
     goal = _pinned_goal(tmp_path, site_type="qc.report")
-    code = main(["build", "--goal", str(goal), "--out", str(tmp_path / "b"), "--root", str(ROOT)])
+    code = main(["build", str(goal), "--out", str(tmp_path / "b"), "--root", str(ROOT)])
     err = capsys.readouterr().err
     assert code == 0, err
     assert "MD0230" in err and "nf-core/hisat2/align@2.2.2" in err
@@ -799,7 +693,7 @@ def test_upgrading_when_a_tool_you_chose_applies_nowhere_refuses(tmp_path, capsy
     would quietly hand the person STAR; `upgrade` refuses instead (MD0230), as it does an
     override that answers nothing (MD0203)."""
     out = tmp_path / "built"
-    assert main(["build", "--goal", str(_pinned_goal(tmp_path)), "--out", str(out),
+    assert main(["build", str(_pinned_goal(tmp_path)), "--out", str(out),
                  "--root", str(ROOT)]) == 0
     recorded = out / "pipeline.yml"
     text = recorded.read_text()
@@ -822,14 +716,14 @@ def test_a_pipeline_with_a_persons_tool_upgrades_unchanged(tmp_path, capsys):
     so re-resolving reproduces it. Its decision record is the goal's answer, not an edit to
     replay — counting it as an orphaned override (MD0203) refused every pinned pipeline."""
     goal = yaml.safe_load(GOAL.read_text())
-    goal.setdefault("constraints", {})["producers"] = [
+    goal["intent"].setdefault("constraints", {})["producers"] = [
         {"site": {"type_id": "alignment.bam", "states": []},
          "contract": "nf-core/hisat2/align@2.2.2"}
     ]
     pinned = tmp_path / "goal.yml"
     pinned.write_text(yaml.safe_dump(goal))
     out = tmp_path / "built"
-    assert main(["build", "--goal", str(pinned), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["build", str(pinned), "--out", str(out), "--root", str(ROOT)]) == 0
     capsys.readouterr()
     code = main(["upgrade", str(out / "pipeline.yml"), "--out", str(tmp_path / "up"),
                  "--root", str(ROOT)])

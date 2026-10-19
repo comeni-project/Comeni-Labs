@@ -42,7 +42,7 @@ def _declared(path, body: str) -> str:
 def test_builds_a_pipeline_from_the_example_goal(tmp_path):
     exit_code = main([
         "build",
-        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        str(ROOT / "examples" / "rnaseq.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
     ])
@@ -64,7 +64,7 @@ def test_the_measured_strandedness_reaches_the_tool(tmp_path):
     """
     main([
         "build",
-        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        str(ROOT / "examples" / "rnaseq.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
     ])
@@ -96,7 +96,7 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
 
     exit_code = main([
         "build",
-        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        str(ROOT / "examples" / "rnaseq.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
         "--registry", str(ROOT / "registry"),
@@ -109,23 +109,27 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
     assert "nf-core/samtools/sort@1.99.0" in pinned
 
 
-def test_a_goal_file_cannot_smuggle_a_measurement_nobody_declared(tmp_path, capsys):
-    """Invariant 15 at the door a goal file actually enters through.
+def _starter_text(measurements: str) -> str:
+    """A starter wanting a QC report from reads, with these measurements."""
+    return ("version: 7\nintent: {want: [qc.report]}\nfacts:\n"
+            "  inputs: [{type_id: fastq.reads}]\n  measurements:\n" + measurements)
 
-    `DataProfile` accepts a mapping because that is how a person writes one, and since
-    measurements became declared data the model cannot know which keys are real. So the
-    check moved to `MeasurementRegistry.profile()` and `mendel build` routes every goal
-    through it. Without that call `profile: {sample_name: SILVA_biopsy_01}` validates,
-    resolves and reaches `pipeline.yml` — the shape of the hole the 2026-08-03 audit
-    found in `constraints`, re-opened one field over.
+
+def test_a_goal_file_cannot_smuggle_a_measurement_nobody_declared(tmp_path, capsys):
+    """Invariant 15 at the door a starter actually enters through.
+
+    Since measurements became declared data the model cannot know which ids are real, so the
+    check is `MeasurementRegistry.profile()` and `mendel build` routes every goal through it.
+    Without that call a `sample_name: SILVA_biopsy_01` measurement validates, resolves and
+    reaches `pipeline.yml` — the shape of the hole the 2026-08-03 audit found in
+    `constraints`, re-opened one field over.
     """
     goal = tmp_path / "goal.yml"
-    goal.write_text(
-        _declared(goal, "have: [{type_id: fastq.reads}]\nwant: [qc.report]\n"
-        "profile: {read_length: 150, sample_name: SILVA_biopsy_01}\n")
-    )
+    goal.write_text(_declared(goal, _starter_text(
+        "    - {measurement: read_length, value: 150, source: said}\n"
+        "    - {measurement: sample_name, value: SILVA_biopsy_01, source: said}\n")))
     exit_code = main([
-        "build", "--goal", str(goal), "--out", str(tmp_path / "p"), "--root", str(ROOT),
+        "build", str(goal), "--out", str(tmp_path / "p"), "--root", str(ROOT),
     ])
     assert exit_code == 2
     assert "sample_name" in capsys.readouterr().err
@@ -133,13 +137,10 @@ def test_a_goal_file_cannot_smuggle_a_measurement_nobody_declared(tmp_path, caps
 
 def test_a_goal_file_cannot_carry_an_out_of_range_measurement(tmp_path, capsys):
     goal = tmp_path / "goal.yml"
-    goal.write_text(
-        _declared(
-            goal,
-            "have: [{type_id: fastq.reads}]\nwant: [qc.report]\nprofile: {read_length: 0}\n")
-    )
+    goal.write_text(_declared(goal, _starter_text(
+        "    - {measurement: read_length, value: 0, source: said}\n")))
     assert main([
-        "build", "--goal", str(goal), "--out", str(tmp_path / "p"), "--root", str(ROOT),
+        "build", str(goal), "--out", str(tmp_path / "p"), "--root", str(ROOT),
     ]) == 2
     assert "minimum" in capsys.readouterr().err
 
@@ -148,7 +149,7 @@ def test_two_builds_produce_identical_output(tmp_path):
     for name in ["a", "b"]:
         main([
             "build",
-            "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+            str(ROOT / "examples" / "rnaseq.yml"),
             "--out", str(tmp_path / name),
             "--root", str(ROOT),
         ])
@@ -179,7 +180,7 @@ def test_output_is_identical_across_hash_seeds(tmp_path):
         env = {**os.environ, "PYTHONHASHSEED": seed}
         result = subprocess.run(
             [sys.executable, "-m", "mendel_compiler.cli", "build",
-             "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+             str(ROOT / "examples" / "rnaseq.yml"),
              "--out", str(out), "--root", str(ROOT)],
             env=env, capture_output=True, text=True, check=False,
         )

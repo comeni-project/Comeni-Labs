@@ -169,7 +169,7 @@ def _spine_with_read_length(read_length: int):
 
 
 def test_a79_the_shipped_registry_does_not_cite_the_wrong_paper():
-    """A79 — reachable by changing one number in `examples/rnaseq-goal.yml`.
+    """A79 — reachable by changing one number in `examples/rnaseq.yml`.
 
     `Pin.because()` was `row.cite or decision.cite or row.because or decision.because` under a
     docstring claiming *"row before block"*. Two bugs in one line: the precedence is

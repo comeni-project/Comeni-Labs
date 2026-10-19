@@ -365,7 +365,7 @@
         },
         "source": {
           "$ref": "#/$defs/ValueSource",
-          "default": "goal"
+          "default": "said"
         },
         "value": {
           "anyOf": [
@@ -1176,7 +1176,7 @@
     "ValueSource": {
       "enum": [
         "resolver",
-        "goal",
+        "said",
         "human",
         "model",
         "measured",

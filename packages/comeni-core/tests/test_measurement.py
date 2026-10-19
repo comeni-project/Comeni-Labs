@@ -221,11 +221,11 @@ def test_profile_of_keeps_each_entrys_own_source(base):
     profile = registry.profile_of(
         [
             ("strandedness", "reverse", ValueSource.MODEL, None),
-            ("read_length", 150, ValueSource.GOAL, None),
+            ("read_length", 150, ValueSource.SAID, None),
         ]
     )
     assert [(m.measurement, m.source) for m in profile.measurements] == [
-        ("read_length", ValueSource.GOAL),
+        ("read_length", ValueSource.SAID),
         ("strandedness", ValueSource.MODEL),
     ]
 
@@ -235,4 +235,4 @@ def test_profile_of_validates_like_profile(base):
 
     registry = MeasurementRegistry.load(base)
     with pytest.raises(BadMeasurementValueError, match="minimum"):
-        registry.profile_of([("read_length", -5, ValueSource.GOAL, None)])
+        registry.profile_of([("read_length", -5, ValueSource.SAID, None)])

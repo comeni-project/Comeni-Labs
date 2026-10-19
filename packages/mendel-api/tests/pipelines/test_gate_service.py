@@ -12,7 +12,7 @@ from mendel_compiler.cli import main
 from mendel_compiler.gates import GateResult
 from support.paths import ROOT
 
-GOAL = ROOT / "examples" / "rnaseq-goal.yml"
+GOAL = ROOT / "examples" / "rnaseq.yml"
 
 
 def _kept(tmp_path):
@@ -26,7 +26,7 @@ def _kept(tmp_path):
     locally and red in CI — `CLAUDE.md`, Gotchas.
     """
     out = tmp_path / "kept"
-    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["build", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
     return out
 
 

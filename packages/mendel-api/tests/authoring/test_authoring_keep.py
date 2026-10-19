@@ -10,7 +10,6 @@ stated the draft's AI points.
 import json
 
 import pytest
-from comeni_core import yaml_strict
 from comeni_core.plan.draft import DraftGraph
 from fastapi.testclient import TestClient
 from mendel_api.db import session_scope
@@ -22,7 +21,7 @@ from mendel_api_tests import session_setup as authoring_setup
 from mendel_api_tests.database import reachable, truncate
 from mendel_authoring import commands
 from mendel_authoring import state as st
-from mendel_resolver.goal import Goal
+from support.example import example_goal
 from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
@@ -52,7 +51,7 @@ def _complete(*, walk: bool = True) -> tuple[str, str]:
     session_id = facade.perform(commands.OpenSession(draft_id, "ana")).result
     authoring_setup.move(session_id, st.Event.WANT_RETURNED, row_version=1)
     authoring_setup.move(session_id, st.Event.NOTHING_MISSING, row_version=2)
-    goal = Goal.model_validate(yaml_strict.load(ROOT / "examples" / "rnaseq-goal.yml"))
+    goal = example_goal()
     authoring_setup.move(
         session_id, st.Event.GOAL_ACCEPTED, row_version=3, goal=goal.model_dump(mode="json")
     )
