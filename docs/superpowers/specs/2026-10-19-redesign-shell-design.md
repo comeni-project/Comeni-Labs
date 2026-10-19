@@ -1,6 +1,6 @@
 # Redesign 2 — the shell
 
-**Issue:** #372 (parent #370). **Status:** proposed, awaiting the operator's approval.
+**Issue:** #372 (parent #370). **Status:** approved 2026-10-19; implemented on `redesign-shell` (plan: `docs/superpowers/plans/2026-10-19-redesign-shell.md`).
 **Board:** *Home — what needs you, then your pipelines* on the redesign canvas (its header), and
 the header of every other board there.
 
