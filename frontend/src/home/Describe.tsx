@@ -51,7 +51,7 @@ export function Describe() {
           type="submit"
           disabled={!ready}
           className="px-[18px] py-[8px] border-0 cursor-pointer font-semibold text-[12.5px]
-                     bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                     bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40"
         >
           {begin.isPending ? "Starting…" : "Start"}
         </button>

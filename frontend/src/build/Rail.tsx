@@ -149,7 +149,7 @@ export function Assistant() {
             data-testid="ask-start"
             disabled={!ready}
             className="self-start px-3 py-1.5 border-0 cursor-pointer text-body font-semibold
-                       bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                       bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40"
           >
             {begin.isPending ? "Starting…" : "Start"}
           </button>

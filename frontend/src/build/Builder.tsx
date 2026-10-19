@@ -412,7 +412,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           disabled={runner.busy || builder.graph.nodes.length === 0}
           onClick={() => void runner.run()}
           className="px-[26px] py-[9px] border-0 cursor-pointer lift font-semibold
-                     text-[13.5px] bg-[var(--now)] text-paper
+                     text-[13.5px] bg-action text-on-action shadow-raise
                      disabled:cursor-not-allowed disabled:opacity-40"
         >
           {runner.stage === "keeping" ? "Keeping…"

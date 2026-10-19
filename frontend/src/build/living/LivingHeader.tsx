@@ -82,7 +82,7 @@ export function LivingHeader({
           disabled={!runnable || running || session.graph.nodes.length === 0 || session.phase !== "complete"}
           onClick={onRun}
           className="px-[26px] py-[9px] border-0 cursor-pointer font-semibold text-[13.5px]
-                     bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                     bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40"
         >
           {stage === "keeping" ? "Keeping…" : stage === "linting" ? "Checking…" : "Run"}
         </button>

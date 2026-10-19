@@ -110,7 +110,7 @@ export function First() {
           {live && (
             <button type="submit" data-testid="start-building" disabled={!ready}
                     className="px-[22px] py-[10px] border-0 cursor-pointer font-semibold text-[13.5px]
-                               bg-[var(--now)] text-paper disabled:cursor-not-allowed disabled:opacity-40">
+                               bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40">
               {begin.isPending ? "Starting…" : "Start building"}
             </button>
           )}

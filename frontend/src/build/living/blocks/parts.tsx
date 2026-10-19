@@ -89,7 +89,7 @@ export function Primary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
       type="button"
       {...props}
       className="text-[12.5px] font-semibold px-[15px] py-[7px] border-0 cursor-pointer
-                 bg-[var(--now)] text-paper disabled:opacity-40 disabled:cursor-not-allowed
+                 bg-action text-on-action shadow-raise disabled:opacity-40 disabled:cursor-not-allowed
                  focus-visible:shadow-[var(--ring)]"
     />
   );

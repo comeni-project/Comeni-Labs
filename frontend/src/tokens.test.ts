@@ -386,9 +386,18 @@ it("rounds corners with the three named radii only", () => {
 });
 
 it("raises every main button", () => {
-  const flat = sources().flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+  const flat = sources().filter(([path]) => !/\.test\.tsx?$/.test(path)).flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
     .filter((m) => /\bbg-action\b/.test(m[2]) && !/\bshadow-raise\b/.test(m[2]))
     .map(() => path.slice(SRC.length + 1)));
   expect(sources().some(([, text]) => /\bbg-action\b/.test(text))).toBe(true);
   expect(flat).toEqual([]);
+});
+
+it("draws a filled main button as the action, not as selected", () => {
+  // The old link-blue primaries were `bg-[var(--link)] text-paper`; renamed to `--now`, they
+  // painted a main button in the selected colour. A main button is `bg-action text-on-action`.
+  const blue = sources().filter(([path]) => !/\.test\.tsx?$/.test(path)).flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
+    .filter((m) => /\bbg-(?:now|\[var\(--now\)\])(?=[\s"`]|$)/.test(m[2]) && /\btext-(?:paper|surface)\b/.test(m[2]))
+    .map(() => path.slice(SRC.length + 1)));
+  expect(blue).toEqual([]);
 });
