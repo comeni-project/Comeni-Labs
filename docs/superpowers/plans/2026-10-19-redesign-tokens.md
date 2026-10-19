@@ -79,7 +79,7 @@ The rename map for call sites (`var(--x)`, `[var(--x)]`, and the utilities `text
 | `ink-4` | `ink-3` |
 | `text-pea`, `text-fault`, `text-undecided`, `text-running`, `text-link` on words (not a filled mark) | `text-done-ink`, `text-needs-you-ink`, `text-needs-you-ink`, `text-now-ink`, `text-now-ink` |
 
-- [ ] **Step 1: Write the failing tests** in `tokens.test.ts`, with the helpers above:
+- [x] **Step 1: Write the failing tests** in `tokens.test.ts`, with the helpers above:
 
 ```ts
 it("sets the same tokens in every theme", () => {
@@ -129,21 +129,21 @@ it("keeps retired colour names retired", () => {
 
 Also update *reaches the utilities it checks*: `text-ink-4` → `text-ink-3` and `text-now-ink`.
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `npx vitest run src/tokens.test.ts`
 Expected: the retired-name test lists ~60 files; *sets the same tokens* fails on the missing dark block; *contrast* fails reading undefined `--canvas`. Note the exact failures for the guard ledger (Task 6).
 
-- [ ] **Step 3: Rewrite the colour blocks of `tokens.css`** — `:root` light, `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {…} }` and `:root[data-theme="dark"] {…}` with the dark values, both dark blocks identical. Replace the Observatory header comment with a short one saying what the file is and pointing to `docs/explanation/visual-identity.md` (written in Task 6). Mirror every new token in `main.css`'s `@theme` as `--color-<name>: var(--<name>)`, removing the retired ones.
+- [x] **Step 3: Rewrite the colour blocks of `tokens.css`** — `:root` light, `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {…} }` and `:root[data-theme="dark"] {…}` with the dark values, both dark blocks identical. Replace the Observatory header comment with a short one saying what the file is and pointing to `docs/explanation/visual-identity.md` (written in Task 6). Mirror every new token in `main.css`'s `@theme` as `--color-<name>: var(--<name>)`, removing the retired ones.
 
-- [ ] **Step 4: Rename the call sites** by the map above, one token family per commit (`pea`, `undecided`/`fault`, `running`/`link`, `ink-4`), running `npx vitest run && npx tsc -b` after each. Where `pea` is ambiguous, the rule is the table's: a fill behind `on-pea` text is `action`.
+- [x] **Step 4: Rename the call sites** by the map above, one token family per commit (`pea`, `undecided`/`fault`, `running`/`link`, `ink-4`), running `npx vitest run && npx tsc -b` after each. Where `pea` is ambiguous, the rule is the table's: a fill behind `on-pea` text is `action`.
 
-- [ ] **Step 5: Run the full suite**
+- [x] **Step 5: Run the full suite**
 
 Run: `npx vitest run` then `npx tsc -b` then `npm run lint`
 Expected: all pass; component tests that asserted an old class name are updated to the new one, not deleted.
 
-- [ ] **Step 6: Commit** each family as it lands (`refactor(frontend): <family> becomes <meaning> (#371)`), the tokens and tests first.
+- [x] **Step 6: Commit** each family as it lands (`refactor(frontend): <family> becomes <meaning> (#371)`), the tokens and tests first.
 
 ### Task 2: Light-first
 
@@ -154,11 +154,11 @@ Expected: all pass; component tests that asserted an old class name are updated 
 **Interfaces:**
 - Consumes: nothing new. Produces: `painted(theme: Theme): "light" | "dark"` — unchanged signature.
 
-- [ ] **Step 1: Write the failing tests**: with `matchMedia` stubbed so `(prefers-color-scheme: dark)` matches, `painted("system")` is `"dark"`; with nothing matching (a browser that reports no preference), `painted("system")` is `"light"`; `painted("light")` and `painted("dark")` return themselves.
-- [ ] **Step 2: Run** `npx vitest run src/app/useTheme.test.tsx` — expected FAIL on the no-preference case (today it returns `"dark"`).
-- [ ] **Step 3: Implement**: `painted` queries `(prefers-color-scheme: dark)`; delete `forgetOldToggle` and its call.
-- [ ] **Step 4: Run** the file again — PASS; then `npx vitest run`.
-- [ ] **Step 5: Commit** `feat(frontend): light-first, dark when the system asks (#371)`.
+- [x] **Step 1: Write the failing tests**: with `matchMedia` stubbed so `(prefers-color-scheme: dark)` matches, `painted("system")` is `"dark"`; with nothing matching (a browser that reports no preference), `painted("system")` is `"light"`; `painted("light")` and `painted("dark")` return themselves.
+- [x] **Step 2: Run** `npx vitest run src/app/useTheme.test.tsx` — expected FAIL on the no-preference case (today it returns `"dark"`).
+- [x] **Step 3: Implement**: `painted` queries `(prefers-color-scheme: dark)`; delete `forgetOldToggle` and its call.
+- [x] **Step 4: Run** the file again — PASS; then `npx vitest run`.
+- [x] **Step 5: Commit** `feat(frontend): light-first, dark when the system asks (#371)`.
 
 ### Task 3: Type
 
@@ -171,7 +171,7 @@ Expected: all pass; component tests that asserted an old class name are updated 
 **Interfaces:**
 - Produces: `--font-ui` and `--font-display` = `"Lexend Variable", "Lexend", system-ui, sans-serif`; `--font-data` unchanged (Geist Mono). Type roles in `@theme`: `--text-hero: 32px`, `--text-title: 22px`, `--text-heading: 16px`, `--text-lede: 15px`, `--text-body: 14px`, `--text-secondary: 13px`, `--text-label: 12px`, `--text-brand: 17px`. `--text-object` is renamed `--text-heading` (6 call sites).
 
-- [ ] **Step 1: Update the failing tests.** In *sets every face…*: `--font-ui` and `--font-display` match `/Lexend/`, `--font-data` matches `/Geist Mono/`; `main.css` imports `@fontsource-variable/lexend` and `@fontsource-variable/geist-mono` and not `@fontsource-variable/geist"`. Add:
+- [x] **Step 1: Update the failing tests.** In *sets every face…*: `--font-ui` and `--font-display` match `/Lexend/`, `--font-data` matches `/Geist Mono/`; `main.css` imports `@fontsource-variable/lexend` and `@fontsource-variable/geist-mono` and not `@fontsource-variable/geist"`. Add:
 
 ```ts
 it("draws labels in the interface face, not shouted", () => {
@@ -192,10 +192,10 @@ it("sizes the type roles as the boards do", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `npx vitest run src/tokens.test.ts` — expected FAIL (Geist, 13 px body, 61 shouting labels).
-- [ ] **Step 3: Implement**: swap the packages and imports; set the font tokens and type roles; rename `text-object` → `text-heading`; in every className string that carries both `text-label` and `uppercase`, remove `uppercase`, its `tracking-[…]` and `font-data`, leaving `text-label text-ink-3` (or its existing colour). Leave `font-data` on any className without `uppercase` (Review Focus 5).
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint`, `npm run build` (the build proves the font import resolves) — all PASS.
-- [ ] **Step 5: Commit** `feat(frontend): Lexend for the interface, the boards' type sizes (#371)`.
+- [x] **Step 2: Run** `npx vitest run src/tokens.test.ts` — expected FAIL (Geist, 13 px body, 61 shouting labels).
+- [x] **Step 3: Implement**: swap the packages and imports; set the font tokens and type roles; rename `text-object` → `text-heading`; in every className string that carries both `text-label` and `uppercase`, remove `uppercase`, its `tracking-[…]` and `font-data`, leaving `text-label text-ink-3` (or its existing colour). Leave `font-data` on any className without `uppercase` (Review Focus 5).
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint`, `npm run build` (the build proves the font import resolves) — all PASS.
+- [x] **Step 5: Commit** `feat(frontend): Lexend for the interface, the boards' type sizes (#371)`.
 
 ### Task 4: Shape and the raised button
 
@@ -207,7 +207,7 @@ it("sizes the type roles as the boards do", () => {
 **Interfaces:**
 - Produces: `@theme` radii `--radius-control: 8px`, `--radius-button: 10px`, `--radius-panel: 14px` (utilities `rounded-control`, `rounded-button`, `rounded-panel`; chips use Tailwind's `rounded-full`); `--shadow-raise: 0 3px 0 var(--action-edge)` (utility `shadow-raise`).
 
-- [ ] **Step 1: Write the failing test**:
+- [x] **Step 1: Write the failing test**:
 
 ```ts
 it("rounds corners with the three named radii only", () => {
@@ -223,10 +223,10 @@ it("raises every main button", () => {
 });
 ```
 
-- [ ] **Step 2: Run** — expected FAIL listing the ~52 square call sites and the flat main buttons.
-- [ ] **Step 3: Implement**: fields, inputs, selects, small toggles → `rounded-control`; buttons → `rounded-button`; bordered panels and bands → `rounded-panel`; canvas nodes → `rounded-button`; the `var(--r)` uses in `main.css` take the radius of what they draw. Add `shadow-raise` beside every `bg-action`.
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint` — PASS.
-- [ ] **Step 5: Commit** `feat(frontend): rounder shapes and a raised main button (#371)`.
+- [x] **Step 2: Run** — expected FAIL listing the ~52 square call sites and the flat main buttons.
+- [x] **Step 3: Implement**: fields, inputs, selects, small toggles → `rounded-control`; buttons → `rounded-button`; bordered panels and bands → `rounded-panel`; canvas nodes → `rounded-button`; the `var(--r)` uses in `main.css` take the radius of what they draw. Add `shadow-raise` beside every `bg-action`.
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint` — PASS.
+- [x] **Step 5: Commit** `feat(frontend): rounder shapes and a raised main button (#371)`.
 
 ### Task 5: The arc field goes
 
@@ -235,7 +235,7 @@ it("raises every main button", () => {
 - Modify: `frontend/src/app/Shell.tsx:5,125`, `frontend/src/build/Canvas.tsx:3,74`, `frontend/src/main.css` (the `.field-*` rules and their comment block), `frontend/src/tokens.css` (`--panel`, `--scan-line`, `--rule-line`), the 7 `bg-panel` and 4 `var(--panel)` call sites (→ `bg-surface` with the border they already have, or `border border-line` where they had none)
 - Test: `frontend/src/tokens.test.ts`
 
-- [ ] **Step 1: Replace** *draws the ground the artboards sit on* with:
+- [x] **Step 1: Replace** *draws the ground the artboards sit on* with:
 
 ```ts
 it("paints a plain ground: no field, no translucent panels", () => {
@@ -248,10 +248,10 @@ it("paints a plain ground: no field, no translucent panels", () => {
 });
 ```
 
-- [ ] **Step 2: Run** — expected FAIL naming `Shell.tsx`, `Canvas.tsx`, `main.css`, `tokens.css` and the panel call sites.
-- [ ] **Step 3: Implement** the deletions and replacements above. `body` keeps `background: var(--paper)`.
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint` — PASS.
-- [ ] **Step 5: Commit** `refactor(frontend): the arc field goes; panels are opaque (#371)`.
+- [x] **Step 2: Run** — expected FAIL naming `Shell.tsx`, `Canvas.tsx`, `main.css`, `tokens.css` and the panel call sites.
+- [x] **Step 3: Implement** the deletions and replacements above. `body` keeps `background: var(--paper)`.
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint` — PASS.
+- [x] **Step 5: Commit** `refactor(frontend): the arc field goes; panels are opaque (#371)`.
 
 ### Task 6: The rules get a home, and the guards a ledger
 
@@ -260,14 +260,30 @@ it("paints a plain ground: no field, no translucent panels", () => {
 - Modify: `docs/explanation/index.md` (one line linking it), `frontend/src/tokens.css` and `frontend/src/main.css` header comments (point to it; no Observatory history)
 - Modify: `tests/fixtures/guard-ledger.md` (append rows)
 
-- [ ] **Step 1: Write `visual-identity.md`** following `docs/how-to/development/documentation.md`: why Labs shares Comeni Code's identity; the five meanings (settled spends none; measured amber; needs you red; selected/now blue; valid/done teal-green) with their token names; text wears `-ink`, never the mark colour, and status ships with an icon and words; light-first with the dark palette kept; Lexend and Geist Mono, bundled; the type roles and radii; where the values live (`frontend/src/tokens.css`) and which test guards them. Derive no counts into prose.
-- [ ] **Step 2: Link it** from `docs/explanation/index.md`, and replace the stale `docs/design/dashboard.md` references in `tokens.css` and `main.css` with it.
-- [ ] **Step 3: Run** `make docs`, `make links`, `make doc-paths` (from the repository root) — PASS.
-- [ ] **Step 4: Ledger.** For each new guard (Task 1's four, Task 3's two, Task 4's two, Task 5's one), break the code the smallest way (for example set `--ink-3` light to `#9AA0B4`; add `text-[var(--link)]` to one component; add `uppercase` back to one label), run it, record the failure message, revert, re-run green. Append one row per guard to `tests/fixtures/guard-ledger.md` under a `## Redesign 1, 2026-10-19` heading.
-- [ ] **Step 5: Commit** `docs: the visual identity gets one home; guard ledger rows (#371)`.
+- [x] **Step 1: Write `visual-identity.md`** following `docs/how-to/development/documentation.md`: why Labs shares Comeni Code's identity; the five meanings (settled spends none; measured amber; needs you red; selected/now blue; valid/done teal-green) with their token names; text wears `-ink`, never the mark colour, and status ships with an icon and words; light-first with the dark palette kept; Lexend and Geist Mono, bundled; the type roles and radii; where the values live (`frontend/src/tokens.css`) and which test guards them. Derive no counts into prose.
+- [x] **Step 2: Link it** from `docs/explanation/index.md`, and replace the stale `docs/design/dashboard.md` references in `tokens.css` and `main.css` with it.
+- [x] **Step 3: Run** `make docs`, `make links`, `make doc-paths` (from the repository root) — PASS.
+- [x] **Step 4: Ledger.** For each new guard (Task 1's four, Task 3's two, Task 4's two, Task 5's one), break the code the smallest way (for example set `--ink-3` light to `#9AA0B4`; add `text-[var(--link)]` to one component; add `uppercase` back to one label), run it, record the failure message, revert, re-run green. Append one row per guard to `tests/fixtures/guard-ledger.md` under a `## Redesign 1, 2026-10-19` heading.
+- [x] **Step 5: Commit** `docs: the visual identity gets one home; guard ledger rows (#371)`.
 
 ### Task 7: Look at it
 
-- [ ] **Step 1:** `make dev`, then in a browser at 1440×900 and 390×844, in light and in dark (Settings → Appearance): Home, the living builder canvas, a run page, and the Settings overlay. Compare palette, fonts and meanings against the *One meaning per colour* board on the redesign canvas. Layouts will differ (later parts); a wrong colour meaning, an unreadable text, a serif or an uppercase label is a defect.
-- [ ] **Step 2:** Fix any defect test-first in the task that owns it; a defect outside this part's scope becomes a GitHub issue.
-- [ ] **Step 3:** Tick this plan, record deviations under a *Deviations* heading here, and open the pull request for `redesign-tokens` against `main`.
+- [x] **Step 1:** `make dev`, then in a browser at 1440×900 and 390×844, in light and in dark (Settings → Appearance): Home, the living builder canvas, a run page, and the Settings overlay. Compare palette, fonts and meanings against the *One meaning per colour* board on the redesign canvas. Layouts will differ (later parts); a wrong colour meaning, an unreadable text, a serif or an uppercase label is a defect.
+- [x] **Step 2:** Fix any defect test-first in the task that owns it; a defect outside this part's scope becomes a GitHub issue.
+- [x] **Step 3:** Tick this plan, record deviations under a *Deviations* heading here, and open the pull request for `redesign-tokens` against `main`.
+
+## Deviations
+
+Recorded as rulings while executing; each says what it costs if wrong.
+
+- **Task 1 landed as one commit**, not one per token family: `tokens.css` stopped defining the old names first, so no per-family commit could be green.
+- **Theme-independent tokens** (faces, curve, ring, elevation) sit in a last `:root` block, so the ring check reads the file rather than the light palette.
+- **`home/Work.tsx`'s decision bar:** *settled* and *by a person* are neutral (`--line-2`, `--ink-3`) and *by a model* is amber, not `--done`/`--now`.
+- **`--now-line`** is a new token for the old link-blue borders.
+- **Labels:** the uppercase rule covers every string, not only those carrying `text-label`; 27 labels used hard-coded 8–11 px sizes and became `text-label`.
+- **`--text-hero` is a fixed 32 px**, as the spec pins (it was a clamp).
+- **Chart marks take Tailwind's `rounded-xs` (2 px)**, outside the three named radii, so a thin bar does not become a pill.
+- **The ghost living node** draws on `--surface-2` once `--panel` was gone.
+- **Found in the browser check:** six old link-blue primaries had become `--now` buttons; they are `--action`, and a guard refuses the pattern.
+- **Found in the final review and fixed:** words in plain mark colours failed 4.5:1 on the light ground (now `-ink`, with ink maps for run phases, gates and console marks, and running drawn `--now`); the forge's origin colours (a model's proposal amber, settled neutral); body text at 13 px; misclassified radii (fields, nodes, chips, side variants); two guards that could pass vacuously.
+- **Not changed here:** the runs board's stats overflow at 390 px (pre-existing layout, noted on #380); the builder header clipping at 390 px (#377); other `dashboard.md` citations about builder layout.

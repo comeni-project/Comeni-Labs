@@ -1,6 +1,6 @@
 # Redesign 1 — tokens and type
 
-**Issue:** #371 (parent #370). **Status:** proposed, awaiting the operator's approval.
+**Issue:** #371 (parent #370). **Status:** approved 2026-10-19; implemented on `redesign-tokens` (plan: `docs/superpowers/plans/2026-10-19-redesign-tokens.md`).
 **Boards:** the *Comeni Labs redesign* canvas (2026-10-19), above all *One meaning per colour*;
 the forge canvas uses the same identity.
 
