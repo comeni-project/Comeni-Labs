@@ -56,7 +56,7 @@ function Chip({ on, children, onClick }: { on: boolean; children: string; onClic
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`font-data text-label tracking-[.08em] uppercase px-3 py-1.5 border
+      className={` text-label px-3 py-1.5 border
                   rounded-[var(--r)] ${
                     on
                       ? "bg-surface-2 text-ink border-line-2"
@@ -90,7 +90,7 @@ function Action({ row }: { row: CatalogueRow }) {
     return (
       <Link
         to={`/forge/adaptations/${where.adaptation_id}`}
-        className="font-data text-label tracking-[.08em] uppercase no-underline text-now-ink
+        className="text-label no-underline text-now-ink
                    border border-line-2 rounded-[var(--r)] px-[11px] py-[5px] hover:bg-surface"
       >
         Open
@@ -102,7 +102,7 @@ function Action({ row }: { row: CatalogueRow }) {
       type="button"
       onClick={() => start.mutate(row.item.id)}
       disabled={start.isPending}
-      className="font-data text-label tracking-[.08em] uppercase border border-line-2
+      className="text-label border border-line-2
                  rounded-[var(--r)] px-[11px] py-[5px] bg-transparent text-ink
                  hover:bg-surface disabled:text-ink-3 disabled:cursor-not-allowed"
     >
@@ -134,7 +134,7 @@ function Inspector({ id, onClose }: { id: string; onClose: () => void }) {
       <button
         type="button"
         onClick={onClose}
-        className="font-data text-label tracking-[.08em] uppercase text-ink-3 hover:text-ink
+        className="text-label text-ink-3 hover:text-ink
                    bg-transparent border-0 px-0 pt-4 cursor-pointer"
       >
         Close
@@ -155,7 +155,7 @@ function Detail({
   return (
     <>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-object font-semibold">{item.display_name || item.ref}</span>
+        <span className="text-heading font-semibold">{item.display_name || item.ref}</span>
         <span className="font-data text-[10.5px] text-ink-3">{item.source}</span>
       </div>
       {item.summary && <p className="text-body text-ink-2 m-0 pt-[9px] pb-4">{item.summary}</p>}
@@ -236,7 +236,7 @@ function Detail({
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="pb-4">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-2">
+      <div className="text-label text-ink-3 pb-2">
         {label}
       </div>
       {children}
@@ -357,7 +357,7 @@ export function Catalogue() {
                           (head, i) => (
                             <th
                               key={head || i}
-                              className="font-data text-[9.5px] tracking-[.15em] uppercase
+                              className="text-label
                                          text-ink-3 text-left font-normal pb-[9px]
                                          border-b border-line"
                             >

@@ -243,7 +243,7 @@ export function Run() {
               looser padding, which made a status chip the size of a button. */}
           <span
             data-testid="run-phase"
-            className="font-data text-[9.5px] leading-none uppercase tracking-[.1em] px-2 py-[3px]"
+            className="text-label leading-none px-2 py-[3px]"
             style={{ color: colourOf[phase],
                      background: `color-mix(in srgb, ${colourOf[phase]} 12%, transparent)`,
                      border: `1px solid color-mix(in srgb, ${colourOf[phase]} 27%, transparent)` }}
@@ -348,7 +348,7 @@ export function Run() {
                             rounded-[var(--r)] shadow-e2 overflow-hidden">
           <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                           border-b border-line-soft">
-            <span className="text-label uppercase tracking-[.08em] text-ink-3">console</span>
+            <span className="text-label text-ink-3">console</span>
             <button type="button" data-testid="close-console" onClick={() => setView("overview")}
                     className="bg-transparent border-0 cursor-pointer text-label text-ink-3
                                hover:text-ink px-1">
@@ -386,7 +386,7 @@ export function Run() {
                               rounded-[var(--r)] shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
-              <span className="text-label uppercase tracking-[.08em] text-ink-3">processes</span>
+              <span className="text-label text-ink-3">processes</span>
               <span className="ml-auto flex items-center gap-1">
                 {(["table", "graph"] as const).map((name) => (
                   <button
@@ -396,7 +396,7 @@ export function Run() {
                     aria-pressed={board === name}
                     onClick={() => setBoard(name)}
                     className={`bg-transparent border cursor-pointer px-2.5 py-1
-                                text-label uppercase tracking-[.08em]
+                                text-label
                                 ${board === name
                                   ? "text-ink border-line bg-surface"
                                   : "text-ink-3 border-transparent hover:text-ink"}`}
@@ -433,11 +433,11 @@ export function Run() {
                               rounded-[var(--r)] shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
-              <span className="text-label uppercase tracking-[.08em] text-ink-3">tasks</span>
+              <span className="text-label text-ink-3">tasks</span>
               <button type="button" data-testid="open-console"
                       onClick={() => setView("console")}
                       className="ml-auto bg-transparent border border-line cursor-pointer
-                                 px-2.5 py-1 text-label uppercase tracking-[.08em] text-ink-3
+                                 px-2.5 py-1 text-label text-ink-3
                                  hover:text-ink"
                       style={{ transition: `color var(--t)` }}>
                 console

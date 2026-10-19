@@ -289,7 +289,7 @@ export function LivingSurface({
                           data-testid={`artifact-tab-${tab}`}
                           disabled={tab === "kept" && !run?.kept}
                           onClick={() => setArtifactTab(tab)}
-                          className={`font-data text-[10px] uppercase tracking-[.1em] px-3 py-[5px] border cursor-pointer
+                          className={`text-label px-3 py-[5px] border cursor-pointer
                                       disabled:opacity-40 disabled:cursor-not-allowed
                                       ${artifactTab === tab ? "text-now-ink" : "text-ink-3 bg-transparent"}`}
                           style={{ borderColor: artifactTab === tab ? "var(--now-line)" : "var(--line)" }}>

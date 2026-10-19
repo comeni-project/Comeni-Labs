@@ -45,7 +45,7 @@ export function Cancel({ runId }: { runId: string }) {
         type="button"
         data-testid="cancel-run"
         onClick={() => setAsking(true)}
-        className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+        className="text-label px-[15px] py-2
                    bg-transparent border border-line text-ink-3 cursor-pointer hover:text-ink"
         style={{ transition: `color var(--t)` }}
       >
@@ -71,7 +71,7 @@ export function Cancel({ runId }: { runId: string }) {
         data-testid="cancel-confirm-yes"
         disabled={send.isPending}
         onClick={() => send.mutate(why)}
-        className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+        className="text-label px-[15px] py-2
                    bg-transparent border cursor-pointer"
         style={{ color: "var(--needs-you)", borderColor: "var(--needs-you)" }}
       >

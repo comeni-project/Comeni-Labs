@@ -24,11 +24,11 @@ export function Block({
       return (
         <BlockFrame label="the goal as understood" title="Your goal" actions={actions}>
           <dl className="m-0 grid grid-cols-[48px_1fr] gap-x-3 gap-y-[6px] text-[12.5px] leading-[1.55]">
-            <dt className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[3px]">have</dt>
+            <dt className="text-label text-ink-3 pt-[3px]">have</dt>
             <dd className="m-0 text-ink">{block.have}</dd>
-            <dt className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[3px]">do</dt>
+            <dt className="text-label text-ink-3 pt-[3px]">do</dt>
             <dd className="m-0 text-ink">{block.do}</dd>
-            <dt className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[3px]">get</dt>
+            <dt className="text-label text-ink-3 pt-[3px]">get</dt>
             <dd className="m-0 text-ink">{block.get}</dd>
           </dl>
         </BlockFrame>

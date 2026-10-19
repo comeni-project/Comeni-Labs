@@ -12,7 +12,7 @@ type DriftReport = components["schemas"]["DriftReport"];
 type FieldCheck = components["schemas"]["FieldCheck"];
 type Unchecked = components["schemas"]["Unchecked"];
 
-const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+const label = "text-label font-semibold text-ink-3";
 
 /** The verdict block — the highest-value element on the maintenance half.
  *

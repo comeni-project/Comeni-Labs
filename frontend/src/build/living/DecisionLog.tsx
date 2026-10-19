@@ -196,7 +196,7 @@ export function DecisionLog({
           <Turn tick="person">
             <section aria-label="what your sample measured" className="border"
               style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}>
-              <header className="px-3 py-[9px] font-data text-[9.5px] tracking-[.15em] uppercase
+              <header className="px-3 py-[9px] text-label
                                  text-ink-3" style={{ borderBottom: "1px solid var(--line)" }}>
                 Measured from your sample
               </header>

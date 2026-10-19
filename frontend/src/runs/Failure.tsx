@@ -81,7 +81,7 @@ export function Failure({ failed }: { failed: Failed }) {
         {/* **Said out loud, and set opposite the headline** — because it is the difference
             between this and a chat window. Every field beside it is a value the record holds;
             nothing here is inferred. */}
-        <p className="ml-auto m-0 text-label uppercase tracking-[.08em] text-ink-3
+        <p className="ml-auto m-0 text-label text-ink-3
                       whitespace-nowrap">
           from the record · nothing interpreted
         </p>
@@ -161,7 +161,7 @@ export function Failure({ failed }: { failed: Failed }) {
           </pre>
           {/* §18.1: nothing EXPLAINS a failure until W3. Saying so is a boundary; leaving it
               unsaid would let the banner read as an explanation that came up short. */}
-          <p className="m-0 text-label uppercase tracking-[.08em] text-ink-3">
+          <p className="m-0 text-label text-ink-3">
             Nextflow&rsquo;s own errorReport · shown, not explained — W3 explains
           </p>
         </>

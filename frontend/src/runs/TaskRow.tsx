@@ -57,7 +57,7 @@ export function TaskHeader({ showProcess }: { showProcess: boolean }) {
     <div className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} gap-4
                      ${showProcess ? `${PAD_TAB} py-2 border-b border-line-2`
                                    : `${PAD} py-[7px] border-y border-line`}
-                     font-ui text-label uppercase tracking-[.08em] font-semibold text-ink-3`}>
+                     font-ui text-label font-semibold text-ink-3`}>
       {showProcess && <span>process</span>}
       <span>tag</span><span>attempt</span><span>exit</span>
       <span>memory</span><span>cpu</span><span>realtime</span><span />

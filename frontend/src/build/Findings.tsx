@@ -71,7 +71,7 @@ export function Findings({
             >
               <span className="flex items-baseline gap-2">
                 <span
-                  className="text-label uppercase tracking-[.1em] font-semibold"
+                  className="text-label font-semibold"
                   style={{ color: words.colour }}
                 >
                   {words.label}

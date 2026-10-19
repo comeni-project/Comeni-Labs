@@ -6,8 +6,8 @@ import type { components as wiener } from "../wiener/api/schema";
 type Call = components["schemas"]["Call"];
 type RunRow = wiener["schemas"]["RunRow"];
 
-/** The artboards' `.lb` — monospaced, 9.5px, `.15em`. It shipped in the UI face at .14em. */
-const EYEBROW = "font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0";
+/** A band's eyebrow: a label in the interface face, `--ink-3`. */
+const EYEBROW = "text-label text-ink-3 m-0";
 
 /** What is happening right now, and what is stopped until somebody decides.
  *

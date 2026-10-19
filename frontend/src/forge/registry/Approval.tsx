@@ -88,7 +88,7 @@ export function RequestChanges({
 
   return (
     <Modal title="Request changes" onClose={onClose}>
-      <h2 className="text-object font-semibold m-0">Request changes</h2>
+      <h2 className="text-heading font-semibold m-0">Request changes</h2>
       <p className="text-body text-ink-2 m-0 pt-[7px] pb-[18px]">
         This is not rejection. The candidate is kept and another attempt is queued against the
         same scaffold.
@@ -96,7 +96,7 @@ export function RequestChanges({
 
       <label
         htmlFor="what-should-change"
-        className="font-data text-label tracking-[.15em] uppercase text-ink-3 block pb-2"
+        className="text-label text-ink-3 block pb-2"
       >
         What should change — required
       </label>
@@ -114,7 +114,7 @@ export function RequestChanges({
           endpoint takes one field and inventing a second would be inventing a schema the
           server does not have — the references are for the next reader, and prose carries
           them honestly. */}
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pt-4 pb-2">
+      <div className="text-label text-ink-3 pt-4 pb-2">
         Point at a field or file — optional
       </div>
       <div className="flex gap-2 flex-wrap items-center">
@@ -211,13 +211,13 @@ export function Approve({
 
   return (
     <Modal title="Approve and publish" onClose={onClose}>
-      <h2 className="text-object font-semibold m-0">Approve and publish</h2>
+      <h2 className="text-heading font-semibold m-0">Approve and publish</h2>
       <p className="text-body text-ink-2 m-0 pt-[7px] pb-[18px]">
         Publication is the door with no undo. What is written is the contract below and the
         vocabulary it needs — nothing else.
       </p>
 
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-2">
+      <div className="text-label text-ink-3 pb-2">
         What gets written
       </div>
       <ul className="m-0 pl-0 list-none flex flex-col gap-1.5 pb-4">
@@ -235,14 +235,14 @@ export function Approve({
         )}
       </ul>
 
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-2">
+      <div className="text-label text-ink-3 pb-2">
         Approving as
       </div>
       <p className="font-data text-[11px] text-ink-2 m-0 pb-4">{who}</p>
 
       <label
         htmlFor="publication-reason"
-        className="font-data text-label tracking-[.15em] uppercase text-ink-3 block pb-2"
+        className="text-label text-ink-3 block pb-2"
       >
         Why this is right — required
       </label>
@@ -307,7 +307,7 @@ export function WhyBlocked({ approval }: { approval: ApprovalState | undefined }
   if (!approval || approval.can_approve) return null;
   return (
     <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-2.5">
+      <div className="text-label text-ink-3 pb-2.5">
         Why approve is unavailable
       </div>
       <div className="flex flex-col gap-2.5">

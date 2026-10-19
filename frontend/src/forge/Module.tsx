@@ -9,7 +9,7 @@ import { Failed, Loading } from "../ui/States";
 type ModulePage = components["schemas"]["ModulePage"];
 type Port = components["schemas"]["Port"];
 
-const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+const label = "text-label font-semibold text-ink-3";
 
 function Ports({ title, ports }: { title: string; ports: Port[] }) {
   if (ports.length === 0) return null;

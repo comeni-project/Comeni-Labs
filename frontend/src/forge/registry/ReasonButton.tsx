@@ -62,7 +62,7 @@ export function ReasonButton({
         type="button"
         disabled={!reason.trim() || busy}
         onClick={() => onSend(reason.trim())}
-        className="font-data text-label tracking-[.08em] uppercase border border-done text-done-ink
+        className="text-label border border-done text-done-ink
                    rounded-[var(--r)] px-[11px] py-[6px] bg-transparent hover:bg-done-soft
                    disabled:border-line disabled:text-ink-3 disabled:cursor-not-allowed"
       >
@@ -71,7 +71,7 @@ export function ReasonButton({
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="font-data text-label tracking-[.08em] uppercase text-ink-3 hover:text-ink
+        className="text-label text-ink-3 hover:text-ink
                    bg-transparent border-0 cursor-pointer"
       >
         Cancel

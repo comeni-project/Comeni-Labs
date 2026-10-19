@@ -110,7 +110,7 @@ export function StepProposalCard({
       {(showGapDetails ? (block.gaps ?? []).length : unresolved.length) > 0 && (
         <div data-testid="step-gaps" className="mb-3 px-[10px] py-2 border"
              style={{ borderColor: "var(--line-2)" }}>
-          <p className="m-0 mb-1 font-data text-[10px] tracking-[.12em] uppercase text-ink-2">
+          <p className="m-0 mb-1 text-label text-ink-2">
             Registry information is incomplete
           </p>
           {showGapDetails ? (
@@ -219,7 +219,7 @@ export function StepProposalCard({
       )}
       {fact && !values && (
         <label className="block mb-2 text-[12px] text-ink-2">
-          <span className="block mb-1 font-data text-[10px] tracking-[.08em] uppercase text-ink-3">
+          <span className="block mb-1 text-label text-ink-3">
             {fact}
           </span>
           <input aria-label={fact} value={told} onChange={(e) => setTold(e.target.value)}
@@ -272,7 +272,7 @@ function Brief({ brief }: { brief: StepBrief }) {
         .filter(([, lines]) => lines.length > 0)
         .map(([label, lines]) => (
           <div key={label} className="contents">
-            <dt className="font-data text-[10px] tracking-[.08em] uppercase text-ink-3 pt-[2px]">
+            <dt className="text-label text-ink-3 pt-[2px]">
               {label}
             </dt>
             <dd className="m-0 text-[12.5px] leading-[1.5] text-ink-2">

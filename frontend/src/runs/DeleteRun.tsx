@@ -32,7 +32,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
   if (!asking) {
     return (
       <button type="button" data-testid="delete-run" onClick={() => setAsking(true)}
-              className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+              className="text-label px-[15px] py-2
                          bg-transparent border border-line text-ink-3 cursor-pointer hover:text-ink">
         delete
       </button>
@@ -49,7 +49,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
       </span>
       <button type="button" data-testid="delete-run-yes" disabled={send.isPending}
               onClick={() => send.mutate()}
-              className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+              className="text-label px-[15px] py-2
                          bg-transparent border cursor-pointer"
               style={{ color: "var(--needs-you)", borderColor: "var(--needs-you)" }}>
         {send.isPending ? "deleting…" : "delete this run"}

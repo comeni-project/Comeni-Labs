@@ -108,7 +108,7 @@ export function RunSheet({
         </div>
 
         <div className="px-6 pt-5 pb-1.5">
-          <div className="text-label font-data uppercase tracking-[.15em] text-ink-3 pb-3.5">
+          <div className="text-label text-ink-3 pb-3.5">
             Inputs · {sources.length}
           </div>
 
@@ -128,7 +128,7 @@ export function RunSheet({
           ))}
 
           <div className="settle pb-[22px]" style={{ animationDelay: "80ms" }}>
-            <div className="text-label font-data uppercase tracking-[.15em] text-ink-3 pb-[9px]">
+            <div className="text-label text-ink-3 pb-[9px]">
               Results go to
             </div>
             <Slot what="choose where the results are written" />
@@ -153,7 +153,7 @@ export function RunSheet({
             style={{ animationDelay: "120ms" }}
           >
             <div
-              className="text-label font-data uppercase tracking-[.15em] text-[var(--needs-you)]
+              className="text-label text-[var(--needs-you)]
                          pb-3.5"
             >
               {open.length} value{open.length === 1 ? " has" : "s have"} no rule

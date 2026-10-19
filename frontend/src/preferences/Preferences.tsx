@@ -86,7 +86,7 @@ export function Preferences({
           return (
             <div key={group} className="contents md:block">
               <div
-                className="hidden md:block font-data text-label uppercase tracking-[.14em]
+                className="hidden md:block text-label
                            text-ink-3 px-[12px] pt-[14px] pb-[6px]"
               >
                 {group}

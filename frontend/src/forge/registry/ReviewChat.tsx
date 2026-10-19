@@ -60,7 +60,7 @@ export function ReviewChat({
   return (
     <aside className="border border-line bg-surface rounded-[var(--r)] flex flex-col">
       <div className="px-4 pt-3.5">
-        <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-1">
+        <div className="text-label text-ink-3 pb-1">
           Ask about this revision
         </div>
       </div>
@@ -76,7 +76,7 @@ export function ReviewChat({
         {turns?.map((turn) => (
           <div key={turn.id} className="py-[11px] border-b border-line-soft">
             <div
-              className={`font-data text-[9.5px] tracking-[.14em] uppercase pb-[5px] ${
+              className={`text-label pb-[5px] ${
                 turn.role === "curator" ? "text-ink-3" : "text-now-ink"
               }`}
             >

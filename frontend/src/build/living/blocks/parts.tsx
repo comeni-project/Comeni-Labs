@@ -67,7 +67,7 @@ export function BlockFrame({
         className="flex items-baseline justify-between gap-[10px] px-3 py-[9px]"
         style={{ borderBottom: "1px solid var(--line)" }}
       >
-        <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">{title}</span>
+        <span className="text-label text-ink-3">{title}</span>
         {aside && <span className="font-data text-[9.5px] text-ink-3">{aside}</span>}
       </header>
       <div className="px-3 py-[11px]">{children}</div>

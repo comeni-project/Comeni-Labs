@@ -6,7 +6,7 @@ import { Refusal } from "../ui/Refusal";
 
 type Proposal = components["schemas"]["Proposal"];
 
-const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+const label = "text-label font-semibold text-ink-3";
 const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-r bg-surface";
 
 /** Approve, rename or reject — design §3's *"a proposal is an item in the queue"*, decided

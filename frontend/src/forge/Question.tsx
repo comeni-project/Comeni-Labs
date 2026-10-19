@@ -114,7 +114,7 @@ export function Question() {
       )}
 
       <fieldset className="mt-6 border-0 p-0">
-        <legend className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
+        <legend className="text-label font-semibold text-ink-3">
           {q.closed ? "One of these" : "Anything, these are precedents"}
         </legend>
         {q.candidates.map((c) => (
@@ -133,7 +133,7 @@ export function Question() {
               // Who answered is what a reviewer needs: a model suggestion and a human answer
               // oblige different amounts of trust — design §5.
               <span
-                className="text-label uppercase tracking-[.13em] font-semibold text-ink-3
+                className="text-label font-semibold text-ink-3
                            border border-line-2 rounded-r px-2"
               >
                 MODEL
@@ -146,7 +146,7 @@ export function Question() {
       <Evidence excerpts={q.evidence} />
 
       <label className="block mt-6">
-        <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
+        <span className="text-label font-semibold text-ink-3">
           Reason
         </span>
         <textarea

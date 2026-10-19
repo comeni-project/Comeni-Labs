@@ -140,7 +140,7 @@ export function SourceNode({
         borderLeft: "3px solid var(--now)",
       }}
     >
-      <span className="font-data text-[8px] tracking-[.15em] uppercase text-now-ink">input</span>
+      <span className="text-label text-now-ink">input</span>
       <span className="font-data text-[11px] text-ink">{name}</span>
       <span className="font-data text-[8.5px] text-ink-3 truncate">
         {typeId}

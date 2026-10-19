@@ -99,7 +99,7 @@ function Track({ row }: { row: AdaptationRow }) {
 function Activity({ events }: { events: readonly Event[] }) {
   return (
     <>
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[11px]">
+      <div className="text-label text-ink-3 pb-[11px]">
         Activity
       </div>
       <div className="border border-line bg-surface rounded-[var(--r)] px-3.5 pt-1.5 pb-2.5">
@@ -144,7 +144,7 @@ function Scaffold({
 }) {
   return (
     <div className="border border-line bg-surface rounded-[var(--r)] px-5 py-[18px] mt-[18px]">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-3">
+      <div className="text-label text-ink-3 pb-3">
         Deterministic scaffold
       </div>
       <div className="flex gap-[34px] pb-4">
@@ -222,7 +222,7 @@ function Inspector({
         <button
           type="button"
           onClick={onClose}
-          className="font-data text-label tracking-[.08em] uppercase text-ink-3 hover:text-ink
+          className="text-label text-ink-3 hover:text-ink
                      bg-transparent border-0 cursor-pointer"
         >
           Close
@@ -404,7 +404,7 @@ export function Adaptation() {
                     type="button"
                     aria-current={tab === name}
                     onClick={() => setTab(name)}
-                    className={`font-data text-label tracking-[.08em] uppercase px-[13px] py-1.5
+                    className={` text-label px-[13px] py-1.5
                                 border-0 ${
                                   tab === name
                                     ? "bg-surface text-ink"
@@ -443,7 +443,7 @@ export function Adaptation() {
                 {candidate.data && !reviewing && (
                   <>
                     <div className="border border-now bg-surface rounded-[var(--r)] px-5 py-[18px]">
-                      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-2.5">
+                      <div className="text-label text-ink-3 pb-2.5">
                         Current stage
                       </div>
                       <div className="text-[15px] font-medium">{LOOK[row.state].label}</div>

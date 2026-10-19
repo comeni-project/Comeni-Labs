@@ -9,7 +9,7 @@
    preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress
    would have got the fallback stack while the hosted instance got the design. Vite bundles
    these, so both installs render the same page. */
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/lexend";
 @import "@fontsource-variable/geist-mono";
 @import "./tokens.css";
 
@@ -54,15 +54,15 @@
   /* Clamped rather than two sizes: a hero that is one role at every width stays one role.
      44px is the desktop figure; 30px is where the six-word headline stops wrapping to
      four lines on a 375px screen. */
-  --text-hero: clamp(30px, 6vw, 44px);
-  --text-lede: 16px;
+  --text-hero: 32px;
+  --text-lede: 15px;
 
-  --text-title: 26px;
-  --text-brand: 21px;
-  --text-object: 15px;
-  --text-body: 13px;
-  --text-secondary: 11.5px;
-  --text-label: 10px;
+  --text-title: 22px;
+  --text-brand: 17px;
+  --text-heading: 16px;
+  --text-body: 14px;
+  --text-secondary: 13px;
+  --text-label: 12px;
 
   --spacing-1: 2px;
   --spacing-2: 4px;

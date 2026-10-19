@@ -140,7 +140,7 @@ export function First() {
         {live && (
           <div className="settle w-[min(660px,100%)] flex gap-[9px] items-baseline pt-[14px]"
                style={{ animationDelay: "300ms", borderTop: "1px solid var(--line)" }}>
-            <span className="font-data text-[9.5px] tracking-[.12em] uppercase text-ink-3">Sends</span>
+            <span className="text-label text-ink-3">Sends</span>
             <span className="text-[11.5px] leading-[1.5] text-ink-3">
               Your sentence, and nothing else. No filenames, no sample names, no paths — those belong
               to the run, not the pipeline.

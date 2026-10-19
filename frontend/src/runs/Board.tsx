@@ -42,7 +42,7 @@ function Tile({ label, figure, colour, note, bar }: {
   return (
     <div className="bg-surface border border-line rounded-[var(--r)] shadow-e2
                     px-[15px] pt-[13px] pb-3.5 flex flex-col">
-      <span className="text-label uppercase tracking-[.08em] text-ink-3">{label}</span>
+      <span className="text-label text-ink-3">{label}</span>
       <span className="font-data mt-[7px] leading-[1.15] tracking-[-.02em]"
             style={{ fontSize: "30px", color: colour ?? "var(--ink)" }}>
         {figure}
@@ -73,7 +73,7 @@ function Activity({ days }: { days: Summary["days"] }) {
     <div className="bg-surface border border-line rounded-[var(--r)] shadow-e2
                     px-[15px] pt-[13px] pb-[11px] flex flex-col">
       <div className="flex items-baseline gap-3">
-        <span className="text-label uppercase tracking-[.08em] text-ink-3">runs per day</span>
+        <span className="text-label text-ink-3">runs per day</span>
         <span className="ml-auto flex items-center gap-3.5">
           <Swatch colour="var(--done)" label="succeeded" />
           <Swatch colour="var(--needs-you)" label="failed" />
@@ -122,7 +122,7 @@ function Activity({ days }: { days: Summary["days"] }) {
 
 function Swatch({ colour, label }: { colour: string; label: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-label uppercase tracking-[.08em] text-ink-3">
+    <span className="flex items-center gap-1.5 text-label text-ink-3">
       <span aria-hidden className="inline-block w-2 h-2 rounded-[2px]"
             style={{ background: colour }} />
       {label}
@@ -373,7 +373,7 @@ export function Board() {
         <div style={COLUMNS}
              className="shrink-0 grid pl-6 pr-[18px] py-2
                         border-b border-line bg-surface-2 shadow-e1
-                        font-ui text-label uppercase tracking-[.08em] font-semibold text-ink-3">
+                        font-ui text-label font-semibold text-ink-3">
           <span>run</span><span>executor</span><span>phase</span>
           <span>tasks</span><span>elapsed</span><span>submitted</span>
         </div>

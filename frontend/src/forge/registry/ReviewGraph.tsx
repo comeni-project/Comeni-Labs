@@ -73,7 +73,7 @@ export function ReviewGraph({
 }) {
   return (
     <>
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+      <div className="text-label text-ink-3 pb-[13px]">
         Input / output
       </div>
       <div className="border border-line bg-surface rounded-[var(--r)] px-5 py-[22px]">

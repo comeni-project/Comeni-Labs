@@ -51,7 +51,7 @@ function Figure({
 }) {
   const body = (
     <>
-      <b className="font-data text-object text-ink tabular-nums">{n}</b>{" "}
+      <b className="font-data text-heading text-ink tabular-nums">{n}</b>{" "}
       <span className="text-secondary text-ink-2">{of}</span>
     </>
   );

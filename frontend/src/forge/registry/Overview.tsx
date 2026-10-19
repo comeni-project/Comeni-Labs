@@ -79,7 +79,7 @@ function Source({ row }: { row: SourceRow }) {
                  px-5 py-[18px]"
     >
       <div className="flex items-baseline justify-between pb-3">
-        <span className="font-data text-[10.5px] tracking-[.15em] uppercase text-ink-2">
+        <span className="text-label text-ink-2">
           {row.source}
         </span>
         {row.snapshot_stale ? (
@@ -179,7 +179,7 @@ function Flow({ data }: { data: Counts }) {
 
   return (
     <div className="pt-[30px]">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+      <div className="text-label text-ink-3 pb-[13px]">
         The flow
       </div>
       {/* Scrolls inside itself rather than crushing its labels — `main.css`'s table rule, which
@@ -207,7 +207,7 @@ function Flow({ data }: { data: Counts }) {
                               stage.ai ? "border-now" : "border-line"
                             }`}
               >
-                <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-1.5">
+                <div className="text-label text-ink-3 pb-1.5">
                   {stage.label}
                 </div>
                 <div className="text-[18px] font-semibold tracking-[-.02em] tnum">
@@ -343,7 +343,7 @@ export function Overview() {
 
             <div className="grid gap-5 pt-[30px] grid-cols-1 min-[1180px]:grid-cols-2">
               <div>
-                <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+                <div className="text-label text-ink-3 pb-[13px]">
                   Needs you
                 </div>
                 <Needs
@@ -374,7 +374,7 @@ export function Overview() {
               </div>
 
               <div>
-                <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[13px]">
+                <div className="text-label text-ink-3 pb-[13px]">
                   Source health
                 </div>
                 <Health data={data} />

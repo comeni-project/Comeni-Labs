@@ -87,7 +87,7 @@ export function Swap({ step, graph, onApply, onClose }: {
   return (
     <div data-testid="swap" className="p-3 flex flex-col gap-3">
       <div className="flex items-baseline gap-2">
-        <span className="text-label uppercase tracking-[.13em] text-ink-3">Swap</span>
+        <span className="text-label text-ink-3">Swap</span>
         <span className="font-data text-secondary text-ink">{step.process}</span>
         <button
           type="button"
@@ -127,7 +127,7 @@ export function Swap({ step, graph, onApply, onClose }: {
 
       {chosen && (
         <div data-testid="consequences" className="border-t border-line pt-3">
-          <p className="text-label uppercase tracking-[.13em] text-ink-3 m-0 mb-2">
+          <p className="text-label text-ink-3 m-0 mb-2">
             What changes
           </p>
           {would.isFetching && <Loading what="what would change" />}

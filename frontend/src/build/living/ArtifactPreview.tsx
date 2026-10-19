@@ -62,7 +62,7 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
 
   return (
     <div>
-      <p className="m-0 mb-3 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3" data-testid="preview-label">
+      <p className="m-0 mb-3 text-label text-ink-3" data-testid="preview-label">
         Preview · revision {preview.revision} · not kept
       </p>
       {preview.findings.length > 0 && (

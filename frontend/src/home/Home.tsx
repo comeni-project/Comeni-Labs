@@ -126,7 +126,7 @@ export function Home() {
             the space has to do the separating on its own. */}
         <section className={band ? "mt-6" : "mt-[34px]"}>
           <div className="flex items-center gap-5 flex-wrap">
-            <p className="font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0">
+            <p className="text-label text-ink-3 m-0">
               Work
             </p>
             {/* **A segmented control in a hairline box, and the live half is TINTED rather than
@@ -140,7 +140,7 @@ export function Home() {
                   type="button"
                   onClick={() => setView(which)}
                   aria-pressed={view === which}
-                  className={`font-data text-[10px] uppercase tracking-[.08em] px-[13px] py-1.5
+                  className={`text-label px-[13px] py-1.5
                               border-0 cursor-pointer transition-colors
                               ${view === which
                                 ? "bg-[var(--now-soft)] text-[var(--now)]"

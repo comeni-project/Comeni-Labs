@@ -53,7 +53,7 @@ export function Samplesheet({ columns, rows, onChange }: {
               {headers.map((column) => (
                 <th
                   key={column}
-                  className="text-left font-data text-label uppercase tracking-[.13em]
+                  className="text-left text-label
                              text-ink-3 pb-1 pr-3 font-normal"
                 >
                   {column}

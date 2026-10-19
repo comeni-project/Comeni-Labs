@@ -326,7 +326,7 @@ export function Graph({ runId, onOpenConsole }: {
         <Swatch colour="var(--done)" label="done" />
         <Swatch colour="var(--measured)" label="running" />
         <Swatch colour="var(--needs-you)" label="failed" />
-        <span className="ml-2 uppercase tracking-[.08em]">
+        <span className="ml-2">
           dag-core&rsquo;s layout &middot; the same arithmetic the builder draws
         </span>
       </span>

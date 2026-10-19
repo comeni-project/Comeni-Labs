@@ -115,14 +115,14 @@ export function Browse({ accepts, onAdd, onClose }: {
             value={query}
             placeholder="search"
             onChange={(e) => setQuery(e.target.value)}
-            className="grow bg-transparent border-0 outline-none text-object text-ink
+            className="grow bg-transparent border-0 outline-none text-heading text-ink
                        placeholder:text-ink-3"
           />
           <span className="text-secondary text-ink-3 shrink-0">esc to close</span>
         </div>
 
         <div className="flex items-center gap-2 px-5 py-2 border-b border-line flex-wrap">
-          <span className="text-label uppercase tracking-[.13em] text-ink-3">Filter</span>
+          <span className="text-label text-ink-3">Filter</span>
           {accepts && (
             <button
               type="button"
@@ -153,7 +153,7 @@ export function Browse({ accepts, onAdd, onClose }: {
 
           {byRole.map(([role, ms]) => (
             <div key={role} className="mb-6">
-              <p className="text-label uppercase tracking-[.13em] text-ink-3 m-0 mb-2">
+              <p className="text-label text-ink-3 m-0 mb-2">
                 {role.replace(/_/g, " ")} · {ms.length}
               </p>
               <div className="band">
@@ -176,7 +176,7 @@ export function Browse({ accepts, onAdd, onClose }: {
                       <span className="flex items-baseline gap-2">
                         <span className="font-data text-body text-ink">{m.process}</span>
                         {!able && (
-                          <span className="ml-auto text-label uppercase tracking-[.1em]
+                          <span className="ml-auto text-label
                                            text-[var(--measured)]">
                             won't fit here
                           </span>

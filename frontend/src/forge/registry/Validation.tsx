@@ -26,7 +26,7 @@ export function Validation({ revision }: { revision: Revision | undefined }) {
 
   return (
     <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-[9px]">
+      <div className="text-label text-ink-3 pb-[9px]">
         Validation
       </div>
 
@@ -91,7 +91,7 @@ export function Provenance({ origins }: { origins: Origins }) {
 
   return (
     <div className="border border-line bg-surface rounded-[var(--r)] px-[18px] py-4">
-      <div className="font-data text-label tracking-[.15em] uppercase text-ink-3 pb-3">
+      <div className="text-label text-ink-3 pb-3">
         Where each value came from
       </div>
       <div className="flex gap-[3px] h-[9px]">

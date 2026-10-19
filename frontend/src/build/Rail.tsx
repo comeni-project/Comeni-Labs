@@ -51,12 +51,12 @@ export function StepChoice({
   return (
     <div className="px-[18px] pt-5">
       <div className="settle">
-        <div className="font-data text-object font-medium text-ink">{step.process}</div>
+        <div className="font-data text-heading font-medium text-ink">{step.process}</div>
         <div className="font-data text-label text-ink-3 pt-1">{step.contract_id}</div>
       </div>
 
       <div className="settle pt-5" style={{ animationDelay: "40ms" }}>
-        <div className="text-label font-data uppercase tracking-[.15em] text-ink-3 pb-[9px]">
+        <div className="text-label text-ink-3 pb-[9px]">
           Why this tool
         </div>
         {/* **The resolver's own sentence, not a rewrite of it.** `reason` is what the ladder
@@ -77,7 +77,7 @@ export function StepChoice({
       </div>
 
       <div className="settle pt-6" style={{ animationDelay: "80ms" }}>
-        <div className="text-label font-data uppercase tracking-[.15em] text-ink-3 pb-[11px]">
+        <div className="text-label text-ink-3 pb-[11px]">
           Values
         </div>
         <Values step={step} />

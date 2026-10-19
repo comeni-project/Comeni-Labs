@@ -244,10 +244,11 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   const tokens = readFileSync(join(SRC, "tokens.css"), "utf8");
   const main = readFileSync(join(SRC, "main.css"), "utf8");
 
-  for (const role of ["--font-ui", "--font-display", "--font-data"]) {
+  for (const [role, face] of [["--font-ui", /Lexend/], ["--font-display", /Lexend/],
+    ["--font-data", /Geist Mono/]] as const) {
     const line = tokens.split("\n").find((l) => l.trimStart().startsWith(`${role}:`));
     expect(line, `${role} is not declared`).toBeTruthy();
-    expect(line, `${role} names a face the artboards do not use`).toMatch(/Geist/);
+    expect(line, `${role} names a face the boards do not use`).toMatch(face);
   }
 
   // No serif anywhere: the artboards are one family in two cuts. **`sans-serif` is not a
@@ -259,8 +260,9 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   // **Bundled, not fetched** — invariant 13. A Google Fonts `<link>` would render the design on
   // the hosted instance and the fallback stack in an air-gapped laboratory, which is
   // "self-hosted is a degraded tier" arriving as a stylesheet.
-  expect(main).toMatch(/@import "@fontsource-variable\/geist"/);
+  expect(main).toMatch(/@import "@fontsource-variable\/lexend"/);
   expect(main).toMatch(/@import "@fontsource-variable\/geist-mono"/);
+  expect(main).not.toMatch(/@import "@fontsource-variable\/geist"/);
   expect(main).not.toMatch(/fonts\.googleapis\.com/);
 });
 
@@ -362,4 +364,21 @@ it("keeps retired colour names retired", () => {
   const RETIRED = new RegExp(`--(?:${NAMES}|grid-3)\\b|\\b(?:text|bg|border|fill|stroke|ring|outline|decoration|accent|caret|divide|placeholder|from|via|to)-(?:${NAMES})(?:-soft|-line)?\\b`);
   const found = sources().filter(([, text]) => RETIRED.test(text)).map(([path]) => path.slice(SRC.length + 1));
   expect(found).toEqual([]);
+});
+
+it("draws labels in the interface face, not shouted", () => {
+  const shouting = sources()
+    .filter(([path]) => path.endsWith(".tsx"))
+    .flatMap(([path, text]) => [...text.matchAll(/className=(?:"|{`)([^"`]*)/g)]
+      .filter((m) => /\buppercase\b/.test(m[1]))
+      .map(() => path.slice(SRC.length + 1)));
+  expect(shouting).toEqual([]);
+});
+
+it("sizes the type roles as the boards do", () => {
+  const main = readFileSync(join(SRC, "main.css"), "utf8");
+  for (const [role, px] of [["hero", 32], ["title", 22], ["heading", 16], ["lede", 15],
+    ["body", 14], ["secondary", 13], ["label", 12], ["brand", 17]] as const) {
+    expect(main, `--text-${role}`).toMatch(new RegExp(`--text-${role}: ${px}px;`));
+  }
 });

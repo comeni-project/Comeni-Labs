@@ -22,7 +22,7 @@ export function NothingFits({ draft, subject }: { draft: string; subject: string
   const ready = id.trim() && description.trim() && why.trim();
 
   const field = "block w-full mt-1 p-2 text-body border border-line-2 rounded-r bg-surface";
-  const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+  const label = "text-label font-semibold text-ink-3";
 
   if (!open) {
     return (

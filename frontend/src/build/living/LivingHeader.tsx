@@ -67,7 +67,7 @@ export function LivingHeader({
               data-testid={`living-view-${which}`}
               aria-pressed={view === which}
               onClick={() => onView(which)}
-              className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em] border-0
+              className={` px-[15px] py-[7px] text-label border-0
                           cursor-pointer ${view === which
                             ? "bg-[var(--now-soft)] text-now-ink"
                             : "bg-transparent text-ink-3 hover:text-ink"}`}

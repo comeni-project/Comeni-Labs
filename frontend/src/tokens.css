@@ -69,8 +69,8 @@
    follow a theme switch without a second definition. */
 :root {
   --r: 3px;
-  --font-display: "Geist Variable", "Geist", system-ui, sans-serif;
-  --font-ui: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Lexend Variable", "Lexend", system-ui, sans-serif;
+  --font-ui: "Lexend Variable", "Lexend", system-ui, sans-serif;
   --font-data: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;
 
   /* `--ink` at 5% and 9%: a tint of whatever surface it lands on, in either theme. */

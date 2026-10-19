@@ -72,7 +72,7 @@ export function Status({ state }: { state: AdaptationState }) {
   );
 }
 
-const tab = "px-3 py-1.5 font-data text-label tracking-[.08em] uppercase no-underline";
+const tab = "px-3 py-1.5 text-label no-underline";
 
 /** `Overview · Catalogue · Work queue`, below the global shell.
  *

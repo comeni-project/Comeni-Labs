@@ -66,7 +66,7 @@ export function ArtifactView({ draftId }: { draftId: string | null }) {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-line flex-wrap">
-        <span className="text-label uppercase tracking-[.13em] text-ink-3">Jump to</span>
+        <span className="text-label text-ink-3">Jump to</span>
         {artifact.data.sections.map((section) => (
           <button
             key={section}

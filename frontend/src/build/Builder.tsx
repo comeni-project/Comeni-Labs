@@ -30,7 +30,7 @@ import { useView } from "./useView";
 
 type Built = components["schemas"]["BuiltPipeline"];
 
-const label = "text-label uppercase tracking-[.13em] font-semibold text-ink-3";
+const label = "text-label font-semibold text-ink-3";
 
 /** A panel that collapses to a 42px stub with a vertical label — and keeps its count. */
 function Side({
@@ -67,7 +67,7 @@ function Side({
         className="side shrink-0 flex flex-col items-center gap-3 py-4 bg-surface cursor-pointer
                    border-0 border-l border-line text-ink-3 hover:text-ink"
       >
-        <span className="[writing-mode:vertical-rl] text-label uppercase tracking-[.13em]">
+        <span className="[writing-mode:vertical-rl] text-label">
           {title}
         </span>
         {/* **The count survives the collapse.** `dashboard.md` §4: hiding the panel must never
@@ -392,7 +392,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               data-testid={`view-${which}`}
               onClick={() => setView2(which)}
               aria-pressed={view2 === which}
-              className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em]
+              className={` px-[15px] py-[7px] text-label
                           border-0 cursor-pointer transition-colors
                           ${view2 === which
                             ? "bg-[var(--now-soft)] text-now-ink"
@@ -725,7 +725,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               data-testid={`tab-${t}`}
               data-active={panel === t || undefined}
               onClick={() => setPanel(t)}
-              className="font-data text-label uppercase tracking-[.09em] px-[11px] py-1.5
+              className="text-label px-[11px] py-1.5
                          bg-transparent border-0 cursor-pointer text-ink-3 hover:text-ink
                          data-[active]:text-ink
                          data-[active]:shadow-[inset_0_-2px_0_var(--now)]"

@@ -21,9 +21,8 @@ type RunRow = wiener["schemas"]["RunRow"];
  * the question somebody opening the front door has. By-run is the follow-up.
  */
 
-/** The artboards' `.lb`: mono, 9.5px, `.15em`, uppercase. It shipped at `.14em` in the UI face,
- *  which is the same idea drawn with the wrong tool — every label on every board is monospaced. */
-const HEAD = "font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 font-normal "
+/** A column head: a label in the interface face, `--ink-3`. */
+const HEAD = "text-label text-ink-3 font-normal "
   + "text-left py-2";
 const CELL = "py-3 border-t border-line align-middle";
 

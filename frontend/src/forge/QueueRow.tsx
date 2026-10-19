@@ -26,8 +26,8 @@ export function QueueRow({
   return (
     <>
       {heading && (
-        <div className="px-6 pt-5 pb-2 text-label uppercase tracking-[.13em]
-                        font-semibold text-ink-3 font-data">
+        <div className="px-6 pt-5 pb-2 text-label
+                        font-semibold text-ink-3">
           {heading}
         </div>
       )}
@@ -40,7 +40,7 @@ export function QueueRow({
                  data-[selected]:bg-surface-2"
     >
       <span
-        className="text-label uppercase tracking-[.13em] font-semibold
+        className="text-label font-semibold
                    data-[band=routing]:text-done-ink data-[band=blocked]:text-needs-you-ink
                    data-[band=drift]:text-needs-you-ink"
         data-band={q.band}

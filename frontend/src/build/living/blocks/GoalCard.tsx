@@ -112,7 +112,7 @@ export function GoalCard({
 
   const list = (side: keyof Chosen, labelId: string, label: string) => (
     <div className="mb-3 grid grid-cols-[76px_1fr] gap-x-3 items-start">
-      <span className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[6px]">
+      <span className="text-label text-ink-3 pt-[6px]">
         {side}
       </span>
       <div>
@@ -225,7 +225,7 @@ export function GoalCard({
       {measured.length > 0 && <Facts facts={measured} />}
       {suggested.length > 0 && (
         <div className="mb-3">
-          <p className="m-0 mb-1 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">
+          <p className="m-0 mb-1 text-label text-ink-3">
             Suggested — keep what you asked for
           </p>
           <ul aria-label="suggested constraints" className="m-0 p-0 flex flex-wrap gap-[6px]">
@@ -297,7 +297,7 @@ function Facts({ facts }: { facts: Fact[] }) {
       </ul>
       {open.length > 0 && (
         <>
-          <p className="m-0 mt-2 font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3">
+          <p className="m-0 mt-2 text-label text-ink-3">
             Left open, you'll choose during the build
           </p>
           <ul aria-label="Left open, you'll choose during the build" className="m-0 p-0">

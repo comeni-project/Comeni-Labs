@@ -191,7 +191,7 @@ function Row({
   );
 }
 
-const BAND = "text-label font-data uppercase tracking-[.15em]";
+const BAND = "text-label";
 
 /** Every parameter of one step, and how each was settled.
  *
