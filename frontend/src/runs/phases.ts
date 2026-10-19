@@ -1,9 +1,9 @@
 /** How a run's phase is drawn. One vocabulary, shared by the board and the run page.
  *
- * **The same language the rest of the product uses**: `--done` is settled, `--measured` is
- * working-but-unfinished, `--needs-you` is a person is needed. A run does not get a colour set
- * of its own — `dashboard.md` §2 is authoritative, and a second palette would mean a reader
- * learns the product twice.
+ * **The same language the rest of the product uses** (`docs/explanation/visual-identity.md`):
+ * `--done` is finished, `--now` is happening, `--needs-you` is a person is needed. A run does
+ * not get a colour set of its own; a second palette would mean a reader learns the product
+ * twice.
  */
 export const PHASES = [
   "queued", "launching", "running", "succeeded", "failed", "cancelled", "lost",

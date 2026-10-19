@@ -15,7 +15,7 @@
 
 /* Tailwind MIRRORS the tokens; it does not redefine them.
 
-   Six type roles and the nine-step spacing scale come from `docs/design/dashboard.md` §2.
+   The type roles and the nine-step spacing scale; `docs/explanation/visual-identity.md` says why.
    A utility that invents a seventh size is exactly the drift this indirection exists to
    prevent — the set had seventeen sizes before 2026-08-18 and every one was picked by eye. */
 @theme {
@@ -46,14 +46,11 @@
   --font-data: var(--font-data);
   --font-display: var(--font-display);
 
-  /* THE FRONT DOOR ONLY. `dashboard.md` §2's six roles govern the tool, where 26px is the
+  /* THE FRONT DOOR ONLY. The type roles govern the tool, where the title is the
      largest thing on a dense working screen and must stay that way — a hero size loose in the
      forge is exactly the drift this indirection exists to stop. These two exist because a
      landing page has a job the tool does not: be understood by a stranger in ten seconds.
      If either appears outside `src/home/`, one of the two scales is wrong. */
-  /* Clamped rather than two sizes: a hero that is one role at every width stays one role.
-     44px is the desktop figure; 30px is where the six-word headline stops wrapping to
-     four lines on a 375px screen. */
   --text-hero: 32px;
   --text-lede: 15px;
 
@@ -234,7 +231,7 @@ body {
 
 /* ═══ RESPONSIVENESS: THREE RULES, AND TWO BREAKPOINTS CHOSEN FROM CONTENT ═════════════════
 
-   Plan 4 phase 0, lifted from `.design/runs_boards.py` with `dashboard.md` §4.
+   The rules are in `docs/explanation/visual-identity.md`.
 
    **1180 and 760, and they are CONTENT breakpoints rather than device ones.** 1180 is where a
    rail stops fitting beside the page; 760 is where a two-up band stops being two-up. Do not add

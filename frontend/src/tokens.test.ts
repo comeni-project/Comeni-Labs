@@ -39,7 +39,7 @@ function referenced(): Map<string, string[]> {
 /** The five movements, plus the two utilities that travel with them.
  *
  *  Listed rather than discovered, because the point of the list is that adding a sixth is a
- *  design decision — `dashboard.md` §8. A name that is not here cannot be caught by this guard,
+ *  design decision — `docs/explanation/visual-identity.md`, Motion. A name that is not here cannot be caught by this guard,
  *  which is the trade: a closed list catches a deleted rule and misses an invented class, and
  *  the invented one is what code review is for.
  */
@@ -176,7 +176,7 @@ it("declares one easing curve, in the source", () => {
   //
   // The compiled check is `grep -o 'cubic-bezier([^)]*)' dist/assets/*.css | sort -u`, which
   // needs a production build and so does not belong in the unit suite. It is written down in
-  // `dashboard.md` §8 so the next person can run it, and this guard holds the source half.
+  // the visual identity page so the next person can run it, and this guard holds the source half.
   // **Comments are stripped first, and the guard needed it immediately.** Both of this file's
   // sibling comments quote the curves they replaced — a value named in prose is documentation,
   // not a declaration, and a scan that cannot tell them apart makes the honest habit of writing
@@ -197,7 +197,7 @@ it("declares one easing curve, in the source", () => {
 
 it("keeps sideways scrolling inside the one container allowed to have it", () => {
   // **`.tbl` is the only horizontal scrolling the design system declares.** The page body never
-  // scrolls sideways — `dashboard.md` §4 rule 2 — and the way that guarantee is lost is a
+  // scrolls sideways — `docs/explanation/visual-identity.md`, Motion — and the way that guarantee is lost is a
   // well-meant `overflow-x` on a page shell, added to stop one wide table from clipping.
   //
   // **What this does NOT police, deliberately:** a component putting `overflow-x-auto` on its
