@@ -35,13 +35,76 @@ export function SubmitPanel({
   name?: string;
 }) {
   const submit = useSubmit(draftId, name);
+  return (
+    <div className="py-0 px-0 flex flex-col gap-3">
+      <SubmitForm submit={submit} />
+      <SubmitAction submit={submit} draftId={draftId} gated={gated} />
+    </div>
+  );
+}
+
+export type Submit = ReturnType<typeof useSubmit>;
+
+/** **What the artifact asks for, once it is in Wiener** — the sample sheet and the values Mendel
+ *  left null. Nothing before sending: uploading is what discovers them. The run sheet draws this
+ *  under *Your files* and the action in its summary, from one `useSubmit`. */
+export function SubmitForm({ submit }: { submit: Submit }) {
+  if (submit.runId || submit.artifact === null) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-secondary text-ink-3 m-0">
+        Stored as <code className="font-data">{submit.artifact.artifact_id.slice(0, 8)}</code>
+        , {(submit.artifact.size_bytes / 1024).toFixed(0)} kB. Wiener owns it from here.
+      </p>
+      {submit.artifact.declared.length === 0 ? (
+        <p className="text-secondary text-ink-3 m-0">
+          This pipeline asks for nothing — every value it needs is already in the artifact.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-secondary text-ink-3 m-0">
+            These are the values Mendel could not justify, so it left them null. They are
+            yours, they are not stored, and they never reach Mendel.
+          </p>
+          {submit.columns !== null && (
+            <Samplesheet
+              columns={submit.columns}
+              rows={submit.rows}
+              onChange={submit.setRows}
+            />
+          )}
+          {submit.artifact.declared
+            .filter((name) => !(submit.columns !== null && name === "input"))
+            .map((name) => (
+            <label key={name} className="flex items-center gap-2">
+              <span className="font-data text-body w-28 text-ink-3">{name}</span>
+              <input
+                data-testid={`param-${name}`}
+                value={submit.values[name] ?? ""}
+                onChange={(event) => submit.set(name, event.target.value)}
+                placeholder="a path on the machine that runs this"
+                className="flex-1 px-2 py-1 rounded-control bg-surface border border-line
+                           font-data text-body text-ink"
+              />
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** **The one action**: *Send to Wiener*, then *Start run*, then *Watch it* — or what stops it. */
+export function SubmitAction({ submit, draftId, gated, errors = true }: {
+  submit: Submit; draftId: string | null; gated: boolean;
+  /** Say a failed send or start here. Off where the caller says it itself. */
+  errors?: boolean;
+}) {
   const navigate = useNavigate();
 
   if (submit.runId) {
-    // Navigation happens on a click rather than automatically: a run that steals the page the
-    // instant it is accepted takes the pipeline away from somebody who was still reading it.
     return (
-      <div className="p-3 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <span className="text-body">
           Accepted as <code className="font-data">{submit.runId.slice(0, 8)}</code>.
         </span>
@@ -57,8 +120,6 @@ export function SubmitPanel({
   }
 
   if (submit.unauthorized) {
-    // Retrying on save rather than telling somebody to press the button again: they already
-    // pressed it, and the only thing that was missing is now supplied.
     return <TokenPrompt onSaved={() => submit.send()} />;
   }
 
@@ -69,9 +130,9 @@ export function SubmitPanel({
       : null;
 
   return (
-    <div className="py-0 px-0 flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {submit.artifact === null ? (
-        <div className="flex items-center gap-2">
+        <>
           <button
             data-testid="send-to-wiener"
             className={button}
@@ -82,66 +143,24 @@ export function SubmitPanel({
             {submit.sending ? "Sending…" : "Send to Wiener"}
           </button>
           {stopped && <span className="text-secondary text-ink-3">{stopped}</span>}
-        </div>
-      ) : (
-        <>
-          <p className="text-secondary text-ink-3">
-            Stored as <code className="font-data">{submit.artifact.artifact_id.slice(0, 8)}</code>
-            , {(submit.artifact.size_bytes / 1024).toFixed(0)} kB. Wiener owns it from here.
-          </p>
-          {submit.artifact.declared.length === 0 ? (
-            <p className="text-secondary text-ink-3">
-              This pipeline asks for nothing — every value it needs is already in the artifact.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-secondary text-ink-3">
-                These are the values Mendel could not justify, so it left them null. They are
-                yours, they are not stored, and they never reach Mendel.
-              </p>
-              {submit.columns !== null && (
-                <Samplesheet
-                  columns={submit.columns}
-                  rows={submit.rows}
-                  onChange={submit.setRows}
-                />
-              )}
-              {submit.artifact.declared
-                // `input` is answered by the table above, not by a path box. Rendering both
-                // would ask the same question twice and let the two disagree.
-                .filter((name) => !(submit.columns !== null && name === "input"))
-                .map((name) => (
-                <label key={name} className="flex items-center gap-2">
-                  <span className="font-data text-body w-28 text-ink-3">{name}</span>
-                  <input
-                    data-testid={`param-${name}`}
-                    value={submit.values[name] ?? ""}
-                    onChange={(event) => submit.set(name, event.target.value)}
-                    placeholder="a path on the machine that runs this"
-                    className="flex-1 px-2 py-1 rounded-control bg-surface border border-line
-                               font-data text-body text-ink"
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-          <button
-            data-testid="start-run"
-            className={button + " self-start"}
-            disabled={submit.unfilled.length > 0 || submit.starting}
-            title={
-              submit.unfilled.length
-                ? `Still empty: ${submit.unfilled.join(", ")}`
-                : "Submit the run"
-            }
-            onClick={() => submit.start()}
-          >
-            {submit.starting ? "Starting…" : "Start run"}
-          </button>
         </>
+      ) : (
+        <button
+          data-testid="start-run"
+          className={button}
+          disabled={submit.unfilled.length > 0 || submit.starting}
+          title={
+            submit.unfilled.length
+              ? `Still empty: ${submit.unfilled.join(", ")}`
+              : "Submit the run"
+          }
+          onClick={() => submit.start()}
+        >
+          {submit.starting ? "Starting…" : "Start run"}
+        </button>
       )}
-      {submit.error && (
-        <p data-testid="submit-error" className="text-secondary text-needs-you-ink">
+      {errors && submit.error && (
+        <p data-testid="submit-error" className="text-secondary text-needs-you-ink m-0">
           {submit.error}
         </p>
       )}
