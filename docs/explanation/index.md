@@ -28,7 +28,7 @@ Use the [tutorials](../tutorials/index.md) to learn through an example or the
 |---|---|
 | Component ownership and pipeline construction | [Architecture](architecture.md) |
 | Package ownership, dependencies and consumers | [Package responsibilities](package-boundaries.md) |
-| Builder and Forge model behavior, queues and storage | [Mendel AI ownership](mendel-ai-ownership.md) |
+| Builder model behavior, queues and storage | [Mendel AI ownership](mendel-ai-ownership.md) |
 | Semantic contracts and states | [Tool contracts](tool-contracts.md) |
 | Data-backed choices and reachable implementations | [Rules](data-backed-rules.md) |
 | Overlay replacement and load order | [Registry layers](registry-layers.md) |

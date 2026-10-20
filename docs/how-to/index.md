@@ -23,7 +23,6 @@ start with the [pipeline tutorial](../tutorials/first-pipeline.md).
 
 | Task | Guide |
 |---|---|
-| Draft and review tool declarations | [Using the forge](registry/review-proposals.md) |
 | Bind a tool to its module | [Writing a contract](registry/add-tool.md) |
 | Use data to choose a tool or setting | [Writing a rule](registry/write-rule.md) |
 | Supply private tools and lab conventions | [Your lab's own layer](registry/add-layer.md) |

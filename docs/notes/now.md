@@ -96,13 +96,12 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 
 ## The forge (where declared data comes from)
 
-- **The Forge MVP runs end to end:** catalogue sync (2,062 nf-core tools), scaffold, AI worker,
-  validation ladder, review. Its review chat is door 5: a model may propose a vocabulary entry,
-  never land it. (2026-09-05, 2026-09-06)
-- **Never run:** approve → land → `mendel build`; a second revision; the review chat; pegi3s.
-  `make forge-rework` lists the `FORGE-REWORK` markers Plan 5A left. (2026-09-06, 2026-09-28)
-- **Open:** `forge_revision.registry_digest` is `String(64)`, too short for a `sha256:` digest.
-  (2026-09-13)
+- **The old forge is gone** (#361, forge MVP part 0, on `forge-0-remove-old`): package, API,
+  worker jobs, tables, `/forge` screens and its `MF`/`MI01xx` codes. The new forge is designed
+  from scratch in `docs/superpowers/specs/2026-10-19-forge-mvp-design.md`; part 0 merges to
+  `main` only together with part 1 (#362), so `main` never lacks a Registry. (2026-10-19)
+- **Until then registry data is written by hand.** `ai_invocation` keeps its `forge` rows, and
+  the vocabulary lives in `mendel_api/invocations.py`. (2026-10-19)
 
 ## Wiener (run → watch)
 
@@ -128,7 +127,6 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 - The canvas flows **left to right** (`dag-core` serves both); **absence is absence**: a region
   with nothing to say is not drawn. (2026-08-29, 2026-08-30)
 - Motion: five movements, one curve; numbers never tween. (2026-08-29)
-- The forge's durable state lives in `mendel-api`, namespaced `forge_*`. (2026-09-04)
 - A model server's keep-alive and slots are the deployment's business. (2026-09-29)
 
 ## Known traps

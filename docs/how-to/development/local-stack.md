@@ -35,7 +35,6 @@ When it finishes, use:
 | `http://localhost/` | nginx serving the built frontend |
 | `http://localhost:8000/docs` | Mendel API docs |
 | `http://localhost:5173/runs` | runs board |
-| `http://localhost:5173/forge/queue` | registry review queue |
 | `http://localhost:8010/` | this wiki, with live reload |
 
 Use `:5173` while developing the frontend.

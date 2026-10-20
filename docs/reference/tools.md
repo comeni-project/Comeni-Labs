@@ -27,5 +27,4 @@ Use tool pages to answer practical questions before adding or trusting a step:
 | What evidence backs the definition? | provenance and citations |
 
 The catalogue describes the loaded registry, not every tool that exists in bioinformatics. If a
-tool is missing, go to [Using the forge](../how-to/registry/review-proposals.md) or
-[Writing a contract](../how-to/registry/add-tool.md).
+tool is missing, add it by [Writing a contract](../how-to/registry/add-tool.md).

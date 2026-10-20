@@ -1,7 +1,8 @@
 # Mendel AI ownership
 
-Builder-specific AI behavior belongs to Mendel. Registry-adaptation AI behavior belongs to
-Forge. `comeni-ai` supplies reusable provider access and validation; `mendel-api` owns the
+Builder-specific AI behavior belongs to Mendel. The forge, which will adapt tools into the
+registry, is being rebuilt (`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`) and has
+no model calls in this workspace yet. `comeni-ai` supplies reusable provider access and validation; `mendel-api` owns the
 application transactions, queues, access settings and durable outcomes around those calls.
 Wiener has no implemented AI agent in this workspace.
 
@@ -38,33 +39,13 @@ Do not reuse the deprecated `mendel-ai` name.
 present and tested, but `services/blueprint.py` currently selects `FlagOnlyResolver`; the adapter
 is not wired into that build path. Its existence is not evidence that every build calls a model.
 
-## Forge call path
-
-1. Forge routes/services create and move application-owned adaptation/revision rows.
-   `services/forge_jobs.py` enqueues generation or review answers with stable IDs on the AI queue.
-2. The AI worker dispatches `generate_forge_revision` or `answer_forge_review_message`.
-   The application job claims state through `services/forge_state.py` before doing work.
-3. `_generate` reads the workspace/source/holes and selects context with
-   `mendel_forge.ai.select`. The application's validation callback applies a candidate in memory
-   and runs `mendel_forge.verify`; diagnostics feed the bounded repair loop.
-4. `mendel_forge.ai.generate.run` owns proposal/repair behavior. Forge prompt text and versions
-   live in `mendel_forge/prompts/`; proposal models live in `mendel_forge/ai/schemas.py`.
-   Shared `Client` transport validates provider responses without choosing registry policy.
-5. API-side job code persists invocation/outcome data, writes the candidate revision and moves
-   adaptation state to review or failure. Human approval remains necessary for landing.
-   Scaffolding, source sync and publishing use the ordinary worker, outside the model queue.
-
-The Forge library also supports its CLI without the API database. Moving its adaptation rules
-into `mendel-api` would make that independent consumer depend on the web application's storage.
-
 ## What stays with each owner
 
 | Owner | Keep here |
 |---|---|
 | `comeni-ai` | Provider credentials/access values, transport protocols, provider formats, typed response validation, generic chat/choice helpers, caller-owned prompt loading and recorded transports. |
 | Builder AI subpackage, proposed inside `mendel-api` | Builder prompt catalogue/files, prompt context preparation, reply admission and the optional tier-4 adapter. Dependency injection must supply access and an invocation-recording boundary. |
-| `mendel-forge` | Adaptation prompts, context budgets, proposal schemas, bounded repair, candidate rendering and validation rules usable by CLI and application callers. |
-| `mendel-api` application integration | ORM/models, transactions, queue IDs/routing, worker startup/concurrency/timeouts, stored access/settings, invocation persistence, turn/proposal/adaptation claims and retry/recovery actions. |
+| `mendel-api` application integration | ORM/models, transactions, queue IDs/routing, worker startup/concurrency/timeouts, stored access/settings, invocation persistence, turn/proposal claims and retry/recovery actions. |
 | `mendel-authoring` | Pure protocol, commands, transition rules and calculations over supplied values. Neither provider transport nor prompt files belong in the interpreter. |
 | Wiener, when implemented | Execution-specific AI prompts and admission remain Wiener-owned; generic provider primitives can reuse `comeni-ai`. No Wiener AI package is introduced speculatively. |
 
@@ -73,19 +54,17 @@ into `mendel-api` would make that independent consumer depend on the web applica
 Queue deduplication and database context/claim checks serve different failure boundaries.
 They should remain explicit while changing file placement.
 
-`mendel_api.ai_worker.reclaim_lost_jobs` currently delegates to `forge_jobs.reclaim`, which fails
-stale Forge adaptations using the configured timeout threshold and a recorded diagnostic.
-It does not provide a universal recovery pass over every authoring turn, proposal or model call.
-Builder handlers check pending context and represent refusals as application notices, but that
-is not proof of recovery after every worker crash or cancellation. Do not copy the Forge state
-machine into shared transport to conceal this difference. Any broader recovery guarantee needs
+The AI worker has no recovery pass over authoring turns, proposals or model calls. Builder
+handlers check pending context and represent refusals as application notices, but that is not
+proof of recovery after every worker crash or cancellation. Do not move a state machine into
+shared transport to conceal this. Any broader recovery guarantee needs
 its own killed-worker test and a defined retry/settlement policy under
 [#310](https://github.com/comeni-project/Comeni-Labs/issues/310).
 
 ## Refactoring sequence and checks
 
-First move the generic invocation vocabulary out of `mendel_forge.workflow` into an
-application-owned module, preserving serialized values and migration history. Then separate
+The invocation vocabulary (`Agent`, `InvocationPurpose`, `InvocationState`) is already
+application-owned, in `mendel_api/invocations.py`. Next, separate
 prompt preparation and reply admission from invocation recording through explicit inputs and
 an injected recording adapter. Only after those seams are tested should files move into the
 proposed builder AI subpackage. Keep compatibility imports until callers and tests move together.
@@ -96,8 +75,7 @@ Tests that substantiate the current boundaries include:
 - `packages/mendel-api/tests/authoring/test_authoring_ai.py` and `test_authoring_prompts.py`:
   builder context, admission, prompt identity and recorded invocation behavior.
 - `packages/mendel-api/tests/authoring/samples/`: characterisation evidence and excerpt handling.
-- `packages/mendel-api/tests/forge/test_forge_jobs.py`: application claims, outcomes and recovery.
-- `packages/mendel-forge/tests/ai/`: dossier selection, proposal shapes, repair and candidate rendering.
+- `packages/mendel-api/tests/infrastructure/test_invocations.py`: the recorded vocabulary's values.
 - `tests/repo/test_compose.py`: process/queue separation and access-setting propagation.
 
 This review traces source and existing tests; it does not claim that every crash path was

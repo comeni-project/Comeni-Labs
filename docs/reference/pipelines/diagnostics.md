@@ -163,7 +163,7 @@ decline to curate one.
 | `MD0508` | the graph contains a cycle |
 | `MD0509` | a node names a contract that is not in the registry stack |
 
-## The forge — adapting a tool, and in what order
+## Authoring — sessions, turns and proposals
 
 | Code | Says |
 |---|---|

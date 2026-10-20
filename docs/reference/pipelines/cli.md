@@ -20,9 +20,6 @@ at all.
 Exit codes: `0` success, `1` a gate failed, `2` your input was rejected — which includes a
 contract that disagrees with its module.
 
-There is a second CLI, `forge`, for writing the registry Mendel reads. It has its own section
-[at the end of this page](#forge).
-
 ## Shared options
 
 | Option | Default | Meaning |
@@ -364,39 +361,6 @@ uv run mendel docs --registry registry/ --out docs/reference/tools --check   # w
 
 `--check` belongs to this verb alone. A check that repaired what it measured could never fail
 twice.
-
-## `forge`
-
-A second CLI, for **writing** the registry rather than reading it. Adding a tool needs no
-Python — [writing a contract](../../how-to/registry/add-tool.md) is the walkthrough; this
-is the list.
-
-```
-forge <command> [options]
-```
-
-| Command | What |
-|---|---|
-| `forge sources` | the ingestion sources that are registered |
-| `forge discover` | every tool a source can read |
-| `forge draft` | ingest a tool into a new draft |
-| `forge list` | the drafts in the workspace |
-| `forge show` | a draft's filled fields, and every hole with its reason |
-| `forge verify` | run the five-rung ladder over a draft |
-| `forge fill` | answer one hole, by hand or with a model |
-| `forge propose` | decline a hole — nothing declared fits, and here is what would |
-| `forge decide` | approve or reject a proposal |
-| `forge check` | does the registry still match its sources |
-| `forge update` | re-draft one contract from its source |
-| `forge land` | commit a finished draft onto a branch |
-| `forge explain` | the long form of a diagnostic code |
-
-**`--registry` is required for `land`** and defaults for everything else. Landing is the one
-verb with a git commit behind it.
-
-**There is no `--no-ai` flag, and that is deliberate.** The forge's model path is opt-in through
-`forge fill --model`, so the default *is* the no-AI lane — there is nothing to switch off and
-nothing to leave accidentally on.
 
 ## Other commands
 

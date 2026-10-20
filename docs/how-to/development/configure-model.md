@@ -32,8 +32,8 @@ To use a hosted model instead, set `COMENI_AI_MODEL` and `COMENI_AI_API_KEY` and
 `COMENI_AI_BASE_URL` empty. Nothing else changes — the same worker, the same prompts, the same
 registry.
 
-Leaving `COMENI_AI_MODEL` empty is a supported way to run the forge. Sources sync, scaffolds
-derive, and every open question is answered by hand.
+Leaving `COMENI_AI_MODEL` empty is a supported way to run Comeni. Every deterministic step
+still works, and every open question is answered by a person.
 
 ## Tune the local server
 

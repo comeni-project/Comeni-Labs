@@ -44,7 +44,6 @@ the important addresses are:
 | `http://localhost:5173/` | the app |
 | `http://localhost:5173/build` | the pipeline builder |
 | `http://localhost:5173/runs` | run history and live runs |
-| `http://localhost:5173/forge/tools` | tool and registry maintenance |
 
 ## Alpha expectations
 

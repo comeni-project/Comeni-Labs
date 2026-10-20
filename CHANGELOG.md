@@ -169,6 +169,13 @@ or a complete commit history.
 #### Removed
 
 - The separate module source-root setting and mount; registry layers carry module source.
+- The old forge's API, worker jobs and tables
+  ([#361](https://github.com/comeni-project/Comeni-Labs/issues/361)). The forge, contracts,
+  questions, sources and tools routes and their services are gone, as are the nightly source
+  sync and drift check, the forge's AI jobs and the `forge_*`, `source_check` and `queue_visit`
+  tables (dropped by migration; there is no downgrade). `GET /api/attention` returns only
+  `mendel`. The Docker Hub and nightly source-check settings are gone; the GitHub token remains
+  for the new forge's publishing. Model-call records keep their `forge` rows.
 
 ### comeni-ai
 
@@ -202,10 +209,12 @@ or a complete commit history.
 
 ### mendel-forge
 
-#### Added
+#### Removed
 
-- Source discovery, scaffolding, typed gaps, verification and human-approved landing support
-  registry proposals. Revisions persist new candidates rather than overwriting prior generations.
+- The package, its `forge` CLI and its diagnostic codes (`MF0001`–`MF0406`, and the API's
+  `MI0100`–`MI0114` except `MI0106`)
+  ([#361](https://github.com/comeni-project/Comeni-Labs/issues/361)). The forge is being
+  rebuilt from scratch; until then, registry data is written by hand.
 
 ### comeni-vendor
 
@@ -268,9 +277,15 @@ or a complete commit history.
   colour (done, the main action, measured, needs you, selected/now), rounder controls and a
   raised main button. The animated background field is removed. The rules are in
   `docs/explanation/visual-identity.md`.
-- The header carries the product's mark, *Build · Runs · Registry*, a jump search over saved
-  pipelines and recent runs (⌘K or Ctrl+K from any page), help linking to the documentation,
-  and settings.
+- The header carries the product's mark, *Build · Runs*, a jump search over saved pipelines
+  and recent runs (⌘K or Ctrl+K from any page), help linking to the documentation, and
+  settings. *Registry* returns with the new forge.
+
+#### Removed
+
+- The old forge's screens: the *Registry* tab and every `/forge…` page
+  ([#361](https://github.com/comeni-project/Comeni-Labs/issues/361)). Those addresses are now
+  unknown pages. A refusal's code is looked up with `mendel explain`.
 
 ### Repository
 

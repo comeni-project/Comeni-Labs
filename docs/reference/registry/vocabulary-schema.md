@@ -46,7 +46,7 @@ Model: `comeni_core.declared.vocabulary.TypeDeclaration`
 ### `states` is closed, and that is the point
 
 A contract using a state no vocabulary declares **fails to load**. New states arrive by review,
-through the forge, as a data change — never as a code change. That is what makes a state mean
+as a data change — never as a code change. That is what makes a state mean
 the same thing in two contracts written a year apart.
 
 ### `scope` — `run` or `sample`

@@ -87,10 +87,10 @@
 - Delete: `docs/how-to/registry/review-proposals.md`
 - Modify: the pages that describe the old forge as current (the list in the spec's inventory: `docs/explanation/{invariants,registry,mendel-ai-ownership,authoring-protocol,architecture,package-boundaries}.md`, `docs/how-to/{index,install}.md`, `docs/how-to/development/{investigate,local-stack,configure-model}.md`, `docs/how-to/pipelines/watch.md`, `docs/reference/{tools.md,pipelines/cli.md,pipelines/glossary.md,registry/*.md,pipelines/pipeline-schema.md}`), `CLAUDE.md` (source map), `CHANGELOG.md` (*Removed* under `mendel-api`, `frontend`, and a `mendel-forge` entry)
 
-- [ ] **Step 1:** For each page, remove or replace each statement about the old forge's behaviour (adaptations, the question queue, drift, `land`, `mendel forge …` commands, the `/forge` screens) with a pointer to `docs/superpowers/specs/2026-10-19-forge-mvp-design.md` where the reader needs to know a forge is coming. Keep everything else on the page. Inventory before editing each page; report meaningful removals in the plan's Deviations.
-- [ ] **Step 2: Run** `make docs`, `make links`, `make doc-paths`, `make doc-sizes` — PASS.
-- [ ] **Step 3:** Tick this plan with a *Deviations* heading; set the spec's status.
-- [ ] **Step 4: Commit** `docs: the old forge leaves the documentation (#361)`.
+- [x] **Step 1:** For each page, remove or replace each statement about the old forge's behaviour (adaptations, the question queue, drift, `land`, `mendel forge …` commands, the `/forge` screens) with a pointer to `docs/superpowers/specs/2026-10-19-forge-mvp-design.md` where the reader needs to know a forge is coming. Keep everything else on the page. Inventory before editing each page; report meaningful removals in the plan's Deviations.
+- [x] **Step 2: Run** `make docs`, `make links`, `make doc-paths`, `make doc-sizes` — PASS.
+- [x] **Step 3:** Tick this plan with a *Deviations* heading; set the spec's status.
+- [x] **Step 4: Commit** `docs: the old forge leaves the documentation (#361)`.
 - [ ] **Step 5:** `make check` and `make guards` once more, then the final whole-branch review. The branch is **not merged** until part 1 (#362) is on it (spec, section 4).
 
 ## Deviations
@@ -135,3 +135,40 @@
 - **`/forge` and its old deep links answer as unknown pages** (the router's existing 404), with
   no redirects. Checked in headless Chrome at 1280×800 because the extension was not connected:
   Home loads with *Build* and *Runs*, and `/forge` shows the 404.
+- **Task 4 inventory: what left the documentation, and where it went.**
+  - **`how-to/registry/review-proposals.md` was deleted, with its screenshot.** Its old URLs
+    forward to `explanation/registry.md` (`tools/documentation_locations.json`). Its worked
+    example and queue table described the old forge. "After acceptance" (how registry data
+    changes future builds) is already covered by `explanation/registry.md`'s *Before and
+    after*. Pages that linked to it now link to *Writing a contract* or *Making a choice
+    depend on your data*.
+  - **`explanation/architecture.md`:**
+    - §10 (the forge's modules, phase 2, the five-rung ladder, landing and its write guard)
+      became a short *Where declared data comes from*, pointing to the forge MVP spec. The
+      `comeni-ai` subsection was kept.
+    - §4a lost the `Hole` / `FilledValue` half and the *one may return `None`* contrast,
+      which needed a forge filler.
+  - **`explanation/invariants.md`:**
+    - Door 5 (the forge review chat) and the `ReviewTurn` / `ForgeReviewRequest` paragraph
+      are gone. Their principle stays: a person's typed words reaching a model is a door.
+    - The protection-profile row for sealing the forge chat is gone.
+    - `DoorPath` / `doors_on()`, names the code never had, became `BoundaryFlow` /
+      `payloads_for()`.
+  - **`explanation/mendel-ai-ownership.md`:** the forge call path, the `mendel-forge`
+    ownership row and the forge reclaim are gone. The page now says the AI worker has no
+    recovery pass; recovery is still tracked under #310. The first refactoring step (the
+    invocation vocabulary) is recorded as done.
+  - **`explanation/package-boundaries.md`:** the `mendel-forge` rows and source groups are
+    gone, and its open issue 2 (the vocabulary depends on the forge) is resolved. The
+    ordinary worker's row now names its real jobs.
+  - **`reference/pipelines/cli.md`:** the `forge` CLI section is gone.
+  - **`reference/pipelines/glossary.md`:** `drift`, `hole` and `band` are gone (old forge
+    queue terms that no screen uses).
+  - **`reference/pipelines/diagnostics.md`:** the generator's six forge-only concern titles
+    are gone, and `workflow` is titled *Authoring — sessions, turns and proposals*, which is
+    what it now holds.
+  - **`CHANGELOG.md`:** *Removed* under `mendel-api`, `frontend` and `mendel-forge`. The
+    unreleased `mendel-forge` *Added* entry is replaced, since no forge version was ever
+    tagged.
+  - **Also updated:** the install and local-stack URL tables, `how-to/index.md`, `mkdocs.yml`
+    nav, `tools/README.md`, `frontend/README.md` and the test indexes.

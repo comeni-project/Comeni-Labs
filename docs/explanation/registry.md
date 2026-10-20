@@ -74,7 +74,6 @@ becomes a preference or a question instead of a data-backed choice.
 
 | You want to | Read |
 |---|---|
-| use the app to review missing registry work | [Using the forge](../how-to/registry/review-proposals.md) |
 | add a tool Comeni does not know | [Writing a contract](../how-to/registry/add-tool.md) |
 | make a choice depend on read length, strandedness, or another fact | [Making a choice depend on your data](../how-to/registry/write-rule.md) |
 | keep private lab tools or conventions | [Your lab's own layer](../how-to/registry/add-layer.md) |
@@ -95,7 +94,6 @@ Registry changes should be visible in the app.
 | a tool cannot be added or selected | add a contract | the builder can use it wherever its ports fit |
 | a repeated choice is always manual | add a cited rule | the choice becomes tier 3 when the data fact matches |
 | a lab uses a private convention | add a lab layer | the public registry stays clean and the lab gets its own default |
-| a source changes under a tool | review drift in the forge | the accepted contract matches the source again |
 
 If a change cannot be seen in a future build, it may still be valid reference data, but it has
 not yet improved the product loop.

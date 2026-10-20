@@ -83,8 +83,8 @@ necessarily what a BAM is. Stage ④ is written for them.
     only puts them in the researcher's words.
 12. **The AI explains only from sources it is handed**: the tool's declared description, the rule's
     citation, a glossary entry. It shows the source, and it says *I don't have a source for that*
-    rather than answering from memory. That needs declared descriptions per tool or role (#78):
-    the forge drafts them and a person approves (invariant 2, unchanged). Its tone is
+    rather than answering from memory. That needs declared descriptions per tool or role (#78),
+    written or drafted for a person to approve (invariant 2, unchanged). Its tone is
     `docs/explanation/product-language.md`.
 13. **Ask anything, any time.** *Why? What if? What's a BAM?* A structural question (*what feeds
     what*) is answered by the engine; the AI phrases it.

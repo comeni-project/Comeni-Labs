@@ -11,7 +11,6 @@ Use the [repository test index](../../../tests/README.md) for environment setup.
 | [authoring/](authoring/README.md) | Session commands, handlers, HTTP conversation, build plans, preview and canvas. | Fake model/queue; persistence cases require Postgres. |
 | [authoring/decisions/](authoring/decisions/README.md) | Facts, grounded changes, suggestions, corrections, revisions, forks and deletion. | Most require Postgres and authored session scenarios. |
 | [authoring/samples/](authoring/samples/README.md) | Upload admission, inspection, characterisation, gaps and protection rules. | Controlled inspection/model responses; session cases require Postgres. |
-| [forge/](forge/README.md) | Registry catalogue, source sync, review queues, adaptation jobs and acceptance. | Recorded or fake sources/queues; storage cases require Postgres. |
 | [settings/](settings/README.md) | Settings actions, reports, model purposes, codecs and persistence. | Memory store by default; persistent-store cases use `real_settings`. |
 | [pipelines/](pipelines/README.md) | Drafts, saved bundles, build services and gate services. | Temporary artifacts; route/persistence cases require Postgres; subprocesses are stubbed where appropriate. |
 | [infrastructure/](infrastructure/README.md) | Transactions, migrations, identity, shapes, health, OpenAPI and worker scheduling. | Mix of pure checks and PostgreSQL-specific behavior. |
@@ -34,7 +33,7 @@ The settings store is isolated for each test; `real_settings` opts into the real
 delete tests. It is not an autouse fixture.
 
 `authoring/conftest.py` owns the authoring-only defaults: one-step goal extraction and together
-pacing. Tests of family selection or pacing override those settings explicitly. Forge, settings,
+pacing. Tests of family selection or pacing override those settings explicitly. Settings,
 pipeline and infrastructure tests retain the normal application defaults.
 
 ## Shared scenarios

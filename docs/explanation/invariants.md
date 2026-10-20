@@ -46,9 +46,9 @@ model would be the shell under the core's name, and the guard is where that is r
 
 ### 2. AI authors artifacts offline; humans approve; runtime is pure lookup
 
-The forge drafts
-contracts, rules and vocabulary states — a person approves them into the registry layer.
-Nothing writes there automatically.
+Contracts, rules and vocabulary states are drafted outside the build — by hand today, and by
+the forge once it is rebuilt (`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`) — and a
+person approves them into the registry layer. Nothing writes there automatically.
 
 ### 3. Runtime AI is confined to four declared points
 
@@ -82,7 +82,7 @@ and the difference from a chat window.
 ### 7. Vocabularies are closed
 
 A contract using an undeclared state fails to load. New states
-arrive through the forge's approval queue as reviewed data changes, never code changes.
+arrive by review as data changes, never code changes.
 
 ### 8. Routing ties are ambiguity, not a coin flip
 
@@ -149,8 +149,9 @@ work on our infrastructure is a design error.
 
 Five carry
 **pipeline** data — goal extraction, tier-4 resolution, compiler repair, publication and
-characterisation — and one carries **forge review**. `DoorPath` is the distinction and `doors_on()` is how
-each half stays separately checkable.
+characterisation. The forge's path has no door declared: the old forge's review chat (door 5)
+went with it (#361), and the new forge declares its own. `BoundaryFlow` is the distinction and
+`payloads_for()` is how each path stays separately checkable.
 **Why this exists, in the order the reasons actually hold** — restated 2026-09-05, because
 the first reason below is the one that survives whether or not anybody is talking about
 clinical data, and a rule whose stated purpose has gone quiet is a rule the next reader
@@ -171,14 +172,11 @@ survive without them. **The expensive half of that story is deliberately unbuilt
 `EgressRecord` exists for any door, and the three protection profiles are
 [#71](https://github.com/comeni-project/Comeni-Labs/issues/71), which nothing has started.
 Do not start them on privacy grounds alone.
-**The forge was not a door until 2026-09-05, and the leg that changed is named.** The
-2026-08-17 exemption (`git show 83c873d^:docs/notes/specs/2026-08-17-forge-phase-2.md` §1) stood on three: it has
-no prompt, takes no `Goal`, and writes no `pipeline.yml`. A **review chat breaks the first**
-— `ReviewTurn.content` is a string a curator types, at request time, and it goes to a
-provider, which is exactly what `AuthoringRequest.prompt` is on the pipeline side. The other
-two legs still hold, and `DoorPath.FORGE` is what records that. `AiPoint` is unchanged and
-still corroborates the rest: invariant 3 declares its runtime AI points and the forge is
-not one of them.
+**A model call carrying words a person typed is a door, whichever path it is on.** The old
+forge's review chat became door 5 for exactly that reason: a curator's message reached a
+provider at request time, which is what `AuthoringRequest.prompt` is on the pipeline side. It
+was removed with the old forge (#361); a forge that sends a person's words to a model declares a
+door again rather than stretching an exemption.
 **Door 6, characterisation (2026-10-04, 14.7.7), is the first whose payload holds data from a
 person's file**: up to 8 KB and 200 lines of a sample's text, bounded by its own type
 (`marks.SampleText`), at protection level 0 only. That is why it is counted apart:
@@ -186,9 +184,9 @@ person's file**: up to 8 KB and 200 lines of a sample's text, bounded by its own
 that can reach a `Mark.SAMPLE`. The payload carries no file name, extension, session or
 conversation. The vocabulary the model chooses from is the public registry, rendered into the
 prompt as door 1's is.
-**Generating a proposal is deliberately not a door**, and the line drawn is *who authored
-the string* rather than *how much text crosses*: a dossier is composed entirely from
-vendored modules and registry files, the same public bound that keeps `Excerpt` honest.
+**A prompt composed only from public sources is not a door**, and the line drawn is *who
+authored the string* rather than *how much text crosses*: text composed entirely from vendored
+modules and registry files has the same public bound that keeps `Excerpt` honest.
 **One list rather than two.** A separate `FORGE_DOORS` was the tidy option and is the wrong
 one — the mechanism this buys is that widening the boundary means editing a file saying
 *these are all the ways data leaves*, and two files creates a cheaper file, which is where
@@ -197,9 +195,8 @@ Each door carries one declared payload type, and a **named set** of fields acros
 surface may hold free text: `AuthoringRequest.prompt`, `GateFailure.tool_message`,
 `ResolvedValue.reason`, one `reason` per decision kind, `Why.reason` — the citation beside
 every value in `pipeline.yml` — the `axis_reason` on `Why` and `ResolvedValue` plus
-`ParamDecision.override_reason` since Plan 1.14, `ReviewTurn.content` with
-`ForgeReviewRequest.candidate` since door 5, and `AuthoringTurn.content` since door 1 became
-a conversation on 2026-09-09.
+`ParamDecision.override_reason` since Plan 1.14, and `AuthoringTurn.content` since door 1
+became a conversation on 2026-09-09.
 **Door 1's payload is `AuthoringRequest`, and it is still one door.** `PromptRequest` carried
 a single string because goal extraction was assumed to be a single call; it is not — a person
 reads back what the engine understood and corrects it, so the second call has to know what
@@ -244,16 +241,6 @@ copies it. That is a weaker claim than the rest of the list makes, and it is wri
 because *"it is only quoted"* is exactly the reasoning that widens a boundary unnoticed.
 What bounds it is the source: excerpts come from vendored modules and registry files,
 which are public, and never from a prompt or a goal.
-**`ReviewTurn.content` is the second genuinely new author, after `override_reason`** —
-2026-09-05, and it arrives with a whole door rather than by a refactor. A curator types it
-at request time and it reaches a model, which is what door 1 is on the pipeline side. That
-is the leg the forge's exemption stood on, and it is why the answer was to declare a door
-rather than stretch the argument. `ForgeReviewRequest.candidate` beside it is *composed*
-from the same public sources as `Excerpt`, so it is on the weaker footing that entry
-already documents. **`ForgeReviewRequest.validation` is the field that is deliberately
-not free text**: it carries `DiagnosticCode` and never a tool's output, which is
-`GateFailure`'s lesson one level up — Nextflow's stderr names work directories and input
-filenames, and a code is the whole of what a reader needs to look something up.
 **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
 reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
 retired. The guard's roots come from `DOORS` rather than from what happens to live in
@@ -342,16 +329,10 @@ The profiles themselves are still unbuilt.)
 
 **Deprioritised 2026-09-05, by the operator's PI**, and it costs nothing today because it was
 never started. Do not open #71 on privacy grounds alone; open it when a *user* needs a posture,
-or when `sealed` closing the forge review chat is something somebody has asked for. **The doors
+or when a laboratory asks to seal a path. **The doors
 themselves stay** — they are cheap, and invariant 14 now states the reasons in the order that
 survives this decision: reproducibility of a model call first, the taint path second, clinical
-non-receipt as a consequence. **The profiles govern the build path**, and deterministic
-scaffolding in `mendel-forge` is outside them for the same reason it is not a door: nothing a
-person typed crosses it.
-**The forge review chat is the exception, and it is where the table gains a real row** — door 5
-is somewhere `sealed` can honestly close while scaffolding, generation and landing keep working,
-which is a coherent posture for a lab curating a private registry. That row is not written yet;
-the door being declared is what makes it writable.
+non-receipt as a consequence. **The profiles govern the build path.**
 A laboratory wanting no model calls from an installation does not configure `COMENI_AI_MODEL`,
 which is stronger than a check: there is nothing to reach a provider *with*.
 

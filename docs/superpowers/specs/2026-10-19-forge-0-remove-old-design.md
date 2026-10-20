@@ -1,6 +1,6 @@
 # Forge MVP 0 — remove the old forge
 
-**Issue:** #361 (parent #360). **Status:** proposed, awaiting the operator's approval.
+**Issue:** #361 (parent #360). **Status:** implemented on `forge-0-remove-old` (2026-10-19); merges to `main` together with part 1 (#362).
 **Design:** [the forge MVP design](2026-10-19-forge-mvp-design.md) — *keeping the old forge's
 code, data or routes* is a non-goal; it is rewritten from scratch.
 
