@@ -224,11 +224,11 @@ describe("the pipeline file", () => {
     fireEvent.click(screen.getByTestId("living-view-artifact"));
     expect(screen.getByTestId("pipeline-file")).toBeInTheDocument();
     expect(screen.getByTestId("artifact-text")).toHaveTextContent("version: 6");
-    expect(screen.getByTestId("build-canvas").closest(".living")).toHaveClass("hidden");
+    expect(screen.getByTestId("build-canvas").closest(".living")).toHaveStyle({ display: "none" });
 
     fireEvent.click(screen.getByTestId("living-view-canvas"));
     expect(screen.queryByTestId("pipeline-file")).toBeNull();
-    expect(screen.getByTestId("build-canvas").closest(".living")).not.toHaveClass("hidden");
+    expect(screen.getByTestId("build-canvas").closest(".living")).not.toHaveStyle({ display: "none" });
   });
 });
 

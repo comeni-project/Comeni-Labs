@@ -287,6 +287,12 @@ or a complete commit history.
   *Step* holds the plan as a line (decided steps and who settled them, the step on offer and how
   many are to come), the card waiting and changes proposed in conversation. *Assistant* is the
   conversation itself. The canvas brings the offered or selected step into view.
+- The pipeline file is a page beside the canvas rather than a drawer
+  ([#379](https://github.com/comeni-project/Comeni-Labs/issues/379)). Every value appears
+  with how it was decided and why, beside the `pipeline.yml` text, whose open values are
+  marked. The page can be filtered to open values only, and the file can be downloaded. The
+  header counts the values that need you. The run sheet is laid out as numbered sections
+  (*Checked*, *Your files*, *Values still open*), with a summary that holds the run action.
 
 #### Removed
 

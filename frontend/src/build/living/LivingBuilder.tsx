@@ -37,6 +37,7 @@ export function LivingBuilder() {
   if (fake === "guided") return <GuidedLiving />;
   if (fake === "collect") return <CollectLiving />;
   if (fake === "conflict") return <FakeLiving session={CONFLICT_SESSION} />;
+  if (fake === "sheet") return <FakeLiving sheet />;
   if (fake) return <FakeLiving />;
   if (session) return <LiveLiving key={session} sessionId={session} />;
   return (
@@ -177,7 +178,9 @@ export function useFirstArrival(sessionId: string, session: AuthoringSession | n
   return plan.current ?? {};
 }
 
-function FakeLiving({ session: given = FAKE_SESSION }: { session?: AuthoringSession }) {
+/** `?fake=sheet` opens the run sheet over the static session — what the *Run sheet* board is
+ *  compared against, since a fake never keeps or lints. */
+function FakeLiving({ session: given = FAKE_SESSION, sheet = false }: { session?: AuthoringSession; sheet?: boolean }) {
   const session = framed(given, FAKE_STEPS, FAKE_CHANNELS);
   const [state, dispatch] = useReducer(authoringReducer, {
     ...initialAuthoring,
@@ -207,6 +210,12 @@ function FakeLiving({ session: given = FAKE_SESSION }: { session?: AuthoringSess
       onApplyChange={() => undefined}
       onEdit={() => undefined}
       onDismiss={() => dispatch({ type: "dismiss" })}
+      run={sheet ? {
+        onRun: () => undefined, busy: false, stage: null, error: null, kept: false,
+        sheet: <RunSheet name={session.name} steps={Object.values(FAKE_STEPS)}
+                         sources={entryChannels({ channels: FAKE_CHANNELS } as unknown as Built)}
+                         draftId={null} gated={false} onClose={() => undefined} />,
+      } : null}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 **Issue:** #379 (parent #370). **Status:** the operator asked for the redesign parts to be built
 from the issue and the boards without a question round (2026-10-20); the calls below are the
-builder's. Branch `redesign-pipeline-file`, stacked on part 3 (`redesign-describe-build`); the
+builder's. Implemented; deviations are in the plan. Branch `redesign-pipeline-file`, stacked on part 3 (`redesign-describe-build`); the
 redesign lands on `main` as one pull request at the end.
 **Boards:** `.design/hybrid/PipelineFile.dc.html` (*Pipeline file — every value and its reason*)
 and `.design/hybrid/RunSheet.dc.html` (*Run — files, reference, where*).

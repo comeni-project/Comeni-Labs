@@ -62,14 +62,16 @@ export function PipelineFile({
         <section aria-label="how the values were decided" className="rounded-panel border px-5 py-4 flex flex-wrap items-center gap-4"
                  style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
           <div className="flex-1 min-w-[260px]">
-            <h2 className="m-0 text-heading text-ink">
+            <h2 className="m-0 text-heading font-semibold text-ink">
               {values.total} {values.total === 1 ? "value" : "values"}, and how each was decided
             </h2>
             <Bar values={values} />
             <p className="m-0 mt-2 text-[13px] text-ink-2">
               {values.settled} settled by a rule, a convention or you ·{" "}
               <span className="text-measured-ink">{values.measured} measured from your files</span> ·{" "}
-              <span className="text-needs-you-ink">{values.open} {values.open === 1 ? "needs" : "need"} you</span>
+              {values.open > 0
+                ? <span className="text-needs-you-ink">{values.open} {values.open === 1 ? "needs" : "need"} you</span>
+                : <span>nothing needs you</span>}
             </p>
           </div>
           <div className="flex gap-2">

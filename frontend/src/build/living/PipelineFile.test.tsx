@@ -59,6 +59,13 @@ describe("every value and its reason", () => {
     expect(summary).toHaveTextContent("1 needs you");
   });
 
+  it("says nothing needs the person, quietly, when nothing does", () => {
+    file({ steps: STEPS.slice(0, 1) });
+    const summary = screen.getByRole("region", { name: "how the values were decided" });
+    expect(summary).toHaveTextContent("nothing needs you");
+    expect(within(summary).getByText("nothing needs you").className).not.toContain("needs-you");
+  });
+
   it("gives each setting its value, how it was decided and why, with the premise", async () => {
     file();
     const table = screen.getByRole("table", { name: "STAR_ALIGN settings" });

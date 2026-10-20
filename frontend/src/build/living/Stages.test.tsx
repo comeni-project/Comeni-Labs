@@ -55,6 +55,11 @@ describe("the describe stage", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
   });
 
+  it("offers no Pipeline file view while there is no pipeline", () => {
+    page(guidedStart());
+    expect(screen.queryByTestId("living-view-artifact")).toBeNull();
+  });
+
   it("keeps a composer below the card, and the conversation once there is more than the sentence", () => {
     const start = guidedStart();
     const { again } = page(start);

@@ -20,6 +20,7 @@ export function LivingHeader({
   runError = null,
   runnable = false,
   openValues = 0,
+  views = true,
 }: {
   session: AuthoringSession;
   view: "canvas" | "artifact";
@@ -33,6 +34,8 @@ export function LivingHeader({
   runnable?: boolean;
   /** Values nobody has answered yet — said beside the name, as the boards do. */
   openValues?: number;
+  /** Whether there is a pipeline to switch views of — not while describing. */
+  views?: boolean;
 }) {
   const progress = progressWords(session);
   const spent = usageWords(session.usage);
@@ -69,7 +72,7 @@ export function LivingHeader({
       )}
 
       <div className="ml-auto flex items-center gap-4">
-        <div role="group" aria-label="view" className="flex gap-1 p-1 rounded-button" style={{ background: "var(--paper)", border: "1px solid var(--line)" }}>
+        {views && <div role="group" aria-label="view" className="flex gap-1 p-1 rounded-button" style={{ background: "var(--paper)", border: "1px solid var(--line)" }}>
           {(["canvas", "artifact"] as const).map((which) => (
             <button
               key={which}
@@ -85,7 +88,7 @@ export function LivingHeader({
               {which === "canvas" ? "Canvas" : "Pipeline file"}
             </button>
           ))}
-        </div>
+        </div>}
         <button
           type="button"
           data-testid="living-run"

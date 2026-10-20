@@ -1,6 +1,6 @@
 # Redesign 4 — pipeline file and run sheet Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** The pipeline file becomes a page of values with their reasons beside the file; the run
 sheet becomes numbered sections with a summary holding the action.
@@ -43,7 +43,7 @@ and `SubmitPanel`/`GateVerdict`, and changes its layout only.
 `LivingHeader` gains `openValues: number`; toggle labels *Canvas* / *Pipeline file* (test ids
 unchanged); chip `data-testid="needs-you-chip"`.
 
-- [ ] Tests: counts on a fixture with tiers 1–4 and one answered tier-4 value; header words and
+- [x] Tests: counts on a fixture with tiers 1–4 and one answered tier-4 value; header words and
   chip (absent at 0, *1 value needs you*, *2 values need you*). Fail, implement, pass, commit.
 
 ### Task 2: `PipelineFile`
@@ -56,7 +56,7 @@ drawer use for the artifact.
 **Interfaces:** `PipelineFile({ steps, preview, draftId, kept })` where `steps: AnsweredStep[]`,
 `preview: AuthoringPreview | null`, `kept: boolean`.
 
-- [ ] Tests: summary words and counts; a step table row (tier name from a mocked `/registry/tiers`
+- [x] Tests: summary words and counts; a step table row (tier name from a mocked `/registry/tiers`
   response, reason, premise); open value `null`; *Show only open*; *Nothing is open*; a step with
   no settings; download creates a blob with the preview text; tabs *as it would read* / *as kept*
   (kept disabled when not kept); preview `outdated` text. Fail, implement, pass, commit.
@@ -66,12 +66,27 @@ drawer use for the artifact.
 **Files:** modify `frontend/src/build/RunSheet.tsx` and its tests (`Submit.test.tsx`,
 `Gate.test.tsx` untouched; add `RunSheet.test.tsx` if absent).
 
-- [ ] Tests: sections *Checked*, *Your files*, *Values still open* in order (third only when
+- [x] Tests: sections *Checked*, *Your files*, *Values still open* in order (third only when
   open values exist); summary rows *Steps*, *Inputs*, *Values open*, *Where · this machine*; the
   summary holds `send-to-wiener`; Escape and Cancel still close. Fail, implement, pass, commit.
 
 ### Task 4: browser check and records
 
-- [ ] `?fake=1` with the artifact view and the run sheet (the fakes have no run sheet: check it
+- [x] `?fake=1` with the artifact view and the run sheet (the fakes have no run sheet: check it
   through the stack or a test harness page if needed), 1440 and 390, light and dark; fix layout;
   CHANGELOG line; tick this plan with deviations; commit.
+
+## Deviations (recorded during execution)
+
+- **`SubmitPanel` split** into `SubmitForm` and `SubmitAction` (one `useSubmit`), so the form
+  sits under *Your files* and the action in the summary; `SubmitPanel` composes both, and the
+  sheet shows the submit error itself (the `reported.test.ts` guard).
+- **The canvas is hidden by an inline `display: none`** while the pipeline file shows: `.living`
+  sets `display: grid` and beat Tailwind's `hidden` — found in the browser, not by the tests.
+- **The view toggle is not drawn on the describe page**, where there is no pipeline yet.
+- **`?fake=sheet`** opens the run sheet over the static session for the board comparison, and
+  the fixture's STAR_ALIGN settings are real values rather than empty objects.
+- **Zero open values** read *nothing needs you* in plain ink, not in needs-you red.
+- **`Drawer.tsx` deleted**: the pipeline file was its only user.
+- **Browser check:** `?fake=1` (Pipeline file) and `?fake=sheet` at 1440×900 and 390×844, light
+  and dark. Tier chips read *tier N* there because the fakes have no API; the stack serves names.

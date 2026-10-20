@@ -55,7 +55,7 @@ export function DescribePage({
     <section aria-label="describe" className="min-h-0 overflow-auto">
       <div className="mx-auto w-full max-w-[860px] px-4 sm:px-6 pt-10 pb-16 flex flex-col gap-6">
         <header>
-          <h1 className="m-0 text-title text-ink">What do you want to analyse?</h1>
+          <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">What do you want to analyse?</h1>
           <p className="m-0 mt-1 text-body text-ink-2">
             You will see what was understood before anything is built.
           </p>
@@ -71,7 +71,7 @@ export function DescribePage({
         <Waiting session={session} onAsk={onSay} saying={saying} {...waiting} />
         {(hasCurrentFacts(session) || answered(session).length > 0) && <section aria-label="What was understood" className="rounded-panel border px-5 py-4"
                  style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-          <h2 className="m-0 mb-2 text-heading text-ink">What was understood</h2>
+          <h2 className="m-0 mb-2 text-heading font-semibold text-ink">What was understood</h2>
           {answered(session).map((decision) => <AnswerLine key={decision.id} decision={decision} />)}
           <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
             openRequest={factsRequest} open
@@ -81,7 +81,7 @@ export function DescribePage({
         </section>}
         <section aria-label="Conversation" className="flex flex-col gap-3">
           {more && <>
-            <h2 className="m-0 text-heading text-ink">Conversation</h2>
+            <h2 className="m-0 text-heading font-semibold text-ink">Conversation</h2>
             <Chat session={session} saying={saying} failedPhase={session.phase === "failed"}
                   onRetry={onRetry} onPoint={() => undefined} pointers={false} skip={first?.seq ?? null} follow={false} />
           </>}

@@ -257,6 +257,7 @@ export function LivingSurface({
           stage={run?.stage ?? null}
           runError={run?.error ?? null}
           runnable={false}
+          views={false}
         />
         <div className="min-h-0 grid" style={{ borderTop: "1px solid var(--line)" }}>
           <DescribePage session={session} waiting={{ ...waiting, onSelect }} {...talk} />
@@ -285,9 +286,10 @@ export function LivingSurface({
       )}
       {run?.sheet}
       {/* **Kept mounted while the pipeline file shows**, so the canvas's view is as it was. */}
-      <div className={`living min-h-0 ${view === "artifact" ? "hidden" : ""}`}
+      {/* Hidden by an inline style: `.living` sets `display: grid` and would win over a class. */}
+      <div className="living min-h-0"
            inert={view === "artifact" ? true : undefined}
-           style={{ borderTop: "1px solid var(--line)" }}>
+           style={{ borderTop: "1px solid var(--line)", display: view === "artifact" ? "none" : undefined }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
           {(alternative.loading || alternative.error) && (
             <div role="status" data-testid={alternative.error ? "preview-error" : "preview-loading"}

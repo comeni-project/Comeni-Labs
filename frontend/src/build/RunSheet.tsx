@@ -76,7 +76,7 @@ export function RunSheet({
       >
         <div className="rounded-panel border border-line bg-surface shadow-e3 px-5 sm:px-7 py-6 flex flex-col gap-6 min-w-0">
           <header className="flex items-start gap-4">
-            <h2 className="m-0 text-title text-ink flex-1 min-w-0">Run {name}</h2>
+            <h2 className="m-0 text-title font-semibold tracking-[-.02em] text-ink flex-1 min-w-0">Run {name}</h2>
             <button type="button" aria-label="Close" data-testid="sheet-cancel" onClick={onClose}
                     className="w-[32px] h-[32px] rounded-full border-0 bg-transparent text-ink-2 text-[18px]
                                cursor-pointer hover:text-ink focus-visible:shadow-[var(--ring)]">
@@ -132,7 +132,7 @@ export function RunSheet({
 
         <aside aria-label="Ready to run" className="flex flex-col gap-4 lg:sticky lg:top-6">
           <div className="rounded-panel border border-line bg-surface shadow-e3 px-5 py-5 flex flex-col gap-4">
-            <h3 className="m-0 text-heading text-ink">Ready to run</h3>
+            <h3 className="m-0 text-heading font-semibold text-ink">Ready to run</h3>
             <table className="w-full border-collapse text-[13px]">
               <tbody>
                 <Fact name="Steps" value={String(steps.length)} />
@@ -149,7 +149,7 @@ export function RunSheet({
             )}
           </div>
           <div className="rounded-panel border border-line bg-surface px-5 py-4">
-            <h3 className="m-0 text-heading text-ink">What this run will record</h3>
+            <h3 className="m-0 text-heading font-semibold text-ink">What this run will record</h3>
             <p className="m-0 mt-2 text-secondary text-ink-2 leading-[1.55]">
               Every task's time, CPU and memory, and each retry with what it asked for. You can
               leave this page; the run keeps going.
@@ -167,7 +167,7 @@ function Section({ n, title, done, warn = false, children }: {
 }) {
   return (
     <section aria-label={title} className="flex flex-col gap-3">
-      <h3 className="m-0 flex items-center gap-3 text-heading text-ink">
+      <h3 className="m-0 flex items-center gap-3 text-heading font-semibold text-ink">
         <span aria-hidden className="w-[28px] h-[28px] rounded-full grid place-items-center text-[13px] font-semibold"
               style={done ? { background: "var(--done)", color: "var(--on-action)" }
                 : { border: `2px solid ${warn ? "var(--needs-you)" : "var(--ink-2)"}`,
