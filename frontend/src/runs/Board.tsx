@@ -4,6 +4,8 @@ import { Link } from "react-router";
 
 import { useTitle } from "../app/useTitle";
 import { Empty, Failed, Loading } from "../ui/States";
+import { get as fromMendel } from "../api/client";
+import type { components as mendel } from "../api/schema";
 import { get } from "../wiener/api/client";
 import { isUnauthorized, TokenPrompt } from "../wiener/Token";
 import type { components } from "../wiener/api/schema";
@@ -15,6 +17,7 @@ import { seconds } from "./units";
 type RunRow = components["schemas"]["RunRow"];
 type RunsPage = components["schemas"]["RunsPage"];
 type Summary = components["schemas"]["BoardSummary"];
+type DraftsPage = mendel["schemas"]["DraftsPage"];
 
 const PER_PAGE = 7;
 
@@ -28,118 +31,10 @@ const PER_PAGE = 7;
  * where nothing has to have scanned for it.
  */
 const COLUMNS = {
-  gridTemplateColumns:
-    "minmax(170px,1.1fr) minmax(190px,1.3fr) 128px minmax(150px,1fr) 104px minmax(160px,1fr)",
-  gap: "18px",
+  gridTemplateColumns: "130px minmax(150px,1.4fr) 90px 100px minmax(150px,1fr) 110px",
+  gap: "16px",
 } as const;
 
-/** One stat tile. **The figure IS the tile** — the label above and the note below are both
- *  subordinate to it, which is what lets four of them be read in one sweep. */
-function Tile({ label, figure, colour, note, bar }: {
-  label: string; figure: string; colour?: string; note: string;
-  bar?: { pct: number; colour: string };
-}) {
-  return (
-    <div className="bg-surface border border-line rounded-panel shadow-e2
-                    px-[15px] pt-[13px] pb-3.5 flex flex-col">
-      <span className="text-label text-ink-3">{label}</span>
-      <span className="font-data mt-[7px] leading-[1.15] tracking-[-.02em]"
-            style={{ fontSize: "30px", color: colour ?? "var(--ink)" }}>
-        {figure}
-      </span>
-      <span className="text-label text-ink-3 mt-[3px] normal-case tracking-normal">{note}</span>
-      {bar && (
-        <span className="block h-[7px] mt-[9px] rounded-xs overflow-hidden"
-              style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
-          <span className="block h-full"
-                style={{ width: `${bar.pct}%`, background: bar.colour }} />
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** Runs per day — **stacked, because the two parts sum to something real**: how much this
- * instance ran. Succeeded over failed, both named in the legend so identity is never colour
- * alone, and only the tallest column carries a number — one over every bar is noise the shape
- * already gives you.
- *
- * A day nothing ran draws a 1px rule rather than a zero-height bar, the same distinction the
- * run table makes when it says a dash never means zero.
- */
-function Activity({ days }: { days: Summary["days"] }) {
-  const top = Math.max(1, ...days.map((d) => d.succeeded + d.failed));
-  return (
-    <div className="bg-surface border border-line rounded-panel shadow-e2
-                    px-[15px] pt-[13px] pb-[11px] flex flex-col">
-      <div className="flex items-baseline gap-3">
-        <span className="text-label text-ink-3">runs per day</span>
-        <span className="ml-auto flex items-center gap-3.5">
-          <Swatch colour="var(--done)" label="succeeded" />
-          <Swatch colour="var(--needs-you)" label="failed" />
-        </span>
-      </div>
-      <div className="flex-1 min-h-0 flex items-end gap-[3px] mt-2 border-b border-line">
-        {days.map((day, i) => {
-          const total = day.succeeded + day.failed;
-          const bar = (n: number) => Math.max(3, Math.round((n / top) * 92));
-          return (
-            <div key={day.day}
-                 className="flex-1 flex flex-col items-center gap-1 justify-end min-w-0">
-              <span className="font-data text-[10px] text-ink-2 h-[13px]">
-                {total === top ? total : ""}
-              </span>
-              <div className="w-full max-w-[24px] flex flex-col justify-end">
-                {total === 0 && <i className="block h-[2px] bg-line" />}
-                {day.failed > 0 && (
-                  <>
-                    <i className="block rounded-t-xs"
-                       style={{ height: bar(day.failed), background: "var(--needs-you)" }} />
-                    {/* A 2px gap, so the boundary between the two fills is a gap and never a
-                        hairline that reads as a third value. */}
-                    <i className="block h-[2px]" style={{ background: "var(--surface)" }} />
-                  </>
-                )}
-                {day.succeeded > 0 && (
-                  <i className={`block ${day.failed ? "rounded-b-xs" : "rounded-xs"}`}
-                     style={{ height: bar(day.succeeded), background: "var(--done)" }} />
-                )}
-              </div>
-              {/* **Four ticks, not fourteen.** One under every column is fourteen numbers
-                  nobody reads; four is enough to place any bar in the month. */}
-              <span className="font-data text-[9.5px] text-ink-3 whitespace-nowrap">
-                {i % 4 === 3 ? new Date(day.day).toLocaleDateString(undefined,
-                  { day: "numeric", month: "short" }) : " "}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Swatch({ colour, label }: { colour: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 text-label text-ink-3">
-      <span aria-hidden className="inline-block w-2 h-2 rounded-xs"
-            style={{ background: colour }} />
-      {label}
-    </span>
-  );
-}
-
-/** One run.
- *
- * **Phase is drawn as a colour AND a word.** The colour is the same vocabulary the builder
- * uses; the word is what makes `failed` and `lost` — which share a hue on purpose —
- * distinguishable, and what makes the row legible to somebody who cannot separate the two.
- *
- * **`tasks` is a bar and a fraction**, the same pair the run overview uses, so a board row and
- * a process row say a number the same way. It is TASKS rather than steps because
- * `steps_declared` lives in the artifact: reading one per row is the expensive thing this
- * board could never afford, and how many tasks a run has seen is one GROUP BY.
- */
 /** *usually 38m* under a row, and **only where that word is earned.**
  *
  * `BoardSummary.by_pipeline` is `{pipeline_digest: median_ms}` over finished runs, and the
@@ -180,25 +75,39 @@ function VsUsual({ run, medianMs }: { run: RunRow; medianMs?: number }) {
   );
 }
 
-function Row({ run, medianMs }: { run: RunRow; medianMs?: number }) {
-  const phase = isPhase(run.phase) ? run.phase : "queued";
+function ago(iso: string): string {
+  const minutes = Math.max(0, (Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 2) return "now";
+  if (minutes < 90) return `${Math.round(minutes)} min ago`;
+  if (minutes < 60 * 36) return `${Math.round(minutes / 60)} h ago`;
+  return `${Math.round(minutes / 1440)} d ago`;
+}
+
+/** The outcome's mark: a dot while going, a diamond for what went wrong, a tick when it worked. */
+function Mark({ phase }: { phase: string }) {
+  const colour = colourOf[isPhase(phase) ? phase : "queued"];
+  if (phase === "succeeded") return <span aria-hidden className="w-[12px] text-center text-ink-2">✓</span>;
+  if (phase === "failed" || phase === "lost") {
+    return <span aria-hidden className="w-[9px] h-[9px] mx-[1.5px] rotate-45 inline-block" style={{ background: colour }} />;
+  }
+  if (phase === "cancelled") {
+    return <span aria-hidden className="w-[10px] h-[10px] mx-[1px] rounded-full inline-block border-2" style={{ borderColor: colour }} />;
+  }
+  return <span aria-hidden className="w-[10px] h-[10px] mx-[1px] rounded-full inline-block" style={{ background: colour }} />;
+}
+
+function Row({ run, medianMs, pipeline }: { run: RunRow; medianMs?: number; pipeline: string | null }) {
   const menu = useContextMenu();
   const link = `${window.location.origin}/runs/${run.id}`;
-  const pct = run.tasks_seen ? Math.round((run.tasks_done / run.tasks_seen) * 100) : 0;
-  const colour = colourOf[phase];
-
-  /** §12.3's board-row menu. Every item duplicates the row's own click or is a clipboard
-   *  action — nothing is reachable only by right-click. */
+  const bad = run.phase === "failed" || run.phase === "lost";
   const items: MenuItem[] = [
     { label: "Open", onPick: () => { window.location.href = `/runs/${run.id}`; } },
     { label: "Open in a new tab", onPick: () => window.open(`/runs/${run.id}`, "_blank") },
     { label: "Copy run id", onPick: () => void copy(run.id), separated: true },
     { label: "Copy a link to this run", onPick: () => void copy(link) },
     { label: "Copy row as TSV",
-      onPick: () => void copy([run.id, run.phase, run.executor, run.submitted_by,
-                               run.submitted_at].join("\t")) },
+      onPick: () => void copy([run.id, pipeline ?? "", run.phase, run.submitted_at].join("\t")) },
     { label: "Cancel", w4: true, separated: true },
-    { label: "Relaunch", w4: true },
   ];
 
   return (
@@ -207,43 +116,35 @@ function Row({ run, medianMs }: { run: RunRow; medianMs?: number }) {
       data-testid={`run-${run.id}`}
       to={`/runs/${run.id}`}
       {...menu.bind}
-      className="grid pl-6 pr-[18px] py-3 items-center no-underline
-                 text-ink border-b border-line last:border-b-0 hover:bg-[var(--hover)]"
+      className="grid px-5 py-3 items-center no-underline text-ink border-b border-line last:border-b-0
+                 hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]"
       style={{ ...COLUMNS, transition: "background-color var(--t)" }}
     >
-      <span className="font-data text-body">{run.id.slice(0, 8)}</span>
-      <span className="text-secondary text-ink-2">{run.executor}</span>
-      <span className="flex items-center gap-[7px] text-secondary text-ink-2">
-        <span aria-hidden className="inline-block w-2 h-2 rounded-full"
-              style={{ background: colour }} />
+      <span className={`flex items-center gap-[9px] text-[13.5px] ${bad ? "text-needs-you-ink"
+        : run.phase === "running" ? "text-now-ink" : "text-ink-2"}`}>
+        <Mark phase={run.phase} />
         {run.phase}
       </span>
-      <span className="flex flex-col gap-1">
-        <span className="block h-[7px] rounded-xs overflow-hidden"
-              style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
-          {run.tasks_seen > 0 && (
-            <span className="block h-full" style={{ width: `${pct}%`, background: colour }} />
-          )}
-        </span>
-        <span className="font-data text-secondary text-ink-2 tabular-nums">
-          {run.tasks_seen ? `${run.tasks_done} of ${run.tasks_seen}` : "—"}
-        </span>
+      <span className="font-data text-[13px] truncate">
+        {pipeline ?? <span className="text-ink-3 font-ui">unknown pipeline</span>}
       </span>
-      <span className="flex flex-col font-data text-secondary text-ink-2 tabular-nums">
+      <span className="font-data text-[12px] text-ink-3">{run.id.slice(0, 8)}</span>
+      <time className="text-[13px] text-ink-2" dateTime={run.submitted_at}
+            title={new Date(run.submitted_at).toLocaleString()}>
+        {ago(run.submitted_at)}
+      </time>
+      <span className={`text-[13px] tabular-nums ${bad ? "text-needs-you-ink" : "text-ink-2"}`}>
+        {run.tasks_seen === 0 ? "—"
+          : run.phase === "cancelled" ? `cancelled at ${run.tasks_done} of ${run.tasks_seen}`
+          : `${run.tasks_done} of ${run.tasks_seen} tasks`}
+      </span>
+      <span className="flex flex-col items-end font-data text-[13px] text-ink tabular-nums">
         {run.ended_at
           ? elapsed(new Date(run.submitted_at).getTime(), new Date(run.ended_at).getTime(), 0)
           : "—"}
         {/* **A median in the abstract is trivia; the same median beside a run is a judgement.**
-            `rn-board`'s argument for why this is the board's best number, and why it only
-            earned a place by moving onto a row. It was fetched and drawn nowhere. */}
+            `rn-board`'s argument for the board's best number, and why it lives on the row. */}
         <VsUsual run={run} medianMs={medianMs} />
-      </span>
-      <span className="flex flex-col">
-        <span className="text-secondary text-ink-2">{run.submitted_by}</span>
-        <time className="text-label text-ink-3 tabular-nums normal-case tracking-normal"
-              dateTime={run.submitted_at}>
-          {new Date(run.submitted_at).toLocaleString()}
-        </time>
       </span>
     </Link>
     {menu.at && <Menu items={items} at={menu.at} onClose={menu.close} />}
@@ -251,35 +152,46 @@ function Row({ run, medianMs }: { run: RunRow; medianMs?: number }) {
   );
 }
 
+/** The outcome tabs: a phase each, and *All* for none. */
+const TABS = [
+  { label: "All", phase: "" },
+  { label: "Going now", phase: "running" },
+  { label: "Went wrong", phase: "failed" },
+  { label: "Succeeded", phase: "succeeded" },
+  { label: "Cancelled", phase: "cancelled" },
+] as const;
+
 export function Board() {
   useTitle("Runs");
   const [page, setPage] = useState(0);
   const [phase, setPhase] = useState("");
-
   const query = new URLSearchParams({ after: String(page * PER_PAGE), limit: String(PER_PAGE) });
   if (phase) query.set("phase", phase);
 
   const runs = useQuery({
     queryKey: ["runs", query.toString()],
     queryFn: () => get<RunsPage>(`/api/runs?${query}`),
-    // A board of live runs goes stale by itself. Five seconds is a guess like `MAXLEN ~ 10000`
-    // is a guess, and it is cheap to be wrong about: the run PAGE tails a socket, so this is
-    // only how fast the list of runs catches up, never how fast a run does.
     refetchInterval: 5_000,
-    // **The page does not blank between pages.** Turning to page 2 with `undefined` data would
-    // unmount the table and drop the reader back to a spinner they have to wait out.
     placeholderData: keepPreviousData,
   });
+  // The usual duration per pipeline, which the rows compare a finished run against.
   const summary = useQuery({
     queryKey: ["runs-summary"],
     queryFn: () => get<Summary>("/api/runs/summary?days=14"),
     refetchInterval: 30_000,
   });
+  // **Mendel's drafts, for names only.** The runs come from Wiener; a run is named by the
+  // pipeline it ran, joined on the content digest as Home joins them. Mendel not answering
+  // leaves every run *unknown pipeline* and the board otherwise whole.
+  const drafts = useQuery({
+    queryKey: ["drafts"],
+    queryFn: () => fromMendel<DraftsPage>("/pipeline/drafts"),
+    retry: false,
+  });
+  const named = new Map((drafts.data?.drafts ?? []).filter((d) => d.digest)
+    .map((d) => [d.digest!, d.name || d.id.slice(0, 8)]));
 
   if (runs.isPending) return <Loading what="runs" />;
-  // **A 401 is not a failure to report, it is a thing to fix** — and the board is where
-  // somebody first meets it, because it is the first Wiener page anybody opens. `Failed` would
-  // print `/api/runs → 401`, which is true and useless.
   if (isUnauthorized(runs.error)) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
@@ -290,136 +202,82 @@ export function Board() {
   if (runs.isError) return <Failed error={runs.error} />;
 
   const s = summary.data;
-  const rate = s && s.succeeded + s.failed > 0
-    ? Math.round((s.succeeded / (s.succeeded + s.failed)) * 100)
-    : null;
   const pages = Math.max(1, Math.ceil(runs.data.total / PER_PAGE));
   const lo = page * PER_PAGE + 1;
 
   return (
-    <div className="gutter py-6 flex flex-col gap-3.5 h-full">
-      {/* The same `--surface-2` shelf every run page opens with, so the board and the run are
-          one product rather than two designs. */}
-      <header className="-mx-[24px] md:-mx-[44px] -mt-6 gutter pt-4 pb-3.5 bg-surface-2 border-b border-line
-                         shadow-e1 relative z-[2] flex items-baseline gap-3.5">
-        <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">runs</h1>
-        <p className="text-body text-ink-2 m-0">every pipeline this instance has executed</p>
-        <span className="ml-auto text-label text-ink-3">last 14 days</span>
+    <div className="gutter py-7 flex flex-col gap-4">
+      <header className="flex items-baseline gap-3 flex-wrap">
+        <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">Runs</h1>
+        <p data-testid="runs-count" className="m-0 text-body text-ink-2">
+          {runs.data.total} {runs.data.total === 1 ? "run" : "runs"}, newest first
+        </p>
       </header>
 
-      {/* **Four tiles and a fortnight**, in the order somebody asks: is anything broken, what
-          is running, is this getting better or worse, and how long should a run take. */}
-      <div className="shrink-0 grid gap-3.5 h-[172px]
-                      grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,2.4fr)]">
-        {/* **A zero is not an alarm.** These two tiles wear their status colour only when
-            they have something to report — a red `0` failures and an amber `0` running are
-            both the good news, painted as the bad. */}
-        <Tile label="needs you" figure={String(s?.failed ?? 0)}
-              colour={s?.failed ? "var(--needs-you-ink)" : "var(--ink-3)"}
-              note={s?.failed ? "failed, and nobody has looked" : "nothing is waiting on you"} />
-        <Tile label="running now" figure={String(s?.running ?? 0)}
-              colour={s?.running ? "var(--now-ink)" : "var(--ink-3)"}
-              note={s?.running ? "on this instance" : "the instance is idle"} />
-        <Tile label="succeeded · 14 days" figure={rate === null ? "—" : `${rate}%`}
-              note={s ? `${s.succeeded} of ${s.succeeded + s.failed} runs` : "—"}
-              bar={rate === null ? undefined : { pct: rate, colour: "var(--done)" }} />
-        {/* **`p95_ms == null` means no run has a recorded DURATION, not that none finished.**
-            The two differ, and the board showed them differing: a `succeeded` row in the table
-            below and *no run has finished* in this tile, at the same time — because
-            `repository.at()` folds only runs with an `ended_at`, and a run can reach a terminal
-            phase without one.
-            
-            Absence is absence, and there are two absences here. Saying the wrong one is the
-            board contradicting its own table, which is the thing a summary must never do. */}
-        <Tile label="typical run" figure={s?.median_ms == null ? "—" : seconds(s.median_ms)}
-              note={
-                s?.p95_ms != null
-                  ? `p95 ${seconds(s.p95_ms)}`
-                  : (s?.succeeded ?? 0) + (s?.failed ?? 0) === 0
-                    ? "no run has finished"
-                    : "no finished run recorded how long it took"
-              } />
-        {s ? <Activity days={s.days} />
-           : <div className="bg-surface border border-line rounded-control shadow-e2" />}
+      <div role="tablist" aria-label="outcome" className="flex gap-1 flex-wrap border-b border-line">
+        {TABS.map((tab) => {
+          const on = phase === tab.phase;
+          return (
+            <button key={tab.label} type="button" role="tab" aria-selected={on}
+                    onClick={() => { setPhase(tab.phase); setPage(0); }}
+                    className={`-mb-px px-3 py-2 bg-transparent border-0 border-b-2 cursor-pointer text-[13.5px]
+                                focus-visible:shadow-[var(--ring)] ${on
+                                  ? "text-ink font-semibold border-[var(--ink)]"
+                                  : "text-ink-2 border-transparent hover:text-ink"}`}>
+              {tab.label}
+              {on && (
+                <span className="ml-2 px-[7px] py-[1px] rounded-full text-[11.5px] font-semibold"
+                      style={{ background: "var(--ink)", color: "var(--surface)" }}>
+                  {runs.data.total}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
-                          rounded-panel shadow-e2 overflow-hidden">
-        {/* **Filters, because 49 rows already needs them** — and the board was the one screen
-            with more rows than fit and no way to narrow them. */}
-        <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line
-                        bg-surface-2">
-          <label className="flex items-center gap-1.5 text-label text-ink-3">
-            phase
-            <select aria-label="phase" className={control} value={phase}
-                    onChange={(e) => { setPhase(e.target.value); setPage(0); }}>
-              <option value="">all</option>
-              {["running", "succeeded", "failed", "queued", "cancelled", "lost"].map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </label>
-          {/* **`submitted_by` is a slot, not a filter** — the operator's decision. The column
-              still says who submitted each run, because that is what a reader asks of a row;
-              what was cut is the *control*, which on a single-operator instance offered one
-              name and narrowed a board of 49 rows to 49. It is written here rather than simply
-              deleted, so the next person reads a decision instead of an omission. */}
-          <span data-testid="runs-count" className="ml-auto text-label text-ink-3">
-            {runs.data.total} {runs.data.total === 1 ? "run" : "runs"}
-          </span>
-        </div>
-
-        <div style={COLUMNS}
-             className="shrink-0 grid pl-6 pr-[18px] py-2
-                        border-b border-line bg-surface-2 shadow-e1
-                        font-ui text-label font-semibold text-ink-3">
-          <span>run</span><span>executor</span><span>phase</span>
-          <span>tasks</span><span>elapsed</span><span>submitted</span>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-auto">
-          {/* **Two different emptinesses.** Nothing has ever run here, or nothing matches
-              what you asked for — and telling somebody to "run a gated pipeline" when they
-              have forty runs and a filter on is telling them to fix the wrong thing. */}
+      <section className="rounded-panel border border-line bg-surface overflow-x-auto">
+        <div style={{ minWidth: 760 }}>
+          <div style={COLUMNS}
+               className="grid px-5 py-2 border-b border-line text-[12px] text-ink-3">
+            <span>Outcome</span><span>Pipeline</span><span>Run</span>
+            <span>When</span><span>Detail</span><span className="text-right">Took</span>
+          </div>
+          {/* **Two different emptinesses.** Nothing has ever run here, or nothing matches the
+              tab — telling somebody to run a gated pipeline when they have forty runs and a
+              tab on is telling them to fix the wrong thing. */}
           {runs.data.runs.length === 0 ? (
             phase ? (
-              <Empty title="No runs match." next="Widen the filters to see the rest." />
+              <Empty title="No runs match." next="Choose All to see the rest." />
             ) : (
-              <Empty title="No runs yet."
-                     next="Wiener runs a pipeline the Builder has gated." />
+              <Empty title="No runs yet." next="Wiener runs a pipeline the Builder has gated." />
             )
           ) : (
             runs.data.runs.map((run) => (
               <Row key={run.id} run={run}
-                   medianMs={run.pipeline_digest
-                     ? s?.by_pipeline?.[run.pipeline_digest]
-                     : undefined} />
+                   pipeline={(run.pipeline_digest && named.get(run.pipeline_digest)) || null}
+                   medianMs={run.pipeline_digest ? s?.by_pipeline?.[run.pipeline_digest] : undefined} />
             ))
           )}
         </div>
-
-        {/* `1-7 of 49` before the arrows: a bare `1 / 7` makes you do arithmetic to know
-            whether the run you want is behind you. */}
-        <div className="mt-auto shrink-0 flex items-center gap-4 px-6 py-2.5 border-t
-                        border-line bg-surface-2 text-label text-ink-3">
-          <span>newest first</span>
-          <span className="ml-auto flex items-center gap-3">
-            <span>{lo}–{Math.min(lo + PER_PAGE - 1, runs.data.total)} of {runs.data.total}</span>
-            <span className="flex items-center gap-[3px]">
-              <button type="button" aria-label="previous page" className={pageBtn}
-                      disabled={page === 0} onClick={() => setPage((n) => n - 1)}>‹</button>
-              <span className="font-data px-1 tabular-nums">{page + 1} / {pages}</span>
-              <button type="button" aria-label="next page" className={pageBtn}
-                      disabled={page + 1 >= pages} onClick={() => setPage((n) => n + 1)}>›</button>
-            </span>
-          </span>
-        </div>
       </section>
+
+      {/* `1-7 of 49` before the arrows: a bare `1 / 7` makes you do arithmetic to know
+          whether the run you want is behind you. */}
+      {pages > 1 && (
+        <div className="flex items-center gap-3 justify-end text-[12.5px] text-ink-3">
+          <span>{lo}–{Math.min(lo + PER_PAGE - 1, runs.data.total)} of {runs.data.total}</span>
+          <button type="button" aria-label="previous page" className={pageBtn}
+                  disabled={page === 0} onClick={() => setPage((n) => n - 1)}>‹</button>
+          <span className="font-data tabular-nums">{page + 1} / {pages}</span>
+          <button type="button" aria-label="next page" className={pageBtn}
+                  disabled={page + 1 >= pages} onClick={() => setPage((n) => n + 1)}>›</button>
+        </div>
+      )}
     </div>
   );
 }
 
-const control = "text-secondary bg-surface border border-line rounded-button px-2 py-1";
 const pageBtn =
   "px-2 py-0.5 rounded-button border border-line bg-surface text-ink-2 cursor-pointer "
   + "hover:text-ink hover:bg-[var(--hover)] disabled:cursor-not-allowed disabled:opacity-40";

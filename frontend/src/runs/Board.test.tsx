@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
 import { routes } from "../app/router";
@@ -30,14 +30,21 @@ const SUMMARY = {
   })),
 };
 
-function at(runs: unknown = RUNS) {
+/** Mendel's drafts, for the pipeline's NAME only — joined on the digest, as Home joins them. */
+const DRAFTS = { drafts: [{ id: "d1", name: "rnaseq-counts", digest: "abc" }], total: 1 };
+
+function at(runs: unknown = RUNS, { draftsDown = false } = {}) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) =>
-    Promise.resolve({
-      ok: true,
-      json: async () => (String(url).includes("/summary")
-        ? SUMMARY
-        : { runs, total: Array.isArray(runs) ? runs.length : 0 }),
-    })));
+    String(url).includes("/pipeline/drafts")
+      ? Promise.resolve(draftsDown
+        ? { ok: false, status: 500, json: async () => ({ detail: "down" }) }
+        : { ok: true, json: async () => DRAFTS })
+      : Promise.resolve({
+        ok: true,
+        json: async () => (String(url).includes("/summary")
+          ? SUMMARY
+          : { runs, total: Array.isArray(runs) ? runs.length : 0 }),
+      })));
   const router = createMemoryRouter(routes, { initialEntries: ["/runs"] });
   return render(
     <QueryClientProvider client={makeClient()}>
@@ -89,7 +96,8 @@ it("reads the board from Wiener, not from Mendel", async () => {
   at();
   await screen.findByTestId("run-4c1e9a07b2f1de40");
   // The PATH is what this is about — the query string carries paging and filters now.
-  expect(String(vi.mocked(fetch).mock.calls[0][0])).toMatch(/^\/api\/runs(\?|$)/);
+  const urls = vi.mocked(fetch).mock.calls.map(([url]) => String(url));
+  expect(urls.some((url) => /^\/api\/runs(\?|$)/.test(url))).toBe(true);
 });
 
 it("offers a token field when Wiener refuses, rather than a status code", async () => {
@@ -132,13 +140,39 @@ it("says nothing at all about a pipeline with no usual", async () => {
   expect(screen.queryByTestId("vs-usual")).toBeNull();
 });
 
-it("keeps the submitted-by slot and offers no filter for it", async () => {
-  // **The operator's decision**: the column still says who submitted each run, because that is
-  // what a reader asks of a row. What was cut is the control — on a single-operator instance
-  // it offered one name and narrowed a board of 49 rows to 49.
-  at();
-  // Both rows carry it — `findAll`, because the slot surviving on every row is the claim.
-  expect(await screen.findAllByText("operator")).toHaveLength(2);
-  expect(screen.queryByLabelText("who")).toBeNull();
-  expect(screen.getByLabelText("phase")).toBeInTheDocument();
+describe("the board by pipeline (issue 380)", () => {
+  it("names each run by its pipeline, and says so when the pipeline is unknown", async () => {
+    at([...RUNS, { ...RUNS[1], id: "99990000aaaa0000", pipeline_digest: "elsewhere" }]);
+    const row = await screen.findByTestId("run-4c1e9a07b2f1de40");
+    expect(await within(row).findByText("rnaseq-counts")).toBeInTheDocument();
+    expect(screen.getByTestId("run-99990000aaaa0000")).toHaveTextContent("unknown pipeline");
+  });
+
+  it("still lists the runs when Mendel does not answer", async () => {
+    at(RUNS, { draftsDown: true });
+    expect(await screen.findByTestId("run-4c1e9a07b2f1de40")).toHaveTextContent("unknown pipeline");
+  });
+
+  it("names nobody and no executor", async () => {
+    at();
+    await screen.findByTestId("run-4c1e9a07b2f1de40");
+    expect(screen.queryByText("operator")).toBeNull();
+    expect(screen.queryByText("local")).toBeNull();
+  });
+
+  it("filters by outcome with tabs, and the active tab carries the total", async () => {
+    at();
+    await screen.findByTestId("run-4c1e9a07b2f1de40");
+    expect(screen.getByRole("tab", { name: /All/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /All/ })).toHaveTextContent("2");
+    fireEvent.click(screen.getByRole("tab", { name: /Went wrong/ }));
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url))
+      .some((url) => url.startsWith("/api/runs?") && url.includes("phase=failed"))).toBe(true));
+    expect(screen.getByRole("tab", { name: /Went wrong/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("is titled Runs", async () => {
+    at();
+    expect(await screen.findByRole("heading", { name: "Runs" })).toBeInTheDocument();
+  });
 });
