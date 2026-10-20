@@ -218,20 +218,17 @@ describe("the proposal card", () => {
   });
 });
 
-describe("drawers", () => {
-  it("moves focus into the artifact drawer and back to the control that opened it", () => {
+describe("the pipeline file", () => {
+  it("takes the canvas's place, and the canvas comes back as it was", () => {
     surface();
-    const opener = screen.getByTestId("living-view-artifact");
-    opener.focus();
-    fireEvent.click(opener);
-
-    const drawer = screen.getByRole("dialog", { name: /pipeline\.yml/ });
-    expect(drawer).toHaveFocus();
+    fireEvent.click(screen.getByTestId("living-view-artifact"));
+    expect(screen.getByTestId("pipeline-file")).toBeInTheDocument();
     expect(screen.getByTestId("artifact-text")).toHaveTextContent("version: 6");
+    expect(screen.getByTestId("build-canvas").closest(".living")).toHaveClass("hidden");
 
-    fireEvent.keyDown(drawer, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(opener).toHaveFocus();
+    fireEvent.click(screen.getByTestId("living-view-canvas"));
+    expect(screen.queryByTestId("pipeline-file")).toBeNull();
+    expect(screen.getByTestId("build-canvas").closest(".living")).not.toHaveClass("hidden");
   });
 });
 

@@ -11,15 +11,13 @@ import type {
   Step,
 } from "../../api/types";
 import type { components } from "../../api/schema";
-import { ArtifactView } from "../ArtifactView";
 import { Browse } from "../Browse";
-import { ArtifactPreview } from "./ArtifactPreview";
+import { PipelineFile } from "./PipelineFile";
 import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import type { CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
 import { BuildPanel } from "./BuildPanel";
 import { DescribePage } from "./DescribePage";
-import { Drawer } from "./Drawer";
 import { authorOf, type Author } from "./format";
 import { LivingCanvas } from "./LivingCanvas";
 import { LivingHeader } from "./LivingHeader";
@@ -122,7 +120,6 @@ export function LivingSurface({
 }) {
   const [factsRequest, setFactsRequest] = useState(0);
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
-  const [artifactTab, setArtifactTab] = useState<"preview" | "kept">("preview");
   const [browsing, setBrowsing] = useState(false);
 
   const pending = session.pending_proposal;
@@ -281,7 +278,16 @@ export function LivingSurface({
         runnable={run !== null && session.projection_current !== false && !session.retired && !showing}
         openValues={values.open}
       />
-      <div className="living min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
+      {view === "artifact" && (
+        <div className="min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
+          <PipelineFile steps={answered} preview={preview} draftId={session.draft_id} kept={run?.kept ?? false} />
+        </div>
+      )}
+      {run?.sheet}
+      {/* **Kept mounted while the pipeline file shows**, so the canvas's view is as it was. */}
+      <div className={`living min-h-0 ${view === "artifact" ? "hidden" : ""}`}
+           inert={view === "artifact" ? true : undefined}
+           style={{ borderTop: "1px solid var(--line)" }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
           {(alternative.loading || alternative.error) && (
             <div role="status" data-testid={alternative.error ? "preview-error" : "preview-loading"}
@@ -359,28 +365,6 @@ export function LivingSurface({
             }
           />
           </div>
-          {view === "artifact" && (
-            <Drawer title="pipeline.yml" onClose={() => setView("canvas")}>
-              <div className="flex gap-2 mb-4" role="tablist" aria-label="which pipeline.yml">
-                {(["preview", "kept"] as const).map((tab) => (
-                  <button key={tab} type="button" role="tab" aria-selected={artifactTab === tab}
-                          data-testid={`artifact-tab-${tab}`}
-                          disabled={tab === "kept" && !run?.kept}
-                          onClick={() => setArtifactTab(tab)}
-                          className={`text-label px-3 py-[5px] border cursor-pointer
-                                      disabled:opacity-40 disabled:cursor-not-allowed
-                                      ${artifactTab === tab ? "text-now-ink" : "text-ink-3 bg-transparent"}`}
-                          style={{ borderColor: artifactTab === tab ? "var(--now-line)" : "var(--line)" }}>
-                    {tab === "preview" ? "as it would read" : "as kept"}
-                  </button>
-                ))}
-              </div>
-              {artifactTab === "kept" && run?.kept
-                ? <ArtifactView draftId={session.draft_id} />
-                : <ArtifactPreview preview={preview} />}
-            </Drawer>
-          )}
-          {run?.sheet}
           {browsing && (
             <Browse onAdd={(contract) => { onAddStep(contract); setBrowsing(false); }}
                     onClose={() => setBrowsing(false)} />

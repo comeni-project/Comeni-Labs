@@ -326,6 +326,12 @@ body {
    so it stays first for a screen reader — and the rail never overlays the graph it is about. */
 .living { display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
 .living > .living-canvas { min-height: 0; }
+/* The pipeline file (#379): the values and their reasons, beside the file. Values first when stacked. */
+.pipeline-file { display: grid; grid-template-columns: minmax(0, 1fr) 520px; height: 100%; }
+.pipeline-file > .file-column { position: sticky; top: 0; max-height: 100%; }
+@media (max-width: 1180px) { .pipeline-file { grid-template-columns: minmax(0, 1fr) 420px; } }
+@media (max-width: 999px) { .pipeline-file { grid-template-columns: minmax(0, 1fr); }
+  .pipeline-file > .file-column { position: static; max-height: none; border-left: 0 !important; } }
 @media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 1000px) {
   .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);
