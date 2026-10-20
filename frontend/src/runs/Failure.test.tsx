@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Failure, type Failed } from "./Failure";
 
@@ -68,9 +68,9 @@ it("shows what each attempt asked for beside what it touched", () => {
   // bug: a task that touched its entire reservation is a task that died of it. `bytes()` rounds
   // 35.76 GiB to `36 GB` by the spelling rule the whole product shares, and forcing an extra
   // digit here to make the halves look different would be making them disagree on purpose.
-  expect(screen.getByTestId("attempt-1")).toHaveTextContent("asked 36 GB · touched 36 GB");
+  expect(screen.getByTestId("attempt-1")).toHaveTextContent("peak 36 GB of 36 GB");
   // The last try is the one with room to spare, which is why it is the one that finished.
-  expect(screen.getByTestId("attempt-3")).toHaveTextContent("asked 72 GB · touched 61 GB");
+  expect(screen.getByTestId("attempt-3")).toHaveTextContent("peak 61 GB of 72 GB");
 });
 
 it("shows the signal gloss as given and authors no cause of its own", () => {
@@ -114,4 +114,39 @@ it("survives a record that predates the projection", () => {
   render(<Failure failed={FAILED} />);
   expect(screen.queryByTestId("failure-escalation")).toBeNull();
   expect(screen.getByTestId("failure")).toBeInTheDocument();
+});
+
+describe("the failure as a panel (issue 380)", () => {
+  const GiB = 2 ** 30;
+  const HISTORY = [
+    { n: 1, status: "FAILED", exit: 137, memory_bytes: 36 * GiB, peak_rss_bytes: 30 * GiB },
+    { n: 2, status: "FAILED", exit: 137, memory_bytes: 48 * GiB, peak_rss_bytes: 47 * GiB },
+  ];
+
+  it("puts the failed task beside what Nextflow reported, as written", () => {
+    render(<Failure failed={{ ...FAILED, history: HISTORY }} />);
+    expect(screen.getByRole("region", { name: "the failed task" })).toHaveTextContent("STAR_ALIGN");
+    const report = screen.getByRole("region", { name: "What Nextflow reported" });
+    expect(report).toHaveTextContent("oom-kill event");
+    expect(report).toHaveTextContent("shown as written");
+    expect(document.body.textContent).not.toMatch(/W3/);
+  });
+
+  it("shows each attempt's peak against what it asked for", () => {
+    render(<Failure failed={{ ...FAILED, history: HISTORY }} />);
+    expect(screen.getByTestId("attempt-1")).toHaveTextContent("peak 30 GB of 36 GB");
+    expect(screen.getByTestId("attempt-2")).toHaveTextContent("peak 47 GB of 48 GB");
+  });
+
+  it("opens the console at the failed task", () => {
+    const onOpenConsole = vi.fn();
+    render(<Failure failed={FAILED} onOpenConsole={onOpenConsole} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open the console at this task" }));
+    expect(onOpenConsole).toHaveBeenCalledWith("STAR_ALIGN");
+  });
+
+  it("offers no console action when no task failed", () => {
+    render(<Failure failed={{ ...FAILED, process: null, exit: null }} onOpenConsole={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Open the console at this task" })).toBeNull();
+  });
 });

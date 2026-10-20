@@ -20,6 +20,10 @@ import { elapsed } from "./elapsed";
 import { colourOf, inkOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
 
+/** A header action: a quiet button, the boards' *Open the pipeline* and *Console*. */
+const ACTION = "px-[14px] py-[7px] rounded-button border border-line-2 bg-surface text-[13px] font-semibold "
+  + "text-ink no-underline cursor-pointer hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]";
+
 const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
 
 type FailedTask = {
@@ -177,121 +181,57 @@ export function Run() {
 
   return (
     <div className="gutter py-6 flex flex-col gap-4">
-      {/* **No shelf, and the comment that used to be here was wrong.** It claimed *every run
-          screen opens on a `--surface-2` band with an `--e1` lip* — neither `RunView.dc.html`
-          nor `RunsBoard.dc.html` has one. Both headers are
-          `padding:26px 0 22px; border-bottom:1px solid #172025` directly on the field, so the
-          arcs run behind the title and the page reads as one surface.
-
-          A filled, shadowed band made the top of the page a separate object from the bands
-          below it — which is the same defect the panels had, in the one place a reader looks
-          first. Found by zooming both headers side by side; it is invisible in the markup,
-          where a shelf and a rule are both one line. */}
-      <header className="pt-[26px] pb-[22px] mb-1 border-b border-line
-                         relative z-[2] flex flex-col">
-        <span className="flex items-center gap-3 mb-2">
-          <Link to="/runs" className="text-secondary text-ink-3 no-underline hover:text-ink">
-            ← Board
-          </Link>
-          {/* Only when you came from one. A link back to a pipeline you never opened is a
-              guess about where you were. */}
-          {from && (
-            <Link to={`/build?draft=${from}`}
-                  className="ml-auto text-secondary text-done-ink no-underline hover:text-ink">
-              ↩ pipeline
-            </Link>
-          )}
-        </span>
-
-        {/* **The phase sits beside the id, and the elapsed goes right.** They were the other
-            way about — a dot floated at the far edge of a 1500px header, a full column away
-            from the thing whose state it describes, and the elapsed on a line of its own as an
-            uppercase label. The artboard reads `run 85bbe6a0 ● running ............ 7m12s`. */}
-        {/* **A pill, not a dot** — `.design/RunView.dc.html` draws the phase as a bordered
-            uppercase chip in its own colour beside the name. A 8px dot beside grey body text
-            was legible and said nothing at a glance, which is the opposite of what a header
-            whose job is the five-second answer needs.
-
-            **`run <id>` and not a pipeline name.** The artboard's title is `rnaseq-counts`,
-            and Wiener surfaces no name for a pipeline — `/runs` has `pipeline_digest` and no
-            label anywhere. Inventing one from the digest would be a name nobody chose. */}
-        {/* ══ THE HEADER, AGAINST `.design/RunView.dc.html` ══════════════════════════════
-            Read the artboard beside the page rather than its annotations — four things were
-            wrong here and none was visible from the code:
-
-            **The title is SANS.** The artboard sets `font-size:31px; font-weight:600;
-            letter-spacing:-.035em` with no family override, so it inherits the body sans; only
-            the id carries `class="m"`. This was `font-data`, which made a pipeline's name read
-            like an identifier — the opposite of the distinction the artboard draws between a
-            name somebody chose and a hash nobody did.
-
-            **The order is name · pill · id.** The id came second here, which put a hash between
-            a name and its state.
-
-            **The elapsed takes the phase's colour** — the artboard draws `21m 40s` in the same
-            `#BD6DCD` as the running pill, so the two things that say *this is still going* say
-            it together. It was grey.
-
-            **CANCEL is rightmost, after the elapsed**, not tucked beside the pill where it sat
-            in the reach of somebody aiming at the phase. */}
-        <div className="flex items-baseline gap-3.5">
-          <h1 className="font-display text-[31px] font-semibold leading-none text-ink m-0
-                         tracking-[-.035em]">
+      <header className="pt-2 flex flex-col gap-2">
+        <nav aria-label="breadcrumb" className="text-[13px] text-ink-3">
+          <Link to="/runs" className="text-ink-3 no-underline hover:text-ink">Runs</Link>
+          <span aria-hidden> / </span>
+          <span>{run.name || `run ${id.slice(0, 8)}`}</span>
+        </nav>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* A name somebody chose, at the page's title; the id is the quietest thing beside it,
+              and the run never gets a name derived from its digest. */}
+          <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">
             {run.name || `run ${id.slice(0, 8)}`}
           </h1>
+          {run.name && <span className="font-data text-[12px] text-ink-3">{id.slice(0, 8)}</span>}
           {/* A chip: the phase's words in its `-ink`, on a tint of its mark. */}
           <span
             data-testid="run-phase"
-            className="text-label leading-none px-2 py-[3px] rounded-full"
+            className="text-[12px] font-semibold leading-none px-2 py-[4px] rounded-control"
             style={{ color: inkOf[phase],
-                     background: `color-mix(in srgb, ${colourOf[phase]} 12%, transparent)`,
-                     border: `1px solid color-mix(in srgb, ${colourOf[phase]} 27%, transparent)` }}
+                     background: `color-mix(in srgb, ${colourOf[phase]} 14%, transparent)` }}
           >
-            {run.phase}
+            {run.phase === "failed" ? "went wrong" : run.phase}
           </span>
-          {/* 11.5px `--ink-3`. It was `text-body`, which put the hash at the same weight as
-              the sentence under it — the artboard makes it the quietest thing on the line. */}
-          {run.name && (
-            <span className="font-data text-[11.5px] text-ink-3">{id.slice(0, 8)}</span>
-          )}
-
-          <span className="ml-auto flex items-center gap-[22px]">
-            <span className="text-right">
-              <span className="block font-data text-[23px] leading-none tracking-[-.02em]
-                               tabular-nums"
-                    style={{ color: TERMINAL.has(run.phase) ? "var(--ink-2)" : inkOf[phase] }}>
-                {elapsed(run.started_at_ms, run.ended_at_ms, now)}
-              </span>
-              {/* The artboard reads `local · started 21:04` — **the executor beside the
-                  clock time**, because *where* a run went is the other half of *when*. */}
-              {run.started_at_ms != null && (
-                <span className="block font-data text-label text-ink-3 mt-1">
-                  {run.executor ? `${run.executor} \u00b7 ` : ""}started{" "}
-                  {new Date(run.started_at_ms).toLocaleTimeString([], {
-                    hour: "2-digit", minute: "2-digit",
-                  })}
-                </span>
-              )}
-            </span>
+          <span className="ml-auto flex items-center gap-2 flex-wrap">
+            {/* Only when you came from one: a link back to a pipeline you never opened is a
+                guess about where you were. */}
+            {from && (
+              <Link to={`/build?draft=${from}`} className={ACTION}>Open the pipeline</Link>
+            )}
+            <button type="button" data-testid="open-console" onClick={() => setView("console")} className={ACTION}>
+              Console
+            </button>
             {!TERMINAL.has(run.phase) && <Cancel runId={id} />}
             <DeleteRun runId={id} phase={run.phase} />
           </span>
         </div>
-
-        {/* **The five-second answer, in one sentence** — `page-5`: *"Band 0 is the header, and
-            its one sentence is the five-second answer. If a reader has to look at a chart to
-            learn whether the run is fine, the header is wrong."* */}
-        <p data-testid="run-sentence"
-           className="text-[12.5px] text-ink-3 mt-[11px] m-0">
+        {/* **The five-second answer, in one sentence**: what is running, then how long, where
+            and since when — the boards' order. */}
+        <p data-testid="run-sentence" className="m-0 text-[13.5px] text-ink-2">
           {sentence}
+          {" · "}
+          <span className="tabular-nums">{elapsed(run.started_at_ms, run.ended_at_ms, now)}</span>
+          {run.executor === "local" ? " · this machine" : run.executor ? ` · ${run.executor}` : ""}
+          {run.started_at_ms != null && ` · started ${new Date(run.started_at_ms).toLocaleTimeString([], {
+            hour: "2-digit", minute: "2-digit" })}`}
         </p>
         {run.work_cleared && (
-          <p data-testid="work-cleared" className="text-secondary text-ink-3 mt-1 m-0">
+          <p data-testid="work-cleared" className="text-secondary text-ink-3 m-0">
             Working files cleared by this installation's retention setting. The results and the
             record stay.
           </p>
         )}
-
       </header>
 
       {/* Above the overview, so a failed run says where it stopped without a click — and the
@@ -300,6 +240,11 @@ export function Run() {
       {/* **Band 1 \u2014 four panels, and they come before the failure banner.** The banner is
           the detail of one task; the panels are the run. `page-5`: summary top, granular
           detail bottom. */}
+      {/* **A failed run opens on its failure** — the boards put it first: the panels are the
+          run, but the first question about a failed run is where and why it stopped. */}
+      {view !== "console" && run.phase === "failed" && failed && (
+        <Failure failed={failed} onOpenConsole={(process) => { setOnly(process); setView("console"); }} />
+      )}
       {view !== "console" && <Panels
         overview={overview.data}
         failed={run.counts.failed}
@@ -310,7 +255,6 @@ export function Run() {
         runId={id}
       />}
 
-      {run.phase === "failed" && failed && <Failure failed={failed} />}
 
       {/* **What the run held, above the panel and outside the tabs.** It is not a fifth view:
           the envelope answers *how much of the machine was in use* and every tab answers a
@@ -385,7 +329,7 @@ export function Run() {
                               rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
-              <span className="text-label text-ink-3">processes</span>
+              <h2 className="m-0 text-heading font-semibold text-ink">Steps</h2>
               <span className="ml-auto flex items-center gap-1">
                 {(["table", "graph"] as const).map((name) => (
                   <button
@@ -432,15 +376,7 @@ export function Run() {
                               rounded-panel shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
                             border-b border-line-soft">
-              <span className="text-label text-ink-3">tasks</span>
-              <button type="button" data-testid="open-console"
-                      onClick={() => setView("console")}
-                      className="ml-auto bg-transparent border border-line cursor-pointer
-                                 px-2.5 py-1 text-label text-ink-3
-                                 hover:text-ink"
-                      style={{ transition: `color var(--t)` }}>
-                console
-              </button>
+              <h2 className="m-0 text-heading font-semibold text-ink">Tasks</h2>
             </div>
             <Tasks
               runId={id}
