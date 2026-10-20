@@ -685,7 +685,7 @@ this alias.
 
 
 def _diagnostic_code(value: str) -> str:
-    """Two uppercase letters and four digits — `MD0105`, `MF0401`, `MI0100`.
+    """Two uppercase letters and four digits — `MD0105`, `MA0001`, `MI0200`.
 
     **This alias exists so a door can carry what validation said without carrying what a tool
     printed.** `GateFailure` already learned that lesson once: Nextflow's stderr names work

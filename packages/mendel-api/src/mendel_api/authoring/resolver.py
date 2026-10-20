@@ -156,7 +156,7 @@ def _asking(request: AmbiguityRequest) -> str:
     """What is being decided, from the door payload and nothing else.
 
     Composed from the payload rather than from the `Ambiguity` so that what a guard inspects and
-    what a model reads are the same object — `forge_jobs._record_text`'s rule, one door over.
+    what a model reads are the same object.
     """
     lines = [f"The question is about `{request.subject}`, at step `{request.node_id}`."]
     if request.what:

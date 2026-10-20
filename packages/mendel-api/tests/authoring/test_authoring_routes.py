@@ -7,7 +7,7 @@ even a second model call.
 
 The queue is replaced at `session._enqueue`
 and the model at `authoring_jobs._client`, the seams those modules name for it. Redis and a
-provider are not what this file is about; `test_forge_jobs.py` covers the queue and
+provider are not what this file is about; `test_authoring_facade.py` covers queueing and
 `test_authoring_ai.py` covers the calls."""
 
 import asyncio

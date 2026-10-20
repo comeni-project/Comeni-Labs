@@ -91,7 +91,7 @@
 - [x] **Step 2: Run** `make docs`, `make links`, `make doc-paths`, `make doc-sizes` — PASS.
 - [x] **Step 3:** Tick this plan with a *Deviations* heading; set the spec's status.
 - [x] **Step 4: Commit** `docs: the old forge leaves the documentation (#361)`.
-- [ ] **Step 5:** `make check` and `make guards` once more, then the final whole-branch review. The branch is **not merged** until part 1 (#362) is on it (spec, section 4).
+- [x] **Step 5:** `make check` and `make guards` once more, then the final whole-branch review. The branch is **not merged** until part 1 (#362) is on it (spec, section 4).
 
 ## Deviations
 
@@ -172,3 +172,9 @@
     tagged.
   - **Also updated:** the install and local-stack URL tables, `how-to/index.md`, `mkdocs.yml`
     nav, `tools/README.md`, `frontend/README.md` and the test indexes.
+- **Final branch review (Task 4 step 5).** `make check` (3277 tests) and `make guards` (93) pass.
+  The review found ten comments in live code that cited deleted modules (`forge_state`,
+  `forge_jobs`, `test_forge_jobs.py`) as their reason, and rewrote each to stand alone. With
+  the forge services gone, `test_nothing_under_src_moves_a_session_by_event` lost its
+  `services/forge` exclusion. Commit `af19fbeb` had shipped one line over the lint limit
+  (fixed in `19824a2d`): the Python lint was not rerun after the scan was widened.

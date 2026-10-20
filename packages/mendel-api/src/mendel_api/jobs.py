@@ -12,11 +12,10 @@ with a concurrency of one, and everything else keeps the default queue it has al
 
 **Every enqueue may name its job id, and the forge's always do.** ARQ delivers at least once:
 a redeploy mid-job re-delivers it, and two workers then start two model calls for one
-adaptation. A job id derived from what the work is *about* — adaptation, revision, purpose —
-makes the duplicate a no-op at the queue rather than a race at the database. The database
-refusal stays as well, and the two are not the redundancy the journal keeps warning about:
-this one prevents the second call, and `forge_state.claim` is what holds when the first job has
-already finished and the id has aged out of Redis.
+piece of work. A job id derived from what the work is *about* makes the duplicate a no-op at the
+queue rather than a race at the database. A handler's own check of its pending context stays as
+well, and the two are not redundant: this one prevents the second call, and the context check is
+what holds when the first job has already finished and the id has aged out of Redis.
 """
 
 import asyncio

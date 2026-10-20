@@ -45,9 +45,8 @@ def test_every_command_has_one_recorder_and_every_recorder_a_command():
 
 
 def test_nothing_under_src_moves_a_session_by_event():
-    """`move` is test setup (`tests/authoring_setup.py`); `forge_state.move` moves a forge
-    adaptation, not a session."""
-    assert [c for c in _calls("move") if not c.startswith("services/forge")] == []
+    """`move` is test setup (`tests/authoring_setup.py`), never application code."""
+    assert _calls("move") == []
 
 
 def test_the_old_service_is_gone():

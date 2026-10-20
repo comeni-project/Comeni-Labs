@@ -43,9 +43,8 @@ the prompt would put the prompt somewhere that exclusion was never meant to reac
 def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
     """Start a conversation about a draft, or refuse if one is already open.
 
-    **One session per draft**, which the unique index enforces and this refuses first — the same
-    two-mechanism arrangement `forge_state.begin` uses, so a person reads a sentence rather than
-    a constraint violation.
+    **One session per draft**, which the unique index enforces and this refuses first, so a
+    person reads a sentence rather than a constraint violation.
     """
     if start not in ("say", "fork_correction"):
         raise ValueError("unsupported initial authoring node")
