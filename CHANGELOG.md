@@ -304,6 +304,9 @@ or a complete commit history.
   the failed task's attempts, each showing its peak against the memory it asked for, sit beside
   what Nextflow reported, as written. The run header has *Console* and *Open the pipeline*
   ([#380](https://github.com/comeni-project/Comeni-Labs/issues/380)).
+- The settings overlay's own words (its subtitle, *Esc*, the `.env` note and section counts) are
+  in the interface font rather than the data font
+  ([#381](https://github.com/comeni-project/Comeni-Labs/issues/381)).
 
 #### Removed
 
