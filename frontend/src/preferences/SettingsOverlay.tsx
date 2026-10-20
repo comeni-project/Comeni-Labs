@@ -59,11 +59,12 @@ export function SettingsOverlay({
             <h2 id="settings-title" className="m-0 text-[19px] font-semibold tracking-[-.02em] text-ink">
               Settings
             </h2>
-            <span className="hidden md:block font-data text-label text-ink-3">
-              this installation · every change is saved as you make it
+            <span className="hidden md:block text-[13px] text-ink-3">
+              This installation · every change is saved as you make it
             </span>
           </div>
-          <span className="hidden md:inline ml-auto font-data text-label text-ink-3">esc</span>
+          <kbd className="hidden md:inline ml-auto px-[6px] py-[1px] rounded-control border border-line
+                          font-ui text-[12px] text-ink-3">Esc</kbd>
           <button
             type="button"
             aria-label="Close settings"

@@ -111,8 +111,8 @@ export function Preferences({
                     {s.title}
                     {count && (
                       <span
-                        className={`hidden md:inline font-data text-label
-                                    ${count.set ? "text-now-ink" : "text-ink-3"}`}
+                        className={`hidden md:inline text-[12px]
+                                    ${count.set ? "text-now-ink font-semibold" : "text-ink-3"}`}
                       >
                         {count.text}
                       </span>
@@ -131,7 +131,9 @@ export function Preferences({
               {wiener.error instanceof Error ? wiener.error.message : "no answer"}.
             </span>
           )}
-          <span className="hidden md:inline font-data text-label text-ink-3">a value in .env always wins</span>
+          <span className="hidden md:inline text-[12.5px] text-ink-3">
+            A value in <code className="font-data">.env</code> always wins.
+          </span>
         </div>
       </nav>
 
