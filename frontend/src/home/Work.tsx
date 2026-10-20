@@ -96,7 +96,7 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
           slack, because the sentence describing what a pipeline produces is the long thing on
           the row. Auto layout gave the name 840px and squeezed the sentence, so the eye ran
           across a gap to reach the columns that matter. */}
-      <table className="w-full border-collapse table-fixed min-w-[720px]">
+      <table className="w-full border-collapse table-fixed" style={{ minWidth: 720 }}>
         <colgroup>
           <col className="w-[28px]" />
           <col />
@@ -208,7 +208,7 @@ export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, stri
           slack, because the sentence describing what a pipeline produces is the long thing on
           the row. Auto layout gave the name 840px and squeezed the sentence, so the eye ran
           across a gap to reach the columns that matter. */}
-      <table className="w-full border-collapse table-fixed min-w-[720px]">
+      <table className="w-full border-collapse table-fixed" style={{ minWidth: 720 }}>
         <colgroup>
           <col />
           <col className="w-[120px]" />

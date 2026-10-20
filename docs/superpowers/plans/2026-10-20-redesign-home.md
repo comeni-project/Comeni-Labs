@@ -1,6 +1,6 @@
 # Redesign 5 — Home Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Home leads with describing, then what needs you, then your pipelines and results.
 **Architecture:** `Home.tsx` composes a header, `Describe`, a card row (`Now` split into
@@ -24,15 +24,28 @@
 ---
 
 ### Task 1: the cards
-- [ ] Tests in `home/Cards.test.tsx`: `NeedsYouCard` lists pipelines with settings and *Answer*
+- [x] Tests in `home/Cards.test.tsx`: `NeedsYouCard` lists pipelines with settings and *Answer*
   links, says *N values* for unnamed; `WentWrongCard` caps at three, newest first, links;
   `ResultsCard` only succeeded, capped at three; `RunningCard` has no *started by*; each returns
   nothing when empty. Implement in `home/Cards.tsx`; delete `Now.tsx`. Commit.
 
 ### Task 2: Home, Describe, Work, First
-- [ ] Tests in `Home.test.tsx`: header *Your work* and its line; *New analysis* link; order —
+- [x] Tests in `Home.test.tsx`: header *Your work* and its line; *New analysis* link; order —
   describe, cards, *Your pipelines*, results; no *Owner* header; decided words in the table;
   Wiener down. Update existing Home/First tests that read the old layout. Implement. Commit.
 
 ### Task 3: browser and records
-- [ ] Fixture-answered Vite at 1440/390, light/dark; fix; CHANGELOG; tick; commit.
+- [x] Fixture-answered Vite at 1440/390, light/dark; fix; CHANGELOG; tick; commit.
+
+## Deviations (recorded during execution)
+
+- **Needs you reads the drafts' `open_values`**, not `/attention`'s composed sentence; Home no
+  longer asks `/attention`. Each pipeline's settings are named, with *Answer* to its draft.
+- **The provenance words** count tier 1–2 *settled*, *measured*, *open*, then *answered by you* /
+  *answered by a model* when nonzero — the server's `Provenance` keeps those apart.
+- **`ByRun`'s header had one column more than its rows**; fixed while *Started by* went.
+- **`.tbl > * { min-width: max-content }`** beat the table's `min-w-[720px]` class and collapsed
+  the flexible column at phone width; the tables carry an inline `minWidth`.
+- **Browser check:** Vite with the API answered from fixtures by the DevTools script (the dev
+  stack was not started: part 0's migration would drop the old forge tables from the development
+  database), 1440 and 390, light and dark.
