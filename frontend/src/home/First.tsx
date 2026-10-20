@@ -69,7 +69,7 @@ export function First() {
         <label
           htmlFor="goal"
           data-testid="goal-bar"
-          className={`settle w-[min(660px,100%)] flex items-center gap-3 px-[18px] py-[15px]
+          className={`settle w-[min(660px,100%)] flex items-center gap-3 px-[18px] py-[15px] rounded-panel
                       ${live ? "cursor-text" : "cursor-not-allowed"}`}
           style={{ background: "var(--paper-2)", border: "1px solid var(--now-line)",
                    animationDelay: "120ms" }}
@@ -109,7 +109,7 @@ export function First() {
              style={{ animationDelay: "240ms" }}>
           {live && (
             <button type="submit" data-testid="start-building" disabled={!ready}
-                    className="px-[22px] py-[10px] border-0 cursor-pointer font-semibold text-[13.5px]
+                    className="px-[22px] py-[10px] border-0 rounded-button cursor-pointer font-semibold text-[13.5px]
                                bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40">
               {begin.isPending ? "Starting…" : "Start building"}
             </button>

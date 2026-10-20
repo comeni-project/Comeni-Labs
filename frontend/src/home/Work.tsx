@@ -63,6 +63,15 @@ function Bar({ of }: { of: DraftRow["provenance"] }) {
   );
 }
 
+/** The bar in words: tiers 1–2 settled, tier 3 measured, tier 4 open, and who answered the rest. */
+function decidedWords(of: NonNullable<DraftRow["provenance"]>): string {
+  return [
+    `${of.settled} settled`, `${of.measured} measured`, `${of.open} open`,
+    of.by_person > 0 && `${of.by_person} answered by you`,
+    of.by_model > 0 && `${of.by_model} answered by a model`,
+  ].filter(Boolean).join(" · ");
+}
+
 export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] }) {
   // **Joined in the browser on the pipeline digest**, which is why this component takes both.
   // `useSubmit.ts` was the only place in the product touching both halves; this is the second,
@@ -87,28 +96,25 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
           slack, because the sentence describing what a pipeline produces is the long thing on
           the row. Auto layout gave the name 840px and squeezed the sentence, so the eye ran
           across a gap to reach the columns that matter. */}
-      <table className="w-full border-collapse table-fixed min-w-[860px]">
+      <table className="w-full border-collapse table-fixed min-w-[720px]">
         <colgroup>
           <col className="w-[28px]" />
-          <col className="w-[170px]" />
           <col />
-          <col className="w-[132px]" />
-          <col className="w-[88px]" />
-          <col className="w-[110px]" />
+          <col className="w-[230px]" />
+          <col className="w-[64px]" />
+          <col className="w-[120px]" />
           <col className="w-[92px]" />
         </colgroup>
         <thead>
           <tr>
-            {/* **The status dot is a column of its own**, 14px wide, and the table had none.
-                The artboard leads every row with it — it is what lets somebody read *is any of
-                this waiting on me* down a column instead of across six. */}
+            {/* **The status dot is a column of its own** — it is what lets somebody read *is any
+                of this waiting on me* down a column instead of across five. No owner column: the
+                MVP has no labs, so there is nobody else's pipeline (#378). */}
             <th className={HEAD} aria-label="state" />
             <th className={HEAD}>Pipeline</th>
-            <th className={HEAD}>Makes</th>
-            <th className={HEAD}>Settled · measured · open</th>
+            <th className={HEAD}>How it was decided</th>
             <th className={`${HEAD} text-right`}>Runs</th>
             <th className={`${HEAD} text-right`}>Last outcome</th>
-            <th className={`${HEAD} text-right`}>Owner</th>
             <th className={HEAD} aria-label="actions" />
           </tr>
         </thead>
@@ -134,11 +140,18 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                   {row.changed_since_kept && (
                     <span className="ml-2 text-secondary text-ink-3">changed since kept</span>
                   )}
+                  {/* What it makes and how big it is, under its name, as the boards set it. */}
+                  <span className="block mt-[2px] text-[12.5px] text-ink-2">
+                    {row.makes.length ? <span className="font-data">{row.makes.join(", ")}</span> : "makes nothing yet"}
+                    {` · ${row.steps} ${row.steps === 1 ? "step" : "steps"}`}
+                  </span>
                 </td>
-                <td className={`${CELL} text-ink-2 font-data text-secondary`}>
-                  {row.makes.length ? row.makes.join(", ") : <span className="text-ink-3">—</span>}
+                <td className={CELL}>
+                  <Bar of={row.provenance} />
+                  {row.provenance && (
+                    <span className="block mt-[5px] text-[12px] text-ink-3">{decidedWords(row.provenance)}</span>
+                  )}
                 </td>
-                <td className={CELL}><Bar of={row.provenance} /></td>
                 <td className={`${CELL} text-right tnum text-ink-2`}>
                   {row.digest ? (count.get(row.digest) ?? 0) : <span className="text-ink-3">—</span>}
                 </td>
@@ -158,7 +171,6 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                     <span className="text-ink-3">{row.kept ? "never run" : "not kept"}</span>
                   )}
                 </td>
-                <td className={`${CELL} text-right text-secondary text-ink-2`}>{row.who}</td>
                 {/* After the row's link, never inside it: a delete is its own act (Part H). */}
                 <td className={`${CELL} text-right`}><DeleteDraft id={row.id} name={row.name} /></td>
               </tr>
@@ -196,24 +208,19 @@ export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, stri
           slack, because the sentence describing what a pipeline produces is the long thing on
           the row. Auto layout gave the name 840px and squeezed the sentence, so the eye ran
           across a gap to reach the columns that matter. */}
-      <table className="w-full border-collapse table-fixed min-w-[860px]">
+      <table className="w-full border-collapse table-fixed min-w-[720px]">
         <colgroup>
-          <col className="w-[28px]" />
-          <col className="w-[170px]" />
           <col />
-          <col className="w-[132px]" />
-          <col className="w-[88px]" />
+          <col className="w-[120px]" />
+          <col className="w-[220px]" />
           <col className="w-[110px]" />
-          <col className="w-[92px]" />
         </colgroup>
         <thead>
           <tr>
             {/* **The status dot is a column of its own**, 14px wide, and the table had none.
                 The artboard leads every row with it — it is what lets somebody read *is any of
                 this waiting on me* down a column instead of across six. */}
-            <th className={HEAD} aria-label="state" />
             <th className={HEAD}>Pipeline</th>
-            <th className={HEAD}>Started by</th>
             <th className={HEAD}>When</th>
             <th className={HEAD}>Outcome</th>
             <th className={`${HEAD} text-right w-[110px]`}>Took</th>
@@ -228,14 +235,6 @@ export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, stri
                   {(run.pipeline_digest && named.get(run.pipeline_digest))
                     || <span className="text-ink-3">unknown pipeline</span>}
                 </Link>
-              </td>
-              {/* **The person slot, and no `who` filter** — operator's decision 2026-08-30.
-                  `submitted_by` is hardcoded "operator" at submit, so the value is a constant.
-                  The column stays so accounts arrive as a filter rather than a re-layout, and
-                  it renders as visibly not-yet-real; shipping a filter that filters nothing is
-                  what `rn-board` and `ov-scope` both forbid. */}
-              <td className={`${CELL} text-secondary text-ink-3`} title="attribution is not wired yet">
-                {run.submitted_by}
               </td>
               <td className={`${CELL} text-secondary text-ink-2`}>{ago(run.submitted_at)}</td>
               <td className={CELL}>
