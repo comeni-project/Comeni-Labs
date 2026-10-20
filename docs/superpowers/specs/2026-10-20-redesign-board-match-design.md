@@ -1,7 +1,7 @@
 # Redesign — matching the boards
 
 **Parent:** #370 (parts #377–#381 are built on stacked branches; this pass is on
-`redesign-board-match`, stacked on `redesign-settings`). **Status:** draft for the operator.
+`redesign-board-match`, stacked on `redesign-settings`). **Status:** agreed with the operator 2026-10-20 (departures below are the builder's recommendations, accepted as "what you think is best").
 **Operator's rule (2026-10-20):** the screens must match the boards as closely as possible.
 The loop is: screenshot beside the board at the same width → fix → repeat until they read the
 same, then the operator checks them in Chrome.
@@ -22,24 +22,26 @@ These stay as they are unless the operator says otherwise; each is listed again 
 - **The MVP has no labs** (#378, #380): no lab name, owners or *started by*.
 - **Wiener has one verb (cancel)**: no *Relaunch*.
 
-## Decisions for the operator
+## Where this departs from the boards, and why (operator: follow the boards unless there is a better way, and say so)
 
-1. **Build's panel without tabs.** The *Build* board draws the panel as the step line, the step
-   card and the composer — no *Step · Assistant* tabs; the tabs appear on *Question*, where a
-   step is open. Proposal: follow the boards — no tabs while nothing is selected (the composer
-   is there, and a reply opens the *Assistant* tab); tabs and a close × when a step is open.
-2. **Describe confirms the goal with *Start building*.** The *Describe* board has no goal card:
-   the goal **is** *What was understood* (*You have*, *You want*, then each fact), corrected by
-   clicking a line, and *Start building* confirms it. It also puts the pace (*Step by step* /
-   *All at once*) on the same page, but the engine asks the pace only after the goal is
-   confirmed. Proposal: draw the goal as the table, *Start building* confirms it, and the pace is
-   asked as the board's two cards when the engine asks it (a second, short page state) — no
-   protocol change. Alternative: remember the pace chosen beside *Start building* and answer the
-   engine's pacing question with it automatically (a client-side chain; the answer is still the
-   person's, recorded by the engine).
-3. **Steps not yet offered are named on the board** (*Count reads per gene · step 5*). The engine
-   does not send them; the line counts them (*1 more step*). Naming them needs a server change
-   (the plan's remaining steps in `WalkProgress`).
+1. **The panel keeps its *Step · Assistant* tabs on Build.** The *Build* board draws no tabs; the
+   *Question* board does. Without them the composer would send into a conversation that cannot be
+   seen until a reply arrives, and the chat — the way to steer in your own words — would be
+   undiscoverable. The tabs are drawn as on *Question*; the × appears only when a step is open.
+2. **Describe is one page, as drawn, with one condition.** The goal **is** *What was understood*
+   (*You have*, *You want*, then each fact), corrected by clicking a line; *Start building*
+   confirms it, and when the engine then asks the pace, the page answers with the card chosen
+   (still the person's answer, recorded by the engine; no protocol change). The two pace cards are
+   drawn **only when the installation asks every time** (the *Building → Pacing* setting is
+   *Ask me every time*); otherwise the engine never asks, the cards would offer a choice that
+   changes nothing, and the page says how it will go instead (*Goes step by step — change it in
+   Settings*).
+3. **Steps not yet offered are named — by their process, for now.** The plan is on the server
+   (`Blueprint.order`), so `WalkProgress` gains the remaining steps and the line names them
+   (*SAMTOOLS_SORT · step 5*). The board's plain names (*Count reads per gene*) have no source:
+   a step's role (`bam_sorting`) carries no human label. That needs a `name` on role declarations
+   in the registry repository and its loader in `comeni-core` — a separate issue; until then the
+   line reads like the decided steps above it.
 
 ## The builder
 
@@ -67,7 +69,7 @@ These stay as they are unless the operator says otherwise; each is listed again 
 |---|---|---|
 | Panel is a rounded card beside the canvas (16 px gap), not a full-height rail | full-height rail with a left border | Card |
 | **Step line**: a metro line — green between finished steps, grey after the current one; dots filled ink for settled, amber ring for a step with measured values, blue ring for the current one, hollow grey for later | grey line, ink dots | Colour the segments and dots as drawn; right-hand words *settled* / *you confirmed* / *1 measured* |
-| Current step named in plain words (*Sort the alignments*) | process name | Use the proposal's `brief.does` when present, else the process name |
+| Current step named in plain words (*Sort the alignments*) | process name | Process name until roles carry a name (departure 3); `brief.does` is the tool's whole description sentence, not a name |
 | No sentence above the card | *Step 4 of 5, on the canvas already and drawn dashed…* | Remove |
 | **Step card**: rounded panel on surface-2; title *Step 4 · sort the alignments* bold, a *required* chip (tier 1) / tier word chip; reason in body text; ports line in mono (*alignment.bam → alignment.bam[sorted]*); options as **radio cards** (name bold mono, note under it; the recommended one tinted now-soft with *suggested* in now-ink); buttons **Add it** (main), **Why this one?**, **Skip** | square box, header *Step 4 of 5 — SAMTOOLS_SORT* + *tier 2*, checkbox squares, *recommended*, *Preview* button, **Continue** / **Show me why** | Restyle `StepProposalCard`; *Skip* rejects the offer (the session's reject); *Preview* stays as a quiet link on an alternative (the boards draw none, but previewing is a feature) |
 | Composer: rounded field, placeholder *Ask about a step, or say what to change*, a send icon button | square box with a chevron | Restyle `Composer` |
