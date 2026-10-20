@@ -26,7 +26,7 @@ import { ABSENT, seconds, shortBytes } from "./units";
 
 const PANEL = "bg-surface border border-line rounded-panel shadow-e1 px-4 pt-3 pb-3.5 " +
   "flex flex-col";
-const LABEL = "text-label text-ink-3";
+const LABEL = "text-[13px] font-semibold text-ink-2";
 const FIGURE = "font-data text-[29px] leading-none tracking-[-.03em] text-ink";
 const NOTE = "text-label text-ink-3 mt-2 leading-[1.45]";
 
@@ -51,7 +51,7 @@ function Progress({ data }: { data?: OverviewData }) {
   const finished = data?.steps_finished ?? 0;
   if (declared === 0) {
     return (
-      <Panel label="progress" testid="panel-progress"
+      <Panel label="Progress" testid="panel-progress"
              note="no artifact to declare them — a bar over a denominator of zero is invented"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
@@ -60,7 +60,7 @@ function Progress({ data }: { data?: OverviewData }) {
   // that is running is its own colour, so *where* the run is reads without the table.
   const cells = (data?.rows ?? []).filter((row) => row.declared);
   return (
-    <Panel label="progress" testid="panel-progress"
+    <Panel label="Progress" testid="panel-progress"
            note={<>Steps, not tasks — the artifact declares {declared}.{" "}
              <span className="text-[var(--ink-3)]">Nextflow discovers tasks as channels emit, so a task
              percentage has no denominator.</span></>}>
@@ -86,7 +86,7 @@ function Progress({ data }: { data?: OverviewData }) {
  *  the page and it is not a failure count. */
 function Failures({ failed, retried }: { failed: number; retried: number }) {
   return (
-    <Panel label="failures" testid="panel-failures"
+    <Panel label="Failures" testid="panel-failures"
            note={retried > 0
              ? `${retried} task${retried === 1 ? "" : "s"} retried — a retry is not a failure`
              : "nothing has failed and nothing has retried"}>
@@ -148,7 +148,7 @@ function Moving({ lastMs, now, live, ends, from, to }: {
 }) {
   if (!live) {
     return (
-      <Panel label="moving" testid="panel-moving" note="the run has ended"
+      <Panel label="Moving" testid="panel-moving" note="the run has ended"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
   }
@@ -156,13 +156,13 @@ function Moving({ lastMs, now, live, ends, from, to }: {
     // **Absent is not zero.** Nothing has completed yet, so *since the last completion* has
     // no value — and drawing `0s` would say the opposite of the truth.
     return (
-      <Panel label="moving" testid="panel-moving"
+      <Panel label="Moving" testid="panel-moving"
              note="nothing has completed yet, so there is no interval to measure"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
   }
   return (
-    <Panel label="moving" testid="panel-moving" note="Since the last completion.">
+    <Panel label="Moving" testid="panel-moving" note="Since the last completion.">
       <span className={FIGURE}>{seconds(Math.max(0, now - lastMs))}</span>
       {ends.length > 0 && <Sparkline ends={ends} from={from} to={to} />}
     </Panel>
@@ -179,7 +179,7 @@ function ResourceFit({ data }: { data?: OverviewData }) {
   );
   if (rows.length === 0) {
     return (
-      <Panel label="resource fit" testid="panel-fit"
+      <Panel label="Resource fit" testid="panel-fit"
              note="no process has reported both what it asked for and what it touched"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
@@ -189,7 +189,7 @@ function ResourceFit({ data }: { data?: OverviewData }) {
       ? a : b);
   const ratio = worst.memory_asked_bytes! / worst.memory_peak_bytes!;
   return (
-    <Panel label="resource fit" testid="panel-fit"
+    <Panel label="Resource fit" testid="panel-fit"
            note={<>{worst.process} asks {shortBytes(worst.memory_asked_bytes)} and peaked at{" "}
              {shortBytes(worst.memory_peak_bytes)}.{" "}
              <span className="text-[var(--ink-3)]">Worst over-ask of {rows.length} process

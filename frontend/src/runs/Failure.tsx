@@ -115,8 +115,8 @@ export function Failure({ failed, onOpenConsole }: {
             </p>
             {escalation.map((attempt) => (
               <div key={attempt.n} data-testid={`attempt-${attempt.n}`}
-                   className="grid items-center gap-3 text-[13px]"
-                   style={{ gridTemplateColumns: "70px minmax(80px,1fr) auto" }}>
+                   className="grid items-center gap-x-3 gap-y-1 text-[13px]
+                              grid-cols-[70px_minmax(60px,1fr)] sm:grid-cols-[70px_minmax(80px,1fr)_auto]">
                 <span className="text-ink-2">attempt {attempt.n}</span>
                 <span className="block h-[8px] rounded-full overflow-hidden"
                       style={{ width: `${((attempt.memory_bytes ?? 0) / ceiling) * 100}%`,
@@ -126,7 +126,7 @@ export function Failure({ failed, onOpenConsole }: {
                           ? Math.min(100, ((attempt.peak_rss_bytes ?? 0) / attempt.memory_bytes) * 100) : 0}%`,
                                  background: "var(--measured)" }} />
                 </span>
-                <span className="font-data text-ink tabular-nums whitespace-nowrap">
+                <span className="col-span-2 sm:col-span-1 font-data text-ink tabular-nums">
                   peak {bytes(attempt.peak_rss_bytes)} of {bytes(attempt.memory_bytes)}
                   <span className="text-ink-3">
                     {attempt.exit === null || attempt.exit === undefined ? ` · ${attempt.status}` : ` · exit ${attempt.exit}`}

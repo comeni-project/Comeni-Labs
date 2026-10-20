@@ -206,7 +206,7 @@ export function Board() {
   const lo = page * PER_PAGE + 1;
 
   return (
-    <div className="gutter py-7 flex flex-col gap-4">
+    <div className="gutter py-7 flex flex-col gap-4 min-w-0">
       <header className="flex items-baseline gap-3 flex-wrap">
         <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">Runs</h1>
         <p data-testid="runs-count" className="m-0 text-body text-ink-2">

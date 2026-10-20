@@ -298,6 +298,12 @@ or a complete commit history.
   has something to show. Your pipelines say in words how their values were decided, and finished
   runs appear under *Results ready*. No owner or *started by* appears
   ([#378](https://github.com/comeni-project/Comeni-Labs/issues/378)).
+- The runs board names each run by its pipeline, filters by outcome with tabs, and drops the
+  executor and submitter columns, along with the summary tiles and the per-day chart. Each row
+  still compares a finished run with its pipeline's usual time. A run opens on its failure:
+  the failed task's attempts, each showing its peak against the memory it asked for, sit beside
+  what Nextflow reported, as written. The run header has *Console* and *Open the pipeline*
+  ([#380](https://github.com/comeni-project/Comeni-Labs/issues/380)).
 
 #### Removed
 

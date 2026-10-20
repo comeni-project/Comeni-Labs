@@ -131,7 +131,7 @@ export function Timeline({ runId, live, onPickLane }: {
           label and the count sit on one line inside the panel. A filled bar turned every band
           into a titled card, which is not how these boards are drawn. */}
       <div className="shrink-0 flex items-center gap-3 px-4 pt-3 pb-2">
-        <span className="text-label text-ink-3">timeline</span>
+        <h2 className="m-0 text-heading font-semibold text-ink">Timeline</h2>
         <span className="ml-auto font-data text-label text-ink-3">
           {drawn.reduce((n, lane) => n + lane.bars.length, 0)} attempts ·{" "}
           {seconds(span)}
