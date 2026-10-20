@@ -131,7 +131,7 @@ describe("progress", () => {
       offer: "step", progress: { position: 2, total: 5, again: false } } : undefined }));
     open(live({ history }));
     await screen.findByTestId("living-node-star_align");
-    const log = screen.getByRole("list", { name: "decisions and conversation" });
+    const log = screen.getByRole("list", { name: "the plan" });
     expect(within(log).getByText(/step 2 of 5/)).toBeInTheDocument();
     expect(within(log).queryByText(/step 1\b/)).toBeNull();
   });
@@ -147,7 +147,7 @@ describe("progress", () => {
     open(live({ history: [...FAKE_SESSION.history, offer("stale", "subread_featurecounts"),
                           offer("accepted", "featurecounts_again")] }));
     await screen.findByTestId("living-node-star_align");
-    const log = screen.getByRole("list", { name: "decisions and conversation" });
+    const log = screen.getByRole("list", { name: "the plan" });
     const [went, decided] = within(log).getAllByText(/step 5 of 5/);
     expect(went.closest("li")).toHaveTextContent("answers changed");
     expect(went.closest("li")).not.toHaveTextContent(/open|withdrawn/);

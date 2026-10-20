@@ -100,7 +100,9 @@ describe("the goal card", () => {
     // its turn and editable beneath, which is two goals on a screen whose job is to check one.
     mount(<GuidedLiving />);
     expect(screen.getAllByRole("region", { name: "the goal as understood" })).toHaveLength(1);
-    expect(screen.getByTestId("canvas-empty")).toHaveTextContent("Nothing built yet");
+    // Nothing is built yet, so the page is the describe page and draws no canvas at all.
+    expect(screen.getByRole("region", { name: "describe" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
   });
 
   const goal = guidedStart().pending_proposal!;
@@ -403,6 +405,7 @@ describe("saying something", () => {
         onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole("tab", { name: /^Assistant/ }));
     expect(screen.getByTestId("saying")).toHaveTextContent("and the sorter?");
     expect(screen.getByText("sending…")).toBeInTheDocument();
   });

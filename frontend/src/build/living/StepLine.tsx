@@ -1,5 +1,5 @@
 import type { AuthoringSession } from "../../api/types";
-import { authorOf, processName, type OfferProgress } from "./format";
+import { authorOf, processName, stepWords, type OfferProgress } from "./format";
 
 type Decision = AuthoringSession["history"][number];
 
@@ -33,12 +33,19 @@ export function StepLine({
       {goal && (
         <Row dot="done" name="Goal" detail={goalWords(goal)} by={goal.actor_kind === "model" ? "confirmed by the policy" : "you confirmed"} />
       )}
+      {answered(session).map((decision) => (
+        <li key={decision.id} className="relative list-none pl-6">
+          <span aria-hidden className="absolute left-[2px] top-[12px] w-2 h-2 rounded-full" style={{ background: "var(--line-2)" }} />
+          <AnswerLine decision={decision} />
+        </li>
+      ))}
       {steps.map((decision) => {
         const node = decision.block.kind === "step_proposal" ? decision.block.node : "";
         const went = decision.state === "rejected" || decision.state === "stale";
         return (
           <Row key={decision.id} dot={went ? "gone" : "done"} name={processName(node)}
-               detail={stepAt(offeredAt(decision))} by={verbOf(decision)}
+               detail={`${stepAt(offeredAt(decision))}${went ? "" : TIER_WORD[decision.block.kind === "step_proposal" ? decision.block.tier : 0] ?? ""}`}
+               by={verbOf(decision)}
                selected={selected === node} onClick={went ? undefined : () => onSelect(node)} />
         );
       })}
@@ -81,7 +88,7 @@ function Row({ dot, name, detail, by, current = false, selected = false, onClick
       {onClick ? (
         <button type="button" onClick={onClick} aria-pressed={selected}
                 className="w-full flex items-baseline gap-[10px] py-[6px] pl-6 pr-0 bg-transparent border-0
-                           text-left cursor-pointer rounded-[8px] focus-visible:shadow-[var(--ring)]">
+                           text-left cursor-pointer rounded-control focus-visible:shadow-[var(--ring)]">
           {body}
         </button>
       ) : (
@@ -104,7 +111,10 @@ function offeredAt(decision: Decision): OfferProgress | null {
   return (decision.envelope as { progress?: OfferProgress | null } | null | undefined)?.progress ?? null;
 }
 
-const stepAt = (progress: OfferProgress | null | undefined) => (progress ? `step ${progress.position}` : "");
+const stepAt = (progress: OfferProgress | null | undefined) => (progress ? stepWords(progress).toLowerCase() : "");
+
+/** What a decided step's row says about its tier: tier 4 stays open for review; 1–3 say nothing. */
+const TIER_WORD: Record<number, string> = { 4: " · open" };
 
 /** Who settled a step, in the words the rail used: a withdrawn offer says why it went. */
 function verbOf(decision: Decision): string {
@@ -115,4 +125,36 @@ function verbOf(decision: Decision): string {
     : author === "unknown" ? "chooser unknown" : "settled";
   const applies = decision.applicability && decision.applicability !== "retained" ? ` · ${decision.applicability}` : "";
   return verb + applies;
+}
+
+/** The gaps and pacing questions answered so far, oldest first. */
+export function answered(session: AuthoringSession): Decision[] {
+  return session.history.filter((d) =>
+    (d.kind === "gap" || d.kind === "pacing") && d.state === "accepted" && d.block.kind === "question");
+}
+
+/** One answered question: what was asked, the answer whole, and where the answer came from.
+ *
+ *  **The answer is never the part cut short** (issue 169): a long question truncates, and a typed
+ *  value is shown as the value, not the field's label. A sample the AI read is not one an inspector
+ *  measured (issue 135), and the line says which.
+ */
+export function AnswerLine({ decision }: { decision: Decision }) {
+  const block = decision.block;
+  if (block.kind !== "question") return null;
+  const answer = decision.answer
+    ?? block.options.find((o) => o.id === decision.chosen_option)?.label
+    ?? decision.chosen_option ?? "";
+  const model = decision.actor_kind === "model";
+  const sampled = decision.chosen_option === "upload";
+  const aiRead = sampled && (block as { reading?: { state?: string } | null }).reading?.state === "read";
+  return (
+    <div className="flex items-baseline gap-[10px] py-[5px]">
+      <span className="text-[12px] text-ink-2 truncate min-w-0">{block.asks}</span>
+      <span data-testid={`gap-answer-${decision.id}`} className="font-data text-[12px] text-ink shrink-0">{answer}</span>
+      <span className="ml-auto text-[11.5px] text-ink-3 shrink-0">
+        {model ? "read by AI" : aiRead ? "from your sample" : sampled ? "measured from your sample" : "you said"}
+      </span>
+    </div>
+  );
 }

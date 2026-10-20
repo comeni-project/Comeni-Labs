@@ -70,7 +70,7 @@ export function Waiting({
   return (
     <div className="flex flex-col gap-3" data-testid="waiting">
       {sampled && pending && sampled.above === pending.id && (
-        <section aria-label="what your sample measured" className="border rounded-[10px]"
+        <section aria-label="what your sample measured" className="border rounded-button"
                  style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}>
           <header className="px-3 py-[9px] text-label text-ink-3" style={{ borderBottom: "1px solid var(--line)" }}>
             Measured from your sample

@@ -37,7 +37,7 @@ export function Chat({
         {session.turns.map((turn) => {
           if (turn.role === "person") {
             return (
-              <li key={turn.seq} className="list-none self-end max-w-[85%] px-3 py-2 rounded-[10px]
+              <li key={turn.seq} className="list-none self-end max-w-[85%] px-3 py-2 rounded-button
                                             text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap"
                   style={{ background: "var(--now-soft)" }}>
                 {turn.text}
@@ -66,7 +66,7 @@ export function Chat({
           ));
         })}
         {saying !== null && (
-          <li className="list-none self-end max-w-[85%] px-3 py-2 rounded-[10px]"
+          <li className="list-none self-end max-w-[85%] px-3 py-2 rounded-button"
               style={{ background: "var(--now-soft)" }}>
             <p className="m-0 text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap" data-testid="saying">
               {saying}
