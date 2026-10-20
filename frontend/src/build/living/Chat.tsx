@@ -17,6 +17,8 @@ export function Chat({
   failedPhase,
   onRetry,
   onPoint,
+  pointers = true,
+  skip = null,
 }: {
   session: AuthoringSession;
   /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
@@ -25,6 +27,10 @@ export function Chat({
   onRetry: () => void;
   /** Show the card a pointer line is about: the step it names, or whatever is waiting. */
   onPoint: (node: string | null) => void;
+  /** Whether an engine block leaves a line pointing at the Step tab — not where there is none. */
+  pointers?: boolean;
+  /** A turn already shown elsewhere on the page — the describe page quotes the first sentence. */
+  skip?: number | null;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -35,6 +41,7 @@ export function Chat({
     <div>
       <ol role="log" aria-label="conversation" className="m-0 p-0 flex flex-col gap-3">
         {session.turns.map((turn) => {
+          if (turn.seq === skip) return null;
           if (turn.role === "person") {
             return (
               <li key={turn.seq} className="list-none self-end max-w-[85%] px-3 py-2 rounded-button
@@ -59,7 +66,7 @@ export function Chat({
               </li>
             );
           }
-          return turn.blocks.map((block) => (
+          return turn.blocks.filter((block) => pointers || !pointerOf(block)).map((block) => (
             <li key={block.id} className="list-none">
               <Spoken block={block} failedPhase={failedPhase} onRetry={onRetry} onPoint={onPoint} />
             </li>

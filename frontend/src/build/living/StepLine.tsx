@@ -28,14 +28,14 @@ export function StepLine({
 
   return (
     <ol aria-label="the plan" className="relative m-0 p-0 flex flex-col
-                                         before:content-[''] before:absolute before:left-[5px] before:top-3
-                                         before:bottom-3 before:w-[2px] before:bg-[var(--line)]">
+                                         before:content-[''] before:absolute before:left-[5px] before:top-[14px]
+                                         before:bottom-[14px] before:w-[2px] before:bg-[var(--line)]">
       {goal && (
         <Row dot="done" name="Goal" detail={goalWords(goal)} by={goal.actor_kind === "model" ? "confirmed by the policy" : "you confirmed"} />
       )}
       {answered(session).map((decision) => (
-        <li key={decision.id} className="relative list-none pl-6">
-          <span aria-hidden className="absolute left-[2px] top-[12px] w-2 h-2 rounded-full" style={{ background: "var(--line-2)" }} />
+        <li key={decision.id} className="relative list-none pl-[24px]">
+          <span aria-hidden className="absolute left-[3px] top-[12px] w-[8px] h-[8px] rounded-full" style={{ background: "var(--line-2)" }} />
           <AnswerLine decision={decision} />
         </li>
       ))}
@@ -75,8 +75,8 @@ function Row({ dot, name, detail, by, current = false, selected = false, onClick
 }) {
   const body = (
     <>
-      <span aria-hidden className="absolute left-0 top-[9px] w-3 h-3 rounded-full border-2" style={DOT[dot]} />
-      <span className={`font-data text-[12.5px] shrink-0 ${current ? "font-semibold text-ink" : selected ? "text-now-ink" : "text-ink"}`}>
+      <span aria-hidden className="absolute left-0 top-[10px] w-[12px] h-[12px] rounded-full border-2" style={DOT[dot]} />
+      <span className={`${dot === "later" || name === "Goal" ? "text-[13px]" : "font-data text-[12.5px]"} shrink-0 ${current ? "font-semibold text-ink" : selected ? "text-now-ink" : "text-ink"}`}>
         {name}
       </span>
       <span className="text-[12px] text-ink-3 truncate min-w-0">{detail}</span>
@@ -87,12 +87,12 @@ function Row({ dot, name, detail, by, current = false, selected = false, onClick
     <li className="relative list-none" aria-current={current ? "step" : undefined}>
       {onClick ? (
         <button type="button" onClick={onClick} aria-pressed={selected}
-                className="w-full flex items-baseline gap-[10px] py-[6px] pl-6 pr-0 bg-transparent border-0
+                className="w-full flex items-baseline gap-[10px] py-[6px] pl-[24px] pr-0 bg-transparent border-0
                            text-left cursor-pointer rounded-control focus-visible:shadow-[var(--ring)]">
           {body}
         </button>
       ) : (
-        <div className="flex items-baseline gap-[10px] py-[6px] pl-6">{body}</div>
+        <div className="flex items-baseline gap-[10px] py-[6px] pl-[24px]">{body}</div>
       )}
     </li>
   );

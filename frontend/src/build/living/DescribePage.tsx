@@ -44,7 +44,11 @@ export function DescribePage({
   factsRequest: number;
   notices: React.ReactNode;
 }) {
-  const sentence = session.turns.find((turn) => turn.role === "person")?.text ?? null;
+  const first = session.turns.find((turn) => turn.role === "person") ?? null;
+  const sentence = first?.text ?? null;
+  // The conversation past the sentence quoted above: drawn only when there is some.
+  const more = saying !== null || session.turns.some((turn) => turn.seq !== first?.seq &&
+    (turn.role === "person" || turn.state !== "answered" || turn.blocks.some((b) => SPEECH.has(b.kind))));
   const pending = session.pending_proposal;
 
   return (
@@ -76,9 +80,11 @@ export function DescribePage({
               (pending?.block.kind === "question" && pending.block.reading?.state === "pending")} />
         </section>}
         <section aria-label="Conversation" className="flex flex-col gap-3">
-          <h2 className="m-0 text-heading text-ink">Conversation</h2>
-          <Chat session={session} saying={saying} failedPhase={session.phase === "failed"}
-                onRetry={onRetry} onPoint={() => undefined} />
+          {more && <>
+            <h2 className="m-0 text-heading text-ink">Conversation</h2>
+            <Chat session={session} saying={saying} failedPhase={session.phase === "failed"}
+                  onRetry={onRetry} onPoint={() => undefined} pointers={false} skip={first?.seq ?? null} />
+          </>}
           <Composer value={composer} onChange={onCompose} onSend={onSay}
                     disabled={composerDisabled} placeholder={composerHint ?? "Or say it in your own words"} />
         </section>
@@ -86,3 +92,6 @@ export function DescribePage({
     </section>
   );
 }
+
+/** Block kinds that are speech — what the conversation shows when there are no pointer lines. */
+const SPEECH = new Set(["narrative", "receipt", "notice"]);

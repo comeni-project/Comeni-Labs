@@ -55,10 +55,21 @@ describe("the describe stage", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
   });
 
-  it("keeps the conversation and its composer below the card", () => {
-    page(guidedStart());
-    expect(screen.getByRole("log", { name: "conversation" })).toBeInTheDocument();
+  it("keeps a composer below the card, and the conversation once there is more than the sentence", () => {
+    const start = guidedStart();
+    const { again } = page(start);
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
+    expect(screen.queryByRole("log", { name: "conversation" })).toBeNull();
+    again({ ...start, turns: [...start.turns,
+      { seq: 9, role: "person", state: "answered", base_revision: 0, at: "2026-10-20T10:00:00Z",
+        blocks: [], text: "it is mouse, not human" }] } as AuthoringSession);
+    expect(screen.getByRole("log", { name: "conversation" })).toHaveTextContent("it is mouse, not human");
+  });
+
+  it("does not repeat the sentence in the conversation, nor point at a Step tab it does not have", () => {
+    page(guidedStart());
+    expect(screen.getAllByText(/12 paired RNA-seq samples/)).toHaveLength(1);
+    expect(screen.queryByText(/see Step/)).toBeNull();
   });
 
   it("asks the pacing question as How do you want to build it?", () => {
