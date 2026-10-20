@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, Step } from "../../api/types";
@@ -44,6 +44,7 @@ export function LivingCanvas({
   stale = false,
   reviews = {},
   working = false,
+  focus = null,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -72,12 +73,28 @@ export function LivingCanvas({
   reviews?: Record<string, ReviewState>;
   /** A decision is on its way: the last complete frame stays, marked as being updated. */
   working?: boolean;
+  /** The step the engine or the person is looking at — brought on screen when it changes. */
+  focus?: string | null;
 }) {
   const view = useView();
+  const probe = useRef<HTMLSpanElement>(null);
   const [moved, setMoved] = useState<Positions>({});
   const drag = useRef<{ id: string; from: Point; origin: Point; travelled: boolean } | null>(null);
 
   const at: Positions = { ...positions, ...moved };
+
+  // **The canvas follows the engine**: when the step in focus changes, or the server places it,
+  // it is brought on screen. Read from the server's placement, not a drag's, so moving a step by
+  // hand never pans the canvas under the pointer.
+  const target = focus ? positions[focus] : undefined;
+  const bringIntoView = view.reveal;
+  useEffect(() => {
+    const frame = probe.current?.closest<HTMLElement>("[data-testid='canvas']");
+    if (!target || !frame) return;
+    const rect = frame.getBoundingClientRect();
+    bringIntoView({ x: target.x, y: target.y, w: NODE_W, h: NODE_H }, { w: rect.width, h: rect.height });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a step moves by its coordinates, not its object
+  }, [focus, target?.x, target?.y, bringIntoView]);
   // **Each step once.** A frame's graph already holds the step on offer; the ghost names which one
   // it is, and its wires are drawn dashed, not also solid.
   const ids = [...new Set([...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])])];
@@ -167,6 +184,7 @@ export function LivingCanvas({
       }}
       footer={
         <>
+          <span ref={probe} hidden />
           {footer}
           {(stale || working) && (
             <span role="status" data-testid={stale ? "canvas-stale" : "canvas-working"}

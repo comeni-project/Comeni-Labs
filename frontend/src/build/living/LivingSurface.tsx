@@ -337,6 +337,7 @@ export function LivingSurface({
             authors={authors}
             selected={state.selected}
             onSelect={onSelect}
+            focus={ghost ?? state.selected}
             footer={
               <div className="absolute left-5 bottom-5 flex gap-2">
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
