@@ -2,8 +2,8 @@
 
 **Issue:** #377 (parent #370). **Status:** approach approved by the operator 2026-10-20 ("the chat
 should remain a chat, and the engine works to move the canvas around, or spawn things in the
-canvas"; the details are left to the builder). Branch `redesign-describe-build`, on top of parts 1
-and 2 (`forge-0-remove-old`).
+canvas"; the details are left to the builder). Implemented on `redesign-describe-build`, on top of parts 1 and 2
+(`forge-0-remove-old`); plan and deviations: `docs/superpowers/plans/2026-10-20-redesign-describe-build.md`.
 **Boards:** `.design/hybrid/Describe.dc.html`, `Build.dc.html` and `Question.dc.html` (rendered
 with `.design/_prev.py --dir hybrid`).
 

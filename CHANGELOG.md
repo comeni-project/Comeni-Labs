@@ -280,6 +280,13 @@ or a complete commit history.
 - The header carries the product's mark, *Build · Runs*, a jump search over saved pipelines
   and recent runs (⌘K or Ctrl+K from any page), help linking to the documentation, and
   settings. *Registry* returns with the new forge.
+- Describing and building follow the engine rather than a chat transcript
+  ([#377](https://github.com/comeni-project/Comeni-Labs/issues/377)). Until there is
+  something to draw, the builder is a describe page: the sentence, the card waiting for an
+  answer, and what was understood. After that, the canvas sits beside a panel with two tabs.
+  *Step* holds the plan as a line (decided steps and who settled them, the step on offer and how
+  many are to come), the card waiting and changes proposed in conversation. *Assistant* is the
+  conversation itself. The canvas brings the offered or selected step into view.
 
 #### Removed
 
