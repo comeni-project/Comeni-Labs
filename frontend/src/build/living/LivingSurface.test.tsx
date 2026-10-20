@@ -79,7 +79,7 @@ describe("the two surfaces", () => {
 
   it("says how far through the blueprint the draft is", () => {
     surface();
-    expect(screen.getByTestId("living-status")).toHaveTextContent("3 of 5 steps reviewed");
+    expect(screen.getByTestId("living-status")).toHaveTextContent("step 4 of 5");
   });
 });
 

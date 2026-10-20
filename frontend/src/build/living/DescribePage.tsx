@@ -1,5 +1,6 @@
 import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { Chat } from "./Chat";
+import { StatusChip } from "./LivingHeader";
 import { Composer } from "./Composer";
 import { CurrentFacts, hasCurrentFacts, type CorrectFact } from "./CurrentFacts";
 import { AnswerLine, answered } from "./StepLine";
@@ -62,11 +63,17 @@ export function DescribePage({
         </header>
         {notices}
         {sentence && (
-          <blockquote data-testid="your-sentence"
-                      className="m-0 px-5 py-4 rounded-panel border text-[16px] leading-[1.55] text-ink"
-                      style={{ borderColor: "var(--now-line)", background: "var(--surface)" }}>
-            {sentence}
-          </blockquote>
+          <div className="rounded-panel border px-5 py-4 flex flex-col gap-3"
+               style={{ borderColor: "var(--now-line)", background: "var(--surface)", boxShadow: "0 0 0 3px var(--now-soft)" }}>
+            <blockquote data-testid="your-sentence" className="m-0 text-[16px] leading-[1.55] text-ink">
+              {sentence}
+            </blockquote>
+            {/* The board's footer line: here, where the page says what it is doing with the
+                sentence — reading it, or waiting for you (issues 110, 112). */}
+            <div className="flex items-center gap-3 text-[13px] text-ink-2">
+              <StatusChip session={session} />
+            </div>
+          </div>
         )}
         <Waiting session={session} onAsk={onSay} saying={saying} {...waiting} />
         {(hasCurrentFacts(session) || answered(session).length > 0) && <section aria-label="What was understood" className="rounded-panel border px-5 py-4"

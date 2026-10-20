@@ -246,22 +246,11 @@ export function LivingSurface({
   };
 
   if (stageOf(session) === "describe") {
+    // **No header strip while describing** (the *Describe* board): there is no pipeline yet to
+    // name, view or run, so the page is the sentence and what was understood.
     return (
-      <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden" data-testid="living">
-        <LivingHeader
-          session={session}
-          view={view}
-          onView={setView}
-          onRun={run ? run.onRun : () => setView("artifact")}
-          running={run ? run.busy : false}
-          stage={run?.stage ?? null}
-          runError={run?.error ?? null}
-          runnable={false}
-          views={false}
-        />
-        <div className="min-h-0 grid" style={{ borderTop: "1px solid var(--line)" }}>
-          <DescribePage session={session} waiting={{ ...waiting, onSelect }} {...talk} />
-        </div>
+      <div className="h-full min-h-0 grid overflow-hidden" data-testid="living">
+        <DescribePage session={session} waiting={{ ...waiting, onSelect }} {...talk} />
       </div>
     );
   }

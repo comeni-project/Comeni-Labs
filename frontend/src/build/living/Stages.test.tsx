@@ -55,6 +55,11 @@ describe("the describe stage", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
   });
 
+  it("draws no header strip: the page is the describe page", () => {
+    page(guidedStart());
+    expect(screen.queryByTestId("living-header")).toBeNull();
+  });
+
   it("offers no Pipeline file view while there is no pipeline", () => {
     page(guidedStart());
     expect(screen.queryByTestId("living-view-artifact")).toBeNull();

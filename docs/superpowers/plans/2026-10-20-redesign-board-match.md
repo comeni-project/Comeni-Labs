@@ -39,10 +39,10 @@ chains the pace; a selected step shows its open values as question cards. One se
 
 ### Task 1: the builder header
 **Files:** `build/living/LivingHeader.tsx`, `LivingHeader.test.tsx`.
-- [ ] Tests: status chip words per phase (*Building · step 4 of 5*, *Checking the goal*, *Valid*
+- [x] Tests: status chip words per phase (*Building · step 4 of 5*, *Checking the goal*, *Valid*
   on complete, *Stopped*); disabled Run is the quiet button (no `bg-action`); no header while
   describing (`views={false}` → the surface draws none).
-- [ ] Implement; run tests; comparison loop (Build, Question headers); commit.
+- [x] Implement; run tests; comparison loop (Build, Question headers); commit.
 
 ### Task 2: the canvas
 **Files:** `build/living/LivingCanvas.tsx`, `LivingNode.tsx`, `CollectionChannel.tsx`
@@ -100,3 +100,8 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
 ## Comparison log
 
 (One line per loop: screen, what still differed, what was fixed.)
+- **Header, loop 1:** status was a mono line → chip; Run faded green → quiet. **Loop 2:** name
+  22 → 25 px, inset 20 → 28 px, Run borderless grey. Matches but for *Saved 3 s ago* (no save
+  time exists). Departures: *Complete* not *Valid* (only the gate can say valid); a reply in
+  flight is *now*, not amber (amber means measured). Describe has no header, so its status chip
+  moved into the sentence panel's footer line, where the board has a line (issues 110, 112).

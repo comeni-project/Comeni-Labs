@@ -117,7 +117,7 @@ describe("progress", () => {
     open(live());
     const card = await screen.findByRole("region", { name: /step 4 of 5/i });
     expect(within(card).getByText(/Step 4 of 5 — SAMTOOLS_SORT/)).toBeInTheDocument();
-    expect(screen.getByTestId("living-status")).toHaveTextContent("3 of 5 steps reviewed");
+    expect(screen.getByTestId("living-status")).toHaveTextContent("step 4 of 5");
   });
 
   it("asks to review a step again when it was reviewed before", async () => {
