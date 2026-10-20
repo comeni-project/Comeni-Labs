@@ -26,6 +26,8 @@ import { LivingHeader } from "./LivingHeader";
 import type { ReviewState } from "./LivingNode";
 import type { Positions } from "../geometry";
 import { stageOf } from "./stage";
+import { valuesOf } from "./values";
+import { withTypedValues } from "../useBuilder";
 import { useFocus } from "./useFocus";
 import { useAlternativePreview, type PreviewSelection, type ReadPreview } from "./useAlternativePreview";
 
@@ -132,6 +134,10 @@ export function LivingSurface({
     ? pending.block.node : null;
   const steps: Record<string, Step> =
     Object.fromEntries((frame?.steps ?? []).map((step) => [step.id, step]));
+  // **Each step with what the person typed laid over it** — what the pipeline file and the
+  // header count as answered.
+  const answered = (frame?.steps ?? []).map((step) => withTypedValues(step, graph));
+  const values = valuesOf(answered);
   const reviews: Record<string, ReviewState> = Object.fromEntries(
     Object.entries(session.review_applicability ?? {}).map(([node, status]) =>
       [node, status === "retained" ? "reviewed" : "again"] as const));
@@ -273,6 +279,7 @@ export function LivingSurface({
         stage={run?.stage ?? null}
         runError={run?.error ?? null}
         runnable={run !== null && session.projection_current !== false && !session.retired && !showing}
+        openValues={values.open}
       />
       <div className="living min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
         <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">

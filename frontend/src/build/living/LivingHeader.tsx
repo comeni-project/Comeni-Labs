@@ -19,6 +19,7 @@ export function LivingHeader({
   stage = null,
   runError = null,
   runnable = false,
+  openValues = 0,
 }: {
   session: AuthoringSession;
   view: "canvas" | "artifact";
@@ -30,6 +31,8 @@ export function LivingHeader({
   /** Whether Run is connected. **An unconnected Run is disabled** — a live-looking control that
    *  does nothing is the one thing Task 14's walk may not find. */
   runnable?: boolean;
+  /** Values nobody has answered yet — said beside the name, as the boards do. */
+  openValues?: number;
 }) {
   const progress = progressWords(session);
   const spent = usageWords(session.usage);
@@ -41,6 +44,13 @@ export function LivingHeader({
       <h1 className="m-0 text-title font-semibold tracking-[-.03em] text-ink">
         {session.name || "Untitled analysis"}
       </h1>
+      {openValues > 0 && (
+        <span data-testid="needs-you-chip"
+              className="self-center px-[8px] py-[2px] rounded-control text-[12px] font-semibold text-needs-you-ink"
+              style={{ background: "var(--needs-you-soft)" }}>
+          {openValues} {openValues === 1 ? "value needs you" : "values need you"}
+        </span>
+      )}
       <span className="font-data text-[11px] text-ink-3" data-testid="living-status">
         <span style={{ color: waiting ? "var(--measured)" : undefined }}>{phaseWords(session)}</span>
         {progress && <> · {progress}</>}
@@ -59,7 +69,7 @@ export function LivingHeader({
       )}
 
       <div className="ml-auto flex items-center gap-4">
-        <div className="flex border" style={{ borderColor: "var(--line-2)" }}>
+        <div role="group" aria-label="view" className="flex gap-1 p-1 rounded-button" style={{ background: "var(--paper)", border: "1px solid var(--line)" }}>
           {(["canvas", "artifact"] as const).map((which) => (
             <button
               key={which}
@@ -67,12 +77,12 @@ export function LivingHeader({
               data-testid={`living-view-${which}`}
               aria-pressed={view === which}
               onClick={() => onView(which)}
-              className={` px-[15px] py-[7px] text-label border-0
-                          cursor-pointer ${view === which
-                            ? "bg-[var(--now-soft)] text-now-ink"
-                            : "bg-transparent text-ink-3 hover:text-ink"}`}
+              className={`px-[14px] py-[6px] rounded-control text-[13px] border cursor-pointer
+                          focus-visible:shadow-[var(--ring)] ${view === which
+                            ? "bg-surface text-ink font-semibold border-line"
+                            : "bg-transparent text-ink-2 border-transparent hover:text-ink"}`}
             >
-              {which}
+              {which === "canvas" ? "Canvas" : "Pipeline file"}
             </button>
           ))}
         </div>
@@ -81,9 +91,10 @@ export function LivingHeader({
           data-testid="living-run"
           disabled={!runnable || running || session.graph.nodes.length === 0 || session.phase !== "complete"}
           onClick={onRun}
-          className="px-[26px] py-[9px] border-0 cursor-pointer font-semibold text-[13.5px]
+          className="px-[22px] py-[9px] border-0 rounded-button cursor-pointer font-semibold text-[13.5px]
                      bg-action text-on-action shadow-raise disabled:cursor-not-allowed disabled:opacity-40"
         >
+          <span aria-hidden className="mr-[8px] text-[10px]">▶</span>
           {stage === "keeping" ? "Keeping…" : stage === "linting" ? "Checking…" : "Run"}
         </button>
         {runError && (
