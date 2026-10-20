@@ -72,6 +72,17 @@ describe("the describe stage", () => {
     expect(screen.queryByText(/see Step/)).toBeNull();
   });
 
+  it("does not scroll the page to the conversation, away from the card waiting", () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const start = guidedStart();
+    page({ ...start, turns: [...start.turns,
+      { seq: 9, role: "person", state: "answered", base_revision: 0, at: "2026-10-20T10:00:00Z",
+        blocks: [], text: "it is mouse" }] } as AuthoringSession);
+    const targets = scrolled.mock.contexts as Element[];
+    expect(targets.some((el) => el.closest("[aria-label='Conversation']"))).toBe(false);
+  });
+
   it("asks the pacing question as How do you want to build it?", () => {
     const pacing = {
       id: "pq", kind: "pacing", draft_revision: 0, options: ["together"], edges: [],
@@ -159,6 +170,17 @@ describe("the build stage", () => {
     page(with_({ phase: "building", pending_proposal: gap } as Partial<AuthoringSession>));
     const step = screen.getByRole("tabpanel", { name: "Step" });
     expect(within(step).getByText("Which strand were the reads made from?")).toBeInTheDocument();
+  });
+
+  it("brings a newly waiting card into view in the Step tab", () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const p = page(FAKE_SESSION);
+    scrolled.mockClear();
+    const next = { ...FAKE_SESSION.pending_proposal!, id: "p-next" } as AuthoringSession["pending_proposal"];
+    p.again(with_({ pending_proposal: next }));
+    const targets = scrolled.mock.contexts as Element[];
+    expect(targets.some((el) => el.getAttribute("data-testid") === "waiting")).toBe(true);
   });
 
   it("says nothing is waiting when a restored session has nothing on offer", () => {

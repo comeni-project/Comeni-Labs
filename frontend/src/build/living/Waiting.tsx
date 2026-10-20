@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   AuthoringProposal,
@@ -66,9 +66,15 @@ export function Waiting({
     { result: SampleInspected; files: string[]; above: string | null } | null>(null);
   const pending = session.pending_proposal;
   const active = session.progress?.active ?? null;
+  // **A new card waiting is brought into view**, as the rail's scroll-to did: the design record
+  // found the one thing to answer below the fold under the history above it.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pending) box.current?.scrollIntoView?.({ block: "nearest" });
+  }, [pending?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- a new card, not a new object
 
   return (
-    <div className="flex flex-col gap-3" data-testid="waiting">
+    <div ref={box} className="flex flex-col gap-3" data-testid="waiting">
       {sampled && pending && sampled.above === pending.id && (
         <section aria-label="what your sample measured" className="border rounded-button"
                  style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}>

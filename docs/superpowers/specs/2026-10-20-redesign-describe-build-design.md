@@ -89,8 +89,8 @@ pipeline once…* stay as status lines.
 
 - No model output is applied without the person: change sets and suggestions keep their own
   confirm buttons; the step line only selects.
-- Accessibility: the tabs are a `tablist`; the step line is a list; the card waiting for an answer
-  receives focus when it changes, as the rail's scroll-to did.
+- Accessibility: the tabs are a `tablist`; the step line is a list; a new card waiting for an answer
+  is scrolled into view, as the rail's scroll-to did; focus stays where the person left it.
 - Layout at 1440, 1000 and 390 px: the build stage stacks the panel above the canvas below
   1000 px, as the rail does today; the describe column has a 16 px gutter at phone width.
 

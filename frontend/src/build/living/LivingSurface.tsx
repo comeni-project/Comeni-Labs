@@ -26,6 +26,7 @@ import { LivingHeader } from "./LivingHeader";
 import type { ReviewState } from "./LivingNode";
 import type { Positions } from "../geometry";
 import { stageOf } from "./stage";
+import { useFocus } from "./useFocus";
 import { useAlternativePreview, type PreviewSelection, type ReadPreview } from "./useAlternativePreview";
 
 /** The living builder's composition: **wires state and callbacks, draws nothing itself.**
@@ -144,6 +145,7 @@ export function LivingSurface({
   }
 
   const pendingTurn = session.turns.some((turn) => turn.state === "pending");
+  const focus = useFocus(ghost, state.selected);
 
   // **A complete preview belongs to one offer in one context.** A selection made against another
   // proposal or context is no selection, so a change of either clears it without an effect.
@@ -337,7 +339,7 @@ export function LivingSurface({
             authors={authors}
             selected={state.selected}
             onSelect={onSelect}
-            focus={ghost ?? state.selected}
+            focus={focus}
             footer={
               <div className="absolute left-5 bottom-5 flex gap-2">
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}

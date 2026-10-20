@@ -19,6 +19,7 @@ export function Chat({
   onPoint,
   pointers = true,
   skip = null,
+  follow = true,
 }: {
   session: AuthoringSession;
   /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
@@ -31,11 +32,14 @@ export function Chat({
   pointers?: boolean;
   /** A turn already shown elsewhere on the page — the describe page quotes the first sentence. */
   skip?: number | null;
+  /** Keep the latest turn in view. Not on the describe page, where it would scroll the page away
+   *  from the card waiting for an answer. */
+  follow?: boolean;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    end.current?.scrollIntoView?.({ block: "end" });
-  }, [session.turns.length, saying]);
+    if (follow) end.current?.scrollIntoView?.({ block: "end" });
+  }, [session.turns.length, saying, follow]);
 
   return (
     <div>

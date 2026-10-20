@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NODE_H, NODE_W } from "../geometry";
 import { revealing } from "../useView";
 import { FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingCanvas } from "./LivingCanvas";
+import { useFocus } from "./useFocus";
 
 /** The canvas follows the engine (#377): a newly offered or selected step is brought on screen,
  *  without zooming, and a view that already shows it is left alone. */
@@ -57,5 +58,17 @@ describe("the living canvas follows its focus", () => {
   it("does not move when the focused step is in view", () => {
     const near = { star_genomegenerate: { x: 40, y: 40 }, trimgalore: { x: 40, y: 210 }, star_align: { x: 264, y: 125 } };
     expect(draw("star_align", near)).toBe("translate(250px, 20px) scale(1)");
+  });
+});
+
+describe("what the canvas follows", () => {
+  it("follows whichever changed last: the step on offer, or the step the person picked", () => {
+    const { result, rerender } = renderHook(({ ghost, selected }) => useFocus(ghost, selected),
+      { initialProps: { ghost: "samtools_sort" as string | null, selected: null as string | null } });
+    expect(result.current).toBe("samtools_sort");
+    rerender({ ghost: "samtools_sort", selected: "star_align" });
+    expect(result.current).toBe("star_align");
+    rerender({ ghost: "featurecounts", selected: "star_align" });
+    expect(result.current).toBe("featurecounts");
   });
 });

@@ -83,7 +83,7 @@ export function DescribePage({
           {more && <>
             <h2 className="m-0 text-heading text-ink">Conversation</h2>
             <Chat session={session} saying={saying} failedPhase={session.phase === "failed"}
-                  onRetry={onRetry} onPoint={() => undefined} pointers={false} skip={first?.seq ?? null} />
+                  onRetry={onRetry} onPoint={() => undefined} pointers={false} skip={first?.seq ?? null} follow={false} />
           </>}
           <Composer value={composer} onChange={onCompose} onSend={onSay}
                     disabled={composerDisabled} placeholder={composerHint ?? "Or say it in your own words"} />
