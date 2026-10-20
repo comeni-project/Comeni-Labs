@@ -24,7 +24,7 @@ const nameOf = (run: RunRow, named: Map<string, string>) =>
 
 const newest = (a: RunRow, b: RunRow) => (b.ended_at ?? b.submitted_at).localeCompare(a.ended_at ?? a.submitted_at);
 
-export function elapsed(since: string): string {
+function elapsed(since: string): string {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000));
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
