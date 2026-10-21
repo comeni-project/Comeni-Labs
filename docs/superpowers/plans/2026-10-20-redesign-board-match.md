@@ -110,11 +110,19 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   question to the engine's card. Hero and lede sizes are allowed on Describe (`main.css` note).
 
 ### Task 6: pipeline file, run sheet, Home, runs, run
-- [ ] Pipeline file: section chips, file tab wording, the footer line. Run sheet: in the page,
+- [x] Pipeline file: section chips, file tab wording, the footer line. Run sheet: in the page,
   *Your files* first, *Checked* as the summary line. Home: results file icon, *All results*, the
   table note. Runs: active-row tint. Run: the code line from `signal`, full-width attempt bars,
   *Each attempt used almost all of what it asked for*, failed lane tint, panel figures as drawn.
   Tests for each new sentence and condition; comparison loop for each board; commit.
+  *Rulings:* section chips are drawn only for keys the file has (`intent` → Goal, `facts`,
+  `registry`, `steps`, `decisions`, `gate` → Checks); *as kept* is drawn only once kept. The run
+  sheet is in the page for the living builder only (`inline`); the manual builder keeps its
+  overlay. The run's code sentence names the signal on record and refuses a cause (the §18.1 guard
+  passes); per-attempt *exit · signal* stays, since attempts can differ. The runs board's active
+  row is the hovered or focused one (there is no J/K selection). Panels: *of N steps finished*,
+  *N task(s)*, *ended · 22m 00s in* from the timeline's span; *Resource fit* stays rather than the
+  board's *Memory fit* (the failed task's own peak is the failure banner's, above it).
 
 ### Task 7: records
 - [ ] CHANGELOG lines; journal entry; tick; hand over for the operator's Chrome check.
@@ -157,3 +165,10 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   click a line to correct it); the two pace cards when the installation asks; *→ Start building*.
   **390 and dark:** read as drawn once the page gutter was 16 px (the spacing scale made `px-4`
   10 px). Remaining by choice: departures 7 and 8.
+- **Pipeline file, run sheet, Home, runs, run — loop 1:** chips, tab and footer; sheet in the page
+  with *Your files* first and *Checked* in the summary; Home's *All results* (runs board on
+  Succeeded), file marks, table note and the board's card order; the active run row tinted; the
+  failure's code sentence, *Each attempt used almost all…*, the failed lane tinted and unreached
+  lanes *not started*; panel words. **390:** no sideways scroll on Home, Runs, a run, the sheet.
+  Remaining by choice: everything the boards draw without data (sample sheet, reference, executors,
+  compute, owners, labs, *Relaunch*, *Learn in Code*).

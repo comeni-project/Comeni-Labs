@@ -150,3 +150,19 @@ describe("the failure as a panel (issue 380)", () => {
     expect(screen.queryByRole("button", { name: "Open the console at this task" })).toBeNull();
   });
 });
+
+it("says what the code is, from the signal on record, and that the record names no one", () => {
+  render(<Failure failed={{ ...FAILED, attempts: 3, history: ESCALATION }} />);
+  const said = screen.getByTestId("failure-code");
+  expect(said).toHaveTextContent("Code 137 means the task was killed (SIGKILL) on its third attempt.");
+  expect(said).toHaveTextContent("The record doesn't say who killed it, so nothing here guesses.");
+});
+
+it("says each attempt used almost all it asked for only when every peak is within 5% of its ask", () => {
+  const full = ESCALATION.map((a) => ({ ...a, peak_rss_bytes: Math.round((a.memory_bytes ?? 0) * 0.97) }));
+  const { unmount } = render(<Failure failed={{ ...FAILED, attempts: 3, history: full }} />);
+  expect(screen.getByText("Each attempt used almost all of what it asked for.")).toBeInTheDocument();
+  unmount();
+  render(<Failure failed={{ ...FAILED, attempts: 3, history: ESCALATION }} />);
+  expect(screen.queryByText("Each attempt used almost all of what it asked for.")).toBeNull();
+});

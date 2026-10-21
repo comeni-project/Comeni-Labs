@@ -116,8 +116,10 @@ function Row({ run, medianMs, pipeline }: { run: RunRow; medianMs?: number; pipe
       data-testid={`run-${run.id}`}
       to={`/runs/${run.id}`}
       {...menu.bind}
+      // **The board's active row**: tinted, with the selected colour's bar, under the pointer or focus.
       className="grid px-5 py-3 items-center no-underline text-ink border-b border-line last:border-b-0
-                 hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]"
+                 hover:bg-[var(--now-soft)] hover:shadow-[inset_3px_0_0_var(--now)]
+                 focus-visible:bg-[var(--now-soft)] focus-visible:shadow-[inset_3px_0_0_var(--now),var(--ring)]"
       style={{ ...COLUMNS, transition: "background-color var(--t)" }}
     >
       <span className={`flex items-center gap-[9px] text-[13.5px] ${bad ? "text-needs-you-ink"

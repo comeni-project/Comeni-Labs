@@ -57,6 +57,13 @@ export function Failure({ failed, onOpenConsole }: {
   const both = failed.peak_rss_bytes !== null && failed.asked_bytes !== null;
   const escalation = failed.history ?? [];
   const ceiling = Math.max(...escalation.map((a) => a.memory_bytes ?? 0), 1);
+  // **The signal is the code's, by the 128+n convention** — the same for every attempt with that
+  // code, so any attempt on record that carries it names it.
+  const signal = escalation.find((a) => a.exit === failed.exit && a.signal)?.signal ?? null;
+  // Numbers, not a cause: every attempt touched nearly all it reserved (the board's sentence).
+  const full = escalation.length > 1 && escalation.every((a) =>
+    a.memory_bytes && a.peak_rss_bytes !== null && a.peak_rss_bytes !== undefined
+    && a.peak_rss_bytes / a.memory_bytes >= 0.95);
 
   return (
     /* **A needs-you border around the run's account of itself**, two columns that stack when
@@ -79,12 +86,17 @@ export function Failure({ failed, onOpenConsole }: {
             </span>
           )}
         </div>
-        {failed.process && (
+        {failed.process && (signal && failed.exit !== null ? (
+          <p data-testid="failure-code" className="m-0 text-[14px] leading-[1.55] text-ink">
+            Code {failed.exit} means the task was killed ({signal}) on its {ORDINAL[failed.attempts] ?? `${failed.attempts}th`} attempt.
+            The record doesn't say who killed it, so nothing here guesses.
+          </p>
+        ) : (
           <p className="m-0 text-[14px] text-ink">
             It stopped on attempt {failed.attempts}. Every value here is from the record; nothing
             is interpreted.
           </p>
-        )}
+        ))}
 
         {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
             `63.8 GB` invites the reader to supply a ceiling they do not have. Only for a single
@@ -116,7 +128,7 @@ export function Failure({ failed, onOpenConsole }: {
             {escalation.map((attempt) => (
               <div key={attempt.n} data-testid={`attempt-${attempt.n}`}
                    className="grid items-center gap-x-3 gap-y-1 text-[13px]
-                              grid-cols-[70px_minmax(60px,1fr)] sm:grid-cols-[70px_minmax(80px,1fr)_auto]">
+                              grid-cols-[70px_minmax(60px,1fr)] sm:grid-cols-[70px_minmax(80px,1fr)_minmax(0,auto)]">
                 <span className="text-ink-2">attempt {attempt.n}</span>
                 <span className="block h-[8px] rounded-full overflow-hidden"
                       style={{ width: `${((attempt.memory_bytes ?? 0) / ceiling) * 100}%`,
@@ -126,7 +138,7 @@ export function Failure({ failed, onOpenConsole }: {
                           ? Math.min(100, ((attempt.peak_rss_bytes ?? 0) / attempt.memory_bytes) * 100) : 0}%`,
                                  background: "var(--measured)" }} />
                 </span>
-                <span className="col-span-2 sm:col-span-1 font-data text-ink tabular-nums">
+                <span className="col-span-2 sm:col-span-1 sm:text-right font-data text-ink tabular-nums">
                   peak {bytes(attempt.peak_rss_bytes)} of {bytes(attempt.memory_bytes)}
                   <span className="text-ink-3">
                     {attempt.exit === null || attempt.exit === undefined ? ` · ${attempt.status}` : ` · exit ${attempt.exit}`}
@@ -137,6 +149,7 @@ export function Failure({ failed, onOpenConsole }: {
                 </span>
               </div>
             ))}
+            {full && <p className="m-0 text-[13px] text-ink-2">Each attempt used almost all of what it asked for.</p>}
           </div>
         )}
 
@@ -173,3 +186,5 @@ export function Failure({ failed, onOpenConsole }: {
     </section>
   );
 }
+
+const ORDINAL: Record<number, string> = { 1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth" };

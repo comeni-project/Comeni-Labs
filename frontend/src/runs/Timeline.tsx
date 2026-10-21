@@ -156,6 +156,18 @@ export function Timeline({ runId, live, onPickLane }: {
 
           {placed.map(({ lane, top, height }) => (
             <g key={lane.process}>
+              {/* **The failed step's lane is tinted** (the *Run · failed* board): the row to look
+                  along, said by the lane's own status — a failed attempt in it. */}
+              {lane.bars.some((bar) => bar.status === "FAILED") && (
+                <rect data-testid={`lane-tint-${lane.process}`} x={0} y={top - LANE_GAP / 2}
+                      width={LABELS + W} height={height + LANE_GAP} fill="var(--needs-you-soft)" />
+              )}
+              {lane.bars.length === 0 && (
+                <text data-testid={`not-started-${lane.process}`} x={LABELS + 6} y={top + 8} fontSize={9.5}
+                      fill="var(--ink-3)">
+                  not started
+                </text>
+              )}
               {/* **A lane exists before the run reaches it** — the artboard's own rule, and it
                   is why an unreached process is drawn greyed rather than omitted. */}
               <text x={LABELS - 16} y={top + 8} textAnchor="end" fontSize={9.5}

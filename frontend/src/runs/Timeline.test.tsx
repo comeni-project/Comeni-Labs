@@ -102,3 +102,18 @@ it("does not offer a lane with nothing in it as something to click", async () =>
   fireEvent.click(await screen.findByTestId("lane-MULTIQC"));
   expect(picked).toEqual([]);
 });
+
+it("tints the lane of a step with a failed attempt, and only that lane", async () => {
+  const failed = { ...LANE, process: "SAMTOOLS_SORT",
+    bars: [{ task_id: 4, attempt: 1, status: "FAILED", start_ms: 0, end_ms: 30_000, row: 0 }] };
+  at({ lanes: [LANE, failed], from_ms: 0, to_ms: 60_000, open: false });
+  expect(await screen.findByTestId("lane-tint-SAMTOOLS_SORT")).toBeInTheDocument();
+  expect(screen.queryByTestId("lane-tint-STAR_ALIGN")).toBeNull();
+});
+
+it("says a lane the run never reached was not started", async () => {
+  at({ lanes: [LANE, { process: "MULTIQC", declared: true, rows: 0, dense: 0, bars: [] }],
+       from_ms: 0, to_ms: 60_000, open: false });
+  expect(await screen.findByTestId("not-started-MULTIQC")).toHaveTextContent("not started");
+  expect(screen.queryByTestId("not-started-STAR_ALIGN")).toBeNull();
+});

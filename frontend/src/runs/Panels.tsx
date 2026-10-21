@@ -29,6 +29,8 @@ const PANEL = "bg-surface border border-line rounded-panel shadow-e1 px-4 pt-3 p
 const LABEL = "text-[13px] font-semibold text-ink-2";
 const FIGURE = "font-data text-[29px] leading-none tracking-[-.03em] text-ink";
 const NOTE = "text-label text-ink-3 mt-2 leading-[1.45]";
+/** The words after a figure (*of 6 steps finished*): the interface face, not the data's. */
+const UNIT = "font-ui text-[14px] tracking-normal text-ink-3 whitespace-nowrap";
 
 function Panel({ label, children, note, testid }: {
   label: string; children: React.ReactNode; note: React.ReactNode; testid: string;
@@ -36,7 +38,7 @@ function Panel({ label, children, note, testid }: {
   return (
     <div className={PANEL} data-testid={testid}>
       <div className={LABEL}>{label}</div>
-      <div className="flex items-end justify-between gap-2.5 mt-2.5">{children}</div>
+      <div className="flex flex-wrap items-end justify-between gap-2.5 mt-2.5">{children}</div>
       <div className={NOTE}>{note}</div>
     </div>
   );
@@ -65,7 +67,7 @@ function Progress({ data }: { data?: OverviewData }) {
              <span className="text-[var(--ink-3)]">Nextflow discovers tasks as channels emit, so a task
              percentage has no denominator.</span></>}>
       <span className={FIGURE}>
-        {finished} <span className="text-[16px] text-ink-3">of {declared}</span>
+        {finished} <span className={UNIT}>of {declared} steps finished</span>
       </span>
       <span className="flex gap-[3px] w-[120px] h-[9px]">
         {cells.map((row) => (
@@ -91,7 +93,7 @@ function Failures({ failed, retried }: { failed: number; retried: number }) {
              ? `${retried} task${retried === 1 ? "" : "s"} retried — a retry is not a failure`
              : "nothing has failed and nothing has retried"}>
       <span className={FIGURE} style={failed > 0 ? { color: "var(--needs-you-ink)" } : undefined}>
-        {failed}
+        {failed} <span className={UNIT}>{failed === 1 ? "task" : "tasks"}</span>
       </span>
       {retried > 0 && (
         <span className="text-label px-2 py-[3px] rounded-full"
@@ -147,9 +149,13 @@ function Moving({ lastMs, now, live, ends, from, to }: {
   ends: number[]; from: number; to: number;
 }) {
   if (!live) {
+    // **How far in it ended**, from the timeline's own span — the board's *stopped 22 min in*.
+    // Without a span there is nothing to measure, and the dash says so.
     return (
       <Panel label="Moving" testid="panel-moving" note="the run has ended"
-      ><span className={FIGURE}>{ABSENT}</span></Panel>
+      >{to > from
+        ? <span className="font-ui text-[29px] leading-none tracking-[-.02em] text-ink">ended <span className={UNIT}>{seconds(to - from)} in</span></span>
+        : <span className={FIGURE}>{ABSENT}</span>}</Panel>
     );
   }
   if (lastMs == null) {
