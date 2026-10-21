@@ -112,8 +112,8 @@ export function Home() {
         {/* **Each card only when it has something** — absence is absence, so the quiet page is
             simply shorter. They wrap into one column on a narrow screen. */}
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] empty:hidden">
-          <NeedsYouCard drafts={pipelines} />
           <RunningCard runs={board} named={named} />
+          <NeedsYouCard drafts={pipelines} />
           <WentWrongCard runs={board} named={named} />
         </div>
 
@@ -144,6 +144,12 @@ export function Home() {
                 ? <ByPipeline rows={pipelines} runs={board} />
                 : <ByRun runs={board} named={named} />}
             </div>
+            {view === "pipeline" && (
+              <p className="m-0 text-[13px] text-ink-3">
+                "How it was decided" counts every value in the pipeline: settled by a rule, a convention or you,
+                measured from your files, or still open.
+              </p>
+            )}
             {/* **Wiener being unreachable is said once, quietly, and never as a broken page.**
                 The pipelines half is complete without it; what is missing is history. */}
             {runs.error && (

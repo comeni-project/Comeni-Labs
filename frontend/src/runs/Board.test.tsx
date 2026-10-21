@@ -33,7 +33,7 @@ const SUMMARY = {
 /** Mendel's drafts, for the pipeline's NAME only — joined on the digest, as Home joins them. */
 const DRAFTS = { drafts: [{ id: "d1", name: "rnaseq-counts", digest: "abc" }], total: 1 };
 
-function at(runs: unknown = RUNS, { draftsDown = false } = {}) {
+function at(runs: unknown = RUNS, { draftsDown = false, entry = "/runs" } = {}) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) =>
     String(url).includes("/pipeline/drafts")
       ? Promise.resolve(draftsDown
@@ -45,7 +45,7 @@ function at(runs: unknown = RUNS, { draftsDown = false } = {}) {
           ? SUMMARY
           : { runs, total: Array.isArray(runs) ? runs.length : 0 }),
       })));
-  const router = createMemoryRouter(routes, { initialEntries: ["/runs"] });
+  const router = createMemoryRouter(routes, { initialEntries: [entry] });
   return render(
     <QueryClientProvider client={makeClient()}>
       <RouterProvider router={router} />
@@ -175,4 +175,9 @@ describe("the board by pipeline (issue 380)", () => {
     at();
     expect(await screen.findByRole("heading", { name: "Runs" })).toBeInTheDocument();
   });
+});
+
+it("opens on the outcome a link names, so Home's All results lands on Succeeded", async () => {
+  at(RUNS, { entry: "/runs?outcome=succeeded" });
+  expect(await screen.findByRole("tab", { name: /Succeeded/ })).toHaveAttribute("aria-selected", "true");
 });

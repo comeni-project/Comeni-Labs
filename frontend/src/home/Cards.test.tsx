@@ -70,7 +70,7 @@ describe("Results ready", () => {
       run("x", "failed", "2026-10-20T11:00:00Z"), run("s3", "succeeded", "2026-10-18T10:00:00Z"),
       run("s4", "succeeded", "2026-10-17T10:00:00Z"),
     ]} />);
-    const links = within(screen.getByRole("region", { name: "Results ready" })).getAllByRole("link");
+    const links = within(screen.getByRole("list")).getAllByRole("link");
     expect(links.map((l) => l.getAttribute("href"))).toEqual(["/runs/s2", "/runs/s1", "/runs/s3"]);
     expect(links[0]).toHaveTextContent("rnaseq-counts");
   });

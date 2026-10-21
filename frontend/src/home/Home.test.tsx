@@ -261,6 +261,26 @@ describe("Home in the new identity (issue 378)", () => {
   it("shows results that are ready", async () => {
     at({});
     const results = await screen.findByRole("region", { name: "Results ready" });
-    expect(within(results).getByRole("link")).toHaveAttribute("href", "/runs/dddd4444");
+    expect(within(results).getByRole("link", { name: /dddd4444|wgs|rnaseq|counts/ })).toHaveAttribute("href", "/runs/dddd4444");
+  });
+
+  it("links every result from Results ready, on the runs board's Succeeded tab", async () => {
+    at({});
+    const results = await screen.findByRole("region", { name: "Results ready" });
+    expect(within(results).getByRole("link", { name: "All results" })).toHaveAttribute("href", "/runs?outcome=succeeded");
+  });
+
+  it("says what the bar under How it was decided counts", async () => {
+    at({});
+    await screen.findByRole("region", { name: "Your pipelines" });
+    expect(screen.getByText(/counts every value in the pipeline: settled by a rule, a convention or you, measured from your files, or still open/))
+      .toBeInTheDocument();
+  });
+
+  it("puts what is running first, then what needs you, then what went wrong, as the board does", async () => {
+    at({});
+    const running = await screen.findByRole("region", { name: "Running now" });
+    const needs = screen.getByRole("region", { name: "Needs you" });
+    expect(running.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

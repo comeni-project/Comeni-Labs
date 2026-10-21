@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { useTitle } from "../app/useTitle";
 import { Empty, Failed, Loading } from "../ui/States";
@@ -164,7 +164,12 @@ const TABS = [
 export function Board() {
   useTitle("Runs");
   const [page, setPage] = useState(0);
-  const [phase, setPhase] = useState("");
+  // **A link can name the outcome to open on** (Home's *All results*); anything not a tab is All.
+  const [params] = useSearchParams();
+  const [phase, setPhase] = useState(() => {
+    const named = params.get("outcome") ?? "";
+    return TABS.some((tab) => tab.phase === named) ? named : "";
+  });
   const query = new URLSearchParams({ after: String(page * PER_PAGE), limit: String(PER_PAGE) });
   if (phase) query.set("phase", phase);
 

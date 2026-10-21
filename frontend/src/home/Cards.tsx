@@ -133,12 +133,22 @@ export function ResultsCard({ runs, named }: { runs: RunRow[]; named: Map<string
   if (done.length === 0) return null;
   return (
     <section aria-label="Results ready" className={CARD}>
-      <h2 className={TITLE}>Results ready</h2>
+      <div className="flex items-baseline gap-3">
+        <h2 className={TITLE}>Results ready</h2>
+        <Link to="/runs?outcome=succeeded" className="ml-auto text-[13px] text-now-ink no-underline hover:underline
+                                                       rounded-control focus-visible:shadow-[var(--ring)]">
+          All results
+        </Link>
+      </div>
       <ul className="m-0 p-0 flex flex-col">
         {done.map((run) => (
           <li key={run.id} className="list-none" style={{ borderTop: "1px solid var(--line)" }}>
-            <Link to={`/runs/${run.id}`} className="flex items-baseline gap-3 py-[8px] no-underline text-ink
+            <Link to={`/runs/${run.id}`} className="flex items-center gap-3 py-[8px] no-underline text-ink
                                                     rounded-button focus-visible:shadow-[var(--ring)]">
+              <svg aria-hidden width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor"
+                   strokeWidth="1.3" strokeLinejoin="round" className="shrink-0 text-ink-3">
+                <path d="M2 1.5h6.5L12 5v9.5H2z M8.5 1.5V5H12" />
+              </svg>
               <span className="font-data text-[13px]">{nameOf(run, named)}</span>
               <span className="ml-auto text-[12.5px] text-ink-3">{run.ended_at ? ago(run.ended_at) : ""}</span>
             </Link>
