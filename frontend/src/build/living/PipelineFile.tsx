@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { get } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -33,6 +33,10 @@ export function PipelineFile({
 }) {
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [tab, setTab] = useState<"preview" | "kept">("preview");
+  const column = useRef<HTMLDivElement>(null);
+  // A section's first line, found by its text: the file is the server's, so its keys are read, not assumed.
+  const jump = (key: string) => Array.from(column.current?.querySelectorAll<HTMLElement>("[data-n]") ?? [])
+    .find((line) => line.textContent === `${key}:`)?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   const values = valuesOf(steps);
   // The kept file is read the way `ArtifactView` reads it, so Download takes the same bytes.
   const artifact = useQuery({
@@ -90,32 +94,69 @@ export function PipelineFile({
             </button>
           </div>
         </section>
+        <Sections text={text} steps={steps.length} values={values.total} onJump={jump} />
         {onlyOpen && shown.length === 0 && <p className="m-0 text-[13px] text-ink-2">Nothing is open.</p>}
         {shown.map(({ step, settings }) => <StepValues key={step.id} step={step} settings={settings} />)}
+        <p className="m-0 text-[13px] text-ink-3">Every value has a reason, or it is marked open.</p>
       </div>
 
       <section aria-label="pipeline.yml" className="file-column min-h-0 flex flex-col"
                style={{ borderLeft: "1px solid var(--line)", background: "var(--surface)" }}>
-        <div role="tablist" aria-label="which pipeline.yml" className="flex gap-1 m-4 p-1 rounded-button self-start"
+        <div className="flex items-center gap-3 m-4">
+        <div role="tablist" aria-label="which pipeline.yml" className="flex gap-1 p-1 rounded-button"
              style={{ background: "var(--paper)" }}>
-          {(["preview", "kept"] as const).map((which) => (
+          {/* **The file as it would read, and the kept one once there is one** — a tab that can
+              never be chosen yet was a promise the page could not keep. */}
+          {(kept ? ["preview", "kept"] as const : ["preview"] as const).map((which) => (
             <button key={which} type="button" role="tab" aria-selected={tab === which}
-                    data-testid={`artifact-tab-${which}`} disabled={which === "kept" && !kept}
+                    data-testid={`artifact-tab-${which}`}
                     onClick={() => setTab(which)}
                     className={`px-3 py-[5px] rounded-control border text-[13px] cursor-pointer
                                 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:shadow-[var(--ring)]
                                 ${tab === which ? "text-ink font-semibold" : "text-ink-2 bg-transparent border-transparent"}`}
                     style={tab === which ? { background: "var(--surface)", borderColor: "var(--line)" } : undefined}>
-              {which === "preview" ? "as it would read" : "as kept"}
+              {which === "preview" ? "pipeline.yml" : "as kept"}
             </button>
           ))}
         </div>
-        <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
+        <span className="ml-auto text-[12.5px] text-ink-3">same file you download</span>
+        </div>
+        <div ref={column} className="flex-1 min-h-0 overflow-auto px-4 pb-4">
           {tab === "kept" && kept ? <ArtifactView draftId={draftId} /> : <ArtifactPreview preview={preview} />}
         </div>
       </section>
     </div>
   );
+}
+
+/** The pipeline file's top-level keys as the board's chips name them, in the file's own order. */
+const SECTIONS: Record<string, string> = {
+  intent: "Goal", facts: "Facts", registry: "Registry", steps: "Steps", decisions: "Decisions", gate: "Checks",
+};
+
+/** **The board's section chips**: one for each section the file actually has, which takes the file
+ *  column to it; *Settings* is the table on this side, so it is the one marked as shown. */
+function Sections({ text, steps, values, onJump }: {
+  text: string | null; steps: number; values: number; onJump: (key: string) => void;
+}) {
+  const keys = (text ?? "").split("\n").map((line) => /^([a-z_]+):/.exec(line)?.[1]).filter((k): k is string => !!k && k in SECTIONS);
+  const chip = "px-[12px] py-[5px] rounded-full border text-[13px] cursor-pointer focus-visible:shadow-[var(--ring)]";
+  const at = keys.indexOf("steps");
+  const chips = keys.map((key) => (
+    <button key={key} type="button" onClick={() => onJump(key)} className={`${chip} text-ink-2 bg-[var(--surface)]`}
+            style={{ borderColor: "var(--line-2)" }}>
+      {key === "steps" ? `Steps ${steps}` : SECTIONS[key]}
+    </button>
+  ));
+  const settings = (
+    <button key="settings" type="button" aria-current="true" className={`${chip} font-semibold`}
+            style={{ borderColor: "var(--ink)", background: "var(--ink)", color: "var(--paper)" }}>
+      Settings {values}
+    </button>
+  );
+  // Settings sit beside the steps they belong to; with no steps section yet, they lead.
+  const all = at < 0 ? [settings, ...chips] : [...chips.slice(0, at + 1), settings, ...chips.slice(at + 1)];
+  return <nav aria-label="sections of the file" className="flex flex-wrap gap-[8px]">{all}</nav>;
 }
 
 /** The bar on the board: settled, measured and open, in proportion. Settled spends no colour. */
@@ -200,9 +241,9 @@ function How({ setting, open: isOpen, name }: { setting: Answered; open: boolean
         ? [name, { background: "var(--measured-soft)", color: "var(--measured-ink)" }]
         : [name, { border: "1px solid var(--line-2)", color: "var(--ink-2)" }];
   return (
-    <span className="inline-block px-[8px] py-[1px] rounded-control text-[12px] font-semibold whitespace-nowrap"
+    <span className="inline-block px-[9px] py-[1px] rounded-full text-[12px] font-semibold whitespace-nowrap"
           style={style}>
-      {words}
+      {words.toLowerCase()}
     </span>
   );
 }

@@ -71,7 +71,7 @@ describe("every value and its reason", () => {
     const table = screen.getByRole("table", { name: "STAR_ALIGN settings" });
     const row = within(table).getByRole("row", { name: /sjdbOverhang/ });
     expect(row).toHaveTextContent("150");
-    expect(await within(row).findByText("Measured")).toBeInTheDocument();
+    expect(await within(row).findByText("measured")).toBeInTheDocument();
     expect(row).toHaveTextContent("Read length minus one.");
     expect(row).toHaveTextContent("read_length = 151");
   });
@@ -124,10 +124,16 @@ describe("the file itself", () => {
     expect(await created[0].text()).toBe(READY.text);
   });
 
-  it("offers the kept file only once the pipeline is kept", () => {
+  it("names the file as the board does, and offers the kept one only once the pipeline is kept", () => {
     file();
-    expect(screen.getByRole("tab", { name: "as it would read" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "as kept" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "pipeline.yml" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "as kept" })).toBeNull();
+    expect(screen.getByText("same file you download")).toBeInTheDocument();
+  });
+
+  it("draws the kept file's tab once there is one", () => {
+    file({ kept: true });
+    expect(screen.getByRole("tab", { name: "as kept" })).toBeEnabled();
   });
 
   it("says why there is no file when the preview is outdated, and still lists the values", () => {
@@ -135,5 +141,32 @@ describe("the file itself", () => {
     expect(screen.getByTestId("preview-outdated")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "STAR_ALIGN settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download pipeline.yml" })).toBeDisabled();
+  });
+});
+
+
+describe("the file's sections", () => {
+  const WHOLE: AuthoringPreview = { revision: 4, state: "ready", findings: [],
+    text: "version: 6\nintent:\n  want: [counts.matrix]\nsteps:\n  - id: star_align\ngate:\n  passed: true\n" };
+
+  it("offers a chip for each section the file has, with the table's own marked as shown", () => {
+    file({ preview: WHOLE });
+    const chips = within(screen.getByRole("navigation", { name: "sections of the file" })).getAllByRole("button");
+    expect(chips.map((c) => c.textContent)).toEqual(["Goal", "Steps 3", "Settings 3", "Checks"]);
+    expect(screen.getByRole("button", { name: "Settings 3" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("takes the file to a section's first line", () => {
+    file({ preview: WHOLE });
+    const lines = within(screen.getByTestId("artifact-text")).getAllByTestId("file-line");
+    const intent = lines.find((line) => line.textContent === "intent:")!;
+    intent.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByRole("button", { name: "Goal" }));
+    expect(intent.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("says every value has a reason, or is marked open", () => {
+    file();
+    expect(screen.getByText("Every value has a reason, or it is marked open.")).toBeInTheDocument();
   });
 });

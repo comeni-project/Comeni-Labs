@@ -200,7 +200,7 @@ describe("Run on a living pipeline", () => {
   it("offers the kept file only once something was kept", () => {
     surface(complete, { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null });
     fireEvent.click(screen.getByTestId("living-view-artifact"));
-    expect(screen.getByTestId("artifact-tab-kept")).toBeDisabled();
+    expect(screen.queryByTestId("artifact-tab-kept")).toBeNull();
     expect(screen.getByTestId("preview-label")).toHaveTextContent("not kept");
   });
 });
