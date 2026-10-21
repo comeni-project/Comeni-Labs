@@ -13,6 +13,7 @@ import { GapCard } from "./blocks/GapCard";
 import { GoalCard } from "./blocks/GoalCard";
 import { SampleResult } from "./blocks/SampleUpload";
 import { StepProposalCard } from "./blocks/StepProposalCard";
+import type { CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
 import { waitingOn } from "./format";
 
@@ -37,6 +38,12 @@ export type WaitingProps = {
   onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
   correcting?: boolean;
   onCorrectAnswers?: () => void;
+  /** The describe page's: correct a fact from its line in the goal, and whether that is allowed now. */
+  onCorrectFact?: CorrectFact;
+  factsDisabled?: boolean;
+  /** The describe page's pace cards, drawn under the goal, and what *Start building* also does. */
+  pace?: React.ReactNode;
+  onStart?: () => void;
 };
 
 /** **What the engine is waiting on the person for, now** — one card, wherever the page puts it.
@@ -57,7 +64,7 @@ export function Waiting({
   onAsk,
   saying = null,
   vocabulary = null,
-  declarations, onDisagreement, onCorrectAnswers, correcting = false,
+  declarations, onDisagreement, onCorrectAnswers, correcting = false, onCorrectFact, factsDisabled, pace, onStart,
 }: WaitingProps) {
   // **The sample that answered the last question**, kept above the next one: the answer moves the
   // session on, so the card that showed it is gone the moment it arrives (issue 134). Kept only
@@ -135,9 +142,17 @@ export function Waiting({
           key={pending.id}
           proposal={pending}
           facts={session.facts}
+          subjects={session.fact_subjects ?? []}
+          onCorrectFact={onCorrectFact}
+          declarations={declarations}
+          factsDisabled={factsDisabled}
+          pace={pace}
           vocabulary={vocabulary}
           busy={busy(pending.id)}
-          onConfirm={(edited) => onAccept(pending, "keep", edited)}
+          onConfirm={(edited) => {
+            onStart?.();
+            onAccept(pending, "keep", edited);
+          }}
           replaces={session.hand_edits ?? null}
           onReject={() => onReject(pending)}
         />

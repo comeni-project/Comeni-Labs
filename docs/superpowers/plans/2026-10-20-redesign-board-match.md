@@ -94,12 +94,20 @@ chains the pace; a selected step shows its open values as question cards. One se
 ### Task 5: Describe
 **Files:** `DescribePage.tsx`, `CurrentFacts.tsx` (the table), `blocks/GoalCard.tsx` (edit
 controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chain), tests.
-- [ ] Tests: the table's rows (*You have*, *You want*, each fact) with source chips (*you said*,
+- [x] Tests: the table's rows (*You have*, *You want*, each fact) with source chips (*you said*,
   *convention*, *will be measured*, *needs you*) and *From "…"* quotes where the goal heard them;
   clicking a line opens its editor; *Start building* confirms the goal; with pacing *ask*, the
   chosen pace answers the pacing proposal when it arrives (once); with pacing fixed, no cards;
   the hero title and lede; no header strip.
-- [ ] Implement; comparison loop (Describe); commit.
+- [x] Implement; comparison loop (Describe); commit.
+  *Rulings:* chips are the fact's own source (spec departure 8); the determinism line names the goal
+  and answers (7); each input is its own line under *You have*, opened by `correct <type>`; open
+  facts and the engine's unanswered `fact_subjects` are *Not known yet · needs you* lines; fact
+  lines open the existing `FactEditor` when the page can correct; the separate *Current answers*
+  list is not drawn while the goal is checked (unless a tool choice is pinned, which only it can
+  release). The pace is read from `building.pacing` in the settings menu (`usePacing`), which is
+  what the engine's `pace` route reads at confirmation; a menu that fails to load leaves the
+  question to the engine's card. Hero and lede sizes are allowed on Describe (`main.css` note).
 
 ### Task 6: pipeline file, run sheet, Home, runs, run
 - [ ] Pipeline file: section chips, file tab wording, the footer line. Run sheet: in the page,
@@ -143,3 +151,9 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   boards order them; `BlockFrame` rounded for every card. **390 and dark:** read as drawn. Remaining
   by choice: *Not sure? Measure it instead* (only where the engine offers a measuring step, which a
   setting never has today) and *Learn it in Code* are not drawn.
+- **Describe, loop 1:** a 22 px title, a square goal card of chips with *+ add a type*, *That's
+  right / Not quite*, the pace asked later as a card → the hero question and the board's lede; *What
+  was understood* as a table (a line per input, output and fact; source chips; *From "…"* quotes;
+  click a line to correct it); the two pace cards when the installation asks; *→ Start building*.
+  **390 and dark:** read as drawn once the page gutter was 16 px (the spacing scale made `px-4`
+  10 px). Remaining by choice: departures 7 and 8.

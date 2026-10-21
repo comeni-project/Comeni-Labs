@@ -53,6 +53,14 @@ These stay as they are unless the operator says otherwise; each is listed again 
 6. **A decided step's row says who chose it and how many values were measured** (*you chose ·
    1 measured*), where the board shows only *1 measured*: who answered is provenance the product
    keeps visible. The count is the step's tier-3 settings, the same number as its canvas footer.
+7. **Describe promises *the same goal and answers always give the same pipeline***, not the board's
+   *the same description always gives the same pipeline*: the description is read by a model, and
+   what the engine reproduces is the build from a recorded goal and recorded decisions.
+8. **Describe's table chips are the fact's own source** (*you said*, *measured*, *read by AI*,
+   *needs you*); the board's *convention* and *will be measured* have no source in a fact, and the
+   AI's read-back stays under the table, labelled. *Not quite* and the composer stay: they are how
+   a person says the reading is wrong in their own words. *Read it again* and *Or start from* are
+   not drawn (no such action; no examples).
 
 ## The builder
 

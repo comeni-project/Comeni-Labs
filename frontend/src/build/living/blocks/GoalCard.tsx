@@ -1,7 +1,10 @@
 import { useId, useState } from "react";
 
-import type { AuthoringProposal, AuthoringSession, GoalIn } from "../../../api/types";
-import { BlockFrame, Primary, Secondary } from "./parts";
+import type { AuthoringProposal, AuthoringSession, AuthoringVocabulary, GoalIn } from "../../../api/types";
+import type { CorrectFact } from "../CurrentFacts";
+import { FactEditor } from "../FactEditor";
+import { factWords } from "../FactHistory";
+import { Primary, Secondary } from "./parts";
 import { piece } from "./piece";
 
 type Chosen = { have: string[]; want: string[] };
@@ -17,16 +20,21 @@ const SOURCE: Record<Fact["source"], string> = {
 
 
 /** A fact's source, and **what measured it** when a sample did (issue 134). *From 1 sample* is
- *  a constant on purpose: one sample is all the conversation accepts (issue 218 changes that). */
-const sourceLabel = (f: Fact) =>
-  (f.source === "measured" && f.pieces?.length
+ *  a constant on purpose: one sample is all the conversation accepts (issue 218 changes that).
+ *  An open fact *needs you*: it comes back as a question during the build. */
+const sourceLabel = (f: Pick<Fact, "source" | "pieces">) =>
+  f.source === "measured" && f.pieces?.length
     ? `measured · ${piece(f.pieces[0])} · from 1 sample`
-    : SOURCE[f.source])
-  // **The words it was heard in** (Part I.0): a model's reading of *"not paired-end"* holds
-  // *"paired-end"*, and the quote is how the person sees what it was taken from.
-  + (f.heard ? ` · "${f.heard}"` : "");
+    : f.source === "open" ? "needs you" : SOURCE[f.source];
 
-/** The goal read back — the plain-language summary, and the typed goal it stands for, editable.
+/** The goal read back as **What was understood** (the *Describe* board) — one line per input, per
+ * output and per fact, each with where it came from and the words it was heard in, corrected by
+ * clicking the line.
+ *
+ * **The words it was heard in** (Part I.0) are on every line that has them: a model's reading of
+ * *"not paired-end"* holds *"paired-end"*, and the quote is how the person sees what it was taken
+ * from. The board's *convention* and *will be measured* chips have no source in a fact, so the
+ * chips are the fact's own: *you said*, *measured*, *read by AI*, *needs you*.
  *
  * **Editing a structured field needs no model call.** A person who removes `qc.report` or adds
  * `counts.matrix` has corrected a field the engine can check, so the edit goes straight to the
@@ -42,6 +50,11 @@ export function GoalCard({
   onReject,
   facts = [],
   replaces = null,
+  subjects = [],
+  onCorrectFact,
+  declarations,
+  factsDisabled = false,
+  pace,
 }: {
   proposal: AuthoringProposal;
   /** Declared type ids and their states. `null` while it loads — the card is still answerable. */
@@ -54,6 +67,14 @@ export function GoalCard({
   /** What was changed by hand since the walk ended; confirming rebuilds the pipeline and
    *  replaces it, so the card asks first (spec §14.9). */
   replaces?: string | null;
+  /** Facts the engine reads that nobody has given — drawn as open lines. */
+  subjects?: string[];
+  /** Correct a fact from its line; absent, fact lines are read-only. */
+  onCorrectFact?: CorrectFact;
+  declarations?: AuthoringVocabulary["measurements"];
+  factsDisabled?: boolean;
+  /** Drawn between the table and *Start building* — the page's pace cards. */
+  pace?: React.ReactNode;
 }) {
   const block = proposal.block;
   const addHave = useId();
@@ -69,6 +90,7 @@ export function GoalCard({
   // (issue 176). Keyed on the constraint as spelled.
   const [chosenSuggestions, setChosenSuggestions] = useState<string[]>([]);
   const [warned, setWarned] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   if (block.kind !== "goal_summary") return null;
 
   const states = statesOf(block.goal);
@@ -80,11 +102,13 @@ export function GoalCard({
   const edited = chosenSuggestions.length > 0 || statesMoved ||
     chosen.have.join() !== original.have.join() || chosen.want.join() !== original.want.join();
   const types = vocabulary ? Object.keys(vocabulary) : [];
-  // **Each input once, its source on its chip** (issue 172); the facts list below is for
-  // measurements.
-  const sourceOf = new Map(
-    facts.filter((f) => f.kind === "input").map((f) => [f.subject, sourceLabel(f)] as const));
-  const measured = facts.filter((f) => f.kind === "measurement");
+  // **Each input once, its source on its chip** (issue 172); the fact lines are for measurements.
+  const inputOf = new Map(facts.filter((f) => f.kind === "input").map((f) => [f.subject, f] as const));
+  const measured = [
+    ...facts.filter((f) => f.kind === "measurement"),
+    ...subjects.filter((subject) => !facts.some((f) => f.kind === "measurement" && f.subject === subject))
+      .map((subject) => ({ kind: "measurement", subject, source: "open", states: [], pieces: [] }) as Fact),
+  ];
 
   const confirm = () => {
     if (replaces && !warned) return setWarned(true);
@@ -110,207 +134,250 @@ export function GoalCard({
     });
   };
 
-  const list = (side: keyof Chosen, labelId: string, label: string) => (
-    <div className="mb-3 grid grid-cols-[76px_1fr] gap-x-3 items-start">
-      <span className="text-label text-ink-3 pt-[6px]">
-        {side}
-      </span>
-      <div>
-      <ul aria-label={label} className="m-0 p-0 flex flex-wrap gap-[6px]">
-        {chosen[side].map((type_id) => (
-          <li key={type_id} className="list-none flex items-center gap-2 px-2 py-[3px] border font-data text-[11px] text-ink"
-              style={{ borderColor: "var(--line-2)" }}>
-            {side === "want" ? spelled(type_id, states.want.get(type_id)) : (
-              <span>
-                {type_id}
-                {(held[type_id] ?? []).length > 0 && (
-                  <>
-                    [
-                    {(held[type_id] ?? []).map((state, i) => (
-                      <span key={state}>
-                        {i > 0 && ", "}
-                        <button
-                          type="button"
-                          title="not true of this input — take it off"
-                          aria-label={`remove state ${state} from ${type_id}`}
-                          onClick={() => setHeld({ ...held, [type_id]: held[type_id].filter((x) => x !== state) })}
-                          className="bg-transparent border-0 p-0 font-data text-[11px] text-ink cursor-pointer
-                                     hover:line-through focus-visible:shadow-[var(--ring)]"
-                        >
+  const group = (side: keyof Chosen, labelId: string, label: string) => {
+    const open = editing === side;
+    const word = side === "have" ? "You have" : "You want";
+    return (
+      <ul aria-label={label} className="m-0 p-0">
+        {chosen[side].map((type_id, i) => {
+          const fact = side === "have" ? inputOf.get(type_id) : undefined;
+          const value = side === "want" ? spelled(type_id, states.want.get(type_id)) : (
+            <span>
+              {type_id}
+              {(held[type_id] ?? []).length > 0 && (
+                <>
+                  [
+                  {(held[type_id] ?? []).map((state, j) => (
+                    <span key={state}>
+                      {j > 0 && ", "}
+                      {open ? (
+                        <button type="button" title="not true of this input — take it off"
+                                aria-label={`remove state ${state} from ${type_id}`}
+                                onClick={() => setHeld({ ...held, [type_id]: held[type_id].filter((x) => x !== state) })}
+                                className="bg-transparent border-0 p-0 font-data text-[inherit] text-ink cursor-pointer
+                                           underline decoration-dotted hover:line-through focus-visible:shadow-[var(--ring)]">
                           {state}
                         </button>
-                      </span>
-                    ))}
-                    ]
-                  </>
-                )}
-              </span>
+                      ) : state}
+                    </span>
+                  ))}
+                  ]
+                </>
+              )}
+            </span>
+          );
+          return (
+            <Line key={type_id} label={i === 0 ? word : ""} heard={fact?.heard}
+                  chip={fact ? { words: sourceLabel(fact), source: fact.source } : undefined}
+                  correct={open ? undefined : { name: `correct ${type_id}`, onClick: () => setEditing(side) }}>
+              <span className="font-data text-[14px] text-ink">{value}</span>
+              {open && (
+                <button type="button" aria-label={`remove ${type_id} from ${label}`}
+                        onClick={() => {
+                          setChosen({ ...chosen, [side]: chosen[side].filter((t) => t !== type_id) });
+                          if (side === "have") setHeld({ ...held, [type_id]: [] });
+                        }}
+                        className="ml-2 bg-transparent border-0 p-0 text-ink-3 hover:text-ink cursor-pointer
+                                   focus-visible:shadow-[var(--ring)]">
+                  ×
+                </button>
+              )}
+            </Line>
+          );
+        })}
+        {(open || chosen[side].length === 0) && (
+          <Line label={chosen[side].length === 0 ? word : ""}>
+            {types.length > 0 && (
+              <select id={labelId} aria-label={`add to ${label}`} value=""
+                      onChange={(e) => {
+                        const type_id = e.target.value;
+                        if (type_id && !chosen[side].includes(type_id)) {
+                          setChosen({ ...chosen, [side]: [...chosen[side], type_id] });
+                        }
+                      }}
+                      className="font-data text-[12px] bg-[var(--surface)] text-ink-2 border rounded-control px-2 py-[4px]"
+                      style={{ borderColor: "var(--line-2)" }}>
+                <option value="">+ add a type</option>
+                {types.filter((t) => !chosen[side].includes(t)).map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             )}
-            {side === "have" && sourceOf.has(type_id) && (
-              <span className="font-data text-[9.5px] text-ink-3">{sourceOf.get(type_id)}</span>
+            {open && (
+              <button type="button" onClick={() => setEditing(null)}
+                      className="ml-3 bg-transparent border-0 p-0 text-[12.5px] text-now-ink underline cursor-pointer
+                                 rounded-control focus-visible:shadow-[var(--ring)]">
+                Done
+              </button>
             )}
-            <button
-              type="button"
-              aria-label={`remove ${type_id} from ${label}`}
-              onClick={() => {
-                setChosen({ ...chosen, [side]: chosen[side].filter((t) => t !== type_id) });
-                if (side === "have") setHeld({ ...held, [type_id]: [] });
-              }}
-              className="bg-transparent border-0 p-0 text-ink-3 hover:text-ink cursor-pointer
-                         focus-visible:shadow-[var(--ring)]"
-            >
-              ×
-            </button>
-          </li>
-        ))}
+          </Line>
+        )}
       </ul>
-      {types.length > 0 && (
-        <select
-          id={labelId}
-          aria-label={`add to ${label}`}
-          value=""
-          onChange={(e) => {
-            const type_id = e.target.value;
-            if (type_id && !chosen[side].includes(type_id)) {
-              setChosen({ ...chosen, [side]: [...chosen[side], type_id] });
-            }
-          }}
-          className="mt-2 font-data text-[11px] bg-transparent text-ink-2 border px-2 py-[3px]"
-          style={{ borderColor: "var(--line)" }}
-        >
-          <option value="">+ add a type</option>
-          {types.filter((t) => !chosen[side].includes(t)).map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-      )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <BlockFrame
-      label="the goal as understood"
-      title="Goal"
-      aside={edited ? "edited" : "editable"}
-      actions={
-        <>
-          <Primary data-testid="accept-goal" disabled={busy} onClick={confirm}>
-            {busy ? "Confirming…" : "That's right"}
-          </Primary>
+    <>
+      <section aria-label="the goal as understood" className="rounded-panel border px-[20px] pt-[16px] pb-[6px]"
+               style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+        <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pb-[10px]">
+          <h2 className="m-0 text-[17px] font-semibold text-ink">What was understood</h2>
+          {edited && <span className="text-[12px] font-semibold text-now-ink">edited</span>}
+          <span className="ml-auto text-[12.5px] text-ink-3">Wrong? Click a line to correct it</span>
+        </header>
+        {warned && replaces && (
+          <div role="alert" className="mb-3 px-[12px] py-[10px] border rounded-button text-[13px] text-ink"
+               style={{ borderColor: "var(--line-2)", background: "var(--surface-2)" }}>
+            This rebuilds the pipeline and replaces what you changed by hand: {replaces}.
+            <span className="flex gap-2 mt-2">
+              <Primary data-testid="replace-hand-edits" disabled={busy} onClick={confirm}>
+                Replace them
+              </Primary>
+              <Secondary data-testid="keep-hand-edits" onClick={() => setWarned(false)}>
+                Cancel
+              </Secondary>
+            </span>
+          </div>
+        )}
+        {/* **The typed goal first** — it is what the pipeline is built from and what the person is
+            checking. The sentence beneath says the same thing in words, quieter, for reading. */}
+        {group("have", addHave, "what you have")}
+        {group("want", addWant, "what you want")}
+        {measured.length > 0 && (
+          <ul aria-label="what the engine knows" className="m-0 p-0">
+            {measured.map((f) => (
+              <Line key={`${f.kind}-${f.subject}`} label={labelOf(f.subject)} heard={f.heard}
+                    note={f.source === "open" ? "Left open — you'll choose during the build." : undefined}
+                    chip={{ words: sourceLabel(f), source: f.source }}
+                    correct={onCorrectFact && editing !== f.subject
+                      ? { name: `correct ${f.subject}`, onClick: () => setEditing(f.subject) } : undefined}
+                    editor={onCorrectFact && editing === f.subject ? (
+                      <FactEditor subject={f.subject} value={(f.value ?? null) as never} kind="measurement"
+                                  declaration={declarations?.[f.subject]} disabled={factsDisabled}
+                                  onSave={(value) => onCorrectFact(f.subject, value, "measurement")
+                                    .then((done) => { setEditing(null); return done; })} />
+                    ) : undefined}>
+                <span className="text-[14px] text-ink">
+                  {f.source === "open" || f.value === null || f.value === undefined ? "Not known yet" : factWords(f.value)}
+                </span>
+              </Line>
+            ))}
+          </ul>
+        )}
+        {suggested.length > 0 && (
+          <Line label="Suggested">
+            <ul aria-label="suggested constraints" className="m-0 p-0 flex flex-wrap gap-[6px]">
+              {suggested.map((r) => {
+                const key = keyOf(r);
+                const on = chosenSuggestions.includes(key);
+                return (
+                  <li key={key} className="list-none">
+                    <button type="button" aria-pressed={on} aria-label={`${on ? "drop" : "keep"} ${key}`}
+                            onClick={() => setChosenSuggestions(on
+                              ? chosenSuggestions.filter((k) => k !== key)
+                              : [...chosenSuggestions, key])}
+                            className={`font-data text-[12px] px-[9px] py-[3px] border rounded-full cursor-pointer
+                                        focus-visible:shadow-[var(--ring)] ${on
+                                          ? "text-now-ink border-[var(--now)] bg-[var(--now-soft)]"
+                                          : "text-ink-3 border-dashed border-[var(--line-2)] bg-transparent"}`}>
+                      {key}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <span className="block mt-[4px] text-[12.5px] text-ink-3">Kept only if you keep them.</span>
+          </Line>
+        )}
+        <div className="py-[12px] border-t" style={{ borderColor: "var(--line-soft)" }}>
+          {block.readback ? (
+            <p className="m-0 text-[13px] leading-[1.6] text-ink-2">
+              {block.readback}{" "}
+              <span className="text-[12px] text-ink-3">in the AI's words</span>
+            </p>
+          ) : (
+            <p className="m-0 text-[13px] leading-[1.6] text-ink-3">
+              {[block.have, block.do, block.get].map(sentence).join(" — ")}.
+            </p>
+          )}
+          {edited && (
+            // The sentence is the model's and the lines are now the person's. Rewriting the prose
+            // would be a second author putting words in the model's mouth, so it stays and says
+            // which of the two runs (issue 116).
+            <p className="m-0 mt-1 text-[12px] text-ink-3">
+              That sentence was the model's reading, before your edit — the lines above are what will be built.
+            </p>
+          )}
+        </div>
+      </section>
+      {pace}
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="m-0 text-[13px] text-ink-3">The same goal and answers always give the same pipeline.</p>
+        <span className="ml-auto flex gap-2">
           <Secondary data-testid="reject-goal" disabled={busy} onClick={onReject}>
             Not quite
           </Secondary>
-        </>
-      }
-    >
-      {warned && replaces && (
-        <div role="alert" className="mb-3 px-[10px] py-2 border text-[12.5px] text-ink"
-             style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}>
-          This rebuilds the pipeline and replaces what you changed by hand: {replaces}.
-          <span className="flex gap-2 mt-2">
-            <Primary data-testid="replace-hand-edits" disabled={busy} onClick={confirm}>
-              Replace them
-            </Primary>
-            <Secondary data-testid="keep-hand-edits" onClick={() => setWarned(false)}>
-              Cancel
-            </Secondary>
-          </span>
-        </div>
-      )}
-      {/* **The typed goal first** — it is what the pipeline is built from and what the person is
-          checking. The sentences beneath say the same thing in words, quieter, for reading. */}
-      {list("have", addHave, "what you have")}
-      {list("want", addWant, "what you want")}
-      {measured.length > 0 && <Facts facts={measured} />}
-      {suggested.length > 0 && (
-        <div className="mb-3">
-          <p className="m-0 mb-1 text-label text-ink-3">
-            Suggested — keep what you asked for
-          </p>
-          <ul aria-label="suggested constraints" className="m-0 p-0 flex flex-wrap gap-[6px]">
-            {suggested.map((r) => {
-              const key = keyOf(r);
-              const on = chosenSuggestions.includes(key);
-              return (
-                <li key={key} className="list-none">
-                  <button type="button" aria-pressed={on}
-                          aria-label={`${on ? "drop" : "keep"} ${key}`}
-                          onClick={() => setChosenSuggestions(on
-                            ? chosenSuggestions.filter((k) => k !== key)
-                            : [...chosenSuggestions, key])}
-                          className={`font-data text-[11px] px-2 py-[3px] border cursor-pointer
-                                      focus-visible:shadow-[var(--ring)] ${on
-                                        ? "text-now-ink border-[var(--now)]"
-                                        : "text-ink-3 border-dashed border-[var(--line-2)]"}`}>
-                    {key}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-      {block.readback ? (
-        <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-2">
-          {block.readback}{" "}
-          <span className="font-data text-[9.5px] text-ink-3">in the AI's words</span>
-        </p>
-      ) : (
-        <p className="m-0 mt-1 text-[12px] leading-[1.6] text-ink-3">
-          {[block.have, block.do, block.get].map(sentence).join(" — ")}.
-        </p>
-      )}
-      {edited && (
-        // The sentence is the model's and the chips are now the person's. Rewriting the prose
-        // would be a second author putting words in the model's mouth, so it stays and says
-        // which of the two runs (issue 116).
-        <p className="m-0 mt-1 font-data text-[10px] text-ink-3">
-          that sentence was the model's reading, before your edit — the types above are what will be built
-        </p>
-      )}
-    </BlockFrame>
+          <Primary data-testid="accept-goal" disabled={busy} onClick={confirm}>
+            {busy ? "Starting…" : "→ Start building"}
+          </Primary>
+        </span>
+      </div>
+    </>
   );
 }
 
-/** Each gathered fact with its source, and what was deliberately left open.
- *
- * **Open is said out loud**, because it is a decision deferred rather than a gap forgotten: every
- * step that reads an open measurement comes back as a tier-4 choice during the build. */
-function Facts({ facts }: { facts: Fact[] }) {
-  const known = facts.filter((f) => f.source !== "open");
-  const open = facts.filter((f) => f.source === "open");
-  const said = (f: Fact) =>
-    f.value === null || f.value === undefined ? f.subject
-      : `${f.subject}: ${f.value === true ? "yes" : f.value === false ? "no" : String(f.value)}`;
-  return (
-    <div className="mb-3">
-      <ul aria-label="what the engine knows" className="m-0 p-0">
-        {known.map((f) => (
-          <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink">
-            {said(f)}{" "}
-            <span className={f.source === "measured" ? "text-measured-ink" : "text-ink-3"}>
-              · {sourceLabel(f)}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {open.length > 0 && (
-        <>
-          <p className="m-0 mt-2 text-label text-ink-3">
-            Left open, you'll choose during the build
-          </p>
-          <ul aria-label="Left open, you'll choose during the build" className="m-0 p-0">
-            {open.map((f) => (
-              <li key={`${f.kind}-${f.subject}`} className="list-none font-data text-[11px] text-ink-2">
-                {f.subject}
-              </li>
-            ))}
-          </ul>
-        </>
+const CHIP: Record<Fact["source"], React.CSSProperties> = {
+  person_said: { borderColor: "var(--line-2)", color: "var(--ink-2)", background: "var(--surface)" },
+  model_read: { borderColor: "var(--line-2)", color: "var(--ink-2)", background: "var(--surface)" },
+  measured: { borderColor: "transparent", color: "var(--measured-ink)", background: "var(--measured-soft)" },
+  open: { borderColor: "transparent", color: "var(--needs-you-ink)", background: "var(--needs-you-soft)" },
+};
+
+/** One line of the table: what it is, its value, the words it was heard in, where it came from.
+ *  Clicking the value opens its editor when the line can be corrected. */
+function Line({ label, children, heard, note, chip, correct, editor }: {
+  label: string; children: React.ReactNode; heard?: string | null; note?: string;
+  chip?: { words: string; source: Fact["source"] };
+  correct?: { name: string; onClick: () => void }; editor?: React.ReactNode;
+}) {
+  const value = (
+    <>
+      <span className="flex flex-wrap items-baseline">{children}</span>
+      {(heard || note) && (
+        <span className="block mt-[3px] text-[13px] leading-[1.5] text-ink-2">
+          {heard && <>From "{heard}".</>}{heard && note ? " " : ""}{note}
+        </span>
       )}
-    </div>
+    </>
   );
+  return (
+    <li className="list-none grid grid-cols-[minmax(0,110px)_minmax(0,1fr)_auto] gap-x-4 py-[12px] border-t"
+        style={{ borderColor: "var(--line-soft)" }}>
+      <span className="text-[13px] text-ink-2 pt-[1px]">{label}</span>
+      <span className="min-w-0">
+        {correct ? (
+          <button type="button" aria-label={correct.name} onClick={correct.onClick}
+                  className="block w-full text-left bg-transparent border-0 p-0 cursor-pointer rounded-control
+                             hover:[&_*]:decoration-[var(--line-2)] focus-visible:shadow-[var(--ring)]">
+            {value}
+          </button>
+        ) : <span className="block">{value}</span>}
+        {editor}
+      </span>
+      {chip ? (
+        <span data-testid="source" className="self-start shrink-0 rounded-full border px-[9px] py-[1px] text-[11.5px] font-semibold"
+              style={CHIP[chip.source]}>
+          {chip.words}
+        </span>
+      ) : <span />}
+    </li>
+  );
+}
+
+/** `read_length` as a line's label: *Read length*. */
+function labelOf(subject: string): string {
+  const words = subject.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /** `fastq.reads[paired]`, as `LivingGoal` draws it. **States are what a person is confirming**:

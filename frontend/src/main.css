@@ -46,11 +46,13 @@
   --font-data: var(--font-data);
   --font-display: var(--font-display);
 
-  /* THE FRONT DOOR ONLY. The type roles govern the tool, where the title is the
+  /* THE FRONT DOOR AND THE DESCRIBE PAGE ONLY. The type roles govern the tool, where the title is the
      largest thing on a dense working screen and must stay that way — a hero size loose in the
      builder is exactly the drift this indirection exists to stop. These two exist because a
      landing page has a job the tool does not: be understood by a stranger in ten seconds.
-     If either appears outside `src/home/`, one of the two scales is wrong. */
+     Describe shares that job: it is where a stranger first says what they want (the *Describe*
+     board draws its question at this size). If either appears anywhere else, one of the two
+     scales is wrong. */
   --text-hero: 32px;
   --text-lede: 15px;
 

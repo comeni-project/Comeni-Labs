@@ -50,7 +50,7 @@ describe("the describe stage", () => {
     const describe_ = screen.getByRole("region", { name: "describe" });
     expect(within(describe_).getByRole("heading", { name: "What do you want to analyse?" })).toBeInTheDocument();
     expect(within(describe_).getByTestId("your-sentence")).toHaveTextContent("12 paired RNA-seq samples");
-    expect(within(describe_).getByRole("button", { name: "That's right" })).toBeInTheDocument();
+    expect(within(describe_).getByRole("button", { name: /Start building/ })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
   });
