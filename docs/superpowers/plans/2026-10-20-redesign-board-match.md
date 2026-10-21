@@ -125,7 +125,7 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   board's *Memory fit* (the failed task's own peak is the failure banner's, above it).
 
 ### Task 7: records
-- [ ] CHANGELOG lines; journal entry; tick; hand over for the operator's Chrome check.
+- [x] CHANGELOG lines; journal entry; tick; hand over for the operator's Chrome check.
 
 ## Comparison log
 

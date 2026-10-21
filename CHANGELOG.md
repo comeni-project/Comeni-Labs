@@ -132,6 +132,9 @@ or a complete commit history.
 
 #### Added
 
+- Walk progress names the steps still to come (`upcoming`), each with its place in the plan;
+  a step whose review still holds is not among them.
+
 - A pure package owns the authoring protocol, typed commands and interpreter. The session's
   current node and named arrows drive transitions; protocol loading checks fork coverage.
 - Build plans describe steps, required facts, choices and registry gaps in pipeline order.
@@ -307,6 +310,18 @@ or a complete commit history.
 - The settings overlay's own words (its subtitle, *Esc*, the `.env` note and section counts) are
   in the interface font rather than the data font
   ([#381](https://github.com/comeni-project/Comeni-Labs/issues/381)).
+- The screens are redrawn to match the redesign boards
+  ([#370](https://github.com/comeni-project/Comeni-Labs/issues/370)). The builder's header says
+  where the build is as a chip. The canvas is a framed card with a caption, *Fit* and a legend;
+  steps are outlined and count their values (*1 measured · 2 settled*). The plan line colours
+  how far the walk has reached and names the steps still to come. The step card offers its tools
+  as radio cards with *Add it* and *Why this one?*. Opening a step asks each value that needs you
+  as a question, and the answer is saved with your reason. Describe shows the goal as *What was
+  understood*, a line per input, output and fact with where each came from. When pacing is set
+  to ask, *Start building* also answers how to go through the build. The pipeline file has
+  section chips; the run sheet sits in the page with *Your files* first. Home links *All
+  results*. A failed run says what its exit code is from the recorded signal, without
+  guessing a cause.
 
 #### Removed
 
