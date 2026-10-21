@@ -266,17 +266,18 @@ export function LivingSurface({
         runnable={run !== null && session.projection_current !== false && !session.retired && !showing}
         openValues={values.open}
       />
-      {view === "artifact" && (
+      {/* **The run sheet takes the canvas's place** (the *Run sheet* board), under the header. */}
+      {run?.sheet}
+      {view === "artifact" && !run?.sheet && (
         <div className="min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
           <PipelineFile steps={answered} preview={preview} draftId={session.draft_id} kept={run?.kept ?? false} />
         </div>
       )}
-      {run?.sheet}
-      {/* **Kept mounted while the pipeline file shows**, so the canvas's view is as it was. */}
-      {/* Hidden by an inline style: `.living` sets `display: grid` and would win over a class. */}
+      {/* **Kept mounted while the pipeline file or the run sheet shows**, so the canvas's view is as
+          it was. Hidden by an inline style: `.living` sets `display: grid` and would win over a class. */}
       <div className="living min-h-0"
-           inert={view === "artifact" ? true : undefined}
-           style={{ display: view === "artifact" ? "none" : undefined }}>
+           inert={view === "artifact" || run?.sheet ? true : undefined}
+           style={{ display: view === "artifact" || run?.sheet ? "none" : undefined }}>
         <section aria-label="pipeline canvas"
                  className="living-canvas relative flex flex-col min-h-0 ml-[28px] mr-[8px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden">
           {(alternative.loading || alternative.error) && (

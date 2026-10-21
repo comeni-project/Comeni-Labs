@@ -48,11 +48,11 @@ describe("the run sheet", () => {
     expect(screen.getByRole("heading", { name: "Run rnaseq-counts" })).toBeInTheDocument();
   });
 
-  it("goes through Checked, Your files, then the values still open, in that order", () => {
+  it("goes through Your files, then the values still open, in that order, as the board numbers them", () => {
     sheet();
     const sections = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
     expect(sections.filter((s) => ["Checked", "Your files", "Values still open"].includes(s ?? "")))
-      .toEqual(["Checked", "Your files", "Values still open"]);
+      .toEqual(["Your files", "Values still open"]);
   });
 
   it("lists each file the pipeline needs with its type", () => {
@@ -90,6 +90,18 @@ describe("the run sheet", () => {
     sheet({ draftId: null, gated: false });
     expect(within(screen.getByRole("complementary", { name: "Ready to run" }))
       .getByText("Keep this pipeline first.")).toBeInTheDocument();
+  });
+
+  it("says whether the check passed as the summary's line, under the action", () => {
+    sheet();
+    const summary = screen.getByRole("complementary", { name: "Ready to run" });
+    expect(within(summary).getByTestId("sheet-checked")).toHaveTextContent(/^Checked/);
+  });
+
+  it("is drawn in the page, not over it, when the builder asks for it there", () => {
+    sheet({ inline: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("region", { name: "Run rnaseq-counts" })).toBeInTheDocument();
   });
 
   it("closes on Escape and on Cancel", () => {

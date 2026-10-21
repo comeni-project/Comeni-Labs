@@ -197,6 +197,14 @@ describe("Run on a living pipeline", () => {
     expect(screen.getByTestId("living-run")).toBeDisabled();
   });
 
+  it("draws the run sheet in the canvas's place, keeping the canvas for when it closes", () => {
+    surface(complete, { onRun: vi.fn(), busy: false, stage: null, error: null, kept: true,
+                        sheet: <section aria-label="Run rnaseq-counts" /> });
+    expect(screen.getByRole("region", { name: "Run rnaseq-counts" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
+    expect(screen.getByTestId("living-node-star_align")).toBeInTheDocument();
+  });
+
   it("offers the kept file only once something was kept", () => {
     surface(complete, { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null });
     fireEvent.click(screen.getByTestId("living-view-artifact"));

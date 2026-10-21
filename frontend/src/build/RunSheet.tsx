@@ -22,6 +22,11 @@ type Entry = { key: string; name: string; type_id: string };
  * Wiener reads them out of the artifact when it is sent (`docs/design/wiener.md` §12), so the
  * sample sheet and the paths appear under *Your files* once *Send to Wiener* has run.
  *
+ * **In the page, as the board draws it, for the living builder** (`inline`): the sheet takes the
+ * canvas's place under the header, and Esc or × give the canvas back. The manual builder still
+ * opens it over its page. Whether the check passed is the summary's last line, under the action,
+ * once there is a kept pipeline to check.
+ *
  * **What nothing in the product knows is not drawn**: the board's reference picker, other
  * executors, task limits, task estimates and *took last time*. Absence is absence.
  */
@@ -34,6 +39,7 @@ export function RunSheet({
   gated,
   onClose,
   onOpenSettings,
+  inline = false,
 }: {
   name: string;
   steps: AnsweredStep[];
@@ -45,6 +51,8 @@ export function RunSheet({
   onClose: () => void;
   /** Jump to the value on its own node. The sheet reports; the card is where you answer. */
   onOpenSettings?: (id: string) => void;
+  /** Drawn in the page, in the canvas's place, rather than over it. */
+  inline?: boolean;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -62,19 +70,20 @@ export function RunSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-auto bg-[var(--scrim)]"
-      onClick={onClose}
+      className={inline ? "min-h-0 overflow-auto" : "fixed inset-0 z-50 overflow-auto bg-[var(--scrim)]"}
+      onClick={inline ? undefined : onClose}
     >
       <div
-        role="dialog"
-        aria-modal="true"
+        role={inline ? "region" : "dialog"}
+        aria-modal={inline ? undefined : true}
         aria-label={`Run ${name}`}
         data-testid="run-sheet"
         onClick={(e) => e.stopPropagation()}
-        className="settle mx-auto my-6 sm:my-12 w-[1120px] max-w-[calc(100vw-32px)] grid gap-4
-                   grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] items-start"
+        className={`${inline ? "mx-[16px] sm:mx-[28px] mt-[4px] mb-[24px] max-w-[calc(100vw-32px)]"
+                             : "settle mx-auto my-6 sm:my-12 w-[1120px] max-w-[calc(100vw-32px)]"} grid gap-4
+                   grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] items-start`}
       >
-        <div className="rounded-panel border border-line bg-surface shadow-e3 px-5 sm:px-7 py-6 flex flex-col gap-6 min-w-0">
+        <div className={`rounded-panel border border-line bg-surface ${inline ? "" : "shadow-e3"} px-5 sm:px-7 py-6 flex flex-col gap-6 min-w-0`}>
           <header className="flex items-start gap-4">
             <h2 className="m-0 text-title font-semibold tracking-[-.02em] text-ink flex-1 min-w-0">Run {name}</h2>
             <button type="button" aria-label="Close" data-testid="sheet-cancel" onClick={onClose}
@@ -84,11 +93,7 @@ export function RunSheet({
             </button>
           </header>
 
-          <Section n={1} title="Checked" done={gated}>
-            <GateVerdict draftId={draftId} blocked={blocked} />
-          </Section>
-
-          <Section n={2} title="Your files" done={sent && submit.unfilled.length === 0}>
+          <Section n={1} title="Your files" done={sent && submit.unfilled.length === 0}>
             <ul className="m-0 p-0 flex flex-col gap-2">
               {sources.map((source) => (
                 <li key={source.key} data-testid="sheet-input"
@@ -107,7 +112,7 @@ export function RunSheet({
           </Section>
 
           {open.length > 0 && (
-            <Section n={3} title="Values still open" done={false} warn>
+            <Section n={2} title="Values still open" done={false} warn>
               <ul className="m-0 p-0 flex flex-col">
                 {open.map(({ step, setting }) => (
                   <li key={`${step.id}.${setting.name}`} className="list-none">
@@ -131,7 +136,7 @@ export function RunSheet({
         </div>
 
         <aside aria-label="Ready to run" className="flex flex-col gap-4 lg:sticky lg:top-6">
-          <div className="rounded-panel border border-line bg-surface shadow-e3 px-5 py-5 flex flex-col gap-4">
+          <div className={`rounded-panel border border-line bg-surface ${inline ? "" : "shadow-e3"} px-5 py-5 flex flex-col gap-4`}>
             <h3 className="m-0 text-heading font-semibold text-ink">Ready to run</h3>
             <table className="w-full border-collapse text-[13px]">
               <tbody>
@@ -146,6 +151,12 @@ export function RunSheet({
               <p role="alert" data-testid="submit-error" className="m-0 text-secondary text-needs-you-ink">
                 {submit.error}
               </p>
+            )}
+            {draftId && (
+              <div data-testid="sheet-checked" className="flex flex-wrap items-baseline gap-x-2 text-secondary text-ink-2">
+                <span className={gated ? "text-done-ink font-semibold" : "font-semibold"}>Checked</span>
+                <GateVerdict draftId={draftId} blocked={blocked} />
+              </div>
             )}
           </div>
           <div className="rounded-panel border border-line bg-surface px-5 py-4">

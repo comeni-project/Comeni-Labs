@@ -105,7 +105,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
         error: runner.error ?? keeper.error,
         kept: keeper.keptAt !== null,
         sheet: sheet && sheetView.data ? (
-          <RunSheet
+          <RunSheet inline
             name={living.session.name || "this pipeline"}
             // **Open human decisions come first on the sheet** — it counts what nobody answered
             // before it asks where the data is, which is the order Build's Run has always had.
@@ -226,7 +226,7 @@ function FakeLiving({ session: given = FAKE_SESSION, sheet = false, steps = FAKE
       onDismiss={() => dispatch({ type: "dismiss" })}
       run={sheet ? {
         onRun: () => undefined, busy: false, stage: null, error: null, kept: false,
-        sheet: <RunSheet name={session.name} steps={Object.values(FAKE_STEPS)}
+        sheet: <RunSheet inline name={session.name} steps={Object.values(FAKE_STEPS)}
                          sources={entryChannels({ channels: FAKE_CHANNELS } as unknown as Built)}
                          draftId={null} gated={false} onClose={() => undefined} />,
       } : null}
