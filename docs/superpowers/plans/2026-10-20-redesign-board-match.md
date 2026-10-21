@@ -77,12 +77,19 @@ chains the pace; a selected step shows its open values as question cards. One se
 
 ### Task 4: Question — a selected step's open values
 **Files:** `BuildPanel.tsx`, new `blocks/QuestionCard.tsx`, tests.
-- [ ] Tests: selecting a step with a tier-4 setting shows a card per open value — the setting
+- [x] Tests: selecting a step with a tier-4 setting shows a card per open value — the setting
   as the question, *needs you*, the path *settings.<name>*, the reason, radio options from the
   setting's domain (or a field when none), a reason field, *Save answer* writes through
   `onSetParam`, *Cancel* closes; no open values → no card; the tools follow under *Change this step*;
   × closes the step.
-- [ ] Implement; comparison loop (Question); commit.
+- [x] Implement; comparison loop (Question); commit.
+  *Rulings:* the question reads *What should `name` be?* — a setting carries no question text
+  (the board's strandedness is a fact, not a setting: featureCounts' contract says so); no notes
+  under the answers (a domain is a list of values); the reason goes to `DraftParam.why`, which the
+  server keeps as the value's recorded reason, so the card says only that it is saved beside the
+  value. An opened step replaces the step line, as the board draws it (× brings it back). The
+  panel's and canvas's steps now carry the person's typed values, so an answered value is not
+  asked again (mutation-checked). `?fake=question` added for the comparison.
 
 ### Task 5: Describe
 **Files:** `DescribePage.tsx`, `CurrentFacts.tsx` (the table), `blocks/GoalCard.tsx` (edit
@@ -129,3 +136,10 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   and the legend sat over *+ Add step* → no marks on the dotted ground, one wrapping footer row.
   Remaining by choice: the tabs (departure 1), no *Skip* (4), the served tier word (5), process
   names for steps (3).
+- **Question, loop 1:** an opened step showed only its tools in a square box under the line →
+  name and tool, a needs-you question card (path, reason on a red rule, two radio cards, reason
+  field, *Save answer* / *Cancel*), tools as three buttons under *Change this step*, × in the tab
+  row. **Loop 2:** setting name in the data face; status chip before *1 value needs you*, as the
+  boards order them; `BlockFrame` rounded for every card. **390 and dark:** read as drawn. Remaining
+  by choice: *Not sure? Measure it instead* (only where the engine offers a measuring step, which a
+  setting never has today) and *Learn it in Code* are not drawn.

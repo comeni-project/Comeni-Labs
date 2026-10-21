@@ -421,13 +421,16 @@ describe("the card and the canvas point at each other", () => {
     expect(screen.getByTestId("living-node-star_genomegenerate")).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("selecting a step on the canvas marks its decision in the log", async () => {
+  it("selecting a step on the canvas opens it in the panel, and closing it brings the line back", async () => {
     mount(<GuidedLiving />);
     await act(async () => fireEvent.click(screen.getByTestId("accept-goal")));
     await act(async () => fireEvent.click(screen.getByTestId("accept-step")));
     fireEvent.click(screen.getByTestId("living-node-star_genomegenerate"));
+    expect(screen.getByRole("region", { name: "step STAR_GENOMEGENERATE" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "the plan" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close the step" }));
     expect(screen.getByRole("button", { name: /STAR_GENOMEGENERATE step 1/ }))
-      .toHaveAttribute("aria-pressed", "true");
+      .toHaveAttribute("aria-pressed", "false");
   });
 });
 

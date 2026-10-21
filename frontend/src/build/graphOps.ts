@@ -58,6 +58,8 @@ export function withParam(
   id: string,
   name: string,
   value: string | number | boolean | null,
+  /** Why this value, in the person's words; the server keeps it as the value's reason. */
+  why = "",
 ): DraftGraph {
   return {
     ...g,
@@ -66,7 +68,7 @@ export function withParam(
       const rest = (n.params ?? []).filter((p) => p.name !== name);
       return value === null
         ? { ...n, params: rest }
-        : { ...n, params: [...rest, { name, value, why: "" }] };
+        : { ...n, params: [...rest, { name, value, why }] };
     }),
   };
 }

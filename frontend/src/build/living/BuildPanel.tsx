@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { AuthoringBlock, AuthoringSession, AuthoringVocabulary, DraftGraph, Step } from "../../api/types";
+import type { AuthoringBlock, AuthoringSession, AuthoringVocabulary, DraftGraph } from "../../api/types";
+import { open, type AnsweredStep } from "../useBuilder";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
+import { QuestionCard } from "./blocks/QuestionCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepTools } from "./blocks/StepTools";
 import { SuggestionCard } from "./blocks/SuggestionCard";
@@ -54,9 +56,10 @@ export function BuildPanel({
   onSelect: (node: string | null) => void;
   /** The draft as drawn — what a step's tools change. */
   graph: DraftGraph;
-  steps: Record<string, Step>;
+  /** Each step with what the person typed laid over it, so an answered value is not asked again. */
+  steps: Record<string, AnsweredStep>;
   onEdit: (graph: DraftGraph) => void;
-  onSetParam: (node: string, setting: string, value: string) => void;
+  onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   onApplyChange: (block: ChangeBlock) => void;
   suggestions: {
     busy: boolean;
@@ -116,23 +119,51 @@ export function BuildPanel({
     <section aria-label="build panel"
              className="living-rail flex flex-col min-h-0 ml-[8px] mr-[28px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden"
              style={{ background: "var(--surface)" }}>
-      <div role="tablist" aria-label="the panel" className="flex gap-1 mx-4 mt-4 p-1 rounded-button self-start"
-           style={{ background: "var(--paper)" }}>
-        <PanelTab id="step" current={tab} onShow={show}>Step</PanelTab>
-        <PanelTab id="assistant" current={tab} onShow={show} unread={unread}>Assistant</PanelTab>
+      <div className="flex items-center mx-4 mt-4">
+        <div role="tablist" aria-label="the panel" className="flex gap-1 p-1 rounded-button"
+             style={{ background: "var(--paper)" }}>
+          <PanelTab id="step" current={tab} onShow={show}>Step</PanelTab>
+          <PanelTab id="assistant" current={tab} onShow={show} unread={unread}>Assistant</PanelTab>
+        </div>
+        {/* The × the *Question* board draws: only while a step is open, and it closes that step. */}
+        {editable && (
+          <button type="button" aria-label="Close the step" onClick={() => onSelect(null)}
+                  className="ml-auto w-[32px] h-[32px] grid place-items-center p-0 rounded-control border-0
+                             bg-transparent text-ink-2 text-[20px] leading-none cursor-pointer hover:text-ink
+                             focus-visible:shadow-[var(--ring)]">
+            ×
+          </button>
+        )}
       </div>
       {notices}
       <div className="flex-1 min-h-0 overflow-auto px-4 pt-4 pb-4">
         {tab === "step" ? (
           <div role="tabpanel" id="panel-step" aria-labelledby="tab-step" className="flex flex-col gap-4">
-            <StepLine session={session} steps={steps} selected={selected} onSelect={onSelect} />
+            {/* **An opened step takes the line's place** (the *Question* board): its name and tool,
+                each value it still needs you for as a question, then the quieter tools. */}
+            {!editable && <StepLine session={session} steps={steps} selected={selected} onSelect={onSelect} />}
             {editable ? (
-              <section aria-label={`step ${processName(editable)}`} className="flex flex-col gap-3">
-                <h2 className="m-0 font-data text-[13px] text-ink">{processName(editable)}</h2>
-                <StepTools key={editable} node={editable} step={steps[editable]} graph={graph} onEdit={onEdit} />
-                {requests.filter((r) => r.node === editable).map((r) => (
-                  <SettingCard key={r.id} block={r} onApply={onSetParam} />
+              <section aria-label={`step ${processName(editable)}`} className="flex flex-col gap-4">
+                <div>
+                  <h2 className="m-0 font-data text-[15px] font-semibold text-ink truncate" title={processName(editable)}>
+                    {processName(editable)}
+                  </h2>
+                  {steps[editable] && (
+                    <p className="m-0 mt-[2px] font-data text-[11.5px] text-ink-3 break-all">{steps[editable].contract_id}</p>
+                  )}
+                </div>
+                {(steps[editable]?.settings ?? []).filter(open).map((setting) => (
+                  <QuestionCard key={`${editable}.${setting.name}`} setting={setting}
+                                onSave={(value, why) => onSetParam(editable, setting.name, value, why)}
+                                onCancel={() => onSelect(null)} />
                 ))}
+                <section aria-label="Change this step" className="flex flex-col gap-3">
+                  <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>
+                  <StepTools key={editable} node={editable} step={steps[editable]} graph={graph} onEdit={onEdit} />
+                  {requests.filter((r) => r.node === editable).map((r) => (
+                    <SettingCard key={r.id} block={r} onApply={onSetParam} />
+                  ))}
+                </section>
               </section>
             ) : waits ? (
               <Waiting session={session} onAsk={say} saying={saying} onSelect={onSelect} {...waiting} />

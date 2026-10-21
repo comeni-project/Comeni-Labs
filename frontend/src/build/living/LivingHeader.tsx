@@ -73,6 +73,8 @@ export function LivingHeader({
       <h1 className="m-0 text-[25px] leading-tight font-semibold tracking-[-.02em] text-ink">
         {session.name || "Untitled analysis"}
       </h1>
+      {/* Where the build is, then what it needs from you — the boards' order. */}
+      <StatusChip session={session} />
       {openValues > 0 && (
         <span data-testid="needs-you-chip"
               className="self-center px-[8px] py-[2px] rounded-control text-[12px] font-semibold text-needs-you-ink"
@@ -80,7 +82,6 @@ export function LivingHeader({
           {openValues} {openValues === 1 ? "value needs you" : "values need you"}
         </span>
       )}
-      <StatusChip session={session} />
       {session.projection_current === false && (
         <span className="self-center px-[8px] py-[3px] rounded-control text-[12px] font-semibold"
               style={TONE["needs-you"]}>

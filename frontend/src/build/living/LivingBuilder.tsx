@@ -38,6 +38,7 @@ export function LivingBuilder() {
   if (fake === "collect") return <CollectLiving />;
   if (fake === "conflict") return <FakeLiving session={CONFLICT_SESSION} />;
   if (fake === "sheet") return <FakeLiving sheet />;
+  if (fake === "question") return <FakeLiving steps={QUESTION_STEPS} selected="star_align" />;
   if (fake) return <FakeLiving />;
   if (session) return <LiveLiving key={session} sessionId={session} />;
   return (
@@ -143,7 +144,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       // change the pipeline and leave the log saying nothing about it.
       onAddStep={(contract) =>
         living.edit(withNode(graph, { id: idFor(graph, contract), contract_id: contract, params: [] }))}
-      onSetParam={(node, setting, value) => living.edit(withParam(graph, node, setting, value))}
+      onSetParam={(node, setting, value, why) => living.edit(withParam(graph, node, setting, value, why))}
       onApplyChange={(block: ChangeBlock) =>
         living.edit(block.removes.reduce(withoutNode, graph))}
       onEdit={living.edit}
@@ -178,13 +179,26 @@ export function useFirstArrival(sessionId: string, session: AuthoringSession | n
   return plan.current ?? {};
 }
 
+/** `?fake=question`: STAR_ALIGN opened with one value nobody has settled — what the *Question*
+ *  board is compared against. */
+const QUESTION_STEPS = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, settings: [
+  ...FAKE_STEPS.star_align.settings,
+  { name: "outSAMstrandField", value: null, via: "ext", tier: 4, because: "", axis_reason: "", premise: [],
+    reason: "No rule settles it: your description does not say which tools read the alignments next, "
+      + "and nothing measured it.",
+    domain: { kind: "enum", values: ["None", "intronMotif"] } },
+] } };
+
 /** `?fake=sheet` opens the run sheet over the static session — what the *Run sheet* board is
  *  compared against, since a fake never keeps or lints. */
-function FakeLiving({ session: given = FAKE_SESSION, sheet = false }: { session?: AuthoringSession; sheet?: boolean }) {
-  const session = framed(given, FAKE_STEPS, FAKE_CHANNELS);
+function FakeLiving({ session: given = FAKE_SESSION, sheet = false, steps = FAKE_STEPS, selected = null }: {
+  session?: AuthoringSession; sheet?: boolean; steps?: typeof FAKE_STEPS; selected?: string | null;
+}) {
+  const session = framed(given, steps, FAKE_CHANNELS);
   const [state, dispatch] = useReducer(authoringReducer, {
     ...initialAuthoring,
     snapshot: session,
+    selected,
   });
   return (
     <LivingSurface

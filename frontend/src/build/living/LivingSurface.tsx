@@ -8,7 +8,6 @@ import type {
   DraftGraph,
   GoalIn,
   SampleInspected,
-  Step,
 } from "../../api/types";
 import type { components } from "../../api/schema";
 import { Browse } from "../Browse";
@@ -25,7 +24,7 @@ import type { ReviewState } from "./LivingNode";
 import type { Positions } from "../geometry";
 import { stageOf } from "./stage";
 import { valuesOf } from "./values";
-import { withTypedValues } from "../useBuilder";
+import { type AnsweredStep, withTypedValues } from "../useBuilder";
 import { useFocus } from "./useFocus";
 import { useAlternativePreview, type PreviewSelection, type ReadPreview } from "./useAlternativePreview";
 
@@ -99,7 +98,7 @@ export function LivingSurface({
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
   onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
   correcting?: boolean;
-  onSetParam: (node: string, setting: string, value: string) => void;
+  onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
@@ -129,11 +128,10 @@ export function LivingSurface({
   const frame = session.canvas ?? null;
   const ghost = pending?.block.kind === "step_proposal" && frame?.proposal_id === pending.id
     ? pending.block.node : null;
-  const steps: Record<string, Step> =
-    Object.fromEntries((frame?.steps ?? []).map((step) => [step.id, step]));
-  // **Each step with what the person typed laid over it** — what the pipeline file and the
-  // header count as answered.
+  // **Each step with what the person typed laid over it** — what the pipeline file, the header,
+  // the canvas's counts and an opened step's questions all count as answered.
   const answered = (frame?.steps ?? []).map((step) => withTypedValues(step, graph));
+  const steps: Record<string, AnsweredStep> = Object.fromEntries(answered.map((step) => [step.id, step]));
   const values = valuesOf(answered);
   const reviews: Record<string, ReviewState> = Object.fromEntries(
     Object.entries(session.review_applicability ?? {}).map(([node, status]) =>

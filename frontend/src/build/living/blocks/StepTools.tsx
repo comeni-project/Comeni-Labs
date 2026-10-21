@@ -117,21 +117,13 @@ export function StepTools({
     );
   }
 
-  const contract = graph.nodes.find((n) => n.id === node)?.contract_id ?? "";
+  // **Only the three verbs**: the opened step's name and tool head the panel above this.
   return (
-    <BlockFrame
-      label={label}
-      title={name}
-      aside={step ? undefined : "drawing…"}
-      actions={
-        <>
-          <Secondary disabled={!step} onClick={() => setMode("swap")}>Swap for something else</Secondary>
-          <Secondary disabled={!step} onClick={() => setMode("settings")}>Settings</Secondary>
-          <Secondary onClick={() => setMode("remove")}>Remove</Secondary>
-        </>
-      }
-    >
-      <p className="m-0 font-data text-[11px] text-ink-3">{contract}</p>
-    </BlockFrame>
+    <section aria-label={label} className="flex flex-wrap items-center gap-2">
+      <Secondary disabled={!step} onClick={() => setMode("swap")}>Swap for something else</Secondary>
+      <Secondary disabled={!step} onClick={() => setMode("settings")}>Settings</Secondary>
+      <Secondary onClick={() => setMode("remove")}>Remove</Secondary>
+      {!step && <span className="text-[12.5px] text-ink-3">drawing…</span>}
+    </section>
   );
 }

@@ -60,7 +60,7 @@ export function BlockFrame({
   return (
     <section
       aria-label={label}
-      className="border"
+      className="border rounded-panel overflow-hidden"
       style={{ borderColor: "var(--line-2)", background: "var(--paper-2)" }}
     >
       <header
