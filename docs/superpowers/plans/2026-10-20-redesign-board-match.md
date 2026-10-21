@@ -47,11 +47,11 @@ chains the pace; a selected step shows its open values as question cards. One se
 ### Task 2: the canvas
 **Files:** `build/living/LivingCanvas.tsx`, `LivingNode.tsx`, `CollectionChannel.tsx`
 (`SourceNode`, `Flowline`), `LivingSurface.tsx` (panel frame), tests beside them.
-- [ ] Tests: caption *N steps · N inputs* and the sample sentence from the sample channel;
+- [x] Tests: caption *N steps · N inputs* and the sample sentence from the sample channel;
   *Fit* calls the view's fit; legend present; a node's footer counts by tier (*1 measured · 13
   settled*); ports rendered with `<`/`>`; the ghost's footer *Proposed · not added yet*; an input
   box carries *Input*, name, type and its scope sentence; no label on the wire.
-- [ ] Implement; comparison loop (Build canvas); commit.
+- [x] Implement; comparison loop (Build canvas); commit.
 
 ### Task 3: the step panel, the step card, the composer, `WalkProgress.upcoming`
 **Files:** `packages/mendel-authoring/src/mendel_authoring/progress.py` and its test;
@@ -105,3 +105,11 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   time exists). Departures: *Complete* not *Valid* (only the gate can say valid); a reply in
   flight is *now*, not amber (amber means measured). Describe has no header, so its status chip
   moved into the sentence panel's footer line, where the board has a line (issues 110, 112).
+- **Canvas, loop 1:** full-bleed area, striped nodes, `·` ports, *runs 12×*, white inputs with a
+  bar, grey dotted ghost → a card with caption, samples line, Fit, legend; outlined nodes with
+  `<`/`>` ports and *1 measured · 2 settled*; *Proposed · not added yet*; inputs on now-soft.
+  **Loop 2:** plain ground → `--canvas` with a resting dot grid (living canvas only); ghost wire
+  grey → dashed blue, one line; card inset 28 px; no rule under the header. Remaining by choice:
+  nodes keep the fixed 172×112 geometry the wires use (the board sizes them to content); the
+  collection ribbons stay (which steps run per sample or gather is not said anywhere else); a
+  selected step still labels its wires.

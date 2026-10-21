@@ -65,7 +65,7 @@ describe("the live canvas", () => {
     const fetch = open(live());
     await screen.findByTestId("living-node-star_align");
     expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/pipeline/draw"))).toBe(false);
-    expect(screen.getByTestId("living-node-star_align")).toHaveTextContent("3 settled");
+    expect(screen.getByTestId("node-footer-star_align")).toHaveTextContent("1 measured · 2 settled");
   });
 
   it("says no count for a step the frame carries no metadata for", async () => {
@@ -98,11 +98,11 @@ describe("the live canvas", () => {
     expect(screen.queryByTestId("living-node-samtools_sort")).toBeNull();
   });
 
-  it("says a held review in the step's header, keeping its footer to one line", async () => {
+  it("keeps a held review off the node: the step line says who decided it", async () => {
     open(live({ review_applicability: { star_align: "retained" } }));
     const node = await screen.findByTestId("living-node-star_align");
-    expect(within(node).getByText("REVIEWED")).toBeInTheDocument();
-    expect(within(node).getByText(/settled/)).not.toHaveTextContent("reviewed");
+    expect(node).not.toHaveTextContent(/reviewed/i);
+    expect(screen.getByTestId("node-footer-star_align")).not.toHaveTextContent("reviewed");
   });
 
   it("says when the drawn pipeline is outdated, and keeps drawing it", async () => {

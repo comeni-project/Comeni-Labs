@@ -81,9 +81,9 @@ export function Flowline({
             d={path(points)}
             pathLength={className ? 1 : undefined}
             fill="none"
-            stroke="var(--port-line)"
+            stroke={dashed ? "var(--now)" : "var(--port-line)"}
             strokeWidth={flow === "one" ? 1.2 : 1}
-            strokeDasharray={dashed ? "4 4" : undefined}
+            strokeDasharray={dashed ? "5 4" : undefined}
             className={className}
             onAnimationEnd={i === strands.length - 1 ? onDrawn : undefined}
           />
@@ -126,29 +126,30 @@ export function SourceNode({
   scope: "run" | "sample";
   count: number | null;
 }) {
+  // **An input says how it is read, in its own box** (the boards): *× 12 samples* for a per-item
+  // input, *read once per task* for one value — nothing is written on its wire.
   return (
     <div
       data-testid={`living-source-${name}`}
-      className="absolute flex flex-col justify-center px-[10px]"
+      className="absolute flex flex-col justify-center px-[11px] rounded-button"
       style={{
         left: at.x,
         top: at.y,
         width: SOURCE_W,
         height: SOURCE_H,
-        background: "var(--paper-2)",
-        border: "1px dashed var(--line-2)",
-        borderLeft: "3px solid var(--now)",
+        background: "var(--now-soft)",
+        border: "1px dashed var(--now)",
       }}
     >
-      <span className="text-label text-now-ink">input</span>
-      <span className="font-data text-[11px] text-ink">{name}</span>
-      <span className="font-data text-[8.5px] text-ink-3 truncate">
+      <span className="text-[11px] font-semibold text-now-ink">Input</span>
+      <span className="font-data text-[12px] text-ink leading-tight">{name}</span>
+      <span className="font-data text-[10px] text-ink-2 truncate">
         {typeId}
         {states.length > 0 ? `[${states.join(", ")}]` : ""}
       </span>
-      {scope === "sample" && (
-        <span className="font-data text-[8.5px] text-now-ink">{multiplicity(count)}</span>
-      )}
+      <span className="text-[10.5px] text-ink-2">
+        {scope === "sample" ? (count === null ? "× N items" : `× ${count} samples`) : "read once per task"}
+      </span>
     </div>
   );
 }

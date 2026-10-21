@@ -7,7 +7,8 @@ import { NODE_H, NODE_W, portOffset, SPINE, type Point, type Positions } from ".
 import { place } from "../Sources";
 import { useView } from "../useView";
 import type { MotionEvent } from "./authoringReducer";
-import { Flowline, flowLabel, flowTag, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
+import { Flowline, flowLabel, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
+import { valuesOf } from "./values";
 import type { Author } from "./format";
 import { LivingNode, type ReviewState } from "./LivingNode";
 import { motionFor, wireSubject } from "./motion";
@@ -24,6 +25,14 @@ type Channel = components["schemas"]["ChannelView"];
  * **The client owns a position once somebody drags it**, and **Tidy** gives the server's layout
  * back — the escape hatch the manual builder has always had.
  */
+const CONTROL = "px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px] font-semibold "
+  + "text-ink cursor-pointer hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]";
+
+/** What the canvas's colours mean, as the boards' legend says it. */
+const LEGEND: [string, string][] = [
+  ["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"],
+];
+
 export function LivingCanvas({
   graph,
   ghost,
@@ -167,6 +176,19 @@ export function LivingCanvas({
     return [{ channel, box: geometry.box, edge: geometry.edge, feeds }];
   });
 
+  const drawn = ids.filter((id) => id !== ghost).length;
+  /** Fit the whole drawing, inputs included, in the frame the probe sits in. */
+  const fitView = () => {
+    const frame = probe.current?.closest<HTMLElement>("[data-testid='canvas']");
+    if (!frame) return;
+    const xs = [...ids.map((id) => at[id]?.x ?? 0), ...sources.map((s) => s.box.x)];
+    const ys = [...ids.map((id) => at[id]?.y ?? 0), ...sources.map((s) => s.box.y)];
+    const left = Math.min(...xs), top = Math.min(...ys);
+    const right = Math.max(...ids.map((id) => (at[id]?.x ?? 0) + NODE_W));
+    const bottom = Math.max(...ids.map((id) => (at[id]?.y ?? 0) + NODE_H), ...sources.map((s) => s.box.y + SOURCE_H));
+    const rect = frame.getBoundingClientRect();
+    view.fit(right - left, bottom - top, rect.width, rect.height - 96, { x: left, y: top - 40 });
+  };
   const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80));
   const height = Math.max(
     0,
@@ -179,27 +201,49 @@ export function LivingCanvas({
       view={view.view}
       onWheel={view.onWheel}
       onPointerDown={view.onPointerDown}
+      dots
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest("[data-node]")) onSelect(null);
       }}
       footer={
         <>
           <span ref={probe} hidden />
-          {footer}
-          {(stale || working) && (
-            <span role="status" data-testid={stale ? "canvas-stale" : "canvas-working"}
-                  className="absolute left-5 top-4 text-label text-ink-2">
-              {stale ? "Outdated — the last pipeline built" : "Updating…"}
+          {/* **The boards' frame**: what is drawn and over how many samples, along the top; the
+              view's controls bottom-left, what the colours mean bottom-right. */}
+          <div className="absolute left-4 right-4 top-3 flex items-baseline gap-3 pointer-events-none">
+            <span data-testid="canvas-caption" className="text-[13px] text-ink-2">
+              {drawn} {drawn === 1 ? "step" : "steps"} · {sources.length} {sources.length === 1 ? "input" : "inputs"}
             </span>
-          )}
-          {Object.keys(moved).length > 0 && (
-            <button type="button" data-testid="tidy" onClick={() => setMoved({})}
-                    className="absolute right-5 bottom-5 font-data text-[11px] px-3 py-[6px] bg-transparent
-                               text-ink-2 border cursor-pointer focus-visible:shadow-[var(--ring)]"
-                    style={{ borderColor: "var(--line-2)" }}>
-              Tidy
-            </button>
-          )}
+            {(stale || working) && (
+              <span role="status" data-testid={stale ? "canvas-stale" : "canvas-working"}
+                    className="text-[12.5px] text-ink-2">
+                {stale ? "Outdated — the last pipeline built" : "Updating…"}
+              </span>
+            )}
+            {count !== null && (
+              <span data-testid="canvas-samples" className="ml-auto text-[13px] text-ink-2">
+                {count} samples, one task each
+              </span>
+            )}
+          </div>
+          <div className="absolute left-4 bottom-4 flex gap-2">
+            <button type="button" onClick={fitView} className={CONTROL}>Fit</button>
+            {footer}
+            {Object.keys(moved).length > 0 && (
+              <button type="button" data-testid="tidy" onClick={() => setMoved({})} className={CONTROL}>
+                Tidy
+              </button>
+            )}
+          </div>
+          <ul aria-label="legend" className="absolute right-4 bottom-4 m-0 flex items-center gap-3 px-3 py-[6px]
+                                             rounded-button border border-line bg-surface text-[12.5px] text-ink-2">
+            {LEGEND.map(([word, colour]) => (
+              <li key={word} className="list-none flex items-center gap-[6px]">
+                <span aria-hidden className="w-[10px] h-[5px] rounded-full" style={{ background: colour }} />
+                {word}
+              </li>
+            ))}
+          </ul>
         </>
       }
     >
@@ -213,7 +257,7 @@ export function LivingCanvas({
             return (
               <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
                         from={edge} to={tip} flow={flow}
-                        label={selected === node ? flowLabel(flow, channel.count ?? null) : flowTag(flow)} />
+                        label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
             );
           }),
         )}
@@ -229,7 +273,7 @@ export function LivingCanvas({
                       label={
                         selected === edge.from_node || selected === edge.to_node
                           ? flowLabel(flow, count)
-                          : flow === "one" ? undefined : flowTag(flow)
+                          : undefined
                       }
                       className={played?.className}
                       onDrawn={played ? () => onPlayed(played.event) : undefined} />
@@ -241,7 +285,7 @@ export function LivingCanvas({
           return from && to ? (
             <Flowline key={`ghost-${edge.from_node}-${edge.to_node}-${edge.to_port}`}
                       testId={`ghost-wire-${edge.from_node}-${edge.to_node}`}
-                      from={from} to={to} flow={flowOf(edge)} dashed />
+                      from={from} to={to} flow="one" dashed />
           ) : null;
         })}
       </svg>
@@ -257,19 +301,15 @@ export function LivingCanvas({
         const played = isGhost
           ? (ghostProposal ? motionFor(events, ["proposal_shown"], ghostProposal) : null)
           : motionFor(events, ["proposal_accepted"], id);
-        const runs =
-          steps[id]?.runs === "per_item" ? `runs ${count === null ? "N" : count}×` : "runs once";
         return (
           <LivingNode
             key={id}
             id={id}
             at={at[id]}
-            tier={steps[id]?.tier ?? 1}
             author={authors[id] ?? "resolver"}
             ports={steps[id]?.ports ?? []}
-            settled={steps[id]?.settings.length}
+            counts={steps[id] && !isGhost ? valuesOf([steps[id]]) : undefined}
             reviewState={isGhost ? (reviews[id] === "again" ? "again" : "proposed") : reviews[id] ?? "unknown"}
-            runs={steps[id] ? runs : undefined}
             perItem={steps[id]?.runs === "per_item"}
             ghost={isGhost}
             selected={selected === id}

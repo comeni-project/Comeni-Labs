@@ -20,6 +20,7 @@ export function Canvas({
   children,
   footer,
   grid = false,
+  dots = false,
 }: {
   view: View;
   onWheel: (e: React.WheelEvent) => void;
@@ -42,6 +43,9 @@ export function Canvas({
    *  The invitation is real and it belongs to the **gesture** rather than to the resting screen.
    *  The builder passes `grid={moving}`; the run graph passes nothing and still gets none. */
   grid?: boolean;
+  /** **A faint resting dot grid on the canvas ground** — the *Build* and *Question* boards draw
+   *  one on the living canvas. The measuring grid above is still only for a drag. */
+  dots?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
 
@@ -64,7 +68,10 @@ export function Canvas({
       // a box, and the highlight survives the drop.
       className="relative flex-1 min-h-0 overflow-hidden bg-paper select-none
                  cursor-grab active:cursor-grabbing"
-      style={{ boxShadow: "var(--well)" }}
+      style={dots
+        ? { background: "var(--canvas)", backgroundImage: "radial-gradient(var(--grid-1) 1px, transparent 1px)",
+            backgroundSize: "16px 16px" }
+        : { boxShadow: "var(--well)" }}
     >
       {/* ── THE GRID. Pans WITH the nodes, and exists only while one is moving. ────────
           `impl-geom` again: *the millimetre grid pans WITH the nodes. It is a measuring

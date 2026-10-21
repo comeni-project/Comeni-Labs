@@ -278,8 +278,9 @@ export function LivingSurface({
       {/* Hidden by an inline style: `.living` sets `display: grid` and would win over a class. */}
       <div className="living min-h-0"
            inert={view === "artifact" ? true : undefined}
-           style={{ borderTop: "1px solid var(--line)", display: view === "artifact" ? "none" : undefined }}>
-        <section aria-label="pipeline canvas" className="living-canvas relative flex flex-col min-h-0">
+           style={{ display: view === "artifact" ? "none" : undefined }}>
+        <section aria-label="pipeline canvas"
+                 className="living-canvas relative flex flex-col min-h-0 ml-[28px] mr-[8px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden">
           {(alternative.loading || alternative.error) && (
             <div role="status" data-testid={alternative.error ? "preview-error" : "preview-loading"}
                  className="mx-5 mt-3 flex items-baseline gap-3 text-[12px] text-ink-2">
@@ -345,14 +346,12 @@ export function LivingSurface({
             onSelect={onSelect}
             focus={focus}
             footer={
-              <div className="absolute left-5 bottom-5 flex gap-2">
-                <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
-                        className="font-data text-[11px] px-3 py-[6px] bg-transparent text-now-ink border
-                                   cursor-pointer focus-visible:shadow-[var(--ring)]"
-                        style={{ borderColor: "var(--now-line)" }}>
-                  + Add step
-                </button>
-              </div>
+              <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
+                      className="px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px]
+                                 font-semibold text-now-ink cursor-pointer hover:bg-[var(--hover)]
+                                 focus-visible:shadow-[var(--ring)]">
+                + Add step
+              </button>
             }
           />
           </div>
