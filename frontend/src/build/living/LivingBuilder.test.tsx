@@ -115,14 +115,16 @@ describe("the live canvas", () => {
 describe("progress", () => {
   it("numbers the offer by where it stands in the plan", async () => {
     open(live());
-    const card = await screen.findByRole("region", { name: /step 4 of 5/i });
-    expect(within(card).getByText(/Step 4 of 5 — SAMTOOLS_SORT/)).toBeInTheDocument();
+    const card = await screen.findByRole("region", { name: "Step 4 · SAMTOOLS_SORT" });
+    expect(within(card).getByRole("heading")).toHaveTextContent("Step 4 · SAMTOOLS_SORT");
+    // The card says its place itself; nothing above it repeats that.
+    expect(screen.queryByText(/on the canvas already/)).toBeNull();
     expect(screen.getByTestId("living-status")).toHaveTextContent("step 4 of 5");
   });
 
   it("asks to review a step again when it was reviewed before", async () => {
     open(live({ progress: { reviewed: 2, total: 5, active: { position: 4, total: 5, again: true } } }));
-    expect(await screen.findByText(/Review step 4 of 5 again — SAMTOOLS_SORT/)).toBeInTheDocument();
+    expect(await screen.findByText("Review step 4 again · SAMTOOLS_SORT")).toBeInTheDocument();
   });
 
   it("keeps a decided step's original place, and invents none for an older one", async () => {
@@ -132,7 +134,7 @@ describe("progress", () => {
     open(live({ history }));
     await screen.findByTestId("living-node-star_align");
     const log = screen.getByRole("list", { name: "the plan" });
-    expect(within(log).getByText(/step 2 of 5/)).toBeInTheDocument();
+    expect(within(log).getByText("step 2")).toBeInTheDocument();
     expect(within(log).queryByText(/step 1\b/)).toBeNull();
   });
 
@@ -148,7 +150,8 @@ describe("progress", () => {
                           offer("accepted", "featurecounts_again")] }));
     await screen.findByTestId("living-node-star_align");
     const log = screen.getByRole("list", { name: "the plan" });
-    const [went, decided] = within(log).getAllByText(/step 5 of 5/);
+    // The first two are the decided rows; the step still to come at 5 follows them.
+    const [went, decided] = within(log).getAllByText(/^step 5/);
     expect(went.closest("li")).toHaveTextContent("answers changed");
     expect(went.closest("li")).not.toHaveTextContent(/open|withdrawn/);
     expect(decided).toHaveTextContent("· open");

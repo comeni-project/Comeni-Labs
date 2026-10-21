@@ -113,8 +113,9 @@ export function BuildPanel({
     || requests.some((r) => r.node !== editable);
 
   return (
-    <section aria-label="build panel" className="living-rail flex flex-col min-h-0"
-             style={{ borderLeft: "1px solid var(--line)", background: "var(--surface)" }}>
+    <section aria-label="build panel"
+             className="living-rail flex flex-col min-h-0 ml-[8px] mr-[28px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden"
+             style={{ background: "var(--surface)" }}>
       <div role="tablist" aria-label="the panel" className="flex gap-1 mx-4 mt-4 p-1 rounded-button self-start"
            style={{ background: "var(--paper)" }}>
         <PanelTab id="step" current={tab} onShow={show}>Step</PanelTab>
@@ -124,7 +125,7 @@ export function BuildPanel({
       <div className="flex-1 min-h-0 overflow-auto px-4 pt-4 pb-4">
         {tab === "step" ? (
           <div role="tabpanel" id="panel-step" aria-labelledby="tab-step" className="flex flex-col gap-4">
-            <StepLine session={session} selected={selected} onSelect={onSelect} />
+            <StepLine session={session} steps={steps} selected={selected} onSelect={onSelect} />
             {editable ? (
               <section aria-label={`step ${processName(editable)}`} className="flex flex-col gap-3">
                 <h2 className="m-0 font-data text-[13px] text-ink">{processName(editable)}</h2>
@@ -169,7 +170,7 @@ export function BuildPanel({
           </div>
         )}
       </div>
-      <div className="px-4 py-4" style={{ borderTop: "1px solid var(--line)" }}>
+      <div className="px-[16px] pt-[8px] pb-[16px]">
         <Composer value={composer} onChange={onCompose} onSend={say}
                   disabled={composerDisabled} placeholder={composerHint} />
       </div>

@@ -58,15 +58,22 @@ chains the pace; a selected step shows its open values as question cards. One se
 `packages/mendel-api` route model if it re-declares progress; `make client`;
 `build/living/StepLine.tsx`, `blocks/StepProposalCard.tsx`, `Composer.tsx`, `BuildPanel.tsx`,
 `Waiting.tsx` and tests.
-- [ ] Python test: `progress_of(order, …, pending)` gives `upcoming == order[position:]`, `[]`
+- [x] Python test: `progress_of(order, …, pending)` gives `upcoming == order[position:]`, `[]`
   when the offer is last or nothing is offered. Implement; `uv run pytest packages/mendel-authoring -q`.
-- [ ] `make client`; frontend: the step line names upcoming steps (*SAMTOOLS_SORT · step 5*) in
+  *Deviation:* each upcoming step carries its `position` (`Upcoming(node, position)`), and a step
+  whose review still holds is left out — after a swap the plan can put a reviewed step after the
+  offer, and the walk will not offer it again; names alone could not say *step 5* then.
+- [x] `make client`; frontend: the step line names upcoming steps (*SAMTOOLS_SORT · step 5*) in
   grey with hollow dots, green line segments between finished steps, amber ring on a step whose
-  settings include a measured one, right-hand *settled* / *you chose* / *N measured*.
-- [ ] Step card tests: title *Step 4 · SAMTOOLS_SORT*, tier chip (*required* for tier 1, the tier
+  settings include a measured one, right-hand *settled* / *you chose* / *N measured*. *Deviation:* who chose stays beside the count
+  (*you chose · 1 measured*, spec departure 6); places read *step 4*, not *step 4 of 5*.
+- [x] Step card tests: title *Step 4 · SAMTOOLS_SORT*, tier chip (*required* for tier 1, the tier
   word otherwise), radio cards with *suggested*, **Add it** / **Why this one?** / **Skip** (Skip
   calls `onReject`), *Preview* as a link on an alternative; no sentence above the card.
-- [ ] Composer: rounded, send button labelled *Send*. Panel as a card. Implement; comparison loop; commit.
+  *Ruling:* no **Skip** — rejecting a step is not in the protocol (spec departure 4); the chip is
+  the served tier name, not *required* (departure 5). `Primary`/`Secondary` are rounded for every
+  card; `useTiers` treats a non-list answer as no vocabulary yet.
+- [x] Composer: rounded, send button labelled *Send*. Panel as a card. Implement; comparison loop; commit.
 
 ### Task 4: Question — a selected step's open values
 **Files:** `BuildPanel.tsx`, new `blocks/QuestionCard.tsx`, tests.
@@ -113,3 +120,12 @@ controls moved onto lines), `LivingBuilder.tsx`/`useAuthoringSession` (pace chai
   nodes keep the fixed 172×112 geometry the wires use (the board sizes them to content); the
   collection ribbons stay (which steps run per sample or gather is not said anywhere else); a
   selected step still labels its wires.
+- **Step panel, loop 1:** full-height rail, grey line, *1 more step*, a sentence above a square card
+  with *tier 2*, checkbox squares, *Continue* / *Show me why*, a square composer → a card beside the
+  canvas; the line green to the offer and grey after, STAR_ALIGN ringed amber with *1 measured*, the
+  step to come named (*SUBREAD_FEATURECOUNTS step 5*); *Step 4 · SAMTOOLS_SORT* with a *convention*
+  chip, radio cards with *suggested*, *Add it* / *Why this one?*, *Preview* as a link; a rounded
+  composer with a Send button. **390 and dark:** the canvas's corner marks cut through its caption
+  and the legend sat over *+ Add step* → no marks on the dotted ground, one wrapping footer row.
+  Remaining by choice: the tabs (departure 1), no *Skip* (4), the served tier word (5), process
+  names for steps (3).

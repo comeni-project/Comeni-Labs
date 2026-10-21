@@ -119,7 +119,7 @@ describe("the build stage", () => {
     page(FAKE_SESSION);
     const step = screen.getByRole("tabpanel", { name: "Step" });
     expect(within(step).getByRole("list", { name: "the plan" })).toBeInTheDocument();
-    expect(within(step).getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    expect(within(step).getByRole("button", { name: "Add it" })).toBeInTheDocument();
   });
 
   it("holds only speech under Assistant", () => {
@@ -127,7 +127,7 @@ describe("the build stage", () => {
     fireEvent.click(tab("Assistant"));
     const assistant = screen.getByRole("tabpanel", { name: "Assistant" });
     expect(within(assistant).getByRole("log", { name: "conversation" })).toHaveTextContent("why STAR and not HISAT2?");
-    expect(within(assistant).queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(within(assistant).queryByRole("button", { name: "Add it" })).toBeNull();
     expect(screen.queryByRole("list", { name: "the plan" })).toBeNull();
   });
 

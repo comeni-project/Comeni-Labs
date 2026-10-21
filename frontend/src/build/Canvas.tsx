@@ -116,8 +116,9 @@ export function Canvas({
       {/* ── 3. THE REGISTRATION MARKS. Fixed to the frame's bounds. ───────────────────────
           Sixteen pixels in from each corner, and they are the third of `impl-geom`'s three
           layers — the one that says where the instrument's frame is. They belong to the frame
-          rather than to the content, so they do not pan and do not scale. */}
-      {([["left", "top"], ["right", "top"], ["left", "bottom"], ["right", "bottom"]] as const)
+          rather than to the content, so they do not pan and do not scale. The boards' dotted
+          ground is a card with its own edge and a caption in the corner, so it draws none. */}
+      {!dots && ([["left", "top"], ["right", "top"], ["left", "bottom"], ["right", "bottom"]] as const)
         .map(([x, y]) => (
           <div key={`${x}-${y}`} aria-hidden data-testid="registration"
                className="absolute w-4 h-4 pointer-events-none"

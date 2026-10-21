@@ -86,7 +86,7 @@ export function guidedDecide(
   const reviewed = history.filter((d) => d.kind === "step" && d.state === "accepted").length;
   if (!next || next.kind !== "step_proposal") {
     return { ...session, phase: "complete", graph, revision, history, pending_proposal: null,
-             progress: { reviewed, total: STEPS.length, active: null } };
+             progress: { reviewed, total: STEPS.length, active: null, upcoming: [] } };
   }
   const present = new Set([...graph.nodes.map((n) => n.id), next.node]);
   return {
@@ -96,7 +96,9 @@ export function guidedDecide(
     revision,
     history,
     progress: { reviewed, total: STEPS.length,
-                active: { position: index + 1, total: STEPS.length, again: false } },
+                active: { position: index + 1, total: STEPS.length, again: false },
+                upcoming: STEPS.slice(index + 1).flatMap((step, i) =>
+                  step.kind === "step_proposal" ? [{ node: step.node, position: index + 2 + i }] : []) },
     pending_proposal: {
       id: `p-${next.node}`, kind: "step", draft_revision: revision,
       envelope: { offer: "step", preview_options: next.node === "samtools_sort" ? ["alt_1"] : [] },

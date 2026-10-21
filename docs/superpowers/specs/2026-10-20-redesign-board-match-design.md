@@ -42,6 +42,17 @@ These stay as they are unless the operator says otherwise; each is listed again 
    a step's role (`bam_sorting`) carries no human label. That needs a `name` on role declarations
    in the registry repository and its loader in `comeni-core` — a separate issue; until then the
    line reads like the decided steps above it.
+4. **No *Skip* on the step card** (found while building, 2026-10-21). Rejecting a step left the
+   protocol in the consultant build (its spec §14.4–14.5: the walk's projection has no hole to
+   leave; removing a step is a structural edit, after the walk), so a *Skip* button would send a
+   command the engine refuses. The card offers *Add it* and *Why this one?*; an alternative tool is
+   chosen by its radio card.
+5. **The tier chip says the served tier name** (*forced*, *convention*, *measured*, *undecided*),
+   not the board's *required*: tier words are declared once (`TIER_VOCABULARY`, served at
+   `/registry/tiers`) and read, never typed in a component — the reason `useTiers` exists.
+6. **A decided step's row says who chose it and how many values were measured** (*you chose ·
+   1 measured*), where the board shows only *1 measured*: who answered is provenance the product
+   keeps visible. The count is the step's tier-3 settings, the same number as its canvas footer.
 
 ## The builder
 
@@ -71,7 +82,7 @@ These stay as they are unless the operator says otherwise; each is listed again 
 | **Step line**: a metro line — green between finished steps, grey after the current one; dots filled ink for settled, amber ring for a step with measured values, blue ring for the current one, hollow grey for later | grey line, ink dots | Colour the segments and dots as drawn; right-hand words *settled* / *you confirmed* / *1 measured* |
 | Current step named in plain words (*Sort the alignments*) | process name | Process name until roles carry a name (departure 3); `brief.does` is the tool's whole description sentence, not a name |
 | No sentence above the card | *Step 4 of 5, on the canvas already and drawn dashed…* | Remove |
-| **Step card**: rounded panel on surface-2; title *Step 4 · sort the alignments* bold, a *required* chip (tier 1) / tier word chip; reason in body text; ports line in mono (*alignment.bam → alignment.bam[sorted]*); options as **radio cards** (name bold mono, note under it; the recommended one tinted now-soft with *suggested* in now-ink); buttons **Add it** (main), **Why this one?**, **Skip** | square box, header *Step 4 of 5 — SAMTOOLS_SORT* + *tier 2*, checkbox squares, *recommended*, *Preview* button, **Continue** / **Show me why** | Restyle `StepProposalCard`; *Skip* rejects the offer (the session's reject); *Preview* stays as a quiet link on an alternative (the boards draw none, but previewing is a feature) |
+| **Step card**: rounded panel on surface-2; title *Step 4 · sort the alignments* bold, a *required* chip (tier 1) / tier word chip; reason in body text; ports line in mono (*alignment.bam → alignment.bam[sorted]*); options as **radio cards** (name bold mono, note under it; the recommended one tinted now-soft with *suggested* in now-ink); buttons **Add it** (main), **Why this one?**, **Skip** | square box, header *Step 4 of 5 — SAMTOOLS_SORT* + *tier 2*, checkbox squares, *recommended*, *Preview* button, **Continue** / **Show me why** | Restyle `StepProposalCard`; no *Skip* (departure 4); *Preview* stays as a quiet link on an alternative (the boards draw none, but previewing is a feature) |
 | Composer: rounded field, placeholder *Ask about a step, or say what to change*, a send icon button | square box with a chevron | Restyle `Composer` |
 
 ### Question (a step opened)

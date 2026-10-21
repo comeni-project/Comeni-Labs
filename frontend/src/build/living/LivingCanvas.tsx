@@ -226,7 +226,9 @@ export function LivingCanvas({
               </span>
             )}
           </div>
-          <div className="absolute left-4 bottom-4 flex gap-2">
+          {/* One wrapping row: where the legend cannot sit beside the controls it goes above them. */}
+          <div className="absolute left-4 right-4 bottom-4 flex flex-wrap-reverse items-end gap-2 pointer-events-none
+                          [&>*]:pointer-events-auto">
             <button type="button" onClick={fitView} className={CONTROL}>Fit</button>
             {footer}
             {Object.keys(moved).length > 0 && (
@@ -234,16 +236,16 @@ export function LivingCanvas({
                 Tidy
               </button>
             )}
+            <ul aria-label="legend" className="ml-auto m-0 flex items-center gap-3 px-3 py-[6px]
+                                               rounded-button border border-line bg-surface text-[12.5px] text-ink-2">
+              {LEGEND.map(([word, colour]) => (
+                <li key={word} className="list-none flex items-center gap-[6px]">
+                  <span aria-hidden className="w-[10px] h-[5px] rounded-full" style={{ background: colour }} />
+                  {word}
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul aria-label="legend" className="absolute right-4 bottom-4 m-0 flex items-center gap-3 px-3 py-[6px]
-                                             rounded-button border border-line bg-surface text-[12.5px] text-ink-2">
-            {LEGEND.map(([word, colour]) => (
-              <li key={word} className="list-none flex items-center gap-[6px]">
-                <span aria-hidden className="w-[10px] h-[5px] rounded-full" style={{ background: colour }} />
-                {word}
-              </li>
-            ))}
-          </ul>
         </>
       }
     >

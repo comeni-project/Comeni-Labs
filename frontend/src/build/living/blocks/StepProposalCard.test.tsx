@@ -1,9 +1,22 @@
-import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render as mount, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthoringProposal } from "../../../api/types";
 import { StepProposalCard } from "./StepProposalCard";
+
+/** The tier vocabulary as the API serves it — the card's chip reads it, never a word of its own. */
+const TIERS = [
+  { tier: 1, name: "Forced", group: "Forced by inputs", what: "", colour: "line-2" },
+  { tier: 2, name: "Convention", group: "Standard practice", what: "", colour: "line-2" },
+];
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient();
+  client.setQueryData(["tiers"], TIERS);
+  return mount(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 /** The step card carries its brief, its need and its registry gaps (spec §13 of the consultant
  *  build), each line as the engine wrote it. Part 5 designs the card; this is its content. */
@@ -130,10 +143,10 @@ describe("changing a step (spec §14 of the consultant build)", () => {
     expect(onAccept).toHaveBeenCalledWith("fact_read_length", 50);
   });
 
-  it("continues with the step as it is by default", async () => {
+  it("adds the step as it is by default", async () => {
     const onAccept = vi.fn();
     show(onAccept);
-    expect(screen.getByTestId("accept-step")).toHaveTextContent("Continue");
+    expect(screen.getByTestId("accept-step")).toHaveTextContent(/^Add it$/);
     await userEvent.click(screen.getByTestId("accept-step"));
     expect(onAccept).toHaveBeenCalledWith("keep", undefined);
   });
@@ -173,5 +186,55 @@ describe("a fact the tool reads (issue 341)", () => {
     await userEvent.click(screen.getByRole("radio", { name: "reverse" }));
     await userEvent.click(screen.getByTestId("accept-step"));
     expect(onAccept).toHaveBeenCalledWith("fact_strandedness", "reverse");
+  });
+});
+
+describe("the step card as the Build board draws it", () => {
+  it("is titled by the step's place and its process, with the tier's served name as a chip", () => {
+    card();
+    const region = screen.getByRole("region", { name: /step 4/i });
+    expect(within(region).getByRole("heading")).toHaveTextContent(/^Step 4 · MULTIQC$/);
+    expect(screen.getByTestId("step-tier")).toHaveTextContent(/^convention$/);
+  });
+
+  it("says a step reviewed before is offered again, in its title", () => {
+    render(
+      <StepProposalCard proposal={proposal()} progress={{ position: 2, total: 5, again: true }} busy={false}
+                        onAccept={vi.fn()} onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByRole("heading")).toHaveTextContent(/^Review step 2 again · MULTIQC$/);
+  });
+
+  it("marks the engine's choice as suggested, in words", () => {
+    card();
+    expect(within(screen.getByTestId("option-keep")).getByText("suggested")).toBeInTheDocument();
+    expect(screen.queryByText("recommended")).toBeNull();
+  });
+
+  it("asks why with Why this one?", async () => {
+    const onExplain = vi.fn();
+    render(
+      <StepProposalCard proposal={proposal()} progress={{ position: 4, total: 5, again: false }} busy={false}
+                        onAccept={vi.fn()} onPreview={vi.fn()} onExplain={onExplain} onSelect={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Why this one?" }));
+    expect(onExplain).toHaveBeenCalled();
+  });
+
+  it("keeps Preview on an alternative, reachable by the keyboard", async () => {
+    const p = proposal();
+    p.options = ["keep", "alt_1"];
+    if (p.block.kind === "step_proposal") {
+      p.block.alternatives = [{ id: "alt_1", label: "nf-core/other@1", note: "", recommended: false }];
+    }
+    const onPreview = vi.fn();
+    render(
+      <StepProposalCard proposal={p} progress={null} busy={false} onAccept={vi.fn()} previewable={["alt_1"]}
+                        onPreview={onPreview} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    const preview = screen.getByRole("button", { name: /preview nf-core\/other@1/ });
+    preview.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onPreview).toHaveBeenCalledWith("alt_1", "pinned");
   });
 });

@@ -27,7 +27,8 @@ export const FAKE_SESSION = {
   row_version: 9,
   model_configured: true,
   steps_total: 5,
-  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false } },
+  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false },
+              upcoming: [{ node: "subread_featurecounts", position: 5 }] },
   graph: {
     nodes: [
       { id: "star_genomegenerate", contract_id: INDEX, params: [] },
@@ -185,7 +186,7 @@ export const COLLECT_SESSION = {
   name: "rnaseq-counts",
   phase: "complete",
   steps_total: 4,
-  progress: { reviewed: 4, total: 4, active: null },
+  progress: { reviewed: 4, total: 4, active: null, upcoming: [] },
   graph: {
     nodes: [
       { id: "star_align", contract_id: ALIGN, params: [] },

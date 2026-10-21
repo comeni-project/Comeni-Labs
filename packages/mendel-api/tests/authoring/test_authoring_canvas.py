@@ -132,7 +132,9 @@ def test_progress_counts_the_plan_not_the_proposals(authoring_case):
         "subread_featurecounts",
     ]
     active = {"position": 3, "total": len(order), "again": False}
-    assert picture["progress"] == {"reviewed": 2, "total": len(order), "active": active}
+    assert picture["progress"] == {"reviewed": 2, "total": len(order), "active": active,
+                                   "upcoming": [{"node": "samtools_sort", "position": 4},
+                                                {"node": "subread_featurecounts", "position": 5}]}
     assert picture["pending_proposal"]["payload"]["progress"] == active
 
 
@@ -149,6 +151,10 @@ def test_a_swap_keeps_the_original_offer_position_in_history(authoring_case):
         "reviewed": 1,
         "total": 5,
         "active": {"position": 1, "total": 5, "again": False},
+        # The aligner chosen in the swap holds its review, so it is not ahead of the person though the
+        # plan puts it after the offer; TrimGalore's no longer holds, so it is.
+        "upcoming": [{"node": "trimgalore", "position": 2}, {"node": "samtools_sort", "position": 4},
+                     {"node": "subread_featurecounts", "position": 5}],
     }
 
 

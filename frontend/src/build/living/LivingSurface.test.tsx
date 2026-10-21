@@ -88,7 +88,7 @@ describe("every block state in the static session", () => {
     surface();
     const step = screen.getByRole("tabpanel", { name: "Step" });
     expect(within(step).getByRole("list", { name: "the plan" })).toHaveTextContent("Goal");
-    expect(within(step).getByRole("region", { name: "step 4 of 5: SAMTOOLS_SORT" })).toBeInTheDocument();
+    expect(within(step).getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" })).toBeInTheDocument();
     toAssistant();
     const log = screen.getByRole("log", { name: "conversation" });
     expect(within(log).getByText(/STAR is here because/)).toBeInTheDocument();
@@ -106,7 +106,10 @@ describe("every block state in the static session", () => {
     surface();
     const row = screen.getByRole("button", { name: /STAR_ALIGN step 3/ });
     expect(row).toHaveTextContent("you chose");
-    expect(row).not.toHaveTextContent("measured");
+    // The step's own tier is not a word on its place; what it says is how many of its values
+    // were measured, the same count as its footer on the canvas.
+    expect(row).not.toHaveTextContent("step 3 · measured");
+    expect(row).toHaveTextContent(/1 measured$/);
   });
 });
 
@@ -196,10 +199,10 @@ describe("the pacing question (spec §13)", () => {
 });
 
 describe("the proposal card", () => {
-  it("accepts the option that is selected, and the recommended one is said in words", () => {
+  it("accepts the option that is selected, and the suggested one is said in words", () => {
     const props = surface();
-    const card = screen.getByRole("region", { name: "step 4 of 5: SAMTOOLS_SORT" });
-    expect(within(card).getByText("recommended")).toBeInTheDocument();
+    const card = screen.getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" });
+    expect(within(card).getByText("suggested")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("radio", { name: /SAMTOOLS_SORMADUP/ }));
     fireEvent.click(within(card).getByTestId("accept-step"));
     expect(props.onAccept).toHaveBeenCalledWith(FAKE_SESSION.pending_proposal, "alt_1", undefined, undefined);

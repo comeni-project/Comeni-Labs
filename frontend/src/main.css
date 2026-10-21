@@ -337,7 +337,9 @@ body {
   .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);
             overflow: auto; }
   .living > .living-canvas { order: 2; height: 430px; }
-  .living > .living-rail { order: 1; border-left: 0 !important; }
+  .living > .living-rail { order: 1; }
+  /* Stacked, the two cards take the page's 16px gutter rather than the side-by-side insets. */
+  .living > .living-canvas, .living > .living-rail { margin: 0 16px 16px; }
 }
 
 /* ── The living canvas's motion — one class per domain event, and nothing else moves ──────

@@ -88,7 +88,7 @@ export function Primary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
     <button
       type="button"
       {...props}
-      className="text-[12.5px] font-semibold px-[15px] py-[7px] border-0 cursor-pointer
+      className="text-[13.5px] font-semibold px-[20px] py-[9px] border-0 rounded-button cursor-pointer
                  bg-action text-on-action shadow-raise disabled:opacity-40 disabled:cursor-not-allowed
                  focus-visible:shadow-[var(--ring)]"
     />
@@ -100,8 +100,8 @@ export function Secondary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) 
     <button
       type="button"
       {...props}
-      className="text-[12.5px] px-[13px] py-[7px] cursor-pointer bg-transparent text-ink-2
-                 border border-[var(--surface-2)] hover:text-ink disabled:opacity-40
+      className="text-[13.5px] font-semibold px-[14px] py-[8px] rounded-button cursor-pointer bg-[var(--surface)]
+                 text-ink border border-[var(--line-2)] hover:border-[var(--ink-3)] disabled:opacity-40
                  disabled:cursor-not-allowed focus-visible:shadow-[var(--ring)]"
     />
   );

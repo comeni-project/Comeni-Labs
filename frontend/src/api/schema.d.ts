@@ -3625,6 +3625,16 @@ export interface components {
             consumed_by: string[];
         };
         /**
+         * Upcoming
+         * @description A step the walk will still offer, at its `position` in the plan.
+         */
+        Upcoming: {
+            /** Node */
+            node: string;
+            /** Position */
+            position: number;
+        };
+        /**
          * Urgency
          * @description How much a thing costs if it waits.
          * @enum {string}
@@ -3669,7 +3679,10 @@ export interface components {
         };
         /**
          * WalkProgress
-         * @description How many of the plan's steps hold a review, and the step offered now, if any.
+         * @description How many of the plan's steps hold a review, the step offered now, if any, and the plan's
+         *     steps after it whose review does not hold, in order — what the walk will still offer, named so
+         *     the person can see the rest of the road. Empty when nothing is offered: a finished or paused
+         *     walk has no "after".
          */
         WalkProgress: {
             /** Reviewed */
@@ -3677,6 +3690,11 @@ export interface components {
             /** Total */
             total: number;
             active?: components["schemas"]["OfferProgress"] | null;
+            /**
+             * Upcoming
+             * @default []
+             */
+            upcoming: components["schemas"]["Upcoming"][];
         };
         /**
          * Where

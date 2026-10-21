@@ -14,7 +14,7 @@ import { GoalCard } from "./blocks/GoalCard";
 import { SampleResult } from "./blocks/SampleUpload";
 import { StepProposalCard } from "./blocks/StepProposalCard";
 import type { FactValue } from "./FactEditor";
-import { stepWords, waitingOn } from "./format";
+import { waitingOn } from "./format";
 
 export type WaitingProps = {
   session: AuthoringSession;
@@ -87,26 +87,21 @@ export function Waiting({
         </section>
       )}
       {pending && pending.kind === "step" && (
-        <>
-          <p className="m-0 text-[12.5px] leading-[1.6] text-ink-2">
-            {stepWords(active)}, on the canvas already and drawn dashed. Nothing is committed until you add it.
-          </p>
-          <StepProposalCard
-            key={pending.id}
-            proposal={pending}
-            progress={active}
-            showGapDetails={session.show_gap_details ?? false}
-            onCorrectAnswers={onCorrectAnswers}
-            busy={busy(pending.id)}
-            onAccept={(option, value) => onAccept(pending, option, undefined, value)}
-            onPreview={onPreview}
-            pinned={pinnedPreview}
-            previewable={(pending.envelope as { preview_options?: string[] } | undefined)?.preview_options ?? []}
-            onExplain={() =>
-              onAsk(`Why is ${pending.block.kind === "step_proposal" ? pending.block.node : "this step"} here?`)}
-            onSelect={() => onSelect(pending.block.kind === "step_proposal" ? pending.block.node : null)}
-          />
-        </>
+        <StepProposalCard
+          key={pending.id}
+          proposal={pending}
+          progress={active}
+          showGapDetails={session.show_gap_details ?? false}
+          onCorrectAnswers={onCorrectAnswers}
+          busy={busy(pending.id)}
+          onAccept={(option, value) => onAccept(pending, option, undefined, value)}
+          onPreview={onPreview}
+          pinned={pinnedPreview}
+          previewable={(pending.envelope as { preview_options?: string[] } | undefined)?.preview_options ?? []}
+          onExplain={() =>
+            onAsk(`Why is ${pending.block.kind === "step_proposal" ? pending.block.node : "this step"} here?`)}
+          onSelect={() => onSelect(pending.block.kind === "step_proposal" ? pending.block.node : null)}
+        />
       )}
       {pending?.kind === "disagreement" && onDisagreement && (
         <DisagreementCard key={pending.id} proposal={pending} declarations={declarations}
