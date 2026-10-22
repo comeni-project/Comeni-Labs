@@ -35,7 +35,8 @@ For plain-language definitions, read [Core words](pipeline-concepts.md).
 
 With a configured model, the home prompt starts an authoring conversation. The
 researcher describes the analysis and reviews the goal and subsequent choices.
-Without a model, the manual builder remains available at `/build`.
+Without a model, a pipeline can be started by drawing at `/build`: the engine reads each step
+added as what is wanted, asks the same questions about inputs, and plans the rest.
 
 Stable concept: the request should name biological intent and data facts. It should not require
 the scientist to name every command that will appear in the workflow.

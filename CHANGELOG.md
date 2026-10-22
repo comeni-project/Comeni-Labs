@@ -145,6 +145,14 @@ or a complete commit history.
 
 - `read_edit` reads a canvas edit as the intent it means, with the sentence that asks the person
   to confirm it ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
+- `read_graph` reads a pipeline drawn by hand whole: every tool pinned where its output is, and
+  every output nothing reads wanted. `read_edit` reads from a blueprint's sites; a `Reading`
+  gives the `DecisionChange` that confirming it writes ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)).
+
+#### Removed
+
+- The `fork_correction` command, its node and its arrows: a correction after a hand edit lands
+  in the same pipeline ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)).
 - Walk progress names the steps still to come (`upcoming`), each with its place in the plan;
   a step whose review still holds is not among them.
 
@@ -162,6 +170,15 @@ or a complete commit history.
 - Structural intents are decision families (`role`, `exclusion`, `source`) with history;
   pinning a tool withdraws its exclusion at that site and the reverse. Turn blocks move to
   shape 3 ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
+- **One builder** ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)): a hand edit is read, not saved. At any phase, the walk
+  included, `POST /authoring/{id}/edits` offers each reading as a suggestion grouped by edit
+  (`edit`) and worded by the engine (`says`); a typed value is applied at once. Applying one
+  reading applies its edit's group as the person's changes, re-planned as a correction is; an
+  intent the engine cannot honour is refused with its code and nothing is kept.
+  `DecisionChange` gains `role`, `exclude` and `source`; suggestion changes move to shape 2.
+- `POST /drafts/{id}/session` opens a pipeline's conversation, or a new one with nothing said
+  that reads a drawn graph back; a drawn pipeline gathers its inputs at its first confirmed
+  reading ([#399](https://github.com/comeni-project/Comeni-Labs/issues/399)).
 - Persistent authoring sessions support goal extraction, fact gathering, sample uploads,
   read-back, typed answers, build review and resumption. Questions explain their subject,
   affected steps, reason and available answers; uploads can answer missing facts.
@@ -169,8 +186,8 @@ or a complete commit history.
   support environment locks, sealed credentials, provider connections and a model per purpose.
 - Sample inspection and AI characterisation run as background jobs under protection-level
   checks. Characterisation validates offered identifiers and quoted evidence before using facts.
-- Saved whole-pipeline alternatives can be previewed without re-resolving. Manual edits create
-  linked authoring drafts, and corrected goals invalidate reviews when their meaning changes.
+- Saved whole-pipeline alternatives can be previewed without re-resolving. Corrected goals
+  invalidate reviews when their meaning changes.
 - Draft deletion removes working content while retaining the specified audit record.
   Cleanup applies retention settings and records deletion counts.
 
@@ -197,6 +214,10 @@ or a complete commit history.
 #### Removed
 
 - The separate module source-root setting and mount; registry layers carry module source.
+- The fork ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)): `ownership`, `forked_from` and the fork columns are dropped
+  (old forks stay separate pipelines, unlinked), as are the session view's `ownership`,
+  `forked_from`, `forked_from_session` and `hand_edits`. A hand edit no longer saves a graph
+  or writes a receipt; the walk no longer refuses it (`MI0217` remains for a plain draft `PUT`).
 - The old forge's API, worker jobs and tables
   ([#361](https://github.com/comeni-project/Comeni-Labs/issues/361)). The forge, contracts,
   questions, sources and tools routes and their services are gone, as are the nightly source
@@ -286,6 +307,12 @@ or a complete commit history.
 
 #### Added
 
+- **One builder at `/build`** ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)): every pipeline opens as a conversation and a
+  canvas; `?draft=` and a bare `/build` open or start one. The canvas has the manual builder's
+  hands — Delete, wiring by dragging between ports, detaching a wire, picking a step for a port,
+  zoom buttons — and the name renames in place. A hand edit's reading waits under *From your
+  edit* with *Yes* / *No, undo*.
+
 - Goal and build flows show facts, sources, readable questions, step cards, review history
   and model-call usage. Upload cards expose inspection and characterisation status.
 - Settings cover appearance, model connections, purpose-specific models, building, running
@@ -365,6 +392,10 @@ or a complete commit history.
 - The old forge's screens: the *Registry* tab and every `/forge…` page
   ([#361](https://github.com/comeni-project/Comeni-Labs/issues/361)). Those addresses are now
   unknown pages. A refusal's code is looked up with `mendel explain`.
+
+- The manual builder (`Builder`), its rail, status line, findings panel, wires and draft hook,
+  the `/build/living` route, the example opened at a bare `/build`, and the fork's links
+  ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)).
 
 ### Repository
 

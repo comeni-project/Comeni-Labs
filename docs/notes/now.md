@@ -29,8 +29,9 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 ## The living pipeline (describe → build)
 
 - A researcher types a sentence (an empty home, or the describe bar above the work) and builds
-  beside a conversation at `/build?session=<id>`; `/build?draft=<id>` is the manual builder.
-  (2026-09-13, 2026-10-03)
+  beside a conversation at `/build?session=<id>`. **One builder** (#395): `/build?draft=<id>`
+  and a bare `/build` open a conversation too; a hand edit is read as intent and confirmed in
+  the chat. (2026-09-13, 2026-10-22)
 - **The authoring protocol** is `docs/design/authoring-protocol.md`: the engine decides what is
   missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
   to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
@@ -55,7 +56,8 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 - **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider), so a shape is never
   refused; a raw JSON Schema in the prompt made models echo it. (2026-09-29)
 - **Current decisions are retained rows**, one pointer per subject; corrections cascade reviews,
-  truthful unbuildable answers stay, manual work forks to a linked draft. (2026-10-11)
+  truthful unbuildable answers stay; a hand edit stays in its pipeline (no fork, #395).
+  (2026-10-11, 2026-10-22)
 - **The canvas is the session's frame**, read from recorded rows and never re-resolved; progress
   counts the plan (*Step 4 of 5*); an alternative previews as the whole saved pipeline. (2026-10-12)
 - **Legacy conversion is frozen**; old snapshots are historical only. (2026-10-11)

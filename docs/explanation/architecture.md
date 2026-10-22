@@ -354,8 +354,9 @@ a versioned projection, and materialisation refuses an outdated projection.
 
 Observations retain evidence origin separately from the actor selecting an answer. Conflicting
 samples ask keep, use, correct or unknown. A correction persists truthful input, recomputes the
-goal and invalidates reviews whose semantic fingerprint changed. Manual work is preserved by
-opening a linked authored fork. Read-only history is available; undo is deferred in
+goal and invalidates reviews whose semantic fingerprint changed. A hand edit is not a
+separate kind of work: it is read as intent in the same goal (one builder, #395), so a
+correction after it lands in the same pipeline. Read-only history is available; undo is deferred in
 [issue 302](https://github.com/comeni-project/Comeni-Labs/issues/302).
 
 **Every change goes through one writer** (`mendel_api/services/changes.py`): a person's click

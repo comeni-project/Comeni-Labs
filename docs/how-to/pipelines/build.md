@@ -1,8 +1,8 @@
 # Build and inspect a pipeline
 
 Use the builder to inspect steps, review their settings and save a pipeline artifact.
-You can open the manual builder at `/build`, or use the authoring conversation when a
-model is configured.
+Every pipeline opens in the same builder: a conversation beside a canvas. With a model
+configured you can start by describing the analysis; without one, start by drawing at `/build`.
 
 The draft is a **living pipeline**: it develops as you describe the analysis, consider choices,
 and change steps or settings. The conversation and canvas should remain two views of that one
@@ -15,12 +15,25 @@ A draft is the editable graph. An artifact is the saved pipeline record behind i
 
 ## Inspect and review the draft
 
-1. Open `/build` or click **New pipeline** from the home page.
-2. Inspect the draft that opens.
+1. Open a pipeline from the home page, or click **New analysis**.
+2. Inspect the canvas and the step line beside it.
 3. Select a step to see its ports, settings, and reasons.
 4. Answer red decisions before relying on the pipeline.
-5. Use **Artifact** to see the materialized pipeline record.
-6. Press **Run** when the status line is clean enough for the gate you intend to run.
+5. Use **Pipeline file** to see the materialized pipeline record.
+6. Press **Run** when nothing needs you.
+
+## Change it by hand
+
+Add a step, remove one, swap its tool, or drag a wire between two ports. The engine reads what
+the change means and asks under **From your edit**, for example *So you never want trimming
+here — right?* Answer **Yes** and it becomes your decision: the engine plans around it on every
+later change, and steps that depend on it are reviewed again. Answer **No, undo** and nothing
+changes. When the engine cannot honour a change (you excluded the only tool that can make
+something), it says so with a code and keeps nothing.
+
+To start without a model, open **New analysis** and add the step that makes what you want, such
+as featureCounts for gene counts. After you confirm it, the engine asks which inputs you have,
+shows what it understood, and offers the steps it needs one at a time.
 
 ## Inspect the aligner in the RNA-seq example
 

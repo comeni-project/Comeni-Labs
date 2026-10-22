@@ -104,7 +104,8 @@ tier-4 setting with no declared values is a gap, not a stop, so with Dev mode of
 left to the run. A step's card offers *Continue*, each compatible tool as the whole pipeline it
 gives (*adds hisat2_build; removes star_genomegenerate*), and, where a rule lacked a fact, *tell
 me*. A tool you choose over the engine's is tier 4 and yours, with the engine's pick kept beside
-it. Hand edits open once the walk is done. The cards are the existing ones; part 5 designs them.
+it. A hand edit on the canvas is read as intent at any time, during the walk too (see *One
+builder* below). The cards are the existing ones; part 5 designs them.
 
 **As built (Part I.0, #307).** A model hands over **changes**, never a goal: the want, the
 inputs and facts it heard, a state on what is wanted, a tool or a setting, what was asked for
@@ -269,6 +270,7 @@ tightening is filling in a row, not rewiring.
 | 2026-10-15 | whatever a tool reads comes from somewhere, or is tier 4; strandedness left to the board until a profiler measures it (#339); the chat model cannot settle a step, and quotes only the turn it answers | operator, #338, #336, #337 |
 
 | 2026-10-11 | retained decisions compose the goal; conflicting evidence asks an explicit choice; corrections cascade semantic reviews; manual work forks; history now and undo later | 14.7.8.3d Part F (#290), operator decisions in the approved spec |
+| 2026-10-22 | one builder: a hand edit is read as intent (a role switched off, a tool excluded, a port's source, a want and its tool), offered in the chat and kept only once confirmed; the fork, its node and arrows go; a drawn pipeline opens resting at `wrap` and gathers its inputs at its first confirmed reading | one builder plan 2 (#395, #399), operator: *the old session and fork is kind of stupid*; A1 |
 
 ## Corrections and retained decisions (14.7.8.3d Part F)
 
