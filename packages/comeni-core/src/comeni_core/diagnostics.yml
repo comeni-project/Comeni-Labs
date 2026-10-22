@@ -1099,6 +1099,20 @@ MD0319:
     Switching a role off drops every tool that fills it. When the goal's wanted output cannot be
     reached without one, the engine could quietly ignore the switch or quietly drop the output;
     either is a silent guess. It names the role and stops instead.
+MD0320:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool you excluded was the only one that can make this step's output"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Allow the tool again, or remove what needs its output. On the canvas, put the step back;
+    in a goal file, remove the exclusion from `constraints.exclusions`.
+  explanation: |
+    **Excluding a tool asks the engine for another one** (A1, the one-builder design). When no
+    other tool can make the output at that site, choosing one anyway would be the engine
+    overriding the person, and dropping the output would be a silent change to the goal. The
+    exclusion is named, with the site, and the build stops until the person decides.
 MD0303:
   emitted_by: resolver
   concern: routing

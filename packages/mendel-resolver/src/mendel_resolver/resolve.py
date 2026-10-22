@@ -8,7 +8,13 @@ from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistr
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import ProducerPin, RoleAbsence
+from comeni_core.goal.asked import (
+    Constraints,
+    ProducerExclusion,
+    ProducerPin,
+    RoleAbsence,
+    SourcePin,
+)
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -515,6 +521,31 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
     for pin in goal.constraints.producers:
         # A person's pin names a site; held to the vocabulary like every type a goal names.
         vocabulary.validate(pin.site.type_id, pin.site.states)
+
+
+def inert_intents(
+    ir: PipelineIR, constraints: Constraints, registry: Registry
+) -> list[RoleAbsence | ProducerExclusion | SourcePin]:
+    """A person's structural intents (A1) that applied nowhere in `ir`, as `inert_pins` says of
+    pins: an exclusion whose site is asked nowhere or whose tool is no candidate there, a role
+    no tool in the registry fills, a source pin whose consumer is not in the plan or has no such
+    port. In that order, each in its declared order. `ir` must be fresh from `resolve()`.
+    """
+    asked = {node.site for node in ir.nodes if node.site is not None}
+    exclusions = [
+        e for e in constraints.exclusions
+        if e.site not in asked
+        or e.contract not in {c.id for c in registry.producers_of(e.site.type_id, e.site.states)}
+    ]
+    filled = {role for contract in registry.contracts.values() for role in contract.roles}
+    roles = [a for a in constraints.absent_roles if a.role not in filled]
+    placed = {node.contract_id for node in ir.nodes}
+    sources = [
+        p for p in constraints.sources
+        if p.consumer not in placed
+        or p.port not in {port.name for port in registry.contracts[p.consumer].consumes}
+    ]
+    return [*exclusions, *roles, *sources]
 
 
 def inert_pins(ir: PipelineIR, pins: Sequence[ProducerPin]) -> list[ProducerPin]:

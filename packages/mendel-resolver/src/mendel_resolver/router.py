@@ -19,6 +19,7 @@ from typing import NamedTuple
 
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
+from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import ProducerPin, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
@@ -239,6 +240,22 @@ def route(
             for c in registry.producers_of(type_id, states)
             if c.id not in visiting and not (absent_roles & set(c.roles))
         ]
+        # **A tool a person excluded here is not a candidate** (A1). When it was the only one,
+        # the exclusion is named rather than reported as a type nothing makes.
+        site = Site(type_id=type_id, states=states)
+        excluded = goal.constraints.excluded_at(site)
+        kept = [c for c in candidates if c.id not in excluded]
+        if candidates and not kept:
+            gone = next(e for e in goal.constraints.exclusions
+                        if e.site == site and e.contract in {c.id for c in candidates})
+            raise IntentConflict(
+                coded("MD0320", f"you excluded {gone.contract} where {type_id} is made, and "
+                      "nothing else can make it here. Allow it again, or choose another tool "
+                      "for this step — `mendel explain MD0320`."),
+                intent=gone,
+            )
+        dropped = sorted(c.id for c in candidates if c.id in excluded)
+        candidates = kept
         if not candidates:
             raise UnroutableError(
                 f"nothing produces {type_id} with states {sorted(states)}",
@@ -246,6 +263,10 @@ def route(
             )
 
         choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises)
+        if dropped:
+            choice = choice._replace(
+                reason=f"you excluded {', '.join(dropped)} here; {choice.reason}"
+            )
         chosen, pin = choice.contract, choice.pin
 
         for port in chosen.consumes:

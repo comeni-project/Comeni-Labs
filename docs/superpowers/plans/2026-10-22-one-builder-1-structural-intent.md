@@ -68,7 +68,7 @@ edits are intent the engine honours*).
   - `Constraints.source_at(consumer: ContractId, port: PortName) -> SourcePin | None` (last wins)
   - `Constraints.roles_absent() -> frozenset[RoleName]`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_a_goal_without_intents_dumps_the_bytes_it_did():
@@ -93,15 +93,15 @@ def test_pipeline_file_version_is_8_and_7_is_refused():
     ...  # a mapping with version: 7 raises the existing version error naming 8
 ```
 
-- [ ] **Step 2: Run them; expect ImportError on the new names.**
+- [x] **Step 2: Run them; expect ImportError on the new names.**
   `uv run pytest packages/comeni-core/tests/test_goal_intents.py -v`
-- [ ] **Step 3: Implement the three models and `Constraints` members**, following `ProducerPin`
+- [x] **Step 3: Implement the three models and `Constraints` members**, following `ProducerPin`
   and `producers` exactly (serializer sorting where a set appears; docstrings say whose intent).
   Bump `SCHEMA_VERSION` to 8 and update every test, golden and example that names version 7
   (`rg -l "version: 7"`).
-- [ ] **Step 4: Run the comeni-core tests, then `make guards`** (the egress guard must accept the
+- [x] **Step 4: Run the comeni-core tests, then `make guards`** (the egress guard must accept the
   new types). Expected: PASS.
-- [ ] **Step 5: Commit** `feat(comeni-core): a goal carries a person's structural intent (A1)`.
+- [x] **Step 5: Commit** `feat(comeni-core): a goal carries a person's structural intent (A1)`.
 
 ### Task 2: A role a person switched off
 
@@ -117,7 +117,7 @@ def test_pipeline_file_version_is_8_and_7_is_refused():
 - Produces: `IntentConflict(UnroutableError)` in `router.py` carrying `.intent` (the model) and a
   coded message; reused by Tasks 3–4.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_switching_trimming_off_routes_the_reads_straight_to_the_aligner(resolve_rnaseq):
@@ -130,13 +130,13 @@ def test_switching_off_a_role_the_goal_needs_is_a_coded_conflict(resolve_rnaseq)
         resolve_rnaseq(absent_roles=[RoleAbsence(role="alignment")])
 ```
 
-- [ ] **Step 2: Run; expect FAIL** (unknown keyword / no conflict type).
-- [ ] **Step 3: Union the goal's absences into `absent`**; when `route()` raises
+- [x] **Step 2: Run; expect FAIL** (unknown keyword / no conflict type).
+- [x] **Step 3: Union the goal's absences into `absent`**; when `route()` raises
   `UnroutableError` and an absent role is a person's, re-raise as `IntentConflict` naming it.
   Declare the code (`emitted_by: resolver`, `refuses: true`, a `fix` saying how to turn the role
   back on or drop the wanted output).
-- [ ] **Step 4: Run; expect PASS.** Also `uv run python tools/generate_diagnostics_doc.py`.
-- [ ] **Step 5: Commit** `feat(resolver): a role a person switched off is honoured (A1)`.
+- [x] **Step 4: Run; expect PASS.** Also `uv run python tools/generate_diagnostics_doc.py`.
+- [x] **Step 5: Commit** `feat(resolver): a role a person switched off is honoured (A1)`.
 
 ### Task 3: A tool excluded at a site, and intents that apply nowhere
 
