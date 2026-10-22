@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { SuggestionCard } from "./SuggestionCard";
+import { byEdit, SuggestionCard } from "./SuggestionCard";
 
 /** Part I.0: the model's suggestion waits for one click, and says whose reading it is. */
 
@@ -45,5 +45,29 @@ describe("a suggestion", () => {
     fireEvent.click(screen.getByRole("button", { name: "No" }));
     expect(onApply).toHaveBeenCalledWith("s1");
     expect(onDismiss).toHaveBeenCalledWith("s1");
+  });
+});
+
+/** One builder (#395): a hand edit read by the engine waits as one card per edit, said as the
+ *  engine's reading of what the person did — not as the model's suggestion. */
+describe("a reading of a hand edit", () => {
+  const WANT = { id: "r1", says: "So you also want qc.report, made by FASTQC — right?", heard: false,
+                 quote: null, kind: "want", subject: "qc.report", edit: "e1" };
+  const PIN = { ...WANT, id: "r2", says: "…made by FASTQC.", kind: "pin" };
+
+  it("is one card per edit, worded by its first reading", () => {
+    expect(byEdit([WANT, PIN, OFFERED])).toEqual({ readings: [WANT], suggestions: [OFFERED] });
+  });
+
+  it("says it was read from your edit, and asks yes or no", () => {
+    const onApply = vi.fn();
+    const onDismiss = vi.fn();
+    render(<SuggestionCard suggestion={WANT} busy={false} onApply={onApply} onDismiss={onDismiss} />);
+    expect(screen.getByText("from your edit")).toBeInTheDocument();
+    expect(screen.queryByText("suggested by AI")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    expect(onApply).toHaveBeenCalledWith("r1");
+    fireEvent.click(screen.getByRole("button", { name: "No, undo" }));
+    expect(onDismiss).toHaveBeenCalledWith("r1");
   });
 });

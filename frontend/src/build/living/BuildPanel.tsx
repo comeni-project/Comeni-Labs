@@ -6,7 +6,7 @@ import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { QuestionCard } from "./blocks/QuestionCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { StepTools } from "./blocks/StepTools";
-import { SuggestionCard } from "./blocks/SuggestionCard";
+import { byEdit, SuggestionCard } from "./blocks/SuggestionCard";
 import { Chat } from "./Chat";
 import { Composer } from "./Composer";
 import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
@@ -116,7 +116,9 @@ export function BuildPanel({
     .sort(([a], [b]) => a.localeCompare(b));
   const waits = pending !== null || session.phase === "stopped" || session.phase === "resolving"
     || (saying === null && waitingOn(session) !== null);
-  const fromChat = (session.suggestions ?? []).length > 0 || changes.length > 0
+  // **A hand edit's reading comes first**: nothing it means changes until the person says yes.
+  const { readings, suggestions: offered } = byEdit(session.suggestions ?? []);
+  const fromChat = offered.length > 0 || changes.length > 0
     || requests.some((r) => r.node !== editable);
 
   return (
@@ -143,6 +145,14 @@ export function BuildPanel({
       <div className="flex-1 min-h-0 overflow-auto px-4 pt-4 pb-4">
         {tab === "step" ? (
           <div role="tabpanel" id="panel-step" aria-labelledby="tab-step" className="flex flex-col gap-4">
+            {readings.length > 0 && (
+              <section aria-label="From your edit" className="flex flex-col gap-2">
+                {readings.map((r) => (
+                  <SuggestionCard key={r.id} suggestion={r} busy={suggestions.busy}
+                                  onApply={suggestions.onApply} onDismiss={suggestions.onDismiss} />
+                ))}
+              </section>
+            )}
             {/* **An opened step takes the line's place** (the *Question* board): its name and tool,
                 each value it still needs you for as a question, then the quieter tools. */}
             {!editable && <StepLine session={session} steps={steps} selected={selected} onSelect={onSelect} />}
@@ -196,9 +206,9 @@ export function BuildPanel({
             {fromChat && (
               <section aria-label="From the conversation" className="flex flex-col gap-3">
                 <h2 className="m-0 text-label text-ink-3">From the conversation</h2>
-                {(session.suggestions ?? []).length > 0 && (
+                {offered.length > 0 && (
                   <div role="list" aria-label="suggestions waiting for you" className="flex flex-col gap-2">
-                    {(session.suggestions ?? []).map((s) => (
+                    {offered.map((s) => (
                       <div role="listitem" key={s.id}>
                         <SuggestionCard suggestion={s} busy={suggestions.busy}
                                         onApply={suggestions.onApply} onDismiss={suggestions.onDismiss} />

@@ -2,11 +2,9 @@ import type { DraftEdge, DraftGraph, DraftNode } from "../api/types";
 
 /** The graph's mutation rules, as pure functions over a `DraftGraph`.
  *
- * **One set of rules for every way a graph changes.** `useGraph` applies these to what a person
- * drags; the living session's reducer applies the same functions to a proposal it has just
- * accepted. Two implementations would be two answers to *what does adding a wire twice do* — and
- * the chat-built pipeline and the hand-drawn one would drift the first time either was fixed.
- * Task 8 of the living-pipeline plan says so in as many words.
+ * **One set of rules for every way a graph changes.** The canvas applies these to what a person
+ * draws, and the living session's reducer to a proposal it has just accepted. Two
+ * implementations would be two answers to *what does adding a wire twice do*.
  *
  * Every function returns the graph it was given, unchanged, when there is nothing to do — so a
  * caller comparing by reference can tell a no-op from an edit.
