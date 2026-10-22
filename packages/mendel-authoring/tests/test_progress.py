@@ -70,7 +70,9 @@ def test_positions_and_counts_are_bounded():
 
 
 def test_the_steps_after_the_offer_are_named_in_plan_order():
-    got = progress_of(["index", "align", "sort", "counts"], frozenset({"index"}), frozenset({"index"}), "align")
+    got = progress_of(
+        ["index", "align", "sort", "counts"], frozenset({"index"}), frozenset({"index"}), "align"
+    )
     assert got.upcoming == (Upcoming(node="sort", position=3), Upcoming(node="counts", position=4))
 
 

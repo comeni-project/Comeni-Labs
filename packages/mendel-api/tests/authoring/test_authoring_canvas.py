@@ -151,9 +151,10 @@ def test_a_swap_keeps_the_original_offer_position_in_history(authoring_case):
         "reviewed": 1,
         "total": 5,
         "active": {"position": 1, "total": 5, "again": False},
-        # The aligner chosen in the swap holds its review, so it is not ahead of the person though the
-        # plan puts it after the offer; TrimGalore's no longer holds, so it is.
-        "upcoming": [{"node": "trimgalore", "position": 2}, {"node": "samtools_sort", "position": 4},
+        # The aligner chosen in the swap holds its review, so it is not ahead of the person though
+        # the plan puts it after the offer; TrimGalore's no longer holds, so it is.
+        "upcoming": [{"node": "trimgalore", "position": 2},
+                     {"node": "samtools_sort", "position": 4},
                      {"node": "subread_featurecounts", "position": 5}],
     }
 
