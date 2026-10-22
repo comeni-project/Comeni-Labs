@@ -70,6 +70,13 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_fact_revision",
         "pipeline_producer",
         "pipeline_producer_revision",
+        # A person's structural intent (A1): decisions about this draft, like `producer`.
+        "pipeline_role",
+        "pipeline_role_revision",
+        "pipeline_exclusion",
+        "pipeline_exclusion_revision",
+        "pipeline_source",
+        "pipeline_source_revision",
         "pipeline_parameter",
         "pipeline_parameter_revision",
         "pipeline_review",

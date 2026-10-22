@@ -14,9 +14,12 @@ from comeni_core.goal.asked import (
     Goal,
     GoalInput,
     ParamOverride,
+    ProducerExclusion,
     ProducerPin,
     RequiredStates,
+    RoleAbsence,
     Site,
+    SourcePin,
 )
 from comeni_core.goal.profile import DataProfile, Evidence
 from comeni_core.plan.tiers import ValueSource
@@ -26,6 +29,7 @@ from comeni_core.spell.marks import (
     ParamValue,
     PieceRef,
     PortName,
+    RoleName,
     TypeId,
 )
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -104,6 +108,29 @@ class ParameterChoice(_Value):
     value: ParamValue | None = None
 
 
+class RoleChoice(_Value):
+    """A role a person switched off (A1); `absent=False` is the switch withdrawn."""
+
+    role: RoleName
+    absent: bool = True
+
+
+class ExclusionChoice(_Value):
+    """A tool a person excluded at a site (A1); `excluded=False` is the exclusion withdrawn."""
+
+    site: Site
+    contract: ContractId
+    excluded: bool = True
+
+
+class SourceChoice(_Value):
+    """What a person chose to feed a step's input (A1); `producer=None` is the choice withdrawn."""
+
+    consumer: ContractId
+    port: PortName
+    producer: ContractId | None = None
+
+
 class Profiles(Protocol):
     def profile_of(self, entries: Sequence[MeasuredEntry]) -> DataProfile: ...
 
@@ -122,6 +149,9 @@ class Decisions(_Value):
     facts: list[FactDecision] = Field(default_factory=list)
     producers: list[ProducerChoice] = Field(default_factory=list)
     parameters: list[ParameterChoice] = Field(default_factory=list)
+    roles: list[RoleChoice] = Field(default_factory=list)
+    exclusions: list[ExclusionChoice] = Field(default_factory=list)
+    sources: list[SourceChoice] = Field(default_factory=list)
 
     def goal(self, measurements: Profiles) -> Goal:
         """The active goal. Only a declaration-validating registry constructs its profile."""
@@ -152,6 +182,17 @@ class Decisions(_Value):
                     ProducerPin(site=p.site, contract=p.contract)
                     for p in self.producers
                     if p.contract is not None
+                ],
+                absent_roles=[RoleAbsence(role=r.role) for r in self.roles if r.absent],
+                exclusions=[
+                    ProducerExclusion(site=e.site, contract=e.contract)
+                    for e in self.exclusions
+                    if e.excluded
+                ],
+                sources=[
+                    SourcePin(consumer=p.consumer, port=p.port, producer=p.producer)
+                    for p in self.sources
+                    if p.producer is not None
                 ],
             ),
             profile=measurements.profile_of(
@@ -219,5 +260,14 @@ class Decisions(_Value):
             ],
             parameters=[
                 ParameterChoice(name=p.name, value=p.value) for p in goal.constraints.params
+            ],
+            roles=[RoleChoice(role=a.role) for a in goal.constraints.absent_roles],
+            exclusions=[
+                ExclusionChoice(site=e.site, contract=e.contract)
+                for e in goal.constraints.exclusions
+            ],
+            sources=[
+                SourceChoice(consumer=p.consumer, port=p.port, producer=p.producer)
+                for p in goal.constraints.sources
             ],
         )

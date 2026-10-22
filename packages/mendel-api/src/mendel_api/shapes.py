@@ -52,6 +52,7 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("pipeline_decision_migration", "snapshot", Snapshot),
         Shape("pipeline_draft", "graph", DraftGraph),
         Shape("pipeline_draft", "provenance", loose),
+        Shape("pipeline_exclusion_revision", "states", list[str]),
         Shape("pipeline_input_revision", "states", list[str]),
         Shape("pipeline_observation", "value", ParamValue | list[ParamValue] | None),
         Shape("pipeline_observation", "pieces", list[str]),

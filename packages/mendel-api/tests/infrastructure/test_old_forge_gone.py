@@ -19,6 +19,7 @@ OLD_TABLES = {
     "forge_catalogue_item", "forge_source_snapshot", "source_check", "queue_visit",
 }
 BEFORE = "a9d4e2c7b318"
+AFTER = "89d3b4e5ab6f"  # the old forge's removal, not `head`: later migrations add tables
 
 
 def test_the_package_is_gone():
@@ -85,7 +86,7 @@ def test_the_migration_drops_only_the_old_forge_tables(migration_database):
                 "prompt_version, prompt_digest, input_digests, state, failure_code, started_at) "
                 "VALUES ('old-forge-call', 'forge', 'analysis', 'm', '', 'p', '', 'd', '{}', "
                 "'succeeded', '', now())"))
-        migrate("head")
+        migrate(AFTER)
         after = set(inspect(engine).get_table_names())
         assert after == before - OLD_TABLES
         with engine.connect() as db:

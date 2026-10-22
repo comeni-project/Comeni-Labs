@@ -266,6 +266,55 @@ class PipelineProducerRevision(_Revision):
     contract: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class PipelineRole(_Subject):
+    """A role a person switched off (A1, the one-builder design); keyed by the role."""
+
+    __tablename__ = "pipeline_role"
+    __table_args__ = _subject_keys("role")
+
+
+class PipelineRoleRevision(_Revision):
+    __tablename__ = "pipeline_role_revision"
+    __table_args__ = _revision_keys("role")
+
+    role: Mapped[str] = mapped_column(String(128))
+    absent: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
+class PipelineExclusion(_Subject):
+    """A tool a person excluded at a site (A1); keyed by the site and the tool."""
+
+    __tablename__ = "pipeline_exclusion"
+    __table_args__ = _subject_keys("exclusion")
+
+
+class PipelineExclusionRevision(_Revision):
+    __tablename__ = "pipeline_exclusion_revision"
+    shape_version: Mapped[int] = stamp("pipeline_exclusion_revision")
+    __table_args__ = _revision_keys("exclusion")
+
+    type_id: Mapped[str] = mapped_column(String(128))
+    states: Mapped[list] = mapped_column(Json, default=list)
+    contract: Mapped[str] = mapped_column(String(200))
+    excluded: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
+class PipelineSource(_Subject):
+    """What a person chose to feed a step's input (A1); keyed by the consumer and its port."""
+
+    __tablename__ = "pipeline_source"
+    __table_args__ = _subject_keys("source")
+
+
+class PipelineSourceRevision(_Revision):
+    __tablename__ = "pipeline_source_revision"
+    __table_args__ = _revision_keys("source")
+
+    consumer: Mapped[str] = mapped_column(String(200))
+    port: Mapped[str] = mapped_column(String(128))
+    producer: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
 class PipelineParameter(_Subject):
     __tablename__ = "pipeline_parameter"
     __table_args__ = _subject_keys("parameter")
