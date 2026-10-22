@@ -52,6 +52,16 @@ class UnroutablePinError(UnroutableError):
     """
 
 
+class IntentConflict(UnroutableError):
+    """A person's structural intent (A1) cannot be honoured: a role switched off that the goal
+    needs, an exclusion that leaves nothing, a source that cannot feed its port. Raised with the
+    intent that conflicts, so a caller can name it and ask, rather than override it silently."""
+
+    def __init__(self, message: str, *, intent: object):
+        super().__init__(message)
+        self.intent = intent
+
+
 class RouteStep(BaseModel):
     contract_id: str
     node_id: str

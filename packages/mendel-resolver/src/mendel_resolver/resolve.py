@@ -7,7 +7,8 @@ from comeni_core.declared.contract import InputPort, Param
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
-from comeni_core.goal.asked import ProducerPin
+from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import ProducerPin, RoleAbsence
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -22,8 +23,8 @@ from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
+from mendel_resolver.router import IntentConflict, UnroutableError, route
 from mendel_resolver.router import _layer_name as _layer_of
-from mendel_resolver.router import route
 from mendel_resolver.rules import RuleTable
 
 
@@ -109,7 +110,24 @@ def resolve(
         for role in _roles_in(registry)
         if (fired := rules.presence_for(role, premises)) is not None and fired.value == "absent"
     )
-    plan = route(goal, registry, rules, resolver, premises=premises, absent_roles=absent)
+    # **A person's switched-off roles join the rules'** (A1): the same semantics, a different
+    # author. When the goal cannot be reached with them, the one that blocks it is named.
+    person = goal.constraints.roles_absent()
+    try:
+        plan = route(goal, registry, rules, resolver, premises=premises,
+                     absent_roles=absent | person)
+    except IntentConflict:
+        raise
+    except UnroutableError as exc:
+        blocking = _blocking_absence(goal, registry, rules, premises, absent, person)
+        if blocking is None:
+            raise
+        raise IntentConflict(
+            coded("MD0319", f"you switched off the role {blocking.role!r}, and this goal needs "
+                  f"it: {exc}. Turn it back on, or stop asking for what only it leads to — "
+                  "`mendel explain MD0319`."),
+            intent=blocking,
+        ) from exc
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -314,6 +332,19 @@ def _source_for(
             )
         )
     return chosen
+
+
+def _blocking_absence(goal, registry, rules, premises, absent, person) -> RoleAbsence | None:
+    """The first of the person's switched-off roles (sorted) without which the goal routes, or
+    `None` when the goal fails for another reason. Deterministic: roles are tried in order."""
+    for role in sorted(person):
+        try:
+            route(goal, registry, rules, FlagOnlyResolver(), premises=premises,
+                  absent_roles=absent | (person - {role}))
+        except UnroutableError:
+            continue
+        return RoleAbsence(role=role)
+    return None
 
 
 def _values_of(measurement) -> list:

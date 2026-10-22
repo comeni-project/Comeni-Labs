@@ -58,3 +58,32 @@ def spine_without_hisat2_index(tmp_path):
     shutil.copytree(EXAMPLES, layer)
     (layer / "tools/nf-core/hisat2/build/contract.yml").unlink()
     return _spine(layer)
+
+
+@pytest.fixture
+def resolve_rnaseq(stack):
+    """The rnaseq example resolved over the shipped registry, with a person's pins and
+    structural intent (A1) written into its constraints."""
+    from support.example import example_mapping
+
+    def run(*, read_length=True, pins=(), absent_roles=(), exclusions=(), sources=(),
+            resolver=None, profile=None):
+        data = example_mapping()
+        if not read_length:
+            data["profile"].pop("read_length")
+        if profile:
+            data["profile"].update(profile)
+        constraints = data.setdefault("constraints", {})
+        for field, values in (("producers", pins), ("absent_roles", absent_roles),
+                              ("exclusions", exclusions), ("sources", sources)):
+            constraints[field] = [v.model_dump(mode="json") for v in values]
+        return resolve(
+            Goal.model_validate(data),
+            stack.registry,
+            stack.rules,
+            stack.measurements,
+            vocabulary=stack.vocabulary,
+            resolver=resolver,
+        )
+
+    return run

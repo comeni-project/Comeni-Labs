@@ -139,6 +139,7 @@ decline to curate one.
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
 | `MD0315` | a measurement's `assertion_only` and its reason disagree |
 | `MD0316` | a type names a family no layer in the stack declares |
+| `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
 
 ## Gates and emission
 

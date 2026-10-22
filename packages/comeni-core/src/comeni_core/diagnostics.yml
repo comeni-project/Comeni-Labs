@@ -1082,6 +1082,23 @@ MD0318:
     A piece is selected by its folder and labelled on every fact by its id, so the two must
     agree, and a declaration whose code is missing would load and then fail every inspection
     it was matched to. **The piece is not loaded; the others are**, as for MD0317.
+MD0319:
+  emitted_by: resolver
+  concern: routing
+  says: "a role you switched off is one this goal needs, so nothing can make what it wants"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Turn the role back on, or stop asking for what only it can lead to. On the canvas, add a
+    step that fills the role again; in a goal file, remove it from `constraints.absent_roles`:
+
+        constraints:
+          absent_roles: []        # was: [{role: alignment}]
+  explanation: |
+    **A person's structural intent is honoured, never overridden** (A1, the one-builder design).
+    Switching a role off drops every tool that fills it. When the goal's wanted output cannot be
+    reached without one, the engine could quietly ignore the switch or quietly drop the output;
+    either is a silent guess. It names the role and stops instead.
 MD0303:
   emitted_by: resolver
   concern: routing
