@@ -64,9 +64,15 @@ export function unanswered(steps: AnsweredStep[]): number {
   return steps.flatMap((step) => step.settings).filter(open).length;
 }
 
-/** Whether one value is still open: tier 4, and not answered here. */
+/** Whether one value still **needs the person**: tier 4, not answered here, and not optional. */
 export function open(setting: Answered): boolean {
-  return setting.tier === 4 && !setting.answered;
+  return setting.tier === 4 && !setting.answered && !setting.optional;
+}
+
+/** Whether one value is open but **optional**: left unset, the tool keeps its own behaviour, so it
+ *  stays flagged for review without stopping a run (issue 384). The server says which (`optional`). */
+export function optionalOpen(setting: Answered): boolean {
+  return setting.tier === 4 && !setting.answered && !!setting.optional;
 }
 
 /** One step, with **what you have typed** laid over what the server last echoed back.

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { AuthoringBlock, AuthoringSession, AuthoringVocabulary, DraftGraph } from "../../api/types";
-import { open, type AnsweredStep } from "../useBuilder";
+import { open, optionalOpen, type AnsweredStep } from "../useBuilder";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { QuestionCard } from "./blocks/QuestionCard";
 import { SettingCard } from "./blocks/SettingCard";
@@ -110,6 +110,10 @@ export function BuildPanel({
   const latest = [...session.turns].reverse().find((t) => t.role === "assistant" && t.state === "answered");
   const changes = (latest?.blocks ?? []).filter((b): b is ChangeBlock => b.kind === "change_set");
   const requests = (latest?.blocks ?? []).filter((b): b is SettingBlock => b.kind === "setting_request");
+  const needing = Object.entries(steps)
+    .map(([node, step]) => [node, step.settings.filter(open).length] as const)
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
   const waits = pending !== null || session.phase === "stopped" || session.phase === "resolving"
     || (saying === null && waitingOn(session) !== null);
   const fromChat = (session.suggestions ?? []).length > 0 || changes.length > 0
@@ -152,8 +156,11 @@ export function BuildPanel({
                     <p className="m-0 mt-[2px] font-data text-[11.5px] text-ink-3 break-all">{steps[editable].contract_id}</p>
                   )}
                 </div>
-                {(steps[editable]?.settings ?? []).filter(open).map((setting) => (
+                {/* What needs you first, then what is optional (issue 384). */}
+                {[...(steps[editable]?.settings ?? []).filter(open),
+                  ...(steps[editable]?.settings ?? []).filter(optionalOpen)].map((setting) => (
                   <QuestionCard key={`${editable}.${setting.name}`} setting={setting}
+                                step={processName(editable)}
                                 onSave={(value, why) => onSetParam(editable, setting.name, value, why)}
                                 onCancel={() => onSelect(null)} />
                 ))}
@@ -167,6 +174,22 @@ export function BuildPanel({
               </section>
             ) : waits ? (
               <Waiting session={session} onAsk={say} saying={saying} onSelect={onSelect} {...waiting} />
+            ) : needing.length > 0 ? (
+              // **Not "nothing is waiting" while a value needs you** (issue 385): each step that still
+              // does, as the way to open it.
+              <section aria-label="Still needs you" className="flex flex-col gap-2">
+                {needing.map(([node, count]) => (
+                  <button key={node} type="button" onClick={() => onSelect(node)}
+                          className="text-left px-[12px] py-[9px] rounded-button border bg-transparent cursor-pointer
+                                     text-[13px] text-ink hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]"
+                          style={{ borderColor: "var(--needs-you)" }}>
+                    <span className="font-data font-semibold">{processName(node)}</span>{" "}
+                    <span className="text-needs-you-ink">
+                      has {count} {count === 1 ? "value that needs" : "values that need"} you
+                    </span>
+                  </button>
+                ))}
+              </section>
             ) : (
               <p className="m-0 text-[13px] text-ink-2">Nothing is waiting for you.</p>
             )}

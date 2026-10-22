@@ -193,6 +193,25 @@ describe("the build stage", () => {
     expect(targets.some((el) => el.getAttribute("data-testid") === "waiting")).toBe(true);
   });
 
+  it("names the step a value still needs the person on, instead of saying nothing is waiting (issue 385)", () => {
+    const steps = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, settings: [
+      ...FAKE_STEPS.star_align.settings,
+      { name: "index_format", value: null, via: "positional", tier: 4, reason: "", because: "",
+        axis_reason: "", premise: [], optional: false },
+    ] } };
+    const session = with_({ phase: "complete", pending_proposal: null, turns: [] });
+    const p = props(session);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <LivingSurface {...p} session={framed(session, steps as typeof FAKE_STEPS, FAKE_CHANNELS)} />
+      </QueryClientProvider>,
+    );
+    const step = within(screen.getByRole("tabpanel", { name: "Step" }));
+    expect(step.queryByText("Nothing is waiting for you.")).toBeNull();
+    fireEvent.click(step.getByRole("button", { name: "STAR_ALIGN has 1 value that needs you" }));
+    expect(p.onSelect).toHaveBeenCalledWith("star_align");
+  });
+
   it("says nothing is waiting when a restored session has nothing on offer", () => {
     page(with_({ phase: "complete", pending_proposal: null, turns: [] }));
     expect(within(screen.getByRole("tabpanel", { name: "Step" }))

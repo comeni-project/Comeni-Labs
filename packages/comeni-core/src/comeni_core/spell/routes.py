@@ -37,6 +37,17 @@ class Via(StrEnum):
     """
 
 
+OMITTABLE: frozenset[Via] = frozenset({Via.EXT, Via.DIRECTIVE})
+"""The routes on which an unanswered setting is **optional**: the emitter writes nothing, and the
+tool's own behaviour applies — a module's own arguments, Nextflow's own directive default. Such a
+setting stays tier 4 and flagged for review, but does not stop a run (#384).
+
+`POSITIONAL` is not here: an empty call slot reads `null` and Nextflow fails at launch (MD0224).
+Nor is `META`, although the emitter omits it too: a module reading `meta.<name>` gets `null`, and
+what it does then is the module's business, not a default anyone documented.
+"""
+
+
 class ExtKey(StrEnum):
     """Which key inside the `ext` scope.
 

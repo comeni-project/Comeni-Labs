@@ -10,7 +10,7 @@ import { LivingSurface } from "./LivingSurface";
 
 /** The *Question* board: opening a step asks each of its open values as a card. */
 
-const OPEN = { name: "index_format", value: null, via: "ext", tier: 4, because: "", axis_reason: "",
+const OPEN = { name: "index_format", value: null, via: "ext", tier: 4, because: "", axis_reason: "", optional: false,
                reason: "No rule settles it, and nothing measured it.", premise: [],
                domain: { kind: "enum", values: ["bai", "csi"] } };
 const FREE = { ...OPEN, name: "seq_platform", reason: "Your description does not say.", domain: null };
@@ -53,7 +53,21 @@ describe("an opened step", () => {
     expect(within(card).getByRole("heading")).toHaveTextContent("What should index_format be?");
     expect(card).toHaveTextContent("needs you");
     expect(card).toHaveTextContent("settings.index_format");
-    expect(card).toHaveTextContent("No rule settles it, and nothing measured it.");
+    expect(card).toHaveTextContent("No rule or answer decides this, and STAR_ALIGN cannot run without it.");
+  });
+
+  it("says why it is open in plain words, not the resolver's placeholder (issue 384)", () => {
+    opened([{ ...OPEN, reason: "nothing decided 'index_format'; selected the first of 1 candidates without judgement — please review" }]);
+    const card = screen.getByRole("region", { name: "a value for index_format" });
+    expect(card).not.toHaveTextContent(/candidates without judgement/);
+  });
+
+  it("asks an optional value as optional: what happens if it is left, and no needs you (issue 384)", () => {
+    opened([{ ...FREE, optional: true }]);
+    const card = screen.getByRole("region", { name: "a value for seq_platform" });
+    expect(card).toHaveTextContent("optional");
+    expect(card).not.toHaveTextContent("needs you");
+    expect(card).toHaveTextContent("Left unset, STAR_ALIGN uses its tool's own default.");
   });
 
   it("offers the declared values as the only answers, and says so", () => {

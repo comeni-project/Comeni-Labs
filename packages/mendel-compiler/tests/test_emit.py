@@ -471,3 +471,26 @@ def test_a_profile_that_needs_site_facts_says_so_in_the_file():
     from mendel_compiler.emit import emit_config
 
     assert "site.config" in emit_config(_pipeline())
+
+
+def test_an_omittable_route_writes_nothing_for_an_unanswered_setting():
+    """#384: `OMITTABLE` is what lets an unanswered tier-4 setting be *optional* — it stays
+    flagged but does not lock Run. That is only honest if the emitter really writes nothing
+    for it, so the tool's own behaviour applies. Each member is checked against its emitter.
+    """
+    from comeni_core.artifact.pipeline import Setting, Why
+    from comeni_core.plan.tiers import ValueSource
+    from comeni_core.spell.routes import OMITTABLE, ExtKey, Via
+    from mendel_compiler.emit import _directive_scope, _ext_scope
+
+    why = Why(tier=Tier.AMBIGUOUS, source=ValueSource.RESOLVER, reason="nothing decided it")
+    unset_ext = Setting.model_construct(
+        name="seq_platform", value=None, via=Via.EXT, key=ExtKey.ARGS,
+        template="--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'", why=why,
+    )
+    unset_directive = Setting.model_construct(
+        name="cpus", value=None, via=Via.DIRECTIVE, key=None, template=None, why=why,
+    )
+    assert {Via.EXT, Via.DIRECTIVE} == OMITTABLE
+    assert not any("PL:" in line for line in _ext_scope(_step_carrying(unset_ext)))
+    assert not any("cpus" in line for line in _directive_scope(_step_carrying(unset_directive)))

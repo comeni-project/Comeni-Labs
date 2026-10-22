@@ -8,6 +8,7 @@ card, so answering it applies exactly what the person read — never a recompute
 
 from comeni_core.goal.asked import Goal
 from comeni_core.plan.draft import DraftGraph
+from comeni_core.spell.routes import OMITTABLE
 from mendel_authoring.alternatives import alternatives_of
 from mendel_authoring.blueprint import edges_touching
 from mendel_authoring.gaps import GapKind
@@ -39,6 +40,14 @@ def plan_of_row(row) -> tuple[bp.Blueprint, BuildPlan]:
 
 def _resolved(goal: Goal) -> bp.Blueprint:
     return bp.resolve(goal)[0]
+
+
+def optional_unset(contract, gaps) -> list[str]:
+    """The settings with no listed values that the card may say *stay unset*: those whose route
+    leaves the tool its own behaviour (`OMITTABLE`, #384). A required one is asked once the step
+    is added, so the card must not tell the person it needs nothing from them."""
+    optional = {param.name for param in contract.params if param.via in OMITTABLE}
+    return [g.subject for g in gaps if g.kind is GapKind.NO_DOMAIN and g.subject in optional]
 
 
 def step_payload(
@@ -80,7 +89,7 @@ def step_payload(
         brief=planned.brief,
         need=planned.need,
         gaps=planned.gaps,
-        unresolved_settings=[g.subject for g in planned.gaps if g.kind is GapKind.NO_DOMAIN],
+        unresolved_settings=optional_unset(contract, planned.gaps),
         stop=stop.value,
     )
     here = set(present) | {planned.node}

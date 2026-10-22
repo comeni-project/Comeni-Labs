@@ -60,6 +60,17 @@ def test_a_step_is_flagged_when_one_of_its_settings_needs_a_decision():
     assert any(setting.tier == 4 for setting in flagged.settings)
 
 
+def test_an_unanswered_setting_says_whether_the_tool_has_its_own_behaviour():
+    """#384: `seq_platform` is routed through `ext`, which writes nothing when unanswered, so
+    STAR's own read-group line applies and the setting is optional. `star_ignore_sjdbgtf` fills
+    a positional call slot, which cannot be left empty (MD0224), so it is not."""
+    got = build.example()
+    star = next(s for s in got.steps if s.id == "star_align")
+    by_name = {setting.name: setting for setting in star.settings}
+    assert by_name["seq_platform"].optional is True
+    assert by_name["star_ignore_sjdbgtf"].optional is False
+
+
 def test_building_twice_gives_the_same_coordinates():
     """Invariant 10's discipline, over the wire. A canvas that moved between two identical
     requests would make every screenshot a lie."""

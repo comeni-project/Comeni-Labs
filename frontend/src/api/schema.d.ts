@@ -3407,6 +3407,11 @@ export interface components {
              * @default []
              */
             premise: string[];
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
         };
         /**
          * Shown

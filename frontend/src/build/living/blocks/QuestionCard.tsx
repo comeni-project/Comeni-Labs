@@ -7,21 +7,26 @@ const COUNT = ["no", "one", "two", "three", "four", "five", "six", "seven", "eig
 
 /** One open value of an opened step, asked as a question (the *Question* board).
  *
- * **Only what the setting carries**: its name, why it is open, and its declared domain. The board's
- * notes under each answer have no source (a domain is a list of values), so none are drawn; a
+ * **Only what the setting carries**: its name, whether it is optional, and its declared domain.
+ * The board's notes under each answer have no source (a domain is a list of values), so none are drawn; a
  * setting with no domain is a typed field, and a range says its bounds. The answer and the
  * person's reason go through the draft's setting write, where the server stamps the tier and keeps
  * the reason as the value's recorded one — so the card says the reason is saved, and nothing more.
  */
 export function QuestionCard({
   setting,
+  step,
   onSave,
   onCancel,
 }: {
   setting: Answered;
+  /** The step's process name, said in the sentence that explains why it is asked. */
+  step: string;
   onSave: (value: string, why: string) => void;
   onCancel: () => void;
 }) {
+  const optional = !!setting.optional;
+  const accent = optional ? "var(--line-2)" : "var(--needs-you)";
   const group = useId();
   const values = setting.domain?.values ?? [];
   const [value, setValue] = useState(setting.value !== null && values.includes(setting.value) ? setting.value : "");
@@ -30,21 +35,25 @@ export function QuestionCard({
 
   return (
     <section aria-label={`a value for ${setting.name}`} className="rounded-panel border px-[16px] pt-[14px] pb-[16px]"
-             style={{ borderColor: "var(--needs-you)", background: "var(--surface)" }}>
+             style={{ borderColor: accent, background: "var(--surface)" }}>
       <header className="flex items-baseline gap-[10px] mb-[6px]">
         <h3 className="m-0 text-[15px] font-semibold text-ink min-w-0">What should <span className="font-data">{setting.name}</span> be?</h3>
         <span className="ml-auto shrink-0 rounded-full px-[9px] py-[1px] text-[11.5px] font-semibold"
-              style={{ background: "var(--needs-you-soft)", color: "var(--needs-you-ink)" }}>
-          needs you
+              style={optional ? { border: "1px solid var(--line-2)", color: "var(--ink-2)" }
+                : { background: "var(--needs-you-soft)", color: "var(--needs-you-ink)" }}>
+          {optional ? "optional" : "needs you"}
         </span>
       </header>
       <p className="m-0 mb-[10px] font-data text-[11.5px] text-ink-3">settings.{setting.name}</p>
-      {setting.reason && (
-        <p className="m-0 mb-[12px] pl-[10px] text-[13px] leading-[1.55] text-ink-2"
-           style={{ borderLeft: "2px solid var(--needs-you)" }}>
-          {setting.reason}
-        </p>
-      )}
+      {/* **Why it is asked, in the person's words** (issue 384). An open value's recorded reason is the
+          resolver's placeholder for *nobody decided this*; the pipeline file keeps it verbatim. */}
+      <p className="m-0 mb-[12px] pl-[10px] text-[13px] leading-[1.55] text-ink-2"
+         style={{ borderLeft: `2px solid ${accent}` }}>
+        {optional
+          ? <>No rule or answer decides this. It is optional: <span className="text-ink">Left unset, {step} uses its tool's own default.</span></>
+          : <>No rule or answer decides this, and {step} cannot run without it.</>}
+        {setting.axis_reason && <span className="block mt-1">{setting.axis_reason}</span>}
+      </p>
       {values.length > 0 ? (
         <>
           <p className="m-0 mb-[8px] text-[12.5px] text-ink-2">

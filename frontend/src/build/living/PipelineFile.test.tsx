@@ -15,7 +15,7 @@ const TIERS = [
 
 const setting = (name: string, tier: number, value: string | null, reason: string, premise: string[] = [],
                  answered = false) =>
-  ({ name, value, via: "ext", tier, reason, because: "", axis_reason: "", premise, answered });
+  ({ name, value, via: "ext", tier, reason, because: "", axis_reason: "", optional: false, premise, answered });
 
 const STEPS = [
   { id: "star_align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@2.7.11a", runs: "per_item",
@@ -82,6 +82,16 @@ describe("every value and its reason", () => {
       .getByRole("row", { name: /strandedness/ });
     expect(row).toHaveTextContent("null");
     expect(within(row).getByText("needs you")).toBeInTheDocument();
+  });
+
+  it("marks an optional open value as optional, counts it apart, and keeps it among the open (issue 384)", () => {
+    const optional = { ...setting("seq_platform", 4, null, "nothing decided it"), optional: true };
+    file({ steps: [{ ...STEPS[0], settings: [...STEPS[0].settings, optional] }] as AnsweredStep[] });
+    const row = screen.getByRole("row", { name: /seq_platform/ });
+    expect(within(row).getByText("optional")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "how the values were decided" })).toHaveTextContent("1 optional");
+    fireEvent.click(screen.getByRole("button", { name: "Show only open" }));
+    expect(screen.getByRole("row", { name: /seq_platform/ })).toBeInTheDocument();
   });
 
   it("says a step with nothing to set has nothing to set", () => {

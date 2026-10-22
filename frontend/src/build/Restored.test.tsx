@@ -32,7 +32,7 @@ const PIPELINE = {
         { name: "bam", type_id: "alignment.bam", side: "out", met: true },
       ],
       settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
-                   reason: "nobody judged it", axis_reason: "", premise: [] }],
+                   reason: "nobody judged it", axis_reason: "", optional: false, premise: [] }],
     },
   ],
   channels: [],

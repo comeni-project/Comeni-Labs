@@ -46,7 +46,7 @@ const PIPELINE = {
 /** A value nobody has answered: tier 4, no value, and the reason the resolver gives. */
 const open = (name: string) => ({
   name, value: null, via: "ext", tier: 4, reason: "no rule matched",
-  axis_reason: "", premise: [], because: "",
+  axis_reason: "", optional: false, premise: [], because: "",
 });
 
 const MODULES = [
@@ -293,7 +293,7 @@ describe("a value you type", () => {
       steps: [
         { ...PIPELINE.steps[0],
           settings: [{ name: "seq_platform", value: null, tier: 4, why: "", domain: null,
-                       route: "ext", reason: "", axis_reason: "", because: "",
+                       route: "ext", reason: "", axis_reason: "", optional: false, because: "",
                        premise: [] }] },
         PIPELINE.steps[1],
       ],

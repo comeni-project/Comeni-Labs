@@ -33,10 +33,10 @@ describe("the builder's header", () => {
 });
 
 describe("the header as the boards draw it", () => {
-  const draw = (session: typeof FAKE_SESSION, runnable = false) => render(
+  const draw = (session: typeof FAKE_SESSION, runnable = false, openValues = 0) => render(
     <QueryClientProvider client={new QueryClient()}>
       <LivingHeader session={session} view="canvas" onView={vi.fn()} onRun={vi.fn()} running={false}
-                    runnable={runnable} />
+                    runnable={runnable} openValues={openValues} />
     </QueryClientProvider>,
   );
 
@@ -69,5 +69,25 @@ describe("the header as the boards draw it", () => {
   it("says no revision number", () => {
     draw(FAKE_SESSION);
     expect(screen.getByTestId("living-header")).not.toHaveTextContent(/revision/);
+  });
+
+  const complete = { ...FAKE_SESSION, phase: "complete", pending_proposal: null,
+                     progress: { reviewed: 5, total: 5, active: null } } as typeof FAKE_SESSION;
+
+  it("keeps Run locked while a value needs the person, even when every step is added (issue 385)", () => {
+    draw(complete, true, 1);
+    expect(screen.getByTestId("living-run")).toBeDisabled();
+  });
+
+  it("offers Run once nothing needs the person", () => {
+    draw(complete, true, 0);
+    expect(screen.getByTestId("living-run")).toBeEnabled();
+  });
+
+  it("does not say complete while a value needs the person (issue 385)", () => {
+    draw(complete, true, 1);
+    const chip = screen.getByTestId("living-status");
+    expect(chip).toHaveTextContent(/^built$/);
+    expect(chip.getAttribute("data-tone")).toBe("now");
   });
 });

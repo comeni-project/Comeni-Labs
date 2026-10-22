@@ -23,15 +23,18 @@ const TONE: Record<Tone, React.CSSProperties> = {
  *  offered. *Complete* in the done colour — never *Valid*, which only the gate can say. Amber means
  *  *measured*, so a reply in flight is *now*; a failed call that needs a retry, and a stop, need
  *  the person. Drawn in the header, and on the describe page, which has no header. */
-export function StatusChip({ session }: { session: AuthoringSession }) {
+export function StatusChip({ session, open = 0 }: { session: AuthoringSession; open?: number }) {
   const active = session.progress?.active ?? null;
+  // **Complete only when nothing needs you** (issue 385): every step added with a value still open is
+  // *built*, in the now colour, beside the chip that says what is open.
+  const built = session.phase === "complete" && open > 0;
   const tone: Tone = session.phase === "stopped" || session.phase === "failed" ? "needs-you"
-    : session.phase === "complete" ? "done" : "now";
+    : session.phase === "complete" && !built ? "done" : "now";
   return (
     <span data-testid="living-status" data-tone={tone}
           className="self-center px-[8px] py-[3px] rounded-control text-[12px] font-semibold first-letter:capitalize"
           style={TONE[tone]}>
-      {phaseWords(session)}{active && session.phase === "building" ? ` · ${stepWords(active).toLowerCase()}` : ""}
+      {built ? "built" : phaseWords(session)}{active && session.phase === "building" ? ` · ${stepWords(active).toLowerCase()}` : ""}
     </span>
   );
 }
@@ -65,7 +68,9 @@ export function LivingHeader({
 }) {
   const spent = usageWords(session.usage);
   const [calls, setCalls] = useState(false);
-  const ready = runnable && !running && session.graph.nodes.length > 0 && session.phase === "complete";
+  // **Locked while a value needs you** (issue 385); an optional open value does not count (issue 384).
+  const ready = runnable && !running && session.graph.nodes.length > 0 && session.phase === "complete"
+    && openValues === 0;
 
 
   return (
@@ -74,7 +79,7 @@ export function LivingHeader({
         {session.name || "Untitled analysis"}
       </h1>
       {/* Where the build is, then what it needs from you — the boards' order. */}
-      <StatusChip session={session} />
+      <StatusChip session={session} open={openValues} />
       {openValues > 0 && (
         <span data-testid="needs-you-chip"
               className="self-center px-[8px] py-[2px] rounded-control text-[12px] font-semibold text-needs-you-ink"

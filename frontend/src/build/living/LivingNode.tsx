@@ -6,7 +6,7 @@ import { processName } from "./format";
 export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
 
 /** The step's values by how they were decided: tiers 1–2 settled, tier 3 measured, tier 4 open. */
-export type Counts = { settled: number; measured: number; open: number };
+export type Counts = { settled: number; measured: number; open: number; optional?: number };
 
 /** One step on the living canvas — the 172×112 symbol every canvas in the product draws.
  *
@@ -173,11 +173,12 @@ export function LivingNode({
   );
 }
 
-/** *1 needs you · 3 measured · 13 settled*, each in its meaning's ink; a zero is not said. */
+/** *1 needs you · 3 measured · 1 optional · 13 settled*, each in its meaning's ink; a zero is not said. */
 function CountWords({ counts }: { counts: Counts }) {
   const parts = [
     counts.open > 0 && <span key="open" className="font-semibold text-needs-you-ink">{counts.open} needs you</span>,
     counts.measured > 0 && <span key="measured" className="font-semibold text-measured-ink">{counts.measured} measured</span>,
+    (counts.optional ?? 0) > 0 && <span key="optional" className="text-ink-2">{counts.optional} optional</span>,
     counts.settled > 0 && <span key="settled" className="text-ink-2">{counts.settled} settled</span>,
   ].filter(Boolean) as React.ReactElement[];
   return <>{parts.flatMap((part, i) => (i ? [<span key={`dot-${i}`} className="text-ink-3"> · </span>, part] : [part]))}</>;

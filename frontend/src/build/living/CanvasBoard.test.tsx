@@ -49,7 +49,7 @@ describe("a step on the canvas", () => {
   it("marks a step with a value that needs the person", () => {
     const open = { ...FAKE_STEPS.star_align, settings: [
       ...FAKE_STEPS.star_align.settings,
-      { name: "strandedness", value: null, via: "ext", tier: 4, reason: "", because: "", axis_reason: "", premise: [] },
+      { name: "strandedness", value: null, via: "ext", tier: 4, reason: "", because: "", axis_reason: "", optional: false, premise: [] },
     ] } as Step;
     fake({ steps: { ...FAKE_STEPS, star_align: open } });
     expect(screen.getByTestId("node-open-star_align")).toBeInTheDocument();

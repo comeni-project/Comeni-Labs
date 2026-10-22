@@ -21,6 +21,7 @@ from typing import Literal
 from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.draft import DraftGraph
+from comeni_core.spell.routes import OMITTABLE
 from mendel_compiler import layout, orchestrate, pipeline_file
 from mendel_resolver.goal import Goal
 from mendel_resolver.materialise import goal_of, ir_of
@@ -132,6 +133,9 @@ class SettingView(BaseModel):
     matched on, so there was nothing to check. Empty for tiers 1, 2 and 4, which rest on no
     measurement.
     """
+    optional: bool = False
+    """Whether leaving this setting unanswered leaves the tool its own behaviour (`OMITTABLE`).
+    An optional open value stays tier 4 and flagged, but does not stop a run (#384)."""
 
 
 class PortView(BaseModel):
@@ -359,6 +363,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                     domain=_domain(layers, step.module.contract_id, setting.name),
                     because=_because(layers, step.module.contract_id, setting.name),
                     premise=[record.prose() for record in setting.why.premise],
+                    optional=setting.via in OMITTABLE,
                 )
                 for setting in (step.settings)
             ],

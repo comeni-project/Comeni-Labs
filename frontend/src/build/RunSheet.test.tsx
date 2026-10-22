@@ -9,7 +9,7 @@ import type { AnsweredStep } from "./useBuilder";
 /** The run sheet (#379): numbered sections on the left, and a summary holding the one action. */
 
 const setting = (name: string, tier: number, value: string | null) =>
-  ({ name, value, via: "ext", tier, reason: `why ${name}`, because: "", axis_reason: "", premise: [] });
+  ({ name, value, via: "ext", tier, reason: `why ${name}`, because: "", axis_reason: "", optional: false, premise: [] });
 
 const STEPS = [
   { id: "star_align", process: "STAR_ALIGN", contract_id: "c/a", runs: "per_item", tier: 3, reason: "", ports: [],

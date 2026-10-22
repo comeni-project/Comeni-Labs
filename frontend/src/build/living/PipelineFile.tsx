@@ -5,7 +5,7 @@ import { get } from "../../api/client";
 import type { components } from "../../api/schema";
 import type { AuthoringPreview } from "../../api/types";
 import { ArtifactView } from "../ArtifactView";
-import { open, type Answered, type AnsweredStep } from "../useBuilder";
+import { open, optionalOpen, type Answered, type AnsweredStep } from "../useBuilder";
 import { useTiers } from "../useTiers";
 import { ArtifactPreview } from "./ArtifactPreview";
 import { valuesOf } from "./values";
@@ -47,7 +47,8 @@ export function PipelineFile({
   });
   const text = tab === "kept" ? artifact.data?.text ?? null : preview?.state === "ready" ? preview.text : null;
   const shown = steps
-    .map((step) => ({ step, settings: onlyOpen ? step.settings.filter(open) : step.settings }))
+    .map((step) => ({ step, settings: onlyOpen
+      ? step.settings.filter((setting) => open(setting) || optionalOpen(setting)) : step.settings }))
     .filter(({ settings }) => !onlyOpen || settings.length > 0);
 
   const download = () => {
@@ -73,6 +74,7 @@ export function PipelineFile({
             <p className="m-0 mt-2 text-[13px] text-ink-2">
               {values.settled} settled by a rule, a convention or you ·{" "}
               <span className="text-measured-ink">{values.measured} measured from your files</span> ·{" "}
+              {values.optional > 0 && <>{values.optional} optional · </>}
               {values.open > 0
                 ? <span className="text-needs-you-ink">{values.open} {values.open === 1 ? "needs" : "need"} you</span>
                 : <span>nothing needs you</span>}
@@ -212,7 +214,7 @@ function StepValues({ step, settings }: { step: AnsweredStep; settings: Answered
                       {setting.value ?? "null"}
                     </td>
                     <td className="px-3 py-[10px] align-top">
-                      <How setting={setting} open={isOpen} name={tiers.name(setting.tier)} />
+                      <How setting={setting} open={isOpen} name={optionalOpen(setting) ? "optional" : tiers.name(setting.tier)} />
                     </td>
                     <td className="px-5 py-[10px] text-[13px] text-ink-2 align-top">
                       {setting.reason}

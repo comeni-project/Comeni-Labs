@@ -46,7 +46,7 @@ const STEPS = {
   star_align: {
     ...FAKE_STEPS.star_align,
     settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4, reason: "no rule matched",
-      axis_reason: "", premise: [], because: "" }],
+      axis_reason: "", optional: false, premise: [], because: "" }],
   },
   fastqc_1: { id: "fastqc_1", process: "FASTQC_1", contract_id: "nf-core/fastqc@0.12.1", tier: 2,
     runs: "per_item", reason: "", settings: [], ports: [] },
