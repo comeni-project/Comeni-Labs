@@ -103,13 +103,6 @@ def test_a_value_its_measurement_refuses_is_refused(clean):
 
 
 # ── refusals ───────────────────────────────────────────────────────────────────────────────
-def test_an_edit_during_the_walk_is_refused(clean):
-    """Issue 255."""
-    session_id = _built(_goal())
-    with pytest.raises(ValueError, match="MI0217"):
-        facade.perform(commands.RecordEdit(session_id, DraftGraph().model_dump(mode="json"), "ana"))
-
-
 def test_a_card_answered_twice_is_refused_the_second_time(clean):
     """Review Focus 4: a double click, or a second tab."""
     session_id = _built(_goal())

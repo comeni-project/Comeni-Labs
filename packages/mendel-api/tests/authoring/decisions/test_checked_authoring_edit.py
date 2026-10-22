@@ -5,8 +5,15 @@ from copy import deepcopy
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
 from mendel_api.services import session
-from mendel_api_tests.manual_forks import _manual
-from mendel_api_tests.manual_forks import clean as clean
+from mendel_api_tests.building import _answer_all, _resolving, authoring_setup
+from mendel_api_tests.building import clean as clean
+
+
+def _manual():
+    """A walked session, edited by hand from here on."""
+    sid = _resolving()
+    _answer_all(sid, authoring_setup.start_building(sid))
+    return sid
 
 
 def test_a_public_edit_requires_the_revision_it_was_based_on(clean):
@@ -22,10 +29,10 @@ def test_a_public_edit_requires_the_revision_it_was_based_on(clean):
 def test_the_second_tab_cannot_overwrite_a_newer_authoring_edit(clean):
     sid = _manual()
     before = session.read(sid)
+    # A typed value is the edit that saves at once (#395); a structural one only offers.
     graph = deepcopy(before["graph"])
-    graph["nodes"] = graph["nodes"][:-1]
-    ids = {node["id"] for node in graph["nodes"]}
-    graph["edges"] = [e for e in graph["edges"] if e["from_node"] in ids and e["to_node"] in ids]
+    star = next(n for n in graph["nodes"] if n["id"] == "star_align")
+    star["params"] = [*star["params"], {"name": "seq_platform", "value": "ILLUMINA"}]
     client = TestClient(create_app())
     saved = client.post(
         f"/api/pipeline/authoring/{sid}/edits",

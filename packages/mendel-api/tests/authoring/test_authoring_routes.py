@@ -336,9 +336,10 @@ def test_a_step_proposal_says_what_it_reads_as_well_as_what_it_makes(
 
 
 @needs_db
-def test_a_direct_edit_writes_a_receipt_the_server_composed(client, clean, queue, monkeypatch):
-    """The receipt is derived from the difference — the browser sends a graph and nothing that
-    could be told to the log. Editing opens once the walk is done (spec §14.5)."""
+def test_after_the_walk_an_added_step_is_read_and_offered(client, clean, queue, monkeypatch):
+    """#395: the browser sends a graph and nothing that could be told to the log; the engine
+    reads it and offers the reading in its own words. Nothing is saved until it is confirmed.
+    (During the walk too: `test_edit_reading.py`.)"""
     monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
     built, _ = _building(client, queue, monkeypatch)
     # #338: strandedness is not asked while gathering; the step whose tool reads it stops.
@@ -361,31 +362,9 @@ def test_a_direct_edit_writes_a_receipt_the_server_composed(client, clean, queue
     )
     assert response.status_code == 200, response.text
     after = _session(client, built["id"])
-
-    receipt = after["turns"][-1]["blocks"][0]
-    assert receipt["kind"] == "receipt"
-    assert receipt["summary"] == "you added FASTQC_1"
-    assert after["revision"] == built["revision"] + 1
-    assert after["hand_edits"] == "you added FASTQC_1"
-
-
-@needs_db
-def test_an_edit_during_the_walk_is_refused(client, clean, queue, monkeypatch):
-    """Issue 255: during the walk the draft is the blueprint's projection; a hand edit would be
-    lost at the next change, so it is refused (MI0217) and nothing is written."""
-    building, _ = _building(client, queue, monkeypatch)
-    graph = building["graph"]
-    graph["nodes"].append({"id": "fastqc_1", "contract_id": "nf-core/fastqc@0.12.1", "params": []})
-
-    response = client.post(
-        f"/api/pipeline/authoring/{building['id']}/edits",
-        json={"graph": graph, "expected_revision": building["revision"]},
-    )
-    assert response.status_code == 422
-    assert response.json()["detail"].startswith("MI0217")
-    after = _session(client, building["id"])
-    assert after["revision"] == building["revision"]
-    assert after["pending_proposal"]["id"] == building["pending_proposal"]["id"]
+    assert after["revision"] == built["revision"]
+    assert [s["kind"] for s in after["suggestions"]] == ["want", "pin"]
+    assert after["suggestions"][0]["says"].startswith("So you also want qc.report")
 
 
 @needs_db

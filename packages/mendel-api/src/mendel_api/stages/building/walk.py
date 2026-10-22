@@ -17,6 +17,7 @@ from mendel_authoring import commands as c
 from mendel_authoring import state as st
 from mendel_authoring.draft import drafted, next_step
 from mendel_authoring.pacing import Pacing, Policy, stops
+from mendel_authoring.payloads import DecisionChange
 from mendel_authoring.types import Command
 from mendel_resolver.router import UnroutableError
 from sqlalchemy import select
@@ -30,7 +31,6 @@ from mendel_api.authoring.types import (
     Question,
     Receipt,
     TurnRole,
-    TurnState,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import (
@@ -285,56 +285,55 @@ def settle(ctx: Ctx, proposal_id: str, *, expected_revision: int, by: str) -> St
 # ── a direct edit ───────────────────────────────────────────────────────────────────────────
 
 
-def record_edit(session_id: str, graph: DraftGraph, *, by: str,
-                expected_revision: int | None = None) -> int:
-    """A direct edit to the session's draft, recorded in the transcript. Returns the new
-    revision. Nothing is re-offered: no step's card is pending outside the walk.
+class Edited(NamedTuple):
+    revision: int
+    offered: list[str]
+    """The suggestions a structural edit was read as, waiting for the person."""
+    values: list[DecisionChange]
+    """The values typed: explicit, so applied as the person's changes by the caller, each its
+    own command."""
 
-    **Refused during the walk** (`MI0217`, issue 255): the draft is then the projection of the
-    blueprint, with nowhere to keep a hand edit; a tool or a fact changes on a step's card.
-    Editing opens once the walk is done. **The receipt is composed here, from the difference,
-    never sent by the browser.**
+
+def record_edit(session_id: str, graph: DraftGraph, *, by: str,
+                expected_revision: int | None = None) -> Edited:
+    """A hand edit to the session's pipeline, **read, not saved** (one builder, #395).
+
+    At any phase — during the walk too — a structural edit is read as intent
+    (`intent.read_edit`) and each reading is offered in the chat, worded by the engine; nothing
+    changes until the person confirms it, and then it is their change like any other, re-planned
+    as a correction is. A typed value is returned for the caller to apply at once. A move or a
+    label is layout: nothing is offered and nothing is written.
     """
-    from mendel_api.services import draft_mutations
+    from mendel_authoring.intent import read_edit
+
+    from mendel_api.services import draft_mutations, registry, suggestions
 
     with session_scope() as db:
         row = draft_mutations.lock_session(db, session_id)
-        draft_mutations.lock(db, row.draft_id, expected_revision=expected_revision)
-        if row.phase == Phase.BUILDING.value:
-            raise ValueError(
-                coded("MI0217", "editing opens when the walk is done")
-                + "\n  change a step's tool, or tell it a fact, on the step's card"
-            )
-        draft = db.get(PipelineDraft, row.draft_id)
+        draft = draft_mutations.lock(db, row.draft_id, expected_revision=expected_revision)
         before = DraftGraph.model_validate(draft.graph)
-        summary = describe_edit(before, graph)
-        if summary is None:
-            return draft.revision
+        if describe_edit(before, graph) is None:
+            return Edited(draft.revision, [], [])
+        sites = bp.Blueprint.model_validate(row.blueprint).sites if row.blueprint else {}
+        readings = read_edit(before, graph, sites, registry.stack().registry)
+        offered = suggestions.offer_edit(session_id, readings) if readings else []
+        return Edited(draft.revision, offered, _values(before, graph))
 
-        draft_mutations.save_in(db, draft, graph=graph)
 
-        seq = _rows.next_seq(db, session_id)
-        db.add(
-            PipelineAuthoringTurn(
-                session_id=session_id,
-                seq=seq,
-                role=TurnRole.ASSISTANT,
-                state=TurnState.ANSWERED.value,
-                blocks=[
-                    {
-                        "kind": "receipt",
-                        "id": f"receipt-{seq}",
-                        "summary": summary,
-                        "revision": draft.revision,
-                        "by": "person",
-                    }
-                ],
-                text="",
-                base_revision=draft.revision,
-                at=_rows.now(),
-            )
-        )
-        return draft.revision
+def _values(before: DraftGraph, after: DraftGraph) -> list[DecisionChange]:
+    """The values typed on steps both graphs hold: set, or cleared."""
+    was = {n.id: {p.name: p.value for p in n.params} for n in before.nodes}
+    out: list[DecisionChange] = []
+    for node in sorted(after.nodes, key=lambda n: n.id):
+        old = was.get(node.id)
+        if old is None:
+            continue
+        now = {p.name: p.value for p in node.params}
+        out += [DecisionChange(kind="parameter", subject=name, value=value)
+                for name, value in sorted(now.items()) if old.get(name) != value]
+        out += [DecisionChange(kind="parameter", subject=name, retract=True)
+                for name in sorted(old.keys() - now.keys())]
+    return out
 
 
 def describe_edit(before: DraftGraph, after: DraftGraph) -> str | None:
@@ -406,7 +405,7 @@ def _choose_pacing(ctx: Ctx, cmd: c.ChoosePacing) -> None:
 
 
 @records(c.RecordEdit)
-def _edit(ctx: Ctx, cmd: c.RecordEdit) -> int:
+def _edit(ctx: Ctx, cmd: c.RecordEdit) -> Edited:
     return record_edit(cmd.session_id, DraftGraph.model_validate(cmd.graph), by=cmd.by,
                        expected_revision=cmd.expected_revision)
 

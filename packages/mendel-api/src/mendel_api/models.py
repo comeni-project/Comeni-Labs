@@ -617,7 +617,11 @@ class PipelineAuthoringSuggestion(Base):
     or the goal card — and suggestions sit beside it. `change` is a `payloads.DecisionChange` dump;
     `heard` says whether it quoted the person (offered rather than recorded only because the goal
     was already confirmed). Applying one is the person's own change; the model is named by
-    `invocation_id`, never recorded as the author."""
+    `invocation_id`, never recorded as the author.
+
+    **A hand edit is offered here too** (one builder, #395): the engine reads the edit
+    (`intent.read_edit`) and each reading is a suggestion with `edit` set — shared by every
+    reading of one edit, taken or set aside together — and `says`, the engine's own sentence."""
 
     __tablename__ = "pipeline_authoring_suggestion"
     shape_version: Mapped[int] = stamp("pipeline_authoring_suggestion")
@@ -630,6 +634,8 @@ class PipelineAuthoringSuggestion(Base):
     heard: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     state: Mapped[str] = mapped_column(_one_of(SuggestionState, 16, "state"), index=True)
     invocation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    edit: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
