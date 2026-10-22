@@ -16,6 +16,8 @@ from comeni_core.plan.draft import DraftGraph
 from comeni_core.spell.marks import TypeId
 from pydantic import BaseModel, ConfigDict
 
+from mendel_authoring.payloads import DecisionChange, source_subject
+
 ReadingKind = Literal["want", "unwant", "pin", "role_absent", "exclude", "source"]
 
 _ORDER: dict[str, int] = {
@@ -32,6 +34,20 @@ class Reading(BaseModel):
     subject: str
     said: str
     intent: RoleAbsence | ProducerExclusion | SourcePin | ProducerPin | TypeId
+
+    def change(self) -> DecisionChange:
+        """What confirming this reading writes, as the change every other path writes."""
+        intent = self.intent
+        if self.kind in ("want", "unwant"):
+            return DecisionChange(kind="want", subject=intent, retract=self.kind == "unwant")
+        if self.kind == "role_absent":
+            return DecisionChange(kind="role", subject=intent.role)
+        if self.kind == "source":
+            return DecisionChange(kind="source", value=intent.producer,
+                                  subject=source_subject(intent.consumer, intent.port))
+        return DecisionChange(kind="pin" if self.kind == "pin" else "exclude",
+                              subject=intent.site.type_id, states=sorted(intent.site.states),
+                              value=intent.contract)
 
 
 def read_edit(

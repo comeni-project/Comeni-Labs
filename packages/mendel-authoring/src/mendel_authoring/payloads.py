@@ -36,7 +36,11 @@ class DecisionChange(_Payload):
     was taken from, already checked (`heard.find`); `retract` removes what `subject` names."""
 
     kind: Literal["want", "input", "measurement", "require", "pin", "parameter", "asked",
-                  "producer", "retain", "observation"]
+                  "producer", "retain", "observation", "role", "exclude", "source"]
+    """`role`, `exclude` and `source` are a person's structural intent (A1), on these fields:
+    a role is its `subject`; an exclusion is a site (`subject` type, `states`) and the tool in
+    `value`, as a pin is; a source is `source_subject(consumer, port)` and the producer in `value`.
+    `retract` withdraws each."""
     subject: str = Field(min_length=1, max_length=256)
     value: HumanParamValue | list[HumanParamValue] | None = None
     states: list[str] = Field(default_factory=list)
@@ -46,6 +50,17 @@ class DecisionChange(_Payload):
     actor: Literal["person", "model"] = "person"
     invocation_id: str | None = None
     observation_id: str | None = None
+
+
+def source_subject(consumer: str, port: str) -> str:
+    """A source pin's subject, and its decision row's key: the consumer and its port."""
+    return f"{consumer}|{port}"
+
+
+def source_of(subject: str) -> tuple[str, str]:
+    """`source_subject`'s consumer and port, back."""
+    consumer, _, port = subject.rpartition("|")
+    return consumer, port
 
 
 class GoalReturned(_Payload):
@@ -61,7 +76,7 @@ class Correction(_Payload):
     value: HumanParamValue | list[HumanParamValue] | None = None
     who: str
     kind: Literal["measurement", "input", "producer", "retain", "observation", "want",
-                  "require", "pin", "parameter", "asked"]
+                  "require", "pin", "parameter", "asked", "role", "exclude", "source"]
     observation_id: str | None = None
     states: list[str] = Field(default_factory=list)
     continuation: Literal["gather", "goal", "build", "complete", "stopped"]

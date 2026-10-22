@@ -8,7 +8,7 @@ measurement refuses with `MI0208`, and nothing is written for either."""
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Site
 from mendel_authoring.decisions import ActorKind, FactOrigin, InputDecision
-from mendel_authoring.payloads import DecisionChange
+from mendel_authoring.payloads import DecisionChange, source_of
 
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
@@ -48,6 +48,17 @@ def _measurement(stack, subject: str, value) -> None:
         raise ValueError(coded("MI0208", f"that answer does not fit {subject}")) from refused
 
 
+def _role(stack, role: str) -> None:
+    if not any(role in c.roles for c in stack.registry.all()):
+        raise ValueError(coded("MI0204", f"no step fills a role called {role}"))
+
+
+def _port(stack, consumer: str, port: str) -> None:
+    _tool(stack, consumer)
+    if not any(p.name == port for p in stack.registry.get(consumer).consumes):
+        raise ValueError(coded("MI0204", f"{consumer} reads nothing called {port}"))
+
+
 def check(change: DecisionChange) -> None:
     """Refuse what names something undeclared, before anything moves (`MI0204`, `MI0208`)."""
     stack = registry.stack()
@@ -60,6 +71,15 @@ def check(change: DecisionChange) -> None:
             _tool(stack, str(change.value))
     elif kind == "parameter":
         _parameter(stack, subject)
+    elif kind == "role":
+        _role(stack, subject)
+    elif kind == "exclude":
+        _type(stack, subject)
+        _tool(stack, str(change.value))
+    elif kind == "source":
+        _port(stack, *source_of(subject))
+        if not change.retract:
+            _tool(stack, str(change.value))
 
 
 def retracts_something(draft_id: str, change: DecisionChange) -> bool:
@@ -79,11 +99,24 @@ def retracts_something(draft_id: str, change: DecisionChange) -> bool:
         return any(p.site.type_id == subject and p.contract for p in current.producers)
     if change.kind == "parameter":
         return any(p.name == subject and p.value is not None for p in current.parameters)
+    if change.kind == "role":
+        return any(r.role == subject and r.absent for r in current.roles)
+    if change.kind == "exclude":
+        return any(e.site == _site(change) and e.contract == change.value and e.excluded
+                   for e in current.exclusions)
+    if change.kind == "source":
+        consumer, port = source_of(subject)
+        return any((s.consumer, s.port) == (consumer, port) and s.producer
+                   for s in current.sources)
     if change.kind == "asked":
         key = " ".join(subject.split()).casefold()
         return any(" ".join(a.phrase.split()).casefold() == key
                    for a in decisions.read_asked(draft_id))
     return True
+
+
+def _site(change: DecisionChange) -> Site:
+    return Site(type_id=change.subject, states=frozenset(change.states))
 
 
 def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
@@ -184,6 +217,21 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         if change.retract:
             return decisions.retract_asked(draft_id, subject, **said) is not None
         decisions.set_asked(draft_id, subject, **said, **heard)
+    elif kind in ("role", "exclude", "source"):
+        check(change)
+        if change.retract:
+            if not retracts_something(draft_id, change):
+                return False
+            family = {"role": "role", "exclude": "exclusion", "source": "source"}[kind]
+            key = (decisions.exclusion_key(_site(change), change.value) if kind == "exclude"
+                   else subject)
+            decisions.release_intent(draft_id, family, key, who=who)
+        elif kind == "role":
+            decisions.switch_off_role(draft_id, subject, **said)
+        elif kind == "exclude":
+            decisions.exclude_producer(draft_id, _site(change), str(change.value), **said)
+        else:
+            decisions.pin_source(draft_id, *source_of(subject), str(change.value), **said)
     elif kind == "retain":
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
@@ -228,6 +276,26 @@ def describe(change: DecisionChange) -> str:
         # The subject is the person's own phrase, which need not read after "you asked for"
         # (#327: "you asked for also I want …").
         return f'not offered here: "{subject}"'
+    if change.kind == "role":
+        role = subject.replace("_", " ")
+        return f"{role} back on" if change.retract else f"no {role} here"
+    if change.kind == "exclude":
+        tool = _process(stack, str(change.value))
+        return (f"{tool} allowed again" if change.retract
+                else f"not {tool} for the {explain.name_of(stack, FactKind.INPUT, subject)}")
+    if change.kind == "source":
+        consumer, port = source_of(subject)
+        if change.retract:
+            return f"{_process(stack, consumer)}'s {port} back to the engine's choice"
+        return (f"{_process(stack, consumer)} reads its {port} from "
+                f"{_process(stack, str(change.value))}")
     if change.kind == "retain":
         return f"kept your selected answer for {subject}"
     return f"selected the evidence for {subject}"
+
+
+def _process(stack, contract: str) -> str:
+    try:
+        return stack.registry.get(contract).nf_process
+    except (KeyError, ValueError):
+        return contract

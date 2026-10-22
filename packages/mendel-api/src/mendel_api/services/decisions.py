@@ -26,6 +26,7 @@ from mendel_authoring.decisions import (
     SourceChoice,
     WantDecision,
 )
+from mendel_authoring.payloads import source_subject
 from sqlalchemy import select
 
 from mendel_api.db import session_scope
@@ -791,7 +792,7 @@ def exclusion_key(site: Site, contract) -> str:
 
 def source_key(consumer, port) -> str:
     """A source pin's subject: the consumer and its port."""
-    return f"{consumer}|{port}"
+    return source_subject(consumer, port)
 
 
 def _withdraw(db, draft, family, key, *, who, actor_kind=ActorKind.PERSON):

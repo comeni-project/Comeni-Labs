@@ -31,8 +31,10 @@ def test_every_kind_is_listed():
 
     declared = set(get_args(DecisionChange.model_fields["kind"].annotation))
     assert set(KINDS) <= declared and KINDS
-    # The remaining kinds belong to the correction section, read through its own tests.
-    assert declared - set(KINDS) == {"producer", "retain", "observation"}
+    # The remaining kinds belong to the correction section, read through its own tests, and to a
+    # person's structural intent (A1), read by the resolver's goal in `test_intent_changes.py`.
+    assert declared - set(KINDS) == {"producer", "retain", "observation",
+                                     "role", "exclude", "source"}
 
 
 def test_a_want_is_read_by_the_goal_the_memory_and_the_card(clean):
