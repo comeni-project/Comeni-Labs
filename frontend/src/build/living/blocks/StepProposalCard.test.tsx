@@ -10,6 +10,7 @@ import { StepProposalCard } from "./StepProposalCard";
 const TIERS = [
   { tier: 1, name: "Forced", group: "Forced by inputs", what: "", colour: "line-2" },
   { tier: 2, name: "Convention", group: "Standard practice", what: "", colour: "line-2" },
+  { tier: 3, name: "Measured", group: "Check the premise", what: "", colour: "measured" },
 ];
 
 function render(ui: React.ReactElement) {
@@ -211,6 +212,16 @@ describe("the step card as the Build board draws it", () => {
     const region = screen.getByRole("region", { name: /step 4/i });
     expect(within(region).getByRole("heading")).toHaveTextContent(/^Step 4 · MULTIQC$/);
     expect(screen.getByTestId("step-tier")).toHaveTextContent(/^convention$/);
+  });
+
+  it("never calls a rule's step measured: its premise may be one you typed (issue 387, as issue 268)", () => {
+    const ruled = proposal();
+    if (ruled.block.kind === "step_proposal") ruled.block.tier = 3;
+    render(
+      <StepProposalCard proposal={ruled} progress={null} busy={false} onAccept={vi.fn()}
+                        onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByTestId("step-tier")).toHaveTextContent(/^check the premise$/);
   });
 
   it("says a step reviewed before is offered again, in its title", () => {

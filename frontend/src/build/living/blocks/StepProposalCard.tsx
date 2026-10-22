@@ -98,7 +98,10 @@ export function StepProposalCard({
         <h3 className="m-0 text-[15px] font-semibold text-ink min-w-0 truncate" title={title}>{title}</h3>
         <span data-testid="step-tier" className="ml-auto shrink-0 rounded-full border px-[9px] py-[1px] text-[11.5px]"
               style={CHIP[block.tier] ?? CHIP[1]}>
-          {tiers.name(block.tier).toLowerCase()}
+          {/* **Never "measured" for a rule's step** (issue 387, as issue 268 settled for the
+              transcript): tier 3's premise may be measured, typed or read by a model, so the chip
+              says what tier 3 asks of a reader — its served group — rather than its name. */}
+          {(block.tier === 3 ? tiers.group(3) : tiers.name(block.tier)).toLowerCase()}
         </span>
       </header>
       <button type="button" data-testid="select-step" onClick={onSelect}
