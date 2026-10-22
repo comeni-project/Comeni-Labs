@@ -310,10 +310,32 @@ export interface paths {
         /**
          * Delete a draft and everything about it, permanently
          * @description **Permanent.** The draft, its conversations, decisions and gate results go; its model
-         *     calls keep their record without their text, and a fork of it keeps what it inherited
-         *     (Part H).
+         *     calls keep their record without their text (Part H).
          */
         delete: operations["deleteDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/drafts/{draft_id}/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a pipeline in the builder: its conversation, or a new one
+         * @description **Every pipeline has a conversation** (one builder, #395). A draft drawn by hand gets one
+         *     with nothing said, which reads the drawing back for the person to confirm; a draft that has
+         *     one is answered with it. Two opens at once make one: the unique index decides, and the
+         *     loser is answered with the winner's.
+         */
+        post: operations["openDraftSession"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -688,8 +710,9 @@ export interface paths {
         put?: never;
         /**
          * Record a direct edit to the session's draft
-         * @description A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
-         *     receipt the server composes — never narrated by a model.
+         * @description A canvas or settings edit (#395). A structural edit is read by the engine and offered in
+         *     the chat — nothing changes until the person confirms it. A typed value is the person's
+         *     change at once, each one command through the correction path.
          */
         post: operations["editAuthoringDraft"];
         delete?: never;
@@ -1131,6 +1154,11 @@ export interface components {
         AuthoringEdited: {
             /** Revision */
             revision: number;
+            /**
+             * Offered
+             * @default []
+             */
+            offered: string[];
         };
         /** AuthoringPosition */
         AuthoringPosition: {
@@ -1235,20 +1263,10 @@ export interface components {
              */
             projection_current: boolean;
             /**
-             * Ownership
-             * @default authored
-             * @enum {string}
-             */
-            ownership: "authored" | "manual";
-            /**
              * Retired
              * @default false
              */
             retired: boolean;
-            /** Forked From */
-            forked_from?: string | null;
-            /** Forked From Session */
-            forked_from_session?: string | null;
             /**
              * Review Applicability
              * @default {}
@@ -1288,8 +1306,6 @@ export interface components {
             placement: {
                 [key: string]: components["schemas"]["AuthoringPosition"];
             };
-            /** Hand Edits */
-            hand_edits?: string | null;
             /** Row Version */
             row_version: number;
             /** Model Configured */
@@ -1330,6 +1346,8 @@ export interface components {
             subject: string;
             /** Measured */
             measured?: number | boolean | string | null;
+            /** Edit */
+            edit?: string | null;
         };
         /** AuthoringTurnView */
         AuthoringTurnView: {
@@ -1763,7 +1781,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source";
             /** Subject */
             subject: string;
             /** Value */
@@ -2064,6 +2082,11 @@ export interface components {
             graph?: components["schemas"]["DraftGraph"] | null;
             /** Name */
             name?: string | null;
+        };
+        /** DraftSession */
+        DraftSession: {
+            /** Session Id */
+            session_id: string;
         };
         /**
          * DraftsPage
@@ -4252,6 +4275,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    openDraftSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftSession"];
+                };
             };
             /** @description The id in the path names nothing. */
             404: {

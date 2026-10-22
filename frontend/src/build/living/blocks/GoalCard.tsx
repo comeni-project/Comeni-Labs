@@ -49,7 +49,6 @@ export function GoalCard({
   onConfirm,
   onReject,
   facts = [],
-  replaces = null,
   subjects = [],
   onCorrectFact,
   declarations,
@@ -64,9 +63,6 @@ export function GoalCard({
   onReject: () => void;
   /** What gathering learned, each with its source (14.7.3). Empty for a goal nobody gathered. */
   facts?: Fact[];
-  /** What was changed by hand since the walk ended; confirming rebuilds the pipeline and
-   *  replaces it, so the card asks first (spec §14.9). */
-  replaces?: string | null;
   /** Facts the engine reads that nobody has given — drawn as open lines. */
   subjects?: string[];
   /** Correct a fact from its line; absent, fact lines are read-only. */
@@ -89,7 +85,6 @@ export function GoalCard({
   // Constraints the model wrote are offered, not applied: only the ones kept reach the goal
   // (issue 176). Keyed on the constraint as spelled.
   const [chosenSuggestions, setChosenSuggestions] = useState<string[]>([]);
-  const [warned, setWarned] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   if (block.kind !== "goal_summary") return null;
 
@@ -111,7 +106,6 @@ export function GoalCard({
   ];
 
   const confirm = () => {
-    if (replaces && !warned) return setWarned(true);
     if (!edited) return onConfirm();
     const goal = block.goal as GoalIn;
     // **An input the person kept keeps its states.** Rebuilding `have` from bare type ids would
@@ -225,20 +219,6 @@ export function GoalCard({
           {edited && <span className="text-[12px] font-semibold text-now-ink">edited</span>}
           <span className="ml-auto text-[12.5px] text-ink-3">Wrong? Click a line to correct it</span>
         </header>
-        {warned && replaces && (
-          <div role="alert" className="mb-3 px-[12px] py-[10px] border rounded-button text-[13px] text-ink"
-               style={{ borderColor: "var(--line-2)", background: "var(--surface-2)" }}>
-            This rebuilds the pipeline and replaces what you changed by hand: {replaces}.
-            <span className="flex gap-2 mt-2">
-              <Primary data-testid="replace-hand-edits" disabled={busy} onClick={confirm}>
-                Replace them
-              </Primary>
-              <Secondary data-testid="keep-hand-edits" onClick={() => setWarned(false)}>
-                Cancel
-              </Secondary>
-            </span>
-          </div>
-        )}
         {/* **The typed goal first** — it is what the pipeline is built from and what the person is
             checking. The sentence beneath says the same thing in words, quieter, for reading. */}
         {group("have", addHave, "what you have")}

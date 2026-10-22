@@ -48,7 +48,7 @@ const key = (sessionId: string) => ["authoring", sessionId] as const;
 /** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
 export const HEAD_BYTES = 4 * 2 ** 20;
 
-export function useAuthoringSession(sessionId: string, options: { pollMs?: number; onFork?: (sessionId: string) => void } = {}) {
+export function useAuthoringSession(sessionId: string, options: { pollMs?: number } = {}) {
   const pollMs = options.pollMs ?? POLL_MS;
   const client = useQueryClient();
   const [state, dispatch] = useReducer(authoringReducer, initialAuthoring);
@@ -199,10 +199,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
         `/pipeline/authoring/${sessionId}/${path}`, { ...context, ...(input.release ?? { value: input.value,
           ...(input.proposal ? { option: input.option } : { kind: input.kind }) }) });
     },
-    onSuccess: answer => {
-      if (answer.session_id !== sessionId) options.onFork?.(answer.session_id);
-      else void refresh();
-    },
+    onSuccess: () => void refresh(),
     onError: error => {
       dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
       void refresh();

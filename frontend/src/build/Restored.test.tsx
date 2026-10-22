@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
-import { routes } from "../app/router";
+import { manualRoutes as routes } from "./manualRoutes.testing";
 
 /** **Four things the plan cut and the operator put back.**
  *

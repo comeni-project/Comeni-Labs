@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
-import { routes } from "../app/router";
+import { manualRoutes as routes } from "./manualRoutes.testing";
 
 /** **The screen now edits a GRAPH**, so the fixture needs steps rather than only a layout.
  *

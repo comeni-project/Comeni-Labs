@@ -40,7 +40,6 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
         void onRelease(pin.site.type_id, pin.site.states).catch(failure => setError(String(failure)));
       }}>Release this tool choice</button>}
     </p>)}
-    {session.ownership === "manual" && <p>Corrections open a new linked draft and preserve your manual work.</p>}
     {[...inputs.map(input => ({ subject: input.key, label: input.name ?? input.type_id,
       value: input.origin === "open" ? null : input.present, source: input.origin, kind: "input" as const })),
     ...facts.map(fact => ({ subject: fact.subject, label: fact.subject, value: fact.value ?? null,

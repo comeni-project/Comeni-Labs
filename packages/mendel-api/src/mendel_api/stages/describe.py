@@ -46,7 +46,7 @@ def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
     **One session per draft**, which the unique index enforces and this refuses first, so a
     person reads a sentence rather than a constraint violation.
     """
-    if start != "say":
+    if start not in ("say", "draw"):
         raise ValueError("unsupported initial authoring node")
     with session_scope() as session:
         if session.get(PipelineDraft, draft_id) is None:
@@ -69,8 +69,11 @@ def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
             PipelineAuthoringSession(
                 id=session_id,
                 draft_id=draft_id,
-                phase=Phase.UNDERSTANDING.value,
-                at=start,
+                # **Drawn by hand** (#395): nothing to understand or walk, so the conversation
+                # rests where a built pipeline does, at the wrap-up, where every change and
+                # correction already starts.
+                phase=(Phase.COMPLETE if start == "draw" else Phase.UNDERSTANDING).value,
+                at="wrap" if start == "draw" else start,
                 failed_from=None,
                 blueprint={},
                 registry_digest="",
@@ -320,6 +323,34 @@ def _spoken(turn: PipelineAuthoringTurn) -> str:
 @records(c.OpenSession)
 def _open(ctx: Ctx, cmd: c.OpenSession) -> str:
     ctx.session_id = open_session(cmd.draft_id, who=cmd.who)
+    return ctx.session_id
+
+
+def session_of(draft_id: str) -> str | None:
+    with session_scope() as db:
+        return db.scalar(select(PipelineAuthoringSession.id).where(
+            PipelineAuthoringSession.draft_id == draft_id))
+
+
+@records(c.OpenDrawn)
+def _open_drawn(ctx: Ctx, cmd: c.OpenDrawn) -> str:
+    """The draft's conversation, or a new one with nothing said. **A drawing is the person's
+    goal**, so it is confirmed as theirs, and what was drawn is read back whole
+    (`intent.read_graph`) and offered for them to confirm, as any hand edit is."""
+    from mendel_authoring.intent import read_graph
+
+    from mendel_api.services import decisions, registry, suggestions
+
+    existing = session_of(cmd.draft_id)
+    if existing is not None:
+        return existing
+    ctx.session_id = open_session(cmd.draft_id, who=cmd.who, start="draw")
+    decisions.confirm(cmd.draft_id)
+    with session_scope() as db:
+        graph = DraftGraph.model_validate(db.get(PipelineDraft, cmd.draft_id).graph or {})
+    readings = read_graph(graph, registry.stack().registry)
+    if readings:
+        suggestions.offer_edit(ctx.session_id, readings)
     return ctx.session_id
 
 

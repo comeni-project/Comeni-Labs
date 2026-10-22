@@ -109,18 +109,6 @@ describe("the goal card", () => {
   const goal = guidedStart().pending_proposal!;
   const vocabulary = { "counts.matrix": ["gene_level"], "qc.report": ["aggregated"] };
 
-  it("asks before a changed goal replaces what was edited by hand (spec §14.9)", () => {
-    const onConfirm = vi.fn();
-    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={onConfirm}
-                    onReject={vi.fn()} replaces="you removed MULTIQC" />);
-    fireEvent.click(screen.getByTestId("accept-goal"));
-    expect(onConfirm).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "This rebuilds the pipeline and replaces what you changed by hand: you removed MULTIQC");
-    fireEvent.click(screen.getByTestId("replace-hand-edits"));
-    expect(onConfirm).toHaveBeenCalledWith();
-  });
-
   it("confirms an unedited goal without sending one", () => {
     const onConfirm = vi.fn();
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={onConfirm}

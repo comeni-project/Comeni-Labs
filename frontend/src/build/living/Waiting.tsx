@@ -153,7 +153,6 @@ export function Waiting({
             onStart?.();
             onAccept(pending, "keep", edited);
           }}
-          replaces={session.hand_edits ?? null}
           onReject={() => onReject(pending)}
         />
       )}

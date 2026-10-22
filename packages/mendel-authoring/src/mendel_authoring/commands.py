@@ -23,6 +23,15 @@ class OpenSession:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenDrawn:
+    """A draft's conversation, opened with nothing said if it has none (one builder, #395)."""
+
+    draft_id: str
+    who: str
+    takes: ClassVar[frozenset[Command]] = _NONE
+
+
+@dataclass(frozen=True, slots=True)
 class Begin:
     prompt: str
     who: str
@@ -304,6 +313,7 @@ class Change:
 
 COMMANDS: tuple[type, ...] = (
     OpenSession,
+    OpenDrawn,
     Begin,
     Say,
     AnswerTurn,

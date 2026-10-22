@@ -1,7 +1,6 @@
 import { type RouteObject } from "react-router";
 
 import { Home } from "../home/Home";
-import { LivingBuilder } from "../build/living/LivingBuilder";
 import { Board as Runs } from "../runs/Board";
 import { Run } from "../runs/Run";
 import { BuildRoute } from "./BuildRoute";
@@ -18,9 +17,6 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <Home /> },
       { path: "/build", element: <BuildRoute /> },
-
-      // The conversational builder is also reachable through this explicit route.
-      { path: "/build/living", element: <LivingBuilder /> },
       { path: "/runs", element: <Runs /> },
       { path: "/runs/:id", element: <Run /> },
 

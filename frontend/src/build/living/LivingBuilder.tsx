@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useReducer, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { post } from "../../api/client";
 import type { AuthoringBlock, AuthoringSession, Built, DraftGraph } from "../../api/types";
@@ -23,7 +23,7 @@ type ChangeBlock = Extract<AuthoringBlock, { kind: "change_set" }>;
 
 const EMPTY_GRAPH: DraftGraph = { nodes: [], edges: [] };
 
-/** `/build/living` — a secondary route while `/build` stays exactly as it is.
+/** The one builder at `/build` (#395; `BuildRoute` opens every pipeline here).
  *
  * `?session=<id>` restores a live authoring session. `?fake=1` opens a static session carrying
  * every block state (Task 9's checkpoint, and what the artboard comparison renders); `?fake=guided`
@@ -56,10 +56,7 @@ function idFor(graph: DraftGraph, contract: string): string {
 }
 
 function LiveLiving({ sessionId }: { sessionId: string }) {
-  const navigate = useNavigate();
-  const living = useAuthoringSession(sessionId, {
-    onFork: id => navigate(`/build/living?session=${encodeURIComponent(id)}`),
-  });
+  const living = useAuthoringSession(sessionId);
   const [sheet, setSheet] = useState(false);
   // **The run sheet reads the saved draft**, never the frame's preview metadata, and is asked
   // only when it opens: the canvas itself never calls the draw endpoint.

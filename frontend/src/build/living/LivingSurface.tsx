@@ -226,8 +226,6 @@ export function LivingSurface({
       {session.projection_current === false && <p role="status" className="mx-4 mt-3 mb-0 text-[12px] text-ink-2">
         Pipeline outdated. Your answers are saved; follow the Step panel to provide missing inputs or release a tool choice.
       </p>}
-      {session.forked_from_session && <a className="mx-4 mt-3 text-[12px] text-now-ink underline"
-        href={`/build/living?session=${encodeURIComponent(session.forked_from_session)}`}>Open preserved manual work</a>}
     </>
   );
   const waiting = {

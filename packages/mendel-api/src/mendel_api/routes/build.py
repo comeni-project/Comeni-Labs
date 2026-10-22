@@ -238,9 +238,43 @@ def read_draft(draft_id: str) -> DraftOut:
                summary="Delete a draft and everything about it, permanently", responses=REFUSES)
 def delete_draft(draft_id: str) -> None:
     """**Permanent.** The draft, its conversations, decisions and gate results go; its model
-    calls keep their record without their text, and a fork of it keeps what it inherited
-    (Part H)."""
+    calls keep their record without their text (Part H)."""
     deletion.delete_draft(draft_id)
+
+
+class DraftSession(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    session_id: str
+
+
+@router.post("/drafts/{draft_id}/session", operation_id="openDraftSession",
+             summary="Open a pipeline in the builder: its conversation, or a new one",
+             responses=REFUSES)
+def open_draft_session(draft_id: str) -> DraftSession:
+    """**Every pipeline has a conversation** (one builder, #395). A draft drawn by hand gets one
+    with nothing said, which reads the drawing back for the person to confirm; a draft that has
+    one is answered with it. Two opens at once make one: the unique index decides, and the
+    loser is answered with the winner's."""
+    from mendel_authoring import commands as c
+    from sqlalchemy.exc import IntegrityError
+
+    from mendel_api.services import session
+    from mendel_api.stages import describe
+
+    try:
+        draft_service.read(draft_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+    try:
+        opened = session.perform(c.OpenDrawn(draft_id, identity.default_author())).result
+    except (IntegrityError, ValueError):
+        # The other open won, at the index (`IntegrityError`) or at `open_session`'s own check
+        # (`MI0200`); anything else leaves no session and is raised.
+        opened = describe.session_of(draft_id)
+        if opened is None:
+            raise
+    return DraftSession(session_id=opened)
 
 
 @router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a checked draft",

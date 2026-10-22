@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
-import { routes } from "../app/router";
+import { manualRoutes as routes } from "./manualRoutes.testing";
 
 const node = (id: string, x: number, y: number, tier: number) => ({
   id, rank: 0, order: 0, x, y, width: 232, height: 56, tier,
