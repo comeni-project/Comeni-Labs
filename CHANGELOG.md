@@ -45,6 +45,10 @@ or a complete commit history.
 - Contract declarations include parameter destinations (`ext`, `meta`, `directive`), fixed
   arguments, input-placeholder reasons and pinned test data.
 
+- `OMITTABLE` names the routes on which an unanswered setting is optional: the emitter writes
+  nothing and the tool keeps its own behaviour (`ext`, `directive`)
+  ([#384](https://github.com/comeni-project/Comeni-Labs/issues/384)).
+
 #### Changed
 
 - The saved artifact schema is now version 7: `intent` (what is wanted) and `facts` (inputs
@@ -169,6 +173,15 @@ or a complete commit history.
 - Database constraints and migrations align stored enums, JSON shapes and ownership keys.
   Invalid phase filters return a validation response rather than a server error.
 
+- An unanswered setting on a route that leaves the tool its own behaviour is optional:
+  `SettingView.optional`, counted apart in `Provenance.optional`, and not named in a pipeline's
+  `open_values` ([#384](https://github.com/comeni-project/Comeni-Labs/issues/384)). Saved
+  proposal previews move to shape 2. A step card says a setting stays unset only when it may.
+- `DraftRow.session` names the conversation a pipeline was built in
+  ([#390](https://github.com/comeni-project/Comeni-Labs/issues/390)).
+- `SettingView.evidence` says how good the facts a rule read were: *measured* only when every
+  one was measured ([#397](https://github.com/comeni-project/Comeni-Labs/issues/397)).
+
 #### Removed
 
 - The separate module source-root setting and mount; registry layers carry module source.
@@ -272,6 +285,18 @@ or a complete commit history.
 
 - The canvas uses a consistent frame for retained and previewed pipelines. Session answers,
   progress and alternative views reflect saved state; duplicate React keys are corrected.
+
+- From the walk of the redesign with a real model
+  ([#384](https://github.com/comeni-project/Comeni-Labs/issues/384)–[#390](https://github.com/comeni-project/Comeni-Labs/issues/390)):
+  Run stays locked and the build says *built*, not *complete*, while a value needs you, and the
+  panel names the step that does; an optional value is asked as optional and says what happens
+  if it is left; after *Add it* the panel follows the next offer; a step card leads with what
+  the tool does and says nothing twice; a wire passing a column turns in the gap before its
+  target; the session canvas draws the minimap; Home and ⌘K open a pipeline in its conversation.
+- A rule's value or step is never called *measured* because of its tier: its premise may be one
+  you typed. Counts and chips follow what the rule read
+  ([#387](https://github.com/comeni-project/Comeni-Labs/issues/387),
+  [#397](https://github.com/comeni-project/Comeni-Labs/issues/397); a regression of #268).
 
 #### Changed
 
