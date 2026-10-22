@@ -10,7 +10,7 @@ from mendel_authoring.decisions import FactOrigin
 from mendel_authoring.diff import diff_of
 from mendel_authoring.payloads import DecisionChange
 from mendel_authoring.types import Command, Phase, ProposalState
-from mendel_resolver.router import UnroutableError, UnroutablePinError
+from mendel_resolver.router import IntentConflict, UnroutableError, UnroutablePinError
 from sqlalchemy import select
 
 from mendel_api.authoring.types import Receipt
@@ -355,6 +355,11 @@ def resolve_correction(ctx: Ctx):
                 )
                 if was_active and not remains_active:
                     raise UnroutablePinError(f"your choice {pin.contract} is no longer reachable")
+        except IntentConflict as conflict:
+            # **A person's structural intent the engine cannot honour is refused whole** (#395):
+            # the command rolls back, so the intent is not kept and the reading still waits, and
+            # the person reads the coded reason. Never saved as a goal nothing can build.
+            raise ValueError(str(conflict)) from conflict
         except UnroutableError as missing:
             subject = missing.missing[0] if missing.missing else None
             ctx.payload = change.model_copy(

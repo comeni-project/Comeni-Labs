@@ -2,6 +2,8 @@
 means, offers the reading in the chat in its own words, and nothing changes until the person
 confirms it. Confirmed, it is the person's change, re-planned as a correction is."""
 
+import json
+
 from mendel_api_tests.http import _building, _session, needs_db
 from mendel_api_tests.http import clean as clean
 from mendel_api_tests.http import client as client
@@ -151,3 +153,68 @@ def test_a_typed_value_is_applied_at_once_as_the_persons(client, clean, queue, m
                if p.name == "seq_platform"]
     assert value.value == "ILLUMINA"
     assert _session(client, building["id"])["suggestions"] == []
+
+
+# ── Task 4: a confirmed reading re-plans; a conflict is said, not swallowed ────────────────
+
+
+def _confirm(client, building, edited):
+    _edit(client, building, edited)
+    [first, *_] = _session(client, building["id"])["suggestions"]
+    return _decide(client, building, first["id"], "apply")
+
+
+@needs_db
+def test_confirming_trimming_off_re_plans_without_trimgalore(client, clean, queue, monkeypatch):
+    building = _walked(client, _building(client, queue, monkeypatch)[0], "star_align")
+    response = _confirm(client, building, _without(building["graph"], "trimgalore"))
+    assert response.status_code == 200, response.text
+    after = _session(client, building["id"])
+    assert "trimgalore" not in {n["id"] for n in after["graph"]["nodes"]}
+    from mendel_api.services import decisions
+
+    assert [r.role for r in decisions.goal(building["draft_id"]).constraints.absent_roles] == [
+        "trimming"]
+    assert after["suggestions"] == []
+
+
+@needs_db
+def test_confirming_star_excluded_mid_walk_offers_the_next_aligner(
+        client, clean, queue, monkeypatch):
+    # The sorter drawn, so STAR's output has a reader: removing it is excluding it, not
+    # unwanting the alignments.
+    building = _walked(client, _building(client, queue, monkeypatch)[0], "samtools_sort")
+    response = _confirm(client, building, _without(building["graph"], "star_align"))
+    assert response.status_code == 200, response.text
+    after = _session(client, building["id"])
+    assert "star_align" not in {n["id"] for n in after["graph"]["nodes"]}
+    assert after["pending_proposal"]["block"]["node"].startswith("hisat2")
+    # HISAT2's index comes first; its aligner's card says why it is there.
+    from mendel_api.services import session as facade
+    from mendel_authoring import commands
+
+    for _ in range(3):
+        picture = facade.read(building["id"])
+        if picture["pending_proposal"]["payload"]["node"] == "hisat2_align":
+            break
+        facade.perform(commands.SettleStep(picture["pending_proposal"]["id"],
+                                           picture["revision"], "ana"))
+    card = _session(client, building["id"])["pending_proposal"]["block"]
+    assert card["node"] == "hisat2_align"
+    assert "you excluded nf-core/star/align@1.11.0 here" in json.dumps(card)
+
+
+@needs_db
+def test_confirming_an_impossible_exclusion_is_refused_with_its_code_and_writes_nothing(
+        client, clean, queue, monkeypatch):
+    """Review Focus 2: the only sorter excluded (MD0320)."""
+    building = _walked(client, _building(client, queue, monkeypatch)[0],
+                       "subread_featurecounts")
+    response = _confirm(client, building, _without(building["graph"], "samtools_sort"))
+    assert response.status_code == 422
+    assert "MD0320" in response.json()["detail"]
+    from mendel_api.services import decisions
+
+    assert decisions.goal(building["draft_id"]).constraints.exclusions == []
+    [waiting] = _session(client, building["id"])["suggestions"]
+    assert waiting["kind"] == "exclude"
