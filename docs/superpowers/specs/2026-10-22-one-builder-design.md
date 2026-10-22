@@ -38,7 +38,7 @@ available; the problem is clutter, not too much information.
 ## Non-goals
 
 - New editing capabilities, new AI points, or new kinds of model call.
-- A new resolver, new tiers or new rules. The engine's decisions stay as they are.
+- New tiers or new rules. The resolver gains only the three kinds of person intent below.
 - Accounts, protection levels above 0, or the forge (#360).
 - Runs, Settings and Home beyond the links that open a pipeline.
 
@@ -90,6 +90,34 @@ available; the problem is clutter, not too much information.
   again, and what depends on it is re-checked by the engine as a correction is today. The fork
   is removed.
 
+### Structural hand edits are intent the engine honours (operator: A, then A1)
+
+Every hand edit is allowed at any time and **kept through every re-plan**. The operator chose
+the long-term design (A1) over replaying edits as patches (A2): a structural edit is read as
+**intent in the goal**, so the engine plans around it rather than re-applying a patch to a plan
+that has changed shape.
+
+| Hand edit | Read as | Mechanism |
+|---|---|---|
+| add a step making a new output | also want *X*, made by *Y* | `want` + `ProducerPin` (exist) |
+| remove a step whose output was wanted | no longer want *X* | retract want (exists) |
+| remove a step filling an optional role | no *role* here | **new**: a person's role absence, the same semantics as a rule's `presence: absent` (`resolve.py`, `absent_roles`) |
+| remove a step the plan needs | not *contract* at this site | **new**: `ProducerExclusion(site, contract)`; the router takes the next candidate, or the conflict is asked |
+| rewire a port, or insert a step between two | feed this port from *Y* | **new**: a person's source pin, beside the tie-only `SourceDecision` |
+| swap a tool, type a value | as today | `ProducerPin`, parameter answer (exist) |
+| drag, tidy, fit | layout only | no decision |
+
+- **The reading is visible before it counts.** The chat says how an edit was read ("So you never
+  want trimming here — right?"), composed by the engine, and the person confirms or corrects it;
+  it is then recorded as the person's decision, at tier 4 where it overrides the engine (as a
+  `ProducerPin` is), with who and when.
+- **Conflicts are asked, never resolved silently**: an exclusion with no other candidate, a role
+  absence a wanted output needs, a source pin whose types no longer match after a re-plan.
+- **No new place to keep them**: the three new kinds live in the goal's constraints beside
+  `producers`, in the decision rows like the existing families, so replay stays goal-based.
+- During the walk, a structural edit is read and confirmed in the chat like any other change;
+  the step on offer is re-planned against the new intent.
+
 ### The chat (#392), Describe's questions (#391) and the build's offers
 
 - **One stream, from the first sentence to the last step** (recommended by Claude, operator
@@ -139,8 +167,10 @@ available; the problem is clutter, not too much information.
 - **Announcements are engine-composed** from what was recorded ("Got it, 150 bp — added to what
   I understood"), so the engine's decision logic is unchanged; the model words questions,
   reads answers and explains, as today.
-- **One written design, one plan, built in stages**: the merge first (everything else sits in
-  the one builder), then the chat and Describe, then the hand-over, then the pipeline file.
+- **One written design, a plan per stage**, each written when its stage starts: (1) structural
+  intent in the engine (A1, pure resolver work), (2) one builder and no fork, on top of it,
+  (3) the chat as one stream and Describe, mockups first, (4) the hand-over, (5) the pipeline
+  file, mockups first.
 - **Old forked drafts stay separate pipelines** (no migration back into a parent).
 
 ## Left to the builder
@@ -157,8 +187,6 @@ available; the problem is clutter, not too much information.
 
 ## Open questions for the plan to settle (not product choices)
 
-- How a hand edit made **while** a step is on offer interacts with that offer (re-offer,
-  re-check, or retire it) — follow what a correction does today and say which in the plan.
 - Which existing tests and guards encode the fork and `ownership = "manual"`; they change with
   this design and are listed in the plan, not silently deleted.
 
