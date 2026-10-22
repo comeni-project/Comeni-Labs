@@ -289,17 +289,37 @@ def test_dragging_reads_as_nothing(): ...
 
 ### Task 7: Records
 
-- [ ] `docs/reference/` page for `pipeline.yml` (find with `rg -l "producers:" docs/reference`):
+- [x] `docs/reference/` page for `pipeline.yml` (find with `rg -l "producers:" docs/reference`):
   the three constraint lists, version 8.
-- [ ] `docs/explanation/invariants.md` only if a claim there changed (verify; do not add prose).
-- [ ] `CHANGELOG.md` under comeni-core, mendel-resolver, mendel-authoring, mendel-api.
-- [ ] Guard-ledger rows for the conflict and inert tests (each run once against the code with
+- [x] `docs/explanation/invariants.md` only if a claim there changed (verify; do not add prose).
+- [x] `CHANGELOG.md` under comeni-core, mendel-resolver, mendel-authoring, mendel-api.
+- [x] Guard-ledger rows for the conflict and inert tests (each run once against the code with
   its check removed).
-- [ ] `make check`, then **`make verify`** (the saved schema and resolution changed; needs Docker
+- [x] `make check`, then **`make verify`** (the saved schema and resolution changed; needs Docker
   and Nextflow).
-- [ ] Commit `docs: structural intent (A1) — reference, changelog, guard ledger`; tick this plan;
+- [x] Commit `docs: structural intent (A1) — reference, changelog, guard ledger`; tick this plan;
   record the real cost against the estimate in *Deviations*.
 
 ## Deviations
 
-(none yet)
+- **Task 1:** the version-7 fixtures were the current format, so `test_pipeline_v7.py` and
+  `pipeline-v7/` became v8 (7 joins the refused versions). Turn blocks embed a goal, so they moved
+  to shape 3 (an identity upgrade, after `a9d4e2c7b318`). The egress guard argues for a role name
+  at the authoring door. The starter's `Literal[7]` became 8.
+- **Task 2:** the role that blocks a goal is found by re-routing without each person absence, in
+  sorted order: the router's error carries no cause.
+- **Task 3:** a node's reason is `selection.reason` (the plan said `why.reason`);
+  `inert_intents` takes the registry as a third argument.
+- **Task 4:** the insertion case uses a test layer adding `lab/markdup` (the shipped registry has
+  one sorter). A source pin equal to the engine's pick records nothing. The router forces the
+  pinned producer through `satisfy(only=…)`.
+- **Task 5:** the session-read query baseline rose 50 → 62 and 62 → 77 (three families per
+  decisions read). `test_old_forge_gone` migrates to its own revision, not `head`. Role and source
+  revision tables carry no shape stamp (no JSON). `intent_history` was added (`history()` reads only
+  facts and inputs). Autogenerate's duplicate enum checks and skipped `use_alter` keys were fixed by
+  hand, after `b4e8c2a6d917`.
+- **Task 6:** "dragging reads as nothing" became "an unchanged graph reads as nothing" (a draft holds
+  no positions). A removal is a role absence only when the step refines its input.
+- **Review (self, no subagent):** a swap on a hand-added step read as nothing; fixed test-first.
+  Deferred minors are #398.
+- **Cost:** estimated large; it took one long session, with a usage-limit pause in Task 5.
