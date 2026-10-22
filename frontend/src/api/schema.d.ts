@@ -2024,6 +2024,8 @@ export interface components {
             makes?: string[];
             /** Kept */
             kept: boolean;
+            /** Session */
+            session?: string | null;
             /**
              * Changed Since Kept
              * @default false

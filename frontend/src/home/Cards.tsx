@@ -2,6 +2,7 @@ import { Link } from "react-router";
 
 import type { components } from "../api/schema";
 import type { components as wiener } from "../wiener/api/schema";
+import { pipelineAddress } from "../build/address";
 
 type DraftRow = components["schemas"]["DraftRow"];
 type RunRow = wiener["schemas"]["RunRow"];
@@ -96,7 +97,7 @@ export function NeedsYouCard({ drafts }: { drafts: DraftRow[] }) {
                 {settings.length ? settings.join(", ") : `${d.open_not_named} ${d.open_not_named === 1 ? "value" : "values"}`}
                 {settings.length > 0 && d.open_not_named > 0 && ` and ${d.open_not_named} more`}
               </span>
-              <Link to={`/build?draft=${d.id}`} className={`${LINK} ml-auto shrink-0`}>Answer</Link>
+              <Link to={pipelineAddress(d)} className={`${LINK} ml-auto shrink-0`}>Answer</Link>
             </li>
           );
         })}

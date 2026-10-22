@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { components } from "../api/schema";
 import type { components as wiener } from "../wiener/api/schema";
 import { DeleteDraft } from "./DeleteDraft";
+import { pipelineAddress } from "../build/address";
 
 type DraftRow = components["schemas"]["DraftRow"];
 type RunRow = wiener["schemas"]["RunRow"];
@@ -132,7 +133,7 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
                      style={{ background: waiting > 0 ? "var(--needs-you)" : "var(--done)" }} />
                 </td>
                 <td className={CELL}>
-                  <Link to={`/build?draft=${row.id}`} className="text-ink no-underline lift
+                  <Link to={pipelineAddress(row)} className="text-ink no-underline lift
                                                                  inline-block px-1 -mx-1 rounded-button">
                     {row.name || row.id.slice(0, 8)}
                   </Link>

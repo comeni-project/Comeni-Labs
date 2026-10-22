@@ -9,7 +9,7 @@ import { routes } from "./router";
 /** Jump to a pipeline or run (redesign part 2, #372): the lists Home reads, filtered as you type. */
 const DRAFTS = [
   { id: "d1", name: "rnaseq-star", updated_at: "2026-10-18T10:00:00Z", steps: 6 },
-  { id: "d2", name: "chip-peaks", updated_at: "2026-10-19T10:00:00Z", steps: 3 },
+  { id: "d2", name: "chip-peaks", updated_at: "2026-10-19T10:00:00Z", steps: 3, session: "s2" },
 ];
 const RUNS = [
   { id: "b71e04d2aaaa", name: "star-test", phase: "running", submitted_at: "2026-10-19T09:00:00Z" },
@@ -87,14 +87,14 @@ describe("jump to a pipeline or run", () => {
     expect(screen.queryByRole("dialog", { name: /jump/i })).toBeNull();
   });
 
-  it("opens a pipeline at its builder address", async () => {
+  it("opens a pipeline built in a conversation in that conversation (issue 390)", async () => {
     const router = at("/build");
     press();
     await userEvent.type(await screen.findByRole("combobox"), "chip");
     await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
     await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(router.state.location.pathname + router.state.location.search)
-      .toBe("/build?draft=d2"));
+      .toBe("/build?session=s2"));
   });
 
   it("still lists pipelines when runs cannot be read", async () => {

@@ -36,7 +36,7 @@ from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_api.db import session_scope
-from mendel_api.models import PipelineDraft
+from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import decisions, registry
 from mendel_api.services import validate as validation
 from mendel_api.settings import settings
@@ -138,6 +138,10 @@ class DraftRow(BaseModel):
 
     kept: bool
     """Whether `keep` has ever written an artifact for this draft — `PipelineDraft.kept_at`."""
+    session: str | None = None
+    """The conversation this pipeline was built in, if any (#390): the newest authoring session
+    on this draft. Home opens it there; a pipeline drawn by hand has none, and opens on the
+    canvas."""
     changed_since_kept: bool = False
     """Whether the graph differs from the one that was kept (issue 277), compared by content, so
     the digest and outputs beside it describe an older state. Always false for an unkept draft."""
@@ -258,11 +262,18 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
              row.kept_at is not None, row.kept_graph, row.kept_digest)
             for row in rows
         ]
+        # The newest conversation on each listed draft; later rows win.
+        conversations = dict(
+            session.query(PipelineAuthoringSession.draft_id, PipelineAuthoringSession.id)
+            .filter(PipelineAuthoringSession.draft_id.in_([row.id for row in rows]))
+            .order_by(PipelineAuthoringSession.created_at, PipelineAuthoringSession.id)
+            .all()
+        )
 
     out: list[DraftRow] = []
     for draft_id, name, who, updated_at, graph, was_kept, kept_graph, digest in listed:
         row = DraftRow(id=draft_id, name=name, who=who, updated_at=updated_at,
-                       steps=len(graph.nodes), kept=False)
+                       steps=len(graph.nodes), kept=False, session=conversations.get(draft_id))
         artifact = _output_root() / draft_id / "pipeline.yml"
         if was_kept and artifact.is_file():
             kept = pipeline_file.load(artifact)

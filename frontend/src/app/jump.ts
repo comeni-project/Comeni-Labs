@@ -1,5 +1,6 @@
 import type { components } from "../api/schema";
 import type { components as wiener } from "../wiener/api/schema";
+import { pipelineAddress } from "../build/address";
 
 type DraftRow = components["schemas"]["DraftRow"];
 type RunRow = wiener["schemas"]["RunRow"];
@@ -33,7 +34,7 @@ export function jumpTargets(query: string, drafts: DraftRow[], runs: RunRow[]): 
     .filter((d) => !q || d.name.toLowerCase().includes(q))
     .slice(0, EACH)
     .map((d): Target => ({
-      kind: "pipeline", id: d.id, label: d.name, detail: `${d.steps} steps`, to: `/build?draft=${d.id}`,
+      kind: "pipeline", id: d.id, label: d.name, detail: `${d.steps} steps`, to: pipelineAddress(d),
     }));
   const found = runs
     .filter((r) => !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().startsWith(q))

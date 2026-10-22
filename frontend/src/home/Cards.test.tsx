@@ -27,7 +27,7 @@ describe("Needs you", () => {
   it("names each pipeline's waiting settings, with a way to answer them", () => {
     draw(<NeedsYouCard drafts={[
       draft("a1", "atac-peaks", [{ step: "macs2", setting: "fragment_size" }, { step: "x", setting: "strandedness" }]),
-      draft("b2", "16s-profile", [], 2),
+      { ...draft("b2", "16s-profile", [], 2), session: "s2" },
       draft("c3", "settled", []),
     ]} />);
     const card = screen.getByRole("region", { name: "Needs you" });
@@ -36,6 +36,7 @@ describe("Needs you", () => {
     expect(rows[0]).toHaveTextContent("atac-peaks");
     expect(rows[0]).toHaveTextContent("fragment_size, strandedness");
     expect(within(rows[0]).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/build?draft=a1");
+    expect(within(rows[1]).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/build?session=s2");
     expect(rows[1]).toHaveTextContent("2 values");
     expect(card).toHaveTextContent("No rule could settle these, so nothing runs until someone answers.");
   });
