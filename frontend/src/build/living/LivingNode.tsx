@@ -6,7 +6,7 @@ import { processName } from "./format";
 export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
 
 /** The step's values by how they were decided: tiers 1–2 settled, tier 3 measured, tier 4 open. */
-export type Counts = { settled: number; measured: number; open: number; optional?: number };
+export type Counts = { settled: number; measured: number; open: number; optional?: number; read?: number };
 
 /** One step on the living canvas — the 172×112 symbol every canvas in the product draws.
  *
@@ -178,6 +178,7 @@ function CountWords({ counts }: { counts: Counts }) {
   const parts = [
     counts.open > 0 && <span key="open" className="font-semibold text-needs-you-ink">{counts.open} needs you</span>,
     counts.measured > 0 && <span key="measured" className="font-semibold text-measured-ink">{counts.measured} measured</span>,
+    (counts.read ?? 0) > 0 && <span key="read" className="text-ink-2">{counts.read} read by AI</span>,
     (counts.optional ?? 0) > 0 && <span key="optional" className="text-ink-2">{counts.optional} optional</span>,
     counts.settled > 0 && <span key="settled" className="text-ink-2">{counts.settled} settled</span>,
   ].filter(Boolean) as React.ReactElement[];

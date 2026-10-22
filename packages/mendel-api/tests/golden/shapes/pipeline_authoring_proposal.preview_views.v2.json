@@ -554,6 +554,22 @@
           ],
           "default": null
         },
+        "evidence": {
+          "anyOf": [
+            {
+              "enum": [
+                "measured",
+                "read_by_ai",
+                "not_measured"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "name": {
           "type": "string"
         },

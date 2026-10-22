@@ -74,6 +74,7 @@ export function PipelineFile({
             <p className="m-0 mt-2 text-[13px] text-ink-2">
               {values.settled} settled by a rule, a convention or you ·{" "}
               <span className="text-measured-ink">{values.measured} measured from your files</span> ·{" "}
+              {values.read > 0 && <>{values.read} read by AI from your sample · </>}
               {values.optional > 0 && <>{values.optional} optional · </>}
               {values.open > 0
                 ? <span className="text-needs-you-ink">{values.open} {values.open === 1 ? "needs" : "need"} you</span>
@@ -214,7 +215,7 @@ function StepValues({ step, settings }: { step: AnsweredStep; settings: Answered
                       {setting.value ?? "null"}
                     </td>
                     <td className="px-3 py-[10px] align-top">
-                      <How setting={setting} open={isOpen} name={optionalOpen(setting) ? "optional" : tiers.name(setting.tier)} />
+                      <How setting={setting} open={isOpen} name={chipWords(setting, tiers)} />
                     </td>
                     <td className="px-5 py-[10px] text-[13px] text-ink-2 align-top">
                       {setting.reason}
@@ -233,13 +234,22 @@ function StepValues({ step, settings }: { step: AnsweredStep; settings: Answered
   );
 }
 
+/** The words on a value's chip. **A rule's value is named by its evidence, never its tier**
+ *  (issue 397, as issue 268): *measured* only when what it read was measured. */
+function chipWords(setting: Answered, tiers: ReturnType<typeof useTiers>): string {
+  if (optionalOpen(setting)) return "optional";
+  if (setting.tier !== 3) return tiers.name(setting.tier);
+  return setting.evidence === "measured" ? tiers.name(3)
+    : setting.evidence === "read_by_ai" ? "read by AI" : tiers.group(3);
+}
+
 /** How one value was decided, as a chip coloured by meaning: measured, open, or neither. */
 function How({ setting, open: isOpen, name }: { setting: Answered; open: boolean; name: string }) {
   const [words, style] = isOpen
     ? ["needs you", { background: "var(--needs-you-soft)", color: "var(--needs-you-ink)" }]
     : setting.answered
       ? ["your answer", { background: "var(--now-soft)", color: "var(--now-ink)" }]
-      : setting.tier === 3
+      : setting.tier === 3 && setting.evidence === "measured"
         ? [name, { background: "var(--measured-soft)", color: "var(--measured-ink)" }]
         : [name, { border: "1px solid var(--line-2)", color: "var(--ink-2)" }];
   return (

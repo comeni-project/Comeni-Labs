@@ -149,7 +149,7 @@ export const FAKE_STEPS = {
   star_align: { id: "star_align", process: "STAR_ALIGN", contract_id: ALIGN, tier: 3, runs: "per_item", reason: "",
     settings: [
       { name: "sjdbOverhang", value: "150", via: "ext", tier: 3, reason: "Read length is 151 bp, measured from your files, minus one.",
-        because: "", axis_reason: "", optional: false, premise: ["read_length = 151"] },
+        because: "", axis_reason: "", optional: false, evidence: "measured", premise: ["read_length = 151"] },
       { name: "outSAMtype", value: "BAM Unsorted", via: "ext", tier: 1, reason: "The next step sorts, so sorting here would be done twice.",
         because: "", axis_reason: "", optional: false, premise: [] },
       { name: "twopassMode", value: "None", via: "ext", tier: 2, reason: "nf-core's default for this module.",

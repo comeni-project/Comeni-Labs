@@ -1,5 +1,6 @@
 """A proposal's previews stored at shape 1 are at shape 2 after `make migrate`: each setting a
-preview draws says whether it is optional, from its route (#384; Part H spec §3.3)."""
+preview draws says whether it is optional, from its route (#384), and its evidence is unknown
+(#397; Part H spec §3.3)."""
 
 import json
 import os
@@ -60,6 +61,8 @@ def test_a_shape_one_preview_says_which_settings_are_optional(migration_database
         assert settings, "the seeded preview lost its settings"
         assert {s["name"]: s["optional"] for s in settings} == {
             "seq_platform": True, "star_ignore_sjdbgtf": False}
+        # Prose premises cannot say how good their facts were: unknown, never *measured* (#397).
+        assert all(s["evidence"] is None for s in settings)
         assert stamp == 2
 
         migrate("downgrade", BEFORE)

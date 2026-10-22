@@ -3419,6 +3419,8 @@ export interface components {
              * @default false
              */
             optional: boolean;
+            /** Evidence */
+            evidence?: ("measured" | "read_by_ai" | "not_measured") | null;
         };
         /**
          * Shown

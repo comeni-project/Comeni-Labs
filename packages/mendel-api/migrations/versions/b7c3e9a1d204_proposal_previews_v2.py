@@ -1,10 +1,14 @@
-"""A proposal's previews at shape 2: each setting says whether it is optional (#384).
+"""A proposal's previews at shape 2: each setting says whether it is optional (#384), and how
+good the facts a rule read were (#397).
 
 `SettingView.optional` is new. A shape-1 row has none, and reading it as `false` would show a
 saved preview's optional value as one that needs the person, so the upgrader derives it from
 the setting's route as the server does: `ext` and `directive` leave the tool its own behaviour.
 The rule is copied here rather than imported, because an upgrader reads JSON, never today's
-model."""
+model.
+
+`SettingView.evidence` is new too, and a shape-1 row cannot supply it: its premise is prose,
+not records. It is stored as unknown (`null`), and an unknown is never called *measured*."""
 
 import json
 
@@ -31,16 +35,18 @@ def _settings(value, change):
 
 
 def upgrade_pipeline_authoring_proposal_1_to_2(previews):
-    """Shape 2 adds `optional` to every setting a preview's frame draws."""
+    """Shape 2 adds `optional` and `evidence` to every setting a preview's frame draws."""
     if previews is None:
         return None
-    return _settings(previews, lambda s: {**s, "optional": s.get("via") in _OMITTABLE})
+    return _settings(previews, lambda s: {**s, "optional": s.get("via") in _OMITTABLE,
+                                          "evidence": None})
 
 
 def _without_optional(previews):
     if previews is None:
         return None
-    return _settings(previews, lambda s: {k: v for k, v in s.items() if k != "optional"})
+    return _settings(previews, lambda s: {k: v for k, v in s.items()
+                                          if k not in ("optional", "evidence")})
 
 
 def _rewrite(change, stamp):

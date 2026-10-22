@@ -20,7 +20,7 @@ const setting = (name: string, tier: number, value: string | null, reason: strin
 const STEPS = [
   { id: "star_align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@2.7.11a", runs: "per_item",
     tier: 3, reason: "", ports: [], settings: [
-      setting("sjdbOverhang", 3, "150", "Read length minus one.", ["read_length = 151"]),
+      { ...setting("sjdbOverhang", 3, "150", "Read length minus one.", ["read_length = 151"]), evidence: "measured" },
       setting("twopassMode", 2, "None", "nf-core's default for this module."),
     ] },
   { id: "featurecounts", process: "SUBREAD_FEATURECOUNTS", contract_id: "nf-core/subread/featurecounts@2.0.6",
@@ -74,6 +74,16 @@ describe("every value and its reason", () => {
     expect(await within(row).findByText("measured")).toBeInTheDocument();
     expect(row).toHaveTextContent("Read length minus one.");
     expect(row).toHaveTextContent("read_length = 151");
+  });
+
+  it("does not call a rule's value measured when what it read was typed (issue 397)", async () => {
+    const typed = { ...setting("sjdbOverhang", 3, "149", "Read length minus one.",
+                               ["read_length is 150, asserted, not measured"]), evidence: "not_measured" };
+    file({ steps: [{ ...STEPS[0], settings: [typed] }] as AnsweredStep[] });
+    const row = screen.getByRole("row", { name: /sjdbOverhang/ });
+    expect(await within(row).findByText("check the premise")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "how the values were decided" }))
+      .toHaveTextContent("0 measured from your files");
   });
 
   it("shows an open value as null, marked as needing the person", async () => {

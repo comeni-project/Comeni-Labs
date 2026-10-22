@@ -71,6 +71,25 @@ def test_an_unanswered_setting_says_whether_the_tool_has_its_own_behaviour():
     assert by_name["star_ignore_sjdbgtf"].optional is False
 
 
+def test_a_rule_s_evidence_is_measured_only_when_every_fact_was_measured():
+    """#397: a tier-3 value is *measured* only when what the rule read was measured; a fact a
+    model read makes it *read by AI*; one the person typed, or derived, makes it neither."""
+    from comeni_core.goal.premise import PremiseRecord
+    from comeni_core.plan.tiers import PremiseOrigin
+
+    def said(*origins):
+        return build.evidence_of([
+            PremiseRecord(id="read_length", value=150, origin=origin) for origin in origins
+        ])
+
+    assert said(PremiseOrigin.MEASURED) == "measured"
+    assert said(PremiseOrigin.MEASURED, PremiseOrigin.MODEL_READ) == "read_by_ai"
+    assert said(PremiseOrigin.ASSERTED) == "not_measured"
+    assert said(PremiseOrigin.MEASURED, PremiseOrigin.ASSERTED) == "not_measured"
+    assert said(PremiseOrigin.DERIVED) == "not_measured"
+    assert said() is None
+
+
 def test_building_twice_gives_the_same_coordinates():
     """Invariant 10's discipline, over the wire. A canvas that moved between two identical
     requests would make every screenshot a lie."""
