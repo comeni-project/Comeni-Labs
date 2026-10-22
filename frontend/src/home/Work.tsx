@@ -67,6 +67,7 @@ function Bar({ of }: { of: DraftRow["provenance"] }) {
 function decidedWords(of: NonNullable<DraftRow["provenance"]>): string {
   return [
     `${of.settled} settled`, `${of.measured} measured`, `${of.open} open`,
+    of.optional > 0 && `${of.optional} optional`,
     of.by_person > 0 && `${of.by_person} answered by you`,
     of.by_model > 0 && `${of.by_model} answered by a model`,
   ].filter(Boolean).join(" · ");

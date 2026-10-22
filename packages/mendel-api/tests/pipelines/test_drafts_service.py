@@ -138,6 +138,7 @@ def test_provenance_counts_every_decision_and_not_only_the_steps(monkeypatch, tm
         provenance.settled
         + provenance.measured
         + provenance.open
+        + provenance.optional
         + provenance.by_person
         + provenance.by_model
     )
@@ -178,9 +179,11 @@ def test_a_choice_a_person_made_is_not_a_choice_waiting_on_one(monkeypatch, tmp_
     drawn = [s for s in pipeline.steps if int(s.why.tier) == 4]
     assert drawn, "the fixture stopped being a hand-drawn graph"
     assert provenance.by_person >= len(drawn)
-    assert provenance.open == 1, (
-        f"only star_align.seq_platform waits on a person; got {provenance.open} "
-        f"({[(v.step, v.setting) for v in named]})"
+    # The spine's one unanswered value, `seq_platform`, is optional (#384): it is counted apart,
+    # and nothing waits on a person.
+    assert provenance.optional == 1
+    assert provenance.open == 0, (
+        f"nothing waits on a person; got {provenance.open} ({[(v.step, v.setting) for v in named]})"
     )
 
 
@@ -198,8 +201,10 @@ def test_a_model_s_answer_is_not_a_person_s(monkeypatch, tmp_path):
 def test_waiting_on_a_person_names_the_values(monkeypatch, tmp_path):
     """*'strandedness and fragment size', not '2 items'.* A count is what you write when you
     have not looked — `ov-settled`. The spine has exactly one tier-4 setting,
-    `star_align.seq_platform`, and the page must be able to say its name."""
+    `star_align.seq_platform`, and the page must be able to say its name. It is optional on its
+    `ext` route (#384), so no route is treated as optional here: this is about naming."""
     pipeline = _kept(monkeypatch, tmp_path)
+    monkeypatch.setattr(drafts, "OMITTABLE", frozenset())
     provenance, named, unnamed = drafts._provenance_of(pipeline)
 
     assert provenance.open, "the spine has an unanswered value; the fixture stopped being one"
@@ -211,8 +216,10 @@ def test_waiting_on_a_person_names_the_values(monkeypatch, tmp_path):
 
 
 def test_naming_open_values_is_capped_and_says_how_many_it_did_not_name(monkeypatch, tmp_path):
-    """A cap that truncates silently is a count wearing a list's clothes."""
+    """A cap that truncates silently is a count wearing a list's clothes. No route is treated as
+    optional (#384), so the spine's `seq_platform` is a value to name."""
     pipeline = _kept(monkeypatch, tmp_path)
+    monkeypatch.setattr(drafts, "OMITTABLE", frozenset())
     monkeypatch.setattr(drafts, "_NAMED_AT_MOST", 0)
     provenance, named, unnamed = drafts._provenance_of(pipeline)
 

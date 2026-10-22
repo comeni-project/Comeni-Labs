@@ -5363,3 +5363,11 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 | date | guard | what was reverted | what happened | message |
 |---|---|---|---|---|
 | 2026-10-19 | `tests/guards/test_purity.py::test_no_pure_package_imports_an_impure_one` (widened) | `if False: import mendel_api` appended to `comeni_core/__init__.py` | failed | `a pure package imports an impure one; the dependency arrow points the other way:` naming the file and `mendel_api` |
+
+## Redesign walk fixes, 2026-10-22 (#384–#390)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-22 | `test_proposal_previews_v2.py::test_a_shape_one_preview_says_which_settings_are_optional` (#384's shape change) | the migration's rewrite replaced with `pass` | failed | `KeyError: 'optional'`; `test_shapes.py::test_each_shape_matches_its_golden` was what found the change |
+| 2026-10-22 | `test_emit.py::test_an_omittable_route_writes_nothing_for_an_unanswered_setting` (#384) | written before `OMITTABLE` existed | failed | `ImportError` on `OMITTABLE`; the test then holds each optional route to an emitter that writes nothing for it |
+| 2026-10-22 | `test_card_unset.py::test_a_setting_the_call_cannot_leave_empty_is_not_said_to_stay_unset` (#384) | the card's list taken from every no-domain gap, as before | failed | `['seq_platform'] == []`: a positional setting was said to stay unset |

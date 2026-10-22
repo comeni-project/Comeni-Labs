@@ -250,7 +250,19 @@ def test_a_kept_draft_carries_its_provenance_and_its_join_key(client):
     assert row["kept"] is True
     assert row["digest"] and row["digest"].startswith("sha256:")
     assert row["provenance"]["settled"] > 0
-    assert [(v["step"], v["setting"]) for v in row["open_values"]] == [("align", "seq_platform")]
+
+
+def test_an_optional_open_value_is_counted_and_not_named_as_waiting_on_you(client):
+    """#384: `seq_platform` is routed through `ext`, so left unset STAR keeps its own read-group
+    line. Home's *needs you* reads `open_values`; an optional value is counted apart instead."""
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+
+    row = _row(client, made["id"])
+
+    assert row["open_values"] == []
+    assert row["provenance"]["optional"] == 1
+    assert row["provenance"]["open"] == 0
 
 
 def _row(client, draft_id: str) -> dict:

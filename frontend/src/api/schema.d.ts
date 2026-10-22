@@ -3072,6 +3072,11 @@ export interface components {
             measured: number;
             /** Open */
             open: number;
+            /**
+             * Optional
+             * @default 0
+             */
+            optional: number;
             /** By Person */
             by_person: number;
             /** By Model */

@@ -30,6 +30,7 @@ from comeni_core.plan.draft import (
 from comeni_core.plan.ir import ValueSource
 from comeni_core.plan.tiers import Tier
 from comeni_core.spell.marks import NodeId, PortName
+from comeni_core.spell.routes import OMITTABLE
 from mendel_compiler import locate, pipeline_file, staging
 from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,6 +65,9 @@ class Provenance(BaseModel):
     """Tier 3. A rule matched measured data."""
     open: int
     """Tier 4 that **nobody has answered**. This is what needs a person."""
+    optional: int = 0
+    """Tier 4 that nobody has answered **on a route that leaves the tool its own behaviour**
+    (`OMITTABLE`, #384): flagged for review, but nothing waits on it."""
 
     by_person: int
     """Tier 4 that a person answered — `why.source: human`.
@@ -180,11 +184,13 @@ def _provenance_of(pipeline: Pipeline) -> tuple[Provenance, list[OpenValue], int
     length: counting steps only reported *0 needing your decision* on a pipeline whose
     `seq_platform` exits at tier 4, understating on the one element that carries the claim.
     """
-    tally = {"settled": 0, "measured": 0, "open": 0, "by_person": 0, "by_model": 0}
+    tally = {"settled": 0, "measured": 0, "open": 0, "optional": 0, "by_person": 0, "by_model": 0}
     named: list[OpenValue] = []
     unnamed = 0
 
-    def count(why: Why, step: str | None = None, setting: str | None = None) -> None:
+    def count(
+        why: Why, step: str | None = None, setting: str | None = None, optional: bool = False
+    ) -> None:
         nonlocal unnamed
         tier = int(why.tier)
         if tier in (1, 2):
@@ -203,6 +209,9 @@ def _provenance_of(pipeline: Pipeline) -> tuple[Provenance, list[OpenValue], int
         if why.source is ValueSource.MODEL:
             tally["by_model"] += 1
             return
+        if optional:
+            tally["optional"] += 1
+            return
         tally["open"] += 1
         if step is None or setting is None:
             return
@@ -217,7 +226,8 @@ def _provenance_of(pipeline: Pipeline) -> tuple[Provenance, list[OpenValue], int
         # there would read as a value called nothing.
         count(step.why)
         for setting in step.settings:
-            count(setting.why, step=step.id, setting=setting.name)
+            count(setting.why, step=step.id, setting=setting.name,
+                  optional=setting.via in OMITTABLE)
 
     return Provenance(**tally), named, unnamed
 

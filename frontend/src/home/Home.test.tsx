@@ -17,7 +17,7 @@ const PIPELINE = {
   id: "aaaa1111", name: "rnaseq-counts", who: "R. Correia",
   updated_at: "2026-08-29T10:00:00Z", steps: 4, makes: ["counts.matrix"],
   kept: true, changed_since_kept: false, digest: "sha256:" + "a".repeat(64),
-  provenance: { settled: 9, measured: 1, open: 1, by_person: 4, by_model: 0 },
+  provenance: { settled: 9, measured: 1, open: 1, optional: 1, by_person: 4, by_model: 0 },
   open_values: [{ step: "align", setting: "seq_platform" }],
   open_not_named: 0,
 };
@@ -26,7 +26,7 @@ const SETTLED = {
   ...PIPELINE, id: "bbbb2222", name: "wgs-variants", who: "J. Costa",
   makes: ["variants.vcf"],
   digest: "sha256:" + "b".repeat(64),
-  provenance: { settled: 12, measured: 2, open: 0, by_person: 0, by_model: 0 },
+  provenance: { settled: 12, measured: 2, open: 0, optional: 0, by_person: 0, by_model: 0 },
   open_values: [], open_not_named: 0,
 };
 
@@ -255,7 +255,7 @@ describe("Home in the new identity (issue 378)", () => {
   it("says how each pipeline's values were decided in words beside the bar", async () => {
     at({});
     const table = within(await screen.findByRole("region", { name: "Your pipelines" }));
-    expect(table.getByText("9 settled · 1 measured · 1 open · 4 answered by you")).toBeTruthy();
+    expect(table.getByText("9 settled · 1 measured · 1 open · 1 optional · 4 answered by you")).toBeTruthy();
   });
 
   it("shows results that are ready", async () => {
