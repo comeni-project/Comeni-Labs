@@ -1,0 +1,1296 @@
+{
+  "$defs": {
+    "Brief": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Said"
+          },
+          "type": "array"
+        },
+        "does": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Said"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "makes": {
+          "items": {
+            "$ref": "#/$defs/Said"
+          },
+          "type": "array"
+        },
+        "why": {
+          "items": {
+            "$ref": "#/$defs/Said"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "why",
+        "makes"
+      ],
+      "type": "object"
+    },
+    "ChangeSet": {
+      "additionalProperties": false,
+      "properties": {
+        "adds": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "change_set",
+          "default": "change_set",
+          "type": "string"
+        },
+        "removes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "settings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "Choice": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/Offered"
+          },
+          "type": "array"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "candidates"
+      ],
+      "type": "object"
+    },
+    "Constraints": {
+      "additionalProperties": false,
+      "properties": {
+        "absent_roles": {
+          "items": {
+            "$ref": "#/$defs/RoleAbsence"
+          },
+          "type": "array"
+        },
+        "exclusions": {
+          "items": {
+            "$ref": "#/$defs/ProducerExclusion"
+          },
+          "type": "array"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/ParamOverride"
+          },
+          "type": "array"
+        },
+        "producers": {
+          "items": {
+            "$ref": "#/$defs/ProducerPin"
+          },
+          "type": "array"
+        },
+        "required_states": {
+          "items": {
+            "$ref": "#/$defs/RequiredStates"
+          },
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SourcePin"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "DataProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/Measured"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "records": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "Gap": {
+      "additionalProperties": false,
+      "properties": {
+        "fix": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GapKind"
+        },
+        "subject": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "fix"
+      ],
+      "type": "object"
+    },
+    "GapKind": {
+      "enum": [
+        "no_domain",
+        "no_description",
+        "unverified"
+      ],
+      "type": "string"
+    },
+    "Goal": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "$ref": "#/$defs/Constraints"
+        },
+        "have": {
+          "items": {
+            "$ref": "#/$defs/GoalInput"
+          },
+          "type": "array"
+        },
+        "profile": {
+          "$ref": "#/$defs/DataProfile"
+        },
+        "want": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "GoalInput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "states": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "type_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type_id"
+      ],
+      "type": "object"
+    },
+    "GoalSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "get": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "have": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "goal_summary",
+          "default": "goal_summary",
+          "type": "string"
+        },
+        "readback": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "readback_pending": {
+          "default": false,
+          "type": "boolean"
+        },
+        "suggested": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RequiredStates"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "goal",
+        "have",
+        "do",
+        "get"
+      ],
+      "type": "object"
+    },
+    "Measured": {
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measurement": {
+          "type": "string"
+        },
+        "pieces": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/ValueSource",
+          "default": "said"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "measurement",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Narrative": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "narrative",
+          "default": "narrative",
+          "type": "string"
+        },
+        "refers_to": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "Need": {
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Choice"
+          },
+          "type": "array"
+        },
+        "fact_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "fact_values": {
+          "additionalProperties": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "facts": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "$ref": "#/$defs/NeedKind"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "NeedKind": {
+      "enum": [
+        "nothing",
+        "fact",
+        "choice"
+      ],
+      "type": "string"
+    },
+    "Notice": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "notice",
+          "default": "notice",
+          "type": "string"
+        },
+        "notice": {
+          "$ref": "#/$defs/NoticeKind"
+        },
+        "text": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "notice",
+        "text"
+      ],
+      "type": "object"
+    },
+    "NoticeKind": {
+      "enum": [
+        "pending",
+        "refusal",
+        "stale",
+        "validation",
+        "complete"
+      ],
+      "type": "string"
+    },
+    "Offered": {
+      "additionalProperties": false,
+      "properties": {
+        "does": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    },
+    "Option": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "recommended": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "type": "object"
+    },
+    "ParamOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ProducerExclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "site": {
+          "$ref": "#/$defs/Site"
+        }
+      },
+      "required": [
+        "site",
+        "contract"
+      ],
+      "type": "object"
+    },
+    "ProducerPin": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "site": {
+          "$ref": "#/$defs/Site"
+        }
+      },
+      "required": [
+        "site",
+        "contract"
+      ],
+      "type": "object"
+    },
+    "Question": {
+      "additionalProperties": false,
+      "properties": {
+        "asks": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "exhaustive": {
+          "default": true,
+          "type": "boolean"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "question",
+          "default": "question",
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "phrasing": {
+          "default": "none",
+          "enum": [
+            "pending",
+            "done",
+            "none"
+          ],
+          "type": "string"
+        },
+        "reading": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SampleReading"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ],
+          "default": null
+        },
+        "why_open": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "asks",
+        "why_open"
+      ],
+      "type": "object"
+    },
+    "Receipt": {
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "enum": [
+            "person",
+            "model",
+            "resolver"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "receipt",
+          "default": "receipt",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "summary": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "summary",
+        "revision",
+        "by"
+      ],
+      "type": "object"
+    },
+    "RequiredStates": {
+      "additionalProperties": false,
+      "properties": {
+        "states": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type_id"
+      ],
+      "type": "object"
+    },
+    "RoleAbsence": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "type": "object"
+    },
+    "Said": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/TextSource"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "source"
+      ],
+      "type": "object"
+    },
+    "SampleReading": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "default": 1,
+          "type": "integer"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "decision_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "disagreed": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kept": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "recorded": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "session_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "read",
+            "could_not_tell",
+            "refused",
+            "no_answer",
+            "hand_back",
+            "handed"
+          ],
+          "type": "string"
+        },
+        "states": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
+    "SettingRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "setting_request",
+          "default": "setting_request",
+          "type": "string"
+        },
+        "node": {
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "premise": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "setting": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "node",
+        "setting",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "Site": {
+      "additionalProperties": false,
+      "properties": {
+        "states": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "type_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type_id"
+      ],
+      "type": "object"
+    },
+    "SourcePin": {
+      "additionalProperties": false,
+      "properties": {
+        "consumer": {
+          "type": "string"
+        },
+        "port": {
+          "type": "string"
+        },
+        "producer": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "consumer",
+        "port",
+        "producer"
+      ],
+      "type": "object"
+    },
+    "StepProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "brief": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Brief"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "consumes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "contract": {
+          "type": "string"
+        },
+        "gaps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Gap"
+          },
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "step_proposal",
+          "default": "step_proposal",
+          "type": "string"
+        },
+        "need": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Need"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "node": {
+          "type": "string"
+        },
+        "produces": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "stop": {
+          "anyOf": [
+            {
+              "enum": [
+                "tier_four",
+                "gap",
+                "together"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tier": {
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "unresolved_settings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "node",
+        "contract",
+        "reason",
+        "tier"
+      ],
+      "type": "object"
+    },
+    "TextSource": {
+      "enum": [
+        "engine",
+        "curated"
+      ],
+      "type": "string"
+    },
+    "ValueSource": {
+      "enum": [
+        "resolver",
+        "said",
+        "human",
+        "model",
+        "measured",
+        "derived"
+      ],
+      "type": "string"
+    }
+  },
+  "items": {
+    "discriminator": {
+      "mapping": {
+        "change_set": "#/$defs/ChangeSet",
+        "goal_summary": "#/$defs/GoalSummary",
+        "narrative": "#/$defs/Narrative",
+        "notice": "#/$defs/Notice",
+        "question": "#/$defs/Question",
+        "receipt": "#/$defs/Receipt",
+        "setting_request": "#/$defs/SettingRequest",
+        "step_proposal": "#/$defs/StepProposal"
+      },
+      "propertyName": "kind"
+    },
+    "oneOf": [
+      {
+        "$ref": "#/$defs/Narrative"
+      },
+      {
+        "$ref": "#/$defs/GoalSummary"
+      },
+      {
+        "$ref": "#/$defs/Question"
+      },
+      {
+        "$ref": "#/$defs/StepProposal"
+      },
+      {
+        "$ref": "#/$defs/SettingRequest"
+      },
+      {
+        "$ref": "#/$defs/ChangeSet"
+      },
+      {
+        "$ref": "#/$defs/Receipt"
+      },
+      {
+        "$ref": "#/$defs/Notice"
+      }
+    ]
+  },
+  "type": "array"
+}

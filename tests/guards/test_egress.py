@@ -649,6 +649,9 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
         Mark.PIECE_REF,
         Mark.MEASUREMENT_ID,
         Mark.PARAM_LITERAL,
+        # Through `Goal.constraints.absent_roles`: a role a person switched off (A1). A role is
+        # registry vocabulary with a validated shape (`trimming`), never prose or a person's data.
+        Mark.ROLE_NAME,
     }, f"door 1 reaches a mark nobody argued for: {sorted(m.value for m in marks)}"
 
     free = {field for model in models for field in _fields(model, Mark.FREE_TEXT)}

@@ -30,7 +30,7 @@ def _artifact(tmp_path, body: str) -> str:
 
 
 def _pipeline(form: str, channels: str) -> str:
-    return f"""version: 7
+    return f"""version: 8
 intent: {{want: [], constraints: {{}}}}
 facts: {{inputs: [], measurements: []}}
 registry: {{layers: [], displaced: [], unverified: []}}

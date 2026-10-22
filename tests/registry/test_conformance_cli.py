@@ -268,7 +268,7 @@ def test_a_refused_profile_prints_a_message_a_person_can_read(tmp_path, capsys):
     """
     goal = tmp_path / "goal.yml"
     goal.write_text(
-        "version: 7\nintent: {want: [counts.matrix]}\nfacts:\n"
+        "version: 8\nintent: {want: [counts.matrix]}\nfacts:\n"
         "  inputs: [{type_id: fastq.reads}]\n"
         "  measurements: [{measurement: sample_name, value: nope, source: said}]\n"
     )

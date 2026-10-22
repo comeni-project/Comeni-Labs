@@ -1,4 +1,4 @@
-"""A file to start a build from: `pipeline.yml` version 7 with only `intent` and `facts`
+"""A file to start a build from: `pipeline.yml` version 8 with only `intent` and `facts`
 (Part I.0 Plan B, spec §8.5). `mendel build <file>` resolves it and writes the whole file back,
 so there is one format, and the no-AI path is writing its top half by hand."""
 
@@ -14,7 +14,7 @@ class Starter(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    version: Literal[7] = 7
+    version: Literal[8] = 8
     intent: Intent
     facts: Facts
 

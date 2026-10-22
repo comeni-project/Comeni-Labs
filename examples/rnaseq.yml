@@ -4,7 +4,7 @@
 #
 # which resolves it against the registry and writes this file back, complete: steps, settings
 # and every reason. `source: said` marks something a person stated rather than measured.
-version: 7
+version: 8
 intent:
   want: [counts.matrix]
   constraints:

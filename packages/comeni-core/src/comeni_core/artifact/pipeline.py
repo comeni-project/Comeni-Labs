@@ -68,7 +68,7 @@ from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 # ---------------- CONSTANTS ----------------
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 """The schema version written and the only one read.
 
 Bump when the serialized shape changes; content digests depend on that shape.

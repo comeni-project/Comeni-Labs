@@ -24,6 +24,7 @@ from comeni_core.spell.marks import (
     ContractId,
     HumanParamValue,
     PortName,
+    RoleName,
     StateName,
     TypeId,
 )
@@ -132,6 +133,36 @@ class ProducerPin(BaseModel):
     contract: ContractId
 
 
+class RoleAbsence(BaseModel):
+    """A role a person switched off: no step fills it (A1, the one-builder design). The same
+    semantics as a rule's `presence: absent`, so the router drops every contract filling it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    role: RoleName
+
+
+class ProducerExclusion(BaseModel):
+    """A tool a person excluded at a site (A1). The router takes the next candidate there; if
+    none is left, the conflict is raised rather than resolved."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    site: Site
+    contract: ContractId
+
+
+class SourcePin(BaseModel):
+    """Which tool a person chose to feed a step's port (A1): the consumer's contract, its port,
+    and the producer whose output feeds it. Recorded as the person's at tier 4."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    consumer: ContractId
+    port: PortName
+    producer: ContractId
+
+
 class Constraints(BaseModel):
     """Everything a goal may pin. `extra="forbid"` is the whole point of the type."""
 
@@ -144,6 +175,16 @@ class Constraints(BaseModel):
     )
     """Tools a person chose, each at its site. **Omitted from a dump when empty**, so a goal
     with none emits exactly the bytes it did before the field existed (invariant 10)."""
+    absent_roles: list[RoleAbsence] = Field(
+        default_factory=list, exclude_if=lambda absent: not absent
+    )
+    """Roles a person switched off. Omitted when empty, as `producers` is."""
+    exclusions: list[ProducerExclusion] = Field(
+        default_factory=list, exclude_if=lambda exclusions: not exclusions
+    )
+    """Tools a person excluded, each at its site. Omitted when empty."""
+    sources: list[SourcePin] = Field(default_factory=list, exclude_if=lambda sources: not sources)
+    """Ports whose source a person chose. Omitted when empty."""
 
     @model_validator(mode="before")
     @classmethod
@@ -165,6 +206,19 @@ class Constraints(BaseModel):
     def producer_at(self, site: Site) -> ProducerPin | None:
         """The pin at `site`: the last one, so a later amendment wins."""
         return next((p for p in reversed(self.producers) if p.site == site), None)
+
+    def excluded_at(self, site: Site) -> frozenset[str]:
+        """The tools a person excluded at `site`, and nowhere else."""
+        return frozenset(e.contract for e in self.exclusions if e.site == site)
+
+    def source_at(self, consumer: str, port: str) -> SourcePin | None:
+        """The pin on `consumer`'s `port`: the last one, so a later amendment wins."""
+        return next(
+            (p for p in reversed(self.sources) if (p.consumer, p.port) == (consumer, port)), None
+        )
+
+    def roles_absent(self) -> frozenset[str]:
+        return frozenset(absence.role for absence in self.absent_roles)
 
     def states_for(self, type_id: str) -> frozenset[StateName]:
         return frozenset(
