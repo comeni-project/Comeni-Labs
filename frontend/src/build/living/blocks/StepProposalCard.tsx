@@ -85,6 +85,9 @@ export function StepProposalCard({
   const accept = () => onAccept(chosen, fact ? answer ?? undefined : undefined);
   const unresolved = block.unresolved_settings ?? [];
 
+  // **The card leads in plain words** (issue 387): the tool's curated description when there is
+  // one, and the engine's reason only when there is not. The brief does not say the lead again.
+  const lead = block.brief?.does?.text ?? block.reason;
   const place = !progress ? "Step" : progress.again ? `Review step ${progress.position} again` : `Step ${progress.position}`;
   const title = `${place} · ${processName(block.node)}`;
 
@@ -101,12 +104,12 @@ export function StepProposalCard({
       <button type="button" data-testid="select-step" onClick={onSelect}
               className="block w-full text-left bg-transparent border-0 p-0 cursor-pointer rounded-control
                          focus-visible:shadow-[var(--ring)]">
-        <span className="block m-0 mb-[8px] text-[13.5px] leading-[1.55] text-ink">{block.reason}</span>
+        <span className="block m-0 mb-[8px] text-[13.5px] leading-[1.55] text-ink">{lead}</span>
         <span className="block m-0 mb-[12px] font-data text-[11px] text-ink-3">
           {(block.consumes ?? []).join(", ") || "nothing"} → {block.produces.join(", ") || "nothing"}
         </span>
       </button>
-      {block.brief && <Brief brief={block.brief} />}
+      {block.brief && <Brief brief={block.brief} lead={lead} />}
       {(showGapDetails ? (block.gaps ?? []).length : unresolved.length) > 0 && (
         <div data-testid="step-gaps" className="mb-3 px-[10px] py-2 border"
              style={{ borderColor: "var(--line-2)" }}>
@@ -277,14 +280,15 @@ function typed(text: string): string | number {
 
 type StepBrief = NonNullable<Extract<AuthoringProposal["block"], { kind: "step_proposal" }>["brief"]>;
 
-/** The card's four fields (spec §4.2), each line as the engine wrote it — part 5 designs them. */
-function Brief({ brief }: { brief: StepBrief }) {
-  const rows: [string, { text: string }[]][] = [
+/** The card's four fields (spec §4.2), each line as the engine wrote it — part 5 designs them.
+ *  A line the card already leads with is not said twice. */
+function Brief({ brief, lead }: { brief: StepBrief; lead: string }) {
+  const rows: [string, { text: string }[]][] = ([
     ["What it does", brief.does ? [brief.does] : []],
     ["Why it's here", brief.why],
     ["What it makes", brief.makes],
     ["Check", brief.check ?? []],
-  ];
+  ] as [string, { text: string }[]][]).map(([label, lines]) => [label, lines.filter((line) => line.text !== lead)]);
   return (
     <dl data-testid="step-brief" className="m-0 mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
       {rows

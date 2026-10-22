@@ -67,11 +67,27 @@ const card = ({ showGapDetails = false } = {}) =>
   );
 
 describe("the step card's brief", () => {
-  it("shows the four fields, each line as written", () => {
+  it("leads with what the tool does, in its curated words, and says it once (issue 387)", () => {
+    card();
+    expect(screen.getByTestId("select-step")).toHaveTextContent("MultiQC gathers every report into one.");
+    expect(screen.getByTestId("step-brief")).not.toHaveTextContent("MultiQC gathers every report into one.");
+    expect(screen.getAllByText("uncontested")).toHaveLength(1);
+  });
+
+  it("leads with the engine's reason only when the tool has no description, and says it once", () => {
+    const bare = proposal();
+    if (bare.block.kind === "step_proposal" && bare.block.brief) bare.block.brief.does = null;
+    render(
+      <StepProposalCard proposal={bare} progress={null} busy={false} onAccept={vi.fn()}
+                        onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByTestId("select-step")).toHaveTextContent("uncontested");
+    expect(screen.getByTestId("step-brief")).not.toHaveTextContent("uncontested");
+  });
+
+  it("shows the other fields, each line as written", () => {
     card();
     const brief = screen.getByTestId("step-brief");
-    expect(brief).toHaveTextContent("What it does");
-    expect(brief).toHaveTextContent("MultiQC gathers every report into one.");
     expect(brief).toHaveTextContent("Why it's here");
     expect(brief).toHaveTextContent("one report a person can read");
     expect(brief).toHaveTextContent("What it makes");
