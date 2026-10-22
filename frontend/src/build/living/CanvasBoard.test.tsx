@@ -90,3 +90,25 @@ describe("the canvas frame", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fit" }));
   });
 });
+
+describe("the minimap (issue 389)", () => {
+  it("draws one mark per step, the step on offer included, as the manual builder does", () => {
+    fake();
+    const map = screen.getByTestId("minimap");
+    expect(within(map).getAllByTestId("minimap-mark")).toHaveLength(
+      FAKE_SESSION.graph.nodes.length + 1);
+  });
+
+  it("marks a step with a value that needs the person in its colour", () => {
+    const open = { ...FAKE_STEPS.star_align, settings: [
+      ...FAKE_STEPS.star_align.settings,
+      { name: "strandedness", value: null, via: "meta", tier: 4, reason: "", because: "", axis_reason: "",
+        premise: [], optional: false },
+    ] } as Step;
+    fake({ steps: { ...FAKE_STEPS, star_align: open } });
+    const colours = within(screen.getByTestId("minimap")).getAllByTestId("minimap-mark")
+      .map((mark) => mark.style.borderColor);
+    expect(colours).toContain("var(--needs-you)");
+  });
+});
+

@@ -4,6 +4,7 @@ import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
 import { NODE_H, NODE_W, portOffset, SPINE, type Point, type Positions } from "../geometry";
+import { Minimap } from "../Minimap";
 import { place } from "../Sources";
 import { useView } from "../useView";
 import type { MotionEvent } from "./authoringReducer";
@@ -226,6 +227,14 @@ export function LivingCanvas({
               </span>
             )}
           </div>
+          {/* **The minimap, above the legend** (issue 389): the whole graph, each step marked in the
+              colour of what it needs, so where the open value is reads without panning. */}
+          <Minimap place="right-4 bottom-[64px]" offsets={{}}
+                   nodes={ids.map((id) => {
+                     const counted = steps[id] ? valuesOf([steps[id]]) : null;
+                     return { id, x: at[id]?.x ?? 0, y: at[id]?.y ?? 0,
+                              tier: counted?.open ? 4 : counted?.measured ? 3 : 1 };
+                   })} />
           {/* One wrapping row: where the legend cannot sit beside the controls it goes above them. */}
           <div className="absolute left-4 right-4 bottom-4 flex flex-wrap-reverse items-end gap-2 pointer-events-none
                           [&>*]:pointer-events-auto">
