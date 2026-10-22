@@ -6,13 +6,13 @@ and confirmed before it counts: *So you never want trimming here — right?* Pur
 drafts against the plan they were drawn from, and decides nothing until a person confirms.
 """
 
+from collections.abc import Mapping
 from typing import Literal
 
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.registry import Registry
 from comeni_core.goal.asked import ProducerExclusion, ProducerPin, RoleAbsence, Site, SourcePin
 from comeni_core.plan.draft import DraftGraph
-from comeni_core.plan.ir import PipelineIR
 from comeni_core.spell.marks import TypeId
 from pydantic import BaseModel, ConfigDict
 
@@ -35,9 +35,12 @@ class Reading(BaseModel):
 
 
 def read_edit(
-    before: DraftGraph, after: DraftGraph, plan: PipelineIR, registry: Registry
+    before: DraftGraph, after: DraftGraph, sites: Mapping[str, Site], registry: Registry
 ) -> list[Reading]:
     """What `before` → `after` means. Layout-only edits mean nothing and return `[]`.
+
+    `sites` is where the plan chose each step's tool (a `Blueprint`'s `sites`); a step the plan
+    did not place is read at its output.
 
     - a step removed whose output nothing reads: that output is no longer wanted;
     - a step removed that fills a role and whose readers accept their input without it: the
@@ -49,7 +52,6 @@ def read_edit(
     """
     old = {n.id: n for n in before.nodes}
     new = {n.id: n for n in after.nodes}
-    sites = {n.id: n.site for n in plan.nodes if n.site is not None}
     readings: list[Reading] = []
 
     for node_id in sorted(old.keys() - new.keys()):
@@ -98,6 +100,29 @@ def read_edit(
             intent=SourcePin(consumer=consumer, port=edge.to_port, producer=producer)))
 
     return sorted(readings, key=lambda r: (_ORDER[r.kind], r.subject))
+
+
+def read_graph(graph: DraftGraph, registry: Registry) -> list[Reading]:
+    """A pipeline drawn by hand, read whole: every tool is the person's choice, pinned where its
+    output is, and every output nothing reads is wanted. Unknown tools are skipped; validation
+    names them."""
+    readings: list[Reading] = []
+    read_from = {e.from_node for e in graph.edges}
+    for node in sorted(graph.nodes, key=lambda n: n.id):
+        contract = registry.contracts.get(node.contract_id)
+        site = _output_site(contract)
+        if site is None:
+            continue
+        if node.id not in read_from:
+            readings.append(Reading(kind="want", subject=site.type_id, said="",
+                                    intent=site.type_id))
+        readings.append(Reading(kind="pin", subject=node.id, said="",
+                                intent=ProducerPin(site=site, contract=node.contract_id)))
+    readings = sorted(readings, key=lambda r: (_ORDER[r.kind], r.subject))
+    tools = ", ".join(_process(registry, r.intent.contract) for r in readings if r.kind == "pin")
+    return [r.model_copy(update={"said": (
+        f"So this is your pipeline, with these tools: {tools} — right?" if i == 0 else "…")})
+        for i, r in enumerate(readings)]
 
 
 def _removed(node_id, tool, before: DraftGraph, sites, registry: Registry) -> Reading:
