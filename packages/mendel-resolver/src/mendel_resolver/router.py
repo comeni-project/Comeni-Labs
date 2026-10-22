@@ -20,7 +20,7 @@ from typing import NamedTuple
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import ProducerPin, Site
+from comeni_core.goal.asked import ProducerPin, Site, SourcePin
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.plan.ir import Tier
@@ -224,6 +224,7 @@ def route(
         depth: int,
         visiting: frozenset[str],
         because: str = "",
+        only: str | None = None,
     ) -> None:
         if depth > max_depth:
             raise UnroutableError(f"exceeded depth {max_depth} satisfying {type_id}")
@@ -239,6 +240,7 @@ def route(
             c
             for c in registry.producers_of(type_id, states)
             if c.id not in visiting and not (absent_roles & set(c.roles))
+            and (only is None or c.id == only)
         ]
         # **A tool a person excluded here is not a candidate** (A1). When it was the only one,
         # the exclusion is named rather than reported as a type nothing makes.
@@ -271,6 +273,16 @@ def route(
 
         for port in chosen.consumes:
             try:
+                source = goal.constraints.source_at(chosen.id, port.name)
+                if source is not None:
+                    # **A person chose what feeds this port** (A1): route through that tool.
+                    made = _feeding(registry, port, source)
+                    satisfy(made.type_id, frozenset(made.state), depth + 1,
+                            visiting | {chosen.id},
+                            because=f"you chose {source.producer} to feed {chosen.id}'s "
+                                    f"{port.name}",
+                            only=source.producer)
+                    continue
                 _satisfy_port(
                     port,
                     satisfy,
@@ -335,6 +347,22 @@ def route(
             f"the goal asks for {wanted}",
         )
     return plan
+
+
+def _feeding(registry: Registry, port: InputPort, source: SourcePin):
+    """The output of a person's chosen producer that can feed `port`, or the conflict (MD0321):
+    its type is another, or it lacks a state the port requires."""
+    producer = registry.contracts.get(source.producer)
+    for alternative in port.alternatives():
+        for made in producer.produces if producer is not None else ():
+            if made.type_id == alternative.type_id and alternative.states <= set(made.state):
+                return made
+    raise IntentConflict(
+        coded("MD0321", f"you chose {source.producer} to feed {source.consumer}'s "
+              f"{source.port}, and nothing it makes fits that input. Choose a tool whose "
+              "output the port accepts — `mendel explain MD0321`."),
+        intent=source,
+    )
 
 
 def _satisfy_port(

@@ -141,6 +141,7 @@ decline to curate one.
 | `MD0316` | a type names a family no layer in the stack declares |
 | `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
 | `MD0320` | a tool you excluded was the only one that can make this step's output |
+| `MD0321` | a tool you chose to feed a step's input makes nothing that input accepts |
 
 ## Gates and emission
 

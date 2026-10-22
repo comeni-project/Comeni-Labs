@@ -1113,6 +1113,21 @@ MD0320:
     other tool can make the output at that site, choosing one anyway would be the engine
     overriding the person, and dropping the output would be a silent change to the goal. The
     exclusion is named, with the site, and the build stops until the person decides.
+MD0321:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool you chose to feed a step's input makes nothing that input accepts"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Choose a tool whose output the input accepts — the same type, with every state the input
+    requires — or remove the choice. On the canvas, wire the input from another step; in a goal
+    file, change or remove the entry in `constraints.sources`.
+  explanation: |
+    **A wire a person drew is honoured, never bent to fit** (A1, the one-builder design). Feeding
+    an input from a tool whose output it does not accept would build a pipeline that fails at
+    run time, or one that silently reads the wrong data; choosing another source would override
+    the person. The choice is named and the build stops.
 MD0303:
   emitted_by: resolver
   concern: routing

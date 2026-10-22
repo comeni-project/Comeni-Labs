@@ -222,7 +222,9 @@ def resolve(
             )
 
         for port in contract.consumes:
-            source = _source_for(produced, port, node.id, ir.decisions, resolver)
+            pinned = goal.constraints.source_at(contract.id, port.name)
+            source = _source_for(produced, port, node.id, ir.decisions, resolver,
+                                 pinned=_node_of(ir, pinned.producer) if pinned else None)
             if source is not None:
                 from_node, from_port, type_id, states = source
                 ir.edges.append(
@@ -254,12 +256,19 @@ def resolve(
     return ir
 
 
+def _node_of(ir: PipelineIR, contract_id: str) -> str | None:
+    """The node a contract was placed as, so far."""
+    return next((n.id for n in ir.nodes if n.contract_id == contract_id), None)
+
+
 def _source_for(
     produced: list[tuple[str, str, str, frozenset[str]]],
     port: InputPort,
     node_id: str,
     decisions: list[DecisionRecord],
     resolver: AmbiguityResolver,
+    *,
+    pinned: str | None = None,
 ) -> tuple[str, str, str, frozenset[str]] | None:
     """Pick an upstream output that actually satisfies this port.
 
@@ -298,6 +307,29 @@ def _source_for(
 
     def surplus(source: tuple[str, str, str, frozenset[str]]) -> int:
         return len(source[3] - required)
+
+    # **A person chose this port's source** (A1, a `SourcePin`): it wires, and it is recorded as
+    # theirs whenever it differs from what the smallest surplus would have taken.
+    if pinned is not None:
+        theirs = [source for source in qualifying if source[0] == pinned]
+        if theirs:
+            engine = min(qualifying, key=lambda s: (surplus(s), -produced.index(s)))
+            if theirs[-1] != engine:
+                chosen_ref = f"{theirs[-1][0]}.{theirs[-1][1]}"
+                decisions.append(
+                    SourceDecision(
+                        key=f"{node_id}.source:{port.name}",
+                        subject=f"source:{port.name}",
+                        candidates=sorted(f"{n}.{p}" for n, p, _, _ in qualifying),
+                        chosen=chosen_ref,
+                        human_override=chosen_ref,
+                        reason=f"you chose {theirs[-1][0]} to feed {port.name}, over "
+                               f"{engine[0]}",
+                        confidence=1.0,
+                        resolved_by="person",
+                    )
+                )
+            return theirs[-1]
 
     best = min(surplus(source) for source in qualifying)
     equally_good = [source for source in qualifying if surplus(source) == best]

@@ -151,7 +151,7 @@ def test_switching_off_a_role_the_goal_needs_is_a_coded_conflict(resolve_rnaseq)
 - Consumes: `Constraints.excluded_at(site)`, `IntentConflict` (Task 2).
 - Produces: `inert_intents(ir: PipelineIR, constraints: Constraints) -> list[RoleAbsence | ProducerExclusion | SourcePin]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_excluding_star_takes_the_next_aligner_and_says_why(resolve_rnaseq):
@@ -169,14 +169,14 @@ def test_an_intent_that_applies_nowhere_is_reported(resolve_rnaseq):
          # absent consumer: each returned by inert_intents
 ```
 
-- [ ] **Step 2: Run; expect FAIL.**
-- [ ] **Step 3: Filter `excluded_at(site)` out of `candidates`** before `_choose`; an empty list
+- [x] **Step 2: Run; expect FAIL.**
+- [x] **Step 3: Filter `excluded_at(site)` out of `candidates`** before `_choose`; an empty list
   caused by an exclusion raises `IntentConflict`. The next pick keeps the engine's tier, and its
   reason is prefixed `you excluded <contract> here; ` (my call: the person removed a tool, the
   engine still chose the replacement, so the replacement is not the person's choice). Implement
   `inert_intents` as `inert_pins` is.
-- [ ] **Step 4: Run the resolver tests; expect PASS.**
-- [ ] **Step 5: Commit** `feat(resolver): a tool a person excluded is honoured (A1)`.
+- [x] **Step 4: Run the resolver tests; expect PASS.**
+- [x] **Step 5: Commit** `feat(resolver): a tool a person excluded is honoured (A1)`.
 
 ### Task 4: A port's source a person pinned
 
