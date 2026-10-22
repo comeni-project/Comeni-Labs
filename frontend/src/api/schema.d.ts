@@ -1668,6 +1668,12 @@ export interface components {
             params?: components["schemas"]["ParamOverride"][];
             /** Producers */
             producers?: components["schemas"]["ProducerPin-Input"][];
+            /** Absent Roles */
+            absent_roles?: components["schemas"]["RoleAbsence"][];
+            /** Exclusions */
+            exclusions?: components["schemas"]["ProducerExclusion-Input"][];
+            /** Sources */
+            sources?: components["schemas"]["SourcePin"][];
         };
         /**
          * Constraints
@@ -1680,6 +1686,12 @@ export interface components {
             params?: components["schemas"]["ParamOverride"][];
             /** Producers */
             producers?: components["schemas"]["ProducerPin-Output"][];
+            /** Absent Roles */
+            absent_roles?: components["schemas"]["RoleAbsence"][];
+            /** Exclusions */
+            exclusions?: components["schemas"]["ProducerExclusion-Output"][];
+            /** Sources */
+            sources?: components["schemas"]["SourcePin"][];
         };
         /** CorrectAuthoringFact */
         CorrectAuthoringFact: {
@@ -3019,6 +3031,26 @@ export interface components {
             gathers: boolean;
         };
         /**
+         * ProducerExclusion
+         * @description A tool a person excluded at a site (A1). The router takes the next candidate there; if
+         *     none is left, the conflict is raised rather than resolved.
+         */
+        "ProducerExclusion-Input": {
+            site: components["schemas"]["Site-Input"];
+            /** Contract */
+            contract: string;
+        };
+        /**
+         * ProducerExclusion
+         * @description A tool a person excluded at a site (A1). The router takes the next candidate there; if
+         *     none is left, the conflict is raised rather than resolved.
+         */
+        "ProducerExclusion-Output": {
+            site: components["schemas"]["Site-Output"];
+            /** Contract */
+            contract: string;
+        };
+        /**
          * ProducerPin
          * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
          *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
@@ -3211,6 +3243,15 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /**
+         * RoleAbsence
+         * @description A role a person switched off: no step fills it (A1, the one-builder design). The same
+         *     semantics as a rule's `presence: absent`, so the router drops every contract filling it.
+         */
+        RoleAbsence: {
+            /** Role */
+            role: string;
         };
         /** Said */
         Said: {
@@ -3474,6 +3515,19 @@ export interface components {
          * @enum {string}
          */
         Source: "default" | "installation" | "environment" | "reported";
+        /**
+         * SourcePin
+         * @description Which tool a person chose to feed a step's port (A1): the consumer's contract, its port,
+         *     and the producer whose output feeds it. Recorded as the person's at tier 4.
+         */
+        SourcePin: {
+            /** Consumer */
+            consumer: string;
+            /** Port */
+            port: string;
+            /** Producer */
+            producer: string;
+        };
         /** StepOffer */
         StepOffer: {
             context: components["schemas"]["OfferContext"];
