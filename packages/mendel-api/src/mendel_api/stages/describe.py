@@ -334,18 +334,20 @@ def session_of(draft_id: str) -> str | None:
 
 @records(c.OpenDrawn)
 def _open_drawn(ctx: Ctx, cmd: c.OpenDrawn) -> str:
-    """The draft's conversation, or a new one with nothing said. **A drawing is the person's
-    goal**, so it is confirmed as theirs, and what was drawn is read back whole
-    (`intent.read_graph`) and offered for them to confirm, as any hand edit is."""
+    """The draft's conversation, or a new one with nothing said, where what was drawn is read
+    back whole (`intent.read_graph`) and offered for the person to confirm, as any hand edit is.
+
+    **Not confirmed as a goal** (#399): a drawing says what is wanted and by which tool, not what
+    the person has. Its first confirmed reading goes through gathering, which asks the inputs
+    the plan needs — the questions talking asks — then the goal card and the walk."""
     from mendel_authoring.intent import read_graph
 
-    from mendel_api.services import decisions, registry, suggestions
+    from mendel_api.services import registry, suggestions
 
     existing = session_of(cmd.draft_id)
     if existing is not None:
         return existing
     ctx.session_id = open_session(cmd.draft_id, who=cmd.who, start="draw")
-    decisions.confirm(cmd.draft_id)
     with session_scope() as db:
         graph = DraftGraph.model_validate(db.get(PipelineDraft, cmd.draft_id).graph or {})
     readings = read_graph(graph, registry.stack().registry)

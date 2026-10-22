@@ -86,3 +86,32 @@ def test_an_open_that_loses_the_race_answers_with_the_winner(clean, monkeypatch)
 
     monkeypatch.setattr(describe, "session_of", first_look_misses)
     assert _open(draft_id) == winner
+
+
+STAR = "nf-core/star/align@1.11.0"
+
+
+def test_a_drawn_step_confirmed_asks_for_its_inputs(clean):
+    """#399: a drawing names what is wanted and by which tool, not what the person has. Its first
+    confirmed reading goes through gathering, which asks the inputs the plan needs — the same
+    questions as talking — rather than stopping on a goal nothing can reach."""
+    client = TestClient(create_app())
+    sid = _open(drafts.create(DraftGraph(), "drawn", "ana"))
+    picture = facade.read(sid)
+    graph = {"nodes": [{"id": "star_align_1", "contract_id": STAR, "params": []}], "edges": []}
+    edited = client.post(f"/api/pipeline/authoring/{sid}/edits",
+                         json={"graph": graph, "expected_revision": picture["revision"]})
+    assert edited.status_code == 200, edited.text
+    [first, *_] = edited.json()["offered"]
+    applied = client.post(f"/api/pipeline/authoring/{sid}/suggestions/{first}",
+                          json={"decision": "apply"})
+    assert applied.status_code == 200, applied.text
+    after = facade.read(sid)
+    assert after["phase"] == "gathering"
+    assert after["pending_proposal"] is not None
+    assert after["suggestions"] == []
+    from mendel_api.services import decisions
+
+    goal = decisions.goal(after["draft_id"])
+    assert "alignment.bam" in goal.want
+    assert [p.contract for p in goal.constraints.producers] == [STAR]
