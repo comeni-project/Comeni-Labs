@@ -5371,3 +5371,12 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 | 2026-10-22 | `test_proposal_previews_v2.py::test_a_shape_one_preview_says_which_settings_are_optional` (#384's shape change) | the migration's rewrite replaced with `pass` | failed | `KeyError: 'optional'`; `test_shapes.py::test_each_shape_matches_its_golden` was what found the change |
 | 2026-10-22 | `test_emit.py::test_an_omittable_route_writes_nothing_for_an_unanswered_setting` (#384) | written before `OMITTABLE` existed | failed | `ImportError` on `OMITTABLE`; the test then holds each optional route to an emitter that writes nothing for it |
 | 2026-10-22 | `test_card_unset.py::test_a_setting_the_call_cannot_leave_empty_is_not_said_to_stay_unset` (#384) | the card's list taken from every no-domain gap, as before | failed | `['seq_platform'] == []`: a positional setting was said to stay unset |
+
+## One builder, plan 1 — structural intent (A1), 2026-10-22
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-22 | `test_person_intents.py::test_excluding_the_only_producer_is_a_coded_conflict_naming_it` | the router's empty-after-exclusion check disabled | failed | `UnroutableError: nothing produces alignment.bam with states ['coordinate_sorted']` — the exclusion went unnamed |
+| 2026-10-22 | `test_person_intents.py::test_switching_off_a_role_the_goal_needs_is_a_coded_conflict` | `_blocking_absence` replaced with `None` | failed | `UnroutableError: nothing produces alignment.bam with states []` — the role went unnamed |
+| 2026-10-22 | `test_person_intents.py::test_an_intent_that_applies_nowhere_is_reported` | `inert_intents` returning `[]` | failed | `assert [] == [ProducerExclusion(…)…]` |
+| 2026-10-22 | `test_person_intents.py::test_a_pin_whose_producer_cannot_feed_the_port_is_a_coded_conflict` | the router's source-pin branch disabled | failed | `DID NOT RAISE IntentConflict` |

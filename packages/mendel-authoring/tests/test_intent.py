@@ -97,3 +97,15 @@ def test_swapping_a_tool_reads_as_a_pin(planned):
 def test_an_unchanged_graph_reads_as_nothing(planned):
     graph, ir, registry = planned
     assert read_edit(graph, graph, ir, registry) == []
+
+
+def test_swapping_the_tool_on_a_step_you_added_reads_as_a_pin_at_its_output(planned):
+    """Self-review: a hand-added step has no site in the plan; its swap must not read as nothing."""
+    graph, ir, registry = planned
+    added = graph.model_copy(update={"nodes": [*graph.nodes,
+                                               DraftNode(id="qc", contract_id=FASTQC)]})
+    swapped = added.model_copy(update={"nodes": [
+        *graph.nodes, DraftNode(id="qc", contract_id="nf-core/multiqc@1.25.1")]})
+    [reading] = read_edit(added, swapped, ir, registry)
+    assert reading.kind == "pin"
+    assert reading.intent.contract == "nf-core/multiqc@1.25.1"

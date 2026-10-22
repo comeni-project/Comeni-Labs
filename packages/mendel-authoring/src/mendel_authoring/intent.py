@@ -56,12 +56,18 @@ def read_edit(
         readings.append(_removed(node_id, old[node_id].contract_id, before, sites, registry))
 
     for node_id in sorted(old.keys() & new.keys()):
-        if old[node_id].contract_id != new[node_id].contract_id and node_id in sites:
+        if old[node_id].contract_id != new[node_id].contract_id:
             tool = new[node_id].contract_id
+            # A step the plan did not place (a person added it) is pinned where its output is,
+            # as it was when it was added; its swap must not read as nothing.
+            site = sites.get(node_id) or _output_site(
+                registry.contracts.get(old[node_id].contract_id))
+            if site is None:
+                continue  # an unknown tool: nothing to pin it by; validation names it
             readings.append(Reading(
                 kind="pin", subject=node_id,
                 said=f"So you want {_process(registry, tool)} for this step instead — right?",
-                intent=ProducerPin(site=sites[node_id], contract=tool)))
+                intent=ProducerPin(site=site, contract=tool)))
 
     for node_id in sorted(new.keys() - old.keys()):
         if any(e.from_node == node_id for e in after.edges):
@@ -110,8 +116,7 @@ def _removed(node_id, tool, before: DraftGraph, sites, registry: Registry) -> Re
         kind="exclude", subject=node_id,
         said=f"So you don't want {_process(registry, tool)} at this step — I'll find another "
              "tool. Right?",
-        intent=ProducerExclusion(site=sites.get(node_id, Site(type_id=_made(contract))),
-                                 contract=tool))
+        intent=ProducerExclusion(site=sites.get(node_id) or _output_site(contract), contract=tool))
 
 
 def _optional(contract: ModuleContract, readers, before: DraftGraph, registry: Registry) -> bool:
@@ -137,5 +142,8 @@ def _process(registry: Registry, tool: str) -> str:
     return contract.nf_process if contract is not None else tool
 
 
-def _made(contract: ModuleContract | None) -> str:
-    return contract.produces[0].type_id if contract is not None and contract.produces else ""
+def _output_site(contract: ModuleContract | None) -> Site | None:
+    made = contract.produces[0] if contract is not None and contract.produces else None
+    return Site(type_id=made.type_id, states=frozenset(made.state)) if made else None
+
+

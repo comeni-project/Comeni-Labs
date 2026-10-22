@@ -6,7 +6,7 @@ its top half, `intent` and `facts`; building it writes the rest.
 
 ```yaml
 # examples/rnaseq.yml
-version: 7
+version: 8
 intent:
   want: [counts.matrix]
   constraints:
@@ -37,7 +37,7 @@ Model: `comeni_core.artifact.starter.Starter`
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `version` | 7 | 7 | the `pipeline.yml` schema version |
+| `version` | 8 | 8 | the `pipeline.yml` schema version |
 | `intent` | object | *required* | what is wanted: `want` and `constraints`, below |
 | `facts` | object | *required* | what is known: `inputs` and `measurements`, below |
 | `intent.want` | [type id] | `[]` | the types you want produced |
@@ -71,6 +71,9 @@ Model: `comeni_core.goal.asked.Constraints`
 | `required_states` | [required-states] | `[]` | states an output must carry |
 | `params` | [param-override] | `[]` | a parameter you are fixing yourself |
 | `producers` | [producer-pin] | `[]` | a tool you chose for a step; left out of the file when empty |
+| `absent_roles` | [role-absence] | `[]` | a role you switched off; left out when empty |
+| `exclusions` | [producer-exclusion] | `[]` | a tool you excluded at a site; left out when empty |
+| `sources` | [source-pin] | `[]` | the tool you chose to feed a step's input; left out when empty |
 
 `required_states` is what turns *get me a count matrix* into *get me a gene-level count matrix*.
 Without it, any producer of the type matches.
@@ -81,6 +84,27 @@ Model: `comeni_core.goal.asked.RequiredStates`
 |---|---|---|---|
 | `type_id` | string | *required* | the type the requirement applies to |
 | `states` | [string] | `[]` | states it must carry |
+
+Model: `comeni_core.goal.asked.RoleAbsence`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `role` | string | *required* | the role no step should fill |
+
+Model: `comeni_core.goal.asked.ProducerExclusion`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `site` | site | *required* | where the tool is excluded: a type and its states |
+| `contract` | string | *required* | the tool not to use there |
+
+Model: `comeni_core.goal.asked.SourcePin`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `consumer` | string | *required* | the contract of the step whose input this is |
+| `port` | string | *required* | that input |
+| `producer` | string | *required* | the tool whose output feeds it |
 
 Model: `comeni_core.goal.asked.ParamOverride`
 

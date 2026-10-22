@@ -48,7 +48,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 7
+version: 8
 
 intent:                        # what was wanted
   want: [counts.matrix]
@@ -183,6 +183,17 @@ against a registry.
 makes, with its states) and the `contract` to use there. The resolver uses it in place of its
 own pick, at tier 4 with your name on it and the engine's pick in the reason, and `upgrade`
 keeps it. It is left out of the file when you chose none.
+
+Three more lists hold a person's structural intent, each left out when empty, each kept by
+`upgrade` and honoured on every re-plan:
+
+- `absent_roles`: roles switched off (`{role: trimming}`). No step fills them. If the goal needs
+  one, the build stops with `MD0319`.
+- `exclusions`: a tool excluded at a site (`{site: …, contract: …}`). The resolver takes the next
+  tool there, and its reason says what you excluded. If none is left: `MD0320`.
+- `sources`: which tool feeds a step's input (`{consumer: …, port: …, producer: …}`). The
+  resolver routes that tool and wires it, recorded as your choice. If its output cannot feed the
+  input: `MD0321`.
 
 Each entry under `facts.measurements` says where its value came from: `source: said` for
 something a person said, `source: measured` for something measured from the data. A measured

@@ -191,7 +191,7 @@ def test_an_intent_that_applies_nowhere_is_reported(resolve_rnaseq):
 - Produces: a `SourceDecision` with `human_override` set and `resolved_by="person"` whenever a
   pin decided a port.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_a_pinned_source_feeds_the_port_and_is_recorded_as_the_persons(resolve_rnaseq):
@@ -207,13 +207,13 @@ def test_a_re_plan_keeps_intents_and_reports_a_pin_whose_consumer_left(resolve_r
          # exclusion still applied; inert_intents names the source pin
 ```
 
-- [ ] **Step 2: Run; expect FAIL.**
-- [ ] **Step 3: In `satisfy`, when the consumer's port has a pin, satisfy it through the pinned
+- [x] **Step 2: Run; expect FAIL.**
+- [x] **Step 3: In `satisfy`, when the consumer's port has a pin, satisfy it through the pinned
   producer** (as a `ProducerPin` at the producer's output site would); in `_source_for`, a pin
   selects among `qualifying` and records the decision; a pinned producer not in `qualifying`
   raises `IntentConflict`.
-- [ ] **Step 4: Run all resolver tests; expect PASS. Then `make guards`.**
-- [ ] **Step 5: Commit** `feat(resolver): a port's source a person pinned is honoured (A1)`.
+- [x] **Step 4: Run all resolver tests; expect PASS. Then `make guards`.**
+- [x] **Step 5: Commit** `feat(resolver): a port's source a person pinned is honoured (A1)`.
 
 ### Task 5: The intents as decisions (pure, then stored)
 
@@ -234,7 +234,7 @@ def test_a_re_plan_keeps_intents_and_reports_a_pin_whose_consumer_left(resolve_r
   `pin_source(draft_id, consumer, port, producer)`, and `release_intent(draft_id, family, key)`.
   Subject keys: role name; `_site_key(site) + "|" + contract`; `consumer + "|" + port`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_decisions_round_trip_the_three_intents():          # pure
@@ -248,13 +248,13 @@ def test_each_intent_is_attributed_and_has_history(db_draft):
     ...  # history(draft, subject) names who and when, as for a producer
 ```
 
-- [ ] **Step 2: Run; expect FAIL.**
-- [ ] **Step 3: Implement** following the `producer` family line for line; a pin and an
+- [x] **Step 2: Run; expect FAIL.**
+- [x] **Step 3: Implement** following the `producer` family line for line; a pin and an
   exclusion of the same contract at the same site are one subject in practice: writing one
   retracts the other (`_write(..., action="retract")`).
-- [ ] **Step 4: `make test-db`, run the new tests and `packages/mendel-api/tests/infrastructure`
+- [x] **Step 4: `make test-db`, run the new tests and `packages/mendel-api/tests/infrastructure`
   (shapes, migrations); expect PASS.**
-- [ ] **Step 5: Commit** `feat: structural intents are a person's decisions, with history (A1)`.
+- [x] **Step 5: Commit** `feat: structural intents are a person's decisions, with history (A1)`.
 
 ### Task 6: Reading a canvas edit as intent
 
@@ -269,7 +269,7 @@ def test_each_intent_is_attributed_and_has_history(db_draft):
   and `intent: RoleAbsence | ProducerExclusion | SourcePin | ProducerPin | TypeId` — what it would write. Layout-only edits return `[]`. Plan 2 shows `said` and, on
   confirmation, calls Task 5's writers.
 
-- [ ] **Step 1: Write the failing tests**, one per row of the spec's table:
+- [x] **Step 1: Write the failing tests**, one per row of the spec's table:
 
 ```python
 def test_removing_trimgalore_reads_as_trimming_switched_off(): ...
@@ -281,11 +281,11 @@ def test_swapping_a_tool_reads_as_a_pin(): ...
 def test_dragging_reads_as_nothing(): ...
 ```
 
-- [ ] **Step 2: Run; expect FAIL. Step 3: Implement** — a removed node whose contract fills a
+- [x] **Step 2: Run; expect FAIL. Step 3: Implement** — a removed node whose contract fills a
   role every other contract at its site also fills, and whose consumers accept the input
   without it (`state_required_conventional`), is a role absence; a removed node producing a
   wanted type is an unwant; otherwise an exclusion. Order and sort the result.
-- [ ] **Step 4: Run; expect PASS. Step 5: Commit** `feat(authoring): a canvas edit is read as intent (A1)`.
+- [x] **Step 4: Run; expect PASS. Step 5: Commit** `feat(authoring): a canvas edit is read as intent (A1)`.
 
 ### Task 7: Records
 

@@ -30,6 +30,9 @@ or a complete commit history.
 
 #### Added
 
+- A goal's constraints carry a person's structural intent: `absent_roles`, `exclusions` and
+  `sources`, each left out of the file when empty. `pipeline.yml` is version 8; only 8 is read
+  ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
 - Module declarations record source, pinned commit, licence and omitted files. Layer digests
   cover module source as well as contracts, including auxiliary files regardless of extension.
 - Registry manifests declare directory layout for linting. Files still declare their own kind;
@@ -84,6 +87,10 @@ or a complete commit history.
 
 #### Added
 
+- The resolver honours a person's structural intent on every re-plan: a role switched off, a
+  tool excluded at a site, a port's source pinned (recorded as the person's). Conflicts are
+  named (`MD0319`–`MD0321`); `inert_intents` reports intents that applied nowhere
+  ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
 - Replays preserve recorded answers while reporting stale and orphaned decisions. Resolved
   values record the supplying layer and displaced alternatives for contracts and rules.
 - Goals and profiles use declared type families and validated measurements with sources.
@@ -136,6 +143,8 @@ or a complete commit history.
 
 #### Added
 
+- `read_edit` reads a canvas edit as the intent it means, with the sentence that asks the person
+  to confirm it ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
 - Walk progress names the steps still to come (`upcoming`), each with its place in the plan;
   a step whose review still holds is not among them.
 
@@ -150,6 +159,9 @@ or a complete commit history.
 
 #### Added
 
+- Structural intents are decision families (`role`, `exclusion`, `source`) with history;
+  pinning a tool withdraws its exclusion at that site and the reverse. Turn blocks move to
+  shape 3 ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
 - Persistent authoring sessions support goal extraction, fact gathering, sample uploads,
   read-back, typed answers, build review and resumption. Questions explain their subject,
   affected steps, reason and available answers; uploads can answer missing facts.
