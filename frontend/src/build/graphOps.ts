@@ -103,3 +103,10 @@ export function withMerge(g: DraftGraph, port: string): DraftGraph {
       .filter((c) => c.ports.length > 0),
   };
 }
+
+/** A step id for a module added by hand: the tool's path, numbered past any already taken. */
+export function idFor(graph: DraftGraph, contract: string): string {
+  const base = contract.split("@")[0].split("/").slice(1).join("_").replace(/\W/g, "_") || "step";
+  const taken = new Set(graph.nodes.map((n) => n.id));
+  for (let n = 1; ; n += 1) if (!taken.has(`${base}_${n}`)) return `${base}_${n}`;
+}

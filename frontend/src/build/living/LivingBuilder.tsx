@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router";
 
 import { post } from "../../api/client";
 import type { AuthoringBlock, AuthoringSession, Built, DraftGraph } from "../../api/types";
-import { withNode, withoutNode, withParam } from "../graphOps";
+import { idFor, withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring } from "./authoringReducer";
 import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY, readFakePreview } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
@@ -46,13 +46,6 @@ export function LivingBuilder() {
       Open a session with <span className="font-data">?session=&lt;id&gt;</span>.
     </p>
   );
-}
-
-/** A step id for a module added by hand: the tool's path, like `useGraph` names one. */
-function idFor(graph: DraftGraph, contract: string): string {
-  const base = contract.split("@")[0].split("/").slice(1).join("_").replace(/\W/g, "_") || "step";
-  const taken = new Set(graph.nodes.map((n) => n.id));
-  for (let n = 1; ; n += 1) if (!taken.has(`${base}_${n}`)) return `${base}_${n}`;
 }
 
 function LiveLiving({ sessionId }: { sessionId: string }) {
@@ -145,6 +138,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onApplyChange={(block: ChangeBlock) =>
         living.edit(block.removes.reduce(withoutNode, graph))}
       onEdit={living.edit}
+      onRename={living.rename}
     />
   );
 }

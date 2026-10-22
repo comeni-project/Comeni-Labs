@@ -4,7 +4,7 @@ import { useCallback, useEffect, useReducer, useState } from "react";
 import type { components } from "../../api/schema";
 import type { FactValue } from "./FactEditor";
 
-import { get, post, postForm, Refused } from "../../api/client";
+import { get, post, postForm, put, Refused } from "../../api/client";
 import type {
   AuthoringDecided,
   AuthoringEdited,
@@ -260,8 +260,13 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     upload: (proposal: AuthoringProposal, files: File[]) =>
       upload.mutateAsync({ proposal, files }),
     retry: () => retry.mutate(),
-    /** A direct edit, recorded as the person's with a receipt the server composes. */
+    /** A hand edit: the server reads it as intent and offers the reading in the chat (#395). */
     edit: (graph: DraftGraph) => edit.mutate(graph),
+    /** Rename the pipeline: a name is not a decision, so the draft is saved directly. */
+    rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {
+      name, expected_revision: session.data?.revision }).then(() => refresh(), (error) =>
+      dispatch({ type: "refused", proposalId: "",
+                 detail: error instanceof Refused ? error.message : String(error) })),
     vocabulary: vocabulary.data?.types ?? null,
     measurements: vocabulary.data?.measurements,
     correcting: correction.isPending,

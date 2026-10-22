@@ -50,6 +50,7 @@ export function LivingHeader({
   runnable = false,
   openValues = 0,
   views = true,
+  onRename,
 }: {
   session: AuthoringSession;
   view: "canvas" | "artifact";
@@ -65,6 +66,8 @@ export function LivingHeader({
   openValues?: number;
   /** Whether there is a pipeline to switch views of — not while describing. */
   views?: boolean;
+  /** Rename the pipeline: the name becomes a field, saved when it loses focus. */
+  onRename?: (name: string) => void;
 }) {
   const spent = usageWords(session.usage);
   const [calls, setCalls] = useState(false);
@@ -76,7 +79,19 @@ export function LivingHeader({
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-[28px] pt-[22px] pb-[14px]" data-testid="living-header">
       <h1 className="m-0 text-[25px] leading-tight font-semibold tracking-[-.02em] text-ink">
-        {session.name || "Untitled analysis"}
+        {onRename ? (
+          <input aria-label="pipeline name" defaultValue={session.name} placeholder="Untitled analysis"
+                 key={session.name}
+                 onBlur={(e) => {
+                   const name = e.target.value.trim();
+                   if (name !== session.name) onRename(name);
+                 }}
+                 onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                 className="m-0 p-0 border-0 bg-transparent text-[25px] leading-tight font-semibold
+                            tracking-[-.02em] text-ink placeholder:text-ink-3 focus-visible:outline-none
+                            focus-visible:shadow-[var(--ring)] rounded-control"
+                 style={{ width: `${Math.max(12, (session.name || "Untitled analysis").length + 1)}ch` }} />
+        ) : (session.name || "Untitled analysis")}
       </h1>
       {/* Where the build is, then what it needs from you — the boards' order. */}
       <StatusChip session={session} open={openValues} />

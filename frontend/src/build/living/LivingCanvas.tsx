@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import type { components } from "../../api/schema";
-import type { DraftEdge, DraftGraph, Step } from "../../api/types";
+import type { DraftEdge, DraftGraph, PortView, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
-import { NODE_H, NODE_W, portOffset, SPINE, type Point, type Positions } from "../geometry";
+import { elbow, NODE_H, NODE_W, path, portOffset, SPINE, type Point, type Positions } from "../geometry";
+import { idFor, withEdge, withNode, withoutEdge, withoutNode } from "../graphOps";
 import { Minimap } from "../Minimap";
+import { Picker } from "../Picker";
+import { Port } from "../Port";
 import { place } from "../Sources";
+import { accepts, useCompatibility } from "../useCompatibility";
 import { useView } from "../useView";
 import type { MotionEvent } from "./authoringReducer";
 import { Flowline, flowLabel, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
@@ -25,6 +29,11 @@ type Channel = components["schemas"]["ChannelView"];
  *
  * **The client owns a position once somebody drags it**, and **Tidy** gives the server's layout
  * back — the escape hatch the manual builder has always had.
+ *
+ * **The manual builder's hands, when `onEdit` is given** (one builder, #395): Delete removes the
+ * selected step, an output drags a wire to an input, a wire detaches on a click, and a port asks
+ * what could go there (`Picker`). Each sends the whole next graph, which the server reads as
+ * intent and the chat confirms; nothing here saves anything.
  */
 const CONTROL = "px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px] font-semibold "
   + "text-ink cursor-pointer hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]";
@@ -55,6 +64,7 @@ export function LivingCanvas({
   reviews = {},
   working = false,
   focus = null,
+  onEdit,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -85,11 +95,46 @@ export function LivingCanvas({
   working?: boolean;
   /** The step the engine or the person is looking at — brought on screen when it changes. */
   focus?: string | null;
+  /** A hand edit, as the whole next graph. Absent where the canvas is a preview. */
+  onEdit?: (next: DraftGraph) => void;
 }) {
   const view = useView();
   const probe = useRef<HTMLSpanElement>(null);
   const [moved, setMoved] = useState<Positions>({});
   const drag = useRef<{ id: string; from: Point; origin: Point; travelled: boolean } | null>(null);
+  /** Which output a wire is being dragged from. */
+  const [wiring, setWiring] = useState<{ node: string; port: string } | null>(null);
+  /** The port whose candidates are open, and where on screen. */
+  const [picking, setPicking] = useState<{ node: string; port: PortView; at: Point } | null>(null);
+  const index = useCompatibility();
+  const editable = onEdit !== undefined && !readOnly;
+
+  /** **Delete removes the selected step**, not while a field has focus — typing a value into a
+   *  setting would delete the step being configured. */
+  useEffect(() => {
+    if (!editable || !selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement | null;
+      if (target && (["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName) || target.isContentEditable)) {
+        return;
+      }
+      e.preventDefault();
+      onEdit(withoutNode(graph, selected));
+      onSelect(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editable, selected, graph, onEdit, onSelect]);
+
+  /** **A wire drag ends wherever the pointer is let go**, or the next click on an input would
+   *  finish a wire abandoned a minute ago. */
+  useEffect(() => {
+    if (!wiring) return;
+    const done = () => setWiring(null);
+    window.addEventListener("pointerup", done);
+    return () => window.removeEventListener("pointerup", done);
+  }, [wiring]);
 
   const at: Positions = { ...positions, ...moved };
 
@@ -197,6 +242,20 @@ export function LivingCanvas({
     ...sources.map((s) => s.box.y + SOURCE_H + 20),
   );
 
+  /** How an input looks while a wire is dragged: **a lookup, not a decision** — the server
+   *  computed what satisfies what, and reads the edit when it lands. */
+  const verdictFor = (node: string, port: string) => {
+    if (!wiring || !index.data) return undefined;
+    const from = graph.nodes.find((n) => n.id === wiring.node)?.contract_id;
+    const to = graph.nodes.find((n) => n.id === node)?.contract_id;
+    return from && to ? accepts(index.data, `${from}#${wiring.port}`, `${to}#${port}`) : undefined;
+  };
+  /** Canvas coordinates on the screen, for the picker, which is drawn fixed. */
+  const onScreen = (p: Point): Point => {
+    const r = probe.current?.closest<HTMLElement>("[data-testid='canvas']")?.getBoundingClientRect();
+    return { x: (r?.left ?? 0) + p.x * view.view.k + view.view.x, y: (r?.top ?? 0) + p.y * view.view.k + view.view.y };
+  };
+
   return (
     <Canvas
       view={view.view}
@@ -239,6 +298,9 @@ export function LivingCanvas({
           <div className="absolute left-4 right-4 bottom-4 flex flex-wrap-reverse items-end gap-2 pointer-events-none
                           [&>*]:pointer-events-auto">
             <button type="button" onClick={fitView} className={CONTROL}>Fit</button>
+            <button type="button" aria-label="zoom out" onClick={() => view.nudge(-0.1)} className={CONTROL}>−</button>
+            <button type="button" aria-label="zoom in" onClick={() => view.nudge(0.1)} className={CONTROL}>+</button>
+            <button type="button" aria-label="reset the view" onClick={view.reset} className={CONTROL}>1:1</button>
             {footer}
             {Object.keys(moved).length > 0 && (
               <button type="button" data-testid="tidy" onClick={() => setMoved({})} className={CONTROL}>
@@ -258,7 +320,8 @@ export function LivingCanvas({
         </>
       }
     >
-      <svg aria-hidden width={width} height={height} className="absolute left-0 top-0 overflow-visible">
+      <svg aria-hidden width={width} height={height}
+           className="absolute left-0 top-0 overflow-visible pointer-events-none">
         {sources.flatMap(({ channel, edge, feeds }) =>
           feeds.map(([node, port]) => {
             const tip = tipIn(node, port);
@@ -290,6 +353,22 @@ export function LivingCanvas({
                       onDrawn={played ? () => onPlayed(played.event) : undefined} />
           );
         })}
+        {/* **A wide invisible path under each wire** to detach it: a 1.5px stroke is not a thing
+            a hand can hit. */}
+        {editable && solid.map((edge) => {
+          const from = tipOut(edge.from_node, edge.from_port);
+          const to = tipIn(edge.to_node, edge.to_port);
+          if (!from || !to) return null;
+          return (
+            <path key={`hit-${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
+                  data-testid={`wire-hit-${edge.from_node}-${edge.to_node}`}
+                  d={path(elbow(from, to))} fill="none" stroke="transparent" strokeWidth={14}
+                  className="pointer-events-auto cursor-pointer"
+                  onClick={() => onEdit(withoutEdge(graph, edge))}>
+              <title>{`${edge.from_node}.${edge.from_port} → ${edge.to_node}.${edge.to_port} — click to detach`}</title>
+            </path>
+          );
+        })}
         {ghostEdges.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
@@ -313,8 +392,8 @@ export function LivingCanvas({
           ? (ghostProposal ? motionFor(events, ["proposal_shown"], ghostProposal) : null)
           : motionFor(events, ["proposal_accepted"], id);
         return (
+          <Fragment key={id}>
           <LivingNode
-            key={id}
             id={id}
             at={at[id]}
             author={authors[id] ?? "resolver"}
@@ -353,8 +432,45 @@ export function LivingCanvas({
               }, 0);
             }}
           />
+          {editable && !isGhost && (
+            <div data-testid={`ports-${id}`} className="absolute pointer-events-none"
+                 style={{ left: at[id].x, top: at[id].y, width: NODE_W, height: NODE_H }}>
+              {(["in", "out"] as const).flatMap((side) =>
+                portsOf(id, side).map((port, i) => (
+                  <span key={`${side}.${port.name}`} className="pointer-events-auto">
+                    <Port port={port} side={side} y={portOffset(i)}
+                          verdict={side === "in" ? verdictFor(id, port.name) : undefined}
+                          onStartWire={() => setWiring({ node: id, port: port.name })}
+                          onFinishWire={() => {
+                            if (wiring) {
+                              onEdit(withEdge(graph, { from_node: wiring.node, from_port: wiring.port,
+                                                       to_node: id, to_port: port.name }));
+                            }
+                            setWiring(null);
+                          }}
+                          onExplore={() => setPicking({ node: id, port, at: onScreen({
+                            x: at[id].x + (side === "out" ? NODE_W + 16 : -356), y: at[id].y }) })} />
+                  </span>
+                )))}
+            </div>
+          )}
+          </Fragment>
         );
       })}
+      {picking && editable && (
+        <Picker port={picking.port} node={picking.node} at={picking.at}
+                onClose={() => setPicking(null)}
+                onPick={(contract, theirPort) => {
+                  // **Add the step AND draw the wire**, in the clicked port's direction: an output
+                  // feeds the new step, an input is fed by it.
+                  const added = idFor(graph, contract);
+                  const next = withNode(graph, { id: added, contract_id: contract, params: [] });
+                  onEdit(withEdge(next, picking.port.side === "out"
+                    ? { from_node: picking.node, from_port: picking.port.name, to_node: added, to_port: theirPort }
+                    : { from_node: added, from_port: theirPort, to_node: picking.node, to_port: picking.port.name }));
+                  setPicking(null);
+                }} />
+      )}
     </Canvas>
   );
 }

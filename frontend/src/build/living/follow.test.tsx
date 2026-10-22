@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -43,9 +44,11 @@ describe("the living canvas follows its focus", () => {
       { x: 0, y: 0, top: 0, left: 0, right: SCREEN.w, bottom: SCREEN.h, width: SCREEN.w, height: SCREEN.h,
         toJSON: () => ({}) } as DOMRect);
     render(
-      <LivingCanvas graph={FAKE_SESSION.graph} ghost={null} positions={positions} steps={FAKE_STEPS}
-                    channels={FAKE_CHANNELS} authors={{}} selected={null} onSelect={() => undefined}
-                    focus={focus} />,
+      <QueryClientProvider client={new QueryClient()}>
+        <LivingCanvas graph={FAKE_SESSION.graph} ghost={null} positions={positions} steps={FAKE_STEPS}
+                      channels={FAKE_CHANNELS} authors={{}} selected={null} onSelect={() => undefined}
+                      focus={focus} />
+      </QueryClientProvider>,
     );
     return screen.getByTestId("canvas").querySelector<HTMLElement>("[style*='translate']")!.style.transform;
   };

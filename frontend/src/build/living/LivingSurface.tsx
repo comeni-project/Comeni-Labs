@@ -11,6 +11,7 @@ import type {
 } from "../../api/types";
 import type { components } from "../../api/schema";
 import { Browse } from "../Browse";
+import { withoutNode } from "../graphOps";
 import { PipelineFile } from "./PipelineFile";
 import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import type { CorrectFact } from "./CurrentFacts";
@@ -64,6 +65,7 @@ export function LivingSurface({
   onSetParam,
   onApplyChange,
   onEdit,
+  onRename,
   onPlayed = () => undefined,
   reveal = {},
   run = null,
@@ -103,6 +105,8 @@ export function LivingSurface({
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
   onEdit: (graph: DraftGraph) => void;
+  /** Rename the pipeline. Absent on the fakes, whose name is fixed. */
+  onRename?: (name: string) => void;
   onPlayed?: (event: MotionEvent) => void;
   reveal?: Record<string, number>;
   /** The Run sequence — keep, lint, run sheet — when the page has one. The fixtures do not. */
@@ -263,6 +267,7 @@ export function LivingSurface({
         runError={run?.error ?? null}
         runnable={run !== null && session.projection_current !== false && !session.retired && !showing}
         openValues={values.open}
+        onRename={session.retired ? undefined : onRename}
       />
       {/* **The run sheet takes the canvas's place** (the *Run sheet* board), under the header. */}
       {run?.sheet}
@@ -342,6 +347,10 @@ export function LivingSurface({
             selected={state.selected}
             onSelect={onSelect}
             focus={focus}
+            // **The edit is of the pipeline, never of the step on offer**: the frame draws it, the
+            // saved graph does not hold it, and sending it would read as "you added it".
+            onEdit={session.retired ? undefined : (next) => onEdit(
+              ghost && !graph.nodes.some((n) => n.id === ghost) ? withoutNode(next, ghost) : next)}
             footer={
               <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
                       className="px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px]
