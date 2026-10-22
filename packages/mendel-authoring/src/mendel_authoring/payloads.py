@@ -96,7 +96,7 @@ Payload = Empty | GoalReturned | GapAnswered | SampleAnswered | Amended | Correc
 _TYPES = {"understood": GoalReturned, "answer_gap": GapAnswered,
           "upload_sample": SampleAnswered, "compare_evidence": SampleAnswered, "amend": Amended,
           "correct_fact": Correction, "answer_disagreement": Correction,
-          "release_producer": Correction, "fork_correction": Correction}
+          "release_producer": Correction}
 
 
 def check(arrow: str | None, payload: Payload) -> Payload:

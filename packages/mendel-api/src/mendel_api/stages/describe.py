@@ -46,7 +46,7 @@ def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
     **One session per draft**, which the unique index enforces and this refuses first, so a
     person reads a sentence rather than a constraint violation.
     """
-    if start not in ("say", "fork_correction"):
+    if start != "say":
         raise ValueError("unsupported initial authoring node")
     with session_scope() as session:
         if session.get(PipelineDraft, draft_id) is None:
@@ -63,15 +63,13 @@ def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
                 + f"\n  it is {existing.id}, in phase {existing.phase}"
             )
 
-        session.get(PipelineDraft, draft_id).ownership = "authored"
         session_id = new_id()
         now = _now()
         session.add(
             PipelineAuthoringSession(
                 id=session_id,
                 draft_id=draft_id,
-                phase=(Phase.CORRECTING if start == "fork_correction"
-                       else Phase.UNDERSTANDING).value,
+                phase=Phase.UNDERSTANDING.value,
                 at=start,
                 failed_from=None,
                 blueprint={},

@@ -5380,3 +5380,11 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 | 2026-10-22 | `test_person_intents.py::test_switching_off_a_role_the_goal_needs_is_a_coded_conflict` | `_blocking_absence` replaced with `None` | failed | `UnroutableError: nothing produces alignment.bam with states []` — the role went unnamed |
 | 2026-10-22 | `test_person_intents.py::test_an_intent_that_applies_nowhere_is_reported` | `inert_intents` returning `[]` | failed | `assert [] == [ProducerExclusion(…)…]` |
 | 2026-10-22 | `test_person_intents.py::test_a_pin_whose_producer_cannot_feed_the_port_is_a_coded_conflict` | the router's source-pin branch disabled | failed | `DID NOT RAISE IntentConflict` |
+
+## One builder, plan 2 — one builder, no fork (#395), 2026-10-22
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-22 | `test_edit_reading.py::test_removing_trimgalore_mid_walk_offers_the_role_reading_and_changes_nothing` | written before `record_edit` read edits | failed | `MI0217: editing opens when the walk is done` (the walk refused it) |
+| 2026-10-22 | `test_edit_reading.py::test_confirming_an_impossible_exclusion_is_refused_with_its_code_and_writes_nothing` | written before the correction refused an `IntentConflict` | failed | `assert 200 == 422`: the exclusion was kept and the pipeline left outdated |
+| 2026-10-22 | `test_edit_reading.py::test_a_correction_after_a_hand_edit_lands_in_the_same_pipeline` | the draft set to `ownership = "manual"` by hand, the fork still present | failed | `assert 2 == 1`: the correction forked a linked draft. It passed once Task 3 stopped flipping ownership, before the fork was deleted |

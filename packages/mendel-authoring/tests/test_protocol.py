@@ -380,7 +380,6 @@ def test_the_commands_are_the_specs_and_1bs():
         "correct_fact",
         "answer_disagreement",
         "release_producer",
-        "fork_correction",
         "compare_evidence",
     }
 
@@ -446,7 +445,6 @@ ACTS = {
     "resolve_correction",
     "cascade_reviews",
     "correction_blocked",
-    "fork_correction",
     "compare_evidence",
     "family",
     "read_goal",

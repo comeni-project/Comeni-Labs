@@ -218,3 +218,24 @@ def test_confirming_an_impossible_exclusion_is_refused_with_its_code_and_writes_
     assert decisions.goal(building["draft_id"]).constraints.exclusions == []
     [waiting] = _session(client, building["id"])["suggestions"]
     assert waiting["kind"] == "exclude"
+
+
+# ── Task 5: no fork ───────────────────────────────────────────────────────────────────────
+
+
+@needs_db
+def test_a_correction_after_a_hand_edit_lands_in_the_same_pipeline(
+        client, clean, queue, monkeypatch):
+    """A hand edit is the person's decision in this pipeline; a correction after it is checked
+    here too, never moved to a linked copy."""
+    building = _walked(client, _building(client, queue, monkeypatch)[0], "star_align")
+    assert _confirm(client, building, _without(building["graph"], "trimgalore")).status_code == 200
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+    from mendel_api_tests.corrections import _correct
+
+    _correct(building["id"], "read_length", 100)
+    after = _session(client, building["id"])
+    assert after["draft_id"] == building["draft_id"]
+    with session_scope() as db:
+        assert db.query(PipelineDraft).count() == 1

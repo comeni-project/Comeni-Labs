@@ -19,7 +19,6 @@ def test_authoring_get_restores_disagreement_and_current_context(clean):
     assert view["pending_proposal"]["kind"] == "disagreement"
     # Gathering, so nothing is built: not outdated (issue 329; this said `is False`, the defect).
     assert view["decision_revision"] > 0 and view["projection_current"] is True
-    assert view["ownership"] == "authored" and view["forked_from"] is None
     assert view["inputs"] and view["review_applicability"] == {}
 
 

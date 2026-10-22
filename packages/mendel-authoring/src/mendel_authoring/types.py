@@ -100,7 +100,6 @@ class Command(StrEnum):
     CORRECT_FACT = "correct_fact"
     ANSWER_DISAGREEMENT = "answer_disagreement"
     RELEASE_PRODUCER = "release_producer"
-    FORK_CORRECTION = "fork_correction"
     DESCRIBE = "describe"
     ANSWER_GAP = "answer_gap"
     UPLOAD_SAMPLE = "upload_sample"

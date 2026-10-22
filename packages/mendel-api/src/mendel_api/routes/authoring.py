@@ -245,10 +245,7 @@ class AuthoringSessionView(BaseModel):
     fact_subjects: list[str] = []
     decision_revision: int = 0
     projection_current: bool = True
-    ownership: Literal["authored", "manual"] = "authored"
     retired: bool = False
-    forked_from: str | None = None
-    forked_from_session: str | None = None
     review_applicability: dict[str, Literal["retained", "superseded", "removed"]] = {}
     usage: AuthoringUsage = AuthoringUsage()
     """The session's model calls, totalled — carried by the poll the page already makes."""
@@ -268,9 +265,6 @@ class AuthoringSessionView(BaseModel):
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
     """Where each visible step sits in the finished pipeline, so nothing moves as it grows."""
-    hand_edits: str | None = None
-    """What was changed by hand since the walk ended, as its receipt says it, or `None`. A goal
-    changed now replaces the draft with the new blueprint's, so the page asks first."""
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
@@ -751,10 +745,7 @@ def _view(session_id: str) -> AuthoringSessionView:
                 "fact_subjects",
                 "decision_revision",
                 "projection_current",
-                "ownership",
                 "retired",
-                "forked_from",
-                "forked_from_session",
                 "review_applicability",
             )
         },
@@ -765,7 +756,6 @@ def _view(session_id: str) -> AuthoringSessionView:
         progress=picture["progress"],
         show_gap_details=picture["show_gap_details"],
         placement=picture["placement"],
-        hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],
         row_version=picture["row_version"],
         model_configured=model_access() is not None,

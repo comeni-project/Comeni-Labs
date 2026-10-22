@@ -7,12 +7,10 @@ import pytest
 import sqlalchemy as sa
 from mendel_api.db import Base, session_scope
 from mendel_api.models import AiInvocation, GateRun, PipelineAuthoringSession, PipelineDraft
-from mendel_api.services import decisions, deletion, session
+from mendel_api.services import deletion, session
 from mendel_api.settings import settings
 from mendel_api_tests.building import clean as clean
-from mendel_api_tests.corrections import _correct
 from mendel_api_tests.database import reachable
-from mendel_api_tests.manual_forks import _manual
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 
@@ -78,30 +76,6 @@ def test_its_model_calls_keep_their_record_and_lose_their_text(authoring_case):
         call = db.get(AiInvocation, "inv-del")
         assert call is not None and call.response is None
         assert call.response_cleared == "deleted" and call.model == "m"
-
-
-def test_a_fork_of_it_keeps_its_history_and_forgets_where_it_came_from(clean):
-    """Review Focus 2. A corrected fork reads its parent's evidence through its own access rows
-    (Part F); deleting the parent hands the observations the fork uses to the fork, so its own
-    history and every current decision survive. The parent's history, which the fork showed by
-    reference (`inherited`), goes with the parent: that is what deleting it means."""
-    sid = _manual()
-    parent = _draft_of(sid)
-    child = _correct(sid, "read_length", 50)["draft_id"]
-
-    def own():
-        return [e for e in decisions.history(child, "read_length") if not e.get("inherited")]
-
-    before, facts = own(), decisions.read(child).facts
-    assert before, "the fork has no history of its own — measuring nothing"
-    deletion.delete_draft(parent)
-    with session_scope() as db:
-        row = db.get(PipelineDraft, child)
-        assert row is not None
-        assert (row.forked_from, row.fork_key, row.fork_sequence, row.fork_at) == (None,) * 4
-    assert own() == before
-    assert decisions.read(child).facts == facts
-    assert _naming(parent, []) == {}
 
 
 def test_a_draft_with_a_gate_running_is_refused(authoring_case):

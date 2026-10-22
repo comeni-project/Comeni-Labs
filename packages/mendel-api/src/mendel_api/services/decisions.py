@@ -581,35 +581,6 @@ def history(draft_id, subject):
                         acknowledged_kind=access.acknowledged_kind,
                     )
                 )
-        if draft.forked_from:
-            inherited = history(draft.forked_from, subject)
-            inherited = [
-                dict(
-                    entry,
-                    current=False,
-                    inherited=True,
-                    source_draft_id=entry.get("source_draft_id", draft.forked_from),
-                )
-                for entry in inherited
-                if entry["seq"] <= draft.fork_sequence
-            ]
-            # Parent acknowledgements after the fork are not part of this snapshot.
-            for entry in inherited:
-                if entry.get("acknowledged_at") and entry["acknowledged_at"] > draft.fork_at:
-                    for key in (
-                        "acknowledged_as",
-                        "acknowledged_at",
-                        "acknowledged_by",
-                        "acknowledged_kind",
-                    ):
-                        entry[key] = None
-            parent_observations = {entry.get("observation_id") for entry in inherited}
-            result = [
-                entry
-                for entry in result
-                if entry["selected"] or entry.get("observation_id") not in parent_observations
-            ]
-            result = inherited + result
         return sorted(result, key=lambda entry: entry["seq"])
 
 
@@ -1105,92 +1076,6 @@ def pending_evidence(draft_id):
                 )
             )
         return unseen
-
-
-def inherit_in(db, parent, child):
-    """Reference the parent's evidence and inherit selections, never copy inspections.
-
-    The caller holds the parent lock. Old selections stay in the parent's frozen
-    history; the new authored walk starts without approvals of the manual graph.
-    """
-    grants = db.scalars(
-        select(PipelineEvidenceAccess).where(PipelineEvidenceAccess.draft_id == parent.id)
-    ).all()
-    child.decision_sequence = parent.decision_sequence
-    for grant in grants:
-        observation = db.get(PipelineObservation, grant.observation_id)
-        child.decision_sequence = max(child.decision_sequence, observation.seq)
-        db.add(
-            PipelineEvidenceAccess(
-                draft_id=child.id,
-                observation_id=grant.observation_id,
-                inherited=True,
-                **{
-                    key: getattr(grant, key)
-                    for key in (
-                        "acknowledged_as",
-                        "acknowledged_revision",
-                        "acknowledged_at",
-                        "acknowledged_by",
-                        "acknowledged_kind",
-                    )
-                },
-            )
-        )
-    db.flush()
-    old_selected = set(
-        db.scalars(
-            select(PipelineFactRevision.observation_id).where(
-                PipelineFactRevision.draft_id == parent.id
-            )
-        )
-    )
-    for grant in grants:
-        if grant.observation_id in old_selected:
-            _acknowledge(
-                db,
-                child,
-                grant.observation_id,
-                "obsolete",
-                who="resolver",
-                actor_kind=ActorKind.RESOLVER,
-            )
-    metadata = {
-        "id",
-        "draft_id",
-        "subject_id",
-        "seq",
-        "at",
-        "action",
-        "actor_kind",
-        "who",
-        "legacy",
-        "turn_id",
-        "proposal_id",
-    }
-    for family, (_, revision_type) in _FAMILIES.items():
-        if family == "review":
-            continue
-        for subject, revision in _current(db, parent.id, family):
-            fields = {
-                column.key: getattr(revision, column.key)
-                for column in revision_type.__table__.columns
-                if column.key not in metadata
-            }
-            _write(
-                db,
-                child,
-                family,
-                subject.subject_key,
-                fields,
-                who=revision.who,
-                actor_kind=revision.actor_kind,
-                legacy=revision.legacy,
-                action="inherit",
-                position=subject.position,
-            )
-    child.projection_current = False
-    db.flush()
 
 
 def answers_in(db, draft_id):

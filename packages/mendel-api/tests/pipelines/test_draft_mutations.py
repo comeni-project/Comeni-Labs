@@ -6,7 +6,6 @@ from importlib import import_module
 import pytest
 from comeni_core.plan.draft import DraftGraph, DraftNode
 from mendel_api.db import session_scope, transaction
-from mendel_api.models import PipelineDraft
 from mendel_api.services import drafts
 from mendel_api_tests.database import reachable
 
@@ -58,7 +57,6 @@ def test_unfinished_authored_work_refuses_external_graph_replacement():
     service = _service()
     draft = drafts.create(DraftGraph(), "draft", "ana")
     with session_scope() as db:
-        db.get(PipelineDraft, draft).ownership = "authored"
         db.add(
             PipelineAuthoringSession(
                 id="mutation-" + draft[:23],
@@ -73,24 +71,7 @@ def test_unfinished_authored_work_refuses_external_graph_replacement():
     with pytest.raises(ValueError, match="MI0217"):
         service.save(draft, graph=_graph(), expected_revision=0)
     service.save(draft, name="new", expected_revision=0)
-    assert drafts.read(draft).ownership == "authored"
     assert drafts.read(draft).graph == DraftGraph().model_dump(mode="json")
-
-
-def test_only_semantic_edits_after_completion_make_the_draft_manual():
-    service = _service()
-    draft = drafts.create(_graph(), "draft", "ana")
-    with session_scope() as db:
-        db.get(PipelineDraft, draft).ownership = "authored"
-    moved = DraftGraph.model_validate(
-        {**_graph().model_dump(mode="json"), "labels": [{"key": "align.out", "label": "alignment"}]}
-    )
-    # Use the real graph model's layout field, not a client-owned ownership claim.
-    service.save(draft, graph=moved, expected_revision=0)
-    assert drafts.read(draft).ownership == "authored"
-    revision = drafts.read(draft).revision
-    service.save(draft, graph=DraftGraph(), expected_revision=revision)
-    assert drafts.read(draft).ownership == "manual"
 
 
 def test_http_save_requires_a_revision_and_returns_conflict_for_a_stale_tab():

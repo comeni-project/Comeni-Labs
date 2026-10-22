@@ -6,7 +6,6 @@ rows: a card's alternatives as whole pipelines, a change into the goal, the draf
 the blueprint (no orphan, the fact kept), the pacing and Dev forks, the refusals, the wrap-up."""
 
 import pytest
-from comeni_core.plan.draft import DraftGraph
 from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
 from mendel_api.services import session as facade
@@ -17,7 +16,6 @@ from mendel_api_tests.step_review import (
     _continue,
     _draft,
     _goal,
-    _graph,
     _hisat2,
     _ids,
     _no_orphan,
@@ -201,18 +199,6 @@ def test_dev_mode_off_routes_around_every_gap(clean, monkeypatch):
     monkeypatch.setenv("COMENI_DEV_MODE", "false")
     session_id = _built(_goal())
     assert facade.read(session_id)["phase"] == Phase.COMPLETE.value
-
-
-def test_after_the_walk_a_hand_edit_is_named_for_the_goal_card(clean, monkeypatch):
-    """Spec §14.9: once the walk is done the draft may be edited; a goal changed then would
-    replace the edit, so the view says what it would replace."""
-    monkeypatch.setenv("COMENI_BUILD_PACING", "stop_where_needed")
-    session_id = _built(_goal())
-    assert facade.read(session_id)["hand_edits"] is None
-    graph = DraftGraph.model_validate(_graph(session_id))
-    edited = graph.model_copy(update={"nodes": graph.nodes[1:]})
-    facade.perform(commands.RecordEdit(session_id, edited.model_dump(mode="json"), "ana"))
-    assert facade.read(session_id)["hand_edits"].startswith("you removed")
 
 
 def test_a_truthful_fact_change_stays_when_building_is_blocked_and_can_be_corrected_again(

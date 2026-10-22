@@ -112,8 +112,6 @@ def delete_draft(draft_id: str) -> Deleted:
         cleared = (clear_replies(db, AiInvocation.session_id.in_(sessions), "deleted")
                    if sessions else 0)
         rows += db.execute(sa.delete(GateRun).where(GateRun.draft_id == draft_id)).rowcount
-        db.execute(sa.update(PipelineDraft).where(PipelineDraft.forked_from == draft_id).values(
-            forked_from=None, fork_key=None, fork_sequence=None, fork_at=None))
         db.delete(draft)
         rows += 1
     shutil.rmtree(settings.draft_root / draft_id, ignore_errors=True)

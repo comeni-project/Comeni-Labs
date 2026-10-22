@@ -256,7 +256,7 @@ class CorrectFact:
     expected_draft_revision: int
     expected_session_version: int
     kind: str = "measurement"
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT, Command.FORK_CORRECTION})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT})
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,7 +269,7 @@ class AnswerDisagreement:
     expected_draft_revision: int
     expected_session_version: int
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.ANSWER_DISAGREEMENT, Command.FORK_CORRECTION}
+        {Command.ANSWER_DISAGREEMENT}
     )
 
 
@@ -283,7 +283,7 @@ class ReleaseProducer:
     expected_draft_revision: int
     expected_session_version: int
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.RELEASE_PRODUCER, Command.FORK_CORRECTION}
+        {Command.RELEASE_PRODUCER}
     )
 
 
@@ -299,12 +299,7 @@ class Change:
     expected_decision_revision: int
     expected_draft_revision: int
     expected_session_version: int
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT, Command.FORK_CORRECTION})
-
-
-@dataclass(frozen=True, slots=True)
-class ForkCorrection(CorrectFact):
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.FORK_CORRECTION})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT})
 
 
 COMMANDS: tuple[type, ...] = (
@@ -338,5 +333,4 @@ COMMANDS: tuple[type, ...] = (
     Change,
     AnswerDisagreement,
     ReleaseProducer,
-    ForkCorrection,
 )

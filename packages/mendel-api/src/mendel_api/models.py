@@ -26,7 +26,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
     event,
     text,
 )
@@ -71,11 +70,6 @@ class GateState(StrEnum):
     RUNNING = "running"
     PASSED = "passed"
     FAILED = "failed"
-
-
-class DraftOwnership(StrEnum):
-    AUTHORED = "authored"
-    MANUAL = "manual"
 
 
 class ReplyCleared(StrEnum):
@@ -149,23 +143,6 @@ class PipelineDraft(Base):
     __tablename__ = "pipeline_draft"
     shape_version: Mapped[int] = stamp("pipeline_draft")
 
-    __table_args__ = (
-        UniqueConstraint("forked_from", "fork_key", name="uq_pipeline_draft_fork"),
-        CheckConstraint(
-            "(forked_from IS NULL AND fork_key IS NULL AND fork_sequence IS NULL "
-            "AND fork_at IS NULL) "
-            "OR (forked_from IS NOT NULL AND fork_key IS NOT NULL AND fork_sequence IS NOT NULL "
-            "AND fork_at IS NOT NULL AND forked_from != id)", name="complete_fork"
-        ),
-    )
-    fork_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    fork_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    fork_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    ownership: Mapped[str] = mapped_column(
-        _one_of(DraftOwnership, 16, "ownership"), default=DraftOwnership.MANUAL,
-        server_default=text("'manual'")
-    )
     decision_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     confirmed_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     """The decision revision the goal was confirmed at (*That's right*), or `None` while it
@@ -176,10 +153,6 @@ class PipelineDraft(Base):
     projection_current: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=text("true")
     )
-    forked_from: Mapped[str | None] = mapped_column(
-        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), nullable=True
-    )
-
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     who: Mapped[str] = mapped_column(String(200), index=True)
     name: Mapped[str] = mapped_column(String(200), default="")

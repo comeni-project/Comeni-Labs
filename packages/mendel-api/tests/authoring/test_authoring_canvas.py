@@ -67,11 +67,13 @@ def test_stale_frame_is_marked_without_hiding_the_last_graph(authoring_case):
     assert frame["graph"]["nodes"]
 
 
-def test_manual_same_id_uses_its_actual_contract_and_provenance(authoring_case):
+def test_a_drawn_graph_uses_its_actual_contract_and_provenance(authoring_case):
+    """Nothing planned yet (#395: a pipeline drawn by hand, its reading not yet confirmed): the
+    frame is the graph as drawn."""
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, authoring_case.session_id)
+        row.blueprint = {}
         draft = db.get(PipelineDraft, row.draft_id)
-        draft.ownership = "manual"
         draft.graph = {
             "nodes": [
                 {"id": "star_genomegenerate", "contract_id": "nf-core/fastqc@0.12.1", "params": []}
@@ -101,11 +103,11 @@ def test_offer_frame_shows_only_visible_steps_and_entry_scopes(authoring_case, m
     assert reads["scope"] == "sample" and reads["count"]
 
 
-def test_manual_recorded_provenance_keeps_its_tier(authoring_case):
+def test_a_drawn_graph_keeps_its_recorded_tier(authoring_case):
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, authoring_case.session_id)
+        row.blueprint = {}
         draft = db.get(PipelineDraft, row.draft_id)
-        draft.ownership = "manual"
         draft.graph = {
             "nodes": [{"id": "qc", "contract_id": "nf-core/fastqc@0.12.1", "params": []}],
             "edges": [],
@@ -161,10 +163,9 @@ def test_a_swap_keeps_the_original_offer_position_in_history(authoring_case):
     }
 
 
-def test_a_manual_draft_has_no_walk_progress(authoring_case):
+def test_a_drawn_graph_has_no_walk_progress(authoring_case):
     with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, authoring_case.session_id)
-        db.get(PipelineDraft, row.draft_id).ownership = "manual"
+        db.get(PipelineAuthoringSession, authoring_case.session_id).blueprint = {}
     assert facade.read(authoring_case.session_id)["progress"] is None
 
 

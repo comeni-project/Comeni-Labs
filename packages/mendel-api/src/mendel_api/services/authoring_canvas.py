@@ -60,11 +60,13 @@ def preview_frames(blueprint: Blueprint, context: OfferContext,
 
 
 def frame_of(*, blueprint, graph, provenance, pending, proposal_id, context,
-             current, ownership, placement, layers) -> CanvasFrame | None:
-    if ownership == "manual":
+             current, placement, layers) -> CanvasFrame | None:
+    if blueprint is None:
+        # **Drawn by hand, nothing planned yet** (#395): the frame is the graph as drawn, until
+        # its reading is confirmed and the engine plans it.
         if not graph.nodes:
             return None
-        # A hand edit can remove a step and leave its wires behind; an edge to nothing is not drawn.
+        # A drawing can remove a step and leave its wires behind; an edge to nothing is not drawn.
         kept = {n.id for n in graph.nodes}
         graph = graph.model_copy(update={"edges": [
             e for e in graph.edges if e.from_node in kept and e.to_node in kept]})
@@ -75,8 +77,6 @@ def frame_of(*, blueprint, graph, provenance, pending, proposal_id, context,
         return CanvasFrame(context=context, proposal_id=None, current=current, graph=graph,
                            steps=shown.steps, channels=[c for c in shown.channels if c.ports],
                            placement={n.id: {"x": n.x, "y": n.y} for n in shown.layout.nodes})
-    if blueprint is None:
-        return None
     visible = {n.id: n for n in graph.nodes}
     if pending is not None:
         if pending.node in visible and visible[pending.node].contract_id != pending.block.contract:

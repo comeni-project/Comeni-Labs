@@ -54,7 +54,6 @@ The namespace is test support and must not be imported by production code.
 | `changes.py` | Versioned change commands and version reads. |
 | `corrections.py` | Explicit correction commands. |
 | `disagreements.py` | Conflicting observations and disagreement choices. |
-| `manual_forks.py` | Manual draft/fork scenarios. |
 | `step_review.py` | Step cards, pacing, compatible tools and wrap-up scenarios. |
 
 Helper fixtures keep scenario-specific cleanup where their starting states differ. Test files

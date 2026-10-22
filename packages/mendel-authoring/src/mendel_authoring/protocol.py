@@ -738,9 +738,6 @@ PROTOCOL = Protocol(
         _built("correction_blocked", "correct", _ENGINE,
                "Your correction stays<br/>old pipeline is outdated; explain what is missing",
                _P.CORRECTING, acts=True),
-        _built("fork_correction", "correct", _ENGINE,
-               "Manual work stays<br/>inherit evidence into a linked authored draft",
-               _P.CORRECTING, acts=True),
         _built("compare_evidence", "correct", _ENGINE,
                "Keep every admitted observation<br/>compare to your selected answer",
                _P.CORRECTING, acts=True),
@@ -851,15 +848,9 @@ PROTOCOL = Protocol(
         *(_move(source, "correct_fact", _E.CORRECTION_REQUESTED,
                  "release this tool choice", on="release_producer")
           for source in ("reply", "card", "step_card", "wrap", "stopped")),
-        *(_move(source, "fork_correction", _E.CORRECTION_REQUESTED,
-                 "correct in a new draft", on="fork_correction")
-          for source in ("reply", "card", "step_card", "wrap", "stopped",
-                         "disagree_gather", "disagree_goal",
-                         "disagree_build", "disagree_complete")),
         *(_move("disagree_" + suffix, "correct_fact", _E.CORRECTION_REQUESTED,
                  "your explicit choice", on="answer_disagreement")
           for suffix in ("gather", "goal", "build", "complete")),
-        _e("fork_correction", "correct_fact", on="forked", built=True),
         _e("correct_fact", "resolve_correction", on="selected", built=True),
         _move("correct_fact", "list_needs", _E.CORRECTION_GATHERED, on="gather_again"),
         _move("correct_fact", "readback", _E.CORRECTION_CHECKED, on="check_again"),

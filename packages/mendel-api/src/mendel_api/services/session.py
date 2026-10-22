@@ -459,7 +459,7 @@ def read(session_id: str) -> dict:
     from mendel_api.authoring import envelopes
     from mendel_api.services import authoring_canvas, authoring_decisions, decisions, registry
     from mendel_api.services import suggestions as _suggestions
-    from mendel_api.stages.building import _placement, hand_edits
+    from mendel_api.stages.building import _placement
     from mendel_api.stages.gathering import _answer_of
     from mendel_api.stages.samples import _aged
 
@@ -500,8 +500,6 @@ def read(session_id: str) -> dict:
                          for r in review_rows if r.proposal_id}
         node_status = {r.node: ("retained" if r.status == "reviewed" else r.status)
                        for r in review_rows}
-        original_session = (db.scalar(select(PipelineAuthoringSession.id).where(
-            PipelineAuthoringSession.draft_id == draft.forked_from)) if draft.forked_from else None)
         evidence_subjects = db.scalars(select(decisions.PipelineObservation.subject).join(
             decisions.PipelineEvidenceAccess,
             decisions.PipelineEvidenceAccess.observation_id == decisions.PipelineObservation.id
@@ -515,7 +513,7 @@ def read(session_id: str) -> dict:
         # step outside the plan) leaves them absent, and history, polling and forks still work.
         try:
             # Each node's latest review, reduced in sequence order from the rows already loaded.
-            progress = (None if blueprint is None or draft.ownership == "manual" else progress_of(
+            progress = (None if blueprint is None else progress_of(
                 list(blueprint.order),
                 frozenset(n for n, status in node_status.items() if status == "retained"),
                 frozenset(node_status), offered))
@@ -531,7 +529,7 @@ def read(session_id: str) -> dict:
                 context=envelopes.OfferContext(draft_revision=draft.revision,
                     decision_revision=draft.decision_revision, session_version=row.row_version,
                     registry=row.registry_digest or ""),
-                current=draft.projection_current, ownership=draft.ownership,
+                current=draft.projection_current,
                 placement=placement, layers=registry.stack(),
             )
         except (KeyError, ValueError):
@@ -545,10 +543,7 @@ def read(session_id: str) -> dict:
             "decision_revision": draft.decision_revision,
             # Outdated is a built pipeline the answers moved past; nothing built is not (#329).
             "projection_current": draft.projection_current or draft.projection_revision is None,
-            "ownership": draft.ownership,
             "retired": row.retired,
-            "forked_from": draft.forked_from,
-            "forked_from_session": original_session,
             "inputs": [i.model_dump(mode="json") for i in selected.inputs],
             "review_applicability": node_status,
             # **The token total rides the read every poll already makes** (#191; the operator's
@@ -572,7 +567,6 @@ def read(session_id: str) -> dict:
             "revision": draft.revision if draft else 0,
             "graph": draft.graph if draft else {},
             "placement": placement,
-            "hand_edits": hand_edits(row, draft),
             # **A count, not the plan.** How many steps the blueprint holds lets the header say
             # `4 of 7`; which steps they are stays private until each is offered.
             "steps_total": len((row.blueprint or {}).get("order") or []),

@@ -15,7 +15,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
-from mendel_authoring.draft import drafted, next_step
+from mendel_authoring.draft import next_step
 from mendel_authoring.pacing import Pacing, Policy, stops
 from mendel_authoring.payloads import DecisionChange
 from mendel_authoring.types import Command
@@ -45,7 +45,7 @@ from mendel_api.services.session import Ctx, handles, records
 from mendel_api.settings import settings
 from mendel_api.stages import _rows
 from mendel_api.stages.building import cards
-from mendel_api.stages.building.amending import project, reviewed_of
+from mendel_api.stages.building.amending import project
 
 log = logging.getLogger(__name__)
 
@@ -91,8 +91,8 @@ def resolve_blueprint(session_id: str, *, client=None) -> str:
     between resolving and storing leaves nothing half-written (spec §11.2). The session's
     `row_version` is compared when the blueprint is written, so a session that moved while the
     resolver ran is refused rather than overwritten. **The draft is replaced by the projection**
-    of the new blueprint: a goal changed after hand edits is confirmed in the browser first
-    (`hand_edits` on the session's view, spec §14.9).
+    of the new blueprint; a hand edit is never lost to it, because it is intent in the goal
+    (#395).
     """
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
@@ -170,19 +170,6 @@ def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pendi
     if pending is not None and pending.kind == STEP:
         visible.add(pending.payload.get("node"))
     return {node: {"x": at[0], "y": at[1]} for node, at in placed.items() if node in visible}
-
-
-def hand_edits(row: PipelineAuthoringSession, draft: PipelineDraft | None) -> str | None:
-    """What a person changed by hand since the walk ended, as the receipt would say it, or
-    `None`. A goal changed now replaces the draft with the new blueprint's, so the browser asks
-    first (spec §14.9)."""
-    if draft is None or row.phase != Phase.COMPLETE.value or not row.blueprint:
-        return None
-    blueprint = bp.Blueprint.model_validate(row.blueprint)
-    projected, _ = drafted(
-        blueprint, reviewed_of(row), authoring_decisions.goal(row).profile
-    )
-    return describe_edit(projected, DraftGraph.model_validate(draft.graph))
 
 
 # ── answering a step's card ─────────────────────────────────────────────────────────────────
