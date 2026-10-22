@@ -148,7 +148,9 @@ export function authoringReducer(state: AuthoringState, action: AuthoringAction)
 
     case "accept": {
       const step = stepOf(action.proposal);
-      const base = { ...state, inFlight: action.proposal.id, notice: null };
+      // **The panel follows the next offer** (issue 386): the step just added is not left open,
+      // whether it was opened from the canvas or not. It is drawn, and the step line lists it.
+      const base = { ...state, inFlight: action.proposal.id, notice: null, selected: null };
       if (step === null) return emit(base, "proposal_accepted", action.proposal.id);
       // Only the proposal *as offered* is drawn ahead of the server. An alternative's wires
       // depend on its ports, and drawing a guess would be a picture the server then corrects.
@@ -161,7 +163,6 @@ export function authoringReducer(state: AuthoringState, action: AuthoringAction)
           node: { id: step.node, contract_id: step.contract, params: [] },
           edges: action.proposal.edges ?? [],
         },
-        selected: step.node,
       };
       next = emit(next, "proposal_accepted", step.node);
       for (const edge of action.proposal.edges ?? []) {

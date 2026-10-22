@@ -112,7 +112,26 @@ describe("optimistic acceptance", () => {
     expect(visibleGraph(state).nodes.map((n) => n.id)).toContain("star_align");
     expect(visibleGraph(state).edges).toEqual([INDEX_WIRE]);
     expect(state.inFlight).toBe("p-align");
-    expect(state.selected).toBe("star_align");
+  });
+
+  it("lets the panel follow the next offer: the step added is not left open (issue 386)", () => {
+    const offered = session();
+    const state = run([
+      { type: "snapshot", session: offered },
+      { type: "select", node: "star_align" },
+      { type: "accept", proposal: offered.pending_proposal!, option: "keep", expectedRevision: 2 },
+    ]);
+    expect(state.selected).toBeNull();
+  });
+
+  it("lets the panel follow the next offer after an alternative is added too", () => {
+    const offered = session();
+    const state = run([
+      { type: "snapshot", session: offered },
+      { type: "select", node: "star_align" },
+      { type: "accept", proposal: offered.pending_proposal!, option: "alt_1", expectedRevision: 2 },
+    ]);
+    expect(state.selected).toBeNull();
   });
 
   it("keeps the drawing while a poll arrives before the answer does", () => {
