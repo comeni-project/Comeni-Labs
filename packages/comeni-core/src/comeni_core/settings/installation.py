@@ -1,14 +1,7 @@
-"""The installation's settings: read, write, and serve (spec §4, §8).
+"""Read, write, and present installation settings through abstract storage and secret codecs.
 
-**The store and the codec are `Protocol`s**, so this module never touches a database or a
-cipher (invariant 1). `mendel-api` supplies a Postgres store and a Fernet codec; a test supplies a
-dictionary. **Read on every use, never cached**, for the reason `model_access()` reads the
-environment at call time: the AI worker is another process, and a change made in the menu must
-reach its next call.
-
-**A secret never leaves through here.** `shown()` is what a server serialises, and it carries
-`set` and the last four characters; the plaintext comes back only from `get()`, which is what the
-code that uses a key calls.
+Values are read on every use. Server-facing views mask secrets, while trusted consumers receive
+opened values only through `get` or `record` as `SecretStr` instances.
 """
 
 from collections.abc import Callable, Mapping
@@ -52,10 +45,10 @@ BROWSER_ONLY = ReadOnlyHere(why="this one is kept by your browser, not the serve
 UNREADABLE = Needs(
     what=f"the stored value was sealed under another {SETTINGS_KEY_ENV}; enter it again"
 )
-"""A secret the codec cannot open — the key was rotated. Not set, and said so (review I2)."""
+"""Reason shown when a stored secret cannot be opened by the current codec."""
 
 LAST4_FLOOR = 12
-"""Shorter than this, the last four characters are most of the secret, so none are shown."""
+"""Minimum secret length for showing a four-character suffix."""
 
 
 class Shown(BaseModel):
@@ -107,10 +100,11 @@ class Installation:
         secrets_need: str | None = None,
         reporters: Mapping[str, Callable[[], object]] | None = None,
     ):
-        """`server` is who is serving this menu: a setting another server reports is never
-        written here. `secrets_need` is the precise reason secrets cannot be stored when the
-        caller knows it — a malformed key rather than a missing one. `reporters` compute the
-        read-only values a server reports, by setting key (spec §6, §7)."""
+        """Create a settings facade for one serving process.
+
+        `server` controls which sections may be written, `secrets_need` explains an unavailable
+        codec, and `reporters` compute read-only values by setting key.
+        """
         self.catalogue = catalogue
         self.store = store
         self.env = env
@@ -119,7 +113,7 @@ class Installation:
         self.secrets_need = secrets_need
         self.reporters = dict(reporters or {})
 
-    # ── reading ──────────────────────────────────────────────────────────────────────────
+    # Reading and presentation
 
     def resolved(self, setting: Setting) -> Resolved:
         if setting.kind is Kind.READONLY and setting.key in self.reporters:
@@ -157,7 +151,7 @@ class Installation:
         return got
 
     def _env_record(self, setting: Setting) -> dict | None:
-        """The record `.env` supplies, first and locked. Its secrets are the variables' text."""
+        """Build the first, locked collection record supplied by the environment."""
         spec = setting.from_env
         if spec is None or not any(self.env.get(v, "").strip() for v in spec.present_when):
             return None
@@ -175,10 +169,11 @@ class Installation:
         return [f.field_name for f in setting.fields if f.kind is Kind.SECRET]
 
     def record(self, setting: Setting, name: str) -> dict | None:
-        """One record, with its secrets opened and handed over as `SecretStr` (spec §8). A
-        secret this codec cannot open — a rotated key — is `None`: the record reads as having
-        no key, which the provider then refuses, rather than as an error that takes the menu
-        down."""
+        """Return one collection record with readable secrets wrapped in `SecretStr`.
+
+        Missing, unavailable, or unreadable secrets become `None` so callers can refuse the
+        incomplete record without exposing plaintext or taking down the menu.
+        """
         for record in self.resolved(setting).value or []:
             if record[setting.item_name] != name:
                 continue
@@ -190,8 +185,7 @@ class Installation:
                 elif record.get("locked"):
                     opened[field] = SecretStr(raw)
                 elif self.codec is None:
-                    # Stored while a key was set, and the key has gone: unreadable, not a crash
-                    # (review C2). The menu shows it as not set.
+                    # A secret stored under a now-unavailable codec is unreadable, not plaintext.
                     opened[field] = None
                 else:
                     try:
@@ -202,10 +196,7 @@ class Installation:
         return None
 
     def get(self, setting: Setting) -> object:
-        """The value for the code that uses it. **The only place a secret is opened**, and it
-        is handed over as a `SecretStr`, which prints as hidden (spec §8). A codec that cannot
-        open it raises; `shown` turns that into *not set*, and a caller learns it cannot read
-        the key rather than receiving an empty one."""
+        """Return a value for trusted application code, wrapping opened secrets in `SecretStr`."""
         if setting.kind is Kind.COLLECTION:
             return [
                 self.record(setting, r[setting.item_name])
@@ -229,8 +220,7 @@ class Installation:
                 reason=got.reason,
             )
         if setting.kind is not Kind.SECRET:
-            # Field by field, not `**got.model_dump()`: a dump carries each reason's computed
-            # `says`, and a reason forbids extra fields on the way back in.
+            # Build explicitly because serialized reasons include their computed `says` field.
             return Shown(
                 value=got.value, source=got.source, locked=got.locked, reason=got.reason
             )
@@ -249,7 +239,7 @@ class Installation:
         )
 
     def _masked(self, setting: Setting, record: dict) -> dict:
-        """A record as a server may show it: each secret field is `{set, last4}`."""
+        """Return a server-safe record with secret fields reduced to `set` and `last4`."""
         opened = self.record(setting, record[setting.item_name]) or {}
         view = dict(record)
         for field in self._secret_fields(setting):
@@ -258,7 +248,7 @@ class Installation:
             view[field] = {"set": bool(plain), "last4": _last4(plain)}
         return view
 
-    # ── writing ──────────────────────────────────────────────────────────────────────────
+    # Writing
 
     def put(self, key: str, value: object, by: str) -> Shown:
         setting = self.catalogue.setting(key)
@@ -291,9 +281,11 @@ class Installation:
         return self.shown(setting)
 
     def _sealed_records(self, setting: Setting, value: object) -> list[dict]:
-        """Records as stored. **A secret field sent as `None` keeps what is stored**, so a
-        person saves the list without retyping every key; `""` clears it; text is sealed. The
-        record `.env` supplies is never stored."""
+        """Validate and seal collection records for storage.
+
+        A secret value of `None` retains the stored value, an empty string clears it, and other
+        text is sealed. The environment-owned record is never persisted.
+        """
         own = setting.from_env.name if setting.from_env else None
         incoming = [
             r for r in (value if isinstance(value, list) else [value])

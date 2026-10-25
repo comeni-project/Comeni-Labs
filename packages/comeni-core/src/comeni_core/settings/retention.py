@@ -1,7 +1,6 @@
-"""Retention limits are choices, so each reads in words on the menu (Part H spec §5.3).
+"""Retention choices and conversion to optional day limits.
 
-`keep` is kept until a person deletes it; `0` is *when the run ends*, offered only for a run's
-working files; any other value is a number of days.
+`keep` means no automatic deletion, `0` means when a run ends, and other values are day counts.
 """
 
 CHOICES = [("keep", "Kept until deleted"), ("1", "After 1 day"), ("7", "After 7 days"),

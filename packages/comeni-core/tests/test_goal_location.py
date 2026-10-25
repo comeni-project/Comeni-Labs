@@ -1,9 +1,4 @@
-"""`Goal` lives in comeni-core, and the resolver re-exports it.
-
-The move exists so the publication payload can carry one. `mendel_resolver.goal` stays as a shim
-because a goal is what most resolver code actually meets, and breaking every import to
-relocate a type is churn nobody reviews carefully.
-"""
+"""Ownership, compatibility imports, payload reachability, and closed goal shapes."""
 
 import pytest
 from pydantic import ValidationError
@@ -27,11 +22,7 @@ def test_the_resolver_re_export_is_the_same_class():
 
 
 def test_the_publication_payload_carries_the_goal():
-    """`Pipeline` is door 4's payload since Plan 1.10; `PublishBundle` was before it.
-
-    The reason `Goal` lives in `comeni-core` is unchanged by the swap — the publication
-    payload carries one, and `comeni-core` must not depend on `mendel-resolver`.
-    """
+    """The publication payload can carry core goal projections without a resolver dependency."""
     from comeni_core.egress.boundaries import PAYLOADS
     from comeni_core.goal.asked import Goal
 
@@ -41,7 +32,7 @@ def test_the_publication_payload_carries_the_goal():
 
 
 def test_the_goal_still_has_nowhere_to_put_a_sample_identifier():
-    """Invariant 15 survives the move. This is the test that makes the move safe."""
+    """A goal describes data shape and rejects undeclared sample-identifying fields."""
     from comeni_core.goal.asked import Goal
 
     with pytest.raises(ValidationError):

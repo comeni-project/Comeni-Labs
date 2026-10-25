@@ -1,9 +1,4 @@
-"""The IR records which registry built it.
-
-Federation §8 says the dashboard "renders `registry_layers` and shadow markers, but that is
-display of data the IR already carries". It did not carry it. These tests are that sentence
-becoming true.
-"""
+"""IR serialization retains registry layers and displacement provenance."""
 
 import pathlib
 
@@ -22,19 +17,9 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add an explicit declaration kind and ID to a fixture body, if absent."""
     path = pathlib.Path(path)
-    # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
-    # names it.
+    # Fixtures may nest files below their kind directory, so inspect every ancestor.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -47,7 +32,7 @@ def _declared(path, body: str) -> str:
 
 ROOT = pathlib.Path(__file__).parents[3]
 
-# Plan 1.5 made the reference a declared type, so the spine is unroutable without it.
+# The resolved spine requires all three declared input types.
 SPINE_INPUTS = ["fastq.reads", "annotation.gtf", "genome.fasta"]
 
 
@@ -70,8 +55,7 @@ def test_a_resolved_ir_records_the_layers_it_was_built_from():
 
 
 def test_a_resolved_ir_carries_the_displacements(tmp_path):
-    """An overlay that displaced a contract must be visible in the artifact, not only
-    on stderr at build time. A published pipeline that hid it would be unauditable."""
+    """Contract displacement remains visible in the artifact."""
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
@@ -99,14 +83,7 @@ def test_a_resolved_ir_carries_the_displacements(tmp_path):
 
 
 def test_a_displacement_names_the_layer_and_never_its_path(tmp_path):
-    """`winning_layer` held `str(layer)` — an absolute filesystem path — until
-    `PipelineIR.shadowed` made the record reachable from a publish bundle and the egress
-    guard walked it for the first time. The record is a `Displacement` now — same rule.
-
-    A path in a published artifact is meaningless on the machine that reads it and says
-    more about the machine that wrote it than anyone intended. The lockfile has a dedicated
-    test for exactly this rule; this record was going straight past it.
-    """
+    """Published provenance uses portable layer names and never local paths."""
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
@@ -137,14 +114,13 @@ def test_a_displacement_names_the_layer_and_never_its_path(tmp_path):
 
 
 def test_layers_are_recorded_in_stacking_order():
-    """Order is meaning: later layers win. A set would lose that."""
+    """Layer order is retained because later entries have higher precedence."""
     ir = PipelineIR(registry_layers=["a", "b"])
     assert ir.registry_layers == ["a", "b"]
 
 
 def test_the_ir_round_trips_with_its_provenance(tmp_path):
-    """`mendel upgrade` reads a bundle back off disk. A field written on dump and refused
-    on load is exactly the defect Plan 1.5 found in `review_level`."""
+    """Serialized provenance is accepted when an IR is loaded again."""
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)

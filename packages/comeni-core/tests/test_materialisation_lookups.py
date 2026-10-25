@@ -1,13 +1,16 @@
 """Regression checks for metadata batching and colliding channel names."""
 
-from comeni_core.artifact.materialise import _unique
+import pytest
+from comeni_core.artifact.materialise import _meta_entry, _unique
+from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.measurement import (
     Measurement,
     MeasurementKind,
     MeasurementRegistry,
     MetaValue,
 )
-from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.goal.profile import DataProfile, Evidence, Measured
+from comeni_core.plan.tiers import ValueSource
 
 
 def test_metadata_batch_preserves_translation_precedence_and_missing_values():
@@ -66,3 +69,53 @@ def test_repeated_names_do_not_rescan_all_previous_suffixes():
     assert len(set(names)) == 1000
     assert names[-1] == "reads_1000"
     assert taken.probes < 3000
+
+
+@pytest.mark.parametrize(
+    ("entry", "reason"),
+    [
+        (
+            Measured(
+                measurement="read_length",
+                value=151,
+                source=ValueSource.MEASURED,
+                pieces=["fastq@1.0.0", "read_length@1.0.0"],
+                evidence=Evidence(records=8412),
+            ),
+            "measured by fastq@1.0.0 + read_length@1.0.0, on 8,412 reads",
+        ),
+        (
+            Measured(
+                measurement="read_length",
+                value=151,
+                source=ValueSource.MEASURED,
+                by="comeni/profile/fastqc@0.12.1",
+                evidence=Evidence(rows=50),
+            ),
+            "measured by comeni/profile/fastqc@0.12.1, on 50 rows of reads",
+        ),
+        (
+            Measured(measurement="read_length", value=151, source=ValueSource.MODEL),
+            "read by AI from the start of a sample; check it",
+        ),
+    ],
+)
+def test_metadata_explains_how_each_non_asserted_value_was_obtained(entry, reason):
+    measurement = Measurement(
+        id="read_length",
+        kind=MeasurementKind.INTEGER,
+        describes="fastq.reads",
+        meta_key="read_length",
+        cite="doi:10.1/example",
+        description="median read length",
+    )
+
+    meta = _meta_entry("read_length", measurement, entry.value, entry)
+
+    assert meta.why.source is entry.source
+    assert meta.why.reason == f"{reason}; doi:10.1/example — median read length"
+
+
+def test_parameter_reference_scanning_ignores_empty_and_deduplicates_names():
+    expression = "params. + params.reads + params.reads + params.reference-file"
+    assert extract_param_refs(expression) == ["reads", "reference"]

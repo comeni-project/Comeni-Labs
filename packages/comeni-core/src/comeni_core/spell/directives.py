@@ -1,27 +1,12 @@
-"""The process directives Nextflow accepts, and the version they were read against.
+"""Supported Nextflow process directives and their source toolchain version.
 
-**An unknown directive in a `withName` block is silently ignored.** Measured, not assumed: a
-config containing `process { withName: FOO { cpuz = 4 } }` runs to exit 0 with no error and no
-warning on Nextflow 25.10.4. So this list is the only thing standing between a typo and a
-resource setting that does nothing — which is the exact failure `via: directive` would otherwise
-install, in a design whose whole purpose is removing settings that reach nothing.
-
-**Code rather than registry data.** `Vocabulary` is strictly per-type and a directive list is not
-a type; putting it in a layer would mean a fifth member beside `contracts/`, `rules/`,
-`vocabularies/` and `measurements/`, which is exactly what root B narrowed. And the invariant-7
-analogy does not hold: vocabularies are closed because a contract using an undeclared *biological*
-state must fail, and new states arrive through the forge as reviewed domain knowledge. Nextflow's
-directive set is a fact about the toolchain — it moves on Nextflow's release cycle, and no
-laboratory should be able to approve `cpuz` into it. `modulespec.py` encodes toolchain facts the
-same way.
+Nextflow silently ignores unknown directives in a ``withName`` block, so parameter validation
+uses this allowlist to prevent misspelled resource settings from becoming no-ops. The set is a
+toolchain fact, not registry-owned biological vocabulary, and changes with Nextflow releases.
 """
 
 NEXTFLOW_VERSION = "25.10.4"
-"""The Nextflow this list was read against — the version pinned in `CLAUDE.md`'s toolchain.
-
-A newer Nextflow may accept more. Adding one is a release of this package, which is the price of
-the check and is why the version is recorded rather than implied.
-"""
+"""The Nextflow version against which :data:`LEGAL_DIRECTIVES` was checked."""
 
 LEGAL_DIRECTIVES: frozenset[str] = frozenset(
     {

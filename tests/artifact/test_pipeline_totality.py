@@ -1,18 +1,7 @@
-"""Every field of every type `Pipeline` replaces has a declared home in it.
+"""Every field replaced by ``Pipeline`` is carried or explicitly accounted for.
 
-Root D's finding applied to consolidation rather than to diffing. `diff_ir` enumerated the
-fields it knew about, so every field added to the IR became a silent blind spot, and Plan 1.8
-added four.
-
-A hand-written mapping from three types into one has exactly that shape, and **reviewing it by
-eye already failed five times**: three drafts of the spec's schema between them dropped
-`LockedContract.container` (whose docstring says the `sealed` profile's digests-required rule
-depends on it), `ResolvedValue.displaced_layer` (A5, A15), and `DecisionRecord`'s `candidates`,
-`chosen` and `confidence`. Losing `container` would have been a consolidation sold as
-strengthening reproducibility that quietly dropped the field the clinical profile needs.
-
-So the mapping is checked mechanically, and anything deliberately not carried is named with a
-reason rather than allowed by silence.
+The checks compare names and semantic field shapes mechanically so adding a field to an input
+model cannot create a silent materialisation blind spot.
 """
 
 import typing

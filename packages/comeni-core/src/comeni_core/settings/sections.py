@@ -1,8 +1,4 @@
-"""Sections, and the catalogue that holds them (spec §4, §7).
-
-**Uniqueness is checked when the catalogue is built**, not at the first request: a key or an env
-name declared twice is a declaration error, and the earliest place to say so is import time.
-"""
+"""Ordered settings sections and catalogue-wide declaration invariants."""
 
 from typing import Literal
 
@@ -17,10 +13,10 @@ class Section(BaseModel):
     key: str
     title: str
     lede: str = ""
-    """One line under the section's title: what it holds. The menu writes none of its own."""
+    """Short user-facing description displayed beneath the section title."""
     order: int
     served_by: Literal["mendel", "wiener"] = "mendel"
-    """Which API reports it. Wiener is a separate service with its own `.env` (spec §7)."""
+    """API responsible for reporting the section and reading its environment."""
     settings: tuple[Setting, ...] = Field(min_length=1)
 
     @model_validator(mode="after")

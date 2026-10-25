@@ -1,20 +1,4 @@
-"""`params.input` has two meanings, and one artifact may claim only one.
-
-Plan 5B phase 5.2. With a single sample-scoped channel `params.input` is a glob; with two or
-more it is the path to a CSV whose columns are those channels, because *reads with their
-respective annotations* is a table and not two globs.
-
-**A glob and a CSV path are both a string**, so nothing downstream can tell them apart. Wiener
-reads the artifact's nulls to ask a laboratory what to supply, and without this field it asks
-the same question either way — somebody answers with the wrong kind of thing, the run fails
-inside Nextflow minutes later, and the one place that could have said so is the form that asked.
-
-**The choice is in the artifact and the sentence is generated.** §2.2 originally asked the
-artifact to say which form it wants *"in words, next to the param"* — and `Pipeline` is door 4's
-payload, so words next to a param is a **fifteenth free-text field**, in a spec whose §5 claims
-it adds none. The general rule, worth carrying beyond this plan: when a fact is a closed choice,
-put the choice in the artifact and generate the sentence.
-"""
+"""An artifact distinguishes a direct input glob from a multi-channel samplesheet."""
 
 import subprocess
 

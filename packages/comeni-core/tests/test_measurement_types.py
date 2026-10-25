@@ -14,19 +14,9 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add an explicit declaration kind and ID to a fixture body, if absent."""
     path = pathlib.Path(path)
-    # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
-    # names it.
+    # Fixtures may nest files below their kind directory, so inspect every ancestor.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )

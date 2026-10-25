@@ -1,10 +1,4 @@
-"""A4 and A91 — the gate that ran, and a value that reaches the tool or is refused.
-
-One test per finding, named for it — the question a reader has is *is A9 still
-closed?*, and the test name is the answer. The 2026-08-06 audit and the rounds after
-it numbered every finding; `docs/notes/audits/` records how each was reproduced.
-"""
-
+"""Gate identity and evidence, plus safe propagation of values to emitted tools."""
 
 import json
 from pathlib import Path

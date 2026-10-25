@@ -1,12 +1,7 @@
-"""One declaration per setting (spec §4).
+"""Strict declarations and value validation for installation settings.
 
-**A setting is declared once, here or in a catalogue, and everything else is generic.** The
-resolver, the API and the menu read these fields and know nothing about any one setting, so
-adding one is three steps: declare it, place it in a section, read it where it is used.
-
-**Kinds are factories** (`Setting.choice(...)`), so a declaration reads as what it is and the
-validator below refuses a declaration that could not work — a default outside its options, a
-secret with a default, a browser setting the server claims to pin.
+Each setting is declared once and consumed generically by resolution, menus, and APIs. Factory
+methods identify the setting kind, while model validation rejects incoherent declarations.
 """
 
 from enum import StrEnum
@@ -21,11 +16,7 @@ DIGITS = frozenset("0123456789")
 
 
 def _is_key(key: str) -> bool:
-    """`section.name`, lower case: two or more dotted parts, each a lower-case letter followed by
-    letters, digits or underscores. The key is a stored row's primary key and a URL segment.
-
-    **Without `re`**, which is not on `comeni-core`'s import allowlist in
-    `tests/guards/test_purity.py`; this is short enough not to be worth widening a guard for."""
+    """Return whether `key` contains valid lowercase dotted identifier segments."""
     parts = key.split(".")
     return len(parts) >= 2 and all(
         part and part[0] in LOWER and set(part) <= LOWER | DIGITS | {"_"} for part in parts
@@ -56,8 +47,7 @@ class Kind(StrEnum):
 
 
 class Where(StrEnum):
-    """Where a value is kept. **`browser` is per browser and never reaches the server**: the
-    theme is one. The server still declares it, so the menu draws it with everything else."""
+    """Persistence boundary for a setting; browser values never reach the server."""
 
     INSTALLATION = "installation"
     BROWSER = "browser"
@@ -69,27 +59,21 @@ class ChoiceOption(BaseModel):
     value: str
     label: str
     designed: str | None = None
-    """Why this option cannot be chosen yet, when it is designed and not built. The menu draws
-    it greyed with this line, so the menu says what is coming without offering it (#134)."""
+    """Explanation shown when an option is designed but unavailable."""
 
 
 FROM_ENV = "From .env"
-"""The name of the record `.env` supplies. Locked: it is changed in `.env`, never in the menu."""
+"""Display name for the locked collection record assembled from environment variables."""
 
 
 class EnvItem(BaseModel):
-    """A record built from the environment, shown first and locked (spec §6).
-
-    `fields` maps a record field to the variable that fills it; the record exists when
-    `present_when` is set. Declared, so the facade needs no code that knows about models.
-    """
+    """A locked collection record assembled from declared environment variables."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
     present_when: tuple[str, ...]
-    """The record exists when **any** of these is set: a purpose pinned in `.env` without a
-    default still needs the endpoint and key `.env` gives it (review I3)."""
+    """Environment variables of which any one makes the record present."""
     fields: dict[str, str]
 
     @field_validator("present_when", mode="before")
@@ -104,25 +88,25 @@ class Setting(BaseModel):
     key: str
     label: str
     help: str
-    """What it is and what changes when it changes. The first half of the ⓘ (spec §5)."""
+    """User-facing explanation of the setting and the effect of changing it."""
     kind: Kind
     default: JsonValue = None
     env: str | None = None
-    """The variable that pins it. **Set means locked**: `.env` is the operator's last word."""
+    """Environment variable that pins and locks this setting when present."""
     options: tuple[ChoiceOption, ...] = ()
     minimum: float | None = None
     maximum: float | None = None
     unavailable: Reason | None = None
-    """Declared greyed out, with its reason — `Designed` until something reads it."""
+    """Reason the whole setting is visible but unavailable."""
     where: Where = Where.INSTALLATION
     fields: tuple["Setting", ...] = ()
-    """A collection's record fields. Each is a declaration; its key's last segment is the name."""
+    """Field declarations for each record in a collection setting."""
     item_name: str = "name"
     from_env: EnvItem | None = None
     actions: tuple[str, ...] = ()
-    """What a record can be asked to do — `test`, `models`. Served by the API, drawn as buttons."""
+    """API actions offered for each collection record, such as `test` or `models`."""
     of: str | None = None
-    """For a model: the key of the collection whose records it picks from."""
+    """Collection key from which a model setting selects its connection."""
 
     @property
     def field_name(self) -> str:
@@ -258,7 +242,7 @@ class Setting(BaseModel):
             records.append(clean)
         return records
 
-    # ── factories ────────────────────────────────────────────────────────────────────────
+    # Factories keep catalogue declarations explicit about their setting kind.
 
     @classmethod
     def choice(

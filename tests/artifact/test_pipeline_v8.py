@@ -1,6 +1,4 @@
-"""`pipeline.yml` version 8: what was wanted and what is known, at the top (Part I.0 Plan B,
-spec §8.1), whose constraints may carry a person's structural intent (A1). Only version 8
-is read: before v0.1.0 an older file is rebuilt, not upgraded."""
+"""Version-8 ordering, golden output, and explicit rejection of other schema versions."""
 
 import pytest
 import yaml

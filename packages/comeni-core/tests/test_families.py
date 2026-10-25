@@ -1,9 +1,4 @@
-"""Families: the first level of the type choice (#194).
-
-A model choosing a type is shown the families first, then every type of the families it chose,
-whole. Families are closed like every other vocabulary (invariant 7) and stack like every other
-kind (invariant 11).
-"""
+"""Behavioral checks for family grouping, validation, and layer replacement."""
 
 import pytest
 from comeni_core.declared.families import (

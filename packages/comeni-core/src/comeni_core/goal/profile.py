@@ -1,17 +1,9 @@
-"""What the input data measurably looks like. A shape, never data.
+"""Validated measurements describing input shape rather than input data.
 
-Invariant 15: Mendel does not receive patient data. A profile says "paired, 150bp,
-reverse-stranded, twelve samples", which is true of thousands of studies and identifies
-nobody. There is no filename field, no sample identifier and no path, and `extra="forbid"`
-on both models is what stops one being added by accident.
-
-This lives in `comeni-core` rather than beside `Goal` in `mendel-resolver` because a
-profile is made of measurements, and measurements are declared here. The alternative —
-`MeasurementRegistry.profile()` reaching back into `mendel-resolver` through a
-function-local import — is a layering inversion wearing a disguise, and would have meant
-widening `comeni-core`'s closed allowlist in `tests/guards/test_purity.py` to permit it. Closes
-issue #4. `mendel_resolver.goal` re-exports both names, so every existing import still
-resolves.
+Profiles may describe properties such as read length, pairing, and sample count. Their closed
+models have no filename, sample-identifier, or path field. The types live in ``comeni-core`` so
+measurement declarations can construct profiles without depending on the resolver; the resolver
+re-exports them for compatibility.
 """
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,16 +13,14 @@ from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, Piece
 
 
 class Evidence(BaseModel):
-    """How much an inspector read to decide a fact. Counts only: the goal is reachable from the
-    doors, so this carries no prose (the reason a fact was undetermined never reaches a goal)."""
+    """How much input an inspector read to establish a measurement."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     records: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
     rows: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
     share: float | None = Field(default=None, ge=0, le=1, exclude_if=lambda share: share is None)
-    """Each count is written only when known: `paired` has rows and no share, and a `null` in
-    every pipeline.yml would say nothing a reader can use."""
+    """Each value is serialized only when known."""
 
     @model_validator(mode="after")
     def _says_something(self) -> "Evidence":
@@ -42,28 +32,22 @@ class Evidence(BaseModel):
 class Measured(BaseModel):
     """One measurement and where its value came from.
 
-    A generated profile records the tool; a hand-written goal records nothing, and that is
-    an assertion by whoever wrote it. The shorthand is not an abbreviation of provenance —
-    it *is* the provenance, which is why a bare scalar is allowed at all.
+    Generated entries record their measurer; a bare person-authored value is asserted.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     measurement: MeasurementId
     value: ParamValue | list[ParamValue]
-    """A list only where the measurement declares `per_sample` — `MeasurementRegistry.check`
-    is what enforces that, since the declaration lives there and not here."""
+    """Lists are valid only for declarations marked ``per_sample`` by the registry."""
     source: ValueSource = ValueSource.SAID
     by: ContractId | None = None
-    """Which contract produced this value. `None` for anything a person asserted, and for
-    anything inspector pieces measured (they are `pieces`)."""
+    """The profiling contract that produced the value, when applicable."""
     pieces: list[PieceRef] = Field(default_factory=list, exclude_if=lambda pieces: not pieces)
-    """The inspector pieces that measured this, `fastq@1.0.0` then `read_length@1.0.0` (#134).
-    Empty for a profiler (it is `by`) and for anything a person asserted.
+    """Ordered inspector pieces that produced the value, omitted when empty.
 
-    **Left out of the dump when empty**, and `evidence` when missing, so every artifact written
-    before inspectors stays byte-identical. `exclude_if` rather than a `@model_serializer`:
-    a payload may not replace its own dump (`test_no_payload_replaces_its_own_dump`)."""
+    A profiling contract uses ``by`` instead. Person-authored assertions use neither.
+    """
     evidence: Evidence | None = Field(default=None, exclude_if=lambda evidence: evidence is None)
 
     @model_validator(mode="after")
@@ -85,13 +69,11 @@ class Measured(BaseModel):
 class DataProfile(BaseModel):
     """Measured properties of the input data.
 
-    A list rather than a mapping because `tests/guards/test_egress.py` forbids mappings in
-    anything reachable from a payload: a typed key does not prove a *declared* key.
+    The record list gives published payloads declared keys. Person-authored goal files may use a
+    concise measurement-to-value mapping, which the pre-validator converts to records.
 
-    Build one through `MeasurementRegistry.profile()`, which is the only place that
-    validates values against their declarations — `tests/guards/test_construction.py` enforces
-    that. The mapping shorthand below exists because it is the natural way to *write* one
-    in a goal file, and because `Goal` needs a default.
+    Production callers should build profiles through ``MeasurementRegistry.profile()`` so values
+    are also checked against their measurement declarations.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -109,18 +91,7 @@ class DataProfile(BaseModel):
 
     @model_validator(mode="after")
     def _one_entry_per_measurement(self) -> "DataProfile":
-        """Reject a repeated measurement, and sort.
-
-        `MeasurementRegistry.profile()` takes a `dict` and sorts it, so the validated path
-        was always normalised and the deserialised path never was. `get` returns the first
-        match, so two profiles asserting the same facts in a different order resolved to
-        different pipelines — invariant 10 held literally (same `Goal`, same bytes) and
-        failed in the sense anyone would rely on. Audit 2026-08-06, A13.
-
-        In the validator rather than in one constructor, because a profile arrives from a
-        published bundle as often as it is built, and a normalisation only one of two
-        entry points performs is the shape of half this audit's findings.
-        """
+        """Reject duplicate facts and normalize order at every construction boundary."""
         names = [m.measurement for m in self.measurements]
         repeated = sorted({n for n in names if names.count(n) > 1})
         if repeated:

@@ -1,14 +1,4 @@
-"""A role is the job a contract does, and a rule targets one.
-
-Audit A119 and A123 are one defect: a rule's target named a *type*, so two unrelated
-decisions about `alignment.bam` shared a key and REPLACE stacking deleted one of them.
-Reproduced 2026-08-15 — a lab's duplicate-handling rule swapped the aligner on 50bp reads
-and both builds passed `gate lint` at exit 0.
-
-Roles are closed like every other vocabulary (invariant 7), and they stack like every other
-kind (invariant 11), which is why they live in `roles/` rather than in a file at the layer
-root: `stack()` reads `layer.path / kind.which.value`, a directory.
-"""
+"""Behavioral checks for role spelling, closure, and layer composition."""
 
 import pathlib
 
@@ -26,15 +16,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add the declaration marker implied by a fixture's containing directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -95,8 +77,7 @@ def test_a_contract_may_fill_no_role_and_still_load(tmp_path):
 
 
 def test_a_role_name_is_snake_case_on_a_contract():
-    """The validator `RoleName` carries. Watched failing 2026-08-15: removing the
-    `AfterValidator` broke nothing, so this is the test that makes it mean something."""
+    """Contract role references use the same snake-case names as the vocabulary."""
     from comeni_core.declared.contract import ModuleContract
 
     for bad in ("Alignment", "ribo-depletion", "2pass", "_hidden", "trailing_"):
@@ -106,8 +87,7 @@ def test_a_role_name_is_snake_case_on_a_contract():
 
 
 def test_a_vocabulary_cannot_declare_a_role_no_contract_could_name(tmp_path):
-    """Otherwise `roles.yml` declares `Ribo-Depletion`, it loads, and every contract naming
-    it is refused by `RoleName` — a declaration nothing can use. Same defect as A122."""
+    """Reject declarations that no contract could reference legally."""
     overlay = tmp_path / "lab"
     (overlay / "roles").mkdir(parents=True)
     (overlay / "roles" / "bad.yml").write_text(

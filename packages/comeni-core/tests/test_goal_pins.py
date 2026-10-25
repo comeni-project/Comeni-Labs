@@ -1,10 +1,10 @@
-"""A person's tool in the goal (§14.3 of the consultant build): a pin at a site."""
+"""Behavioral contracts for a person's producer choice at a routing site."""
 
 from comeni_core.goal.asked import Constraints, ProducerPin, Site
 
 
 def test_a_goal_without_pins_dumps_as_it_did():
-    """Invariant 10: an existing goal emits the same bytes, so no `producers: []` appears."""
+    """An empty producer-pin collection stays out of serialized goals."""
     assert "producers" not in Constraints().model_dump(mode="json")
 
 

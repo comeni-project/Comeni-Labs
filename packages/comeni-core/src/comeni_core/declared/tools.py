@@ -1,13 +1,8 @@
 # packages/comeni-core/src/comeni_core/declared/tools.py
-"""Tools: what each tool is, in one file beside its contracts (#216).
+"""Load descriptive metadata for tools represented in registry layers.
 
-A contract says how a tool is called; nothing said what the tool *is*. `tool.yml` does: a name, a
-one-paragraph description, a homepage and a citation. It is also where the declared
-descriptions the consultant explains from live (protocol rule 12): the forge drafts one and a
-person approves it (invariant 2).
-
-**Stacked** (invariant 11) like every other kind: an overlay may describe a tool the base lacks,
-or replace a description the base wrote. One tool per file, `declares: tool`.
+Each declaration supplies a stable tool ID, display name, description, and optional homepage
+and citation. Higher layers replace lower-layer metadata with the same ID.
 """
 
 from collections.abc import Sequence
@@ -32,7 +27,7 @@ class Tool(BaseModel):
 
 
 def _parse_tool(path: Path) -> list[Tool]:
-    """One tool file. `declares:` is accepted and ignored, as `_parse_family` does."""
+    """Parse one tool declaration, ignoring its loader-facing kind marker."""
     data = yaml_strict.load(path) or {}
     data.pop("declares", None)
     return [Tool.model_validate(data)]
@@ -56,5 +51,5 @@ class ToolCatalogue(BaseModel):
 
     @classmethod
     def load(cls, layers: Path | Sequence[Path]) -> "ToolCatalogue":
-        """Load the tools across a layer stack. **Layer roots**, as for every kind."""
+        """Load tool metadata from one or more layer roots."""
         return cls.of(stack(layers_of(layers), cls.kind()))

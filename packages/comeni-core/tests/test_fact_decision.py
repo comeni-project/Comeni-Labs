@@ -1,4 +1,4 @@
-"""A fact a chosen tool reads and nobody supplied is a tier-4 record (#338)."""
+"""Unknown tool facts are temporary, reviewable tier-four decisions."""
 
 from comeni_core.plan.decision import DecisionKind, DecisionRecord, FactDecision
 from comeni_core.plan.ir import PipelineIR

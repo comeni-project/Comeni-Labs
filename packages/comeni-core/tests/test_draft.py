@@ -1,23 +1,26 @@
-"""A hand-drawn graph states four names per edge and derives nothing.
-
-`IREdge` carries `type_id` and `states` because the resolver *computed* them from the source
-port. A person drawing a wire has not computed anything, and a draft that carried those fields
-could disagree with the contract it points at — a lie the validator would then have to catch.
-Four names is the whole of what a drawn wire knows.
-"""
+"""Draft graphs contain user-authored structure but no resolver-derived facts."""
 
 import ast
 from pathlib import Path
 
 import pytest
-from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
+from comeni_core.plan.draft import (
+    ChannelSettled,
+    DraftEdge,
+    DraftGraph,
+    DraftNode,
+    DraftProvenance,
+    NodeSettled,
+    ParamSettled,
+    Settled,
+)
+from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.review.verdict import Finding, Level, Verdict
 from pydantic import ValidationError
 
 
 def test_review_does_not_import_plan():
-    """A146. `plan/` imports `review/`; the reverse edge is a cycle, and `plan/tiers.py` says so.
-    A guard here rather than a convention, because the tempting field is `Finding.target`."""
+    """Review remains below plan in the dependency graph."""
     root = Path(__file__).resolve().parents[1] / "src" / "comeni_core" / "review"
     for module in root.rglob("*.py"):
         tree = ast.parse(module.read_text())
@@ -54,6 +57,29 @@ def test_a_graph_holds_nodes_and_edges():
     assert graph.nodes[0].id == "a"
 
 
+def test_provenance_retains_only_subjects_still_in_the_graph():
+    settled = Settled(source=ValueSource.HUMAN, tier=Tier.AMBIGUOUS)
+    provenance = DraftProvenance(
+        nodes=[NodeSettled(node="keep"), NodeSettled(node="drop")],
+        params=[
+            ParamSettled(key="keep.value", settled=settled),
+            ParamSettled(key="drop.value", settled=settled),
+        ],
+        channels=[
+            ChannelSettled(ports=("keep.input",), settled=settled),
+            ChannelSettled(ports=("drop.input",), settled=settled),
+        ],
+    )
+
+    retained = provenance.retaining(
+        nodes={"keep"}, params={"keep.value"}, channels={("keep.input",)}
+    )
+
+    assert [entry.node for entry in retained.nodes] == ["keep"]
+    assert [entry.key for entry in retained.params] == ["keep.value"]
+    assert [entry.ports for entry in retained.channels] == [("keep.input",)]
+
+
 def test_a_verdict_is_illegal_when_any_finding_is():
     ok = Verdict(findings=[Finding(code="MD0507", level=Level.ADVISORY, message="unconventional")])
     assert ok.illegal == []
@@ -65,7 +91,7 @@ def test_a_verdict_is_illegal_when_any_finding_is():
 
 
 def test_a_finding_names_each_end_of_a_wire_separately():
-    """A157. An `EdgeRef` is `<node>.<port>` — one endpoint. A wire is two of them."""
+    """A finding records each `<node>.<port>` endpoint independently."""
     finding = Finding(
         code="MD0504", level=Level.ILLEGAL, message="m", source="align.bam", target="counts.bam"
     )

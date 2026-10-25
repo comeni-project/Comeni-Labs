@@ -1,16 +1,8 @@
-"""What a check reports. **It reports; it does not refuse.**
+"""Represent validation findings without deciding whether a workflow should proceed.
 
-The precedent is the forge's `verify` ladder. Three problems visible in one pass through the
-screen beats three refusals, and the person drawing the graph is mid-gesture rather than at a
-gate. Refusal stays where it already lives: `keep` and the emission gates.
-
-`review/` is the right home rather than `plan/` — this is the stage where something is *open*,
-and a `Verdict` is the forge's and the resolver's shared answer to "what is still wrong".
-
-**Which is exactly why nothing here may import `plan/`.** `plan/decision.py` imports `Question`
-from this package and `plan/tiers.py` imports `ValueSource`; an edge back would be a cycle, and
-`tiers.py`'s own comment says so. A finding names each end of a wire with an `EdgeRef` — a
-`spell/` alias, below both — and never with a `DraftEdge`.
+Review reports all findings in one pass. Callers own refusal and gate policy. The module depends
+only on diagnostics and spell-level identifiers so :mod:`comeni_core.plan` can depend on review
+without creating a cycle.
 """
 
 from enum import StrEnum
@@ -24,17 +16,21 @@ __all__ = ["Finding", "Level", "Verdict"]
 
 
 class Level(StrEnum):
+    """Severity and workflow meaning of a review finding."""
+
     ILLEGAL = "illegal"
-    """The graph cannot be emitted."""
+    """The graph violates a rule and cannot be emitted."""
 
     UNMET = "unmet"
-    """Something required has nothing behind it. Not illegal — incomplete."""
+    """A requirement is incomplete but the draft itself remains legal."""
 
     ADVISORY = "advisory"
-    """Legal, and not what convention or a rule would have chosen."""
+    """The graph is legal but differs from a convention or preferred choice."""
 
 
 class Finding(BaseModel):
+    """One declared diagnostic with optional node, port, and edge-endpoint context."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     code: str
@@ -45,29 +41,15 @@ class Finding(BaseModel):
     port: PortName | None = None
 
     source: EdgeRef | None = None
-    """The upstream output this finding is about, as `<node>.<port>`."""
+    """Upstream endpoint in ``<node>.<port>`` form."""
 
     target: EdgeRef | None = None
-    """The consuming input. **Two `EdgeRef`s, not one `DraftEdge` and not one wire string.**
-
-    A `Finding` carrying a `DraftEdge` would make `review/` import `plan/`, and `plan/` already
-    imports `review/` — a cycle that fails at import. `plan/tiers.py` says so in as many words.
-
-    One `EdgeRef` spelled `a:bam->b:bam` was the first repair and is also wrong: `_edge_ref`
-    validates `<node>.<port>`, **one endpoint**, and refuses that outright. A wire is two of
-    them. Two fields, both validated by an alias that already exists, and no new spelling
-    invented for something the system already knows how to write down.
-    """
+    """Consuming endpoint in ``<node>.<port>`` form."""
 
     @field_validator("code")
     @classmethod
     def _declared(cls, code: str) -> str:
-        """Same guarantee `coded()` gives, at the other end.
-
-        `coded()` checks the code when a *message* is built. A `Finding` is data that may be
-        constructed without one, so the check has to exist here too or an undeclared code
-        reaches a client through the field rather than through the sentence.
-        """
+        """Reject diagnostic codes absent from the package registry."""
         if code not in REGISTRY:
             raise ValueError(
                 f"{code} is not a declared diagnostic. Declare it in comeni_core/"
@@ -77,17 +59,21 @@ class Finding(BaseModel):
 
 
 class Verdict(BaseModel):
+    """A complete collection of validation findings."""
+
     model_config = ConfigDict(extra="forbid")
 
     findings: list[Finding] = []
 
     @property
     def illegal(self) -> list[Finding]:
+        """Return only findings that make the graph illegal."""
         return [f for f in self.findings if f.level is Level.ILLEGAL]
 
     @property
     def emittable(self) -> bool:
-        """**Not "is it finished".** An `UNMET` port is legal to hold in a draft and illegal to
-        emit; that is `keep`'s judgement, made against `illegal` plus `unmet`. This property
-        answers only whether anything is outright wrong."""
+        """Return whether the verdict contains no illegal findings.
+
+        This does not mean the draft is complete: callers separately handle ``UNMET`` findings.
+        """
         return not self.illegal

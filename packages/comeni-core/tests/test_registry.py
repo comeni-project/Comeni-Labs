@@ -1,3 +1,5 @@
+"""Behavioral checks for contract lookup, production ranking, and layer replacement."""
+
 import pathlib
 
 import pytest
@@ -15,15 +17,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add the declaration marker implied by a fixture's containing directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -52,7 +46,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 # disagree. It was `fastsort`, which is higher priority *and* alphabetically first — so
 # `sorted(key=id)` and `sorted(key=(-priority, id))` produced the same list and the test
 # below passed against both. Reverting `producers_of` to id-only ordering failed nothing in
-# the entire suite. A37, found by Part I's sweep.
+# the entire suite; the current fixture makes the ordering keys disagree.
 PREFERRED_SORT = SORT.replace(
     "nf-core/samtools/sort@1.21.0", "nf-core/samtools/zippysort@1.21.0"
 ).replace("priority: 0", "priority: 10")
@@ -187,8 +181,7 @@ def test_a_different_module_key_does_not_shadow(tmp_path, base, vocab):
     reg = Registry.load([base, overlay], vocab)
 
     assert reg.displaced == []
-    # it competes normally — and ties with the base at equal priority, which invariant 8
-    # leaves for the router to demote to tier 4
+    # It competes normally and ties with the base at equal priority; the router handles the tie.
     found = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     assert len(found) == 3
 

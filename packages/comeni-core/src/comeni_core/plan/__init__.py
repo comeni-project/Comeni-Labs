@@ -1,7 +1,6 @@
-"""What was decided: the IR, the record of each ambiguity, and the tier each exits at.
+"""Planning models from user-authored drafts through resolved pipeline IR.
 
-`tiers.py` is here rather than in `spell/` because a tier is not a spelling — it is the
-product commitment every decision carries, and `decision.py` cannot name one without it.
-
-**No re-exports.** See `declared/__init__.py`.
+The package owns draft graphs, typed ambiguity and decision records, resolved nodes and channels,
+and the closed tier and provenance vocabularies they carry. It defines no convenience re-exports;
+the public package surface is assembled by :mod:`comeni_core`.
 """

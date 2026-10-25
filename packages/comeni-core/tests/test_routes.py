@@ -1,12 +1,4 @@
-"""A setting declares the route that carries it, and a setting that reaches nothing is refused.
-
-The whole declared-param surface was two entries and both were dead: `star/align` and
-`hisat2/align` each declared `seq_platform`, which resolved to a `params.<node>_<name>` line in
-`main.nf` that no module reads. The resolver ran, flagged tier 4, printed `REVIEW`, and the
-pipeline behaved identically whatever the answer was. Issue #10.
-
-`via:` is mandatory, so that state is now unrepresentable rather than merely detectable.
-"""
+"""Behavioral checks for parameter routes, templates, directives, and safe substitution."""
 
 import pytest
 from comeni_core.declared.contract import Param
@@ -41,8 +33,7 @@ def test_when_is_not_a_legal_key():
 
 
 def test_a_template_must_mention_the_value():
-    """MD0204. Deadness wearing a bridge: renders real flags, discards the resolved value, and
-    is harder to spot than an honest no-op because it looks wired."""
+    """A template must not discard the resolved value it is meant to carry."""
     with pytest.raises(ValidationError, match="MD0204"):
         Param(name="seq_platform", via=Via.EXT, key=ExtKey.ARGS, template="--flag fixed")
 
@@ -60,9 +51,7 @@ def test_a_template_is_illegal_where_the_route_takes_one_value():
 
 
 def test_an_unknown_directive_is_refused():
-    """MD0209, and the premise was measured rather than assumed: a config carrying
-    `withName: FOO { cpuz = 4 }` runs to exit 0 with no error and no warning on Nextflow
-    25.10.4. Nothing else would catch this."""
+    """MD0209 prevents Nextflow from silently ignoring a misspelled directive."""
     with pytest.raises(ValidationError, match="MD0209"):
         Param(name="cpuz", via=Via.DIRECTIVE)
 
@@ -110,9 +99,7 @@ def test_substitutable_accepts_ordinary_values(value):
     ["has space", "/data/x", "it's", 'say "x"', "$(id)", "a`b`", "a;b", "a\nb"],
 )
 def test_substitutable_refuses_what_would_break_out(value):
-    """Refuse rather than escape. Escaping-for-context is where injection bugs live, and a
-    value that cannot contain a quote cannot close one. The space and the slash are the
-    deliberate assumption — see MD0201's message, which asks for a counterexample."""
+    """A substituted value cannot contain shell syntax or path-shaped text."""
     assert not substitutable(value)
 
 

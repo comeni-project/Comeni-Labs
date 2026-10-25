@@ -52,7 +52,7 @@ def test_building_sits_between_appearance_and_models():
 
 
 def test_pacing_is_live_and_an_env_pin_wins_over_the_stored_value():
-    """14.7.8.3b: the Pacing fork reads it, so it is no longer designed."""
+    """Pacing is active, and an environment pin outranks stored configuration."""
     got = resolve(
         PACING, {"building.pacing": "together"}, {"COMENI_BUILD_PACING": "stop_where_needed"}
     )
@@ -65,8 +65,7 @@ def test_tier4_shows_todays_behaviour_designed():
 
 
 def test_every_section_says_in_a_line_what_it_holds():
-    """The overlay's design (2026-10-01) opens each section with one line under its title;
-    like every word about a setting, it comes from the declaration."""
+    """Every section supplies a concise user-facing introduction."""
     assert CATALOGUE.sections, "no section is declared — this test is measuring nothing"
     for section in CATALOGUE.sections:
         assert 20 <= len(section.lede) <= 140, section.key
@@ -94,7 +93,7 @@ def test_a_default_cannot_be_a_designed_option():
 
 
 def test_the_author_is_a_text_setting_under_system_pinned_by_its_env():
-    """Issue 268: the name recorded beside what a person does, when git cannot say."""
+    """The system author is text and can be pinned by the installation environment."""
     from comeni_core.settings.declare import Kind
 
     setting = CATALOGUE.setting("system.author")
@@ -103,8 +102,7 @@ def test_the_author_is_a_text_setting_under_system_pinned_by_its_env():
 
 
 def test_explain_each_question_is_kept_by_the_browser_and_starts_open():
-    """Part I.1: how much a question explains is one person's way of reading, kept by the
-    browser like the theme."""
+    """Question explanations are a browser-local presentation preference."""
     from comeni_core.settings.catalogue import BUILDING
     from comeni_core.settings.declare import Where
 

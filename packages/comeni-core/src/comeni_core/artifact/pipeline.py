@@ -492,10 +492,71 @@ class Pipeline(EgressPayload):
 
     @property
     def goal(self) -> Goal:
-        """The resolver's input, projected from `intent` and `facts` (spec §8.1)."""
+        """Project the stored intent and facts back into the resolver's input."""
         return Goal.of(self.intent, self.facts)
 
     # ---------------- VALIDATION ----------------
+
+    def _validate_channels(self) -> None:
+        """Reject ambiguous channel identities, references, and input forms."""
+        names = [channel.name for channel in self.channels]
+        repeated = _duplicates(names)
+        if repeated:
+            raise ValueError(
+                coded(
+                    "MD0226",
+                    f"two channels share the name {', '.join(repeated)}. A channel name is what "
+                    f"`inputs[].channel` points at and what becomes `ch_{repeated[0]}` in the "
+                    f"workflow, so a duplicate feeds two ports from one channel and drops the "
+                    f"other. `mendel explain MD0226`.",
+                )
+            )
+        declared = set(names)
+        dangling = sorted(
+            {
+                f"{step.id}.{item.port} -> {item.channel}"
+                for step in self.steps
+                for item in step.inputs
+                if item.channel is not None and item.channel not in declared
+            }
+        )
+        if dangling:
+            raise ValueError(
+                coded(
+                    "MD0227",
+                    f"{dangling[0]} names a channel this pipeline does not declare. "
+                    f"{len(dangling)} port(s) in total. A port reads a channel by NAME since "
+                    f"schema 6 — by type before it — so a file hand-edited from an older one "
+                    f"names `annotation.gtf` where it now means `gtf`. `mendel explain MD0227`.",
+                )
+            )
+        per_sample = [c.name for c in self.channels if c.scope is Scope.SAMPLE]
+        wants_table = self.input_form is InputForm.SAMPLESHEET
+        if wants_table and len(per_sample) < 2:
+            raise ValueError(
+                coded(
+                    "MD0229",
+                    f"this pipeline says its input is a samplesheet and has "
+                    f"{len(per_sample)} sample-scoped channel(s): "
+                    f"{', '.join(per_sample) or '(none)'}.\n"
+                    f"  A samplesheet's columns are its sample-scoped channels, so one of them "
+                    f"is a table with one column — which is a glob written the long way.",
+                )
+            )
+        claimed: dict[str, list[str]] = {}
+        for channel in self.channels:
+            claimed.setdefault(channel.param, []).append(channel.name)
+        twice = sorted((param, names) for param, names in claimed.items() if len(names) > 1)
+        if twice:
+            param, names = twice[0]
+            raise ValueError(
+                coded(
+                    "MD0229",
+                    f"channels {', '.join(sorted(names))} all read `params.{param}`.\n"
+                    f"  A laboratory supplies one path and every one of them reads it, which "
+                    f"is the silent merge this schema exists to make impossible.",
+                )
+            )
 
     @model_validator(mode="after")
     def _readable_and_unambiguous(self) -> "Pipeline":
@@ -542,65 +603,7 @@ class Pipeline(EgressPayload):
                     "`ai.available: []` means nothing was wired to a model, so nothing could "
                     "have been consulted.")
                 )
-        names = [channel.name for channel in self.channels]
-        repeated = _duplicates(names)
-        if repeated:
-            raise ValueError(
-                coded(
-                    "MD0226",
-                    f"two channels share the name {', '.join(repeated)}. A channel name is what "
-                    f"`inputs[].channel` points at and what becomes `ch_{repeated[0]}` in the "
-                    f"workflow, so a duplicate feeds two ports from one channel and drops the "
-                    f"other. `mendel explain MD0226`.",
-                )
-            )
-        declared = set(names)
-        dangling = sorted(
-            {
-                f"{step.id}.{item.port} -> {item.channel}"
-                for step in self.steps
-                for item in step.inputs
-                if item.channel is not None and item.channel not in declared
-            }
-        )
-        if dangling:
-            raise ValueError(
-                coded(
-                    "MD0227",
-                    f"{dangling[0]} names a channel this pipeline does not declare. "
-                    f"{len(dangling)} port(s) in total. A port reads a channel by NAME since "
-                    f"schema 6 — by type before it — so a file hand-edited from an older one "
-                    f"names `annotation.gtf` where it now means `gtf`. `mendel explain MD0227`.",
-                )
-            )
-        per_sample = [c.name for c in self.channels if c.scope is Scope.SAMPLE]
-        wants_table = self.input_form is InputForm.SAMPLESHEET
-        if wants_table and len(per_sample) < 2:
-            raise ValueError(
-                coded(
-                    "MD0229",
-                    f"this pipeline says its input is a samplesheet and has "
-                    f"{len(per_sample)} sample-scoped channel(s): "
-                    f"{', '.join(per_sample) or '(none)'}.\n"
-                    f"  A samplesheet's columns are its sample-scoped channels, so one of them "
-                    f"is a table with one column — which is a glob written the long way.",
-                )
-            )
-        # Each external channel must have its own input parameter.
-        claimed: dict[str, list[str]] = {}
-        for channel in self.channels:
-            claimed.setdefault(channel.param, []).append(channel.name)
-        twice = sorted((param, names) for param, names in claimed.items() if len(names) > 1)
-        if twice:
-            param, names = twice[0]
-            raise ValueError(
-                coded(
-                    "MD0229",
-                    f"channels {', '.join(sorted(names))} all read `params.{param}`.\n"
-                    f"  A laboratory supplies one path and every one of them reads it, which "
-                    f"is the silent merge this schema exists to make impossible.",
-                )
-            )
+        self._validate_channels()
 
         measured = {entry.key for channel in self.channels for entry in channel.meta}
         for step in self.steps:

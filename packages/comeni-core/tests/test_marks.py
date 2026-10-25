@@ -1,24 +1,21 @@
-"""The kinds a declared string may be, and what each one refuses.
-
-Root C: every string the emitter writes is one of five kinds and the codebase distinguished
-exactly one. These are the four that now have a type — the fifth, a literal value, already
-went through `_render_literal`.
-
-The two rows that catch over-correction are here too: `Text` must still accept newlines,
-because `GateFailure.tool_message` exists to carry Nextflow's multi-line stderr, and
-`GroovyExpression` must accept anything at all, because `entry_channel` is the designed
-exception a laboratory brings its own type through.
-"""
+"""Behavioral checks for marked strings and their boundary-specific validators."""
 
 import pytest
 from comeni_core.spell.marks import (
+    AnyKey,
+    ContractId,
+    DiagnosticCode,
     GroovyExpression,
+    LayerName,
     Line,
     NfIdentifier,
     NfPath,
     NfTemplate,
+    NodeId,
+    SpdxId,
     TestDataRef,
     Text,
+    TypeId,
 )
 from pydantic import BaseModel, ValidationError
 
@@ -38,7 +35,7 @@ def test_an_identifier_accepts_what_groovy_accepts(good):
 @pytest.mark.parametrize(
     "bad",
     [
-        "A }\nprintln 'x'",  # A34, verbatim
+        "A }\nprintln 'x'",
         "STAR ALIGN",
         "",
         "2FAST",
@@ -73,7 +70,7 @@ def test_a_path_fragment_refuses_an_escape(bad):
 
 
 def test_a_line_refuses_a_newline():
-    """A27 — prose reaching a generated file became a second statement."""
+    """Generated-file prose cannot introduce a second statement."""
     with pytest.raises(ValidationError):
         _model(Line)(value="a\nprintln 'x'")
     with pytest.raises(ValidationError):
@@ -91,30 +88,26 @@ def test_text_still_accepts_a_newline():
 
 
 def test_a_groovy_expression_is_unbounded_on_purpose():
-    """`entry_channel` is the designed exception, and marking it says so out loud.
-
-    The compiler has no built-in idea what a FASTQ is; a lab bringing its own type declares
-    how it arrives. Root B makes replacing one *visible* (A24) rather than forbidding it.
-    """
+    """A laboratory-defined entry channel is the explicitly marked unbounded exception."""
     arbitrary = "Channel.fromFilePairs(params.input).map { id, reads -> [ [id: id], reads ] }"
     assert _model(GroovyExpression)(value=arbitrary).value == arbitrary
 
 
 def test_every_new_mark_is_in_the_closed_vocabulary():
-    """Root A and root C share one `Mark` enum. New markers join it; they are not minted."""
+    """Public aliases use the shared closed `Mark` vocabulary."""
     from comeni_core.spell.marks import Mark
 
     for alias in (NfIdentifier, NfPath, GroovyExpression, Line, Text):
         assert any(isinstance(meta, Mark) for meta in alias.__metadata__), alias
 
 
-# --- A44: test_data reaches generated Groovy, so it is validated, not merely marked ---
+# Test-data references reach generated Groovy, so they are validated as well as marked.
 
 
 @pytest.mark.parametrize(
     "bad",
     [
-        'x"; throw new RuntimeException("PWNED"); def z="',  # the audit's payload
+        'x"; throw new RuntimeException("PWNED"); def z="',
         "x'; println 'y",
         "a`id`b",
         "a${System.env}b",
@@ -137,7 +130,7 @@ def test_test_data_ref_accepts_a_reference(good):
     assert _model(TestDataRef)(value=good).value == good
 
 
-# --- A45: the text around {value} is emitted into a command line, so it has a grammar ---
+# Text around {value} reaches a command line and therefore has a closed grammar.
 
 
 @pytest.mark.parametrize(
@@ -168,3 +161,31 @@ def test_nf_template_rejects_injection(bad):
 )
 def test_nf_template_allows_value_meta_task_and_quotes(good):
     assert _model(NfTemplate)(value=good).value == good
+
+
+@pytest.mark.parametrize(
+    ("alias", "bad"),
+    [
+        (TypeId, ""),
+        (ContractId, "owner/name@1 0"),
+        (NodeId, ""),
+        (LayerName, ""),
+        (DiagnosticCode, "MDAAAA"),
+        (SpdxId, ""),
+        (AnyKey, "two words"),
+    ],
+)
+def test_closed_string_shapes_reject_invalid_boundary_values(alias, bad):
+    """Each public alias rejects a representative value outside its declared grammar."""
+    with pytest.raises(ValidationError):
+        _model(alias)(value=bad)
+
+
+def test_nf_template_rejects_an_unterminated_interpolation():
+    with pytest.raises(ValidationError, match="MD0204"):
+        _model(NfTemplate)(value="--rg ${meta.id")
+
+
+@pytest.mark.parametrize("good", ["MD0204", "MA0001", "MI9999"])
+def test_diagnostic_code_accepts_two_letters_and_four_digits(good):
+    assert _model(DiagnosticCode)(value=good).value == good

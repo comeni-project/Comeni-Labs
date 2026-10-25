@@ -1,11 +1,8 @@
-"""Every inspector piece in the shipped registry keeps the rules (spec §3).
+"""Check the import and filesystem boundaries of shipped inspector pieces.
 
-**A closed import allowlist**, the shape `test_purity.py` uses for `comeni-core`: a piece reads
-only the stream it is handed, so it imports nothing that reaches a network, a file or a process.
-
-**A tripwire, not a sandbox.** Python cannot be confined by reading its source; this catches the
-ordinary ways a piece would reach out, so that doing it takes intent. The sandbox is the process
-an inspection runs in (14.7.6.4), and pieces load only from layers an operator trusts.
+The closed import allowlist catches ordinary access to networks, files, and processes. This static
+guard is a tripwire rather than a Python sandbox; runtime isolation comes from the short-lived
+inspection process, and operators still choose which registry layers to trust.
 """
 
 import ast

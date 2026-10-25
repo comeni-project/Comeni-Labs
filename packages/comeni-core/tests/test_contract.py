@@ -1,7 +1,10 @@
+"""Behavioral checks for contract loading, vocabulary validation, and parameter domains."""
+
 import pathlib
 
 import pytest
-from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.contract import ModuleContract, ParamDomain
+from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 
 _KIND_OF_DIR = {
@@ -14,15 +17,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add the declaration marker implied by a fixture's containing directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -116,3 +111,26 @@ def test_container_is_optional(tmp_path, vocab):
         ))
     )
     assert ModuleContract.load(path, vocab).container is None
+
+
+@pytest.mark.parametrize(
+    ("domain", "value", "refusal"),
+    [
+        (ParamDomain(kind=MeasurementKind.ENUM, values=["yes", "no"]), "yes", None),
+        (ParamDomain(kind=MeasurementKind.ENUM, values=["yes", "no"]), "maybe", "none of"),
+        (ParamDomain(kind=MeasurementKind.BOOLEAN), True, None),
+        (ParamDomain(kind=MeasurementKind.BOOLEAN), 1, "boolean"),
+        (ParamDomain(kind=MeasurementKind.INTEGER), 2, None),
+        (ParamDomain(kind=MeasurementKind.INTEGER), 2.5, "integer"),
+        (ParamDomain(kind=MeasurementKind.NUMBER), "2.5", "number"),
+        (ParamDomain(kind=MeasurementKind.NUMBER, minimum=1, maximum=3), 1, None),
+        (ParamDomain(kind=MeasurementKind.NUMBER, minimum=1), 0, "minimum"),
+        (ParamDomain(kind=MeasurementKind.NUMBER, maximum=3), 4, "maximum"),
+    ],
+)
+def test_parameter_domains_accept_only_declared_values(domain, value, refusal):
+    result = domain.refuse("option", value)
+    if refusal is None:
+        assert result is None
+    else:
+        assert result is not None and refusal in result

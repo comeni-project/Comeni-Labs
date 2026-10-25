@@ -1,13 +1,4 @@
-"""An unchecked-out submodule says so, rather than failing thirty-three times about contracts.
-
-`registry/` is a git submodule since issue #46. `git clone` without `--recurse-submodules`
-leaves it as an **empty directory that exists** — so every "does the path exist" check passes,
-the loader finds no contracts, and the failure surfaces as `cannot route this goal` or as a
-contract count of zero. None of those names the cause, and the cause is one command away.
-
-This is the repository's least-tested class of state, because it only ever occurs on somebody
-else's machine. Producing it here is the only way the message is ever read.
-"""
+"""Diagnostics for an empty registry submodule and minimal private overlays."""
 
 import pathlib
 
@@ -26,15 +17,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add the declaration marker implied by a fixture's containing directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -85,22 +68,7 @@ def test_the_real_registry_loads():
 
 
 def test_the_message_counts_the_kinds_rather_than_asserting_a_number(tmp_path):
-    """`len(DeclaredKind)` rather than a literal — invariant 11's stated reason.
-
-    The count said "four" in prose for six plans and was wrong the day `roles/` arrived.
-
-    **This test was itself vacuous for two plans, and Plan 5A is what found it.** It asserted
-    `str(len(DeclaredKind))` appeared in `MD0005` — and comeni-registry#1 had already rewritten
-    that message to say *"no `.yml` or `.yaml` file in it"*, which names no count at all. It
-    passed anyway because `tmp_path` is `/tmp/pytest-of-<user>/pytest-<n>/…`, so the digit it
-    was looking for was in the path. Adding a sixth kind turned `5` into `6` and the accident
-    stopped landing.
-
-    A guard that passes on the code it was written to reject is a green tick over an open hole
-    (W2's lesson). The property is still worth holding, so it moves to the message that
-    genuinely derives its list: `MD0010` enumerates `_KIND_OF`, so a kind added today appears
-    in the refusal today.
-    """
+    """The missing-kind diagnostic derives its choices from the complete kind mapping."""
     where = tmp_path / "nothing.yml"
     where.write_text("id: something\n")
     with pytest.raises(ValueError) as caught:
@@ -108,8 +76,7 @@ def test_the_message_counts_the_kinds_rather_than_asserting_a_number(tmp_path):
 
     said = str(caught.value)
     assert "MD0010" in said
-    # `_KIND_OF` is derived from `DeclaredKind` **by hand** — `vocabularies` is not
-    # `vocabularys` — so the drift this guards is a kind added to the enum and not to the map.
+    # The singular spellings are explicit because `vocabularies` cannot be singularized safely.
     assert set(_KIND_OF.values()) == set(DeclaredKind), (
         "a declared kind has no singular spelling, so no file can ever declare it and "
         "MD0010 will not offer it"

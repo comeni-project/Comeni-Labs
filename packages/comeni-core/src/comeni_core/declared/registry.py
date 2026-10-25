@@ -29,28 +29,13 @@ class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
 
     displaced: list[Displacement] = []
-    """What this stack's higher layers removed. Was `list[ShadowRecord]`.
-
-    `ShadowRecord` is deleted rather than kept as a projection: an abstraction with one
-    kind opted out decays back into four loaders, which is the whole of root B. Its one
-    distinctive property survives as `Displacement.winning_key` — a layer may hold two
-    versions of one module, so a record naming only the module key can contradict the
-    build it describes.
-    """
+    """Declarations removed by higher layers, including the preferred winning contract."""
 
     layer_of: dict[str, int] = {}
-    """Which layer each surviving contract came from, **by index**.
+    """Map each surviving contract ID to its supplying layer index.
 
-    An index, not a name: names are not unique, and `--registry registry/ --registry
-    ./registry` is a day-one collision that made `order.index(name)` answer about the
-    wrong layer (A25). Identity is position.
-
-    Here rather than on `ModuleContract` on purpose: a contract is content-addressed
-    (audit A10), and a field recording where it was found would make its digest depend on
-    the machine that read it — reopening A10 sideways. A `Registry` is never reachable
-    from any egress payload, so a mapping is legal here in a way it is not on the IR.
-    `Pipeline.of()` takes a `Registry` as an *argument* and keeps none of it, which is what
-    keeps that true now that the artifact itself crosses door 4.
+    Provenance stays on the registry rather than the content-addressed contract, so contract
+    digests do not depend on checkout location.
     """
 
     layer_order: list[LayerName] = []
@@ -60,10 +45,8 @@ class Registry(BaseModel):
     def kind(vocab: Vocabulary) -> Kind[str, ModuleContract]:
         """How contracts are found, keyed and stacked.
 
-        The one kind that needs a `group`: the storage key is the full id and displacement
-        is decided on the id minus its version, so `@2.0.0` displaces both `@1.11.0` and
-        `@1.21.0`. Keying displacement on the full id would make a version bump ambiguity
-        rather than a decision — invariant 11's reason for the module key.
+        Contract storage uses full IDs, while displacement groups all versions under the
+        versionless module key.
         """
         return Kind(
             DeclaredKind.CONTRACTS,
@@ -87,13 +70,7 @@ class Registry(BaseModel):
 
     @classmethod
     def load(cls, layers: Path | Sequence[Path], vocab: Vocabulary) -> "Registry":
-        """Load contracts across a layer stack. **Layer roots, not `contracts/`.**
-
-        The `names` argument is gone: it existed because this was handed
-        `<layer>/contracts` directories and the layer's name lives one level up, so the
-        caller had to supply what the loader could not see. A layer is now a value that
-        carries its own name and index, so there is nothing left to forward.
-        """
+        """Load and stack contracts from one or more layer roots."""
         as_layers = layers_of(layers)
         return cls.of(stack(as_layers, cls.kind(vocab)), as_layers)
 

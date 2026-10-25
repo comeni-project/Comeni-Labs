@@ -1,19 +1,8 @@
-"""Codecs, formats and measures: the pieces an inspection is composed from (#134).
+"""Declare the codec, format, and measurement pieces used for inspection.
 
-An uploaded sample's head is measured by **composing** pieces rather than by one inspector per
-file type: a codec opens the bytes (`gzip`), a format turns them into records (`fastq`), and
-each measure folds those records into one fact (`read_length`). A new compression is one codec,
-a new format one format, a new fact one measure — so the number of pieces grows with the
-number of ideas, not with their product. Spec §3–§4.
-
-**A piece is declared data with code beside it.** The declaration is a file like any other kind
-(`declares: format`, invariant 11); the code, its tests and its fixtures sit in `piece/` beside
-it, which the layer digest covers and the loader never parses — the rule `module/` already
-follows (`layered._in_source`).
-
-**Pieces name ids, never check them.** A format names the type it reads and a measure the
-measurement it produces, as strings. `InspectionCatalogue.check` holds them to the vocabulary
-(invariant 7): a piece naming an id no layer declares is refused, `MD0317`, and the others stay.
+A codec opens bytes, a format produces records, and a measure folds records into a fact. Each
+piece points to code under its declaration's ``piece/`` directory. Catalogue validation removes
+pieces with missing code, missing dependencies, or references to undeclared types or measurements.
 """
 
 from collections.abc import Sequence
@@ -38,7 +27,7 @@ class _Piece(BaseModel):
     """The piece's folder name; on a fact it is `f"{id}@{version}"`."""
     version: str = Field(pattern=_VERSION)
     impl: Literal["python", "executable"] = "python"
-    """`executable` leaves room for a Rust or C piece behind the same wire protocol (spec §4)."""
+    """How the inspection runner invokes the piece."""
     entry: str = Field(pattern=_ENTRY)
     """The code, relative to the declaration, always inside `piece/`."""
     needs: list[str] = Field(default_factory=list)
@@ -52,7 +41,7 @@ class _Piece(BaseModel):
         return self._folder
 
     def problems(self) -> list[str]:
-        """What would stop this piece running, read from where it was loaded (issue 224)."""
+        """Return filesystem problems that would prevent a loaded piece from running."""
         if self._folder is None:
             return []
         found = []
@@ -105,7 +94,7 @@ class MeasurePiece(_Piece):
     """The measurement id the fact is for."""
     record: Literal["sequence"]
     decided: dict[str, float | int] = Field(default_factory=dict)
-    """The thresholds this piece decides by, recorded on every fact it produces (spec §5)."""
+    """Thresholds recorded with every fact this piece produces."""
 
 
 def _parser(model: type[_Piece]):
@@ -165,10 +154,9 @@ class InspectionCatalogue(BaseModel):
     def check(
         self, type_ids: set[str], measurement_ids: set[str]
     ) -> "tuple[InspectionCatalogue, list[str]]":
-        """Drop every piece that names vocabulary the registry does not declare (invariant 7).
+        """Return runnable pieces and diagnostics for every refused piece.
 
-        **One bad piece does not stop the others.** A refused piece is reported, never loaded,
-        so its files go to the characteriser like any type nothing reads.
+        A bad piece does not prevent independent pieces from remaining available.
         """
         refused: list[str] = []
         known = set(self.codecs) | set(self.formats) | set(self.measures)

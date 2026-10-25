@@ -1,5 +1,4 @@
-"""A person's structural intent in the goal (A1, the one-builder design): a role switched off, a
-tool excluded at a site, and a port's source pinned."""
+"""Behavioral contracts for disabled roles, producer exclusions, and source pins."""
 
 import pytest
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
@@ -19,7 +18,7 @@ DEDUP = "lab/markdup@1.0.0"
 
 
 def test_a_goal_without_intents_dumps_the_bytes_it_did():
-    """Invariant 10: no `absent_roles: []`, `exclusions: []` or `sources: []` appears."""
+    """Empty optional intent collections stay out of serialized goals."""
     dumped = Constraints().model_dump(mode="json")
     assert not {"absent_roles", "exclusions", "sources"} & set(dumped)
 

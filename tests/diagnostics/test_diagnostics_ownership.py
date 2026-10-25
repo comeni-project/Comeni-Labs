@@ -114,15 +114,8 @@ def test_every_code_is_owned_by_the_package_that_emits_it():
 
 
 def test_a_docstring_mention_is_not_an_emission():
-    """`diagnostics.py`'s own docstring quotes `f"MD0001: …"` as an example of the old shape.
-
-    An emission is a *call*, which is why the pattern anchors on `coded(` and `code=` rather
-    than on the code followed by a colon. The previous version anchored on the colon and had to
-    reason about which mentions carried one.
-    """
-    assert "comeni-core" in _emitted()["MD0001"]
-    core_text = next(text for package, text in SOURCES if "def coded(" in text)
-    assert 'f"MD0001: {where} is not valid YAML"' in core_text, "the example moved; update this"
+    """A diagnostic-looking string is not an emission unless it occurs in a supported call."""
+    assert EMISSION.search('f"MD0001: {where} is not valid YAML"') is None
 
 
 def test_the_scan_sees_every_declared_prefix():

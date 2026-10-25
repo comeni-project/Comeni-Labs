@@ -1,6 +1,8 @@
-"""A file to start a build from: `pipeline.yml` version 8 with only `intent` and `facts`
-(Part I.0 Plan B, spec §8.5). `mendel build <file>` resolves it and writes the whole file back,
-so there is one format, and the no-AI path is writing its top half by hand."""
+"""The minimal version-8 pipeline document accepted as build input.
+
+A starter contains only intent and facts. ``mendel build`` resolves it into the complete pipeline
+artifact, keeping person-authored and generated inputs on one serialized format.
+"""
 
 from typing import Literal
 

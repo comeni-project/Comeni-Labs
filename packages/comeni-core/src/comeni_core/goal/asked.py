@@ -1,19 +1,11 @@
-"""What the user has, what they want, and what the data actually looks like.
+"""Validated models for what a build has, wants, and may constrain.
 
-Invariant 15: Mendel does not receive patient data. A `Goal` describes a *shape* —
-type ids, states, and declared measurements. "Paired, 150bp, reverse-stranded, twelve
-samples" is true of thousands of studies and identifies nobody. There is no filename
-field, no sample identifier field and no path, and `extra="forbid"` on every model
-here is what stops one being added by accident: an unrecognised key is a loud error
-rather than a quietly carried payload.
+A goal carries data shape rather than patient data: declared type identifiers, states,
+measurements, and routing choices. Every model rejects unknown fields so filenames, sample
+identifiers, paths, and other undeclared payloads cannot pass through silently.
 
-Sample identity enters at run time, in the laboratory's own environment, through the
-`params.input` placeholder the emitted pipeline declares. It never reaches Mendel's
-process. See the clinical data-protection spec, §3.
-
-`DataProfile` and `Measured` are defined in `comeni_core.goal.profile` — a profile is made of
-measurements and measurements are declared there — and re-exported here because a goal is
-where most code meets one.
+`DataProfile` and `Measured` live in :mod:`comeni_core.goal.profile` and are re-exported here
+for callers that construct complete goals.
 """
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
@@ -42,29 +34,16 @@ __all__ = [
 
 
 class GoalInput(BaseModel):
-    """One thing the laboratory already has, as a **shape**.
-
-    **A goal names channels rather than types since Plan 5B phase 3**, and that is what lets a
-    goal say *I have two annotations* — one for the reference and one per sample — where before
-    it could only say *I have an annotation*. `materialise.goal_of` deduplicated by `type_id`
-    in one line, and that line was the whole of why two `annotation.gtf` inputs were one hole.
-    """
+    """One available input, described by type, optional channel name, and states."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     type_id: TypeId
     name: ChannelName | None = None
-    """This input's channel. **`None` means "derive it"**, which is every goal file written by
-    hand and every goal written before phase 3 — the derivation is the type id's last segment
-    and is what one-channel-per-type has always produced.
+    """The input channel, or ``None`` for a name derived from the type identifier.
 
-    A goal naming two inputs of one type must name both, because the deduplication that made
-    the second one vanish is gone and two unnamed inputs of a type would derive the same name.
-    `MD0226` refuses the resulting pipeline rather than letting them merge quietly.
-
-    **`None` rather than `""`.** `ChannelName` is an identifier and an empty one is not a name;
-    saying *absent* with a value the type refuses would mean widening the type to carry a
-    sentinel, which is how a validated alias stops validating.
+    Multiple inputs of one type must be named explicitly; downstream materialisation rejects
+    derived channel-name collisions.
     """
     states: frozenset[StateName] = frozenset()
 
@@ -74,28 +53,23 @@ class GoalInput(BaseModel):
 
 
 class ParamOverride(BaseModel):
-    """A parameter the user pinned. Closed, so it cannot carry a path.
+    """A validated human parameter override.
 
-    Previously these lived as arbitrary keys in an open `dict[str, Any]`, which meant
-    `constraints: {seq_platform: /data/patients/PT-4471023/S1_R1.fastq.gz}` validated,
-    reached `main.nf`, was labelled tier 1 with review `none`, and *suppressed* the
-    tier-4 flag it replaced. Invariant 15 says no input accepts a path; it did.
+    The closed value type prevents arbitrary path-bearing values from entering a goal.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: PortName
     value: HumanParamValue
-    """Guarded: this is what a person types into a goal file. Audit A3."""
+    """A value accepted from a person-authored goal file."""
 
 
 class RequiredStates(BaseModel):
-    """States a wanted output must carry.
+    """A wanted output type and the states it must carry.
 
-    A record rather than a mapping key, because `tests/guards/test_egress.py` forbids mappings in
-    anything reachable from a payload and `Goal` became reachable when the publication payload
-    started carrying one. `dict[TypeId, list[StateName]]` type-checks perfectly while
-    saying nothing about whether the key was ever declared.
+    The record form keeps payload keys declared and validated. ``Constraints`` still accepts a
+    mapping shorthand when reading person-authored goal files.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -105,12 +79,7 @@ class RequiredStates(BaseModel):
 
 
 class Site(BaseModel):
-    """Where the router chooses a tool: the type it must produce, with these states.
-
-    One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
-    step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
-    which place they mean.
-    """
+    """A routing location identified by output type and required states."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -123,9 +92,10 @@ class Site(BaseModel):
 
 
 class ProducerPin(BaseModel):
-    """A person's tool at a site. Honoured by the router before any rule, and recorded as the
-    person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
-    longer proven from the data, and a reader sees who decided."""
+    """A person's producer choice at a routing site.
+
+    The router applies it before rules and records a differing choice as a human override.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -134,8 +104,7 @@ class ProducerPin(BaseModel):
 
 
 class RoleAbsence(BaseModel):
-    """A role a person switched off: no step fills it (A1, the one-builder design). The same
-    semantics as a rule's `presence: absent`, so the router drops every contract filling it."""
+    """A role disabled by a person, excluding every contract that fills it."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -143,8 +112,10 @@ class RoleAbsence(BaseModel):
 
 
 class ProducerExclusion(BaseModel):
-    """A tool a person excluded at a site (A1). The router takes the next candidate there; if
-    none is left, the conflict is raised rather than resolved."""
+    """A producer excluded at one site.
+
+    The router uses another candidate or reports a conflict when none remains.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -153,8 +124,7 @@ class ProducerExclusion(BaseModel):
 
 
 class SourcePin(BaseModel):
-    """Which tool a person chose to feed a step's port (A1): the consumer's contract, its port,
-    and the producer whose output feeds it. Recorded as the person's at tier 4."""
+    """A person's choice of producer for one consumer port."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -164,7 +134,7 @@ class SourcePin(BaseModel):
 
 
 class Constraints(BaseModel):
-    """Everything a goal may pin. `extra="forbid"` is the whole point of the type."""
+    """The complete closed set of routing and parameter choices in a goal."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -173,29 +143,22 @@ class Constraints(BaseModel):
     producers: list[ProducerPin] = Field(
         default_factory=list, exclude_if=lambda producers: not producers
     )
-    """Tools a person chose, each at its site. **Omitted from a dump when empty**, so a goal
-    with none emits exactly the bytes it did before the field existed (invariant 10)."""
+    """Chosen producers, omitted from serialized output when empty."""
     absent_roles: list[RoleAbsence] = Field(
         default_factory=list, exclude_if=lambda absent: not absent
     )
-    """Roles a person switched off. Omitted when empty, as `producers` is."""
+    """Disabled roles, omitted from serialized output when empty."""
     exclusions: list[ProducerExclusion] = Field(
         default_factory=list, exclude_if=lambda exclusions: not exclusions
     )
-    """Tools a person excluded, each at its site. Omitted when empty."""
+    """Excluded producers, omitted from serialized output when empty."""
     sources: list[SourcePin] = Field(default_factory=list, exclude_if=lambda sources: not sources)
-    """Ports whose source a person chose. Omitted when empty."""
+    """Pinned port sources, omitted from serialized output when empty."""
 
     @model_validator(mode="before")
     @classmethod
     def _accept_mapping(cls, data: object) -> object:
-        """`required_states: {counts.matrix: [gene_level]}` still works.
-
-        A mapping is the natural way to *write* one in a goal file, and every existing
-        goal and test does. The list is what the guard requires; this keeps the ergonomic
-        form and the safe representation from being the same decision. Same pattern as
-        `IRNode.params` and `DataProfile.measurements`.
-        """
+        """Convert the concise goal-file mapping to the declared record representation."""
         if isinstance(data, dict) and isinstance(data.get("required_states"), dict):
             data = dict(data)
             data["required_states"] = [
@@ -230,6 +193,8 @@ class Constraints(BaseModel):
 
 
 class Goal(BaseModel):
+    """The resolver input, combining desired outputs with known input facts."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     have: list[GoalInput] = Field(default_factory=list)
@@ -254,7 +219,7 @@ class Goal(BaseModel):
 
 
 class Intent(BaseModel):
-    """What is wanted: the types to end with, and what the person pinned (spec §8.1)."""
+    """Desired output types and the person's explicit constraints."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -263,7 +228,7 @@ class Intent(BaseModel):
 
 
 class Facts(BaseModel):
-    """What is known: the inputs held, and each measurement with its source (spec §8.1)."""
+    """Available inputs and measurements, including measurement provenance."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

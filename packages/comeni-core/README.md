@@ -5,7 +5,7 @@ module contracts, closed type vocabularies, declared measurements, the pipeline 
 the layered registry.
 
 **Pure by construction.** No web framework, no HTTP client, no model library — enforced by
-a closed import allowlist in `tests/test_purity.py` that covers the standard library and
+a closed import allowlist in `tests/guards/test_purity.py` that covers the standard library and
 dynamic imports as well as third-party names. Telemetry cannot live here, structurally
 rather than by promise.
 

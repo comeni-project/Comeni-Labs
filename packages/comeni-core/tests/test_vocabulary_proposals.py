@@ -1,9 +1,4 @@
-"""A vocabulary plus the types a draft is proposing to add.
-
-**Derived, never mutated.** `with_measurements` is the same shape and the same argument: the
-loaded vocabulary is what the registry says, and a caller asking "what if I added these"
-must not be able to change that for everybody else.
-"""
+"""Derive proposed types without mutating or weakening the loaded vocabulary."""
 
 from comeni_core.declared.vocabulary import Vocabulary
 
@@ -13,8 +8,7 @@ def _base() -> Vocabulary:
 
 
 def test_it_adds_a_type_with_no_states():
-    """States are a separate judgement. Inventing them at approval time would be the
-    reviewer guessing at a second thing while judging the first."""
+    """A proposal introduces an ID but does not invent states."""
     got = _base().with_proposals(["qc.index_stats"])
     assert got.types["qc.index_stats"] == frozenset()
 
@@ -26,9 +20,7 @@ def test_it_leaves_the_original_alone():
 
 
 def test_a_proposal_never_overwrites_a_declared_type():
-    """If the registry already declares it, the registry wins — its states are real and a
-    proposal's emptiness is not. A proposal for a declared type is a mistake upstream, and
-    silently emptying that type's states would be a very quiet way to break routing."""
+    """A proposal cannot replace the states of an existing declaration."""
     got = _base().with_proposals(["alignment.bam"])
     assert got.types["alignment.bam"] == frozenset({"indexed"})
 
