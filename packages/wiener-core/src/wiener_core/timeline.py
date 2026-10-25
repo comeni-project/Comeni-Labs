@@ -1,40 +1,8 @@
-"""Where every attempt sat in time, packed into lanes — Plan 6 phase 3.
+"""Pack task attempts into deterministic per-process timeline lanes.
 
-═══ THE RULES, AND THEY ARE THE ARTBOARD'S ════════════════════════════════════════════════
-
-`.design/canvas.json`, `page-5`, *"THE TIMELINE, RULE BY RULE"*. Each is quoted where it is
-implemented, because each was arrived at by drawing the wrong thing first:
-
-1. **A LANE IS A PROCESS**, in the order the artifact declares — *"so a process that has not
-   been reached still has a lane, exactly as `overview()` gives it a row before the run gets
-   there. The chart's height is known before the first event."* That is why `lanes()` takes
-   `declared` and does not derive its lanes from the attempts it was given.
-
-2. **SUB-ROWS ARE CONCURRENCY**, greedily packed — *"a finished row is reused."* Two attempts
-   overlapping in time need two rows; two that do not, share one. Above `MAX_ROWS` the stack
-   stops and the remainder is counted into a **density band**: *"never 5,000 rows."*
-
-3. **A RETRY IS A SEPARATE BAR in the same lane.** *"`Attempt` is per-attempt precisely so the
-   try that asked for more memory is visible; collapsing them loses the only interesting
-   thing."* One `Bar` per attempt, never one per task.
-
-4. **COLOUR IS STATUS, NEVER PROCESS** — the lane already carries identity, and *"the first
-   draft coloured by process and a finished STAR task was indistinguishable from a running
-   one."* A `Bar` therefore carries its status and nothing about which process it belongs to.
-
-═══ NO CLOCK, AND IT IS THE SAME RULE `series.py` KEEPS ═══════════════════════════════════
-
-`wiener-core` reads no clock (invariant 1's neighbour — `docs/design/wiener.md` §6.1: same
-events in, same decisions out). A running attempt has **no `complete_ms`**, and closing it at
-`now` inside this function would make the same events fold to a different picture every second.
-
-So an open bar carries `end_ms: None` and `Timeline.open` says at least one exists. **The
-renderer extends it to the right edge**, which is exactly what the envelope already does with
-an open reservation — `series.py` keeps a running attempt's reservation to the right edge for
-the same reason, and `curve.ts` draws it.
-
-For **packing** an open bar occupies its sub-row forever, which is the truth: a running task
-has not released its row.
+Declared processes keep artifact order, retries remain separate bars, and overlapping attempts
+use greedy sub-rows capped by ``MAX_ROWS`` with overflow counted as density. Open attempts have
+no invented end time and continue to occupy their row; the renderer chooses their visible edge.
 """
 
 from collections.abc import Sequence

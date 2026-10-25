@@ -1,45 +1,9 @@
-"""What a run held over time — and only the curves the record can honestly support.
+"""Derive honest resource curves from task-attempt windows.
 
-═══ THE RULE, AND IT HAS THREE BRANCHES ═══════════════════════════════════════════════════
-
-Wiener has **no samples**. The trace gives one summary row per task attempt, so every series
-here is derived from task *windows*, and whether that is honest depends on how the scalar
-distributes over its window (`rn-series`):
-
-1. **A RESERVATION is constant over the window → the series is EXACT.** `cpus` and
-   `memory_bytes` are what Nextflow *held* for the whole task lifetime, so summing them over
-   live attempts is the true reservation curve — not synthetic at all. The same is true of
-   anything **countable**: attempts in flight, completions, queue depth.
-
-2. **A TOTAL divides over the window → area-true, shape-false.** `read_bytes` is a total and
-   `pct_cpu` a mean. Spreading either uniformly preserves the integral and **invents the
-   shape**. Drawable, and it must be drawn **stepped** and labelled derived — smoothness is the
-   visual grammar of *I measured this*.
-
-3. **A PEAK does not distribute at all → it is a bound, not a series.** `peak_rss_bytes` is the
-   highest value a task ever touched; summing peaks across live attempts describes an instant
-   that never happened. **There is no memory-over-time curve at any fidelity**, and `Kind` has
-   no third member to put one in. Drawing it would be exactly the failure the product claim
-   exists to prevent, and it is the tempting one — it is the number everybody asks for.
-
-═══ BOUNDARIES, NOT BINS ══════════════════════════════════════════════════════════════════
-
-`+delta` at the start of an interval, `−delta` at its end, sort, prefix-sum. Exact at every
-breakpoint, no bucketing artefacts, and 5,000 tasks is 10,000 events rather than a scan per bin.
-**Bin only to render** — and size the bin off the run's own duration, or a 40-second stub run
-collapses to a single point.
-
-═══ NO CLOCK ═════════════════════════════════════════════════════════════════════════════
-
-`wiener_core` is pure (invariant 1) and a separate scan holds `datetime.now` out of it. A series
-is the most tempting place in this package to read one, because *how long has this been running*
-is a question about now — and §6.1's claim that the same events give the same decisions dies the
-first week one is read. The window ends at the last **recorded** boundary, never at a clock.
-
-**A running attempt does not release its reservation at the end of the window.** Closing an open
-interval at `now` made the reservation curve fall to zero at the right edge — the exact artefact
-the derived curve is hatched to avoid, arriving on the half that is supposed to be exact. It was
-found by rendering the design boards, and `.design/runs_boards.py` carries the same note.
+Reservations and counts are exact step curves. Byte totals spread uniformly across a completed
+window are labelled derived because only their integral is known. Peaks are not curves and are
+omitted. Boundaries come from recorded events, never from a clock; an open attempt therefore
+keeps its reservation at the right edge.
 """
 
 from collections.abc import Sequence

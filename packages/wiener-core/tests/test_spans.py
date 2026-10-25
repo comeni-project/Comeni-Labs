@@ -8,7 +8,7 @@ from comeni_core import yaml_strict
 from comeni_core.artifact.pipeline import Pipeline
 from wiener_core.events import RunEvent, admit
 from wiener_core.spans import SpanKind, pipeline_name, spans
-from wiener_core.state import RunPhase, replay
+from wiener_core.state import RunPhase, RunState, replay
 
 ROOT = Path(__file__).parents[3]
 SPINE = ROOT / "tests/fixtures/pipeline/rnaseq-spine.yml"
@@ -66,6 +66,14 @@ def test_a_failed_task_carries_its_exit_code_under_the_standard_name(pipeline):
     )
     assert failed.attributes["process.exit.code"] == 2
     assert failed.attributes["error.type"] == "exit_2"
+
+
+def test_a_failed_run_without_a_run_error_is_attributed_to_a_task():
+    state = RunState(run_id="r1", phase=RunPhase.FAILED, started_at_ms=1)
+
+    root = spans(state)[0]
+
+    assert root.attributes["error.type"] == "task_failed"
 
 
 def test_no_lab_string_becomes_an_attribute(pipeline):

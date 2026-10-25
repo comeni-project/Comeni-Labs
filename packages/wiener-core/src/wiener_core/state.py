@@ -1,23 +1,8 @@
-"""What a run *is*: a fold over the events it produced.
+"""Fold admitted events into deterministic run, task, and attempt state.
 
-**Idempotent in two different ways, and A176 is about not confusing them.**
-
-- `event.seq <= state.last_seq` returns the state unchanged. That covers **replay** — the same
-  recorded event folded twice — and nothing else, because `seq` is assigned as bodies arrive
-  (§6.2), so a redelivery over the network carries a *fresh* one.
-- **Convergence covers redelivery.** Every field the fold writes is a function of what has been
-  seen rather than of how often: `terminal_seen` is a set, `counts` is derived from `tasks`,
-  and an attempt is keyed by `trace.attempt`. Folding a body twice lands in the same state.
-
-The spec attributed §4.3 finding 2 to the first mechanism; it is the second that handles it.
-
-**An attempt is keyed, never appended.** A task that ran once is described by three events —
-submitted, started, completed — so appending per event gave it three attempts and drew a retry
-ring (§9.1) on a task that never retried. `attempts` holds one entry per `trace.attempt`, in
-order, and a later event for the same `n` replaces the earlier one.
-
-**Terminality is a set, not a flag** — finding 3. `error` can arrive after `completed`, so the
-outcome is decided by what has been *seen*, never by what arrived last.
+Recorded sequence numbers make replay idempotent, while keyed attempts and derived counts make
+freshly sequenced redeliveries converge. Terminal events accumulate as a set, so outcome does
+not depend on arrival order and cancellation can retain precedence over its resulting error.
 """
 
 from collections.abc import Iterable, Mapping
@@ -44,8 +29,8 @@ class Attempt(BaseModel):
     **It carries the resources because nothing downstream can get them otherwise** — A184.
     `admit()` keeps the fifteen `trace.enabled` fields and the fold was dropping them, so spans,
     §9.3's panel and `run_task`'s attempts column were all blind to what the record held. That
-    is Checkpoint 2's finding one layer up: the record could be replayed to recover, a
-    projection could not.
+    matters one layer above admission: the record could be replayed to recover these values,
+    but a projection could not.
 
     **Per attempt, not per task**, which is the other half. §8 gives each attempt its own span
     with its own start and end, and `TaskState.first_seen_ms` / `last_change_ms` are per *task* —

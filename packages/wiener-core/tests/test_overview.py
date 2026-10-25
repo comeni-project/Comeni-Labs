@@ -120,7 +120,7 @@ def test_a_retried_task_is_counted_once_and_its_attempts_are_remembered():
 
 
 def test_a_step_that_failed_is_not_a_step_that_finished():
-    """**Found at Checkpoint 1, against a real failed run.** The plan's rule was `reached and
+    """**Verified against a real failed run.** The initial rule was `reached and
     nothing running and tasks > 0`, which counts a *failed* process as finished — so run
     `0d3a4e3d` reported `steps_finished: 2` of 5 with zero successes, and §5's one honest bar
     advanced on failure.
@@ -152,7 +152,7 @@ def test_a_step_is_not_finished_while_one_of_its_tasks_still_fails():
 
 
 def test_steps_finished_can_go_backwards_and_that_is_the_honest_answer():
-    """**Checkpoint 1 asks whether `steps_finished` is monotonic. It is not, and cannot be.**
+    """**`steps_finished` is not monotonic, and cannot be.**
 
     Nextflow discovers tasks as channels emit (§5), so a process with three tasks all done is
     finished until a fourth is submitted. The count then drops, and the bar moves left.

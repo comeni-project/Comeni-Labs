@@ -1,8 +1,8 @@
-# packages/wiener-core/tests/test_fold.py
+"""Replay, redelivery, ordering, and projection-restoration contracts for the run fold."""
 import json
 from pathlib import Path
 
-from wiener_core.events import admit, heartbeat
+from wiener_core.events import EventKind, RunEvent, admit, heartbeat
 from wiener_core.state import EMPTY, RunPhase, replay
 
 FIXTURE = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
@@ -37,6 +37,21 @@ def test_terminality_does_not_depend_on_arrival_order():
     events = _events()
     reversed_tail = events[:-2] + list(reversed(events[-2:]))
     assert replay(events).phase is replay(reversed_tail).phase is RunPhase.FAILED
+
+
+def test_cancellation_takes_precedence_over_the_error_it_causes():
+    """A person stopping a run is not recast as a defect when both terminal events arrive."""
+    events = [
+        RunEvent(kind=EventKind.ERROR, run_id="r1", at_ms=1, seq=0),
+        RunEvent(kind=EventKind.CANCELLED, run_id="r1", at_ms=2, seq=1),
+    ]
+
+    assert replay(events).phase is RunPhase.CANCELLED
+    opposite_order = [
+        events[1].model_copy(update={"seq": 0}),
+        events[0].model_copy(update={"seq": 1}),
+    ]
+    assert replay(opposite_order).phase is RunPhase.CANCELLED
 
 
 def test_a_retry_is_history_rather_than_an_overwrite():
@@ -98,8 +113,8 @@ def test_an_attempt_carries_what_the_trace_reported():
     downstream of `RunState` — spans, §9.3's panel, `run_task`'s attempts column — was blind to
     them. The record could be replayed to recover; a projection could not.
 
-    This is Checkpoint 2's finding one layer up, and it was found by auditing the phase 3 plan
-    against the code rather than by building on it.
+    This verifies one layer above admission that the record and its projection retain the same
+    resource facts.
     """
     attempt = next(iter(replay(_resourced()).tasks.values())).attempts[0]
     assert attempt.pct_cpu is not None and attempt.rchar, "the resource fields were dropped"

@@ -1,11 +1,8 @@
-"""The pipeline's own graph, coloured by what the run did.
+"""Adapt a saved pipeline to ``dag-core`` and colour it with recorded run state.
 
-**Wiener has a `Pipeline`, not a `PipelineIR`** — `docs/design/wiener.md` §9.1.1 — and may not
-reach for the resolver that turns one into the other (§3.3). So this is Wiener's adapter onto
-`dag-core`, the other half of the same split `mendel_compiler.layout` sits on.
-
-§9.1: **nothing new is computed.** The layout is the pipeline's, the colouring is the fold's,
-and a graph that cannot disagree with either is one a reader can trust.
+Only pipeline steps become nodes; external input channels remain graph roots. The adapter uses
+the saved artifact directly and the colouring reports folded task counts without inventing
+durations or transfer rates.
 """
 
 from dag_core import Edge, Graph, Node

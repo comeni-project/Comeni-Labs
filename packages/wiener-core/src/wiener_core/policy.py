@@ -1,11 +1,7 @@
-"""What to do about a run — decided, never performed.
+"""Decide typed run intents without performing them.
 
-`decide()` returns typed `Intent`s; `wiener-api` carries them out. That split is what keeps
-§6's replay claim exact: a model in this function would make the same events produce different
-decisions, and an approximate replay cannot answer *why did it give up at 04:12*.
-
-**`now_ms` is a parameter.** §6.1 — this package does not read a clock, and
-`tests/guards/test_no_clock.py` is what holds that rather than this sentence.
+``decide`` is deterministic for a state, policy, and explicit ``now_ms``. The caller owns the
+clock and performs returned intents, keeping policy replayable and free of external effects.
 """
 
 from enum import StrEnum

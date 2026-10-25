@@ -1,14 +1,8 @@
-"""What Nextflow sends, and the subset Wiener agrees to keep.
+"""Closed run-event types and admission of Nextflow webhook payloads.
 
-**Mendel declares what may leave; Wiener declares what may enter.** `admit()` is the exact
-mirror of `tests/guards/test_egress.py` — an allowlist rather than a blocklist, because a blocklist
-can only forbid what somebody named. `docs/design/wiener.md` §4.4.
-
-The fields marked `LAB_STRING` are the ones a real run fills with a laboratory's own words:
-`script` holds the command including file names, `workdir` is a path, `name` and `tag` carry
-the sample tag, and `parameters` is where `--input samplesheet.csv` lands. §4.3 finding 4 is
-why that marking exists on the type rather than in a reviewer's head — **the dangerous fields
-are structured**, so "structured fields only" was never a privacy guarantee.
+``admit`` is an allowlist at the execution boundary: undeclared payload fields are discarded,
+Nextflow cannot author Wiener-only events, and laboratory-controlled strings are marked so
+downstream privacy checks can identify them structurally.
 """
 
 from datetime import datetime
@@ -122,8 +116,8 @@ class TaskTrace(BaseModel):
     #
     # **Kept because the record cannot be back-filled.** §9.4 says admitting these is "a line
     # in an allowlist and a test, rather than a subsystem", and it reads like display work
-    # deferrable to phase 3 — it is not. `run_event` is the source of truth, so a run recorded
-    # without them has no resource history *ever*, and the dashboard that phase 3 builds would
+    # deferrable to display work — it is not. `run_event` is the source of truth, so a run
+    # recorded without them has no resource history *ever*, and a later dashboard would
     # open on months of runs it can say nothing about.
     #
     # Confirmed against a real capture on 2026-08-24 rather than assumed: with
