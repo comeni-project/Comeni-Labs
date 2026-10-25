@@ -1,4 +1,4 @@
-"""The seam where AI plugs in. Plan 1 ships only the non-AI implementation."""
+"""Resolver port for ambiguities left by deterministic routing and parameter rules."""
 
 from typing import Protocol
 
@@ -20,10 +20,10 @@ class AmbiguityResolver(Protocol):
 
 
 class FlagOnlyResolver:
-    """Picks the first candidate and flags it. Never guesses cleverly.
+    """Pick the first candidate deterministically and leave the decision flagged.
 
-    This keeps the whole pipeline runnable with no model available, and makes
-    the flagged count an honest measure of how much the rules do not yet cover.
+    This fallback keeps resolution available without an external decision provider while making
+    unresolved rule coverage visible to reviewers.
     """
 
     def resolve(self, ambiguity: Ambiguity) -> Resolution:

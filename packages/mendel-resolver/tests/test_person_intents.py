@@ -1,6 +1,4 @@
-"""A person's structural intent (A1, the one-builder design), over the shipped registry: a role
-switched off, a tool excluded at a site, a port's source pinned. Each is honoured on every
-re-plan, and a conflict is raised with a code rather than resolved silently."""
+"""Role absences, exclusions, and source pins survive re-planning or raise a conflict."""
 
 import pytest
 from comeni_core.goal.asked import RoleAbsence

@@ -1,4 +1,9 @@
-"""The four-tier ladder. Every value exits at exactly one tier and carries it."""
+"""Turn a routed goal into a fully evidenced pipeline IR.
+
+Resolution validates declared types, builds rule premises, routes producers, wires compatible
+outputs to inputs, resolves parameters through the four-tier ladder, and records every ambiguity.
+Values and selections retain the tier, source, reason, and premise evidence that justify them.
+"""
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -61,17 +66,12 @@ def resolve(
     prior: Sequence[DecisionRecord] = (),
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
 ) -> PipelineIR:
-    """`facts_read` is, per contract, the facts its tool's code reads off the sample's label
-    (`mendel_compiler.conformance.facts_read`); one of them nobody supplied is tier 4 (#338).
-    None, the default, is nobody having looked: nothing is recorded, as before.
+    """Resolve ``goal`` against one loaded registry stack.
 
-    `prior` is the evidence behind a `source: HUMAN` claim, and it comes from the caller
-    rather than from the resolver. A56: a resolver that says `HUMAN` clears its own tier-4
-    review, so the claim has to be checkable against something the resolver did not write.
-
-    Empty is the safe default — an unbacked `HUMAN` is demoted and keeps its flag — which is
-    the direction A2's rule wants: the verb that forgets to pass this over-flags rather than
-    under-flags. `mendel upgrade` is the one verb that has records to pass.
+    ``prior`` supplies independent evidence for values claimed as human decisions. An unbacked
+    human claim is demoted and remains reviewable. ``facts_read`` maps each contract to profile
+    facts read by its implementation; missing facts become reviewable decisions. Passing ``None``
+    means no conformance inventory was supplied and preserves the ordinary resolver boundary.
     """
     # A29. `Annotated[str, "type-id"]` says somebody named this; it does not say the name
     # is of a declared type. `router._have_satisfies` only *compares*, so a `have` entry

@@ -1,3 +1,5 @@
+"""End-to-end resolution tiers, wiring, evidence, and parameter behavior."""
+
 import pathlib
 
 import pytest
@@ -5,8 +7,8 @@ from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.plan.ir import ReviewLevel, Tier
-from comeni_core.plan.tiers import PremiseOrigin
-from mendel_resolver.goal import DataProfile, Goal, GoalInput
+from comeni_core.plan.tiers import PremiseOrigin, ValueSource
+from mendel_resolver.goal import DataProfile, Goal, GoalInput, ParamOverride
 from mendel_resolver.resolve import resolve
 from mendel_resolver.rules import RuleTable
 
@@ -203,6 +205,27 @@ def test_param_with_default_and_no_rule_is_tier_2_convention(setup):
     node = next(n for n in ir.nodes if n.id == "featurecounts")
     assert node.param("seq_platform").value == "illumina"
     assert node.param("seq_platform").tier is Tier.CONVENTION
+
+
+def test_goal_parameter_override_is_structural_and_suppresses_the_rule(setup):
+    registry, rules, measurements, vocabulary = setup
+    goal = Goal(
+        have=[GoalInput(type_id="alignment.bam")],
+        want=["counts.matrix"],
+        constraints={"params": [ParamOverride(name="strandedness", value=1)]},
+        profile=DataProfile(strandedness="reverse"),
+    )
+
+    ir = resolve(goal, registry, rules, measurements, vocabulary=vocabulary)
+
+    overridden = next(n for n in ir.nodes if n.id == "featurecounts").param(
+        "strandedness"
+    )
+    assert overridden.value == 1
+    assert overridden.tier is Tier.STRUCTURAL
+    assert overridden.source is ValueSource.SAID
+    assert overridden.reason == "specified in the goal as strandedness"
+    assert "featurecounts.strandedness" not in ir.needs_review()
 
 
 def test_every_tier_4_resolution_emits_a_decision_record(setup):

@@ -12,10 +12,16 @@ works, then `resolve()`::
 
     loaded = layers.load("registry")
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"])
-    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+    ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
 
-This package is **pure** — see `comeni_core`. AI plugs in through the `Protocol`s in
-`mendel_resolver.ports`, and the dependency arrow points at this package, never out of it.
+The resolver has no model-provider dependency. Alternative ambiguity resolvers plug in through
+the protocol in :mod:`mendel_resolver.ports`.
 """
 
 from mendel_resolver import layers

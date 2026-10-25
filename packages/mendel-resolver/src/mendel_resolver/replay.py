@@ -1,15 +1,8 @@
-"""Replaying recorded decisions instead of re-asking.
+"""Replay applicable recorded decisions and delegate new questions to a fallback.
 
-Invariant 9: records are replayed on rerun rather than re-asking the model. That is how
-determinism survives having a model available at all — and applied to a *downloaded*
-pipeline it is the property that makes curation worth doing (federation §4.3):
-
-    Load a curated Goal, change one thing, and every untouched decision replays from its
-    record. Only what you touched can move.
-
-This is one more `AmbiguityResolver`, not a new subsystem. That is the payoff for having
-declared the port in Plan 1: the thing that makes editing a curated pipeline safe costs
-one class and no changes to the resolver.
+Re-resolution preserves untouched choices from a curated artifact. Records whose candidates no
+longer fit are marked stale and re-asked; human answers to questions that disappear are reported
+as orphaned.
 """
 
 from collections.abc import Sequence
@@ -36,17 +29,9 @@ def _replayed_reason(record: DecisionRecord) -> str:
 
 
 def _canonical_key(record: DecisionRecord) -> str:
-    """A pre-1.13 producer key carried the winning module's node id in front. Audit A126.
+    """Normalize legacy node-prefixed producer keys when records enter the resolver.
 
-    Normalised at **ingest** rather than matched at lookup, because the key is used in three
-    places and matching only the lookup would leave the other two disagreeing: `_asked`
-    collects the keys questions were asked under, and `orphaned()` is the complement of that
-    against `_records`. A legacy record found by a lenient lookup would still be reported
-    orphaned by the sweep — the exact bug A126 is, re-entering through the fix for it.
-
-    An artifact written before 1.13 is still a valid file and must still replay. Rewriting
-    the key here means every downstream comparison sees one spelling and nothing else has to
-    know this migration happened.
+    Lookup, replay tracking, and orphan detection therefore all compare the same canonical key.
     """
     if record.subject.startswith("producer:") and record.key.endswith(f".{record.subject}"):
         return record.subject

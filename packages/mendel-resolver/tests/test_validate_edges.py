@@ -1,11 +1,4 @@
-"""Wiring an aligner straight into featureCounts is the canonical hand-drawn mistake.
-
-It is invisible in `meta.yml` — nf-core declares both ports as `type: file, *.bam` and the word
-"sorted" lives only in the English description — so it is exactly the error a semantic state
-overlay exists to make checkable.
-
-`stack` comes from the conftest.
-"""
+"""Graph validation reports port direction, type, state, and contract errors."""
 
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from mendel_resolver.validate import validate

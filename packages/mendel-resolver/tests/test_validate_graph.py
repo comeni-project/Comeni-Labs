@@ -1,7 +1,4 @@
-"""The checks that are about the graph rather than about one wire.
-
-`stack` comes from the conftest.
-"""
+"""Graph validation reports unmet ports, cardinality conflicts, and cycles."""
 
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from comeni_core.review.verdict import Level

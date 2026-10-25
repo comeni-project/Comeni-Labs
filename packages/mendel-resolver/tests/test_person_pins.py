@@ -1,9 +1,4 @@
-"""A person's pin in the goal, over the shipped registry (§14.3, §14.9 of the consultant build).
-
-The rnaseq example: with a read length of 150 the alignment rule picks STAR (tier 3); without
-one the aligner site is a question. A pin names a tool for a site and wins over both, recorded as
-the person's at tier 4 with the engine's own pick kept beside it.
-"""
+"""Person-authored producer pins override rules and ambiguities with explicit evidence."""
 
 from pathlib import Path
 

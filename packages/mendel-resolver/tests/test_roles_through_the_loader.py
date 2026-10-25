@@ -1,13 +1,4 @@
-"""A role check nothing calls is a role check that does not exist.
-
-`packages/comeni-core/tests/test_roles.py` exercises `RoleVocabulary.check` directly, which
-proves the function works and proves nothing about whether anything *calls* it. Deleting the
-loop in `layers.load()` left all four of those tests green — an inert guard in code written
-the same hour, which is the shape A14 is about and the shape Plan 1.9 found three times.
-
-So this file loads a real layer stack through the real loader, which is the only thing that
-can fail when the call goes away.
-"""
+"""Role declarations are enforced through the complete layer loader."""
 
 import pathlib
 import shutil

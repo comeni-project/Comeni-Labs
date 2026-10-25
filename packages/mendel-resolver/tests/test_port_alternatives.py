@@ -3,11 +3,13 @@
 import pathlib
 
 import pytest
+from comeni_core.declared.contract import InputPort
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.plan.decision import Resolution
 from mendel_resolver.goal import Goal, GoalInput
-from mendel_resolver.resolve import resolve
+from mendel_resolver.resolve import _source_for, resolve
 from mendel_resolver.router import UnroutableError, route
 from mendel_resolver.rules import RuleTable
 
@@ -131,15 +133,23 @@ def test_the_edge_records_the_alternative_that_actually_matched(tmp_path):
     assert edge.states == frozenset({"coordinate_sorted"})
 
 
-def test_prefer_breaks_a_tie_within_one_alternative(tmp_path):
+def test_prefer_breaks_a_tie_within_one_alternative():
     """`prefer` never promotes a later alternative — it only ranks sources inside one."""
-    deduped = SORT.replace("lab/sort@1.0.0", "lab/dedup@1.0.0").replace(
-        "nf_process: SORT", "nf_process: DEDUP"
+    port = InputPort(
+        name="reads",
+        type_id="alignment.bam",
+        state_required=frozenset({"coordinate_sorted"}),
+        prefer=frozenset({"deduplicated"}),
     )
-    registry, vocabulary = _world(
-        tmp_path, {"c.yml": CALLER, "sort.yml": SORT, "dedup.yml": deduped}
-    )
-    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
-    # Two identical producers of a coordinate-sorted BAM: a genuine tie, so it is recorded
-    # rather than taken silently.
-    assert any(d.subject == "producer:alignment.bam" for d in ir.decisions)
+    produced = [
+        ("dedup", "bam", "alignment.bam", frozenset({"coordinate_sorted", "deduplicated"})),
+        ("sort", "bam", "alignment.bam", frozenset({"coordinate_sorted", "indexed"})),
+    ]
+
+    class ChooseSort:
+        def resolve(self, ambiguity):
+            return Resolution(value="sort.bam", why="test", confidence=1.0, by="test")
+
+    chosen = _source_for(produced, port, "caller", [], ChooseSort())
+
+    assert chosen == produced[0]

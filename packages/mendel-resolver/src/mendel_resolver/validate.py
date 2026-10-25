@@ -1,16 +1,8 @@
-"""`validate(graph, layers) -> Verdict` — the inverse of `resolve`.
+"""Validate a drawn graph against a loaded registry stack.
 
-**`resolve()` searches; this checks.** Both read the same declared facts in opposite directions:
-the resolver is handed a goal and asked to find edges, and this is handed edges and asked whether
-they hold. Nothing new is declared — see the spec's §2 table.
-
-**It reports; it never raises.** The router raises `UnroutableError` because it has failed to
-build something and has nothing to hand back. Here there is something: a graph with three
-problems in it, and a person mid-gesture who would rather see all three.
-
-**Pure, and that is load-bearing.** A check living in the browser would be a check the agent
-driving the API cannot run, and then there are two answers to *is this legal*. The compatibility
-index in `compatibility.py` is an optimisation *of this verb's answer*, never a second opinion.
+Unlike routing, validation checks existing edges and returns all findings in a ``Verdict``. It
+reports unknown contracts or ports, direction and type/state errors, port cardinality problems,
+unmet inputs, and cycles without mutating the graph or raising for user-authored mistakes.
 """
 
 from collections import defaultdict

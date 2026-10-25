@@ -1,14 +1,8 @@
-"""What can feed what, precomputed from the registry.
+"""Precompute which declared output forms can satisfy which input forms.
 
-**This is not a second implementation of the rule.** It walks the same
-`InputPort.alternatives()` `validate` walks, and
-`test_the_index_agrees_with_the_verb_on_every_pair` holds the two together over the whole
-registry. What it buys is that a browser can colour a wire during a drag without a round trip,
-and can do so by *looking an answer up* rather than by deciding anything.
-
-**Keyed on a signature rather than on a port pair.** Port-pair keying is roughly 24 million
-entries at the ~2,000 contracts issue #77 forecasts; signature keying is bounded by the
-vocabulary, which invariant 7 keeps closed.
+The index uses the same ordered ``InputPort.alternatives()`` consumed by graph validation. It is
+keyed by type-and-state signatures so clients can look up compatibility without implementing a
+second rule or making a server round trip.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,6 +25,7 @@ def signature(type_id: str, states: frozenset[str]) -> str:
 
 
 class Compatibility(BaseModel):
+    """Serializable lookup tables for interactive port compatibility checks."""
     model_config = ConfigDict(extra="forbid")
 
     emits: dict[str, str] = Field(default_factory=dict)

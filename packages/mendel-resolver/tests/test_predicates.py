@@ -1,10 +1,4 @@
-"""One evaluator, and a row's tier read off its own text.
-
-Two copies of a predicate is how a rule passes validation and then fails to fire — which is
-what `_comparison`'s docstring already said about the last pair, and what A121 was: the old
-matcher ran every literal through `float()`, so `!= unstranded` was refused as a malformed
-number rather than evaluated as a negation.
-"""
+"""Predicate matching and tier classification for every supported rule condition."""
 
 import pytest
 from comeni_core.plan.tiers import Tier

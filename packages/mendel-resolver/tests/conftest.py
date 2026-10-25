@@ -1,3 +1,5 @@
+"""Shared loaded-stack and RNA-seq resolution fixtures."""
+
 import pathlib
 import shutil
 

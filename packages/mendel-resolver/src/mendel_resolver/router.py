@@ -1,17 +1,9 @@
-"""Backward chaining from wanted types to available ones, inserting producers.
+"""Build a route backward from requested outputs to available inputs.
 
-Ties are ambiguity, never a coin flip. Depth is bounded, and a contract may not be
-used to satisfy its own input.
-
-Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
-
-- **structural** — nothing else can produce what was asked. Either one candidate exists,
-  or one satisfies the requested states with no surplus while the rest overshoot. Asking
-  for a coordinate-sorted BAM leaves the sorter as the only honest answer.
-- **data-profiled** — a declared rule pinned this contract against the measured profile.
-- **convention** — several candidates were equally good and the registry's `priority`
-  broke it. That is a documented default, which is exactly what tier 2 means.
-- **ambiguous** — nothing distinguished them. Invariant 8: demote, record, flag.
+The router inserts producers until every input is reachable. It rejects cycles, bounded-depth
+overruns, and person-authored constraints that cannot be honoured. Candidate selection is
+deterministic: unique structural fits are tier 1, registry priority is tier 2, matching rules are
+tier 3, and unresolved ties are tier 4 decisions for review.
 """
 
 from collections.abc import Callable
@@ -48,15 +40,17 @@ class UnroutableError(ValueError):
 class UnroutablePinError(UnroutableError):
     """Raised when a rule pins a contract whose own inputs cannot be reached.
 
-    Falling back to the next-ranked candidate would mean the rule said one thing and the
-    pipeline did another, silently — the failure this product exists to remove.
+    A pinned candidate is authoritative; the router does not silently fall back to another
+    candidate when that candidate's inputs cannot be reached.
     """
 
 
 class IntentConflict(UnroutableError):
-    """A person's structural intent (A1) cannot be honoured: a role switched off that the goal
-    needs, an exclusion that leaves nothing, a source that cannot feed its port. Raised with the
-    intent that conflicts, so a caller can name it and ask, rather than override it silently."""
+    """Raised when a person's role, exclusion, or source constraint cannot be honoured.
+
+    ``intent`` retains the conflicting constraint so callers can identify it without parsing the
+    human-readable error message.
+    """
 
     def __init__(self, message: str, *, intent: object):
         super().__init__(message)
@@ -64,6 +58,7 @@ class IntentConflict(UnroutableError):
 
 
 class RouteStep(BaseModel):
+    """One selected producer and the evidence for its presence and implementation."""
     contract_id: str
     node_id: str
     satisfies: str
@@ -75,17 +70,9 @@ class RouteStep(BaseModel):
 
     presence_tier: Tier = Tier.STRUCTURAL
     presence_reason: str = ""
-    """**Why this step exists**, which is a different question from which contract fills it.
-
-    A113 is the two being one field. A module chosen because it was the only candidate
-    reported tier 1 — *"no choice exists, inputs force it"* — when what forced it was the
-    contents of the registry: install a second sorter tomorrow and the same pipeline becomes
-    a real choice. The *presence* of a sorter genuinely is forced, by featureCounts asking
-    for a coordinate-sorted BAM, and that half is tier 1. Splitting them is what lets each
-    half carry the tier it earned.
-    """
+    """Why the step exists, independently of why this contract was selected for it."""
     selection_premise: list[PremiseRecord] = Field(default_factory=list)
-    """The facts the rule row read, carried to `IRNode.selection`. A108."""
+    """The facts read by the selection rule, carried to ``IRNode.selection``."""
 
     selection_axis_reason: str = ""
     """Why this *kind* of decision is made this way, where `selection_reason` is why this

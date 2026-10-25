@@ -1,9 +1,4 @@
-"""The family check, through the real loader (#194).
-
-`packages/comeni-core/tests/test_families.py` proves `FamilyVocabulary.check` works; only a load
-of a real stack proves `layers.load()` calls it — the lesson `test_roles_through_the_loader.py`
-was written for. Every test here copies the shipped registry and breaks one thing.
-"""
+"""Family declarations are enforced through the complete layer loader."""
 
 import pathlib
 import shutil

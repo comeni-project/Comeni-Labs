@@ -1,13 +1,7 @@
-"""The facts a rule may read, and where each one came from.
+"""Premise values, origins, derivations, aggregates, and transform behavior.
 
-Tier 3 is defined as producing `value + rule + measurement` and produced only the first two:
-a measured build and an asserted one had a byte-identical `steps:` block (A108). The premise
-is the missing third, and it has to carry its own provenance or `sealed` cannot refuse a
-decision resting on an assertion (issue #2).
-
-`ValueSource` answers *who settled this*. `PremiseOrigin` answers *how good is it as a
-premise*, and the two are not the same question — which is why there are two enums and a
-mapping between them rather than one enum used twice.
+``ValueSource`` records who settled a value; ``PremiseOrigin`` records the evidential quality
+of the fact a rule reads. Tier-3 decisions retain both the matched value and its provenance.
 """
 
 import pathlib
@@ -17,7 +11,8 @@ from comeni_core.plan.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.premises import PremiseError, PremiseOrigin, build_premises
-from mendel_resolver.rules import Derivation
+from mendel_resolver.rules import Derivation, Transform
+from pydantic import ValidationError
 
 ROOT = pathlib.Path(__file__).parents[3]
 LOADED = layers.load(ROOT / "registry")
@@ -310,6 +305,16 @@ def test_an_aggregate_over_an_absent_measurement_leaves_the_fact_absent():
     assert "cohort_max_read_length" not in premises
 
 
+def test_an_aggregate_over_an_empty_cohort_leaves_the_fact_absent():
+    premises = build_premises(
+        goal=_goal(read_length=[]),
+        derivations=[Derivation.model_validate(_COHORT_MAX)],
+        measurements=LOADED.measurements,
+    )
+
+    assert "cohort_max_read_length" not in premises
+
+
 def test_a_derivation_declaring_both_rows_and_an_aggregate_is_refused():
     """Ordering them would be a precedence no reader of the file could see — invariant 8's
     argument, one layer down."""
@@ -324,7 +329,7 @@ def test_a_list_is_refused_where_the_measurement_is_not_per_sample():
         LOADED.measurements.profile({"n_samples": [1, 2, 3]})
 
 
-# --- Issue #39: a computed fact, without an expression language ---------------------------
+# Computed facts expressed as closed transform chains rather than expressions.
 
 
 _SJDB_OVERHANG = {
@@ -435,6 +440,20 @@ def test_a_transform_without_a_source_is_refused():
         )
 
 
+@pytest.mark.parametrize(
+    "transform",
+    [
+        {"op": "add"},
+        {"op": "log2", "by": 2},
+        {"op": "divide", "by": 0},
+    ],
+)
+def test_a_transform_refuses_an_incoherent_operand(transform):
+    """Each operation declares whether it needs an operand and which values are legal."""
+    with pytest.raises(ValidationError, match="MD0304"):
+        Transform.model_validate(transform)
+
+
 def test_a_value_a_model_read_is_a_premise_read_by_ai():
     """14.7.7: `_BY_SOURCE` is total over `ValueSource` and read with `[]`, so `MODEL` reaching
     it threw `KeyError` the first time a characterised fact did."""
@@ -444,4 +463,3 @@ def test_a_value_a_model_read_is_a_premise_read_by_ai():
     assert _BY_SOURCE[ValueSource.MODEL] is PremiseOrigin.MODEL_READ
     record = PremiseRecord(id="paired", value=True, origin=PremiseOrigin.MODEL_READ)
     assert record.prose() == "paired is True, read by AI"
-
