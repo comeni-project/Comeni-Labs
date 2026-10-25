@@ -1,7 +1,7 @@
-"""Registry gaps (spec §13.3): what a step's declared data lacks, and the file that would fix it.
+"""Identify missing registry declarations that limit a step's review card.
 
-Computed always; the Dev fork decides whether a person sees them. A gap is never a guess: each is
-read off the pipeline's own record or the registry's declarations.
+Each gap is derived from pipeline evidence or declared data and names the registry file that owns
+the missing description, verification, or parameter domain.
 """
 
 from enum import StrEnum

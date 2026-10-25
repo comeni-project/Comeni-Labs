@@ -1,9 +1,7 @@
-"""A step's other tools, each shown as the whole pipeline it gives (§14.3 of the consultant
-build): the amendment, its difference from the current blueprint, or why it cannot be built.
+"""Resolve each alternative tool as a whole-pipeline amendment.
 
-Computed when the step's card is offered, so the options are fixed when the person reads them.
-`resolve` is a port; `refusals` names what it raises for a goal that cannot be built, because
-this package does not depend on the resolver.
+Alternatives are computed when a step card is offered and retain either the resulting blueprint
+diff or a refusal. Resolution is injected so this pure package does not depend on the resolver.
 """
 
 from collections.abc import Callable

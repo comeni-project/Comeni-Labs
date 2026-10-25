@@ -1,9 +1,8 @@
-"""What is known, in the words every conversational prompt is given (Part I.0 spec §6.3).
+"""Render current recorded knowledge for conversational prompts.
 
-The conversation used to re-read the transcript each call and could miss or contradict what was
-already recorded. Now each prompt is handed this text, written from the current decisions: the
-record, which wins where the transcript seems to say otherwise. Pure: the same `Known` in, the
-same text out."""
+Prompts receive this deterministic projection of decisions rather than reconstructing state from
+the transcript. The record remains authoritative when conversation wording is ambiguous.
+"""
 
 from typing import Literal
 

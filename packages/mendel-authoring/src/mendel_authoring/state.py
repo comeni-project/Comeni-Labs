@@ -1,16 +1,8 @@
-"""How an authoring session moves, and when a proposal may still be applied.
+"""Authoring phase transitions and proposal-settlement concurrency rules.
 
-**Pure.** No database, no clock, no model. A phase and an event in, a phase out; a proposal's
-situation in, an outcome out. The shell's stage modules (`mendel_api/stages/`) read rows and
-write them, and hold none of these rules.
-
-That split is the forge's workflow's, and it is worth restating why it earns its file. The
-rules here are the ones that are easy to get right in one caller and wrong in the next: what may
-follow what, and whether a decision made a moment ago still applies. Encoded in a service, each
-becomes an `if` somebody remembers — and the second caller is where the memory fails.
-
-The phases and the arrows are the living-pipeline plan's §2 state diagram, **transcribed rather
-than invented**, so the picture stays the specification.
+Transitions and retry targets are derived from the validated protocol. Settlement distinguishes
+duplicate decisions, stale client views, stale proposals, acceptance, and rejection without
+reading a database, clock, or provider.
 """
 
 from typing import NamedTuple

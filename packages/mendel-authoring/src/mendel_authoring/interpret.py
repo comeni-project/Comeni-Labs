@@ -1,8 +1,7 @@
-"""Run the protocol (14.7.8.1): where a session rests, and the nodes it passes on the way.
+"""Execute a declarative authoring protocol until the session rests.
 
-**Pure.** `enter` is the shell's: it runs an acting node's handler and returns its outcome, or
-`None` to rest. Everything else — which arrow, when to stop, what to refuse — is here, read off
-the protocol, so the diagram is the program and not a picture of it.
+The caller supplies ``enter`` for acting nodes. This interpreter chooses arrows, evaluates forks,
+tracks the path, refuses missing transitions, and bounds cycles without performing shell effects.
 """
 
 from collections.abc import Callable

@@ -1,9 +1,7 @@
-"""What a person — or, in part 4, a model — can change about a pipeline in the walk.
+"""Frozen amendments that update a goal before the pipeline is resolved again.
 
-Each amendment is a frozen value applied to the goal, so **the goal holds every decision** and
-the blueprint is a function of it (§14.3 of the consultant build): same goal in, same pipeline
-out, with the person's choices included. A card offers amendments by id, and nothing outside
-what it offered can be sent.
+Tool choices become producer pins and facts replace the validated profile. Keeping decisions in
+the goal makes the next blueprint a deterministic result of the amended goal and registry.
 """
 
 from comeni_core.goal.asked import Goal, ProducerPin

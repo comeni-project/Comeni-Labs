@@ -1,8 +1,7 @@
-"""The pipeline the resolver produced for a goal, and placing an accepted step into the draft.
+"""Store a resolved pipeline in reveal order and project accepted steps into a draft.
 
-Pure: the shell resolves a goal into a `Blueprint` (`mendel_api.services.blueprint.resolve`) and
-hands it here; nothing in this module reaches a row, a queue or a model. Moved from the shell in
-14.7.8.2, without `mode`, which nothing read.
+Committing a step preserves per-decision provenance and adds only wires whose two endpoints are
+already present. The caller supplies the resolved pipeline; this module performs no I/O.
 """
 
 from comeni_core.artifact.pipeline import Pipeline, Step

@@ -1,10 +1,7 @@
-"""What a fork switches on (spec §12): a **subject**, its **cases**, and a **snapshot** to read.
+"""Subjects and snapshots used by declarative protocol forks.
 
-A fork is a node whose outgoing edges are the cases of a subject; the interpreter asks the
-subject which case the snapshot is in and takes that edge, so a path that depends on a setting is
-drawn in the diagram rather than decided by an `if` in a handler. **The subject is the strategy**:
-a setting today; a parameter, a fact or a property of the plan later, each one more subclass and
-no change to the interpreter. Pure: the snapshot is plain data the shell builds.
+A fork delegates case selection to its subject, making setting-dependent paths part of the
+validated protocol rather than hidden conditionals in shell handlers.
 """
 
 from comeni_core.settings.declare import Kind, Setting

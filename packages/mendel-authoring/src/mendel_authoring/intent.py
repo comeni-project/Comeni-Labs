@@ -1,9 +1,7 @@
-"""A canvas edit, read as a person's intent (A1, the one-builder design).
+"""Translate canvas edits into explicit person-authored goal changes.
 
-A hand edit is what a person *did*; what the engine keeps through every re-plan is what they
-*meant*. This reads the second from the first, and says how it read it, so the reading is shown
-and confirmed before it counts: *So you never want trimming here — right?* Pure: it compares two
-drafts against the plan they were drawn from, and decides nothing until a person confirms.
+The comparison recognizes wanted outputs, absent roles, producer choices, exclusions, and source
+pins. Each reading includes the confirmation sentence and has no effect until confirmed.
 """
 
 from collections.abc import Mapping
@@ -186,5 +184,4 @@ def _process(registry: Registry, tool: str) -> str:
 def _output_site(contract: ModuleContract | None) -> Site | None:
     made = contract.produces[0] if contract is not None and contract.produces else None
     return Site(type_id=made.type_id, states=frozenset(made.state)) if made else None
-
 
