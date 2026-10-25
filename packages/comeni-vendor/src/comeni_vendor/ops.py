@@ -1,7 +1,4 @@
-"""The two verbs, as functions. `cli.py` is transport over this and holds no logic.
-
-A verb that can only be reached through `argv` can only be tested through `argv`.
-"""
+"""Implement module fetching and pin verification independently of the CLI transport."""
 
 import hashlib
 import shutil
@@ -17,41 +14,28 @@ from comeni_core.declared.module import Module, Upstream
 from comeni_core.diagnostics import coded
 
 MANIFEST = "module.yml"
-"""The declaration, which sits **beside** `module/` and never inside it.
+"""The declaration stored beside ``module/``.
 
-`add` writes the directory by deleting and replacing it wholesale, so anything inside it would
-be destroyed on the next re-vendor. `layered._in_source` is the other half of this: everything
-under `module/` is upstream's and is not read as declared data.
+``add`` replaces the module directory wholesale, so declarations inside it would be destroyed.
+Everything under ``module/`` is treated as upstream source rather than declared layer data.
 """
 
 TOOLS = "tools"
-"""Where a layer keeps its tools. A convention of the curated registry, which `mendel registry
-lint` enforces there — the loader itself stays free, because invariant 11 says the layout is
-the author's business and an overlay keeps that freedom."""
+"""The curated registry's tool directory; other layers may choose a different layout."""
 
 REPOS = {"nf-core": "https://github.com/nf-core/modules.git"}
-"""The clone URL for each source this tool knows by name. A source it does not know is not an
-error — pass `--repo` and `--path` — because a laboratory vendoring from its own GitLab is an
-ordinary case and hard-coding the two we happen to use would make it a special one."""
+"""Known source names and clone URLs; callers can supply a custom repository and path."""
 
 PREFIX = {"nf-core": "modules/nf-core"}
 """Where under each known repository the modules sit."""
 
 LICENCES = "LICENSES"
-"""Where a layer keeps the licence texts its modules point at — the **REUSE** convention, which
-tooling already understands.
-
-**One file per licence, never one per module.** A `NOTICE` per tool was the first proposal and
-at 1,600 tools it is that many near-identical copies of the MIT text, in every diff, that nobody
-reads. `module.yml` carries `licence: MIT` and this directory carries `MIT.txt`.
-"""
+"""Directory containing one licence text per SPDX identifier, following REUSE conventions."""
 
 EXCLUDED = ["tests"]
-"""What `add` skips by default.
+"""Paths omitted from a vendored module by default.
 
-nf-core ships a `tests/` directory beside every module and we do not take it. Recording that in
-`module.yml` is what stops `check` reporting every module as differing from upstream forever —
-the honest comparison is *upstream minus what we said we would skip*.
+Exclusions are recorded in ``module.yml`` so upstream checks compare against the same subset.
 """
 
 
@@ -60,13 +44,10 @@ class VendorError(ValueError):
 
 
 def digest_of_module(path: Path) -> str:
-    """The content digest of a vendored directory — **everything in it, no allowlist.**
+    """Return the content digest of every regular, non-symlinked file under a module.
 
-    Deliberately not `digest_of_directory`. That one digests a *layer*, and a layer has an
-    allowlist because a layer repository carries `.git`, a `LICENSE` and a README that are not
-    layer data. A module directory is upstream's tree and nothing else, so every byte in it
-    counts — including the dotfiles, which is where a `.gitignore` or a `.nf-core.yml` would
-    live.
+    Unlike a layer digest, a module digest has no allowlist: dotfiles and other upstream content
+    are part of the copy being verified.
     """
     return digest_of_contents(
         {
@@ -78,12 +59,7 @@ def digest_of_module(path: Path) -> str:
 
 
 def digest_of_contents(files: Mapping[str, bytes]) -> str:
-    """The same digest, over content that is not on disk yet.
-
-    **One definition, two entry points**, and that is the whole point of extracting it. The
-    forge scaffolds a module directory in memory before anything writes it, and a scaffold's
-    digest has to be comparable with a vendored module's — a second implementation that agreed
-    today would be a second implementation that stopped agreeing on the first change to either.
+    """Return a module-compatible digest for an in-memory path-to-content mapping.
 
     Relative POSIX paths, sorted, each with its content hash. The `\\0` separates a path from
     its digest so that two files whose names concatenate to a third's cannot collide.
@@ -95,16 +71,10 @@ def digest_of_contents(files: Mapping[str, bytes]) -> str:
 
 
 def _fetch(repo: str, sha: str, path: str, into: Path) -> Path:
-    """Clone `repo` at `sha` and hand back `path` inside it.
+    """Clone ``repo`` at commit ``sha`` and return ``path`` inside the checkout.
 
-    A blobless partial clone with no checkout, then a sparse checkout of the one directory —
-    nf-core/modules is ~1,600 tools and cloning all of it to take one is the difference between
-    a few seconds and a few minutes.
-
-    **A `sha`, never a branch.** `vendor/modules.json` recorded both and nf-core's own tooling
-    reads the branch; a branch moves, so a check against it answers *does this match whatever
-    upstream looks like today*, which is a different question from *is this still the code we
-    reviewed*.
+    A blobless sparse checkout avoids downloading unrelated module trees. The requested revision
+    is a commit rather than a moving branch so later checks reproduce the reviewed source.
     """
     run = ["git", "clone", "--filter=blob:none", "--no-checkout", "--quiet", repo, str(into)]
     _git(run, where=None)
@@ -132,11 +102,9 @@ def _git(command: list[str], where: Path | None) -> None:
 
 
 def _copy(source: Path, into: Path, excluded: list[str]) -> None:
-    """Replace `into` with `source`, minus what `excluded` names.
+    """Replace ``into`` with ``source``, omitting the named relative paths.
 
-    **Wholesale, by deleting first.** A merge would leave a file upstream removed sitting in
-    the layer forever, still hashed into the layer digest and still shipped to whoever installs
-    it — which is the same class of defect as a stale contract nobody re-read.
+    Replacement is wholesale so files removed upstream cannot survive in the vendored copy.
     """
     if into.exists():
         shutil.rmtree(into)
@@ -156,9 +124,8 @@ def _copy(source: Path, into: Path, excluded: list[str]) -> None:
 def where_of(registry: Path, module_id: str) -> Path:
     """`nf-core/star/align` -> `<registry>/tools/nf-core/star/align`.
 
-    The tool/subtool layout of spec §8.1: nf-core ships `star/align` and `star/genomegenerate`
-    as separate modules, each needing its own `module/`, so a subtool is a directory rather
-    than a suffix on a filename.
+    Each subtool has its own directory because it carries an independent module copy and
+    declaration.
     """
     return registry / TOOLS / Path(module_id)
 
@@ -175,8 +142,7 @@ def add(
 ) -> Path:
     """Fetch one module into a layer and write the declaration beside it.
 
-    `ref` is `<source>:<ident>` — `nf-core:star/align` — which is `ToolRef`'s spelling in the
-    forge, so a person who has run `forge draft nf-core:fastqc` types the same thing here.
+    ``ref`` uses ``<source>:<ident>``, for example ``nf-core:star/align``.
     """
     source, _, ident = ref.partition(":")
     if not ident:
@@ -194,9 +160,7 @@ def add(
     skipped = EXCLUDED if excluded is None else excluded
 
     module_id = f"{source}/{ident}"
-    # **Before the fetch, not after it.** You cannot vendor code under a licence the layer does
-    # not carry the text of — that is what REUSE means — and refusing now leaves nothing
-    # half-written on disk for somebody to commit.
+    # Refuse before fetching so a missing licence text cannot leave a partial module on disk.
     text = registry / LICENCES / f"{licence}.txt"
     if not text.exists():
         raise VendorError(
@@ -245,20 +209,13 @@ class CheckResult:
 
 
 def check(registry: Path, *, upstream: bool = False) -> list[CheckResult]:
-    """Does every `module/` still hold what it is supposed to hold?
+    """Check each declared module against its stored digest or pinned upstream.
 
-    **Two different questions, and the default is the offline one.**
+    The default check is offline and detects changes to the local copy. ``upstream=True``
+    re-fetches the pinned commit and compares the selected upstream content.
 
-    - Without `--upstream`: recompute each module's digest and compare it to the one
-      `module.yml` records. This catches a **hand-edit**, which is what A4.3 asks CI to
-      enforce, and it needs no network — so it runs in the same lane as everything else.
-    - With `--upstream`: re-fetch at the pin and compare. This catches a bad `add`, and it is
-      the more expensive question.
-
-    A module with `upstream: null` is a laboratory's own process. It is reported `unpinned`
-    rather than `ok`: there is nothing to compare it against, and reporting a pass would be
-    claiming a check that never ran — the same reason `MD0100` marks a contract `unverified`
-    rather than trusting it.
+    A module without an upstream declaration is reported as ``unpinned`` rather than ``ok``
+    because no comparison was possible.
     """
     found: list[CheckResult] = []
     for manifest in sorted(registry.rglob(MANIFEST)):

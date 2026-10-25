@@ -1,6 +1,10 @@
 # comeni-vendor
 
-Put a tool's source into a registry layer, and tell you when it stops matching its pin.
+`comeni-vendor` fetches pinned module source into a registry layer and checks that the stored copy
+still matches its declaration. Maintainers run it before committing registry changes; pipeline
+construction reads the resulting layer from disk and performs no source fetch.
+
+## Vendor a module
 
 ```bash
 comeni-vendor add nf-core:star/align \
@@ -17,29 +21,26 @@ comeni-vendor check --registry ../comeni-registry --upstream   # online: does it
 ```
 tools/nf-core/star/align/
     module.yml     where the code came from, at which commit, under which licence
-    module/        upstream's tree. Never hand-edited — comeni-vendor replaces it wholesale
+    module/        selected upstream files; replaced wholesale by the next add
 ```
 
-## Why this is not `mendel vendor`
+The layer must already contain `LICENSES/<SPDX identifier>.txt`. By default, `add` excludes the
+upstream `tests/` directory and records that exclusion in `module.yml`. Use `--repo`, `--path`, and
+repeatable `--exclude` options for sources not covered by the built-in `nf-core` mapping.
 
-`mendel` is `mendel_compiler.cli:main`, and `mendel-compiler` is one of the four packages
-invariant 1 keeps off the network — `tests/test_purity.py` rejects the imports outright. A
-subcommand that fetches from GitHub could not live there, and it should not *look* as though it
-could: this tool is not part of the deterministic build path, and a verb spelled `mendel …`
-reads as though it is.
+## Check vendored content
 
-**Nothing else fetches.** A build reads a layer that is already on disk, which is what keeps
-`make check` offline and an air-gapped site a first-class customer (invariant 13).
+The two check modes answer different questions:
 
-## The two checks are different questions
+- `check` is offline. It recomputes each `module/` digest and detects local edits.
+- `check --upstream` fetches the pinned commit and verifies the selected upstream content.
 
-- `check` is **offline**. It recomputes each `module/`'s digest and compares it to the one
-  `module.yml` records — the question about a **hand-edit**. It runs in `comeni-registry`'s CI,
-  which is what makes *do not hand-edit this* enforceable rather than a comment somebody reads
-  after they have already edited it.
-- `check --upstream` re-fetches at the pin and compares — the question about a bad `add`.
+A laboratory module with `upstream: null` reports `unpinned`, not `ok`, because no comparison was
+performed. Missing module directories and mismatches make the command fail.
 
-A module declaring `upstream: null` is a laboratory's own process. It reports `unpinned` rather
-than `ok`: there is nothing to compare it against, and reporting a pass would be claiming a
-check that never ran — the same reason `MD0100` marks a contract `unverified` rather than
-trusting it.
+## Architectural boundary
+
+Network and filesystem operations live here rather than in the pure compiler. See
+[package responsibilities](../../docs/explanation/package-boundaries.md) for the dependency and
+consumer boundary, and the registry's [vendoring guide](../../registry/README.md#vendoring-a-tool)
+for the layer-side workflow.

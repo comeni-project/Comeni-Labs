@@ -1,17 +1,17 @@
-"""`add` and `check`, offline.
+"""Exercise ``add`` and ``check`` without network access.
 
-Nothing here reaches the network: `add`'s fetch is exercised against a **local git repository**
-this file builds, which is the same code path a GitHub URL takes — `git clone` does not care
-that the remote is a directory. That keeps the tests in the fast lane, and it exercises the pin
-honestly rather than against a recorded fixture, because a fixture cannot have the wrong commit.
+The tests build a local Git repository and use it through the same clone path as a remote source.
+Real commits protect pin behavior without making the suite depend on an external service.
 """
 
 import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 from comeni_core.declared.layered import layers_of, stack
 from comeni_core.declared.module import Module
+from comeni_vendor.cli import main
 from comeni_vendor.ops import VendorError, add, check, digest_of_module
 
 MAIN_NF = """\
@@ -98,8 +98,7 @@ def test_what_was_not_copied_is_recorded_rather_than_assumed(vendored):
 
 
 def test_the_declaration_loads_as_declared_data(vendored):
-    """It has to stack like every other kind (invariant 11), not be read by a hand-written
-    walk — which is what audit root B was."""
+    """A generated declaration participates in ordinary layer loading and stacking."""
     stacked = stack(layers_of([vendored]), Module.kind())
     declared = stacked.entries["nf-core/fastqc"]
     assert declared.licence == "MIT"
@@ -114,13 +113,7 @@ def test_check_passes_on_what_add_just_wrote(vendored):
 
 
 def test_check_catches_a_hand_edit(vendored):
-    """**The defect the verb exists for.** `module/` is upstream's tree and is never
-    hand-edited; that used to be a comment somebody read after they had already edited it.
-
-    Offline on purpose: recomputing the digest asks about a hand-edit and needs no network, so
-    it runs in `comeni-registry`'s CI in the same lane as everything else. The question about a
-    bad `add` — does this still match upstream — is `--upstream` and is a different question.
-    """
+    """The offline digest check detects changes without contacting upstream."""
     edited = vendored / "tools" / "nf-core" / "fastqc" / "module" / "main.nf"
     edited.write_text(MAIN_NF.replace("process_medium", "process_high"))
 
@@ -138,9 +131,41 @@ def test_check_sees_an_edit_to_a_dotfile_too(vendored):
     assert check(vendored)[0].verdict == "edited"
 
 
+def test_upstream_check_compares_the_pin_and_uses_its_distinct_verdict(vendored):
+    assert check(vendored, upstream=True)[0].verdict == "ok"
+
+    module = vendored / "tools" / "nf-core" / "fastqc" / "module"
+    (module / "main.nf").write_text(MAIN_NF.replace("process_medium", "process_high"))
+    result = check(vendored, upstream=True)[0]
+
+    assert result.verdict == "moved"
+    assert "differs from" in result.detail
+
+
+def test_check_names_a_missing_module_directory_as_moved(vendored):
+    tool = vendored / "tools" / "nf-core" / "fastqc"
+    (tool / "module").rename(tool / "module-away")
+
+    result = check(vendored)[0]
+
+    assert result.verdict == "moved"
+    assert result.detail.endswith("module does not exist")
+
+
+def test_an_upstream_declaration_without_a_digest_is_unpinned(vendored):
+    manifest = vendored / "tools" / "nf-core" / "fastqc" / "module.yml"
+    declaration = yaml.safe_load(manifest.read_text())
+    declaration.pop("digest")
+    manifest.write_text(yaml.safe_dump(declaration, sort_keys=False))
+
+    result = check(vendored)[0]
+
+    assert result.verdict == "unpinned"
+    assert result.detail == "records no digest"
+
+
 def test_a_module_nobody_vendored_is_unpinned_and_not_ok(tmp_path):
-    """Reporting a pass would claim a check that never ran — the same reason `MD0100` marks a
-    contract `unverified` rather than trusting it."""
+    """A module without comparison evidence is reported as unpinned, not successful."""
     layer = _layer(tmp_path / "layer")
     tool = layer / "tools" / "in-house" / "tidy"
     (tool / "module").mkdir(parents=True)
@@ -151,8 +176,7 @@ def test_a_module_nobody_vendored_is_unpinned_and_not_ok(tmp_path):
 
 
 def test_a_pin_that_no_longer_exists_says_so(tmp_path):
-    """MV0001. A `sha` that is not in the repository is a question about that commit, not
-    about the branch it is on."""
+    """MV0001 identifies a requested commit that the repository cannot provide."""
     _upstream(tmp_path / "upstream")
     layer = _layer(tmp_path / "layer")
     with pytest.raises(VendorError, match="MV0001"):
@@ -162,6 +186,21 @@ def test_a_pin_that_no_longer_exists_says_so(tmp_path):
             registry=layer,
             licence="MIT",
             repo=str(tmp_path / "upstream"),
+        )
+
+
+def test_a_pinned_path_that_does_not_exist_says_so(tmp_path):
+    sha = _upstream(tmp_path / "upstream")
+    layer = _layer(tmp_path / "layer")
+
+    with pytest.raises(VendorError, match="MV0001"):
+        add(
+            "nf-core:fastqc",
+            sha=sha,
+            registry=layer,
+            licence="MIT",
+            repo=str(tmp_path / "upstream"),
+            path="modules/nf-core/not-there",
         )
 
 
@@ -191,18 +230,18 @@ def test_add_replaces_wholesale_rather_than_merging(vendored, tmp_path):
 
 
 def test_a_reference_with_no_source_is_refused(tmp_path):
-    """`fastqc` means different things on two machines the moment a second source exists —
-    the argument `MF0001` already makes for the forge."""
+    """A source is required so the same identifier cannot resolve differently by installation."""
     with pytest.raises(VendorError, match="module reference"):
         add("fastqc", sha="0" * 40, registry=tmp_path, licence="MIT")
 
 
-def test_a_licence_the_layer_does_not_carry_the_text_of_is_refused(tmp_path):
-    """REUSE, and it is checked **before** the fetch so nothing half-written is left on disk.
+def test_an_unknown_source_requires_an_explicit_repository(tmp_path):
+    with pytest.raises(VendorError, match="Pass --repo and --path"):
+        add("private:fastqc", sha="0" * 40, registry=tmp_path, licence="MIT")
 
-    One file per licence rather than one NOTICE per module: at 1,600 tools that is 1,600
-    near-identical copies of the MIT text, in every diff, that nobody reads.
-    """
+
+def test_a_licence_the_layer_does_not_carry_the_text_of_is_refused(tmp_path):
+    """Licence validation happens before fetching so no partial module is written."""
     sha = _upstream(tmp_path / "upstream")
     layer = _layer(tmp_path / "layer", licences=())
     with pytest.raises(VendorError, match="LICENSES/MIT.txt"):
@@ -214,3 +253,59 @@ def test_a_licence_the_layer_does_not_carry_the_text_of_is_refused(tmp_path):
             repo=str(tmp_path / "upstream"),
         )
     assert not (layer / "tools").exists(), "the fetch ran before the licence was checked"
+
+
+def test_cli_add_reports_the_pin_and_destination(tmp_path, capsys):
+    sha = _upstream(tmp_path / "upstream")
+    layer = _layer(tmp_path / "layer")
+
+    status = main(
+        [
+            "add",
+            "nf-core:fastqc",
+            "--sha",
+            sha,
+            "--registry",
+            str(layer),
+            "--licence",
+            "MIT",
+            "--repo",
+            str(tmp_path / "upstream"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 0 and captured.err == ""
+    assert f"vendored nf-core:fastqc at {sha[:12]}" in captured.out
+    assert (layer / "tools" / "nf-core" / "fastqc" / "module" / "main.nf").exists()
+
+
+def test_cli_check_prints_results_and_fails_for_an_edited_module(vendored, capsys):
+    assert main(["check", "--registry", str(vendored)]) == 0
+    clean = capsys.readouterr()
+    assert "ok  nf-core/fastqc" in clean.out and clean.err == ""
+
+    module = vendored / "tools" / "nf-core" / "fastqc" / "module" / "main.nf"
+    module.write_text(MAIN_NF.replace("process_medium", "process_high"))
+    assert main(["check", "--registry", str(vendored)]) == 1
+    edited = capsys.readouterr()
+    assert "edited  nf-core/fastqc" in edited.out
+    assert "MV0002" in edited.err
+
+
+def test_cli_check_rejects_a_layer_with_no_modules(tmp_path, capsys):
+    layer = _layer(tmp_path / "layer")
+
+    assert main(["check", "--registry", str(layer)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "declares no modules" in captured.err
+
+
+def test_cli_turns_an_operation_error_into_status_one(tmp_path, capsys):
+    assert main(
+        ["add", "fastqc", "--sha", "0" * 40, "--registry", str(tmp_path)]
+    ) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("comeni-vendor: 'fastqc' is not a module reference")

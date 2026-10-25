@@ -18,9 +18,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
-# `comeni-core` for the `Module` shape and `coded()`, and nothing else. This package holds no
-# resolver and no compiler: it puts source into a layer, and a build reads a layer on disk.
+# Lower bounds follow the repository's package policy; see docs/how-to/development/release.md.
+# Core supplies the module declaration and diagnostic helpers. Vendoring remains separate from
+# resolution and compilation because it performs network and filesystem I/O.
 dependencies = [
   "comeni-core>=0.1.0",
   "pydantic>=2.9",
