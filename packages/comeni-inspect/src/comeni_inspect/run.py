@@ -1,11 +1,8 @@
-"""The runner: one inspection, one streamed pass, every measure fed, every outcome a report.
+"""Run one inspection as a single streamed pass over the supplied file heads.
 
-**One pass, the whole head** (spec §4, decided B). The format yields each file's records once;
-rows are read side by side across the files and handed to every measure; nothing stops early,
-so every fact is measured on the same reads and its evidence says how many.
-
-`type_id` is left `None` here: which type a confirmed format means is the caller's to say from
-the format's declared `reads` (part 4), not something a piece reports about itself.
+The format yields each file's records once. Records are read side by side and every row is sent
+to every measure, so all facts describe the same input. The caller assigns ``type_id`` from the
+confirmed format's declaration; pieces do not assign types to themselves.
 """
 
 import gzip
@@ -16,6 +13,7 @@ import math
 import sys
 import zlib
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 
 from pydantic import ValidationError
 
@@ -28,12 +26,17 @@ _CONFIRM_BYTES = 4096
 
 
 class _PieceFailed(Exception):
-    """A piece raised. Its failure is this inspection's answer, never the caller's crash."""
+    """Report that dynamically loaded piece code failed during an inspection."""
+
+
+@dataclass
+class _ReadState:
+    shorter_index: int | None = None
+    stopped: str | None = None
 
 
 def _load(ref: wire.PieceRef):
-    """Import a piece by path, **writing no bytecode**: the piece lives in a registry layer, and
-    a `__pycache__` beside it is a file nobody wrote in a tree a pipeline pins."""
+    """Import a registry piece by path without writing bytecode beside it."""
     spec = importlib.util.spec_from_file_location(f"piece_{ref.id}", ref.path)
     if spec is None or spec.loader is None:
         raise ImportError(f"no piece at {ref.path}")
@@ -49,18 +52,15 @@ def _load(ref: wire.PieceRef):
 def _guarded(ref: wire.PieceRef | str, call: Callable):
     """Run one piece's code, turning anything it raises into `_PieceFailed`.
 
-    **The only `except Exception` in this package**, and deliberately: at this call site a
-    piece is code this runner did not write, and one piece failing is one inspection's answer
-    (spec §8). The exceptions that mean the *bytes* are wrong — too large, corrupt — are let
-    through, so the report says what is wrong with the file rather than blaming a piece.
+    Piece code is external to the runner, so its failures become inspection results. Exceptions
+    that describe invalid input bytes pass through and retain their more specific report reason.
     """
     name = ref.id if isinstance(ref, wire.PieceRef) else ref
     try:
         return call(ref)
     except (TooLarge, SourceFailed, zlib.error, gzip.BadGzipFile, Malformed):
         raise
-    # `SystemExit` too: a piece can raise it without importing anything, and it must not end
-    # the process before it has answered.
+    # A piece may raise SystemExit; it must not terminate the runner before it reports.
     except (Exception, SystemExit) as error:  # noqa: BLE001 — see the docstring
         raise _PieceFailed(f"{name} failed: {type(error).__name__}") from error
 
@@ -70,7 +70,7 @@ def _unreadable(reason: str) -> wire.Report:
 
 
 def inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
-    """One inspection. **Never raises**: every way it can go wrong is a report (spec §6)."""
+    """Inspect the payloads, returning failures as unreadable reports instead of raising."""
     try:
         return _inspect(request, payloads)
     except TooLarge:
@@ -79,28 +79,26 @@ def inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
         return _unreadable(f"could not be unpacked: {error}")
     except (_PieceFailed, SourceFailed) as failed:
         return _unreadable(str(failed))
-    # **The last resort**, and the promise in this function's docstring rests on it: whatever
-    # the runner itself got wrong is still one inspection's answer, never a crashed process.
+    # Preserve the process contract even when the runner itself encounters an unexpected error.
     except Exception as error:  # noqa: BLE001
         return _unreadable(f"inspection failed: {type(error).__name__}")
 
 
-def _rows(fmt, ref: wire.PieceRef, streams: list, ended: dict) -> Iterator[tuple]:
-    """Side by side; stops at the shorter file. A format's own failure is guarded here, since
-    its generator runs only as it is read.
+def _rows(fmt, ref: wire.PieceRef, streams: list, state: _ReadState) -> Iterator[tuple]:
+    """Yield records side by side and record why iteration ended.
 
-    **Says which file was shorter** (review focus 1): when one file ends while another still
-    has a record, `ended["shorter"]` is its index, so the report shows a cut R2 as a cut R2.
+    Iteration stops at the shorter file. Format failures are guarded here because a generator's
+    body runs only when it is advanced.
     """
     iterators = [_guarded(ref, lambda _, s=s: iter(fmt.records(s))) for s in streams]
     try:
-        yield from _side_by_side(ref, iterators, ended)
+        yield from _side_by_side(ref, iterators, state)
     except Malformed as malformed:
-        # The rows before it stand; every fact says where the format stopped (issue 224).
-        ended["stopped"] = f"malformed {malformed}"
+        # Measurements retain complete rows that preceded the malformed record.
+        state.stopped = f"malformed {malformed}"
 
 
-def _side_by_side(ref: wire.PieceRef, iterators: list, ended: dict) -> Iterator[tuple]:
+def _side_by_side(ref: wire.PieceRef, iterators: list, state: _ReadState) -> Iterator[tuple]:
     while True:
         row = []
         for index, iterator in enumerate(iterators):
@@ -110,7 +108,7 @@ def _side_by_side(ref: wire.PieceRef, iterators: list, ended: dict) -> Iterator[
                 if row or any(
                     _guarded(ref, lambda _, it=it: next(it, None)) is not None for it in rest
                 ):
-                    ended["shorter"] = index
+                    state.shorter_index = index
                 return
             row.append(record)
         yield tuple(row)
@@ -119,17 +117,14 @@ def _side_by_side(ref: wire.PieceRef, iterators: list, ended: dict) -> Iterator[
 def _fact(
     outcome, by: list[str], rows: int, shorter: str | None, capped: bool, stopped: str | None
 ) -> wire.Fact:
-    """What a measure answered, held to the report's shape. **Inside the guard**: a measure
-    returning `None`, a list, bytes in its evidence or `nan` is that measure's failure."""
+    """Validate a measure's outcome and convert it to the public fact shape."""
     if not isinstance(outcome, Value | Undetermined):
         raise TypeError(f"result() gave {type(outcome).__name__}")
-    # **`rows` on every fact** (review focus 1): a pair whose R2 the head cut short is read up
-    # to the shorter file, and the report must show how far that was.
     evidence = {**outcome.evidence, "rows": rows}
     if shorter is not None:
         evidence["shorter_file"] = shorter
     if capped:
-        # The head ended at the unpacked cap rather than at its own end (issue 221).
+        # Distinguish a bounded head from the input's natural end.
         evidence["capped"] = True
     if stopped is not None:
         evidence["stopped"] = stopped
@@ -173,32 +168,31 @@ def _inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
         for m in request.measures
     }
     rows = 0
-    ended: dict[str, int | str] = {}
-    for row in _rows(fmt, request.format, streams, ended):
+    state = _ReadState()
+    for row in _rows(fmt, request.format, streams, state):
         rows += 1
         for ref in request.measures:
             _guarded(ref, lambda _, a=accumulators[ref.id], r=row: a.add(r))
     by_format = f"{request.format.id}@{request.format.version}"
     facts = {}
-    shorter = names[int(ended["shorter"])] if "shorter" in ended else None
+    shorter = names[state.shorter_index] if state.shorter_index is not None else None
     capped = any(limit.capped for limit in limits)
-    stopped = ended.get("stopped")
     for ref in request.measures:
         by = [by_format, f"{ref.id}@{ref.version}"]
         facts[ref.id] = _guarded(
             ref,
             lambda _, a=accumulators[ref.id], b=by: _fact(
-                a.result(), b, rows, shorter, capped, stopped
+                a.result(), b, rows, shorter, capped, state.stopped
             ),
         )
     return wire.Report(type_id=None, facts=facts, unreadable=None)
 
 
 def _limit_memory(limit: int) -> None:
-    """Cap this process's address space: a parser that allocates past it dies, alone (spec §8).
+    """Cap this process's address space so an excessive allocation kills only the child.
 
-    **Set by the child itself**, from `--memory-bytes`, rather than by the parent's
-    `preexec_fn`, which is unsafe in a process with threads (the API calls from a thread pool).
+    The child applies the limit from ``--memory-bytes``. The threaded API parent therefore does
+    not need the unsafe ``preexec_fn`` hook.
     """
     import resource
 

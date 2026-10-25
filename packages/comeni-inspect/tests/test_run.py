@@ -101,11 +101,19 @@ def test_a_piece_that_raises_is_unreadable(tmp_path):
 
 
 def test_a_short_second_file_stops_at_the_shorter_and_says_how_many_rows(tmp_path):
-    """Review focus 1: an R2 cut short by the head is read side by side up to its end."""
+    """A paired inspection stops at the shorter head and reports the completed row count."""
     report = run.inspect(*_with(_request(tmp_path), b">a\n>b\n>c\n", b">a\n"))
     fact = report.facts["count"]
     assert fact.value == 2 and fact.evidence["rows"] == 1
     assert fact.evidence["shorter_file"] == "f1"
+
+
+def test_a_short_first_file_is_identified_without_discarding_a_complete_row(tmp_path):
+    report = run.inspect(*_with(_request(tmp_path), b">a\n", b">a\n>b\n>c\n"))
+    fact = report.facts["count"]
+
+    assert fact.value == 2 and fact.evidence["rows"] == 1
+    assert fact.evidence["shorter_file"] == "f0"
 
 
 def test_files_of_equal_length_name_no_shorter_file(tmp_path):
@@ -157,7 +165,7 @@ import pytest  # noqa: E402
     ],
 )
 def test_a_measure_answering_badly_is_unreadable_not_a_crash(tmp_path, body):
-    """Review of #134: what `result()` returns was used outside the guard."""
+    """Invalid measure results stay inside the guarded piece boundary."""
     report = _measure_returning(tmp_path, body)
     assert report.unreadable and "count" in report.unreadable
     report.to_json()
@@ -196,8 +204,7 @@ def test_the_format_is_shown_a_full_window_even_through_a_codec(tmp_path):
 
 
 def test_a_head_that_unpacks_past_the_cap_is_measured_up_to_it(tmp_path):
-    """Issue 221: an ordinary gzipped head unpacks 4-6x, past the cap. Reaching the cap is the
-    end of the head, said in the evidence, not a refusal."""
+    """Ordinary cap exhaustion returns bounded measurements and records that the cap was hit."""
     import random
 
     rng = random.Random(221)
@@ -218,7 +225,7 @@ def test_a_head_inside_the_cap_is_not_marked_capped(tmp_path):
 
 
 def test_the_runner_limits_its_own_memory():
-    """The limit is set by the child itself, so the parent needs no `preexec_fn` (#134)."""
+    """The child applies its own address-space limit without a parent ``preexec_fn`` hook."""
     import subprocess
     import sys
 
@@ -237,9 +244,7 @@ def test_the_runner_limits_its_own_memory():
 
 
 def test_a_format_stopping_at_a_malformed_record_says_so_on_every_fact(tmp_path):
-    """Issue 224: FASTQ stopped quietly at a bad record mid-head, so a file corrupt at record 3
-    reported facts on 2 records with no reason. A format raises `Malformed`; the runner keeps
-    what came before and says where it stopped."""
+    """A malformed complete record preserves earlier rows and marks every resulting fact."""
     request = _request(tmp_path)
     bad = (
         '        if line == b"!":\n'

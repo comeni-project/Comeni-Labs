@@ -1,1 +1,1 @@
-"""Measure an uploaded sample's head, one inspection per process (spec §4, §6)."""
+"""Measure bounded sample heads through isolated inspection processes."""

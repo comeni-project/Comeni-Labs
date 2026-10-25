@@ -1,4 +1,4 @@
-"""The wire protocol: a request in, its bytes after it, one report out (spec §6)."""
+"""Protect request framing, payload lengths, and deterministic report serialization."""
 
 import io
 

@@ -6,7 +6,7 @@ import random
 import zlib
 
 import pytest
-from comeni_inspect.stream import Capped, TooLarge
+from comeni_inspect.stream import Capped, SourceFailed, TooLarge
 
 
 @pytest.mark.parametrize("buffer_size", [17, 8192, 131072])
@@ -40,6 +40,17 @@ def test_a_high_expansion_head_is_still_refused():
         gzip.GzipFile(fileobj=io.BytesIO(compressed)), cap=50_000, given=len(compressed)
     )
     with pytest.raises(TooLarge):
+        io.BufferedReader(stream).read()
+
+
+def test_a_codec_stream_returning_text_is_named_as_the_source_failure():
+    class TextStream:
+        def read(self, size):
+            return "not bytes"
+
+    stream = Capped(TextStream(), cap=100, name="toy codec")
+
+    with pytest.raises(SourceFailed, match="toy codec failed: it gave str, not bytes"):
         io.BufferedReader(stream).read()
 
 

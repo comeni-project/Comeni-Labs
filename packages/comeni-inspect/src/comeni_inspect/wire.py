@@ -1,8 +1,8 @@
-"""The wire protocol between the API and an inspection process (spec §6, `PROTOCOL.md`).
+"""Define the wire protocol between the API and an inspection process.
 
-A request is **one JSON line** followed by each file's bytes back to back, their lengths in the
-request. The answer is one JSON report on stdout, keys sorted, so a golden report compares byte
-for byte and an implementation in another language is checked against the same files.
+A request is one JSON line followed by each file's declared number of bytes. The response is one
+JSON report with sorted keys, enabling byte-for-byte golden comparison across implementations. See
+``PROTOCOL.md`` for the field-level reference.
 """
 
 import json
@@ -68,8 +68,7 @@ def write_request(stream: BinaryIO, request: Request, payloads: list[bytes]) -> 
 
 
 def read_request(stream: BinaryIO) -> tuple[Request, list[bytes]]:
-    """The request and its files. **A payload shorter than declared is refused**: a pipe closed
-    early must not become a file that is quietly shorter than the person's."""
+    """Read a request and reject any payload shorter than its declared length."""
     request = Request.model_validate_json(stream.readline())
     payloads = []
     for head in request.files:
