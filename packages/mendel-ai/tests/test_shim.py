@@ -1,9 +1,4 @@
-"""The shim re-exports what it used to implement, and nothing in this repository uses it.
-
-Two halves, and the second is the one that matters. A compatibility shim's failure mode is not
-that it stops working — it is that it keeps working so well that new code is written against
-it, and the window never closes.
-"""
+"""Protect the deprecated exports and prevent new repository consumers of the shim."""
 
 import ast
 import warnings
@@ -12,9 +7,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-"""`support.paths` is only importable once `tests/` has been collected, and this file must
-pass when `packages/mendel-ai` is run alone. Every other package-local test counts the same
-way; `tests/README.md`'s rule is about files under `tests/`."""
+"""Repository root resolved locally so the package test also runs on its own."""
 
 PRE_RENAME = {
     "WHY_LIMIT",
@@ -29,8 +22,7 @@ PRE_RENAME = {
     "choose_many",
     "choose_one",
 }
-"""`mendel_ai.__all__` as it stood at 0.1.0, spelled out rather than imported from the module
-under test — a test that reads its subject's own answer checks nothing."""
+"""Historical public surface, independent of the module under test."""
 
 
 def test_the_shim_exports_the_pre_rename_surface() -> None:
@@ -44,11 +36,7 @@ def test_the_shim_exports_the_pre_rename_surface() -> None:
 
 
 def test_the_shim_hands_back_the_same_objects() -> None:
-    """Identity, not merely a name that resolves.
-
-    A shim that re-implemented `Client` would satisfy `hasattr` and give a caller a second
-    class — so `isinstance` against the real one would fail, which is the confusing shape.
-    """
+    """Re-exports retain identity so cross-package ``isinstance`` checks remain valid."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         import mendel_ai
@@ -60,11 +48,7 @@ def test_the_shim_hands_back_the_same_objects() -> None:
 
 
 def test_importing_it_warns() -> None:
-    """A silent deprecation is a deprecation nobody acts on.
-
-    Reimported through `importlib` because the module is almost certainly already in
-    `sys.modules` by the time this runs — the warning fires at import, once.
-    """
+    """Reload the cached module to observe its import-time deprecation warning."""
     import importlib
 
     import mendel_ai
@@ -74,11 +58,7 @@ def test_importing_it_warns() -> None:
 
 
 def test_the_shim_carries_no_implementation() -> None:
-    """One file, and every statement in it is an import, a warning or `__all__`.
-
-    This is what stops the window from being reopened: a fix applied here rather than in
-    `comeni-ai` would be a fix released consumers get and current ones do not.
-    """
+    """Keep behavior in ``comeni-ai`` by allowing only exports, the warning, and ``__all__``."""
     src = ROOT / "packages" / "mendel-ai" / "src" / "mendel_ai"
     files = sorted(p.name for p in src.glob("*.py"))
     assert files == ["__init__.py"], f"the shim grew modules: {files}"
@@ -97,12 +77,7 @@ def test_the_shim_carries_no_implementation() -> None:
 
 
 def test_no_in_repo_module_imports_the_shim() -> None:
-    """The half that closes the window.
-
-    Every caller in this repository moved to `comeni_ai` in the same change that created this
-    shim. A new one reaching for the old name has to fail here, in the suite, rather than in a
-    year when somebody asks why `mendel-ai` is still shipped.
-    """
+    """Require repository code to import the replacement package directly."""
     roots = [ROOT / "packages", ROOT / "tests", ROOT / "tools"]
     exempt = {
         (ROOT / "packages" / "mendel-ai" / "src" / "mendel_ai" / "__init__.py").resolve(),
