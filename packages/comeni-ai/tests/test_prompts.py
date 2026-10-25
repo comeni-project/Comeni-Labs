@@ -1,9 +1,4 @@
-"""Prompt templates: loaded by versioned id, rendered by exact substitution, digested.
-
-The point of this module is that a stored review record naming `forge.analysis.v1` can reach
-the text that was actually sent. Every test here is about one of the ways that stops being
-true — an id with no version, a template that moved, a placeholder nobody filled.
-"""
+"""Versioned prompt loading, exact substitution, split rendering, and stable digests."""
 
 import pytest
 from comeni_ai.prompts import PromptTemplate, UnknownPromptError
@@ -101,7 +96,7 @@ def test_placeholders_are_reported(tmp_path) -> None:
     assert PromptTemplate.load(tmp_path, "a.v1").placeholders() == {"one", "two"}
 
 
-# ── the split (14.7.4, #183) ──────────────────────────────────────────────────────────────
+# ── split templates ───────────────────────────────────────────────────────────────────────
 
 
 def test_a_split_template_renders_its_fixed_part_and_its_per_call_part():

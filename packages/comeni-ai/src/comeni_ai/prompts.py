@@ -1,26 +1,9 @@
-"""Committed prompt files, loaded and identified by version.
+"""Load, render, and identify versioned prompt files owned by callers.
 
-**A prompt is product code.** It is the thing that decides what a model is asked, so it is
-reviewed, diffed and versioned like any other declaration — the same argument
-`docs/design/declared-data.md` makes for the registry, applied one layer up. That means it
-lives in a file its caller commits, not in an f-string somebody edits while debugging.
-
-**Changing behaviour means adding `v2`, never editing `v1`.** A review record that names
-`forge.analysis.v1` has to be able to reach the text that was actually sent; an id whose
-content moved underneath it describes nothing. `PromptTemplate.digest` is what makes that
-checkable rather than a convention — a rendered prompt carries the hash of exactly what
-crossed the wire, so a stored invocation can be compared against a re-render and disagree
-out loud.
-
-**Substitution is `{{name}}` and deliberately not `str.format`.** Every prompt this system
-sends carries a JSON Schema, and a schema is full of braces; `format` would raise `KeyError`
-on the first `{"type": "object"}` it met. A placeholder syntax that cannot collide with the
-payload is worth more than a familiar one.
-
-**This package owns loading, rendering and identity. It owns no prompt text.** Mendel
-contracts, roles and Nextflow instructions belong to the caller, which keeps its own
-`prompts/` directory. Shared infrastructure that accumulates every agent's prompts has
-become a shared pile rather than a boundary.
+Prompt files are committed product inputs. Their explicit ``.vN`` identifiers and rendered-text
+digests let stored invocation records identify what was sent. Templates use ``{{name}}``
+placeholders so embedded JSON braces remain ordinary text. This package owns these mechanics,
+not the prompt text or domain vocabulary.
 """
 
 import hashlib
@@ -33,20 +16,16 @@ from pydantic import BaseModel, ConfigDict
 __all__ = ["PromptId", "PromptTemplate", "Rendered", "UnknownPromptError"]
 
 PromptId = str
-"""A template's filename without `.md` — `forge.analysis.v1`. An alias rather than a bare
-`str` so a signature says which string it wants; the egress guard's rule that a payload
-field is a declared shape is the same instinct one package down."""
+"""A template filename without ``.md``, ending in an explicit ``.vN`` version."""
 
 _PLACEHOLDER = re.compile(r"\{\{\s*([a-z0-9_]+)\s*\}\}")
 
 _ID = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*\.v\d+$")
-"""Every id ends in an explicit `.vN`. An unversioned prompt id is the failure this module
-exists to prevent, so it cannot be spelled."""
+"""Accepted lowercase, versioned prompt identifier syntax."""
 
 
 DIVIDER = "<!-- then, per call -->"
-"""The line that splits a prompt into what never changes between calls — sent first, as the
-system message, and cached by the provider — and what does (#183)."""
+"""Separator between a cacheable system prefix and per-call user content."""
 
 
 class UnknownPromptError(ValueError):
@@ -61,8 +40,7 @@ class Rendered(BaseModel):
     prompt_id: PromptId
     text: str
     digest: str
-    """sha256 of `text`, hex. **Of the rendered text, not the template** — two adaptations of
-    the same tool share a template and must not share an invocation record."""
+    """Hex SHA-256 digest of the rendered text, not the template body."""
 
 
 class PromptTemplate(BaseModel):
@@ -90,12 +68,7 @@ class PromptTemplate(BaseModel):
         return cls(prompt_id=prompt_id, body=path.read_text())
 
     def render_split(self, values: dict[str, str]) -> tuple[str, str]:
-        """The rendered template as `(fixed part, per-call part)`, cut at `DIVIDER` (#183).
-
-        **Exactly one divider, or a refusal naming the prompt.** None means the template was
-        never split (a retired one, which still renders whole through `render`); two means a
-        caller cannot tell which half is cacheable.
-        """
+        """Render and return ``(system, user)`` around the single required divider."""
         count = self.body.count(DIVIDER)
         if count != 1:
             raise ValueError(
@@ -108,12 +81,7 @@ class PromptTemplate(BaseModel):
         return set(_PLACEHOLDER.findall(self.body))
 
     def render(self, values: dict[str, str]) -> Rendered:
-        """Substitute every `{{name}}`. **Missing and surplus are both refusals.**
-
-        A missing placeholder would send the literal `{{dossier}}` to a provider, which is a
-        prompt that reads as a bug report; a surplus value is a caller that thinks it supplied
-        context and did not, which is the quieter of the two and the reason both are checked.
-        """
+        """Substitute every placeholder and reject missing or surplus values."""
         wanted = self.placeholders()
         supplied = set(values)
         if wanted != supplied:

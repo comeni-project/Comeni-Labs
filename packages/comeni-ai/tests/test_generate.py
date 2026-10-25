@@ -1,8 +1,4 @@
-"""`generate` validates before it returns, and declines rather than repairs.
-
-Every test here injects a transport. No test in this repository may call a live model —
-`tests/test_no_live_model.py` is the guard that enforces it.
-"""
+"""Generation response validation, refusal reporting, and offline transport behavior."""
 
 import json
 
@@ -82,9 +78,7 @@ def test_a_shape_mismatch_is_reported_with_its_code() -> None:
 
 
 def test_a_shape_mismatch_names_the_fields_that_did_not_fit() -> None:
-    """*did not match GoalUnderstanding* was the whole of the first real refusal the builder
-    showed, and finding which two fields were wrong took a reproduction script. Field paths are
-    the shape's own names and never the model's text, so naming them costs nothing at egress."""
+    """A refusal names safe schema paths without echoing model-provided values."""
     class Strict(Answer):
         model_config = ConfigDict(extra="forbid")
 

@@ -1,7 +1,4 @@
-"""A conversation is validated the same way a single answer is.
-
-The one thing this must not become is the call in this package that returns free prose.
-"""
+"""Validated conversations, split prompts, caching blocks, and response formats."""
 
 from comeni_ai.access import ModelAccess
 from comeni_ai.chat import Role, Turn, converse
@@ -86,14 +83,13 @@ def test_evidence_still_reaches_the_prompt() -> None:
 
 
 def test_the_refusal_is_readable_off_the_client() -> None:
-    """The reason `converse` takes a `Client`. An earlier draft stashed this in a module-level
-    map keyed by `id(access)`, which CPython reuses once the object is collected."""
+    """Conversation refusals use the same per-client reporting surface as generation."""
     client = Client(ACCESS, Spy("not json at all"))
     assert converse(client, [], "why?", Answer, []) is None
     assert "MA0004" in client.last_refusal
 
 
-# ── the two-part send (14.7.4, #183) ──────────────────────────────────────────────────────
+# ── split system/user prompts ─────────────────────────────────────────────────────────────
 
 
 def _recording(seen: list):
@@ -158,7 +154,7 @@ def test_choose_one_can_send_a_fixed_part():
     assert [m["role"] for m in seen[0]] == ["system", "user"]
 
 
-# ── the reply format (#194) ───────────────────────────────────────────────────────────────
+# ── provider response formats ─────────────────────────────────────────────────────────────
 
 
 class _Enforcing:

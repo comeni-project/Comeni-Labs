@@ -1,13 +1,4 @@
-"""Invariant 13 — self-hosted is not a degraded tier.
-
-A local model behind an OpenAI-compatible endpoint and a hosted provider differ by **what is
-in a `ModelAccess` and by nothing else**. A branch per lane is the design error invariant 13
-names, and it is the kind of thing that arrives quietly: one `if access.base_url:` added to
-handle a provider quirk, and the local lane is now a second code path nobody measures.
-
-§1.9 of the Forge MVP plan restates it as an acceptance criterion — "Local Ollama and a hosted
-API differ only by `ai-core` configuration" — so it gets a test rather than a paragraph.
-"""
+"""Hosted and self-hosted models share one access and request-composition path."""
 
 from comeni_ai.access import ModelAccess
 from comeni_ai.client import Client
@@ -68,8 +59,7 @@ def test_both_lanes_compose_the_same_prompt() -> None:
 
 
 def test_a_local_lane_needs_no_credential() -> None:
-    """Requiring a key would make the self-hosted lane the awkward one, which is the shape
-    invariant 13 forbids."""
+    """A self-hosted compatible endpoint can operate without a provider credential."""
     access = ModelAccess.from_env(OLLAMA)
     assert access is not None
     assert access.api_key is None

@@ -1,15 +1,8 @@
-"""Recorded model answers, so a contract test runs offline and forever.
+"""Record and replay model answers for offline contract tests.
 
-**Keyed by a digest of the prompt, not by call order.** Order-keyed recordings break in the
-worst way: a test that adds a call at the front re-points every later assertion at the wrong
-answer, and every one of them still passes.
-
-**An unrecorded prompt raises, naming the key and printing the prompt.** A recorded transport
-that invented a default would let a test assert against a fixture for a different question,
-which is the failure this exists to prevent.
-
-`RecordingTransport` is the tool a developer runs by hand to capture a fixture. **No test uses
-it** — `tests/guards/test_no_live_model.py` is what holds that.
+Recordings use a digest of the model and prompt rather than call order. Missing recordings raise
+with the expected key and prompt. Tests use :class:`RecordedTransport`; developers may run
+:class:`RecordingTransport` manually to capture fixtures.
 """
 
 import hashlib
@@ -27,7 +20,7 @@ def key_for(access: ModelAccess, prompt: str) -> str:
 
 
 class RecordedTransport:
-    """Replays a committed fixture. The transport every contract test uses."""
+    """Replay responses from a committed JSON fixture without network access."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -45,11 +38,7 @@ class RecordedTransport:
 
 
 class RecordingTransport:
-    """Wraps a real transport and writes what it returns. **Run by hand, never by a test.**
-
-    This is one of the two names `tests/guards/test_no_live_model.py` refuses to find in a test
-    file, because reaching a provider from the suite has to be deliberate and visible.
-    """
+    """Wrap a real transport and write responses to a fixture during manual capture."""
 
     def __init__(self, inner: Transport, path: Path) -> None:
         self.inner = inner

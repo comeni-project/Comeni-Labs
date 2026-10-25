@@ -1,9 +1,4 @@
-"""The package exists, is importable, and is typed.
-
-`uv sync` installs nothing you do not depend on: a workspace member listed only in
-`[tool.uv.sources]` is never installed and its imports fail at the first use rather than at
-sync. This test is what turns that into a fast failure.
-"""
+"""Distribution installation, importability, workspace dependency, and typing marker."""
 
 import importlib.util
 from pathlib import Path

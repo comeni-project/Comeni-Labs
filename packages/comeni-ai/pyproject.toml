@@ -18,9 +18,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
-# comeni-core is here for `coded()` and nothing else: this package holds no Mendel domain
-# types, which is what lets a second consumer reuse it unchanged.
+# Runtime lower bounds follow the workspace release policy in docs/guides/releasing.md.
+# comeni-core supplies coded diagnostics; domain models remain caller-owned.
 dependencies = [
   "comeni-core>=0.1.0",
   "litellm>=1.50",

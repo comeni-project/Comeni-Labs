@@ -1,9 +1,4 @@
-"""The three lanes, and the invariants they carry.
-
-Invariant 13 — self-hosted is not a degraded tier — means the lanes differ by configuration
-and not by code path. Invariant 12 — no subscription OAuth — is enforced by there being
-nowhere to put a subscription token.
-"""
+"""Model access configuration for hosted, self-hosted, and unconfigured deployments."""
 
 import pytest
 from comeni_ai.access import ModelAccess, NoModelError
@@ -26,7 +21,7 @@ def test_the_byo_key_lane() -> None:
 
 
 def test_the_local_lane_needs_no_key() -> None:
-    """Ollama and vLLM behind an OpenAI-compatible endpoint. Invariant 13: identical path."""
+    """Ollama and vLLM use the same access shape without requiring a credential."""
     access = ModelAccess.from_env(
         {"COMENI_AI_MODEL": "ollama/llama3", "COMENI_AI_BASE_URL": "http://localhost:11434"}
     )
@@ -36,7 +31,7 @@ def test_the_local_lane_needs_no_key() -> None:
 
 
 def test_there_is_nowhere_to_put_a_subscription_token() -> None:
-    """Invariant 12. Enforced by shape: a field that does not exist cannot be filled."""
+    """Subscription credentials are excluded by the access model's shape."""
     assert "oauth" not in ModelAccess.model_fields
     assert "token" not in ModelAccess.model_fields
     with pytest.raises(ValidationError):
@@ -106,9 +101,7 @@ def test_require_from_env_returns_the_access_when_configured() -> None:
 
 
 def test_sampling_is_deterministic_by_default() -> None:
-    """**Nothing set this until 2026-08-17**, so every call sampled at the provider's default
-    and two runs of the same draft could differ. An accuracy figure compared across prompt
-    designs was partly measuring the dice."""
+    """The package default avoids provider-specific sampling defaults."""
     assert ModelAccess(model="m").temperature == 0.0
     assert ModelAccess.from_env({"COMENI_AI_MODEL": "m"}).temperature == 0.0
 

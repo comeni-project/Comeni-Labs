@@ -1,22 +1,13 @@
-"""How a provider is told the shape of a reply (#194).
+"""Provider-specific ways to communicate a reply schema.
 
-**The schema is either written into the prompt or enforced by the server, never trusted.**
-Every reply is still validated by `Client` against its shape: a format guarantees the shape a
-model writes, never what it means. `InPrompt` is the behaviour before #194 and the default for
-anything not verified — a provider's format is used only after a walk against it, because each
-one honours `response_format` differently (LiteLLM's own `supports_response_schema` said *False*
-for `ollama_chat/` while Ollama honoured the format).
-
-Why at all: shown the schema as text, gemma3:12b answered with the schema itself — 4 of 18
-phrasing calls, and 12 of 12 once its docstrings were stripped. Enforced, all three local models
-answered in shape with no schema in the prompt at all.
+Unverified providers receive the schema in the prompt. Verified provider formats may enforce it
+server-side, but :class:`comeni_ai.client.Client` still validates every returned body locally.
 """
 
 import copy
 
 HOSTED_ENUM_CAP = 500
-"""Past this many allowed values in one schema, a hosted provider is sent the schema in the
-prompt instead: a strict schema over its limits is rejected rather than trimmed."""
+"""Maximum allowed values before hosted strict schemas fall back to in-prompt mode."""
 
 
 class ReplyFormat:
@@ -32,7 +23,7 @@ class ReplyFormat:
 
 
 class InPrompt(ReplyFormat):
-    """The schema written into the prompt, as before #194. Always available."""
+    """Always-available format that writes the schema into the prompt."""
 
 
 class _Enforced(ReplyFormat):
@@ -51,14 +42,14 @@ class _Enforced(ReplyFormat):
 
 
 class OllamaFormat(_Enforced):
-    """Ollama's `format`, through LiteLLM. Verified by the 2026-09-29 probe on three models."""
+    """Ollama JSON-schema format passed through LiteLLM and verified by provider probes."""
 
     name = "ollama"
     verified = True
 
 
 class OpenAIFormat(_Enforced):
-    """OpenAI strict mode. **A scaffold**: unit-tested, not verified against the provider."""
+    """OpenAI strict-mode adapter; unit-tested but not provider-verified."""
 
     name = "openai"
     verified = False
@@ -74,10 +65,10 @@ class OpenAIFormat(_Enforced):
 
 
 class AnthropicFormat(_Enforced):
-    """Sent as `response_format`, which LiteLLM turns into a tool. **A scaffold**, not verified.
+    """Anthropic response-format adapter; unit-tested but not provider-verified.
 
-    When verifying: the tool counts as prompt, so a per-question allowed list splits the cache
-    per question, and part 3's cache markers must still reach the system blocks.
+    LiteLLM represents this format as a tool, so verification must also cover cache markers and
+    per-request allowed values.
     """
 
     name = "anthropic"
@@ -142,18 +133,16 @@ def _allows_null(prop: dict) -> bool:
 
 
 def with_choices(schema: dict, choices: dict[str, list]) -> dict:
-    """`schema` with each named field held to its allowed values (#194, spec §6).
+    """Return a copy of ``schema`` with allowed values applied at named field paths.
 
-    **A copy**: a `$defs` entry is shared by every field that references it, and the shape's
-    own cached schema must never carry one call's list into the next. **A nullable field keeps
-    `null`**, which is its way out. An unknown path raises — an allowed list that silently
-    constrained nothing would be a guard that is not there.
+    Nullable fields retain their null branch. Unknown paths raise rather than silently leaving
+    a request unconstrained.
     """
     out = copy.deepcopy(schema)
     for path, values in choices.items():
         if not values:
-            # **Nothing offered is nothing allowed** (#244): an array gets `maxItems: 0`. An enum
-            # of nothing is a schema a server may reject, so a scalar is left as it was.
+            # Empty array choices allow no items. Empty scalar enums are avoided because some
+            # servers reject that schema, so a scalar remains unconstrained.
             array = _array_on(out, out, path.split("."))
             if array is not None:
                 array["maxItems"] = 0
@@ -183,7 +172,7 @@ def _targets(root: dict, node: dict, parts: list[str], path: str) -> list[dict]:
 
 
 def _array_on(root: dict, node: dict, parts: list[str], found: dict | None = None):
-    """The nearest array along a path, or `None`: where *no items* can be said (#244)."""
+    """Return the nearest array along a field path, if one exists."""
     node = _deref(root, node)
     if node.get("type") == "array":
         found = node
