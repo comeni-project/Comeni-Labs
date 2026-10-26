@@ -23,6 +23,29 @@ x-python-build: &python-build
     RUNTIME_UID: ${DOCKER_UID:-1000}
     RUNTIME_GID: ${DOCKER_GID:-1000}
 
+# The API reports model health and queues work; both workers execute work from the same settings.
+# Keep their database, filesystem, model, credential, and Forge configuration one contract.
+x-mendel-environment: &mendel-environment
+  MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
+  MENDEL_REDIS_URL: redis://redis:6379
+  MENDEL_REGISTRY_ROOT: /app/registry
+  MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
+  MENDEL_WORKSPACE_ROOT: /app/workspace
+  MENDEL_DRAFT_ROOT: /app/drafts
+  COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
+  COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
+  COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+  COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
+  COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
+  COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
+  COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
+  COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
+  COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
+  COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
+  COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
+  COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
+  COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+
 services:
   # -----------------------------------------------------------------------------
   # 1. Shared infrastructure
@@ -78,29 +101,7 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
-      MENDEL_REDIS_URL: redis://redis:6379
-      MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
-      MENDEL_WORKSPACE_ROOT: /app/workspace
-      MENDEL_DRAFT_ROOT: /app/drafts
-      # Share model settings with the AI worker for configuration and health reporting.
-      COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
-      COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
-      COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
-      COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
-      COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
-      COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
-      COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
-      COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
-      # Decrypt model credentials saved through Settings.
-      COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
-      COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
-      COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
-      COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # Lets the forge open pull requests and publish releases on the registry.
-      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+    environment: *mendel-environment
     ports: ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
     volumes:
       # Mount local code for development.
@@ -133,29 +134,7 @@ services:
       api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
-      MENDEL_REDIS_URL: redis://redis:6379
-      MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
-      MENDEL_WORKSPACE_ROOT: /app/workspace
-      MENDEL_DRAFT_ROOT: /app/drafts
-      # Read model settings to decide whether to queue AI generation.
-      COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
-      COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
-      COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
-      COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
-      COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
-      COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
-      COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
-      COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
-      # Decrypt model credentials saved through Settings.
-      COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
-      COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
-      COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
-      COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # Lets the forge open pull requests and publish releases on the registry.
-      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+    environment: *mendel-environment
     # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages
@@ -176,29 +155,7 @@ services:
       api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment:
-      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
-      MENDEL_REDIS_URL: redis://redis:6379
-      MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
-      MENDEL_WORKSPACE_ROOT: /app/workspace
-      MENDEL_DRAFT_ROOT: /app/drafts
-      # Configure local or hosted models; Settings can also supply these values.
-      COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
-      COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
-      COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
-      COMENI_AI_MODEL_WANT: ${COMENI_AI_MODEL_WANT:-}
-      COMENI_AI_MODEL_TALK: ${COMENI_AI_MODEL_TALK:-}
-      COMENI_AI_MODEL_TIER4: ${COMENI_AI_MODEL_TIER4:-}
-      COMENI_AI_MODEL_READBACK: ${COMENI_AI_MODEL_READBACK:-}
-      COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
-      # Decrypt model credentials saved through Settings.
-      COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
-      COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
-      COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
-      COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-      # Lets the forge open pull requests and publish releases on the registry.
-      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+    environment: *mendel-environment
     # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages
