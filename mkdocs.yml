@@ -29,6 +29,7 @@ not_in_nav: |
   start/**
   handbook/**
   registry/**
+  how-to/registry/review-proposals.md
   internals/**
   design/**
   status.md
@@ -152,4 +153,5 @@ nav:
           - Invariants: explanation/invariants.md
           - Authoring protocol: explanation/authoring-protocol.md
           - Product voice: explanation/product-language.md
+          - Visual identity: explanation/visual-identity.md
           - Protocol diagram: explanation/diagrams/authoring-protocol.md
