@@ -16,12 +16,13 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
-> **Read [`now.md`](../now.md) first**: it is compacted through 2026-10-18, and every entry it
+> **Read [`now.md`](../now.md) first**: it is compacted through 2026-10-26, and every entry it
 > covers is in [`archive/`](archive/). The newest is
-> [`2026-10-18-walks-three-and-four.md`](archive/2026-10-18-walks-three-and-four.md), Part I.0's
-> third and fourth walks with a model. The design entry before the walks is
-> [`2026-09-17-labs-in-the-hybrid-identity.md`](archive/2026-09-17-labs-in-the-hybrid-identity.md):
-> read it before changing how a screen looks.
+> [`2026-10-26-everything-lands-on-main.md`](archive/2026-10-26-everything-lands-on-main.md),
+> which lists what comes next in order. Before changing how a screen looks, read
+> [`2026-10-21-redesign-board-match.md`](archive/2026-10-21-redesign-board-match.md) and, for
+> the identity's origin,
+> [`2026-09-17-labs-in-the-hybrid-identity.md`](archive/2026-09-17-labs-in-the-hybrid-identity.md).
 >
 > What follows is the older reading order, from before the archive.
 >
