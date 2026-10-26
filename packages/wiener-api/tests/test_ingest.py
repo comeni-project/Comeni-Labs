@@ -1,4 +1,5 @@
-# packages/wiener-api/tests/test_ingest.py
+"""Private event-ingest routing, admission, projection restoration, and sequence allocation."""
+
 import json
 from pathlib import Path
 
