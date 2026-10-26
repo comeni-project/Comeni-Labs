@@ -259,6 +259,25 @@ describe("the small states", () => {
     expect(sent.saying).toBe("why STAR?");
   });
 
+  it("keeps a sent message until the latest person turn carries the same words", () => {
+    const sent = run([{ type: "sent", text: "why STAR?" }]);
+    const person = (seq: number, text: string) => ({
+      seq, role: "person", state: "answered", text, blocks: [], base_revision: 0,
+    }) as AuthoringSession["turns"][number];
+
+    const waiting = run([
+      { type: "snapshot", session: session({ turns: [person(1, "an earlier question")] }) },
+    ], sent);
+    expect(waiting.saying).toBe("why STAR?");
+
+    const landed = run([
+      { type: "snapshot", session: session({
+        turns: [person(1, "an earlier question"), person(2, "why STAR?")],
+      }) },
+    ], waiting);
+    expect(landed.saying).toBeNull();
+  });
+
   it("forgets an animation once it has played", () => {
     const offered = session();
     const shown = run([{ type: "snapshot", session: offered }]);
