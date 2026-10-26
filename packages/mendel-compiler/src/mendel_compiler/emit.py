@@ -1,4 +1,4 @@
-"""IR to Nextflow DSL2. Deterministic: same IR, byte-identical output."""
+"""Render a resolved ``Pipeline`` as deterministic Nextflow DSL2 and configuration."""
 
 from pathlib import Path
 from typing import NamedTuple
@@ -746,7 +746,7 @@ def emit_config(pipeline: Pipeline) -> str:
         "    }",
         # **Executors, and they are a function of nothing.**
         #
-        # `docs/design/execution-boundary.md` §6: the executor must not enter `pipeline.yml`
+        # The executor must not enter `pipeline.yml`
         # or `main.nf`, because a pipeline that differed per deployment target would break
         # invariant 10 and invariant 13 at once — and would make `Pipeline.emitted`'s digests
         # depend on a deployment choice, so `mendel emit` could not reproduce the file it is

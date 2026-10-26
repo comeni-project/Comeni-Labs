@@ -1,19 +1,8 @@
-"""Is this layer arranged the way it says it is?
+"""Check a registry layer against the filesystem layout it declares.
 
-**The loader stays free and this is not part of it.** Invariant 11 says a file declares its own
-kind, so `layers.load` reads one flat folder as happily as a tree, and an overlay a laboratory
-assembled by hand keeps that freedom entirely. What the *curated* registry does is hold itself
-to a layout **its own CI** enforces — which is nixpkgs's `pkgs/by-name` move, and Homebrew's,
-and conda-forge's: the index is not the filesystem, and the filesystem is still made regular so
-that a human can navigate it and a reviewer can see what a diff touches.
-
-**A layer with no `layout:` in its manifest is unenforced**, which is every private overlay.
-The rule and the enforcement are different things and this file is only the second.
-
-`comeni-registry#1` removed the guarantee that a misfiled document was impossible *by
-construction* — a contract used to live in `contracts/` and a misspelled `contract/` was caught
-because nothing read it. A `declares:` line can only be *detected*, which is `MD0011`. This is
-the other half of that trade: what a directory used to prevent, a lint now refuses.
+Loading remains path-independent: each document declares its own kind. Lint is an opt-in check
+for layers whose manifest defines ``layout``; it reports misplaced, misnamed, cross-tool, and
+ownership violations without changing loader semantics for private overlays.
 """
 
 from collections.abc import Iterable

@@ -1,14 +1,8 @@
-"""`build`, `upgrade` and `profile`: the three verbs that resolve.
+"""Run the shared resolution flow for ``build``, ``upgrade``, and ``profile``.
 
-**One module because they are one flow with three entry conditions, not three flows.** `upgrade`
-replays a previous artifact's decisions before resolving; `profile` swaps the goal for one that
-measures; `build` does neither. Everything after that — conformance, resolution, materialisation,
-writing the file, the gate, the report — is the same code, and splitting it per verb would copy
-it three times.
-
-That is why issue #41's design said "one module per verb" and the code said otherwise. Recorded
-here rather than in a commit message, because the next person to look at this directory will ask
-the same question.
+Upgrade replays decisions from an existing artifact, profile derives a measurement goal, and
+build reads a starter. All three then use the same orchestration, emission, staging, reporting,
+optional validation gate, and artifact-stamping sequence.
 """
 
 import argparse
@@ -30,11 +24,10 @@ from mendel_compiler.cli.report import (
     _displacement_line,
     _report_upgrade,
 )
-from mendel_compiler.emit import emit, emit_config, entry_params
+from mendel_compiler.emit import emit, emit_config
 from mendel_compiler.gates import (
     Gate,
-    materialise_stub_data,
-    materialise_test_samplesheet,
+    materialise_gate_inputs,
     run_gate,
 )
 
@@ -254,12 +247,7 @@ def run(args, parser) -> int:
     passed: Gate | None = None
     failed = False
     if args.gate is not None:
-        # **Both gates, and only `stub` was branched on.** A `test` run needs the
-        # samplesheet the profile points at, and `-stub-run` needs it too — a stub
-        # never reads its inputs but `splitCsv` runs before any process does.
-        materialise_test_samplesheet(args.out, pipeline)
-        if args.gate is Gate.STUB:
-            materialise_stub_data(args.out, entry_params(pipeline))
+        materialise_gate_inputs(args.gate, args.out, pipeline)
         result = run_gate(args.gate, args.out)
         print(f"gate {result.gate}: {'PASS' if result.passed else 'FAIL'}", file=sys.stderr)
         if result.passed:
@@ -330,4 +318,3 @@ def _profiling_goal(args: argparse.Namespace, loaded: layers.Layers) -> Goal:
         want=[f"measurement.{m}" for m in reachable],
         profile=loaded.measurements.profile({}),
     )
-

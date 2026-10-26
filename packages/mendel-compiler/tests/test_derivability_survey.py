@@ -1,9 +1,4 @@
-"""What can a contract's fields be read off its module, and what cannot?
-
-Not a guard. This is the measurement behind the forge's hole list, kept as a test so it
-re-runs and cannot quietly become false. If it fails, the derivability table in
-the derivability audit (since removed) is stale and the forge's holes are wrong.
-"""
+"""Survey which contract fields can be derived from vendored Nextflow module sources."""
 
 from pathlib import Path
 

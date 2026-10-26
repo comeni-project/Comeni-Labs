@@ -1,5 +1,4 @@
-"""Reading where a registry layer lives, with git (Plan B, spec §8.2). Each test makes a real
-repository: a fake would test the fake."""
+"""Registry locator provenance read from temporary real Git repositories."""
 
 import subprocess
 

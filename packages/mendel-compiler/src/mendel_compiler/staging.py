@@ -1,16 +1,7 @@
-"""Put the module source a pipeline needs beside the artifact.
+"""Copy exactly the Nextflow module sources referenced by a pipeline artifact.
 
-**Every `include` in the emitted workflow points at `./modules/<key>/main`**, so an artifact
-with no `modules/` directory beside it is a pipeline that cannot run — which is what `MD0210`
-refuses. Two callers write that directory: `mendel build`, and the API's `keep`. They used to
-do it with two copies of `shutil.copytree(vendor/modules, out/modules)`, which is the shape a
-bug hides in: `keep` did not have one at all until `MD0210` found it, and a kept draft that
-cannot be emitted is not a pipeline whatever its header says.
-
-**It copies what the pipeline includes, and not the layer.** The old `copytree` shipped all
-thirteen vendored modules into every bundle including the three no contract references. A
-laboratory receiving an artifact needs the code that runs, and nothing else — and the smaller
-claim is also the checkable one: every include has a file, and every file has an include.
+Emitted includes point to ``modules/<key>/main`` beside the artifact. Staging copies each
+selected module once and reports missing sources instead of shipping an entire registry layer.
 """
 
 import shutil

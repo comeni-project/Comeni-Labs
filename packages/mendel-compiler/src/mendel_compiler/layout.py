@@ -1,13 +1,7 @@
-"""A `PipelineIR`, laid out. **The arithmetic lives in `dag-core` now** — 2026-08-24.
+"""Adapt compiler ``PipelineIR`` nodes and edges to the shared ``dag-core`` layout.
 
-`docs/design/wiener.md` §9.1.1: the builder's canvas and Wiener's run graph are the same picture
-from two sources, so the layout is a shared package and each half brings the adapter that knows
-what its own artifact is. This is Mendel's adapter, and `of(ir, ports)` keeps its signature so
-`mendel_api.services.build` — the one caller — does not change.
-
-**What belongs here rather than there** is the question `_declared` answers: what a node's ports
-*are*. The IR knows what a wire uses; only the caller knows what a contract declares, and the
-difference is why a wire once landed 39 pixels from its chevron.
+The IR supplies connected ports; an optional declared-port map preserves unused ports in the
+rendered node shape. Rank and coordinate arithmetic remain owned by ``dag-core``.
 """
 
 from __future__ import annotations

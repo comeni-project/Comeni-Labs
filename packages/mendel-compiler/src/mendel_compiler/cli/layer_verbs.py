@@ -1,13 +1,4 @@
-"""Verbs that act on a **layer** rather than on a pipeline.
-
-`cli/__init__.py` splits by what a verb does to a pipeline — `resolve_verbs` produces one,
-`artifact_verbs` acts on one that exists, `report` prints. `docs` does none of those: there is
-no pipeline anywhere in its execution, and it never resolves. That is a third category, and it
-gets its own module rather than being wedged into `report` because both happen to write text.
-Wedging is how `cli.py` reached the 851 lines issue #41 had to split.
-
-comeni-registry#2.
-"""
+"""Implement registry-layer conformance and generated-documentation commands."""
 
 from pathlib import Path
 

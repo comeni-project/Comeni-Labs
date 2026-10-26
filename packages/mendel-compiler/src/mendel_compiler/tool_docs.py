@@ -1,10 +1,7 @@
-"""One Markdown page per tool, rendered from declared data and nothing else.
+"""Render one deterministic Markdown reference page per declared tool.
 
-**Pure.** Takes loaded layers, returns strings. `cli/layer_verbs.py` is the only thing that
-touches disk, which is what makes these tests golden-file tests rather than filesystem tests —
-the same split `cli/__init__.py` describes and for the same reason.
-
-comeni-registry#2.
+The renderer groups contracts by identifier, describes ports, parameters, states, and naming
+rules from loaded declarations, and performs no filesystem writes.
 """
 
 from collections import defaultdict

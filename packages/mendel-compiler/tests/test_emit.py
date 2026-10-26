@@ -1,3 +1,5 @@
+"""Deterministic workflow emission, configuration, routing, and argument contracts."""
+
 import pathlib
 import re
 
@@ -130,7 +132,7 @@ def test_the_artifact_never_names_an_output_directory():
 
     `params.outdir` is emitted `null`, exactly as `params.input` is, and Wiener's launcher
     supplies the value through `site.config` — the same posture `process.resourceLimits`
-    already takes for how big the machine is (`docs/design/wiener.md` §12).
+    already takes for how big the machine is (see the repository execution boundary).
 
     **Baking a default here would be cheap and wrong.** `mendel emit` would produce a different
     file per deployment, so `Pipeline.emitted`'s digests would stop reproducing and invariant 10
@@ -423,7 +425,7 @@ def test_a_templated_fragment_still_emits_a_closure():
 
 
 def test_emit_config_cannot_depend_on_a_deployment_target():
-    """`docs/design/execution-boundary.md` §6.
+    """Executor selection belongs to the site configuration boundary.
 
     A pipeline emitted for AWS that differs from the same pipeline emitted for a laptop breaks
     invariant 10 (same goal → byte-identical `.nf`) and invariant 13 (self-hosted is not a
@@ -441,7 +443,7 @@ def test_emit_config_cannot_depend_on_a_deployment_target():
     params = list(inspect.signature(emit_config).parameters)
     assert params == ["pipeline"], (
         f"emit_config takes {params}. The executor reaches a run through a PROFILE and "
-        "`-c site.config`, never through emission — docs/design/execution-boundary.md §6."
+        "`-c site.config`, never through emission."
     )
 
 

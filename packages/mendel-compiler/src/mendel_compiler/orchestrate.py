@@ -1,28 +1,8 @@
-"""The build path, as a function.
+"""Resolve, validate, and materialise a pipeline entirely in memory.
 
-**Extracted in Plan 3C phase 0, and it is a lift rather than a rewrite.** The core was already
-in memory: `resolve_verbs.run`'s own comment said so — *"nothing here needs files on disk:
-`verify` differs from `upgrade` only in whether bytes are written"* — and what kept it uncallable
-was the `Namespace` around it, not the work inside. Three plans named this as a prerequisite
-before anyone read it closely enough to notice.
-
-**Takes roots, returns objects, writes nothing.** Every path decision, every collision check and
-every byte stays in the CLI — the same split the forge's own command layer already has, whose
-docstring says in as many words that a transport holds no logic.
-
-*(That package is named here only in prose, and not even that: `tests/guards/test_purity.py` scans
-for the module name in the **file**, not merely in its imports, and refused this docstring when it
-spelled it out. The breadth is right — a prose reference is how a dependency gets argued into
-existence — and it costs one rewording.)*
-
-**Conformance raises here rather than printing.** In the CLI it printed to stderr and returned 2,
-which is a *transport's* way of saying no; a caller that is an HTTP request needs the same refusal
-as a value. `ConformanceRefused` is a `ValueError`, which `mendel-api` already maps to a coded
-422 — so one raise serves both without either knowing about the other.
-
-`test_the_seam_and_the_cli_agree_byte_for_byte` is what makes this safe, and it compares the
-serialised artifact rather than the object graph: moving orchestration is precisely the change
-`make check` waves through, since nothing outside `test_counts.py` runs a tool.
+``build`` is the shared seam for CLI and service callers. It loads registry layers, rejects
+blocking conformance diagnostics, resolves the goal, and returns the IR, artifact, and loaded
+layer data; callers decide where and whether to write them.
 """
 
 from dataclasses import dataclass

@@ -1,20 +1,8 @@
-"""The vendored module, parsed. The specification a contract is checked against.
+"""Parse the constrained Nextflow module facts used by conformance checks.
 
-A `ModuleContract` is a hand-written binding to a foreign, dynamically-typed unit, and the
-bindgen literature is unambiguous about what happens next: "the declarations need to be
-kept in sync, and the toolchain wouldn't help with this — mismatches would be silently
-ignored, hiding problems that would arise later." That is exactly how a contract came to
-call STAR with an empty tuple where the genome belongs.
-
-This lives in `mendel-compiler` rather than `comeni-core` because it reads Nextflow DSL and
-`comeni-core` must not know what Nextflow is — its IR is the platform-neutral interface
-Wiener will consume. The purity guard is what made that argument; `re` is not on the core's
-allowlist, and asking why gave the better answer.
-
-Deliberately a regex parser rather than a Groovy grammar. Every input line in the vendored
-tree is one of four shapes, and a real parser would be a dependency, a maintenance surface
-and a reason to stop checking when it breaks. If nf-core adopts a syntax this cannot read,
-the right response is to notice loudly — `parse` raises — not to guess.
+``ModuleSpec`` records process, container, input, output, and metadata facts with source-line
+locations. The parser accepts the vendored module shapes it understands and raises on unfamiliar
+syntax rather than guessing.
 """
 
 import re
