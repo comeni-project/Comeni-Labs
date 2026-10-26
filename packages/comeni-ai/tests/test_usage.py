@@ -1,9 +1,4 @@
-"""What a call cost, when the provider said, and nothing invented when it did not.
-
-§2's audit rule asks that every model response record its model, timing and token counts
-*when the provider supplies them*. The whole risk here is the last clause: a `0` where nothing
-was reported is a measurement nobody took, and an audit row cannot tell the two apart.
-"""
+"""Per-call usage, prompt, response, and reset behavior across transport capabilities."""
 
 import time
 from types import SimpleNamespace
@@ -118,7 +113,7 @@ def test_token_counts_are_absent_rather_than_zero_when_unreported() -> None:
 
 
 def test_the_reply_text_is_kept_even_when_it_is_refused():
-    """#182: every model finding in the 14.7.3 walk had to be re-called by hand to see the reply."""
+    """Rejected replies remain available for audit and diagnosis."""
 
     class Says:
         def send(self, access, prompt):

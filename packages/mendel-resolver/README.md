@@ -11,17 +11,23 @@ tier 4 and never reaches for a model.
 ```python
 from mendel_resolver import Goal, GoalInput, layers, resolve
 
-loaded = layers.load("examples")
+loaded = layers.load("registry")
 goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"])
-ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+ir = resolve(
+    goal,
+    loaded.registry,
+    loaded.rules,
+    loaded.measurements,
+    vocabulary=loaded.vocabulary,
+)
 
 print(ir.needs_review())
 ```
 
-**Pure by construction** — see [`comeni-core`](../comeni-core/). AI implementations satisfy
-the `Protocol`s in `mendel_resolver.ports`; the dependency arrow points at this package,
-never out of it.
+The resolver has no model-provider dependency. Alternative ambiguity resolvers satisfy the
+protocol in `mendel_resolver.ports`.
 
-Documentation: [tiers](../../docs/concepts/tiers.md) ·
-[routing](../../docs/concepts/routing.md) ·
-[rule schema](../../docs/reference/rule-schema.md). Licensed Apache-2.0.
+Documentation: [decision tiers](../../docs/explanation/decision-tiers.md) ·
+[data-backed rules](../../docs/explanation/data-backed-rules.md) ·
+[write a rule](../../docs/how-to/registry/write-rule.md) ·
+[rule schema](../../docs/reference/registry/rule-schema.md). Licensed Apache-2.0.

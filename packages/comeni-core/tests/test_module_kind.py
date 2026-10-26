@@ -1,10 +1,4 @@
-"""The sixth declared kind: a tool's own source, and the statement about where it came from.
-
-Plan 5A. Until it, the modules lived in `vendor/` in the engine's repository while the
-contracts describing them lived in `registry/` — two repositories on two release cadences, so
-a contract and the thing it is a binding for could drift with nothing to notice. `MD0104`
-exists to catch exactly that drift and was comparing two things nobody kept in step.
-"""
+"""Behavioral checks for module declarations, source ownership, and layer replacement."""
 
 import pathlib
 
@@ -45,16 +39,7 @@ def test_a_module_yml_declares_its_kind(tmp_path):
 
 
 def test_upstream_s_own_meta_yml_is_not_read_as_declared_data(tmp_path):
-    """**The defect this exists to refuse, and it would have broken every module at once.**
-
-    nf-core ships a `meta.yml` inside each module directory and it carries no `declares:`
-    line, so a loader that globs the layer for `*.yml` refuses it with `MD0010` — *"does not
-    say what it is"* — and the registry stops loading. The fix is not to make `MD0010` lenient:
-    everything under `module/` is upstream's and is not layer data at all. The declaration
-    that *is* layer data is `module.yml`, which sits **beside** `module/` for this reason.
-
-    Watched failing: drop `not _in_source(...)` from `_files` and this raises `MD0010`.
-    """
+    """Upstream metadata inside ``module/`` is source content, not declared layer data."""
     layer = _layer(tmp_path / "base")
     found = bucket(layers_of([layer]))[0]
     read = {p.name for paths in found.values() for p in paths}
@@ -66,14 +51,13 @@ def test_upstream_s_own_meta_yml_is_not_read_as_declared_data(tmp_path):
 
 
 def test_a_module_stacks_on_the_module_key(tmp_path):
-    """The same key contracts group on, so A4.4 needs no new mechanism: the layer that wins
-    the contract wins the module."""
+    """The public loader replaces a lower-layer module with the same module key."""
     base = _layer(tmp_path / "base")
     over = _layer(
         tmp_path / "over", MODULE.replace("licence: MIT", "licence: GPL-3.0-only"), name="lab"
     )
 
-    stacked = stack(layers_of([base, over]), Module.kind())
+    stacked = Module.load([base, over])
     assert stacked.entries["nf-core/star/align"].licence == "GPL-3.0-only"
     assert [d.key for d in stacked.displaced] == ["nf-core/star/align"]
     assert stacked.displaced[0].winning_layer == "lab"
@@ -109,18 +93,7 @@ def test_a_licence_expression_is_refused():
 
 
 def test_the_layer_that_wins_the_contract_wins_the_module(tmp_path):
-    """**A4.4, and the point is that it needs no new mechanism.**
-
-    Invariant 11 defines displacement for contracts on the *module key* — the contract id minus
-    its `@version` — which is what lets a laboratory pin `@1.22.0` over `@1.21.0` without the
-    two tying. A `Module` is keyed on exactly that, so an overlay supplying a contract and its
-    module displaces both together, through one `stack()` call each, and the record is one more
-    `Displacement` row.
-
-    Anything else lets a laboratory's contract run against the public layer's source — which is
-    the drift `MD0104` exists to catch, reintroduced *between layers* instead of between
-    repositories. That is the failure this test exists to make loud.
-    """
+    """A winning declaration and its adjacent source remain owned by the same layer."""
     base = _layer(tmp_path / "base")
     over = _layer(
         tmp_path / "over",

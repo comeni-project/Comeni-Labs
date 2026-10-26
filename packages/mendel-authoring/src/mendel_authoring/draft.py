@@ -1,9 +1,7 @@
-"""The draft is a projection of the blueprint (§14.3 of the consultant build): the steps a
-person has reviewed, with the edges between them and each one's provenance, recomputed after
-every amendment and every review.
+"""Project a blueprint into the reviewed draft and its provenance sidecar.
 
-Nothing is appended, so nothing is left over from an older blueprint: a swap that drags steps
-with it — HISAT2's index in, STAR's out — leaves no orphan behind (issue 253).
+The projection is recomputed from applicable reviews rather than appended, so steps and wires
+removed by a later blueprint cannot remain as stale draft state.
 """
 
 from comeni_core.goal.profile import DataProfile

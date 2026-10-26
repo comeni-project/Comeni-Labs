@@ -1,11 +1,4 @@
-"""One page per tool, and a tool is what the ids say it is — not what the folders say.
-
-comeni-registry#1 removed the directory's meaning on purpose: a file declares what it is and
-the loader never reads its path. Grouping documentation by folder would put path-as-meaning
-straight back in, one layer up, in the first thing built after that issue closed.
-
-comeni-registry#2.
-"""
+"""Deterministic tool-reference pages grouped by declared identifiers, not paths."""
 
 from pathlib import Path
 

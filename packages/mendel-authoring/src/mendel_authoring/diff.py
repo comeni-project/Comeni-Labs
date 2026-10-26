@@ -1,7 +1,6 @@
-"""What changed between two blueprints, by step id (§14.9 of the consultant build).
+"""Describe added, removed, swapped, or meaningfully updated blueprint steps.
 
-Computed once and read three times: by an alternative's card (*adds hisat2_build; removes
-star_genomegenerate*), by the receipt of an amendment, and by the receipt of a hand edit.
+Alternative cards, amendment receipts, and hand-edit receipts share this deterministic diff.
 """
 
 from comeni_core.plan.draft import DraftGraph

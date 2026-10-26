@@ -1,15 +1,4 @@
-"""A channel has a name, and a port names one.
-
-Plan 5B phase 2, spec §1.1, §1.2 and §12.2.
-
-**What the phase changes and what it must not.** `Channel` gains `name` and `param`;
-`StepInput.channel` stops being a `TypeId` and becomes a `ChannelName`. Every emitted `ch_*`
-variable is the channel's own name — `ch_gtf`, not `ch_annotation_gtf`.
-
-The schema-5 migration and its fixture are gone: before v0.1.0 an older file is rebuilt, not
-upgraded (Part I.0 Plan B).
-"""
-
+"""Channel names are unique identities used consistently by ports and emitted variables."""
 
 import pytest
 import yaml

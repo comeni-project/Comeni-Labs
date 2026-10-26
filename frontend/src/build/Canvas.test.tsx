@@ -66,4 +66,9 @@ describe("the canvas", () => {
     at();
     expect(screen.getAllByTestId("registration")).toHaveLength(4);
   });
+
+  it("draws no corner marks on the boards' dotted ground, where they cut through the caption", () => {
+    at({ dots: true });
+    expect(screen.queryAllByTestId("registration")).toHaveLength(0);
+  });
 });

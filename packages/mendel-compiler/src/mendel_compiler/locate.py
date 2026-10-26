@@ -1,7 +1,7 @@
-"""Where each registry layer can be fetched, read with git (Part I.0 Plan B, spec §8.2).
+"""Read reproducible registry-layer locators from local Git metadata.
 
-Here and not in `comeni-core`, which runs no processes: `Pipeline.of` takes the locators its
-caller read. A layer outside git, or with no network remote, records less, never a guess.
+Layers outside Git or without a usable network remote produce partial locator evidence rather
+than guessed provenance. Credentials are removed from recorded remote URLs.
 """
 
 import subprocess

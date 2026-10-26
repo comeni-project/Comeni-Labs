@@ -1,4 +1,4 @@
-"""The installation facade: reading, writing, secrets and the served menu (spec §4, §8)."""
+"""Installation setting reads, writes, secret masking, records, and served menus."""
 
 import pytest
 from comeni_core.settings import ReadOnlyHere, Source
@@ -24,8 +24,7 @@ class MemoryStore:
 
 
 class Reversing:
-    """A stand-in codec. Not encryption, which is the point: the test is about where it is
-    called, and part 2's Fernet codec is tested against the real library."""
+    """Visible stand-in used to assert where sealing and opening occur."""
 
     def seal(self, plain):
         return "sealed:" + plain[::-1]
@@ -139,14 +138,14 @@ def test_the_menu_is_every_section_in_order_with_every_setting():
 
 
 def test_the_store_is_read_on_every_use():
-    """Never cached: a change in the menu applies to the next call, in every process."""
+    """The facade reads storage on every use rather than caching values."""
     inst = _installation()
     inst.store.rows["building.pacing"] = "together"
     assert inst.get(PACING) == "together"
 
 
 def test_a_secret_the_codec_cannot_open_is_not_set_and_says_why():
-    """A rotated key (review I2): not set, and a reason naming the key — never a 500."""
+    """A secret unreadable after key rotation is reported as unset, not raised."""
 
     class Rotated(Reversing):
         def open(self, sealed):
@@ -160,7 +159,7 @@ def test_a_secret_the_codec_cannot_open_is_not_set_and_says_why():
 
 
 def test_a_secret_is_handed_over_hidden():
-    """Spec §8 (review I3): the plaintext travels in a type that prints as hidden."""
+    """Trusted callers receive plaintext only inside `SecretStr`."""
     inst = _installation()
     inst.put("models.key", "sk-abcdef1234", by="someone")
     secret = inst.get(KEY)
@@ -169,13 +168,13 @@ def test_a_secret_is_handed_over_hidden():
 
 
 def test_a_short_secret_shows_no_last_four():
-    """Review M2, re-graded: the last four of a short key is most of the key."""
+    """Short secrets reveal no suffix because four characters would expose too much."""
     shown = _installation().put("models.key", "sk-12345", by="someone")
     assert (shown.set, shown.last4) == (True, None)
 
 
 def test_why_secrets_cannot_be_stored_can_be_said_precisely():
-    """Review I1: a malformed COMENI_SETTINGS_KEY must not read as a missing one."""
+    """A caller-provided codec failure reason reaches the menu unchanged."""
     inst = Installation(
         CATALOGUE, MemoryStore(), {}, codec=None,
         secrets_need="COMENI_SETTINGS_KEY in .env is not a Fernet key",
@@ -184,7 +183,7 @@ def test_why_secrets_cannot_be_stored_can_be_said_precisely():
 
 
 def test_a_setting_another_server_serves_is_never_written_here():
-    """Review I4: a PUT to Wiener's setting through Mendel would be a control that does nothing."""
+    """A serving process cannot write a section owned by another server."""
     running = Setting.toggle(key="running.flag", label="Flag", help=HELP, default=False)
     catalogue = Catalogue(
         sections=(Section(key="running", title="Running", order=1, served_by="wiener",

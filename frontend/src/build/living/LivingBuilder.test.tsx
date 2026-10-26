@@ -65,7 +65,7 @@ describe("the live canvas", () => {
     const fetch = open(live());
     await screen.findByTestId("living-node-star_align");
     expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/pipeline/draw"))).toBe(false);
-    expect(screen.getByTestId("living-node-star_align")).toHaveTextContent("3 settled");
+    expect(screen.getByTestId("node-footer-star_align")).toHaveTextContent("1 measured · 2 settled");
   });
 
   it("says no count for a step the frame carries no metadata for", async () => {
@@ -98,11 +98,11 @@ describe("the live canvas", () => {
     expect(screen.queryByTestId("living-node-samtools_sort")).toBeNull();
   });
 
-  it("says a held review in the step's header, keeping its footer to one line", async () => {
+  it("keeps a held review off the node: the step line says who decided it", async () => {
     open(live({ review_applicability: { star_align: "retained" } }));
     const node = await screen.findByTestId("living-node-star_align");
-    expect(within(node).getByText("REVIEWED")).toBeInTheDocument();
-    expect(within(node).getByText(/settled/)).not.toHaveTextContent("reviewed");
+    expect(node).not.toHaveTextContent(/reviewed/i);
+    expect(screen.getByTestId("node-footer-star_align")).not.toHaveTextContent("reviewed");
   });
 
   it("says when the drawn pipeline is outdated, and keeps drawing it", async () => {
@@ -115,14 +115,16 @@ describe("the live canvas", () => {
 describe("progress", () => {
   it("numbers the offer by where it stands in the plan", async () => {
     open(live());
-    const card = await screen.findByRole("region", { name: /step 4 of 5/i });
-    expect(within(card).getByText(/Step 4 of 5 — SAMTOOLS_SORT/)).toBeInTheDocument();
-    expect(screen.getByTestId("living-status")).toHaveTextContent("3 of 5 steps reviewed");
+    const card = await screen.findByRole("region", { name: "Step 4 · SAMTOOLS_SORT" });
+    expect(within(card).getByRole("heading")).toHaveTextContent("Step 4 · SAMTOOLS_SORT");
+    // The card says its place itself; nothing above it repeats that.
+    expect(screen.queryByText(/on the canvas already/)).toBeNull();
+    expect(screen.getByTestId("living-status")).toHaveTextContent("step 4 of 5");
   });
 
   it("asks to review a step again when it was reviewed before", async () => {
     open(live({ progress: { reviewed: 2, total: 5, active: { position: 4, total: 5, again: true } } }));
-    expect(await screen.findByText(/Review step 4 of 5 again — SAMTOOLS_SORT/)).toBeInTheDocument();
+    expect(await screen.findByText("Review step 4 again · SAMTOOLS_SORT")).toBeInTheDocument();
   });
 
   it("keeps a decided step's original place, and invents none for an older one", async () => {
@@ -131,8 +133,8 @@ describe("progress", () => {
       offer: "step", progress: { position: 2, total: 5, again: false } } : undefined }));
     open(live({ history }));
     await screen.findByTestId("living-node-star_align");
-    const log = screen.getByRole("list", { name: "decisions and conversation" });
-    expect(within(log).getByText(/step 2 of 5/)).toBeInTheDocument();
+    const log = screen.getByRole("list", { name: "the plan" });
+    expect(within(log).getByText("step 2")).toBeInTheDocument();
     expect(within(log).queryByText(/step 1\b/)).toBeNull();
   });
 
@@ -147,8 +149,9 @@ describe("progress", () => {
     open(live({ history: [...FAKE_SESSION.history, offer("stale", "subread_featurecounts"),
                           offer("accepted", "featurecounts_again")] }));
     await screen.findByTestId("living-node-star_align");
-    const log = screen.getByRole("list", { name: "decisions and conversation" });
-    const [went, decided] = within(log).getAllByText(/step 5 of 5/);
+    const log = screen.getByRole("list", { name: "the plan" });
+    // The first two are the decided rows; the step still to come at 5 follows them.
+    const [went, decided] = within(log).getAllByText(/^step 5/);
     expect(went.closest("li")).toHaveTextContent("answers changed");
     expect(went.closest("li")).not.toHaveTextContent(/open|withdrawn/);
     expect(decided).toHaveTextContent("· open");

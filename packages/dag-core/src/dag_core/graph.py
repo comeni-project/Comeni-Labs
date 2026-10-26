@@ -1,10 +1,7 @@
-"""The neutral shape a layout takes.
+"""Domain-neutral input shapes for graph layout.
 
-**Nothing here knows what a pipeline is.** A node has an id, a stripe and its ports in the
-order they are drawn; an edge joins two ports. Mendel's adapter builds one from a `PipelineIR`
-and Wiener's from a `Pipeline`, and the arithmetic next door never learns the difference.
-
-`docs/design/wiener.md` §9.1.1.
+Adapters provide node identifiers, ordered ports, display tiers, and edges. The layout module
+uses only these values and does not depend on pipeline or execution models.
 """
 
 from __future__ import annotations
@@ -16,16 +13,10 @@ from dataclasses import dataclass
 class Node:
     id: str
     inputs: tuple[str, ...] = ()
-    """Port names, in the order the canvas draws them.
-
-    **The adapter decides whether these are the DECLARED ports or the wired ones**, which is
-    where that question belongs: the layout cannot know what a contract declares, and getting
-    it wrong is what put a wire 39 pixels from its chevron in Plan 3C.
-    """
+    """Input port names in display order, as selected by the adapter."""
     outputs: tuple[str, ...] = ()
     tier: int = 0
-    """A stripe the renderer draws on the node. Mendel puts the resolution tier here; Wiener
-    puts the tier the step's decision was settled at. The layout only passes it through."""
+    """Renderer metadata passed through unchanged on the placed node."""
 
 
 @dataclass(frozen=True)
@@ -35,7 +26,7 @@ class Edge:
     to_node: str
     to_port: str
     type_id: str = ""
-    """What flows along it, as a label. The layout places it and never reads it."""
+    """Optional edge label passed through unchanged on the routed wire."""
 
 
 @dataclass(frozen=True)

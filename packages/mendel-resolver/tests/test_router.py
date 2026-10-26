@@ -1,3 +1,5 @@
+"""Backward routing, insertion, cycles, ties, and deterministic failure behavior."""
+
 import pathlib
 
 import pytest

@@ -1,9 +1,4 @@
-"""Replaying recorded decisions instead of re-asking.
-
-Federation §4.3: load a curated Goal, change one thing, and every untouched decision
-replays from its record — only what you touched can move. Invariant 9 already says records
-are replayed rather than re-asked; this is the class that does it.
-"""
+"""Applicable records replay; changed, stale, and orphaned decisions remain visible."""
 
 import pytest
 from comeni_core.plan.decision import ParamAsked, ParamDecision

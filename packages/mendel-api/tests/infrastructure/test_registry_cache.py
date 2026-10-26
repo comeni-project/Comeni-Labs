@@ -56,7 +56,7 @@ def test_a_changed_registry_invalidates_it(monkeypatch, broken_registry_copy):
 def test_the_services_read_through_it(monkeypatch):
     """Six call sites loaded a registry, and one module did it twice. A cache nothing reads is
     a cache that measures nothing — this is what makes the endpoint numbers real."""
-    from mendel_api.services import contracts, sources
+    from mendel_api.services import lookup
 
     calls = []
     real = registry.layers.load
@@ -68,9 +68,9 @@ def test_the_services_read_through_it(monkeypatch):
     monkeypatch.setattr(registry.layers, "load", counting)
     registry._load.cache_clear()
 
-    contracts.listing()
-    sources.catalogue()
-    contracts.listing()
+    lookup.type_("fastq.reads")
+    lookup.type_("alignment.bam")
+    lookup.type_("fastq.reads")
 
     assert len(calls) == 1, f"three service calls loaded the registry {len(calls)} times"
     registry._load.cache_clear()

@@ -1,8 +1,4 @@
-"""Closed choice, over `generate`.
-
-The value a model returns must be one it was offered. That is the half of model output that
-can be checked mechanically, and it is why the forge attempts candidate-bearing holes only.
-"""
+"""Closed-choice helpers and their local and provider-enforced membership checks."""
 
 import json
 
@@ -98,8 +94,7 @@ def test_choose_many_caps_its_rationale_too() -> None:
 
 
 def test_no_options_is_none_rather_than_a_free_answer() -> None:
-    """A hole with no candidates is free text, and #70 gates it. Asking anyway would be the
-    one thing this design says it does not do."""
+    """An empty closed set cannot become an unchecked generation request."""
     assert choose_one(_client('{"value": "x", "why": "w"}'), "q", [], []) is None
     assert choose_many(_client('{"values": ["x"], "why": "w"}'), "q", [], []) is None
 
@@ -107,12 +102,14 @@ def test_no_options_is_none_rather_than_a_free_answer() -> None:
 def test_no_options_does_not_reach_the_model_at_all() -> None:
     """Declining after asking would still have sent the prose. This is why it returns early."""
     transport = Fixed('{"value": "x", "why": "w"}')
-    choose_one(Client(ACCESS, transport=transport), "q", [], [])
+    client = Client(ACCESS, transport=transport)
+    choose_one(client, "q", [], [])
+    choose_many(client, "q", [], [])
     assert transport.prompts == []
 
 
 def test_choose_one_holds_the_value_to_the_options_in_the_format():
-    """#194: the options are the allowed list, enforced where the server can."""
+    """A format-capable provider receives the allowed values in its schema."""
 
     class Enforcing:
         enforces_formats = True

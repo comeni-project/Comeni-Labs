@@ -1,4 +1,4 @@
-"""Settings: declarations, and the reasons a setting is greyed out (spec §4, §5)."""
+"""Setting declarations, value validation, sections, and unavailable reasons."""
 
 import pytest
 from comeni_core.settings.declare import FROM_ENV, EnvItem, IllegalValue, Kind, Setting, Where
@@ -28,7 +28,7 @@ def test_every_reason_says_something_a_person_can_read():
 
 
 def test_the_list_is_closed():
-    """A fifth kind is a change to `reasons.py`, never a string somebody invents."""
+    """Unavailable reasons use a closed discriminator vocabulary."""
     assert REASON_KINDS == ("pinned", "designed", "needs", "read_only_here")
     with pytest.raises(ValidationError):
         TypeAdapter(Reason).validate_python({"kind": "because", "why": "x"})
@@ -67,6 +67,11 @@ def test_a_choice_accepts_only_its_options():
 def test_a_default_outside_the_options_cannot_be_declared():
     with pytest.raises(ValidationError, match="default"):
         _pacing(default="sometimes")
+
+
+def test_designed_metadata_names_an_existing_option():
+    with pytest.raises(ValueError, match="do not exist"):
+        _pacing(designed={"later": "not built yet"})
 
 
 def test_help_is_required_and_says_something():

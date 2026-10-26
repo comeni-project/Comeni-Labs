@@ -1,7 +1,7 @@
-"""Every fixture case reproduces its golden report byte for byte (spec §4).
+"""Require every inspection fixture to reproduce its golden report byte for byte.
 
-The goldens are the contract a faster implementation must meet: run the same cases against its
-command with `harness.run_case(case, command=[...])`.
+An alternative implementation can run the same cases through
+``harness.run_case(case, command=[...])`` and must produce identical reports.
 """
 
 import gzip
@@ -58,9 +58,7 @@ def test_the_process_gives_the_same_report_as_in_process():
 
 
 def test_the_speed_budget():
-    """A 4 MB gzipped FASTQ head in under a second (spec §4): says when Python stops being
-    enough. **A real 4 MB head**: the first version's gzip was 2 MB, so its slice cut nothing,
-    and it never met the unpacked cap an ordinary head reaches (issue 221)."""
+    """Process a genuinely truncated 4 MB compressed head within the performance budget."""
     rng = random.Random(134)
     bases = bytes.maketrans(bytes(range(256)), b"ACGT" * 64)
     quals = bytes.maketrans(bytes(range(256)), bytes(range(35, 75)) * 6 + bytes(range(35, 51)))

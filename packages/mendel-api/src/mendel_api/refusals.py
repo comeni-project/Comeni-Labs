@@ -1,11 +1,10 @@
 """What a refusal looks like on the wire, and in the schema.
 
 **One place, because two transports over one operation must not disagree.**
-A coded `ValueError` becomes `422 {"detail": "MF0003: ..."}`. That shape came from the forge's
-own transport, which the CLI still matches — a client that learned the forge's contract must not
-need a second one. (That transport was deleted in phase 6; the convention it set outlived it.)
+A coded `ValueError` becomes `422 {"detail": "MI0200: ..."}`. The shape came from the old
+forge's transport; the convention outlived it.
 
-**What is added here is the schema half.** The forge's handler is correct and invisible: nothing
+**What is added here is the schema half.** A bare handler is correct and invisible: nothing
 in its OpenAPI document says a 422 can carry a coded string, so a generated client types the
 refusal as FastAPI's validation shape and the UI renders `undefined` for the one message a
 curator needs. `REFUSES` declares it, and `test_openapi.py` holds every operation to it.

@@ -1,10 +1,4 @@
-"""Where a value comes from (spec §3): default → installation → [lab, person later], with the
-environment above all of them as a lock.
-
-**Every resolved value carries its source**, the way every value in a pipeline says which tier
-settled it. And **a locked value always carries its reason**: the only ways to be locked are
-listed below, and each one returns a `Reason` from the closed list.
-"""
+"""Resolve setting values from defaults, installation storage, and environment locks."""
 
 from collections.abc import Mapping
 from enum import StrEnum
@@ -15,7 +9,7 @@ from comeni_core.settings.declare import IllegalValue, Kind, Setting
 from comeni_core.settings.reasons import Designed, Needs, Pinned, Reason
 
 SETTINGS_KEY_ENV = "COMENI_SETTINGS_KEY"
-"""The key that seals secrets stored from the menu. Its absence greys every secret field."""
+"""Environment key used to seal stored secrets; absence disables secret editing."""
 
 
 class Source(StrEnum):
@@ -23,7 +17,7 @@ class Source(StrEnum):
     INSTALLATION = "installation"
     ENVIRONMENT = "environment"
     REPORTED = "reported"
-    """Computed by the server on each read — *where each purpose goes*, versions, health."""
+    """Computed by the serving process on each read."""
 
 
 class Resolved(BaseModel):
@@ -43,13 +37,11 @@ def resolve(
     secrets_available: bool = True,
     secrets_need: str | None = None,
 ) -> Resolved:
-    """The value a setting has right now, and why.
+    """Return the current value, source, lock state, and optional lock reason.
 
-    **`Designed` is asked first**: a setting nothing reads must not say *pinned by .env*, or the
-    menu claims a control works. **An illegal env value locks the default** rather than raising,
-    because a typo in `.env` must not take the menu down; the reason names the variable. **An
-    illegal stored value falls through to the default**: it is a value an older declaration
-    allowed, and the person can choose again.
+    Designed settings remain unavailable even when pinned. A valid environment value has highest
+    precedence and locks the result. Invalid environment input locks the default with a diagnostic;
+    invalid stored input falls back to the current default so it can be replaced.
     """
     default = Resolved(value=setting.default, source=Source.DEFAULT, locked=False)
     if isinstance(setting.unavailable, Designed):

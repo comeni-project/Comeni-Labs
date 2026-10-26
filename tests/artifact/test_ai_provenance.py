@@ -1,14 +1,4 @@
-"""A130 — the artifact can state that no model was consulted.
-
-The design audit's row: *the artifact cannot state that no model was consulted; `resolved_by`
-and `confidence` are the resolver's claims about itself.* Under the engine decision of
-2026-08-14, where the primary operator is an AI, that stops being a legibility gap and becomes a
-gap in the protection profiles — `guarded` and `sealed` both require attribution.
-
-Two fields, because the per-value answer and the "none" answer need different evidence.
-`ValueSource.MODEL` is the per-value answer and is a *claim*; `Pipeline.ai.available` is a fact
-about how the build was configured, and is what makes "none" trustworthy.
-"""
+"""AI availability, use, and value-level provenance must tell a consistent story."""
 
 import pathlib
 

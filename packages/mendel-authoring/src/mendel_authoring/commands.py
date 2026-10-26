@@ -1,11 +1,8 @@
-"""What a person or a job does to an authoring session, typed (spec §11.3 of the consultant
-build). **Plain values only**, so the core holds no shell type: a goal edited on the card is its
-JSON, a sample's files are bytes, a model's reply its dump. The shell's recorder for each
-(`mendel_api.services.session.records`) validates what it needs.
+"""Typed commands submitted by people and background jobs to an authoring session.
 
-`takes` names the arrows of the diagram a command's recorder may take; the binding test holds a
-recorder to it. Field order matches the parameters of the function each replaces, which is what
-let the tests' call sites be rewritten by a script (plan 1c, Task 10)."""
+Commands contain plain values so the authoring core has no dependency on API, database, queue, or
+provider types. Each command's ``takes`` set declares which protocol arrows its recorder may use.
+"""
 
 from dataclasses import dataclass
 from typing import ClassVar
@@ -17,6 +14,15 @@ _NONE: frozenset[Command] = frozenset()
 
 @dataclass(frozen=True, slots=True)
 class OpenSession:
+    draft_id: str
+    who: str
+    takes: ClassVar[frozenset[Command]] = _NONE
+
+
+@dataclass(frozen=True, slots=True)
+class OpenDrawn:
+    """A draft's conversation, opened with nothing said if it has none (one builder, #395)."""
+
     draft_id: str
     who: str
     takes: ClassVar[frozenset[Command]] = _NONE
@@ -256,7 +262,7 @@ class CorrectFact:
     expected_draft_revision: int
     expected_session_version: int
     kind: str = "measurement"
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT, Command.FORK_CORRECTION})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT})
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,7 +275,7 @@ class AnswerDisagreement:
     expected_draft_revision: int
     expected_session_version: int
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.ANSWER_DISAGREEMENT, Command.FORK_CORRECTION}
+        {Command.ANSWER_DISAGREEMENT}
     )
 
 
@@ -283,7 +289,7 @@ class ReleaseProducer:
     expected_draft_revision: int
     expected_session_version: int
     takes: ClassVar[frozenset[Command]] = frozenset(
-        {Command.RELEASE_PRODUCER, Command.FORK_CORRECTION}
+        {Command.RELEASE_PRODUCER}
     )
 
 
@@ -299,16 +305,12 @@ class Change:
     expected_decision_revision: int
     expected_draft_revision: int
     expected_session_version: int
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT, Command.FORK_CORRECTION})
-
-
-@dataclass(frozen=True, slots=True)
-class ForkCorrection(CorrectFact):
-    takes: ClassVar[frozenset[Command]] = frozenset({Command.FORK_CORRECTION})
+    takes: ClassVar[frozenset[Command]] = frozenset({Command.CORRECT_FACT})
 
 
 COMMANDS: tuple[type, ...] = (
     OpenSession,
+    OpenDrawn,
     Begin,
     Say,
     AnswerTurn,
@@ -338,5 +340,4 @@ COMMANDS: tuple[type, ...] = (
     Change,
     AnswerDisagreement,
     ReleaseProducer,
-    ForkCorrection,
 )

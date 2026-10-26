@@ -1,3 +1,5 @@
+"""Rule parsing, stacking, validation, matching, provenance, and domain contracts."""
+
 import pathlib
 
 import pytest
@@ -6,7 +8,7 @@ from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal
 from mendel_resolver.premises import Premise, PremiseOrigin
-from mendel_resolver.rules import RuleTable, RuleValidationError
+from mendel_resolver.rules import RuleTable, RuleValidationError, _comparison
 from pydantic import ValidationError
 
 _KIND_OF_DIR = {
@@ -44,7 +46,7 @@ def _declared(path, body: str) -> str:
 
 
 def P(**facts) -> dict[str, Premise]:
-    """A premise set, which is what `when` reads since Plan 1.15 Task 1."""
+    """Build the premise mapping consumed by ``when`` predicates."""
     return {
         key: Premise(id=key, value=value, origin=PremiseOrigin.MEASURED)
         for key, value in facts.items()
@@ -176,6 +178,11 @@ decisions:
         )
         is None
     )
+
+
+def test_a_comparison_with_a_non_numeric_operand_is_refused():
+    with pytest.raises(RuleValidationError, match="not a number"):
+        _comparison(">= many")
 
 
 def test_a_rule_for_a_parameter_no_contract_declares_will_not_load(world):
@@ -530,7 +537,7 @@ decisions:
         _rules(two_roles, TWO_TOOLS)
 
 
-# --- Task 9: exhaustiveness over a declared domain (A124) --------------------------------
+# Exhaustiveness over a declared domain.
 
 
 def _decision(rows: str, *, target: str = "{effect: implementation, of: alignment}") -> str:
@@ -641,7 +648,7 @@ def test_rows_over_several_premises_are_not_checked_for_completeness(two_roles):
     assert len(table.decisions) == 1
 
 
-# --- Task 10: a param declares its domain, and `then` is type-checked (A118) --------------
+# Parameter domains and type-checking of ``then`` values.
 
 
 def test_a_then_outside_the_params_domain_is_refused(two_roles):

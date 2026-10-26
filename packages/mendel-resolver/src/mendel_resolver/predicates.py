@@ -1,14 +1,8 @@
-"""One evaluator, shared by load-time validation and runtime matching.
+"""Evaluate rule predicates consistently at validation and resolution time.
 
-Two copies of a predicate is how a rule passes validation and then fails to fire, which is why
-`_comparison` was one function in the old format and why this is one here. The old pair was not
-hypothetical: A121 is a matcher that ran every literal through `float()`, so `!= unstranded` was
-refused as a malformed number — a diagnostic instructing the author to make a categorical
-comparison numeric.
-
-Imports `Premise` only for type checking. `premises.build_premises` calls `matches`, so a
-runtime import in the other direction is a cycle; nothing here reads a `Premise` beyond whether
-it exists and what its `value` is.
+Predicates support equality, ordered comparisons, membership, negation, and explicit presence or
+absence. ``Premise`` is imported only for type checking because premise construction calls back
+into this module.
 """
 
 import operator
@@ -40,13 +34,11 @@ class PredicateError(ValueError):
 
 
 def tier_of_row(when: dict[str, Any]) -> Tier:
-    """The tier this row exits at, determined by the rule **text** rather than by the data.
+    """Return the tier implied by the row's declared conditions.
 
     A row earns tier 3 only by testing a premise *positively*. `when: {}` is a catch-all and
     `when: {x: absent}` is a convention about what to assume in a gap — both produce
-    `value + citation`, which is tier 2's shape and not tier 3's. Labelling them tier 3 is
-    what made the tier stop meaning anything: `CLAUDE.md` says tier 3 is *"the machinery
-    worked, check the premise"*, and a catch-all offers no premise to check.
+    `value + citation`, which is tier 2's shape and not tier 3's.
 
     `present` and `absent` look like a pair and are not one. `present` is a test on the data —
     something measured this — so a row conditioned on it did tier-3 work. `absent` is a test on
@@ -95,10 +87,8 @@ def _one(fact: str, expected: Any, premise: "Premise | None") -> bool:
 def _comparable(fact: str, actual: Any, literal: str, expected: str) -> tuple[Any, Any]:
     """The two operands of a comparison, or a refusal naming why there are not two.
 
-    A cohort is refused rather than compared. `read_length` is `per_sample`, so a profile may
-    carry `[150, 100, 150]`, and `[150, 100, 150] >= 70` is a `TypeError` raised from inside
-    the resolver with no rule named in it. Aggregating first is what `derives:` is for, and the
-    diagnostic says so — a refusal names the offending thing *and* what would have been right.
+    A cohort is refused rather than compared because a rule must explicitly declare how to reduce
+    per-sample values before applying a scalar comparison.
 
     The numeric conversion is attempted and fallen back on rather than decided by the
     measurement's `kind`, because `matches` deliberately does not take a registry: it is called

@@ -166,6 +166,5 @@ emits nothing.
 ## See also
 
 - [Writing a contract](../../how-to/registry/add-tool.md) — the walkthrough
-- [Using the forge](../../how-to/registry/review-proposals.md) — how a contract gets drafted and reviewed
 - [Vocabulary schema](vocabulary-schema.md) — the types these ports name
 - [Routing](../../explanation/tool-selection.md) — how one of these gets picked

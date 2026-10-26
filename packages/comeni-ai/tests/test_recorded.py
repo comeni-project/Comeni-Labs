@@ -1,8 +1,4 @@
-"""Recorded fixtures, so a contract test can run offline and forever.
-
-A recording is keyed by a digest of the prompt, not by call order: a test that adds a call at
-the front must not silently re-point every later assertion at the wrong answer.
-"""
+"""Digest-addressed recorded fixtures for deterministic offline contract tests."""
 
 import json
 from pathlib import Path
@@ -66,4 +62,3 @@ def test_the_committed_fixture_drives_a_real_choose() -> None:
     assert picked is not None
     assert picked.value == "qc_per_sample"
     assert "per-sample" in picked.why
-

@@ -1,8 +1,9 @@
 import { useId, useState } from "react";
 
 import type { AuthoringProposal } from "../../../api/types";
-import { processName, stepWords, type OfferProgress } from "../format";
-import { BlockFrame, Primary, Secondary } from "./parts";
+import { useTiers } from "../../useTiers";
+import { processName, type OfferProgress } from "../format";
+import { Primary, Secondary } from "./parts";
 
 /** The one step on offer: what it does, why it is here, and the real options for it.
  *
@@ -12,6 +13,11 @@ import { BlockFrame, Primary, Secondary } from "./parts";
  *
  * Hover *and* keyboard focus preview an option on the canvas; the preview is enrichment and never
  * the only way to learn what an option is — its label and note are on the card.
+ *
+ * **Drawn as the *Build* board draws it**, with two departures. The tier chip is the served
+ * vocabulary's name (*forced* where the board says *required*): tier words are declared once and
+ * read, never typed here. And there is no *Skip*: rejecting a step left the protocol (the walk's
+ * projection has no hole to leave; removing a step is a structural edit after the walk).
  */
 export function StepProposalCard({
   proposal,
@@ -53,6 +59,7 @@ export function StepProposalCard({
   const [told, setTold] = useState("");
   /** A fact with declared values is picked, not typed (issue 341). */
   const [pick, setPick] = useState<string | number | boolean | null>(null);
+  const tiers = useTiers();
   if (block.kind !== "step_proposal") return null;
 
 
@@ -78,39 +85,38 @@ export function StepProposalCard({
   const accept = () => onAccept(chosen, fact ? answer ?? undefined : undefined);
   const unresolved = block.unresolved_settings ?? [];
 
+  // **The card leads in plain words** (issue 387): the tool's curated description when there is
+  // one, and the engine's reason only when there is not. The brief does not say the lead again.
+  const lead = block.brief?.does?.text ?? block.reason;
+  const place = !progress ? "Step" : progress.again ? `Review step ${progress.position} again` : `Step ${progress.position}`;
+  const title = `${place} · ${processName(block.node)}`;
+
   return (
-    <BlockFrame
-      label={`${stepWords(progress).toLowerCase()}: ${processName(block.node)}`}
-      title={`${stepWords(progress)} — ${processName(block.node)}`}
-      aside={`tier ${block.tier}`}
-      actions={
-        <>
-          <Primary data-testid="accept-step" disabled={busy || (fact !== null && (values ? pick === null : told.trim() === ""))}
-                   onClick={accept}>
-            {busy ? "Working…" : chosen === "keep" ? "Continue" : "Change it"}
-          </Primary>
-          {onCorrectAnswers && <Secondary onClick={onCorrectAnswers} disabled={busy}>
-            Correct current answers
-          </Secondary>}
-          <Secondary data-testid="explain-step" onClick={onExplain}>
-            Show me why
-          </Secondary>
-        </>
-      }
-    >
+    <section aria-label={title} className="rounded-panel border px-[16px] pt-[14px] pb-[16px]"
+             style={{ borderColor: "var(--line)", background: "var(--surface-2)" }}>
+      <header className="flex items-baseline gap-[10px] mb-[8px]">
+        <h3 className="m-0 text-[15px] font-semibold text-ink min-w-0 truncate" title={title}>{title}</h3>
+        <span data-testid="step-tier" className="ml-auto shrink-0 rounded-full border px-[9px] py-[1px] text-[11.5px]"
+              style={CHIP[block.tier] ?? CHIP[1]}>
+          {/* **Never "measured" for a rule's step** (issue 387, as issue 268 settled for the
+              transcript): tier 3's premise may be measured, typed or read by a model, so the chip
+              says what tier 3 asks of a reader — its served group — rather than its name. */}
+          {(block.tier === 3 ? tiers.group(3) : tiers.name(block.tier)).toLowerCase()}
+        </span>
+      </header>
       <button type="button" data-testid="select-step" onClick={onSelect}
-              className="block w-full text-left bg-transparent border-0 p-0 cursor-pointer
+              className="block w-full text-left bg-transparent border-0 p-0 cursor-pointer rounded-control
                          focus-visible:shadow-[var(--ring)]">
-        <span className="block m-0 mb-2 text-[13px] leading-[1.55] text-ink">{block.reason}</span>
-        <span className="block m-0 mb-3 font-data text-[10.5px] text-ink-3">
+        <span className="block m-0 mb-[8px] text-[13.5px] leading-[1.55] text-ink">{lead}</span>
+        <span className="block m-0 mb-[12px] font-data text-[11px] text-ink-3">
           {(block.consumes ?? []).join(", ") || "nothing"} → {block.produces.join(", ") || "nothing"}
         </span>
       </button>
-      {block.brief && <Brief brief={block.brief} />}
+      {block.brief && <Brief brief={block.brief} lead={lead} />}
       {(showGapDetails ? (block.gaps ?? []).length : unresolved.length) > 0 && (
         <div data-testid="step-gaps" className="mb-3 px-[10px] py-2 border"
              style={{ borderColor: "var(--line-2)" }}>
-          <p className="m-0 mb-1 font-data text-[10px] tracking-[.12em] uppercase text-ink-2">
+          <p className="m-0 mb-1 text-label text-ink-2">
             Registry information is incomplete
           </p>
           {showGapDetails ? (
@@ -142,15 +148,15 @@ export function StepProposalCard({
               data-testid={`option-${option.id}`}
               onMouseEnter={() => onPreview(option.id, "temporary")}
               onMouseLeave={() => onPreview(null, "temporary")}
-              className="flex items-start gap-[9px] px-[10px] py-2 mb-[6px] border cursor-pointer
-                         focus-within:shadow-[0_0_0_1px_color-mix(in_oklab,var(--link)_30%,transparent)]"
+              className="flex items-start gap-[10px] px-[12px] py-[10px] mb-[8px] border rounded-button cursor-pointer
+                         focus-within:shadow-[var(--ring)]"
               style={{
-                borderColor: picked ? "var(--link-line)" : "var(--line)",
-                background: picked ? "var(--paper-2)" : "transparent",
+                borderColor: picked ? "var(--now)" : "var(--line-2)",
+                background: picked ? "var(--now-soft)" : "var(--surface)",
               }}
             >
-              {/* The native radio stays, for the keyboard and a screen reader; the artboard's square
-                  dot is what is drawn. A circle beside square cards was the first render's tell. */}
+              {/* The native radio stays, for the keyboard and a screen reader; the board's ring is
+                  what is drawn. */}
               <input
                 type="radio"
                 name={group}
@@ -163,22 +169,21 @@ export function StepProposalCard({
               />
               <span
                 aria-hidden
-                className="mt-[3px] shrink-0 w-[9px] h-[9px] border"
+                className="mt-[2px] shrink-0 w-[16px] h-[16px] rounded-full border"
                 style={{
-                  borderColor: picked ? "var(--link)" : "var(--port-line)",
-                  background: picked ? "var(--link)" : "transparent",
-                  boxShadow: picked ? "inset 0 0 0 2px var(--paper-2)" : undefined,
+                  borderColor: picked ? "var(--now)" : "var(--line-2)",
+                  background: picked ? "radial-gradient(circle, var(--now) 0 4px, var(--surface) 4.5px)" : "var(--surface)",
                 }}
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-3">
-                  <span className="font-data text-[11px] text-ink">{option.label}</span>
+                  <span className="font-data text-[12.5px] font-semibold text-ink min-w-0 break-all">{option.label}</span>
                   {option.recommended && (
-                    <span className="ml-auto font-data text-[9.5px] text-link">recommended</span>
+                    <span className="ml-auto shrink-0 text-[11.5px] font-semibold text-now-ink">suggested</span>
                   )}
                 </span>
                 {option.note && option.id !== "keep" && (
-                  <span className="block mt-1 text-[12px] text-ink-2">{option.note}</span>
+                  <span className="block mt-[3px] text-[12.5px] leading-[1.5] text-ink-2">{option.note}</span>
                 )}
               </span>
               {previewable.includes(option.id) && (
@@ -191,11 +196,11 @@ export function StepProposalCard({
                     e.preventDefault();
                     onPreview(option.id, "pinned");
                   }}
-                  className="shrink-0 self-center font-data text-[10px] px-2 py-[2px] bg-transparent
-                             text-ink-2 border cursor-pointer focus-visible:shadow-[var(--ring)]"
-                  style={{ borderColor: pinned === option.id ? "var(--link)" : "var(--line-2)" }}
+                  className={`shrink-0 self-center text-[12px] p-0 bg-transparent border-0 underline
+                              underline-offset-2 cursor-pointer rounded-control focus-visible:shadow-[var(--ring)]
+                              ${pinned === option.id ? "text-now-ink font-semibold" : "text-now-ink"}`}
                 >
-                  Preview
+                  {pinned === option.id ? "Previewing" : "Preview"}
                 </button>
               )}
             </label>
@@ -208,7 +213,7 @@ export function StepProposalCard({
             <label key={String(value)}
                    className="flex items-center gap-[6px] px-[10px] py-1 border cursor-pointer font-data
                               text-[11px] text-ink focus-within:shadow-[var(--ring)]"
-                   style={{ borderColor: pick === value ? "var(--link)" : "var(--line-2)" }}>
+                   style={{ borderColor: pick === value ? "var(--now)" : "var(--line-2)" }}>
               <input type="radio" name={`${group}-${fact}`} className="sr-only"
                      aria-label={valueWords(value)} checked={pick === value}
                      onChange={() => setPick(value)} />
@@ -219,7 +224,7 @@ export function StepProposalCard({
       )}
       {fact && !values && (
         <label className="block mb-2 text-[12px] text-ink-2">
-          <span className="block mb-1 font-data text-[10px] tracking-[.08em] uppercase text-ink-3">
+          <span className="block mb-1 text-label text-ink-3">
             {fact}
           </span>
           <input aria-label={fact} value={told} onChange={(e) => setTold(e.target.value)}
@@ -238,9 +243,29 @@ export function StepProposalCard({
           ))}
         </ul>
       )}
-    </BlockFrame>
+      <div className="flex flex-wrap items-center gap-[8px] mt-[12px]">
+        <Primary data-testid="accept-step" disabled={busy || (fact !== null && (values ? pick === null : told.trim() === ""))}
+                 onClick={accept}>
+          {busy ? "Working…" : fact ? "Use this answer" : "Add it"}
+        </Primary>
+        <Secondary data-testid="explain-step" onClick={onExplain}>
+          Why this one?
+        </Secondary>
+        {onCorrectAnswers && <Secondary onClick={onCorrectAnswers} disabled={busy}>
+          Correct current answers
+        </Secondary>}
+      </div>
+    </section>
   );
 }
+
+/** The tier chip in its meaning's colour: forced and convention are settled, so outlined. */
+const CHIP: Record<number, React.CSSProperties> = {
+  1: { borderColor: "var(--line-2)", color: "var(--ink-2)", background: "var(--surface)" },
+  2: { borderColor: "var(--line-2)", color: "var(--ink-2)", background: "var(--surface)" },
+  3: { borderColor: "transparent", color: "var(--measured-ink)", background: "var(--measured-soft)" },
+  4: { borderColor: "transparent", color: "var(--needs-you-ink)", background: "var(--needs-you-soft)" },
+};
 
 const FACT = "fact_";
 
@@ -258,21 +283,22 @@ function typed(text: string): string | number {
 
 type StepBrief = NonNullable<Extract<AuthoringProposal["block"], { kind: "step_proposal" }>["brief"]>;
 
-/** The card's four fields (spec §4.2), each line as the engine wrote it — part 5 designs them. */
-function Brief({ brief }: { brief: StepBrief }) {
-  const rows: [string, { text: string }[]][] = [
+/** The card's four fields (spec §4.2), each line as the engine wrote it — part 5 designs them.
+ *  A line the card already leads with is not said twice. */
+function Brief({ brief, lead }: { brief: StepBrief; lead: string }) {
+  const rows: [string, { text: string }[]][] = ([
     ["What it does", brief.does ? [brief.does] : []],
     ["Why it's here", brief.why],
     ["What it makes", brief.makes],
     ["Check", brief.check ?? []],
-  ];
+  ] as [string, { text: string }[]][]).map(([label, lines]) => [label, lines.filter((line) => line.text !== lead)]);
   return (
     <dl data-testid="step-brief" className="m-0 mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
       {rows
         .filter(([, lines]) => lines.length > 0)
         .map(([label, lines]) => (
           <div key={label} className="contents">
-            <dt className="font-data text-[10px] tracking-[.08em] uppercase text-ink-3 pt-[2px]">
+            <dt className="text-label text-ink-3 pt-[2px]">
               {label}
             </dt>
             <dd className="m-0 text-[12.5px] leading-[1.5] text-ink-2">

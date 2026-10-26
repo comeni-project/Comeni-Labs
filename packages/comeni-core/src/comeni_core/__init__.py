@@ -1,12 +1,7 @@
-"""Shared data model for Comeni Labs: contracts, vocabularies, measurements, IR.
+"""Stable public model surface for contracts, goals, review, and pipeline IR.
 
-This package is **pure**: no web framework, no HTTP client, no model library. That is
-enforced by a closed import allowlist in `tests/guards/test_purity.py`, which covers the standard
-library and the dynamic import forms as well as third-party names. If a change here seems
-to need one of those, the design is wrong rather than the guard.
-
-It keeps the platform name rather than the product name because its IR is the interface
-the execution layer will consume.
+The package is pure: framework, network, model-provider, and persistence dependencies belong in
+consumer packages. ``__all__`` is the compatibility surface used across Mendel and Wiener.
 """
 
 from comeni_core.declared.contract import (
@@ -38,7 +33,6 @@ from comeni_core.egress.boundaries import (
     BoundaryFlow,
     payloads_for,
 )
-from comeni_core.egress.forge_review import ForgeReviewRequest, ReviewRole, ReviewTurn
 from comeni_core.egress.repair import ErrorCategory, GateFailure, RepairRequest
 from comeni_core.egress.resolution import AmbiguityRequest
 from comeni_core.goal.asked import Constraints, Goal, GoalInput, ParamOverride
@@ -85,7 +79,6 @@ __all__ = [
     "ErrorCategory",
     "Excerpt",
     "Finding",
-    "ForgeReviewRequest",
     "GateFailure",
     "Goal",
     "GoalInput",
@@ -121,8 +114,6 @@ __all__ = [
     "ResolvedValue",
     "review_level_for",
     "ReviewLevel",
-    "ReviewRole",
-    "ReviewTurn",
     "Tier",
     "UnknownMeasurementError",
     "UnknownStateError",

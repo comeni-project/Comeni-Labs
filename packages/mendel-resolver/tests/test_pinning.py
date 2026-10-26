@@ -1,3 +1,5 @@
+"""Rule-driven producer selection, unroutable pins, and ambiguity evidence."""
+
 import pathlib
 
 import pytest

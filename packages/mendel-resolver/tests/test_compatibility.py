@@ -1,11 +1,4 @@
-"""The index is an optimisation of `validate`'s answer, never a second opinion.
-
-The last test is the one that matters: it runs both over the whole registry and asserts they
-never disagree. If someone changes the verb and forgets the index, that fails here rather than
-lighting up a wire in the browser that the server will later refuse.
-
-`stack` comes from the conftest.
-"""
+"""Compatibility signatures and exhaustive agreement with graph validation."""
 
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from mendel_resolver.compatibility import index, signature

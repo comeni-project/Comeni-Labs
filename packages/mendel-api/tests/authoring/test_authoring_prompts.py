@@ -282,8 +282,8 @@ def test_a_prompt_id_that_does_not_exist_is_refused():
 
 def test_a_builder_prompt_is_not_reachable_as_a_forge_one():
     """Two packages, two directories, and the separation is the point: a prompt is loaded from
-    the directory its caller owns, so `mendel-forge` cannot serve a builder template and this
-    module cannot serve `forge.analysis.v1`."""
+    the directory its caller owns, so this module cannot serve another agent's
+    `forge.analysis.v1`."""
     with pytest.raises(UnknownPromptError):
         prompts.template("forge.analysis.v1")
 

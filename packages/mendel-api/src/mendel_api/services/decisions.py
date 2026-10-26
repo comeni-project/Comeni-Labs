@@ -16,13 +16,17 @@ from mendel_authoring.decisions import (
     ActorKind,
     Attribution,
     Decisions,
+    ExclusionChoice,
     FactDecision,
     FactOrigin,
     InputDecision,
     ParameterChoice,
     ProducerChoice,
+    RoleChoice,
+    SourceChoice,
     WantDecision,
 )
+from mendel_authoring.payloads import source_subject
 from sqlalchemy import select
 
 from mendel_api.db import session_scope
@@ -31,6 +35,8 @@ from mendel_api.models import (
     PipelineAskedRevision,
     PipelineDraft,
     PipelineEvidenceAccess,
+    PipelineExclusion,
+    PipelineExclusionRevision,
     PipelineFact,
     PipelineFactRevision,
     PipelineInput,
@@ -42,6 +48,10 @@ from mendel_api.models import (
     PipelineProducerRevision,
     PipelineReview,
     PipelineReviewRevision,
+    PipelineRole,
+    PipelineRoleRevision,
+    PipelineSource,
+    PipelineSourceRevision,
     PipelineWant,
     PipelineWantRevision,
 )
@@ -55,6 +65,10 @@ _FAMILIES = {
     "parameter": (PipelineParameter, PipelineParameterRevision),
     "review": (PipelineReview, PipelineReviewRevision),
     "asked": (PipelineAsked, PipelineAskedRevision),
+    # A person's structural intent (A1, the one-builder design).
+    "role": (PipelineRole, PipelineRoleRevision),
+    "exclusion": (PipelineExclusion, PipelineExclusionRevision),
+    "source": (PipelineSource, PipelineSourceRevision),
 }
 
 
@@ -370,6 +384,15 @@ def read(draft_id):
                 ParameterChoice(name=r.name, value=r.value)
                 for s, r in _current(db, draft_id, "parameter")
             ],
+            roles=[RoleChoice(role=r.role, absent=r.absent)
+                   for s, r in _current(db, draft_id, "role")],
+            exclusions=[
+                ExclusionChoice(site=Site(type_id=r.type_id, states=r.states),
+                                contract=r.contract, excluded=r.excluded)
+                for s, r in _current(db, draft_id, "exclusion")
+            ],
+            sources=[SourceChoice(consumer=r.consumer, port=r.port, producer=r.producer)
+                     for s, r in _current(db, draft_id, "source")],
         )
 
 
@@ -404,20 +427,26 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                 for p in decisions.producers
             ],
             "parameter": [(p.name, p.model_dump(mode="json")) for p in decisions.parameters],
+            "role": [(r.role, {"role": r.role, "absent": True}) for r in decisions.roles],
+            "exclusion": [
+                (exclusion_key(e.site, e.contract),
+                 {"type_id": e.site.type_id, "states": sorted(e.site.states),
+                  "contract": e.contract, "excluded": True})
+                for e in decisions.exclusions
+            ],
+            "source": [
+                (source_key(p.consumer, p.port),
+                 {"consumer": p.consumer, "port": p.port, "producer": p.producer})
+                for p in decisions.sources
+            ],
         }
         for family, values in families.items():
             included = {key for key, _ in values}
             for subject, revision in _current(db, draft_id, family):
                 if subject.subject_key not in included:
                     fields = {name: getattr(revision, name) for name in _FIELDS[family]}
-                    fields[
-                        {
-                            "input": "present",
-                            "want": "present",
-                            "producer": "contract",
-                            "parameter": "value",
-                        }[family]
-                    ] = False if family in ("input", "want") else None
+                    field, withdrawn = _WITHDRAWN[family]
+                    fields[field] = withdrawn
                     _write(
                         db, draft, family, subject.subject_key, fields, who=who, action="retract"
                     )
@@ -552,35 +581,6 @@ def history(draft_id, subject):
                         acknowledged_kind=access.acknowledged_kind,
                     )
                 )
-        if draft.forked_from:
-            inherited = history(draft.forked_from, subject)
-            inherited = [
-                dict(
-                    entry,
-                    current=False,
-                    inherited=True,
-                    source_draft_id=entry.get("source_draft_id", draft.forked_from),
-                )
-                for entry in inherited
-                if entry["seq"] <= draft.fork_sequence
-            ]
-            # Parent acknowledgements after the fork are not part of this snapshot.
-            for entry in inherited:
-                if entry.get("acknowledged_at") and entry["acknowledged_at"] > draft.fork_at:
-                    for key in (
-                        "acknowledged_as",
-                        "acknowledged_at",
-                        "acknowledged_by",
-                        "acknowledged_kind",
-                    ):
-                        entry[key] = None
-            parent_observations = {entry.get("observation_id") for entry in inherited}
-            result = [
-                entry
-                for entry in result
-                if entry["selected"] or entry.get("observation_id") not in parent_observations
-            ]
-            result = inherited + result
         return sorted(result, key=lambda entry: entry["seq"])
 
 
@@ -615,7 +615,21 @@ _FIELDS = {
     "want": ("type_id", "states", "present"),
     "producer": ("type_id", "states", "contract"),
     "parameter": ("name", "value"),
+    "role": ("role", "absent"),
+    "exclusion": ("type_id", "states", "contract", "excluded"),
+    "source": ("consumer", "port", "producer"),
 }
+
+_WITHDRAWN = {
+    "input": ("present", False),
+    "want": ("present", False),
+    "producer": ("contract", None),
+    "parameter": ("value", None),
+    "role": ("absent", False),
+    "exclusion": ("excluded", False),
+    "source": ("producer", None),
+}
+"""The field a retraction sets, and to what, per family."""
 
 
 def _release(draft_id, family, key, *, who, expected_revision=None):
@@ -624,14 +638,8 @@ def _release(draft_id, family, key, *, who, expected_revision=None):
         for subject, revision in _current(db, draft_id, family):
             if subject.subject_key == key:
                 fields = {name: getattr(revision, name) for name in _FIELDS[family]}
-                fields[
-                    {
-                        "input": "present",
-                        "want": "present",
-                        "producer": "contract",
-                        "parameter": "value",
-                    }[family]
-                ] = False if family in ("input", "want") else None
+                field, withdrawn = _WITHDRAWN[family]
+                fields[field] = withdrawn
                 return _write(db, draft, family, key, fields, who=who, action="retract").id
         raise ValueError(f"there is no current {family} choice for {key}")
 
@@ -739,9 +747,94 @@ def pin_producer(draft_id, site: Site, contract, *, who, actor_kind=ActorKind.PE
                  heard_seq=None, proposal_id=None):
     with session_scope() as db:
         draft = _draft(db, draft_id)
+        # **Pinning a tool withdraws its exclusion at that site** (A1): the later intent wins,
+        # and the two are never both applied.
+        _withdraw(db, draft, "exclusion", exclusion_key(site, contract), who=who,
+                  actor_kind=actor_kind)
         fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract}
         return _write(db, draft, "producer", _site_key(site), _heard(fields, heard, heard_seq),
                       who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def exclusion_key(site: Site, contract) -> str:
+    """An exclusion's subject: its site and its tool."""
+    return f"{_site_key(site)}|{contract}"
+
+
+def source_key(consumer, port) -> str:
+    """A source pin's subject: the consumer and its port."""
+    return source_subject(consumer, port)
+
+
+def _withdraw(db, draft, family, key, *, who, actor_kind=ActorKind.PERSON):
+    """Retract `key`'s current choice in `family` if one is active; nothing otherwise."""
+    current = _current_of(db, draft.id, family, key)
+    field, withdrawn = _WITHDRAWN[family]
+    if current is None or getattr(current, field) == withdrawn:
+        return
+    fields = {name: getattr(current, name) for name in _FIELDS[family]}
+    fields[field] = withdrawn
+    _write(db, draft, family, key, fields, who=who, actor_kind=actor_kind, action="retract")
+
+
+def switch_off_role(draft_id, role, *, who, actor_kind=ActorKind.PERSON, proposal_id=None,
+                    expected_revision=None):
+    """A role a person switched off (A1)."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id, expected_revision)
+        return _write(db, draft, "role", role, {"role": role, "absent": True}, who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def exclude_producer(draft_id, site: Site, contract, *, who, actor_kind=ActorKind.PERSON,
+                     proposal_id=None, expected_revision=None):
+    """A tool a person excluded at a site (A1). Withdraws a pin of that tool there."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id, expected_revision)
+        pinned = _current_of(db, draft_id, "producer", _site_key(site))
+        if pinned is not None and pinned.contract == contract:
+            _withdraw(db, draft, "producer", _site_key(site), who=who, actor_kind=actor_kind)
+        fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract,
+                  "excluded": True}
+        return _write(db, draft, "exclusion", exclusion_key(site, contract), fields, who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+def pin_source(draft_id, consumer, port, producer, *, who, actor_kind=ActorKind.PERSON,
+               proposal_id=None, expected_revision=None):
+    """What a person chose to feed a step's input (A1)."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id, expected_revision)
+        fields = {"consumer": consumer, "port": port, "producer": producer}
+        return _write(db, draft, "source", source_key(consumer, port), fields, who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+_INTENTS = ("role", "exclusion", "source")
+
+
+def release_intent(draft_id, family, key, *, who, expected_revision=None):
+    """Withdraw a person's structural intent (A1); its history stays."""
+    if family not in _INTENTS:
+        raise ValueError(f"{family!r} is not a structural intent")
+    return _release(draft_id, family, key, who=who, expected_revision=expected_revision)
+
+
+def intent_history(draft_id, family, key) -> list[dict]:
+    """Every revision of one structural intent, oldest first: who, when, by which kind of
+    actor, and what was done (A1) — so a reader can say *you excluded STAR on 22 Oct*."""
+    if family not in _INTENTS:
+        raise ValueError(f"{family!r} is not a structural intent")
+    subject_type, revision_type = _FAMILIES[family]
+    with session_scope() as db:
+        rows = db.scalars(
+            select(revision_type)
+            .join(subject_type, subject_type.id == revision_type.subject_id)
+            .where(subject_type.draft_id == draft_id, subject_type.subject_key == key)
+            .order_by(revision_type.seq, revision_type.at)
+        ).all()
+        return [dict(seq=r.seq, who=r.who, actor_kind=r.actor_kind, action=r.action, at=r.at,
+                     **{name: getattr(r, name) for name in _FIELDS[family]}) for r in rows]
 
 
 def set_parameter(draft_id, name, value, *, who, actor_kind=ActorKind.PERSON, heard=None,
@@ -792,7 +885,7 @@ def heard_of(draft_id) -> dict[tuple[str, str], tuple[str, int | None]]:
     the observation it selects."""
     found = {}
     with session_scope() as db:
-        for family in ("input", "want", "producer", "parameter", "asked"):
+        for family in ("input", "want", "producer", "parameter", "asked", *_INTENTS):
             for subject, revision in _current(db, draft_id, family):
                 if revision.heard is not None:
                     found[(family, subject.subject_key)] = (revision.heard, revision.heard_seq)
@@ -983,92 +1076,6 @@ def pending_evidence(draft_id):
                 )
             )
         return unseen
-
-
-def inherit_in(db, parent, child):
-    """Reference the parent's evidence and inherit selections, never copy inspections.
-
-    The caller holds the parent lock. Old selections stay in the parent's frozen
-    history; the new authored walk starts without approvals of the manual graph.
-    """
-    grants = db.scalars(
-        select(PipelineEvidenceAccess).where(PipelineEvidenceAccess.draft_id == parent.id)
-    ).all()
-    child.decision_sequence = parent.decision_sequence
-    for grant in grants:
-        observation = db.get(PipelineObservation, grant.observation_id)
-        child.decision_sequence = max(child.decision_sequence, observation.seq)
-        db.add(
-            PipelineEvidenceAccess(
-                draft_id=child.id,
-                observation_id=grant.observation_id,
-                inherited=True,
-                **{
-                    key: getattr(grant, key)
-                    for key in (
-                        "acknowledged_as",
-                        "acknowledged_revision",
-                        "acknowledged_at",
-                        "acknowledged_by",
-                        "acknowledged_kind",
-                    )
-                },
-            )
-        )
-    db.flush()
-    old_selected = set(
-        db.scalars(
-            select(PipelineFactRevision.observation_id).where(
-                PipelineFactRevision.draft_id == parent.id
-            )
-        )
-    )
-    for grant in grants:
-        if grant.observation_id in old_selected:
-            _acknowledge(
-                db,
-                child,
-                grant.observation_id,
-                "obsolete",
-                who="resolver",
-                actor_kind=ActorKind.RESOLVER,
-            )
-    metadata = {
-        "id",
-        "draft_id",
-        "subject_id",
-        "seq",
-        "at",
-        "action",
-        "actor_kind",
-        "who",
-        "legacy",
-        "turn_id",
-        "proposal_id",
-    }
-    for family, (_, revision_type) in _FAMILIES.items():
-        if family == "review":
-            continue
-        for subject, revision in _current(db, parent.id, family):
-            fields = {
-                column.key: getattr(revision, column.key)
-                for column in revision_type.__table__.columns
-                if column.key not in metadata
-            }
-            _write(
-                db,
-                child,
-                family,
-                subject.subject_key,
-                fields,
-                who=revision.who,
-                actor_kind=revision.actor_kind,
-                legacy=revision.legacy,
-                action="inherit",
-                position=subject.position,
-            )
-    child.projection_current = False
-    db.flush()
 
 
 def answers_in(db, draft_id):

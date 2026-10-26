@@ -1,6 +1,5 @@
 import { useRef } from "react";
 
-import { Field } from "../ui/Field";
 import { type View } from "./useView";
 
 /** The surface. Pan by dragging empty space, wheel to zoom toward the cursor.
@@ -21,6 +20,7 @@ export function Canvas({
   children,
   footer,
   grid = false,
+  dots = false,
 }: {
   view: View;
   onWheel: (e: React.WheelEvent) => void;
@@ -43,6 +43,9 @@ export function Canvas({
    *  The invitation is real and it belongs to the **gesture** rather than to the resting screen.
    *  The builder passes `grid={moving}`; the run graph passes nothing and still gets none. */
   grid?: boolean;
+  /** **A faint resting dot grid on the canvas ground** — the *Build* and *Question* boards draw
+   *  one on the living canvas. The measuring grid above is still only for a drag. */
+  dots?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
 
@@ -65,15 +68,12 @@ export function Canvas({
       // a box, and the highlight survives the drop.
       className="relative flex-1 min-h-0 overflow-hidden bg-paper select-none
                  cursor-grab active:cursor-grabbing"
-      style={{ boxShadow: "var(--well)" }}
+      style={dots
+        ? { background: "var(--canvas)", backgroundImage: "radial-gradient(var(--grid-1) 1px, transparent 1px)",
+            backgroundSize: "16px 16px" }
+        : { boxShadow: "var(--well)" }}
     >
-      {/* ── 1. THE FIELD. Anchored to the FRAME, and it does not pan. ──────────────────────
-          `impl-geom` keeps the three layers apart on purpose: *the arc field is anchored to the
-          VIEWPORT and does not pan. It is ambience.* Panning it would make it a very large
-          picture behind the graph rather than the light the graph sits in. */}
-      <Field origin="corner" within />
-
-      {/* ── 2. THE GRID. Pans WITH the nodes, and exists only while one is moving. ────────
+      {/* ── THE GRID. Pans WITH the nodes, and exists only while one is moving. ────────
           `impl-geom` again: *the millimetre grid pans WITH the nodes. It is a measuring
           surface.* And `n-bcanvas`: *a permanent grid is the loudest hobby-editor signal there
           is* — so it fades in on pointer-down and out on release.
@@ -95,8 +95,8 @@ export function Canvas({
             "linear-gradient(90deg, var(--grid-1) 1px, transparent 1px)",
             "linear-gradient(var(--grid-2) 1px, transparent 1px)",
             "linear-gradient(90deg, var(--grid-2) 1px, transparent 1px)",
-            "linear-gradient(var(--grid-3) 1px, transparent 1px)",
-            "linear-gradient(90deg, var(--grid-3) 1px, transparent 1px)",
+            "linear-gradient(var(--grid-2) 1px, transparent 1px)",
+            "linear-gradient(90deg, var(--grid-2) 1px, transparent 1px)",
           ].join(", "),
           backgroundSize: [80, 80, 40, 40, 8, 8]
             .map((n, i) => `${n * view.k}px ${[80, 80, 40, 40, 8, 8][i] * view.k}px`)
@@ -116,8 +116,9 @@ export function Canvas({
       {/* ── 3. THE REGISTRATION MARKS. Fixed to the frame's bounds. ───────────────────────
           Sixteen pixels in from each corner, and they are the third of `impl-geom`'s three
           layers — the one that says where the instrument's frame is. They belong to the frame
-          rather than to the content, so they do not pan and do not scale. */}
-      {([["left", "top"], ["right", "top"], ["left", "bottom"], ["right", "bottom"]] as const)
+          rather than to the content, so they do not pan and do not scale. The boards' dotted
+          ground is a card with its own edge and a caption in the corner, so it draws none. */}
+      {!dots && ([["left", "top"], ["right", "top"], ["left", "bottom"], ["right", "bottom"]] as const)
         .map(([x, y]) => (
           <div key={`${x}-${y}`} aria-hidden data-testid="registration"
                className="absolute w-4 h-4 pointer-events-none"

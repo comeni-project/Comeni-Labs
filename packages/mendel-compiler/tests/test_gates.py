@@ -1,8 +1,21 @@
+"""Gate command, fixture preparation, failure, and timeout contracts."""
+
 import pathlib
 import shutil
+import subprocess
 
 import pytest
-from mendel_compiler.gates import Gate, GateResult, run_gate
+from comeni_core import yaml_strict
+from comeni_core.artifact.pipeline import InputForm, Pipeline
+from mendel_compiler.gates import (
+    Gate,
+    GateResult,
+    materialise_gate_inputs,
+    run_gate,
+)
+
+ROOT = pathlib.Path(__file__).parents[3]
+SPINE = ROOT / "tests/fixtures/pipeline/rnaseq-spine.yml"
 
 _KIND_OF_DIR = {
     "contracts": "contract",
@@ -94,3 +107,56 @@ def test_preview_needs_no_container_engine():
 
     profile = _ARGS[Gate.PREVIEW][_ARGS[Gate.PREVIEW].index("-profile") + 1]
     assert "docker" not in profile
+
+
+def test_a_stub_gate_materialises_every_local_input(tmp_path):
+    pipeline = Pipeline.model_validate(yaml_strict.load(SPINE)).model_copy(
+        update={"input_form": InputForm.SAMPLESHEET}
+    )
+
+    materialise_gate_inputs(Gate.STUB, tmp_path, pipeline)
+
+    assert (tmp_path / "test-samplesheet.csv").is_file()
+    assert sorted(path.name for path in (tmp_path / "stub-data").glob("*.fastq.gz")) == [
+        "sampleA_R1.fastq.gz",
+        "sampleA_R2.fastq.gz",
+        "sampleB_R1.fastq.gz",
+        "sampleB_R2.fastq.gz",
+    ]
+    assert (tmp_path / "stub-data/fasta.txt").is_file()
+    assert (tmp_path / "stub-data/gtf.txt").is_file()
+
+
+def test_a_test_gate_materialises_the_samplesheet_without_stub_data(tmp_path):
+    pipeline = Pipeline.model_validate(yaml_strict.load(SPINE)).model_copy(
+        update={"input_form": InputForm.SAMPLESHEET}
+    )
+
+    materialise_gate_inputs(Gate.TEST, tmp_path, pipeline)
+
+    assert (tmp_path / "test-samplesheet.csv").is_file()
+    assert not (tmp_path / "stub-data").exists()
+
+
+def test_a_missing_nextflow_is_a_gate_result(monkeypatch, tmp_path):
+    def missing(*args, **kwargs):
+        raise FileNotFoundError
+
+    monkeypatch.setattr(subprocess, "run", missing)
+
+    result = run_gate(Gate.LINT, tmp_path)
+
+    assert result.passed is False
+    assert result.stderr == "nextflow not found on PATH"
+
+
+def test_a_gate_timeout_is_a_gate_result(monkeypatch, tmp_path):
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", timeout)
+
+    result = run_gate(Gate.PREVIEW, tmp_path)
+
+    assert result.passed is False
+    assert result.stderr == "preview timed out"

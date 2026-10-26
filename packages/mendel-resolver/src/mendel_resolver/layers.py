@@ -1,7 +1,6 @@
-"""Loading a stack of registry layers, in the one order that works.
+"""Load and cross-validate a stack of declared registry layers.
 
-A layer is a directory of files that each declare their own `DeclaredKind`, and the kinds are
-not independent:
+Declared kinds are loaded in dependency order:
 
     measurements  ->  vocabulary (a measurement derives a `measurement.<id>` type)
                   ->  families   (every type, derived ones too, belongs to a declared family)
@@ -9,15 +8,8 @@ not independent:
                   ->              and against the roles they claim to fill)
                   ->  rules      (a rule is validated against all of the above)
 
-Getting that order wrong does not raise where the mistake is. Loading the vocabulary before
-the measurements gives a vocabulary with no `measurement.*` types, so every profiling
-contract fails to load with `UnknownTypeError` pointing at the contract rather than at the
-caller — which is what happened the first time this was four separate calls in five places.
-One function, so the order is a fact rather than a convention.
-
-`roles` joins between the vocabulary and the registry (Plan 1.15): a contract declares the
-roles it fills, so the names must exist before a contract is checked against them, and
-nothing above it depends on a role.
+The single loader also enforces layer-file safety, later-layer precedence, role validity, rule
+premise validity, module stacking, and displacement reporting.
 """
 
 from collections.abc import Sequence
@@ -52,11 +44,11 @@ class Layers(BaseModel):
     measurements: MeasurementRegistry
     vocabulary: Vocabulary
     families: FamilyVocabulary
-    """The first level of the type choice (#194). Every type in `vocabulary` belongs to one."""
+    """The family catalogue; every declared type belongs to one family."""
     tools: ToolCatalogue
-    """What each tool is (#216). Read by the docs and, from 14.7.8, by explanations."""
+    """Tool metadata used by documentation and explanations."""
     inspection: InspectionCatalogue = Field(default_factory=InspectionCatalogue)
-    """The inspector pieces that name only declared ids (#134); the refused are absent."""
+    """Inspector pieces whose referenced identifiers are declared in this stack."""
     refused_pieces: list[str] = Field(default_factory=list)
     """One `MD0317` message per piece `inspection` dropped. A refusal never stops the load."""
     registry: Registry
@@ -64,15 +56,7 @@ class Layers(BaseModel):
     rules: RuleTable
 
     modules: dict[str, Module] = Field(default_factory=dict)
-    """The tool source this stack carries, by module key — Plan 5A.
-
-    **Loaded here and read by nothing in this file**, which is the point: a module is declared
-    data and stacks like every other kind (invariant 11), so it is loaded where every other
-    kind is loaded rather than by a hand-written walk beside conformance. Whoever needs the
-    source — the conformance check, the bundle — asks the layers, and a laboratory's overlay
-    displacing a contract displaces its module with it, on the same key, through the same
-    mechanism.
-    """
+    """Vendored tool source by module key, stacked like every other declared kind."""
 
     paths: list[Path] = Field(default_factory=list)
     """The layer directories this was loaded from, in order.

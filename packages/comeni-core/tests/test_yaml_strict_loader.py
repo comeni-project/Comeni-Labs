@@ -1,10 +1,4 @@
-"""Which parser reads declared data, and what must stay true whichever one it is.
-
-A31 is why `yaml_strict` exists: `yaml.safe_load` takes the LAST value for a repeated key, and
-a contract that reads two ways is a contract whose digest pins what survived parsing rather
-than what the file says. Swapping the tokeniser for libyaml is a performance change — measured
-at 13.6× per file, and 244ms to 49ms over a whole registry load — and it must not touch that.
-"""
+"""Equivalent strict-YAML behavior across the C and pure-Python parser bases."""
 
 from pathlib import Path
 
@@ -29,9 +23,7 @@ def _loader(base):
 
 
 def test_the_fast_parser_is_used_when_libyaml_is_available():
-    """13.6× per file on this machine. If PyYAML was built without libyaml the fallback is
-    correct and this says so rather than failing — the point is that the fast path is taken
-    when it exists, not that it must exist."""
+    """Use the faster base when installed, while allowing the supported fallback."""
     if not hasattr(yaml, "CSafeLoader"):
         pytest.skip("PyYAML built without libyaml; the pure-Python fallback is what runs")
     assert issubclass(yaml_strict._StrictLoader, yaml.CSafeLoader)
@@ -59,12 +51,7 @@ def test_the_refusal_still_names_both_lines(tmp_path):
 
 
 def test_both_bases_parse_the_shipped_declared_data_identically():
-    """Not a performance test — an equivalence one.
-
-    53 files were compared while auditing (A134); this keeps it true rather than remembering
-    it. If the two parsers ever disagreed about a declared file, the fast one would be
-    changing what the registry says, which is a correctness bug wearing a performance costume.
-    """
+    """The optimization must not change the meaning of shipped declared data."""
     if not hasattr(yaml, "CSafeLoader"):
         pytest.skip("only one parser is available")
 

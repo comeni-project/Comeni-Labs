@@ -67,12 +67,12 @@ export function GapCard({
       <p className="m-0 mb-1 text-[12.5px] text-ink">{block.asks}</p>
       {block.phrasing === "done" && (
         // The question in a model's words; the options below are the engine's and never move.
-        <p className="m-0 mb-1 font-data text-[9.5px] text-ink-4">phrased for you</p>
+        <p className="m-0 mb-1 font-data text-[9.5px] text-ink-3">phrased for you</p>
       )}
       <p className="m-0 mb-3 text-[11.5px] text-ink-3">{block.why_open}</p>
       {explained && <Explain explanation={explained} />}
       {suggested && (
-        <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-link">
+        <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-now-ink">
           {suggested.id === "value" ? String(block.value ?? "") : suggested.label} — {suggested.note}
         </p>
       )}

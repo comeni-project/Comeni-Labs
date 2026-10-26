@@ -112,8 +112,7 @@ def cli_problems() -> list[str]:
         return [f"{page.relative_to(ROOT)}: missing"]
     text = page.read_text()
     found: list[str] = []
-    for prog, module in (("mendel", "mendel_compiler.cli.parse"),
-                         ("forge", "mendel_forge.cli.parse")):
+    for prog, module in (("mendel", "mendel_compiler.cli.parse"),):
         verbs = _verbs(importlib.import_module(module).parser())
         assert verbs, f"read no verbs at all from {module}; the check is not checking"
         for verb in sorted(verbs):

@@ -21,6 +21,12 @@ def test_resolved_value_derives_its_review_level():
     assert value.review_level is ReviewLevel.ADVISORY
 
 
+def test_a_resolved_value_accepts_its_serialized_review_level():
+    value = ResolvedValue(value=2, tier=Tier.DATA_PROFILED, reason="rule strandedness-reverse")
+
+    assert ResolvedValue.model_validate_json(value.model_dump_json()) == value
+
+
 def test_needs_review_lists_only_required_items():
     ir = PipelineIR(
         nodes=[
@@ -61,12 +67,7 @@ def test_ir_is_deterministically_serialisable():
 
 
 def test_a_goal_supplied_value_records_its_source():
-    """Tiers say how well something was decided; `source` says who decided it.
-
-    A user pinning a parameter legitimately removes the ambiguity, so the tier stays
-    structural — but the IR has to show Mendel did not derive it. Same distinction as
-    measured-versus-asserted in the profiling spec.
-    """
+    """Resolution quality and the source that supplied a value remain independent."""
     from comeni_core.plan.tiers import ValueSource
 
     derived = ResolvedValue(value=2, tier=Tier.DATA_PROFILED, reason="rule")

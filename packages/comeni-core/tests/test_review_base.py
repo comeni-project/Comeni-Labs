@@ -1,4 +1,4 @@
-"""The shared question, and the properties the two subclasses both rely on."""
+"""Shared question and answer contracts used by authoring and resolution models."""
 
 import pytest
 from comeni_core.review.answer import Answer, ValueSource
@@ -23,11 +23,7 @@ def test_a_closed_question_refuses_a_value_it_did_not_offer():
 
 
 def test_an_open_question_accepts_a_value_it_did_not_offer():
-    """`closed=False` means the candidates are guidance, not a vocabulary.
-
-    Binding a port *name* to a list the forge invented is what made multiqc's `reports`
-    unreachable — a legal name that simply was not offered.
-    """
+    """Open candidates guide the reviewer without defining a closed vocabulary."""
     q = _q(candidates=[Candidate(value="reads")], closed=False)
     assert q.legal("multiqc_files")
 
@@ -48,8 +44,7 @@ def test_a_question_forbids_extra_fields():
 
 
 def test_the_base_carries_no_behaviour_beyond_legality():
-    """Spec §3.1: every behavioural difference lives in a container or a port, so a
-    `blocks()` or `is_open()` on the base is the design smell this guards against."""
+    """Blocking and workflow state belong to containers, not the shared value model."""
     allowed = {"legal"}
     behaviour = {
         name
@@ -60,18 +55,14 @@ def test_the_base_carries_no_behaviour_beyond_legality():
 
 
 def test_derived_is_a_source_and_hand_is_not():
-    """The forge's `Filler` folds in here: HAND was HUMAN under another name, and DERIVED
-    (a fact read off a source file) is genuinely distinct from RESOLVER (the ladder settled
-    it) and MEASURED (a tool looked at the data)."""
+    """Derived source facts remain distinct from human, resolver, and measured values."""
     assert ValueSource.DERIVED == "derived"
     assert ValueSource.HUMAN == "human"
     assert not hasattr(ValueSource, "HAND")
 
 
 def test_every_pre_existing_spelling_is_preserved():
-    """`pipeline.yml` carries these strings. Changing one is a SCHEMA_VERSION break: `goal`
-    became `said` with version 7 (Plan B); old files and rows are rewritten where they are read
-    (the v6 upgrader, the shape migration), never by the enum."""
+    """Serialized artifacts and stored rows depend on these stable enum values."""
     assert {
         ValueSource.RESOLVER,
         ValueSource.SAID,
@@ -82,7 +73,7 @@ def test_every_pre_existing_spelling_is_preserved():
 
 
 def test_tiers_still_exports_value_source():
-    """25 call sites import it from here, and the public surface must not move."""
+    """The compatibility import from ``plan.tiers`` retains object identity."""
     from comeni_core.plan.tiers import ValueSource as FromTiers
 
     assert FromTiers is ValueSource
@@ -112,8 +103,7 @@ def test_a_resolution_is_an_answer():
 
 
 def test_a_resolution_still_narrows_its_value():
-    """Spec §4.2: `Answer.value` is `Any` and `Resolution` narrows it to `ParamValue`.
-    If the narrowing silently did not happen, this is the only thing that notices."""
+    """``Resolution`` narrows the base answer's unrestricted value to ``ParamValue``."""
     from comeni_core.plan.decision import Resolution
 
     with pytest.raises(ValidationError):
@@ -121,8 +111,7 @@ def test_a_resolution_still_narrows_its_value():
 
 
 def test_a_resolution_keeps_its_confidence():
-    """A forge fill has no confidence; inventing one on the base would be a field nothing
-    writes."""
+    """Confidence belongs to resolution rather than every kind of answer."""
     from comeni_core.plan.decision import Resolution
 
     assert "confidence" in Resolution.model_fields
@@ -130,8 +119,7 @@ def test_a_resolution_keeps_its_confidence():
 
 
 def test_goal_is_no_longer_a_source():
-    """Plan B: a value the person stated is `said`. The enum stays closed (the egress guard
-    refuses one that accepts undeclared values); old data is rewritten where it is read."""
+    """The closed enum uses ``said`` for person-stated values."""
     import pytest
 
     with pytest.raises(ValueError):

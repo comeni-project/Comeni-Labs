@@ -1,23 +1,9 @@
-"""One loader, and a declared file reads exactly one way.
+"""Parse declared YAML with safe constructors and duplicate-key rejection.
 
-A31: `yaml.safe_load` takes the **last** value for a repeated key, silently. A contract
-with two `priority:` lines loads at the second one, and the digest pins what survived
-parsing rather than what the file says — which is A10's argument, one level down: a key
-that is quietly dropped is a key that can be misspelled, or *added*, in silence.
-
-The registry is data a stranger distributes and a lockfile pins by digest. A reviewer
-reading `priority: 0` at the top of a file and a build routing on `priority: 999` from the
-bottom is the whole of what a signed layer is supposed to prevent.
-
-`SafeLoader`'s **constructor set** stays the mechanism — this narrows it rather than replacing
-it. Every loader in the pure packages goes through here, so "which files are read strictly"
-has one answer instead of seven.
-
-**The tokeniser is libyaml's where PyYAML was built against it**, which is a performance change
-and not a semantic one: what makes `SafeLoader` safe is which constructors it will run, and
-that set is identical on both paths. Measured at **13.6× per file**, taking a whole registry
-load from 244ms to 49ms (audit A134), and 53 declared files were compared under the two
-parsers before the swap.
+PyYAML normally keeps the last occurrence of a repeated mapping key. Declared and digested data
+must have one unambiguous reading, so this loader rejects duplicates with both source lines. It
+uses ``CSafeLoader`` when available and the behaviorally equivalent Python ``SafeLoader``
+otherwise.
 """
 
 from pathlib import Path
@@ -29,9 +15,6 @@ try:  # libyaml, when PyYAML was built against it
     from yaml import CSafeLoader as _Base
 except ImportError:  # pure Python — identical behaviour, and the only difference is speed
     from yaml import SafeLoader as _Base
-
-    # **The fallback is not decoration.** PyYAML installs without libyaml, and a module that
-    # raised `ImportError` there would trade a performance problem for an availability one.
 
 
 class DuplicateKeyError(ValueError):
@@ -77,15 +60,5 @@ def load(path: Path) -> Any:
 
 
 def loads(text: str) -> Any:
-    """The same strict parse, for YAML that never was a local file.
-
-    **A caller with text rather than a path is not a reason for a second parser.** The forge's
-    source adapters read an upstream `meta.yml` over HTTP, and a `yaml.safe_load` there would
-    take the second of two duplicate keys silently — the exact defect this module exists to
-    refuse, arriving through the one door that had no strict spelling.
-
-    Reading the network is the caller's business and stays outside this package: this takes a
-    string. `load` is now a thin wrapper, so "which parser reads declared data" keeps one
-    answer.
-    """
+    """Strictly parse YAML text supplied by a caller; I/O remains outside this module."""
     return yaml.load(text, Loader=_StrictLoader)  # noqa: S506 — strict subclass

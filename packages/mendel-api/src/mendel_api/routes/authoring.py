@@ -220,6 +220,9 @@ class AuthoringSuggestionView(BaseModel):
     subject: str
     measured: HumanParamValue | None = None
     """The measured value this contradicts (#345): the card asks *are you sure?* with Yes/No."""
+    edit: str | None = None
+    """Set when this is the engine's reading of a hand edit, not the model's suggestion: every
+    reading of one edit shares it and is taken or set aside together (#395)."""
 
 
 class DecideSuggestion(BaseModel):
@@ -242,10 +245,7 @@ class AuthoringSessionView(BaseModel):
     fact_subjects: list[str] = []
     decision_revision: int = 0
     projection_current: bool = True
-    ownership: Literal["authored", "manual"] = "authored"
     retired: bool = False
-    forked_from: str | None = None
-    forked_from_session: str | None = None
     review_applicability: dict[str, Literal["retained", "superseded", "removed"]] = {}
     usage: AuthoringUsage = AuthoringUsage()
     """The session's model calls, totalled — carried by the poll the page already makes."""
@@ -265,9 +265,6 @@ class AuthoringSessionView(BaseModel):
     """How many steps the resolved pipeline has. `0` until a blueprint exists."""
     placement: dict[str, AuthoringPosition] = {}
     """Where each visible step sits in the finished pipeline, so nothing moves as it grows."""
-    hand_edits: str | None = None
-    """What was changed by hand since the walk ended, as its receipt says it, or `None`. A goal
-    changed now replaces the draft with the new blueprint's, so the page asks first."""
     row_version: int
     model_configured: bool
     """Whether this installation has a model at all. `False` is the no-AI lane: the page says
@@ -330,6 +327,9 @@ class AuthoringEdited(BaseModel):
     model_config = _FROZEN
 
     revision: int
+    offered: list[str] = []
+    """The suggestions the edit was read as, waiting for the person (#395): a structural edit
+    changes nothing until its reading is confirmed."""
 
 
 class MeasurerView(BaseModel):
@@ -636,18 +636,35 @@ async def retry(session_id: str) -> AuthoringRetried:
     summary="Record a direct edit to the session's draft",
     responses=REFUSES,
 )
-def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
-    """A canvas or settings edit. Saved, stamped as the person's, and written into the log as a
-    receipt the server composes — never narrated by a model."""
-    revision = session.perform(
+async def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
+    """A canvas or settings edit (#395). A structural edit is read by the engine and offered in
+    the chat — nothing changes until the person confirms it. A typed value is the person's
+    change at once, each one command through the correction path."""
+    from starlette.concurrency import run_in_threadpool
+
+    edited = (await session.act(
         c.RecordEdit(
             session_id,
             body.graph.model_dump(mode="json"),
             identity.default_author(),
             body.expected_revision,
         )
-    ).result
-    return AuthoringEdited(revision=revision)
+    )).result
+    revision = edited.revision
+    for value in edited.values:
+        versions = await run_in_threadpool(_versions, session_id)
+        done = await session.act(
+            c.Change(session_id, value.model_dump(mode="json"), identity.default_author(),
+                     *versions))
+        revision = done.result["revision"]
+    return AuthoringEdited(revision=revision, offered=edited.offered)
+
+
+def _versions(session_id: str) -> tuple[int, int, int]:
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        draft = db.get(PipelineDraft, row.draft_id)
+        return draft.decision_revision, draft.revision, row.row_version
 
 
 @router.get(
@@ -728,10 +745,7 @@ def _view(session_id: str) -> AuthoringSessionView:
                 "fact_subjects",
                 "decision_revision",
                 "projection_current",
-                "ownership",
                 "retired",
-                "forked_from",
-                "forked_from_session",
                 "review_applicability",
             )
         },
@@ -742,7 +756,6 @@ def _view(session_id: str) -> AuthoringSessionView:
         progress=picture["progress"],
         show_gap_details=picture["show_gap_details"],
         placement=picture["placement"],
-        hand_edits=picture["hand_edits"],
         steps_total=picture["steps_total"],
         row_version=picture["row_version"],
         model_configured=model_access() is not None,

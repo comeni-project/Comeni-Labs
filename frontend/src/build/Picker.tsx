@@ -83,7 +83,7 @@ export function Picker({ port, node, at, onPick, onClose }: {
       role="dialog"
       aria-label={`what can connect to ${port.name}`}
       style={{ left: at.x, top: at.y }}
-      className="fixed z-30 w-[340px] bg-surface border border-line-2 rounded-r shadow-e3
+      className="fixed z-30 w-[340px] bg-surface border border-line-2 rounded-control shadow-e3
                  overflow-hidden settle"
       onKeyDown={(e) => {
         if (e.key === "Escape") { e.stopPropagation(); onClose(); return; }
@@ -99,7 +99,7 @@ export function Picker({ port, node, at, onPick, onClose }: {
       }}
     >
       <div className="px-3 py-2 border-b border-line flex items-baseline gap-2">
-        <span className="text-label uppercase tracking-[.13em] text-ink-3">
+        <span className="text-label text-ink-3">
           {port.side === "out" ? "accepts" : "produces"}
         </span>
         <span className="font-data text-secondary text-ink truncate">

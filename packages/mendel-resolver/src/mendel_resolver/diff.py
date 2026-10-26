@@ -1,9 +1,8 @@
-"""What moved between two resolutions of the same goal.
+"""Describe material changes between two pipeline artifacts.
 
-`mendel upgrade` re-resolves a locked pipeline against the current registry. The re-resolve
-is the easy half; this is the half a person reads. Every line has to say *what* changed,
-*from what to what*, and *at which tier* — because a tier-1 change and a tier-4 change
-demand completely different amounts of attention, and a diff that flattens them is noise.
+Upgrade reporting includes added, removed, or replaced modules; setting values, evidence tiers,
+and reasons; and changed input wiring. Every change retains the tier and reason a reviewer needs
+to judge its significance.
 """
 
 from comeni_core.artifact.pipeline import Pipeline
@@ -12,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class Change(BaseModel):
+    """One stable, human-readable pipeline difference."""
     model_config = ConfigDict(extra="forbid")
 
     what: str
@@ -35,20 +35,11 @@ class Change(BaseModel):
 
 
 def diff_pipeline(before: Pipeline, after: Pipeline) -> list[Change]:
-    """The same question as `diff_ir`, asked of the artifact rather than of the IR.
+    """Return deterministic, sorted differences between saved pipeline decisions.
 
-    `upgrade` reads a `pipeline.yml` since Plan 1.10 Task 10, so there is no previous IR to
-    compare against — only the file, which is the thing a person edited and the thing they
-    will read the answer beside.
-
-    **`ext_args` is deliberately not compared, and that is not an oversight.** It is a contract
-    field rather than a decision: nobody resolved it, it carries no `why`, and a change to it
-    is the registry moving, which `DRIFT` already reports. What catches its effect is the
-    digest verdict — `emitted.from_digest` and `emitted.files` say the generated pipeline
-    moved, and when nothing in this diff explains that, `upgrade` says so out loud instead of
-    letting a reader assume the diff is complete. That pairing is audit A28's actual fix, and
-    a diff that compared every field would not remove the need for it: the compiler itself can
-    change, and no comparison of two documents can see that.
+    Contract-owned ``ext_args`` are deliberately excluded: registry drift reports contract
+    movement, while emitted-file digests detect its generated effect. This function reports the
+    person- or resolver-facing decisions represented in the artifact.
     """
     changes: list[Change] = []
     was = {step.id: step for step in before.steps}

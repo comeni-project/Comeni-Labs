@@ -1,9 +1,4 @@
-"""Why a setting is greyed out — a closed list (spec §5).
-
-**Closed, so a greyed field can never be greyed without saying why.** A reason is one of four
-types, and a fifth is a change to this file rather than a string somebody writes at a call site.
-The words a person reads are here too, as `says`, so the menu never composes its own.
-"""
+"""Closed, user-facing reasons why a setting is locked or unavailable."""
 
 from typing import Annotated, Any, Literal
 
@@ -16,8 +11,7 @@ class _Reason(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _says_is_derived(cls, data: Any) -> Any:
-        """`says` is computed, so a dumped reason carries it; read back, it is dropped rather
-        than refused. Everything else stays forbidden."""
+        """Drop serialized `says` because it is derived; continue to forbid other extras."""
         if isinstance(data, dict) and "says" in data:
             return {k: v for k, v in data.items() if k != "says"}
         return data
@@ -74,4 +68,4 @@ class ReadOnlyHere(_Reason):
 Reason = Annotated[Pinned | Designed | Needs | ReadOnlyHere, Field(discriminator="kind")]
 
 REASON_KINDS: tuple[str, ...] = ("pinned", "designed", "needs", "read_only_here")
-"""The closed list, in the order the spec's table gives it."""
+"""Supported reason discriminators in display order."""

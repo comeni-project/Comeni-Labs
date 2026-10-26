@@ -5,34 +5,31 @@ import { processName } from "./format";
 
 export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
 
+/** The step's values by how they were decided: tiers 1–2 settled, tier 3 measured, tier 4 open. */
+export type Counts = { settled: number; measured: number; open: number; optional?: number; read?: number };
+
 /** One step on the living canvas — the 172×112 symbol every canvas in the product draws.
  *
  * **Geometry from `geometry.ts`, never a literal here.** A wire lands on a port because both read
  * one derivation; the 2026-08-30 walk found `NODE_W` at 232 in the browser and 172 in Python the
  * one time a component kept its own.
  *
- * Two encodings, and they compose rather than collide:
- *
- * - **tier is colour**, on the left bar — settled spends none, measured is amber, open is red;
- * - **author is stroke**, on the same bar — solid for the resolver, dashed for a model, and a
- *   notch at the midpoint where a person chose.
- *
- * A **ghost** is dashed on its *outer* border and keeps a solid left bar, because a dashed left
- * bar already means *a model chose this* — the design record's one real bug was a ghost that
- * dashed every border and made every proposal read as model-authored.
+ * **Outlined, never striped** (the *Build* and *Question* boards). How each value was decided is
+ * the footer's — *1 measured · 13 settled*, each in its meaning's ink — and who chose the step is
+ * the step line's, so neither paints the border any more. The step on offer is the selected
+ * colour, dashed, and says *Proposed · not added yet*; a step with a value that needs the person
+ * carries a red dot.
  */
 export function LivingNode({
   id,
   at,
-  tier,
   author,
   ports,
-  settled,
+  counts,
   reviewState = "unknown",
   ghost = false,
   selected = false,
   onSelect,
-  runs,
   perItem = false,
   className,
   delay,
@@ -43,19 +40,17 @@ export function LivingNode({
 }: {
   id: string;
   at: { x: number; y: number };
-  tier: number;
+  /** Kept on the element for tests and tools; the node no longer draws it. */
   author: Author;
   ports: PortView[];
-  /** How many values this step settled. **Absent on a ghost**: a number it does not have yet is
-   *  the fastest way to make provisional read as committed. */
-  settled?: number;
+  /** **Absent on a ghost and when the frame carries no metadata**: a number a step does not have
+   *  yet is the fastest way to make provisional read as committed. */
+  counts?: Counts;
   /** Whether a review of this step holds, is asked for again, or is on offer now. */
   reviewState?: ReviewState;
   ghost?: boolean;
   selected?: boolean;
   onSelect?: () => void;
-  /** `runs 12×` or `runs once` — the server's `StepView.runs`, said in the footer. */
-  runs?: string;
   /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
   perItem?: boolean;
   /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
@@ -67,8 +62,8 @@ export function LivingNode({
   onPointerMove?: (e: React.PointerEvent) => void;
   onPointerUp?: (e: React.PointerEvent) => void;
 }) {
-  const bar = tier === 4 ? "var(--undecided)" : tier === 3 ? "var(--measured)" : "var(--rail)";
   const rows = ports.slice(0, Math.floor((NODE_H - HEAD_H - 24) / PORT_ROW));
+  const edge = `1px ${ghost ? "dashed" : "solid"} ${selected || ghost ? "var(--now)" : "var(--node-line)"}`;
 
   return (
     <button
@@ -90,21 +85,21 @@ export function LivingNode({
         top: at.y,
         width: NODE_W,
         height: NODE_H,
-        background: ghost ? "var(--panel)" : "var(--node)",
-        opacity: ghost ? 0.62 : 1,
-        // Three sides and the left bar, never `border` beside `borderLeft`: React cannot redraw a
-        // shorthand next to its own longhand (a ghost becoming placed warned on every accept).
-        borderTop: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
-        borderRight: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
-        borderBottom: `1px ${ghost ? "dashed" : "solid"} ${selected ? "var(--link)" : "var(--node-line)"}`,
-        borderLeft: `3px ${author === "model" ? "dashed" : "solid"} ${selected ? "var(--link)" : bar}`,
-        boxShadow: selected ? "0 0 0 1px color-mix(in oklab, var(--link) 26%, transparent)" : undefined,
+        background: "var(--node)",
+        borderRadius: "var(--radius-button)",
+        // Four longhands, never `border`: React cannot redraw a shorthand next to its own longhand,
+        // and a ghost becoming placed changes them (it warned on every accept).
+        borderTop: edge,
+        borderRight: edge,
+        borderBottom: edge,
+        borderLeft: edge,
+        boxShadow: selected ? "0 0 0 3px var(--now-soft)" : undefined,
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
       }}
     >
       {/* **Ports, as the collection grammar draws them**: a square for a single value, a tall
-          mark where a ribbon lands, and a wide one where a ribbon converges — `.port.many` and
-          `.port.gather` in the artboards. Positions from `portOffset`, the one derivation. */}
+          mark where a ribbon lands, and a wide one where a ribbon converges. Positions from
+          `portOffset`, the one derivation. */}
       {(["in", "out"] as const).flatMap((side) =>
         ports.filter((p) => p.side === side).map((port, index) => {
           const gather = side === "in" && port.gathers;
@@ -117,68 +112,75 @@ export function LivingNode({
               data-port-mark={gather ? "gather" : perItem ? "many" : "one"}
               className="absolute"
               style={{
-                left: side === "in" ? -Math.ceil(wide / 2) - 2 : NODE_W - Math.floor(wide / 2) - 3,
+                left: side === "in" ? -Math.ceil(wide / 2) - 1 : NODE_W - Math.floor(wide / 2) - 2,
                 top: portOffset(index) - tall / 2 - 1,
                 width: wide,
                 height: tall,
-                background: "var(--node)",
-                border: "1px solid var(--port-line)",
+                background: selected ? "var(--now)" : "var(--node)",
+                border: `1px solid ${selected ? "var(--now)" : "var(--port-line)"}`,
               }}
             />
           );
         }),
       )}
-      {author === "person" && !ghost && (
-        <span
-          aria-hidden
-          data-testid="notch"
-          className="absolute"
-          style={{ left: -3, top: 49, width: 3, height: 14, background: bar }}
-        />
-      )}
       <span
         className="flex items-center gap-2 px-[10px] w-full shrink-0"
-        style={{ height: HEAD_H, borderBottom: `1px solid ${ghost ? "var(--line-soft)" : "var(--node-rule)"}` }}
+        style={{ height: HEAD_H, borderBottom: "1px solid var(--node-rule)" }}
       >
-        <span className="font-data text-[11px] font-medium text-ink truncate" data-testid={`node-name-${id}`}>
+        <span className="font-data text-[11px] font-semibold text-ink truncate" data-testid={`node-name-${id}`}>
           {processName(id)}
         </span>
-        {(ghost || reviewState === "proposed") ? (
-          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">
-            {reviewState === "again" ? "REVIEW AGAIN" : "PROPOSED"}
-          </span>
-        ) : reviewState === "reviewed" ? (
-          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-ink-3">REVIEWED</span>
-        ) : reviewState === "again" ? (
-          <span className="ml-auto font-data text-[8.5px] tracking-[.08em] text-link">REVIEW AGAIN</span>
-        ) : null}
+        {reviewState === "again" && (
+          <span className="ml-auto text-[10.5px] font-semibold text-now-ink whitespace-nowrap">Review again</span>
+        )}
+        {(counts?.open ?? 0) > 0 && (
+          <span aria-hidden data-testid={`node-open-${id}`}
+                className={`${reviewState === "again" ? "" : "ml-auto"} w-[8px] h-[8px] rounded-full shrink-0`}
+                style={{ background: "var(--needs-you)" }} />
+        )}
       </span>
-      {/* **No top padding, measured rather than read.** The artboard's CSS says `padding:5px 0`,
-          and its render puts the first row's centre at 306 — the header rule plus half a row.
-          With the padding, the third row clipped into the footer. The picture is the spec. */}
+      {/* **No top padding, measured rather than read**: the first row's centre is the header rule
+          plus half a row, which is where `portOffset` puts the port marks. */}
       <span className="flex-1 min-h-0 pb-[5px] w-full overflow-hidden">
         {rows.map((port) => (
           <span
             key={`${port.side}:${port.name}`}
-            className="flex items-center gap-[7px] px-[10px] font-data text-[8.5px]"
+            className="flex items-center px-[10px] font-data text-[10px] whitespace-pre"
             style={{ height: PORT_ROW }}
           >
-            <span aria-hidden className="text-ink-4">·</span>
-            <span className={port.side === "in" ? "text-ink-2 truncate" : "text-ink-3 truncate"}>
+            <span className="text-ink-3">{port.side === "in" ? "< " : "> "}</span>
+            <span className={port.side === "in" ? "text-ink truncate" : "text-ink-2 truncate"}>
               {port.type_id}
               {port.states.length > 0 ? `[${port.states.join(", ")}]` : ""}
             </span>
           </span>
         ))}
       </span>
-      {!ghost && (
+      {(ghost || counts) && (
         <span
-          className="h-[24px] flex items-center px-[10px] w-full shrink-0 font-data text-[9px] text-ink-3"
+          data-testid={`node-footer-${id}`}
+          className="h-[24px] flex items-center px-[10px] w-full shrink-0 text-[10.5px] whitespace-pre overflow-hidden"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
-          {[runs, settled === undefined ? null : `${settled} settled`].filter(Boolean).join(" · ")}
+          {ghost ? (
+            <span className="font-semibold text-now-ink">Proposed · not added yet</span>
+          ) : counts && (
+            <CountWords counts={counts} />
+          )}
         </span>
       )}
     </button>
   );
+}
+
+/** *1 needs you · 3 measured · 1 optional · 13 settled*, each in its meaning's ink; a zero is not said. */
+function CountWords({ counts }: { counts: Counts }) {
+  const parts = [
+    counts.open > 0 && <span key="open" className="font-semibold text-needs-you-ink">{counts.open} needs you</span>,
+    counts.measured > 0 && <span key="measured" className="font-semibold text-measured-ink">{counts.measured} measured</span>,
+    (counts.read ?? 0) > 0 && <span key="read" className="text-ink-2">{counts.read} read by AI</span>,
+    (counts.optional ?? 0) > 0 && <span key="optional" className="text-ink-2">{counts.optional} optional</span>,
+    counts.settled > 0 && <span key="settled" className="text-ink-2">{counts.settled} settled</span>,
+  ].filter(Boolean) as React.ReactElement[];
+  return <>{parts.flatMap((part, i) => (i ? [<span key={`dot-${i}`} className="text-ink-3"> · </span>, part] : [part]))}</>;
 }

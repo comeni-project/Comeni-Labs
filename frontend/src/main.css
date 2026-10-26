@@ -9,13 +9,13 @@
    preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress
    would have got the fallback stack while the hosted instance got the design. Vite bundles
    these, so both installs render the same page. */
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/lexend";
 @import "@fontsource-variable/geist-mono";
 @import "./tokens.css";
 
 /* Tailwind MIRRORS the tokens; it does not redefine them.
 
-   Six type roles and the nine-step spacing scale come from `docs/design/dashboard.md` §2.
+   The type roles and the nine-step spacing scale; `docs/explanation/visual-identity.md` says why.
    A utility that invents a seventh size is exactly the drift this indirection exists to
    prevent — the set had seventeen sizes before 2026-08-18 and every one was picked by eye. */
 @theme {
@@ -46,23 +46,22 @@
   --font-data: var(--font-data);
   --font-display: var(--font-display);
 
-  /* THE FRONT DOOR ONLY. `dashboard.md` §2's six roles govern the tool, where 26px is the
+  /* THE FRONT DOOR AND THE DESCRIBE PAGE ONLY. The type roles govern the tool, where the title is the
      largest thing on a dense working screen and must stay that way — a hero size loose in the
-     forge is exactly the drift this indirection exists to stop. These two exist because a
+     builder is exactly the drift this indirection exists to stop. These two exist because a
      landing page has a job the tool does not: be understood by a stranger in ten seconds.
-     If either appears outside `src/home/`, one of the two scales is wrong. */
-  /* Clamped rather than two sizes: a hero that is one role at every width stays one role.
-     44px is the desktop figure; 30px is where the six-word headline stops wrapping to
-     four lines on a 375px screen. */
-  --text-hero: clamp(30px, 6vw, 44px);
-  --text-lede: 16px;
+     Describe shares that job: it is where a stranger first says what they want (the *Describe*
+     board draws its question at this size). If either appears anywhere else, one of the two
+     scales is wrong. */
+  --text-hero: 32px;
+  --text-lede: 15px;
 
-  --text-title: 26px;
-  --text-brand: 21px;
-  --text-object: 15px;
-  --text-body: 13px;
-  --text-secondary: 11.5px;
-  --text-label: 10px;
+  --text-title: 22px;
+  --text-brand: 17px;
+  --text-heading: 16px;
+  --text-body: 14px;
+  --text-secondary: 13px;
+  --text-label: 12px;
 
   --spacing-1: 2px;
   --spacing-2: 4px;
@@ -74,37 +73,44 @@
   --spacing-8: 40px;
   --spacing-9: 60px;
 
-  --radius-r: 3px;
+  --radius-control: 8px;
+  --radius-button: 10px;
+  --radius-panel: 14px;
 
   --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-panel: var(--panel);
+  --color-canvas: var(--canvas);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
   --color-line-soft: var(--line-soft);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
-  --color-ink-4: var(--ink-4);
-  --color-line: var(--line);
-  --color-line-2: var(--line-2);
-  --color-pea: var(--pea);
-  --color-pea-soft: var(--pea-soft);
-  --color-on-pea: var(--on-pea);
+  --color-done: var(--done);
+  --color-done-soft: var(--done-soft);
+  --color-done-ink: var(--done-ink);
+  --color-action: var(--action);
+  --color-on-action: var(--on-action);
+  --color-action-edge: var(--action-edge);
   --color-measured: var(--measured);
   --color-measured-soft: var(--measured-soft);
-  --color-undecided: var(--undecided);
-  --color-undecided-soft: var(--undecided-soft);
-  --color-fault: var(--fault);
+  --color-measured-ink: var(--measured-ink);
+  --color-needs-you: var(--needs-you);
+  --color-needs-you-soft: var(--needs-you-soft);
+  --color-needs-you-ink: var(--needs-you-ink);
+  --color-now: var(--now);
+  --color-now-soft: var(--now-soft);
+  --color-now-ink: var(--now-ink);
+  --color-now-line: var(--now-line);
   --color-hover: var(--hover);
   --color-hover-strong: var(--hover-strong);
-  --color-running: var(--running);
-  --color-running-soft: var(--running-soft);
-  --color-link: var(--link);
-  --color-link-soft: var(--link-soft);
 
   /* Depth, as utilities. `shadow-e2` on a card rather than a hand-written `box-shadow`, for
      the same reason the colours are mirrored: one definition, and a seventh elevation cannot
      be invented by eye. */
+  --shadow-raise: 0 3px 0 var(--action-edge);
   --shadow-e1: var(--e1);
   --shadow-e2: var(--e2);
   --shadow-e3: var(--e3);
@@ -136,59 +142,9 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--text-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-}
-
-/* ═══ THE FIELD ═══════════════════════════════════════════════════════════════════════════
-
-   The ground `Field.tsx` draws, and the two textures it lays over the arcs. Every artboard
-   opens with these three layers; the app had none of them and rendered a flat black rectangle.
-
-   **These two animations are not a sixth and seventh movement.** The five movements are about
-   how an ELEMENT arrives or changes; these are a texture that never resolves and is never
-   caught moving — 46s and 680s are both far below the threshold at which anything reads as
-   motion. The reduced-motion block above reaches them, because it reaches everything. */
-.field-breathe { animation: field-breathe 46s ease-in-out infinite alternate; }
-@keyframes field-breathe { to { opacity: 1.85; } }
-
-.field-spin { transform-box: view-box; animation: field-spin 680s linear infinite; }
-@keyframes field-spin { to { transform: rotate(360deg); } }
-
-/* 1px on, 2px off, at 1% white. The CRT reference, and what stops the ground looking printed. */
-.field-scan {
-  background-image: repeating-linear-gradient(
-    180deg, var(--scan-line) 0 1px, transparent 1px 3px);
-}
-
-/* **A terminal cursor snaps; it does not fade.** `steps(1)` rather than an eased opacity, which
-   is the artboard's own spelling and the difference between a cursor and a pulsing dot. It is
-   not a sixth movement: nothing arrives, changes state or encodes a quantity — it is the same
-   texture argument as the field. */
-.blink { animation: blink 1.1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
-
-/* **A fourth layer, and it was missing.** A 36px rule grid at 2.6% `--link`, masked to a radial
-   that fades out two thirds of the way down — so structure shows in the top-left where the shell
-   and the first rows are, and the page still opens out below. `OverviewQuiet` and every board
-   carrying a table has it; the arcs alone left those pages reading as a photograph rather than a
-   drawing. */
-.field-rule {
-  background-image:
-    linear-gradient(var(--rule-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--rule-line) 1px, transparent 1px);
-  background-size: 36px 36px;
-  /* `black` rather than `#000`: in a mask the stop is an ALPHA channel, not a palette colour,
-     and the colour guard cannot tell a hex apart from one that belongs in `tokens.css`. The
-     keyword says "fully opaque here" and leaves the guard's rule intact rather than carving an
-     exemption into it. */
-  mask-image: radial-gradient(105% 62% at 16% 0%, black 0%, transparent 66%);
-}
-
-/* Darkens toward the edges so a page holds the eye in the middle without needing a border. */
-.field-vignette {
-  background: radial-gradient(130% 92% at 50% 3%, transparent 46%, var(--paper) 100%);
 }
 
 /* ═══ FIVE MOVEMENTS, ONE CURVE. NOTHING ELSE MOVES. ═══════════════════════════════════════
@@ -277,7 +233,7 @@ body {
 
 /* ═══ RESPONSIVENESS: THREE RULES, AND TWO BREAKPOINTS CHOSEN FROM CONTENT ═════════════════
 
-   Plan 4 phase 0, lifted from `.design/runs_boards.py` with `dashboard.md` §4.
+   The rules are in `docs/explanation/visual-identity.md`.
 
    **1180 and 760, and they are CONTENT breakpoints rather than device ones.** 1180 is where a
    rail stops fitting beside the page; 760 is where a two-up band stops being two-up. Do not add
@@ -372,12 +328,20 @@ body {
    so it stays first for a screen reader — and the rail never overlays the graph it is about. */
 .living { display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
 .living > .living-canvas { min-height: 0; }
+/* The pipeline file (#379): the values and their reasons, beside the file. Values first when stacked. */
+.pipeline-file { display: grid; grid-template-columns: minmax(0, 1fr) 520px; height: 100%; }
+.pipeline-file > .file-column { position: sticky; top: 0; max-height: 100%; }
+@media (max-width: 1180px) { .pipeline-file { grid-template-columns: minmax(0, 1fr) 420px; } }
+@media (max-width: 999px) { .pipeline-file { grid-template-columns: minmax(0, 1fr); }
+  .pipeline-file > .file-column { position: static; max-height: none; border-left: 0 !important; } }
 @media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 1000px) {
   .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);
             overflow: auto; }
   .living > .living-canvas { order: 2; height: 430px; }
-  .living > .living-rail { order: 1; border-left: 0 !important; }
+  .living > .living-rail { order: 1; }
+  /* Stacked, the two cards take the page's 16px gutter rather than the side-by-side insets. */
+  .living > .living-canvas, .living > .living-rail { margin: 0 16px 16px; }
 }
 
 /* ── The living canvas's motion — one class per domain event, and nothing else moves ──────

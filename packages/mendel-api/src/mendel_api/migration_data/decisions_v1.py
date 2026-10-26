@@ -460,11 +460,15 @@ def apply(connection, snapshot: Snapshot, converted: Conversion, *, at):
     manual = converted.disposition in ("manual_confirmed", "ambiguous_manual", "obsolete_protocol")
     graph = json.loads(snapshot.graph)
     fresh = converted.disposition == "manual_confirmed" or not graph.get("nodes")
+    from sqlalchemy import inspect
+
+    # `ownership` was dropped with the fork (#395); a schema without it records no owner.
+    owned = "ownership" in {c["name"] for c in inspect(connection).get_columns("pipeline_draft")}
     execute(
-        """UPDATE pipeline_draft SET ownership=:ownership,
+        f"""UPDATE pipeline_draft SET {"ownership=:ownership," if owned else ""}
         decision_revision=:revision, decision_sequence=:seq,
         projection_current=:fresh, projection_revision=:projection WHERE id=:draft""",
-        ownership="manual" if manual else "authored",
+        **({"ownership": "manual" if manual else "authored"} if owned else {}),
         revision=1 if converted.selections else 0,
         seq=sequence,
         fresh=fresh and not converted.retired,

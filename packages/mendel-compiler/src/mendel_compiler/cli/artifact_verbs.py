@@ -1,13 +1,8 @@
-"""`emit` and `publish`: the verbs that read a `pipeline.yml` and load no registry.
+"""Implement ``emit`` and ``publish`` against a self-contained pipeline artifact.
 
-Together because that is what they have in common and it is the interesting thing about them.
-`emit` rebuilds the Nextflow from the artifact alone — no registry, no network — which is the
-whole claim `pipeline.yml` makes and what lets a laboratory rebuild a validated pipeline years
-later. `publish` certifies a directory that already exists. Neither resolves anything, and
-neither can, which is why they return before `layers.load` is ever reached.
-
-`_refuse_a_divergent_directory` is here rather than in `report.py` because it is a *refusal*
-rather than a report: it decides whether the verb runs at all.
+Neither verb loads a registry or re-resolves decisions. ``emit`` regenerates files from the
+artifact; ``publish`` verifies an existing directory and stamps the gate result only when its
+recorded and generated content agree.
 """
 
 import shutil
@@ -18,11 +13,10 @@ from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.diagnostics import coded
 
 from mendel_compiler import pipeline_file
-from mendel_compiler.emit import emit, emit_config, entry_params
+from mendel_compiler.emit import emit, emit_config
 from mendel_compiler.gates import (
     Gate,
-    materialise_stub_data,
-    materialise_test_samplesheet,
+    materialise_gate_inputs,
     run_gate,
 )
 
@@ -151,12 +145,7 @@ def _publish_verb(target: Path, gate: "Gate | None") -> int:
 
     passed: Gate | None = None
     if gate is not None:
-        # Both gates: a `test` run needs the samplesheet its profile points at, and `-stub-run`
-        # needs it too — a stub never reads its inputs, but `splitCsv` runs before any process
-        # does and a missing file fails there.
-        materialise_test_samplesheet(directory, pipeline)
-        if gate is Gate.STUB:
-            materialise_stub_data(directory, entry_params(pipeline))
+        materialise_gate_inputs(gate, directory, pipeline)
         result = run_gate(gate, directory)
         print(f"gate {result.gate}: {'PASS' if result.passed else 'FAIL'}", file=sys.stderr)
         if result.passed:
@@ -259,5 +248,3 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
         )
         return 2
     return None
-
-

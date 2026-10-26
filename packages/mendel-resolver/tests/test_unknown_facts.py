@@ -1,4 +1,4 @@
-"""The resolver's half: unknown facts a chosen tool reads become tier-4 records (#338)."""
+"""Unknown implementation-read facts become explicit tier-4 decision records."""
 
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal

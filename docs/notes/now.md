@@ -29,8 +29,9 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 ## The living pipeline (describe → build)
 
 - A researcher types a sentence (an empty home, or the describe bar above the work) and builds
-  beside a conversation at `/build?session=<id>`; `/build?draft=<id>` is the manual builder.
-  (2026-09-13, 2026-10-03)
+  beside a conversation at `/build?session=<id>`. **One builder** (#395): `/build?draft=<id>`
+  and a bare `/build` open a conversation too; a hand edit is read as intent and confirmed in
+  the chat. (2026-09-13, 2026-10-22)
 - **The authoring protocol** is `docs/design/authoring-protocol.md`: the engine decides what is
   missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
   to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
@@ -55,7 +56,8 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 - **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider), so a shape is never
   refused; a raw JSON Schema in the prompt made models echo it. (2026-09-29)
 - **Current decisions are retained rows**, one pointer per subject; corrections cascade reviews,
-  truthful unbuildable answers stay, manual work forks to a linked draft. (2026-10-11)
+  truthful unbuildable answers stay; a hand edit stays in its pipeline (no fork, #395).
+  (2026-10-11, 2026-10-22)
 - **The canvas is the session's frame**, read from recorded rows and never re-resolved; progress
   counts the plan (*Step 4 of 5*); an alternative previews as the whole saved pipeline. (2026-10-12)
 - **Legacy conversion is frozen**; old snapshots are historical only. (2026-10-11)
@@ -96,13 +98,12 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 
 ## The forge (where declared data comes from)
 
-- **The Forge MVP runs end to end:** catalogue sync (2,062 nf-core tools), scaffold, AI worker,
-  validation ladder, review. Its review chat is door 5: a model may propose a vocabulary entry,
-  never land it. (2026-09-05, 2026-09-06)
-- **Never run:** approve → land → `mendel build`; a second revision; the review chat; pegi3s.
-  `make forge-rework` lists the `FORGE-REWORK` markers Plan 5A left. (2026-09-06, 2026-09-28)
-- **Open:** `forge_revision.registry_digest` is `String(64)`, too short for a `sha256:` digest.
-  (2026-09-13)
+- **The old forge is gone** (#361, forge MVP part 0, on `forge-0-remove-old`): package, API,
+  worker jobs, tables, `/forge` screens and its `MF`/`MI01xx` codes. The new forge is designed
+  from scratch in `docs/superpowers/specs/2026-10-19-forge-mvp-design.md`; part 0 merges to
+  `main` only together with part 1 (#362), so `main` never lacks a Registry. (2026-10-19)
+- **Until then registry data is written by hand.** `ai_invocation` keeps its `forge` rows, and
+  the vocabulary lives in `mendel_api/invocations.py`. (2026-10-19)
 
 ## Wiener (run → watch)
 
@@ -128,7 +129,6 @@ plan-by-plan history (Plans 1–6, 3A–3E, Wiener W1/W2, the audit rounds), is 
 - The canvas flows **left to right** (`dag-core` serves both); **absence is absence**: a region
   with nothing to say is not drawn. (2026-08-29, 2026-08-30)
 - Motion: five movements, one curve; numbers never tween. (2026-08-29)
-- The forge's durable state lives in `mendel-api`, namespaced `forge_*`. (2026-09-04)
 - A model server's keep-alive and slots are the deployment's business. (2026-09-29)
 
 ## Known traps

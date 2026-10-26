@@ -73,11 +73,11 @@ export function tickEvery(span: number): number[] {
 }
 
 const COLOUR: Record<string, string> = {
-  COMPLETED: "var(--pea)",
+  COMPLETED: "var(--done)",
   CACHED: "var(--rail)",
-  RUNNING: "var(--running)",
-  FAILED: "var(--fault)",
-  ABORTED: "var(--fault)",
+  RUNNING: "var(--now)",
+  FAILED: "var(--needs-you)",
+  ABORTED: "var(--needs-you)",
   SUBMITTED: "var(--surface-2)",
 };
 
@@ -125,14 +125,14 @@ export function Timeline({ runId, live, onPickLane }: {
 
   return (
     <section data-testid="band-timeline"
-             className="bg-panel border border-line rounded-[var(--r)] shadow-e2
+             className="bg-surface border border-line rounded-panel shadow-e2
                         flex flex-col overflow-hidden">
       {/* **No chrome strip.** `.pl > .hd` in the artboard has a bottom rule and no fill; the
           label and the count sit on one line inside the panel. A filled bar turned every band
           into a titled card, which is not how these boards are drawn. */}
       <div className="shrink-0 flex items-center gap-3 px-4 pt-3 pb-2">
-        <span className="text-label uppercase tracking-[.15em] text-ink-3">timeline</span>
-        <span className="ml-auto font-data text-label text-ink-4">
+        <h2 className="m-0 text-heading font-semibold text-ink">Timeline</h2>
+        <span className="ml-auto font-data text-label text-ink-3">
           {drawn.reduce((n, lane) => n + lane.bars.length, 0)} attempts ·{" "}
           {seconds(span)}
           {data.open && " · running"}
@@ -147,7 +147,7 @@ export function Timeline({ runId, live, onPickLane }: {
               <line x1={LABELS + x(data.from_ms + offset)} y1={0}
                     x2={LABELS + x(data.from_ms + offset)} y2={total}
                     stroke="var(--line)" strokeWidth={1} />
-              <text x={LABELS + x(data.from_ms + offset)} y={total + 18} fill="var(--ink-4)"
+              <text x={LABELS + x(data.from_ms + offset)} y={total + 18} fill="var(--ink-3)"
                     fontSize={9} textAnchor="middle" className="font-data">
                 {offset === 0 ? "0" : seconds(offset)}
               </text>
@@ -156,6 +156,18 @@ export function Timeline({ runId, live, onPickLane }: {
 
           {placed.map(({ lane, top, height }) => (
             <g key={lane.process}>
+              {/* **The failed step's lane is tinted** (the *Run · failed* board): the row to look
+                  along, said by the lane's own status — a failed attempt in it. */}
+              {lane.bars.some((bar) => bar.status === "FAILED") && (
+                <rect data-testid={`lane-tint-${lane.process}`} x={0} y={top - LANE_GAP / 2}
+                      width={LABELS + W} height={height + LANE_GAP} fill="var(--needs-you-soft)" />
+              )}
+              {lane.bars.length === 0 && (
+                <text data-testid={`not-started-${lane.process}`} x={LABELS + 6} y={top + 8} fontSize={9.5}
+                      fill="var(--ink-3)">
+                  not started
+                </text>
+              )}
               {/* **A lane exists before the run reaches it** — the artboard's own rule, and it
                   is why an unreached process is drawn greyed rather than omitted. */}
               <text x={LABELS - 16} y={top + 8} textAnchor="end" fontSize={9.5}
@@ -164,7 +176,7 @@ export function Timeline({ runId, live, onPickLane }: {
                     role={onPickLane && lane.bars.length ? "button" : undefined}
                     style={onPickLane && lane.bars.length ? { cursor: "pointer" } : undefined}
                     onClick={lane.bars.length ? () => onPickLane?.(lane.process) : undefined}
-                    fill={lane.bars.length ? "var(--ink-2)" : "var(--ink-4)"}>
+                    fill={lane.bars.length ? "var(--ink-2)" : "var(--ink-3)"}>
                 {lane.process}
               </text>
               {lane.bars.map((bar) => {

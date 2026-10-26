@@ -36,7 +36,6 @@ from comeni_ai import Client, ModelAccess, ModelUnavailableError, Usage
 from comeni_core.diagnostics import coded
 from comeni_core.egress.authoring import AuthoringRequest, AuthoringRole, AuthoringTurn, KnownStep
 from comeni_core.egress.characterisation import CharacteriseRequest
-from mendel_forge.workflow import Agent, InvocationState
 
 from mendel_api.authoring import prompts
 from mendel_api.authoring.types import (
@@ -55,6 +54,7 @@ from mendel_api.authoring.types import (
     WantUnderstanding,
 )
 from mendel_api.db import session_scope
+from mendel_api.invocations import Agent, InvocationState
 from mendel_api.models import AiInvocation
 from mendel_api.services import registry, replies
 from mendel_api.settings import model_access
@@ -154,7 +154,7 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     `types`, when given, is **each chosen family whole** (#194) — never a hand-picked subset. The
     prompt says so, and a model shown one family is told it is seeing all of it.
 
-    `mendel_forge.ai.select`'s argument, and it is the one worth restating: a model shown nine of
+    The argument worth restating: a model shown nine of
     eleven values does not know it was shown nine. Its answer then passes every check on the way
     back, because the thing it could not say is the thing nobody asked about.
     """

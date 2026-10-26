@@ -28,11 +28,10 @@ HISAT2 = "nf-core/hisat2/align@2.2.2"
 
 @pytest.fixture
 def clean():
-    """Every table these rows touch, in one statement — `clean_forge`'s reason, extended by the
-    two tables a session and its draft add. Each foreign key here is `RESTRICT`."""
+    """Every table these rows touch, in one statement — `clean_invocations`'s reason, extended
+    by the two tables a session and its draft add. Each foreign key here is `RESTRICT`."""
     tables = (
-        "forge_message, forge_event, forge_revision, forge_adaptation, forge_catalogue_item, "
-        "forge_source_snapshot, ai_invocation, pipeline_authoring_proposal, "
+        "ai_invocation, pipeline_authoring_proposal, "
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:

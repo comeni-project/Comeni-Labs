@@ -1,4 +1,4 @@
-# packages/wiener-api/tests/test_launcher.py
+"""Nextflow launch configuration, durable work preparation, and single-claim behavior."""
 
 import os
 

@@ -153,3 +153,21 @@ def test_the_active_gauge_goes_up_once_and_back_down(session, a_run, tail, monke
             projection.record(session, a_run.lab_id, a_run.id, _json.loads(line))
 
     assert moves == [+1, -1], f"the gauge moved {moves}, so it does not return to zero"
+
+
+def test_a_broken_exporter_does_not_lose_the_terminal_event(session, a_run, monkeypatch):
+    """Telemetry is a lossy lens; the database record remains authoritative when it fails."""
+    from wiener_api import repository
+    from wiener_api.services import projection, telemetry
+
+    def broken_export(*args):
+        raise RuntimeError("collector unavailable")
+
+    monkeypatch.setattr(telemetry, "export", broken_export)
+    for line in SPINE_RUN.read_text().splitlines():
+        if line.strip():
+            event = RunEvent.model_validate({**json.loads(line), "run_id": a_run.id})
+            projection.append(session, a_run.lab_id, a_run.id, event)
+
+    assert repository.run(session, a_run.lab_id, a_run.id).phase is RunPhase.SUCCEEDED
+    assert projection.state_of(session, a_run.lab_id, a_run.id).phase is RunPhase.SUCCEEDED

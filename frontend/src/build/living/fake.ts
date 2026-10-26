@@ -27,7 +27,8 @@ export const FAKE_SESSION = {
   row_version: 9,
   model_configured: true,
   steps_total: 5,
-  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false } },
+  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false },
+              upcoming: [{ node: "subread_featurecounts", position: 5 }] },
   graph: {
     nodes: [
       { id: "star_genomegenerate", contract_id: INDEX, params: [] },
@@ -146,7 +147,14 @@ export const FAKE_STEPS = {
     settings: [], ports: [port("reads", "fastq.reads", "in"),
       port("reads", "fastq.reads", "out", ["trimmed"])] },
   star_align: { id: "star_align", process: "STAR_ALIGN", contract_id: ALIGN, tier: 3, runs: "per_item", reason: "",
-    settings: [{}, {}, {}], ports: [port("reads", "fastq.reads", "in", ["trimmed"]),
+    settings: [
+      { name: "sjdbOverhang", value: "150", via: "ext", tier: 3, reason: "Read length is 151 bp, measured from your files, minus one.",
+        because: "", axis_reason: "", optional: false, evidence: "measured", premise: ["read_length = 151"] },
+      { name: "outSAMtype", value: "BAM Unsorted", via: "ext", tier: 1, reason: "The next step sorts, so sorting here would be done twice.",
+        because: "", axis_reason: "", optional: false, premise: [] },
+      { name: "twopassMode", value: "None", via: "ext", tier: 2, reason: "nf-core's default for this module.",
+        because: "", axis_reason: "", optional: false, premise: [] },
+    ], ports: [port("reads", "fastq.reads", "in", ["trimmed"]),
       port("index", "genome.index.star", "in"), port("bam", "alignment.bam", "out")] },
   samtools_sort: { id: "samtools_sort", process: "SAMTOOLS_SORT", contract_id: SORT, tier: 2, runs: "per_item",
     reason: "", settings: [], ports: [port("bam", "alignment.bam", "in"),
@@ -178,7 +186,7 @@ export const COLLECT_SESSION = {
   name: "rnaseq-counts",
   phase: "complete",
   steps_total: 4,
-  progress: { reviewed: 4, total: 4, active: null },
+  progress: { reviewed: 4, total: 4, active: null, upcoming: [] },
   graph: {
     nodes: [
       { id: "star_align", contract_id: ALIGN, params: [] },
@@ -227,7 +235,7 @@ export const CONFLICT_SESSION = {
   ...FAKE_SESSION,
   turns: FAKE_SESSION.turns.filter(turn => turn.seq <= 1).map(turn => ({ ...turn,
     blocks: turn.blocks.filter(block => block.kind === "goal_summary") })),
-  phase: "building", decision_revision: 2, projection_current: false, ownership: "authored",
+  phase: "building", decision_revision: 2, projection_current: false,
   facts: [{ kind: "measurement", subject: "paired", value: false, source: "person_said", states: [], pieces: [] }],
   inputs: [{ key: "fastq.reads", type_id: "fastq.reads", present: true, origin: "person_said", states: [] }],
   pending_proposal: {

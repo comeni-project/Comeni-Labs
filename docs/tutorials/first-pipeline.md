@@ -15,8 +15,14 @@ If the stack is not running yet, follow [Install and open the app](../how-to/ins
 Then open [http://localhost:5173](http://localhost:5173).
 
 On a fresh checkout, the first screen asks what you want to make. Natural-language entry
-is enabled when a model is configured. This walkthrough uses the manual builder:
-click **draw it yourself**, or open `/build` directly.
+is enabled when a model is configured. This walkthrough works without one: click **draw it
+yourself**, or open `/build` directly. A new, empty pipeline opens.
+
+Click **+ Add step** and choose **SUBREAD_FEATURECOUNTS**, the step that makes gene counts.
+The panel asks *So you also want counts.matrix, made by SUBREAD_FEATURECOUNTS — right?* under
+**From your edit**. Click **Yes**. The engine now asks which inputs you have (reads, genome,
+annotation) and the read facts it needs; answer them, confirm **What was understood**, and the
+engine offers the rest of the pipeline one step at a time. Click **Add it** for each.
 
 The first-screen illustration below is a placeholder; the current manual-entry label
 is **draw it yourself**.
@@ -25,17 +31,17 @@ is **draw it yourself**.
 
 | Current alpha behavior | Expected to change | Stable concept |
 |---|---|---|
-| The prompt needs a configured model; manual building remains available. | The exact authoring screens may change. | The user reviews the goal and pipeline choices. |
+| The prompt needs a configured model; drawing a step starts the same questions without one. | The exact authoring screens may change. | The user reviews the goal and pipeline choices. |
 
 ## 2. Inspect the draft
 
-The builder opens a pipeline draft. Treat the screen as three questions:
+The builder now shows the whole pipeline. Treat the screen as three questions:
 
 | Question | Where to look |
 |---|---|
 | What steps are in this pipeline? | the canvas |
 | What does each step consume and produce? | the ports and wires |
-| What still needs a person? | the status line and Ask/problems panel |
+| What still needs a person? | the status chip and the step panel |
 
 Select a step and read its settings. The point is not to memorize the module. The point is to
 see that settings and tool choices carry reasons.
@@ -88,7 +94,7 @@ fact it cannot defend.
 
 ## 4. Open the artifact
 
-Switch from **Canvas** to **Artifact**. The artifact view shows the materialized pipeline record.
+Switch from **Canvas** to **Pipeline file**. The artifact view shows the materialized pipeline record.
 That record is the bridge between the low-code app and plain Nextflow.
 
 The important files are:

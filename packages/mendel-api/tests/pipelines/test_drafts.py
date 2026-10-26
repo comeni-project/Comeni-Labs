@@ -221,6 +221,25 @@ def test_the_listing_answers_what_do_we_have(client):
     assert page["total"] >= 1
 
 
+def test_a_pipeline_built_in_a_conversation_names_it_and_a_drawn_one_does_not(client):
+    """#390: Home opened every pipeline in the manual builder, a conversation-built one too.
+    The row names the conversation, so it can open there; a pipeline drawn by hand names none."""
+    from datetime import UTC, datetime
+
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineAuthoringSession
+
+    talked = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    drawn = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    with session_scope() as db:
+        db.add(PipelineAuthoringSession(
+            id="listing-" + talked[:24], draft_id=talked, phase="complete", at="list_needs",
+            who="ana", created_at=datetime.now(UTC), updated_at=datetime.now(UTC)))
+
+    assert _row(client, talked)["session"] == "listing-" + talked[:24]
+    assert _row(client, drawn)["session"] is None
+
+
 def test_an_unkept_draft_has_no_provenance(client):
     """**Absent, not three zeroes.** A bar of empty segments claims a pipeline with nothing
     open, which is the opposite of *we have not looked* — the same rule as
@@ -250,7 +269,19 @@ def test_a_kept_draft_carries_its_provenance_and_its_join_key(client):
     assert row["kept"] is True
     assert row["digest"] and row["digest"].startswith("sha256:")
     assert row["provenance"]["settled"] > 0
-    assert [(v["step"], v["setting"]) for v in row["open_values"]] == [("align", "seq_platform")]
+
+
+def test_an_optional_open_value_is_counted_and_not_named_as_waiting_on_you(client):
+    """#384: `seq_platform` is routed through `ext`, so left unset STAR keeps its own read-group
+    line. Home's *needs you* reads `open_values`; an optional value is counted apart instead."""
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+
+    row = _row(client, made["id"])
+
+    assert row["open_values"] == []
+    assert row["provenance"]["optional"] == 1
+    assert row["provenance"]["open"] == 0
 
 
 def _row(client, draft_id: str) -> dict:

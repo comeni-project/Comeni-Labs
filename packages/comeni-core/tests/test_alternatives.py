@@ -1,3 +1,5 @@
+"""Behavioral checks for alternative input shapes and compatibility state fields."""
+
 import pathlib
 
 import pytest
@@ -14,15 +16,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add the declaration marker implied by a fixture's containing directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -46,7 +40,7 @@ def _v(root):
 
 
 def test_the_single_form_is_one_alternative():
-    """Existing contracts must not change. `type_id` + `state_required` is sugar."""
+    """The compact port form expands to one structural alternative."""
     port = InputPort(name="bam", type_id="alignment.bam", state_required=frozenset({"sorted"}))
     assert port.alternatives() == [
         Alternative(type_id="alignment.bam", states=frozenset({"sorted"}))
@@ -89,7 +83,7 @@ def test_alternatives_are_validated_against_the_vocabulary(tmp_path):
 
 
 def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
-    """`check_against` used to read `port.type_id`, which an `accepts` port does not have."""
+    """Vocabulary validation includes every declared alternative."""
     import yaml
     from comeni_core.declared.contract import ModuleContract
 
@@ -129,7 +123,7 @@ def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
 
 
 def test_state_preferred_still_populates_prefer():
-    """Vendored contracts wrote `state_preferred`; nothing on disk may break."""
+    """The compatibility spelling still populates the current preference field."""
     port = InputPort(
         name="bam", type_id="alignment.bam", state_preferred=frozenset({"deduplicated"})
     )

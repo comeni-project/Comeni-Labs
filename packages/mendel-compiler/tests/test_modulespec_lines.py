@@ -1,8 +1,4 @@
-"""`ModuleSpec` records where it read each fact.
-
-Without this every `Fact` in an `Observation` cites the same location, which is enough for a
-human to find the file and not enough for anyone — or anything — to read the evidence.
-"""
+"""Source-line evidence recorded for facts parsed into ``ModuleSpec``."""
 
 from pathlib import Path
 

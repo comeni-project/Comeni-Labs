@@ -1,3 +1,5 @@
+"""Deterministic behavior of the built-in flag-only ambiguity resolver."""
+
 import pytest
 from comeni_core.plan.decision import ParamAsked
 from mendel_resolver.ports import FlagOnlyResolver, NoCandidatesError

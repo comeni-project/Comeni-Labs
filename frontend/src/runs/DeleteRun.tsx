@@ -32,9 +32,9 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
   if (!asking) {
     return (
       <button type="button" data-testid="delete-run" onClick={() => setAsking(true)}
-              className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
-                         bg-transparent border border-line text-ink-3 cursor-pointer hover:text-ink">
-        delete
+              className="px-[14px] py-[7px] rounded-button border border-line-2 bg-surface text-[13px]
+                         font-semibold text-ink-2 cursor-pointer hover:text-ink focus-visible:shadow-[var(--ring)]">
+        Delete
       </button>
     );
   }
@@ -43,23 +43,23 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
                                                      text-secondary text-ink-2">
       <span>
         Permanent: its results, its working files and its record go with it. Limits are in{" "}
-        <Link to={{ search: "?settings=retention_runs" }} className="text-link">
+        <Link to={{ search: "?settings=retention_runs" }} className="text-now-ink">
           Data retention settings
         </Link>.
       </span>
       <button type="button" data-testid="delete-run-yes" disabled={send.isPending}
               onClick={() => send.mutate()}
-              className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
-                         bg-transparent border cursor-pointer"
-              style={{ color: "var(--fault)", borderColor: "var(--fault)" }}>
-        {send.isPending ? "deleting…" : "delete this run"}
+              className="px-[14px] py-[7px] rounded-button bg-surface border text-[13px] font-semibold cursor-pointer
+                         focus-visible:shadow-[var(--ring)]"
+              style={{ color: "var(--needs-you-ink)", borderColor: "var(--needs-you)" }}>
+        {send.isPending ? "Deleting…" : "Delete this run"}
       </button>
       <button type="button" onClick={() => setAsking(false)}
               className="bg-transparent border-0 p-0 text-ink-3 cursor-pointer hover:text-ink">
         keep it
       </button>
       {send.error && <span role="alert" className="basis-full"
-                           style={{ color: "var(--fault)" }}>{send.error.message}</span>}
+                           style={{ color: "var(--needs-you-ink)" }}>{send.error.message}</span>}
     </span>
   );
 }

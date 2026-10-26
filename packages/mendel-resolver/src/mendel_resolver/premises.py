@@ -1,14 +1,8 @@
-"""The facts a rule may read, and where each one came from.
+"""Build the facts that rule predicates may read, with provenance.
 
-Tier 3 is defined as producing `value + rule + measurement` and produced only the first two:
-a measured build and an asserted one had a byte-identical `steps:` block (A108). The premise
-is the missing third, and it has to carry its own provenance or `sealed` cannot refuse a
-decision resting on an assertion (issue #2).
-
-`when` could previously see measurements and nothing else, so a rule could not ask what the
-goal required — which is A120, and why R11 (Salmon for transcript-level counts, featureCounts
-for gene-level) cannot be written in the shipped format. A premise set is one namespace over
-measurements, goal facts and derived facts, so a rule author has one thing to learn.
+One premise namespace combines measured or asserted profile entries, goal facts, and derived
+facts. Each value records how it was obtained so downstream review can distinguish measurements,
+model reads, assertions, goal structure, and derivations.
 """
 
 import math
@@ -24,8 +18,7 @@ from mendel_resolver.predicates import matches
 from mendel_resolver.rules import Derivation
 
 __all__ = ["Premise", "PremiseError", "PremiseOrigin", "build_premises"]
-"""`PremiseOrigin` is re-exported rather than declared here: the artifact carries it, so it
-lives in `comeni_core.plan.tiers` beside `ValueSource`. Same move `Goal` and `DataProfile` made."""
+# PremiseOrigin is re-exported because persisted IR also uses this shared evidence vocabulary.
 
 
 class PremiseError(ValueError):
@@ -33,6 +26,7 @@ class PremiseError(ValueError):
 
 
 class Premise(BaseModel):
+    """One rule-readable fact and the evidence behind it."""
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: str
@@ -41,7 +35,7 @@ class Premise(BaseModel):
     by: str | None = None
     """A profiler's contract, when one measured it."""
     pieces: list[str] = Field(default_factory=list)
-    """Inspector pieces, when they measured it (issue 233)."""
+    """Inspector pieces that jointly produced a measured value."""
     because: str = ""
     cite: str = ""
     derived_from: list[str] = Field(default_factory=list)

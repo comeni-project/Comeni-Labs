@@ -31,7 +31,7 @@ def test_a_resolved_ir_carries_the_profile_it_was_built_from():
 
 
 def test_the_profile_survives_serialisation():
-    """It reaches the emitter through pipeline.ir.json in the CLI, not through memory."""
+    """The CLI passes profiles to the emitter through serialized IR."""
     loaded = layers.load(ROOT / "registry")
     goal = Goal(
         have=[GoalInput(type_id="fastq.reads")],

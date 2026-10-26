@@ -1,9 +1,23 @@
-import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render as mount, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthoringProposal } from "../../../api/types";
 import { StepProposalCard } from "./StepProposalCard";
+
+/** The tier vocabulary as the API serves it — the card's chip reads it, never a word of its own. */
+const TIERS = [
+  { tier: 1, name: "Forced", group: "Forced by inputs", what: "", colour: "line-2" },
+  { tier: 2, name: "Convention", group: "Standard practice", what: "", colour: "line-2" },
+  { tier: 3, name: "Measured", group: "Check the premise", what: "", colour: "measured" },
+];
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient();
+  client.setQueryData(["tiers"], TIERS);
+  return mount(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 /** The step card carries its brief, its need and its registry gaps (spec §13 of the consultant
  *  build), each line as the engine wrote it. Part 5 designs the card; this is its content. */
@@ -54,11 +68,27 @@ const card = ({ showGapDetails = false } = {}) =>
   );
 
 describe("the step card's brief", () => {
-  it("shows the four fields, each line as written", () => {
+  it("leads with what the tool does, in its curated words, and says it once (issue 387)", () => {
+    card();
+    expect(screen.getByTestId("select-step")).toHaveTextContent("MultiQC gathers every report into one.");
+    expect(screen.getByTestId("step-brief")).not.toHaveTextContent("MultiQC gathers every report into one.");
+    expect(screen.getAllByText("uncontested")).toHaveLength(1);
+  });
+
+  it("leads with the engine's reason only when the tool has no description, and says it once", () => {
+    const bare = proposal();
+    if (bare.block.kind === "step_proposal" && bare.block.brief) bare.block.brief.does = null;
+    render(
+      <StepProposalCard proposal={bare} progress={null} busy={false} onAccept={vi.fn()}
+                        onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByTestId("select-step")).toHaveTextContent("uncontested");
+    expect(screen.getByTestId("step-brief")).not.toHaveTextContent("uncontested");
+  });
+
+  it("shows the other fields, each line as written", () => {
     card();
     const brief = screen.getByTestId("step-brief");
-    expect(brief).toHaveTextContent("What it does");
-    expect(brief).toHaveTextContent("MultiQC gathers every report into one.");
     expect(brief).toHaveTextContent("Why it's here");
     expect(brief).toHaveTextContent("one report a person can read");
     expect(brief).toHaveTextContent("What it makes");
@@ -130,10 +160,10 @@ describe("changing a step (spec §14 of the consultant build)", () => {
     expect(onAccept).toHaveBeenCalledWith("fact_read_length", 50);
   });
 
-  it("continues with the step as it is by default", async () => {
+  it("adds the step as it is by default", async () => {
     const onAccept = vi.fn();
     show(onAccept);
-    expect(screen.getByTestId("accept-step")).toHaveTextContent("Continue");
+    expect(screen.getByTestId("accept-step")).toHaveTextContent(/^Add it$/);
     await userEvent.click(screen.getByTestId("accept-step"));
     expect(onAccept).toHaveBeenCalledWith("keep", undefined);
   });
@@ -173,5 +203,65 @@ describe("a fact the tool reads (issue 341)", () => {
     await userEvent.click(screen.getByRole("radio", { name: "reverse" }));
     await userEvent.click(screen.getByTestId("accept-step"));
     expect(onAccept).toHaveBeenCalledWith("fact_strandedness", "reverse");
+  });
+});
+
+describe("the step card as the Build board draws it", () => {
+  it("is titled by the step's place and its process, with the tier's served name as a chip", () => {
+    card();
+    const region = screen.getByRole("region", { name: /step 4/i });
+    expect(within(region).getByRole("heading")).toHaveTextContent(/^Step 4 · MULTIQC$/);
+    expect(screen.getByTestId("step-tier")).toHaveTextContent(/^convention$/);
+  });
+
+  it("never calls a rule's step measured: its premise may be one you typed (issue 387, as issue 268)", () => {
+    const ruled = proposal();
+    if (ruled.block.kind === "step_proposal") ruled.block.tier = 3;
+    render(
+      <StepProposalCard proposal={ruled} progress={null} busy={false} onAccept={vi.fn()}
+                        onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByTestId("step-tier")).toHaveTextContent(/^check the premise$/);
+  });
+
+  it("says a step reviewed before is offered again, in its title", () => {
+    render(
+      <StepProposalCard proposal={proposal()} progress={{ position: 2, total: 5, again: true }} busy={false}
+                        onAccept={vi.fn()} onPreview={vi.fn()} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(screen.getByRole("heading")).toHaveTextContent(/^Review step 2 again · MULTIQC$/);
+  });
+
+  it("marks the engine's choice as suggested, in words", () => {
+    card();
+    expect(within(screen.getByTestId("option-keep")).getByText("suggested")).toBeInTheDocument();
+    expect(screen.queryByText("recommended")).toBeNull();
+  });
+
+  it("asks why with Why this one?", async () => {
+    const onExplain = vi.fn();
+    render(
+      <StepProposalCard proposal={proposal()} progress={{ position: 4, total: 5, again: false }} busy={false}
+                        onAccept={vi.fn()} onPreview={vi.fn()} onExplain={onExplain} onSelect={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Why this one?" }));
+    expect(onExplain).toHaveBeenCalled();
+  });
+
+  it("keeps Preview on an alternative, reachable by the keyboard", async () => {
+    const p = proposal();
+    p.options = ["keep", "alt_1"];
+    if (p.block.kind === "step_proposal") {
+      p.block.alternatives = [{ id: "alt_1", label: "nf-core/other@1", note: "", recommended: false }];
+    }
+    const onPreview = vi.fn();
+    render(
+      <StepProposalCard proposal={p} progress={null} busy={false} onAccept={vi.fn()} previewable={["alt_1"]}
+                        onPreview={onPreview} onExplain={vi.fn()} onSelect={vi.fn()} />,
+    );
+    const preview = screen.getByRole("button", { name: /preview nf-core\/other@1/ });
+    preview.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onPreview).toHaveBeenCalledWith("alt_1", "pinned");
   });
 });

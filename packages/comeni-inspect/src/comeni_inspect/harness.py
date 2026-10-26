@@ -1,8 +1,7 @@
-"""The conformance harness: every fixture case, and its report from any implementation.
+"""Build fixture requests and compare inspection implementations through golden reports.
 
-**The goldens are the contract** (spec §4). A faster implementation of a piece, in any
-language, is valid when `run_case(case, command=[...])` reproduces every `expected.json` byte
-for byte. The pieces' own tests and the conformance test build requests here, one way.
+``run_case(case, command=[...])`` can exercise an external implementation. Compatibility requires
+the same byte-for-byte ``expected.json`` reports as the in-process runner.
 """
 
 import io
@@ -15,7 +14,7 @@ import yaml
 from comeni_inspect import run, wire
 
 CAP_BYTES = 16 * 2**20
-"""What a file may unpack to (spec §8)."""
+"""Maximum decoded bytes per fixture file."""
 
 
 @dataclass(frozen=True)

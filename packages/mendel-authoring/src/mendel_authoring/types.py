@@ -1,9 +1,7 @@
-"""The session's vocabulary: where a session is, what happens to it, what became of a proposal.
+"""Closed vocabulary for authoring phases, events, proposal states, and commands.
 
-**No behaviour.** The protocol (`protocol`) draws its nodes and arrows with these names, the
-machine (`state`) is derived from them, and the shell (`mendel_api.authoring.types`) re-exports
-them for its own readers. They live here because the diagram is the program (14.7.8.1), and a
-diagram that imported its words from the shell would point the arrow the wrong way.
+The protocol and state machine own these terms; the API layer re-exports them. This module contains
+no transition or persistence behavior.
 """
 
 from enum import StrEnum
@@ -100,7 +98,6 @@ class Command(StrEnum):
     CORRECT_FACT = "correct_fact"
     ANSWER_DISAGREEMENT = "answer_disagreement"
     RELEASE_PRODUCER = "release_producer"
-    FORK_CORRECTION = "fork_correction"
     DESCRIBE = "describe"
     ANSWER_GAP = "answer_gap"
     UPLOAD_SAMPLE = "upload_sample"

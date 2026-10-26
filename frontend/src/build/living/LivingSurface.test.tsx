@@ -44,27 +44,30 @@ function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
   return props;
 }
 
+/** The panel's conversation tab: the chat lives there, and only there. */
+const toAssistant = () => fireEvent.click(screen.getByRole("tab", { name: /^Assistant/ }));
+
 const with_ = (changes: Partial<AuthoringSession>) =>
   ({ ...FAKE_SESSION, ...changes }) as AuthoringSession;
 
 describe("the two surfaces", () => {
-  it("has a canvas, a conversation, one header strip and a composer — and no tabs", () => {
+  it("has a canvas, a panel with Step and Assistant, one header strip and a composer", () => {
     surface();
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "conversation" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
     expect(screen.getByTestId("living-header")).toHaveTextContent("rnaseq-counts");
     expect(screen.queryByTestId("mode")).toBeNull();
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
-    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Step", "Assistant"]);
   });
 
   it("keeps the canvas first in the document, whatever the stacked order draws", () => {
     // Stacked under 1000px the conversation is drawn first by CSS `order`; the canvas is still
     // what the page is about, so a screen reader meets it first.
     surface();
-    const [first, second] = screen.getAllByRole("region");
-    expect(first).toHaveAccessibleName("pipeline canvas");
-    expect(second).toHaveAccessibleName("conversation");
+    const regions = screen.getAllByRole("region");
+    expect(regions[0]).toHaveAccessibleName("pipeline canvas");
+    expect(regions.findIndex((r) => r.getAttribute("aria-label") === "build panel")).toBeGreaterThan(0);
   });
 
   it("draws the accepted steps solid and the step on offer as a ghost", () => {
@@ -76,37 +79,44 @@ describe("the two surfaces", () => {
 
   it("says how far through the blueprint the draft is", () => {
     surface();
-    expect(screen.getByTestId("living-status")).toHaveTextContent("3 of 5 steps reviewed");
+    expect(screen.getByTestId("living-status")).toHaveTextContent("step 4 of 5");
   });
 });
 
 describe("every block state in the static session", () => {
-  it("renders each kind the server can send", () => {
+  it("renders each kind the server can send: cards under Step, speech under Assistant", () => {
     surface();
-    const log = screen.getByRole("list", { name: "decisions and conversation" });
-    expect(within(log).getByText("Goal confirmed")).toBeInTheDocument();
-    expect(within(log).getByRole("region", { name: "Are the reads stranded?" })).toBeInTheDocument();
+    const step = screen.getByRole("tabpanel", { name: "Step" });
+    expect(within(step).getByRole("list", { name: "the plan" })).toHaveTextContent("Goal");
+    expect(within(step).getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" })).toBeInTheDocument();
+    toAssistant();
+    const log = screen.getByRole("log", { name: "conversation" });
     expect(within(log).getByText(/STAR is here because/)).toBeInTheDocument();
     expect(within(log).getByText(/you moved STAR_ALIGN/)).toBeInTheDocument();
-    expect(within(log).getByRole("region", { name: "a value for seq_platform" })).toBeInTheDocument();
-    expect(within(log).getByRole("region", { name: "the change this would make" })).toBeInTheDocument();
     for (const title of ["It would not answer", "This answer is out of date", "Something to check", "Done"]) {
       expect(within(log).getByText(title)).toBeInTheDocument();
     }
-    expect(within(log).getByRole("region", { name: "step 4 of 5: SAMTOOLS_SORT" })).toBeInTheDocument();
+    expect(within(log).getAllByTestId("pointer").map((p) => p.textContent)).toEqual([
+      "Read the goal — see Step", "Asked a question — see Step",
+      "Asked for a setting on STAR_ALIGN — see Step", "Suggested a change: Swap the aligner — see Step",
+    ]);
   });
 
   it("collapses every answered step to one line naming who decided it", () => {
     surface();
     const row = screen.getByRole("button", { name: /STAR_ALIGN step 3/ });
     expect(row).toHaveTextContent("you chose");
-    expect(row).not.toHaveTextContent("measured");
+    // The step's own tier is not a word on its place; what it says is how many of its values
+    // were measured, the same count as its footer on the canvas.
+    expect(row).not.toHaveTextContent("step 3 · measured");
+    expect(row).toHaveTextContent(/1 measured$/);
   });
 });
 
 describe("the states a session can be in", () => {
   it("shows a pending turn as working, and the composer waits with it", () => {
     surface();
+    toAssistant();
     expect(screen.getByText("Working on it")).toBeInTheDocument();
     expect(screen.getByTestId("composer")).toBeDisabled();
   });
@@ -116,9 +126,12 @@ describe("the states a session can be in", () => {
       turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending"),
     });
     surface(restored);
+    expect(within(screen.getByRole("list", { name: "the plan" })).getAllByRole("button", { name: /step \d/ }))
+      .toHaveLength(4);
+    toAssistant();
     expect(screen.queryByText("Working on it")).toBeNull();
     expect(screen.getByTestId("composer")).not.toBeDisabled();
-    expect(screen.getAllByRole("button", { name: /step \d/ })).toHaveLength(3);
+    expect(screen.getByRole("log", { name: "conversation" })).toHaveTextContent("and what does the sorter do?");
   });
 
   it("says plainly when no model is configured", () => {
@@ -140,6 +153,7 @@ describe("the states a session can be in", () => {
       ] as AuthoringSession["turns"],
     });
     const props = surface(failed);
+    toAssistant();
     fireEvent.click(screen.getByTestId("retry"));
     expect(props.onRetry).toHaveBeenCalledOnce();
   });
@@ -185,10 +199,10 @@ describe("the pacing question (spec §13)", () => {
 });
 
 describe("the proposal card", () => {
-  it("accepts the option that is selected, and the recommended one is said in words", () => {
+  it("accepts the option that is selected, and the suggested one is said in words", () => {
     const props = surface();
-    const card = screen.getByRole("region", { name: "step 4 of 5: SAMTOOLS_SORT" });
-    expect(within(card).getByText("recommended")).toBeInTheDocument();
+    const card = screen.getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" });
+    expect(within(card).getByText("suggested")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("radio", { name: /SAMTOOLS_SORMADUP/ }));
     fireEvent.click(within(card).getByTestId("accept-step"));
     expect(props.onAccept).toHaveBeenCalledWith(FAKE_SESSION.pending_proposal, "alt_1", undefined, undefined);
@@ -207,20 +221,17 @@ describe("the proposal card", () => {
   });
 });
 
-describe("drawers", () => {
-  it("moves focus into the artifact drawer and back to the control that opened it", () => {
+describe("the pipeline file", () => {
+  it("takes the canvas's place, and the canvas comes back as it was", () => {
     surface();
-    const opener = screen.getByTestId("living-view-artifact");
-    opener.focus();
-    fireEvent.click(opener);
-
-    const drawer = screen.getByRole("dialog", { name: /pipeline\.yml/ });
-    expect(drawer).toHaveFocus();
+    fireEvent.click(screen.getByTestId("living-view-artifact"));
+    expect(screen.getByTestId("pipeline-file")).toBeInTheDocument();
     expect(screen.getByTestId("artifact-text")).toHaveTextContent("version: 6");
+    expect(screen.getByTestId("build-canvas").closest(".living")).toHaveStyle({ display: "none" });
 
-    fireEvent.keyDown(drawer, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(opener).toHaveFocus();
+    fireEvent.click(screen.getByTestId("living-view-canvas"));
+    expect(screen.queryByTestId("pipeline-file")).toBeNull();
+    expect(screen.getByTestId("build-canvas").closest(".living")).not.toHaveStyle({ display: "none" });
   });
 });
 
@@ -325,8 +336,9 @@ describe("a goal composed by gathering, once confirmed (issue 173)", () => {
       { id: "g1", kind: "goal", state: "accepted", by: "person", chosen_option: null,
         chosen_contract: null, answer: null, at: "2026-09-28T10:05:00Z", block: card },
     ] } as Partial<AuthoringSession>));
-    expect(screen.getByText("Goal confirmed")).toBeInTheDocument();
-    expect(screen.getByText("fastq.reads, genome.fasta → counts.matrix")).toBeInTheDocument();
+    const goal = within(screen.getByRole("list", { name: "the plan" })).getAllByRole("listitem")[0];
+    expect(goal).toHaveTextContent("Goal");
+    expect(goal).toHaveTextContent("fastq.reads, genome.fasta → counts.matrix");
   });
 });
 
@@ -422,7 +434,7 @@ describe("a sample that answered a question (issue 134)", () => {
     shown(READS);
     const primaries = () => within(screen.getByRole("region", { name: "a question about your data" }))
       .getAllByRole("button")
-      .filter((b) => b.className.includes("bg-[var(--link)]")).map((b) => b.textContent);
+      .filter((b) => b.className.includes("bg-action")).map((b) => b.textContent);
     expect(primaries()).toEqual(["I have it"]);
     fireEvent.change(screen.getByLabelText(/a sample$/i),
       { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
@@ -437,7 +449,7 @@ describe("a sample that answered a question (issue 134)", () => {
     fireEvent.change(screen.getByLabelText(/a sample$/i),
       { target: { files: [new File(["@r\nA\n+\nI\n"], "s.fq")] } });
     expect(card().getByRole("button", { name: "Use this" }).className)
-      .not.toContain("bg-[var(--link)]");
+      .not.toContain("bg-action");
   });
 
   it("holds the question's other answers while a sample is out", async () => {
@@ -455,7 +467,7 @@ it("labels superseded historical reviews and blocks Run while the projection is 
       applicability: decision.id === "h-align" ? "superseded" : "retained" })),
   });
   surface(changed, { run: { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null } });
-  expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 of 5 · superseded/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 .*· superseded/ })).toBeInTheDocument();
   expect(screen.getByTestId("living-run")).toBeDisabled();
   expect(screen.getByText(/^Pipeline outdated\./)).toBeInTheDocument();
 });

@@ -1,3 +1,5 @@
+"""Profile-driven resolution and emitted parameter behavior through the compiler CLI."""
+
 import pathlib
 
 from mendel_compiler.cli import main
@@ -44,7 +46,7 @@ def _goal_file(tmp_path):
     path.write_text(
         _declared(
             path,
-            "version: 7\nintent: {want: [measurement.read_length]}\n"
+            "version: 8\nintent: {want: [measurement.read_length]}\n"
             "facts: {inputs: [{type_id: fastq.reads}]}\n"))
     return path
 

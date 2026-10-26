@@ -52,7 +52,7 @@ log = logging.getLogger(__name__)
 
 
 AI_JOBS = frozenset({ANSWER, PHRASE, READ_BACK, CHARACTERISE})
-"""The builder's jobs that reach a provider — `forge_jobs.AI_JOBS`, one agent over.
+"""The builder's jobs that reach a provider.
 
 **Declared by the module that owns them**, and the AI worker's allowlist is held equal to the
 union of every owner's set. A single list in `ai_worker.py` would let a job arrive on it without

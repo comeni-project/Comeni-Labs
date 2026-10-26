@@ -7,35 +7,17 @@ from support.paths import ROOT as REPOSITORY_ROOT
 
 
 @pytest.fixture
-def clean_db():
-    """A truncated `queue_visit` around each test.
-
-    These tests need the real database because they are about a stored baseline; mocking the
-    session would test the mock. Truncating rather than recreating keeps them fast, and
-    leaving rows behind makes them order-dependent.
-    """
-    from mendel_api.db import session_scope
-
-    with session_scope() as session:
-        session.execute(truncate("TRUNCATE TABLE queue_visit"))
-    yield
-
-
-@pytest.fixture
-def clean_forge():
-    """Start each requested scenario with empty Forge and invocation-related tables.
+def clean_invocations():
+    """Start each requested scenario with empty invocation-related tables.
 
     PostgreSQL requires these tables in one TRUNCATE because their foreign keys use RESTRICT.
-    Forge messages and pipeline-authoring turns both reference the shared `ai_invocation`
-    table; authoring proposals reference those turns. Any new table referencing these rows
-    must join the truncation list.
+    Pipeline-authoring turns reference the shared `ai_invocation` table; authoring proposals
+    reference those turns. Any new table referencing these rows must join the truncation list.
     """
     from mendel_api.db import session_scope
 
     tables = (
-        "forge_message, forge_event, forge_revision, forge_adaptation, "
-        "forge_catalogue_item, forge_source_snapshot, ai_invocation, "
-        "pipeline_authoring_proposal, pipeline_authoring_turn"
+        "ai_invocation, pipeline_authoring_proposal, pipeline_authoring_turn"
     )
     with session_scope() as session:
         session.execute(truncate(f"TRUNCATE TABLE {tables}"))
@@ -44,11 +26,7 @@ def clean_forge():
 
 @pytest.fixture
 def broken_registry_copy(tmp_path):
-    """The API-side twin of the forge's `broken_registry`.
-
-    Duplicated rather than imported across packages: a test fixture reaching into another
-    package's `tests/` directory is an import path that works only because both happen to be
-    on `sys.path` in this workspace. Six lines is cheaper than that coupling.
+    """A copy of the repository's registry that a test can break one field at a time.
 
     The copy is made once and mutated in place, so two calls break two fields of one registry.
     """

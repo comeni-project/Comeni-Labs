@@ -33,6 +33,8 @@ class SuggestionView:
     measured: object = None
     """The measured value a stated one contradicts (#345): the card asks *are you sure?*, and
     *yes* records what the person said."""
+    edit: str | None = None
+    """The hand edit this reading came from; every reading of one edit is taken together."""
 
 
 def measured_against(draft_id: str, change: DecisionChange):
@@ -84,7 +86,8 @@ def _says(change: DecisionChange, measured) -> str:
 
 
 def offer(
-    session_id: str, change: DecisionChange, *, heard: bool, invocation_id: str | None
+    session_id: str, change: DecisionChange, *, heard: bool, invocation_id: str | None,
+    edit: str | None = None, says: str | None = None,
 ) -> str:
     with session_scope() as db:
         suggestion_id = token_hex(16)
@@ -96,11 +99,48 @@ def offer(
                 heard=heard,
                 state=SuggestionState.PENDING.value,
                 invocation_id=invocation_id,
+                edit=edit,
+                says=says,
                 created_at=datetime.now(UTC),
             )
         )
         db.flush()
         return suggestion_id
+
+
+def offer_edit(session_id: str, readings) -> list[str]:
+    """Every reading of one hand edit, offered as one group in the order read, worded by the
+    engine. A waiting reading about the same subject was read from an edit this one replaces,
+    so its whole group goes stale: two readings of one thing are never both applied."""
+    edit = token_hex(16)
+    subjects = {reading.change().subject for reading in readings}
+    with session_scope() as db:
+        older = {row.edit for row in _pending_edits(db, session_id)
+                 if DecisionChange.model_validate(row.change).subject in subjects}
+        for row in _pending_edits(db, session_id):
+            if row.edit in older:
+                _settle(db, row, SuggestionState.STALE)
+    return [offer(session_id, reading.change(), heard=False, invocation_id=None, edit=edit,
+                  says=reading.said) for reading in readings]
+
+
+def _pending_edits(db, session_id: str):
+    return db.scalars(select(PipelineAuthoringSuggestion).where(
+        PipelineAuthoringSuggestion.session_id == session_id,
+        PipelineAuthoringSuggestion.state == SuggestionState.PENDING.value,
+        PipelineAuthoringSuggestion.edit.is_not(None),
+    ).with_for_update()).all()
+
+
+def _group(db, session_id: str, suggestion_id: str) -> list[str]:
+    """The suggestion and, for a reading, the rest of its edit, in the order offered."""
+    row = db.get(PipelineAuthoringSuggestion, suggestion_id)
+    if row is None or row.session_id != session_id or row.edit is None:
+        return [suggestion_id]
+    return list(db.scalars(select(PipelineAuthoringSuggestion.id).where(
+        PipelineAuthoringSuggestion.edit == row.edit,
+        PipelineAuthoringSuggestion.state == SuggestionState.PENDING.value,
+    ).order_by(PipelineAuthoringSuggestion.created_at)))
 
 
 def pending(session_id: str) -> list[SuggestionView]:
@@ -114,12 +154,13 @@ def pending(session_id: str) -> list[SuggestionView]:
             )
             .order_by(PipelineAuthoringSuggestion.created_at)
         ).all()
-        found = [(row.id, DecisionChange.model_validate(row.change), row.heard) for row in rows]
+        found = [(row.id, DecisionChange.model_validate(row.change), row.heard, row.edit,
+                  row.says) for row in rows]
     views = []
-    for i, ch, h in found:
+    for i, ch, h, edit, said in found:
         measured = measured_against(draft_id, ch)
-        views.append(SuggestionView(id=i, change=ch, heard=h, says=_says(ch, measured),
-                                    measured=measured))
+        views.append(SuggestionView(id=i, change=ch, heard=h, says=said or _says(ch, measured),
+                                    measured=measured, edit=edit))
     return views
 
 
@@ -156,18 +197,28 @@ async def apply(session_id: str, suggestion_id: str, *, by: str) -> dict:
 
     from mendel_api.services import session
 
-    def read():
+    def group():
         with session_scope() as db:
-            row = _pending_row(db, session_id, suggestion_id)
+            _pending_row(db, session_id, suggestion_id)
+            return _group(db, session_id, suggestion_id)
+
+    def read(one):
+        with session_scope() as db:
+            row = _pending_row(db, session_id, one)
             change = DecisionChange.model_validate(row.change).model_copy(
                 update={"actor": "person"})
             sess = db.get(PipelineAuthoringSession, session_id)
             draft = db.get(PipelineDraft, sess.draft_id)
             return change, (draft.decision_revision, draft.revision, sess.row_version)
 
-    change, versions = await run_in_threadpool(read)
-    done = await session.act(c.Change(session_id, change.model_dump(mode="json"), by, *versions))
-    await run_in_threadpool(mark_applied, suggestion_id)
+    # **A hand edit's readings are taken together**, in the order read (a want before the tool
+    # that makes it); each is one command, as every change is.
+    done = None
+    for one in await run_in_threadpool(group):
+        change, versions = await run_in_threadpool(read, one)
+        done = await session.act(
+            c.Change(session_id, change.model_dump(mode="json"), by, *versions))
+        await run_in_threadpool(mark_applied, one)
     return done.result
 
 
@@ -179,7 +230,9 @@ def mark_applied(suggestion_id: str) -> None:
 
 def dismiss(session_id: str, suggestion_id: str, *, by: str) -> None:
     with session_scope() as db:
-        _settle(db, _pending_row(db, session_id, suggestion_id), SuggestionState.DISMISSED)
+        _pending_row(db, session_id, suggestion_id)
+        for one in _group(db, session_id, suggestion_id):
+            _settle(db, _pending_row(db, session_id, one), SuggestionState.DISMISSED)
 
 
 def stale_for(draft_id: str, change: DecisionChange) -> None:

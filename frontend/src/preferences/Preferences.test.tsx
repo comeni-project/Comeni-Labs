@@ -330,3 +330,13 @@ describe("data retention", () => {
     expect(await screen.findByText(/Last cleared 12 Oct: 3 working folders/)).toBeTruthy();
   });
 });
+
+describe("the overlay in the new identity (issue 381)", () => {
+  it("speaks in sentences: what it is, and that .env wins", async () => {
+    at("/page?settings=");
+    const dialog = await screen.findByRole("dialog", { name: "Settings" });
+    expect(within(dialog).getByText("This installation · every change is saved as you make it")).toBeTruthy();
+    expect(await within(dialog).findByText((_, el) => el?.tagName === "SPAN"
+      && el.textContent === "A value in .env always wins.")).toBeTruthy();
+  });
+});

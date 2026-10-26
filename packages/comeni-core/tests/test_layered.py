@@ -1,10 +1,4 @@
-"""`stack()` — the one mechanism all four declared-data kinds use.
-
-Tested against a synthetic kind with no dependency on the registry, so these tests fail for
-one reason only. The four real kinds arrive in later tasks and each is a `Kind` plus a thin
-constructor; if one of them behaves differently from another, that is a bug in the kind
-rather than in stacking, which is the property this module exists to buy.
-"""
+"""Behavioral checks for shared declaration discovery, stacking, and displacement."""
 
 import pathlib
 
@@ -22,15 +16,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add the declaration marker implied by a fixture's containing directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -85,12 +71,7 @@ def test_a_higher_layer_wins_and_the_displacement_is_recorded(tmp_path):
 
 
 def test_origin_is_an_index_so_two_layers_may_share_a_name(tmp_path):
-    """A25. Layer identity is the index; the name is a label.
-
-    The lockfile's own docstring says this collision is not exotic: the public layer is named
-    `registry`, so a lab stacking it over their own `registry/` hits it on day one. Keying
-    displacement on a name suppressed the record entirely.
-    """
+    """Layer identity remains positional when two display names are equal."""
     _write(tmp_path, "one", "measurements", "shared.yml", {"value": "lower"})
     _write(tmp_path, "two", "measurements", "shared.yml", {"value": "upper"})
 
@@ -226,7 +207,7 @@ def test_delete_group_attributes_each_group_to_the_layer_that_supplied_it(tmp_pa
 
 
 def test_files_are_found_recursively_and_yaml_counts(tmp_path):
-    """A26. Three loaders globbed one level and all four matched `*.yml` only."""
+    """Discovery is recursive and supports both YAML filename extensions."""
     _write(tmp_path, "base", "measurements", "flat.yml", {"v": 1})
     _write(tmp_path, "base", "measurements/nested", "deep.yml", {"v": 2})
     _write(tmp_path, "base", "measurements", "other.yaml", {"v": 3})
@@ -267,13 +248,7 @@ def test_a_single_layer_displaces_nothing(tmp_path):
 
 
 def test_a_displacement_satisfies_the_egress_leaf_rule():
-    """Root A and root B must not fight: `Displacement` reaches the IR and a bundle.
-
-    Runs part A's actual rule rather than asserting something about it. The first version of
-    this test checked `assert [hints[name]]`, which is a non-empty list and therefore always
-    true — an inert assertion in the test file for the mechanism whose whole point is that
-    displacement cannot go unrecorded. A14, caught by re-reading rather than by reverting.
-    """
+    """Displacement records remain legal values at the public egress boundary."""
     import sys
     import typing
 

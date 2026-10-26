@@ -1,19 +1,4 @@
-"""A resolved decision must select, not merely get recorded. Audit 2026-08-06, A8.
-
-`router._choose` picked `ordered[0]` by id order, appended an `Ambiguity` to the plan, and
-returned. The resolver was consulted afterwards, at the bottom of `resolve()`, purely to
-fill in a `DecisionRecord` — `ir.nodes` and `ir.edges` were already built. `_source_for`
-was worse: it called the resolver and then wrote `chosen=f"{chosen[0]}.{chosen[1]}"`,
-overwriting the answer in the very statement that recorded it.
-
-So `ReplayResolver` could replay a parameter and never a module choice, a `human_override`
-on a producer was accepted and ignored, and — the serious one — a `DecisionRecord` could
-state a choice the pipeline did not make. A published bundle is supposed to be the
-auditable object; a reader had no way to notice it was wrong.
-
-Nothing was wrong in *output*: `FlagOnlyResolver` returns the candidate the code already
-picked, which is exactly why this survived. The tests here therefore use a resolver that
-disagrees, because agreement is what hid it."""
+"""Resolved producer and source decisions alter the plan and agree with their records."""
 
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.plan.decision import Ambiguity, ProducerDecision, Resolution

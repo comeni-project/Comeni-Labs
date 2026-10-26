@@ -1,9 +1,8 @@
-"""Whether the person said it: a quote of their own words (Part I.0 spec §5.3).
+"""Locate a model-supplied quote in the person's normalized conversation turns.
 
-A model may hand over a change *heard* only by quoting what the person typed, and the engine
-checks the quote here before anything is recorded. A quote proves the words were typed, not that
-they were read right — *"not paired-end"* holds *"paired-end"* — which is why a heard fact is
-still shown with its quote on the goal card, where a misreading is caught."""
+A matching quote proves only that the words occurred, so the resulting interpretation still
+retains the quote for review on the goal card.
+"""
 
 from collections.abc import Sequence
 

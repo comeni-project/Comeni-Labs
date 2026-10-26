@@ -17,7 +17,7 @@ const PIPELINE = {
   id: "aaaa1111", name: "rnaseq-counts", who: "R. Correia",
   updated_at: "2026-08-29T10:00:00Z", steps: 4, makes: ["counts.matrix"],
   kept: true, changed_since_kept: false, digest: "sha256:" + "a".repeat(64),
-  provenance: { settled: 9, measured: 1, open: 1, by_person: 4, by_model: 0 },
+  provenance: { settled: 9, measured: 1, open: 1, optional: 1, by_person: 4, by_model: 0 },
   open_values: [{ step: "align", setting: "seq_platform" }],
   open_not_named: 0,
 };
@@ -26,7 +26,7 @@ const SETTLED = {
   ...PIPELINE, id: "bbbb2222", name: "wgs-variants", who: "J. Costa",
   makes: ["variants.vcf"],
   digest: "sha256:" + "b".repeat(64),
-  provenance: { settled: 12, measured: 2, open: 0, by_person: 0, by_model: 0 },
+  provenance: { settled: 12, measured: 2, open: 0, optional: 0, by_person: 0, by_model: 0 },
   open_values: [], open_not_named: 0,
 };
 
@@ -54,7 +54,7 @@ function at({ drafts = [PIPELINE, SETTLED], runs = [RUNNING, FINISHED], mendel =
     // The diagnostic never answers, as when the model server is down (issue 268): nothing on the
     // front door may wait on it. Whether a model is configured is asked on its own.
     if (url.endsWith("/health/ai")) return new Promise(() => {});
-    const body = url.includes("/attention") ? { forge: [], mendel }
+    const body = url.includes("/attention") ? { mendel }
       : url.endsWith("/settings/ai") ? { configured: model }
       : url.includes("/pipeline/drafts") ? { drafts, total: drafts.length }
       : url.includes("/api/runs") ? { runs, total: runs.length }
@@ -77,8 +77,8 @@ describe("the front door", () => {
     expect(screen.getByText("counts.matrix")).toBeTruthy();
     // The NOW band names a run by its PIPELINE, not by its id — a run id is how the machine
     // addresses it, and what a reader recognises is what it is a run of.
-    expect(screen.getAllByText("rnaseq-counts").length).toBe(2);
-    expect(screen.getByRole("link", { name: "New pipeline" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Running now" })).getByText("rnaseq-counts")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "New analysis" })).toBeTruthy();
   });
 
   it("is SHORTER when nothing is happening, not filled with a reassurance", async () => {
@@ -89,11 +89,12 @@ describe("the front door", () => {
     //
     // The instinct to fill an empty region with a reassuring sentence is exactly what made the
     // old page read as generated, and it is the single thing most likely to be quietly undone.
-    at({ runs: [FINISHED], mendel: [] });
-    await waitFor(() => expect(screen.getByText("wgs-variants")).toBeTruthy());
+    at({ drafts: [SETTLED], runs: [FINISHED], mendel: [] });
+    await waitFor(() => expect(screen.getAllByText("wgs-variants").length).toBeGreaterThan(0));
 
-    expect(screen.queryByText(/running now/i)).toBeNull();
-    expect(screen.queryByText(/waiting on a person/i)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Running now" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Went wrong" })).toBeNull();
     expect(screen.queryByText(/nothing is waiting/i)).toBeNull();
     expect(screen.queryByText(/idle/i)).toBeNull();
   });
@@ -101,21 +102,16 @@ describe("the front door", () => {
   it("renders the NOW band when something is actually happening", async () => {
     at({ runs: [RUNNING, FINISHED] });
     await waitFor(() => expect(screen.getByText(/running now/i)).toBeTruthy());
-    expect(screen.getByText("9 of 24 tasks")).toBeTruthy();
+    expect(screen.getByText(/9 of 24 tasks/)).toBeTruthy();
   });
 
   it("NAMES the values waiting on a person rather than counting them", async () => {
     // *"strandedness and fragment size"*, not *"2 items"* — `ov-settled`. A count is what you
-    // write when you have not looked, and the sentence is composed server-side so the page
-    // cannot quietly turn it back into a number.
-    at({
-      mendel: [{
-        what: "rnaseq-counts: seq_platform has no rule",
-        where: "/build?draft=aaaa1111", count: 1, urgency: "waiting",
-      }],
-    });
-    await waitFor(() => expect(screen.getByText(/waiting on a person/i)).toBeTruthy());
-    expect(screen.getByText(/seq_platform has no rule/)).toBeTruthy();
+    // write when you have not looked; each pipeline's open values are named, from the draft.
+    at({});
+    const needs = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(needs).getByText("seq_platform")).toBeTruthy();
+    expect(within(needs).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/build?draft=aaaa1111");
     expect(screen.queryByText(/1 item/)).toBeNull();
   });
 
@@ -209,7 +205,7 @@ describe("the front door", () => {
     at({});
     await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
     expect(screen.queryByRole("form", { name: "describe a new analysis" })).toBeNull();
-    expect(screen.getByRole("link", { name: "New pipeline" })).toHaveAttribute("href", "/build");
+    expect(screen.getByRole("link", { name: "New analysis" })).toHaveAttribute("href", "/build");
   });
 
   it("still lists the lab's pipelines when Wiener is unreachable", async () => {
@@ -218,7 +214,7 @@ describe("the front door", () => {
     // would make them one server in practice.
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.includes("/api/runs")) throw new Error("connection refused");
-      const body = url.includes("/attention") ? { forge: [], mendel: [] }
+      const body = url.includes("/attention") ? { mendel: [] }
         : { drafts: [PIPELINE], total: 1 };
       return { ok: true, status: 200, json: async () => body };
     }));
@@ -229,5 +225,62 @@ describe("the front door", () => {
     );
     await waitFor(() => expect(screen.getAllByText("rnaseq-counts").length).toBeGreaterThan(0));
     expect(screen.getByText(/Run history is unavailable/)).toBeTruthy();
+  });
+});
+
+describe("Home in the new identity (issue 378)", () => {
+  it("is titled Your work, and sums up what is there", async () => {
+    at({});
+    expect(await screen.findByRole("heading", { name: "Your work" })).toBeTruthy();
+    expect(screen.getByTestId("home-summary")).toHaveTextContent("2 pipelines · 1 running · 1 value needs you");
+    expect(screen.getByRole("link", { name: "New analysis" })).toHaveAttribute("href", "/build");
+  });
+
+  it("leads with describing, then what needs you, then the pipelines", async () => {
+    at({ model: true });
+    const form = await screen.findByRole("form", { name: "describe a new analysis" });
+    const needs = screen.getByRole("region", { name: "Needs you" });
+    const pipelines = screen.getByRole("region", { name: "Your pipelines" });
+    expect(form.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(needs.compareDocumentPosition(pipelines) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("names nobody: no owner column, no lab", async () => {
+    at({});
+    await screen.findByRole("region", { name: "Your pipelines" });
+    expect(screen.queryByRole("columnheader", { name: "Owner" })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/R\. Correia|J\. Costa/);
+  });
+
+  it("says how each pipeline's values were decided in words beside the bar", async () => {
+    at({});
+    const table = within(await screen.findByRole("region", { name: "Your pipelines" }));
+    expect(table.getByText("9 settled · 1 measured · 1 open · 1 optional · 4 answered by you")).toBeTruthy();
+  });
+
+  it("shows results that are ready", async () => {
+    at({});
+    const results = await screen.findByRole("region", { name: "Results ready" });
+    expect(within(results).getByRole("link", { name: /dddd4444|wgs|rnaseq|counts/ })).toHaveAttribute("href", "/runs/dddd4444");
+  });
+
+  it("links every result from Results ready, on the runs board's Succeeded tab", async () => {
+    at({});
+    const results = await screen.findByRole("region", { name: "Results ready" });
+    expect(within(results).getByRole("link", { name: "All results" })).toHaveAttribute("href", "/runs?outcome=succeeded");
+  });
+
+  it("says what the bar under How it was decided counts", async () => {
+    at({});
+    await screen.findByRole("region", { name: "Your pipelines" });
+    expect(screen.getByText(/counts every value in the pipeline: settled by a rule, a convention or you, measured from your files, or still open/))
+      .toBeInTheDocument();
+  });
+
+  it("puts what is running first, then what needs you, then what went wrong, as the board does", async () => {
+    at({});
+    const running = await screen.findByRole("region", { name: "Running now" });
+    const needs = screen.getByRole("region", { name: "Needs you" });
+    expect(running.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

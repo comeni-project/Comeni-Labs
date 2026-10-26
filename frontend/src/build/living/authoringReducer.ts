@@ -111,44 +111,49 @@ export function noticeFrom(detail: string): ServerNotice {
   return match ? { code: match[1], text: match[2].split("\n")[0] } : { code: null, text: detail };
 }
 
+function withSnapshot(state: AuthoringState, snapshot: AuthoringSession): AuthoringState {
+  const before = state.snapshot?.pending_proposal?.id ?? null;
+  const now = snapshot.pending_proposal?.id ?? null;
+  let next: AuthoringState = { ...state, snapshot };
+
+  // A follow-up drawn optimistically retires once the transcript carries a person's turn with
+  // those words — never by timeout, which would erase a message the server simply had not
+  // answered yet.
+  if (state.saying !== null) {
+    const people = snapshot.turns.filter((turn) => turn.role === "person");
+    if (people.length > 0 && people[people.length - 1].text === state.saying) {
+      next = { ...next, saying: null };
+    }
+  }
+
+  // **Reconcile by proposal id and revision.** The optimistic acceptance is retired only when
+  // the server shows a revision past the one the request was made against — the draft now
+  // holds the step — or when the proposal is no longer pending without the revision moving,
+  // which means it was refused or withdrawn and what was drawn never happened.
+  const drawn = state.optimistic;
+  if (drawn !== null) {
+    const landed = snapshot.revision > drawn.expectedRevision;
+    const stillPending = now === drawn.proposalId;
+    if (landed || (!stillPending && state.inFlight !== drawn.proposalId)) {
+      next = { ...next, optimistic: null };
+    }
+  }
+  if (now !== null && now !== before) {
+    next = { ...emit(next, "proposal_shown", now), previewed: null };
+  }
+  return next;
+}
+
 export function authoringReducer(state: AuthoringState, action: AuthoringAction): AuthoringState {
   switch (action.type) {
-    case "snapshot": {
-      const before = state.snapshot?.pending_proposal?.id ?? null;
-      const now = action.session.pending_proposal?.id ?? null;
-      let next: AuthoringState = { ...state, snapshot: action.session };
-
-      // A follow-up drawn optimistically retires once the transcript carries a person's turn with
-      // those words — never by timeout, which would erase a message the server simply had not
-      // answered yet.
-      if (state.saying !== null) {
-        const people = action.session.turns.filter((turn) => turn.role === "person");
-        if (people.length > 0 && people[people.length - 1].text === state.saying) {
-          next = { ...next, saying: null };
-        }
-      }
-
-      // **Reconcile by proposal id and revision.** The optimistic acceptance is retired only when
-      // the server shows a revision past the one the request was made against — the draft now
-      // holds the step — or when the proposal is no longer pending without the revision moving,
-      // which means it was refused or withdrawn and what was drawn never happened.
-      const drawn = state.optimistic;
-      if (drawn !== null) {
-        const landed = action.session.revision > drawn.expectedRevision;
-        const stillPending = now === drawn.proposalId;
-        if (landed || (!stillPending && state.inFlight !== drawn.proposalId)) {
-          next = { ...next, optimistic: null };
-        }
-      }
-      if (now !== null && now !== before) {
-        next = { ...emit(next, "proposal_shown", now), previewed: null };
-      }
-      return next;
-    }
+    case "snapshot":
+      return withSnapshot(state, action.session);
 
     case "accept": {
       const step = stepOf(action.proposal);
-      const base = { ...state, inFlight: action.proposal.id, notice: null };
+      // **The panel follows the next offer** (issue 386): the step just added is not left open,
+      // whether it was opened from the canvas or not. It is drawn, and the step line lists it.
+      const base = { ...state, inFlight: action.proposal.id, notice: null, selected: null };
       if (step === null) return emit(base, "proposal_accepted", action.proposal.id);
       // Only the proposal *as offered* is drawn ahead of the server. An alternative's wires
       // depend on its ports, and drawing a guess would be a picture the server then corrects.
@@ -161,7 +166,6 @@ export function authoringReducer(state: AuthoringState, action: AuthoringAction)
           node: { id: step.node, contract_id: step.contract, params: [] },
           edges: action.proposal.edges ?? [],
         },
-        selected: step.node,
       };
       next = emit(next, "proposal_accepted", step.node);
       for (const edge of action.proposal.edges ?? []) {

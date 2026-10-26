@@ -48,9 +48,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     ai_context_tokens: int = 32_000
-    """What the configured model can hold. The dossier is budgeted against it — see
-    `mendel_forge.ai.context.Budget`, which reserves room for the answer because a context
-    window is shared between the prompt and the response."""
+    """What the configured model can hold. The dossier is budgeted against it, leaving room
+    for the answer because a context window is shared between the prompt and the response."""
 
     family_step_from: int = 0
     """From how many declared types the first call picks a family before a type (#194).

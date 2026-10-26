@@ -155,10 +155,34 @@ def _label(row, event: RunEvent) -> None:
     # events can arrive out of order, and `TaskOut.tag` answers `labels[-1]`, so taking it from
     # anywhere else lets the filter and the cell that displays it disagree.
     row.tag = row.labels[-1].get("tag")
-    # The latest attempt's tag, lifted into its own column so `_tasks_query` can filter on it
-    # without reading one JSON document per row. **Read from `row.labels`, not from `trace`**:
-    # events can arrive out of order, and `TaskOut.tag` answers `labels[-1]`, so taking it from
-    # anywhere else lets the filter and the cell that displays it disagree.
+
+
+def _update_task(
+    session: Session, lab_id: str, run_id: str, state: RunState, event: RunEvent
+) -> None:
+    """Refresh the projection for the one task described by `event`, if any."""
+    touched = event.trace.task_id if event.trace is not None else None
+    if touched not in state.tasks:
+        return
+    task = state.tasks[touched]
+    existing = repository.task(session, lab_id, run_id, task.task_id)
+    if existing is None:
+        existing = RunTask(run_id=run_id, task_id=task.task_id)
+        repository.add(session, lab_id, existing)
+    existing.process, existing.status = task.process, task.status
+    existing.attempts = [a.model_dump(mode="json") for a in task.attempts]
+    existing.latest_exit = task.latest_exit
+    existing.last_change_ms = task.last_change_ms
+    existing.first_seen_ms = task.first_seen_ms
+
+    # The latest attempt's numbers are indexes for sorting; the attempt blob stays authoritative.
+    latest = task.attempts[-1] if task.attempts else None
+    existing.peak_rss_bytes = latest.peak_rss_bytes if latest else None
+    existing.realtime_ms = latest.realtime_ms if latest else None
+    existing.pct_cpu = latest.pct_cpu if latest else None
+
+    # Labels are not part of the fold, so only the admitted event can add them to the projection.
+    _label(existing, event)
 
 
 def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunState:
@@ -197,31 +221,8 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         row.terminal_seen = sorted(kind.value for kind in state.terminal_seen)
         row.run_succeeded = state.run_succeeded
 
-    # **Only the task this event describes** (issue 282): the fold changes no other, and
-    # rewriting every task on every event made each ingest O(tasks) writes as well.
-    touched = event.trace.task_id if event.trace is not None else None
-    for task in (state.tasks[touched],) if touched in state.tasks else ():
-        existing = repository.task(session, lab_id, run_id, task.task_id)
-        if existing is None:
-            existing = RunTask(run_id=run_id, task_id=task.task_id)
-            repository.add(session, lab_id, existing)
-        existing.process, existing.status = task.process, task.status
-        existing.attempts = [a.model_dump(mode="json") for a in task.attempts]
-        existing.latest_exit = task.latest_exit
-        existing.last_change_ms = task.last_change_ms
-        existing.first_seen_ms = task.first_seen_ms
-
-        # A191. The latest attempt's numbers, lifted out of the JSON so the Tasks tab can
-        # `ORDER BY` them. The blob stays authoritative; these three are its index.
-        latest = task.attempts[-1] if task.attempts else None
-        existing.peak_rss_bytes = latest.peak_rss_bytes if latest else None
-        existing.realtime_ms = latest.realtime_ms if latest else None
-        existing.pct_cpu = latest.pct_cpu if latest else None
-
-        # A200. Only the task this event actually describes — the labels come from the
-        # admitted event, and the fold does not carry them.
-        if event.trace is not None and event.trace.task_id == task.task_id:
-            _label(existing, event)
+    # Only this event's task is refreshed; rewriting every task makes ingest O(tasks) writes.
+    _update_task(session, lab_id, run_id, state, event)
 
     session.flush()
     # **After the flush and never before.** A stream entry for an event Postgres has not

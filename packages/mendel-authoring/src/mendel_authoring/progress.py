@@ -26,14 +26,27 @@ class OfferProgress(BaseModel):
         return self
 
 
+class Upcoming(BaseModel):
+    """A step the walk will still offer, at its `position` in the plan."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    node: str
+    position: int = Field(ge=1)
+
+
 class WalkProgress(BaseModel):
-    """How many of the plan's steps hold a review, and the step offered now, if any."""
+    """How many of the plan's steps hold a review, the step offered now, if any, and the plan's
+    steps after it whose review does not hold, in order — what the walk will still offer, named so
+    the person can see the rest of the road. Empty when nothing is offered: a finished or paused
+    walk has no "after"."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     reviewed: int = Field(ge=0)
     total: int = Field(ge=0)
     active: OfferProgress | None = None
+    upcoming: tuple[Upcoming, ...] = ()
 
     @model_validator(mode="after")
     def _within(self) -> Self:
@@ -54,4 +67,8 @@ def progress_of(order: list[str], retained: frozenset[str],
         position=order.index(pending) + 1, total=len(order),
         again=pending in previously_reviewed,
     )
-    return WalkProgress(reviewed=len(set(order) & retained), total=len(order), active=active)
+    return WalkProgress(reviewed=len(set(order) & retained), total=len(order), active=active,
+                        upcoming=() if active is None else tuple(
+                            Upcoming(node=step, position=at)
+                            for at, step in enumerate(order, start=1)
+                            if at > active.position and step not in retained))

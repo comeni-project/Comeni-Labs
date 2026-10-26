@@ -1,14 +1,8 @@
-"""Measurements as declared data.
+"""Declare typed measurements and validate profiled values.
 
-`DataProfile` used to be four hardcoded fields, so a rule could only ever reason about
-four things and adding a fifth meant editing a pure package, bumping a version and cutting
-a release — something a bioinformatician cannot do and a curator cannot approve. The
-tier-3 promise is that rules are data a domain expert adds; this is what makes that true.
-
-`kind` is closed and there is deliberately no `string`. A free-text measurement is exactly
-the hole `tests/guards/test_egress.py` exists to close — `organism: "patient 4471023's tumour"` is
-a perfectly valid string. A categorical declares its values instead, which also lets a rule
-over it be checked for exhaustiveness.
+Measurements are registry data used by goal loading, routing, and pipeline metadata. Supported
+kinds are integer, number, boolean, and enum. Free text is intentionally unsupported; categorical
+values must be declared as an enum.
 """
 
 from collections.abc import Sequence
@@ -50,12 +44,7 @@ class MeasurementKind(StrEnum):
 
 
 class MetaValue(BaseModel):
-    """One value translation between our vocabulary and a module's.
-
-    A list of records rather than a mapping, matching `ParamBinding` and `Measured`: a
-    typed key does not prove a declared key, and `Measurement` is one field away from
-    being reachable from a publish bundle.
-    """
+    """Translate one declared value to the value expected in module metadata."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -64,61 +53,26 @@ class MetaValue(BaseModel):
 
 
 class Measurement(BaseModel):
+    """A typed property that a goal may assert or a profiling contract may measure."""
+
     model_config = ConfigDict(extra="forbid")
 
     id: MeasurementId
     kind: MeasurementKind
     values: list[str] = Field(default_factory=list)
     extensible: bool = False
-    """Whether an overlay may contribute `add_values`.
-
-    Per measurement, because the semantics genuinely differ: `strandedness` has exactly
-    three values and a fourth is a bug, while `organism` can never be enumerated and a
-    registry that tries is wrong.
-    """
+    """Whether an overlay may extend this declaration with `add_values`."""
     per_sample: bool = False
-    """Whether this is a property of each sample rather than of the study.
+    """Whether the value may be a list with one entry per sample.
 
-    A per-sample measurement may be written as **a scalar or a list**: a scalar says the
-    cohort is uniform in this respect, which is what every goal file written so far means by
-    `read_length: 150`, and a list gives one value per sample. Both are the same claim at
-    different resolutions, and refusing the scalar would invalidate every existing goal to
-    buy nothing — the same call `DataProfile._accept_mapping` and `Constraints._accept_mapping`
-    already make about the ergonomic form and the safe one being different decisions.
-
-    Distinct from `describes`, which says *what kind of thing* a measurement is about and
-    governs whether it can be carried into a module's `meta` map. `n_samples` describes the
-    study and is not per-sample; `read_length` is both. A rule that must reduce a cohort to
-    one number says so through a `derives:` aggregate rather than by hoping the profile
-    happened to carry a scalar.
+    Scalars remain valid for a uniform cohort. This is independent of `describes`, which controls
+    whether the value can be carried into metadata for a particular data type.
     """
     assertion_only: bool = False
-    """Whether nothing in this stack can measure it, so a goal must assert it.
-
-    Issue #38: *"a measurement is a claim that some property of the data is worth measuring
-    and **can be**"*, and the second half was invisible. A profiling contract produces a
-    `measurement.<id>` type, so the answer is already derivable from the registry — but
-    nothing said it, so a measurement nobody could produce looked exactly like one somebody
-    had wired a tool for, and a rule keyed on it looked exactly as sound.
-
-    Declared rather than derived, even though it is derivable, for the reason `describes` is:
-    the registry is data a domain expert writes and a curator approves, and *"we have not
-    wired a tool for this yet"* is a statement somebody should have to make. Where the two
-    disagree, `tests/registry/test_measurement_vocabulary.py` refuses the file.
-
-    An asserted measurement is not a lesser one — `strandedness` is asserted in every shipped
-    goal and drives featureCounts' `-s` — but it is different **evidence**, which is what
-    `PremiseOrigin` records and what the `sealed` profile is meant to act on.
-    """
+    """Whether a goal must supply this value because no profiling contract produces it."""
 
     assertion_only_because: str = ""
-    """Why nothing measures it. Required where `assertion_only` is set.
-
-    A boolean with no reason is a fact nobody can act on: a reader cannot tell "no tool exists
-    for this" from "the tool exists and nobody has vendored it", and those are different
-    amounts of work. §4.7's rule — no structured value is a reader's only account of itself —
-    applied to a flag rather than to a mapping.
-    """
+    """Human-readable reason for `assertion_only`; required exactly when that flag is true."""
 
     minimum: float | None = None
     maximum: float | None = None
@@ -126,42 +80,20 @@ class Measurement(BaseModel):
     description: str = ""
     cite: str | None = None
     explain: str | None = Field(default=None, min_length=1, max_length=600)
-    """What it is and how a person finds it out, one short paragraph (Part I.1). Its name is
-    `description`. Read by nothing that builds."""
+    """Short user-facing explanation; it does not affect pipeline construction."""
     edam: str | None = None
     describes: TypeId | None = None
-    """Which type this is a property of, e.g. `fastq.reads`.
-
-    **A `TypeId`, not a `MeasurementId`** — it was annotated as the latter, and nothing
-    noticed because neither alias validated anything. A64 (issue #28) gave both a shape and
-    the mismatch failed on the first load: `fastq.reads` is a type id and is not a
-    measurement id. Two declared aliases that accept the same strings are two labels, and a
-    label applied to the wrong kind of value is exactly what invariant 14's *"a declared ID
-    alias"* was supposed to rule out.
-
-    Only measurements that describe something can be carried into that thing's `meta` map.
-    `n_samples` describes the study rather than a read, so it has no `describes` and is
-    never carried.
-    """
+    """Data type whose metadata may carry this measurement, for example `fastq.reads`."""
 
     meta_key: str | None = None
-    """How a module spells this in `meta`, if any. Absent means never carried.
-
-    Opt-in, so nothing lands in a meta map by accident. nf-core modules read
-    `meta.strandedness` and `meta.single_end` directly and do their own translation into
-    flags — which is why Mendel carries the *fact* and lets the module keep its encoding.
-    """
+    """Key used when carrying this value in module metadata; absent disables carrying it."""
 
     meta_values: list[MetaValue] = Field(default_factory=list)
-    """Value translations, when our vocabulary and the module's disagree.
+    """Optional translations from declared values to module metadata values."""
 
-    We ask whether a library is `paired`; nf-core asks whether it is `single_end`. The same
-    fact spelled inside out. Declared here rather than known by the compiler, for the same
-    reason `entry_channel` is declared: this has to work for a module nobody has seen.
-    """
     @model_validator(mode="after")
     def _assertion_only_says_why(self) -> "Measurement":
-        """A flag with no reason is a fact nobody can act on. Issue #38."""
+        """Require `assertion_only` and its explanation to appear together."""
         if self.assertion_only and not self.assertion_only_because:
             raise ValueError(
                 coded("MD0315", f"measurement {self.id!r} declares `assertion_only` with no "
@@ -180,23 +112,11 @@ class Measurement(BaseModel):
 
     deprecated: bool = False
     replaced_by: MeasurementId | None = None
-    """A meaning change gets a *new id*; this one stays forever, pointing at its successor.
-
-    OBO practice, which the ontologies this registry cites have used for two decades: never
-    reuse an identifier, keep obsolete terms indefinitely. Per-measurement `@version` was
-    rejected — every rule condition would grow a version, and omitting one would silently
-    mean *latest*, which is the ambiguity versioning was meant to remove.
-    """
+    """Successor ID for a deprecated measurement; meaning changes receive a new ID."""
 
 
 class MeasurementDelta(BaseModel):
-    """An overlay extending a measurement's values rather than replacing it.
-
-    A separate type rather than an optional field on `Measurement`, because the two are
-    genuinely different declarations: this one is meaningless without a lower layer, and
-    `stack()` needs to be able to tell them apart in `merge` without inspecting whether a
-    field happens to be empty.
-    """
+    """An overlay that adds values to an extensible declaration in a lower layer."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -205,15 +125,10 @@ class MeasurementDelta(BaseModel):
 
 
 def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
-    """One measurement file — a declaration, or an extension of one.
+    """Parse one declaration or `add_values` extension.
 
-    **`id:` is required** (`MD0012`), and `declares:` is accepted and ignored here. Both are
-    comeni-registry#1: a measurement took its identity from the filename, which was workable
-    only while every one of them sat in a directory named for its kind. Once a file may live
-    anywhere the filename is a poor name, so the fallback was removed rather than kept.
-
-    `declares:` is read by `stack()` and dropped here because every declared model sets
-    `extra="forbid"` — accepting it is what let the registry migrate one file at a time.
+    `id` is required. The generic stacker consumes `declares`; this parser discards it before
+    strict model validation. Extensions may not carry replacement fields.
     """
     data = yaml_strict.load(path) or {}
     data.pop("declares", None)
@@ -230,8 +145,7 @@ def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
     added = data.pop("add_values", None)
     if added is not None:
         if data:
-            # It used to be popped and the rest of the file ignored, so an overlay
-            # declaring `add_values` *and* a new `meta_key` silently got only the values.
+            # An extension cannot also replace fields from the underlying declaration.
             raise ValueError(
                 f"{path}: `add_values` extends a declaration and cannot carry "
                 f"{', '.join(sorted(data))} as well. Shadow the whole file to change those."
@@ -248,12 +162,7 @@ def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
 def _merge_measurement(
     old: Measurement | MeasurementDelta, new: Measurement | MeasurementDelta
 ) -> Measurement | MeasurementDelta:
-    """What a higher layer's file does to the one below it.
-
-    A whole declaration replaces; an `add_values` extends. One function, so the two are
-    a visible pair rather than two branches in a loop — which is A35's shape in the
-    vocabulary loader, where some fields replaced and others did not.
-    """
+    """Replace with a full declaration or append an allowed `add_values` extension."""
     if not isinstance(new, MeasurementDelta):
         return new
     if isinstance(old, MeasurementDelta):
@@ -267,7 +176,7 @@ def _merge_measurement(
 
 
 class MeasuredEntry(NamedTuple):
-    """One fact for `profile_of`: its value, who settled it, and what measured it (#134)."""
+    """One fact for `profile_of`, including its source and optional evidence."""
 
     measurement: str
     value: ParamValue | list[ParamValue]
@@ -283,12 +192,7 @@ class MeasurementRegistry(BaseModel):
     measurements: dict[str, Measurement] = Field(default_factory=dict)
 
     displaced: list[Displacement] = Field(default_factory=list)
-    """What a higher layer replaced or extended here.
-
-    On the registry rather than returned beside it, for the reason `Registry.displaced`
-    gives: a caller who has to carry a second value is a caller who will drop it, and this
-    one reaches `PipelineIR.displaced` and therefore a publish bundle.
-    """
+    """Declarations replaced or extended by higher layers."""
 
     @staticmethod
     def kind() -> Kind[str, Measurement | MeasurementDelta]:
@@ -315,14 +219,7 @@ class MeasurementRegistry(BaseModel):
 
     @classmethod
     def load(cls, layers: Path | Sequence[Path]) -> "MeasurementRegistry":
-        """Load measurements across a layer stack.
-
-        **Takes layer roots, not `measurements/` directories.** A layer is one directory
-        holding all four kinds, and a loader that is handed a slice of one cannot know
-        which layer it is reading — which is exactly why displacement went unrecorded
-        (A23). Callers wanting the displacements use `stack()` and `of()` directly, as
-        `mendel_resolver.layers.load` does.
-        """
+        """Load declarations from one or more layer roots in precedence order."""
         return cls.of(stack(layers_of(layers), cls.kind()))
 
     def get(self, measurement_id: str) -> Measurement:
@@ -347,10 +244,8 @@ class MeasurementRegistry(BaseModel):
     ) -> ParamValue | list[ParamValue]:
         """`value` read as the declaration's kind when it arrived as text, else unchanged.
 
-        A model writes `"50"` for an integer (issue 323). The kind says how to read it: whole
-        digits for an integer, a decimal for a number, `true`/`false` for a boolean. Text that
-        is not the kind (`"fifty"`, `"50 bp"`, `"50.5"` for an integer) comes back as it was,
-        so `check` still refuses it: this reads a type, it never guesses a value.
+        Integer, decimal, and boolean text is converted only when it unambiguously matches the
+        declared kind. Other text is returned unchanged so `check` can report the mismatch.
         """
         if isinstance(value, list):
             return [self.coerce(measurement_id, element) for element in value]
@@ -372,12 +267,8 @@ class MeasurementRegistry(BaseModel):
     def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:
         """Raise unless `value` satisfies the declaration for `measurement_id`.
 
-        A list is permitted only where the measurement declares `per_sample`, and then every
-        element is checked against the same declaration — a cohort of read lengths is a cohort
-        of read lengths, not a new kind of thing. Refusing a list everywhere else matters more
-        than it looks: `check` is what stands between a goal file and routing, and a list
-        reaching a comparison predicate raises `TypeError` at resolution rather than a
-        diagnostic at load.
+        Lists are accepted only for `per_sample` measurements and are validated element by
+        element. Numeric bounds are inclusive. Booleans are not accepted as integers.
         """
         measurement = self.get(measurement_id)
         if isinstance(value, list):
@@ -425,24 +316,14 @@ class MeasurementRegistry(BaseModel):
         source: ValueSource = ValueSource.SAID,
         by: str | None = None,
     ) -> DataProfile:
-        """The one validated way to build a `DataProfile`.
-
-        Validation needs this registry, which the model cannot hold, so it happens here.
-        `tests/guards/test_construction.py` asserts nothing else constructs a profile — a second
-        path skipping validation would produce an unchecked profile flowing straight into
-        routing, which is the class of bug that left `subject: aligner` dead for months.
-        """
+        """Build a validated profile whose entries share one source and optional producer."""
         return self.profile_of([MeasuredEntry(k, v, source, by) for k, v in mapping.items()])
 
     def profile_of(self, entries: Sequence["MeasuredEntry | tuple"]) -> DataProfile:
-        """`profile()` for entries that do not share a source.
+        """Build a validated profile from entries with independent provenance.
 
-        Gathering folds facts from a person, an inspector and a model into one goal, and
-        `profile()` stamps a single source on every entry. This is the one other validating
-        constructor, in the same file `tests/guards/test_construction.py` already allows.
-
-        A bare `(measurement, value, source, by)` tuple is still accepted: it is a
-        `MeasuredEntry` with no pieces and no evidence.
+        A four-item `(measurement, value, source, by)` tuple is accepted and receives no pieces
+        or evidence. Output is sorted by measurement ID.
         """
         given = [MeasuredEntry(*entry) for entry in entries]
         for entry in given:
@@ -469,14 +350,7 @@ class MeasurementRegistry(BaseModel):
 
 
     def to_measure(self, by_contract: dict[str, str]) -> DataProfile:
-        """A profile naming what will be measured and by what, with no values yet.
-
-        `value: None` is deliberate and honest: the pipeline has been *emitted*, not run.
-        The laboratory runs it and fills the values in. Anything else would be Mendel
-        reporting a number it has never seen, which is what invariant 15 exists to
-        prevent — and the file it writes is the same shape a goal accepts back, so the
-        round trip is measure, fill in, build.
-        """
+        """Describe pending measurements and their contracts, using `None` for unknown values."""
         for measurement_id in by_contract:
             self.get(measurement_id)  # raises naming what is declared
         return DataProfile(
@@ -488,13 +362,7 @@ class MeasurementRegistry(BaseModel):
 
 
     def meta_for(self, type_id: str, profile: DataProfile) -> dict[str, ParamValue]:
-        """The `meta` entries a channel of `type_id` should carry, from this profile.
-
-        Only measurements that declare both `describes` and `meta_key`, and that the
-        profile actually measured. Everything else is silence, which is the honest default:
-        a `meta` key with a made-up value is worse than an absent one, because the module
-        will use it.
-        """
+        """Return metadata values applicable to `type_id` from the supplied profile."""
         return {key: value for key, (_, value) in self.meta_sources_for(type_id, profile).items()}
 
     def meta_sources_for(
@@ -506,10 +374,9 @@ class MeasurementRegistry(BaseModel):
     def meta_sources_by_type(
         self, type_ids: set[str], profile: DataProfile
     ) -> dict[str, dict[str, tuple["Measurement", ParamValue]]]:
-        """Collect metadata for the requested types in one registry pass.
+        """Collect metadata values and declarations for several types in one registry pass.
 
-        Profile values are indexed once. Measurement ID order preserves the
-        existing precedence when declarations share a metadata key.
+        Measurement ID order defines precedence when declarations share a metadata key.
         """
         values = {entry.measurement: entry.value for entry in reversed(profile.measurements)}
         found: dict[str, dict[str, tuple[Measurement, ParamValue]]] = {}

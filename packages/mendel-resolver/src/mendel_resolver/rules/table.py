@@ -74,38 +74,16 @@ class RuleTable(BaseModel):
     """The premise layer's half of `rules/`, in key order. Read by `build_premises`."""
 
     layer_of: dict[str, str] = Field(default_factory=dict)
-    """Decision key -> the layer whose block is in force. Audit A15.
-
-    Deliberately *not* a field on `Decision`. A `Decision` is parsed straight out of a
-    layer's YAML, so a provenance field there would be a provenance field a layer can
-    write for itself — a rule file claiming `from_layer: comeni-registry-examples` while
-    sitting in an overlay. Provenance must be recorded by the loader, which knows, rather
-    than by the file, which can lie. Same reasoning that keeps `layer_of` off
-    `ModuleContract`.
-    """
+    """Decision key to the layer whose block is in force, assigned by the loader."""
 
     displaced_layer: dict[str, str] = Field(default_factory=dict)
-    """Decision key -> the *lowest* layer whose block this one replaced, if any.
+    """Decision key to the lowest layer replaced by its effective block, if any.
 
-    `by_target[key] = decision` replaced a whole block and recorded nothing, so a tier-3
-    parameter decided by a lab's overlay was indistinguishable from one decided by the
-    public registry. Invariant 11 says all four kinds of declared data stack; only
-    contracts were being watched. Audit A15.
-
-    This is the *per-node* record — what `IRNode.selection.displaced_layer` reads. It is not
-    the same thing as `displaced`, below: this one answers "which layer decided this key",
-    keyed for lookup during resolution; that one is the full `Displacement` a reader audits.
+    This lookup feeds per-node provenance; :attr:`displaced` retains full audit records.
     """
 
     displaced: list[Displacement] = Field(default_factory=list)
-    """The rules kind's contribution to `PipelineIR.displaced`, one shape for all four kinds.
-
-    `RuleTable` kept only `displaced_layer` — a key→name dict for per-node lookup — so when
-    `resolve()` assembled `PipelineIR.displaced` off its arguments, rules had no full
-    `Displacement` to contribute and a rule overlay reached the published artifact recording
-    nothing (A51). The other three kinds already carried this; now the fourth does too, so
-    the loader-level list `resolve()` reads is complete without the caller threading anything.
-    """
+    """Full rule displacement records included in ``PipelineIR.displaced``."""
 
     @staticmethod
     def kind(
@@ -130,8 +108,7 @@ class RuleTable(BaseModel):
             found: list[Derivation | Decision] = [
                 Derivation.model_validate(raw) for raw in data.get("derives", [])
             ]
-            # Per file, because `MD0309` is about two decisions **in the same layer**: an
-            # overlay replacing a block by key is legal and is the whole of invariant 11.
+            # Check duplicates within one file; later layers may replace a block by key.
             seen: dict[str, str] = {}
             for raw in data.get("decisions", []):
                 decision = Decision.model_validate(raw)
@@ -229,10 +206,8 @@ class RuleTable(BaseModel):
         target. `MD0309`'s per-file check cannot see it and `stack()`'s per-layer check cannot
         see it either, because to both of them these are two different keys.
 
-        Which is A119 again, arriving through the feature added to express one choice on two
-        tools. Recorded here rather than fixed by abandoning the composite key, because half a
-        replacement is the worse failure: it would leave a base layer's other target in force
-        under a justification the overlay never wrote.
+        The composite key remains necessary so a multi-target decision is replaced as a unit;
+        this post-assembly check prevents another block from independently claiming one target.
         """
         decided_by: dict[str, str] = {}
         for decision in self.decisions:
@@ -308,9 +283,8 @@ class RuleTable(BaseModel):
     ) -> Pin | None:
         """The decided value for `param` on a node filling any of `roles`.
 
-        Takes the node's roles rather than the parameter alone, which is A123's fix at the
-        point of use: `star_ignore_sjdbgtf` decided for role `alignment` reaches STAR and
-        does not reach a sorter that happens to declare a parameter of the same name.
+        Takes the node's roles as well as the parameter so a role-specific setting does not
+        reach another role that happens to declare the same parameter name.
 
         Roles are tried in the order the contract declares them, so a contract filling two
         roles decided differently resolves by its own declaration rather than by dictionary
@@ -333,9 +307,8 @@ class RuleTable(BaseModel):
         """The first decision choosing an implementation for one of `roles` that no row of
         answers, and the premises its rows read that nobody knows.
 
-        **A rule that cannot apply is invariant 4's rule miss, not an absent rule** (#174). The
-        router asks the person instead of falling through to priority, and names what is unknown
-        so the question can ask for the fact before the tool.
+        A rule that exists but cannot apply is a rule miss, not an absent rule. The router asks
+        the person instead of falling through to priority and reports the missing premises.
         """
         for role in roles:
             key = f"{Effect.IMPLEMENTATION}:{role}"
@@ -390,5 +363,3 @@ def _applies_to(pin: Pin, contract_id: str | None) -> bool:
     """
     narrowed = pin.decision.decides.when_implementation
     return not narrowed or contract_id is None or contract_id in narrowed
-
-

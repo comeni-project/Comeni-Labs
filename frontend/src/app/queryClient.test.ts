@@ -16,7 +16,7 @@ describe("the query client", () => {
   });
 
   it("bounds that window rather than trusting the cache forever", () => {
-    // The registry moves under the tool — the nightly check, a `forge land` in a terminal.
+    // The registry moves under the tool — a release, a colleague's commit.
     // A screen left open must catch up on its own.
     const stale = makeClient().getDefaultOptions().queries?.staleTime;
     expect(stale).toBeLessThanOrEqual(5 * 60_000);

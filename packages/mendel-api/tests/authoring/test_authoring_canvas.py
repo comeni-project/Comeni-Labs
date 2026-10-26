@@ -12,7 +12,9 @@ from mendel_compiler import orchestrate
 pytestmark = pytest.mark.skipif(not reachable(), reason="run make test-db")
 
 # Statements `session.read` issued for each case before it carried a frame: the frame adds none.
-BASELINE = {"together": 50, "stop_where_needed": 62}
+# The three structural-intent families (A1) added one statement each per decisions read — four
+# reads paced together, five stopping where needed: 50 → 62 and 62 → 77.
+BASELINE = {"together": 62, "stop_where_needed": 77}
 
 
 @pytest.mark.parametrize("pacing", ["together", "stop_where_needed"])
@@ -65,11 +67,13 @@ def test_stale_frame_is_marked_without_hiding_the_last_graph(authoring_case):
     assert frame["graph"]["nodes"]
 
 
-def test_manual_same_id_uses_its_actual_contract_and_provenance(authoring_case):
+def test_a_drawn_graph_uses_its_actual_contract_and_provenance(authoring_case):
+    """Nothing planned yet (#395: a pipeline drawn by hand, its reading not yet confirmed): the
+    frame is the graph as drawn."""
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, authoring_case.session_id)
+        row.blueprint = {}
         draft = db.get(PipelineDraft, row.draft_id)
-        draft.ownership = "manual"
         draft.graph = {
             "nodes": [
                 {"id": "star_genomegenerate", "contract_id": "nf-core/fastqc@0.12.1", "params": []}
@@ -99,11 +103,11 @@ def test_offer_frame_shows_only_visible_steps_and_entry_scopes(authoring_case, m
     assert reads["scope"] == "sample" and reads["count"]
 
 
-def test_manual_recorded_provenance_keeps_its_tier(authoring_case):
+def test_a_drawn_graph_keeps_its_recorded_tier(authoring_case):
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, authoring_case.session_id)
+        row.blueprint = {}
         draft = db.get(PipelineDraft, row.draft_id)
-        draft.ownership = "manual"
         draft.graph = {
             "nodes": [{"id": "qc", "contract_id": "nf-core/fastqc@0.12.1", "params": []}],
             "edges": [],
@@ -132,7 +136,9 @@ def test_progress_counts_the_plan_not_the_proposals(authoring_case):
         "subread_featurecounts",
     ]
     active = {"position": 3, "total": len(order), "again": False}
-    assert picture["progress"] == {"reviewed": 2, "total": len(order), "active": active}
+    assert picture["progress"] == {"reviewed": 2, "total": len(order), "active": active,
+                                   "upcoming": [{"node": "samtools_sort", "position": 4},
+                                                {"node": "subread_featurecounts", "position": 5}]}
     assert picture["pending_proposal"]["payload"]["progress"] == active
 
 
@@ -149,13 +155,17 @@ def test_a_swap_keeps_the_original_offer_position_in_history(authoring_case):
         "reviewed": 1,
         "total": 5,
         "active": {"position": 1, "total": 5, "again": False},
+        # The aligner chosen in the swap holds its review, so it is not ahead of the person though
+        # the plan puts it after the offer; TrimGalore's no longer holds, so it is.
+        "upcoming": [{"node": "trimgalore", "position": 2},
+                     {"node": "samtools_sort", "position": 4},
+                     {"node": "subread_featurecounts", "position": 5}],
     }
 
 
-def test_a_manual_draft_has_no_walk_progress(authoring_case):
+def test_a_drawn_graph_has_no_walk_progress(authoring_case):
     with session_scope() as db:
-        row = db.get(PipelineAuthoringSession, authoring_case.session_id)
-        db.get(PipelineDraft, row.draft_id).ownership = "manual"
+        db.get(PipelineAuthoringSession, authoring_case.session_id).blueprint = {}
     assert facade.read(authoring_case.session_id)["progress"] is None
 
 

@@ -21,7 +21,6 @@ This page explains component ownership and the construction path. Use the
 | `dag-core` | Graph layout shared by the canvases | Pure |
 | `comeni-ai` | Provider transport and reusable model integration | I/O adapters |
 | `mendel-ai` | Deprecated re-exports of `comeni-ai` | Compatibility only |
-| `mendel-forge` | Registry proposals, scaffolds, source discovery and validation | I/O adapters |
 | `comeni-vendor` | Fetching module source and checking its pins | I/O adapters |
 | `comeni-inspect` | Sample-inspection subprocesses | I/O adapters |
 | `mendel-api` | Build sessions, drafts, jobs, settings and HTTP routes | Service and persistence |
@@ -355,8 +354,9 @@ a versioned projection, and materialisation refuses an outdated projection.
 
 Observations retain evidence origin separately from the actor selecting an answer. Conflicting
 samples ask keep, use, correct or unknown. A correction persists truthful input, recomputes the
-goal and invalidates reviews whose semantic fingerprint changed. Manual work is preserved by
-opening a linked authored fork. Read-only history is available; undo is deferred in
+goal and invalidates reviews whose semantic fingerprint changed. A hand edit is not a
+separate kind of work: it is read as intent in the same goal (one builder, #395), so a
+correction after it lands in the same pipeline. Read-only history is available; undo is deferred in
 [issue 302](https://github.com/comeni-project/Comeni-Labs/issues/302).
 
 **Every change goes through one writer** (`mendel_api/services/changes.py`): a person's click
@@ -375,51 +375,42 @@ Legacy conversion uses a frozen snapshot converter before removing the old live 
 Its archive is historical presentation, never a fallback authority. Recovery after new writes
 requires restoring the verified database backup rather than a lossy schema downgrade.
 
-## 4a. One question, two behaviours
+## 4a. One question vocabulary
 
-The forge and the build path both ask a reviewer questions, and until 2026-08-18 each had its
-own vocabulary for doing so. `comeni_core/review/` is the shared one.
+`comeni_core/review/` is the shared vocabulary for asking a reviewer something. The build path
+is its consumer today; the old forge was the other until it was removed
+([#361](https://github.com/comeni-project/Comeni-Labs/issues/361)).
 
 ```
 Question                    base — subject, what, why_open, candidates, closed, evidence
-  ├── Hole                  forge. Held by Scaffold, answered by HoleFiller
   └── Ambiguity             build. Held by the resolver, answered by AmbiguityResolver
         ├── ParamAsked
         ├── ProducerAsked
         └── SourceAsked
 
 Answer                      base — value, by, how, why
-  ├── FilledValue           forge
   └── Resolution            build  (adds `confidence`)
 ```
 
 `ValueSource` is the one provenance vocabulary — `RESOLVER / GOAL / HUMAN / MODEL / MEASURED /
-DERIVED`. The forge's `Filler` is gone: `HAND` was `HUMAN` under a second name.
+DERIVED`.
 
-**The base classes are inert, and that is the load-bearing part.** A hole *blocks* — 
-`Scaffold.is_complete()` gates `contract_from`, so the forge structurally cannot emit an invalid
-declared file. An ambiguity *ships flagged* — the pipeline is built and runnable, marked tier 4.
-That difference is **not** a field and **not** an overridden method. It lives in the container
-and in the port, and the cleanest statement of it is the two signatures:
+**The base classes are inert.** What a question does when nobody answers it lives in its container
+and its port, not in a field or an overridden method. An ambiguity *ships flagged*: the pipeline
+is built and runnable, marked tier 4.
 
 ```python
-class HoleFiller(Protocol):
-    def fill(self, hole: Hole, observation: Observation) -> FilledValue | None: ...
-
 class AmbiguityResolver(Protocol):
     def resolve(self, ambiguity: Ambiguity) -> Resolution: ...
 ```
 
-**One may return `None`. The other may not.** A filler that always answers is a filler that
-invents; `FlagOnlyResolver` must always answer, because that is what keeps a pipeline runnable
-with no model and makes the flagged count an honest measure of rule coverage.
+`FlagOnlyResolver` must always answer, because that is what keeps a pipeline runnable with no
+model and makes the flagged count an honest measure of rule coverage. Putting `blocks: bool` — or
+a `blocks()` method — on `Question` would trade that structural guarantee for a runtime check on
+a value. `notes/specs/2026-08-18-the-shared-question.md` §3.1 is the argument; a test asserts the
+base carries no behaviour beyond `legal()`.
 
-Putting `blocks: bool` — or a `blocks()` method — on `Question` would trade a structural
-guarantee for a runtime check on a value, which is the mistake this repository records about
-invariant 1. `notes/specs/2026-08-18-the-shared-question.md` §3.1 is the argument; a test asserts
-the base carries no behaviour beyond `legal()`.
-
-**Two shapes of candidate, deliberately.** The forge offers `Candidate(value, note)` so a
+**Two shapes of candidate, deliberately.** The base offers `Candidate(value, note)` so a
 reviewer sees where an option is declared; the build path narrows `candidates` to bare declared
 ids, because door 2 types them as `CandidateRef` and A129 records that payload accepting only one
 of three `*Asked` types until *values* were checked rather than names. `Question.legal()` reads
@@ -637,62 +628,14 @@ protection checks and transport.
 
 ---
 
-## 10. The forge — where declared data comes from
+## 10. Where declared data comes from
 
-Everything above reads the registry. **`mendel-forge` is how a registry gets written**, and it
-is the first impure package: it is not scanned by `tests/guards/test_purity.py`, it is listed in
-`IMPURE_PACKAGES`, and `test_no_pure_package_imports_an_impure_one` holds the arrow pointing
-`mendel-forge → the pure packages` and never back.
-
-```
-mendel-forge/
-  observe.py     Fact, Observation — what a source proved, and where from
-  scaffold.py    FilledValue, Hole, Proposal, Scaffold — Question/Answer subclasses
-  sources/       the Source protocol, and the nf-core adapter
-  candidates.py  what a hole will accept, read off the layer stack
-  assemble.py    Observation -> Scaffold, and Scaffold -> ModuleContract
-  modulegen.py   a skeleton main.nf for a source that ships none
-  verify.py      the five-rung ladder
-  workspace.py   drafts on disk, outside every layer
-  land.py        the one thing that writes to a registry
-  ops.py         one typed function per verb — the only layer with logic
-  ports.py       HoleFiller — the seam, NoFiller, and since Phase 2 ModelFiller
-  filler.py      ModelFiller — a model behind that seam
-  cli/  http/    two transports over ops.py, neither holding logic
-```
-
-### Phase 2 — a model behind the seam
-
-`mendel_forge.filler.ModelFiller` implements `HoleFiller` over `comeni-ai`. It attempts
-**candidate-bearing holes only**: those are the holes whose legal answers come off the layer
-stack, so an answer is checkable, and `Hole.legal` refuses one that is not. A hole with no
-candidates is free text and is **declined without being sent** — stronger than asking and
-discarding, because no prose about it ever leaves. Issue #70 gates the other direction, and
-`priority_because` is the one such value that would reach a registry.
-
-Every answer is validated twice: `comeni_ai.choose_*` refuses a value the model was not
-offered, and `hole.legal` refuses it again on the way in. The second is not redundancy — it is
-the check a person's fill already goes through, so a model's answer meets one rule rather than
-a second that can drift from it.
-
-A model fill lands as an **answer**, not a proposal, carrying `ValueSource.MODEL` and the model
-id; `assemble._drafted_by` writes that into `Provenance.drafted_by`, so a model-filled contract
-lands with the model named in the file and **no artifact schema changed**. `forge show` prints
-`(how, by)` beside every value, so a reviewer sees which a model settled without opening
-anything.
-
-**Scaffolding and generation are not egress doors; the review chat is.** Invariant 14's
-*pipeline* doors track the prompt taint path — prompt, goal, build, pipeline, publish — and the
-forge is offline authoring outside it, reading vendored modules and registry files. `DOORS` and
-`tests/guards/test_egress.py` did not change when Phase 2 wired a model in, because a dossier is
-composed only from public sources; `notes/specs/2026-08-17-forge-phase-2.md` §1 is that argument.
-
-**It changed on 2026-09-05, and only for the chat.** The exemption stood on three legs — no
-prompt, no `Goal`, no `pipeline.yml` — and a curator typing a question to a model breaks the
-first. `forge_review` is door 5, carrying `ForgeReviewRequest`; `DoorPath.FORGE` records that
-the other two legs still hold, and `doors_on(DoorPath.PIPELINE)` keeps *pipeline data leaves
-through four doors* a checkable sentence. The line drawn is **who authored the string**, not how
-much text crosses.
+Everything above reads the registry. Today a registry is written by hand, as reviewed changes
+to its own repository ([Writing a contract](../how-to/registry/add-tool.md)). The forge, which
+drafts registry data for a person to approve, is being rebuilt from scratch
+(`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`); the old `mendel-forge` package was
+removed in [#361](https://github.com/comeni-project/Comeni-Labs/issues/361). Invariant 2 holds
+either way: nothing writes to a registry without a person's approval.
 
 ### `comeni-ai` — model access
 
@@ -703,8 +646,7 @@ because `roles` and `produces[].state` take several members from one closed set.
 
 The boundary is not *the model may not speak* but **nothing it says is taken on trust** — the
 same rule closed vocabularies and contract-versus-module checking already enforce. A drafted rule
-has the rule validator; a `Goal` is a Pydantic model. A module's script body has no shape, which
-is why `MF0005` refuses it.
+has the rule validator; a `Goal` is a Pydantic model.
 
 The package holds **no domain types** — it speaks in strings and shapes its caller declares,
 which is what lets the tier-4 ambiguity resolver reuse it unchanged in Plan 3. It is impure and
@@ -716,89 +658,8 @@ shared infrastructure that accumulates every agent's prompts has become a shared
 than a boundary.
 
 **It was `mendel-ai` until 2026-09-04.** The rename is not cosmetic: an engine-specific name on
-the shared transport is what would have produced three clients, one each for the Forge, the
+the shared transport is what would have produced three clients, one each for the forge, the
 builder and Wiener's agents, and `MENDEL_MODEL` configuring a Wiener agent is a lie in a `.env`
 file. The configuration is `COMENI_AI_*` and the `MENDEL_*` spellings are read as a fallback.
 `mendel-ai` survives as a deprecation shim that re-exports this package and holds no code;
 `packages/mendel-ai/tests/test_shim.py` refuses a new in-repo import of it.
-
-### A scaffold is not a half-built contract
-
-This is the decision everything else follows from. `ModuleContract` validates and forbids
-extras, so a *partially valid* contract is unrepresentable — and it must stay that way, because
-the moment one is constructible somebody persists one. So the forge never builds a contract it
-cannot finish. It holds an `Observation` plus a list of `Hole`s, and calls `contract_from` only
-when the last hole is filled; while any remains, that call raises `MF0004`.
-
-The consequence is the property worth stating plainly: **the forge cannot emit an invalid
-declared file.** It emits a valid one, or something that is honestly not one yet and says which
-fields it is missing and why.
-
-A `Hole` carries `what`, `why_open`, the `Candidate`s that are legal there, and the `Excerpt`s
-bearing on it. The candidates are **invariant 7 moved earlier** — vocabularies are closed, so a
-contract naming an undeclared state fails to load; a hole carrying its legal values turns that
-load-time refusal into a fill-time one, and turns Phase 2's open prompt into a closed choice.
-
-**What is a hole and what is derived was measured, not assumed** —
-`notes/audits/2026-08-16-forge-derivability.md`, run against all twelve shipped contracts. Two
-rows moved when measured: a contract's input port name is *not* the module's channel name (four
-of twelve rename), and an output port name is one of up to nineteen emits.
-
-### The five-rung ladder
-
-`verify()` asks five questions, cheapest first, and stops at the first refusal so a reviewer
-sees the cause rather than a wall of consequences.
-
-| rung | asks | on failure |
-|---|---|---|
-| `COMPLETE` | are all the holes filled? | `MF0004`, refuses |
-| `CONSTRUCTS` | does `ModuleContract` accept it? | `MF0007`, refuses |
-| `LOADS` | does the layer stack declare every type, state and role? | the loader's own code, refuses |
-| `CONFORMS` | does it agree with the module? | `MD0101`–`MD0106`, reused not twinned |
-| `ROUTES` | can anything consume what it produces? | `MF0006`, **warns** |
-
-**Four of the five are existing machinery pointed at a draft instead of a build.** A second
-implementation of *"is this contract sound"* would disagree with the first one inside a plan.
-Rung 4 calls `conformance.against`, which is `check`'s per-contract half made public for this.
-
-Two weaknesses, stated rather than left to be found. **Rung 4 is a transcription check when the
-module was forge-generated** — contract and module descend from one `Observation`, so agreement
-proves the two code paths match, not that either is right; it is a real check only against a
-vendored module, where the module is foreign ground truth. And **rung 5 warns**, because a
-laboratory adding a tool before the goal that needs it is being reasonable.
-
-### One operations layer, two transports
-
-`ops.py` holds one typed function per verb, pydantic in and pydantic out. `cli/` renders those
-results and `http/` serialises them; neither decides anything, and
-`test_no_route_contains_a_branch` refuses an `if` in a route. `test_http.py` compares
-`forge --json <verb>` against the HTTP body **directly**, so a transport that grows logic fails
-rather than drifts. Plan 3's GUI calls the HTTP app rather than reimplementing a verb to display
-it.
-
-### Landing is the invariant-2 boundary
-
-`land.py` is the only thing in the package that writes under a registry root, and
-`tests/guards/test_forge_write_boundary.py` is a static scan holding that over every other module. It
-creates a branch, writes the files, and commits — refusing the default branch (`MF0100`), a
-dirty tree (`MF0101`) and an incomplete draft (`MF0004`).
-
-**It does not open a pull request.** Invariant 13 says self-hosted is not a degraded tier, so a
-laboratory landing into a private local overlay must get the identical path to the one the
-public registry gets; making GitHub the approval mechanism would break that for every lab that
-never pushes anywhere. The branch *is* the approval queue.
-
-### No model, by construction
-
-`ports.py` declares `HoleFiller` and ships `NoFiller`, which declines every hole. **`--no-ai` is
-not a flag in the forge — it is the only mode**, so there is nothing to leave accidentally on.
-A filler returns the same `FilledValue` a human's `forge fill` produces, differing only in
-`filler` and `by`, and `by` is copied verbatim into `Provenance.drafted_by` — a field every
-contract has carried since the first one.
-
-**Phase 2's first question was not an implementation question, and it has been answered.** A
-forge model call sends tool documentation to a provider — which is vendored modules and registry
-files, all public, so it needed no door. What needed one was the **review chat**, where a curator
-types a question: `forge_review` is door 5 as of 2026-09-05. §10.3 of
-`notes/specs/2026-08-16-the-forge.md` is the original argument; the door's own docstring is where
-the decision is recorded.

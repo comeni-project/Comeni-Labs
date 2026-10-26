@@ -1,9 +1,4 @@
-"""The registry is a layer, and a layer is a directory that can live anywhere.
-
-Federation §8 moves `contracts/`, `rules/`, `vocabularies/` and `measurements/` out of
-`examples/` and into the `comeni-registry` repository. What is testable here is that the
-move is a path change and nothing else.
-"""
+"""Integration checks for registry manifests, relocatable layers, and format compatibility."""
 
 import pathlib
 import shutil
@@ -25,15 +20,7 @@ def test_the_layer_describes_itself():
 
 
 def test_the_manifest_places_every_kind_that_exists():
-    """`layout:` is `mendel registry lint`'s argument, and a kind it does not mention is a kind
-    the lint cannot place — so a correctly filed file of that kind would be refused.
-
-    **This test used to pin `kinds:` against a hardcoded list**, and that was the whole problem:
-    `kinds:` had no consumer, its own comment said so, and pinning a literal is what let it name
-    four kinds for the whole of Plan 1.15 Task 0 — which shipped `roles/` beside it. A33 again.
-    The list is derived from `DeclaredKind` here, so a seventh kind fails this rather than
-    quietly not being linted.
-    """
+    """Every declared kind has a manifest layout entry that registry lint can enforce."""
     manifest = LayerManifest.of(ROOT / "registry")
     assert manifest is not None
     placed = set(manifest.layout)
@@ -72,8 +59,7 @@ def test_the_layer_loads_from_its_new_home():
 
 
 def test_the_layer_loads_from_anywhere(tmp_path):
-    """The move to comeni-registry is a path change and nothing else. Prove it by loading
-    the layer from a directory with a different name."""
+    """Loading uses layer contents and manifest identity, not checkout location."""
     import shutil
 
     elsewhere = tmp_path / "comeni-registry"
@@ -93,9 +79,7 @@ def test_the_manifest_is_not_read_as_a_contract():
     recursive glob that finds contracts never sees it. If it moved one level down, every
     build would fail trying to validate a manifest as a `ModuleContract`."""
     assert (ROOT / "registry" / "registry.yml").exists()
-    # `registry.yml` sits at the layer root and nowhere else. It used to be phrased as
-    # "not inside contracts/", which stopped meaning anything when the layer was
-    # arranged by tool (comeni-registry#1) and `contracts/` ceased to exist.
+    # The manifest sits at the layer root and nowhere inside declared content.
     assert [p.relative_to(ROOT / "registry") for p in (ROOT
         / "registry").rglob("registry.yml")] == [
         pathlib.Path("registry.yml")
@@ -103,12 +87,7 @@ def test_the_manifest_is_not_read_as_a_contract():
     assert layers.load(ROOT / "registry").registry.all()
 
 
-# ═══ THE VERSION FLOOR — Plan 5B §2.1, spec §1.3 ═══════════════════════════════════════════
-#
-# **It lands before the feature it protects, and that is the whole of why it is a phase of its
-# own.** A compatibility check that arrives with the change it guards is a check every older
-# install has already failed to run: the registry ships `params.{param}`, an older Mendel does
-# no substitution, and the seven literal characters go into Groovy.
+# Registry format compatibility
 
 
 def test_a_layer_from_the_future_is_refused_by_name():

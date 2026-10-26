@@ -1,5 +1,4 @@
-"""A type may say its name and what it is; a measurement may say what it is (Part I.1 §3).
-Both optional, and neither is read by anything that builds a pipeline."""
+"""User-facing names and explanations are optional and do not affect pipeline construction."""
 
 import pytest
 from comeni_core.declared.measurement import MeasurementRegistry
@@ -42,8 +41,7 @@ def test_a_measurement_carries_its_explanation(tmp_path):
 
 
 def test_an_explanation_too_long_to_show_is_refused_when_the_layer_loads(tmp_path):
-    """Part I.1 review: a measurement's `explain` had no cap, loaded, and then failed every time
-    gathering showed it. Refused at load, as a type's is."""
+    """Display-length constraints are enforced when declarations load."""
     _write(tmp_path, "measurements/read_length.yml",
            "declares: measurement\nid: read_length\nkind: integer\nminimum: 1\n"
            f"explain: {'x' * 601}\n")

@@ -1,18 +1,8 @@
-"""How a laboratory reaches a model. Three lanes, one code path.
+"""Provider access configuration shared by local, self-hosted, and hosted models.
 
-**Invariant 13 — self-hosted is not a degraded tier.** BYO key, a local model behind an
-OpenAI-compatible endpoint (Ollama and vLLM both qualify), and the hosted lane differ by what
-is in this object and by nothing else. A branch per lane would be the design error that
-invariant names.
-
-**Invariant 12 — no subscription OAuth.** Claude Pro/Max tokens in third-party tools violate
-Anthropic's Consumer ToS. There is no field here to put one in, and `extra="forbid"` refuses
-an attempt. A ban enforced by having nowhere to write the value is worth more than one
-enforced by a check somebody can forget to call.
-
-**`from_env` returns `None` rather than a default.** A default model would make an
-unconfigured install quietly reach a provider on somebody's first `forge fill --model`, which
-is the opposite of what `--no-ai`-by-default means.
+All deployment lanes use the same :class:`ModelAccess` shape and transport path. Subscription
+OAuth credentials are intentionally unsupported. Environment loading returns ``None`` when no
+model is configured so an unconfigured installation cannot contact a provider implicitly.
 """
 
 from collections.abc import Mapping
@@ -22,12 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class NoModelError(ValueError):
-    """Nothing was configured and something asked for a model. `MA0001`.
-
-    **A `ValueError` because that is the refusal contract every caller already catches** —
-    `mendel_forge.ops`' docstring states it, and both forge transports catch it in one place
-    and turn it into an exit code or a 4xx.
-    """
+    """Raised with ``MA0001`` when a caller requires missing model configuration."""
 
 
 MODEL = "COMENI_AI_MODEL"
@@ -36,8 +21,7 @@ BASE_URL = "COMENI_AI_BASE_URL"
 TIMEOUT = "COMENI_AI_TIMEOUT_SECONDS"
 TEMPERATURE = "COMENI_AI_TEMPERATURE"
 MAX_CONCURRENT_JOBS = "COMENI_AI_MAX_CONCURRENT_JOBS"
-"""Read by the AI worker, not by this package. Declared here so the shared configuration
-surface has one home and a second consumer does not invent a second spelling."""
+"""Shared worker-concurrency setting; application workers, not this package, consume it."""
 
 DEPRECATED: dict[str, str] = {
     MODEL: "MENDEL_MODEL",
@@ -46,24 +30,17 @@ DEPRECATED: dict[str, str] = {
     TIMEOUT: "MENDEL_TIMEOUT_SECONDS",
     TEMPERATURE: "MENDEL_TEMPERATURE",
 }
-"""The names this package read while it was `mendel-ai`, kept as a fallback.
+"""Deprecated ``MENDEL_*`` names read only when the corresponding current value is blank.
 
-**An engine-specific prefix on a shared package is the thing being fixed**, not a cosmetic
-rename: `MENDEL_MODEL` configuring a Wiener agent would be a lie in a `.env` file, and three
-consumers reading three prefixes is the drift this package exists to prevent.
-
-The fallback is a compatibility window and not a permanent alias. It is read only when the
-`COMENI_AI_` name is absent, so an installation that sets both gets the new one — the
-direction that cannot silently un-migrate somebody. Remove it once no deployment sets the
-old names; `test_the_deprecated_names_are_a_window` is what will fail loudly when they go."""
+The mapping is a temporary compatibility surface. Current ``COMENI_AI_*`` values always take
+precedence when both spellings are present.
+"""
 
 
 def _read(env: Mapping[str, str], name: str) -> str:
-    """The new name, else the deprecated one. Empty string when neither is set.
+    """Return the current value, its deprecated fallback, or an empty string.
 
-    **An empty string is not a value**, here as in `from_env` — `COMENI_AI_API_KEY=` exported
-    and empty must fall through to the old name rather than shadow it, or a half-migrated
-    `.env` reads as fully migrated and the credential vanishes.
+    Blank current values do not shadow a non-blank deprecated value.
     """
     current = env.get(name, "").strip()
     if current:
@@ -72,7 +49,7 @@ def _read(env: Mapping[str, str], name: str) -> str:
 
 
 class ModelAccess(BaseModel):
-    """What is needed to reach one model. Frozen: what was configured is what is used."""
+    """Immutable configuration required to reach one model."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -84,32 +61,11 @@ class ModelAccess(BaseModel):
     """Set for a local or self-hosted OpenAI-compatible endpoint; `None` for a provider."""
     timeout_seconds: float = 60.0
     temperature: float = 0.0
-    """Sampling randomness. **Zero by default, and that default is the point.**
-
-    Nothing set this until 2026-08-17, so every call sampled at the provider's default — which
-    for Ollama is non-zero. Two drafts of the same tool could differ, and an accuracy figure
-    measured across configurations was partly measuring the dice: a two-point difference
-    between prompt designs is not distinguishable from sampling noise.
-
-    The forge does not claim determinism — "same goal in, same pipeline out" is the resolver
-    and compiler — but *unreproducible* is a different thing from *not guaranteed*. A person
-    re-running `forge fill --model` on the same draft should get the same answer, and a
-    measurement comparing two prompts should be comparing two prompts.
-    """
+    """Sampling randomness, defaulting to zero for reproducible comparisons."""
 
     @classmethod
     def require_from_env(cls, env: Mapping[str, str]) -> "ModelAccess":
-        """`from_env`, but a missing model is `MA0001` rather than `None`.
-
-        **The raising form is the one a transport calls**, because "nothing is configured" is
-        a refusal a user can act on and `None` is a value somebody forgets to check. The
-        non-raising form stays for the question *is anything configured at all*.
-
-        This raises here, in `comeni-ai`, rather than in whichever CLI resolves the
-        configuration — `MA0001` is declared `emitted_by: ai`, and
-        `tests/diagnostics/test_diagnostics_ownership.py` checks a code is raised by the package
-        that owns it. Moving the raise would move the code.
-        """
+        """Load configuration or raise the package-owned ``MA0001`` diagnostic."""
         access = cls.from_env(env)
         if access is None:
             raise NoModelError(
@@ -121,14 +77,10 @@ class ModelAccess(BaseModel):
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> "ModelAccess | None":
-        """`None` when no model is configured.
+        """Load from ``env``, returning ``None`` when no model is configured.
 
-        Takes a mapping rather than reading `os.environ` so a test needs no monkeypatching and
-        cannot leak the developer's own configuration into an assertion.
-
-        **An empty string is not a value.** `MENDEL_API_KEY=` exported and empty is the local
-        lane's most likely misconfiguration, and an empty credential looks like a credential to
-        a provider that wanted none.
+        A supplied mapping keeps process environment access under the caller's control. Blank
+        strings are treated as absent values.
         """
         model = _read(env, MODEL)
         if not model:

@@ -1,19 +1,8 @@
-"""Closed choice, as a helper over `generate`.
+"""Closed-choice helpers built on validated model generation.
 
-**Not the primitive.** The first design of this package made closed choice the whole surface,
-which was wrong twice: it drew the boundary at *choice versus generation* rather than at
-*validated against a declared shape*, and it was designed against the tier-4 ambiguity
-resolver while the next consumer — the rule drafter — does not fit a list of options. Spec
-§4.3 records both.
-
-**Two functions because some holes are list-valued.** `roles` and `produces[].state` take
-several members from one closed set, which is why `Hole.legal` checks member by member and why
-a single-value return cannot fill them. The future `AmbiguityResolver` uses `choose_one` only —
-`Resolution.chosen` is singular.
-
-**Membership is checked here and again by the caller.** `Hole.legal` refuses the same value on
-the way into a scaffold. Not redundant: that is the check a person's fill already goes through,
-and routing a model's answer through it means one rule rather than two that drift.
+The helpers put offered values in the request and reject replies outside that set. Single-value
+and list-valued choices remain separate contracts. Callers may repeat membership checks while
+admitting the result into their own domain model.
 """
 
 from comeni_core.diagnostics import coded
@@ -24,16 +13,10 @@ from comeni_ai.client import Client
 _NO_EXTRAS = ConfigDict(extra="forbid")
 
 WHY_LIMIT = 500
-"""How long a rationale may be.
+"""Maximum rationale length for choice replies.
 
-A sentence or two. **This is the only free-text field a model writes in this package**, and the
-cap is what makes it the wrong shape for the things worth smuggling through it — a module's
-script body, or a `priority_because` essay. It does not close the side channel and is not sold
-as doing so (spec §4.3.1: cost-raising, not a proof).
-
-A first number, expected to move once there are real drafts to look at. `MA0006` is what a
-reader sees when it bites, so moving it is a decision somebody makes with evidence rather than
-a silence somebody discovers.
+The limit keeps this generic free-text field unsuitable for large payloads. It is a bounded
+interface, not a guarantee about the meaning or safety of model output.
 """
 
 
@@ -74,19 +57,16 @@ def choose_one(
     *,
     system: str | None = None,
 ) -> Choice | None:
-    """One of `options`, or `None`.
+    """Return one offered value, or ``None`` when no valid choice is available.
 
-    **No options is `None` rather than a free answer.** A hole with no candidates is free text,
-    and asking anyway is the one thing this design says it does not do.
+    An empty option list returns without contacting the model.
     """
     if not options:
         return None
-    # **The options are the allowed list** (#194): held to them by the server where it enforces
-    # the format, and checked below either way.
+    # Enforce the options in the server format when supported, then check membership locally.
     allowed = {"value": [o.value for o in options]}
     if system is not None:
-        # The fixed framing as a system message, the question and its options as the user's
-        # (#183): the options change per call, so they belong after the cached prefix.
+        # Options vary per call, so they follow the cacheable system prefix.
         answer = client.chat(system, _question(question, options), Choice, choices=allowed)
     else:
         answer = client.generate(_question(question, options), Choice, evidence, choices=allowed)
@@ -126,15 +106,7 @@ class Chosen(BaseModel):
 
 
 class Proposed(BaseModel):
-    """None of the options fitted, and here is what would.
-
-    **This is the one place a model invents rather than selects**, and it is deliberate: the
-    alternative is a wrong pick, and a wrong pick is worse than a blank because a blank is
-    visible to a reviewer. Spec §3.1.
-
-    `description` is capped for the same reason `why` is — it is free text reaching declared
-    data, and a cap makes it the wrong shape for anything larger than a definition.
-    """
+    """A bounded proposal returned when none of the offered values fits."""
 
     model_config = _NO_EXTRAS
 
@@ -144,12 +116,7 @@ class Proposed(BaseModel):
 
 
 class _Answer(BaseModel):
-    """What the model is asked for: a choice **or** a proposal, never both.
-
-    Modelled as one shape with two optional halves rather than a union, because a JSON Schema a
-    small model can follow is worth more here than a tidy type — and the validator makes the
-    exclusivity real either way.
-    """
+    """Wire shape containing exactly one of a selected value or a proposal."""
 
     model_config = _NO_EXTRAS
 
@@ -181,15 +148,10 @@ def choose_or_propose(
     *,
     proposing: str,
 ) -> Chosen | Proposed | None:
-    """One of `options`, or a proposal for a new one, or `None`.
+    """Return an offered value, a bounded proposal, or ``None``.
 
-    **A sibling of `choose_one` rather than a replacement.** The tier-4 ambiguity resolver
-    (Plan 3) wants the strict form — an ambiguity is a choice between contracts that exist, and
-    nothing there should be able to invent a candidate. Widening `choose_one` would hand it a
-    path it has no use for.
-
-    `proposing` names the kind of thing a proposal would be — "a declared type" — because a
-    model asked to invent needs to know what it is inventing.
+    ``proposing`` names the kind of value the model may propose. Use this helper only where the
+    caller's contract permits invention; :func:`choose_one` remains strictly closed.
     """
     if not options:
         return None
@@ -219,17 +181,7 @@ def choose_or_propose(
 def suggest(
     client: Client, question: str, options: list[Option], evidence: list[str]
 ) -> Choice | None:
-    """An answer guided by examples rather than restricted to them.
-
-    **The counterpart to `choose_one`, for a field that is not a vocabulary.** Closed choice is
-    right where closure is real and enforced — invariant 7's types, states and roles all fail to
-    load if undeclared. It is wrong where the domain is open, and imposing it there does not make
-    the answer safer; it makes the right answer unreachable, which is how a legal port name came
-    to be refused for not appearing on a list.
-
-    The options are shown as what this registry has called such a thing before. Nothing checks
-    membership, because there is nothing to check it against.
-    """
+    """Return a suggestion guided, but not restricted, by the supplied examples."""
     shown = "\n".join(
         f"- {o.value}" + (f"  ({o.note})" if o.note else "") for o in options
     )

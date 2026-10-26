@@ -77,7 +77,7 @@ export function Tasks({ runId, processes = [], openOn }: {
     initialRect: { width: 1200, height: 600 },
   });
 
-  const control = "text-secondary bg-panel border border-line rounded-[var(--r)] px-2 py-1";
+  const control = "text-secondary bg-surface border border-line rounded-control px-2 py-1";
 
   return (
     <div className="flex flex-col">

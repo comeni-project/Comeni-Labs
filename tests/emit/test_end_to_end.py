@@ -1,3 +1,5 @@
+"""Compiler CLI builds, diagnostics, and gate behavior across complete temporary layers."""
+
 import pathlib
 
 import yaml
@@ -111,7 +113,7 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
 
 def _starter_text(measurements: str) -> str:
     """A starter wanting a QC report from reads, with these measurements."""
-    return ("version: 7\nintent: {want: [qc.report]}\nfacts:\n"
+    return ("version: 8\nintent: {want: [qc.report]}\nfacts:\n"
             "  inputs: [{type_id: fastq.reads}]\n  measurements:\n" + measurements)
 
 

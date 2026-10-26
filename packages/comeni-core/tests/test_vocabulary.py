@@ -13,19 +13,9 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add an explicit declaration kind and ID to a fixture body, if absent."""
     path = pathlib.Path(path)
-    # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
-    # names it.
+    # Fixtures may nest files below their kind directory, so inspect every ancestor.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -38,12 +28,7 @@ def _declared(path, body: str) -> str:
 
 
 def _layer(root, **files):
-    """A layer root holding a `vocabularies/` directory, which is what a layer is.
-
-    `Vocabulary.load` takes layer roots since A24: a loader handed a bare directory of
-    type files does not know which layer it is reading, so it had nothing to record a
-    displacement against.
-    """
+    """Create and return a layer root containing vocabulary fixtures."""
     directory = root / "vocabularies"
     directory.mkdir(exist_ok=True)
     for name, body in files.items():
@@ -88,11 +73,7 @@ def test_empty_state_list_is_always_valid(tmp_path):
 
 
 def test_a_misspelled_key_is_refused(tmp_path):
-    """`extra="forbid"`, for A10's reason and A35's.
-
-    `add_states` was a key the loader ignored, so a file declaring only that produced a
-    type with no states at all and the failure surfaced three files away.
-    """
+    """Strict declarations refuse unknown fields instead of silently dropping them."""
     layer = _layer(tmp_path, alignment__bam="state: [coordinate_sorted]\n")
     with pytest.raises(ValueError, match="state"):
         Vocabulary.load(layer)
@@ -105,16 +86,7 @@ def test_add_states_of_nothing_is_refused(tmp_path):
 
 
 def test_a_derived_vocabulary_keeps_every_field():
-    """`with_measurements` returns a new `Vocabulary` and must not lose one on the way.
-
-    It listed every field by hand in a fresh `Vocabulary(...)`, which is correct only for as
-    long as somebody remembers — and the failure mode is **silence**: a field added to the model
-    and collected by `of()` is dropped here, leaving one populated and another empty a few lines
-    apart in the same function, with nothing raising and nothing to grep for.
-
-    It is a `model_copy` now, which cannot drop a field. This guard is for the next person who
-    finds a reason to spell it out again: everything except the one field being changed survives.
-    """
+    """Deriving measurement types changes only the vocabulary's type mapping."""
     from comeni_core.declared.measurement import MeasurementRegistry
 
     before = Vocabulary(

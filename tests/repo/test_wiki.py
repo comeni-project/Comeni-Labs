@@ -1,9 +1,10 @@
-"""Documentation navigation preserves reader paths, catalogue access and existing URLs.
+"""Documentation navigation preserves reader paths, page coverage, catalogue access and URLs.
 
 Diátaxis paths organize navigation independently of the physical page directories.
 Historical notes and plans remain outside the published site.
 """
 
+import fnmatch
 import pathlib
 import shutil
 import sys
@@ -32,6 +33,29 @@ def _nav_titles(nav: list) -> list[str]:
     return [next(iter(entry)) for entry in nav if isinstance(entry, dict)]
 
 
+def _nav_pages(entries: list) -> set[str]:
+    pages: set[str] = set()
+    for entry in entries:
+        if isinstance(entry, str):
+            pages.add(entry)
+        elif isinstance(entry, dict):
+            for children in entry.values():
+                pages.update(_nav_pages(children if isinstance(children, list) else [children]))
+    return pages
+
+
+def _matches(rel: str, patterns: str) -> bool:
+    for raw in patterns.splitlines():
+        pattern = raw.strip().lstrip("/")
+        if not pattern:
+            continue
+        if pattern.endswith("/") and rel.startswith(pattern):
+            return True
+        if fnmatch.fnmatch(rel, pattern):
+            return True
+    return False
+
+
 def test_the_four_reader_paths_are_the_top_level_nav_in_order():
     nav = _config()["nav"]
     assert _nav_titles(nav) == PATHS, f"Expected documentation paths {PATHS}."
@@ -44,6 +68,22 @@ def test_every_reader_path_has_a_landing_page():
         index = ROOT / "docs" / relative
         assert index.is_file(), f"{index.relative_to(ROOT)} is missing"
         assert next(entry[title] for entry in nav if title in entry)[0] == relative
+
+
+def test_every_maintained_page_is_navigable_or_explicitly_excluded():
+    """A valid site build may only report an omitted page; it does not make the page reachable."""
+    config = _config()
+    navigable = _nav_pages(config["nav"])
+    excluded = config.get("exclude_docs", "")
+    unlisted = config.get("not_in_nav", "")
+    missing = []
+    for page in sorted((ROOT / "docs").rglob("*.md")):
+        rel = page.relative_to(ROOT / "docs").as_posix()
+        if rel.startswith("reference/tools/"):  # Ignored output generated before the site build.
+            continue
+        if rel not in navigable and not _matches(rel, excluded) and not _matches(rel, unlisted):
+            missing.append(rel)
+    assert missing == [], f"maintained pages missing from navigation: {missing}"
 
 
 def test_provenance_is_excluded_from_the_site():

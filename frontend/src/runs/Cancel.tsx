@@ -45,7 +45,7 @@ export function Cancel({ runId }: { runId: string }) {
         type="button"
         data-testid="cancel-run"
         onClick={() => setAsking(true)}
-        className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+        className="text-label px-[15px] py-2
                    bg-transparent border border-line text-ink-3 cursor-pointer hover:text-ink"
         style={{ transition: `color var(--t)` }}
       >
@@ -64,16 +64,16 @@ export function Cancel({ runId }: { runId: string }) {
         value={why}
         placeholder="why (optional)"
         onChange={(event) => setWhy(event.target.value)}
-        className="text-secondary bg-surface border border-line rounded-[var(--r)] px-2 py-1"
+        className="text-secondary bg-surface border border-line rounded-control px-2 py-1"
       />
       <button
         type="button"
         data-testid="cancel-confirm-yes"
         disabled={send.isPending}
         onClick={() => send.mutate(why)}
-        className="font-data text-label uppercase tracking-[.08em] px-[15px] py-2
+        className="text-label px-[15px] py-2
                    bg-transparent border cursor-pointer"
-        style={{ color: "var(--fault)", borderColor: "var(--fault)" }}
+        style={{ color: "var(--needs-you-ink)", borderColor: "var(--needs-you)" }}
       >
         {send.isPending ? "stopping…" : "stop this run"}
       </button>
@@ -88,7 +88,7 @@ export function Cancel({ runId }: { runId: string }) {
           *cannot cancel*. Shown here rather than swallowed, because the button will otherwise
           look broken. */}
       {send.isError && (
-        <span data-testid="cancel-error" className="text-label" style={{ color: "var(--fault)" }}>
+        <span data-testid="cancel-error" className="text-label" style={{ color: "var(--needs-you-ink)" }}>
           {String((send.error as Error)?.message ?? "the run could not be cancelled")}
         </span>
       )}

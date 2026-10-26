@@ -11,8 +11,8 @@ import { framed } from "./frame";
 
 /** Changing a step that is already on the canvas — Task 14's *preserve swapping and settings*.
  *
- * **Still no inspector.** Selecting a step opens its tools *in the conversation*, under the line
- * that says who decided it, and every change leaves through the session's one edit verb — so the
+ * Selecting a step opens its tools under the panel's *Step* tab, below the step line that says
+ * who decided it, and every change leaves through the session's one edit verb — so the
  * server writes the receipt and restamps only the decision that moved. A tool that saved the
  * draft any other way would change the pipeline and leave the log saying nothing about it.
  */
@@ -46,7 +46,7 @@ const STEPS = {
   star_align: {
     ...FAKE_STEPS.star_align,
     settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4, reason: "no rule matched",
-      axis_reason: "", premise: [], because: "" }],
+      axis_reason: "", optional: false, premise: [], because: "" }],
   },
   fastqc_1: { id: "fastqc_1", process: "FASTQC_1", contract_id: "nf-core/fastqc@0.12.1", tier: 2,
     runs: "per_item", reason: "", settings: [], ports: [] },
@@ -93,12 +93,12 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
   return onEdit;
 }
 
-const conversation = () => screen.getByRole("region", { name: "conversation" });
+const stepTab = () => screen.getByRole("tabpanel", { name: "Step" });
 
 describe("a selected step's tools", () => {
-  it("opens in the conversation, not in a panel of its own", () => {
+  it("opens under the Step tab, in place of the card waiting", () => {
     living("star_align");
-    const tools = within(conversation()).getByRole("region", { name: "change STAR_ALIGN" });
+    const tools = within(stepTab()).getByRole("region", { name: "change STAR_ALIGN" });
     expect(within(tools).getByRole("button", { name: "Swap for something else" })).toBeInTheDocument();
     expect(within(tools).getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(within(tools).getByRole("button", { name: "Remove" })).toBeInTheDocument();
@@ -120,7 +120,7 @@ describe("a selected step's tools", () => {
       nodes: [...RESTED.graph.nodes, { id: "fastqc_1", contract_id: "nf-core/fastqc@0.12.1", params: [] }],
     };
     living("fastqc_1", graph);
-    expect(within(conversation()).getByRole("region", { name: "change FASTQC_1" })).toBeInTheDocument();
+    expect(within(stepTab()).getByRole("region", { name: "change FASTQC_1" })).toBeInTheDocument();
   });
 });
 

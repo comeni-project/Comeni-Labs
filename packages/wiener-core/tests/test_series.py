@@ -31,6 +31,33 @@ def test_a_reservation_is_exact_at_every_breakpoint():
     ]
 
 
+def test_coincident_boundaries_are_one_step():
+    """Several changes at one instant must not become overlapping renderer points."""
+    got = series([
+        _attempt(start=0, complete=100, cpus=2),
+        _attempt(start=0, complete=100, cpus=3),
+    ])
+    cpu = next(c for c in got.curves if c.name == "cpu reserved")
+
+    assert [(p.at_ms, p.value) for p in cpu.points] == [(0, 5.0), (100, 0.0)]
+
+
+def test_memory_reservations_and_written_bytes_keep_their_distinct_meanings():
+    """Reservations are exact; byte totals are explicitly derived rates."""
+    got = series([
+        _attempt(start=1000, complete=3000, memory_bytes=4096, write_bytes=1000),
+    ])
+    memory = next(c for c in got.curves if c.name == "memory reserved")
+    written = next(c for c in got.curves if c.name == "written")
+
+    assert memory.kind is Kind.EXACT
+    assert memory.unit == "bytes"
+    assert [(p.at_ms, p.value) for p in memory.points] == [(1000, 4096.0), (3000, 0.0)]
+    assert written.kind is Kind.DERIVED
+    assert written.unit == "bytes/s"
+    assert [(p.at_ms, p.value) for p in written.points] == [(1000, 500.0), (3000, 0.0)]
+
+
 def test_a_running_task_does_not_release_at_the_edge():
     """**The artefact found by rendering the design boards.**
 

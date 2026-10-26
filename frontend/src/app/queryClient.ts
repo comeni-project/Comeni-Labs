@@ -11,9 +11,9 @@ import { Unauthorized } from "../wiener/api/client";
  * refetching on every navigation and every alt-tab, against endpoints that took 250ms.
  * Audit A137.
  *
- * **30 seconds rather than forever.** The registry moves under the tool — the nightly check, a
- * `forge land` in a terminal, a colleague's commit — so a screen left open catches up on its
- * own. It is a tool, so the window can be generous; it is not single-user, so not unbounded.
+ * **30 seconds rather than forever.** The registry moves under the tool — a release, a
+ * colleague's commit — so a screen left open catches up on its own. It is a tool, so the
+ * window can be generous; it is not single-user, so not unbounded.
  * This is the one number here that is a judgement rather than a measurement, and the first
  * that should move once somebody has used it for an afternoon.
  *

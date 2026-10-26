@@ -74,7 +74,10 @@ export function portOffset(index: number): number {
  * which turns a 7px corner into a visible nick on a wire that should be straight.
  */
 export function elbow(start: Point, end: Point): Point[] {
-  const mid = Math.round((start.x + end.x) / 2);
+  // **The turn sits in the gap before the target's column** (issue 388). Between neighbouring
+  // columns that is the midpoint; a wire passing a column turned at its midpoint, inside a step,
+  // and its riser showed above and below that step as a line joining two unrelated steps.
+  const mid = Math.max(Math.round((start.x + end.x) / 2), end.x - (RANK_PITCH - NODE_W) / 2);
   return start.y === end.y
     ? [start, end]
     : [start, { x: mid, y: start.y }, { x: mid, y: end.y }, end];

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useReducer, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { post } from "../../api/client";
 import type { AuthoringBlock, AuthoringSession, Built, DraftGraph } from "../../api/types";
-import { withNode, withoutNode, withParam } from "../graphOps";
+import { idFor, withNode, withoutNode, withParam } from "../graphOps";
 import { authoringReducer, initialAuthoring } from "./authoringReducer";
 import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY, readFakePreview } from "./fake";
 import { guidedDecide, guidedStart } from "./guided";
@@ -23,7 +23,7 @@ type ChangeBlock = Extract<AuthoringBlock, { kind: "change_set" }>;
 
 const EMPTY_GRAPH: DraftGraph = { nodes: [], edges: [] };
 
-/** `/build/living` — a secondary route while `/build` stays exactly as it is.
+/** The one builder at `/build` (#395; `BuildRoute` opens every pipeline here).
  *
  * `?session=<id>` restores a live authoring session. `?fake=1` opens a static session carrying
  * every block state (Task 9's checkpoint, and what the artboard comparison renders); `?fake=guided`
@@ -37,6 +37,8 @@ export function LivingBuilder() {
   if (fake === "guided") return <GuidedLiving />;
   if (fake === "collect") return <CollectLiving />;
   if (fake === "conflict") return <FakeLiving session={CONFLICT_SESSION} />;
+  if (fake === "sheet") return <FakeLiving sheet />;
+  if (fake === "question") return <FakeLiving steps={QUESTION_STEPS} selected="star_align" />;
   if (fake) return <FakeLiving />;
   if (session) return <LiveLiving key={session} sessionId={session} />;
   return (
@@ -46,18 +48,8 @@ export function LivingBuilder() {
   );
 }
 
-/** A step id for a module added by hand: the tool's path, like `useGraph` names one. */
-function idFor(graph: DraftGraph, contract: string): string {
-  const base = contract.split("@")[0].split("/").slice(1).join("_").replace(/\W/g, "_") || "step";
-  const taken = new Set(graph.nodes.map((n) => n.id));
-  for (let n = 1; ; n += 1) if (!taken.has(`${base}_${n}`)) return `${base}_${n}`;
-}
-
 function LiveLiving({ sessionId }: { sessionId: string }) {
-  const navigate = useNavigate();
-  const living = useAuthoringSession(sessionId, {
-    onFork: id => navigate(`/build/living?session=${encodeURIComponent(id)}`),
-  });
+  const living = useAuthoringSession(sessionId);
   const [sheet, setSheet] = useState(false);
   // **The run sheet reads the saved draft**, never the frame's preview metadata, and is asked
   // only when it opens: the canvas itself never calls the draw endpoint.
@@ -103,7 +95,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
         error: runner.error ?? keeper.error,
         kept: keeper.keptAt !== null,
         sheet: sheet && sheetView.data ? (
-          <RunSheet
+          <RunSheet inline
             name={living.session.name || "this pipeline"}
             // **Open human decisions come first on the sheet** — it counts what nobody answered
             // before it asks where the data is, which is the order Build's Run has always had.
@@ -142,10 +134,11 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       // change the pipeline and leave the log saying nothing about it.
       onAddStep={(contract) =>
         living.edit(withNode(graph, { id: idFor(graph, contract), contract_id: contract, params: [] }))}
-      onSetParam={(node, setting, value) => living.edit(withParam(graph, node, setting, value))}
+      onSetParam={(node, setting, value, why) => living.edit(withParam(graph, node, setting, value, why))}
       onApplyChange={(block: ChangeBlock) =>
         living.edit(block.removes.reduce(withoutNode, graph))}
       onEdit={living.edit}
+      onRename={living.rename}
     />
   );
 }
@@ -177,11 +170,26 @@ export function useFirstArrival(sessionId: string, session: AuthoringSession | n
   return plan.current ?? {};
 }
 
-function FakeLiving({ session: given = FAKE_SESSION }: { session?: AuthoringSession }) {
-  const session = framed(given, FAKE_STEPS, FAKE_CHANNELS);
+/** `?fake=question`: STAR_ALIGN opened with one value nobody has settled — what the *Question*
+ *  board is compared against. */
+const QUESTION_STEPS = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, settings: [
+  ...FAKE_STEPS.star_align.settings,
+  { name: "outSAMstrandField", value: null, via: "ext", tier: 4, because: "", axis_reason: "", optional: false, premise: [],
+    reason: "No rule settles it: your description does not say which tools read the alignments next, "
+      + "and nothing measured it.",
+    domain: { kind: "enum", values: ["None", "intronMotif"] } },
+] } };
+
+/** `?fake=sheet` opens the run sheet over the static session — what the *Run sheet* board is
+ *  compared against, since a fake never keeps or lints. */
+function FakeLiving({ session: given = FAKE_SESSION, sheet = false, steps = FAKE_STEPS, selected = null }: {
+  session?: AuthoringSession; sheet?: boolean; steps?: typeof FAKE_STEPS; selected?: string | null;
+}) {
+  const session = framed(given, steps, FAKE_CHANNELS);
   const [state, dispatch] = useReducer(authoringReducer, {
     ...initialAuthoring,
     snapshot: session,
+    selected,
   });
   return (
     <LivingSurface
@@ -207,6 +215,12 @@ function FakeLiving({ session: given = FAKE_SESSION }: { session?: AuthoringSess
       onApplyChange={() => undefined}
       onEdit={() => undefined}
       onDismiss={() => dispatch({ type: "dismiss" })}
+      run={sheet ? {
+        onRun: () => undefined, busy: false, stage: null, error: null, kept: false,
+        sheet: <RunSheet inline name={session.name} steps={Object.values(FAKE_STEPS)}
+                         sources={entryChannels({ channels: FAKE_CHANNELS } as unknown as Built)}
+                         draftId={null} gated={false} onClose={() => undefined} />,
+      } : null}
     />
   );
 }

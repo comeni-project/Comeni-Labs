@@ -1,13 +1,7 @@
-"""Families: the first level of the type choice (#194).
+"""Load and query the declared families that group data types.
 
-A model reading what somebody wants is not shown every type. It is shown the **families** — a
-short, described list — and then every type of the families it chose, **whole**, so the number
-of types one call reads is bounded by a family's size rather than by the registry's. A family is
-the part of a type id before its first dot: `alignment.bam` is in `alignment`.
-
-**Closed** (invariant 7): a type whose family no layer declares fails to load, `MD0316`. **Stacked**
-(invariant 11) like every other kind: an overlay may declare a family the base lacks, or replace
-a description the base wrote. One family per file, `declares: family`.
+A family is the segment before the first dot in a type ID. Layer overlays may add families or
+replace their descriptions. Validation rejects type IDs whose family is absent from the stack.
 """
 
 from collections.abc import Iterable, Sequence
@@ -41,7 +35,7 @@ class Family(BaseModel):
 
 
 def _parse_family(path: Path) -> list[Family]:
-    """One family file. `declares:` is accepted and ignored, as `_parse_type` does."""
+    """Parse one family declaration, ignoring its loader-facing kind marker."""
     data = yaml_strict.load(path) or {}
     data.pop("declares", None)
     return [Family.model_validate(data)]
@@ -68,11 +62,11 @@ class FamilyVocabulary(BaseModel):
 
     @classmethod
     def load(cls, layers: Path | Sequence[Path]) -> "FamilyVocabulary":
-        """Load the families across a layer stack. **Layer roots**, as for every kind."""
+        """Load families from one or more layer roots."""
         return cls.of(stack(layers_of(layers), cls.kind()))
 
     def check(self, type_ids: Iterable[str]) -> None:
-        """Refuse a type whose family nothing declares."""
+        """Reject the first type whose family is undeclared, in sorted order."""
         for type_id in sorted(type_ids):
             family = family_of(type_id)
             if family not in self.families:
@@ -86,6 +80,6 @@ class FamilyVocabulary(BaseModel):
                 )
 
     def types_of(self, family_ids: Iterable[str], type_ids: Iterable[str]) -> list[str]:
-        """Every type of the given families, sorted — each family whole."""
+        """Return all types in the requested families, sorted by type ID."""
         wanted = set(family_ids)
         return sorted(t for t in type_ids if family_of(t) in wanted)

@@ -60,14 +60,16 @@ describe("the three collection shapes", () => {
     expect(flowTag("gather")).toBe("collect all");
     expect(flowLabel("many", null)).toBe("×N items · once per item");
     collect();
-    expect(screen.getByTestId("living-source-reads")).toHaveTextContent("×12 samples");
+    expect(screen.getByTestId("living-source-reads")).toHaveTextContent("× 12 samples");
     expect(screen.getByTestId("living-source-reference")).not.toHaveTextContent("×");
   });
 
   it("says each step runs once or per item, from the server's answer", () => {
+    // The boards say it once for the canvas, and the ports' shape says it per step.
     collect();
-    expect(screen.getByTestId("living-node-fastqc")).toHaveTextContent("runs 12×");
-    expect(screen.getByTestId("living-node-multiqc")).toHaveTextContent("runs once");
+    expect(screen.getByTestId("canvas-samples")).toHaveTextContent("12 samples, one task each");
+    expect(screen.getByTestId("living-node-fastqc").querySelector('[data-port-mark="many"]')).not.toBeNull();
+    expect(screen.getByTestId("living-node-multiqc").querySelector('[data-port-mark="many"]')).toBeNull();
   });
 
   it("draws an input beside the step it feeds when the gutter is empty, not below it", () => {

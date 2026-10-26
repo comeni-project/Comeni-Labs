@@ -30,6 +30,27 @@ export type View = { x: number; y: number; k: number };
  */
 const START: View = { x: 250, y: 20, k: 1 };
 
+export type Box = { x: number; y: number; w: number; h: number };
+
+/** **The view that brings a box on screen, or `null` when it is already there.**
+ *
+ * The canvas follows the engine — a step offered or picked from the step line is brought into view
+ * — but a view the person already has the step in is theirs, and is left exactly as it is. The
+ * zoom never changes: following pans, and only a person zooms.
+ */
+export function revealing(view: View, box: Box, viewport: { w: number; h: number }): View | null {
+  if (!viewport.w || !viewport.h) return null;
+  const left = view.x + box.x * view.k;
+  const top = view.y + box.y * view.k;
+  const inside = left >= 0 && top >= 0 && left + box.w * view.k <= viewport.w && top + box.h * view.k <= viewport.h;
+  if (inside) return null;
+  return {
+    k: view.k,
+    x: viewport.w / 2 - (box.x + box.w / 2) * view.k,
+    y: viewport.h / 2 - (box.y + box.h / 2) * view.k,
+  };
+}
+
 export function useView() {
   const [view, setView] = useState<View>(START);
   const panning = useRef(false);
@@ -104,5 +125,10 @@ export function useView() {
     [],
   );
 
-  return { view, onWheel, onPointerDown, zoomAt, reset, nudge, fit };
+  const reveal = useCallback(
+    (box: Box, viewport: { w: number; h: number }) => setView((v) => revealing(v, box, viewport) ?? v),
+    [],
+  );
+
+  return { view, onWheel, onPointerDown, zoomAt, reset, nudge, fit, reveal };
 }

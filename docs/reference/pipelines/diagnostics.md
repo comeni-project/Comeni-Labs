@@ -139,6 +139,9 @@ decline to curate one.
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
 | `MD0315` | a measurement's `assertion_only` and its reason disagree |
 | `MD0316` | a type names a family no layer in the stack declares |
+| `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
+| `MD0320` | a tool you excluded was the only one that can make this step's output |
+| `MD0321` | a tool you chose to feed a step's input makes nothing that input accepts |
 
 ## Gates and emission
 
@@ -163,67 +166,11 @@ decline to curate one.
 | `MD0508` | the graph contains a cycle |
 | `MD0509` | a node names a contract that is not in the registry stack |
 
-## The forge — reading an upstream source catalogue
+## Authoring — sessions, turns and proposals
 
 | Code | Says |
 |---|---|
-| `MF0200` | the source catalogue came back incomplete, so its total would be wrong |
-| `MF0201` | the source answered with an error status |
-| `MF0202` | the source could not be reached after every attempt |
-| `MF0203` | the source reported no change and there is no previous snapshot to reuse |
-| `MF0204` | a fact cites an evidence id the bundle does not carry |
-| `MF0205` | a central metadata file could not be used, in whole or in part |
-| `MF0206` | the classification ontology is malformed |
-| `MF0207` | a classification names a tool that was not discovered |
-| `MF0208` | a discovered image has no entry in the source's central metadata |
-
-## The forge — a scaffold, its holes, and filling them
-
-| Code | Says |
-|---|---|
-| `MF0001` | no such source, or a tool reference that does not name one |
-| `MF0002` | that field is not a hole in this scaffold |
-| `MF0003` | the value is not one this hole declares as legal |
-| `MF0004` | the scaffold still has open holes and cannot become a declared file |
-| `MF0005` | the generated module's script body has not been written |
-| `MF0011` | a generated module still declares a placeholder channel — say what the tool really takes and emits |
-
-## The forge — whether a draft holds up
-
-| Code | Says |
-|---|---|
-| `MF0006` | nothing in the layer can route to this contract — **warns, never blocks** |
-| `MF0007` | the filled scaffold does not construct a valid contract |
-| `MF0009` | the loader refused the draft and gave no diagnostic code |
-
-## The forge — drafts on disk
-
-| Code | Says |
-|---|---|
-| `MF0008` | no such draft, or a draft name that is not a plain name |
-| `MF0010` | a draft with that name already exists |
-| `MF0012` | this revision's candidate is already kept, and a kept candidate is never overwritten |
-
-## The forge — adapting a tool, and in what order
-
-| Code | Says |
-|---|---|
-| `MF0300` | an adaptation cannot move from the state it is in to the one that was asked for |
-| `MF0301` | this candidate does not meet the conditions for approval |
-| `MI0100` | this adaptation moved while you were looking at it — re-read it before acting |
-| `MI0101` | this tool is already being adapted |
-| `MI0103` | the worker holding this job did not come back |
-| `MI0104` | an upstream catalogue could not be read, and the sync recorded that rather than an empty world |
-| `MI0105` | the source could not be read, or its scaffold could not be written |
 | `MI0106` | no model is configured, so nothing can be generated |
-| `MI0107` | no proposal validated within the repair budget |
-| `MI0108` | this revision has not been through the validation ladder |
-| `MI0109` | this question is not attached to any revision |
-| `MI0110` | the registry refused this candidate, and the adaptation is back in review |
-| `MI0111` | that page cursor is not one this endpoint issued |
-| `MI0112` | a review question is empty, or longer than the limit |
-| `MI0113` | the model answered and its answer was refused |
-| `MI0114` | the proposal could not be applied to the scaffold |
 | `MI0200` | an authoring session cannot move from this phase by this event |
 | `MI0201` | this draft moved while you were looking at it — re-read it before accepting |
 | `MI0202` | this proposal was made against an older draft and can no longer be applied |
@@ -241,33 +188,6 @@ decline to curate one.
 | `MI0216` | that is not possible from here |
 | `MI0217` | editing opens when the walk is done |
 | `MI0218` | this older offer has no saved alternative preview |
-
-## The forge — what a model is told, and what it cites
-
-| Code | Says |
-|---|---|
-| `MF0400` | the dossier does not fit its budget and nothing left in it may be dropped |
-| `MF0401` | a response cites an evidence id that is not in the dossier it was given |
-| `MF0402` | a response answers a hole the scaffold never opened |
-| `MF0403` | a response answers a closed question with a value outside its candidate set |
-| `MF0404` | a repair was given a different dossier than the attempt it repairs |
-| `MF0405` | the response answers a hole with the wrong number of values |
-| `MF0406` | the response proposes a vocabulary entry where none is needed |
-| `MI0102` | a provider could not be reached while the worker was generating |
-
-## The forge — landing a draft into a registry
-
-| Code | Says |
-|---|---|
-| `MF0100` | a draft may not be landed on the registry's default branch |
-| `MF0101` | the registry checkout has uncommitted changes |
-| `MF0102` | the field is not a single top-level scalar and cannot be patched in place |
-| `MF0103` | the patched contract no longer loads, so nothing was written |
-| `MF0104` | that field is not drifted, so there is nothing to accept |
-| `MF0105` | the registry checkout is at a detached HEAD |
-| `MF0106` | no contract in this registry has that id |
-| `MF0107` | the registry is not a git checkout |
-| `MF0108` | the registry moved since this candidate was validated |
 
 ## Reaching a model
 

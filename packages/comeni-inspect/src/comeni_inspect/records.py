@@ -1,11 +1,13 @@
-"""What a format yields: one record per read, in the shape every measure reads."""
+"""Define the sequence-record shape shared by formats and measures."""
 
 from typing import NamedTuple
 
 
 class SequenceRecord(NamedTuple):
-    """One read. `name` stops at the first space; any `/1` `/2` suffix is kept, because
-    stripping it is the `paired` measure's rule, declared there, not the format's."""
+    """One read, retaining pair suffixes for the paired-read measure to interpret.
+
+    Formats stop ``name`` at the first space but preserve suffixes such as ``/1`` and ``/2``.
+    """
 
     name: str
     sequence: bytes
@@ -13,9 +15,9 @@ class SequenceRecord(NamedTuple):
 
 
 class Malformed(Exception):
-    """Raised by a format at a record it can see whole and cannot read: `record 3: no name`.
+    """Report a complete record that a format cannot parse.
 
-    **Not a cut head**: a head is always cut somewhere, and a record the cut shortened ends the
-    stream quietly. This is a complete record that is wrong, with bytes after it. The runner
-    keeps what came before and writes `stopped: malformed <message>` on every fact (issue 224).
+    A record truncated by the bounded head ends the stream normally. For a malformed complete
+    record, the runner retains earlier measurements and adds ``stopped: malformed <message>`` to
+    each fact's evidence.
     """

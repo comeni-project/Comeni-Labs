@@ -136,9 +136,9 @@ export function SampleUpload({
         // click it cannot take.
         className={`inline-flex items-center justify-center gap-[8px] min-h-[44px] md:min-h-0
                    px-[14px] py-[7px] text-[12.5px] font-semibold border border-dashed
-                   text-link bg-[var(--link-soft)] has-[:focus-visible]:shadow-[var(--ring)]
+                   text-now-ink bg-[var(--now-soft)] has-[:focus-visible]:shadow-[var(--ring)]
                    ${busy ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-        style={{ borderColor: "var(--link)" }}
+        style={{ borderColor: "var(--now)" }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="square" aria-hidden="true">
@@ -167,7 +167,7 @@ export function SampleUpload({
       ) : resending ? (
         <p className="m-0 font-data text-[11.5px] text-ink-2" aria-live="polite">
           read by AI: {reading.type_id}{" "}
-          <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">→</span>{" "}
+          <span className="text-measured-ink animate-pulse motion-reduce:animate-none">→</span>{" "}
           measuring…
         </p>
       ) : (
@@ -183,7 +183,7 @@ export function SampleUpload({
           </p>
         </div>
       )}
-      {refusal && <p role="alert" className="m-0 text-[11.5px] text-[var(--undecided)]">{refusal}</p>}
+      {refusal && <p role="alert" className="m-0 text-[11.5px] text-needs-you-ink">{refusal}</p>}
 
       {(stage.at === "picked" || stage.at === "measuring") && (
         <div className="flex flex-col gap-[10px]">
@@ -197,7 +197,7 @@ export function SampleUpload({
             </>
           ) : (
             <p className="m-0 font-data text-[11.5px] text-ink-2" aria-live="polite">
-              <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">●</span>{" "}
+              <span className="text-measured-ink animate-pulse motion-reduce:animate-none">●</span>{" "}
               Reading the sample, then measuring…
             </p>
           )}
@@ -208,7 +208,7 @@ export function SampleUpload({
         stage.result.outcome === "measured" && (
         <p className="m-0 font-data text-[12px]">
           <span className="text-ink">{stage.result.type_id ?? reading.type_id}</span>{" "}
-          <span className="text-[var(--measured)]">· type read by AI</span>
+          <span className="text-measured-ink">· type read by AI</span>
         </p>
       )}
       {stage.at === "done" && (
@@ -222,7 +222,7 @@ export function SampleUpload({
       )}
       {stage.at === "failed" && (
         <div className="flex flex-col gap-[8px] md:items-start">
-          <p role="alert" className="m-0 text-[11.5px] text-[var(--undecided)]">{stage.why}</p>
+          <p role="alert" className="m-0 text-[11.5px] text-needs-you-ink">{stage.why}</p>
           {/* The same files, again: the sentence says *try again* (issue 228). A sample the
               server did record answers with its own refusal, which says so. */}
           <Secondary disabled={busy} onClick={() => void measure(stage.files)}>
@@ -242,7 +242,7 @@ function Reading({ files }: { files: File[] | null }) {
         <p className="m-0 font-data text-[11px] text-ink-2">{files.map((f) => f.name).join(" + ")}</p>
       )}
       <p className="m-0 font-data text-[11.5px] text-ink" aria-live="polite">
-        <span className="text-[var(--measured)] animate-pulse motion-reduce:animate-none">●</span>{" "}
+        <span className="text-measured-ink animate-pulse motion-reduce:animate-none">●</span>{" "}
         being read by AI…
       </p>
       <p className="m-0 text-[11.5px] text-ink-3">
@@ -268,7 +268,7 @@ function ReadingSaid({ reading, files }: { reading: SampleReading | null; files:
           {lines.map((line) => (
             <li key={line}>
               <span className="text-ink">{line}</span>{" "}
-              <span className="text-[var(--measured)]">· read by AI</span>
+              <span className="text-measured-ink">· read by AI</span>
             </li>
           ))}
         </ul>
@@ -288,7 +288,7 @@ function ReadingSaid({ reading, files }: { reading: SampleReading | null; files:
   }
   if (reading.state === "hand_back")
     return (
-      <Said head={<>looks like {reading.type_id} <span className="text-[var(--measured)]">· read by AI</span></>}
+      <Said head={<>looks like {reading.type_id} <span className="text-measured-ink">· read by AI</span></>}
         sub="This server measures that type. Pick the same files again and it measures them; nothing else is sent to the AI." />
     );
   const said: Record<string, [string, string]> = {
@@ -304,7 +304,7 @@ function ReadingSaid({ reading, files }: { reading: SampleReading | null; files:
 function Said({ head, sub, alert = false }: { head: React.ReactNode; sub: string; alert?: boolean }) {
   return (
     <div className="px-[10px] py-[9px] border" role={alert ? "alert" : undefined}
-      style={{ borderColor: "var(--line-2)", background: alert ? "var(--undecided-soft)" : "var(--surface)" }}>
+      style={{ borderColor: "var(--line-2)", background: alert ? "var(--needs-you-soft)" : "var(--surface)" }}>
       <p className="m-0 font-data text-[12px] text-ink">{head}</p>
       {sub && <p className="m-0 mt-[6px] text-[11px] text-ink-2">{sub}</p>}
     </div>
@@ -340,10 +340,10 @@ function Outcome({ result, files }: { result: SampleInspected; files: string[] }
       : result.reason ?? "it could not be read";
   return (
     <div className="px-[10px] py-[9px] border"
-      style={{ borderColor: "var(--line-2)", background: "var(--undecided-soft)" }}>
+      style={{ borderColor: "var(--line-2)", background: "var(--needs-you-soft)" }}>
       <p className="m-0 font-data text-[12px] text-ink">
         {result.outcome === "unreadable" && (
-          <span className="text-[var(--undecided)]">couldn't read it — </span>
+          <span className="text-needs-you-ink">couldn't read it — </span>
         )}
         {said}
       </p>
@@ -365,9 +365,9 @@ export function SampleResult({ result, files }: { result: SampleInspected; files
       <p className="m-0 font-data text-[10px] text-ink-3">from {files.join(" + ")}</p>
       {open.map((f) => (
         <p key={f.measurement} className="m-0 px-[10px] py-[9px] font-data text-[12px] border"
-          style={{ borderColor: "var(--line-2)", background: "var(--undecided-soft)" }}>
+          style={{ borderColor: "var(--line-2)", background: "var(--needs-you-soft)" }}>
           <span className="text-ink">{f.measurement.replace(/_/g, " ")}:</span>{" "}
-          <span className="text-[var(--undecided)]">undetermined</span>{" "}
+          <span className="text-needs-you-ink">undetermined</span>{" "}
           <span className="text-ink">— {f.undetermined}</span>
         </p>
       ))}
@@ -376,7 +376,7 @@ export function SampleResult({ result, files }: { result: SampleInspected; files
           {decided.map((f) => (
             <li key={f.measurement}>
               <span className="text-ink">{f.measurement} {shown(f.value)}</span>{" "}
-              <span className="text-[var(--measured)]">· measured</span>
+              <span className="text-measured-ink">· measured</span>
               {how(f) && <span className="text-ink-2"> · {how(f)}</span>}
             </li>
           ))}

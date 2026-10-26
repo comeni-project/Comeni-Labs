@@ -1,23 +1,7 @@
-"""Decision records: what was ambiguous, what was chosen, and why.
+"""Typed questions, answers, and persistent records for unresolved planning choices.
 
-**A record declares its kind.** `DecisionRecord.chosen` used to carry three different sorts
-of value under one type, and the discriminator was a string prefix that was not even
-consistent:
-
-    subject=f"producer:{type_id}"    # chosen is a ContractId
-    subject=f"source:{port.name}"    # chosen is "{node}.{port}"
-    subject=param_name               # chosen is a ParamValue — no prefix at all
-
-Two kinds prefixed, one not, so "what kind of decision is this?" was answered by
-pattern-matching a string nobody designed to be parsed. That is audit A16, and it is why
-A3's path-shaped blocklist could not be applied to `chosen`: `dual.bam` is an *edge
-reference* and is character-for-character a filename.
-
-With three types the collision goes away by construction. `EdgeRef` is
-`<identifier>.<identifier>`, so `dual.bam` is accepted **because it is declared**, not
-tolerated because a blocklist was narrowed around it — and `run.cram` is refused for naming
-no node. `HumanParamValue`'s blocklist survives on `ParamDecision.human_override` alone,
-which is the one kind with no domain yet; that is Plan 2 Task 11's job.
+Each decision declares a `kind` discriminator so its candidates, chosen value, and overrides
+retain their domain-specific types during serialization and replay.
 """
 
 from enum import StrEnum
@@ -53,26 +37,11 @@ class DecisionKind(StrEnum):
 
 
 class Ambiguity(Question):
-    """A question the deterministic ladder could not answer.
-
-    **This is a door, and it was the only one with no type discipline.** A32: `candidates:
-    list[Any]` and `context: dict[str, Any]`, no `model_config` at all, so `extra` defaulted
-    to *ignore* — a field misspelled at the call site vanished, and any object at all could
-    be attached to a value that a model provider sees. It projects to `AmbiguityRequest`,
-    which is a closed payload; the closed half was downstream of the open half.
-
-    Three kinds, so `context`'s three uses become declared fields on the kind that has them.
-    A model sitting behind this port sees what the registry declares and nothing else.
-    """
+    """A typed question that deterministic resolution could not answer."""
 
     node_id: NodeId
     subject: Subject
-    """Re-narrowed from `Question.subject`, which is a plain `str`.
-
-    `Subject` is a declared mark and this value reaches `pipeline.yml` through every
-    decision record, so the looser base type must not win by inheritance. Same move
-    `Resolution` makes on `value`.
-    """
+    """Declared subject written into the persistent decision record."""
 
     def key(self) -> str:
         return f"{self.node_id}.{self.subject}"
@@ -87,27 +56,14 @@ class ParamAsked(Ambiguity):
 
 
 class ProducerAsked(Ambiguity):
-    """Several contracts produce this and nothing distinguishes them. Invariant 8."""
+    """A choice between otherwise indistinguishable producer contracts."""
 
     kind: Literal[DecisionKind.PRODUCER] = DecisionKind.PRODUCER
     candidates: list[ContractId] = Field(default_factory=list)
     states: list[StateName] = Field(default_factory=list)
 
     def key(self) -> str:
-        """What is being decided, never who won it.
-
-        The inherited key is `node_id.subject`, and a producer question's `node_id` is the
-        *winning candidate's* process name — so installing one more contract renamed the
-        question. `upgrade` found no record under the new name, reported a curator's recorded
-        override as `ORPHANED — your edit no longer applies to anything`, and asked the
-        identical question one line above under the new name. Audit A126.
-
-        `subject` is already `producer:<type_id>`, which identifies the question uniquely
-        within a pipeline: a contract appears at most once (A97), so there is exactly one
-        producer question per type. `ParamAsked` and `SourceAsked` keep the inherited form,
-        because those genuinely are per-step — two steps may ask about the same parameter
-        name and mean different things.
-        """
+        """Identify the producer question by type, independently of the current winner."""
         return self.subject
 
 
@@ -121,97 +77,47 @@ class SourceAsked(Ambiguity):
 
 
 AmbiguityKinds = (ParamAsked, ProducerAsked, SourceAsked)
-"""The three shapes a tier-4 question can take.
-
-Named as a tuple so `tests/guards/test_egress.py` can assert the projection to `AmbiguityRequest`
-is *total* — a fourth kind added without a slot at the door would fail that test rather than
-quietly not be told to a model."""
+"""Question shapes that may cross the ambiguity-resolution boundary."""
 
 
 class Resolution(Answer):
-    """The answer coming back through the port. Also a boundary, in the other direction."""
+    """A resolver's typed answer to an ambiguity."""
 
     value: ParamValue
-    """Re-narrowed from `Answer.value`, which is `Any`. The base is deliberately looser
-    than this subclass — see the spec's §4.2."""
+    """Resolved scalar value, narrowed from the generic answer contract."""
     why: Line
     confidence: float = 0.0
-    """Stays on this subclass. A forge fill has no confidence, and putting the field on
-    `Answer` would declare one that nothing writes."""
+    """Optional resolver confidence; generic answers do not declare this field."""
     by: ResolverId = "flag-only"
-    """A declared id, not a bare `str`: this is written into every `DecisionRecord` and
-    reaches a publish bundle, and it is filled in by whatever implements the port.
-
-    Was `resolved_by`. Renamed to the shared `Answer.by` in Plan 2.5 — the forge's
-    `FilledValue.by` carried the same fact (a username, a model id, a resolver id) under
-    the shorter name, and one of the two spellings had to go.
-    """
+    """Identifier of the resolver implementation that supplied the answer."""
     how: ValueSource = ValueSource.RESOLVER
-    """Who settled it, as distinct from *how well* (`tier`) and *by which implementation*
-    (`by`). Was `source`.
-
-    Only `ReplayResolver` sets this to `HUMAN`, and only when the record it replayed carries
-    a `human_override` — the one field in the system that is by design a person's answer.
-    `by` cannot carry it: that names the implementation, and the implementation replaying a
-    human's answer is still `replay`.
-
-    Defaulted rather than required so nothing else changes shape. A resolver could set it
-    untruthfully, which is the same standing as `confidence` and `why` — the port is a
-    boundary against undeclared *shapes*, never against a component of ours lying in a
-    declared one.
-    """
+    """Source category that settled the value, distinct from the resolver ID and tier."""
 
 
 class _Decided(BaseModel):
-    """What every decision carries, whatever kind it is."""
+    """Fields and authorship rules shared by every persistent decision."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: DecisionKey
     subject: Subject
-    """Still carried, because `kind` says *what sort* and this says *of what* — which
-    contract's parameter, which type's producer. Redundant for two of three kinds; leaving
-    it is the smaller change and `ReplayResolver` matches on `key`, which is unchanged."""
+    """Object being decided; `kind` separately identifies the decision category."""
     reason: Line
-    """Model- or resolver-written prose. Declared free text; see `ResolvedValue.reason`."""
+    """Model- or resolver-written explanation."""
     confidence: float = 0.0
     resolved_by: ResolverId
     tier: Tier = Tier.AMBIGUOUS
 
     model_override_by: ResolverId = ""
-    """Which model made the override, when one did. Empty when none did.
-
-    On `_Decided` rather than on each kind because it answers the same question whatever was
-    overridden, and because `resolved_by` — the field it sits beside — is here for the same
-    reason. `ResolverId` is reused rather than a new alias invented: its own docstring already
-    names *"a model adapter's own name"* as one of the things it holds, so the egress allowlist
-    is satisfied without widening it.
-    """
+    """Model responsible for `model_override`; empty when no model overrode the result."""
 
     @model_validator(mode="after")
     def _one_author(self) -> "_Decided":
-        """A person and a model cannot both have made one choice.
+        """Require one attributable override author.
 
-        Written on the base so no kind can forget it. A person changing a model's answer is a
-        human override and the model's answer is history — a decision has one author, and two
-        would mean neither is checkable, which is A130 in miniature.
-
-        `_Decided` declares neither override field — each kind does — so read them off `self`
-        defensively; a subclass without one must not raise here.
-
-        **Presence is `is not None`, and that leaves a hole which is documented rather
-        than faked.** `ParamDecision`'s override type is `HumanParamValue`, which *includes*
-        `None`, so a parameter a model deliberately set to null is indistinguishable here from
-        one it never touched.
-
-        `model_fields_set` was tried and is **worse than the hole**: after a round-trip through
-        `model_dump()` every field is in it, so presence-by-fields-set would refuse every
-        `pipeline.yml` ever written. Measured, not reasoned — see the commit.
-
-        The hole is inherited: `human_override` has had it since A3. What *is* checkable is the
-        reverse — an author naming nothing — and that is checked below, because a record
-        claiming a model decided something while recording no decision is the likelier error and
-        the one that would mislead a reader.
+        Human and model overrides are mutually exclusive. A model override requires its model
+        ID, and a model ID requires a non-null override. Null parameter overrides cannot be
+        distinguished from absence because `HumanParamValue` includes `None`.
         """
         model = getattr(self, "model_override", None)
         if model is not None and not self.model_override_by:
@@ -233,35 +139,19 @@ class _Decided(BaseModel):
 
 
 class ParamDecision(_Decided):
-    """Which value a parameter takes. The one kind with no declared domain yet."""
+    """The selected value for a parameter whose domain may still be open."""
 
     kind: Literal[DecisionKind.PARAM] = DecisionKind.PARAM
     candidates: list[ParamValue] = Field(default_factory=list)
     chosen: ParamValue
     model_override: HumanParamValue = None
-    """A model's answer, kept distinct from a person's. Same guarded type as `human_override`:
-    the name of that alias is about the path-shaped blocklist (audit A3), not about the author,
-    and a model can emit a path exactly as a person can — if anything more readily."""
+    """A model-authored replacement, kept separate from a human override."""
 
     human_override: HumanParamValue = None
-    """A reviewer's answer, guarded against path-shaped values by a blocklist because a
-    parameter has no declared domain to check against. Audit A3, and still a stopgap —
-    the other two kinds no longer need one, which is the difference a type makes."""
+    """A reviewer-authored replacement, restricted to safe human parameter values."""
 
     override_reason: Line = ""
-    """Why the person answered it that way. **The field that did not exist.**
-
-    Tier 4 is the honesty mechanism and the declared difference from a chat window, and it is
-    the one tier where a *person* supplies the answer — with nowhere to say why. `why.reason`
-    is re-derived from the resolver's `Resolution.reason` on every re-materialisation, so a
-    hand-written sentence was replaced by *"selected the first of 1 candidates without
-    judgement — please review"* under `source: human`, and `upgrade` reported "1 decisions
-    replayed" without mentioning the loss. Audit A77.
-
-    Empty means a person answered and gave no reason, which is legal and is said in those
-    words rather than by falling back to the flag-only text — that text describes what
-    happened *before* the person arrived, which is A111.
-    """
+    """Reviewer's explanation; an empty value means no explanation was supplied."""
 
 
 class ProducerDecision(_Decided):
@@ -275,12 +165,7 @@ class ProducerDecision(_Decided):
     unknown: list[MeasurementId] = Field(
         default_factory=list, exclude_if=lambda unknown: not unknown
     )
-    """The facts a rule needed and nobody knew, when that is why this question is open (#174).
-
-    Typed so the build plan can ask for the fact before the tool; the reason states the same
-    thing in prose, which nothing should parse. **Empty means not waiting on a fact, or recorded
-    before this field existed**: `Why.premise` reads the same way. Left out of the dump when
-    empty, so a `pipeline.yml` written before it stays byte-identical."""
+    """Unknown measurements blocking this choice; omitted from serialization when empty."""
 
 
 class SourceDecision(_Decided):
@@ -294,12 +179,10 @@ class SourceDecision(_Decided):
 
 
 class FactDecision(_Decided):
-    """A fact a chosen tool's code reads, that nobody supplied (#338).
+    """An unknown shared fact required by a chosen tool.
 
-    Not a `ParamDecision`: a setting's answer is stored as that one step's setting, so two
-    steps reading strandedness would ask twice and could disagree. This one's answer is stored
-    as the **fact**, once, and the re-resolved pipeline has no record left. It exists only
-    while the fact is unknown, so it is never replayed.
+    The eventual answer is stored as a fact rather than as a step-specific parameter decision,
+    so this temporary record is not replayed after the fact becomes known.
     """
 
     kind: Literal[DecisionKind.FACT] = DecisionKind.FACT
@@ -313,9 +196,4 @@ DecisionRecord = Annotated[
     ParamDecision | ProducerDecision | SourceDecision | FactDecision,
     Field(discriminator="kind"),
 ]
-"""A decision, discriminated on `kind`.
-
-A published bundle round-trips through this, so `kind` reaches the artifact: every record
-in every bundle gains a field. Nothing is published yet, which makes that free now and
-expensive later — the same argument that deleted `ShadowRecord` in Part B.
-"""
+"""Persistent decision union, discriminated by `kind`."""

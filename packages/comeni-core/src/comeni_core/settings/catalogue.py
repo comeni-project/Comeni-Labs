@@ -1,11 +1,4 @@
-"""Every setting this installation has, by section (spec §7).
-
-**Each section arrived with its consumer.** Appearance came first (the theme, read by
-`frontend/src/app/Shell.tsx`); Models and Privacy & data with 14.7.5.4, which made every model
-call read its purpose's model. Building arrived with 14.7.5.5; Pacing is read by the consultant
-build's fork (14.7.8.3b), Tier-4 answers still designed; Developer (Dev mode) arrived with
-14.7.8.3b; the read-only ones arrive in 14.7.5.6.
-"""
+"""Canonical settings catalogue grouped into Mendel- and Wiener-served sections."""
 
 from comeni_core.settings.declare import FROM_ENV, EnvItem, Setting, Where
 from comeni_core.settings.reasons import Designed, ReadOnlyHere
@@ -84,7 +77,7 @@ BUILDING = Section(
 )
 
 PURPOSE_NAMES = ("want", "talk", "tier4", "readback", "forge")
-"""Each purpose a model can be chosen for; its `.env` pin is `COMENI_AI_MODEL_<NAME>`."""
+"""Model purposes whose environment pin is `COMENI_AI_MODEL_<NAME>`."""
 
 
 CONNECTIONS = Setting.collection(
@@ -124,7 +117,7 @@ CONNECTIONS = Setting.collection(
     ),
     from_env=EnvItem(
         name=FROM_ENV,
-        # The default model, or any purpose pinned in .env (review I3).
+        # Any environment-selected model needs the shared endpoint and key record.
         present_when=(
             "COMENI_AI_MODEL",
             *(f"COMENI_AI_MODEL_{name.upper()}" for name in PURPOSE_NAMES),
@@ -218,8 +211,7 @@ PROTECTION = Setting.choice(
         ("guarded", "Guarded"),
         ("sealed", "Sealed"),
     ],
-    # **Level 0 is built (14.7.6); the others are designed** (issue 71). They are offered
-    # greyed, so the menu says what is coming without a choice nothing would honour.
+    # Unimplemented protection levels remain visible but cannot be selected.
     designed={o: "designed, not built (issue 71)" for o in ("open", "guarded", "sealed")},
     default="level_0",
 )
@@ -243,19 +235,8 @@ REGISTRY_LAYERS = _reported(
 GITHUB_TOKEN = _reported(
     "registry.github",
     "GitHub token",
-    "Lets the forge read nf-core's catalogue without GitHub's anonymous rate limit. Set or not.",
+    "Lets the forge open pull requests and publish releases on the registry. Set or not.",
     ReadOnlyHere(why="a deploy secret: set it as COMENI_FORGE_GITHUB_TOKEN in .env"),
-)
-DOCKERHUB = _reported(
-    "registry.dockerhub",
-    "Docker Hub account",
-    "Lets the forge read all of pegi3s's images, not only the first hundred. Set or not.",
-    ReadOnlyHere(why="a deploy secret: set COMENI_FORGE_DOCKERHUB_USER and _TOKEN in .env"),
-)
-SOURCE_CHECK = _reported(
-    "registry.source_check",
-    "Nightly source check",
-    "When the worker re-reads every source to see whether an upstream tool moved.",
 )
 VERSIONS = _reported(
     "system.versions", "Versions", "The version of each part of this installation."
@@ -277,7 +258,7 @@ PRIVACY = Section(
 )
 def _limit(key: str, label: str, help: str, default: str, env: str,
            *, when_it_ends: bool = False) -> Setting:
-    """A retention limit: a choice in words, `keep` first (Part H)."""
+    """Declare a retention choice, optionally including deletion when a run ends."""
     options = [CHOICES[0], WHEN_IT_ENDS, *CHOICES[1:]] if when_it_ends else CHOICES
     return Setting.choice(key=key, label=label, help=help, options=options, default=default,
                           env=env)
@@ -336,7 +317,7 @@ REGISTRY = Section(
     title="Registry & sources",
     lede="Where tools and types are read from, and what the forge can reach.",
     order=8,
-    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN, DOCKERHUB, SOURCE_CHECK),
+    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN),
 )
 AUTHOR = Setting.text(
     key="system.author",

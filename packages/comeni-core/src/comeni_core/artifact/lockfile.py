@@ -40,9 +40,11 @@ class LockedContract(BaseModel):
 
 
 class Locator(BaseModel):
-    """Where a layer can be fetched, kept apart from what it is (`digest`), as Nix keeps a
-    source's location apart from its hash (spec §8.2). Read by `mendel_compiler.locate`, where
-    git may run; `None` is unknown, never invented."""
+    """Optional repository coordinates for fetching a layer.
+
+    Location remains separate from content identity. ``None`` means unknown; the compiler may
+    discover these values, while this core model performs no Git operations.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -63,8 +65,7 @@ class LockedLayer(BaseModel):
 
     name: LayerName
     digest: Digest
-    # A locator's three fields, each left out of the file when unknown, so a layer nobody
-    # located is written exactly as version 6 wrote it.
+    # Unknown locator fields stay out of the serialized artifact.
     source: RepoUrl | None = Field(default=None, exclude_if=_unknown)
     commit: CommitSha | None = Field(default=None, exclude_if=_unknown)
     dirty: bool | None = Field(default=None, exclude_if=_unknown)
@@ -159,7 +160,7 @@ class Lockfile(BaseModel):
         else:
             for locked_layer, (name, digest) in zip(self.layers, current, strict=True):
                 if locked_layer.digest != digest:
-                    # Which commit to check out, when the build recorded one (Plan B, §8.2).
+                    # Include recovery coordinates when the build recorded them.
                     folder = f", in {locked_layer.path}" if locked_layer.path else ""
                     where = (f"; it was locked at {locked_layer.commit} of {locked_layer.source}"
                              f"{folder}" if locked_layer.commit and locked_layer.source else "")

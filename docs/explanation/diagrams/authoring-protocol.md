@@ -88,7 +88,6 @@ flowchart LR
         resolve_correction["Compose the current goal<br/>resolve with your facts and pins"]:::engine
         cascade_reviews["Compare meaning and old/new wiring<br/>supersede changed and dependent reviews"]:::engine
         correction_blocked["Your correction stays<br/>old pipeline is outdated; explain what is missing"]:::engine
-        fork_correction["Manual work stays<br/>inherit evidence into a linked authored draft"]:::engine
         compare_evidence["Keep every admitted observation<br/>compare to your selected answer"]:::engine
         disagree_gather["You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?"]:::you
         disagree_goal["You said X; we measured Y<br/>keep yours, use measured, correct, or unknown?"]:::you
@@ -205,20 +204,10 @@ flowchart LR
     step_card -- "release this tool choice" --> correct_fact
     wrap -- "release this tool choice" --> correct_fact
     stopped -- "release this tool choice" --> correct_fact
-    reply -- "correct in a new draft" --> fork_correction
-    card -- "correct in a new draft" --> fork_correction
-    step_card -- "correct in a new draft" --> fork_correction
-    wrap -- "correct in a new draft" --> fork_correction
-    stopped -- "correct in a new draft" --> fork_correction
-    disagree_gather -- "correct in a new draft" --> fork_correction
-    disagree_goal -- "correct in a new draft" --> fork_correction
-    disagree_build -- "correct in a new draft" --> fork_correction
-    disagree_complete -- "correct in a new draft" --> fork_correction
     disagree_gather -- "your explicit choice" --> correct_fact
     disagree_goal -- "your explicit choice" --> correct_fact
     disagree_build -- "your explicit choice" --> correct_fact
     disagree_complete -- "your explicit choice" --> correct_fact
-    fork_correction --> correct_fact
     correct_fact --> resolve_correction
     correct_fact --> list_needs
     correct_fact --> readback

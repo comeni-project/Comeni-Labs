@@ -47,14 +47,14 @@ function CallRow({ call }: { call: Call }) {
         <span className="text-ink-3">
           {n(call.input)} in · {n(call.output)} out{call.cached ? ` · ${n(call.cached)} cached` : ""}
         </span>
-        <span className="text-ink-4">{call.model}</span>
+        <span className="text-ink-3">{call.model}</span>
         {call.duration_ms !== null && (
-          <span className="text-ink-4">{(call.duration_ms / 1000).toFixed(1)}s</span>
+          <span className="text-ink-3">{(call.duration_ms / 1000).toFixed(1)}s</span>
         )}
-        <span className="text-ink-4">{call.state}</span>
+        <span className="text-ink-3">{call.state}</span>
         {call.response && (
           <button type="button" onClick={() => setShown(!shown)}
-                  className="ml-auto bg-transparent border-0 p-0 text-link cursor-pointer
+                  className="ml-auto bg-transparent border-0 p-0 text-now-ink cursor-pointer
                              font-data text-[11px] focus-visible:shadow-[var(--ring)]">
             {shown ? "hide reply" : "show reply"}
           </button>

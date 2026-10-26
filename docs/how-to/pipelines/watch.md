@@ -64,8 +64,9 @@ full record.
 
 Do not start by reading raw logs line by line. Start from the folded state, then drill down.
 
-Next: if the failure was caused by a missing tool, wrong convention, or repeated manual answer,
-go to [Using the forge](../registry/review-proposals.md).
+Next: if the failure was caused by a missing tool, go to
+[Writing a contract](../registry/add-tool.md); for a wrong convention or a repeated manual
+answer, go to [Making a choice depend on your data](../registry/write-rule.md).
 
 ## Alpha note
 

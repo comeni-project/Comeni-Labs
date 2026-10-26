@@ -1,3 +1,5 @@
+"""Profile parsing, validation, source metadata, and goal integration."""
+
 import pathlib
 
 import pytest

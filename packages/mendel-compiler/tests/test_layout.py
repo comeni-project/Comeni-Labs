@@ -1,26 +1,4 @@
-"""Where the boxes go.
-
-**Deterministic, and in Python for that reason.** A browser layout library would put the
-position of every node outside the guarantee the rest of the system keeps — same input, same
-output, byte for byte — and the canvas is the thing a person screenshots. `dashboard.md` §9 calls
-this the largest outstanding piece; it is the one part of 3C that is an algorithm rather than a
-rendering.
-
-**The graph flows LEFT TO RIGHT, and it used to flow downward.** Plan 3C read the direction off
-`dashboard.html`'s `elbow()` and its two hand-placed nodes, and this docstring warned that a
-sideways graph would have passed every assertion in the file. That warning was right and it is
-why this rewrite touched eight of them.
-
-**The 2026-08-29 redesign canvas supersedes `dashboard.html`.** `impl-settled` says *CANVAS IS
-LEFT-TO-RIGHT* under a heading reading *please do not re-litigate*, and `BuilderCanvas.dc.html`
-is unambiguous: four ranks at x = 194, 418, 642, 866, and two siblings sharing an x at tops 150
-and 320. The operator confirmed it by driving the built page and calling the difference
-incredible. Plan 4 phase 6.
-
-**Every symbol is now the same size**, 172×112, which is `impl-geom`'s load-bearing claim rather
-than a tidiness one: variable heights put a jog between every pair and the main chain stops
-reading as a chain.
-"""
+"""Deterministic left-to-right graph adaptation and shared-layout geometry contracts."""
 
 from pathlib import Path
 

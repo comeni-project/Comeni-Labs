@@ -23,13 +23,9 @@
 #   MD0013-MD0019, MD0021-MD0024  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
 #   MD0228         a type names a param literally in its entry channel
-#   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
-#   MF0100-MF0199  the forge: landing a draft into a registry
-#   MF0200-MF0299  the forge: reading an upstream source catalogue
-#   MF0300-MF0399  the forge: the adaptation workflow — what may happen, and in what order
-#   MF0400-MF0499  the forge: composing what a model is told, and reading what it said
+#   MF0001-MF0499  retired with the old forge (#361); the new forge allocates from MF0500
 #   MI0001-MI0099  the API: gating a drawn pipeline
-#   MI0100-MI0199  the API: the forge workflow's durable state, and the workers that move it
+#   MI0100-MI0199  the API: retired with the old forge (#361), except MI0106
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
 #   MI0300-MI0399  the API: settings — what the menu may change
 #   MI0400-MI0499  the API: what is stored — shapes and retention
@@ -1086,6 +1082,52 @@ MD0318:
     A piece is selected by its folder and labelled on every fact by its id, so the two must
     agree, and a declaration whose code is missing would load and then fail every inspection
     it was matched to. **The piece is not loaded; the others are**, as for MD0317.
+MD0319:
+  emitted_by: resolver
+  concern: routing
+  says: "a role you switched off is one this goal needs, so nothing can make what it wants"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Turn the role back on, or stop asking for what only it can lead to. On the canvas, add a
+    step that fills the role again; in a goal file, remove it from `constraints.absent_roles`:
+
+        constraints:
+          absent_roles: []        # was: [{role: alignment}]
+  explanation: |
+    **A person's structural intent is honoured, never overridden** (A1, the one-builder design).
+    Switching a role off drops every tool that fills it. When the goal's wanted output cannot be
+    reached without one, the engine could quietly ignore the switch or quietly drop the output;
+    either is a silent guess. It names the role and stops instead.
+MD0320:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool you excluded was the only one that can make this step's output"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Allow the tool again, or remove what needs its output. On the canvas, put the step back;
+    in a goal file, remove the exclusion from `constraints.exclusions`.
+  explanation: |
+    **Excluding a tool asks the engine for another one** (A1, the one-builder design). When no
+    other tool can make the output at that site, choosing one anyway would be the engine
+    overriding the person, and dropping the output would be a silent change to the goal. The
+    exclusion is named, with the site, and the build stops until the person decides.
+MD0321:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool you chose to feed a step's input makes nothing that input accepts"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Choose a tool whose output the input accepts — the same type, with every state the input
+    requires — or remove the choice. On the canvas, wire the input from another step; in a goal
+    file, change or remove the entry in `constraints.sources`.
+  explanation: |
+    **A wire a person drew is honoured, never bent to fit** (A1, the one-builder design). Feeding
+    an input from a tool whose output it does not accept would build a pipeline that fails at
+    run time, or one that silently reads the wrong data; choosing another source would override
+    the person. The choice is named and the build stops.
 MD0303:
   emitted_by: resolver
   concern: routing
@@ -2165,861 +2207,11 @@ MV0002:
     `unpinned` rather than `ok`, because there is nothing to compare it against and
     reporting a pass would be claiming a check that never ran — the same reason
     `MD0100` marks a contract `unverified` rather than trusting it.
-MF0001:
-  emitted_by: forge
-  concern: scaffolding
-  says: "no such source, or a tool reference that does not name one"
-  fires_on: [forge discover, forge draft]
-  refuses: true
-  fix: |
-    Run `forge sources` for the registered names, and spell a reference
-    `<source>:<tool>` — `nf-core:fastqc`, not `fastqc`.
-  explanation: |
-    A reference without a source is ambiguous the moment a second source exists, and a
-    second source is the reason the ingestion layer is a protocol at all. Refusing the
-    bare form now costs one colon and prevents a reference that means different things
-    on two machines.
-MF0002:
-  emitted_by: forge
-  concern: scaffolding
-  says: "that field is not a hole in this scaffold"
-  fires_on: [forge fill]
-  refuses: true
-  fix: |
-    Run `forge show <draft>` for the fields that are open. A field already filled is
-    changed with `forge fill --force`, which records the overwrite.
-  explanation: |
-    Filling a field that is not open would either overwrite something the source
-    proved, or invent a field the target model does not have. Both are silent in a
-    plain dictionary, which is why a scaffold refuses rather than accepts.
-MF0003:
-  emitted_by: forge
-  concern: scaffolding
-  says: "the value is not one this hole declares as legal"
-  fires_on: [forge fill]
-  refuses: true
-  fix: |
-    Run `forge show <draft>` for the candidates. If the value you want is genuinely
-    absent, the declaration it would come from — a type, a role — does not exist yet,
-    and it is a separate draft that must land first.
-  explanation: |
-    Invariant 7 says vocabularies are closed: a contract naming an undeclared state
-    fails to load. A hole carrying its legal values enforces that when the value is
-    written rather than when the file is read, which turns a load-time refusal a
-    reviewer sees late into an immediate one. A hole with no candidates accepts free
-    text — prose fields have no enumerable domain.
-MF0004:
-  emitted_by: forge
-  concern: scaffolding
-  says: "the scaffold still has open holes and cannot become a declared file"
-  fires_on: [forge verify, forge land]
-  refuses: true
-  fix: |
-    Run `forge show <draft>` for the open fields and `forge fill` for each. Every hole
-    names why it is open and what values are legal there.
-  explanation: |
-    A scaffold is not a half-built contract — the model it becomes validates and forbids
-    extras, so a partially-valid one is unrepresentable. Defaulting the missing fields
-    would let the forge invent a value with a straight face, which is the thing a hole
-    exists to prevent. The refusal is the design working, not a failure.
-MF0005:
-  emitted_by: forge
-  concern: scaffolding
-  says: "the generated module's script body has not been written"
-  fires_on: [forge verify]
-  refuses: true
-  fix: |
-    Open the generated `main.nf` and replace the marked line with the tool's command,
-    reading its arguments from `task.ext.args` as every nf-core module does. Then
-    `forge verify` again.
-  explanation: |
-    A source that ships no Nextflow module gives the forge a container and a name. The
-    process declaration, the stub block and the versions block follow from those; the
-    command line does not. Writing a plausible one would produce a module that launches
-    and does the wrong thing — a green run with wrong results, which is the failure this
-    project is built to avoid. So it is a hole, and the marker refuses until it is filled.
-MF0006:
-  emitted_by: forge
-  concern: verification
-  says: "nothing in the layer can route to this contract — **warns, never blocks**"
-  fires_on: [forge verify]
-  refuses: false
-  fix: |
-    Check the output `type_id` and `state` against what other contracts consume. If
-    nothing consumes them, the contract is a leaf — legitimate for a terminal reporting
-    step, and worth a second look for anything else.
-  explanation: |
-    A contract nothing reaches changes no pipeline. It is the inert case the rule
-    drafter's impact analysis is about, one level down: a mechanism that runs and
-    changes nothing. It warns rather than refuses because a laboratory adding a tool
-    before the goal that needs it is doing something reasonable, and because a leaf step
-    that only produces reports is genuinely unreachable-from-below.
-MF0007:
-  emitted_by: forge
-  concern: verification
-  says: "the filled scaffold does not construct a valid contract"
-  fires_on: [forge verify, forge land]
-  refuses: true
-  fix: |
-    Read the field paths in the message — they are Pydantic's, so they point at the
-    exact key. A value filled by hand into a workspace draft can be the wrong *shape*
-    even when it is a legal *value*, which is what this catches.
-  explanation: |
-    Every hole is filled and the model still refuses. That is not the hole mechanism
-    failing: a hole asks whether a field has an answer, and `ModuleContract` asks
-    whether the answer is well-formed. A draft edited as JSON in the workspace bypasses
-    `fill` and its candidate list, so this rung is the one that catches a hand edit
-    putting a string where a list belongs.
-MF0009:
-  emitted_by: forge
-  concern: verification
-  says: "the loader refused the draft and gave no diagnostic code"
-  fires_on: [forge verify, forge land]
-  refuses: true
-  fix: |
-    Read the message — it is the loader's own. An undeclared `type_id` is the common
-    case, and the fix is to declare the type in a layer below this one, or correct the
-    id.
-  explanation: |
-    Not every refusal in the loaders carries a code yet: `UnknownStateError` has MD0009
-    and `UnknownRoleError` has MD0302, but `UnknownTypeError` is raised bare. Rather
-    than mint an `MF` twin for conditions that already have `MD` codes, the forge
-    reports whichever code the loader gave and falls back to this one when it gave
-    none. When issue #18 gives those sites codes, this stops firing for them — which is
-    the right direction, and why this is a fallback rather than the contract's own code.
-MF0008:
-  emitted_by: forge
-  concern: workspace
-  says: "no such draft, or a draft name that is not a plain name"
-  fires_on: [forge show, forge fill, forge verify, forge land]
-  refuses: true
-  fix: |
-    Run `forge list` for the drafts that exist. A name is a plain identifier — letters,
-    digits, hyphens and underscores — because it becomes a directory.
-  explanation: |
-    A draft name reaches the filesystem, so a name containing a path separator would let
-    a draft be written outside the workspace. Restricting the name is prevention by
-    construction; validating the resolved path afterwards is detection, and the two are
-    not the same guarantee.
-MF0010:
-  emitted_by: forge
-  concern: workspace
-  says: "a draft with that name already exists"
-  fires_on: [forge draft]
-  refuses: true
-  fix: |
-    Pick another name, or delete the draft you meant to replace. `forge show <name>` is what
-    is in it.
-  explanation: |
-    `Workspace.save` writes a draft directory whether or not one is there, so drafting onto a
-    name that is taken replaced every answer, proposal and decision on it and said nothing.
-    A draft is the most expensive artifact in the system — it is a person's judgement, one
-    field at a time, each with a reason — and the cheapest thing to protect it with is a name
-    check.
-
-    Overwriting is deliberately not offered as a flag: the recovery is to pick another name,
-    and the caller always can. The refusal is about the NAME rather than the tool, because two
-    drafts of one tool at two versions is exactly what a version bump looks like.
-MF0011:
-  emitted_by: forge
-  concern: scaffolding
-  says: "a generated module still declares a placeholder channel — say what the tool really takes and emits"
-  fires_on: [forge draft, forge verify, forge land]
-  refuses: false
-  fix: |
-    Read the tool's own documentation — its `usual_invocation`, its README, its test
-    invocation — and replace the marked declaration with the real one. The number of input
-    channels and the tuple width are what Nextflow matches on, so both have to be right.
-
-    The marker is a comment, so deleting it without changing the declaration under it makes
-    this stop firing and changes nothing else. That is the one way to get this wrong.
-  explanation: |
-    A source that ships no Nextflow gives the forge a container and a name and nothing about
-    the process's shape. The skeleton used to declare one input — `tuple val(meta),
-    path(input)` — and one output, `path("*.out")`, neither read from anything, and the
-    result looked exactly like a module somebody had checked.
-
-    **`-stub-run` cannot see a hollow input.** An nf-core stub never reads what it is given,
-    so a process handed the wrong number of channels is as green as one handed the right
-    number, and the same is true of a module that declares an output pattern nothing will ever
-    match. Two contracts shipped that way before — STAR built an index from nothing and
-    aligned against no annotation — and `NfInput.empty` gained its `because` field for it.
-    This is that lesson applied one layer up, where the module itself is the guess.
-
-    **It warns rather than refusing**, because a scaffold is *supposed* to have open sections;
-    that is what a scaffold is. What must not happen is one reaching a registry, and
-    `MF0107` is where that becomes a refusal.
-
-MF0012:
-  emitted_by: forge
-  concern: workspace
-  says: "this revision's candidate is already kept, and a kept candidate is never overwritten"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    Nothing to do for the revision: its candidate is on disk as it was produced. A new
-    candidate is a new revision, with its own id.
-  explanation: |
-    A generation overwrites the working `draft.json`, so each revision's candidate is kept
-    beside it under `revisions/<revision id>/` (issue 280). That copy is the record of what a
-    reviewer read and asked to change. Overwriting it would make the record say something the
-    reviewer never saw, so a second keep for one revision is refused.
-
-MF0100:
-  emitted_by: forge
-  concern: landing
-  says: "a draft may not be landed on the registry's default branch"
-  fires_on: [forge land]
-  refuses: true
-  fix: |
-    Pass `--branch` naming a new branch — `forge/<tool>` is the convention. Merge it
-    after review, which is the review invariant 2 asks for.
-  explanation: |
-    Invariant 2 says a human approves what the forge drafts. Committing straight onto
-    the default branch of a registry checkout skips that, and a registry is the thing
-    every pipeline's digests pin. The branch is the approval queue, and it is a git
-    branch rather than a service so that a laboratory landing into a private overlay
-    gets exactly the path the public registry gets.
-MF0101:
-  emitted_by: forge
-  concern: landing
-  says: "the registry checkout has uncommitted changes"
-  fires_on: [forge land]
-  refuses: true
-  fix: |
-    Commit or stash what is already in the tree, then land again. `git status` in the
-    registry checkout names the files.
-  explanation: |
-    Landing creates a branch and commits exactly the files it wrote. A tree that already
-    has changes makes that commit ambiguous — either it sweeps up work nobody reviewed,
-    or it leaves the branch in a state the author did not intend. Refusing is cheap and
-    the alternative is a commit somebody has to unpick.
-MF0102:
-  emitted_by: forge
-  concern: landing
-  says: "the field is not a single top-level scalar and cannot be patched in place"
-  fires_on: [forge accept]
-  refuses: true
-  fix: |
-    Edit the contract by hand and commit it yourself. `forge accept` changes one line and
-    refuses anything it cannot see whole.
-  explanation: |
-    Accepting a drift rewrites the line that declares one field and nothing else, because a
-    registry contract's comments ARE its reasoning — `samtools/index.contract.yml` carries six
-    lines explaining why a port is named `index`, including a note about a value that was
-    latent until conformance caught it. Re-serialising the file through a YAML dumper would
-    delete every one of them, which is audit A128's shape: a justification living in a comment
-    the loader discards. A one-line patch is what keeps that impossible, and the price is that
-    a field spread over several lines is refused rather than guessed at.
-MF0103:
-  emitted_by: forge
-  concern: landing
-  says: "the patched contract no longer loads, so nothing was written"
-  fires_on: [forge accept]
-  refuses: true
-  fix: |
-    Read the message under this one — it is the loader's own refusal. The file on disk is
-    unchanged.
-  explanation: |
-    The value came from the source, which makes it likely to be right and does not make it
-    valid: a container reference the module builds by string interpolation, or a process name
-    that is not an `NfIdentifier`, would land a contract the registry cannot load. Validating
-    the patched text before writing it means a failed accept costs nothing, rather than
-    leaving a checkout that has to be reset.
-MF0104:
-  emitted_by: forge
-  concern: landing
-  says: "that field is not drifted, so there is nothing to accept"
-  fires_on: [forge accept]
-  refuses: true
-  fix: |
-    Re-read the drift — `forge drift <contract>` or the drift screen. A field that agrees, or
-    one only a conformance check can see, has no source value to take.
-  explanation: |
-    A stale screen is the ordinary way this fires: somebody accepted the same drift a minute
-    ago, or the vendored module moved underneath. Refusing is what keeps an accept from
-    writing the value it already holds and producing an empty commit that looks like work.
-    A structural disagreement also lands here, and deliberately: which `emit:` label a renamed
-    channel now means is a judgement, and the path for a judgement is a re-draft through the
-    queue.
-MF0105:
-  emitted_by: forge
-  concern: landing
-  says: "the registry checkout is at a detached HEAD"
-  fires_on: [forge accept]
-  refuses: true
-  fix: |
-    Check out a branch in the registry, or point `MENDEL_REGISTRY_ROOT` at a checkout you can
-    write to. `registry/` in Comeni-Labs is a submodule pinned to a commit and is not one.
-  explanation: |
-    A submodule sits at the commit its parent pins, and committing onto a detached HEAD makes
-    work that is reachable from nothing — it survives until the next checkout and then does
-    not. `land()` says the same thing about `--registry` in its module docstring; this is that
-    argument reaching a route, where the default configuration hits it first.
-MF0106:
-  emitted_by: forge
-  concern: landing
-  says: "no contract in this registry has that id"
-  fires_on: [forge accept, forge drift]
-  refuses: true
-  fix: |
-    Check the id against `forge check` or the contracts list. It includes the `@version`.
-  explanation: |
-    A contract is addressed by its full id, version included, because a layer may hold two
-    versions of one module — which is what makes a version bump a decision rather than an
-    ambiguity, invariant 11. Asking for the module key alone finds nothing, and that is the
-    common way here.
-MF0107:
-  emitted_by: forge
-  concern: landing
-  says: "the registry is not a git checkout"
-  fires_on: [forge accept]
-  refuses: true
-  fix: |
-    Point `MENDEL_REGISTRY_ROOT` at a git checkout you can write to. In a container that means
-    mounting a CLONE — the registry baked into the image is a copy of the files, and a
-    submodule's `.git` is a pointer that resolves to nothing inside a container.
-  explanation: |
-    Accepting a drift is a commit: it is how a value taken from a source gets a reason, an
-    author and a place in history. A directory of the right files cannot carry any of that,
-    and `git` answers `exit 128` rather than anything a person can act on.
-
-    This is the case a container makes normal rather than exotic, which is why it survived
-    three sibling refusals until one was built. `make dev` clones the registry for exactly
-    this reason: a submodule's `.git` is a FILE holding `gitdir: ../../../.git/worktrees/...`,
-    so it is present inside a bind-mount while every git call fails. The check is
-    `git rev-parse`, not whether `.git` exists.
-MF0108:
-  emitted_by: forge
-  concern: landing
-  says: "the registry moved since this candidate was validated"
-  fires_on: [forge land]
-  refuses: true
-  fix: |
-    Re-validate the candidate against the registry as it is now, then approve it again.
-    `forge verify <draft>` re-runs the ladder; on the review page, *request changes* and
-    approve the next revision.
-  explanation: |
-    A green verdict is a statement about the layer that was read at the time. Between
-    approval and publication a colleague can merge a contract, a type's states can change,
-    or `comeni-vendor` can move a module — and the checks that passed describe a registry
-    that no longer exists.
-
-    **The same argument `mendel upgrade` rests on**, one document over: a decision recorded
-    against one registry is replayed against the current one rather than assumed to still
-    hold. `MF0301` makes this check at the moment somebody presses approve; this one makes
-    it again at the moment anything is written, because publication happens in a worker and
-    the gap between the two is exactly where a registry moves.
-
-    Publication is the door with no undo. Refusing here costs a re-validation; not refusing
-    costs a contract in a registry it was never checked against.
-MF0200:
-  emitted_by: forge
-  concern: catalogue
-  says: "the source catalogue came back incomplete, so its total would be wrong"
-  fires_on: [forge sync]
-  refuses: true
-  fix: |
-    Nothing to configure. The adapter could not prove it saw the whole catalogue, so it
-    refused rather than publishing a short total. Re-run the sync; the previous snapshot is
-    still in place and the page shows it as stale.
-
-    If it recurs, the source is paging further than the adapter's circuit breaker allows —
-    raise that limit deliberately in `sources/base.py` rather than accepting a partial list.
-  explanation: |
-    GitHub's tree endpoint truncates at a documented limit and says so in the response; a
-    paged API can end early on a transport failure. In both cases the adapter has *some* of
-    the catalogue and no way to know how much.
-
-    **A partial catalogue is worse than no catalogue**, which is why this refuses instead of
-    degrading. A short list produces a plausible total that is wrong, a progress bar with a
-    wrong denominator, and — worst — an "up to date" claim about tools the sync never saw.
-    Every one of those reads as a fact rather than as an absence.
-
-MF0201:
-  emitted_by: forge
-  concern: catalogue
-  says: "the source answered with an error status"
-  fires_on: [forge sync]
-  refuses: true
-  fix: |
-    The status and the URL are in the message. A `404` usually means the revision moved
-    between listing and fetching — re-sync. A `401` or `403` means the source wants
-    credentials, or that an anonymous rate limit has been reached; set `GITHUB_TOKEN` or
-    Docker Hub credentials if you have them.
-
-    Public development is expected to work without either, within the provider's anonymous
-    limits.
-  explanation: |
-    Retried first, on the statuses that can change — `408`, `425`, `429` and the `5xx` band.
-    A `404` or a `422` is returned immediately, because retrying an answer that will never
-    change turns one clear failure into three slow ones.
-
-    `403` is deliberately **not** retried even though a rate-limited GitHub returns it: a
-    `403` with no `Retry-After` is far more often a token problem, and the rate-limit case is
-    handled by reading the header rather than by guessing from the status.
-
-MF0202:
-  emitted_by: forge
-  concern: catalogue
-  says: "the source could not be reached after every attempt"
-  fires_on: [forge sync]
-  refuses: true
-  fix: |
-    A transport failure rather than a refusal — DNS, TLS, a timeout, a dropped connection.
-    Check the machine has network access to the source, then re-run the sync. The previous
-    snapshot is untouched.
-  explanation: |
-    Four attempts with exponential backoff and full jitter, capped. The jitter is not
-    decoration: every worker in a fleet retrying on the same schedule reconstructs the
-    thundering herd the backoff exists to prevent.
-
-    The last underlying error is quoted, because a transport boundary that swallows the
-    original message reports somebody else's problem as ours — the same lesson `MA0007`
-    records for the model transport.
-
-MF0203:
-  emitted_by: forge
-  concern: catalogue
-  says: "the source reported no change and there is no previous snapshot to reuse"
-  fires_on: [forge sync]
-  refuses: true
-  fix: |
-    Re-run the sync without a conditional request. Something recorded an `ETag` without
-    recording the snapshot it belonged to, so a `304` now points at nothing.
-  explanation: |
-    A `304` means *reuse what you have*, and the failure this refuses is the case where there
-    is nothing to reuse. Treating it as an empty catalogue would report zero tools and, worse,
-    would mark every adapted tool in the registry as no longer present upstream.
-
-    **`unchanged` and `empty` are opposite facts with identical shapes**, which is exactly why
-    `RawCatalogue` carries a separate flag rather than letting an empty item list mean both.
-
-MF0204:
-  emitted_by: forge
-  concern: catalogue
-  says: "a fact cites an evidence id the bundle does not carry"
-  fires_on: [forge sync]
-  refuses: true
-  fix: |
-    The missing ids are listed. An adapter attaching a fact it *derived* rather than read
-    should pass `evidence_id=None`, which records the value honestly as underived rather than
-    pointing at an excerpt that does not exist.
-  explanation: |
-    A citation a reviewer cannot follow is worse than no citation. Somebody who clicks `E014`
-    and lands nowhere has learned nothing about whether the claim is true, and cannot tell a
-    broken pointer from a fabricated one.
-
-    This is the same rule the nf-core source already applies to line numbers: citing a line
-    for a value nothing was read from is a false citation, and a reviewer who follows it finds
-    text that does not support the claim.
-
-MF0205:
-  emitted_by: forge
-  concern: catalogue
-  says: "a central metadata file could not be used, in whole or in part"
-  fires_on: [forge sync]
-  refuses: false
-  fix: |
-    A warning, not a refusal — the sync completed and every tool is still listed. The message
-    names the file and, where there is one, the line or entry.
-
-    A malformed line is upstream's to fix; report it to the source project. An assignment
-    naming an ontology id that no term declares usually means a term was renamed in `dio.obo`
-    without `dio.diaf` being updated to match.
-  explanation: |
-    PEGiS keeps three central files and each does one job: `metadata.json` describes each
-    image, `dio.obo` defines the classification vocabulary, `dio.diaf` assigns terms to
-    images. This code covers a file that could not be read or parsed, a malformed assignment
-    line, and an assignment naming a term the ontology does not carry.
-
-    **None of them refuses the sync**, and that is the whole point. A sync that died because
-    one line of a two-hundred-line assignment file names a renamed term would report zero
-    tools for a typo — the catalogue would go from complete to empty over something that
-    affects one classification on one tool.
-
-MF0206:
-  emitted_by: forge
-  concern: catalogue
-  says: "the classification ontology is malformed"
-  fires_on: [forge sync]
-  refuses: false
-  fix: |
-    Report it upstream. A term stanza with no `id`, an id declared twice, or an `is_a`
-    pointing at a term nobody declares are all errors in `dio.obo` itself.
-
-    The affected terms are dropped or truncated; every other term still builds, and tools
-    classified under unaffected branches are unchanged.
-  explanation: |
-    Distinct from `MF0205` because the *vocabulary* being wrong and an *assignment* being
-    wrong have different consequences. A bad assignment costs one tool one category; a bad
-    ontology can detach a whole branch of the filter tree, so a reader needs to be able to
-    tell which happened without parsing the message.
-
-    A duplicated id keeps the **first** stanza and reports the collision, rather than
-    silently taking the last — the same defect `yaml_strict` exists to refuse, one format
-    over.
-
-MF0207:
-  emitted_by: forge
-  concern: catalogue
-  says: "a classification names a tool that was not discovered"
-  fires_on: [forge sync]
-  refuses: false
-  fix: |
-    Usually harmless: the source classifies an image it has not published to the registry
-    yet, or has since withdrawn. Nothing is lost — the assignment is skipped.
-
-    If the tool should exist, check the discovery source lists it under exactly that name.
-  explanation: |
-    **The assignment is skipped rather than creating a catalogue row**, and that asymmetry is
-    deliberate. A fabricated entry would be a tool somebody can click, read a description
-    for, and never run, because no image was ever discovered for it — worse than an absence,
-    because an absence is obviously an absence.
-
-    Discovery decides what exists; the central metadata decides what those things *are*.
-    Letting the second invent members of the first inverts that.
-
-MF0208:
-  emitted_by: forge
-  concern: catalogue
-  says: "a discovered image has no entry in the source's central metadata"
-  fires_on: [forge sync]
-  refuses: false
-  fix: |
-    The tool stays in the catalogue and can still be adapted; it carries no central
-    description and no classifications, so it will not appear under any filter.
-
-    If it should be classified, the fix is upstream: add it to `metadata.json` and, if it
-    belongs in the taxonomy, to `dio.diaf`.
-  explanation: |
-    The mirror of `MF0207`, and it resolves the other way: here the image is real and
-    pullable and only its documentation is missing, so hiding it would make the catalogue
-    smaller than the namespace it is describing — quietly, which is the worst way for a total
-    to be wrong.
-
-    A tool with less evidence behind it is a tool a reviewer will have to work harder on. It
-    is not a tool that does not exist.
-
-MF0300:
-  emitted_by: forge
-  concern: workflow
-  says: "an adaptation cannot move from the state it is in to the one that was asked for"
-  fires_on: [forge adapt, forge review]
-  refuses: true
-  fix: |
-    Read the adaptation's current state before acting on it. The refusal names every state
-    it *can* move to; if none of them is what you wanted, the work that would make it legal
-    has not happened yet.
-  explanation: |
-    Every transition names its allowed predecessors, in one table — `mendel_forge.workflow.ALLOWED`.
-    A page that shows *Approve* on an adaptation that is still generating is a page that will
-    eventually be clicked, and a service that accepted the click would approve a candidate that
-    does not exist yet.
-
-    **The refusal is what makes two browser tabs safe.** The transition is applied against an
-    expected current state and an expected row version, so a second tab holding a stale view
-    loses rather than overwrites. That is the same argument `Displacement` rests on, in a place
-    where the losing party is a person rather than a layer.
-
-MF0301:
-  emitted_by: forge
-  concern: workflow
-  says: "this candidate does not meet the conditions for approval"
-  fires_on: [forge review]
-  refuses: true
-  fix: |
-    Every unmet condition is listed, not just the first. Approval needs all six: a current
-    revision, no unresolved required holes, a green validation, a named human, a reason, and
-    the same registry the candidate was validated against.
-
-    If the last one is what failed, re-validate. A green verdict describes the layer that was
-    read at the time, and that layer is gone.
-  explanation: |
-    Approval is the transition that writes to the registry, and it is the only one — invariant 2
-    says a person approves and nothing writes automatically. So this is where the conditions
-    live, rather than spread across the page that offers the button and the service that
-    performs it.
-
-    **All six are reported together on purpose.** Returning the first failure makes a reviewer
-    fix one thing, press the button and be told about the next; six presses to learn six facts
-    the server knew at the first one.
-
-    The registry check is the one that goes stale while nobody is looking. Nothing about the
-    adaptation changed — the layer moved underneath it, and *validated green* became a
-    statement about something that no longer exists. `mendel upgrade` rests on the same
-    argument for a pipeline; this is it for a contract.
-
-MF0400:
-  emitted_by: forge
-  concern: prompt
-  says: "the dossier does not fit its budget and nothing left in it may be dropped"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    Nothing here is fixed by making the budget bigger, and that is deliberate — raise it and
-    the next tool over is the one that fails. Look at what the refusal lists as protected: it
-    is holes, legal values, the response schema and the task. A tool with so many holes that
-    those alone overflow is a tool whose scaffold is wrong, not a tool that needs more room.
-
-    The usual cause is a source that produced hundreds of ports, which is an adapter defect.
-  explanation: |
-    §5.3 names four things that may never be truncated — schemas, legal values, holes and
-    validation diagnostics — and two that may, in order: low-ranked similar contracts first,
-    then redundant prose. Once both droppable classes are gone and it still does not fit,
-    there is no honest reduction left.
-
-    **Refusing is the only safe end to that road.** The alternative is cutting into a legal
-    value list or a hole, and a model that is shown nine of eleven legal values does not know
-    it was shown nine — it answers confidently from what it was given, and the answer passes
-    every schema check on the way back. A truncated candidate set is indistinguishable in the
-    response from a complete one, which is exactly the property that makes silent truncation
-    worse than a stop.
-
-MF0401:
-  emitted_by: forge
-  concern: prompt
-  says: "a response cites an evidence id that is not in the dossier it was given"
-  fires_on: [forge generate, forge review]
-  refuses: true
-  fix: |
-    The citation is rejected and the proposal it supports is refused with it. Nothing is
-    salvaged by dropping the id and keeping the claim — a value whose only support was an
-    invented citation has no support.
-
-    If the evidence genuinely exists upstream and the adapter did not collect it, that is the
-    adapter's defect and the fix is a `NumberedExcerpt`, not a looser check here.
-  explanation: |
-    Every id a model may cite is assigned by the base adapter and carried on the bundle, so
-    the legal set is known exactly, before the prompt is rendered. That makes this a closed
-    check rather than a plausibility judgement.
-
-    **This is the same argument as invariant 3's closed-choice constraint, one level up.** A
-    model answering a typed question cannot produce a value outside the candidate set; a model
-    citing its reasons must not be able to produce a citation outside the evidence set either,
-    or the audit trail is the one part of the artifact nothing validates. A fabricated `E014`
-    is worse than no citation, because a reviewer follows it, finds real text, and reads it as
-    support for a claim it does not make.
-
-MF0402:
-  emitted_by: forge
-  concern: prompt
-  says: "a response answers a hole the scaffold never opened"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    The whole response is refused, not just the stray answer. A model that invented one hole
-    id was not answering the question it was asked, and the answers that happen to match real
-    ids are not more trustworthy for being well-formed.
-
-    The usual cause is a prompt that described the fields in prose instead of listing the hole
-    ids. Check that the rendered dossier's `holes` section is present and complete.
-  explanation: |
-    The scaffold opens a fixed set of typed questions and the response closes them by id. That
-    is what makes the model's contribution auditable — a reader can see exactly which parts of
-    a contract a model touched, and the rest is reproducible without one.
-
-    **An unrecognised id is that property failing, not a typo.** A response free to name its
-    own fields is a response producing a document rather than answering questions, and there
-    is then nothing that says which parts of the result came from arithmetic over declared
-    data and which came from a model.
-
-MF0403:
-  emitted_by: forge
-  concern: prompt
-  says: "a response answers a closed question with a value outside its candidate set"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    If the value is genuinely right and the vocabulary does not contain it, the vocabulary is
-    what has to change — through the forge's approval queue, as a reviewed data change.
-    Invariant 7 says vocabularies are closed and new states arrive that way, never by a build
-    accepting an undeclared one.
-
-    A hole marked `exhaustive: false` is the other case, and this never fires on one: an open
-    vocabulary genuinely means *we listed what we found*.
-  explanation: |
-    This is invariant 3's closed-choice constraint reaching the forge. A model resolving a
-    tier-4 ambiguity cannot produce a value outside the candidate set, and a model answering a
-    scaffold hole must not either — otherwise the forge is the hole in a guarantee the rest of
-    the system keeps.
-
-    **The check is mechanical because the question carried its own answer set.** `exhaustive`
-    is the field that makes it decidable: a closed vocabulary is a set membership test, and an
-    open one is a ranking. Fusing them would have made every hole either unenforceable or a
-    refusal of legitimate new vocabulary.
-
-MF0404:
-  emitted_by: forge
-  concern: prompt
-  says: "a repair was given a different dossier than the attempt it repairs"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    Build the dossier once per run and hand the same object to every attempt. Rebuilding it
-    between attempts is the cause even when the inputs look identical — a re-read source, a
-    reloaded registry, a differently ordered vocabulary all produce a dossier that is equal in
-    substance and different in bytes.
-  explanation: |
-    §5.7 asks the repair prompt to carry the prior proposal, the exact diagnostics, and the
-    **unchanged** dossier. That word is doing real work: if the context also moved, a
-    difference between two attempts is no longer attributable to the model's answer, and the
-    repair loop stops being a measurement of whether the diagnostics were understood.
-
-    **It is checked rather than promised**, because the promise is easy to keep by accident and
-    easy to break by a refactor that pushes dossier construction one call deeper. The digest is
-    on every attempt, so the check is a set with one member.
-
-MF0405:
-  emitted_by: forge
-  concern: prompt
-  says: "the response answers a hole with the wrong number of values"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    Answer a hole that holds a list with a list, and one that holds a single value with a
-    string. `ScaffoldHole.multiple` says which, and it is derived from the contract field's own
-    annotation rather than from a table somebody keeps — `roles` is `list[RoleName]`, a port's
-    `type_id` is a `str`.
-  explanation: |
-    **This exists because the shape made a question unanswerable.** `Answer.value` was a single
-    `str` while `roles` has always been `list[RoleName]`, so *these two roles* had no
-    expressible form at all. Measured on 2026-09-06 driving `nf-core:seqkit/fq2fa` with a local
-    model: every single-valued closed choice was answered and `roles` was skipped on all three
-    attempts, which is the least-wrong response available to it.
-
-    **Cardinality is checked before vocabulary, and separately.** A list handed to a scalar hole
-    is not an answer outside the candidate set — every element may be perfectly legal — and
-    reporting it as `MF0403` would send a model looking for a vocabulary problem it does not
-    have. `legal_values` says which strings are allowed; this says how many.
-
-MF0406:
-  emitted_by: forge
-  concern: prompt
-  says: "the response proposes a vocabulary entry where none is needed"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    Propose only against a hole whose vocabulary is **closed** and whose legal values do not
-    contain the value you want. An open hole takes the value directly, and a value already in
-    `legal_values` is an answer rather than a proposal.
-  explanation: |
-    A vocabulary proposal says *nothing declared fits, and here is what would* — invariant 7's
-    escape hatch, and the reason `Scaffold.propose` keeps the hole open rather than filling it.
-    It is only a meaningful statement where there is a closed set to be outside of.
-
-    **Two ways it is not.** A hole with an open vocabulary needs no permission: the value is
-    already legal and the model is asking for something it has. A value that is already in
-    `legal_values` needs no declaring either; proposing it would put an entry into the approval
-    queue that duplicates one a person approved already.
-
-    Checked before `MF0403`, because a proposed value is deliberately *not* among the legal
-    values — that is what makes it a proposal — and running the vocabulary check first would
-    refuse every honest one.
-
-MI0102:
-  emitted_by: api
-  concern: prompt
-  says: "a provider could not be reached while the worker was generating"
-  fires_on: [forge generate, forge review]
-  refuses: true
-  fix: |
-    The adaptation is recorded as failed at the stage it reached, and `retry` resumes there —
-    nothing was lost and nothing has to be redone by hand.
-
-    **The reason this message is thin is deliberate.** What the provider actually said is in
-    the worker's log, with the endpoint and the stack; look there. If the log says the model is
-    unreachable rather than refusing, the fix is configuration and not this adaptation.
-  explanation: |
-    A provider error carries an endpoint, sometimes a key prefix, and always a stack, and
-    `forge_event.detail` is rendered on a page a curator reads. So the code and the exception's
-    *type* cross that boundary and nothing else does.
-
-    **`GateFailure` learned this once already.** Nextflow's stderr names work directories and
-    input filenames, so `ErrorCategory` is a closed vocabulary and the output stays on the
-    machine that produced it. This is the same trade for the same reason, one subsystem over:
-    machine-generated text is the likeliest leak precisely because nobody wrote it and nobody
-    reads it.
-
-MI0103:
-  emitted_by: api
-  concern: workflow
-  says: "the worker holding this job did not come back"
-  fires_on: [forge generate]
-  refuses: true
-  fix: |
-    Nothing was lost. The adaptation records the stage it was reclaimed at, so `retry` resumes
-    there rather than starting over.
-
-    If this appears repeatedly for one tool, the job is killing its worker rather than the
-    worker dying under it — check whether the adaptation is large enough to hit
-    `MENDEL_AI_JOB_TIMEOUT_SECONDS`.
-  explanation: |
-    Rule 7: a lost job must not leave a row running forever. A worker that dies mid-job leaves
-    an adaptation in a state a worker is supposed to be holding, and nothing else will ever
-    move it — the queue has no record, because the job was delivered.
-
-    **The sweep runs when a worker starts, not on a timer.** A timer has to guess a duration
-    that distinguishes *the process died* from *the model is slow*, and the row shows neither;
-    a worker starting is proof the previous one is gone.
-
-    **Reclaimed rows fail rather than requeue.** A job that kills its worker would otherwise
-    kill the next one, and the one after that. Retrying is a verb a person has, and the row
-    carries `failed_stage` so it costs them nothing to use it.
-
-MI0104:
-  emitted_by: api
-  concern: workflow
-  says: "an upstream catalogue could not be read, and the sync recorded that rather than an empty world"
-  fires_on: [forge sync]
-  refuses: true
-  fix: |
-    Nothing was marked absent. The catalogue still holds what the last successful sync stored,
-    and the next successful sync reconciles against upstream as usual.
-
-    The upstream error itself is in the worker's log. A rate limit, an expired token and a
-    network partition all arrive here as the same sentence, deliberately — see below.
-  explanation: |
-    A sync walks a source and marks every item it did *not* see as absent. So a sync that fails
-    halfway, or returns nothing because a token expired, is indistinguishable from a source that
-    genuinely removed everything — and the second reading silently retires sixteen hundred tools.
-
-    **Recording the failure is what keeps them distinguishable.** `record_failure` writes a
-    snapshot row with `ok=False` and touches no item, so the catalogue is unchanged and the
-    history says why. A swallowed exception would leave a gap in the snapshot record that reads
-    as *nobody has synced since Tuesday*.
-
-    The upstream message is not carried, for the reason `MI0102` gives: a provider or registry
-    error names an endpoint and sometimes a token, and this string is rendered on a page.
-
-MI0105:
-  emitted_by: api
-  concern: workflow
-  says: "the source could not be read, or its scaffold could not be written"
-  fires_on: [forge scaffold]
-  refuses: true
-  fix: |
-    The adaptation is failed at `scaffolding`, and `retry` resumes there — rule 9, and it is
-    the difference that matters: a scaffold that could not be built is not repaired by queueing
-    a model, so the retry starts from the fetch rather than one stage on.
-
-    The cause is in the worker's log. If it is the source rather than the workspace, a sync will
-    usually say so first.
-  explanation: |
-    Everything a model is later asked about is decided in this job, and none of it by a model —
-    the contract skeleton, the holes and their candidate sets, the container reference. So a
-    failure here is a failure to establish the *question*, not the answer, and nothing
-    downstream can proceed on a partial one.
-
-    **Failing at `scaffolding` rather than at `queued` is the whole point of `failed_stage`.**
-    Without it every retry assumes the model was at fault, and a source that is temporarily
-    unreachable would be retried by queueing a generation against a bundle that does not exist.
-
 MI0106:
   emitted_by: api
   concern: workflow
   says: "no model is configured, so nothing can be generated"
-  fires_on: [forge generate, forge review, authoring]
+  fires_on: [authoring]
   refuses: true
   fix: |
     Set `COMENI_AI_MODEL` to a LiteLLM model id — `ollama/qwen2.5-coder:14b` for a local
@@ -3030,180 +2222,23 @@ MI0106:
     **The same three names in every lane**, which is what makes self-hosted and hosted a
     configuration difference rather than a code path — invariant 13.
 
-    **Leaving it empty is a legitimate way to run the forge**, not a misconfiguration. Every
-    deterministic verb still works: a catalogue syncs, a scaffold derives, holes open with
-    their candidate sets ranked, and a curator fills them by hand. What is unavailable is the
-    model proposing answers first.
+    **Leaving it empty is a legitimate way to run Comeni**, not a misconfiguration. Every
+    deterministic step still works and every question can be answered by a person. What is
+    unavailable is a model phrasing and reading those questions first.
   explanation: |
     A laboratory that wants no model calls does not configure one, which is stronger than a
-    flag: there is nothing to reach a provider *with*. `CLAUDE.md` makes the same argument for
-    why `--no-ai` is not a flag in the forge.
+    flag: there is nothing to reach a provider *with*.
 
-    **This is a refusal on the adaptation rather than a crash in a worker**, because the
+    **This is a refusal on the session rather than a crash in a worker**, because the
     distinction matters to whoever is looking at the page. A traceback in a log says the system
     is broken; this says the system is configured a particular way and the next step is a
     person's.
 
-MI0107:
-  emitted_by: api
-  concern: workflow
-  says: "no proposal validated within the repair budget"
-  fires_on: [forge generate]
-  refuses: false
-  fix: |
-    Read the candidate and its diagnostics — the revision carries every attempt, both
-    directions, with digests. Three attempts that each fix one diagnostic and break another are
-    not converging, and the fourth would not either.
-
-    Often the honest answer is that the source does not say enough, and the fix is evidence
-    rather than another attempt.
-  explanation: |
-    §5.7 bounds repair at two passes and sends the inspectable failure to review. **It is not a
-    refusal**: the adaptation reaches `review` and a curator can read what happened, which is
-    the whole point of storing every attempt rather than only the last.
-
-    What it is *not* allowed to do is look like success. The revision is `draft` rather than
-    `validated` and `green` is false, so `approval_refusals` blocks approval on it.
-
-MI0108:
-  emitted_by: api
-  concern: workflow
-  says: "this revision has not been through the validation ladder"
-  fires_on: [forge generate]
-  refuses: false
-  fix: |
-    Nothing to fix in the adaptation. The candidate can be read and its holes answered by hand;
-    what cannot happen yet is approval, because approval requires a green validation and there
-    has not been one.
-  explanation: |
-    **An unchecked candidate recorded as green is worse than one recorded as failing.** A
-    curator approving on the strength of a check that never ran is exactly the failure the
-    whole review step exists to prevent, so `green` stays false and this code says why.
-
-    The distinction the page needs is *not yet checked* against *checked and failed*, and a
-    boolean cannot carry it — which is why the reason is stored beside the flag.
-
-MI0109:
-  emitted_by: api
-  concern: workflow
-  says: "this question is not attached to any revision"
-  fires_on: [forge review]
-  refuses: true
-  fix: |
-    Ask the question from an adaptation that has a candidate. A conversation before the first
-    generation has nothing to be about.
-  explanation: |
-    §5.8 grounds a chat on an immutable revision id, so an answer is about a specific candidate
-    rather than about whatever the conversation has drifted to — the same reason `pipeline.yml`
-    pins contracts by digest.
-
-    A question with no revision cannot be grounded, and answering it anyway would produce a
-    confident answer about nothing in particular.
-
-MI0110:
-  emitted_by: api
-  concern: workflow
-  says: "the registry refused this candidate, and the adaptation is back in review"
-  fires_on: [forge publish]
-  refuses: true
-  fix: |
-    The reason is in the worker's log and is usually one of three: the registry checkout has
-    uncommitted changes, the branch is the default one, or the draft still has open holes.
-
-    The adaptation is at `review`, not `failed`, so fixing the cause and approving again is the
-    whole recovery — no regeneration is needed and none happens.
-  explanation: |
-    `land.py` is the only thing that writes registry files (invariant 2), and every refusal it
-    makes is something a person fixes rather than something a model retries.
-
-    **Returning to `review` rather than failing is the distinction.** `failed` routes through
-    `retry`, which re-runs a generation nobody asked for and costs a model call to arrive back
-    at the same candidate.
-
-MI0111:
-  emitted_by: api
-  concern: workflow
-  says: "that page cursor is not one this endpoint issued"
-  fires_on: [forge review]
-  refuses: true
-  fix: |
-    Ask for the first page and follow `next_cursor`. A cursor is opaque and is not meant to be
-    constructed, edited or kept across a schema change.
-  explanation: |
-    A cursor names a position in an ordering — `(updated_at, id)` — rather than a distance from
-    the start, which is what makes a page stable while a sync inserts sixteen hundred rows
-    underneath it. Offset paging would silently skip and repeat rows instead.
-
-    **Opaque on purpose.** A cursor a caller can construct is a cursor a caller will construct,
-    and the ordering then becomes a public contract that cannot change. `routes/build.py`
-    records the same argument for why a draft id is opaque.
-
-MI0112:
-  emitted_by: api
-  concern: workflow
-  says: "a review question is empty, or longer than the limit"
-  fires_on: [forge review]
-  refuses: true
-  fix: |
-    Say what you are asking about. If the question is long because it quotes the whole
-    candidate, quote the part in question instead — the model already has the candidate.
-  explanation: |
-    An empty turn costs a model call and tells the next reader nothing, and the conversation is
-    part of the record a reviewer reads six months later.
-
-    **The upper bound is there because this string crosses egress door 5.** An unbounded field
-    is one somebody eventually pastes a file into, and the field a curator types in is the one
-    genuinely new author on invariant 14's free-text list.
-
-MI0113:
-  emitted_by: api
-  concern: workflow
-  says: "the model answered and its answer was refused"
-  fires_on: [forge generate, forge review]
-  refuses: true
-  fix: |
-    Nothing is wrong with the lane — the model was reached and it replied. What it sent back
-    did not match the declared response shape, so it was refused rather than applied.
-
-    Try again: a different sampling of the same prompt often conforms. If it keeps happening,
-    the model is too small for the schema — `MA0004` names which shape it missed, and the
-    committed prompt files under `mendel_forge/ai/prompts/` are where the schema is shown to it.
-  explanation: |
-    **Distinct from `MI0102`, and the distinction is the point.** That code says the model could
-    not be reached; this one says it was. They send an operator to different places — one to the
-    network and the model server, the other to the prompt and the model's size — and for a while
-    they were the same sentence, because `sanitised()` said *could not be reached* for every
-    failure on the model path while keeping the exception's type name beside it.
-
-    Found on 2026-09-05 by asking a real local model a review question: it answered, `admit_answer`
-    refused the envelope with `MA0004`, and the page reported that the model could not be reached.
-    The guarantee held — nothing was applied to the candidate — and the reason given for it was
-    false.
-MI0114:
-  emitted_by: api
-  concern: workflow
-  says: "the proposal could not be applied to the scaffold"
-  fires_on: [forge generate]
-  refuses: false
-  fix: |
-    Nothing to do by hand — this is fed back to the model as a diagnostic and the repair
-    attempt answers it. If it survives the repair, the revision is recorded with the refusal
-    on it and a curator answers the hole themselves.
-  explanation: |
-    A model may only answer a hole that exists, with a value from that hole's candidate set —
-    `MF0402` and `MF0003` are those two refusals. When one fires, the proposal cannot be
-    applied at all, and that is the strongest validation result there is: the answer was not
-    merely wrong, it was outside what the question allowed.
-
-    **So it is a diagnostic rather than a crash.** It goes back into the repair prompt under
-    *what validation said*, which is exactly where a model can act on it. Killing the job
-    instead would turn the tightest guarantee in the system — a model cannot produce a value
-    outside the candidate set — into a worker traceback nobody reads.
 MA0001:
   emitted_by: ai
   concern: model-access
   says: "no model is configured, and something asked for one"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: true
   fix: |
     Set `COMENI_AI_MODEL`, and either `COMENI_AI_API_KEY` for a provider or `COMENI_AI_BASE_URL`
@@ -3212,17 +2247,18 @@ MA0001:
         export COMENI_AI_MODEL=anthropic/claude-sonnet-4-5
         export COMENI_AI_API_KEY=sk-...
 
-    Or drop `--model` — every forge verb works without one, and that is the lane CI runs.
+    Or leave it empty: every question can still be answered by a person, and that is the lane
+    CI runs.
   explanation: |
     There is deliberately no default model. A default would make an unconfigured install
-    reach a provider the first time somebody typed `--model`, which is the opposite of
+    reach a provider the first time somebody asked for a model, which is the opposite of
     what a no-AI default means. Refusing here costs one environment variable and makes
     "did this build talk to anybody" answerable by reading the configuration.
 MA0002:
   emitted_by: ai
   concern: model-access
   says: "the provider refused the credentials"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: true
   fix: |
     Check `COMENI_AI_API_KEY`. For a local endpoint set `COMENI_AI_BASE_URL` and leave the key
@@ -3236,7 +2272,7 @@ MA0003:
   emitted_by: ai
   concern: model-access
   says: "the model did not answer within the timeout"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: false
   fix: |
     Raise `COMENI_AI_TIMEOUT_SECONDS`, or use a smaller model. A local endpoint on a cold
@@ -3251,7 +2287,7 @@ MA0004:
   emitted_by: ai
   concern: model-output
   says: "the model's answer did not match the shape it was asked for"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: false
   fix: |
     Nothing, usually — the hole is left open and a person answers it. If it happens for
@@ -3265,7 +2301,7 @@ MA0006:
   emitted_by: ai
   concern: model-output
   says: "the model's answer was longer than the field allows"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: false
   fix: |
     Nothing — the answer is discarded whole and the hole stays open for a person. The limit
@@ -3285,7 +2321,7 @@ MA0005:
   emitted_by: ai
   concern: model-output
   says: "the model picked a value it was not offered"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: false
   fix: |
     Nothing — the answer is discarded and the hole stays open for a person. If it happens
@@ -3303,7 +2339,7 @@ MA0007:
   emitted_by: ai
   concern: model-access
   says: "the provider rejected the request, or could not be reached"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: true
   fix: |
     Check `COMENI_AI_MODEL` names a provider as well as a model — LiteLLM wants
@@ -3325,17 +2361,17 @@ MA0008:
   emitted_by: ai
   concern: model-access
   says: "no committed prompt file carries that id, or the id is not a versioned one"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: true
   fix: |
     Prompt ids are the filename without `.md`, and every one ends in an explicit `.vN` —
-    `forge.analysis.v1`, not `forge.analysis`. Check the file exists under the calling
+    `builder.goal.v9`, not `builder.goal`. Check the file exists under the calling
     package's `prompts/` directory; the refusal lists the ids that are there.
 
     If you are changing what a prompt asks for, add `v2` beside `v1` rather than editing
     `v1` in place.
   explanation: |
-    A prompt is product code, and a review record naming `forge.analysis.v1` has to be able
+    A prompt is product code, and a review record naming `builder.goal.v9` has to be able
     to reach the text that was actually sent. An id whose content moved underneath it
     describes nothing, so an unversioned id cannot be spelled at all.
 
@@ -3347,7 +2383,7 @@ MA0009:
   emitted_by: ai
   concern: model-access
   says: "the values supplied do not match the prompt's placeholders"
-  fires_on: [forge fill --model]
+  fires_on: [authoring]
   refuses: true
   fix: |
     The refusal names both directions. A **missing** value is a placeholder with nothing to
@@ -3570,54 +2606,6 @@ MI0004:
     running well past it has no worker left to finish it: the worker died, or the queue lost
     the job. A sweep marks it failed with this code, so it neither reads as running for ever
     nor holds up the next gate on its pipeline (issue 278).
-
-MI0100:
-  emitted_by: api
-  concern: workflow
-  says: "this adaptation moved while you were looking at it — re-read it before acting"
-  fires_on: [forge review, forge worker]
-  refuses: true
-  fix: |
-    Re-read the adaptation and act on what it says now. The refusal reports the state and
-    version it actually holds, so the recovery is one request rather than a poll.
-
-    A worker seeing this has lost a claim to another worker, which is the correct outcome:
-    the job is already being done, and it must not be done twice.
-  explanation: |
-    Every transition is one `UPDATE … WHERE id AND state AND row_version`, and the row count is
-    the answer. Read-then-write would leave a window between the check and the write, and the
-    window is not theoretical — a reviewer with the candidate and the diff open in two tabs is
-    the ordinary case, and ARQ's at-least-once delivery hands one queued job to two workers on
-    any redeploy.
-
-    **The expected state and the expected version are both compared, and they catch different
-    mistakes.** The state catches acting on a row the caller has misread. The version catches
-    acting on a row that happens to match but has moved *through* the state and back — a
-    `review` that a request-changes cycle already left and returned to. Comparing only the
-    state would let the second case through, and the second case is the one where a person
-    approves a candidate they never saw.
-
-MI0101:
-  emitted_by: api
-  concern: workflow
-  says: "this tool is already being adapted"
-  fires_on: [forge adapt]
-  refuses: true
-  fix: |
-    The refusal names the adaptation already in flight and the state it is in. Open it, finish
-    it, or archive it. A tool that has been *published* is not in flight and can be adapted
-    again — that is what a version bump upstream looks like.
-  explanation: |
-    One catalogue item may have many historical adaptations and at most one active one.
-    Without that, two curators answer the same questions in parallel, and one of the two
-    answers is silently discarded at approval.
-
-    **Two mechanisms enforce it, and they are not defence in depth.** This refusal produces a
-    sentence naming what is already in flight; a partial unique index on the table refuses when
-    two requests arrive together, which no service-level check can. Deleting either leaves a
-    real defect, which is the test of whether a second mechanism is earning its place — and it
-    is the test `SourceSnapshot.classified` failed, where two routes to one answer meant
-    neither could be broken by a test.
 
 MW0001:
   emitted_by: wiener

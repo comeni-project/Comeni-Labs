@@ -18,9 +18,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# **One dependency, and it is the replacement.** This package holds no implementation as of
-# 0.2.0 — every name it exports comes from `comeni-ai`, so pinning litellm or pydantic here
-# would be a second place to keep one version constraint honest.
+# The replacement is the only dependency because this package contains only compatibility exports.
 dependencies = [
   "comeni-ai>=0.1.0",
 ]

@@ -1,17 +1,9 @@
-"""Backward chaining from wanted types to available ones, inserting producers.
+"""Build a route backward from requested outputs to available inputs.
 
-Ties are ambiguity, never a coin flip. Depth is bounded, and a contract may not be
-used to satisfy its own input.
-
-Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
-
-- **structural** — nothing else can produce what was asked. Either one candidate exists,
-  or one satisfies the requested states with no surplus while the rest overshoot. Asking
-  for a coordinate-sorted BAM leaves the sorter as the only honest answer.
-- **data-profiled** — a declared rule pinned this contract against the measured profile.
-- **convention** — several candidates were equally good and the registry's `priority`
-  broke it. That is a documented default, which is exactly what tier 2 means.
-- **ambiguous** — nothing distinguished them. Invariant 8: demote, record, flag.
+The router inserts producers until every input is reachable. It rejects cycles, bounded-depth
+overruns, and person-authored constraints that cannot be honoured. Candidate selection is
+deterministic: unique structural fits are tier 1, registry priority is tier 2, matching rules are
+tier 3, and unresolved ties are tier 4 decisions for review.
 """
 
 from collections.abc import Callable
@@ -19,7 +11,8 @@ from typing import NamedTuple
 
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
-from comeni_core.goal.asked import ProducerPin, Site
+from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import ProducerPin, Site, SourcePin
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.plan.ir import Tier
@@ -47,12 +40,25 @@ class UnroutableError(ValueError):
 class UnroutablePinError(UnroutableError):
     """Raised when a rule pins a contract whose own inputs cannot be reached.
 
-    Falling back to the next-ranked candidate would mean the rule said one thing and the
-    pipeline did another, silently — the failure this product exists to remove.
+    A pinned candidate is authoritative; the router does not silently fall back to another
+    candidate when that candidate's inputs cannot be reached.
     """
 
 
+class IntentConflict(UnroutableError):
+    """Raised when a person's role, exclusion, or source constraint cannot be honoured.
+
+    ``intent`` retains the conflicting constraint so callers can identify it without parsing the
+    human-readable error message.
+    """
+
+    def __init__(self, message: str, *, intent: object):
+        super().__init__(message)
+        self.intent = intent
+
+
 class RouteStep(BaseModel):
+    """One selected producer and the evidence for its presence and implementation."""
     contract_id: str
     node_id: str
     satisfies: str
@@ -64,17 +70,9 @@ class RouteStep(BaseModel):
 
     presence_tier: Tier = Tier.STRUCTURAL
     presence_reason: str = ""
-    """**Why this step exists**, which is a different question from which contract fills it.
-
-    A113 is the two being one field. A module chosen because it was the only candidate
-    reported tier 1 — *"no choice exists, inputs force it"* — when what forced it was the
-    contents of the registry: install a second sorter tomorrow and the same pipeline becomes
-    a real choice. The *presence* of a sorter genuinely is forced, by featureCounts asking
-    for a coordinate-sorted BAM, and that half is tier 1. Splitting them is what lets each
-    half carry the tier it earned.
-    """
+    """Why the step exists, independently of why this contract was selected for it."""
     selection_premise: list[PremiseRecord] = Field(default_factory=list)
-    """The facts the rule row read, carried to `IRNode.selection`. A108."""
+    """The facts read by the selection rule, carried to ``IRNode.selection``."""
 
     selection_axis_reason: str = ""
     """Why this *kind* of decision is made this way, where `selection_reason` is why this
@@ -213,6 +211,7 @@ def route(
         depth: int,
         visiting: frozenset[str],
         because: str = "",
+        only: str | None = None,
     ) -> None:
         if depth > max_depth:
             raise UnroutableError(f"exceeded depth {max_depth} satisfying {type_id}")
@@ -228,7 +227,24 @@ def route(
             c
             for c in registry.producers_of(type_id, states)
             if c.id not in visiting and not (absent_roles & set(c.roles))
+            and (only is None or c.id == only)
         ]
+        # **A tool a person excluded here is not a candidate** (A1). When it was the only one,
+        # the exclusion is named rather than reported as a type nothing makes.
+        site = Site(type_id=type_id, states=states)
+        excluded = goal.constraints.excluded_at(site)
+        kept = [c for c in candidates if c.id not in excluded]
+        if candidates and not kept:
+            gone = next(e for e in goal.constraints.exclusions
+                        if e.site == site and e.contract in {c.id for c in candidates})
+            raise IntentConflict(
+                coded("MD0320", f"you excluded {gone.contract} where {type_id} is made, and "
+                      "nothing else can make it here. Allow it again, or choose another tool "
+                      "for this step — `mendel explain MD0320`."),
+                intent=gone,
+            )
+        dropped = sorted(c.id for c in candidates if c.id in excluded)
+        candidates = kept
         if not candidates:
             raise UnroutableError(
                 f"nothing produces {type_id} with states {sorted(states)}",
@@ -236,10 +252,24 @@ def route(
             )
 
         choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises)
+        if dropped:
+            choice = choice._replace(
+                reason=f"you excluded {', '.join(dropped)} here; {choice.reason}"
+            )
         chosen, pin = choice.contract, choice.pin
 
         for port in chosen.consumes:
             try:
+                source = goal.constraints.source_at(chosen.id, port.name)
+                if source is not None:
+                    # **A person chose what feeds this port** (A1): route through that tool.
+                    made = _feeding(registry, port, source)
+                    satisfy(made.type_id, frozenset(made.state), depth + 1,
+                            visiting | {chosen.id},
+                            because=f"you chose {source.producer} to feed {chosen.id}'s "
+                                    f"{port.name}",
+                            only=source.producer)
+                    continue
                 _satisfy_port(
                     port,
                     satisfy,
@@ -304,6 +334,22 @@ def route(
             f"the goal asks for {wanted}",
         )
     return plan
+
+
+def _feeding(registry: Registry, port: InputPort, source: SourcePin):
+    """The output of a person's chosen producer that can feed `port`, or the conflict (MD0321):
+    its type is another, or it lacks a state the port requires."""
+    producer = registry.contracts.get(source.producer)
+    for alternative in port.alternatives():
+        for made in producer.produces if producer is not None else ():
+            if made.type_id == alternative.type_id and alternative.states <= set(made.state):
+                return made
+    raise IntentConflict(
+        coded("MD0321", f"you chose {source.producer} to feed {source.consumer}'s "
+              f"{source.port}, and nothing it makes fits that input. Choose a tool whose "
+              "output the port accepts — `mendel explain MD0321`."),
+        intent=source,
+    )
 
 
 def _satisfy_port(

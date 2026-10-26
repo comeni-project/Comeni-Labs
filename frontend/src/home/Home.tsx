@@ -10,11 +10,10 @@ import { get as fromWiener } from "../wiener/api/client";
 import type { components as wiener } from "../wiener/api/schema";
 import { Describe } from "./Describe";
 import { First } from "./First";
-import { Now } from "./Now";
+import { NeedsYouCard, ResultsCard, RunningCard, WentWrongCard } from "./Cards";
 import { useAiConfigured } from "./useAiConfigured";
 import { ByPipeline, ByRun } from "./Work";
 
-type Attention = components["schemas"]["Attention"];
 type DraftsPage = components["schemas"]["DraftsPage"];
 type RunsPage = wiener["schemas"]["RunsPage"];
 
@@ -53,17 +52,13 @@ export function Home() {
   useTitle();
   const [view, setView] = useState<"pipeline" | "run">("pipeline");
 
-  const attention = useQuery({
-    queryKey: ["attention"],
-    queryFn: () => get<Attention>("/attention"),
-  });
   const drafts = useQuery({
     queryKey: ["drafts"],
     queryFn: () => get<DraftsPage>("/pipeline/drafts"),
   });
-  // **Wiener may simply not be there**, and that must not take the page down: a laboratory
-  // reading which pipelines it has does not need the execution half to be up. `retry: false` so
-  // an absent Wiener costs one request rather than four.
+  // **Wiener may simply not be there**, and that must not take the page down: reading which
+  // pipelines you have does not need the execution half to be up. `retry: false` so an absent
+  // Wiener costs one request rather than four.
   const runs = useQuery({
     queryKey: ["runs", "board"],
     queryFn: () => fromWiener<RunsPage>("/api/runs?limit=25"),
@@ -74,107 +69,97 @@ export function Home() {
   // whether the describe box is drawn, and a box arriving after the page lost what was typed.
   const model = useAiConfigured();
 
-  if (attention.isLoading || drafts.isLoading || model.pending) {
-    return <Loading what="the lab's work" />;
-  }
-  if (attention.error) return <Failed error={attention.error} />;
+  if (drafts.isLoading || model.pending) return <Loading what="your work" />;
   if (drafts.error) return <Failed error={drafts.error} />;
 
   const pipelines = drafts.data?.drafts ?? [];
   const board = runs.data?.runs ?? [];
-  // **What makes the page the ACTIVE one rather than the QUIET one**, read once so the rule,
-  // the spacing and the band itself can never disagree about whether there is anything to
-  // separate. `Now` returns null on the same condition.
-  const band = board.some((run) => run.phase === "running")
-    || (attention.data?.mendel ?? []).length > 0;
 
-  // **The first-run state is its own composition**, not this page with everything hidden and
-  // not a page of onboarding cards.
+  // **The first-run state is its own composition**, not this page with everything hidden.
   if (pipelines.length === 0) return <First />;
 
   const named = new Map(
     pipelines.filter((p) => p.digest).map((p) => [p.digest!, p.name || p.id.slice(0, 8)]),
   );
-
+  const running = board.filter((run) => run.phase === "running").length;
+  const open = pipelines.reduce((n, p) => n + (p.open_values ?? []).length + p.open_not_named, 0);
+  const summary = [
+    `${pipelines.length} ${pipelines.length === 1 ? "pipeline" : "pipelines"}`,
+    running > 0 && `${running} running`,
+    open > 0 && `${open} ${open === 1 ? "value needs" : "values need"} you`,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="overflow-auto">
-      {/* **Full-bleed at 44px, which is the artboards' page inset** — `padding: 28px 44px 40px`
-          on every board. It was a centred `max-w-[1180px]` column, so on a wide screen the
-          wordmark sat at x=44 and the table it belongs to started at x=318: the shell and the
-          page read as two documents. */}
-      <div className="gutter pt-7 pb-10">
-        <Now
-          running={board.filter((run) => run.phase === "running")}
-          waiting={attention.data?.mendel ?? []}
-          named={named}
-        />
-
-        {/* **A hairline between what is happening and what you have.** The artboard rules the
-            two apart — `height:1px; background:#141C20; margin:28px 0 0` — and without it the
-            Work block reads as a continuation of the running run rather than as the other half
-            of the page. It renders only when there IS a NOW band: a rule under nothing is a
-            line drawn for its own sake, and the quiet page is meant to be shorter. */}
-        {band && <div className="mt-7 h-px bg-line" />}
+      <div className="gutter pt-7 pb-10 flex flex-col gap-6">
+        <header className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">Your work</h1>
+            <p data-testid="home-summary" className="m-0 mt-1 text-body text-ink-2">{summary}</p>
+          </div>
+          {/* **One action, top right. The same button whether you have none or fifty.** */}
+          <Link to="/build"
+                className="px-[18px] py-[9px] rounded-button no-underline text-[13.5px] font-semibold
+                           bg-action text-on-action shadow-raise focus-visible:shadow-[var(--ring)]">
+            New analysis
+          </Link>
+        </header>
 
         {/* **A new conversation starts here once there is work** (issue 229); `First` is where
             it starts before there is any. It renders nothing without a model. */}
         <Describe />
 
-        {/* **24px under the rule, 34px without one** — the ACTIVE and QUIET artboards differ by
-            exactly that, because on the quiet page there is no rule to separate Work from and
-            the space has to do the separating on its own. */}
-        <section className={band ? "mt-6" : "mt-[34px]"}>
-          <div className="flex items-center gap-5 flex-wrap">
-            <p className="font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0">
-              Work
-            </p>
-            {/* **A segmented control in a hairline box, and the live half is TINTED rather than
-                filled.** `--link-soft` behind `--link` is the artboard's pairing; it shipped as
-                `--surface-2` behind `--ink`, which is a grey chip that reads as pressed rather
-                than as selected. Square, because nothing in this row has a radius. */}
-            <div className="flex border border-surface-2">
-              {(["pipeline", "run"] as const).map((which) => (
-                <button
-                  key={which}
-                  type="button"
-                  onClick={() => setView(which)}
-                  aria-pressed={view === which}
-                  className={`font-data text-[10px] uppercase tracking-[.08em] px-[13px] py-1.5
-                              border-0 cursor-pointer transition-colors
-                              ${view === which
-                                ? "bg-[var(--link-soft)] text-[var(--link)]"
-                                : "bg-transparent text-ink-3 hover:text-ink"}`}
-                >
-                  By {which}
-                </button>
-              ))}
+        {/* **Each card only when it has something** — absence is absence, so the quiet page is
+            simply shorter. They wrap into one column on a narrow screen. */}
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] empty:hidden">
+          <RunningCard runs={board} named={named} />
+          <NeedsYouCard drafts={pipelines} />
+          <WentWrongCard runs={board} named={named} />
+        </div>
+
+        <div className="grid gap-4 items-start grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <section aria-label="Your pipelines" className="min-w-0 flex flex-col gap-3">
+            <div className="flex items-center gap-4 flex-wrap">
+              <h2 className="m-0 text-heading font-semibold text-ink">Your pipelines</h2>
+              <div role="group" aria-label="list by" className="flex gap-1 p-1 rounded-button"
+                   style={{ background: "var(--paper)", border: "1px solid var(--line)" }}>
+                {(["pipeline", "run"] as const).map((which) => (
+                  <button
+                    key={which}
+                    type="button"
+                    onClick={() => setView(which)}
+                    aria-pressed={view === which}
+                    className={`px-[12px] py-[4px] rounded-control text-[13px] border cursor-pointer
+                                focus-visible:shadow-[var(--ring)] ${view === which
+                                  ? "bg-surface text-ink font-semibold border-line"
+                                  : "bg-transparent text-ink-2 border-transparent hover:text-ink"}`}
+                  >
+                    By {which}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            {/* **One action, top right. The same button whether you have none or fifty.** */}
-            <Link
-              to="/build"
-              className="ml-auto px-[13px] py-1.5 no-underline text-[12.5px]
-                         border border-[var(--link-line)] text-[var(--link)] lift"
-            >
-              New pipeline
-            </Link>
-          </div>
-
-          <div className="mt-5">
-            {view === "pipeline"
-              ? <ByPipeline rows={pipelines} runs={board} />
-              : <ByRun runs={board} named={named} />}
-          </div>
-
-          {/* **Wiener being unreachable is said once, quietly, and never as a broken page.**
-              The pipelines half is complete without it; what is missing is history. */}
-          {runs.error && (
-            <p className="text-secondary text-ink-3 mt-4 mb-0">
-              Run history is unavailable — Wiener did not answer.
-            </p>
-          )}
-        </section>
+            <div className="rounded-panel border border-line bg-surface overflow-x-auto px-4">
+              {view === "pipeline"
+                ? <ByPipeline rows={pipelines} runs={board} />
+                : <ByRun runs={board} named={named} />}
+            </div>
+            {view === "pipeline" && (
+              <p className="m-0 text-[13px] text-ink-3">
+                "How it was decided" counts every value in the pipeline: settled by a rule, a convention or you,
+                measured from your files, or still open.
+              </p>
+            )}
+            {/* **Wiener being unreachable is said once, quietly, and never as a broken page.**
+                The pipelines half is complete without it; what is missing is history. */}
+            {runs.error && (
+              <p className="text-secondary text-ink-3 m-0">
+                Run history is unavailable — Wiener did not answer.
+              </p>
+            )}
+          </section>
+          <ResultsCard runs={board} named={named} />
+        </div>
       </div>
     </div>
   );

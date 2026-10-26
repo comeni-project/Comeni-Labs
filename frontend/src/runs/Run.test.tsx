@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
 import { routes } from "../app/router";
@@ -65,18 +65,19 @@ const SERIES = { curves: [], from_ms: 0, to_ms: 0, bin_ms: 1,
                  open: false, reported_resources: false };
 
 function at(state: unknown = STATE, page: unknown = PAGE, view = "console",
-            overview: unknown = OVERVIEW) {
+            overview: unknown = OVERVIEW, { search = "", failedTasks = [] as unknown[] } = {}) {
   sockets.length = 0;
   vi.stubGlobal("WebSocket", FakeSocket);
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
-    const body = url.includes("/series") ? SERIES
+    const body = url.includes("status=FAILED") ? { tasks: failedTasks, total: failedTasks.length }
+      : url.includes("/series") ? SERIES
       : url.includes("/events") ? page
       : url.includes("/overview") ? overview
       : state;
     return Promise.resolve({ ok: true, json: async () => body });
   }));
   const router = createMemoryRouter(routes, {
-    initialEntries: [`/runs/4c1e9a07b2f1de40?view=${view}`],
+    initialEntries: [`/runs/4c1e9a07b2f1de40?view=${view}${search}`],
   });
   return render(
     <QueryClientProvider client={makeClient()}>
@@ -242,14 +243,14 @@ it("reads the run the URL names, not the one the projection learned from an even
   // defect: the fixture mock answers any path, so a panel handed an empty id still renders.
   at({ ...STATE, run_id: "" }, PAGE, "overview");
 
-  await screen.findByRole("heading");
+  await screen.findByRole("heading", { level: 1 });
   const asked = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls.map(
     ([url]) => url,
   );
   // The cause before the symptom: a panel handed an empty id asks a URL with a hole in it.
   expect(asked.some((url) => url.includes("/overview"))).toBe(true);
   expect(asked.filter((url) => url.includes("/runs//"))).toEqual([]);
-  expect(screen.getByRole("heading")).toHaveTextContent("run 4c1e9a07");
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("run 4c1e9a07");
 });
 
 it("shows the pipeline's name when it has one, and keeps the id beside it", async () => {
@@ -258,8 +259,8 @@ it("shows the pipeline's name when it has one, and keeps the id beside it", asyn
   // same thing by a name somebody chose. The id stays visible: it is what a person pastes into
   // a message, and two runs of one pipeline share a name.
   at({ ...STATE, name: "rnaseq-counts" }, PAGE, "overview");
-  expect(await screen.findByRole("heading")).toHaveTextContent("rnaseq-counts");
-  expect(screen.getByRole("heading").parentElement).toHaveTextContent("4c1e9a07");
+  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("rnaseq-counts");
+  expect(screen.getByRole("heading", { level: 1 }).parentElement).toHaveTextContent("4c1e9a07");
 });
 
 it("falls back to the id rather than inventing a name", async () => {
@@ -267,5 +268,41 @@ it("falls back to the id rather than inventing a name", async () => {
   // invariant 13's customer rather than a degraded one. **Never a name derived from the
   // digest**: a reader cannot tell one nobody chose from one somebody did.
   at({ ...STATE, name: "" }, PAGE, "overview");
-  expect(await screen.findByRole("heading")).toHaveTextContent("run 4c1e9a07");
+  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("run 4c1e9a07");
+});
+
+describe("the run in the new identity (issue 380)", () => {
+  const FAILED_STATE = { ...STATE, phase: "failed", ended_at_ms: 1787517660000,
+                         counts: { ...STATE.counts, failed: 1, running: 0 } };
+  const FAILED_TASK = { process: "STAR_ALIGN", tag: "SRR6357072", latest_exit: 137, attempts: 3,
+                        peak_rss_bytes: 71_400_000_000,
+                        history: [{ attempt: 1, memory_bytes: 36e9, peak_rss_bytes: 35.8e9, exit: 137 },
+                                  { attempt: 2, memory_bytes: 48e9, peak_rss_bytes: 47.6e9, exit: 137 },
+                                  { attempt: 3, memory_bytes: 72e9, peak_rss_bytes: 71.4e9, exit: 137 }] };
+
+  it("leads back to the runs, and offers the console from the header", async () => {
+    at(STATE, PAGE, "overview");
+    const back = await screen.findByRole("link", { name: "Runs" });
+    expect(back).toHaveAttribute("href", "/runs");
+    fireEvent.click(screen.getByRole("button", { name: "Console" }));
+    expect(await screen.findByTestId("console")).toBeInTheDocument();
+  });
+
+  it("opens the pipeline it came from", async () => {
+    at(STATE, PAGE, "overview", OVERVIEW, { search: "&from=d1" });
+    expect(await screen.findByRole("link", { name: "Open the pipeline" })).toHaveAttribute("href", "/build?draft=d1");
+  });
+
+  it("names its bands Steps and Tasks", async () => {
+    at(STATE, PAGE, "overview");
+    expect(await screen.findByRole("heading", { name: "Steps" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+  });
+
+  it("opens a failed run on its failure, above the panels", async () => {
+    at(FAILED_STATE, PAGE, "overview", OVERVIEW, { failedTasks: [FAILED_TASK] });
+    const failure = await screen.findByTestId("failure");
+    const panels = await screen.findByTestId("run-panels");
+    expect(failure.compareDocumentPosition(panels) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

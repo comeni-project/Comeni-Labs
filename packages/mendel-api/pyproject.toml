@@ -2,13 +2,12 @@
 name = "mendel-api"
 version = "0.1.0"
 requires-python = ">=3.12"
-description = "HTTP surface over the Mendel engine and the forge"
+description = "HTTP surface over the Mendel engine"
 dependencies = [
     "comeni-core>=0.1.0",
     "comeni-ai>=0.1.0",
     "mendel-resolver>=0.1.0",
     "mendel-compiler>=0.1.0",
-    "mendel-forge>=0.1.0",
     "mendel-authoring>=0.1.0",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -38,4 +37,3 @@ comeni-inspect = { workspace = true }
 comeni-ai = { workspace = true }
 mendel-resolver = { workspace = true }
 mendel-compiler = { workspace = true }
-mendel-forge = { workspace = true }

@@ -1,16 +1,4 @@
-"""A step can be absent, and a convention cannot block routing.
-
-Spec §4.1 and §8.2. `presence: absent` is the effect the shipped format could not spell —
-`producer_of: fastq.reads` with `then: null` was the way to say "do not trim", which reads as
-a null pointer rather than as a claim about a pipeline.
-
-**The finding that nearly shipped is the second half.** Giving the format a presence effect
-without splitting the state requirement produces an *unroutable* pipeline rather than a
-shorter one: `star/align` declared `state_required: [trimmed]`, and STAR soft-clips adapters.
-nf-core/rnaseq's `--skip_trimming` exists precisely because trimming is optional, so the
-contract had encoded a tier-2 convention as a tier-1 constraint — the same disease as "the
-only contract that produces this" (A113), one layer down.
-"""
+"""Presence rules may omit optional steps without weakening structural requirements."""
 
 import pathlib
 

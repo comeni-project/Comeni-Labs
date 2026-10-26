@@ -1,13 +1,4 @@
-"""A hand-drawn graph becomes a `PipelineIR` and a `Goal` — both derived, neither guessed.
-
-**This is what spec §6 rests on.** "A builder edits a pipeline, and `pipeline.yml` is already
-the save file" is only true if a drawn graph can *become* one. `Pipeline.of` requires a `Goal`,
-keyword-only and required, and a drawn graph has none — so the goal is derived from the graph
-itself: what it reads from entry channels is what you have, what its terminal nodes produce is
-what you want. Arithmetic over declared data, no model and no guess.
-
-`stack` comes from the conftest.
-"""
+"""Derive a goal and evidenced pipeline IR from a hand-drawn graph."""
 
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from comeni_core.plan.tiers import Tier, ValueSource

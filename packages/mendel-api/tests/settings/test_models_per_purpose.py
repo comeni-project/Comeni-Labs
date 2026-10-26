@@ -5,10 +5,10 @@ import os
 import pytest
 from comeni_ai import access as ai_access
 from comeni_core.settings import catalogue
+from mendel_api.invocations import InvocationPurpose
 from mendel_api.services import authoring_ai, installation
 from mendel_api.services.models import PURPOSES, where_purposes
 from mendel_api.settings import model_access
-from mendel_forge.workflow import InvocationPurpose
 
 
 @pytest.fixture

@@ -44,7 +44,7 @@ export function FactEditor({ subject, value, kind, declaration, disabled = false
       step={declaration?.kind === "integer" ? 1 : "any"}
       onChange={event => setTyped(event.target.value)} className="border bg-transparent p-1 w-36" />}
     <button type="submit" disabled={locked || !typed.trim()}
-      className="ml-2 text-link underline">Save correction</button>
+      className="ml-2 text-now-ink underline">Save correction</button>
     <button type="button" disabled={locked} onClick={() => void save(true)}
       className="ml-2 text-ink-3 underline">Return to unknown</button>
     {kind === "input" && typed === "false" && <p>This input is unavailable; the chat will check what the analysis needs.</p>}

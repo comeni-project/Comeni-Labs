@@ -112,7 +112,26 @@ describe("optimistic acceptance", () => {
     expect(visibleGraph(state).nodes.map((n) => n.id)).toContain("star_align");
     expect(visibleGraph(state).edges).toEqual([INDEX_WIRE]);
     expect(state.inFlight).toBe("p-align");
-    expect(state.selected).toBe("star_align");
+  });
+
+  it("lets the panel follow the next offer: the step added is not left open (issue 386)", () => {
+    const offered = session();
+    const state = run([
+      { type: "snapshot", session: offered },
+      { type: "select", node: "star_align" },
+      { type: "accept", proposal: offered.pending_proposal!, option: "keep", expectedRevision: 2 },
+    ]);
+    expect(state.selected).toBeNull();
+  });
+
+  it("lets the panel follow the next offer after an alternative is added too", () => {
+    const offered = session();
+    const state = run([
+      { type: "snapshot", session: offered },
+      { type: "select", node: "star_align" },
+      { type: "accept", proposal: offered.pending_proposal!, option: "alt_1", expectedRevision: 2 },
+    ]);
+    expect(state.selected).toBeNull();
   });
 
   it("keeps the drawing while a poll arrives before the answer does", () => {
@@ -238,6 +257,25 @@ describe("the small states", () => {
     const sent = run([{ type: "sent", text: "why STAR?" }], typed);
     expect(sent.composer).toBe("");
     expect(sent.saying).toBe("why STAR?");
+  });
+
+  it("keeps a sent message until the latest person turn carries the same words", () => {
+    const sent = run([{ type: "sent", text: "why STAR?" }]);
+    const person = (seq: number, text: string) => ({
+      seq, role: "person", state: "answered", text, blocks: [], base_revision: 0,
+    }) as AuthoringSession["turns"][number];
+
+    const waiting = run([
+      { type: "snapshot", session: session({ turns: [person(1, "an earlier question")] }) },
+    ], sent);
+    expect(waiting.saying).toBe("why STAR?");
+
+    const landed = run([
+      { type: "snapshot", session: session({
+        turns: [person(1, "an earlier question"), person(2, "why STAR?")],
+      }) },
+    ], waiting);
+    expect(landed.saying).toBeNull();
   });
 
   it("forgets an animation once it has played", () => {

@@ -2,11 +2,9 @@ import type { DraftEdge, DraftGraph, DraftNode } from "../api/types";
 
 /** The graph's mutation rules, as pure functions over a `DraftGraph`.
  *
- * **One set of rules for every way a graph changes.** `useGraph` applies these to what a person
- * drags; the living session's reducer applies the same functions to a proposal it has just
- * accepted. Two implementations would be two answers to *what does adding a wire twice do* — and
- * the chat-built pipeline and the hand-drawn one would drift the first time either was fixed.
- * Task 8 of the living-pipeline plan says so in as many words.
+ * **One set of rules for every way a graph changes.** The canvas applies these to what a person
+ * draws, and the living session's reducer to a proposal it has just accepted. Two
+ * implementations would be two answers to *what does adding a wire twice do*.
  *
  * Every function returns the graph it was given, unchanged, when there is nothing to do — so a
  * caller comparing by reference can tell a no-op from an edit.
@@ -58,6 +56,8 @@ export function withParam(
   id: string,
   name: string,
   value: string | number | boolean | null,
+  /** Why this value, in the person's words; the server keeps it as the value's reason. */
+  why = "",
 ): DraftGraph {
   return {
     ...g,
@@ -66,7 +66,7 @@ export function withParam(
       const rest = (n.params ?? []).filter((p) => p.name !== name);
       return value === null
         ? { ...n, params: rest }
-        : { ...n, params: [...rest, { name, value, why: "" }] };
+        : { ...n, params: [...rest, { name, value, why }] };
     }),
   };
 }
@@ -100,4 +100,11 @@ export function withMerge(g: DraftGraph, port: string): DraftGraph {
       .map((c) => ({ ...c, ports: c.ports.filter((p) => p !== port) }))
       .filter((c) => c.ports.length > 0),
   };
+}
+
+/** A step id for a module added by hand: the tool's path, numbered past any already taken. */
+export function idFor(graph: DraftGraph, contract: string): string {
+  const base = contract.split("@")[0].split("/").slice(1).join("_").replace(/\W/g, "_") || "step";
+  const taken = new Set(graph.nodes.map((n) => n.id));
+  for (let n = 1; ; n += 1) if (!taken.has(`${base}_${n}`)) return `${base}_${n}`;
 }

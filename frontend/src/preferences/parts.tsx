@@ -7,9 +7,8 @@ export function Badge({
 }: { children: ReactNode; tone?: string; dashed?: boolean; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-[5px] font-data text-[9.5px] uppercase
-                  tracking-[.12em] px-[7px] py-[3px] rounded-[2px] whitespace-nowrap border
-                  ${dashed ? "border-dashed border-ink-4 text-ink-2" : tone || "text-ink-3 border-line-2"}
+      className={`inline-flex items-center gap-[5px] text-label px-[7px] py-[3px] rounded-full whitespace-nowrap border
+                  ${dashed ? "border-dashed border-ink-3 text-ink-2" : tone || "text-ink-3 border-line-2"}
                   ${className}`}
     >
       {children}

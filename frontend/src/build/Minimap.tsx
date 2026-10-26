@@ -2,6 +2,8 @@ import type { components } from "../api/schema";
 import { NODE_H, NODE_W } from "./geometry";
 
 type Placed = components["schemas"]["PlacedNode"];
+/** What a mark needs: where the step is, and the tier that colours it. */
+type Mark = Pick<Placed, "id" | "x" | "y" | "tier">;
 
 /** The whole graph, small, in the canvas's bottom-right corner.
  *
@@ -31,7 +33,7 @@ const PAD = 8;
 
 const COLOUR: Record<number, string> = {
   3: "var(--measured)",
-  4: "var(--undecided)",
+  4: "var(--needs-you)",
 };
 
 /** How much room the drawn graph actually takes, in canvas coordinates.
@@ -55,8 +57,8 @@ const COLOUR: Record<number, string> = {
 const SOCKETS = 96;
 const GUTTER = 240;
 
-export function bounds(nodes: Placed[], offsets: Record<string, { x: number; y: number }>) {
-  const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
+export function bounds(nodes: Mark[], offsets: Record<string, { x: number; y: number }>) {
+  const at = (node: Mark) => offsets[node.id] ?? { x: node.x, y: node.y };
   const xs = nodes.map((n) => at(n).x);
   const ys = nodes.map((n) => at(n).y);
   const left = Math.min(...xs) - GUTTER;
@@ -72,11 +74,14 @@ export function bounds(nodes: Placed[], offsets: Record<string, { x: number; y: 
 export function Minimap({
   nodes,
   offsets,
+  place = "right-[18px] bottom-[18px]",
 }: {
-  nodes: Placed[];
+  nodes: Mark[];
   offsets: Record<string, { x: number; y: number }>;
+  /** Where in the canvas it sits; the session canvas keeps its corner for the legend. */
+  place?: string;
 }) {
-  const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
+  const at = (node: Mark) => offsets[node.id] ?? { x: node.x, y: node.y };
   const { left, top, width, height } = bounds(nodes, offsets);
 
   // One scale for both axes, so the map is the graph's shape and not a stretched version of it.
@@ -87,8 +92,8 @@ export function Minimap({
       data-testid="minimap"
       aria-hidden
       style={{ width: W, height: H }}
-      className="absolute right-[18px] bottom-[18px] pointer-events-none border border-line
-                 bg-[color-mix(in_srgb,var(--paper)_82%,transparent)]"
+      className={`absolute ${place} pointer-events-none border border-line
+                 bg-[color-mix(in_srgb,var(--paper)_82%,transparent)]`}
     >
       {nodes.map((node) => {
         const spot = at(node);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { elbow, path, PORT_GAP, portOffset, SPINE } from "./geometry";
+import { elbow, NODE_W, path, PORT_GAP, portOffset, RANK_PITCH, SPINE } from "./geometry";
 
 describe("geometry the client owns", () => {
   it("anchors the first port on the spine, whatever its siblings do", () => {
@@ -28,6 +28,18 @@ describe("geometry the client owns", () => {
     // "straight" means the two ports share a `y`.
     expect(elbow({ x: 0, y: 90 }, { x: 224, y: 90 })).toHaveLength(2);
     expect(elbow({ x: 0, y: 10 }, { x: 224, y: 200 })).toHaveLength(4);
+  });
+
+  it("turns a wire between neighbouring columns in the middle of the gap between them", () => {
+    const [, turn] = elbow({ x: NODE_W, y: 10 }, { x: RANK_PITCH, y: 200 });
+    expect(turn.x).toBe((NODE_W + RANK_PITCH) / 2);
+  });
+
+  it("turns a wire that passes a column in the gap before its target, not inside a step (issue 388)", () => {
+    // An input at -90 feeding a step two columns on: halfway is x = 179, inside the first
+    // column's step (0 to NODE_W), so the riser was drawn behind it.
+    const [, turn] = elbow({ x: -90, y: 314 }, { x: RANK_PITCH * 2, y: 163 });
+    expect(turn.x).toBe(RANK_PITCH * 2 - (RANK_PITCH - NODE_W) / 2);
   });
 
   it("draws a path for both shapes without throwing", () => {

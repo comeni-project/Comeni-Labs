@@ -1,22 +1,12 @@
-"""The one primitive, and the transport under it.
+"""Validated generation and the provider transport beneath it.
 
-`generate` asks a model for something and **validates the answer against a declared shape
-before any caller sees it.** That is the boundary this package exists to hold — not that a
-model may not speak, but that nothing it says is taken on trust.
+Every entry point validates returned JSON against a caller-supplied Pydantic model. Invalid or
+empty replies return ``None`` with a coded explanation in ``Client.last_refusal``; replies are
+never repaired into partial values. Provider-enforced response formats may move a schema out of
+the prompt, but local validation still runs for every response.
 
-**An answer that will not validate is declined, never repaired.** A half-built value is worse
-than an open hole, because the hole is visible to a reviewer and the half-built value is not.
-`None` is a legal, expected answer.
-
-**JSON is validated here, always, whatever the provider did.** Invariant 13 says a local model
-must work identically, and schema support varies by provider; one code path that always
-validates is the honest shape. **Where a provider's server enforces the shape** (`formats.py`,
-#194), the schema is handed to it as the reply format instead of being written into the prompt —
-an optimisation on top, not a second path: the reply is still validated here, and a provider
-not verified gets the schema in the prompt as before.
-
-**`Transport` is a seam for the same reason `HoleFiller` is.** It lets every test run with no
-network, and it is what the recorded fixtures plug into.
+The transport protocols form the network seam used by real providers, fakes, and recorded
+fixtures.
 """
 
 import json
@@ -46,18 +36,12 @@ __all__ = [
 
 
 class ModelUnavailableError(ValueError):
-    """The provider refused credentials, rejected the request, or could not be reached.
-    `MA0002` and `MA0007`."""
+    """The provider rejected credentials or the request, or could not be reached."""
 
 
 @runtime_checkable
 class Transport(Protocol):
-    """How a prompt reaches a model.
-
-    `runtime_checkable` so a test can assert a fake satisfies it. **That check sees method
-    names and not signatures** — it catches `send` being renamed out from under every fake,
-    and it does not catch an argument changing. A type checker is what catches the second.
-    """
+    """Minimal prompt-delivery interface implemented by real and test transports."""
 
     def send(
         self,
@@ -65,22 +49,15 @@ class Transport(Protocol):
         prompt: "str | list[dict]",
         response_format: dict | None = None,
     ) -> str:
-        """`response_format` is passed only to a transport declaring `enforces_formats = True`,
-        and only by keyword, so a fake that takes two arguments keeps working (#194)."""
+        """Send a prompt, optionally with a provider response format."""
         ...
 
 
 class Usage(BaseModel):
-    """What a provider said about a call it just served.
+    """Provider-reported metadata for one completed call.
 
-    **Every field but `model` and `duration_ms` is nullable, and that is the honest shape.**
-    Token counts are a provider's courtesy, not a guarantee: a local Ollama endpoint may report
-    none, and a `0` where the provider said nothing is a measurement nobody took. §2's audit
-    rule asks for token counts *when the provider supplies them*, which is a different
-    requirement from asking for them.
-
-    **`model` is what answered, not what was asked for.** A provider may serve a dated
-    snapshot for a floating alias, and a review record naming the alias cannot be reproduced.
+    Optional counters remain ``None`` when the provider omits them. ``model`` records the model
+    that answered, which may be a resolved snapshot rather than the requested alias.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -90,21 +67,13 @@ class Usage(BaseModel):
     input_tokens: int | None = None
     output_tokens: int | None = None
     cached_tokens: int | None = None
-    """Input tokens the provider served from its prompt cache (#183). `None` when it said
-    nothing, which a local endpoint usually does."""
+    """Input tokens served from provider cache, or ``None`` when unreported."""
     finish_reason: str | None = None
 
 
 @runtime_checkable
 class Metered(Protocol):
-    """A transport that can also say what the call cost.
-
-    **A second protocol rather than a wider `Transport`.** Every fake in the suite implements
-    `send` and would have to grow a method it has nothing to say for; a recorded fixture has no
-    honest duration to report at all. `Client` asks for `deliver` and falls back, so the
-    metadata is present where a provider supplied it and absent where nothing did — which is
-    the same distinction `Usage`'s nullable fields draw one level down.
-    """
+    """Optional transport interface that returns provider usage with the response."""
 
     def deliver(
         self,
@@ -119,27 +88,13 @@ class Client:
         self.access = access
         self._transport = transport if transport is not None else LiteLLMTransport()
         self.last_refusal: str | None = None
-        """Why the most recent `generate` returned `None`, coded, for a caller that wants to
-        report it. `None` when the last call succeeded.
-
-        **Cleared on success.** A stale refusal read after a later success would name the wrong
-        call, and a caller reporting per hole reads this once per hole.
-        """
+        """Coded reason the most recent call returned ``None``; cleared on success."""
         self.last_usage: Usage | None = None
-        """What the most recent call cost, when the transport could say. `None` otherwise.
-
-        **Cleared at the start of every `generate`, like `last_refusal`.** A usage record left
-        over from a previous call would be attributed to this one by an audit row that reads it
-        afterwards, which is worse than recording nothing.
-        """
+        """Usage for the most recent call, cleared before each exchange."""
         self.last_response: str | None = None
-        """The raw text of the most recent reply, for the audit row (#182). **Set before the reply
-        is validated**, so a refused reply is kept too — it is the one somebody needs to read.
-        `None` when no reply arrived.
-        """
+        """Raw reply from the most recent call, retained even when validation rejects it."""
         self.last_format: str | None = None
-        """Which reply format the last call used (`in_prompt`, `ollama`, …), for the audit row
-        (#194). A reader of a refusal needs to know whether the shape was enforced."""
+        """Reply-format name used by the most recent call."""
         self.last_prompt: str | None = None
         """The exact text sent, for the caller that has to store a digest of it.
 
@@ -155,12 +110,7 @@ class Client:
         evidence: list[str],
         choices: dict[str, list] | None = None,
     ) -> T | None:
-        """Ask, then validate. `None` when the model declines or its answer will not fit.
-
-        Composition plus `respond`. The two are separate because a caller that has already
-        composed its own prompt — the Forge, whose §5.3 fixes the order of ten sections down
-        to which one comes last — must not have `_prompt` frame it again.
-        """
+        """Compose a prompt, send it, and validate the response as ``shape``."""
         chosen, schema = self._format(shape, choices)
         prompt = _prompt(instruction, schema, evidence, in_prompt=chosen.in_prompt)
         return self._send(prompt, prompt, shape, chosen, schema)
@@ -168,14 +118,10 @@ class Client:
     def respond(
         self, prompt: str, shape: type[T], choices: dict[str, list] | None = None
     ) -> T | None:
-        """Send an already-composed prompt and validate the answer against `shape`.
+        """Send an already composed prompt and validate the response as ``shape``.
 
-        The lower half of `generate`, and the whole of what a caller with its own prompt
-        needs. It sets `last_prompt`, `last_usage` and `last_refusal` exactly as `generate`
-        does, so an audit row is written the same way whichever entry point produced it.
-
-        **The caller's prompt is never rewritten**: the Forge composes its own, schema included.
-        Only the format is added, where the server enforces one.
+        The prompt text is preserved. A provider response format may be attached separately.
+        Call metadata is updated in the same way as :meth:`generate`.
         """
         chosen, schema = self._format(shape, choices)
         return self._send(prompt, prompt, shape, chosen, schema)
@@ -183,14 +129,10 @@ class Client:
     def chat(
         self, system: str, user: str, shape: type[T], choices: dict[str, list] | None = None
     ) -> T | None:
-        """A split prompt: the fixed part as a system message, the per-call part as the user's.
+        """Send a cacheable system prefix and a per-call user message.
 
-        **For caching** (#183): providers reuse a byte-identical prefix, so everything that does
-        not change between calls — instructions, vocabulary, the reply schema — goes first, and
-        only what does change goes after it. The user part closes with one fixed line asking for
-        JSON: the lesson in `_prompt` (*the instruction has to be the last thing read*), kept in
-        a form that does not break the cached prefix. `last_prompt` is both parts as one string,
-        so a stored digest still covers everything sent.
+        ``last_prompt`` stores both parts as one string so callers can digest the complete
+        request. The user message ends with the JSON-only instruction.
         """
         chosen, schema = self._format(shape, choices)
         messages = _messages(self.access, system, user, schema, in_prompt=chosen.in_prompt)
@@ -200,18 +142,15 @@ class Client:
     def _format(
         self, shape: type[BaseModel], choices: dict[str, list] | None
     ) -> tuple[ReplyFormat, dict]:
-        """The reply format for this call, and the schema with its allowed lists (#194).
+        """Select the reply format and apply any server-enforced allowed values.
 
-        **Enforced only through a transport that says it can pass a format** — every fake and
-        recorded transport stays `InPrompt`, byte for byte, so no recording's key moves. A
-        format that has nothing to send for this schema (a hosted scaffold over its cap) falls
-        back to `InPrompt` too: a schema neither sent nor written would be no shape at all.
+        Transports without format support retain the schema in the prompt. A format that cannot
+        represent the schema also falls back to :class:`InPrompt`.
         """
         written = shape.model_json_schema()
         enforcing = getattr(self._transport, "enforces_formats", False)
         chosen = reply_format_for(self.access.model, enforcing=enforcing)
-        # **The allowed lists go only where they are enforced.** Written into the prompt they
-        # would say twice what the prompt's own text already lists, and move every recording.
+        # Apply allowed lists only to enforced schemas; in-prompt requests already state choices.
         schema = with_choices(written, choices) if choices and not chosen.in_prompt else written
         if not chosen.in_prompt and not chosen.extra(schema, shape.__name__):
             chosen, schema = InPrompt(), written
@@ -228,8 +167,7 @@ class Client:
     ) -> T | None:
         extra = chosen.extra(schema, shape.__name__)
         if extra:
-            # **The digest covers the schema sent as the format**, so a stored row can still be
-            # compared against everything the model received.
+            # Include an enforced schema in the auditable prompt representation.
             sent += f"\n\n[reply format: {chosen.name}]\n" + json.dumps(
                 schema, indent=2, sort_keys=True
             )
@@ -242,10 +180,8 @@ class Client:
         shape: type[T],
         response_format: dict | None = None,
     ) -> T | None:
-        self.last_refusal = None
-        self.last_usage = None
-        self.last_response = None
-        self.last_prompt = sent
+        self._begin_exchange(sent)
+
         try:
             given = {"response_format": response_format} if response_format else {}
             if isinstance(self._transport, Metered):
@@ -266,10 +202,16 @@ class Client:
             self.last_refusal = _why_refused(shape, failure)
             return None
 
+    def _begin_exchange(self, sent: str) -> None:
+        """Clear per-call results and retain the request about to be sent."""
+        self.last_refusal = None
+        self.last_usage = None
+        self.last_response = None
+        self.last_prompt = sent
+
 
 CACHE_BREAK = "<!-- cache -->"
-"""A line in a split prompt's fixed part that ends one cacheable block (#183). Providers that
-take cache markers (Anthropic) get one at each break; the line itself is never sent."""
+"""Separator between cacheable prompt blocks; the marker itself is not sent."""
 
 _SCHEMA_INTRO = (
     "Answer with JSON only, matching this schema exactly. Output nothing else — no "
@@ -282,14 +224,10 @@ _CLOSING_ENFORCED = "Answer with JSON only."
 def _messages(
     access: ModelAccess, system: str, user: str, schema: dict, *, in_prompt: bool = True
 ) -> list[dict]:
-    """`[system, user]`, the schema at the end of the system part, cache markers where honoured.
+    """Build system/user messages, including schema and supported cache markers.
 
-    **No schema at all when the server enforces it** (`in_prompt=False`, #194): the format
-    carries the shape, and the prompt's own prose says what each field means.
-
-    **Markers only for `anthropic/` models.** LiteLLM passes `cache_control` through to whatever
-    provider it reaches, and one that does not know the field may reject the request; OpenAI and
-    Ollama cache an identical prefix without being told.
+    Server-enforced formats omit the schema from the prompt. Anthropic models receive explicit
+    cache-control blocks; other providers receive plain text.
     """
     parts = [part.strip("\n") for part in system.split(CACHE_BREAK)]
     if in_prompt:
@@ -316,22 +254,16 @@ def _text_of(content: "str | list[dict]") -> str:
 
 
 def _prompt(instruction: str, schema: dict, evidence: list[str], *, in_prompt: bool = True) -> str:
-    """The shape is shown, not described. A model asked for a shape it never saw cannot
-    produce it, and the JSON Schema is the shape's own account of itself — including any
-    declared length limit, so the model is told the constraint rather than punished for not
-    guessing it.
+    """Compose evidence, the instruction, and an optional JSON schema.
 
-    **Evidence first, instruction last.** The first version put the instruction on top and the
-    evidence under it, which works while the evidence is small and fails completely when it is
-    not: given ~13,000 characters of documentation, `gemma3:12b` answered by *explaining the
-    documentation* rather than choosing — twenty-nine holes, twenty-nine declines. The
-    instruction has to be the last thing read, and it has to say that nothing but JSON is
-    wanted, because "answer with JSON" alone leaves prose looking permitted alongside it."""
+    Evidence comes first and the actionable instruction comes last. When the provider does not
+    enforce a response format, the prompt includes the complete schema and its declared limits.
+    """
     parts = []
     if evidence:
         parts += ["Evidence:", *(f"- {line}" for line in evidence), ""]
     if not in_prompt:
-        # The server enforces the shape (#194); the last line still says JSON and nothing else.
+        # The server carries the schema; retain the JSON-only closing instruction.
         return "\n".join([*parts, instruction, "", _CLOSING_ENFORCED])
     parts += [instruction, "", _SCHEMA_INTRO, json.dumps(schema, indent=2, sort_keys=True)]
     return "\n".join(parts)
@@ -346,33 +278,21 @@ def _json_in(body: str) -> str | None:
 
 
 def _why_refused(shape: type[BaseModel], failure: ValidationError) -> str:
-    """Which shape violation, not merely that there was one.
-
-    **A refusal that cannot say why it refused is a refusal somebody guesses at.** An overlong
-    field is the one violation with an obvious cause and an obvious fix, so it gets its own
-    code; reading Pydantic's own error types rather than checking a field by name means any
-    capped field in any shape reports itself, not just the one this was written for.
-    """
+    """Return a coded refusal naming safe field locations from a validation failure."""
     too_long = [e for e in failure.errors() if e["type"] == "string_too_long"]
     if too_long:
         fields = ", ".join(".".join(str(part) for part in e["loc"]) for e in too_long)
         return coded("MA0006", f"{fields} was longer than the field allows")
-    # **Where, and never what.** A location is the shape's own field names; the offending input
-    # is the model's text and stays out, so this line is as safe to show as the shape itself.
+    # Report field locations without echoing the model-provided values.
     where = sorted({".".join(str(part) for part in e["loc"]) or "(root)" for e in failure.errors()})
     return coded("MA0004", f"the answer did not match {shape.__name__}: {', '.join(where)}")
 
 
 class LiteLLMTransport:
-    """The real one.
-
-    **Imported lazily** so the package stays importable with no provider configured, which is
-    what lets the no-model lane remain the default rather than a degraded one.
-    """
+    """Live LiteLLM transport, imported lazily when a request is delivered."""
 
     enforces_formats = True
-    """It can hand a reply format to the provider (#194). Whether one is sent is
-    `formats.reply_format_for`'s decision, per provider."""
+    """Indicates support for provider response formats."""
 
     def send(
         self,
@@ -414,12 +334,7 @@ class LiteLLMTransport:
                 coded("MA0003", f"no answer within {access.timeout_seconds}s")
             ) from failure
         except Exception as failure:
-            # **Everything else, rather than the two shapes that were anticipated.** A model
-            # id with no provider prefix raises `BadRequestError`, which escaped as a raw
-            # traceback with LiteLLM's own stderr banner on top of it — found by running the
-            # documented loop by hand, not by any test. A transport boundary that lets a
-            # third-party exception through is a transport boundary that reports somebody
-            # else's error message to our user.
+            # Keep third-party failures behind the package's transport error contract.
             raise ModelUnavailableError(
                 coded("MA0007", f"{access.model}: {failure}")
             ) from failure
@@ -427,13 +342,7 @@ class LiteLLMTransport:
 
 
 def _usage(access: ModelAccess, response: object, started: float) -> Usage:
-    """What the provider said, defensively.
-
-    **Every field is read through `getattr` and every one may be absent.** LiteLLM normalises
-    across a dozen providers and a local endpoint is free to omit the whole `usage` block; an
-    attribute error here would turn a successful answer into a transport failure, which is the
-    worst possible trade for a diagnostic field. `model` falls back to what was asked for.
-    """
+    """Normalize optional provider metadata without failing a successful response."""
     import time
 
     elapsed = int((time.monotonic() - started) * 1000)

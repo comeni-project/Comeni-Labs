@@ -1,4 +1,4 @@
-"""Which reply format a model gets, and what each one sends (#194)."""
+"""Provider reply-format selection and schema transformations."""
 
 import pytest
 from comeni_ai.formats import (
@@ -77,7 +77,7 @@ def test_the_scaffolds_are_not_verified_yet():
     assert OllamaFormat().verified
 
 
-# ── allowed values (spec §6) ──────────────────────────────────────────────────────────────
+# ── allowed values ────────────────────────────────────────────────────────────────────────
 
 class _Item(BaseModel):
     subject: str
@@ -117,7 +117,7 @@ def test_an_unknown_path_raises_rather_than_constraining_nothing():
         with_choices(_schema(), {"nope": ["x"]})
 
 
-# ── nothing offered is nothing allowed (#244) ─────────────────────────────────────────
+# ── empty allowed sets ────────────────────────────────────────────────────────────────────
 
 
 class _Value(BaseModel):

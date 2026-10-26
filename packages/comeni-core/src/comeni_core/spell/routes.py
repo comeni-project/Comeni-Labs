@@ -1,11 +1,4 @@
-"""Where a resolved value can land in the generated Nextflow.
-
-Three **emission sites**, because those are the three places the compiler writes into. An
-earlier draft of the spec claimed three values were exhaustive over *Nextflow's* destinations,
-which is false: `task.ext.prefix` appears in 8 of the 10 vendored modules and `task.ext.when` in
-all 10. The `ext` scope is a keyspace, not a destination. A claim about our own emitter is
-checkable; a claim about Nextflow's surface was a guess, and it was wrong.
-"""
+"""Closed routes from resolved values to generated Nextflow emission sites."""
 
 from enum import StrEnum
 
@@ -22,19 +15,18 @@ class Via(StrEnum):
     POSITIONAL = "positional"
     """A bare `val` in the module's input block — a value with **no name** at the call site.
 
-    The fourth destination, and the one the closed set was missing. Three of the ten vendored
-    modules take one, and each is a real analysis decision: `star_ignore_sjdbgtf` turns off
-    GTF-guided alignment, `index_format` picks BAI or CSI, `save_unaligned` decides whether
-    unmapped reads survive. None could be routed, so all three lived as contract constants —
-    outside the tier ladder, with no reason, in no review queue.
-
-    Routing one the only way the design previously allowed produced **one call carrying two
-    values of the same name, disagreeing**: the documented, human-answered one in `meta` where
-    the module never looks, and the one it actually reads sitting untouched at the end of the
-    call. `pipeline.yml` said the GTF was being ignored; the pipeline used it. Audit A91.
-
-    Which slot it fills is declared on `NfInput`, not here — see `NfInput.param`.
+    Used by modules whose call has an unnamed scalar slot. The slot is declared by
+    `NfInput.param`; this enum identifies only the emission route.
     """
+
+
+OMITTABLE: frozenset[Via] = frozenset({Via.EXT, Via.DIRECTIVE})
+"""Routes on which an unanswered setting is optional and the tool default applies.
+
+`POSITIONAL` is not here because an empty call slot reads `null` and Nextflow fails at launch.
+Nor is `META`, although the emitter omits it too: a module reading `meta.<name>` gets `null`, and
+what it does then is the module's business, not a default anyone documented.
+"""
 
 
 class ExtKey(StrEnum):
@@ -72,13 +64,8 @@ class Join(StrEnum):
 
     Closed for the same reason `Via` is: each member needs its own line in the emitter.
 
-    **There is no default, and that absence is the finding.** `emit` combined
-    unconditionally, which is correct only while the second channel carries one thing every
-    sample is paired against — true of the shipped spine, where the second port is a single
-    GTF, and false of BAM + BAI, tumour + matched normal, or reads plus a per-sample adapter
-    file. `.combine()` is a Cartesian product: two samples in gave four processes, half of
-    them pairing one sample's data with another's, and Nextflow exited 0. `--gate test` is
-    structurally blind to it because the nf-core test dataset has one sample. Audit A92.
+    There is no default because broadcast and per-sample pairing have different cardinality.
+    `.combine()` is a Cartesian product, while `.join()` pairs matching sample metadata.
     """
 
     BROADCAST = "broadcast"

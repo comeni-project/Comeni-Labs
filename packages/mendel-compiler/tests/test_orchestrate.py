@@ -1,13 +1,4 @@
-"""The build path, callable without argparse.
-
-**This is the prerequisite three plans named and none built.** `resolve_verbs.run` takes a
-`Namespace` and writes files, so `mendel-api` could not call it — which is why 3C came last.
-
-The test that matters is not that the function exists. It is that **it produces byte-identical
-output to the CLI**, because a seam that quietly changes the artifact is worse than no seam.
-Moving orchestration is exactly the change `make check` waves through: nothing outside
-`test_counts.py` runs a tool, so a lost flag is invisible to every other test here.
-"""
+"""In-memory build orchestration and byte-equivalence with the CLI path."""
 
 import subprocess
 import sys

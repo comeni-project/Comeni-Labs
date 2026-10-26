@@ -198,9 +198,8 @@ def test_the_api_and_the_worker_share_one_image(base):
 
 
 def test_the_registry_and_the_vendored_modules_reach_the_api(base):
-    """**The one worth having.** `settings.registry_root` is read by the queue, the contracts
-    list, the drift report and the source catalogue. A container that cannot see it answers 500
-    on every screen, and nothing else here would notice.
+    """**The one worth having.** `settings.registry_root` is read by every build. A container
+    that cannot see it answers 500 on every screen, and nothing else here would notice.
 
     **One mount since Plan 5A, where there were two.** `MENDEL_SOURCE_ROOT: /app/vendor` was a
     second bind of a second directory holding the code the first one's contracts describe — on
@@ -501,13 +500,11 @@ def test_no_credential_is_written_into_the_compose_file(base):
 
 
 def test_the_token_reaches_every_service_that_reads_an_upstream(base):
-    """**`worker` is the one that spends it**, and the one nobody would think to check.
+    """**Every Mendel service gets it**, so whichever one the forge publishes from has it.
 
-    `sync_forge_sources` walks a catalogue and `scaffold_forge_adaptation` fetches one tool's
-    files; both are on `WorkerSettings.functions`, so both run in the default worker rather
-    than in the API or the AI worker. Anonymous GitHub allows sixty requests an hour against a
-    sync costing about two thousand, and the symptom of a missing token is not an error — it
-    is a catalogue that never finishes, which reads as a slow upstream.
+    The forge opens pull requests and publishes releases on the registry
+    (`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`). A missing token is not an error
+    at startup; it is publishing that says it is unavailable.
     """
     for service in ("api", "mendel-worker", "ai-worker"):
         environment = env_of(base["services"][service])

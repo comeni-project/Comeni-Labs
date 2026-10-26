@@ -26,15 +26,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add an idempotent declaration header inferred from a fixture's parent directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
@@ -120,14 +112,7 @@ def test_a_digest_is_stable_across_hash_seeds():
 
 
 def test_a_vocabulary_digest_is_stable_across_hash_seeds():
-    """The frozensets in `Vocabulary.types` are dict *values*, not fields of their own.
-
-    Every other frozenset in the codebase had a sorting serialiser; these did not, because
-    nothing had ever serialised a `Vocabulary`. `digest_of` is the first thing that does,
-    and federation §4.1 has the lockfile pinning the vocabulary — so without this the same
-    vocabulary digested three ways under three seeds and every lockfile would have been
-    spuriously dirty, while looking perfectly stable inside any one process.
-    """
+    """Nested frozenset values must serialize consistently across process hash seeds."""
     outputs = set()
     for seed in ("1", "7", "99999"):
         result = subprocess.run(
@@ -192,21 +177,7 @@ def test_a_missing_directory_digests_to_the_empty_digest(tmp_path):
 
 
 def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
-    """A forgeable digest is not a digest.
-
-    The first version joined `f"{name}:{content_hash}"` with newlines, so a filename
-    containing a colon and a newline could impersonate a second entry: one file named
-    `a.yml:<sha of "alpha">\nb.yml` holding "beta" digested identically to a two-file layer
-    holding a.yml/"alpha" and b.yml/"beta". Layers are something strangers distribute and a
-    lockfile pins them by digest, so this is the whole guarantee.
-
-    **The forgery is built by calling the code, not by restating it.** It used to spell out
-    the old format by hand, so reverting the fix left it passing — twelve passed against the
-    defect it exists to catch, which is A21. The first rewrite called `entry_hash` and still
-    computed the content half as a bare `sha256(b"alpha")`, omitting `_FILE`, and passed
-    against the revert a second time. Both halves have to come from the code, or the test is
-    guarding a computation the code does not perform.
-    """
+    """A newline-bearing filename cannot impersonate two fixed-width digest entries."""
     honest, forged = tmp_path / "honest", tmp_path / "forged"
     (honest / "contracts").mkdir(parents=True)
     (forged / "contracts").mkdir(parents=True)
@@ -223,9 +194,7 @@ def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
 
 
 def test_the_streaming_and_in_memory_content_hashes_agree(tmp_path):
-    """Two spellings of one hash is how the forgery test came to guard a computation the
-    code does not perform. If these ever disagree, `content_hash` is a lie and every
-    forgery built through it is testing nothing."""
+    """The public in-memory helper matches the directory digester's streaming calculation."""
     (tmp_path / "contracts").mkdir()
     (tmp_path / "contracts" / "a.yml").write_text(
         "alpha"
@@ -237,24 +206,7 @@ def test_the_streaming_and_in_memory_content_hashes_agree(tmp_path):
 
 
 def test_a_layer_may_not_contain_a_symlink(tmp_path):
-    """A layer with a link in it is refused rather than hashed. Audit 2026-08-06, A9.
-
-    Three tests used to live here, and all three asserted a design that was wrong. They
-    checked that a link was hashed as its *target path* and never followed — reasoning
-    that following one would make the digest depend on bytes outside the layer, so the
-    same directory would digest differently on two machines. That reasoning is sound and
-    the conclusion did not follow, because `Registry.load` opens the same path with
-    `read_text()`, which *does* follow it. The bytes routed on were not the bytes pinned.
-
-    The third of those tests came closest and still missed: it asserted that repointing a
-    link changes the digest, "otherwise every symlink would be invisible to the digest" —
-    the right worry, checked against the target's *path* and never against the target's
-    *contents*. Rewriting the target's contents rerouted a whole pipeline to `priority: 999`
-    with a byte-identical layer digest and zero drift.
-
-    So the file-versus-symlink domain separation those tests also covered is gone with the
-    branch it protected. `_FILE` stays; there is no longer a second kind to be confused with.
-    """
+    """A link is refused because the loader would consume target bytes outside the layer."""
     layer = tmp_path / "layer"
     (layer / "contracts").mkdir(parents=True)
     outside = tmp_path / "outside.yml"
@@ -266,12 +218,7 @@ def test_a_layer_may_not_contain_a_symlink(tmp_path):
 
 
 def test_a_symlinked_directory_is_refused_too(tmp_path):
-    """Never exploitable — `rglob` does not descend into one — but refused anyway.
-
-    "The layer contains a link" is a simpler rule to state, and to check, than "the layer
-    contains a link to a file". A rule with an exception is a rule someone will find the
-    exception in.
-    """
+    """The no-symlinks rule applies consistently to directories and files."""
     layer = tmp_path / "layer"
     layer.mkdir()
     elsewhere = tmp_path / "elsewhere"
@@ -294,22 +241,7 @@ def _layer(root: pathlib.Path) -> pathlib.Path:
 
 
 def test_a_layer_digests_what_it_declares_and_not_what_git_leaves_beside_it(tmp_path):
-    """A submodule's `.git` file holds a machine-specific path, and it is not layer data.
-
-    `registry/` became a git submodule in issue #46, which put three entries beside the
-    declared kinds: `LICENSE`, `README.md` and a `.git` *file* reading
-    `gitdir: ../../../.git/worktrees/<name>/modules/registry`. That path contains the
-    worktree's name and the checkout's location, so an `rglob("*")` digest made the layer
-    digest **machine-dependent** — two clones of the same pinned commit pinned different
-    digests, and `pipeline.yml` recorded whichever machine built it.
-
-    The remedy is an allowlist rather than a list of things to skip: a layer's digest covers
-    the `DeclaredKind` directories and `registry.yml`, which is exactly what invariant 11
-    says a layer *is*. A blocklist would have to name `.git`, then `.github`, then whatever
-    the next layer repository happens to carry — the same reasoning that made
-    `test_egress.py` an allowlist after `object`, `Path` and `Any` each arrived one audit
-    apart.
-    """
+    """Repository metadata beside declarations does not make a layer machine-dependent."""
     bare = _layer(tmp_path / "bare")
     dressed = _layer(tmp_path / "dressed")
     (dressed / ".git").write_text(
@@ -328,20 +260,7 @@ def test_a_layer_digests_what_it_declares_and_not_what_git_leaves_beside_it(tmp_
 
 
 def test_the_layer_digest_covers_a_tool_s_own_source(tmp_path):
-    """Plan 5A §9.1. A layer carries executable code now, and the digest has to cover it.
-
-    A `pipeline.yml` pins the layers it was built from by digest. Until Plan 5A a layer held
-    only declarations, so hashing every `.yml` in it *was* hashing the layer. It now holds
-    `module/` — `main.nf`, and whatever else upstream ships beside it — and a digest that
-    covers a module's `meta.yml` while ignoring its `main.nf` is **partial coverage, which is
-    worse than none**: it reads as a guarantee, so re-vendoring a module at a different commit
-    would leave the pinned digest untouched while the emitted pipeline changed behaviour, with
-    its provenance apparently intact.
-
-    Watched failing against its own defect: with `_in_source` removed from `_declared` the
-    two digests below are equal, and every other digest test still passes — which is exactly
-    what "the guard is blind to the thing it exists to cover" looks like.
-    """
+    """Vendored executable module sources are part of the pinned layer content."""
     one = _layer(tmp_path / "one")
     two = _layer(tmp_path / "two")
     for layer in (one, two):
@@ -361,13 +280,7 @@ def test_the_layer_digest_covers_a_tool_s_own_source(tmp_path):
 
 
 def test_the_module_clause_is_by_directory_and_not_by_extension(tmp_path):
-    """The tempting fix is `_DECLARED_SUFFIXES += (".nf",)`, and it is the blocklist mistake.
-
-    nf-core modules already ship `.py`, `.sh` and `.R` helpers beside `main.nf`, and a
-    laboratory's own process may ship anything at all. An extension allowlist covers today's
-    corpus and silently misses the next one — with no error, because a file the digest does
-    not know about is simply not hashed.
-    """
+    """Every file under a module source directory is covered, regardless of extension."""
     one = _layer(tmp_path / "one")
     two = _layer(tmp_path / "two")
     for layer in (one, two):
@@ -385,17 +298,7 @@ def test_the_module_clause_is_by_directory_and_not_by_extension(tmp_path):
 
 
 def test_a_dotfile_inside_a_module_is_the_module_s_and_is_covered(tmp_path):
-    """**Found by running `comeni-vendor add`, not by reading the code.**
-
-    nf-core ships `.conda-lock/linux_amd64-….txt` inside a module: the pinned environment,
-    which decides which build of the tool actually runs. The dot rule above it was written for
-    `.git` and `.github` at a *layer root* — repository metadata — and applying it inside
-    `module/` would have left the layer digest blind to precisely the file that pins the
-    software version, while `main.nf` beside it was covered. Partial coverage again, and this
-    time the uncovered half is the one that changes results.
-
-    So `_in_source` is checked **before** the dot rule, and this is what holds that order.
-    """
+    """Dotfiles inside a module, including environment locks, remain part of its content."""
     one = _layer(tmp_path / "one")
     two = _layer(tmp_path / "two")
     for layer in (one, two):
@@ -432,21 +335,7 @@ def test_the_allowlist_did_not_make_the_digest_constant(tmp_path):
 
 
 def test_the_file_tag_separates_entry_kinds():
-    """`_FILE` is a domain separator, and A36 is that nothing could observe it working.
-
-    Setting it to `b""` and running the whole suite passed — 436 tests — because there is
-    exactly one entry kind, and a separator between one thing and nothing separates nothing.
-    Its sibling `_LINK` went with the symlink branch A9 removed.
-
-    **Deleting it was the audit's option 1 and is no longer free.** `comeni-registry` is
-    published and tagged `v0.2.0`, and a layer digest is what a `pipeline.yml` pins — dropping
-    the tag would move every layer digest in every existing artifact. So the tag stays and its
-    claim is made checkable instead, which is the only one of the audit's three options that
-    turns *"this line cannot be wrong"* into *"this line is tested"*.
-
-    The second entry kind is invented **here** rather than in the code. Adding one to
-    `digest.py` to justify the separator would be building a feature to test a byte.
-    """
+    """The persisted file prefix distinguishes identical bytes under another entry kind."""
     from comeni_core.artifact import digest as module
 
     payload = b"alpha"
@@ -457,7 +346,7 @@ def test_the_file_tag_separates_entry_kinds():
         "`_FILE` does not separate entry kinds: a second kind over the same bytes collides "
         "with a file, which is the whole thing the tag exists to prevent"
     )
-    assert module._FILE != b"", "the tag is empty, so it separates nothing (A36)"
+    assert module._FILE != b"", "the tag is empty, so it separates nothing"
     assert as_file == hashlib.sha256(module._FILE + payload).hexdigest(), (
         "`content_hash` no longer applies the tag it is supposed to apply"
     )

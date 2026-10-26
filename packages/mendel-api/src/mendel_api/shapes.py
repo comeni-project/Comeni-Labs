@@ -35,8 +35,6 @@ def _shapes() -> tuple[Shape, ...]:
     from comeni_core.plan.draft import DraftGraph
     from comeni_core.spell.marks import ParamValue
     from mendel_authoring.payloads import DecisionChange
-    from mendel_forge.ai.schemas import Citation
-    from mendel_forge.catalogue import CatalogueItem
 
     from mendel_api.authoring.canvas import AlternativePreview
     from mendel_api.authoring.types import AskedGap, Block
@@ -45,14 +43,6 @@ def _shapes() -> tuple[Shape, ...]:
     loose = dict[str, JsonValue]
     return (
         Shape("ai_invocation", "input_digests", dict[str, str]),
-        Shape("forge_catalogue_item", "metadata", CatalogueItem),
-        Shape("forge_message", "citations", list[Citation]),
-        Shape("forge_revision", "manifest", loose),
-        Shape("forge_revision", "validation", loose),
-        Shape("forge_revision", "prompt_versions", dict[str, str]),
-        Shape("forge_source_snapshot", "counts", loose),
-        Shape("forge_source_snapshot", "filters", list[loose]),
-        Shape("forge_source_snapshot", "warnings", list[loose]),
         Shape("installation_setting", "value", JsonValue),
         Shape("pipeline_authoring_proposal", "payload", loose),
         Shape("pipeline_authoring_proposal", "preview_views", dict[str, AlternativePreview] | None),
@@ -62,6 +52,7 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("pipeline_decision_migration", "snapshot", Snapshot),
         Shape("pipeline_draft", "graph", DraftGraph),
         Shape("pipeline_draft", "provenance", loose),
+        Shape("pipeline_exclusion_revision", "states", list[str]),
         Shape("pipeline_input_revision", "states", list[str]),
         Shape("pipeline_observation", "value", ParamValue | list[ParamValue] | None),
         Shape("pipeline_observation", "pieces", list[str]),

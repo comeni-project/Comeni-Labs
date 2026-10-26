@@ -43,11 +43,10 @@ the prompt would put the prompt somewhere that exclusion was never meant to reac
 def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
     """Start a conversation about a draft, or refuse if one is already open.
 
-    **One session per draft**, which the unique index enforces and this refuses first — the same
-    two-mechanism arrangement `forge_state.begin` uses, so a person reads a sentence rather than
-    a constraint violation.
+    **One session per draft**, which the unique index enforces and this refuses first, so a
+    person reads a sentence rather than a constraint violation.
     """
-    if start not in ("say", "fork_correction"):
+    if start not in ("say", "draw"):
         raise ValueError("unsupported initial authoring node")
     with session_scope() as session:
         if session.get(PipelineDraft, draft_id) is None:
@@ -64,16 +63,17 @@ def open_session(draft_id: str, *, who: str, start: str = "say") -> str:
                 + f"\n  it is {existing.id}, in phase {existing.phase}"
             )
 
-        session.get(PipelineDraft, draft_id).ownership = "authored"
         session_id = new_id()
         now = _now()
         session.add(
             PipelineAuthoringSession(
                 id=session_id,
                 draft_id=draft_id,
-                phase=(Phase.CORRECTING if start == "fork_correction"
-                       else Phase.UNDERSTANDING).value,
-                at=start,
+                # **Drawn by hand** (#395): nothing to understand or walk, so the conversation
+                # rests where a built pipeline does, at the wrap-up, where every change and
+                # correction already starts.
+                phase=(Phase.COMPLETE if start == "draw" else Phase.UNDERSTANDING).value,
+                at="wrap" if start == "draw" else start,
                 failed_from=None,
                 blueprint={},
                 registry_digest="",
@@ -323,6 +323,36 @@ def _spoken(turn: PipelineAuthoringTurn) -> str:
 @records(c.OpenSession)
 def _open(ctx: Ctx, cmd: c.OpenSession) -> str:
     ctx.session_id = open_session(cmd.draft_id, who=cmd.who)
+    return ctx.session_id
+
+
+def session_of(draft_id: str) -> str | None:
+    with session_scope() as db:
+        return db.scalar(select(PipelineAuthoringSession.id).where(
+            PipelineAuthoringSession.draft_id == draft_id))
+
+
+@records(c.OpenDrawn)
+def _open_drawn(ctx: Ctx, cmd: c.OpenDrawn) -> str:
+    """The draft's conversation, or a new one with nothing said, where what was drawn is read
+    back whole (`intent.read_graph`) and offered for the person to confirm, as any hand edit is.
+
+    **Not confirmed as a goal** (#399): a drawing says what is wanted and by which tool, not what
+    the person has. Its first confirmed reading goes through gathering, which asks the inputs
+    the plan needs — the questions talking asks — then the goal card and the walk."""
+    from mendel_authoring.intent import read_graph
+
+    from mendel_api.services import registry, suggestions
+
+    existing = session_of(cmd.draft_id)
+    if existing is not None:
+        return existing
+    ctx.session_id = open_session(cmd.draft_id, who=cmd.who, start="draw")
+    with session_scope() as db:
+        graph = DraftGraph.model_validate(db.get(PipelineDraft, cmd.draft_id).graph or {})
+    readings = read_graph(graph, registry.stack().registry)
+    if readings:
+        suggestions.offer_edit(ctx.session_id, readings)
     return ctx.session_id
 
 

@@ -1,23 +1,8 @@
-"""The command line: what a verb is called, and what a refusal says.
+"""Dispatch ``mendel`` commands and translate domain refusals into CLI results.
 
-`mendel build` — goal in, pipeline directory out; `mendel profile` — measure first.
-
-A package rather than a module since issue #41 — `cli.py` was 851 lines. The split is by
-**what a verb does to a pipeline**, not by verb name:
-
-| module | verbs | loads |
-|---|---|---|
-| here | `explain`, and dispatch | nothing |
-| `artifact_verbs` | `emit`, `publish` | a `pipeline.yml` |
-| `resolve_verbs` | `build`, `upgrade`, `profile` | a registry, and resolves |
-| `parse` | — | — |
-| `report` | — | — |
-
-Three verbs share the entire resolution path, so a module each would copy it three times.
-
-**`cli.py` is the only thing that touches disk.** Everything else takes objects and returns
-objects, which is what makes the golden-file tests possible at all: a stage you can only
-exercise through the filesystem is a stage whose output you compare by hand.
+Layer verbs inspect registries, artifact verbs operate on an existing ``pipeline.yml``, and
+resolution verbs share the build/upgrade/profile flow. Parsing and report rendering remain
+separate so dispatch controls which resources each command is allowed to load.
 """
 
 import re
@@ -118,9 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         # `KeyError.__str__` is `repr()` of its argument — so the carefully formatted refusal,
         # which names every declared measurement on its own line and tells you where to put a
         # new one, reached the user as a single quoted line with a literal `\n` in it. It had
-        # been that way since the message was written; nothing caught it because no test asserts
-        # on the rendered text and `docs/guides/measuring-your-data.md` showed the intended
-        # output rather than the real one. Found by running what that guide tells you to run.
+        # been that way since the message was written; nothing caught it because no test asserted
+        # on the rendered text. The user-facing message must preserve its newlines here.
         print(_with_pointer(f"mendel: this goal's profile is not valid — {exc.args[0]}"),
               file=sys.stderr)
     except KeyError as exc:

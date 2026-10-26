@@ -7,7 +7,7 @@
 # Check changes: make test-db, then make check. Use make verify for pipeline execution checks.
 # Each target below describes a command you can run as `make <name>`.
 
-.PHONY: help registry-present buildx-present names-free prepare database-ready check verify slow guards residue forge-ai-eval links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile forge clean demo-seed demo-fake-run \
+.PHONY: help registry-present buildx-present names-free prepare database-ready check verify slow guards residue links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -83,11 +83,6 @@ guards:  ## check package boundaries, model-request fields, and measurement vali
 residue:  ## report tests not yet recorded catching a bad change; ARGS=--list for details
 	@uv run python tools/guard_residue.py $(ARGS)
 
-# Inspect the examples and expected answers used to evaluate tool adaptation.
-# This builds the evaluation data; it does not call a model or measure model performance.
-forge-ai-eval:  ## build the Forge evaluation corpus and check answer keys; ARGS=--json for JSON
-	@uv run python tools/forge_ai_eval.py $(ARGS)
-
 # Point tests at the isolated server; unavailable database cases may skip unless required by CI.
 test:  ## run tests against the isolated database prepared by test-db
 	MENDEL_TEST_DATABASE_URL=$(TEST_MENDEL_URL) WIENER_TEST_DATABASE_URL=$(TEST_WIENER_URL) uv run pytest -v
@@ -114,11 +109,6 @@ fmt:  ## format Python files in place with Ruff
 # Check the generated measurement type hints used by editors against registry declarations.
 types:  ## check that generated measurement type stubs are current
 	uv run python tools/generate_types.py --check
-
-# Find explicit reminders left for the deferred Forge work; this is a search, not a test.
-forge-rework:  ## list remaining FORGE-REWORK markers
-	@grep -rn FORGE-REWORK packages/ frontend/src/ docs/notes/ 2>/dev/null \
-	  | grep -v Binary || echo "nothing marked"
 
 # -----------------------------------------------------------------------------
 # 3. Documentation
@@ -181,15 +171,6 @@ profile:  ## emit an input-profiling pipeline into profile-build/
 
 clean:  ## remove build outputs and Python test/lint caches
 	rm -rf build/ profile-build/ dist/ .pytest_cache/ .ruff_cache/
-
-# Recreate .forge-demo and demonstrate drafting a tool.
-# Verification can refuse an incomplete draft; ignore that exit status for this demo.
-forge:  ## recreate .forge-demo, draft an nf-core tool, and show verification findings
-	@rm -rf .forge-demo
-	uv run forge draft nf-core:samtools/sort --name sort --version 1.21.0 \
-	  --workspace .forge-demo
-	@echo
-	uv run forge verify sort --workspace .forge-demo || true
 
 # -----------------------------------------------------------------------------
 # 5. API clients, migrations, and telemetry

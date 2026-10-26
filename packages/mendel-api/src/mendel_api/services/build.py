@@ -20,7 +20,10 @@ from typing import Literal
 
 from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
+from comeni_core.plan.tiers import PremiseOrigin
+from comeni_core.spell.routes import OMITTABLE
 from mendel_compiler import layout, orchestrate, pipeline_file
 from mendel_resolver.goal import Goal
 from mendel_resolver.materialise import goal_of, ir_of
@@ -69,6 +72,21 @@ class Placement(BaseModel):
     wires: list[PlacedWire]
     width: int
     height: int
+
+
+Evidence = Literal["measured", "read_by_ai", "not_measured"]
+
+
+def evidence_of(premise: list[PremiseRecord]) -> Evidence | None:
+    """The weakest fact a decision rested on decides what it may be called (#397)."""
+    if not premise:
+        return None
+    origins = {record.origin for record in premise}
+    if origins == {PremiseOrigin.MEASURED}:
+        return "measured"
+    if origins <= {PremiseOrigin.MEASURED, PremiseOrigin.MODEL_READ}:
+        return "read_by_ai"
+    return "not_measured"
 
 
 class DomainView(BaseModel):
@@ -132,6 +150,13 @@ class SettingView(BaseModel):
     matched on, so there was nothing to check. Empty for tiers 1, 2 and 4, which rest on no
     measurement.
     """
+    optional: bool = False
+    """Whether leaving this setting unanswered leaves the tool its own behaviour (`OMITTABLE`).
+    An optional open value stays tier 4 and flagged, but does not stop a run (#384)."""
+    evidence: Evidence | None = None
+    """How good the facts a rule read were (#397), from `premise`'s records: *measured* only when
+    every one was measured. `None` when no rule read anything. The interface counts and names a
+    tier-3 value by this, never by its tier: tier 3's premise may be typed (#268)."""
 
 
 class PortView(BaseModel):
@@ -359,6 +384,8 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                     domain=_domain(layers, step.module.contract_id, setting.name),
                     because=_because(layers, step.module.contract_id, setting.name),
                     premise=[record.prose() for record in setting.why.premise],
+                    optional=setting.via in OMITTABLE,
+                    evidence=evidence_of(setting.why.premise),
                 )
                 for setting in (step.settings)
             ],

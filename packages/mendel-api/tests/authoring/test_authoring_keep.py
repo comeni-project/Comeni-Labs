@@ -14,7 +14,7 @@ from comeni_core.plan.draft import DraftGraph
 from fastapi.testclient import TestClient
 from mendel_api.db import session_scope
 from mendel_api.main import create_app
-from mendel_api.models import PipelineAuthoringSession
+from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import drafts
 from mendel_api.services import session as facade
 from mendel_api_tests import session_setup as authoring_setup
@@ -36,8 +36,7 @@ def clean(monkeypatch, tmp_path):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(drafts, "_output_root", lambda: tmp_path / "kept")
     tables = (
-        "forge_message, forge_event, forge_revision, forge_adaptation, forge_catalogue_item, "
-        "forge_source_snapshot, ai_invocation, pipeline_authoring_proposal, "
+        "ai_invocation, pipeline_authoring_proposal, "
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:
@@ -123,11 +122,11 @@ def test_an_illegal_partial_graph_previews_its_findings_and_not_fake_yaml(clean)
             "to_port": "fasta",
         }
     )
-    facade.perform(
-        commands.RecordEdit(
-            session_id, DraftGraph.model_validate(graph).model_dump(mode="json"), "ana"
-        )
-    )
+    # Written as a stored row: a hand edit no longer saves a graph (#395), and the preview of
+    # whatever the draft holds is what this checks.
+    with session_scope() as db:
+        db.get(PipelineDraft, draft_id).graph = DraftGraph.model_validate(graph).model_dump(
+            mode="json")
 
     shown = TestClient(create_app()).get(f"/api/pipeline/authoring/{session_id}/preview").json()
     assert shown["state"] == "illegal"

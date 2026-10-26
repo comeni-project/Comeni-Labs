@@ -1,9 +1,4 @@
-"""What a pipeline was built against, pinned by content — and how it notices drift.
-
-Federation §4.1. Two hard rules are tested rather than asserted in prose: a lockfile holds
-no filesystem path, and it holds no timestamp. Both are easy to satisfy on the day and easy
-to break later, which is what makes them tests.
-"""
+"""Content pinning, deterministic lockfiles, repository locators, and drift reporting."""
 
 import pathlib
 
@@ -25,15 +20,7 @@ _KIND_OF_DIR = {
 
 
 def _declared(path, body: str) -> str:
-    """Prepend what a fixture's file declares, derived from the directory it is written into.
-
-    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
-    directory. These fixtures still *write* into kind-named directories, which is now only a
-    habit — and the habit is what tells this helper which line to add, so the fixtures keep
-    their shape and their subject stays readable.
-
-    Idempotent, because several fixtures write a file twice to check that something changed.
-    """
+    """Add an idempotent declaration header inferred from a fixture's parent directory."""
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
     # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
@@ -54,10 +41,7 @@ def _declared(path, body: str) -> str:
 def built():
     loaded = layers.load(ROOT / "registry")
     goal = Goal(
-        # `genome.fasta` is not optional: Plan 1.5 made the reference a declared type
-        # precisely because the aligner index builders were being handed an empty tuple
-        # where a genome belongs. Without it here the spine is unroutable, which is the
-        # correct behaviour and the reason the plan's own fixture no longer worked.
+        # The reference is a required declared input for the alignment path.
         have=[
             GoalInput(type_id="fastq.reads"),
             GoalInput(type_id="annotation.gtf"),
@@ -103,11 +87,7 @@ def test_a_lockfile_records_the_container(built):
 
 
 def test_a_lockfile_holds_no_filesystem_path(built):
-    """A path is meaningless on another machine, and invariant 15 keeps them out.
-
-    Layers are identified by name and digest. `Lockfile.of` is handed absolute paths and
-    must reduce them to basenames before anything is stored.
-    """
+    """Absolute build-machine paths are reduced to portable layer identities."""
     ir, loaded = built
     text = Lockfile.of(ir, loaded.registry, loaded.paths).model_dump_json()
     assert "/home" not in text and str(ROOT) not in text
@@ -166,6 +146,17 @@ def test_a_missing_contract_is_reported_as_drift(built, tmp_path):
     assert any("no longer in the registry" in line for line in drift)
 
 
+def test_a_newly_used_contract_is_reported_as_drift(built):
+    ir, loaded = built
+    lock = Lockfile.of(ir, loaded.registry, loaded.paths)
+    omitted = lock.contracts[0]
+    incomplete = lock.model_copy(update={"contracts": lock.contracts[1:]})
+
+    assert f"{omitted.id} is used now but was not locked" in incomplete.drift_against(
+        ir, loaded.registry, loaded.paths
+    )
+
+
 def _empty_layer(path):
     for name in ("contracts", "rules", "vocabularies", "measurements"):
         (path / name).mkdir(parents=True)
@@ -173,12 +164,7 @@ def _empty_layer(path):
 
 
 def test_reordering_the_layer_stack_is_drift(built, tmp_path):
-    """A registry is a stack and its order is semantic.
-
-    Invariant 11: a higher layer shadows every lower-layer contract for a module key. So
-    inverting the stack can change which contract wins while every layer digest stays
-    identical. Comparing layers as a name-keyed mapping reported no drift at all for this.
-    """
+    """Layer precedence is semantic, so reordering identical layers is drift."""
     import shutil
 
     ir, _ = built
@@ -195,16 +181,7 @@ def test_reordering_the_layer_stack_is_drift(built, tmp_path):
 
 
 def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
-    """Two layers can still share a name, so the comparison stays positional.
-
-    Written for the day-one case: Task 8 named the public layer `registry/`, so a
-    laboratory stacking it over their own `registry/` got two entries with one name. Audit
-    A12 removed *that* collision — the public layer declares `comeni-registry-examples` in
-    its manifest and a hand-made overlay falls back to its basename, so the two no longer
-    match. It did not remove the class. Two manifest-less overlays with the same basename
-    collide exactly as before, and so would two layers declaring the same name, which is
-    what this now builds.
-    """
+    """Equal layer names retain distinct positional identities and digest comparisons."""
     import shutil
 
     ir, _ = built
@@ -222,22 +199,8 @@ def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
     assert [layer.name for layer in lock.layers] == ["lab", "lab"]
     assert lock.layers[0].digest != lock.layers[1].digest, "distinct layers, distinct digests"
 
-    # **Each layer separately, and exactly one line each.** Both halves are load-bearing
-    # and neither is enough alone — established by reverting `drift_against` to two
-    # different wrong implementations and watching which tests noticed:
-    #
-    #   fully name-keyed ({name: digest} both sides)  — caught only by changing the FIRST
-    #     layer. The mapping is last-wins, so the pinned and current entries both collapse
-    #     to the second layer, which did not change, and no drift is reported at all.
-    #   positional names, name-keyed digests          — caught only by changing the SECOND
-    #     layer. Both current layers are compared against one pinned digest, so the
-    #     unchanged first layer reports a spurious line beside the real one.
-    #
-    # Until 2026-08-06 this changed the first layer and asserted merely that *some* line
-    # mentioned the layer. That passed against both wrong implementations, because both do
-    # report drift here — just for the wrong reason, or one time too many. A guard that
-    # cannot fail is not a guard; it took reverting the code to find that out.
-    # Only the first layer.
+    # Change each position independently: name-keyed comparison would collapse one or report
+    # the unchanged neighbor as drift.
     (first / "rules" / "extra.yml").write_text(
         _declared(first / "rules" / "extra.yml", "decisions: []\n")
     )
@@ -246,8 +209,7 @@ def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
         "layer lab has changed since it was locked"
     ]
 
-    # Only the second. Changing *both* would report two lines under either implementation
-    # and prove nothing, which is the trap the first attempt at this fell into.
+    # Only the second position changes.
     (first / "rules" / "extra.yml").unlink()
     (second / "rules" / "extra.yml").write_text(
         _declared(second / "rules" / "extra.yml", "decisions: []\n")
@@ -286,7 +248,7 @@ def _changed_layer(tmp_path):
 
 
 def test_a_changed_layer_names_the_commit_it_was_locked_at(built, tmp_path):
-    """Plan B, spec §8.2: upgrade says which commit to check out when the locator is known."""
+    """A known repository commit is included in actionable drift output."""
     ir, loaded = built
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
     commit = "c" * 40
@@ -311,7 +273,7 @@ def test_a_changed_layer_without_a_locator_reads_as_before(built, tmp_path):
 
 
 def test_a_changed_layer_in_a_folder_names_the_folder(built, tmp_path):
-    """Review #4: a layer in a subfolder of its repository is found by its folder too."""
+    """Drift output includes a repository-relative layer folder when known."""
     ir, loaded = built
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
     lock = lock.model_copy(update={"layers": [

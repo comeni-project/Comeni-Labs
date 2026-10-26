@@ -253,18 +253,18 @@ def test_the_two_halves_share_only_comeni_core():
 def test_no_pure_package_imports_an_impure_one():
     """The dependency arrow, asserted rather than assumed.
 
-    `mendel-forge` importing `mendel-resolver` is the design. The reverse would put an
-    impure package inside the purity boundary by transitivity, and the AST scan would
-    not see it — it scans the pure packages' own imports, and `mendel_forge` is not on
-    any banlist because it is not supposed to be reachable at all.
+    `mendel-api` importing `mendel-resolver` is the design. The reverse would put an impure
+    package inside the purity boundary by transitivity, and the banlist would not see it: it
+    names third-party libraries, not this workspace's impure packages.
     """
     root = ROOT
+    impure = {name.replace("-", "_") for name in IMPURE_PACKAGES}
     offenders = []
     for pkg in [*CLOSED_PACKAGES, *BANLIST_PACKAGES]:
         for path in sorted((root / "packages" / pkg / "src").rglob("*.py")):
-            if "mendel_forge" in path.read_text():
-                offenders.append(str(path.relative_to(root)))
+            for crossed in sorted(_imported_roots(path) & impure):
+                offenders.append(f"{path.relative_to(root)} imports {crossed}")
     assert offenders == [], (
-        "a pure package references mendel_forge; the dependency arrow points the other "
-        f"way: {offenders}"
+        "a pure package imports an impure one; the dependency arrow points the other way:\n  "
+        + "\n  ".join(offenders)
     )

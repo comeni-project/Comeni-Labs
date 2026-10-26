@@ -24,11 +24,13 @@ import { ABSENT, seconds, shortBytes } from "./units";
  * anywhere on these boards`. A zero here is a measurement; absence is `—` and a sentence.
  */
 
-const PANEL = "bg-panel border border-line rounded-[var(--r)] shadow-e1 px-4 pt-3 pb-3.5 " +
+const PANEL = "bg-surface border border-line rounded-panel shadow-e1 px-4 pt-3 pb-3.5 " +
   "flex flex-col";
-const LABEL = "text-label uppercase tracking-[.08em] text-ink-3";
+const LABEL = "text-[13px] font-semibold text-ink-2";
 const FIGURE = "font-data text-[29px] leading-none tracking-[-.03em] text-ink";
 const NOTE = "text-label text-ink-3 mt-2 leading-[1.45]";
+/** The words after a figure (*of 6 steps finished*): the interface face, not the data's. */
+const UNIT = "font-ui text-[14px] tracking-normal text-ink-3 whitespace-nowrap";
 
 function Panel({ label, children, note, testid }: {
   label: string; children: React.ReactNode; note: React.ReactNode; testid: string;
@@ -36,7 +38,7 @@ function Panel({ label, children, note, testid }: {
   return (
     <div className={PANEL} data-testid={testid}>
       <div className={LABEL}>{label}</div>
-      <div className="flex items-end justify-between gap-2.5 mt-2.5">{children}</div>
+      <div className="flex flex-wrap items-end justify-between gap-2.5 mt-2.5">{children}</div>
       <div className={NOTE}>{note}</div>
     </div>
   );
@@ -51,7 +53,7 @@ function Progress({ data }: { data?: OverviewData }) {
   const finished = data?.steps_finished ?? 0;
   if (declared === 0) {
     return (
-      <Panel label="progress" testid="panel-progress"
+      <Panel label="Progress" testid="panel-progress"
              note="no artifact to declare them — a bar over a denominator of zero is invented"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
@@ -60,19 +62,19 @@ function Progress({ data }: { data?: OverviewData }) {
   // that is running is its own colour, so *where* the run is reads without the table.
   const cells = (data?.rows ?? []).filter((row) => row.declared);
   return (
-    <Panel label="progress" testid="panel-progress"
+    <Panel label="Progress" testid="panel-progress"
            note={<>Steps, not tasks — the artifact declares {declared}.{" "}
-             <span className="text-[var(--ink-4)]">Nextflow discovers tasks as channels emit, so a task
+             <span className="text-[var(--ink-3)]">Nextflow discovers tasks as channels emit, so a task
              percentage has no denominator.</span></>}>
       <span className={FIGURE}>
-        {finished} <span className="text-[16px] text-ink-3">of {declared}</span>
+        {finished} <span className={UNIT}>of {declared} steps finished</span>
       </span>
       <span className="flex gap-[3px] w-[120px] h-[9px]">
         {cells.map((row) => (
           <span key={row.process} className="flex-1" style={{
-            background: row.tasks > 0 && row.done === row.tasks ? "var(--pea)"
-              : row.running > 0 ? "var(--running)"
-              : row.failed > 0 ? "var(--fault)"
+            background: row.tasks > 0 && row.done === row.tasks ? "var(--done)"
+              : row.running > 0 ? "var(--now)"
+              : row.failed > 0 ? "var(--needs-you)"
               : "var(--surface-2)",
           }} />
         ))}
@@ -86,16 +88,16 @@ function Progress({ data }: { data?: OverviewData }) {
  *  the page and it is not a failure count. */
 function Failures({ failed, retried }: { failed: number; retried: number }) {
   return (
-    <Panel label="failures" testid="panel-failures"
+    <Panel label="Failures" testid="panel-failures"
            note={retried > 0
              ? `${retried} task${retried === 1 ? "" : "s"} retried — a retry is not a failure`
              : "nothing has failed and nothing has retried"}>
-      <span className={FIGURE} style={failed > 0 ? { color: "var(--fault)" } : undefined}>
-        {failed}
+      <span className={FIGURE} style={failed > 0 ? { color: "var(--needs-you-ink)" } : undefined}>
+        {failed} <span className={UNIT}>{failed === 1 ? "task" : "tasks"}</span>
       </span>
       {retried > 0 && (
-        <span className="font-data text-label uppercase tracking-[.1em] px-2 py-[3px]"
-              style={{ color: "var(--measured)", background: "color-mix(in srgb, var(--measured) 12%, transparent)",
+        <span className="text-label px-2 py-[3px] rounded-full"
+              style={{ color: "var(--measured-ink)", background: "var(--measured-soft)",
                        border: "1px solid color-mix(in srgb, var(--measured) 27%, transparent)" }}>
           {retried} retry
         </span>
@@ -134,7 +136,7 @@ function Sparkline({ ends, from, to }: { ends: number[]; from: number; to: numbe
         const h = n === 0 ? 1.5 : Math.max(2, (n / peak) * 26);
         return (
           <rect key={i} x={i * 10.7} y={26 - h} width={9.1} height={h}
-                fill={n === 0 ? "var(--surface-2)" : "var(--pea)"}
+                fill={n === 0 ? "var(--surface-2)" : "var(--done)"}
                 fillOpacity={n === 0 ? 1 : 0.62} />
         );
       })}
@@ -147,22 +149,26 @@ function Moving({ lastMs, now, live, ends, from, to }: {
   ends: number[]; from: number; to: number;
 }) {
   if (!live) {
+    // **How far in it ended**, from the timeline's own span — the board's *stopped 22 min in*.
+    // Without a span there is nothing to measure, and the dash says so.
     return (
-      <Panel label="moving" testid="panel-moving" note="the run has ended"
-      ><span className={FIGURE}>{ABSENT}</span></Panel>
+      <Panel label="Moving" testid="panel-moving" note="the run has ended"
+      >{to > from
+        ? <span className="font-ui text-[29px] leading-none tracking-[-.02em] text-ink">ended <span className={UNIT}>{seconds(to - from)} in</span></span>
+        : <span className={FIGURE}>{ABSENT}</span>}</Panel>
     );
   }
   if (lastMs == null) {
     // **Absent is not zero.** Nothing has completed yet, so *since the last completion* has
     // no value — and drawing `0s` would say the opposite of the truth.
     return (
-      <Panel label="moving" testid="panel-moving"
+      <Panel label="Moving" testid="panel-moving"
              note="nothing has completed yet, so there is no interval to measure"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
   }
   return (
-    <Panel label="moving" testid="panel-moving" note="Since the last completion.">
+    <Panel label="Moving" testid="panel-moving" note="Since the last completion.">
       <span className={FIGURE}>{seconds(Math.max(0, now - lastMs))}</span>
       {ends.length > 0 && <Sparkline ends={ends} from={from} to={to} />}
     </Panel>
@@ -179,7 +185,7 @@ function ResourceFit({ data }: { data?: OverviewData }) {
   );
   if (rows.length === 0) {
     return (
-      <Panel label="resource fit" testid="panel-fit"
+      <Panel label="Resource fit" testid="panel-fit"
              note="no process has reported both what it asked for and what it touched"
       ><span className={FIGURE}>{ABSENT}</span></Panel>
     );
@@ -189,12 +195,12 @@ function ResourceFit({ data }: { data?: OverviewData }) {
       ? a : b);
   const ratio = worst.memory_asked_bytes! / worst.memory_peak_bytes!;
   return (
-    <Panel label="resource fit" testid="panel-fit"
+    <Panel label="Resource fit" testid="panel-fit"
            note={<>{worst.process} asks {shortBytes(worst.memory_asked_bytes)} and peaked at{" "}
              {shortBytes(worst.memory_peak_bytes)}.{" "}
-             <span className="text-[var(--ink-4)]">Worst over-ask of {rows.length} process
+             <span className="text-[var(--ink-3)]">Worst over-ask of {rows.length} process
              {rows.length === 1 ? "" : "es"} that reported.</span></>}>
-      <span className={FIGURE} style={ratio >= 2 ? { color: "var(--measured)" } : undefined}>
+      <span className={FIGURE} style={ratio >= 2 ? { color: "var(--measured-ink)" } : undefined}>
         {ratio.toFixed(1)}×
       </span>
     </Panel>

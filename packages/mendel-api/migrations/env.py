@@ -19,7 +19,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from mendel_api.db import Base
-from mendel_api.models import SourceCheck  # noqa: F401  — imported so Base sees the table
+import mendel_api.models  # noqa: F401  — imported so Base sees the tables
 from mendel_api.settings import settings
 
 target_metadata = Base.metadata

@@ -1,6 +1,6 @@
 """What Wiener wants done, and the fact that it only ever *wants* it.
 
-`decide()` returns typed intents; `wiener-api` performs them. `docs/design/wiener.md` §5.2.
+`decide()` returns typed intents; `wiener-api` performs them.
 """
 
 from wiener_core.policy import IntentKind, Policy, decide

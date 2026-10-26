@@ -22,10 +22,9 @@ ROOT = REPOSITORY_ROOT
 @pytest.fixture
 def clean():
     """Every table these rows touch, in one statement — `test_authoring_building.py`'s list:
-    `forge_message` references `ai_invocation`, and each foreign key here is `RESTRICT`."""
+    the turns reference `ai_invocation`, and each foreign key here is `RESTRICT`."""
     tables = (
-        "forge_message, forge_event, forge_revision, forge_adaptation, forge_catalogue_item, "
-        "forge_source_snapshot, ai_invocation, pipeline_authoring_proposal, "
+        "ai_invocation, pipeline_authoring_proposal, "
         "pipeline_authoring_turn, pipeline_authoring_session, pipeline_draft, gate_run"
     )
     with session_scope() as session:

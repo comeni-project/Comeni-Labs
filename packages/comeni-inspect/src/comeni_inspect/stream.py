@@ -1,4 +1,4 @@
-"""Reading through a codec without trusting it: a cap on what comes out, a cut head ends quietly."""
+"""Bound decoded streams while preserving bytes available from a truncated sample head."""
 
 import gzip
 import io
@@ -6,35 +6,32 @@ import zlib
 
 
 class TooLarge(Exception):
-    """A decompression bomb: the cap reached from an input at least `BOMB_RATIO` times smaller."""
+    """Report cap exhaustion caused by a suspiciously high expansion ratio."""
 
 
 BOMB_RATIO = 100
-"""How much more may come out than went in before reaching the cap means a bomb. FASTQ unpacks
-4-6x; gzip's own limit is about 1000x, which is what a bomb is built to reach."""
+"""Minimum output-to-input ratio that makes cap exhaustion an oversized input."""
 
 
 class SourceFailed(Exception):
-    """The codec's stream failed in a way that is not corruption: the codec's fault, named."""
+    """Report a codec-stream failure that is not recognized data corruption."""
 
 
 class Capped(io.RawIOBase):
-    """Reads through `inner` up to `cap` bytes; a stream cut mid-way ends quietly.
+    """Read at most ``cap`` decoded bytes from ``inner``.
 
-    **A head is always cut.** A 4 MB head of a gzip file ends mid-stream every time, so
-    `EOFError` from the decompressor is the normal end of a head, never an error. Only
-    `zlib.error` and `gzip.BadGzipFile` (corruption) reach the caller.
+    A compressed sample head normally ends before its original stream, so decompressor
+    ``EOFError`` ends the bounded read without discarding available bytes. Recognized corruption
+    errors still reach the caller.
 
-    **Reaching the cap is the end of the head too** (issue 221): an ordinary gzipped FASTQ head
-    unpacks 4-6x, past a 16 MB cap from a 4 MB head, and refusing it refused ordinary files.
-    The cap still bounds what is read, and `capped` says it was reached. Only an input that
-    reached it at `BOMB_RATIO` or more is a bomb, `TooLarge`.
+    Reaching the cap marks ``capped`` and ends an ordinary read. When the known compressed input is
+    at least ``BOMB_RATIO`` times smaller than the cap, reaching it raises ``TooLarge`` instead.
     """
 
     def __init__(self, inner, cap: int, name: str = "the file", given: int | None = None):
         self.inner, self.cap, self.seen, self.name = inner, cap, 0, name
         self.given = given
-        """How many bytes went in, when known; a bomb is judged by the ratio to it."""
+        """Compressed input size, when known, used to assess the expansion ratio."""
         self.capped = False
 
     def readable(self) -> bool:
@@ -65,7 +62,7 @@ class Capped(io.RawIOBase):
 
 
 class Prefixed(io.RawIOBase):
-    """`prefix`, then the rest of `inner`: a window read whole and put back in front."""
+    """Yield a previously read prefix before continuing with the underlying stream."""
 
     def __init__(self, prefix: bytes, inner):
         self.prefix, self.inner = prefix, inner

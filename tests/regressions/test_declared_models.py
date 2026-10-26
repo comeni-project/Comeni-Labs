@@ -1,9 +1,4 @@
-"""A10, A11 and A13 — a declared model refuses what it was not told about.
-
-One test per finding, named for it — the question a reader has is *is A9 still
-closed?*, and the test name is the answer. The 2026-08-06 audit and the rounds after
-it numbered every finding; `docs/notes/audits/` records how each was reproduced.
-"""
+"""Regression checks for strict declared models and deterministic normalization."""
 
 
 import pytest
@@ -23,7 +18,7 @@ CONTRACT = {
 
 
 def test_a13_a_profile_rejects_a_duplicate_measurement():
-    """A13 — `get` was first-wins, so list order changed the pipeline."""
+    """Duplicate measurements cannot make profile lookup depend on list order."""
     from comeni_core.goal.profile import DataProfile
 
     with pytest.raises(ValidationError, match="strandedness"):
@@ -51,20 +46,23 @@ def test_a13_a_profile_sorts_so_the_same_facts_are_the_same_profile():
 
 
 def test_a11_a_contract_rejects_a_duplicate_param_name():
-    """A11 — two bindings of one name reached `sorted` and compared two ResolvedValues."""
+    """A contract cannot create two bindings for the same parameter name."""
     from comeni_core.declared.contract import ModuleContract
 
     with pytest.raises(ValidationError, match="threads"):
         ModuleContract.model_validate(
             {
                 **CONTRACT,
-                "params": [{"name": "threads", "default": 4}, {"name": "threads", "default": 8}],
+                "params": [
+                    {"name": "threads", "default": 4, "via": "meta"},
+                    {"name": "threads", "default": 8, "via": "meta"},
+                ],
             }
         )
 
 
 def test_a10_an_unknown_contract_key_is_refused():
-    """A10 — dropped keys meant two different files pinned to one digest."""
+    """Unknown contract keys cannot disappear before contract fingerprinting."""
     from comeni_core.declared.contract import ModuleContract
 
     with pytest.raises(ValidationError, match="clinical_use"):
@@ -81,7 +79,7 @@ def test_a10_every_model_a_contract_is_built_from_forbids_extras():
         model = getattr(contract_module, name)
         assert model.model_config.get("extra") == "forbid", (
             f"{name} ignores unknown keys, so `digest_of` pins what survived parsing "
-            "rather than the file it came from (audit A10)"
+            "rather than the declaration the author supplied"
         )
 
 

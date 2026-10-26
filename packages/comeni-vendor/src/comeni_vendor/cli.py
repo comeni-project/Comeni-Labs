@@ -1,4 +1,4 @@
-"""Transport over `ops.py`. It holds no logic — same split as `mendel_forge.cli`."""
+"""Expose vendoring operations through the ``comeni-vendor`` command."""
 
 import argparse
 import sys
@@ -72,8 +72,7 @@ def _check(args: argparse.Namespace) -> int:
     for one in found:
         detail = f" — {one.detail}" if one.detail else ""
         print(f"{one.verdict:>8}  {one.module_id}{detail}")
-    # **`unpinned` is not a failure.** A laboratory's own process has no upstream to compare
-    # against, and the run said so on its own line rather than counting it as a pass.
+    # Unpinned laboratory modules are reported but cannot fail an upstream comparison.
     wrong = [one for one in found if one.verdict in ("edited", "moved")]
     if wrong:
         print(

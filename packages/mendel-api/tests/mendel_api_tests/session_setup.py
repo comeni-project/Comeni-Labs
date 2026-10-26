@@ -34,8 +34,8 @@ def move(session_id: str, event: st.Event, *, row_version: int, **values: object
         target = st.advance(current, event, came_from)
 
         # Cleared on every move that is not *into* failure, so a retried session does not carry
-        # the phase of a failure it has already recovered from — `forge_state.move` clears
-        # `failed_stage` for exactly this reason, and a stale one sends the next retry wrong.
+        # the phase of a failure it has already recovered from: a stale one sends the next
+        # retry wrong.
         failed = st.failed_from(current).value if target is Phase.FAILED else None
 
         if "goal" in values:

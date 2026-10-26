@@ -1,3 +1,5 @@
+"""Generated measurement type stubs remain current, complete, and valid Python."""
+
 import subprocess
 import sys
 

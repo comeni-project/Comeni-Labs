@@ -13,7 +13,7 @@
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
 
-version: 7
+version: 8
 intent:
   want:
   - counts.matrix

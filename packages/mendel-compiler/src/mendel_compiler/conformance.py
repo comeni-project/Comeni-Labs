@@ -1,14 +1,7 @@
-"""Does a contract tell the truth about its module?
+"""Compare declared module contracts with facts parsed from their Nextflow source.
 
-Plan 1.5 shipped a pipeline that could not run, twice, because a contract said something
-untrue and nothing compared them. `-stub-run` could not catch it: nf-core stubs never read
-their inputs, so a process handed an empty tuple where a genome belongs is exactly as green
-as one handed a genome.
-
-Every diagnostic names the code, the contract, the module fact it contradicts, what was
-written, and what to write instead. The last one is not decoration — the rule validator's
-"parameters that do exist: …" is the single most useful thing about that error, and this
-follows it.
+Checks cover processes, inputs, outputs, containers, metadata, and routed settings. Each
+diagnostic identifies the declaration, contradictory source fact, and a concrete correction.
 """
 
 from collections.abc import Mapping

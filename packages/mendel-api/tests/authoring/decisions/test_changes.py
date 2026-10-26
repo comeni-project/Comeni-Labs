@@ -7,6 +7,7 @@ from mendel_api.models import PipelineDraft
 from mendel_api.services import changes, decisions, drafts
 from mendel_api_tests.building import clean as clean
 from mendel_api_tests.database import reachable
+from mendel_authoring.decisions import FactOrigin, InputDecision
 from mendel_authoring.payloads import DecisionChange
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
@@ -99,6 +100,36 @@ def test_a_heard_change_keeps_its_words(clean):
         who="model",
     )
     assert decisions.heard_of(draft)[("fact", "paired")] == ("paired-end", 1)
+
+
+def test_an_input_answer_by_type_preserves_its_stored_identity(clean):
+    draft = _draft()
+    decisions.set_input(
+        draft,
+        InputDecision(
+            key="reference",
+            type_id="genome.fasta",
+            name="chosen reference",
+            states=["indexed"],
+        ),
+        who="ana",
+    )
+
+    assert changes.apply(
+        draft,
+        DecisionChange(kind="input", subject="genome.fasta", value=False),
+        who="ana",
+    )
+
+    recorded = decisions.read(draft).inputs[0]
+    assert (recorded.key, recorded.type_id, recorded.name, recorded.states) == (
+        "reference",
+        "genome.fasta",
+        "chosen reference",
+        ["indexed"],
+    )
+    assert recorded.present is False
+    assert recorded.origin is FactOrigin.PERSON_SAID
 
 
 def test_an_undeclared_type_is_refused_and_nothing_written(clean):

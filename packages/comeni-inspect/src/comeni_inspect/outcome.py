@@ -1,7 +1,7 @@
-"""What a measure answers: a value with its evidence, or undetermined with a reason.
+"""Define the outcomes and accumulator interface implemented by measures.
 
-**Nothing is guessed** (spec §5). A measure below its declared threshold says so, with what it
-saw, rather than returning its best guess; the person is asked instead.
+A measure returns either a value with supporting evidence or an undetermined result with a reason.
+It does not substitute a best guess when its declared threshold is unmet.
 """
 
 from typing import NamedTuple, Protocol
@@ -20,10 +20,10 @@ class Undetermined(NamedTuple):
 
 
 class Accumulator(Protocol):
-    """One measure, fed one row at a time: a record from each file, side by side.
+    """Consume one side-by-side record row at a time and produce one outcome.
 
-    `decided` holds the piece's declared thresholds. `files` are the sample's file names, which
-    a measure may quote in a reason but **never decides on** (spec §5).
+    ``decided`` contains the piece's declared thresholds. ``files`` contains sample filenames for
+    evidence or explanations; filenames do not determine the measured value.
     """
 
     def __init__(self, decided: dict, files: list[str]) -> None: ...

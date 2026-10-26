@@ -1,19 +1,8 @@
-"""Every way a rule table is refused at load. The `MD0300`–`MD0315` band.
+"""Load-time validation for the ``MD0300``–``MD0315`` rule diagnostic band.
 
-Its own module because this is where a rule author's error comes from, and it was ~450 lines
-buried under the models it refuses.
-
-Spec §5: everything is refused at load. The argument is always the same — the moment a defect
-becomes indistinguishable from an absence, the diagnostic stops being possible. A derivation
-with no rows contributes nothing and reads as a fact the registry supplies; a rule naming a role
-nothing fills can never apply and reads as a rule somebody wrote; a table with a hole does not
-fail but *demotes*, and tier 4 with "no rule matched" beside it reads as an ambiguity rather
-than as three branches of a four-branch table.
-
-Two checks run **after the stack is assembled** rather than per file, and both for the same
-reason: a decision may read a fact a derivation in another file supplies, and an overlay may
-extend an enum with `add_values`. A per-file check would refuse a legitimate rule for the
-accident of which file `stack()` reached first.
+Structural defects are rejected before they become indistinguishable from absent rules or
+derived facts. Premise-name and exhaustiveness checks run after stacking because decisions may
+read derivations from other files and overlays may extend declared domains.
 """
 
 import re
@@ -47,20 +36,10 @@ not a shape.
 
 
 def _computed_over(then: object, measurement_ids: list[str]) -> str | None:
-    """The measurement this `then` reads as arithmetic over, or `None` if it is a value.
+    """Return the measurement used by arithmetic-looking ``then`` text, if any.
 
-    `MD0300`. `DecisionRow.then` is emitted **verbatim** — nothing between the rule table and
-    `nextflow.config` evaluates it — so `then: "read_length-1"` reached STAR as the literal
-    string `read_length-1`, at tier 3, cited to Dobin et al. 2013, and absent from the review
-    list. The only thing that ever refused it was `MD0201`, a shell-injection character class
-    that permits `-`, and only on the spaced spelling. Audit A118.
-
-    **A substring test is too loose and would be worse than nothing.** `paired` is a declared
-    measurement, so `then: "paired-end"` would be refused by one — a legitimate value, killed
-    by a check nobody could disable. What makes a string an expression is a measurement
-    sitting next to an operator *and a number*, or two measurements combined. That is what is
-    tested here, and `test_a118_a_value_that_merely_contains_a_measurement_name_still_loads`
-    is the negative that keeps it honest.
+    A measurement name substring alone is a legal literal. It is treated as an expression only
+    beside an arithmetic operator and number, or when multiple measurements are combined.
     """
     if not isinstance(then, str):
         return None
@@ -248,11 +227,8 @@ def _validate_rows(
                 )
 
     for index, row in enumerate(decision.rows):
-        # Tier 2 is "a documented default exists", so its output is value **plus the
-        # document**. A row testing no premise positively earns tier 2 by `tier_of_row`, and
-        # a `because` alone states the value and asserts the document. A76 and A128 were both
-        # that shape — one in a contract default, one in a rule — and this is the rule stated
-        # once rather than the pair fixed twice.
+        # Tier 2 is a documented default, so its output is value plus citation. A row testing
+        # no premise positively earns tier 2; explanatory prose alone does not supply evidence.
         if tier_of_row(row.when) is Tier.CONVENTION and not (row.cite or decision.cite):
             raise RuleValidationError(
                 coded("MD0313", f"{path}, decision {target.key()}, row {index}\n"
@@ -285,21 +261,11 @@ def _sole_premise(rows: Sequence[DecisionRow]) -> str | None:
         return None
     return tested.pop()
 
-    # An earlier version read `if len(tested) != 1 or any(len(row.when) > 1 for row in rows)`.
-    # The second clause cannot be true when the first is false: a row with two keys puts two
-    # facts in `tested`, so `len(tested) != 1` already catches it. Reverting it changed
-    # nothing, which is how it was found — same shape as `stack()`'s `origin[key] !=
-    # layer.index` in Plan 1.9. Deleted rather than kept as reassurance, because an
-    # unreachable condition reads to the next person as a case somebody thought about.
-
-
 def _uncovered_interval(rows: Sequence[DecisionRow]) -> str | None:
     """What an ordered domain's rows leave out, or `None` if they cover the line.
 
-    `>= x` and `< x` are complementary **by construction**, so a pair at the same boundary is
-    exhaustive with no bound declared anywhere. That is the whole point of checking this way:
-    A124 asks for completeness and the obvious fix — demand a catch-all — would demote the
-    shipped aligner rule's last branch from tier 3 to tier 2 and take Kim et al. with it.
+    `>= x` and `< x` are complementary by construction, so a pair at the same boundary is
+    exhaustive without a declared bound or catch-all.
 
     Overlaps are legal and are not gaps. `>= 50` beside `< 70` covers the line twice between
     50 and 70, and first-match-wins already settles which row applies; refusing it would be
@@ -340,13 +306,10 @@ def _uncovered_values(rows: Sequence[DecisionRow], measurement) -> str | None:
 def _check_exhaustive(
     decision: Decision, where: str, *, measurements: MeasurementRegistry
 ) -> None:
-    """Every value the premise can take is answered by some row. A124.
+    """Require one-premise decisions to cover their declared ordered or enum domain.
 
-    Refused rather than warned, because a rule with a hole does not fail — it *demotes*. The
-    premise falls through every row, no rule matches, and the decision exits at tier 4 with
-    "no rule matched" beside it. A reviewer reads that as an ambiguity the registry has not
-    got to yet, when what it means is that somebody wrote three branches of a four-branch
-    table and nothing said so.
+    A gap would silently demote to tier 4, making an incomplete table look like an unresolved
+    ambiguity.
     """
     fact = _sole_premise(decision.rows)
     if fact is None or fact not in measurements.ids():
@@ -430,9 +393,8 @@ def _check_when(
     sit in different files, and a check that fires per file would refuse a legitimate rule
     for the accident of which one `stack()` reached first.
 
-    `when` sees more than measurements now — that is A120, and the whole point of the premise
-    layer. So the message names all three sources rather than only the one it used to know
-    about, which is what made the old diagnostic misleading rather than merely incomplete.
+    Premises may come from measurements, derivations, or goal facts, so diagnostics enumerate all
+    three sources.
     """
     derived = sorted(facts - set(measurements.ids()) - _GOAL_FACTS)
     for row in rows:

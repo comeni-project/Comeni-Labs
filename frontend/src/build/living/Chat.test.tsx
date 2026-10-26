@@ -1,0 +1,81 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import type { AuthoringSession } from "../../api/types";
+import { Chat } from "./Chat";
+import { FAKE_SESSION } from "./fake";
+
+function chat(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
+  const props = { session, saying: null, failedPhase: false, onRetry: vi.fn(), onPoint: vi.fn(), ...overrides };
+  render(<Chat {...props} />);
+  return props;
+}
+
+describe("the chat holds speech", () => {
+  it("draws what the person said and what the model said", () => {
+    chat();
+    const log = screen.getByRole("log", { name: "conversation" });
+    expect(log).toHaveTextContent("I have 12 paired RNA-seq samples");
+    expect(log).toHaveTextContent("why STAR and not HISAT2?");
+    expect(log).toHaveTextContent("STAR is here because the reads are 150bp");
+    expect(log).toHaveTextContent("you moved STAR_ALIGN on the canvas");
+    expect(log).toHaveTextContent("The reply named an option nobody offered");
+  });
+
+  it("draws no card: an engine block in a reply is one line pointing at the Step panel", () => {
+    chat();
+    expect(screen.queryByRole("button", { name: /apply/i })).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
+    const pointers = screen.getAllByTestId("pointer");
+    expect(pointers.length).toBeGreaterThan(0);
+    expect(pointers.map((p) => p.textContent)).toEqual([
+      "Read the goal — see Step",
+      "Asked a question — see Step",
+      "Asked for a setting on STAR_ALIGN — see Step",
+      "Suggested a change: Swap the aligner — see Step",
+    ]);
+  });
+
+  it("a pointer line takes the person to the step it is about", () => {
+    const props = chat();
+    fireEvent.click(screen.getByText("Suggested a change: Swap the aligner — see Step"));
+    expect(props.onPoint).toHaveBeenCalledWith("star_align");
+    fireEvent.click(screen.getByText("Asked a question — see Step"));
+    expect(props.onPoint).toHaveBeenCalledWith(null);
+  });
+
+  it("leaves answered decisions out: they are the step line's", () => {
+    chat();
+    expect(screen.queryByText(/you chose/)).toBeNull();
+    expect(screen.queryByText("Goal confirmed")).toBeNull();
+  });
+
+  it("says a reply is on its way, and draws a follow-up as sending", () => {
+    chat(FAKE_SESSION, { saying: "and the counter?" });
+    expect(screen.getByText(/The canvas is still yours/)).toBeInTheDocument();
+    const sending = screen.getByTestId("saying");
+    expect(sending).toHaveTextContent("and the counter?");
+    expect(within(sending.closest("li")!).getByText("sending…")).toBeInTheDocument();
+  });
+
+  it("offers Try again on an unreachable model only while the session has failed", () => {
+    const unreachable = {
+      ...FAKE_SESSION,
+      turns: [{ seq: 0, role: "assistant", state: "answered", base_revision: 0, at: "2026-01-01T00:00:00Z", text: "",
+        blocks: [{ kind: "notice", id: "n", notice: "refusal", code: "MA0002", text: "No model answered." }] }],
+    } as AuthoringSession;
+    chat(unreachable);
+    expect(screen.queryByTestId("retry")).toBeNull();
+  });
+
+  it("offers Try again on an unreachable model when the session has failed", () => {
+    const unreachable = {
+      ...FAKE_SESSION,
+      turns: [{ seq: 0, role: "assistant", state: "answered", base_revision: 0, at: "2026-01-01T00:00:00Z", text: "",
+        blocks: [{ kind: "notice", id: "n", notice: "refusal", code: "MA0002", text: "No model answered." }] }],
+    } as AuthoringSession;
+    const props = chat(unreachable, { failedPhase: true });
+    fireEvent.click(screen.getByTestId("retry"));
+    expect(props.onRetry).toHaveBeenCalled();
+  });
+});

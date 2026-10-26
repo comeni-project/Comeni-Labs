@@ -27,10 +27,13 @@ export function useTiers() {
     staleTime: Infinity,
   });
 
-  const by = new Map((data ?? []).map((card) => [card.tier, card]));
+  // **Anything but a list is no vocabulary yet**: the words fall back to the tier's number rather
+  // than taking the page down over a label.
+  const cards = Array.isArray(data) ? data : [];
+  const by = new Map(cards.map((card) => [card.tier, card]));
 
   return {
-    tiers: data ?? [],
+    tiers: cards,
     /** The band's noun. Falls back to the number rather than to a guess: an interface that
      *  invents a word when the vocabulary has not loaded is how the hardcoding started. */
     name: (tier: number) => by.get(tier)?.name ?? `tier ${tier}`,

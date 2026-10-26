@@ -49,123 +49,142 @@ export type Failed = {
  * the shortfall dressed as a feature. Exit 137 is named because SIGKILL is a fact about the
  * code, not an interpretation of the run.
  */
-export function Failure({ failed }: { failed: Failed }) {
+export function Failure({ failed, onOpenConsole }: {
+  failed: Failed;
+  /** Open the console filtered to the failed step. Absent where there is no console. */
+  onOpenConsole?: (process: string) => void;
+}) {
   const both = failed.peak_rss_bytes !== null && failed.asked_bytes !== null;
   const escalation = failed.history ?? [];
-  // One scale for every bar, the largest ask — so the growth is the thing the eye reads.
-  // Two bars scaled to their own rows would each be full and say nothing about each other.
   const ceiling = Math.max(...escalation.map((a) => a.memory_bytes ?? 0), 1);
+  // **The signal is the code's, by the 128+n convention** — the same for every attempt with that
+  // code, so any attempt on record that carries it names it.
+  const signal = escalation.find((a) => a.exit === failed.exit && a.signal)?.signal ?? null;
+  // Numbers, not a cause: every attempt touched nearly all it reserved (the board's sentence).
+  const full = escalation.length > 1 && escalation.every((a) =>
+    a.memory_bytes && a.peak_rss_bytes !== null && a.peak_rss_bytes !== undefined
+    && a.peak_rss_bytes / a.memory_bytes >= 0.95);
 
   return (
-    /* **A tinted block with a full border, not a white card with a red stripe.** The artboard
-       fills the banner with `--undecided-soft` and outlines it in `--undecided`, which is what
-       makes it read as *the run stopped here* before a word of it is read. The left-stripe
-       card was the same treatment the console gives one failed LINE — using it for the whole
-       banner flattened the difference between the run failing and a task failing. */
+    /* **A needs-you border around the run's account of itself**, two columns that stack when
+       narrow: the failed task on the left, Nextflow's own words on the right. */
     <section
       data-testid="failure"
-      className="rounded-[var(--r)] shadow-e2 p-[15px] flex flex-col gap-2.5"
-      style={{ background: "var(--undecided-soft)", border: "1px solid var(--undecided)" }}
+      className="rounded-panel bg-surface p-5 grid gap-5 grid-cols-1 lg:grid-cols-2"
+      style={{ border: "1.5px solid var(--needs-you)" }}
     >
-      <div className="flex items-baseline gap-2.5">
-        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--fault)" }}>
-          {failed.process ?? "no task failed — the run stopped before one started"}
-          {failed.process && (
-            <>
-              {failed.tag && ` (${failed.tag})`}
-              {failed.exit !== null && ` exited ${failed.exit}`}
-              {` on attempt ${failed.attempts}`}
-            </>
+      <section aria-label="the failed task" className="flex flex-col gap-3 min-w-0">
+        <div className="flex items-baseline gap-2.5 flex-wrap">
+          <p className="m-0 font-data text-[15px] font-semibold text-ink">
+            {failed.process ?? "No task failed — the run stopped before one started"}
+          </p>
+          {failed.process && failed.tag && <span className="font-data text-[12.5px] text-ink-3">{failed.tag}</span>}
+          {failed.process && failed.exit !== null && (
+            <span className="px-[7px] py-[2px] rounded-control text-[12px] font-semibold text-needs-you-ink"
+                  style={{ background: "var(--needs-you-soft)" }}>
+              exited {failed.exit}
+            </span>
           )}
-        </p>
-        {/* **Said out loud, and set opposite the headline** — because it is the difference
-            between this and a chat window. Every field beside it is a value the record holds;
-            nothing here is inferred. */}
-        <p className="ml-auto m-0 text-label uppercase tracking-[.08em] text-ink-3
-                      whitespace-nowrap">
-          from the record · nothing interpreted
-        </p>
-      </div>
-
-      {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
-          `63.8 GB` invites the reader to supply a ceiling they do not have.
-          The BAR is the point — `63.8 of 64` is a sentence, and a bar at 99% is the reason
-          the task died, visible without reading either number. */}
-      {both && (
-        <div data-testid="failure-resources" className="flex items-center gap-2.5">
-          <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
-                style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
-            <span className="block h-full"
-                  style={{ width: `${Math.min(100, Math.round(
-                    (failed.peak_rss_bytes! / failed.asked_bytes!) * 100))}%`,
-                    background: "var(--undecided)" }} />
-          </span>
-          <span className="font-data text-body text-ink-2">
-            peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
-          </span>
         </div>
-      )}
+        {failed.process && (signal && failed.exit !== null ? (
+          <p data-testid="failure-code" className="m-0 text-[14px] leading-[1.55] text-ink">
+            Code {failed.exit} means the task was killed ({signal}) on its {ORDINAL[failed.attempts] ?? `${failed.attempts}th`} attempt.
+            The record doesn't say who killed it, so nothing here guesses.
+          </p>
+        ) : (
+          <p className="m-0 text-[14px] text-ink">
+            It stopped on attempt {failed.attempts}. Every value here is from the record; nothing
+            is interpreted.
+          </p>
+        ))}
 
-      {/* **The escalation, and it is the panel's best evidence.** Three attempts asking for
-          36, then 48, then 72 GB and dying at each is a story a reader assembles in one glance
-          — and it is the story `attempts: 3` cannot tell. The bars share one scale, the largest
-          ask, so the growth is visible before either number is read.
+        {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
+            `63.8 GB` invites the reader to supply a ceiling they do not have. Only for a single
+            try — more than one has its own bars below. */}
+        {both && escalation.length <= 1 && (
+          <div data-testid="failure-resources" className="flex items-center gap-2.5">
+            <span className="block h-[8px] w-[200px] rounded-full overflow-hidden shrink-0"
+                  style={{ background: "var(--surface-2)" }}>
+              <span className="block h-full rounded-full"
+                    style={{ width: `${Math.min(100, Math.round(
+                      (failed.peak_rss_bytes! / failed.asked_bytes!) * 100))}%`,
+                      background: "var(--measured)" }} />
+            </span>
+            <span className="font-data text-[13px] text-ink-2">
+              peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
+            </span>
+          </div>
+        )}
 
-          **Only when there is more than one attempt.** A single try has nothing to escalate,
-          and its asked-beside-touched is already the bar above. */}
-      {escalation.length > 1 && (
-        <div data-testid="failure-escalation" className="flex flex-col gap-1.5">
-          {escalation.map((attempt) => (
-            <div key={attempt.n} data-testid={`attempt-${attempt.n}`}
-                 className="flex items-center gap-2.5 text-secondary">
-              <span className="font-data text-ink-3 w-[54px] shrink-0 tabular-nums">
-                try {attempt.n}
-              </span>
-              <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
-                    style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
-                <span className="block h-full"
+        {/* **The escalation is the panel's best evidence**: three attempts asking for 36, then
+            48, then 72 GB and dying at each is a story read in one glance, which `attempts: 3`
+            cannot tell. Each bar is what an attempt asked for, on one scale; its fill is how
+            much of that it touched. */}
+        {escalation.length > 1 && (
+          <div data-testid="failure-escalation" className="flex flex-col gap-2">
+            <p className="m-0 text-[13px] font-semibold text-ink">
+              The {escalation.length === 3 ? "three" : escalation.length} attempts
+            </p>
+            {escalation.map((attempt) => (
+              <div key={attempt.n} data-testid={`attempt-${attempt.n}`}
+                   className="grid items-center gap-x-3 gap-y-1 text-[13px]
+                              grid-cols-[70px_minmax(60px,1fr)] sm:grid-cols-[70px_minmax(80px,1fr)_minmax(0,auto)]">
+                <span className="text-ink-2">attempt {attempt.n}</span>
+                <span className="block h-[8px] rounded-full overflow-hidden"
                       style={{ width: `${((attempt.memory_bytes ?? 0) / ceiling) * 100}%`,
-                               background: "var(--ink-3)" }} />
-              </span>
-              <span className="font-data text-ink-2 tabular-nums">
-                asked {bytes(attempt.memory_bytes)} · touched {bytes(attempt.peak_rss_bytes)}
-              </span>
-              <span className="ml-auto font-data text-ink-3 tabular-nums whitespace-nowrap">
-                {attempt.exit === null || attempt.exit === undefined
-                  ? attempt.status
-                  : `exit ${attempt.exit}`}
-                {/* Shown AS GIVEN. `wiener_core.signals` knows the 128+n convention and refuses
-                    a cause; adding one here would be W3 arriving early, unlabelled, and right
-                    often enough to be trusted when it is wrong. */}
-                {attempt.signal && ` · ${attempt.signal}`}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+                               background: "var(--surface-2)" }}>
+                  <span className="block h-full rounded-full"
+                        style={{ width: `${attempt.memory_bytes
+                          ? Math.min(100, ((attempt.peak_rss_bytes ?? 0) / attempt.memory_bytes) * 100) : 0}%`,
+                                 background: "var(--measured)" }} />
+                </span>
+                <span className="col-span-2 sm:col-span-1 sm:text-right font-data text-ink tabular-nums">
+                  peak {bytes(attempt.peak_rss_bytes)} of {bytes(attempt.memory_bytes)}
+                  <span className="text-ink-3">
+                    {attempt.exit === null || attempt.exit === undefined ? ` · ${attempt.status}` : ` · exit ${attempt.exit}`}
+                    {/* Shown AS GIVEN: `wiener_core.signals` knows the 128+n convention and
+                        refuses a cause, and so does this. */}
+                    {attempt.signal && ` · ${attempt.signal}`}
+                  </span>
+                </span>
+              </div>
+            ))}
+            {full && <p className="m-0 text-[13px] text-ink-2">Each attempt used almost all of what it asked for.</p>}
+          </div>
+        )}
 
-      {failed.report && (
-        <>
-          {/* `--surface` inside the tinted banner, so the record sits ON the alarm rather than
-              in it — the artboard's inset well. **Scrolls rather than truncates**: the
-              artboard shows a curated three-line excerpt, and cutting a real `errorReport` at
-              three lines would hide the half that matters on the runs this is for. */}
+        {failed.process && onOpenConsole && (
+          <button type="button" onClick={() => onOpenConsole(failed.process!)}
+                  className="self-start px-[14px] py-[7px] rounded-button border border-line-2 bg-surface
+                             text-[13px] font-semibold text-ink cursor-pointer hover:bg-[var(--hover)]
+                             focus-visible:shadow-[var(--ring)]">
+            Open the console at this task
+          </button>
+        )}
+      </section>
+
+      <section aria-label="What Nextflow reported" className="flex flex-col gap-2 min-w-0">
+        <div className="flex items-baseline gap-3">
+          <h3 className="m-0 text-heading font-semibold text-ink">What Nextflow reported</h3>
+          <span className="ml-auto text-[12.5px] text-ink-3">shown as written</span>
+        </div>
+        {failed.report ? (
+          /* **Scrolls rather than truncates**: cutting a real `errorReport` at three lines would
+             hide the half that matters on the runs this is for. */
           <pre
             data-testid="failure-report"
-            className="m-0 p-3 font-data text-secondary text-ink-2 rounded-[var(--r)]
-                       max-h-72 overflow-auto whitespace-pre-wrap"
-            style={{ background: "var(--surface)", border: "1px solid var(--line)",
-                     boxShadow: "var(--well)", lineHeight: 1.7 }}
+            className="m-0 p-3 font-data text-[12px] text-ink-2 rounded-button max-h-72 overflow-auto
+                       whitespace-pre-wrap"
+            style={{ background: "var(--surface-2)", border: "1px solid var(--line)", lineHeight: 1.7 }}
           >
             {failed.report}
           </pre>
-          {/* §18.1: nothing EXPLAINS a failure until W3. Saying so is a boundary; leaving it
-              unsaid would let the banner read as an explanation that came up short. */}
-          <p className="m-0 text-label uppercase tracking-[.08em] text-ink-3">
-            Nextflow&rsquo;s own errorReport · shown, not explained — W3 explains
-          </p>
-        </>
-      )}
+        ) : (
+          <p className="m-0 text-[13px] text-ink-3">The record carries no report from Nextflow.</p>
+        )}
+      </section>
     </section>
   );
 }
+
+const ORDINAL: Record<number, string> = { 1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth" };

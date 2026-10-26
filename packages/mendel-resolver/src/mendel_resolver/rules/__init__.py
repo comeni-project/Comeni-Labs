@@ -1,9 +1,6 @@
-"""Tier 3: two layers of declared data, and every way they are refused at load.
+"""Public tier-3 rule models, table, and validation errors.
 
-A miss is not an escalation to a model. It is a demotion to tier 4.
-
-A package rather than a module since issue #41 — `rules.py` was 1,170 lines and the validator
-alone was ~450 of them. The three parts answer different questions:
+The submodules have separate responsibilities:
 
 | module | question |
 |---|---|
@@ -11,12 +8,8 @@ alone was ~450 of them. The three parts answer different questions:
 | `table` | how the ones on disk become the ones in force |
 | `validate` | why yours was refused |
 
-**These re-exports are the module's own surface, not a shim.** `rules` was a module and is now
-a package, so `from mendel_resolver.rules import RuleTable` means exactly what it always meant
-and nineteen importers keep working. The ban issue #41 imposes is on a *second* spelling of a
-third module's name — `comeni_core.pipeline` surviving as an alias for
-`comeni_core.artifact.pipeline` — which is a different thing and is how two spellings come to
-disagree.
+The re-exports below are the supported import surface. A rule miss demotes to tier 4; it does not
+invoke a model.
 """
 
 from mendel_resolver.rules.format import (
@@ -52,10 +45,4 @@ __all__ = [
     "RuleValidationError",
     "Transform",
 ]
-"""`_comparison` and `_computed_over` are imported above and deliberately absent here.
-
-They are private and two test files reach them directly — `test_rules.py` for the comparison
-predicate and `tests/regressions/test_rules.py` for A118's computed-`then` check. Importing them
-keeps those tests working without inventing a public name for something that is not public, and
-leaving them out of `__all__` is what says so.
-"""
+"""Private validation helpers remain importable for focused tests but are absent from `__all__`."""

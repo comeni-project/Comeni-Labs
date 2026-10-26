@@ -5,9 +5,9 @@ surface that exists and is not in the contract — invisible to `frontend/src/ap
 generated from that document, and invisible to an agent driving Mendel, which reads it. That is
 the rule; the forge's transport was the instance that broke it.
 
-**It was mounted until phase 6.** `mendel_forge.http` shipped an app that "binds nothing and has
-no auth", and its docstring named `mendel-api` as the thing that would mount it and own who is
-calling. Auth is deferred (interface spec §9); the mount was not. What it produced was an
+**It was mounted until phase 6.** The old forge's HTTP module shipped an app that "binds nothing
+and has no auth", and its docstring named `mendel-api` as the thing that would mount it and own who
+is calling. Auth is deferred (interface spec §9); the mount was not. What it produced was an
 unauthenticated app on the served origin whose request models take `registry_root`, `source_root`
 and `workspace_root`, and whose `/drafts/land` ran `git commit` in whatever path it was handed.
 

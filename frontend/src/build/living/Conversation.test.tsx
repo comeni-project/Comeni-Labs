@@ -65,7 +65,7 @@ describe("completing a guided pipeline", () => {
     // pipeline it gives; pressing it again gives the build back as it was.
     await tap(screen.getByTestId("preview-alt_1"));
     const preview = await screen.findByTestId("alternative-preview");
-    expect(within(preview).getByTestId("living-node-samtools_sormadup")).toHaveTextContent("PROPOSED");
+    expect(within(preview).getByTestId("living-node-samtools_sormadup")).toBeInTheDocument();
     expect(screen.getByTestId("build-canvas")).toHaveClass("hidden");
     await tap(screen.getByTestId("preview-alt_1"));
     expect(screen.queryByTestId("alternative-preview")).toBeNull();
@@ -87,7 +87,8 @@ describe("completing a guided pipeline", () => {
 
   it("names every choice for a screen reader", () => {
     mount(<GuidedLiving />);
-    expect(screen.getByRole("button", { name: "That's right" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Start building/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "correct counts.matrix" }));
     expect(screen.getByRole("combobox", { name: "add to what you want" })).toBeInTheDocument();
   });
 });
@@ -100,23 +101,13 @@ describe("the goal card", () => {
     // its turn and editable beneath, which is two goals on a screen whose job is to check one.
     mount(<GuidedLiving />);
     expect(screen.getAllByRole("region", { name: "the goal as understood" })).toHaveLength(1);
-    expect(screen.getByTestId("canvas-empty")).toHaveTextContent("Nothing built yet");
+    // Nothing is built yet, so the page is the describe page and draws no canvas at all.
+    expect(screen.getByRole("region", { name: "describe" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
   });
 
   const goal = guidedStart().pending_proposal!;
   const vocabulary = { "counts.matrix": ["gene_level"], "qc.report": ["aggregated"] };
-
-  it("asks before a changed goal replaces what was edited by hand (spec §14.9)", () => {
-    const onConfirm = vi.fn();
-    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={onConfirm}
-                    onReject={vi.fn()} replaces="you removed MULTIQC" />);
-    fireEvent.click(screen.getByTestId("accept-goal"));
-    expect(onConfirm).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "This rebuilds the pipeline and replaces what you changed by hand: you removed MULTIQC");
-    fireEvent.click(screen.getByTestId("replace-hand-edits"));
-    expect(onConfirm).toHaveBeenCalledWith();
-  });
 
   it("confirms an unedited goal without sending one", () => {
     const onConfirm = vi.fn();
@@ -130,6 +121,7 @@ describe("the goal card", () => {
     const onConfirm = vi.fn();
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={onConfirm}
                     onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "correct counts.matrix" }));
     const add = screen.getByRole("combobox", { name: "add to what you want" });
     expect(within(add).getAllByRole("option").map((o) => o.textContent)).toEqual([
       "+ add a type",
@@ -151,9 +143,11 @@ describe("the goal card", () => {
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
                     onReject={vi.fn()} facts={facts} />);
     const said = screen.getByRole("list", { name: "what the engine knows" });
-    expect(within(said).getByText(/read_length: 151/))
-      .toHaveTextContent("measured · fastq 1.0.0 · from 1 sample");
-    expect(within(said).getByText(/strandedness: reverse/)).toHaveTextContent("you said");
+    const line = (label: string) => within(said).getByText(label).closest("li")!;
+    expect(line("Read length")).toHaveTextContent("151");
+    expect(within(line("Read length")).getByTestId("source")).toHaveTextContent("measured · fastq 1.0.0 · from 1 sample");
+    expect(line("Strandedness")).toHaveTextContent("reverse");
+    expect(within(line("Strandedness")).getByTestId("source")).toHaveTextContent("you said");
   });
 
   it("says measured, plainly, for a measured fact with no pieces", () => {
@@ -164,7 +158,9 @@ describe("the goal card", () => {
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
                     onReject={vi.fn()} facts={facts} />);
     const said = screen.getByRole("list", { name: "what the engine knows" });
-    expect(within(said).getByText(/read_length: 150/).textContent).toMatch(/· measured$/);
+    const line = within(said).getByText("Read length").closest("li")!;
+    expect(line).toHaveTextContent("150");
+    expect(within(line).getByTestId("source").textContent).toBe("measured");
   });
 
   it("lists each input with where it came from, and what was left open", () => {
@@ -181,9 +177,12 @@ describe("the goal card", () => {
     expect(within(have).getByText(/genome\.fasta/).closest("li")).toHaveTextContent("you said");
     const said = screen.getByRole("list", { name: "what the engine knows" });
     expect(within(said).queryByText(/genome\.fasta/)).toBeNull();
-    expect(within(said).getByText(/paired/)).toHaveTextContent("yes");
-    const open = screen.getByRole("list", { name: "Left open, you'll choose during the build" });
-    expect(within(open).getByText("read_length")).toBeInTheDocument();
+    expect(within(said).getByText("Paired").closest("li")).toHaveTextContent("yes");
+    // Open is said out loud: a decision deferred, not a gap forgotten.
+    const open = within(said).getByText("Read length").closest("li")!;
+    expect(open).toHaveTextContent("Not known yet");
+    expect(open).toHaveTextContent("Left open — you'll choose during the build.");
+    expect(within(open).getByTestId("source")).toHaveTextContent("needs you");
   });
 
   it("shows the words a fact was heard in, so a misreading is caught (issue 307)", () => {
@@ -198,7 +197,7 @@ describe("the goal card", () => {
     mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
                     onReject={vi.fn()} facts={facts} />);
     const said = screen.getByRole("list", { name: "what the engine knows" });
-    expect(within(said).getByText(/^paired: yes/).closest("li")).toHaveTextContent('"paired-end"');
+    expect(within(said).getByText("Paired").closest("li")).toHaveTextContent('From "paired-end"');
     const have = screen.getByRole("list", { name: "what you have" });
     expect(within(have).getByText(/fastq\.reads/).closest("li")).toHaveTextContent(
       '"my Illumina reads"');
@@ -214,7 +213,7 @@ describe("the goal card", () => {
     const have = screen.getByRole("list", { name: "what you have" });
     expect(within(have).getByText(/genome\.fasta/).closest("li")).toHaveTextContent("read by AI");
     const said = screen.getByRole("list", { name: "what the engine knows" });
-    expect(within(said).getByText(/paired/)).toHaveTextContent("read by AI");
+    expect(within(said).getByText("Paired").closest("li")).toHaveTextContent("read by AI");
   });
 
   it("shows the engine's sentence until the read-back lands, then the AI's words, labelled", () => {
@@ -287,6 +286,7 @@ describe("the goal card", () => {
     const byState = vi.fn();
     const first = mount(<GoalCard proposal={withStates} vocabulary={vocab} busy={false}
                                   onConfirm={byState} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "correct fastq.reads" }));
     fireEvent.click(screen.getByRole("button", { name: "remove state deduplicated from fastq.reads" }));
     expect(screen.getByRole("list", { name: "what you have" })).not.toHaveTextContent("deduplicated");
     fireEvent.click(screen.getByTestId("accept-goal"));
@@ -297,6 +297,7 @@ describe("the goal card", () => {
     const byReadding = vi.fn();
     mount(<GoalCard proposal={withStates} vocabulary={vocab} busy={false}
                     onConfirm={byReadding} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "correct fastq.reads" }));
     fireEvent.click(screen.getByRole("button", { name: "remove fastq.reads from what you have" }));
     fireEvent.change(screen.getByRole("combobox", { name: "add to what you have" }),
       { target: { value: "fastq.reads" } });
@@ -315,6 +316,7 @@ describe("the goal card", () => {
     mount(<GoalCard proposal={withStates} vocabulary={vocabulary} busy={false}
                     onConfirm={vi.fn()} onReject={vi.fn()} />);
     expect(screen.queryByText(/before your edit/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "correct fastq.reads" }));
     fireEvent.click(screen.getByRole("button", { name: "remove state deduplicated from fastq.reads" }));
     expect(screen.getByText(/before your edit/)).toBeInTheDocument();
   });
@@ -328,6 +330,7 @@ describe("the goal card", () => {
     const onConfirm = vi.fn();
     mount(<GoalCard proposal={withStates} vocabulary={vocabulary} busy={false}
                     onConfirm={onConfirm} onReject={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "correct counts.matrix" }));
     fireEvent.click(screen.getByRole("button", { name: "remove counts.matrix from what you want" }));
     fireEvent.click(screen.getByTestId("accept-goal"));
     expect(onConfirm.mock.calls[0][0].have).toEqual([{ type_id: "fastq.reads", states: ["trimmed"] }]);
@@ -403,6 +406,7 @@ describe("saying something", () => {
         onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole("tab", { name: /^Assistant/ }));
     expect(screen.getByTestId("saying")).toHaveTextContent("and the sorter?");
     expect(screen.getByText("sending…")).toBeInTheDocument();
   });
@@ -418,13 +422,16 @@ describe("the card and the canvas point at each other", () => {
     expect(screen.getByTestId("living-node-star_genomegenerate")).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("selecting a step on the canvas marks its decision in the log", async () => {
+  it("selecting a step on the canvas opens it in the panel, and closing it brings the line back", async () => {
     mount(<GuidedLiving />);
     await act(async () => fireEvent.click(screen.getByTestId("accept-goal")));
     await act(async () => fireEvent.click(screen.getByTestId("accept-step")));
     fireEvent.click(screen.getByTestId("living-node-star_genomegenerate"));
+    expect(screen.getByRole("region", { name: "step STAR_GENOMEGENERATE" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "the plan" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close the step" }));
     expect(screen.getByRole("button", { name: /STAR_GENOMEGENERATE step 1/ }))
-      .toHaveAttribute("aria-pressed", "true");
+      .toHaveAttribute("aria-pressed", "false");
   });
 });
 

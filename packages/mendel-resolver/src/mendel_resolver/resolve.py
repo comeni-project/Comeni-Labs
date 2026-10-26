@@ -1,4 +1,9 @@
-"""The four-tier ladder. Every value exits at exactly one tier and carries it."""
+"""Turn a routed goal into a fully evidenced pipeline IR.
+
+Resolution validates declared types, builds rule premises, routes producers, wires compatible
+outputs to inputs, resolves parameters through the four-tier ladder, and records every ambiguity.
+Values and selections retain the tier, source, reason, and premise evidence that justify them.
+"""
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -7,7 +12,14 @@ from comeni_core.declared.contract import InputPort, Param
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
-from comeni_core.goal.asked import ProducerPin
+from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import (
+    Constraints,
+    ProducerExclusion,
+    ProducerPin,
+    RoleAbsence,
+    SourcePin,
+)
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -22,8 +34,8 @@ from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
+from mendel_resolver.router import IntentConflict, UnroutableError, route
 from mendel_resolver.router import _layer_name as _layer_of
-from mendel_resolver.router import route
 from mendel_resolver.rules import RuleTable
 
 
@@ -54,17 +66,12 @@ def resolve(
     prior: Sequence[DecisionRecord] = (),
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
 ) -> PipelineIR:
-    """`facts_read` is, per contract, the facts its tool's code reads off the sample's label
-    (`mendel_compiler.conformance.facts_read`); one of them nobody supplied is tier 4 (#338).
-    None, the default, is nobody having looked: nothing is recorded, as before.
+    """Resolve ``goal`` against one loaded registry stack.
 
-    `prior` is the evidence behind a `source: HUMAN` claim, and it comes from the caller
-    rather than from the resolver. A56: a resolver that says `HUMAN` clears its own tier-4
-    review, so the claim has to be checkable against something the resolver did not write.
-
-    Empty is the safe default — an unbacked `HUMAN` is demoted and keeps its flag — which is
-    the direction A2's rule wants: the verb that forgets to pass this over-flags rather than
-    under-flags. `mendel upgrade` is the one verb that has records to pass.
+    ``prior`` supplies independent evidence for values claimed as human decisions. An unbacked
+    human claim is demoted and remains reviewable. ``facts_read`` maps each contract to profile
+    facts read by its implementation; missing facts become reviewable decisions. Passing ``None``
+    means no conformance inventory was supplied and preserves the ordinary resolver boundary.
     """
     # A29. `Annotated[str, "type-id"]` says somebody named this; it does not say the name
     # is of a declared type. `router._have_satisfies` only *compares*, so a `have` entry
@@ -109,7 +116,24 @@ def resolve(
         for role in _roles_in(registry)
         if (fired := rules.presence_for(role, premises)) is not None and fired.value == "absent"
     )
-    plan = route(goal, registry, rules, resolver, premises=premises, absent_roles=absent)
+    # **A person's switched-off roles join the rules'** (A1): the same semantics, a different
+    # author. When the goal cannot be reached with them, the one that blocks it is named.
+    person = goal.constraints.roles_absent()
+    try:
+        plan = route(goal, registry, rules, resolver, premises=premises,
+                     absent_roles=absent | person)
+    except IntentConflict:
+        raise
+    except UnroutableError as exc:
+        blocking = _blocking_absence(goal, registry, rules, premises, absent, person)
+        if blocking is None:
+            raise
+        raise IntentConflict(
+            coded("MD0319", f"you switched off the role {blocking.role!r}, and this goal needs "
+                  f"it: {exc}. Turn it back on, or stop asking for what only it leads to — "
+                  "`mendel explain MD0319`."),
+            intent=blocking,
+        ) from exc
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -198,7 +222,9 @@ def resolve(
             )
 
         for port in contract.consumes:
-            source = _source_for(produced, port, node.id, ir.decisions, resolver)
+            pinned = goal.constraints.source_at(contract.id, port.name)
+            source = _source_for(produced, port, node.id, ir.decisions, resolver,
+                                 pinned=_node_of(ir, pinned.producer) if pinned else None)
             if source is not None:
                 from_node, from_port, type_id, states = source
                 ir.edges.append(
@@ -230,12 +256,19 @@ def resolve(
     return ir
 
 
+def _node_of(ir: PipelineIR, contract_id: str) -> str | None:
+    """The node a contract was placed as, so far."""
+    return next((n.id for n in ir.nodes if n.contract_id == contract_id), None)
+
+
 def _source_for(
     produced: list[tuple[str, str, str, frozenset[str]]],
     port: InputPort,
     node_id: str,
     decisions: list[DecisionRecord],
     resolver: AmbiguityResolver,
+    *,
+    pinned: str | None = None,
 ) -> tuple[str, str, str, frozenset[str]] | None:
     """Pick an upstream output that actually satisfies this port.
 
@@ -274,6 +307,29 @@ def _source_for(
 
     def surplus(source: tuple[str, str, str, frozenset[str]]) -> int:
         return len(source[3] - required)
+
+    # **A person chose this port's source** (A1, a `SourcePin`): it wires, and it is recorded as
+    # theirs whenever it differs from what the smallest surplus would have taken.
+    if pinned is not None:
+        theirs = [source for source in qualifying if source[0] == pinned]
+        if theirs:
+            engine = min(qualifying, key=lambda s: (surplus(s), -produced.index(s)))
+            if theirs[-1] != engine:
+                chosen_ref = f"{theirs[-1][0]}.{theirs[-1][1]}"
+                decisions.append(
+                    SourceDecision(
+                        key=f"{node_id}.source:{port.name}",
+                        subject=f"source:{port.name}",
+                        candidates=sorted(f"{n}.{p}" for n, p, _, _ in qualifying),
+                        chosen=chosen_ref,
+                        human_override=chosen_ref,
+                        reason=f"you chose {theirs[-1][0]} to feed {port.name}, over "
+                               f"{engine[0]}",
+                        confidence=1.0,
+                        resolved_by="person",
+                    )
+                )
+            return theirs[-1]
 
     best = min(surplus(source) for source in qualifying)
     equally_good = [source for source in qualifying if surplus(source) == best]
@@ -314,6 +370,19 @@ def _source_for(
             )
         )
     return chosen
+
+
+def _blocking_absence(goal, registry, rules, premises, absent, person) -> RoleAbsence | None:
+    """The first of the person's switched-off roles (sorted) without which the goal routes, or
+    `None` when the goal fails for another reason. Deterministic: roles are tried in order."""
+    for role in sorted(person):
+        try:
+            route(goal, registry, rules, FlagOnlyResolver(), premises=premises,
+                  absent_roles=absent | (person - {role}))
+        except UnroutableError:
+            continue
+        return RoleAbsence(role=role)
+    return None
 
 
 def _values_of(measurement) -> list:
@@ -484,6 +553,31 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
     for pin in goal.constraints.producers:
         # A person's pin names a site; held to the vocabulary like every type a goal names.
         vocabulary.validate(pin.site.type_id, pin.site.states)
+
+
+def inert_intents(
+    ir: PipelineIR, constraints: Constraints, registry: Registry
+) -> list[RoleAbsence | ProducerExclusion | SourcePin]:
+    """A person's structural intents (A1) that applied nowhere in `ir`, as `inert_pins` says of
+    pins: an exclusion whose site is asked nowhere or whose tool is no candidate there, a role
+    no tool in the registry fills, a source pin whose consumer is not in the plan or has no such
+    port. In that order, each in its declared order. `ir` must be fresh from `resolve()`.
+    """
+    asked = {node.site for node in ir.nodes if node.site is not None}
+    exclusions = [
+        e for e in constraints.exclusions
+        if e.site not in asked
+        or e.contract not in {c.id for c in registry.producers_of(e.site.type_id, e.site.states)}
+    ]
+    filled = {role for contract in registry.contracts.values() for role in contract.roles}
+    roles = [a for a in constraints.absent_roles if a.role not in filled]
+    placed = {node.contract_id for node in ir.nodes}
+    sources = [
+        p for p in constraints.sources
+        if p.consumer not in placed
+        or p.port not in {port.name for port in registry.contracts[p.consumer].consumes}
+    ]
+    return [*exclusions, *roles, *sources]
 
 
 def inert_pins(ir: PipelineIR, pins: Sequence[ProducerPin]) -> list[ProducerPin]:

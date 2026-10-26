@@ -1,6 +1,10 @@
+"""The demo seeder projects goals, refreshes drafts and guards its fake-run writes."""
+
 import argparse
 import sys
+from types import SimpleNamespace
 
+import pytest
 from support.paths import ROOT
 
 sys.path.insert(0, str(ROOT / "tools"))
@@ -82,3 +86,50 @@ def test_seeding_refreshes_a_named_demo_draft():
     assert result["draft_id"] == "abc123"
     assert result["builder_url"] == "http://web/build?draft=abc123"
     assert result["artifact"] == "/app/drafts/abc123/pipeline.yml"
+
+
+def test_fake_run_seeding_is_idempotent_for_a_named_run():
+    class ExistingApi:
+        def request(self, method, path):
+            assert (method, path) == ("GET", "/runs?limit=200")
+            return {"runs": [{"name": "RNA-seq demo"}]}
+
+        def upload(self, bundle, name):
+            raise AssertionError("an existing demo run must not upload another artifact")
+
+    assert seed_demo.seed_fake_runs(ExistingApi(), "draft-1", "RNA-seq demo", []) == []
+
+
+def test_fake_run_seeding_reports_a_failed_database_write(monkeypatch):
+    class EmptyApi:
+        def request(self, method, path):
+            assert (method, path) == ("GET", "/runs?limit=200")
+            return {"runs": []}
+
+        def upload(self, bundle, name):
+            assert bundle == b"bundle"
+            assert name == "RNA-seq demo"
+            return {"artifact_id": "artifact-1"}
+
+    captured = {}
+
+    def failed_run(command, **kwargs):
+        captured["command"] = command
+        captured["input"] = kwargs["input"].decode()
+        return SimpleNamespace(returncode=1)
+
+    monkeypatch.setattr(seed_demo, "bundle_of", lambda draft_id: b"bundle")
+    monkeypatch.setattr(seed_demo.subprocess, "run", failed_run)
+
+    with pytest.raises(RuntimeError, match="could not seed fake Wiener runs"):
+        seed_demo.seed_fake_runs(
+            EmptyApi(),
+            "draft-1",
+            "RNA-seq demo",
+            [{"id": "align", "process": "STAR_ALIGN"}],
+        )
+
+    assert captured["command"][:4] == ["docker", "compose", "exec", "-T"]
+    assert captured["input"].count("INSERT INTO run (") == 4
+    assert "INSERT INTO run_event" in captured["input"]
+    assert "INSERT INTO run_task" in captured["input"]

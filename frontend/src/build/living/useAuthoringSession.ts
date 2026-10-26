@@ -4,7 +4,7 @@ import { useCallback, useEffect, useReducer, useState } from "react";
 import type { components } from "../../api/schema";
 import type { FactValue } from "./FactEditor";
 
-import { get, post, postForm, Refused } from "../../api/client";
+import { get, post, postForm, put, Refused } from "../../api/client";
 import type {
   AuthoringDecided,
   AuthoringEdited,
@@ -48,7 +48,7 @@ const key = (sessionId: string) => ["authoring", sessionId] as const;
 /** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
 export const HEAD_BYTES = 4 * 2 ** 20;
 
-export function useAuthoringSession(sessionId: string, options: { pollMs?: number; onFork?: (sessionId: string) => void } = {}) {
+export function useAuthoringSession(sessionId: string, options: { pollMs?: number } = {}) {
   const pollMs = options.pollMs ?? POLL_MS;
   const client = useQueryClient();
   const [state, dispatch] = useReducer(authoringReducer, initialAuthoring);
@@ -199,10 +199,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
         `/pipeline/authoring/${sessionId}/${path}`, { ...context, ...(input.release ?? { value: input.value,
           ...(input.proposal ? { option: input.option } : { kind: input.kind }) }) });
     },
-    onSuccess: answer => {
-      if (answer.session_id !== sessionId) options.onFork?.(answer.session_id);
-      else void refresh();
-    },
+    onSuccess: () => void refresh(),
     onError: error => {
       dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
       void refresh();
@@ -263,8 +260,13 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     upload: (proposal: AuthoringProposal, files: File[]) =>
       upload.mutateAsync({ proposal, files }),
     retry: () => retry.mutate(),
-    /** A direct edit, recorded as the person's with a receipt the server composes. */
+    /** A hand edit: the server reads it as intent and offers the reading in the chat (#395). */
     edit: (graph: DraftGraph) => edit.mutate(graph),
+    /** Rename the pipeline: a name is not a decision, so the draft is saved directly. */
+    rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {
+      name, expected_revision: session.data?.revision }).then(() => refresh(), (error) =>
+      dispatch({ type: "refused", proposalId: "",
+                 detail: error instanceof Refused ? error.message : String(error) })),
     vocabulary: vocabulary.data?.types ?? null,
     measurements: vocabulary.data?.measurements,
     correcting: correction.isPending,

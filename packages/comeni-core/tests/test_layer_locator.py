@@ -1,4 +1,4 @@
-"""Where a registry layer can be fetched from, as `pipeline.yml` records it (Plan B, §8.2)."""
+"""Validation and serialization contracts for registry-layer repository coordinates."""
 
 import pytest
 from comeni_core.artifact.lockfile import Locator, LockedLayer
@@ -34,8 +34,7 @@ def test_a_commit_is_forty_lowercase_hex():
 
 
 def test_an_unlocated_layer_dumps_as_before():
-    """Name and digest only: a file written without a locator is byte-identical to version 6's
-    layer record."""
+    """Unknown repository coordinates stay out of the serialized layer record."""
     layer = LockedLayer(name="comeni-registry", digest="sha256:" + "0" * 64)
     assert layer.model_dump(mode="json") == {"name": "comeni-registry",
                                              "digest": "sha256:" + "0" * 64}
@@ -55,7 +54,7 @@ def test_a_sha256_commit_is_sixty_four_lowercase_hex():
 
 
 def test_a_layer_path_is_inside_its_repository():
-    """Review #4: where in the repository the layer sits — never a path on this machine."""
+    """A layer path is repository-relative and cannot name a local machine path."""
     from comeni_core.spell.marks import RepoPath
 
     path = TypeAdapter(RepoPath)

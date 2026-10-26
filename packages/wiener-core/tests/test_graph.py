@@ -57,6 +57,19 @@ def test_an_entry_channel_is_not_a_node(spine):
     assert "trimgalore" in ids
 
 
+def test_a_reference_to_a_missing_producer_is_not_an_edge(spine):
+    """A partial artifact must not invent a node solely because an input names it."""
+    first = spine.steps[0]
+    dangling = first.inputs[0].model_copy(update={"source": "missing.output"})
+    changed = first.model_copy(update={"inputs": [dangling]})
+    partial = spine.model_copy(update={"steps": [changed, *spine.steps[1:]]})
+
+    graph = graph_of(partial)
+
+    assert all(edge.from_node != "missing" for edge in graph.edges)
+    assert {node.id for node in graph.nodes} == {step.id for step in spine.steps}
+
+
 def test_the_colouring_says_what_the_run_did_and_nothing_else(spine):
     """A node's counts are its tasks' aggregate; `attempts` is the most any one needed. Neither
     is a duration and neither is a rate — §9.2."""

@@ -1,20 +1,4 @@
-"""A decision exits at the tier its evidence earned, not at the tier its code path implies.
-
-Spec §1 and §4.4. The tier ladder is a product commitment — `CLAUDE.md` prints the table and
-the CLI colours by it — so a tier that means "which branch ran" rather than "what settled
-this" makes the whole ladder decorative.
-
-Two defects, from opposite ends:
-
-- **A113.** A module chosen because it was the only candidate reported **tier 1**, whose
-  definition is *"no choice exists — inputs force it"*. One contract in the stack is a fact
-  about registry contents, not about the inputs: install a second sorter tomorrow and the
-  same pipeline becomes a real choice. That is a convention, and it is tier 2.
-- **The catch-all.** A row testing no premise positively also reported tier 3, whose
-  definition is *"a declared rule matched measured data"* — with no measured data anywhere in
-  it. Tier 3 is advisory, meaning *"the machinery worked, check the premise"*, and a
-  catch-all offers no premise to check.
-"""
+"""Evidence, not code-path shape, determines selection and rule tiers."""
 
 import pathlib
 

@@ -35,7 +35,7 @@ Browser requests use relative `/api` paths. The development proxy in
 | Other `/api` requests | `http://localhost:8000` | Mendel. |
 
 Specific Wiener prefixes precede `/api`, because the development proxy matches in insertion
-order. Browser routes such as `/forge` stay with the application router.
+order. Browser routes such as `/runs` stay with the application router.
 
 The proxy reads `WEB_HOST_PORT`, `API_HOST_PORT` and `VITE_HOST_PORT` from the root `.env`,
 with exported environment values taking precedence. `make dev` supplies Compose-parsed values;
@@ -53,7 +53,6 @@ header; it is configured through the UI, rather than embedded in the build.
 | [src/app/](src/app/) | Application shell, routes, navigation and shared URL state. |
 | [src/home/](src/home/) | Saved pipeline entry points. |
 | [src/build/](src/build/) | Draft building, decisions, review and the conversational builder. |
-| [src/forge/](src/forge/) | Registry overview, catalogue, work queue and adaptation review. |
 | [src/runs/](src/runs/) | Run board, task details, resource views and live event streams. |
 | [src/preferences/](src/preferences/) | Settings overlay, controls and reports. |
 | [src/api/](src/api/) | Mendel request wrappers, generated schema types and API hooks. |

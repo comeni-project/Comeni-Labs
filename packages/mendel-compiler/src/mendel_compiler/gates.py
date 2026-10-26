@@ -1,11 +1,17 @@
-"""Validation gates, cheapest first. Each is a subprocess call to nextflow."""
+"""Prepare gate fixtures and invoke bounded Nextflow validation commands."""
 import subprocess
 from pathlib import Path
 
 from comeni_core.artifact.gates import Gate
 from pydantic import BaseModel
 
-__all__ = ["Gate", "GateResult", "materialise_stub_data", "run_gate"]
+__all__ = [
+    "Gate",
+    "GateResult",
+    "materialise_gate_inputs",
+    "materialise_stub_data",
+    "run_gate",
+]
 
 # `Gate` is re-exported, not redefined. It moved to `comeni_core.artifact.gates` so a
 # `Pipeline` could record which gate it passed (audit A4) without the core depending
@@ -109,6 +115,20 @@ def materialise_test_samplesheet(workdir: Path, pipeline) -> None:
     if pipeline.input_form is not InputForm.SAMPLESHEET:
         return
     (workdir / TEST_SAMPLESHEET).write_text(test_samplesheet(pipeline))
+
+
+def materialise_gate_inputs(gate: Gate, workdir: Path, pipeline) -> None:
+    """Write the local data files an executing gate needs.
+
+    Every requested gate receives the test samplesheet when the pipeline needs one. The stub
+    gate additionally needs empty files for every entry parameter; real test runs provide their
+    other data through the test profile.
+    """
+    from mendel_compiler.emit import entry_params
+
+    materialise_test_samplesheet(workdir, pipeline)
+    if gate is Gate.STUB:
+        materialise_stub_data(workdir, entry_params(pipeline))
 
 
 def materialise_stub_data(workdir: Path, params: list[str]) -> None:

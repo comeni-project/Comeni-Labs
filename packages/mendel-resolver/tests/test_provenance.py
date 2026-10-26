@@ -1,14 +1,4 @@
-"""Who settled what, kept per decision rather than per session.
-
-**§1.8, and the failure it exists to prevent is one word wide.** `ir_of` stamps every choice with
-one author — the whole-draft `by` — so a spawned pipeline that a person later edits in one place
-becomes, in `pipeline.yml`, a pipeline a person drew. The resolver's reasons are overwritten, the
-tiers become 4, and the artifact's own claim (*nothing was guessed silently*) is inverted: it now
-says a human decided things no human ever saw.
-
-The test that matters is the mixed one. A pipeline with three steps settled three different ways
-must come out of `Pipeline.of` saying so, step by step.
-"""
+"""Materialisation preserves who settled each module, parameter, and channel decision."""
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.draft import (

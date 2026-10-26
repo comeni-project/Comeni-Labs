@@ -1,13 +1,7 @@
-"""What the verbs print, as distinct from what they do.
+"""Render upgrade drift, displacement, answered-decision, and review reports.
 
-`OVERLAY`, `ANSWERED` and `REVIEW` are three different questions — what an installed layer
-changed, what a person has already settled, and what still needs deciding — and folding any of
-them into the others is the defect `cli.py`'s own comments warn about. Keeping them in one
-module keeps that distinction in one place to read.
-
-`_verdict` and `_frozen_against_moved_contracts` are `upgrade`'s report: drift, changes, stale
-and orphaned overrides are reported separately because they oblige a reader to do different
-things.
+The report keeps changed layer evidence, already answered tier-four decisions, and outstanding
+review items distinct because they require different operator actions.
 """
 
 import sys
@@ -164,5 +158,4 @@ def _displacement_line(record: Displacement) -> str:
         f"{record.kind.value}: {what} from {record.winning_layer}{displaced}, "
         f"displacing {record.displaced_layer}"
     )
-
 

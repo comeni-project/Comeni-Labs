@@ -1,13 +1,4 @@
-"""The command line, as a parser. One function, so `main` reads as dispatch rather than setup.
-
-Split out for issue #41: fifty lines of `add_argument` were the first thing anybody opening
-`cli.py` met, before any verb.
-
-Every `help=` string moved verbatim, and several carry an argument rather than a description —
-`--dry-run` explains why there is no separate `verify` verb, and `--force` names the target
-directory as *another pipeline's evidence*. Those are the reason each flag is shaped as it is,
-and losing one to a rewrite would lose the reason.
-"""
+"""Declare the ``mendel`` argument parser and its command-specific options."""
 
 import argparse
 from pathlib import Path

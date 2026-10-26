@@ -7,17 +7,24 @@ For the task sequence, see [Build and inspect a pipeline](../../how-to/pipelines
 
 | Area | What it is for |
 |---|---|
-| Pipeline name | the draft name shown on the home page and run links |
-| Status line | save state, validation state, and how many values still need you |
+| Pipeline name | the draft name shown on the home page and run links; click it to rename |
+| Status chip | where the build is, and how many values still need you |
 | Canvas | the steps and wires in the pipeline |
 | `+ Add step` | browse tools that can be added to the graph |
-| Step/settings panel | inspect a selected step and answer settings |
-| Ask/problems panel | open decisions and validation findings |
-| Artifact view | the materialized `pipeline.yml` behind the draft |
+| Ports | drag from an output to an input to wire it; click a port to see what can connect there |
+| Wire | click to detach it |
+| Delete | remove the selected step |
+| Fit, −, +, 1:1, Tidy | fit the drawing, zoom, reset the view, give moved steps back their places |
+| Step panel | the step line, a selected step's settings and tools, and **From your edit** |
+| Assistant | the conversation |
+| Pipeline file | the materialized `pipeline.yml` behind the draft, and its findings |
 | Run | keep, check, collect run inputs, and submit |
 
-Use the canvas to inspect and change the draft. The artifact view shows the saved
-pipeline record for review before execution.
+**A change on the canvas is read before it counts.** Removing, adding, wiring or swapping a
+step changes nothing at once: the engine says how it read the change (*So you never want
+trimming here — right?*) under **From your edit**. **Yes** records it as your decision and the
+engine plans around it; **No, undo** leaves the pipeline as it was. A value typed in a setting
+counts at once. Moving a step is layout only.
 
 ## Good signs
 

@@ -32,7 +32,7 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="no database — run `ma
 def clean_authoring():
     """An empty authoring workflow, and the drafts the sessions hang off.
 
-    **All four in one `TRUNCATE`**, for `clean_forge`'s reason: every foreign key here is
+    **All four in one `TRUNCATE`**, for `clean_invocations`'s reason: every foreign key here is
     `RESTRICT`, so truncating `pipeline_draft` on its own is refused while a session points at
     it — which is the constraint working, and exactly what these tests are for.
     """
@@ -202,9 +202,8 @@ def test_a_failed_session_retries_the_phase_that_failed(draft):
 
 
 def test_recovering_from_failure_clears_the_recorded_phase(draft):
-    """A stale `failed_from` sends the *next* retry to the wrong place — `forge_state.move`
-    clears `failed_stage` for exactly this reason, and rule 9 inverted is a real defect rather
-    than an untidiness."""
+    """A stale `failed_from` sends the *next* retry to the wrong place, and rule 9 inverted is
+    a real defect rather than an untidiness."""
     session_id = facade.perform(commands.OpenSession(draft, "tester")).result
     authoring_setup.move(session_id, st.Event.PROVIDER_FAILED, row_version=1)
     assert facade.read(session_id)["failed_from"] == Phase.UNDERSTANDING.value

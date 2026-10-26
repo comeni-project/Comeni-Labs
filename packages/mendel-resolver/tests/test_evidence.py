@@ -1,13 +1,4 @@
-"""A tier-4 producer question says what it is about, and cites its candidates.
-
-Before Plan 2.5 a reviewer facing a routing tie got a list of contract ids and nothing to
-judge them on — no statement of what was being decided, no reason it was open, no evidence.
-The forge carried all three on every `Hole` from its first day. That asymmetry is the spec's
-§7.1, and closing it is the point of making `Ambiguity` a `Question`.
-
-The `tied` fixture is imported rather than rebuilt: two aligners nothing distinguishes is
-exactly the shape this is about, and a second copy of it would drift.
-"""
+"""Tier-4 producer questions retain their subject, candidates, and review evidence."""
 
 from comeni_core.plan.decision import ProducerAsked
 from comeni_core.plan.tiers import Tier

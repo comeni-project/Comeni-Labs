@@ -5326,3 +5326,67 @@ Task suites and the final repository check verify the completed implementations.
 - `test_authoring_chat_changes.py::test_once_built_what_is_not_offered_changes_nothing_and_says_so` (issue 354, walk 4) RED on the old engine with the walk's own receipt (`'…fasted yeast". changes nothing Affected steps will be reviewed again.' != '…fasted yeast". Nothing in the pipeline changes.'`, and the wrap-up repeated); GREEN once a confirmed note retains its continuation, keeps the projection current and makes no revision, and a wrap-up already said at that revision is not said again.
 - `test_authoring_chat_changes.py::test_a_correction_receipt_reads_as_sentences` (issue 354) RED (`'Adds hisat2_build' in '…read length is 50. adds hisat2_build, …settings, wiring or evidence Affected steps…'`); GREEN once the correction's receipt makes the diff a sentence of its own. The amend receipt (*Your change adds …*) keeps the clause.
 - `LivingBuilder.test.tsx` "says why a tier-4 offer went, and calls it open only once decided" (issue 354) RED (`Received: SUBREAD_FEATURECOUNTSstep 5 of 5 · openwithdrawn`); GREEN once a withdrawn offer reads *answers changed* without its tier's *open*. The accepted tier-4 row keeps *· open*, the control.
+
+## Redesign 1, 2026-10-19 — tokens and type (#371)
+
+Each guard is in `frontend/src/tokens.test.ts`. Every break below was reverted with
+`git checkout`, and the file then ran 19/19 green.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-19 | sets the same tokens in every theme | `--now-line` removed from the dark media block | failed | `expected [ '--action', … (34) ] to deeply equal [ … (35) ]` |
+| 2026-10-19 | lets an explicit light choice beat a dark system | `:root:not([data-theme="light"])` in the dark media block became `:root` | failed | `expected '/* The token system…' to match /@media \(prefers-color-scheme: dark\)…/` |
+| 2026-10-19 | keeps every text colour readable on the grounds it is drawn on | light `--ink-3` set to `#9AA0B4` | failed | `expected [ …(3) ] to deeply equal []` (the three `--ink-3` pairs, with their ratios) |
+| 2026-10-19 | keeps retired colour names retired | `text-[var(--link)]` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | sets every face in the family the artboards use, and bundles it | `--font-display` set back to Geist | failed | `--font-display names a face the boards do not use` |
+| 2026-10-19 | draws labels in the interface face, not shouted | `uppercase` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | sizes the type roles as the boards do | `--text-body` set to 13px | failed | `--text-body: expected '@import "tailwindcss";…' to match …` |
+| 2026-10-19 | rounds corners with the three named radii only | `rounded-[3px]` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | raises every main button | `shadow-raise` removed from `build/Gate.tsx`'s main button | failed | `expected [ 'build/Gate.tsx' ] to deeply equal []` |
+| 2026-10-19 | paints a plain ground: no field, no translucent panels | a `.field-scan` rule appended to `main.css` | failed | `expected [ 'main.css' ] to deeply equal []` |
+| 2026-10-19 | draws a filled main button as the action, not as selected | `home/First.tsx`'s primary set back to `bg-[var(--now)] text-paper` | failed | `expected [ 'home/First.tsx' ] to deeply equal []` |
+| 2026-10-19 | draws words in the -ink shade of a meaning, never its plain mark colour | `text-[var(--done)]` added to a className in `runs/Run.tsx` | failed | `expected [ 'runs/Run.tsx' ] to deeply equal []` |
+| 2026-10-19 | draws labels in the interface face, not shouted (widened to every string literal) | `uppercase` added to the `EYEBROW` constant in `home/Now.tsx`, which the className-only scan missed | failed | `expected [ 'home/Now.tsx' ] to deeply equal []` |
+| 2026-10-19 | rounds corners with the three named radii only (widened) | the run graph's node `rx={10}` set back to `rx={3}` | failed | `expected [ 'runs/Graph.tsx' ] to deeply equal []` |
+| 2026-10-19 | sizes the type roles as the boards do (body) | `body { font-size }` set back to `13px` | failed | `expected '…' to match /font-size:\s*var\(--text-body\);/` |
+| 2026-10-19 | `forge/registry/origins.test.tsx`: keys a model's proposal amber | the model origin's tone set back to `var(--now)` | failed | `expected 'var(--now)' to be 'var(--measured)'` |
+| 2026-10-19 | `app/Jump.test.tsx`: draws above the settings overlay, which comes later in the page | the palette rendered inside the header (before the portal) | failed | the jump dialog was not the last dialog and sat inside `<header>`; the browser showed it hidden under Settings while holding focus |
+
+## Forge MVP 0, 2026-10-19 — the old forge goes (#361)
+
+`tests/guards/test_forge_write_boundary.py` was deleted with `mendel-forge`, the package it
+scanned; part 5 (#366) brings the new forge's boundary and its guard.
+`test_no_pure_package_imports_an_impure_one` searched for the text `mendel_forge`. It now checks
+the AST imports of each pure package against every name in `IMPURE_PACKAGES`. The break below was
+reverted by restoring the file, and the purity guards then ran 19/19 green.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-19 | `tests/guards/test_purity.py::test_no_pure_package_imports_an_impure_one` (widened) | `if False: import mendel_api` appended to `comeni_core/__init__.py` | failed | `a pure package imports an impure one; the dependency arrow points the other way:` naming the file and `mendel_api` |
+
+## Redesign walk fixes, 2026-10-22 (#384–#390)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-22 | `test_proposal_previews_v2.py::test_a_shape_one_preview_says_which_settings_are_optional` (#384's shape change) | the migration's rewrite replaced with `pass` | failed | `KeyError: 'optional'`; `test_shapes.py::test_each_shape_matches_its_golden` was what found the change |
+| 2026-10-22 | `test_emit.py::test_an_omittable_route_writes_nothing_for_an_unanswered_setting` (#384) | written before `OMITTABLE` existed | failed | `ImportError` on `OMITTABLE`; the test then holds each optional route to an emitter that writes nothing for it |
+| 2026-10-22 | `test_card_unset.py::test_a_setting_the_call_cannot_leave_empty_is_not_said_to_stay_unset` (#384) | the card's list taken from every no-domain gap, as before | failed | `['seq_platform'] == []`: a positional setting was said to stay unset |
+
+## One builder, plan 1 — structural intent (A1), 2026-10-22
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-22 | `test_person_intents.py::test_excluding_the_only_producer_is_a_coded_conflict_naming_it` | the router's empty-after-exclusion check disabled | failed | `UnroutableError: nothing produces alignment.bam with states ['coordinate_sorted']` — the exclusion went unnamed |
+| 2026-10-22 | `test_person_intents.py::test_switching_off_a_role_the_goal_needs_is_a_coded_conflict` | `_blocking_absence` replaced with `None` | failed | `UnroutableError: nothing produces alignment.bam with states []` — the role went unnamed |
+| 2026-10-22 | `test_person_intents.py::test_an_intent_that_applies_nowhere_is_reported` | `inert_intents` returning `[]` | failed | `assert [] == [ProducerExclusion(…)…]` |
+| 2026-10-22 | `test_person_intents.py::test_a_pin_whose_producer_cannot_feed_the_port_is_a_coded_conflict` | the router's source-pin branch disabled | failed | `DID NOT RAISE IntentConflict` |
+
+## One builder, plan 2 — one builder, no fork (#395), 2026-10-22
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-10-22 | `test_edit_reading.py::test_removing_trimgalore_mid_walk_offers_the_role_reading_and_changes_nothing` | written before `record_edit` read edits | failed | `MI0217: editing opens when the walk is done` (the walk refused it) |
+| 2026-10-22 | `test_edit_reading.py::test_confirming_an_impossible_exclusion_is_refused_with_its_code_and_writes_nothing` | written before the correction refused an `IntentConflict` | failed | `assert 200 == 422`: the exclusion was kept and the pipeline left outdated |
+| 2026-10-22 | `test_edit_reading.py::test_a_correction_after_a_hand_edit_lands_in_the_same_pipeline` | the draft set to `ownership = "manual"` by hand, the fork still present | failed | `assert 2 == 1`: the correction forked a linked draft. It passed once Task 3 stopped flipping ownership, before the fork was deleted |
+| 2026-10-22 | `test_draft_session.py::test_an_open_that_loses_the_race_answers_with_the_winner` | the route's `except` narrowed back to `IntegrityError` | failed | `422 MI0200: this draft already has an authoring session` |
+| 2026-10-22 | `test_draft_session.py::test_a_drawn_step_confirmed_asks_for_its_inputs` (#399) | written against a drawn goal confirmed when it opened | failed | `assert 'stopped' == 'gathering'`: the goal had no inputs |

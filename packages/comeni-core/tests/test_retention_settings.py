@@ -1,8 +1,4 @@
-"""Every retention limit is on the menu, in words, with the spec's defaults (Part H spec §5.3).
-
-The operator's words (2026-10-12): *make sure to appear on the setting menus so people can know
-it exists and not confusing*.
-"""
+"""Retention menu declarations and scheduler day conversion share one vocabulary."""
 
 from comeni_core.settings import CATALOGUE
 from comeni_core.settings.retention import days

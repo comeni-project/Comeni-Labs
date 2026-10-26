@@ -24,11 +24,11 @@ export function Block({
       return (
         <BlockFrame label="the goal as understood" title="Your goal" actions={actions}>
           <dl className="m-0 grid grid-cols-[48px_1fr] gap-x-3 gap-y-[6px] text-[12.5px] leading-[1.55]">
-            <dt className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[3px]">have</dt>
+            <dt className="text-label text-ink-3 pt-[3px]">have</dt>
             <dd className="m-0 text-ink">{block.have}</dd>
-            <dt className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[3px]">do</dt>
+            <dt className="text-label text-ink-3 pt-[3px]">do</dt>
             <dd className="m-0 text-ink">{block.do}</dd>
-            <dt className="font-data text-[9.5px] tracking-[.15em] uppercase text-ink-3 pt-[3px]">get</dt>
+            <dt className="text-label text-ink-3 pt-[3px]">get</dt>
             <dd className="m-0 text-ink">{block.get}</dd>
           </dl>
         </BlockFrame>
@@ -49,7 +49,7 @@ export function Block({
               <li key={option.id} className="list-none mb-[6px] px-[10px] py-2 border"
                   style={{ borderColor: "var(--line)" }}>
                 <span className="text-[12.5px] text-ink">{option.label}</span>
-                {option.recommended && <span className="ml-2 font-data text-[9.5px] text-link">recommended</span>}
+                {option.recommended && <span className="ml-2 font-data text-[9.5px] text-now-ink">recommended</span>}
               </li>
             ))}
           </ul>
@@ -79,7 +79,7 @@ export function Block({
           <p className="m-0 mb-2 text-[12.5px] text-ink">{block.summary}</p>
           <ul className="m-0 p-0 font-data text-[11px]">
             {block.removes.map((node) => (
-              <li key={`-${node}`} className="list-none text-[var(--undecided)]">− {processName(node)}</li>
+              <li key={`-${node}`} className="list-none text-needs-you-ink">− {processName(node)}</li>
             ))}
             {block.adds.map((node) => (
               <li key={`+${node}`} className="list-none text-ink">+ {processName(node)}</li>
@@ -93,7 +93,7 @@ export function Block({
 
     case "receipt":
       return (
-        <p className="m-0 font-data text-[10px] leading-[1.5] text-ink-4">
+        <p className="m-0 font-data text-[10px] leading-[1.5] text-ink-3">
           {block.summary} · revision {block.revision}
         </p>
       );
@@ -127,7 +127,7 @@ export function NoticeLine({
     <div role={notice === "refusal" ? "alert" : "status"}>
       <p className="m-0 text-[13px] text-ink">
         <span aria-hidden className="mr-2 text-[10px]"
-              style={{ color: notice === "refusal" ? "var(--undecided)" : notice === "stale" ? "var(--measured)" : "var(--ink-3)" }}>
+              style={{ color: notice === "refusal" ? "var(--needs-you)" : notice === "stale" ? "var(--measured)" : "var(--ink-3)" }}>
           {notice === "refusal" ? "●" : "○"}
         </span>
         {NOTICE_TITLE[notice] ?? notice}

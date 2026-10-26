@@ -51,7 +51,6 @@ commands need the docs dependency group. Canonical authored pages remain in the 
 | Tool | Command | Behavior |
 |---|---|---|
 | [guard_residue.py](guard_residue.py) | `make residue` or `make residue ARGS=--list` | Estimates refusal-shaped tests lacking recorded failure evidence in the guard ledger. Reads tests and the ledger; prints a report. Its classification and name matching are heuristics, not a coverage measure or pass/fail gate. |
-| [forge_ai_eval.py](forge_ai_eval.py) | `make forge-ai-eval ARGS=--json` | Loads the registry and reports evaluation cases and available answer-key fields. Fails if a required contract is missing. Calls no model and produces no model-performance score. |
 | [changelog_section.py](changelog_section.py) | `uv run python tools/changelog_section.py <package> <version>` | Prints one package's notes from the shared changelog for release automation. Rejects `Unreleased` and missing headings; writes no files. |
 | [migrate_authoring_decisions.py](migrate_authoring_decisions.py) | `uv run python tools/migrate_authoring_decisions.py --dry-run` | Prints a read-only legacy-decision inventory against the configured Mendel database. Read-only is also the default. The Alembic upgrade owns migration application. |
 

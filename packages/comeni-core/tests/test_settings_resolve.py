@@ -1,4 +1,4 @@
-"""The resolver: one case per layer path (spec §3, §9)."""
+"""Setting precedence, locks, fallbacks, and source attribution."""
 
 from comeni_core.settings.declare import Setting
 from comeni_core.settings.reasons import Designed, Needs, Pinned, ReadOnlyHere

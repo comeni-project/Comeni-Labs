@@ -37,10 +37,9 @@ from mendel_authoring.needs import Need
 from mendel_authoring.types import Event, Phase, ProposalState  # noqa: F401 (re-exported)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# **The Forge's number, not a new one.** `forge_jobs.CHAT_TAIL` bounds what a model is shown of
-# a review conversation, and §2 says to follow that precedent until evaluation shows a different
-# one is needed. It has not, so this is the same 6 — and it is a named constant in both places
-# rather than a literal, so the day somebody measures a better number there is one edit here.
+# **How many prior turns a model is shown.** Taken from the old forge's review chat, and §2 says
+# to keep that precedent until evaluation shows a different number is needed. It has not; it is a
+# named constant rather than a literal, so the day somebody measures a better one it is one edit.
 CHAT_TAIL = 6
 
 # Long enough for a paragraph explaining a choice, short enough that nobody pastes a file into

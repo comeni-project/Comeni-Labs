@@ -1,14 +1,9 @@
-"""The authoring protocol as one declarative object: who acts, in which stage, and what moves.
+"""Declare and validate the complete authoring protocol.
 
-**This is the only definition.** `state.TRANSITIONS` and `state.RETRY_TARGETS` are computed from
-the built edges here, and `docs/explanation/diagrams/` is generated from the whole object (one
-diagram, with sections), so the picture a person argues about and the machine that runs cannot
-drift apart. The design lives here too, **planned** (`built=False`) and
-drawn dashed; each substep that builds a part flips it. The rules' prose stays on the protocol
-page: this object holds structure, not argument.
-
-Because a drawing mistake is now a behaviour mistake, `Protocol` refuses to exist when it is
-inconsistent (spec §5, *Checked when it loads*).
+The same stages, nodes, and edges generate the diagram, session transition table, retry targets,
+and interpreter paths. Planned elements remain visible but do not enter the running machine.
+Construction rejects inconsistent endpoints, events, within-request sections, outgoing arrows,
+and forks.
 """
 
 from enum import StrEnum
@@ -202,34 +197,7 @@ class Protocol(_Frozen):
                     f"{edge.source}→{edge.target} names case {edge.case!r}, and its source "
                     "is not a fork"
                 )
-        for node in self.nodes:
-            if node.fork is None:
-                continue
-            if node.acts or node.waits:
-                raise ValueError(f"fork {node.id} acts or waits; the interpreter decides it")
-            # Built or planned (final review): a designed option is a path not built yet, drawn
-            # dashed, and it still covers its case. The interpreter takes only built edges, so a
-            # run reaching a planned case is refused (MI0216).
-            out = [e for e in self.edges if e.source == node.id]
-            if any(e.case is None for e in out):
-                raise ValueError(f"{node.id}: every edge out of a fork names a case")
-            cases = [e.case for e in out]
-            twice = sorted({c for c in cases if cases.count(c) > 1})
-            if twice:
-                raise ValueError(f"{node.id}: case {twice} twice")
-            options = node.fork.options()
-            if options is None:
-                if DEFAULT not in cases:
-                    raise ValueError(
-                        f"{node.id} switches on an open subject and has no DEFAULT ({DEFAULT!r})"
-                    )
-                continue
-            missing = sorted(options - set(cases))
-            extra = sorted(set(cases) - options)
-            if missing:
-                raise ValueError(f"{node.id}: no edge for {missing}")
-            if extra:
-                raise ValueError(f"{node.id}: {extra} is not a case of {node.fork.title!r}")
+        _validate_forks(self.nodes, self.edges)
         return self
 
     def fork_keys(self) -> frozenset[str]:
@@ -269,6 +237,37 @@ class Protocol(_Frozen):
     def retry_targets(self) -> frozenset[Phase]:
         """The phases a retry out of `failed` may resume."""
         return frozenset(self._phase(e.target) for e in self.edges if e.built and e.returns)
+
+
+def _validate_forks(nodes: tuple[Node, ...], edges: tuple[Edge, ...]) -> None:
+    """Require each fork to be passive and to cover its subject exactly once."""
+    for node in nodes:
+        if node.fork is None:
+            continue
+        if node.acts or node.waits:
+            raise ValueError(f"fork {node.id} acts or waits; the interpreter decides it")
+        # Planned edges still cover a designed case even though the interpreter follows only
+        # built edges. Reaching a planned case at runtime is therefore a separate refusal.
+        out = [edge for edge in edges if edge.source == node.id]
+        if any(edge.case is None for edge in out):
+            raise ValueError(f"{node.id}: every edge out of a fork names a case")
+        cases = [edge.case for edge in out]
+        twice = sorted({case for case in cases if cases.count(case) > 1})
+        if twice:
+            raise ValueError(f"{node.id}: case {twice} twice")
+        options = node.fork.options()
+        if options is None:
+            if DEFAULT not in cases:
+                raise ValueError(
+                    f"{node.id} switches on an open subject and has no DEFAULT ({DEFAULT!r})"
+                )
+            continue
+        missing = sorted(options - set(cases))
+        extra = sorted(set(cases) - options)
+        if missing:
+            raise ValueError(f"{node.id}: no edge for {missing}")
+        if extra:
+            raise ValueError(f"{node.id}: {extra} is not a case of {node.fork.title!r}")
 
 
 _FILL = {
@@ -738,9 +737,6 @@ PROTOCOL = Protocol(
         _built("correction_blocked", "correct", _ENGINE,
                "Your correction stays<br/>old pipeline is outdated; explain what is missing",
                _P.CORRECTING, acts=True),
-        _built("fork_correction", "correct", _ENGINE,
-               "Manual work stays<br/>inherit evidence into a linked authored draft",
-               _P.CORRECTING, acts=True),
         _built("compare_evidence", "correct", _ENGINE,
                "Keep every admitted observation<br/>compare to your selected answer",
                _P.CORRECTING, acts=True),
@@ -851,15 +847,9 @@ PROTOCOL = Protocol(
         *(_move(source, "correct_fact", _E.CORRECTION_REQUESTED,
                  "release this tool choice", on="release_producer")
           for source in ("reply", "card", "step_card", "wrap", "stopped")),
-        *(_move(source, "fork_correction", _E.CORRECTION_REQUESTED,
-                 "correct in a new draft", on="fork_correction")
-          for source in ("reply", "card", "step_card", "wrap", "stopped",
-                         "disagree_gather", "disagree_goal",
-                         "disagree_build", "disagree_complete")),
         *(_move("disagree_" + suffix, "correct_fact", _E.CORRECTION_REQUESTED,
                  "your explicit choice", on="answer_disagreement")
           for suffix in ("gather", "goal", "build", "complete")),
-        _e("fork_correction", "correct_fact", on="forked", built=True),
         _e("correct_fact", "resolve_correction", on="selected", built=True),
         _move("correct_fact", "list_needs", _E.CORRECTION_GATHERED, on="gather_again"),
         _move("correct_fact", "readback", _E.CORRECTION_CHECKED, on="check_again"),

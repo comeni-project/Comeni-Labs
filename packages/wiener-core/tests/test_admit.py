@@ -1,8 +1,7 @@
 """What Wiener agrees to accept, held to a real capture.
 
-`docs/design/wiener.md` §4.4. The fixture is thirteen events from an actual Nextflow 25.10.4
-run — `tests/fixtures/weblog/failing-run.jsonl` — and every assertion here is about that file
-rather than about what a designer imagined a run looks like.
+The fixture is thirteen events from an actual Nextflow 25.10.4 run, and every assertion is
+about that capture rather than an imagined webhook payload.
 """
 
 import json

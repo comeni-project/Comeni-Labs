@@ -1,9 +1,4 @@
-"""A person's pin in the goal, over the shipped registry (§14.3, §14.9 of the consultant build).
-
-The rnaseq example: with a read length of 150 the alignment rule picks STAR (tier 3); without
-one the aligner site is a question. A pin names a tool for a site and wins over both, recorded as
-the person's at tier 4 with the engine's own pick kept beside it.
-"""
+"""Person-authored producer pins override rules and ambiguities with explicit evidence."""
 
 from pathlib import Path
 
@@ -11,34 +6,11 @@ import pytest
 from comeni_core.goal.asked import ProducerPin, Site
 from comeni_core.plan.ir import Tier
 from comeni_core.plan.tiers import ValueSource
-from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
-from mendel_resolver.resolve import UnknownTypeError, inert_pins, resolve
-from support.example import example_mapping
+from mendel_resolver.resolve import UnknownTypeError, inert_pins
 
 ROOT = Path(__file__).resolve().parents[3]
 HISAT2_ALIGN = "nf-core/hisat2/align@2.2.2"
-
-
-@pytest.fixture
-def resolve_rnaseq(stack):
-    def run(*, read_length=True, pins=(), resolver=None):
-        data = example_mapping()
-        if not read_length:
-            data["profile"].pop("read_length")
-        data.setdefault("constraints", {})["producers"] = [
-            p.model_dump(mode="json") for p in pins
-        ]
-        return resolve(
-            Goal.model_validate(data),
-            stack.registry,
-            stack.rules,
-            stack.measurements,
-            vocabulary=stack.vocabulary,
-            resolver=resolver,
-        )
-
-    return run
 
 
 def _node(ir, node_id):

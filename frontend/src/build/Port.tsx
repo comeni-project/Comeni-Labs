@@ -132,14 +132,14 @@ export function Port({
       className={`absolute w-[7px] h-[7px] p-0 leading-none z-10 transition-transform
                   ${onStartWire || onFinishWire ? "cursor-crosshair" : "cursor-help"}
                   hover:scale-150 focus-visible:scale-150
-                  focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--link)]`}
+                  focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--now)]`}
     >
       <span aria-hidden className="block w-full h-full" style={{
-        // `.port` is a filled square with a 1px stroke; `.port.on` swaps both for `--link`. An
-        // unmet input is the one that spends `--undecided`, because it is the one that needs
+        // `.port` is a filled square with a 1px stroke; `.port.on` swaps both for `--now`. An
+        // unmet input is the one that spends `--needs-you`, because it is the one that needs
         // somebody — invariant 6, on the smallest element that can carry it.
         background: verdict === "yes" || verdict === "conventional-no"
-          ? "var(--link-soft)"
+          ? "var(--now-soft)"
           : "var(--node)",
         border: `1px solid ${
           verdict === "no"
@@ -147,10 +147,10 @@ export function Port({
             : verdict === "conventional-no"
               ? "var(--measured)"
               : verdict === "yes"
-                ? "var(--link)"
+                ? "var(--now)"
                 : port.met
                   ? "var(--port-line)"
-                  : "var(--undecided)"
+                  : "var(--needs-you)"
         }`,
         opacity: verdict === "no" ? 0.25 : 1,
       }} />
@@ -165,7 +165,7 @@ export function Port({
         >
           <b className="font-semibold">{port.name}</b>
           <span className="text-ink-3"> · {port.type_id}</span>
-          {!port.met && <span className="text-[var(--undecided)]"> · nothing feeds this</span>}
+          {!port.met && <span className="text-needs-you-ink"> · nothing feeds this</span>}
         </span>
       )}
     </button>

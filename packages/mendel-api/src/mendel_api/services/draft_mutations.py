@@ -11,7 +11,7 @@ from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 
 
 class Conflict(ValueError):
-    """A valid save whose version or authored ownership refuses it."""
+    """A valid save its version or an open conversation refuses."""
 
 
 def lock(db, draft_id, *, expected_revision=None):
@@ -76,8 +76,6 @@ def save_in(db, draft, *, graph=None, name=None):
         draft.graph = graph.model_dump(mode="json")
         prior = DraftProvenance.model_validate(draft.provenance or {})
         draft.provenance = drafts._restamped(graph, before, prior).model_dump(mode="json")
-        if _semantic(graph) != _semantic(before):
-            draft.ownership = "manual"
         touch(db, draft)
     if name is not None and name != draft.name:
         draft.name = name

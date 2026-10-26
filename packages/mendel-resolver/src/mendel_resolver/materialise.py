@@ -1,33 +1,9 @@
-"""A drawn graph becomes a `PipelineIR` and a `Goal`. **Derived, never guessed.**
+"""Derive a goal and pipeline IR from a person- or model-drawn graph.
 
-This is what spec §6 rests on. *"A builder edits a pipeline, and `pipeline.yml` is already the
-save file"* is only true if a drawn graph can become one — and `Pipeline.of` requires a `Goal`,
-keyword-only and required, which a drawn graph does not have.
-
-**So the goal is derived from the graph.** What the graph reads from entry channels is what you
-have; what its terminal nodes produce is what you want. Both facts are already in the contracts
-and the vocabulary, so this is arithmetic over declared data with no model in it. The derived
-goal is *narrower* than one a person would write — it says nothing about constraints or measured
-data — and that is stated here rather than implied, because a reader of a kept draft will
-otherwise wonder why its goal is so thin.
-
-**Settings run the resolver's own ladder, and that is the point rather than a shortcut.**
-`_resolve_param` is what `mendel build` calls, so a drawn node's settings come out at the same
-tiers, with the same premises and the same reasons, as a resolved node's. That is spec §2's
-*"the same knowledge from a different route"* applied to values — and it is what makes `compare`
-mean anything: the two halves then differ only where you actually drew something different, not
-because one route reads defaults and the other reads rules.
-
-`MD0224` is what found this. A contract declares a positional slot a param fills, so a graph with
-no settings emits a workflow with a hole in it and the compiler refuses the file that had just
-been written.
-
-**Every module choice exits at tier 4.** Nothing about a drawn graph was resolved, so
-nothing may claim a lower tier: tier 1 means *no choice existed* and a person picking
-`star/align` over
-`hisat2/align` had a choice and made it. Invariant 6 — tier 4 is always flagged, even when the
-person was certain. That is the honesty mechanism, and a builder is exactly where it would be
-tempting to skip.
+Unwired declared entry ports become what the goal has, while terminal outputs become what it
+wants. Parameter settings use the same resolution ladder as ordinary builds. Drawn module choices
+remain explicit tier-4 decisions unless supplied provenance records stronger evidence; the module
+never infers that a drawn choice was structurally forced.
 """
 
 from typing import NamedTuple

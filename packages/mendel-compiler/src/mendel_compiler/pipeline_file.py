@@ -1,10 +1,7 @@
-"""Reading and writing `pipeline.yml`, and the four checks that guard the pair of files.
+"""Read, write, stamp, and detect divergence in a pipeline artifact directory.
 
-`comeni_core.artifact.pipeline` owns what a `Pipeline` *is*; this owns what it looks like on
-disk and what must be true of the directory around it. The split matters because `comeni-core`
-may not
-know about `main.nf` — a `Pipeline` is a document, and only the compiler generates Nextflow
-from one.
+``comeni-core`` owns the ``Pipeline`` schema. This module owns its YAML representation and the
+relationship between ``pipeline.yml`` and generated files such as ``main.nf``.
 """
 
 from pathlib import Path

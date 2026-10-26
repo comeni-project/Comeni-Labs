@@ -2,7 +2,7 @@
 its steps have a review that still holds. Never a count of proposals made over the session."""
 
 import pytest
-from mendel_authoring.progress import OfferProgress, WalkProgress, progress_of
+from mendel_authoring.progress import OfferProgress, Upcoming, WalkProgress, progress_of
 from pydantic import ValidationError
 
 ORDER = ["index", "align", "counts"]
@@ -11,7 +11,9 @@ ORDER = ["index", "align", "counts"]
 def test_the_first_offer_is_step_one_of_the_plan():
     got = progress_of(ORDER, frozenset(), frozenset(), "index")
     assert got == WalkProgress(reviewed=0, total=3,
-                               active=OfferProgress(position=1, total=3, again=False))
+                               active=OfferProgress(position=1, total=3, again=False),
+                               upcoming=(Upcoming(node="align", position=2),
+                                         Upcoming(node="counts", position=3)))
 
 
 def test_re_review_uses_current_position_not_lifetime_proposals():
@@ -65,3 +67,27 @@ def test_positions_and_counts_are_bounded():
         OfferProgress(position=0, total=3)
     with pytest.raises(ValidationError):
         WalkProgress(reviewed=4, total=3)
+
+
+def test_the_steps_after_the_offer_are_named_in_plan_order():
+    got = progress_of(
+        ["index", "align", "sort", "counts"], frozenset({"index"}), frozenset({"index"}), "align"
+    )
+    assert got.upcoming == (Upcoming(node="sort", position=3), Upcoming(node="counts", position=4))
+
+
+def test_nothing_is_upcoming_when_the_offer_is_the_last_step():
+    assert progress_of(ORDER, frozenset(), frozenset(), ORDER[-1]).upcoming == ()
+
+
+def test_nothing_is_upcoming_when_nothing_is_offered():
+    """Without an offer there is no "after": a finished or paused walk names no future steps."""
+    assert progress_of(ORDER, frozenset({"index"}), frozenset({"index"}), None).upcoming == ()
+
+
+def test_a_step_still_reviewed_is_not_upcoming_even_when_the_plan_puts_it_later():
+    """A swap can insert a step before one already reviewed; the walk will not offer that one
+    again, so it is not ahead of the person."""
+    got = progress_of(["hisat2_build", "trimgalore", "hisat2_align"], frozenset({"trimgalore"}),
+                      frozenset({"trimgalore", "star_genomegenerate"}), "hisat2_build")
+    assert got.upcoming == (Upcoming(node="hisat2_align", position=3),)
