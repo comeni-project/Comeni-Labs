@@ -1,3 +1,5 @@
+"""Profile-driven resolution and emitted parameter behavior through the compiler CLI."""
+
 import pathlib
 
 from mendel_compiler.cli import main

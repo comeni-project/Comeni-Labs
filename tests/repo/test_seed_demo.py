@@ -1,3 +1,5 @@
+"""The demo seeder projects example goals and builds its command-line request correctly."""
+
 import argparse
 import sys
 

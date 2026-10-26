@@ -1,4 +1,6 @@
 
+"""The shipped registry spine loads, binds to modules, and routes its declared outputs."""
+
 import pytest
 from comeni_core.declared.module import Module
 from mendel_compiler.conformance import module_path

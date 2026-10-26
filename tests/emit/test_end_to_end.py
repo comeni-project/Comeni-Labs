@@ -1,3 +1,5 @@
+"""Compiler CLI builds, diagnostics, and gate behavior across complete temporary layers."""
+
 import pathlib
 
 import yaml
