@@ -119,6 +119,48 @@ def _site(change: DecisionChange) -> Site:
     return Site(type_id=change.subject, states=frozenset(change.states))
 
 
+def _apply_input(draft_id: str, change: DecisionChange, stack, *, said, heard) -> bool:
+    """Apply an input answer; whether it wrote a decision."""
+    current = decisions.read(draft_id)
+    old = next(
+        (i for i in current.inputs if i.key == change.subject or i.type_id == change.subject),
+        None,
+    )
+    type_id = old.type_id if old else change.subject
+    _type(stack, type_id)
+    if change.retract:
+        if old is None or (not old.present and old.origin is FactOrigin.OPEN):
+            return False
+        if old.present:
+            decisions.withdraw_input(draft_id, old.key, who=said["who"])
+        else:
+            # *I don't have one*, forgotten (review I5): nobody knows again.
+            decisions.set_input(
+                draft_id,
+                old.model_copy(update={"present": False, "origin": FactOrigin.OPEN}),
+                **said,
+            )
+        return True
+    if change.value is not None and type(change.value) is not bool:
+        raise ValueError(coded("MI0208", "an input answer must say whether you have it"))
+    decisions.set_input(
+        draft_id,
+        InputDecision(
+            key=old.key if old else type_id,
+            type_id=type_id,
+            name=old.name if old else None,
+            states=list(change.states) or (old.states if old else []),
+            # **`None` is *unknown*, not *have it*** — the correction's meaning since
+            # Part F: `True` held, `False` not held, `None` nobody knows.
+            present=change.value is True,
+            origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
+        ),
+        **said,
+        **heard,
+    )
+    return True
+
+
 def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
     """Write one change; whether the decisions moved. Retracting what is not there is no
     change (Review Focus 5 of plan A)."""
@@ -144,40 +186,8 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             **({} if change.retract else heard),
         )
     elif kind == "input":
-        current = decisions.read(draft_id)
-        old = next((i for i in current.inputs if i.key == subject or i.type_id == subject), None)
-        type_id = old.type_id if old else subject
-        _type(stack, type_id)
-        if change.retract:
-            if old is None or (not old.present and old.origin is FactOrigin.OPEN):
-                return False
-            if old.present:
-                decisions.withdraw_input(draft_id, old.key, who=who)
-            else:
-                # *I don't have one*, forgotten (review I5): nobody knows again.
-                decisions.set_input(
-                    draft_id,
-                    old.model_copy(update={"present": False, "origin": FactOrigin.OPEN}),
-                    **said,
-                )
-        else:
-            if change.value is not None and type(change.value) is not bool:
-                raise ValueError(coded("MI0208", "an input answer must say whether you have it"))
-            decisions.set_input(
-                draft_id,
-                InputDecision(
-                    key=old.key if old else type_id,
-                    type_id=type_id,
-                    name=old.name if old else None,
-                    states=list(change.states) or (old.states if old else []),
-                    # **`None` is *unknown*, not *have it*** — the correction's meaning since
-                    # Part F: `True` held, `False` not held, `None` nobody knows.
-                    present=change.value is True,
-                    origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
-                ),
-                **said,
-                **heard,
-            )
+        if not _apply_input(draft_id, change, stack, said=said, heard=heard):
+            return False
     elif kind == "want":
         _type(stack, subject)
         if change.retract:
