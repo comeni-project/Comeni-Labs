@@ -55,7 +55,15 @@ provider, pointer lines. From `DescribePage.tsx`: the sentence quoted, status ch
 checked line by line, pace (asked or fixed, with the Settings link), *What was understood*,
 conversation, composer.
 
-- [ ] every item above has a home after Task 7 (listed in Task 7's final step)
+- [x] every item above has a home after Task 7:
+  step line → behind the strip's *Step n of m* (`StepStrip` + `StepLine`); step on offer, gap,
+  pacing, goal and disagreement cards, sample result, stopped and resolving lines → the stream's
+  newest message (`Stream` → `Waiting`); opened step → `StepSheet` over the stream; *Still needs
+  you* → an engine line with a button per step after the stream; *Nothing is waiting* → removed
+  (absence is absence); *From your edit* and *From the conversation* → after the stream;
+  *What was understood* / *Correct current answers* → `Understood`, the left side's switch;
+  notices → top of `ChatPanel`; transcript, pending and late lines, retry → `Chat` in the stream;
+  pointer lines → removed (the cards are in the stream); Describe's parts → Task 8.
 
 ## Review Focus
 

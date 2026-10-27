@@ -365,3 +365,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .living-pop, .living-settle, .living-draw, .living-reveal { animation: none !important; stroke-dasharray: none; }
 }
+
+/* **On a phone, one pane at a time** (one builder plan 3): the conversation, the canvas, or what was
+   understood, chosen by `.phone-tabs`. Wider, the tabs are not drawn and every pane shows. */
+.phone-tabs { display: none; }
+@media (max-width: 640px) {
+  .phone-tabs { display: flex; }
+  .living[data-pane="chat"] > .living-canvas { display: none; }
+  .living[data-pane="canvas"] > .living-rail, .living[data-pane="understood"] > .living-rail { display: none; }
+  .living > .living-canvas { height: calc(100dvh - 180px); }
+}

@@ -60,11 +60,29 @@ describe("the two surfaces", () => {
     expect(screen.getByTestId("living-header")).toHaveTextContent("rnaseq-counts");
     expect(screen.queryByTestId("mode")).toBeNull();
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
-    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.queryByRole("tab", { name: /Step|Assistant/ })).toBeNull();
     expect(screen.getByRole("navigation", { name: "the plan" })).toHaveTextContent("Step 4 of 5");
     // The step on offer is the newest message, in the conversation itself.
     expect(within(screen.getByRole("log", { name: "conversation" }))
       .getByRole("button", { name: "Add it" })).toBeInTheDocument();
+  });
+
+  it("swaps the canvas for what was understood, and back (one builder plan 3)", () => {
+    surface();
+    fireEvent.click(screen.getByRole("radio", { name: "What was understood" }));
+    expect(screen.getByRole("region", { name: "What was understood" })).toBeInTheDocument();
+    expect(screen.getByTestId("build-canvas")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: "Canvas" }));
+    expect(screen.getByTestId("build-canvas")).toBeVisible();
+  });
+
+  it("has a phone's three tabs, the conversation first", () => {
+    surface();
+    const tabs = screen.getByRole("tablist", { name: "on a phone" });
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Chat", "Canvas", "Understood"]);
+    expect(screen.getByTestId("living").querySelector(".living")).toHaveAttribute("data-pane", "chat");
+    fireEvent.click(within(tabs).getByRole("tab", { name: "Canvas" }));
+    expect(screen.getByTestId("living").querySelector(".living")).toHaveAttribute("data-pane", "canvas");
   });
 
   it("keeps the canvas first in the document, whatever the stacked order draws", () => {

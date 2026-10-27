@@ -1,12 +1,11 @@
 import { useState } from "react";
 
-import type { AuthoringBlock, AuthoringSession, AuthoringVocabulary, DraftGraph } from "../../api/types";
+import type { AuthoringBlock, AuthoringSession, DraftGraph } from "../../api/types";
 import { open, type AnsweredStep } from "../useBuilder";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { byEdit, SuggestionCard } from "./blocks/SuggestionCard";
 import { Composer } from "./Composer";
-import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
 import { docked, processName } from "./format";
 import { QuestionDock } from "./QuestionDock";
 import { StepLine } from "./StepLine";
@@ -41,12 +40,8 @@ export function ChatPanel({
   onSay,
   sending,
   onRetry,
-  declarations,
-  onCorrect,
-  onRelease,
-  correcting,
-  factsRequest,
   notices,
+  questionRequest = 0,
 }: {
   session: AuthoringSession;
   waiting: Omit<WaitingProps, "session" | "onAsk" | "saying" | "onSelect">;
@@ -71,12 +66,9 @@ export function ChatPanel({
   onCompose: (text: string) => void;
   onSay: (text: string) => void;
   onRetry: () => void;
-  declarations?: AuthoringVocabulary["measurements"];
-  onCorrect?: CorrectFact;
-  onRelease?: (type: string, states: string[]) => Promise<unknown>;
-  correcting: boolean;
-  factsRequest: number;
   notices: React.ReactNode;
+  /** A request from outside (a *needs you* fact) to bring the open question back. */
+  questionRequest?: number;
 }) {
   const [showRequest, setShowRequest] = useState(0);
   const [planOpen, setPlanOpen] = useState(false);
@@ -128,7 +120,7 @@ export function ChatPanel({
         ) : (
           <div className="flex flex-col gap-4">
             <Stream session={session} sending={sending} onRetry={onRetry} onAsk={say}
-                    waiting={{ ...waiting, onSelect }} showRequest={showRequest} />
+                    waiting={{ ...waiting, onSelect }} showRequest={showRequest + questionRequest} />
             {readings.length > 0 && (
               <section aria-label="From your edit" className="flex flex-col gap-2">
                 {readings.map((r) => (
@@ -173,10 +165,6 @@ export function ChatPanel({
                 ))}
               </section>
             )}
-            <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
-              openRequest={factsRequest}
-              disabled={correcting || session.retired || session.turns.some((t) => t.state === "pending") ||
-                session.phase === "resolving"} />
           </div>
         )}
       </div>

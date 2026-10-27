@@ -17,6 +17,7 @@ import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import type { CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
 import { ChatPanel } from "./ChatPanel";
+import { Understood } from "./Understood";
 import { DescribePage } from "./DescribePage";
 import { authorOf, type Author } from "./format";
 import { LivingCanvas } from "./LivingCanvas";
@@ -150,6 +151,11 @@ export function LivingSurface({
   }
 
   const pendingTurn = session.turns.some((turn) => turn.state === "pending");
+  const [left, setLeft] = useState<"canvas" | "understood">("canvas");
+  const [pane, setPane] = useState<"chat" | "canvas" | "understood">("chat");
+  const [questionRequest, setQuestionRequest] = useState(0);
+  const openQuestion = () => { setPane("chat"); setQuestionRequest((n) => n + 1); };
+  const factsDisabled = correcting || session.retired || pendingTurn || session.phase === "resolving";
   const focus = useFocus(ghost, state.selected);
 
   // **A complete preview belongs to one offer in one context.** A selection made against another
@@ -235,7 +241,11 @@ export function LivingSurface({
   const waiting = {
     busy, onAccept, onReject, onPreview, pinnedPreview: live?.pinned ? live.option : null,
     onUpload, vocabulary, declarations, onDisagreement, correcting,
-    onCorrectAnswers: onCorrect ? () => setFactsRequest((n) => n + 1) : undefined,
+    onCorrectAnswers: onCorrect ? () => {
+      setLeft("understood");
+      setPane("understood");
+      setFactsRequest((n) => n + 1);
+    } : undefined,
   };
   const talk = {
     composer: state.composer,
@@ -270,6 +280,19 @@ export function LivingSurface({
         openValues={values.open}
         onRename={session.retired ? undefined : onRename}
       />
+      {/* **On a phone, one pane at a time** (one builder plan 3): the conversation first. Hidden
+          above 640px by `.phone-tabs`. */}
+      <div role="tablist" aria-label="on a phone" className="phone-tabs gap-1 px-[16px] pt-[8px]">
+        {(["chat", "canvas", "understood"] as const).map((name) => (
+          <button key={name} type="button" role="tab" aria-selected={pane === name}
+                  onClick={() => { setPane(name); if (name !== "chat") setLeft(name); }}
+                  className="flex-1 px-2 py-[5px] rounded-button border text-[12px] cursor-pointer"
+                  style={pane === name ? { background: "var(--now-soft)", borderColor: "var(--now-line)", color: "var(--now-ink)" }
+                    : { background: "transparent", borderColor: "var(--line)", color: "var(--ink-2)" }}>
+            {PANE_WORDS[name]}
+          </button>
+        ))}
+      </div>
       {/* **The run sheet takes the canvas's place** (the *Run sheet* board), under the header. */}
       {run?.sheet}
       {view === "artifact" && !run?.sheet && (
@@ -279,11 +302,29 @@ export function LivingSurface({
       )}
       {/* **Kept mounted while the pipeline file or the run sheet shows**, so the canvas's view is as
           it was. Hidden by an inline style: `.living` sets `display: grid` and would win over a class. */}
-      <div className="living min-h-0"
+      <div className="living min-h-0" data-pane={pane}
            inert={view === "artifact" || run?.sheet ? true : undefined}
            style={{ display: view === "artifact" || run?.sheet ? "none" : undefined }}>
         <section aria-label="pipeline canvas"
                  className="living-canvas relative flex flex-col min-h-0 ml-[28px] mr-[8px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden">
+          {/* **The canvas, or what was understood** (one builder plan 3): the record the Step tab
+              held, one switch away. */}
+          <div role="radiogroup" aria-label="beside the conversation"
+               className="flex gap-1 mx-4 mt-3 self-start p-1 rounded-button" style={{ background: "var(--paper)" }}>
+            {(["canvas", "understood"] as const).map((name) => (
+              <button key={name} type="button" role="radio" aria-checked={left === name} onClick={() => setLeft(name)}
+                      className={`px-3 py-[4px] rounded-control border text-[12.5px] cursor-pointer
+                                  ${left === name ? "text-ink font-semibold" : "text-ink-2 bg-transparent border-transparent"}`}
+                      style={left === name ? { background: "var(--surface)", borderColor: "var(--line)" } : undefined}>
+                {name === "canvas" ? "Canvas" : "What was understood"}
+              </button>
+            ))}
+          </div>
+          {left === "understood" && (
+            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+                        openRequest={factsRequest} disabled={factsDisabled}
+                        onOpenQuestion={openQuestion} />
+          )}
           {(alternative.loading || alternative.error) && (
             <div role="status" data-testid={alternative.error ? "preview-error" : "preview-loading"}
                  className="mx-5 mt-3 flex items-baseline gap-3 text-[12px] text-ink-2">
@@ -326,7 +367,8 @@ export function LivingSurface({
           {/* **Kept mounted while a preview shows**, so its viewport, moved steps and selection are
               exactly as they were when the preview closes. */}
           <div className={showing ? "hidden" : "relative flex-1 min-h-0 flex flex-col"}
-               inert={showing ? true : undefined} data-testid="build-canvas">
+               inert={showing || left === "understood" ? true : undefined} data-testid="build-canvas"
+               style={left === "understood" ? { display: "none" } : undefined}>
           <LivingCanvas
             empty={session.phase === "stopped"
               ? "This analysis stopped before anything was built — see why on the right"
@@ -379,12 +421,15 @@ export function LivingSurface({
           onSetParam={onSetParam}
           onApplyChange={onApplyChange}
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
+          questionRequest={questionRequest}
           {...talk}
         />
       </div>
     </div>
   );
 }
+
+const PANE_WORDS = { chat: "Chat", canvas: "Canvas", understood: "Understood" } as const;
 
 /** What the composer invites, by where the session is. */
 function composerHint(session: AuthoringSession, pendingTurn: boolean): string | undefined {

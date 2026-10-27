@@ -109,7 +109,7 @@ describe("the build stage", () => {
   it("is the canvas beside one conversation, with the plan as a strip on top (one builder plan 3)", () => {
     page(FAKE_SESSION);
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
-    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.queryByRole("tab", { name: /Step|Assistant/ })).toBeNull();
     expect(screen.getByRole("navigation", { name: "the plan" })).toHaveTextContent("Step 4 of 5");
     expect(screen.queryByRole("region", { name: "describe" })).toBeNull();
   });
