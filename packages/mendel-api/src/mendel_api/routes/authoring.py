@@ -276,6 +276,8 @@ class AuthoringSessionView(BaseModel):
     history: list[AuthoringDecisionView] = []
     """Every answered proposal, oldest first — the pipeline's provenance, made navigable."""
     suggestions: list[AuthoringSuggestionView] = []
+    not_offered: list[str] = []
+    """What the person asked for that is not offered here, in their words (Part I.2)."""
     """The model's suggestions waiting for one click (Part I.0 §5.3)."""
     pending_proposal: AuthoringProposalView | None
 
@@ -776,6 +778,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         ],
         history=[AuthoringDecisionView(**decision) for decision in picture["history"]],
         suggestions=[AuthoringSuggestionView(**s) for s in picture["suggestions"]],
+        not_offered=picture["not_offered"],
         pending_proposal=(
             None
             if pending is None

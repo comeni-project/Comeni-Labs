@@ -153,3 +153,10 @@ describe("starting to build", () => {
     expect(screen.getByText("The same goal and answers always give the same pipeline.")).toBeInTheDocument();
   });
 });
+
+describe("what was asked for and is not offered here (Part I.2)", () => {
+  it("is said on the goal being checked", () => {
+    page({ ...guidedStart(), facts: FACTS, not_offered: ["differential expression"] } as unknown as AuthoringSession);
+    expect(within(table()).getByTestId("not-offered")).toHaveTextContent("Not offered here: differential expression");
+  });
+});

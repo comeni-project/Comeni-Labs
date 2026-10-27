@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { AuthoringProposal, AuthoringSession, AuthoringVocabulary, GoalIn } from "../../../api/types";
 import type { CorrectFact } from "../CurrentFacts";
 import { FactEditor } from "../FactEditor";
+import { NotOffered } from "../NotOffered";
 import { factWords } from "../FactHistory";
 import { Primary, Secondary } from "./parts";
 import { piece } from "./piece";
@@ -56,6 +57,7 @@ export function GoalCard({
   pace,
   confirmRequest = 0,
   startInHeader = false,
+  notOffered = [],
 }: {
   proposal: AuthoringProposal;
   /** Declared type ids and their states. `null` while it loads — the card is still answerable. */
@@ -78,6 +80,8 @@ export function GoalCard({
   confirmRequest?: number;
   /** The header holds *Start building*, so this card does not draw it. */
   startInHeader?: boolean;
+  /** What was asked for and is not offered here (Part I.2). */
+  notOffered?: string[];
 }) {
   const block = proposal.block;
   const seen = useRef<number | null>(null);
@@ -241,6 +245,7 @@ export function GoalCard({
             checking. The sentence beneath says the same thing in words, quieter, for reading. */}
         {group("have", addHave, "what you have")}
         {group("want", addWant, "what you want")}
+        <NotOffered phrases={notOffered} />
         {measured.length > 0 && (
           <ul aria-label="what the engine knows" className="m-0 p-0">
             {measured.map((f) => (
