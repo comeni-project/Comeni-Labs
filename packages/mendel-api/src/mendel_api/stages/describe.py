@@ -28,7 +28,7 @@ from mendel_api.stages import _jobs, gathering
 from mendel_api.stages._rows import GOAL, new_id, next_seq
 from mendel_api.stages._rows import now as _now
 
-READS = ("turn_context",)
+READS = ("turn_context", "earlier_pending")
 """What a job may read of this stage directly (ruling 2 of plan 1c); every change is a command."""
 
 UNTITLED = "Untitled analysis"
