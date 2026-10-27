@@ -61,7 +61,7 @@ def test_an_intent_that_applies_nowhere_is_reported(resolve_rnaseq, stack):
     assert inert_intents(ir, constraints, stack.registry) == [unasked, nothing_fills, no_consumer]
 
 
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
 
 
 def test_without_a_pin_the_extra_tool_is_not_in_the_plan(resolve_with_markdup):
@@ -87,7 +87,7 @@ def test_a_pinned_source_feeds_the_port_and_is_recorded_as_the_persons(resolve_w
 def test_a_pin_whose_producer_cannot_feed_the_port_is_a_coded_conflict(resolve_rnaseq):
     from comeni_core.goal.asked import SourcePin
 
-    unsorted = SourcePin(consumer=COUNTS, port="bam", producer="nf-core/star/align@1.11.0")
+    unsorted = SourcePin(consumer=COUNTS, port="bam", producer="nf-core/star/align@2.7.11b")
     with pytest.raises(IntentConflict, match="MD0321") as raised:
         resolve_rnaseq(sources=[unsorted])
     assert raised.value.intent == unsorted
@@ -99,8 +99,8 @@ def test_a_re_plan_keeps_intents_and_reports_a_pin_whose_consumer_left(resolve_r
     from mendel_resolver.resolve import inert_intents
 
     off = RoleAbsence(role="trimming")
-    on_star = SourcePin(consumer="nf-core/star/align@1.11.0", port="reads",
-                        producer="nf-core/trimgalore@0.6.10")
+    on_star = SourcePin(consumer="nf-core/star/align@2.7.11b", port="reads",
+                        producer="nf-core/trimgalore@2.3.0")
     before = resolve_rnaseq(absent_roles=[off])
     assert "star_align" in {n.id for n in before.nodes}
     after = resolve_rnaseq(absent_roles=[off], profile={"read_length": 50})

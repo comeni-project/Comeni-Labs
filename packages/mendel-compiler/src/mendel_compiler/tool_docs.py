@@ -11,7 +11,7 @@ from comeni_core.declared.registry import Registry
 
 
 def _tool_of(contract_id: str) -> str:
-    """`nf-core/star/align@1.11.0` -> `nf-core/star`.
+    """`nf-core/star/align@2.7.11b` -> `nf-core/star`.
 
     The **module key** — the id minus `@version` — is what shadowing already keys on, so a
     version bump never splits a page in two.

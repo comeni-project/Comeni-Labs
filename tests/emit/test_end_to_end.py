@@ -93,7 +93,7 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",
-            base.read_text().replace("@1.21.0", "@1.99.0"))
+            base.read_text().replace("@1.24", "@1.99.0"))
     )
 
     exit_code = main([

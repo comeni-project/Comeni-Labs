@@ -26,7 +26,7 @@ function live(changes: Record<string, unknown> = {}) {
       context: { draft_revision: 4, decision_revision: 0, session_version: 9, registry: "fixture" },
       proposal_id: "p-sort",
       current: true,
-      graph: { nodes: [...graph.nodes, { id: "samtools_sort", contract_id: "nf-core/samtools/sort@1.21.0",
+      graph: { nodes: [...graph.nodes, { id: "samtools_sort", contract_id: "nf-core/samtools/sort@1.24",
                                           params: [] }],
                edges: [...graph.edges, SORT_EDGE] },
       steps: Object.values(FAKE_STEPS),
@@ -145,7 +145,7 @@ describe("progress", () => {
     const offer = (state: string, node: string) => ({
       id: `h-${node}`, envelope: { offer: "step", progress: { position: 5, total: 5, again: false } },
       kind: "step", state, by: "engine", actor_kind: "engine", at: "2026-10-18T10:00:00Z",
-      block: { kind: "step_proposal", id: `step-${node}`, node, contract: "nf-core/subread/featurecounts@2.0.6",
+      block: { kind: "step_proposal", id: `step-${node}`, node, contract: "nf-core/subread/featurecounts@2.1.1",
                produces: ["counts.matrix"], reason: "uncontested", tier: 4, alternatives: [] } });
     open(live({ history: [...FAKE_SESSION.history, offer("stale", "subread_featurecounts"),
                           offer("accepted", "featurecounts_again")] }));

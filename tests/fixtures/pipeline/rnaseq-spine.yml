@@ -63,7 +63,7 @@ ai:
 steps:
 - id: trimgalore
   module:
-    contract_id: nf-core/trimgalore@0.6.10
+    contract_id: nf-core/trimgalore@2.3.0
     digest: sha256:2cc97e3a44288d1ca2bac58c84ee60df1c51b96ef137ff791d36693c1e90f56c
     container: community.wave.seqera.io/library/trim-galore:2.3.0--6a38a479b4972363
   process: TRIMGALORE
@@ -73,7 +73,7 @@ steps:
     source: resolver
     reason: uncontested — nothing else in this stack fills trimming
     premise: []
-    for_value: nf-core/trimgalore@0.6.10
+    for_value: nf-core/trimgalore@2.3.0
     axis_reason: ''
     from_layer: comeni-registry-examples
     displaced_layer: null
@@ -81,7 +81,7 @@ steps:
   presence:
     tier: 1
     source: resolver
-    reason: nf-core/star/align@1.11.0 requires 'fastq.reads' here
+    reason: nf-core/star/align@2.7.11b requires 'fastq.reads' here
     premise: []
     for_value: null
     axis_reason: ''
@@ -117,7 +117,7 @@ steps:
   settings: []
 - id: star_genomegenerate
   module:
-    contract_id: nf-core/star/genomegenerate@1.11.0
+    contract_id: nf-core/star/genomegenerate@2.7.11b
     digest: sha256:91859c3fcb6c78bfbdbb52f27705e5852db085701a2e8e59953aa4c53674d73b
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_GENOMEGENERATE
@@ -127,7 +127,7 @@ steps:
     source: resolver
     reason: uncontested — nothing else in this stack fills index_building
     premise: []
-    for_value: nf-core/star/genomegenerate@1.11.0
+    for_value: nf-core/star/genomegenerate@2.7.11b
     axis_reason: ''
     from_layer: comeni-registry-examples
     displaced_layer: null
@@ -135,7 +135,7 @@ steps:
   presence:
     tier: 1
     source: resolver
-    reason: nf-core/star/align@1.11.0 requires 'genome.index.star' here
+    reason: nf-core/star/align@2.7.11b requires 'genome.index.star' here
     premise: []
     for_value: null
     axis_reason: ''
@@ -183,7 +183,7 @@ steps:
   settings: []
 - id: star_align
   module:
-    contract_id: nf-core/star/align@1.11.0
+    contract_id: nf-core/star/align@2.7.11b
     digest: sha256:f44ab167b490f7ea07de0437f3c01f704407d78f2f5f2885ad9e1b8ea7738d6b
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_ALIGN
@@ -198,7 +198,7 @@ steps:
     - id: read_length
       value: 150
       origin: asserted
-    for_value: nf-core/star/align@1.11.0
+    for_value: nf-core/star/align@2.7.11b
     axis_reason: read length determines which aligner is appropriate; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635
     from_layer: comeni-registry-examples
     displaced_layer: null
@@ -206,7 +206,7 @@ steps:
   presence:
     tier: 1
     source: resolver
-    reason: nf-core/samtools/sort@1.21.0 requires 'alignment.bam' here
+    reason: nf-core/samtools/sort@1.24 requires 'alignment.bam' here
     premise: []
     for_value: null
     axis_reason: ''
@@ -314,7 +314,7 @@ steps:
       review_level: none
 - id: samtools_sort
   module:
-    contract_id: nf-core/samtools/sort@1.21.0
+    contract_id: nf-core/samtools/sort@1.24
     digest: sha256:c6f737dc091ffe6deee034c492634c6938b4871d44d5db4345b8d9e9038870ba
     container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
   process: SAMTOOLS_SORT
@@ -324,7 +324,7 @@ steps:
     source: resolver
     reason: uncontested — nothing else in this stack fills bam_sorting
     premise: []
-    for_value: nf-core/samtools/sort@1.21.0
+    for_value: nf-core/samtools/sort@1.24
     axis_reason: ''
     from_layer: comeni-registry-examples
     displaced_layer: null
@@ -332,7 +332,7 @@ steps:
   presence:
     tier: 1
     source: resolver
-    reason: nf-core/subread/featurecounts@2.0.6 requires 'alignment.bam' here
+    reason: nf-core/subread/featurecounts@2.1.1 requires 'alignment.bam' here
     premise: []
     for_value: null
     axis_reason: ''
@@ -407,7 +407,7 @@ steps:
       review_level: none
 - id: subread_featurecounts
   module:
-    contract_id: nf-core/subread/featurecounts@2.0.6
+    contract_id: nf-core/subread/featurecounts@2.1.1
     digest: sha256:23395c4fcd4b859d1bb172fc6a78edf5f0fb9fcd753d7a56004462cbf371c67d
     container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
   process: SUBREAD_FEATURECOUNTS
@@ -417,7 +417,7 @@ steps:
     source: resolver
     reason: uncontested — nothing else in this stack fills quantification
     premise: []
-    for_value: nf-core/subread/featurecounts@2.0.6
+    for_value: nf-core/subread/featurecounts@2.1.1
     axis_reason: ''
     from_layer: comeni-registry-examples
     displaced_layer: null

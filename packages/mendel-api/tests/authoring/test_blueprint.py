@@ -25,9 +25,9 @@ from support.example import example_goal, example_mapping
 from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 HISAT2 = "nf-core/hisat2/align@2.2.2"
-SORT = "nf-core/samtools/sort@1.21.0"
+SORT = "nf-core/samtools/sort@1.24"
 
 
 def _rnaseq() -> Goal:
@@ -272,7 +272,7 @@ def test_a_step_card_carries_exactly_the_wires_accepting_it_would_add(spine, con
         spine,
         DraftGraph(
             nodes=[
-                {"id": "star_genomegenerate", "contract_id": "nf-core/star/genomegenerate@1.11.0"}
+                {"id": "star_genomegenerate", "contract_id": "nf-core/star/genomegenerate@2.7.11b"}
             ]
         ),
         DraftProvenance(),
@@ -292,7 +292,7 @@ def test_each_step_knows_its_site_and_its_candidates():
     assert set(blueprint.sites) == set(blueprint.order)
     assert blueprint.sites["star_align"].type_id == "alignment.bam"
     assert "nf-core/hisat2/align@2.2.2" in bp.candidates(blueprint, "star_align")
-    assert "nf-core/samtools/sort@1.21.0" not in bp.candidates(blueprint, "star_align"), (
+    assert "nf-core/samtools/sort@1.24" not in bp.candidates(blueprint, "star_align"), (
         "the sorter consumes the BAM it would stand in for"
     )
     assert bp.candidates(blueprint, "no_such_step") == []

@@ -11,7 +11,7 @@ def _producer(**kw):
         subject="alignment.bam",
         reason="r",
         resolved_by="flag-only",
-        chosen="nf-core/star/align@1.11.0",
+        chosen="nf-core/star/align@2.7.11b",
     )
     return ProducerDecision(**{**base, **kw})
 
@@ -33,7 +33,7 @@ def test_both_at_once_is_refused():
     """One decision cannot claim both a human and model author."""
     with pytest.raises(ValidationError, match="one author"):
         _producer(
-            human_override="nf-core/star/align@1.11.0",
+            human_override="nf-core/star/align@2.7.11b",
             model_override="nf-core/hisat2/align@2.2.2",
             model_override_by="claude-opus-5",
         )

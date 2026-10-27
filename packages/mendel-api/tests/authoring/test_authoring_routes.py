@@ -196,7 +196,7 @@ def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
         ("goal", "accepted"),
         ("step", "accepted"),
     ]
-    assert history[1]["chosen_contract"] == "nf-core/star/genomegenerate@1.11.0"
+    assert history[1]["chosen_contract"] == "nf-core/star/genomegenerate@2.7.11b"
     assert after["revision"] == decided["revision"]
     assert "star_genomegenerate" in after["text"]
 

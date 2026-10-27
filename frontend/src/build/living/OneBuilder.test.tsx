@@ -13,7 +13,7 @@ import { LivingHeader } from "./LivingHeader";
 const GRAPH: DraftGraph = {
   ...FAKE_SESSION.graph,
   nodes: [...FAKE_SESSION.graph.nodes,
-    { id: "samtools_sort", contract_id: "nf-core/samtools/sort@1.21.0", params: [] }],
+    { id: "samtools_sort", contract_id: "nf-core/samtools/sort@1.24", params: [] }],
 };
 
 const mount = (ui: React.ReactElement) =>
@@ -74,7 +74,7 @@ describe("the manual builder's controls, on the one canvas", () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => !url.includes("/candidates")
       ? { ok: false, status: 404, json: async () => ({ detail: "not here" }) }
       : ({ ok: true, status: 200, json: async () => ({
-      candidates: [{ contract_id: "nf-core/subread/featurecounts@2.0.6", port: "bam",
+      candidates: [{ contract_id: "nf-core/subread/featurecounts@2.1.1", port: "bam",
                      process: "SUBREAD_FEATURECOUNTS", tool: "subread/featurecounts", surplus: 0,
                      priority: 0, why: "reads sorted alignments" }],
       total: 1 }) })));
@@ -85,7 +85,7 @@ describe("the manual builder's controls, on the one canvas", () => {
     fireEvent.click(await screen.findByTestId("candidate"));
     const [next] = onEdit.mock.calls[0];
     const added = next.nodes.find((n: { contract_id: string }) =>
-      n.contract_id === "nf-core/subread/featurecounts@2.0.6");
+      n.contract_id === "nf-core/subread/featurecounts@2.1.1");
     expect(added).toBeDefined();
     expect(next.edges).toContainEqual(
       { from_node: "samtools_sort", from_port: "bam", to_node: added.id, to_port: "bam" });

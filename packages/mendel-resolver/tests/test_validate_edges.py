@@ -3,9 +3,9 @@
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from mendel_resolver.validate import validate
 
-STAR = "nf-core/star/align@1.11.0"
-SORT = "nf-core/samtools/sort@1.21.0"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
+STAR = "nf-core/star/align@2.7.11b"
+SORT = "nf-core/samtools/sort@1.24"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
 
 
 def _graph(nodes, edges):

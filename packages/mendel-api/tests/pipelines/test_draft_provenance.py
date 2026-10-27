@@ -30,9 +30,9 @@ from mendel_api.models import PipelineDraft
 from mendel_api.services import drafts
 from mendel_api_tests.database import reachable, truncate
 
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 HISAT = "nf-core/hisat2/align@2.2.1"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
 
 MODEL = "claude-opus-5"
 

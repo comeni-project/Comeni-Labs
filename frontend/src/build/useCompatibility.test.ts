@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { accepts } from "./useCompatibility";
 
-const STAR = "nf-core/star/align@1.11.0";
-const SORT = "nf-core/samtools/sort@1.21.0";
-const COUNTS = "nf-core/subread/featurecounts@2.0.6";
+const STAR = "nf-core/star/align@2.7.11b";
+const SORT = "nf-core/samtools/sort@1.24";
+const COUNTS = "nf-core/subread/featurecounts@2.1.1";
 
 /** Real shape, real values — taken from `GET /api/pipeline/compatibility` on the shipped
  * registry rather than invented, so a change to the encoding fails here too. */

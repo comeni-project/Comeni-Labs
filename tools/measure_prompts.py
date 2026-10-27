@@ -101,7 +101,7 @@ def chat_not_offered(stack, client):
             + _say_ok(out.reply))
 
 
-STEPS = (("star_align", "nf-core/star/align@1.11.0"), ("trimgalore", "nf-core/trimgalore@0.6.10"))
+STEPS = (("star_align", "nf-core/star/align@2.7.11b"), ("trimgalore", "nf-core/trimgalore@2.3.0"))
 
 
 def chat_mid_build(stack, client):
@@ -136,11 +136,11 @@ WALK3_TAIL = (
     ("model", "Differential expression between fed and fasted yeast is not offered here. The "
               "current pipeline builds a gene counts matrix."),
 )
-WALK3_STEPS = (("star_genomegenerate", "nf-core/star/genomegenerate@1.11.0"),
-               ("trimgalore", "nf-core/trimgalore@0.6.10"),
-               ("star_align", "nf-core/star/align@1.11.0"),
-               ("samtools_sort", "nf-core/samtools/sort@1.21.0"),
-               ("subread_featurecounts", "nf-core/subread/featurecounts@2.0.6"))
+WALK3_STEPS = (("star_genomegenerate", "nf-core/star/genomegenerate@2.7.11b"),
+               ("trimgalore", "nf-core/trimgalore@2.3.0"),
+               ("star_align", "nf-core/star/align@2.7.11b"),
+               ("samtools_sort", "nf-core/samtools/sort@1.24"),
+               ("subread_featurecounts", "nf-core/subread/featurecounts@2.1.1"))
 WALK3_GOAL = {"have": [{"type_id": t} for t in ("annotation.gtf", "fastq.reads", "genome.fasta")],
               "want": ["counts.matrix"],
               "profile": {"measurements": [

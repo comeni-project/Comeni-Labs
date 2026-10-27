@@ -40,7 +40,7 @@ def _v(root):
     return directory
 
 CONTRACT_YAML = """
-id: nf-core/samtools/sort@1.21.0
+id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes:
@@ -75,7 +75,7 @@ def test_loads_a_contract(tmp_path, vocab):
     path = tmp_path / "sort.yml"
     path.write_text(_declared(path, CONTRACT_YAML))
     contract = ModuleContract.load(path, vocab)
-    assert contract.id == "nf-core/samtools/sort@1.21.0"
+    assert contract.id == "nf-core/samtools/sort@1.24"
     assert contract.nf_process == "SAMTOOLS_SORT"
     assert contract.produces[0].state == frozenset({"coordinate_sorted"})
     assert contract.consumes[0].state_required == frozenset()

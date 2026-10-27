@@ -41,10 +41,10 @@ from support.paths import ROOT
 
 REGISTRY = ROOT / "registry"
 
-STAR = "nf-core/star/align@1.11.0"
-SORT = "nf-core/samtools/sort@1.21.0"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
-GENOME = "nf-core/star/genomegenerate@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
+SORT = "nf-core/samtools/sort@1.24"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
+GENOME = "nf-core/star/genomegenerate@2.7.11b"
 
 #: Real sockets on the graph below — `<node>.<port>`, the keys the canvas puts a field on.
 #: Deliberately the two `annotation.gtf` consumers, because they are the pair spec §0 is about:

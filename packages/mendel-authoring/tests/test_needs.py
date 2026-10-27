@@ -5,7 +5,7 @@ from mendel_authoring.needs import NeedKind, need_of
 
 # Spelled here rather than imported from `conftest`: a `conftest` import resolves to whichever
 # package's conftest was collected first, so it broke the moment this ran beside another suite.
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 HISAT2 = "nf-core/hisat2/align@2.2.2"
 
 

@@ -112,14 +112,14 @@ def test_the_genome_is_a_declared_type(loaded):
 
 
 def test_both_index_builders_consume_the_genome(loaded):
-    for contract_id in ("nf-core/star/genomegenerate@1.11.0", "nf-core/hisat2/build@2.2.2"):
+    for contract_id in ("nf-core/star/genomegenerate@2.7.11b", "nf-core/hisat2/build@2.2.2"):
         consumed = {p.type_id for p in loaded.registry.get(contract_id).consumes}
         assert "genome.fasta" in consumed, contract_id
 
 
 def test_star_align_consumes_the_annotation(loaded):
     """It was handed an empty tuple while the GTF sat in the same workflow."""
-    star = loaded.registry.get("nf-core/star/align@1.11.0")
+    star = loaded.registry.get("nf-core/star/align@2.7.11b")
     assert "annotation.gtf" in {p.type_id for p in star.consumes}
 
 
@@ -174,7 +174,7 @@ def test_a_contract_can_declare_flags_its_module_always_needs(loaded):
     """Not a decision, so it carries no tier. `nf_inputs` says which channels a module
     takes; this says which flags it takes. Both are "how is this called", and neither is
     "what should be decided" — giving it a tier would dilute what a tier means."""
-    star = loaded.registry.get("nf-core/star/align@1.11.0")
+    star = loaded.registry.get("nf-core/star/align@2.7.11b")
     assert "--readFilesCommand zcat" in star.ext_args.template
 
 

@@ -297,7 +297,7 @@ def test_every_tier_four_question_can_actually_cross_the_door():
         ProducerAsked(
             node_id="star_align",
             subject="producer:alignment.bam",
-            candidates=["nf-core/star/align@1.11.0"],
+            candidates=["nf-core/star/align@2.7.11b"],
         ),
     ):
         payload = asked.model_dump()

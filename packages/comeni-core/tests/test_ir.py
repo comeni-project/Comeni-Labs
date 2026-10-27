@@ -32,7 +32,7 @@ def test_needs_review_lists_only_required_items():
         nodes=[
             IRNode(
                 id="featurecounts",
-                contract_id="nf-core/subread/featurecounts@2.0.6",
+                contract_id="nf-core/subread/featurecounts@2.1.1",
                 params={
                     "strandedness": ResolvedValue(
                         value=2, tier=Tier.DATA_PROFILED, reason="rule"

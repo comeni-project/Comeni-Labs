@@ -42,7 +42,7 @@ def _declared(path, body: str) -> str:
     return header + body
 
 CONTRACT = """
-id: nf-core/samtools/sort@1.21.0
+id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]

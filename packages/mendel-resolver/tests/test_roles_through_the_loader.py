@@ -106,4 +106,4 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
 
     loaded = layers.load([base, overlay])
     assert "long_read_alignment" in loaded.roles.names
-    assert "long_read_alignment" in loaded.registry.get("nf-core/star/align@1.11.0").roles
+    assert "long_read_alignment" in loaded.registry.get("nf-core/star/align@2.7.11b").roles

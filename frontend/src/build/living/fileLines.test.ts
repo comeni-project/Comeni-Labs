@@ -10,7 +10,7 @@ const FILE = `version: 8
 steps:
 - id: trimgalore
   module:
-    contract_id: nf-core/trimgalore@0.6.10
+    contract_id: nf-core/trimgalore@2.3.0
   why:
     tier: 2
   settings: []

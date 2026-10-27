@@ -4,10 +4,10 @@ from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from comeni_core.plan.tiers import Tier, ValueSource
 from mendel_resolver.materialise import goal_of, ir_of
 
-STAR = "nf-core/star/align@1.11.0"
-SORT = "nf-core/samtools/sort@1.21.0"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
-GENOME = "nf-core/star/genomegenerate@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
+SORT = "nf-core/samtools/sort@1.24"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
+GENOME = "nf-core/star/genomegenerate@2.7.11b"
 
 
 def _spine() -> DraftGraph:

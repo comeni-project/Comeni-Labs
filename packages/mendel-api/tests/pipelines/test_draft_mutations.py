@@ -17,7 +17,7 @@ def _service():
 
 
 def _graph():
-    return DraftGraph(nodes=[DraftNode(id="align", contract_id="nf-core/star/align@1.11.0")])
+    return DraftGraph(nodes=[DraftNode(id="align", contract_id="nf-core/star/align@2.7.11b")])
 
 
 def test_an_ordinary_save_bumps_once_and_cannot_replace_a_newer_graph():

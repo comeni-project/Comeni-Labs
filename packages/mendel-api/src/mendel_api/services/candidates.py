@@ -62,7 +62,7 @@ class Candidates(BaseModel):
 
 
 def _tool(contract_id: str) -> str:
-    """`nf-core/star/align@1.11.0` -> `star/align`. The same derivation `services/build.py`
+    """`nf-core/star/align@2.7.11b` -> `star/align`. The same derivation `services/build.py`
     uses for `ModuleView.tool`; a contract carries no tool field of its own."""
     return contract_id.partition("@")[0].partition("/")[2] or contract_id
 

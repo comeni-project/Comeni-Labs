@@ -15,9 +15,9 @@ from mendel_authoring.blueprint import Blueprint
 
 DIGEST = "sha256:" + "0" * 64
 FASTQC = "nf-core/fastqc@0.12.1"
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 HISAT2 = "nf-core/hisat2/align@2.2.2"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
 MULTIQC = "nf-core/multiqc@1.25.1"
 
 

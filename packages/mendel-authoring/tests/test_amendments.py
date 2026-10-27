@@ -16,15 +16,15 @@ class Unroutable(ValueError):
 
 STAR_BP = {
     "fastqc": "nf-core/fastqc@0.12.1",
-    "star_genomegenerate": "nf-core/star/genomegenerate@1.11.0",
-    "star_align": "nf-core/star/align@1.11.0",
-    "featurecounts": "nf-core/subread/featurecounts@2.0.6",
+    "star_genomegenerate": "nf-core/star/genomegenerate@2.7.11b",
+    "star_align": "nf-core/star/align@2.7.11b",
+    "featurecounts": "nf-core/subread/featurecounts@2.1.1",
 }
 HISAT2_BP = {
     "fastqc": "nf-core/fastqc@0.12.1",
     "hisat2_build": "nf-core/hisat2/build@2.2.2",
     "hisat2_align": "nf-core/hisat2/align@2.2.2",
-    "featurecounts": "nf-core/subread/featurecounts@2.0.6",
+    "featurecounts": "nf-core/subread/featurecounts@2.1.1",
 }
 
 
@@ -81,7 +81,7 @@ def test_an_alternative_that_cannot_be_built_is_shown_with_its_reason(blueprint_
 
     alts = alternatives_of(
         blueprint_of(STAR_BP, {"star_align": ALIGNMENT}), Goal(), "star_align",
-        ["nf-core/star/align@1.11.0", "lab/good@1", "lab/bad@1"], resolve, (Unroutable,),
+        ["nf-core/star/align@2.7.11b", "lab/good@1", "lab/bad@1"], resolve, (Unroutable,),
     )
     assert [(a.id, a.contract, a.refused is None) for a in alts] == [
         ("alt_1", "lab/good@1", True),

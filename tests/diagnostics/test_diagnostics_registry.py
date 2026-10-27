@@ -73,7 +73,7 @@ def test_a_declared_code_still_constructs():
     """Regression guard for over-correction: the eight real codes must still work."""
     from mendel_compiler.conformance import Diagnostic
 
-    d = Diagnostic(code="MD0104", where="nf-core/star/align@1.11.0",
+    d = Diagnostic(code="MD0104", where="nf-core/star/align@2.7.11b",
                    summary="s", detail="d", fix="f")
     assert d.code == "MD0104"
 

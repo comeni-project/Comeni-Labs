@@ -12,10 +12,10 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="drafts are stored in Po
 
 SPINE = {
     "nodes": [
-        {"id": "index", "contract_id": "nf-core/star/genomegenerate@1.11.0"},
-        {"id": "align", "contract_id": "nf-core/star/align@1.11.0"},
-        {"id": "sort", "contract_id": "nf-core/samtools/sort@1.21.0"},
-        {"id": "counts", "contract_id": "nf-core/subread/featurecounts@2.0.6"},
+        {"id": "index", "contract_id": "nf-core/star/genomegenerate@2.7.11b"},
+        {"id": "align", "contract_id": "nf-core/star/align@2.7.11b"},
+        {"id": "sort", "contract_id": "nf-core/samtools/sort@1.24"},
+        {"id": "counts", "contract_id": "nf-core/subread/featurecounts@2.1.1"},
     ],
     "edges": [
         {"from_node": "index", "from_port": "index", "to_node": "align", "to_port": "index"},

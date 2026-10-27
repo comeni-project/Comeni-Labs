@@ -11,8 +11,8 @@ from mendel_authoring.decisions import (
 )
 from support.paths import REGISTRY
 
-STAR = "nf-core/star/align@1.11.0"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
+STAR = "nf-core/star/align@2.7.11b"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
 
 
 def test_decisions_round_trip_the_three_intents():
@@ -22,7 +22,7 @@ def test_decisions_round_trip_the_three_intents():
             "absent_roles": [{"role": "trimming"}],
             "exclusions": [{"site": {"type_id": "alignment.bam"}, "contract": STAR}],
             "sources": [{"consumer": COUNTS, "port": "bam",
-                         "producer": "nf-core/samtools/sort@1.21.0"}],
+                         "producer": "nf-core/samtools/sort@1.24"}],
         },
     })
     fresh = Decisions.from_goal(goal).goal(MeasurementRegistry.load(REGISTRY))

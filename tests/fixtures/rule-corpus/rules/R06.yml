@@ -3,7 +3,7 @@ version: 1
 # R06 — STAR --twopassMode by the goal's purpose. A120: `purpose` is now a declared
 # measurement, so `when` can read what the analysis is for.
 decisions:
-  - decides: {effect: param, of: alignment, name: twopass_mode, when_implementation: [nf-core/star/align@1.11.0]}
+  - decides: {effect: param, of: alignment, name: twopass_mode, when_implementation: [nf-core/star/align@2.7.11b]}
     because: "two-pass mapping improves novel junction sensitivity at roughly twice the runtime"
     cite: "STAR manual 8; Engstrom et al. 2013, doi:10.1038/nmeth.2722"
     rows:

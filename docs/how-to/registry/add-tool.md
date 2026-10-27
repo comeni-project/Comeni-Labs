@@ -18,7 +18,7 @@ Here is a complete one:
 
 ```yaml
 declares: contract
-id: nf-core/samtools/sort@1.21.0
+id: nf-core/samtools/sort@1.24
 roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main

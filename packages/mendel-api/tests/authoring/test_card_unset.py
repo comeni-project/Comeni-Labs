@@ -6,7 +6,7 @@ from mendel_api.services import registry
 from mendel_api.stages.building.cards import optional_unset
 from mendel_authoring.gaps import Gap, GapKind
 
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 GAP = Gap(kind=GapKind.NO_DOMAIN, subject="seq_platform",
           fix="registry/tools/nf-core/star/align/contract.yml")
 

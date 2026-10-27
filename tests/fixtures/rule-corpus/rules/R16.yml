@@ -4,7 +4,7 @@ version: 1
 # as a malformed number because every literal went through float().
 decisions:
   - decides: {effect: param, of: quantification, name: min_mqs,
-              when_implementation: [nf-core/subread/featurecounts@2.0.6]}
+              when_implementation: [nf-core/subread/featurecounts@2.1.1]}
     because: "a stranded library resolves overlapping features that an unstranded one cannot"
     cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
     rows:

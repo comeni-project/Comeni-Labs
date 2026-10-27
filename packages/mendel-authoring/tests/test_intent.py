@@ -10,11 +10,11 @@ from mendel_resolver.resolve import resolve
 from support.example import example_mapping
 from support.paths import REGISTRY
 
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 HISAT2 = "nf-core/hisat2/align@2.2.2"
 FASTQC = "nf-core/fastqc@0.12.1"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
-SORT = "nf-core/samtools/sort@1.21.0"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
+SORT = "nf-core/samtools/sort@1.24"
 
 
 @pytest.fixture(scope="module")

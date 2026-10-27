@@ -19,7 +19,7 @@ from comeni_core.plan.tiers import ValueSource
 from mendel_api.authoring import resolver as r
 from mendel_resolver.ports import NoCandidatesError
 
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 HISAT2 = "nf-core/hisat2/align@2.2.1"
 
 ACCESS = ModelAccess(model="fake/test")

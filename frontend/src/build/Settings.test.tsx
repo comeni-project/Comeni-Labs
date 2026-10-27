@@ -39,7 +39,7 @@ const setting = (name: string, tier: number, value: string | null) => ({
 const STEP = {
   id: "star_align",
   process: "STAR_ALIGN",
-  contract_id: "nf-core/star/align@1.11.0",
+  contract_id: "nf-core/star/align@2.7.11b",
   tier: 3,
   runs: "per_item" as const,
   reason: "a rule matched",
@@ -141,7 +141,7 @@ describe("answering a parameter", () => {
     domain: { kind: "integer", values: [], minimum: null, maximum: null },
   };
   const step = (settings: unknown[]) =>
-    ({ id: "sort", process: "SAMTOOLS_SORT", contract_id: "nf-core/samtools/sort@1.21.0",
+    ({ id: "sort", process: "SAMTOOLS_SORT", contract_id: "nf-core/samtools/sort@1.24",
        tier: 2, reason: "", ports: [], settings }) as never;
 
   it("renders CHOICES, not a dropdown, where the contract enumerates", () => {

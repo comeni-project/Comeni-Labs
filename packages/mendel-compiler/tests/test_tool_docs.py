@@ -17,8 +17,8 @@ def test_a_three_segment_id_groups_under_its_first_two():
     tools = tool_docs.tools_of(_layers().registry)
     assert "nf-core/star" in tools
     assert [c.id for c in tools["nf-core/star"]] == [
-        "nf-core/star/align@1.11.0",
-        "nf-core/star/genomegenerate@1.11.0",
+        "nf-core/star/align@2.7.11b",
+        "nf-core/star/genomegenerate@2.7.11b",
     ]
 
 
@@ -54,9 +54,9 @@ def test_a_page_names_every_contract_and_its_process():
     tools = tool_docs.tools_of(loaded.registry)
     page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
     assert "# STAR" in page and "`nf-core/star`" in page
-    assert "`nf-core/star/align@1.11.0`" in page
+    assert "`nf-core/star/align@2.7.11b`" in page
     assert "STAR_ALIGN" in page
-    assert "`nf-core/star/genomegenerate@1.11.0`" in page
+    assert "`nf-core/star/genomegenerate@2.7.11b`" in page
 
 
 def test_a_page_records_ports_with_their_states():

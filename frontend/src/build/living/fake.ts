@@ -11,10 +11,10 @@ import type { AlternativePreview } from "./useAlternativePreview";
 
 const at = (minute: number) => `2026-09-13T10:${String(minute).padStart(2, "0")}:00+00:00`;
 
-const INDEX = "nf-core/star/genomegenerate@1.11.0";
-const TRIM = "nf-core/trimgalore@0.6.10";
-const ALIGN = "nf-core/star/align@1.11.0";
-const SORT = "nf-core/samtools/sort@1.21.0";
+const INDEX = "nf-core/star/genomegenerate@2.7.11b";
+const TRIM = "nf-core/trimgalore@2.3.0";
+const ALIGN = "nf-core/star/align@2.7.11b";
+const SORT = "nf-core/samtools/sort@1.24";
 
 export const FAKE_SESSION = {
   id: "fake",

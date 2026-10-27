@@ -8,7 +8,7 @@ import { Sources } from "./Sources";
 
 const DATA = {
   steps: [{
-    id: "trimgalore", process: "TRIMGALORE", contract_id: "nf-core/trimgalore@0.6.10",
+    id: "trimgalore", process: "TRIMGALORE", contract_id: "nf-core/trimgalore@2.3.0",
     tier: 2, reason: "", settings: [],
     ports: [
       // Met, and nothing wires it — so it is fed from outside.
@@ -16,7 +16,7 @@ const DATA = {
       { name: "reads", type_id: "fastq.reads", side: "out", met: true, states: ["trimmed"] },
     ],
   }, {
-    id: "align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@1.11.0",
+    id: "align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@2.7.11b",
     tier: 3, reason: "", settings: [],
     ports: [
       // Met by a wire from trimgalore — it has a source on the canvas already.

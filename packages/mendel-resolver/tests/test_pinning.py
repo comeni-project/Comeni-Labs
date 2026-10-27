@@ -78,8 +78,8 @@ def test_an_unapplied_rule_asks_between_its_own_contracts_placing_the_priority_p
     ir = spine(want=["alignment.bam"], profile={})
     asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
     assert len(asked) == 1
-    assert asked[0].candidates == ["nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.2"]
-    assert asked[0].chosen == "nf-core/star/align@1.11.0"
+    assert asked[0].candidates == ["nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.2"]
+    assert asked[0].chosen == "nf-core/star/align@2.7.11b"
 
 
 def test_a_pin_that_cannot_route_raises_naming_the_rule(spine_without_hisat2_index):
@@ -131,7 +131,7 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
     (contracts / "fastp.yml").write_text(
         _declared(
             contracts / "fastp.yml",
-            original.replace("nf-core/trimgalore@0.6.10", "nf-core/fastp@0.24.0").replace(
+            original.replace("nf-core/trimgalore@2.3.0", "nf-core/fastp@0.24.0").replace(
             "TRIMGALORE", "FASTP"
         ))
     )
@@ -166,8 +166,8 @@ def test_an_empty_unknown_is_left_out_of_the_dump():
     record = ProducerDecision(
         key="producer:alignment.bam",
         subject="producer:alignment.bam",
-        candidates=["nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.2"],
-        chosen="nf-core/star/align@1.11.0",
+        candidates=["nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.2"],
+        chosen="nf-core/star/align@2.7.11b",
         reason="r",
         resolved_by="flag-only",
         unknown=[],

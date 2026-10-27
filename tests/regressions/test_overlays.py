@@ -274,7 +274,7 @@ def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
     )
     shadowing = (lab / "contracts" / "samtools-sort.yml").read_text()
     (lab / "contracts" / "samtools-sort.yml").write_text(
-        _declared(lab / "contracts" / "samtools-sort.yml", shadowing.replace("@1.21.0", "@1.22.0"))
+        _declared(lab / "contracts" / "samtools-sort.yml", shadowing.replace("@1.24", "@1.25"))
     )
 
     ir = _resolve_stacked_from(layers_mod.load([base, lab]))
@@ -283,8 +283,8 @@ def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
     assert len(contracts) == 1
     record = contracts[0]
     assert record.key == "nf-core/samtools/sort"
-    assert record.winning_key == "nf-core/samtools/sort@1.22.0"
-    assert record.displaced_keys == ["nf-core/samtools/sort@1.21.0"]
+    assert record.winning_key == "nf-core/samtools/sort@1.25"
+    assert record.displaced_keys == ["nf-core/samtools/sort@1.24"]
     assert (record.winning_layer, record.displaced_layer) == (
         "lab-registry",
         "comeni-registry-examples",

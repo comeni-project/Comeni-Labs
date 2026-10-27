@@ -10,4 +10,4 @@ decisions:
     cite: "Kopylova et al. 2012, doi:10.1093/bioinformatics/bts611"
     rows:
       - {when: {rrna_fraction: "> 0.4"}, then: nf-core/sortmerna@4.3.6}
-      - {when: {},                        then: nf-core/trimgalore@0.6.10}
+      - {when: {},                        then: nf-core/trimgalore@2.3.0}

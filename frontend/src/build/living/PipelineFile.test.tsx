@@ -23,7 +23,7 @@ const STEPS = [
       { ...setting("sjdbOverhang", 3, "150", "Read length minus one.", ["read_length = 151"]), evidence: "measured" },
       setting("twopassMode", 2, "None", "nf-core's default for this module."),
     ] },
-  { id: "featurecounts", process: "SUBREAD_FEATURECOUNTS", contract_id: "nf-core/subread/featurecounts@2.0.6",
+  { id: "featurecounts", process: "SUBREAD_FEATURECOUNTS", contract_id: "nf-core/subread/featurecounts@2.1.1",
     runs: "per_item", tier: 4, reason: "", ports: [], settings: [
       setting("strandedness", 4, null, "Not in your description, and not measured."),
     ] },

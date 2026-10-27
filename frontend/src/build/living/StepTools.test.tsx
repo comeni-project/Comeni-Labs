@@ -19,7 +19,7 @@ import { framed } from "./frame";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const ALIGN = "nf-core/star/align@1.11.0";
+const ALIGN = "nf-core/star/align@2.7.11b";
 const HISAT = "nf-core/hisat2/align@1.0.0";
 
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });

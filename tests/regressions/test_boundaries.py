@@ -134,7 +134,7 @@ A3_PATHS = [
 
 
 A3_LEGITIMATE = [
-    "nf-core/star/align@1.11.0",  # a contract ID has slashes and must survive
+    "nf-core/star/align@2.7.11b",  # a contract ID has slashes and must survive
     "GRCh38",
     "reverse",
     "ILLUMINA",

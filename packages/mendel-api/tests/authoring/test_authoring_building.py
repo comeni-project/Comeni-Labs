@@ -186,7 +186,7 @@ def test_every_tier_four_call_becomes_an_invocation_row(clean):
     calls = [
         Call(
             "producer:alignment.bam",
-            "nf-core/star/align@1.11.0",
+            "nf-core/star/align@2.7.11b",
             "fake/test",
             "builder.tier4.v1",
             "a" * 64,

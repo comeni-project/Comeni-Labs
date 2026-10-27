@@ -61,7 +61,7 @@ def test_module_replacement_reports_the_new_selection_evidence(pipeline):
     changes = diff_pipeline(pipeline, _replace_step(pipeline, old.id, changed))
 
     module = next(change for change in changes if change.what == old.id)
-    assert module.before == "nf-core/star/align@1.11.0"
+    assert module.before == "nf-core/star/align@2.7.11b"
     assert module.after == "nf-core/hisat2/align@2.2.2"
     assert module.tier is old.why.tier
     assert module.reason == old.why.reason
@@ -141,5 +141,5 @@ def test_added_and_removed_steps_are_reported_and_sorted(pipeline):
     assert [change.what for change in changes] == ["adapter_cleanup", "trimgalore"]
     assert changes[0].before == "(absent)"
     assert changes[0].after == "lab/adapter-cleanup@1.0.0"
-    assert changes[1].before == "nf-core/trimgalore@0.6.10"
+    assert changes[1].before == "nf-core/trimgalore@2.3.0"
     assert changes[1].after == "(removed)"

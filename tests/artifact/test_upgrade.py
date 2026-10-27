@@ -113,8 +113,8 @@ def test_a_changed_rule_is_reported_with_its_tier_and_reason(tmp_path, capsys):
         rules = layer / "rules" / "alignment.yml"
         rules.write_text(
             _declared(rules, rules.read_text()
-            .replace("then: nf-core/star/align@1.11.0", "then: PLACEHOLDER")
-            .replace("then: nf-core/hisat2/align@2.2.2", "then: nf-core/star/align@1.11.0")
+            .replace("then: nf-core/star/align@2.7.11b", "then: PLACEHOLDER")
+            .replace("then: nf-core/hisat2/align@2.2.2", "then: nf-core/star/align@2.7.11b")
             .replace("then: PLACEHOLDER", "then: nf-core/hisat2/align@2.2.2"))
         )
 
@@ -285,7 +285,7 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
             lab / "contracts" / "rival-sorter.yml",
             (ROOT / "registry" / "tools" / "nf-core" / "samtools" / "sort/contract.yml")
         .read_text()
-        .replace("nf-core/samtools/sort@1.21.0", "lab/rival/sorter@9.9.9")
+        .replace("nf-core/samtools/sort@1.24", "lab/rival/sorter@9.9.9")
         # A different module as well as a different id: conformance reads `nf_include`,
         # so pointing the process elsewhere makes it `unverified` rather than wrong.
         .replace("nf_process: SAMTOOLS_SORT", "nf_process: RIVAL_SORT")

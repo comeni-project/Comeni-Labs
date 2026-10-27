@@ -72,7 +72,7 @@ registry:                      # provenance. NOT a dependency of `emit`.
 steps:
   - id: star_align
     module:
-      contract_id: nf-core/star/align@1.11.0
+      contract_id: nf-core/star/align@2.7.11b
       digest: sha256:9f2c…
       container: community.wave.seqera.io/library/…
     process: STAR_ALIGN

@@ -171,6 +171,6 @@ decisions:
     because: "read length determines which aligner is appropriate"
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
-      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@2.7.11b}
       - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
 ```

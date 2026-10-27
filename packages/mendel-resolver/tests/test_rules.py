@@ -54,7 +54,7 @@ def P(**facts) -> dict[str, Premise]:
 
 
 CONTRACT = """
-id: nf-core/subread/featurecounts@2.0.6
+id: nf-core/subread/featurecounts@2.1.1
 roles: [quantification]
 nf_process: SUBREAD_FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
@@ -205,7 +205,7 @@ decisions:
     message = str(exc.value)
     assert "MD0308" in message
     assert "aligner" in message
-    assert "nf-core/subread/featurecounts@2.0.6" in message, (
+    assert "nf-core/subread/featurecounts@2.1.1" in message, (
         "the error must name the filler that would make the value dead"
     )
 
@@ -248,12 +248,12 @@ decisions:
   - decides: {effect: implementation, of: quantification}
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
-      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
+      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.1.1}
       # MD0311: `>= 70` alone leaves everything below it matching nothing.
-      - {when: {read_length: "< 70"}, then: nf-core/subread/featurecounts@2.0.6}
+      - {when: {read_length: "< 70"}, then: nf-core/subread/featurecounts@2.1.1}
 """)
     pin = table.implementation_for("quantification", P(read_length=150))
-    assert pin.value == "nf-core/subread/featurecounts@2.0.6"
+    assert pin.value == "nf-core/subread/featurecounts@2.1.1"
     # The provenance travels with the value. Reading it was optional until A22, and the
     # one caller that had to remember did not.
     assert pin.from_layer is not None
@@ -270,7 +270,7 @@ decisions:
   - decides: {effect: implementation, of: alignment}
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
-      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
+      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.1.1}
 """)
 
 
@@ -330,7 +330,7 @@ decisions:
   - decides: {effect: implementation, of: quantification, name: strandedness}
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
-      - {when: {strandedness: reverse}, then: nf-core/subread/featurecounts@2.0.6}
+      - {when: {strandedness: reverse}, then: nf-core/subread/featurecounts@2.1.1}
 """)
 
 
@@ -438,7 +438,7 @@ def test_a_path_cannot_enter_through_constraints():
 
 
 ALIGNER = """
-id: nf-core/star/align@1.11.0
+id: nf-core/star/align@2.7.11b
 roles: [alignment]
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
@@ -551,8 +551,8 @@ decisions:
 """
 
 
-STAR = "nf-core/star/align@1.11.0"
-FC = "nf-core/subread/featurecounts@2.0.6"
+STAR = "nf-core/star/align@2.7.11b"
+FC = "nf-core/subread/featurecounts@2.1.1"
 
 
 def test_two_complementary_comparisons_are_exhaustive(two_roles):

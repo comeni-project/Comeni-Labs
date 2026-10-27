@@ -21,7 +21,7 @@ decisions:
       effect: param
       of: index_building
       name: genome_sa_index_nbases
-      when_implementation: [nf-core/star/genomegenerate@1.11.0]
+      when_implementation: [nf-core/star/genomegenerate@2.7.11b]
     because: "index size follows genome size"
     cite: "STAR manual 2.2.5"
     rows:

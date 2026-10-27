@@ -11,4 +11,4 @@ decisions:
     cite: "nf-core/rnaseq --skip_trimming; Krueger, TrimGalore user guide"
     rows:
       - {when: {adapter_content: "< 0.01"}, then: null}
-      - {when: {},                          then: nf-core/trimgalore@0.6.10}
+      - {when: {},                          then: nf-core/trimgalore@2.3.0}

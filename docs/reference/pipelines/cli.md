@@ -121,7 +121,7 @@ at a pair something keeps in step.*
 Any disagreement exits `2` and emits nothing at all:
 
 ```
-MD0101  nf-core/star/align@1.11.0
+MD0101  nf-core/star/align@2.7.11b
   process 'STAR_ALIGNN' is not what this module declares
     registry/tools/nf-core/star/align/module/main.nf   process STAR_ALIGN {
   → nf_process: STAR_ALIGN
@@ -269,8 +269,8 @@ the types only that tool produces, and the tier-3 rules that select it.
 
 **A tool is the first two segments of a contract's module key**, never the directory it sits
 in. Since comeni-registry#1 the loader ignores paths, so grouping pages by folder would put
-path-as-meaning back in one layer up. `nf-core/star/align@1.11.0` and
-`nf-core/star/genomegenerate@1.11.0` share the page `nf-core/star.md`.
+path-as-meaning back in one layer up. `nf-core/star/align@2.7.11b` and
+`nf-core/star/genomegenerate@2.7.11b` share the page `nf-core/star.md`.
 
 `--registry` is repeatable and stacks as everywhere else, which is how a laboratory documents a
 private overlay: an overlay usually cannot load alone, because it names types the base declares.

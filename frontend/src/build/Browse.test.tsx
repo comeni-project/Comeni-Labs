@@ -10,10 +10,10 @@ import { Browse } from "./Browse";
 const MODULES = [
   // **Two roles on one tool**, which is the whole point of the first test. Real: `trimgalore`
   // both trims and reports per-sample QC, and the palette showed it under one of them.
-  { contract_id: "nf-core/trimgalore@0.6.10", tool: "trimgalore", process: "TRIMGALORE",
+  { contract_id: "nf-core/trimgalore@2.3.0", tool: "trimgalore", process: "TRIMGALORE",
     roles: ["trimming", "qc_per_sample"], needs: ["fastq.reads"], makes: ["fastq.reads"],
     container: "x" },
-  { contract_id: "nf-core/star/align@1.11.0", tool: "star/align", process: "STAR_ALIGN",
+  { contract_id: "nf-core/star/align@2.7.11b", tool: "star/align", process: "STAR_ALIGN",
     roles: ["alignment"], needs: ["fastq.reads"], makes: ["alignment.bam"], container: "y" },
 ];
 
@@ -58,14 +58,14 @@ describe("the browse overlay", () => {
     const star = cards.find((c) => c.textContent?.includes("STAR_ALIGN"))!;
 
     expect(star.textContent).toContain("fastq.reads → alignment.bam");
-    expect(star.textContent).toContain("nf-core/star/align@1.11.0");
+    expect(star.textContent).toContain("nf-core/star/align@2.7.11b");
     // Nothing sentence-shaped: no full stop outside the contract id's version.
     expect(star.textContent).not.toMatch(/[a-z]{4,}\s[a-z]{4,}\s[a-z]{4,}\./);
   });
 
   it("marks what cannot fit rather than hiding it", async () => {
     // Hiding it answers *why is SALMON_QUANT not in this list* with silence.
-    at({ accepts: { label: "alignment.bam", ids: new Set(["nf-core/star/align@1.11.0"]) } });
+    at({ accepts: { label: "alignment.bam", ids: new Set(["nf-core/star/align@2.7.11b"]) } });
     await screen.findAllByTestId("browse-card");
 
     // The filter is on by default when there is one, so turn it off to see everything.
