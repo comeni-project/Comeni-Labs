@@ -114,11 +114,12 @@ describe("every block state in the static session", () => {
 });
 
 describe("the states a session can be in", () => {
-  it("shows a pending turn as working, and the composer waits with it", () => {
+  it("shows a pending turn as working, and the composer stays open (issue 392)", () => {
     surface();
     toAssistant();
     expect(screen.getByText("Working on it")).toBeInTheDocument();
-    expect(screen.getByTestId("composer")).toBeDisabled();
+    expect(screen.getByTestId("composer")).not.toBeDisabled();
+    expect(screen.getByPlaceholderText("Ask anything, or answer in your own words")).toBeInTheDocument();
   });
 
   it("restores a session with nothing pending as an open composer and the whole history", () => {

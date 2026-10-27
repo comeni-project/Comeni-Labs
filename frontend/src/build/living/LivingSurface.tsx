@@ -240,8 +240,9 @@ export function LivingSurface({
   const talk = {
     composer: state.composer,
     composerHint: composerHint(session, pendingTurn),
-    composerDisabled: session.retired || pendingTurn || session.phase === "stopped",
-    onCompose, onSay, saying: state.saying, onRetry,
+    // **Never locked by work in flight** (issue 392): what is typed meanwhile waits in line.
+    composerDisabled: session.retired || session.phase === "stopped",
+    onCompose, onSay, saying: state.sending.at(-1) ?? null, sending: state.sending, onRetry,
     declarations, onCorrect, onRelease, correcting, factsRequest, notices,
   };
 
@@ -388,7 +389,7 @@ export function LivingSurface({
 /** What the composer invites, by where the session is. */
 function composerHint(session: AuthoringSession, pendingTurn: boolean): string | undefined {
   if (session.phase === "stopped") return "Correct your current answers to continue";
-  if (pendingTurn) return "Waiting for the answer…";
+  if (pendingTurn) return "Ask anything, or answer in your own words";
   if (session.phase === "understanding") return "Say what you have and what you want";
   if (session.phase === "goal_review") return "Say what is wrong with the goal, or confirm it above";
   if (session.phase === "gathering") return "Answer the question above, or say it in your own words";

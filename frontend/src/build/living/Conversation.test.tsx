@@ -398,7 +398,7 @@ describe("saying something", () => {
       <LivingSurface
         session={framed(quiet as AuthoringSession, FAKE_STEPS)}
         graph={quiet.graph}
-        state={{ ...initialAuthoring, snapshot: quiet as AuthoringSession, saying: "and the sorter?" }}
+        state={{ ...initialAuthoring, snapshot: quiet as AuthoringSession, sending: ["and the sorter?"] }}
         preview={null}
         busy={() => false}
         onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()} onSelect={vi.fn()}

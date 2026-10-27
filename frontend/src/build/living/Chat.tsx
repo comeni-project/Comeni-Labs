@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 import type { AuthoringBlock, AuthoringSession } from "../../api/types";
 import { Block, NoticeLine, Primary } from "./blocks/Block";
-import { processName } from "./format";
+import { processName, queued } from "./format";
 
 /** **The conversation, and only the conversation**: what the person said and what the model said.
  *
@@ -13,7 +13,7 @@ import { processName } from "./format";
  */
 export function Chat({
   session,
-  saying,
+  sending,
   failedPhase,
   onRetry,
   onPoint,
@@ -22,8 +22,8 @@ export function Chat({
   follow = true,
 }: {
   session: AuthoringSession;
-  /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
-  saying: string | null;
+  /** Messages sent and not yet in the transcript — drawn now, marked as sending. */
+  sending: string[];
   failedPhase: boolean;
   onRetry: () => void;
   /** Show the card a pointer line is about: the step it names, or whatever is waiting. */
@@ -39,7 +39,8 @@ export function Chat({
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (follow) end.current?.scrollIntoView?.({ block: "end" });
-  }, [session.turns.length, saying, follow]);
+  }, [session.turns.length, sending.length, follow]);
+  const inLine = queued(session);
 
   return (
     <div>
@@ -52,6 +53,11 @@ export function Chat({
                                             text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap"
                   style={{ background: "var(--now-soft)" }}>
                 {turn.text}
+                {inLine.has(turn.seq) && (
+                  <p className="m-0 mt-1 text-[11px] text-ink-3" data-testid="waiting-in-line">
+                    waiting: I'll answer as soon as I finish the one above
+                  </p>
+                )}
               </li>
             );
           }
@@ -76,15 +82,15 @@ export function Chat({
             </li>
           ));
         })}
-        {saying !== null && (
-          <li className="list-none self-end max-w-[85%] px-3 py-2 rounded-button"
+        {sending.map((text, i) => (
+          <li key={`sending-${i}`} className="list-none self-end max-w-[85%] px-3 py-2 rounded-button"
               style={{ background: "var(--now-soft)" }}>
             <p className="m-0 text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap" data-testid="saying">
-              {saying}
+              {text}
             </p>
             <p className="m-0 mt-1 text-[11px] text-ink-3">sending…</p>
           </li>
-        )}
+        ))}
       </ol>
       <div ref={end} />
     </div>

@@ -102,3 +102,16 @@ const PURPOSE: Record<string, string> = {
 export function purposeWords(purpose: string): string {
   return PURPOSE[purpose] ?? purpose;
 }
+
+/** **Messages waiting in line** (issue 392): the person turns whose reply is pending behind an
+ *  older pending reply. The oldest pending reply is the one being written; the others wait. */
+export function queued(session: AuthoringSession): Set<number> {
+  const pending = session.turns.filter((t) => t.role === "assistant" && t.state === "pending");
+  const behind = new Set(pending.slice(1).map((t) => t.seq));
+  const waiting = new Set<number>();
+  session.turns.forEach((turn, i) => {
+    const reply = session.turns[i + 1];
+    if (turn.role === "person" && reply && behind.has(reply.seq)) waiting.add(turn.seq);
+  });
+  return waiting;
+}

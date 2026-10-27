@@ -31,6 +31,7 @@ export function DescribePage({
   onCompose,
   onSay,
   saying,
+  sending,
   onRetry,
   declarations,
   onCorrect,
@@ -47,6 +48,7 @@ export function DescribePage({
   onCompose: (text: string) => void;
   onSay: (text: string) => void;
   saying: string | null;
+  sending: string[];
   onRetry: () => void;
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
@@ -121,7 +123,7 @@ export function DescribePage({
         <section aria-label="Conversation" className="flex flex-col gap-3">
           {more && <>
             <h2 className="m-0 text-heading font-semibold text-ink">Conversation</h2>
-            <Chat session={session} saying={saying} failedPhase={session.phase === "failed"}
+            <Chat session={session} sending={sending} failedPhase={session.phase === "failed"}
                   onRetry={onRetry} onPoint={() => undefined} pointers={false} skip={first?.seq ?? null} follow={false} />
           </>}
           <Composer value={composer} onChange={onCompose} onSend={onSay}

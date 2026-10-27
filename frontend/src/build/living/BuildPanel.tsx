@@ -42,6 +42,7 @@ export function BuildPanel({
   onCompose,
   onSay,
   saying,
+  sending,
   onRetry,
   declarations,
   onCorrect,
@@ -72,6 +73,7 @@ export function BuildPanel({
   onCompose: (text: string) => void;
   onSay: (text: string) => void;
   saying: string | null;
+  sending: string[];
   onRetry: () => void;
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
@@ -229,7 +231,7 @@ export function BuildPanel({
           </div>
         ) : (
           <div role="tabpanel" id="panel-assistant" aria-labelledby="tab-assistant">
-            <Chat session={session} saying={saying} failedPhase={session.phase === "failed"}
+            <Chat session={session} sending={sending} failedPhase={session.phase === "failed"}
                   onRetry={onRetry} onPoint={point} />
           </div>
         )}
