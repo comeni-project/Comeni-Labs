@@ -389,7 +389,9 @@ export function LivingSurface({
       {run?.sheet}
       {view === "artifact" && !run?.sheet && (
         <div className="min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
-          <PipelineFile steps={answered} preview={preview} draftId={session.draft_id} kept={run?.kept ?? false} />
+          <PipelineFile steps={answered} preview={preview} draftId={session.draft_id} kept={run?.kept ?? false}
+                        onChange={(node) => { setView("canvas"); setPane("chat"); onSelect(node); }}
+                        onAsk={(text) => { setView("canvas"); setPane("chat"); onCompose(text); }} />
         </div>
       )}
       {/* **Kept mounted while the pipeline file or the run sheet shows**, so the canvas's view is as

@@ -34,13 +34,13 @@ bottom. Builds on plan 4 (`one-builder-4`).
 
 ## Feature inventory (current page → after this plan)
 
-- [ ] counts headline and bar → the count strip (each count a filter)
-- [ ] *Show only open* → the strip's *needs you* count
-- [ ] section chips (Goal, Facts, Steps, …) → kept, above the file
-- [ ] values table (setting, value, how, why) → line marks + the reason panel
-- [ ] *pipeline.yml* / *as kept* tabs → kept, beside *main.nf* and *nextflow.config*
-- [ ] preview label, changed-line highlight, not-ready states and findings → kept (`ArtifactPreview`)
-- [ ] Download pipeline.yml → kept, in the page's bar
+- [x] counts headline and bar → the count strip (each count a filter)
+- [x] *Show only open* → the strip's *needs you* count
+- [x] section chips (Goal, Facts, Steps, …) → kept, above the file (the *Settings* chip went with the table)
+- [x] values table (setting, value, how, why) → line marks + the reason panel
+- [x] *pipeline.yml* / *as kept* tabs → kept, beside *main.nf* and *nextflow.config*
+- [x] preview label, changed-line highlight, not-ready states and findings → kept (`ArtifactPreview`)
+- [x] Download pipeline.yml → kept, in the page's bar
 
 ## Review Focus
 

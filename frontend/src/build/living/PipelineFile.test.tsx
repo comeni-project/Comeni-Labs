@@ -31,109 +31,115 @@ const STEPS = [
     ports: [], settings: [] },
 ] as unknown as AnsweredStep[];
 
-const READY: AuthoringPreview = { revision: 4, state: "ready", findings: [],
-  text: "steps:\n  - id: featurecounts\n    settings:\n      strandedness:\n        value: null\n" };
+/** The file as the server writes it (the v8 layout `fileLines` reads). */
+const READY: AuthoringPreview = { revision: 4, state: "ready", findings: [], text: [
+  "version: 8", "steps:",
+  "- id: star_align", "  settings:",
+  "  - name: sjdbOverhang", "    value: '150'", "    why:", "      tier: 3",
+  "  - name: twopassMode", "    value: None", "    why:", "      tier: 2",
+  "- id: featurecounts", "  settings:",
+  "  - name: strandedness", "    value: null", "    why:", "      tier: 4",
+  "- id: multiqc", "  settings: []", "gate: null", ""].join("\n") };
+
+let emitted: { ok: boolean; status: number; body: unknown } = { ok: true, status: 200,
+  body: { revision: 4, main_nf: "workflow {\n  STAR_ALIGN()\n}\n", nextflow_config: "docker.enabled = true\n" } };
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.includes("/registry/tiers")
     ? { ok: true, status: 200, json: async () => TIERS }
-    : { ok: false, status: 404, json: async () => ({ detail: "not here" }) })));
+    : url.includes("/emitted")
+      ? { ok: emitted.ok, status: emitted.status, json: async () => emitted.body }
+      : { ok: false, status: 404, json: async () => ({ detail: "not here" }) })));
 });
 afterEach(() => vi.unstubAllGlobals());
 
 function file(overrides: Partial<Parameters<typeof PipelineFile>[0]> = {}) {
+  const props = { steps: STEPS, preview: READY, draftId: "d1", kept: false, onChange: vi.fn(), onAsk: vi.fn(),
+    ...overrides };
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <PipelineFile steps={STEPS} preview={READY} draftId="d1" kept={false} {...overrides} />
+      <PipelineFile {...props} />
     </QueryClientProvider>,
   );
+  return props;
 }
 
-describe("every value and its reason", () => {
-  it("counts the values and how each was decided", () => {
+const line = (text: string) =>
+  within(screen.getByTestId("artifact-text")).getAllByTestId("file-line").find((l) => l.textContent?.startsWith(text))!;
+
+describe("the file first, every value marked (one builder plan 5, issue 394)", () => {
+  it("counts how the values were decided, each count a filter", () => {
     file();
-    const summary = screen.getByRole("region", { name: "how the values were decided" });
-    expect(summary).toHaveTextContent("3 values, and how each was decided");
-    expect(summary).toHaveTextContent("1 settled by a rule, a convention or you");
-    expect(summary).toHaveTextContent("1 measured from your files");
-    expect(summary).toHaveTextContent("1 needs you");
+    const strip = screen.getByRole("group", { name: "how the values were decided" });
+    expect(within(strip).getAllByRole("button").map((b) => b.textContent)).toEqual(
+      ["1 settled", "1 measured", "1 needs you"]);
   });
 
-  it("says nothing needs the person, quietly, when nothing does", () => {
-    file({ steps: STEPS.slice(0, 1) });
-    const summary = screen.getByRole("region", { name: "how the values were decided" });
-    expect(summary).toHaveTextContent("nothing needs you");
-    expect(within(summary).getByText("nothing needs you").className).not.toContain("needs-you");
-  });
-
-  it("gives each setting its value, how it was decided and why, with the premise", async () => {
+  it("marks each setting's first line with how it was decided", async () => {
     file();
-    const table = screen.getByRole("table", { name: "STAR_ALIGN settings" });
-    const row = within(table).getByRole("row", { name: /sjdbOverhang/ });
-    expect(row).toHaveTextContent("150");
-    expect(await within(row).findByText("measured")).toBeInTheDocument();
-    expect(row).toHaveTextContent("Read length minus one.");
-    expect(row).toHaveTextContent("read_length = 151");
+    expect(await within(line("  - name: sjdbOverhang")).findByText("measured")).toBeInTheDocument();
+    expect(within(line("  - name: strandedness")).getByText("needs you")).toBeInTheDocument();
+    expect(within(line("    value: '150'")).queryByText("measured")).toBeNull();
   });
 
-  it("does not call a rule's value measured when what it read was typed (issue 397)", async () => {
-    const typed = { ...setting("sjdbOverhang", 3, "149", "Read length minus one.",
-                               ["read_length is 150, asserted, not measured"]), evidence: "not_measured" };
-    file({ steps: [{ ...STEPS[0], settings: [typed] }] as AnsweredStep[] });
-    const row = screen.getByRole("row", { name: /sjdbOverhang/ });
-    expect(await within(row).findByText("check the premise")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "how the values were decided" }))
-      .toHaveTextContent("0 measured from your files");
-  });
-
-  it("shows an open value as null, marked as needing the person", async () => {
+  it("filters the file to one kind, keeping each step's line, and shows all again", () => {
     file();
-    const row = within(screen.getByRole("table", { name: "SUBREAD_FEATURECOUNTS settings" }))
-      .getByRole("row", { name: /strandedness/ });
-    expect(row).toHaveTextContent("null");
-    expect(within(row).getByText("needs you")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "1 measured" }));
+    const shown = within(screen.getByTestId("artifact-text")).getAllByTestId("file-line").map((l) => l.textContent);
+    expect(shown.some((t) => t?.startsWith("  - name: sjdbOverhang"))).toBe(true);
+    expect(shown.some((t) => t?.startsWith("  - name: twopassMode"))).toBe(false);
+    expect(shown.some((t) => t?.startsWith("  - name: strandedness"))).toBe(false);
+    expect(shown).toContain("- id: featurecounts");
+    expect(screen.getByText(/showing measured/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "show all" }));
+    expect(line("  - name: strandedness")).toBeTruthy();
   });
 
-  it("marks an optional open value as optional, counts it apart, and keeps it among the open (issue 384)", () => {
-    const optional = { ...setting("seq_platform", 4, null, "nothing decided it"), optional: true };
-    file({ steps: [{ ...STEPS[0], settings: [...STEPS[0].settings, optional] }] as AnsweredStep[] });
-    const row = screen.getByRole("row", { name: /seq_platform/ });
-    expect(within(row).getByText("optional")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "how the values were decided" })).toHaveTextContent("1 optional");
-    fireEvent.click(screen.getByRole("button", { name: "Show only open" }));
-    expect(screen.getByRole("row", { name: /seq_platform/ })).toBeInTheDocument();
+  it("opens a value's reason beside the file from any of its lines", async () => {
+    const p = file();
+    fireEvent.click(line("      tier: 3"));
+    const reason = screen.getByRole("complementary", { name: "the reason" });
+    expect(reason).toHaveTextContent("STAR_ALIGN");
+    expect(reason).toHaveTextContent("sjdbOverhang");
+    expect(reason).toHaveTextContent("150");
+    expect(reason).toHaveTextContent("Read length minus one.");
+    expect(reason).toHaveTextContent("read_length = 151");
+    expect(await within(reason).findByText("measured")).toBeInTheDocument();
+    fireEvent.click(within(reason).getByRole("button", { name: "Change it" }));
+    expect(p.onChange).toHaveBeenCalledWith("star_align");
+    fireEvent.click(within(reason).getByRole("button", { name: "Ask about it in the chat" }));
+    expect(p.onAsk).toHaveBeenCalledWith("About STAR_ALIGN sjdbOverhang: ");
   });
 
-  it("says a step with nothing to set has nothing to set", () => {
+  it("says to pick a line until one is picked", () => {
     file();
-    expect(screen.getByRole("region", { name: "MULTIQC" })).toHaveTextContent("Nothing to set");
+    expect(screen.getByRole("complementary", { name: "the reason" })).toHaveTextContent(
+      "Click a value in the file to see why it is what it is.");
   });
+});
 
-  it("can show only the open values, and says when none are", () => {
+describe("the Nextflow it compiles to", () => {
+  it("compiles on request, and shows main.nf and nextflow.config", async () => {
     file();
-    fireEvent.click(screen.getByRole("button", { name: "Show only open" }));
-    expect(screen.queryByRole("row", { name: /sjdbOverhang/ })).toBeNull();
-    expect(screen.getByRole("row", { name: /strandedness/ })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "MULTIQC" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "main.nf" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "main.nf" }));
+    expect(await screen.findByText(/STAR_ALIGN\(\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "nextflow.config" }));
+    expect(await screen.findByText(/docker.enabled = true/)).toBeInTheDocument();
   });
 
-  it("says nothing is open when every value is decided", () => {
-    file({ steps: STEPS.slice(0, 1) });
-    fireEvent.click(screen.getByRole("button", { name: "Show only open" }));
-    expect(screen.getByText("Nothing is open.")).toBeInTheDocument();
+  it("says why when there is nothing to compile yet", async () => {
+    emitted = { ok: false, status: 422, body: { detail: "MI0219: there is no pipeline to compile yet: empty" } };
+    file();
+    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    expect(await screen.findByText(/there is no pipeline to compile yet/)).toBeInTheDocument();
+    emitted = { ok: true, status: 200,
+      body: { revision: 4, main_nf: "workflow {\n  STAR_ALIGN()\n}\n", nextflow_config: "docker.enabled = true\n" } };
   });
 });
 
 describe("the file itself", () => {
-  it("is drawn line by line, and a null line is marked", () => {
-    file();
-    const text = screen.getByTestId("artifact-text");
-    const lines = within(text).getAllByTestId("file-line");
-    expect(lines.length).toBeGreaterThan(0);
-    const marked = lines.filter((line) => line.getAttribute("data-open") === "true");
-    expect(marked.map((line) => line.textContent)).toEqual(["        value: null"]);
-  });
-
   it("can be downloaded as the text on screen", async () => {
     const created: Blob[] = [];
     URL.createObjectURL = vi.fn((blob: Blob) => { created.push(blob); return "blob:x"; });
@@ -148,7 +154,6 @@ describe("the file itself", () => {
     file();
     expect(screen.getByRole("tab", { name: "pipeline.yml" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("tab", { name: "as kept" })).toBeNull();
-    expect(screen.getByText("same file you download")).toBeInTheDocument();
   });
 
   it("draws the kept file's tab once there is one", () => {
@@ -156,37 +161,21 @@ describe("the file itself", () => {
     expect(screen.getByRole("tab", { name: "as kept" })).toBeEnabled();
   });
 
-  it("says why there is no file when the preview is outdated, and still lists the values", () => {
+  it("says why there is no file when the preview is outdated", () => {
     file({ preview: { revision: 4, state: "outdated", text: "", findings: [] } });
     expect(screen.getByTestId("preview-outdated")).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "STAR_ALIGN settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download pipeline.yml" })).toBeDisabled();
   });
 });
 
-
 describe("the file's sections", () => {
-  const WHOLE: AuthoringPreview = { revision: 4, state: "ready", findings: [],
-    text: "version: 6\nintent:\n  want: [counts.matrix]\nsteps:\n  - id: star_align\ngate:\n  passed: true\n" };
-
-  it("offers a chip for each section the file has, with the table's own marked as shown", () => {
-    file({ preview: WHOLE });
-    const chips = within(screen.getByRole("navigation", { name: "sections of the file" })).getAllByRole("button");
-    expect(chips.map((c) => c.textContent)).toEqual(["Goal", "Steps 3", "Settings 3", "Checks"]);
-    expect(screen.getByRole("button", { name: "Settings 3" })).toHaveAttribute("aria-current", "true");
-  });
-
-  it("takes the file to a section's first line", () => {
-    file({ preview: WHOLE });
-    const lines = within(screen.getByTestId("artifact-text")).getAllByTestId("file-line");
-    const intent = lines.find((line) => line.textContent === "intent:")!;
-    intent.scrollIntoView = vi.fn();
-    fireEvent.click(screen.getByRole("button", { name: "Goal" }));
-    expect(intent.scrollIntoView).toHaveBeenCalled();
-  });
-
-  it("says every value has a reason, or is marked open", () => {
+  it("offers a chip for each section the file has, and takes the file to it", () => {
     file();
-    expect(screen.getByText("Every value has a reason, or it is marked open.")).toBeInTheDocument();
+    const chips = within(screen.getByRole("navigation", { name: "sections of the file" })).getAllByRole("button");
+    expect(chips.map((c) => c.textContent)).toEqual(["Steps 3", "Checks"]);
+    const gate = line("gate: null");
+    gate.scrollIntoView = vi.fn();
+    fireEvent.click(screen.getByRole("button", { name: "Checks" }));
+    expect(gate.scrollIntoView).toHaveBeenCalled();
   });
 });

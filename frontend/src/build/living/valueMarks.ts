@@ -9,10 +9,10 @@ export function markOf(setting: Answered, tiers: Tiers): { words: string; tone: 
   if (open(setting)) return { words: "needs you", tone: "open" };
   if (optionalOpen(setting)) return { words: "optional", tone: "plain" };
   if (setting.answered) return { words: "your answer", tone: "yours" };
-  if (setting.tier !== 3) return { words: tiers.name(setting.tier), tone: "plain" };
-  if (setting.evidence === "measured") return { words: tiers.name(3), tone: "measured" };
+  if (setting.tier !== 3) return { words: tiers.name(setting.tier).toLowerCase(), tone: "plain" };
+  if (setting.evidence === "measured") return { words: tiers.name(3).toLowerCase(), tone: "measured" };
   if (setting.evidence === "read_by_ai") return { words: "read by AI", tone: "plain" };
-  return { words: tiers.group(3), tone: "plain" };
+  return { words: tiers.group(3).toLowerCase(), tone: "plain" };
 }
 
 /** Each tone's colours: measured and open each spend their one colour; the rest spend none. */
