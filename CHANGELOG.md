@@ -320,6 +320,10 @@ or a complete commit history.
   is a message; once you talk past a question it docks above the composer. A step opens over
   the conversation. Describe uses the same frame, *What was understood* where the canvas will be
   and *Start building* in the header. Changes made elsewhere are announced with a link.
+- **A build ends with a hand-over** ([#393](https://github.com/comeni-project/Comeni-Labs/issues/393)):
+  what was built, how its values were decided (each count opening the pipeline file), what still
+  needs you (each opening its step; Run stays locked), and what next. Composed from the
+  engine's records; the wrap-up sentence stays under it.
 
 - **One builder at `/build`** ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)): every pipeline opens as a conversation and a
   canvas; `?draft=` and a bare `/build` open or start one. The canvas has the manual builder's

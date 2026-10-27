@@ -55,13 +55,13 @@ file, or keep asking.* Builds on plan 3 (`one-builder-3`, PR #405).
 - Produces: `stepsInOrder(session: AuthoringSession): string[]` — accepted step proposals'
   nodes in history order, then graph nodes not among them, sorted.
 
-- [ ] **Step 1: Failing tests** — `handoverId` is the newer of two wrap receipts; `null` when
+- [x] **Step 1: Failing tests** — `handoverId` is the newer of two wrap receipts; `null` when
   the phase is `building` or a proposal is pending; `stepsInOrder` returns the history's
   accepted steps in order, then a hand-added node.
-- [ ] **Step 2: Run** `npx vitest run src/build/living/handover.test.ts` — Expected: FAIL.
-- [ ] **Step 3: Implement** both in `format.ts`.
-- [ ] **Step 4: Run** — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): which wrap-up is the hand-over (#393)`
+- [x] **Step 2: Run** `npx vitest run src/build/living/handover.test.ts` — Expected: FAIL.
+- [x] **Step 3: Implement** both in `format.ts`.
+- [x] **Step 4: Run** — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): which wrap-up is the hand-over (#393)`
 
 ### Task 2: The hand-over card
 
@@ -77,7 +77,7 @@ file, or keep asking.* Builds on plan 3 (`one-builder-3`, PR #405).
 - Produces: `HandoverCard({ session, steps, summary, runnable, onRun, onView, onSelect })`;
   `Chat` prop `override?: { id: string; node: React.ReactNode }`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - the card's four parts, in order: **What you built** (`fastq.reads, genome.fasta → counts.matrix`
     and the steps named in order, `→` between them); **How its values were decided** (one count
     per non-zero kind: *settled*, *measured*, *read by AI*, *optional*, *need you*, each a button
@@ -89,12 +89,12 @@ file, or keep asking.* Builds on plan 3 (`one-builder-3`, PR #405).
   - the engine's sentence (`summary`) is under the card, quiet;
   - in `LivingSurface`, a complete session with two wrap receipts shows one card, for the newer,
     and the older as its line; a building session shows no card.
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement** the card (headings at `text-heading`, counts as quiet chips in the
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement** the card (headings at `text-heading`, counts as quiet chips in the
   evidence colours, `Primary` for *Run it*) and the override wiring.
-- [ ] **Step 4: Run** `npx vitest run` and `npx tsc -b` and `npm run lint` — Expected: PASS, no
+- [x] **Step 4: Run** `npx vitest run` and `npx tsc -b` and `npm run lint` — Expected: PASS, no
   new lint errors.
-- [ ] **Step 5: Commit** `feat(build): the build ends with a hand-over (#393)`
+- [x] **Step 5: Commit** `feat(build): the build ends with a hand-over (#393)`
 
 ### Task 3: Docs
 
@@ -102,9 +102,10 @@ file, or keep asking.* Builds on plan 3 (`one-builder-3`, PR #405).
 `CHANGELOG.md` (frontend), `docs/notes/journal/2026-10-27-one-builder-4-the-hand-over.md`;
 tick this plan; comment on #393.
 
-- [ ] **Step 1:** write them; `make links` and `make doc-sizes` — Expected: exit 0.
-- [ ] **Step 2: Commit** `docs: one builder plan 4 — the hand-over (#393)`
+- [x] **Step 1:** write them; `make links` and `make doc-sizes` — Expected: exit 0.
+- [x] **Step 2: Commit** `docs: one builder plan 4 — the hand-over (#393)`
 
 ## Deviations
 
-(Recorded during execution.)
+- None in substance. `LivingSurface` now computes `runnable` once, for the header and the
+  hand-over. Under a session's estimate. The browser check of the card waits with plan 3's (#404).

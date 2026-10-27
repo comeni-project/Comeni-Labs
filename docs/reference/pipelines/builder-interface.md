@@ -21,6 +21,7 @@ For the task sequence, see [Build and inspect a pipeline](../../how-to/pipelines
 | Open step | a step opened over the conversation: what still needs you, what was measured, what a rule settled, and its tools; **×** returns |
 | Still needed | the open question, docked above the composer once you talk past it; answer it there or show it again |
 | Composer | never locked: what you type while the engine works waits in line, marked *waiting* |
+| Hand-over | when a build finishes: what you built, how its values were decided, what still needs you, and **Run it** or the pipeline file |
 | Pipeline file | the materialized `pipeline.yml` behind the draft, and its findings |
 | Run | keep, check, collect run inputs, and submit |
 
