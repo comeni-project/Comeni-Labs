@@ -314,6 +314,12 @@ or a complete commit history.
 
 #### Added
 
+- **What was asked for and is not offered here is said where the goal is checked**
+  ([#293](https://github.com/comeni-project/Comeni-Labs/issues/293), Part I.2): a row in *What
+  was understood* and on the goal card, in the person's words. The goal names types the way the
+  registry does; a question's mechanical line is dropped where its explanation says why, and
+  answered lines are no longer cut short ([#306](https://github.com/comeni-project/Comeni-Labs/issues/306)).
+
 - **The build is one conversation** (one builder plan 3,
   [#392](https://github.com/comeni-project/Comeni-Labs/issues/392),
   [#391](https://github.com/comeni-project/Comeni-Labs/issues/391)): the *Step* and *Assistant*

@@ -3,6 +3,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { AuthoringProposal, AuthoringSession, AuthoringVocabulary, GoalIn } from "../../../api/types";
 import type { CorrectFact } from "../CurrentFacts";
 import { FactEditor } from "../FactEditor";
+import { NotOffered } from "../NotOffered";
+import { useTypeNames } from "../useTypeNames";
 import { factWords } from "../FactHistory";
 import { Primary, Secondary } from "./parts";
 import { piece } from "./piece";
@@ -56,6 +58,7 @@ export function GoalCard({
   pace,
   confirmRequest = 0,
   startInHeader = false,
+  notOffered = [],
 }: {
   proposal: AuthoringProposal;
   /** Declared type ids and their states. `null` while it loads — the card is still answerable. */
@@ -78,9 +81,12 @@ export function GoalCard({
   confirmRequest?: number;
   /** The header holds *Start building*, so this card does not draw it. */
   startInHeader?: boolean;
+  /** What was asked for and is not offered here (Part I.2). */
+  notOffered?: string[];
 }) {
   const block = proposal.block;
   const seen = useRef<number | null>(null);
+  const nameOf = useTypeNames();
   // **Start building from the header** confirms once per press, with the edits held here; the
   // effect is above any early return, and calls the newest `confirm`.
   const latest = useRef<() => void>(() => undefined);
@@ -153,9 +159,9 @@ export function GoalCard({
       <ul aria-label={label} className="m-0 p-0">
         {chosen[side].map((type_id, i) => {
           const fact = side === "have" ? inputOf.get(type_id) : undefined;
-          const value = side === "want" ? spelled(type_id, states.want.get(type_id)) : (
-            <span>
-              {type_id}
+          const value = side === "want" ? <span title={type_id}>{spelled(nameOf(type_id), states.want.get(type_id))}</span> : (
+            <span title={type_id}>
+              {nameOf(type_id)}
               {(held[type_id] ?? []).length > 0 && (
                 <>
                   [
@@ -241,6 +247,7 @@ export function GoalCard({
             checking. The sentence beneath says the same thing in words, quieter, for reading. */}
         {group("have", addHave, "what you have")}
         {group("want", addWant, "what you want")}
+        <NotOffered phrases={notOffered} />
         {measured.length > 0 && (
           <ul aria-label="what the engine knows" className="m-0 p-0">
             {measured.map((f) => (

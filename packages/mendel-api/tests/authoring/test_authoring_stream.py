@@ -28,3 +28,30 @@ def test_a_receipt_says_what_it_changed():
 def test_a_receipt_about_nothing_in_particular_has_no_about():
     assert parse_block(Receipt(id="r-2", summary="Built.", revision=1, by="resolver")
                        .model_dump(mode="json")).about is None
+
+
+def test_what_was_asked_for_and_is_not_offered_reaches_the_page(clean, monkeypatch):
+    """Part I.2: a request the model reads as not offered is a note the page shows, and the
+    conversation says so once (the correction path's receipt)."""
+    import asyncio
+    import json
+
+    from comeni_ai import Client, ModelAccess
+    from mendel_api.services import authoring_jobs, decisions
+    from mendel_authoring import commands
+
+    class Once:
+        def send(self, access, prompt: str) -> str:
+            return json.dumps({"not_offered": [{"quote": "differential expression"}]})
+
+    monkeypatch.setattr(authoring_jobs, "_client",
+                        lambda *_: Client(ModelAccess(model="fake/test"), transport=Once()))
+    sid = _gathering(want=["counts.matrix"])
+    seq = facade.perform(commands.Say(sid, "and then differential expression please")).result
+    asyncio.run(authoring_jobs.answer_authoring_turn({}, sid, seq))
+    picture = facade.read(sid)
+    assert picture["not_offered"] == ["differential expression"]
+    said = [b["summary"] for t in picture["turns"] for b in t["blocks"] if b["kind"] == "receipt"]
+    assert any("not offered here" in s.lower() for s in said), said
+    decisions.retract_asked(picture["draft_id"], "differential expression", who="ana")
+    assert facade.read(sid)["not_offered"] == []

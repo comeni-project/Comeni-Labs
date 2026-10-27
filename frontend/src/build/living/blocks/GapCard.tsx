@@ -65,7 +65,11 @@ export function GapCard({
   return (
     <BlockFrame label={frame.label} title={frame.title}>
       <h3 className="m-0 mb-1 text-[15px] leading-[1.4] font-semibold text-ink">{block.asks}</h3>
-      <p className="m-0 mb-3 text-[12.5px] text-ink-2">{block.why_open}</p>
+      {/* The engine's own line only where nothing else says why (issue 306): the explanation's
+          *which steps read it* says it better. */}
+      {!(explained && (explained.what || explained.needed.length > 0)) && (
+        <p className="m-0 mb-3 text-[12.5px] text-ink-2">{block.why_open}</p>
+      )}
       {explained && <Explain explanation={explained} />}
       {suggested && (
         <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-now-ink">

@@ -153,3 +153,29 @@ describe("starting to build", () => {
     expect(screen.getByText("The same goal and answers always give the same pipeline.")).toBeInTheDocument();
   });
 });
+
+describe("what was asked for and is not offered here (Part I.2)", () => {
+  it("is said on the goal being checked", () => {
+    page({ ...guidedStart(), facts: FACTS, not_offered: ["differential expression"] } as unknown as AuthoringSession);
+    expect(within(table()).getByTestId("not-offered")).toHaveTextContent("Not offered here: differential expression");
+  });
+});
+
+describe("the goal reads in names (Part I.2, issue 306)", () => {
+  it("names a type the way the registry does, and shows the id where nothing names it", async () => {
+    const client = new QueryClient();
+    client.setQueryData(["settings"], menu("ask"));
+    client.setQueryData(["authoring-vocabulary"], { types: {}, measurements: {}, measurers: [],
+      names: { "fastq.reads": "Sequencing reads" } });
+    const session = { ...guidedStart(), facts: FACTS };
+    render(<QueryClientProvider client={client}><LivingSurface {...{
+      session: framed(session, FAKE_STEPS, FAKE_CHANNELS), graph: session.graph,
+      state: { ...initialAuthoring, snapshot: session }, preview: null, busy: () => false,
+      onAccept: vi.fn(), onReject: vi.fn(), onPreviewOption: vi.fn(), onSelect: vi.fn(), onCompose: vi.fn(),
+      onSay: vi.fn(), onRetry: vi.fn(), onAddStep: vi.fn(), onDismiss: vi.fn(), onSetParam: vi.fn(),
+      onApplyChange: vi.fn(), onEdit: vi.fn() }} /></QueryClientProvider>);
+    const have = within(table()).getByRole("list", { name: "what you have" });
+    expect(have).toHaveTextContent("Sequencing reads");
+    expect(within(table()).getByRole("list", { name: "what you want" })).toHaveTextContent("counts.matrix");
+  });
+});

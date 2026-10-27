@@ -151,6 +151,7 @@ export function Waiting({
           key={pending.id}
           proposal={pending}
           facts={session.facts}
+          notOffered={session.not_offered ?? []}
           subjects={session.fact_subjects ?? []}
           onCorrectFact={onCorrectFact}
           declarations={declarations}

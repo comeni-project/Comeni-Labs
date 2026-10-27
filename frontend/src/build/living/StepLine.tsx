@@ -168,7 +168,7 @@ export function answered(session: AuthoringSession): Decision[] {
 
 /** One answered question: what was asked, the answer whole, and where the answer came from.
  *
- *  **The answer is never the part cut short** (issue 169): a long question truncates, and a typed
+ *  **Nothing is cut short**: the question wraps (issue 306; issue 169 kept the answer whole), and a typed
  *  value is shown as the value, not the field's label. A sample the AI read is not one an inspector
  *  measured (issue 135), and the line says which.
  */
@@ -183,7 +183,7 @@ export function AnswerLine({ decision }: { decision: Decision }) {
   const aiRead = sampled && (block as { reading?: { state?: string } | null }).reading?.state === "read";
   return (
     <div className="flex items-baseline gap-[10px] py-[5px]">
-      <span className="text-[12px] text-ink-2 truncate min-w-0">{block.asks}</span>
+      <span className="text-[12px] text-ink-2 min-w-0 break-words">{block.asks}</span>
       <span data-testid={`gap-answer-${decision.id}`} className="font-data text-[12px] text-ink shrink-0">{answer}</span>
       <span className="ml-auto text-[11.5px] text-ink-3 shrink-0">
         {model ? "read by AI" : aiRead ? "from your sample" : sampled ? "measured from your sample" : "you said"}

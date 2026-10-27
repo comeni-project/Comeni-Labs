@@ -608,6 +608,9 @@ def read(session_id: str) -> dict:
                     .order_by(PipelineAuthoringProposal.created_at)
                 ).all()
             ],
+            # **What was asked for and is not offered here** (Part I.2): the current notes, so the
+            # page can say so where the goal is checked.
+            "not_offered": sorted(a.phrase for a in _decisions_mod().read_asked(row.draft_id)),
             "suggestions": [
                 {"id": view.id, "says": view.says, "heard": view.heard,
                  "quote": view.change.heard, "kind": view.change.kind,
@@ -628,6 +631,12 @@ def read(session_id: str) -> dict:
                 }
             ),
         }
+
+
+def _decisions_mod():
+    from mendel_api.services import decisions
+
+    return decisions
 
 
 def _gaps_shown(value, details: bool):

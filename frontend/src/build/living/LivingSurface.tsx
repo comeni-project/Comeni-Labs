@@ -330,7 +330,7 @@ export function LivingSurface({
                               <a href="/settings/building" className="text-now-ink underline">Settings</a>.
                             </p>
                           ) : null}
-                          startInHeader confirmRequest={confirmRequest}
+                          startInHeader confirmRequest={confirmRequest} notOffered={session.not_offered ?? []}
                           onConfirm={(edited) => onAccept(goal, "keep", edited)} onReject={() => onReject(goal)} />
               </div>
             ) : (

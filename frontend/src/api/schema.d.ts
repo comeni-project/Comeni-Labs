@@ -1345,6 +1345,11 @@ export interface components {
              * @default []
              */
             suggestions: components["schemas"]["AuthoringSuggestionView"][];
+            /**
+             * Not Offered
+             * @default []
+             */
+            not_offered: string[];
             pending_proposal: components["schemas"]["AuthoringProposalView"] | null;
         };
         /** AuthoringStarted */
@@ -1431,6 +1436,13 @@ export interface components {
             /** Types */
             types: {
                 [key: string]: string[];
+            };
+            /**
+             * Names
+             * @default {}
+             */
+            names: {
+                [key: string]: string;
             };
             /**
              * Measurers

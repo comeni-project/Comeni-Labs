@@ -1,5 +1,6 @@
 import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
+import { NotOffered } from "./NotOffered";
 import { AnswerLine, answered } from "./StepLine";
 
 /** **What was understood** (the *Describe* board's record, one builder plan 3): the person's
@@ -47,6 +48,7 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
       )}
       <div className="rounded-panel border border-line px-5 py-4" style={{ background: "var(--surface)" }}>
         {answered(session).map((decision) => <AnswerLine key={decision.id} decision={decision} />)}
+        <NotOffered phrases={session.not_offered ?? []} />
         <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
                       openRequest={openRequest} open disabled={disabled} highlight={highlight} />
       </div>

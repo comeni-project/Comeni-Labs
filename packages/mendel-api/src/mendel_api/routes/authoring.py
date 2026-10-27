@@ -276,6 +276,8 @@ class AuthoringSessionView(BaseModel):
     history: list[AuthoringDecisionView] = []
     """Every answered proposal, oldest first — the pipeline's provenance, made navigable."""
     suggestions: list[AuthoringSuggestionView] = []
+    not_offered: list[str] = []
+    """What the person asked for that is not offered here, in their words (Part I.2)."""
     """The model's suggestions waiting for one click (Part I.0 §5.3)."""
     pending_proposal: AuthoringProposalView | None
 
@@ -354,6 +356,8 @@ class AuthoringVocabulary(BaseModel):
     model_config = _FROZEN
 
     types: dict[str, list[str]]
+    names: dict[str, str] = {}
+    """The registry's name for each type that declares one (Part I.2): what the goal card shows."""
     measurers: list[MeasurerView] = []
     measurements: dict[str, Measurement] = {}
 
@@ -474,6 +478,7 @@ def vocabulary() -> AuthoringVocabulary:
     types = registry_service.builder_types(stack)
     return AuthoringVocabulary(
         types={t: sorted(types[t]) for t in sorted(types)},
+        names={t: n for t, n in sorted(stack.vocabulary.names.items()) if t in types},
         measurements=stack.measurements.measurements,
         measurers=[MeasurerView(**m.model_dump()) for m in measurers.index(stack)],
     )
@@ -776,6 +781,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         ],
         history=[AuthoringDecisionView(**decision) for decision in picture["history"]],
         suggestions=[AuthoringSuggestionView(**s) for s in picture["suggestions"]],
+        not_offered=picture["not_offered"],
         pending_proposal=(
             None
             if pending is None

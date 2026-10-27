@@ -36,3 +36,17 @@ describe("what was understood, beside the conversation (one builder plan 3)", ()
     expect(p.onOpenQuestion).toHaveBeenCalled();
   });
 });
+
+describe("what was asked for and is not offered here (Part I.2)", () => {
+  it("says so in the record, in the person's words", () => {
+    understood({ ...open, not_offered: ["differential expression"] } as unknown as AuthoringSession);
+    const row = screen.getByTestId("not-offered");
+    expect(row).toHaveTextContent("Not offered here: differential expression");
+    expect(row).toHaveTextContent("This pipeline stops before it; the rest is yours.");
+  });
+
+  it("draws no row when nothing was", () => {
+    understood(open);
+    expect(screen.queryByTestId("not-offered")).toBeNull();
+  });
+});
