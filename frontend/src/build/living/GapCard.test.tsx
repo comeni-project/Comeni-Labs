@@ -164,3 +164,18 @@ describe("a gap card that takes a sample", () => {
     expect(screen.queryByTestId("explain")).toBeNull();
   });
 });
+
+describe("no repeated why under a question (Part I.2, issue 306)", () => {
+  it("draws no mechanical line when the explanation already says why", () => {
+    const explained = { ...PAIRED, envelope: { ...PAIRED.envelope, explain: {
+      what: "Whether both ends of each fragment were read.", needed: [{ text: "STAR_ALIGN", detail: null }],
+      reads: "steps", read_by: null, files: 1 } } } as unknown as AuthoringProposal;
+    render(<GapCard proposal={explained} busy={false} onAnswer={vi.fn()} />);
+    expect(screen.queryByText("a step reads it to decide")).toBeNull();
+  });
+
+  it("keeps the line when nothing else says why", () => {
+    render(<GapCard proposal={PAIRED} busy={false} onAnswer={vi.fn()} />);
+    expect(screen.getByText("a step reads it to decide")).toBeInTheDocument();
+  });
+});
