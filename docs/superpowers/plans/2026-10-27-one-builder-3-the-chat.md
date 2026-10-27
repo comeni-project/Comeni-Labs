@@ -92,7 +92,7 @@ conversation, composer.
 - Produces: `describe.earlier_pending(session_id: str, seq: int) -> bool` — an assistant turn of
   this session with a lower `seq` is still `pending`.
 
-- [ ] **Step 1: Write the failing tests** (harness: `_model` / `_typed` as in
+- [x] **Step 1: Write the failing tests** (harness: `_model` / `_typed` as in
   `test_authoring_chat_changes.py`; fixtures `clean`, `_gathering`, `_pending_for`)
 
 ```python
@@ -132,13 +132,13 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
 
 `_state(sid, seq)` reads `facade.read(sid)["turns"]`; `_value` as in the chat-changes test.
 
-- [ ] **Step 2: Run them** — `make test-db`, then
+- [x] **Step 2: Run them** — `make test-db`, then
   `MENDEL_TEST_DATABASE_URL=postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel uv run pytest packages/mendel-api/tests/authoring/test_authoring_queue.py -v`
   (the URL is `TEST_MENDEL_URL` in the `Makefile`; check it before running). Expected: the first FAILs (no `Retry`); note
   whether the other two already pass. If they do, they stay as guards of the grounding the spec
   relies on, and the guard ledger records that they passed before the change.
 
-- [ ] **Step 3: Implement** `earlier_pending` (one `select exists` on `PipelineAuthoringTurn`), and
+- [x] **Step 3: Implement** `earlier_pending` (one `select exists` on `PipelineAuthoringTurn`), and
   at the top of `answer_authoring_turn`, after the `context is None` check:
   `if describe.earlier_pending(session_id, seq): raise arq.Retry(defer=2)`. Comment: per-session
   order must hold at any `ai_max_jobs`; a crashed earlier job leaves its turn pending, which
@@ -146,17 +146,17 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
   retry path is today's). Check `AIWorkerSettings.max_tries`; if it would wedge a session for
   longer than one job timeout, say so in *Deviations* and bound it.
 
-- [ ] **Step 4: Run the tests** — Expected: PASS.
+- [x] **Step 4: Run the tests** — Expected: PASS.
 
-- [ ] **Step 5: Correct the spec's constraint**: replace the bullet beginning *A turn's answer is
+- [x] **Step 5: Correct the spec's constraint**: replace the bullet beginning *A turn's answer is
   refused as late* with what the code does: the reply is grounded when its job starts
   (`turn_context`), and *late* means the draft moved during its own call. Record it in the spec as
   *corrected while planning (2026-10-27)*.
 
-- [ ] **Step 6: Guard ledger** — add the order test to `tests/fixtures/guard-ledger.md`, with its
+- [x] **Step 6: Guard ledger** — add the order test to `tests/fixtures/guard-ledger.md`, with its
   failure against the code before Step 3.
 
-- [ ] **Step 7: Commit** `fix(authoring): a session's replies run in the order its messages were sent (#392)`
+- [x] **Step 7: Commit** `fix(authoring): a session's replies run in the order its messages were sent (#392)`
 
 ### Task 2: The server says when a question was asked, and what a receipt is about
 
@@ -175,15 +175,15 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
   and `Receipt.about: ReceiptAbout | None = None` — the canvas step or the *What was understood*
   subject the receipt changed.
 
-- [ ] **Step 1: Failing tests** — a session read with a pending proposal carries `asked_at` equal to
+- [x] **Step 1: Failing tests** — a session read with a pending proposal carries `asked_at` equal to
   the row's `created_at`; a `Receipt(..., about=ReceiptAbout(node="STAR_ALIGN"))` round-trips
   through `parse_block`; the shape guard refuses a shape-3 turn row written after the bump.
-- [ ] **Step 2: Run** — Expected: FAIL (`asked_at` missing; `about` unknown).
-- [ ] **Step 3: Implement** the fields, the shape bump and the identity migration; set `about` on
+- [x] **Step 2: Run** — Expected: FAIL (`asked_at` missing; `about` unknown).
+- [x] **Step 3: Implement** the fields, the shape bump and the identity migration; set `about` on
   the receipts already written in `stages/correcting.py` (the corrected subject),
   `stages/building/walk.py` and `stages/building/amending.py` (the step's node).
-- [ ] **Step 4: Run** the tests, `COMENI_WRITE_GOLDEN=1` for the golden, then `make client`.
-- [ ] **Step 5: Commit** `feat(authoring): proposals say when they were asked; receipts say what they changed`
+- [x] **Step 4: Run** the tests, `COMENI_WRITE_GOLDEN=1` for the golden, then `make client`.
+- [x] **Step 5: Commit** `feat(authoring): proposals say when they were asked; receipts say what they changed`
 
 ### Task 3: The composer never locks, and queued messages say *waiting*
 
@@ -198,7 +198,7 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
   turns whose reply is pending **and** is not the oldest pending reply (those wait in line; the
   oldest is being answered and shows the working line).
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - the composer is enabled while a turn is `pending` (render `LivingSurface` with a pending
     turn; `getByRole("textbox")` not disabled) — the regression guard for #392;
   - `composerHint` with a pending turn is `"Ask anything, or answer in your own words"`;
@@ -206,13 +206,13 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
     finish the step above*, the earlier does not; re-rendering from the same session (a reload)
     shows the same marks;
   - two sends before either POST returns keep both texts in `sending`, in order.
-- [ ] **Step 2: Run** `cd frontend && npx vitest run src/build/living` — Expected: FAIL.
-- [ ] **Step 3: Implement**: `composerDisabled = session.retired || session.phase === "stopped"`;
+- [x] **Step 2: Run** `cd frontend && npx vitest run src/build/living` — Expected: FAIL.
+- [x] **Step 3: Implement**: `composerDisabled = session.retired || session.phase === "stopped"`;
   drop the pending branch of `composerHint`; `sending` is appended on send and a text is removed
   when the session's turns contain it; `Chat` renders `sending` as today's *sending…* items and
   `queued(session)` turns with the waiting line.
-- [ ] **Step 4: Run** — Expected: PASS. Guard ledger: the composer test, failing on `main`.
-- [ ] **Step 5: Commit** `feat(build): the composer never locks; messages queue (#392)`
+- [x] **Step 4: Run** — Expected: PASS. Guard ledger: the composer test, failing on `main`.
+- [x] **Step 5: Commit** `feat(build): the composer never locks; messages queue (#392)`
 
 ### Task 4: One stream — the question in the conversation, then docked
 
@@ -231,7 +231,7 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
   `QuestionDock({ proposal, busy, onAnswer, onShow }: …)` — title, answers as chips (the gap's or
   pacing's options), *show the full question*; folded to one line under 640 px, opens on tap.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - a gap with no later person turn renders as a full card at the end of the log, no dock;
   - a person turn after `asked_at` collapses the card to the pointer and renders the dock with
     the gap's options as buttons; clicking one calls `onAccept(proposal, option)`;
@@ -239,13 +239,13 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
   - a step proposal docks as *Add it* / *Why this one?* (its primary answers), not its whole card;
   - the provenance line is one line: `asked by the engine · worded by the model · curated explanation`
     (the parts present in the block).
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement** `Stream` (wraps `Chat` and `Waiting`), `docked`, `QuestionDock`; the
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement** `Stream` (wraps `Chat` and `Waiting`), `docked`, `QuestionDock`; the
   question card keeps *What is this?* and *which steps read it* (`Explain`) one click away and
   folds the provenance tags into one line, laid out after `.design/one-builder-3/one-stream.html`
   and the *Question* board.
-- [ ] **Step 4: Run** — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): the open question follows you (#392)`
+- [x] **Step 4: Run** — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): the open question follows you (#392)`
 
 ### Task 5: `ChatPanel` replaces the tabs
 
@@ -261,15 +261,15 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
   — *Describing* while `stageOf(session) === "describe"`, else one pill per planned step with
   *Step n of m*.
 
-- [ ] **Step 1: Failing tests** — no `role="tablist"`; the strip shows *Step 4 of 5* and a click
+- [x] **Step 1: Failing tests** — no `role="tablist"`; the strip shows *Step 4 of 5* and a click
   on a step calls `onSelect(node)`; suggestions, *From your edit* readings, setting requests and
   change sets render **in the stream** as messages after the turn that carried them, with their
   apply / dismiss; *Still needs you* steps render as one engine line with a button per step.
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement** `ChatPanel`: notices, strip, `Stream`, `QuestionDock` when `docked`,
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement** `ChatPanel`: notices, strip, `Stream`, `QuestionDock` when `docked`,
   composer. Move every `BuildPanel` feature per the inventory; delete `PanelTab` and the unread dot.
-- [ ] **Step 4: Run** the whole `src/build/living` suite — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): one conversation beside the canvas (#395)`
+- [x] **Step 4: Run** the whole `src/build/living` suite — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): one conversation beside the canvas (#395)`
 
 ### Task 6: A step opens over the chat
 
@@ -282,7 +282,7 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
 **Interfaces:**
 - Produces: `StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onAsk })`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - the sheet groups values: *Needs you*, *Measured*, *Settled by a rule* (folded, *show*);
   - × and *‹ Back to the conversation* call `onClose`; the stream's scroll position is kept;
   - the composer's placeholder is *Ask about this step…*; sending calls `onAsk("<text>", node)`,
@@ -293,12 +293,12 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
     the session refreshes, and exactly one receipt is added;
   - (server) a gap answered by a sample appends one receipt `Measured from your sample: <fact>`
     per settled subject, `about.subject` set, `by="resolver"` (goal 6's measured facts).
-- [ ] **Step 2: Run** both suites — Expected: FAIL.
-- [ ] **Step 3: Implement** the sheet and both receipts, through `_rows.engine_turn`: the typed
+- [x] **Step 2: Run** both suites — Expected: FAIL.
+- [x] **Step 3: Implement** the sheet and both receipts, through `_rows.engine_turn`: the typed
   value's in the route that applies it after `RecordEdit`; the sample's where the sample answer
   settles its subjects (`stages/samples.py`).
-- [ ] **Step 4: Run** — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): a step opens over the chat; a typed value is announced`
+- [x] **Step 4: Run** — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): a step opens over the chat; a typed value is announced`
 
 ### Task 7: The left side — canvas or *What was understood*; the phone tabs
 
@@ -311,14 +311,14 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
 - Produces: `Understood({ session, declarations, onCorrect, onRelease, disabled, highlight })`;
   `highlight: string | null` is a subject to flash.
 
-- [ ] **Step 1: Failing tests** — during the build a switch *Canvas* | *What was understood* swaps
+- [x] **Step 1: Failing tests** — during the build a switch *Canvas* | *What was understood* swaps
   the left side; at 390 px (`matchMedia` mocked) the page shows tabs *Chat*, *Canvas*,
   *Understood* with *Chat* first; a *needs you* row clicked opens its question (scroll to card, or
   the dock when `docked`).
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** — Expected: PASS. Tick the inventory: write beside each item its new home.
-- [ ] **Step 5: Commit** `feat(build): what was understood beside the chat; phone tabs`
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** — Expected: PASS. Tick the inventory: write beside each item its new home.
+- [x] **Step 5: Commit** `feat(build): what was understood beside the chat; phone tabs`
 
 ### Task 8: Describe in the same frame
 
@@ -329,7 +329,7 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
 - Modify: `frontend/src/build/living/blocks/GoalCard.tsx` (the record on the left is the goal being checked)
 - Test: `frontend/src/build/living/Describe.test.tsx`, `LivingHeader.test.tsx`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - describing renders the frame: `Understood` left, `ChatPanel` right with the strip reading
     *Describing*; there is no *What it needs* card on the left;
   - a gap question renders in the stream as a card (Task 4), not on the left;
@@ -337,11 +337,11 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
     gap is open and is disabled until none is; pressing it confirms the goal (`onAccept(pending, "keep", edited)`);
   - with `building.pacing = ask`, no pace cards render; the engine's pacing question arrives in the
     stream like any question; with a fixed pace, the stream shows one line with the Settings link.
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement**; delete `DescribePage.tsx`, `Paces`, the `held` ref and `PACE_WORDS`'s
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement**; delete `DescribePage.tsx`, `Paces`, the `held` ref and `PACE_WORDS`'s
   page copy (moved into the one line).
-- [ ] **Step 4: Run** — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): describe in the same frame (#391)`
+- [x] **Step 4: Run** — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): describe in the same frame (#391)`
 
 ### Task 9: Announcements link and highlight; #399's findings; the walk
 
@@ -352,20 +352,45 @@ def test_a_message_typed_while_its_question_is_worded_answers_it(clean, monkeypa
 - Test: `Block` / `LivingHeader` / `LivingCanvas` tests
 - Docs: `docs/notes/journal/2026-10-xx-one-builder-3.md`, `CHANGELOG.md` (mendel-api, frontend), the builder's user page if it names the Step tab (`grep -rn "Step tab\|Assistant tab" docs`)
 
-- [ ] **Step 1: Failing tests** — a receipt with `about.node` renders a link that calls
+- [x] **Step 1: Failing tests** — a receipt with `about.node` renders a link that calls
   `onFocus(node)`, and with `about.subject` one that flashes the row; an empty new pipeline's chip
   is not *Complete*; the empty canvas of a drawn pipeline does not say *Confirm the goal on the
   right*; no copy mentions the *Step panel* (`grep -rn "Step panel" frontend/src` empty).
-- [ ] **Step 2: Run** — Expected: FAIL. **Step 3: Implement.** **Step 4: Run** — PASS.
-- [ ] **Step 5: Browser check** with the stack (`API_HOST_PORT=8020 DB_HOST_PORT=5433 make dev`,
+- [x] **Step 2: Run** — Expected: FAIL. **Step 3: Implement.** **Step 4: Run** — PASS.
+- [!] **Step 5: Browser check** — not done: the GPU was in use; the operator deferred it (see Deviations) with the stack (`API_HOST_PORT=8020 DB_HOST_PORT=5433 make dev`,
   `make ai-up OLLAMA_GPU=rocm`) at 1440×900 and 390 wide, light and dark, against the four
   mockups: describe → sample → two questions sent while a reply runs → the dock → answer from the
   step sheet → a canvas Delete → *So you never want … — right?* → build to the end. Review Focus 5
   on the phone width. Note what differs.
-- [ ] **Step 6: `make check`, then `make verify`** (the turn shape changed). Comment the outcome on
+- [x] **Step 6: `make check`, then `make verify`** (the turn shape changed). Comment the outcome on
   #392, #391 and #399.
-- [ ] **Step 7: Commit** `docs: one builder plan 3 — journal, changelog, ticked plan (#395)`
+- [x] **Step 7: Commit** `docs: one builder plan 3 — journal, changelog, ticked plan (#395)`
 
 ## Deviations
 
-(Recorded during execution.)
+- **Task 1:** arq counts a `Retry` as a try, so `answer_authoring_turn` gets `max_tries` =
+  `ai_job_timeout // 3 + 5` (`tries_in_line`); the new read is declared in `describe.READS`
+  (the binding guard caught it). The plan's third test was dropped: an existing chat-changes
+  test already covers a typed answer to an open gap. The grounding test passed before the
+  change and stays as the guard of what the spec relies on.
+- **Task 2:** the migration follows the real head `f7b1d4c8e293`. `about` is set on correction
+  receipts only (walk's wrap-up is about the whole pipeline; `Amended` carries no node). The
+  client regeneration also picked up the refactoring campaign's docstring drift.
+- **Task 3:** a derived `saying` stayed for the components Tasks 5 and 8 replaced.
+- **Task 4:** the dock answers a step with *Add it* only; the gap card's frame reads *Needs you*
+  and its question is a heading.
+- **Task 5:** the full step line is kept behind the strip's *Step n of m*, not dropped; offers
+  render after the stream; tabs, the unread mark, *see Step* lines and *Nothing is waiting* are
+  removed and their tests rewritten. No separate `ChatPanel.test.tsx`.
+- **Task 6:** the server could not name a parameter's step (decided by name; the step may still
+  be on offer), so a typed value's receipt carries `about.subject` and the page finds the step.
+  Only measured sample facts are announced.
+- **Task 8:** while the goal is checked, the left side is the goal card itself; the header's
+  count is the open question only; a fixed pace's line sits under the goal. The pace cards and
+  the empty page's heading are removed.
+- **Task 9:** step 5 (the browser check at 1440×900 and 390, and the walk with gemma3:12b) is
+  not done: the GPU was in use and the operator deferred it (#404). `make check` passed (3434);
+  `make verify` passed (3434, the 19 slow checks, 93 guards).
+- **Final review:** a self-review (no reviewer subagent unless asked, CLAUDE.md); no Critical or
+  Important findings; the minors deferred to #404.
+- **Cost:** one session, against the plan's two to three.

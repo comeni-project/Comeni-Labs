@@ -15,16 +15,25 @@ For the task sequence, see [Build and inspect a pipeline](../../how-to/pipelines
 | Wire | click to detach it |
 | Delete | remove the selected step |
 | Fit, −, +, 1:1, Tidy | fit the drawing, zoom, reset the view, give moved steps back their places |
-| Step panel | the step line, a selected step's settings and tools, and **From your edit** |
-| Assistant | the conversation |
+| Canvas · What was understood | the switch above the canvas: the drawing, or the record of what you said, measured and corrected |
+| Conversation | everything the engine asks and offers, and what you say; the step on offer and the open question are its newest message |
+| Step strip | the plan above the conversation: click a step to open it; **Step n of m** opens the whole plan, who decided each step and how |
+| Open step | a step opened over the conversation: what still needs you, what was measured, what a rule settled, and its tools; **×** returns |
+| Still needed | the open question, docked above the composer once you talk past it; answer it there or show it again |
+| Composer | never locked: what you type while the engine works waits in line, marked *waiting* |
 | Pipeline file | the materialized `pipeline.yml` behind the draft, and its findings |
 | Run | keep, check, collect run inputs, and submit |
 
 **A change on the canvas is read before it counts.** Removing, adding, wiring or swapping a
 step changes nothing at once: the engine says how it read the change (*So you never want
-trimming here — right?*) under **From your edit**. **Yes** records it as your decision and the
+trimming here — right?*) in the conversation. **Yes** records it as your decision and the
 engine plans around it; **No, undo** leaves the pipeline as it was. A value typed in a setting
-counts at once. Moving a step is layout only.
+counts at once. Moving a step is layout only. Every change made outside the conversation is
+announced in it, with a link to the step or line it changed.
+
+While you describe, the same page shows **What was understood** where the canvas will be, and
+**Start building** in the header confirms it. On a phone, **Chat**, **Canvas** and **Understood**
+are tabs.
 
 ## Good signs
 
