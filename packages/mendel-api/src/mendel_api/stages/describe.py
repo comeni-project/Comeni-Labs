@@ -207,6 +207,20 @@ def newest_pending(session_id: str) -> int | None:
             .limit(1)
         )
 
+def earlier_pending(session_id: str, seq: int) -> bool:
+    """Whether a reply before turn `seq` is still being written: that turn waits in line."""
+    with session_scope() as db:
+        return db.scalar(
+            select(PipelineAuthoringTurn.seq)
+            .where(
+                PipelineAuthoringTurn.session_id == session_id,
+                PipelineAuthoringTurn.role == TurnRole.ASSISTANT,
+                PipelineAuthoringTurn.state == TurnState.PENDING.value,
+                PipelineAuthoringTurn.seq < seq,
+            )
+            .limit(1)
+        ) is not None
+
 class TurnContext(NamedTuple):
     """What one model call is grounded on, read in one transaction so the parts agree.
 

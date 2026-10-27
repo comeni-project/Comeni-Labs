@@ -111,11 +111,12 @@ so in a walk the box is locked most of the time. That lock is what the operator 
   person's turn and a `pending` assistant turn, then queues `answer_authoring_turn` on
   `arq:queue:ai` (`stages/_jobs.py`, `turn`). So the server already accepts a message while
   another turn is pending; the lock is in the browser only.
-- **A turn's answer is refused as *late* when the draft revision moved** since the turn was
-  recorded (`answer`, `late = current != base_revision`; the turn becomes `failed`). Under a
-  queue that is the ordinary case, not the exception: the call ahead of it usually changes the
-  draft. The queued turn must therefore be grounded **when its job starts**, not when it was
-  typed (decision 1: *read against the session as it stands when its turn comes*).
+- **A reply is grounded when its job starts** (*corrected while planning, 2026-10-27*):
+  `describe.turn_context` reads the phase, the draft revision and the goal at that moment, and
+  `answer` refuses a reply as *late* only when the draft moved during its own call. A queued
+  message is therefore read against the session as it stands when its turn comes, without new
+  code; `test_authoring_queue.py` guards it. (The decisions it is read against are the ones when
+  it was said, `base_decision_revision`, which #337's heard/offered rule relies on.)
 - **Order is not guaranteed by the queue today.** `ai_max_jobs` defaults to 1 but is
   configurable (`COMENI_AI_MAX_CONCURRENT_JOBS`), and phrasing and read-back jobs share the
   queue. Per-session order must hold whatever that setting is.
