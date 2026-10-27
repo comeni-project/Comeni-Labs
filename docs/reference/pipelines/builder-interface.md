@@ -22,7 +22,7 @@ For the task sequence, see [Build and inspect a pipeline](../../how-to/pipelines
 | Still needed | the open question, docked above the composer once you talk past it; answer it there or show it again |
 | Composer | never locked: what you type while the engine works waits in line, marked *waiting* |
 | Hand-over | when a build finishes: what you built, how its values were decided, what still needs you, and **Run it** or the pipeline file |
-| Pipeline file | the materialized `pipeline.yml` behind the draft, and its findings |
+| Pipeline file | the `pipeline.yml` behind the draft, file first: each value's line marked by how it was decided, its reason beside the file, the counts as filters, and **Compile it** for `main.nf` and `nextflow.config` |
 | Run | keep, check, collect run inputs, and submit |
 
 **A change on the canvas is read before it counts.** Removing, adding, wiring or swapping a

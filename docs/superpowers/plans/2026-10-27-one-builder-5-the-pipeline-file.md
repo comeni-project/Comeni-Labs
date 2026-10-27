@@ -69,14 +69,14 @@ bottom. Builds on plan 4 (`one-builder-4`).
 - Produces: route `operationId: emittedPipeline`, response
   `EmittedPipeline { revision: int; main_nf: str; nextflow_config: str }`, 422 on `MI0219`.
 
-- [ ] **Step 1: Failing tests** — for a ready draft the route returns a `main_nf` holding a
+- [x] **Step 1: Failing tests** — for a ready draft the route returns a `main_nf` holding a
   `workflow {` block and one `include` per step in the preview, the same text twice in a row
   (deterministic), and a non-empty `nextflow_config`; an empty draft
   answers 422 with `MI0219`; the route writes nothing under the draft directory.
-- [ ] **Step 2: Run** with the test database — Expected: FAIL (404).
-- [ ] **Step 3: Implement**, reusing `_materialised` as `preview` does (one path to the text).
-- [ ] **Step 4: Run** — Expected: PASS. `make client`; `make docs` (diagnostics reference).
-- [ ] **Step 5: Commit** `feat(build): the draft's Nextflow, emitted on request (#394)`
+- [x] **Step 2: Run** with the test database — Expected: FAIL (404).
+- [x] **Step 3: Implement**, reusing `_materialised` as `preview` does (one path to the text).
+- [x] **Step 4: Run** — Expected: PASS. `make client`; `make docs` (diagnostics reference).
+- [x] **Step 5: Commit** `feat(build): the draft's Nextflow, emitted on request (#394)`
 
 ### Task 2: Which setting each line of the file is
 
@@ -90,16 +90,16 @@ bottom. Builds on plan 4 (`one-builder-4`).
   `LineRef = { step: string; setting: string; head: boolean }` (`head` on the `- name:` line).
 - Produces: `markOf(setting: Answered, tiers): { words: string; tone: "measured" | "open" | "yours" | "plain" }`.
 
-- [ ] **Step 1: Failing tests** over a slice of `tests/fixtures/pipeline-v8/pipeline.yml`
+- [x] **Step 1: Failing tests** over a slice of `tests/fixtures/pipeline-v8/pipeline.yml`
   (STAR_ALIGN's `seq_platform` block, with its wrapped `reason:`): every line of the block maps
   to `{step: "star_align", setting: "seq_platform"}`, only its `- name:` line has `head: true`;
   `trimgalore`'s `settings: []` and its `why:` lines map to `null`; top-level keys map to `null`.
   `markOf`: an open tier-4 value is `needs you`/`open`; an answered one `your answer`/`yours`;
   tier 3 measured `measured`; tier 3 over a typed value the served tier-3 group name, `plain`.
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement** (a line scan tracking indentation; no YAML parser in the browser).
-- [ ] **Step 4: Run** — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): which setting each line of the file is (#394)`
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement** (a line scan tracking indentation; no YAML parser in the browser).
+- [x] **Step 4: Run** — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): which setting each line of the file is (#394)`
 
 ### Task 3: The page, file first
 
@@ -116,7 +116,7 @@ bottom. Builds on plan 4 (`one-builder-4`).
   `onChange(node)` opens that step in the builder and `onAsk(text)` puts text in the composer
   and returns to the conversation.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - the strip shows one count per non-zero kind; clicking *1 measured* hides every setting block
     that is not measured (step `- id:` lines stay) and says *showing measured · show all*; a
     filter with no matches says *Nothing is measured.* with *show all*;
@@ -127,10 +127,10 @@ bottom. Builds on plan 4 (`one-builder-4`).
   - *Compile it* fetches `/pipeline/drafts/{id}/emitted` and shows *main.nf* and
     *nextflow.config* tabs with the text; a 422 shows the finding instead;
   - *as kept* still appears only when kept; Download still downloads the shown `pipeline.yml`.
-- [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement**; tick the inventory above with each item's home.
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint` — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(build): the pipeline file, file first (#394)`
+- [x] **Step 2: Run** — Expected: FAIL.
+- [x] **Step 3: Implement**; tick the inventory above with each item's home.
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b`, `npm run lint` — Expected: PASS.
+- [x] **Step 5: Commit** `feat(build): the pipeline file, file first (#394)`
 
 ### Task 4: Docs and checks
 
@@ -138,9 +138,18 @@ bottom. Builds on plan 4 (`one-builder-4`).
 `CHANGELOG.md` (mendel-api, frontend), journal entry; copy the mockup to
 `.design/one-builder-5/`; tick this plan; comment on #394.
 
-- [ ] **Step 1:** write them; `make check` — Expected: exit 0.
-- [ ] **Step 2: Commit** `docs: one builder plan 5 — the pipeline file (#394)`
+- [x] **Step 1:** write them; `make check` — Expected: exit 0.
+- [x] **Step 2: Commit** `docs: one builder plan 5 — the pipeline file (#394)`
 
 ## Deviations
 
-(Recorded during execution.)
+- **Task 1:** the route's module is `draft_service` in `routes/build.py`; the diagnostics
+  reference was regenerated with the new code. The hand-named operations guard
+  (`test_openapi.py`) was missed in Task 1's run and caught by `make check` in Task 4.
+- **Task 2:** marks lowercase the served tier words, as the old table's chips did.
+- **Task 3:** a filter with no matches cannot arise (only non-zero counts are filters); the
+  section chips match a key line by prefix; the *Settings* chip and the closing *Every value has
+  a reason* line went with the table. *Compile it* reads the refusal's detail itself (`get`
+  reports a bare status).
+- **Not done:** the browser check, with plans 3 and 4's (#404). The operator asked for no walk
+  while a dataset is being generated on the GPU.
