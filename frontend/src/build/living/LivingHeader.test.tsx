@@ -91,3 +91,14 @@ describe("the header as the boards draw it", () => {
     expect(chip.getAttribute("data-tone")).toBe("now");
   });
 });
+
+describe("an empty pipeline's chip (issue 399)", () => {
+  it("does not call a pipeline with no steps complete", async () => {
+    const { StatusChip } = await import("./LivingHeader");
+    const empty = { ...FAKE_SESSION, phase: "complete", history: [], graph: { nodes: [], edges: [] },
+      pending_proposal: null, progress: null } as unknown as typeof FAKE_SESSION;
+    render(<StatusChip session={empty} />);
+    expect(screen.getByTestId("living-status")).not.toHaveTextContent(/complete/i);
+    expect(screen.getByTestId("living-status")).toHaveTextContent(/nothing built yet/i);
+  });
+});

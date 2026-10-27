@@ -525,3 +525,10 @@ describe("the model's suggestions (Part I.0)", () => {
     expect(screen.queryByRole("list", { name: "suggestions waiting for you" })).toBeNull();
   });
 });
+
+it("says where an empty canvas's steps come from, and never points right at a goal (issue 399)", () => {
+  surface(with_({ phase: "building", history: [], pending_proposal: null, progress: null,
+    graph: { nodes: [], edges: [] } } as Partial<AuthoringSession>));
+  expect(screen.queryByText(/Confirm the goal on the right/)).toBeNull();
+  expect(screen.getByText(/as you answer in the conversation/)).toBeInTheDocument();
+});

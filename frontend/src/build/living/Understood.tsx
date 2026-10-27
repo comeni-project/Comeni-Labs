@@ -7,7 +7,7 @@ import { AnswerLine, answered } from "./StepLine";
  *  the conversation while describing; one switch from the canvas while building. A fact still
  *  open points at the question asking it. */
 export function Understood({ session, declarations, onCorrect, onRelease, disabled, openRequest = 0,
-  onOpenQuestion }: {
+  onOpenQuestion, highlight = null }: {
   session: AuthoringSession;
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
@@ -16,6 +16,8 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
   openRequest?: number;
   /** Bring the open question back in the conversation. */
   onOpenQuestion?: () => void;
+  /** A line an announcement points at, lit for a moment. */
+  highlight?: string | null;
 }) {
   const sentence = session.turns.find((turn) => turn.role === "person")?.text ?? null;
   const pending = session.pending_proposal;
@@ -46,7 +48,7 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
       <div className="rounded-panel border border-line px-5 py-4" style={{ background: "var(--surface)" }}>
         {answered(session).map((decision) => <AnswerLine key={decision.id} decision={decision} />)}
         <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
-                      openRequest={openRequest} open disabled={disabled} />
+                      openRequest={openRequest} open disabled={disabled} highlight={highlight} />
       </div>
     </section>
   );

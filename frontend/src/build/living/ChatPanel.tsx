@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { AuthoringBlock, AuthoringSession, DraftGraph } from "../../api/types";
 import { open, type AnsweredStep } from "../useBuilder";
+import type { About } from "./blocks/Block";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { byEdit, SuggestionCard } from "./blocks/SuggestionCard";
@@ -42,6 +43,7 @@ export function ChatPanel({
   onRetry,
   notices,
   questionRequest = 0,
+  onAbout,
 }: {
   session: AuthoringSession;
   waiting: Omit<WaitingProps, "session" | "onAsk" | "saying" | "onSelect">;
@@ -69,6 +71,8 @@ export function ChatPanel({
   notices: React.ReactNode;
   /** A request from outside (a *needs you* fact) to bring the open question back. */
   questionRequest?: number;
+  /** Show what an announcement changed: its step on the canvas, or its line. */
+  onAbout?: (about: About) => void;
 }) {
   const [showRequest, setShowRequest] = useState(0);
   const [planOpen, setPlanOpen] = useState(false);
@@ -120,7 +124,7 @@ export function ChatPanel({
         ) : (
           <div className="flex flex-col gap-4">
             <Stream session={session} sending={sending} onRetry={onRetry} onAsk={say}
-                    waiting={{ ...waiting, onSelect }} showRequest={showRequest + questionRequest} />
+                    waiting={{ ...waiting, onSelect }} showRequest={showRequest + questionRequest} onAbout={onAbout} />
             {readings.length > 0 && (
               <section aria-label="From your edit" className="flex flex-col gap-2">
                 {readings.map((r) => (

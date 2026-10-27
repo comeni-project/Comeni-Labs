@@ -8,13 +8,18 @@ import { BlockFrame, Primary, Says, Secondary } from "./parts";
  * order: a block the page cannot draw would otherwise render as nothing, and a turn with nothing in
  * it reads as the model having said nothing.
  */
+export type About = { node: string | null; subject: string | null };
+
 export function Block({
   block,
   actions,
+  onAbout,
 }: {
   block: AuthoringBlock;
   /** Controls for a block that is waiting on a person. Absent once it has been answered. */
   actions?: React.ReactNode;
+  /** Show what a receipt changed (one builder plan 3): its step, or its line. */
+  onAbout?: (about: About) => void;
 }) {
   switch (block.kind) {
     case "narrative":
@@ -91,12 +96,25 @@ export function Block({
         </BlockFrame>
       );
 
-    case "receipt":
+    case "receipt": {
+      // **Every change made outside the chat is said in it, pointing at where** (one builder
+      // plan 3): a line in the done colour, its target one click away.
+      const about = block.about ?? null;
+      const target = about?.node ? processName(about.node) : about?.subject ?? null;
       return (
-        <p className="m-0 font-data text-[10px] leading-[1.5] text-ink-3">
-          {block.summary} · revision {block.revision}
+        <p className="m-0 pl-[10px] py-[4px] text-[12.5px] leading-[1.5] text-ink-2 border-l-[3px] rounded-button"
+           style={{ borderColor: "var(--done)", background: "var(--surface-2)" }}>
+          {block.summary}
+          {target && onAbout && about && (
+            <> <button type="button" aria-label={`show ${target}`}
+                       onClick={() => onAbout({ node: about.node ?? null, subject: about.subject ?? null })}
+                       className="bg-transparent border-0 p-0 text-now-ink underline cursor-pointer">
+              {target}
+            </button></>
+          )}
         </p>
       );
+    }
 
     case "notice":
       return <NoticeLine notice={block.notice} text={block.text} code={block.code ?? null} actions={actions} />;

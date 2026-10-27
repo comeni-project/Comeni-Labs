@@ -103,3 +103,26 @@ describe("messages wait in line (issue 392)", () => {
     expect(screen.getAllByTestId("saying").map((s) => s.textContent)).toEqual(["one", "two"]);
   });
 });
+
+describe("an announcement points at what it changed (one builder plan 3)", () => {
+  const announced = (about: Record<string, string | null>) => ({
+    ...FAKE_SESSION,
+    turns: [{ seq: 1, role: "assistant", state: "answered", text: "", base_revision: 0, at: "",
+      blocks: [{ kind: "receipt", id: "r1", summary: "Your correction: read_length is 150.", revision: 5,
+        by: "person", about }] }],
+  }) as unknown as AuthoringSession;
+
+  it("links a step it changed", () => {
+    const onAbout = vi.fn();
+    chat(announced({ node: "star_align", subject: null }), { onAbout });
+    fireEvent.click(screen.getByRole("button", { name: "show STAR_ALIGN" }));
+    expect(onAbout).toHaveBeenCalledWith({ node: "star_align", subject: null });
+  });
+
+  it("links a line of what was understood it changed", () => {
+    const onAbout = vi.fn();
+    chat(announced({ node: null, subject: "read_length" }), { onAbout });
+    fireEvent.click(screen.getByRole("button", { name: "show read_length" }));
+    expect(onAbout).toHaveBeenCalledWith({ node: null, subject: "read_length" });
+  });
+});

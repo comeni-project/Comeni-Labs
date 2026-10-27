@@ -18,6 +18,7 @@ import type { CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
 import { ChatPanel } from "./ChatPanel";
 import { Understood } from "./Understood";
+import type { About } from "./blocks/Block";
 import { GoalCard } from "./blocks/GoalCard";
 import { Primary } from "./blocks/parts";
 import { StatusChip } from "./LivingHeader";
@@ -160,6 +161,28 @@ export function LivingSurface({
   const [confirmRequest, setConfirmRequest] = useState(0);
   const pacing = usePacing();
   const openQuestion = () => { setPane("chat"); setQuestionRequest((n) => n + 1); };
+  // **An announcement's link** (one builder plan 3): a step pans the canvas to it; a line of what
+  // was understood is shown and lit for a moment. A parameter is decided by name for the whole
+  // pipeline, so its step is the one whose settings hold that name.
+  const [flash, setFlash] = useState<{ node: string | null; subject: string | null } | null>(null);
+  useEffect(() => {
+    if (!flash) return;
+    const done = setTimeout(() => setFlash(null), 1200);
+    return () => clearTimeout(done);
+  }, [flash]);
+  const onAbout = (about: About) => {
+    const node = about.node ?? Object.values(steps).find((step) =>
+      step.settings.some((setting) => setting.name === about.subject))?.id ?? null;
+    if (node) {
+      setLeft("canvas");
+      setPane("canvas");
+      setFlash({ node, subject: null });
+    } else if (about.subject) {
+      setLeft("understood");
+      setPane("understood");
+      setFlash({ node: null, subject: about.subject });
+    }
+  };
   const factsDisabled = correcting || session.retired || pendingTurn || session.phase === "resolving";
   const focus = useFocus(ghost, state.selected);
 
@@ -239,7 +262,7 @@ export function LivingSurface({
         </div>
       )}
       {session.projection_current === false && <p role="status" className="mx-4 mt-3 mb-0 text-[12px] text-ink-2">
-        Pipeline outdated. Your answers are saved; follow the Step panel to provide missing inputs or release a tool choice.
+        Pipeline outdated. Your answers are saved; answer what the conversation asks, or release a tool choice in What was understood.
       </p>}
     </>
   );
@@ -310,7 +333,7 @@ export function LivingSurface({
               </div>
             ) : (
               <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
-                          openRequest={factsRequest} disabled={factsDisabled} onOpenQuestion={openQuestion} />
+                          openRequest={factsRequest} disabled={factsDisabled} onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
             )}
           </div>
           <ChatPanel
@@ -325,6 +348,7 @@ export function LivingSurface({
             onApplyChange={onApplyChange}
             suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
             questionRequest={questionRequest}
+            onAbout={onAbout}
             {...talk}
           />
         </div>
@@ -389,7 +413,7 @@ export function LivingSurface({
           {left === "understood" && (
             <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
                         openRequest={factsRequest} disabled={factsDisabled}
-                        onOpenQuestion={openQuestion} />
+                        onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
           )}
           {(alternative.loading || alternative.error) && (
             <div role="status" data-testid={alternative.error ? "preview-error" : "preview-loading"}
@@ -455,7 +479,7 @@ export function LivingSurface({
             authors={authors}
             selected={state.selected}
             onSelect={onSelect}
-            focus={focus}
+            focus={flash?.node ?? focus}
             // **The edit is of the pipeline, never of the step on offer**: the frame draws it, the
             // saved graph does not hold it, and sending it would read as "you added it".
             onEdit={session.retired ? undefined : (next) => onEdit(
@@ -488,6 +512,7 @@ export function LivingSurface({
           onApplyChange={onApplyChange}
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
           questionRequest={questionRequest}
+          onAbout={onAbout}
           {...talk}
         />
       </div>
