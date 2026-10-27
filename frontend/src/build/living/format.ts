@@ -133,3 +133,23 @@ export function questionTitle(proposal: NonNullable<AuthoringSession["pending_pr
   if (proposal.kind === "goal") return "Is this what you want?";
   return "The question above";
 }
+
+/** **The hand-over** (issue 393): the newest wrap-up of a complete session with nothing on
+ *  offer. The engine writes one per revision; only the newest is drawn as the card. */
+export function handoverId(session: AuthoringSession): string | null {
+  if (session.phase !== "complete" || session.pending_proposal) return null;
+  for (const turn of [...session.turns].reverse()) {
+    const wrap = [...turn.blocks].reverse().find((b) => b.kind === "receipt" && b.id.startsWith("wrap-"));
+    if (wrap) return wrap.id;
+  }
+  return null;
+}
+
+/** The pipeline's steps in the order they were decided, then any added by hand, by id. */
+export function stepsInOrder(session: AuthoringSession): string[] {
+  const decided = session.history
+    .filter((d) => d.state === "accepted" && d.block.kind === "step_proposal")
+    .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""));
+  const added = session.graph.nodes.map((n) => n.id).filter((id) => !decided.includes(id)).sort();
+  return [...decided, ...added];
+}
