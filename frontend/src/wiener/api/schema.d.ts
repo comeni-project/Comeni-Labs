@@ -589,10 +589,7 @@ export interface components {
         };
         /**
          * EnvItem
-         * @description A record built from the environment, shown first and locked (spec §6).
-         *
-         *     `fields` maps a record field to the variable that fills it; the record exists when
-         *     `present_when` is set. Declared, so the facade needs no code that knows about models.
+         * @description A locked collection record assembled from declared environment variables.
          */
         EnvItem: {
             /** Name */
@@ -1217,8 +1214,7 @@ export interface components {
         };
         /**
          * Where
-         * @description Where a value is kept. **`browser` is per browser and never reaches the server**: the
-         *     theme is one. The server still declares it, so the menu draws it with everything else.
+         * @description Persistence boundary for a setting; browser values never reach the server.
          * @enum {string}
          */
         Where: "installation" | "browser";
