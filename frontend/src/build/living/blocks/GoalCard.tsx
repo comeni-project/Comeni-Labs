@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import type { AuthoringProposal, AuthoringSession, AuthoringVocabulary, GoalIn } from "../../../api/types";
 import type { CorrectFact } from "../CurrentFacts";
@@ -54,6 +54,8 @@ export function GoalCard({
   declarations,
   factsDisabled = false,
   pace,
+  confirmRequest = 0,
+  startInHeader = false,
 }: {
   proposal: AuthoringProposal;
   /** Declared type ids and their states. `null` while it loads — the card is still answerable. */
@@ -69,10 +71,25 @@ export function GoalCard({
   onCorrectFact?: CorrectFact;
   declarations?: AuthoringVocabulary["measurements"];
   factsDisabled?: boolean;
-  /** Drawn between the table and *Start building* — the page's pace cards. */
+  /** Drawn between the table and *Start building* — how the build will go. */
   pace?: React.ReactNode;
+  /** *Start building* pressed elsewhere (the describe header, one builder plan 3): confirm as
+   *  this card's own button does, with the person's edits. */
+  confirmRequest?: number;
+  /** The header holds *Start building*, so this card does not draw it. */
+  startInHeader?: boolean;
 }) {
   const block = proposal.block;
+  const seen = useRef<number | null>(null);
+  // **Start building from the header** confirms once per press, with the edits held here; the
+  // effect is above any early return, and calls the newest `confirm`.
+  const latest = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (confirmRequest > 0 && confirmRequest !== seen.current) {
+      seen.current = confirmRequest;
+      latest.current();
+    }
+  }, [confirmRequest]);
   const addHave = useId();
   const addWant = useId();
   const original = block.kind === "goal_summary" ? goalOf(block.goal) : { have: [], want: [] };
@@ -127,6 +144,7 @@ export function GoalCard({
       want: chosen.want,
     });
   };
+  latest.current = confirm;
 
   const group = (side: keyof Chosen, labelId: string, label: string) => {
     const open = editing === side;
@@ -297,9 +315,11 @@ export function GoalCard({
           <Secondary data-testid="reject-goal" disabled={busy} onClick={onReject}>
             Not quite
           </Secondary>
-          <Primary data-testid="accept-goal" disabled={busy} onClick={confirm}>
-            {busy ? "Starting…" : "→ Start building"}
-          </Primary>
+          {!startInHeader && (
+            <Primary data-testid="accept-goal" disabled={busy} onClick={confirm}>
+              {busy ? "Starting…" : "→ Start building"}
+            </Primary>
+          )}
         </span>
       </div>
     </>

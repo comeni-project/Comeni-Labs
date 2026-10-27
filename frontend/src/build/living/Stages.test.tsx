@@ -44,14 +44,13 @@ function page(session: AuthoringSession, overrides = {}) {
 const with_ = (changes: Partial<AuthoringSession>) => ({ ...FAKE_SESSION, ...changes }) as AuthoringSession;
 
 describe("the describe stage", () => {
-  it("is a page of its own: the sentence, the goal waiting to be checked, and no canvas", () => {
+  it("is the build's frame: the goal being checked where the canvas will be, the conversation beside it", () => {
     page(guidedStart());
-    const describe_ = screen.getByRole("region", { name: "describe" });
-    expect(within(describe_).getByRole("heading", { name: "What do you want to analyse?" })).toBeInTheDocument();
-    expect(within(describe_).getByTestId("your-sentence")).toHaveTextContent("12 paired RNA-seq samples");
-    expect(within(describe_).getByRole("button", { name: /Start building/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "the goal as understood" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("describe-header")).getByRole("button", { name: /Start building/ }))
+      .toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
-    expect(screen.queryByRole("tablist")).toBeNull();
   });
 
   it("draws no header strip: the page is the describe page", () => {
@@ -64,11 +63,10 @@ describe("the describe stage", () => {
     expect(screen.queryByTestId("living-view-artifact")).toBeNull();
   });
 
-  it("keeps a composer below the card, and the conversation once there is more than the sentence", () => {
+  it("keeps a composer under the conversation, which holds what is said next", () => {
     const start = guidedStart();
     const { again } = page(start);
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
-    expect(screen.queryByRole("log", { name: "conversation" })).toBeNull();
     again({ ...start, turns: [...start.turns,
       { seq: 9, role: "person", state: "answered", base_revision: 0, at: "2026-10-20T10:00:00Z",
         blocks: [], text: "it is mouse, not human" }] } as AuthoringSession);
@@ -100,7 +98,7 @@ describe("the describe stage", () => {
         options: [{ id: "together", label: "Go through it together" }] },
     };
     page(with_({ phase: "building", pending_proposal: pacing } as Partial<AuthoringSession>));
-    expect(within(screen.getByRole("region", { name: "describe" }))
+    expect(within(screen.getByRole("log", { name: "conversation" }))
       .getByText("How do you want to build it?")).toBeInTheDocument();
   });
 });

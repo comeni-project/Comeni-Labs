@@ -58,11 +58,26 @@ const pacingAsked = (): AuthoringSession => ({
 
 const table = () => screen.getByRole("region", { name: "the goal as understood" });
 
-describe("the describe page's words", () => {
-  it("asks the board's question and says how to answer it", () => {
+describe("describing in the same frame as building (one builder plan 3)", () => {
+  it("is what was understood on the left and the conversation on the right, the strip saying Describing", () => {
     page();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("What do you want to analyse?");
-    expect(screen.getByText(/Say it the way you would to a colleague/)).toBeInTheDocument();
+    expect(table()).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "the plan" })).toHaveTextContent("Describing");
+    expect(screen.queryByRole("region", { name: "describe" })).toBeNull();
+  });
+
+  it("asks a question about the data in the conversation, not on the left", () => {
+    const asking = { ...guidedStart(), phase: "gathering", facts: FACTS,
+      pending_proposal: { id: "g1", kind: "gap", draft_revision: 0, edges: [], options: ["a"],
+        asked_at: "2026-10-27T09:00:00+00:00",
+        block: { kind: "question", id: "q", asks: "Which strand were the reads made from?", why_open: "w",
+                 exhaustive: true, options: [{ id: "a", label: "reverse" }] } } } as unknown as AuthoringSession;
+    page(asking);
+    expect(within(screen.getByRole("log", { name: "conversation" }))
+      .getByText("Which strand were the reads made from?")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "What was understood" })).not.toHaveTextContent("Which strand");
+    expect(screen.getByRole("button", { name: /Start building · 1 question left/ })).toBeDisabled();
   });
 });
 
@@ -110,41 +125,27 @@ describe("what was understood", () => {
 });
 
 describe("starting to build", () => {
-  it("confirms the goal with Start building", () => {
+  it("confirms the goal with Start building, in the header", () => {
     const p = page();
-    fireEvent.click(screen.getByRole("button", { name: /Start building/ }));
+    fireEvent.click(within(screen.getByTestId("describe-header")).getByRole("button", { name: /Start building/ }));
     expect(p.onAccept).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal" }), "keep", undefined);
   });
 
-  it("offers the two paces when the installation asks every time, step by step first", () => {
+  it("draws no pace cards: when the installation asks, the engine asks in the conversation", () => {
     page();
-    const paces = screen.getByRole("radiogroup", { name: "How do you want to build it?" });
-    expect(within(paces).getAllByRole("radio").map((r) => (r as HTMLInputElement).value))
-      .toEqual(["together", "stop_where_needed"]);
-    expect(within(paces).getByRole("radio", { name: /Step by step, with me/ })).toBeChecked();
-  });
-
-  it("answers the engine's pace question with the card chosen, once, when it arrives", () => {
-    const p = page();
-    fireEvent.click(screen.getByRole("radio", { name: /All at once/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Start building/ }));
-    const asked = pacingAsked();
-    p.again(asked);
-    expect(p.onAccept).toHaveBeenLastCalledWith(asked.pending_proposal, "stop_where_needed");
-    p.again({ ...asked });
-    expect(p.onAccept.mock.calls.filter(([proposal]) => proposal.kind === "pacing")).toHaveLength(1);
-  });
-
-  it("draws no pace cards when the installation has fixed the pace, and says how it will go", () => {
-    page(undefined, "together");
     expect(screen.queryByRole("radiogroup", { name: "How do you want to build it?" })).toBeNull();
+  });
+
+  it("says how it will go when the installation has fixed the pace", () => {
+    page(undefined, "together");
     expect(screen.getByText(/Goes through it together, step by step/)).toHaveTextContent("change it in Settings");
   });
 
-  it("leaves the pace question to its card when nothing was chosen on this page", () => {
+  it("asks the pace question in the conversation when it arrives", () => {
     const p = page(pacingAsked());
     expect(p.onAccept).not.toHaveBeenCalled();
-    expect(screen.getByText("How should we go through the build?")).toBeInTheDocument();
+    expect(within(screen.getByRole("log", { name: "conversation" }))
+      .getByText("How should we go through the build?")).toBeInTheDocument();
   });
 
   it("promises only what the engine keeps: the same goal and answers give the same pipeline", () => {

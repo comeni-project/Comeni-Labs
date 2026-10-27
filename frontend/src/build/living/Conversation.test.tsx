@@ -101,8 +101,9 @@ describe("the goal card", () => {
     // its turn and editable beneath, which is two goals on a screen whose job is to check one.
     mount(<GuidedLiving />);
     expect(screen.getAllByRole("region", { name: "the goal as understood" })).toHaveLength(1);
-    // Nothing is built yet, so the page is the describe page and draws no canvas at all.
-    expect(screen.getByRole("region", { name: "describe" })).toBeInTheDocument();
+    // Nothing is built yet: the goal sits where the canvas will be, and no canvas is drawn; the
+    // conversation only says where to look (one builder plan 3).
+    expect(screen.getByTestId("goal-elsewhere")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
   });
 

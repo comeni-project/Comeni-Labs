@@ -18,7 +18,10 @@ import type { CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
 import { ChatPanel } from "./ChatPanel";
 import { Understood } from "./Understood";
-import { DescribePage } from "./DescribePage";
+import { GoalCard } from "./blocks/GoalCard";
+import { Primary } from "./blocks/parts";
+import { StatusChip } from "./LivingHeader";
+import { usePacing } from "../usePacing";
 import { authorOf, type Author } from "./format";
 import { LivingCanvas } from "./LivingCanvas";
 import { LivingHeader } from "./LivingHeader";
@@ -154,6 +157,8 @@ export function LivingSurface({
   const [left, setLeft] = useState<"canvas" | "understood">("canvas");
   const [pane, setPane] = useState<"chat" | "canvas" | "understood">("chat");
   const [questionRequest, setQuestionRequest] = useState(0);
+  const [confirmRequest, setConfirmRequest] = useState(0);
+  const pacing = usePacing();
   const openQuestion = () => { setPane("chat"); setQuestionRequest((n) => n + 1); };
   const factsDisabled = correcting || session.retired || pendingTurn || session.phase === "resolving";
   const focus = useFocus(ghost, state.selected);
@@ -257,11 +262,72 @@ export function LivingSurface({
   };
 
   if (stageOf(session) === "describe") {
-    // **No header strip while describing** (the *Describe* board): there is no pipeline yet to
-    // name, view or run, so the page is the sentence and what was understood.
+    // **Describing in the same frame as building** (one builder plan 3): what was understood where
+    // the canvas will be, the conversation where it stays; *Start building* in the header.
+    const goal = pending?.kind === "goal" ? pending : null;
+    const left = pending?.kind === "gap" ? 1 : 0;
     return (
-      <div className="h-full min-h-0 grid overflow-hidden" data-testid="living">
-        <DescribePage session={session} waiting={{ ...waiting, onSelect }} {...talk} />
+      <div className="grid grid-rows-[auto_auto_1fr] h-full overflow-hidden" data-testid="living">
+        <header data-testid="describe-header"
+                className="flex items-center gap-3 px-[28px] py-[14px] border-b border-line">
+          <span className="text-[17px] font-semibold text-ink truncate">{session.name || "New analysis"}</span>
+          <StatusChip session={session} />
+          {(goal || left > 0) && (
+            <span className="ml-auto">
+              <Primary data-testid="accept-goal" disabled={!goal || busy(goal.id)}
+                       onClick={() => setConfirmRequest((n) => n + 1)}>
+                {goal ? "→ Start building" : `Start building · ${left} question left`}
+              </Primary>
+            </span>
+          )}
+        </header>
+        <div role="tablist" aria-label="on a phone" className="phone-tabs gap-1 px-[16px] pt-[8px]">
+          {(["chat", "understood"] as const).map((name) => (
+            <button key={name} type="button" role="tab" aria-selected={pane === name} onClick={() => setPane(name)}
+                    className="flex-1 px-2 py-[5px] rounded-button border text-[12px] cursor-pointer"
+                    style={pane === name ? { background: "var(--now-soft)", borderColor: "var(--now-line)", color: "var(--now-ink)" }
+                      : { background: "transparent", borderColor: "var(--line)", color: "var(--ink-2)" }}>
+              {PANE_WORDS[name]}
+            </button>
+          ))}
+        </div>
+        <div className="living min-h-0" data-pane={pane === "canvas" ? "understood" : pane}>
+          <div className="living-canvas min-h-0 overflow-auto ml-[28px] mr-[8px] mt-[4px] mb-[24px] rounded-panel border border-line"
+               style={{ background: "var(--surface)" }}>
+            {goal ? (
+              <div className="px-[24px] py-[20px] flex flex-col gap-4">
+                <GoalCard proposal={goal} facts={session.facts} subjects={session.fact_subjects ?? []}
+                          onCorrectFact={onCorrect} declarations={declarations} factsDisabled={factsDisabled}
+                          vocabulary={vocabulary ?? null} busy={busy(goal.id)}
+                          pace={pacing && PACE_WORDS_FIXED[pacing] ? (
+                            <p className="m-0 text-[13.5px] text-ink-2">
+                              {PACE_WORDS_FIXED[pacing]} — change it in{" "}
+                              <a href="/settings/building" className="text-now-ink underline">Settings</a>.
+                            </p>
+                          ) : null}
+                          startInHeader confirmRequest={confirmRequest}
+                          onConfirm={(edited) => onAccept(goal, "keep", edited)} onReject={() => onReject(goal)} />
+              </div>
+            ) : (
+              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+                          openRequest={factsRequest} disabled={factsDisabled} onOpenQuestion={openQuestion} />
+            )}
+          </div>
+          <ChatPanel
+            session={session}
+            waiting={{ ...waiting, goalElsewhere: true }}
+            selected={null}
+            onSelect={onSelect}
+            graph={graph}
+            steps={steps}
+            onEdit={onEdit}
+            onSetParam={onSetParam}
+            onApplyChange={onApplyChange}
+            suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
+            questionRequest={questionRequest}
+            {...talk}
+          />
+        </div>
       </div>
     );
   }
@@ -430,6 +496,12 @@ export function LivingSurface({
 }
 
 const PANE_WORDS = { chat: "Chat", canvas: "Canvas", understood: "Understood" } as const;
+
+/** How the build will go when the installation has fixed it, in the board's words. */
+const PACE_WORDS_FIXED: Record<string, string> = {
+  together: "Goes through it together, step by step",
+  stop_where_needed: "Builds everything a rule can settle at once, then stops only where it needs you",
+};
 
 /** What the composer invites, by where the session is. */
 function composerHint(session: AuthoringSession, pendingTurn: boolean): string | undefined {

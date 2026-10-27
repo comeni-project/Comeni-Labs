@@ -44,6 +44,9 @@ export type WaitingProps = {
   /** The describe page's pace cards, drawn under the goal, and what *Start building* also does. */
   pace?: React.ReactNode;
   onStart?: () => void;
+  /** While describing, the goal being checked is drawn beside the conversation (one builder
+   *  plan 3); here the conversation only says where to look. */
+  goalElsewhere?: boolean;
 };
 
 /** **What the engine is waiting on the person for, now** — one card, wherever the page puts it.
@@ -65,6 +68,7 @@ export function Waiting({
   saying = null,
   vocabulary = null,
   declarations, onDisagreement, onCorrectAnswers, correcting = false, onCorrectFact, factsDisabled, pace, onStart,
+  goalElsewhere = false,
 }: WaitingProps) {
   // **The sample that answered the last question**, kept above the next one: the answer moves the
   // session on, so the card that showed it is gone the moment it arrives (issue 134). Kept only
@@ -137,7 +141,12 @@ export function Waiting({
           onAnswer={(option, value) => onAccept(pending, option, undefined, value)}
         />
       )}
-      {pending && pending.kind === "goal" && (
+      {pending && pending.kind === "goal" && goalElsewhere && (
+        <p className="m-0 text-[13.5px] leading-[1.55] text-ink" data-testid="goal-elsewhere">
+          Here is what I understood, on the left. Correct any line that is wrong, then press Start building.
+        </p>
+      )}
+      {pending && pending.kind === "goal" && !goalElsewhere && (
         <GoalCard
           key={pending.id}
           proposal={pending}
