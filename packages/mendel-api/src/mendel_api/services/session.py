@@ -624,6 +624,7 @@ def read(session_id: str) -> dict:
                     "payload": _gaps_shown(_aged(envelopes.parse(pending.payload, kind=pending.kind)
                                                  .model_dump(mode="json")), details),
                     "draft_revision": pending.draft_revision,
+                    "asked_at": pending.created_at.isoformat(),
                 }
             ),
         }

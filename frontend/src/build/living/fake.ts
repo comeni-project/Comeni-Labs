@@ -123,6 +123,7 @@ export const FAKE_SESSION = {
     kind: "step",
     envelope: { offer: "step", preview_options: ["alt_1"] },
     draft_revision: 4,
+    asked_at: "2026-10-27T09:00:00+00:00",
     options: ["alt_1", "keep"],
     edges: [{ from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam" }],
     block: { kind: "step_proposal", id: "step-samtools_sort", node: "samtools_sort", contract: SORT,
@@ -239,7 +240,7 @@ export const CONFLICT_SESSION = {
   facts: [{ kind: "measurement", subject: "paired", value: false, source: "person_said", states: [], pieces: [] }],
   inputs: [{ key: "fastq.reads", type_id: "fastq.reads", present: true, origin: "person_said", states: [] }],
   pending_proposal: {
-    id: "disagree-paired", kind: "disagreement", draft_revision: 4, edges: [],
+    id: "disagree-paired", kind: "disagreement", draft_revision: 4, edges: [], asked_at: "2026-10-27T09:00:00+00:00",
     options: ["keep_current", "use_measurement", "correct", "unknown"],
     envelope: {
       offer: "disagreement", context: { draft_revision: 4, decision_revision: 2, session_version: 3, registry: "fixture" },

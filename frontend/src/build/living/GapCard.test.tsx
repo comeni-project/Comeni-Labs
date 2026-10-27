@@ -14,7 +14,7 @@ const gap = (options: [string, string][], asks: string): AuthoringProposal => {
     exhaustive: true, phrasing: "none" as const,
   };
   return {
-    id: "p-gap", kind: "gap", draft_revision: 0,
+    id: "p-gap", kind: "gap", draft_revision: 0, asked_at: "2026-10-27T09:00:00+00:00",
     options: options.map(([id]) => id).sort(), edges: [], block,
     envelope: {
       offer: "gap", subject: "read_length", kind: "measurement", why: "a step reads it",
