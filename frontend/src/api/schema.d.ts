@@ -1438,6 +1438,13 @@ export interface components {
                 [key: string]: string[];
             };
             /**
+             * Names
+             * @default {}
+             */
+            names: {
+                [key: string]: string;
+            };
+            /**
              * Measurers
              * @default []
              */

@@ -407,6 +407,15 @@ def test_the_goal_card_is_not_offered_a_measurement_as_a_type():
     assert not [t for t in types if t.startswith("measurement.")]
 
 
+def test_the_goal_reads_in_the_registrys_names():
+    """Part I.2 (#306): the card names a type the way the registry does; only builder types."""
+    vocabulary = TestClient(create_app()).get("/api/pipeline/authoring/vocabulary").json()
+    names = vocabulary["names"]
+    assert names, "no type has a declared name"
+    assert set(names) <= set(vocabulary["types"])
+    assert all(name.strip() for name in names.values())
+
+
 def test_an_edit_body_is_the_graph_and_nothing_else():
     assert set(routes.EditAuthoringDraft.model_fields) == {"graph", "expected_revision"}
 

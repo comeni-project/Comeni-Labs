@@ -356,6 +356,8 @@ class AuthoringVocabulary(BaseModel):
     model_config = _FROZEN
 
     types: dict[str, list[str]]
+    names: dict[str, str] = {}
+    """The registry's name for each type that declares one (Part I.2): what the goal card shows."""
     measurers: list[MeasurerView] = []
     measurements: dict[str, Measurement] = {}
 
@@ -476,6 +478,7 @@ def vocabulary() -> AuthoringVocabulary:
     types = registry_service.builder_types(stack)
     return AuthoringVocabulary(
         types={t: sorted(types[t]) for t in sorted(types)},
+        names={t: n for t, n in sorted(stack.vocabulary.names.items()) if t in types},
         measurements=stack.measurements.measurements,
         measurers=[MeasurerView(**m.model_dump()) for m in measurers.index(stack)],
     )
