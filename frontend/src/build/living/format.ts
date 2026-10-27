@@ -115,3 +115,21 @@ export function queued(session: AuthoringSession): Set<number> {
   });
   return waiting;
 }
+
+/** **The open question follows you** (one builder plan 3): once the person says anything after
+ *  it was asked, it leaves the end of the conversation and docks above the composer. */
+export function docked(session: AuthoringSession): boolean {
+  const asked = session.pending_proposal?.asked_at;
+  if (!asked) return false;
+  const at = Date.parse(asked);
+  return session.turns.some((turn) => turn.role === "person" && Date.parse(turn.at) > at);
+}
+
+/** What the open question asks, in one line: the dock's title and the pointer left in its place. */
+export function questionTitle(proposal: NonNullable<AuthoringSession["pending_proposal"]>): string {
+  const block = proposal.block;
+  if (block.kind === "question") return block.asks;
+  if (block.kind === "step_proposal") return `Add ${processName(block.node)}?`;
+  if (proposal.kind === "goal") return "Is this what you want?";
+  return "The question above";
+}

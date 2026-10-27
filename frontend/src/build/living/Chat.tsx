@@ -20,6 +20,7 @@ export function Chat({
   pointers = true,
   skip = null,
   follow = true,
+  tail = null,
 }: {
   session: AuthoringSession;
   /** Messages sent and not yet in the transcript — drawn now, marked as sending. */
@@ -35,6 +36,8 @@ export function Chat({
   /** Keep the latest turn in view. Not on the describe page, where it would scroll the page away
    *  from the card waiting for an answer. */
   follow?: boolean;
+  /** What the engine waits on, drawn as the newest message (one builder plan 3). */
+  tail?: React.ReactNode;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -82,6 +85,7 @@ export function Chat({
             </li>
           ));
         })}
+        {tail && <li className="list-none">{tail}</li>}
         {sending.map((text, i) => (
           <li key={`sending-${i}`} className="list-none self-end max-w-[85%] px-3 py-2 rounded-button"
               style={{ background: "var(--now-soft)" }}>
