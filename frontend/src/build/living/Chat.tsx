@@ -1,45 +1,55 @@
 import { useEffect, useRef } from "react";
 
 import type { AuthoringBlock, AuthoringSession } from "../../api/types";
-import { Block, NoticeLine, Primary } from "./blocks/Block";
-import { processName } from "./format";
+import { Block, NoticeLine, Primary, type About } from "./blocks/Block";
+import { processName, queued } from "./format";
 
 /** **The conversation, and only the conversation**: what the person said and what the model said.
  *
- * The engine's cards are not drawn here. A reply that carried one — a question, a step, a setting
- * request, a change — leaves a line saying what it did, which takes the person to the Step panel
- * where the card waits. Answered decisions are not repeated here either; the step line and *What
+ * The engine's cards are not drawn here. Where pointers are on, a reply that carried one — a
+ * question, a step, a setting request, a change — leaves a line saying what it did; in the one
+ * stream (`Stream`) the card itself is the newest message, so pointers are off. Answered decisions are not repeated here either; the step line and *What
  * was understood* are their record. A conversation made of form boxes is the thing this replaced.
  */
 export function Chat({
   session,
-  saying,
+  sending,
   failedPhase,
   onRetry,
   onPoint,
   pointers = true,
   skip = null,
   follow = true,
+  tail = null,
+  onAbout,
+  override = null,
 }: {
   session: AuthoringSession;
-  /** A follow-up sent and not yet in the transcript — drawn now, marked as sending. */
-  saying: string | null;
+  /** Messages sent and not yet in the transcript — drawn now, marked as sending. */
+  sending: string[];
   failedPhase: boolean;
   onRetry: () => void;
   /** Show the card a pointer line is about: the step it names, or whatever is waiting. */
   onPoint: (node: string | null) => void;
-  /** Whether an engine block leaves a line pointing at the Step tab — not where there is none. */
+  /** Whether an engine block leaves a line saying what it did — off in the one stream, where the card is the message. */
   pointers?: boolean;
   /** A turn already shown elsewhere on the page — the describe page quotes the first sentence. */
   skip?: number | null;
   /** Keep the latest turn in view. Not on the describe page, where it would scroll the page away
    *  from the card waiting for an answer. */
   follow?: boolean;
+  /** What the engine waits on, drawn as the newest message (one builder plan 3). */
+  tail?: React.ReactNode;
+  /** Show what an announcement changed: its step on the canvas, or its line. */
+  onAbout?: (about: About) => void;
+  /** One block drawn by the caller instead (the hand-over, issue 393). */
+  override?: { id: string; node: React.ReactNode } | null;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (follow) end.current?.scrollIntoView?.({ block: "end" });
-  }, [session.turns.length, saying, follow]);
+  }, [session.turns.length, sending.length, follow]);
+  const inLine = queued(session);
 
   return (
     <div>
@@ -52,6 +62,11 @@ export function Chat({
                                             text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap"
                   style={{ background: "var(--now-soft)" }}>
                 {turn.text}
+                {inLine.has(turn.seq) && (
+                  <p className="m-0 mt-1 text-[11px] text-ink-3" data-testid="waiting-in-line">
+                    waiting: I'll answer as soon as I finish the one above
+                  </p>
+                )}
               </li>
             );
           }
@@ -72,19 +87,20 @@ export function Chat({
           }
           return turn.blocks.filter((block) => pointers || !pointerOf(block)).map((block) => (
             <li key={block.id} className="list-none">
-              <Spoken block={block} failedPhase={failedPhase} onRetry={onRetry} onPoint={onPoint} />
+              {override && block.id === override.id ? override.node : <Spoken block={block} failedPhase={failedPhase} onRetry={onRetry} onPoint={onPoint} onAbout={onAbout} />}
             </li>
           ));
         })}
-        {saying !== null && (
-          <li className="list-none self-end max-w-[85%] px-3 py-2 rounded-button"
+        {tail && <li className="list-none">{tail}</li>}
+        {sending.map((text, i) => (
+          <li key={`sending-${i}`} className="list-none self-end max-w-[85%] px-3 py-2 rounded-button"
               style={{ background: "var(--now-soft)" }}>
             <p className="m-0 text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap" data-testid="saying">
-              {saying}
+              {text}
             </p>
             <p className="m-0 mt-1 text-[11px] text-ink-3">sending…</p>
           </li>
-        )}
+        ))}
       </ol>
       <div ref={end} />
     </div>
@@ -93,11 +109,12 @@ export function Chat({
 
 const UNREACHABLE = new Set(["MI0106", "MA0002", "MA0003", "MA0007"]);
 
-function Spoken({ block, failedPhase, onRetry, onPoint }: {
+function Spoken({ block, failedPhase, onRetry, onPoint, onAbout }: {
   block: AuthoringBlock;
   failedPhase: boolean;
   onRetry: () => void;
   onPoint: (node: string | null) => void;
+  onAbout?: (about: About) => void;
 }) {
   const pointer = pointerOf(block);
   if (pointer) {
@@ -113,6 +130,7 @@ function Spoken({ block, failedPhase, onRetry, onPoint }: {
   return (
     <Block
       block={block}
+      onAbout={onAbout}
       actions={unreachable && failedPhase ? <Primary data-testid="retry" onClick={onRetry}>Try again</Primary> : undefined}
     />
   );

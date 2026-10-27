@@ -14,7 +14,7 @@ const gap = (options: [string, string][], asks: string): AuthoringProposal => {
     exhaustive: true, phrasing: "none" as const,
   };
   return {
-    id: "p-gap", kind: "gap", draft_revision: 0,
+    id: "p-gap", kind: "gap", draft_revision: 0, asked_at: "2026-10-27T09:00:00+00:00",
     options: options.map(([id]) => id).sort(), edges: [], block,
     envelope: {
       offer: "gap", subject: "read_length", kind: "measurement", why: "a step reads it",
@@ -102,16 +102,16 @@ describe("a gap card", () => {
     expect(onAnswer).toHaveBeenCalledWith("value", 150);
   });
 
-  it("says a question was phrased for the person, and the swap keeps the options in place", () => {
+  it("says in its one quiet line that a question was worded by the model, and the swap keeps the options in place", () => {
     const phrased = { ...PAIRED, block: { ...PAIRED.block, phrasing: "done",
       asks: "Were both ends of each fragment sequenced?" } } as AuthoringProposal;
     const labels = () => screen.getAllByRole("button").map((b) => b.textContent);
     const { rerender } = render(<GapCard proposal={PAIRED} busy={false} onAnswer={vi.fn()} />);
     const before = labels();
-    expect(screen.queryByText("phrased for you")).toBeNull();
+    expect(screen.getByTestId("provenance")).toHaveTextContent(/^asked by the engine$/);
     rerender(<GapCard proposal={phrased} busy={false} onAnswer={vi.fn()} />);
     expect(screen.getByText("Were both ends of each fragment sequenced?")).toBeInTheDocument();
-    expect(screen.getByText("phrased for you")).toBeInTheDocument();
+    expect(screen.getByTestId("provenance")).toHaveTextContent("asked by the engine · worded by the model");
     expect(labels()).toEqual(before);
   });
 

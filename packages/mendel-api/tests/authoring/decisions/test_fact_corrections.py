@@ -31,11 +31,11 @@ def test_correction_changes_current_value_and_reoffers_affected_reviews(clean):
         assert next(f.value for f in current.facts if f.subject == "read_length") == 50
         assert _proposal(result["next_proposal"]).payload["node"] == "hisat2_build"
         assert db.get(PipelineDraft, row.draft_id).projection_current
-    assert any(
-        "Your correction" in b.get("summary", "")
-        for t in session.read(sid)["turns"]
-        for b in t["blocks"]
-    )
+    receipts = [b for t in session.read(sid)["turns"] for b in t["blocks"]
+                if "Your correction" in b.get("summary", "")]
+    assert receipts
+    # **An announcement points at what it changed** (one builder plan 3).
+    assert all(r["about"] == {"node": None, "subject": "read_length"} for r in receipts)
 
 
 def test_withdrawing_essential_input_keeps_truth_and_stales_projection_until_restored(clean):

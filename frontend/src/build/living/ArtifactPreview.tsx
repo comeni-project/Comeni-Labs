@@ -8,7 +8,16 @@ import type { AuthoringPreview } from "../../api/types";
  * highlighted, for presentation only, and settles back to ordinary text once it has been seen. A
  * draft that is empty, illegal or cannot be materialised shows why, never half a document.
  */
-export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null }) {
+/** What the page lays over one line (one builder plan 5): hidden by a filter, a mark of how its
+ *  value was decided, whether it is the selected value, and what clicking it does. */
+export type LineDecoration = {
+  hidden?: boolean; mark?: React.ReactNode; selected?: boolean; onSelect?: () => void;
+} | null;
+
+export function ArtifactPreview({ preview, decorate }: {
+  preview: AuthoringPreview | null;
+  decorate?: (index: number, line: string) => LineDecoration;
+}) {
   const previous = useRef<string[]>([]);
   const [changed, setChanged] = useState<Set<number>>(new Set());
   const lines = preview?.state === "ready" ? preview.text.split("\n") : [];
@@ -78,19 +87,28 @@ export function ArtifactPreview({ preview }: { preview: AuthoringPreview | null 
       <pre data-testid="artifact-text" className="m-0 font-data text-[12px] leading-[1.75] text-ink-2 whitespace-pre">
         {lines.map((line, index) => {
           const open = /:\s*null\b/.test(line);
+          const deco = decorate?.(index, line) ?? null;
+          if (deco?.hidden) return null;
           return (
             <span
               key={index}
+              onClick={deco?.onSelect}
+              data-selected={deco?.selected || undefined}
               data-testid="file-line"
               data-n={index + 1}
               data-changed={changed.has(index) || undefined}
               data-open={open || undefined}
               className="block pl-[44px] relative before:content-[attr(data-n)] before:absolute before:left-0
                          before:w-[32px] before:text-right before:text-ink-3"
-              style={changed.has(index) ? { background: "var(--now-soft)", color: "var(--ink)" }
-                : open ? { background: "var(--needs-you-soft)", color: "var(--needs-you-ink)" } : undefined}
+              style={{
+                ...(changed.has(index) ? { background: "var(--now-soft)", color: "var(--ink)" }
+                  : open ? { background: "var(--needs-you-soft)", color: "var(--needs-you-ink)" } : {}),
+                ...(deco?.selected ? { background: "var(--now-soft)", boxShadow: "inset 3px 0 0 var(--now)" } : {}),
+                ...(deco?.onSelect ? { cursor: "pointer" } : {}),
+              }}
             >
               {line || " "}
+              {deco?.mark && <span className="absolute right-[6px] top-[2px]">{deco.mark}</span>}
             </span>
           );
         })}

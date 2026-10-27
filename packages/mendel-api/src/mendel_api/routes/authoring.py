@@ -170,6 +170,9 @@ class AuthoringProposalView(BaseModel):
     """Every id this proposal accepts. The block renders labels; this is what may be posted."""
     edges: list[DraftEdge] = []
     """The wires accepting it as proposed would add — what an optimistic reveal draws."""
+    asked_at: str
+    """When it was asked, ISO 8601: once the person says something after it, the chat docks it
+    above the composer (one builder plan 3)."""
 
 
 class AuthoringUsage(BaseModel):
@@ -784,6 +787,7 @@ def _view(session_id: str) -> AuthoringSessionView:
                 block=pending["payload"]["block"],
                 options=sorted(pending["payload"].get("options", {})),
                 edges=pending["payload"].get("edges", []),
+                asked_at=pending["asked_at"],
             )
         ),
     )

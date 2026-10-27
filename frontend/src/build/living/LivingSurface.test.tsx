@@ -44,21 +44,45 @@ function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
   return props;
 }
 
-/** The panel's conversation tab: the chat lives there, and only there. */
-const toAssistant = () => fireEvent.click(screen.getByRole("tab", { name: /^Assistant/ }));
+/** There are no tabs now (one builder plan 3): the conversation is always showing. */
+const toAssistant = () => undefined;
+/** The whole plan (the step line) opens from the strip's *Step n of m*. */
+const openPlan = () => fireEvent.click(screen.getByRole("button", { name: "the whole plan" }));
 
 const with_ = (changes: Partial<AuthoringSession>) =>
   ({ ...FAKE_SESSION, ...changes }) as AuthoringSession;
 
 describe("the two surfaces", () => {
-  it("has a canvas, a panel with Step and Assistant, one header strip and a composer", () => {
+  it("has a canvas, one conversation with its step strip, one header strip and a composer", () => {
     surface();
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
     expect(screen.getByTestId("living-header")).toHaveTextContent("rnaseq-counts");
     expect(screen.queryByTestId("mode")).toBeNull();
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Step", "Assistant"]);
+    expect(screen.queryByRole("tab", { name: /Step|Assistant/ })).toBeNull();
+    expect(screen.getByRole("navigation", { name: "the plan" })).toHaveTextContent("Step 4 of 5");
+    // The step on offer is the newest message, in the conversation itself.
+    expect(within(screen.getByRole("log", { name: "conversation" }))
+      .getByRole("button", { name: "Add it" })).toBeInTheDocument();
+  });
+
+  it("swaps the canvas for what was understood, and back (one builder plan 3)", () => {
+    surface();
+    fireEvent.click(screen.getByRole("radio", { name: "What was understood" }));
+    expect(screen.getByRole("region", { name: "What was understood" })).toBeInTheDocument();
+    expect(screen.getByTestId("build-canvas")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: "Canvas" }));
+    expect(screen.getByTestId("build-canvas")).toBeVisible();
+  });
+
+  it("has a phone's three tabs, the conversation first", () => {
+    surface();
+    const tabs = screen.getByRole("tablist", { name: "on a phone" });
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Chat", "Canvas", "Understood"]);
+    expect(screen.getByTestId("living").querySelector(".living")).toHaveAttribute("data-pane", "chat");
+    fireEvent.click(within(tabs).getByRole("tab", { name: "Canvas" }));
+    expect(screen.getByTestId("living").querySelector(".living")).toHaveAttribute("data-pane", "canvas");
   });
 
   it("keeps the canvas first in the document, whatever the stacked order draws", () => {
@@ -84,11 +108,11 @@ describe("the two surfaces", () => {
 });
 
 describe("every block state in the static session", () => {
-  it("renders each kind the server can send: cards under Step, speech under Assistant", () => {
+  it("renders each kind the server can send: the plan behind the strip, cards and speech in the conversation", () => {
     surface();
-    const step = screen.getByRole("tabpanel", { name: "Step" });
-    expect(within(step).getByRole("list", { name: "the plan" })).toHaveTextContent("Goal");
-    expect(within(step).getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" })).toBeInTheDocument();
+    openPlan();
+    expect(screen.getByRole("list", { name: "the plan" })).toHaveTextContent("Goal");
+    expect(screen.getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" })).toBeInTheDocument();
     toAssistant();
     const log = screen.getByRole("log", { name: "conversation" });
     expect(within(log).getByText(/STAR is here because/)).toBeInTheDocument();
@@ -96,14 +120,13 @@ describe("every block state in the static session", () => {
     for (const title of ["It would not answer", "This answer is out of date", "Something to check", "Done"]) {
       expect(within(log).getByText(title)).toBeInTheDocument();
     }
-    expect(within(log).getAllByTestId("pointer").map((p) => p.textContent)).toEqual([
-      "Read the goal — see Step", "Asked a question — see Step",
-      "Asked for a setting on STAR_ALIGN — see Step", "Suggested a change: Swap the aligner — see Step",
-    ]);
+    // No *see Step* lines: the engine's cards are in the conversation itself (one builder plan 3).
+    expect(within(log).queryAllByTestId("pointer")).toHaveLength(0);
   });
 
   it("collapses every answered step to one line naming who decided it", () => {
     surface();
+    openPlan();
     const row = screen.getByRole("button", { name: /STAR_ALIGN step 3/ });
     expect(row).toHaveTextContent("you chose");
     // The step's own tier is not a word on its place; what it says is how many of its values
@@ -114,11 +137,12 @@ describe("every block state in the static session", () => {
 });
 
 describe("the states a session can be in", () => {
-  it("shows a pending turn as working, and the composer waits with it", () => {
+  it("shows a pending turn as working, and the composer stays open (issue 392)", () => {
     surface();
     toAssistant();
     expect(screen.getByText("Working on it")).toBeInTheDocument();
-    expect(screen.getByTestId("composer")).toBeDisabled();
+    expect(screen.getByTestId("composer")).not.toBeDisabled();
+    expect(screen.getByPlaceholderText("Ask anything, or answer in your own words")).toBeInTheDocument();
   });
 
   it("restores a session with nothing pending as an open composer and the whole history", () => {
@@ -126,6 +150,7 @@ describe("the states a session can be in", () => {
       turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending"),
     });
     surface(restored);
+    openPlan();
     expect(within(screen.getByRole("list", { name: "the plan" })).getAllByRole("button", { name: /step \d/ }))
       .toHaveLength(4);
     toAssistant();
@@ -336,6 +361,7 @@ describe("a goal composed by gathering, once confirmed (issue 173)", () => {
       { id: "g1", kind: "goal", state: "accepted", by: "person", chosen_option: null,
         chosen_contract: null, answer: null, at: "2026-09-28T10:05:00Z", block: card },
     ] } as Partial<AuthoringSession>));
+    openPlan();
     const goal = within(screen.getByRole("list", { name: "the plan" })).getAllByRole("listitem")[0];
     expect(goal).toHaveTextContent("Goal");
     expect(goal).toHaveTextContent("fastq.reads, genome.fasta → counts.matrix");
@@ -467,6 +493,7 @@ it("labels superseded historical reviews and blocks Run while the projection is 
       applicability: decision.id === "h-align" ? "superseded" : "retained" })),
   });
   surface(changed, { run: { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null } });
+  openPlan();
   expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 .*· superseded/ })).toBeInTheDocument();
   expect(screen.getByTestId("living-run")).toBeDisabled();
   expect(screen.getByText(/^Pipeline outdated\./)).toBeInTheDocument();
@@ -496,5 +523,30 @@ describe("the model's suggestions (Part I.0)", () => {
   it("draws nothing when nothing waits", () => {
     surface(with_({ suggestions: [] }));
     expect(screen.queryByRole("list", { name: "suggestions waiting for you" })).toBeNull();
+  });
+});
+
+it("says where an empty canvas's steps come from, and never points right at a goal (issue 399)", () => {
+  surface(with_({ phase: "building", history: [], pending_proposal: null, progress: null,
+    graph: { nodes: [], edges: [] } } as Partial<AuthoringSession>));
+  expect(screen.queryByText(/Confirm the goal on the right/)).toBeNull();
+  expect(screen.getByText(/as you answer in the conversation/)).toBeInTheDocument();
+});
+
+describe("the hand-over (issue 393)", () => {
+  const wrap = (seq: number) => ({ seq, role: "assistant", state: "answered", text: "", base_revision: 0, at: "",
+    blocks: [{ kind: "receipt", id: `wrap-${seq}`, summary: `wrap-up ${seq}`, revision: seq, by: "resolver" }] });
+
+  it("draws the newest wrap-up of a complete build as the card, and the older as its line", () => {
+    surface(with_({ phase: "complete", pending_proposal: null,
+      turns: [wrap(3), wrap(7)] } as unknown as Partial<AuthoringSession>));
+    expect(screen.getAllByRole("region", { name: "the hand-over" })).toHaveLength(1);
+    expect(screen.getByText("wrap-up 3")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "the hand-over" })).getByText("wrap-up 7")).toBeInTheDocument();
+  });
+
+  it("draws no card while the build is still going", () => {
+    surface(with_({ turns: [wrap(3)] } as unknown as Partial<AuthoringSession>));
+    expect(screen.queryByRole("region", { name: "the hand-over" })).toBeNull();
   });
 });

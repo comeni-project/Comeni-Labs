@@ -28,13 +28,16 @@ export function StatusChip({ session, open = 0 }: { session: AuthoringSession; o
   // **Complete only when nothing needs you** (issue 385): every step added with a value still open is
   // *built*, in the now colour, beside the chip that says what is open.
   const built = session.phase === "complete" && open > 0;
+  // **An empty pipeline is not complete** (issue 399): nothing was built, so nothing is done.
+  const empty = session.phase === "complete" && session.graph.nodes.length === 0
+    && !session.history.some((d) => d.state === "accepted" && d.block.kind === "step_proposal");
   const tone: Tone = session.phase === "stopped" || session.phase === "failed" ? "needs-you"
-    : session.phase === "complete" && !built ? "done" : "now";
+    : session.phase === "complete" && !built && !empty ? "done" : "now";
   return (
     <span data-testid="living-status" data-tone={tone}
           className="self-center px-[8px] py-[3px] rounded-control text-[12px] font-semibold first-letter:capitalize"
           style={TONE[tone]}>
-      {built ? "built" : phaseWords(session)}{active && session.phase === "building" ? ` · ${stepWords(active).toLowerCase()}` : ""}
+      {empty ? "nothing built yet" : built ? "built" : phaseWords(session)}{active && session.phase === "building" ? ` · ${stepWords(active).toLowerCase()}` : ""}
     </span>
   );
 }

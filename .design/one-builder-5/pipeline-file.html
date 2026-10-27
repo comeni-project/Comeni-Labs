@@ -1,0 +1,105 @@
+<style>
+  .pf { --paper:#F4F5F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --line:#E1E4EC; --line-2:#C9CEDB;
+        --ink:#171A26; --ink-2:#474D63; --ink-3:#666C84; --done:#0F9D7A; --done-soft:#DDF3EC; --done-ink:#0B6B53;
+        --measured:#9A5B00; --measured-soft:#FBF0DC; --needs:#C92F36; --needs-soft:#FCE5E6;
+        --now:#2F6FEB; --now-soft:#E6EEFD; --now-ink:#1F57C3; --now-line:#A9C2F5;
+        font-family:'Lexend',system-ui,sans-serif; color:var(--ink); }
+  .pf .mono { font-family:'Geist Mono',ui-monospace,monospace; }
+  .pf .frame { background:var(--paper); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .pf .bar { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); font-size:13px; }
+  .pf .bar b { font-size:15px; }
+  .pf .counts { display:flex; gap:6px; padding:10px 18px; border-bottom:1px solid var(--line); font-size:12px; align-items:center; }
+  .pf .c { padding:3px 9px; border-radius:999px; border:1px solid var(--line-2); background:#fff; }
+  .pf .c.m { background:var(--measured-soft); color:var(--measured); border-color:transparent; }
+  .pf .c.n { background:var(--needs-soft); color:var(--needs); border-color:transparent; }
+  .pf .c.on { box-shadow:0 0 0 2px var(--now); }
+  .pf .tabs { display:flex; gap:4px; padding:8px 18px 0; font-size:12.5px; align-items:center; }
+  .pf .tabs span { padding:5px 10px; border-radius:8px 8px 0 0; border:1px solid transparent; }
+  .pf .tabs .on { background:#fff; border-color:var(--line); border-bottom-color:#fff; font-weight:600; }
+  .pf .tabs .compile { margin-left:auto; padding:5px 12px; border-radius:8px; background:#0B7F63; color:#fff; font-weight:600; }
+  .pf .code { background:#fff; border-top:1px solid var(--line); font-size:12px; line-height:1.75; }
+  .pf .ln { display:grid; grid-template-columns:34px 1fr 112px; padding:0 12px 0 0; }
+  .pf .ln .n { color:var(--ink-3); text-align:right; padding-right:10px; user-select:none; }
+  .pf .ln .t { white-space:pre; }
+  .pf .k { color:#1F57C3; } .pf .s { color:#0B6B53; } .pf .cm { color:var(--ink-3); }
+  .pf .mark { justify-self:end; align-self:center; font-size:10.5px; padding:1px 7px; border-radius:999px; font-family:'Lexend',sans-serif; }
+  .pf .mk-m { background:var(--measured-soft); color:var(--measured); }
+  .pf .mk-c { background:#EEF0F5; color:var(--ink-2); }
+  .pf .mk-n { background:var(--needs-soft); color:var(--needs); }
+  .pf .mk-y { background:var(--done-soft); color:var(--done-ink); }
+  .pf .ln.sel { background:var(--now-soft); box-shadow:inset 3px 0 0 var(--now); }
+  .pf .reason { border-left:1px solid var(--line); background:var(--surface); padding:16px; font-size:13px; }
+  .pf .reason h4 { margin:0 0 2px; font-size:15px; }
+  .pf .reason .v { font-size:22px; font-weight:600; margin:6px 0; }
+  .pf .reason p { margin:6px 0; color:var(--ink-2); line-height:1.5; }
+  .pf .reason .cite { font-size:11.5px; color:var(--ink-3); }
+  .pf .reason .act { display:flex; gap:8px; margin-top:12px; }
+  .pf .btn { padding:6px 12px; border-radius:8px; border:1px solid var(--line-2); background:#fff; font-size:12.5px; }
+  .pf .inline { margin:2px 12px 6px 46px; padding:10px 12px; border:1px solid var(--now-line); border-radius:10px; background:var(--now-soft); font-size:12.5px; white-space:normal; font-family:'Lexend',sans-serif; }
+</style>
+
+<h2>Plan 5: the pipeline file, file first (#394)</h2>
+<p class="subtitle">Same content in both: <code>sjdbOverhang</code> is selected. Each value line carries a small mark showing how it was decided. The count strip filters the file, and <i>Compile it</i> shows <code>main.nf</code> and <code>nextflow.config</code> in the next tabs. The two options differ only in where a value's reason opens.</p>
+
+<div class="pf">
+<h3>A · The reason opens beside the file</h3>
+<div class="frame">
+  <div class="bar"><b>rnaseq-counts</b><span style="color:var(--ink-3)">Pipeline file</span><span style="margin-left:auto" class="btn">Download pipeline.yml</span></div>
+  <div class="counts"><span class="c">34 settled</span><span class="c m on">4 measured</span><span class="c n">1 needs you</span><span class="c">2 optional</span><span style="color:var(--ink-3);margin-left:6px">showing measured · <u>show all</u></span></div>
+  <div style="display:grid;grid-template-columns:1fr 330px">
+    <div>
+      <div class="tabs"><span class="on">pipeline.yml</span><span>main.nf</span><span>nextflow.config</span><span class="compile">Compile it</span></div>
+      <div class="code mono">
+        <div class="ln"><span class="n">41</span><span class="t"><span class="k">steps</span>:</span></div>
+        <div class="ln"><span class="n">42</span><span class="t">  - <span class="k">id</span>: star_align</span></div>
+        <div class="ln"><span class="n">43</span><span class="t">    <span class="k">contract</span>: nf-core/star/align@2.7.11a</span></div>
+        <div class="ln"><span class="n">45</span><span class="t">    <span class="k">settings</span>:</span></div>
+        <div class="ln sel"><span class="n">46</span><span class="t">      <span class="k">sjdbOverhang</span>: <span class="s">150</span></span><span class="mark mk-m">measured</span></div>
+        <div class="ln"><span class="n">52</span><span class="t">      <span class="k">outSAMtype</span>: <span class="s">BAM Unsorted</span></span><span class="mark mk-c">rule</span></div>
+        <div class="ln"><span class="n">53</span><span class="t">      <span class="k">twopassMode</span>: <span class="s">None</span></span><span class="mark mk-c">convention</span></div>
+        <div class="ln"><span class="n">55</span><span class="t">  - <span class="k">id</span>: featurecounts</span></div>
+        <div class="ln"><span class="n">57</span><span class="t">      <span class="k">strandedness</span>: <span class="s">null</span></span><span class="mark mk-n">needs you</span></div>
+        <div class="ln"><span class="n">58</span><span class="t">      <span class="k">isPairedEnd</span>: <span class="s">true</span></span><span class="mark mk-m">measured</span></div>
+        <div class="ln"><span class="n">59</span><span class="t">      <span class="k">featureType</span>: <span class="s">exon</span></span><span class="mark mk-y">you said</span></div>
+      </div>
+    </div>
+    <div class="reason">
+      <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em">STAR_ALIGN · setting</div>
+      <h4>sjdbOverhang</h4>
+      <div class="v mono">150</div>
+      <span class="mark mk-m">measured</span>
+      <p>Read length is 151 bp, measured from your files, minus one.</p>
+      <p class="cite">Rule R04 · premise read_length = 151 · measured · fastq 1.1.0 · from 1 sample</p>
+      <div class="act"><span class="btn">Change it</span><span class="btn">Ask about it in the chat</span></div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:22px">B · The reason opens under its line</h3>
+<div class="frame">
+  <div class="bar"><b>rnaseq-counts</b><span style="color:var(--ink-3)">Pipeline file</span><span style="margin-left:auto" class="btn">Download pipeline.yml</span></div>
+  <div class="counts"><span class="c">34 settled</span><span class="c m">4 measured</span><span class="c n">1 needs you</span><span class="c">2 optional</span></div>
+  <div class="tabs"><span class="on">pipeline.yml</span><span>main.nf</span><span>nextflow.config</span><span class="compile">Compile it</span></div>
+  <div class="code mono">
+    <div class="ln"><span class="n">45</span><span class="t">    <span class="k">settings</span>:</span></div>
+    <div class="ln sel"><span class="n">46</span><span class="t">      <span class="k">sjdbOverhang</span>: <span class="s">150</span></span><span class="mark mk-m">measured</span></div>
+    <div class="inline"><b>Measured.</b> Read length is 151 bp, measured from your files, minus one. <span style="color:var(--ink-3)">Rule R04 · premise read_length = 151</span> &nbsp; <u>Change it</u> · <u>Ask about it in the chat</u></div>
+    <div class="ln"><span class="n">52</span><span class="t">      <span class="k">outSAMtype</span>: <span class="s">BAM Unsorted</span></span><span class="mark mk-c">rule</span></div>
+    <div class="ln"><span class="n">57</span><span class="t">      <span class="k">strandedness</span>: <span class="s">null</span></span><span class="mark mk-n">needs you</span></div>
+  </div>
+</div>
+</div>
+
+<div class="section" style="margin-top:18px">
+<h3>The difference</h3>
+<ul style="font-size:14px;line-height:1.6">
+  <li><b>A</b> keeps the file unbroken and gives the reason room for the value, its citation and the actions. It's closest to the board and to the step view. On a phone the reason becomes a sheet from the bottom.</li>
+  <li><b>B</b> uses the full width for the file and reads like an annotated file. But the YAML gets interrupted, and long citations wrap awkwardly.</li>
+  <li>Either way, <i>Compile it</i> runs the existing emission with visible progress, and its tabs show <code>main.nf</code> and <code>nextflow.config</code>, read-only.</li>
+</ul>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="beside" onclick="toggleSelect(this)"><div class="letter">A</div><div class="content"><h3>Reason beside the file</h3><p>The file stays whole; a reason panel on the right. (My recommendation.)</p></div></div>
+  <div class="option" data-choice="inline" onclick="toggleSelect(this)"><div class="letter">B</div><div class="content"><h3>Reason under its line</h3><p>Full-width file; the reason expands inline.</p></div></div>
+</div>

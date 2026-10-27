@@ -164,7 +164,7 @@ export function LivingCanvas({
            data-testid="canvas-empty">
         <span className="text-label text-ink-3">Nothing built yet</span>
         <span className="text-[12.5px] text-ink-2">
-          {empty ?? "Confirm the goal on the right and the steps arrive one at a time"}
+          {empty ?? "The steps arrive here one at a time as you answer in the conversation"}
         </span>
         {footer}
       </div>

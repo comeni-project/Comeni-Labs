@@ -1,0 +1,126 @@
+<style>
+  .p3 { --paper:#F4F5F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --line:#E1E4EC; --line-2:#C9CEDB; --line-soft:#ECEFF5;
+        --ink:#171A26; --ink-2:#474D63; --ink-3:#666C84; --done:#0F9D7A; --done-soft:#DDF3EC; --done-ink:#0B6B53;
+        --action:#0B7F63; --measured:#9A5B00; --measured-soft:#FBF0DC; --needs:#C92F36; --needs-soft:#FCE5E6;
+        --now:#2F6FEB; --now-soft:#E6EEFD; --now-ink:#1F57C3; --now-line:#A9C2F5;
+        font-family:'Lexend',system-ui,sans-serif; color:var(--ink); }
+  .p3 .mono { font-family:'Geist Mono',ui-monospace,monospace; }
+  .p3 .frame { width:100%; max-width:1400px; height:820px; display:flex; flex-direction:column; background:var(--paper);
+               border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .p3 .bar { height:52px; flex:none; display:flex; align-items:center; gap:18px; padding:0 22px; border-bottom:1px solid var(--line); font-size:14px; }
+  .p3 .bar b { font-size:15px; }
+  .p3 .body { flex:1; display:flex; min-height:0; }
+  .p3 .canvas { flex:1; position:relative; background:var(--surface-2);
+                background-image:radial-gradient(rgba(40,60,110,.09) 1px, transparent 1px); background-size:22px 22px; }
+  .p3 .node { position:absolute; width:150px; padding:10px 12px; border-radius:10px; background:#fff; border:1.5px solid var(--line-2); font-size:12.5px; }
+  .p3 .node small { display:block; color:var(--ink-3); font-size:11px; margin-top:2px; }
+  .p3 .node.done { border-color:var(--done); }
+  .p3 .node.offer { border-style:dashed; border-color:var(--now); background:var(--now-soft); }
+  .p3 .node.flash { box-shadow:0 0 0 4px rgba(47,111,235,.25); }
+  .p3 .wire { position:absolute; height:2px; background:var(--done); }
+  .p3 .wire.dash { background:repeating-linear-gradient(90deg,var(--now) 0 6px,transparent 6px 11px); }
+  .p3 .side { width:460px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--surface); min-height:0; }
+  .p3 .strip { flex:none; display:flex; align-items:center; gap:6px; padding:10px 16px; border-bottom:1px solid var(--line); font-size:12px; color:var(--ink-2); }
+  .p3 .strip .s { display:flex; align-items:center; gap:5px; padding:3px 8px; border-radius:999px; border:1px solid var(--line); }
+  .p3 .strip .s.d { color:var(--done-ink); border-color:#bfe6da; background:var(--done-soft); }
+  .p3 .strip .s.n { color:var(--now-ink); border-color:var(--now-line); background:var(--now-soft); font-weight:600; }
+  .p3 .stream { flex:1; overflow:auto; padding:16px; display:flex; flex-direction:column; gap:12px; font-size:13.5px; line-height:1.45; }
+  .p3 .me { align-self:flex-end; max-width:80%; background:var(--now-soft); color:var(--ink); padding:8px 12px; border-radius:12px 12px 4px 12px; }
+  .p3 .me .w { display:block; font-size:11px; color:var(--ink-3); margin-top:3px; }
+  .p3 .ai { max-width:92%; }
+  .p3 .ann { font-size:12.5px; color:var(--ink-2); display:flex; gap:8px; align-items:baseline; padding:6px 10px; border-left:3px solid var(--done); background:var(--surface-2); border-radius:0 8px 8px 0; }
+  .p3 .ann a { color:var(--now-ink); text-decoration:underline; cursor:pointer; }
+  .p3 .q { border:1px solid var(--line-2); border-radius:12px; padding:12px 14px; background:#fff; }
+  .p3 .q h4 { margin:0 0 4px; font-size:15px; font-weight:600; }
+  .p3 .q .why { font-size:12.5px; color:var(--ink-2); margin-bottom:10px; }
+  .p3 .ans { display:flex; flex-direction:column; gap:6px; }
+  .p3 .ans div { display:flex; justify-content:space-between; gap:10px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; cursor:pointer; }
+  .p3 .ans div span:last-child { color:var(--ink-3); font-size:12px; }
+  .p3 .ans div.up { border-style:dashed; color:var(--now-ink); }
+  .p3 .more { font-size:12px; color:var(--ink-3); margin-top:9px; display:flex; gap:14px; }
+  .p3 .more u { cursor:pointer; }
+  .p3 .prov { font-size:11px; color:var(--ink-3); margin-top:8px; }
+  .p3 .remind { font-size:12.5px; color:var(--needs); display:flex; gap:8px; align-items:center; }
+  .p3 .remind span { padding:3px 9px; border-radius:999px; background:var(--needs-soft); cursor:pointer; }
+  .p3 .composer { flex:none; border-top:1px solid var(--line); padding:12px 16px; }
+  .p3 .composer div { border:1px solid var(--line-2); border-radius:10px; padding:10px 12px; color:var(--ink-3); font-size:13.5px; display:flex; justify-content:space-between; }
+  .p3 .composer em { font-style:normal; font-size:11.5px; color:var(--ink-3); margin-top:6px; display:block; }
+  .p3 .tag { font-size:10.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.05em; }
+  .p3 .think { display:flex; gap:6px; align-items:center; color:var(--ink-3); font-size:12.5px; }
+  .p3 .dot { width:6px; height:6px; border-radius:50%; background:var(--ink-3); opacity:.5; }
+</style>
+
+<h2>Plan 3: the build page as one conversation</h2>
+<p class="subtitle">Desktop, mid-build: a mouse-liver RNA-seq pipeline. The <i>Step</i> and <i>Assistant</i> tabs are gone; everything happens in one chat on the right. The numbered notes below explain each part.</p>
+
+<div class="p3">
+<div class="frame">
+  <div class="bar"><b>rnaseq-counts</b><span style="color:var(--ink-3)">Building · mouse liver, paired-end</span>
+    <span style="margin-left:auto;color:var(--ink-3)">Pipeline file</span>
+    <span style="padding:6px 14px;border-radius:8px;background:#e8eaf0;color:var(--ink-3)">Run 🔒</span></div>
+  <div class="body">
+    <div class="canvas">
+      <div class="node done" style="left:40px;top:120px">reads <small>2 × FASTQ</small></div>
+      <div class="wire" style="left:190px;top:142px;width:50px"></div>
+      <div class="node done" style="left:240px;top:120px">FASTQC <small>quality report</small></div>
+      <div class="wire" style="left:390px;top:142px;width:50px"></div>
+      <div class="node done flash" style="left:440px;top:120px">TRIMGALORE <small>trimmed reads · read length set</small></div>
+      <div class="wire dash" style="left:590px;top:142px;width:50px"></div>
+      <div class="node offer" style="left:640px;top:120px">STAR_ALIGN <small>on offer · needs genome</small></div>
+      <div style="position:absolute;left:24px;bottom:18px;font-size:12px;color:var(--ink-3)">① canvas: unchanged, but now it only ever moves when the chat says so</div>
+    </div>
+    <div class="side">
+      <div class="strip">② <span class="s d">1 Reads</span><span class="s d">2 QC</span><span class="s d">3 Trim</span><span class="s n">4 Align</span><span class="s">5 Count</span><span style="margin-left:auto">Step 4 of 5</span></div>
+      <div class="stream">
+        <div class="ann">③ <span>Got it: reads are <b>150 bp</b>. Set on <a>TRIMGALORE</a>, added to <a>what I understood</a>.</span></div>
+        <div class="ai">④ I'd add <b>STAR_ALIGN</b> next to align your reads to the mouse genome. It's the curated aligner for paired-end RNA-seq counts.</div>
+        <div class="q">
+          <div class="tag">Needs you</div>
+          <h4>Which mouse genome should the reads be aligned to?</h4>
+          <div class="why">STAR_ALIGN reads a genome FASTA and its GTF annotation. Asked because nothing you've said settles the assembly.</div>
+          <div class="ans">
+            <div><span>GRCm39 (Ensembl 110)</span><span>current assembly; what most new work uses</span></div>
+            <div><span>GRCm38 / mm10</span><span>older; match it if comparing with old results</span></div>
+            <div class="up"><span>I have my own FASTA and GTF</span><span>upload or point to them</span></div>
+          </div>
+          <div class="more"><u>What is a genome FASTA?</u><u>Which steps read it</u><u>Other aligners</u></div>
+          <div class="prov">⑤ asked by the engine · worded for you by the model · curated explanation</div>
+        </div>
+        <div class="me">⑥ wait, what's the difference between a GTF and a GFF?<span class="w">waiting: I'll answer as soon as I finish the step above</span></div>
+        <div class="think"><span class="dot"></span><span class="dot"></span><span class="dot"></span> wording the STAR_ALIGN settings…</div>
+      </div>
+      <div class="composer"><div>⑦ Ask anything, or answer in your own words <span>↵</span></div><em>Never locked: what you type while I'm working waits in line.</em></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="section" style="margin-top:18px">
+<h3>The parts</h3>
+<ol style="font-size:14px;line-height:1.6">
+  <li><b>Canvas</b> is the same living canvas from plan 2. The step on offer is dashed. A step the chat just changed glows briefly (TRIMGALORE here).</li>
+  <li><b>Step strip</b> takes over from the <i>Step</i> tab: a slim strip pinned above the chat. Each step is clickable and opens that step over the chat, with a × to go back.</li>
+  <li><b>Announcement</b>: every change made outside the chat gets one line, written by the engine, linking to where it happened.</li>
+  <li><b>The offer is a message</b>, not a separate panel.</li>
+  <li><b>The question is a message with answers built in</b>, laid out like the <i>Question</i> board: each answer has its one-line note; <i>What is this?</i> and <i>which steps read it</i> sit one click away. The four provenance tags fold into one quiet line.</li>
+  <li><b>Your queued message</b>, typed while the model was still working. It shows at once, marked <i>waiting</i>, and is answered in order (your choice: queue).</li>
+  <li><b>The composer never locks.</b> Today it reads <i>Waiting for the answer…</i> and refuses input.</li>
+</ol>
+</div>
+
+<h3>One choice on this screen: how heavy should a question look?</h3>
+<p class="subtitle">The mockup above uses A. Click one, or tell me in the terminal.</p>
+<div class="options">
+  <div class="option" data-choice="card" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>A card in the stream</h3><p>A bordered box like the Question board: question in bold, the reason under it, then answer rows with notes. Questions stand out clearly from conversation, but a long gathering phase is a column of boxes.</p></div>
+  </div>
+  <div class="option" data-choice="message" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>A plain message with answer chips</h3><p>The question reads like any other assistant message, with answers as chips underneath and notes revealed on hover or tap. It feels more like a chat, but a question is easier to miss in a long thread.</p></div>
+  </div>
+  <div class="option" data-choice="pinned" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>Message in the stream, answers pinned above the composer</h3><p>The question is a normal message where it was asked, and the open question's answers dock above the input box until answered. You can't lose it after chatting, and the "Still need…" reminder isn't needed. The cost: two places show the same question.</p></div>
+  </div>
+</div>

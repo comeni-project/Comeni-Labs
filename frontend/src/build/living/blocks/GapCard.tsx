@@ -13,7 +13,7 @@ import { SampleUpload } from "./SampleUpload";
  * looser than the one that counts. *Not sure* and *can't share it* are answers, never skips:
  * nothing is guessed, and what is left open is decided later, by the person, at tier 4.
  */
-const DATA = { label: "a question about your data", title: "What it needs" };
+const DATA = { label: "a question about your data", title: "Needs you" };
 
 export function GapCard({
   proposal,
@@ -63,13 +63,9 @@ export function GapCard({
   const Send = picked ? Secondary : Primary;
 
   return (
-    <BlockFrame label={frame.label} title={frame.title} aside="asked by the engine">
-      <p className="m-0 mb-1 text-[12.5px] text-ink">{block.asks}</p>
-      {block.phrasing === "done" && (
-        // The question in a model's words; the options below are the engine's and never move.
-        <p className="m-0 mb-1 font-data text-[9.5px] text-ink-3">phrased for you</p>
-      )}
-      <p className="m-0 mb-3 text-[11.5px] text-ink-3">{block.why_open}</p>
+    <BlockFrame label={frame.label} title={frame.title}>
+      <h3 className="m-0 mb-1 text-[15px] leading-[1.4] font-semibold text-ink">{block.asks}</h3>
+      <p className="m-0 mb-3 text-[12.5px] text-ink-2">{block.why_open}</p>
       {explained && <Explain explanation={explained} />}
       {suggested && (
         <p data-testid="suggested" className="m-0 mb-3 text-[12px] text-now-ink">
@@ -126,6 +122,12 @@ export function GapCard({
           ),
         )}
       </div>
+      {/* **Who asked, who worded it, whose explanation: one quiet line** (one builder plan 3).
+          The words may be a model's; the question and its answers are the engine's. */}
+      <p data-testid="provenance" className="m-0 mt-3 font-data text-[10.5px] text-ink-3">
+        {["asked by the engine", block.phrasing === "done" ? "worded by the model" : null,
+          explained?.what ? "curated explanation" : null].filter(Boolean).join(" · ")}
+      </p>
     </BlockFrame>
   );
 }

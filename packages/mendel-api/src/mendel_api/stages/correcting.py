@@ -11,7 +11,7 @@ from mendel_authoring.types import Command, Phase, ProposalState
 from mendel_resolver.router import IntentConflict, UnroutableError, UnroutablePinError
 from sqlalchemy import select
 
-from mendel_api.authoring.types import Receipt
+from mendel_api.authoring.types import Receipt, ReceiptAbout
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import (
@@ -178,6 +178,9 @@ def receipt(ctx, suffix=""):
                     summary=summary,
                     revision=draft.revision,
                     by="model" if by_model else "person",
+                    # What it changed, for the chat to point at (one builder plan 3). A parameter
+                    # is decided by name for the whole pipeline; the page finds its step.
+                    about=ReceiptAbout(subject=change.subject),
                 ).model_dump(mode="json")
             ],
         )

@@ -362,6 +362,34 @@ def read_artifact(draft_id: str) -> Artifact:
     return Artifact(text=text, sections=sections)
 
 
+class EmittedPipeline(BaseModel):
+    """The draft's Nextflow: what *Compile it* shows (one builder plan 5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision: int
+    main_nf: str
+    nextflow_config: str
+
+
+@router.get(
+    "/drafts/{draft_id}/emitted",
+    operation_id="emittedPipeline",
+    summary="The Nextflow the draft compiles to, as it previews",
+    responses=REFUSES,
+)
+def emitted(draft_id: str) -> EmittedPipeline:
+    """Read-only: emitted from the preview's materialisation, written nowhere (`MI0219` when
+    there is no pipeline yet)."""
+    try:
+        done = draft_service.emitted(draft_id)
+    except ValueError as nothing:
+        raise HTTPException(status_code=422, detail=str(nothing)) from None
+    return EmittedPipeline(
+        revision=done.revision, main_nf=done.main_nf, nextflow_config=done.config
+    )
+
+
 @router.get(
     "/drafts/{draft_id}/bundle",
     operation_id="downloadBundle",

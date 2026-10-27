@@ -1,0 +1,92 @@
+<style>
+  .p3 { --paper:#F4F5F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --line:#E1E4EC; --line-2:#C9CEDB;
+        --ink:#171A26; --ink-2:#474D63; --ink-3:#666C84; --done:#0F9D7A; --done-soft:#DDF3EC; --done-ink:#0B6B53;
+        --needs:#C92F36; --needs-soft:#FCE5E6; --now:#2F6FEB; --now-soft:#E6EEFD; --now-ink:#1F57C3; --now-line:#A9C2F5;
+        font-family:'Lexend',system-ui,sans-serif; color:var(--ink); }
+  .p3 .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .p3 .col { width:440px; }
+  .p3 .col > p { font-size:13px; color:var(--ink-2); margin:0 0 8px; }
+  .p3 .side { height:640px; display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--surface); overflow:hidden; }
+  .p3 .strip { flex:none; display:flex; gap:6px; padding:10px 14px; border-bottom:1px solid var(--line); font-size:12px; color:var(--ink-2); }
+  .p3 .strip .s { padding:3px 8px; border-radius:999px; border:1px solid var(--line); }
+  .p3 .strip .d { color:var(--done-ink); background:var(--done-soft); border-color:#bfe6da; }
+  .p3 .strip .n { color:var(--now-ink); background:var(--now-soft); border-color:var(--now-line); font-weight:600; }
+  .p3 .stream { flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:11px; font-size:13.5px; line-height:1.45; justify-content:flex-end; }
+  .p3 .me { align-self:flex-end; max-width:80%; background:var(--now-soft); padding:8px 12px; border-radius:12px 12px 4px 12px; }
+  .p3 .q { border:1px solid var(--line-2); border-radius:12px; padding:12px 14px; }
+  .p3 .q h4 { margin:2px 0 4px; font-size:15px; }
+  .p3 .why { font-size:12.5px; color:var(--ink-2); margin-bottom:10px; }
+  .p3 .ans { display:flex; flex-direction:column; gap:6px; }
+  .p3 .ans div { display:flex; justify-content:space-between; gap:10px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; }
+  .p3 .ans div span:last-child { color:var(--ink-3); font-size:12px; }
+  .p3 .ans .up { border-style:dashed; color:var(--now-ink); }
+  .p3 .more { font-size:12px; color:var(--ink-3); margin-top:9px; display:flex; gap:14px; text-decoration:underline; }
+  .p3 .tag { font-size:10.5px; color:var(--needs); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+  .p3 .faded { opacity:.45; }
+  .p3 .qref { font-size:12.5px; color:var(--ink-3); border-left:3px solid var(--line-2); padding:4px 10px; }
+  .p3 .dock { flex:none; border-top:1px solid var(--line); background:#FFF8F8; padding:10px 14px; }
+  .p3 .dock .h { display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:7px; }
+  .p3 .dock .h span { font-weight:400; color:var(--ink-3); font-size:12px; text-decoration:underline; }
+  .p3 .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .p3 .chips span { padding:5px 10px; border:1px solid var(--line-2); border-radius:999px; font-size:12.5px; background:#fff; }
+  .p3 .chips .up { border-style:dashed; color:var(--now-ink); }
+  .p3 .composer { flex:none; border-top:1px solid var(--line); padding:10px 14px; }
+  .p3 .composer div { border:1px solid var(--line-2); border-radius:10px; padding:9px 12px; color:var(--ink-3); font-size:13.5px; }
+</style>
+
+<h2>My recommendation: the open question follows you</h2>
+<p class="subtitle">This combines A and C. While the question is the latest thing in the chat, it's a full card (A). Once you chat past it, it shrinks into a compact bar above the text box (C) until you answer it. Left: when it's asked. Right: after a side question.</p>
+
+<div class="p3"><div class="row">
+  <div class="col">
+    <p><b>1. When it's asked:</b> the full card, with the reason, the answer notes and the links to learn more.</p>
+    <div class="side">
+      <div class="strip"><span class="s d">1</span><span class="s d">2</span><span class="s d">3</span><span class="s n">4 Align</span><span class="s">5</span><span style="margin-left:auto">Step 4 of 5</span></div>
+      <div class="stream">
+        <div>I'd add <b>STAR_ALIGN</b> next to align your reads to the mouse genome.</div>
+        <div class="q">
+          <div class="tag">Needs you</div>
+          <h4>Which mouse genome should the reads be aligned to?</h4>
+          <div class="why">STAR_ALIGN reads a genome FASTA and its GTF annotation. Asked because nothing you've said settles the assembly.</div>
+          <div class="ans">
+            <div><span>GRCm39 (Ensembl 110)</span><span>current; what most new work uses</span></div>
+            <div><span>GRCm38 / mm10</span><span>older; match old results</span></div>
+            <div class="up"><span>I have my own FASTA and GTF</span><span>upload or point to them</span></div>
+          </div>
+          <div class="more"><span>What is a genome FASTA?</span><span>Which steps read it</span></div>
+        </div>
+      </div>
+      <div class="composer"><div>Answer above, or ask anything</div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <p><b>2. After you ask something else:</b> the card in the history fades to a one-line pointer, and the question docks above the text box. Clicking "show the full question" scrolls back to the card.</p>
+    <div class="side">
+      <div class="strip"><span class="s d">1</span><span class="s d">2</span><span class="s d">3</span><span class="s n">4 Align</span><span class="s">5</span><span style="margin-left:auto">Step 4 of 5</span></div>
+      <div class="stream">
+        <div class="qref">Asked: which mouse genome to align to · <u>see it</u></div>
+        <div class="me">wait, what's the difference between a GTF and a GFF?</div>
+        <div>Both describe where genes are on the genome. <b>GTF</b> is a stricter flavour of GFF that most RNA-seq tools, STAR included, expect. If your annotation is a GFF3, I can convert it as a step. You don't need to decide that now.</div>
+        <div class="me">ok and do I need ERCC spike-ins?</div>
+        <div>Only if your lab added them to the samples. They're a wet-lab choice, not something the pipeline can add. If you did, say so and I'll account for them.</div>
+      </div>
+      <div class="dock">
+        <div class="h">Still needed: which mouse genome? <span>show the full question</span></div>
+        <div class="chips"><span>GRCm39 (Ensembl 110)</span><span>GRCm38 / mm10</span><span class="up">My own FASTA and GTF</span></div>
+      </div>
+      <div class="composer"><div>Ask anything, or answer in your own words</div></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="section" style="margin-top:18px">
+<h3>Why this is best for a researcher</h3>
+<ul style="font-size:14px;line-height:1.6">
+  <li><b>You learn where you're asked.</b> The first time you see a question, it carries the full explanation and the answer notes, which is the "tutor" part.</li>
+  <li><b>Curiosity is never punished.</b> Ask about GFFs, spike-ins, anything; the open question is still one click away and never scrolls off. It's never silently skipped (an anti-goal in the design).</li>
+  <li><b>The chat still reads like a chat.</b> No stack of boxes, because only the current question is ever a full card.</li>
+  <li><b>It matches the queue choice.</b> A message waiting in line and the docked question sit together at the bottom: what's still open is always where you're typing.</li>
+  <li><b>On a phone</b> the dock is one line ("Still needed: which mouse genome? ›") and expands on tap, so it doesn't eat the screen.</li>
+</ul>
+</div>

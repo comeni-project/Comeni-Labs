@@ -386,6 +386,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts/{draft_id}/emitted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Nextflow the draft compiles to, as it previews
+         * @description Read-only: emitted from the preview's materialisation, written nowhere (`MI0219` when
+         *     there is no pipeline yet).
+         */
+        get: operations["emittedPipeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/drafts/{draft_id}/bundle": {
         parameters: {
             query?: never;
@@ -1209,6 +1230,8 @@ export interface components {
              * @default []
              */
             edges: components["schemas"]["DraftEdge"][];
+            /** Asked At */
+            asked_at: string;
         };
         /** AuthoringRetried */
         AuthoringRetried: {
@@ -1660,7 +1683,10 @@ export interface components {
             /** Alignment */
             alignment: components["schemas"]["AlignedStep"][];
         };
-        /** Compatibility */
+        /**
+         * Compatibility
+         * @description Serializable lookup tables for interactive port compatibility checks.
+         */
         Compatibility: {
             /** Emits */
             emits?: {
@@ -1677,7 +1703,7 @@ export interface components {
         };
         /**
          * Constraints
-         * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
+         * @description The complete closed set of routing and parameter choices in a goal.
          */
         "Constraints-Input": {
             /** Required States */
@@ -1695,7 +1721,7 @@ export interface components {
         };
         /**
          * Constraints
-         * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
+         * @description The complete closed set of routing and parameter choices in a goal.
          */
         "Constraints-Output": {
             /** Required States */
@@ -1732,13 +1758,11 @@ export interface components {
          * DataProfile
          * @description Measured properties of the input data.
          *
-         *     A list rather than a mapping because `tests/guards/test_egress.py` forbids mappings in
-         *     anything reachable from a payload: a typed key does not prove a *declared* key.
+         *     The record list gives published payloads declared keys. Person-authored goal files may use a
+         *     concise measurement-to-value mapping, which the pre-validator converts to records.
          *
-         *     Build one through `MeasurementRegistry.profile()`, which is the only place that
-         *     validates values against their declarations — `tests/guards/test_construction.py` enforces
-         *     that. The mapping shorthand below exists because it is the natural way to *write* one
-         *     in a goal file, and because `Goal` needs a default.
+         *     Production callers should build profiles through ``MeasurementRegistry.profile()`` so values
+         *     are also checked against their measurement declarations.
          */
         DataProfile: {
             /** Measurements */
@@ -1881,17 +1905,9 @@ export interface components {
         };
         /**
          * DraftChannel
-         * @description Which sockets share one channel. **A decision only a person can make.**
+         * @description Sockets explicitly grouped into one input channel.
          *
-         *     Whether two GTF ports are fed by one file or by two is not derivable from the drawing: both
-         *     are legal pipelines and they analyse different experiments. So the drawing carries it.
-         *
-         *     **The default is one channel per type**, which is today's behaviour and the right answer for
-         *     the spine's shared reference annotation — an empty `channels` list means exactly that, so no
-         *     existing draft changes and nobody has to declare anything to keep working.
-         *
-         *     Splitting is the canvas control the operator asked for (*"a pipeline needs to have two same
-         *     type inputs"*), and merging two back is the same control in reverse.
+         *     Unlisted ports retain the default one-channel-per-type behavior.
          */
         DraftChannel: {
             /** Scope */
@@ -1941,37 +1957,10 @@ export interface components {
         };
         /**
          * DraftLabel
-         * @description What a person calls one socket. **On the draft, and nowhere else.**
+         * @description Private canvas label for one socket.
          *
-         *     ═══ WHAT IS DERIVED AND WHAT IS TYPED ════════════════════════════════════════════════════
-         *
-         *     The operator's constraint on 2026-08-31 was one sentence — *"yes it's a label, does not
-         *     change the actual keys"* — and the table it implies is the whole safety argument:
-         *
-         *     | | derived | typed by a person |
-         *     |---|---|---|
-         *     | the channel name (`gtf_2`) | ✓ | |
-         *     | the param (`params.gtf_2`) | ✓ | |
-         *     | the samplesheet column | ✓ | |
-         *     | the Nextflow variable | ✓ | |
-         *     | what the canvas shows | | ✓ |
-         *
-         *     So `materialise` does not read this field, nothing derived from it reaches `pipeline.yml`,
-         *     and no resolver sees it. A guard holds that rather than this docstring:
-         *     `test_a_label_reaches_nothing` builds two drafts differing only in their labels and asserts
-         *     the emitted `.nf` and the artifact are identical.
-         *
-         *     ═══ WHY A LABEL IS WORTH THIS MUCH CARE ══════════════════════════════════════════════════
-         *
-         *     **Invariant 15.** A field a person types into, which names an input, is one rename away
-         *     from `/data/patients/PT-4471023/`. Keeping it off the key and out of the artifact means the
-         *     worst case is a private note in a Postgres row rather than a patient identifier in a
-         *     published pipeline.
-         *
-         *     It also adds nothing to invariant 14's list of free-text fields: a `DraftGraph` is not a
-         *     door payload and `tests/guards/test_egress.py` is untouched by this change, which is the
-         *     assertion rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
-         *     fifteenth entry on that list and it gets the argument the tenth one got, in writing, first.
+         *     Labels never rename channel keys, parameters, samplesheet columns, or Nextflow variables and
+         *     do not reach the materialised IR or published artifact.
          */
         DraftLabel: {
             /** Key */
@@ -2003,19 +1992,9 @@ export interface components {
         };
         /**
          * DraftParam
-         * @description A setting somebody typed into the builder.
+         * @description A safe parameter value and optional reason entered in the builder.
          *
-         *     **Not a `ParamBinding`.** That carries a `ResolvedValue` — a tier, a source, a reason, the
-         *     premises a rule read — and a client must not be the thing that says at which tier its own
-         *     answer sits. A browser claiming `tier: 1` on a value a person typed would put a lie in
-         *     `pipeline.yml` that nothing downstream could catch, which is A130's shape exactly.
-         *
-         *     So a draft carries the answer and the reason, and `materialise` stamps the tier: **4, human
-         *     or model**, because a person who typed a value had a choice and made it (invariant 6).
-         *
-         *     `HumanParamValue` rather than `ParamValue`: it is the type guarded against path-shaped
-         *     values by a blocklist (audit A3), and a value typed into a browser is exactly the untrusted
-         *     input that guard exists for.
+         *     The client does not assign provenance or tier; materialisation derives those trusted fields.
          */
         DraftParam: {
             /** Name */
@@ -2109,6 +2088,18 @@ export interface components {
             /** Expected Revision */
             expected_revision: number;
         };
+        /**
+         * EmittedPipeline
+         * @description The draft's Nextflow: what *Compile it* shows (one builder plan 5).
+         */
+        EmittedPipeline: {
+            /** Revision */
+            revision: number;
+            /** Main Nf */
+            main_nf: string;
+            /** Nextflow Config */
+            nextflow_config: string;
+        };
         /** Entry */
         Entry: {
             setting: components["schemas"]["Setting"];
@@ -2116,10 +2107,7 @@ export interface components {
         };
         /**
          * EnvItem
-         * @description A record built from the environment, shown first and locked (spec §6).
-         *
-         *     `fields` maps a record field to the variable that fills it; the record exists when
-         *     `present_when` is set. Declared, so the facade needs no code that knows about models.
+         * @description A locked collection record assembled from declared environment variables.
          */
         EnvItem: {
             /** Name */
@@ -2133,8 +2121,7 @@ export interface components {
         };
         /**
          * Evidence
-         * @description How much an inspector read to decide a fact. Counts only: the goal is reachable from the
-         *     doors, so this carries no prose (the reason a fact was undetermined never reaches a goal).
+         * @description How much input an inspector read to establish a measurement.
          */
         Evidence: {
             /** Records */
@@ -2283,7 +2270,10 @@ export interface components {
          * @enum {string}
          */
         FactSource: "measured" | "model_read" | "person_said" | "open";
-        /** Finding */
+        /**
+         * Finding
+         * @description One declared diagnostic with optional node, port, and edge-endpoint context.
+         */
         Finding: {
             /** Code */
             code: string;
@@ -2380,7 +2370,10 @@ export interface components {
             /** Finished At */
             finished_at: string | null;
         };
-        /** Goal */
+        /**
+         * Goal
+         * @description The resolver input, combining desired outputs with known input facts.
+         */
         "Goal-Input": {
             /** Have */
             have?: components["schemas"]["GoalInput-Input"][];
@@ -2389,7 +2382,10 @@ export interface components {
             constraints?: components["schemas"]["Constraints-Input"];
             profile?: components["schemas"]["DataProfile"];
         };
-        /** Goal */
+        /**
+         * Goal
+         * @description The resolver input, combining desired outputs with known input facts.
+         */
         "Goal-Output": {
             /** Have */
             have?: components["schemas"]["GoalInput-Output"][];
@@ -2400,12 +2396,7 @@ export interface components {
         };
         /**
          * GoalInput
-         * @description One thing the laboratory already has, as a **shape**.
-         *
-         *     **A goal names channels rather than types since Plan 5B phase 3**, and that is what lets a
-         *     goal say *I have two annotations* — one for the reference and one per sample — where before
-         *     it could only say *I have an annotation*. `materialise.goal_of` deduplicated by `type_id`
-         *     in one line, and that line was the whole of why two `annotation.gtf` inputs were one hole.
+         * @description One available input, described by type, optional channel name, and states.
          */
         "GoalInput-Input": {
             /** Type Id */
@@ -2420,12 +2411,7 @@ export interface components {
         };
         /**
          * GoalInput
-         * @description One thing the laboratory already has, as a **shape**.
-         *
-         *     **A goal names channels rather than types since Plan 5B phase 3**, and that is what lets a
-         *     goal say *I have two annotations* — one for the reference and one per sample — where before
-         *     it could only say *I have an annotation*. `materialise.goal_of` deduplicated by `type_id`
-         *     in one line, and that line was the whole of why two `annotation.gtf` inputs were one hole.
+         * @description One available input, described by type, optional channel name, and states.
          */
         "GoalInput-Output": {
             /** Type Id */
@@ -2579,6 +2565,7 @@ export interface components {
         };
         /**
          * Level
+         * @description Severity and workflow meaning of a review finding.
          * @enum {string}
          */
         Level: "illegal" | "unmet" | "advisory";
@@ -2586,9 +2573,7 @@ export interface components {
          * Measured
          * @description One measurement and where its value came from.
          *
-         *     A generated profile records the tool; a hand-written goal records nothing, and that is
-         *     an assertion by whoever wrote it. The shorthand is not an abbreviation of provenance —
-         *     it *is* the provenance, which is why a bare scalar is allowed at all.
+         *     Generated entries record their measurer; a bare person-authored value is asserted.
          */
         Measured: {
             /** Measurement */
@@ -2603,7 +2588,10 @@ export interface components {
             pieces?: string[];
             evidence?: components["schemas"]["Evidence"] | null;
         };
-        /** Measurement */
+        /**
+         * Measurement
+         * @description A typed property that a goal may assert or a profiling contract may measure.
+         */
         Measurement: {
             /** Id */
             id: string;
@@ -2716,11 +2704,7 @@ export interface components {
         };
         /**
          * MetaValue
-         * @description One value translation between our vocabulary and a module's.
-         *
-         *     A list of records rather than a mapping, matching `ParamBinding` and `Measured`: a
-         *     typed key does not prove a declared key, and `Measurement` is one field away from
-         *     being reachable from a publish bundle.
+         * @description Translate one declared value to the value expected in module metadata.
          */
         MetaValue: {
             /** When */
@@ -2931,12 +2915,9 @@ export interface components {
         };
         /**
          * ParamOverride
-         * @description A parameter the user pinned. Closed, so it cannot carry a path.
+         * @description A validated human parameter override.
          *
-         *     Previously these lived as arbitrary keys in an open `dict[str, Any]`, which meant
-         *     `constraints: {seq_platform: /data/patients/PT-4471023/S1_R1.fastq.gz}` validated,
-         *     reached `main.nf`, was labelled tier 1 with review `none`, and *suppressed* the
-         *     tier-4 flag it replaced. Invariant 15 says no input accepts a path; it did.
+         *     The closed value type prevents arbitrary path-bearing values from entering a goal.
          */
         ParamOverride: {
             /** Name */
@@ -3055,8 +3036,9 @@ export interface components {
         };
         /**
          * ProducerExclusion
-         * @description A tool a person excluded at a site (A1). The router takes the next candidate there; if
-         *     none is left, the conflict is raised rather than resolved.
+         * @description A producer excluded at one site.
+         *
+         *     The router uses another candidate or reports a conflict when none remains.
          */
         "ProducerExclusion-Input": {
             site: components["schemas"]["Site-Input"];
@@ -3065,8 +3047,9 @@ export interface components {
         };
         /**
          * ProducerExclusion
-         * @description A tool a person excluded at a site (A1). The router takes the next candidate there; if
-         *     none is left, the conflict is raised rather than resolved.
+         * @description A producer excluded at one site.
+         *
+         *     The router uses another candidate or reports a conflict when none remains.
          */
         "ProducerExclusion-Output": {
             site: components["schemas"]["Site-Output"];
@@ -3075,9 +3058,9 @@ export interface components {
         };
         /**
          * ProducerPin
-         * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
-         *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
-         *     longer proven from the data, and a reader sees who decided.
+         * @description A person's producer choice at a routing site.
+         *
+         *     The router applies it before rules and records a differing choice as a human override.
          */
         "ProducerPin-Input": {
             site: components["schemas"]["Site-Input"];
@@ -3086,9 +3069,9 @@ export interface components {
         };
         /**
          * ProducerPin
-         * @description A person's tool at a site. Honoured by the router before any rule, and recorded as the
-         *     person's at tier 4 when it differs from the engine's pick (invariant 6): the step is then no
-         *     longer proven from the data, and a reader sees who decided.
+         * @description A person's producer choice at a routing site.
+         *
+         *     The router applies it before rules and records a differing choice as a human override.
          */
         "ProducerPin-Output": {
             site: components["schemas"]["Site-Output"];
@@ -3230,6 +3213,18 @@ export interface components {
              * @enum {string}
              */
             by: "person" | "model" | "resolver";
+            about?: components["schemas"]["ReceiptAbout"] | null;
+        };
+        /**
+         * ReceiptAbout
+         * @description What a receipt changed, so the chat's announcement can point at it (one builder plan 3):
+         *     a step on the canvas, a subject in *What was understood*, or both.
+         */
+        ReceiptAbout: {
+            /** Node */
+            node?: string | null;
+            /** Subject */
+            subject?: string | null;
         };
         /**
          * Refusal
@@ -3254,12 +3249,10 @@ export interface components {
         };
         /**
          * RequiredStates
-         * @description States a wanted output must carry.
+         * @description A wanted output type and the states it must carry.
          *
-         *     A record rather than a mapping key, because `tests/guards/test_egress.py` forbids mappings in
-         *     anything reachable from a payload and `Goal` became reachable when the publication payload
-         *     started carrying one. `dict[TypeId, list[StateName]]` type-checks perfectly while
-         *     saying nothing about whether the key was ever declared.
+         *     The record form keeps payload keys declared and validated. ``Constraints`` still accepts a
+         *     mapping shorthand when reading person-authored goal files.
          */
         RequiredStates: {
             /** Type Id */
@@ -3269,8 +3262,7 @@ export interface components {
         };
         /**
          * RoleAbsence
-         * @description A role a person switched off: no step fills it (A1, the one-builder design). The same
-         *     semantics as a rule's `presence: absent`, so the router drops every contract filling it.
+         * @description A role disabled by a person, excluding every contract that fills it.
          */
         RoleAbsence: {
             /** Role */
@@ -3504,11 +3496,7 @@ export interface components {
         };
         /**
          * Site
-         * @description Where the router chooses a tool: the type it must produce, with these states.
-         *
-         *     One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
-         *     step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
-         *     which place they mean.
+         * @description A routing location identified by output type and required states.
          */
         "Site-Input": {
             /** Type Id */
@@ -3521,11 +3509,7 @@ export interface components {
         };
         /**
          * Site
-         * @description Where the router chooses a tool: the type it must produce, with these states.
-         *
-         *     One identity for a place a tool is chosen — a person's pin, the blueprint's candidates for a
-         *     step, an amendment (§14.3 of the consultant build) — so the three cannot disagree about
-         *     which place they mean.
+         * @description A routing location identified by output type and required states.
          */
         "Site-Output": {
             /** Type Id */
@@ -3540,8 +3524,7 @@ export interface components {
         Source: "default" | "installation" | "environment" | "reported";
         /**
          * SourcePin
-         * @description Which tool a person chose to feed a step's port (A1): the consumer's contract, its port,
-         *     and the producer whose output feeds it. Recorded as the person's at tier 4.
+         * @description A person's choice of producer for one consumer port.
          */
         SourcePin: {
             /** Consumer */
@@ -3746,21 +3729,14 @@ export interface components {
         };
         /**
          * ValueSource
-         * @description Who decided a value, recorded separately from how well it was decided.
-         *
-         *     A tier says *how* something was settled; it should not also have to say *who*. A user
-         *     who pins a parameter has legitimately removed the ambiguity, so the tier is still
-         *     structural — but a reviewer needs to see that Mendel did not derive it. Same shape as
-         *     measured-versus-asserted in the profiling spec, and for the same reason.
-         *
-         *     **Not `PremiseOrigin`, which also has a `DERIVED`.** That enum answers *how good is this
-         *     as evidence*; this one answers *who settled it*. Its own docstring draws the same line,
-         *     and the two `DERIVED`s mean different things: there, a fact computed from other facts;
-         *     here, a fact read straight off a source file.
+         * @description Identify who or what settled a value, independently of its resolution tier.
          * @enum {string}
          */
         ValueSource: "resolver" | "said" | "human" | "model" | "measured" | "derived";
-        /** Verdict */
+        /**
+         * Verdict
+         * @description A complete collection of validation findings.
+         */
         Verdict: {
             /**
              * Findings
@@ -3789,8 +3765,7 @@ export interface components {
         };
         /**
          * Where
-         * @description Where a value is kept. **`browser` is per browser and never reaches the server**: the
-         *     theme is one. The server still declares it, so the menu draws it with everything else.
+         * @description Persistence boundary for a setting; browser values never reach the server.
          * @enum {string}
          */
         Where: "installation" | "browser";
@@ -4394,6 +4369,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Artifact"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    emittedPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmittedPipeline"];
                 };
             };
             /** @description The id in the path names nothing. */

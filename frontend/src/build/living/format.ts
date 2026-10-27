@@ -102,3 +102,54 @@ const PURPOSE: Record<string, string> = {
 export function purposeWords(purpose: string): string {
   return PURPOSE[purpose] ?? purpose;
 }
+
+/** **Messages waiting in line** (issue 392): the person turns whose reply is pending behind an
+ *  older pending reply. The oldest pending reply is the one being written; the others wait. */
+export function queued(session: AuthoringSession): Set<number> {
+  const pending = session.turns.filter((t) => t.role === "assistant" && t.state === "pending");
+  const behind = new Set(pending.slice(1).map((t) => t.seq));
+  const waiting = new Set<number>();
+  session.turns.forEach((turn, i) => {
+    const reply = session.turns[i + 1];
+    if (turn.role === "person" && reply && behind.has(reply.seq)) waiting.add(turn.seq);
+  });
+  return waiting;
+}
+
+/** **The open question follows you** (one builder plan 3): once the person says anything after
+ *  it was asked, it leaves the end of the conversation and docks above the composer. */
+export function docked(session: AuthoringSession): boolean {
+  const asked = session.pending_proposal?.asked_at;
+  if (!asked) return false;
+  const at = Date.parse(asked);
+  return session.turns.some((turn) => turn.role === "person" && Date.parse(turn.at) > at);
+}
+
+/** What the open question asks, in one line: the dock's title and the pointer left in its place. */
+export function questionTitle(proposal: NonNullable<AuthoringSession["pending_proposal"]>): string {
+  const block = proposal.block;
+  if (block.kind === "question") return block.asks;
+  if (block.kind === "step_proposal") return `Add ${processName(block.node)}?`;
+  if (proposal.kind === "goal") return "Is this what you want?";
+  return "The question above";
+}
+
+/** **The hand-over** (issue 393): the newest wrap-up of a complete session with nothing on
+ *  offer. The engine writes one per revision; only the newest is drawn as the card. */
+export function handoverId(session: AuthoringSession): string | null {
+  if (session.phase !== "complete" || session.pending_proposal) return null;
+  for (const turn of [...session.turns].reverse()) {
+    const wrap = [...turn.blocks].reverse().find((b) => b.kind === "receipt" && b.id.startsWith("wrap-"));
+    if (wrap) return wrap.id;
+  }
+  return null;
+}
+
+/** The pipeline's steps in the order they were decided, then any added by hand, by id. */
+export function stepsInOrder(session: AuthoringSession): string[] {
+  const decided = session.history
+    .filter((d) => d.state === "accepted" && d.block.kind === "step_proposal")
+    .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""));
+  const added = session.graph.nodes.map((n) => n.id).filter((id) => !decided.includes(id)).sort();
+  return [...decided, ...added];
+}

@@ -19,6 +19,7 @@ leave the turn spinning.
 import logging
 from dataclasses import replace
 
+from arq import Retry
 from comeni_ai import Client
 from mendel_authoring import commands as c
 from mendel_authoring.interpret import Refused
@@ -89,6 +90,11 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
     if context is None:
         # Already answered, or already failed as late. A duplicate delivery must not spend a call.
         return f"{session_id}:{seq} was not pending"
+    if describe.earlier_pending(session_id, seq):
+        # **Messages wait in line** (#392): the composer never locks, so a second message can
+        # arrive while the first is answered, and with more than one AI job at a time its job
+        # can start first. It goes back on the queue until the reply ahead of it is written.
+        raise Retry(defer=WAIT_IN_LINE_SECONDS)
 
     # **What the commands below ask for is queued once this is done** (plan 1c): the first
     # question's phrasing when the want is understood, the card's read-back.
@@ -103,6 +109,16 @@ async def answer_authoring_turn(ctx: dict, session_id: str, seq: int) -> str:
             # tells `chat.v3` which question is open.
             _follow_up(session_id, seq, context)
     return f"{session_id}:{seq}"
+
+
+WAIT_IN_LINE_SECONDS = 3
+"""How long a message waiting behind another's reply waits before it looks again."""
+
+
+def tries_in_line(job_timeout_seconds: int) -> int:
+    """Tries enough for a message to outwait one reply ahead of it at its longest, plus ARQ's
+    default five for a re-delivery: ARQ counts a `Retry` as a try."""
+    return job_timeout_seconds // WAIT_IN_LINE_SECONDS + 5
 
 
 NO_FAMILY_FITS = "Which kind of result do you want?"

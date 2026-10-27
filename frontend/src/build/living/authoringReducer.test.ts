@@ -256,7 +256,12 @@ describe("the small states", () => {
     expect(typed.composer).toBe("why STAR?");
     const sent = run([{ type: "sent", text: "why STAR?" }], typed);
     expect(sent.composer).toBe("");
-    expect(sent.saying).toBe("why STAR?");
+    expect(sent.sending).toEqual(["why STAR?"]);
+  });
+
+  it("keeps two messages sent before either lands, in order (issue 392)", () => {
+    const both = run([{ type: "sent", text: "what is a GTF?" }, { type: "sent", text: "and a GFF?" }]);
+    expect(both.sending).toEqual(["what is a GTF?", "and a GFF?"]);
   });
 
   it("keeps a sent message until the latest person turn carries the same words", () => {
@@ -268,14 +273,14 @@ describe("the small states", () => {
     const waiting = run([
       { type: "snapshot", session: session({ turns: [person(1, "an earlier question")] }) },
     ], sent);
-    expect(waiting.saying).toBe("why STAR?");
+    expect(waiting.sending).toEqual(["why STAR?"]);
 
     const landed = run([
       { type: "snapshot", session: session({
         turns: [person(1, "an earlier question"), person(2, "why STAR?")],
       }) },
     ], waiting);
-    expect(landed.saying).toBeNull();
+    expect(landed.sending).toEqual([]);
   });
 
   it("forgets an animation once it has played", () => {

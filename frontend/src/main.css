@@ -329,11 +329,14 @@ body {
 .living { display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
 .living > .living-canvas { min-height: 0; }
 /* The pipeline file (#379): the values and their reasons, beside the file. Values first when stacked. */
-.pipeline-file { display: grid; grid-template-columns: minmax(0, 1fr) 520px; height: 100%; }
+/* The pipeline file, file first (one builder plan 5): the file, and the reason beside it. On a
+   phone the reason is a sheet from the bottom. */
+.pipeline-file { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; }
 .pipeline-file > .file-column { position: sticky; top: 0; max-height: 100%; }
-@media (max-width: 1180px) { .pipeline-file { grid-template-columns: minmax(0, 1fr) 420px; } }
-@media (max-width: 999px) { .pipeline-file { grid-template-columns: minmax(0, 1fr); }
-  .pipeline-file > .file-column { position: static; max-height: none; border-left: 0 !important; } }
+@media (max-width: 999px) { .pipeline-file { grid-template-columns: minmax(0, 1fr) 300px; } }
+@media (max-width: 640px) { .pipeline-file { grid-template-columns: minmax(0, 1fr); }
+  .pipeline-file > .file-column { position: fixed; left: 0; right: 0; bottom: 0; top: auto; max-height: 45dvh;
+    border-left: 0 !important; border-top: 1px solid var(--line); z-index: 20; } }
 @media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 1000px) {
   .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);
@@ -364,4 +367,14 @@ body {
 .living-reveal { animation: living-reveal 260ms var(--ease) both; }
 @media (prefers-reduced-motion: reduce) {
   .living-pop, .living-settle, .living-draw, .living-reveal { animation: none !important; stroke-dasharray: none; }
+}
+
+/* **On a phone, one pane at a time** (one builder plan 3): the conversation, the canvas, or what was
+   understood, chosen by `.phone-tabs`. Wider, the tabs are not drawn and every pane shows. */
+.phone-tabs { display: none; }
+@media (max-width: 640px) {
+  .phone-tabs { display: flex; }
+  .living[data-pane="chat"] > .living-canvas { display: none; }
+  .living[data-pane="canvas"] > .living-rail, .living[data-pane="understood"] > .living-rail { display: none; }
+  .living > .living-canvas { height: calc(100dvh - 180px); }
 }

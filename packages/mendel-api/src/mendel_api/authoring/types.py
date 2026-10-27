@@ -389,6 +389,16 @@ class ChangeSet(_Block):
     settings: list[str] = []
 
 
+class ReceiptAbout(BaseModel):
+    """What a receipt changed, so the chat's announcement can point at it (one builder plan 3):
+    a step on the canvas, a subject in *What was understood*, or both."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    node: str | None = Field(default=None, max_length=200)
+    subject: str | None = Field(default=None, max_length=400)
+
+
 class Receipt(_Block):
     """What was committed, after the fact and immutably.
 
@@ -402,6 +412,7 @@ class Receipt(_Block):
     summary: Prose
     revision: int = Field(ge=0)
     by: Literal["person", "model", "resolver"]
+    about: ReceiptAbout | None = None
 
 
 class Notice(_Block):

@@ -167,6 +167,13 @@ or a complete commit history.
 
 #### Added
 
+- A session's chat replies run in the order its messages were sent, at any AI concurrency
+  ([#392](https://github.com/comeni-project/Comeni-Labs/issues/392)). A pending proposal says
+  when it was asked (`asked_at`); a receipt says what it changed (`about`), and turn blocks move
+  to shape 4. What a sample measured is announced in the conversation.
+- `GET /pipeline/drafts/{id}/emitted`: the Nextflow a draft compiles to, from its preview, written
+  nowhere (`MI0219` while there is no pipeline yet).
+
 - Structural intents are decision families (`role`, `exclusion`, `source`) with history;
   pinning a tool withdraws its exclusion at that site and the reverse. Turn blocks move to
   shape 3 ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395), A1).
@@ -306,6 +313,23 @@ or a complete commit history.
 ### frontend
 
 #### Added
+
+- **The build is one conversation** (one builder plan 3,
+  [#392](https://github.com/comeni-project/Comeni-Labs/issues/392),
+  [#391](https://github.com/comeni-project/Comeni-Labs/issues/391)): the *Step* and *Assistant*
+  tabs become one stream beside the canvas, with a step strip above it. The composer never
+  locks; messages sent while the engine works wait in line. Each engine question and step offer
+  is a message; once you talk past a question it docks above the composer. A step opens over
+  the conversation. Describe uses the same frame, *What was understood* where the canvas will be
+  and *Start building* in the header. Changes made elsewhere are announced with a link.
+- **A build ends with a hand-over** ([#393](https://github.com/comeni-project/Comeni-Labs/issues/393)):
+  what was built, how its values were decided (each count opening the pipeline file), what still
+  needs you (each opening its step; Run stays locked), and what next. Composed from the
+  engine's records; the wrap-up sentence stays under it.
+- **The pipeline file, file first** ([#394](https://github.com/comeni-project/Comeni-Labs/issues/394)):
+  each value's line carries a mark of how it was decided, any line of a value opens its reason
+  beside the file, the counts filter the file, and *Compile it* shows `main.nf` and
+  `nextflow.config`. The values table gives way to the marks and the reason.
 
 - **One builder at `/build`** ([#395](https://github.com/comeni-project/Comeni-Labs/issues/395)): every pipeline opens as a conversation and a
   canvas; `?draft=` and a bare `/build` open or start one. The canvas has the manual builder's

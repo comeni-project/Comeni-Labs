@@ -78,6 +78,22 @@ def test_an_upload_records_every_decided_fact_as_measured(clean):
     assert all("shorter_file" not in (f.get("evidence") or {}) for f in facts)
 
 
+def test_what_a_sample_measured_is_announced_in_the_conversation(clean):
+    """One builder plan 3: a change made outside the chat is said in it, pointing at what it
+    changed — one receipt per fact the sample settled, in the order recorded."""
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    before = len(facade.read(sid)["turns"])
+    facade.perform(commands.SampleInspected(
+        pid, _measured(read_length=150, paired=True).model_dump(mode="json"), "ana"))
+    receipts = [b for t in facade.read(sid)["turns"][before:] for b in t["blocks"]
+                if b["kind"] == "receipt" and b["id"].startswith("sample-")]
+    assert receipts, "the sample's facts were not announced"
+    assert {r["about"]["subject"] for r in receipts} == {"read_length", "paired"}
+    assert all(r["by"] == "resolver" and r["summary"].startswith("Measured from your sample:")
+               for r in receipts)
+
+
 def test_what_the_person_said_is_kept_and_the_difference_reported(clean):
     """Review focus 4: the person said single-end; the file reads as a pair."""
     sid = _gathering(["counts.matrix"])

@@ -2927,6 +2927,19 @@ MI0217:
     During the walk the draft is the projection of the blueprint: the steps you have reviewed,
     rebuilt from the goal after every change. A hand edit would have nowhere to live — the next
     change would rebuild the draft without it — so it is refused rather than quietly lost.
+MI0219:
+  emitted_by: api
+  concern: workflow
+  says: "there is no pipeline to compile yet"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Add steps, or answer what the conversation asks, until the pipeline file shows a preview;
+    then compile it again.
+  explanation: |
+    Compiling emits the Nextflow from the same pipeline the file previews. A draft that is
+    empty, outdated, illegal or cannot be materialised has no pipeline to emit, and an empty
+    or partial main.nf would read as one that compiled.
 MI0300:
   emitted_by: api
   concern: settings

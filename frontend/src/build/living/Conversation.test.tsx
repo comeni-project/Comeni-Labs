@@ -101,8 +101,9 @@ describe("the goal card", () => {
     // its turn and editable beneath, which is two goals on a screen whose job is to check one.
     mount(<GuidedLiving />);
     expect(screen.getAllByRole("region", { name: "the goal as understood" })).toHaveLength(1);
-    // Nothing is built yet, so the page is the describe page and draws no canvas at all.
-    expect(screen.getByRole("region", { name: "describe" })).toBeInTheDocument();
+    // Nothing is built yet: the goal sits where the canvas will be, and no canvas is drawn; the
+    // conversation only says where to look (one builder plan 3).
+    expect(screen.getByTestId("goal-elsewhere")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
   });
 
@@ -398,7 +399,7 @@ describe("saying something", () => {
       <LivingSurface
         session={framed(quiet as AuthoringSession, FAKE_STEPS)}
         graph={quiet.graph}
-        state={{ ...initialAuthoring, snapshot: quiet as AuthoringSession, saying: "and the sorter?" }}
+        state={{ ...initialAuthoring, snapshot: quiet as AuthoringSession, sending: ["and the sorter?"] }}
         preview={null}
         busy={() => false}
         onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()} onSelect={vi.fn()}
@@ -406,7 +407,6 @@ describe("saying something", () => {
         onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: /^Assistant/ }));
     expect(screen.getByTestId("saying")).toHaveTextContent("and the sorter?");
     expect(screen.getByText("sending…")).toBeInTheDocument();
   });
@@ -422,16 +422,17 @@ describe("the card and the canvas point at each other", () => {
     expect(screen.getByTestId("living-node-star_genomegenerate")).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("selecting a step on the canvas opens it in the panel, and closing it brings the line back", async () => {
+  it("selecting a step on the canvas opens it over the conversation, and closing it returns there", async () => {
     mount(<GuidedLiving />);
     await act(async () => fireEvent.click(screen.getByTestId("accept-goal")));
     await act(async () => fireEvent.click(screen.getByTestId("accept-step")));
     fireEvent.click(screen.getByTestId("living-node-star_genomegenerate"));
     expect(screen.getByRole("region", { name: "step STAR_GENOMEGENERATE" })).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "the plan" })).toBeNull();
+    expect(screen.queryByRole("log", { name: "conversation" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Close the step" }));
-    expect(screen.getByRole("button", { name: /STAR_GENOMEGENERATE step 1/ }))
-      .toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("log", { name: "conversation" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "the plan" }))
+      .getByRole("button", { name: "STAR_GENOMEGENERATE" })).toHaveAttribute("aria-pressed", "false");
   });
 });
 

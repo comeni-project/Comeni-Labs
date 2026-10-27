@@ -28,7 +28,7 @@ from mendel_api.stages import _jobs, gathering
 from mendel_api.stages._rows import GOAL, new_id, next_seq
 from mendel_api.stages._rows import now as _now
 
-READS = ("turn_context",)
+READS = ("turn_context", "earlier_pending")
 """What a job may read of this stage directly (ruling 2 of plan 1c); every change is a command."""
 
 UNTITLED = "Untitled analysis"
@@ -206,6 +206,20 @@ def newest_pending(session_id: str) -> int | None:
             .order_by(PipelineAuthoringTurn.seq.desc())
             .limit(1)
         )
+
+def earlier_pending(session_id: str, seq: int) -> bool:
+    """Whether a reply before turn `seq` is still being written: that turn waits in line."""
+    with session_scope() as db:
+        return db.scalar(
+            select(PipelineAuthoringTurn.seq)
+            .where(
+                PipelineAuthoringTurn.session_id == session_id,
+                PipelineAuthoringTurn.role == TurnRole.ASSISTANT,
+                PipelineAuthoringTurn.state == TurnState.PENDING.value,
+                PipelineAuthoringTurn.seq < seq,
+            )
+            .limit(1)
+        ) is not None
 
 class TurnContext(NamedTuple):
     """What one model call is grounded on, read in one transaction so the parts agree.

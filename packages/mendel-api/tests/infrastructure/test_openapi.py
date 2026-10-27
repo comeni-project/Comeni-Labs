@@ -94,6 +94,7 @@ def test_every_operation_is_named_by_hand():
         # serves a zip, so the generated client's return type is not a schema; `client.ts`
         # has a `blob()` for exactly this one and nothing else.
         ("/api/pipeline/drafts/{draft_id}/bundle", "get"): "downloadBundle",
+        ("/api/pipeline/drafts/{draft_id}/emitted", "get"): "emittedPipeline",
         ("/api/pipeline/drafts/{draft_id}/gate", "post"): "startGate",
         ("/api/pipeline/gates/{run_id}", "get"): "readGate",
         ("/api/attention", "get"): "whatNeedsYou",

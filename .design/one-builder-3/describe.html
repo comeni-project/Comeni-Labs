@@ -1,0 +1,112 @@
+<style>
+  .p3 { --paper:#F4F5F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --line:#E1E4EC; --line-2:#C9CEDB;
+        --ink:#171A26; --ink-2:#474D63; --ink-3:#666C84; --done:#0F9D7A; --done-soft:#DDF3EC; --done-ink:#0B6B53;
+        --measured:#9A5B00; --measured-soft:#FBF0DC; --needs:#C92F36; --needs-soft:#FCE5E6;
+        --now:#2F6FEB; --now-soft:#E6EEFD; --now-ink:#1F57C3; --now-line:#A9C2F5;
+        font-family:'Lexend',system-ui,sans-serif; color:var(--ink); }
+  .p3 .frame { max-width:1400px; height:800px; display:flex; flex-direction:column; background:var(--paper); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .p3 .bar { height:52px; flex:none; display:flex; align-items:center; gap:18px; padding:0 22px; border-bottom:1px solid var(--line); font-size:14px; }
+  .p3 .body { flex:1; display:flex; min-height:0; }
+  .p3 .left { flex:1; overflow:auto; padding:28px 36px; }
+  .p3 .left h2 { margin:0 0 4px; font-size:20px; }
+  .p3 .left .sub { font-size:13px; color:var(--ink-2); margin-bottom:16px; }
+  .p3 .sent { border:1px solid var(--now-line); box-shadow:0 0 0 3px var(--now-soft); background:#fff; border-radius:12px; padding:14px 18px; font-size:15px; line-height:1.55; margin-bottom:22px; }
+  .p3 .rec { background:#fff; border:1px solid var(--line); border-radius:12px; }
+  .p3 .rec .r { display:grid; grid-template-columns:130px 1fr 120px; gap:14px; padding:12px 18px; border-top:1px solid var(--line); font-size:13.5px; }
+  .p3 .rec .r:first-child { border-top:0; }
+  .p3 .rec .k { color:var(--ink-3); font-size:12.5px; padding-top:2px; }
+  .p3 .rec .v b { font-weight:600; }
+  .p3 .rec .v small { display:block; color:var(--ink-3); font-size:12px; margin-top:3px; }
+  .p3 .chip { justify-self:end; align-self:start; font-size:11.5px; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .p3 .said { background:var(--done-soft); color:var(--done-ink); }
+  .p3 .conv { background:#EEF0F5; color:var(--ink-2); }
+  .p3 .meas { background:var(--measured-soft); color:var(--measured); }
+  .p3 .need { background:var(--needs-soft); color:var(--needs); }
+  .p3 .r.hl { background:#FFFBF0; box-shadow:inset 3px 0 0 var(--measured); }
+  .p3 .r.hot { background:#FFF8F8; box-shadow:inset 3px 0 0 var(--needs); }
+  .p3 .side { width:460px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--surface); }
+  .p3 .strip { flex:none; padding:10px 16px; border-bottom:1px solid var(--line); font-size:12px; color:var(--ink-2); display:flex; gap:8px; }
+  .p3 .strip .n { color:var(--now-ink); font-weight:600; }
+  .p3 .stream { flex:1; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:11px; font-size:13.5px; line-height:1.45; justify-content:flex-end; }
+  .p3 .me { align-self:flex-end; max-width:80%; background:var(--now-soft); padding:8px 12px; border-radius:12px 12px 4px 12px; }
+  .p3 .ann { font-size:12.5px; color:var(--ink-2); padding:6px 10px; border-left:3px solid var(--done); background:var(--surface-2); border-radius:0 8px 8px 0; }
+  .p3 .ann u { color:var(--now-ink); }
+  .p3 .q { border:1px solid var(--line-2); border-radius:12px; padding:12px 14px; }
+  .p3 .q h4 { margin:2px 0 4px; font-size:15px; }
+  .p3 .tag { font-size:10.5px; color:var(--needs); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+  .p3 .why { font-size:12.5px; color:var(--ink-2); margin-bottom:10px; }
+  .p3 .ans { display:flex; flex-direction:column; gap:6px; }
+  .p3 .ans div { display:flex; justify-content:space-between; gap:10px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; }
+  .p3 .ans div span:last-child { color:var(--ink-3); font-size:12px; text-align:right; }
+  .p3 .ans .up { border-style:dashed; color:var(--now-ink); }
+  .p3 .more { font-size:12px; color:var(--ink-3); margin-top:9px; display:flex; gap:14px; text-decoration:underline; }
+  .p3 .prov { font-size:11px; color:var(--ink-3); margin-top:8px; }
+  .p3 .composer { flex:none; border-top:1px solid var(--line); padding:12px 16px; }
+  .p3 .composer div { border:1px solid var(--line-2); border-radius:10px; padding:10px 12px; color:var(--ink-3); font-size:13.5px; }
+</style>
+
+<h2>Describe in the same frame</h2>
+<p class="subtitle">Before anything is built there's no canvas, so the left side shows <b>What was understood</b> (the part of the Describe board you liked) and the chat stays on the right. When you press <i>Start building</i>, the left side turns into the canvas, and the chat stays where it is.</p>
+
+<div class="p3">
+<div class="frame">
+  <div class="bar"><b>New analysis</b><span style="color:var(--ink-3)">Describing</span><span style="margin-left:auto;padding:6px 14px;border-radius:8px;background:#e8eaf0;color:var(--ink-3)">Start building · 1 question left</span></div>
+  <div class="body">
+    <div class="left">
+      <h2>What was understood</h2>
+      <div class="sub">This becomes your pipeline's goal. Wrong? Click a line to correct it.</div>
+      <div class="sent">I have 12 paired-end RNA-seq samples from mouse liver, treated and control, and I want gene counts so I can run a differential expression analysis.</div>
+      <div class="rec">
+        <div class="r"><div class="k">You have</div><div class="v"><b>Paired-end reads</b> × 12 samples<small>From "12 paired-end RNA-seq samples". You'll point at the files when you run it.</small></div><span class="chip said">you said</span></div>
+        <div class="r"><div class="k">You want</div><div class="v"><b>A gene counts matrix</b>: reads per gene<small>From "gene counts … differential expression". The pipeline stops at counts; the statistics are yours.</small></div><span class="chip said">you said</span></div>
+        <div class="r"><div class="k">Organism</div><div class="v"><b>Mouse</b> · GRCm39, GENCODE M35 genes<small>From "mouse". The newest assembly is the convention unless you name another.</small></div><span class="chip conv">convention</span></div>
+        <div class="r hl"><div class="k">Read length</div><div class="v"><b>150 bp</b><small>Measured from the sample you just added (2 files, first 4 MB each).</small></div><span class="chip meas">measured</span></div>
+        <div class="r hot"><div class="k">Strandedness</div><div class="v"><b>Not known yet</b><small>Your sentence doesn't say. Being asked in the chat →</small></div><span class="chip need">needs you</span></div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="strip"><span class="n">Describing</span><span>· then you choose how to build</span></div>
+      <div class="stream">
+        <div class="me">here's a sample: liver_T1_R1.fastq.gz, liver_T1_R2.fastq.gz</div>
+        <div class="ann">Measured from your sample: reads are <b>150 bp</b>, paired. Added to <u>Read length</u>.</div>
+        <div class="q">
+          <div class="tag">Needs you</div>
+          <h4>Was the library prepared stranded?</h4>
+          <div class="why">The counting step needs this. With the wrong strand it can drop about half your reads. I won't guess it.</div>
+          <div class="ans">
+            <div><span>Reverse-stranded</span><span>most Illumina TruSeq stranded kits</span></div>
+            <div><span>Forward-stranded</span><span>some ligation kits</span></div>
+            <div><span>Unstranded</span><span>older or non-stranded kits</span></div>
+            <div><span>I don't know</span><span>a step can measure it from the alignments</span></div>
+          </div>
+          <div class="more"><span>What is strandedness?</span><span>Which steps read it</span></div>
+          <div class="prov">asked by the engine · worded by the model · curated explanation</div>
+        </div>
+      </div>
+      <div class="composer"><div>Answer above, or ask anything</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="section" style="margin-top:18px">
+<h3>What changes from today's Describe page</h3>
+<ul style="font-size:14px;line-height:1.6">
+  <li><b>The chat moves from the bottom of the page into the right column</b>, the same column it keeps for the whole build. Today the conversation sits below everything else.</li>
+  <li><b>The "What it needs" card (#391) goes.</b> Its questions arrive in the chat as question cards (the screen you just approved), so Describe's questions and the build's questions look the same.</li>
+  <li><b>What was understood takes the main area</b> and the table grows as facts arrive. A line the chat just changed glows briefly (Read length here). The open row (Strandedness) points to the chat; clicking it brings the question back.</li>
+  <li><b>Start building moves to the top bar</b> and says how many questions are left. The pace choice (step by step or all at once) becomes the last question in the chat, so it's no longer a pair of cards on the page.</li>
+</ul>
+</div>
+
+<h3>Is that the right shape?</h3>
+<div class="options">
+  <div class="option" data-choice="same-frame" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Same frame (drawn above)</h3><p>One layout from the first sentence to the last step. The left side swaps from the record to the canvas; nothing jumps.</p></div>
+  </div>
+  <div class="option" data-choice="column" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Keep Describe a single centred column</h3><p>Sentence, then chat, then the record below it, closer to today's page and the board. Easier on a phone, but the page reshapes when building starts.</p></div>
+  </div>
+</div>

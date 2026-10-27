@@ -42,17 +42,15 @@ function page(session: AuthoringSession, overrides = {}) {
 }
 
 const with_ = (changes: Partial<AuthoringSession>) => ({ ...FAKE_SESSION, ...changes }) as AuthoringSession;
-const tab = (name: string) => screen.getByRole("tab", { name });
 
 describe("the describe stage", () => {
-  it("is a page of its own: the sentence, the goal waiting to be checked, and no canvas", () => {
+  it("is the build's frame: the goal being checked where the canvas will be, the conversation beside it", () => {
     page(guidedStart());
-    const describe_ = screen.getByRole("region", { name: "describe" });
-    expect(within(describe_).getByRole("heading", { name: "What do you want to analyse?" })).toBeInTheDocument();
-    expect(within(describe_).getByTestId("your-sentence")).toHaveTextContent("12 paired RNA-seq samples");
-    expect(within(describe_).getByRole("button", { name: /Start building/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "the goal as understood" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("describe-header")).getByRole("button", { name: /Start building/ }))
+      .toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "pipeline canvas" })).toBeNull();
-    expect(screen.queryByRole("tablist")).toBeNull();
   });
 
   it("draws no header strip: the page is the describe page", () => {
@@ -65,11 +63,10 @@ describe("the describe stage", () => {
     expect(screen.queryByTestId("living-view-artifact")).toBeNull();
   });
 
-  it("keeps a composer below the card, and the conversation once there is more than the sentence", () => {
+  it("keeps a composer under the conversation, which holds what is said next", () => {
     const start = guidedStart();
     const { again } = page(start);
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
-    expect(screen.queryByRole("log", { name: "conversation" })).toBeNull();
     again({ ...start, turns: [...start.turns,
       { seq: 9, role: "person", state: "answered", base_revision: 0, at: "2026-10-20T10:00:00Z",
         blocks: [], text: "it is mouse, not human" }] } as AuthoringSession);
@@ -101,65 +98,41 @@ describe("the describe stage", () => {
         options: [{ id: "together", label: "Go through it together" }] },
     };
     page(with_({ phase: "building", pending_proposal: pacing } as Partial<AuthoringSession>));
-    expect(within(screen.getByRole("region", { name: "describe" }))
+    expect(within(screen.getByRole("log", { name: "conversation" }))
       .getByText("How do you want to build it?")).toBeInTheDocument();
   });
 });
 
 describe("the build stage", () => {
-  it("is the canvas beside a panel with two tabs, Step first", () => {
+  it("is the canvas beside one conversation, with the plan as a strip on top (one builder plan 3)", () => {
     page(FAKE_SESSION);
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
-    expect(tab("Step")).toHaveAttribute("aria-selected", "true");
-    expect(tab("Assistant")).toHaveAttribute("aria-selected", "false");
+    expect(screen.queryByRole("tab", { name: /Step|Assistant/ })).toBeNull();
+    expect(screen.getByRole("navigation", { name: "the plan" })).toHaveTextContent("Step 4 of 5");
     expect(screen.queryByRole("region", { name: "describe" })).toBeNull();
   });
 
-  it("holds the step on offer under Step, beside the step line", () => {
+  it("holds what was said and the step on offer in one log, the offer newest", () => {
     page(FAKE_SESSION);
-    const step = screen.getByRole("tabpanel", { name: "Step" });
-    expect(within(step).getByRole("list", { name: "the plan" })).toBeInTheDocument();
-    expect(within(step).getByRole("button", { name: "Add it" })).toBeInTheDocument();
+    const log = screen.getByRole("log", { name: "conversation" });
+    expect(log).toHaveTextContent("why STAR and not HISAT2?");
+    expect(within(within(log).getAllByRole("listitem").at(-1)!).getByRole("button", { name: "Add it" }))
+      .toBeInTheDocument();
   });
 
-  it("holds only speech under Assistant", () => {
-    page(FAKE_SESSION);
-    fireEvent.click(tab("Assistant"));
-    const assistant = screen.getByRole("tabpanel", { name: "Assistant" });
-    expect(within(assistant).getByRole("log", { name: "conversation" })).toHaveTextContent("why STAR and not HISAT2?");
-    expect(within(assistant).queryByRole("button", { name: "Add it" })).toBeNull();
-    expect(screen.queryByRole("list", { name: "the plan" })).toBeNull();
-  });
-
-  it("turns to the Assistant when the person says something from the Step tab", () => {
+  it("asks about an open step with the step attached, then closes it so the reply is seen", () => {
     const answered = with_({ turns: FAKE_SESSION.turns.slice(0, 6) });
-    const p = page(answered, { state: { ...initialAuthoring, snapshot: answered, composer: "why?" } });
+    const p = page(answered, { state: { ...initialAuthoring, snapshot: answered, composer: "why?", selected: "star_align" } });
+    expect(screen.getByPlaceholderText("Ask about this step…")).toBeInTheDocument();
     fireEvent.submit(screen.getByRole("form", { name: "say something" }));
-    expect(p.onSay).toHaveBeenCalledWith("why?");
-    expect(tab("Assistant")).toHaveAttribute("aria-selected", "true");
+    expect(p.onSay).toHaveBeenCalledWith("About STAR_ALIGN: why?");
+    expect(p.onSelect).toHaveBeenCalledWith(null);
   });
 
-  it("turns to the Assistant when asked why this step", () => {
-    page(FAKE_SESSION);
-    fireEvent.click(screen.getByRole("button", { name: /why/i }));
-    expect(tab("Assistant")).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("marks the Assistant tab when a reply arrives while Step is showing, and clears it when opened", () => {
-    const quiet = with_({ turns: FAKE_SESSION.turns.slice(0, 2) });
-    const p = page(quiet);
-    expect(screen.queryByRole("tab", { name: "Assistant, new reply" })).toBeNull();
-    p.again(with_({ turns: FAKE_SESSION.turns.slice(0, 4) }));
-    fireEvent.click(screen.getByRole("tab", { name: "Assistant, new reply" }));
-    expect(screen.queryByRole("tab", { name: "Assistant, new reply" })).toBeNull();
-  });
-
-  it("a pointer line in the chat turns back to Step and selects the step it names", () => {
+  it("asks why this step in the conversation", () => {
     const p = page(FAKE_SESSION);
-    fireEvent.click(tab("Assistant"));
-    fireEvent.click(screen.getByText("Asked for a setting on STAR_ALIGN — see Step"));
-    expect(tab("Step")).toHaveAttribute("aria-selected", "true");
-    expect(p.onSelect).toHaveBeenCalledWith("star_align");
+    fireEvent.click(screen.getByRole("button", { name: /why/i }));
+    expect(p.onSay).toHaveBeenCalledWith(expect.stringMatching(/^Why is samtools_sort here\?$/));
   });
 
   it("puts the latest reply's change and setting request under From the conversation", () => {
@@ -170,7 +143,25 @@ describe("the build stage", () => {
     expect(within(from).getByRole("region", { name: "a value for seq_platform" })).toBeInTheDocument();
   });
 
-  it("draws a gap raised during the build under Step", () => {
+  it("docks the open question above the composer once the person talks past it (issue 392)", () => {
+    const gap = {
+      id: "g1", kind: "gap", draft_revision: 4, options: ["a", "b"], edges: [], asked_at: "2026-10-27T09:00:00+00:00",
+      block: { kind: "question", id: "q-g1", asks: "Which strand were the reads made from?",
+        why_open: "No rule could settle it.", exhaustive: true,
+        options: [{ id: "a", label: "reverse" }, { id: "b", label: "forward" }] },
+    };
+    const later = { seq: 99, role: "person", state: "answered", text: "what is a GTF?", blocks: [],
+      base_revision: 4, at: "2026-10-27T09:05:00+00:00" };
+    const p = page(with_({ phase: "building", pending_proposal: gap, turns: [...FAKE_SESSION.turns, later] } as
+      Partial<AuthoringSession>));
+    const dock = screen.getByRole("region", { name: "the open question" });
+    expect(dock).toHaveTextContent("Still needed:Which strand were the reads made from?");
+    fireEvent.click(within(dock).getByRole("button", { name: "reverse" }));
+    expect(p.onAccept).toHaveBeenCalledWith(expect.objectContaining({ id: "g1" }), "a");
+    expect(screen.getByTestId("asked-pointer")).toBeInTheDocument();
+  });
+
+  it("draws a gap raised during the build in the conversation", () => {
     const gap = {
       id: "g1", kind: "gap", draft_revision: 4, options: ["a"], edges: [],
       block: { kind: "question", id: "q-g1", asks: "Which strand were the reads made from?",
@@ -178,11 +169,11 @@ describe("the build stage", () => {
         options: [{ id: "a", label: "reverse" }] },
     };
     page(with_({ phase: "building", pending_proposal: gap } as Partial<AuthoringSession>));
-    const step = screen.getByRole("tabpanel", { name: "Step" });
-    expect(within(step).getByText("Which strand were the reads made from?")).toBeInTheDocument();
+    expect(within(screen.getByRole("log", { name: "conversation" }))
+      .getByText("Which strand were the reads made from?")).toBeInTheDocument();
   });
 
-  it("brings a newly waiting card into view in the Step tab", () => {
+  it("brings a newly waiting card into view in the conversation", () => {
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
     const p = page(FAKE_SESSION);
@@ -206,15 +197,14 @@ describe("the build stage", () => {
         <LivingSurface {...p} session={framed(session, steps as typeof FAKE_STEPS, FAKE_CHANNELS)} />
       </QueryClientProvider>,
     );
-    const step = within(screen.getByRole("tabpanel", { name: "Step" }));
-    expect(step.queryByText("Nothing is waiting for you.")).toBeNull();
-    fireEvent.click(step.getByRole("button", { name: "STAR_ALIGN has 1 value that needs you" }));
+    expect(screen.queryByText("Nothing is waiting for you.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "STAR_ALIGN has 1 value that needs you" }));
     expect(p.onSelect).toHaveBeenCalledWith("star_align");
   });
 
-  it("says nothing is waiting when a restored session has nothing on offer", () => {
+  it("draws nothing on offer when a restored session waits on nothing: absence is absence", () => {
     page(with_({ phase: "complete", pending_proposal: null, turns: [] }));
-    expect(within(screen.getByRole("tabpanel", { name: "Step" }))
-      .getByText("Nothing is waiting for you.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add it" })).toBeNull();
+    expect(screen.queryByText("Nothing is waiting for you.")).toBeNull();
   });
 });

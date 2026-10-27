@@ -1,0 +1,105 @@
+<style>
+  .p3 { --paper:#F4F5F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --line:#E1E4EC; --line-2:#C9CEDB;
+        --ink:#171A26; --ink-2:#474D63; --ink-3:#666C84; --done:#0F9D7A; --done-soft:#DDF3EC; --done-ink:#0B6B53;
+        --measured:#9A5B00; --measured-soft:#FBF0DC; --needs:#C92F36; --needs-soft:#FCE5E6;
+        --now:#2F6FEB; --now-soft:#E6EEFD; --now-ink:#1F57C3; --now-line:#A9C2F5;
+        font-family:'Lexend',system-ui,sans-serif; color:var(--ink); }
+  .p3 .mono { font-family:'Geist Mono',ui-monospace,monospace; font-size:11.5px; color:var(--ink-3); }
+  .p3 .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .p3 .frame { width:900px; height:720px; display:flex; background:var(--paper); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .p3 .canvas { flex:1; position:relative; background:var(--surface-2); background-image:radial-gradient(rgba(40,60,110,.09) 1px,transparent 1px); background-size:22px 22px; }
+  .p3 .node { position:absolute; width:140px; padding:9px 11px; border-radius:10px; background:#fff; border:1.5px solid var(--line-2); font-size:12px; }
+  .p3 .node small { display:block; color:var(--ink-3); font-size:10.5px; margin-top:2px; }
+  .p3 .node.sel { border-color:var(--now); box-shadow:0 0 0 3px var(--now-soft); }
+  .p3 .side { width:460px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--surface); position:relative; }
+  .p3 .strip { flex:none; display:flex; gap:6px; padding:10px 14px; border-bottom:1px solid var(--line); font-size:12px; color:var(--ink-2); }
+  .p3 .strip .s { padding:3px 8px; border-radius:999px; border:1px solid var(--line); }
+  .p3 .strip .d { color:var(--done-ink); background:var(--done-soft); border-color:#bfe6da; }
+  .p3 .strip .n { color:var(--now-ink); background:var(--now-soft); border-color:var(--now-line); font-weight:600; }
+  .p3 .sheet { flex:1; overflow:hidden; padding:14px 16px; display:flex; flex-direction:column; gap:12px; font-size:13px; }
+  .p3 .sh { display:flex; justify-content:space-between; align-items:flex-start; }
+  .p3 .sh h3 { margin:0; font-size:16px; }
+  .p3 .x { width:28px; height:28px; border-radius:8px; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-2); }
+  .p3 .back { font-size:12px; color:var(--now-ink); }
+  .p3 .grp { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); margin-top:4px; }
+  .p3 .val { display:flex; justify-content:space-between; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; }
+  .p3 .val .chip { font-size:11px; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+  .p3 .need { background:var(--needs-soft); color:var(--needs); }
+  .p3 .meas { background:var(--measured-soft); color:var(--measured); }
+  .p3 .rule { background:#EEF0F5; color:var(--ink-2); }
+  .p3 .open { border-color:var(--needs); background:#FFF8F8; flex-direction:column; }
+  .p3 .open .ans { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .p3 .open .ans span { padding:4px 10px; border:1px solid var(--line-2); border-radius:999px; background:#fff; font-size:12px; }
+  .p3 .tools { display:flex; gap:8px; margin-top:auto; padding-top:8px; border-top:1px solid var(--line); font-size:12.5px; }
+  .p3 .tools span { padding:6px 10px; border:1px solid var(--line); border-radius:8px; }
+  .p3 .composer { flex:none; border-top:1px solid var(--line); padding:10px 14px; }
+  .p3 .composer div { border:1px solid var(--line-2); border-radius:10px; padding:9px 12px; color:var(--ink-3); font-size:13px; }
+  .p3 .phone { width:300px; height:620px; border:1px solid var(--line-2); border-radius:28px; overflow:hidden; display:flex; flex-direction:column; background:#fff; }
+  .p3 .ptop { flex:none; padding:12px 14px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+  .p3 .ptabs { display:flex; gap:4px; margin-top:8px; font-size:12px; }
+  .p3 .ptabs span { flex:1; text-align:center; padding:5px; border-radius:8px; border:1px solid var(--line); color:var(--ink-2); }
+  .p3 .ptabs .on { background:var(--now-soft); color:var(--now-ink); border-color:var(--now-line); font-weight:600; }
+  .p3 .pstream { flex:1; padding:12px; display:flex; flex-direction:column; gap:9px; font-size:12.5px; line-height:1.4; justify-content:flex-end; }
+  .p3 .me { align-self:flex-end; max-width:82%; background:var(--now-soft); padding:7px 10px; border-radius:12px 12px 4px 12px; }
+  .p3 .me i { display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); }
+  .p3 .ann { font-size:11.5px; color:var(--ink-2); padding:5px 8px; border-left:3px solid var(--done); background:var(--surface-2); }
+  .p3 .pdock { flex:none; border-top:1px solid var(--line); background:#FFF8F8; padding:9px 12px; font-size:12.5px; display:flex; justify-content:space-between; }
+  .p3 .pdock b { color:var(--needs); font-weight:600; }
+</style>
+
+<h2>The step opened over the chat, and the phone</h2>
+<p class="subtitle">Left: you clicked SUBREAD_FEATURECOUNTS on the canvas (or "5 Count" in the strip). Right: the same build on a phone, 390 px wide (drawn smaller).</p>
+
+<div class="p3"><div class="row">
+<div class="frame">
+  <div class="canvas">
+    <div class="node" style="left:24px;top:90px">STAR_ALIGN<small>1 measured · 13 settled</small></div>
+    <div class="node" style="left:24px;top:170px">SAMTOOLS_SORT<small>6 settled</small></div>
+    <div class="node sel" style="left:200px;top:170px">SUBREAD_FEATURECOUNTS<small>1 needs you · 3 measured</small></div>
+    <div class="node" style="left:200px;top:260px">MULTIQC<small>2 settled</small></div>
+  </div>
+  <div class="side">
+    <div class="strip"><span class="s d">1</span><span class="s d">2</span><span class="s d">3</span><span class="s d">4</span><span class="s n">5 Count</span><span style="margin-left:auto">Step 5 of 5</span></div>
+    <div class="sheet">
+      <div class="sh"><div><span class="back">‹ Back to the conversation</span><h3>SUBREAD_FEATURECOUNTS</h3><span class="mono">nf-core/subread/featurecounts@2.0.6 · counts reads per gene</span></div><span class="x">×</span></div>
+      <div class="grp">Needs you · 1</div>
+      <div class="val open"><div style="display:flex;justify-content:space-between;width:100%"><b>Strandedness</b> <span class="chip need">needs you</span></div>
+        <div style="font-size:12px;color:var(--ink-2);margin-top:3px">Same question as in the chat. Answering here or there is one answer.</div>
+        <div class="ans"><span>Reverse</span><span>Forward</span><span>Unstranded</span><span>I don't know</span></div></div>
+      <div class="grp">Measured · 3</div>
+      <div class="val"><span>Count read pairs, not reads</span><span class="chip meas">measured</span></div>
+      <div class="val"><span>Library is paired-end</span><span class="chip meas">measured</span></div>
+      <div class="grp">Settled by a rule · 3 <span style="text-transform:none;letter-spacing:0;color:var(--now-ink);text-decoration:underline">show</span></div>
+      <div class="tools"><span>Why this tool?</span><span>Swap for another</span><span>Remove step</span></div>
+    </div>
+    <div class="composer"><div>Ask about this step…</div></div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="ptop"><b>rnaseq-counts</b> <span style="color:var(--ink-3)">· step 5 of 5</span>
+    <div class="ptabs"><span class="on">Chat</span><span>Canvas</span><span>Understood</span></div></div>
+  <div class="pstream">
+    <div class="ann">Added <b>SUBREAD_FEATURECOUNTS</b> to the canvas.</div>
+    <div>It counts reads per gene. One thing I can't settle without you: strandedness.</div>
+    <div class="me">is reverse the same as dUTP?<i>waiting…</i></div>
+  </div>
+  <div class="pdock"><span><b>Still needed:</b> strandedness</span><span style="color:var(--now-ink)">answer ›</span></div>
+  <div class="composer"><div>Ask anything</div></div>
+</div>
+</div></div>
+
+<div class="section" style="margin-top:18px">
+<h3>How the step view behaves</h3>
+<ul style="font-size:14px;line-height:1.6">
+  <li><b>It covers the chat, not the page.</b> The canvas stays visible with the step highlighted. × or "Back to the conversation" returns you exactly where you were in the chat.</li>
+  <li><b>Values are grouped by how they were decided</b>: needs you, measured, settled by a rule (folded). Clicking any value shows its reason and citation in place, as the pipeline file does.</li>
+  <li><b>A question has one answer, wherever you give it.</b> Answer strandedness here and the chat gets "Got it: reverse-stranded, set on SUBREAD_FEATURECOUNTS". The dock clears too.</li>
+  <li><b>The text box stays, and it's about this step.</b> "Ask about this step…" sends your message to the chat with the step attached, then closes the sheet so you see the answer.</li>
+  <li><b>The tools from today's Step tab are kept</b> (why this tool, swap, remove). Removing a step goes through the chat's confirmation ("So you never want counting here, right?"), as plan 2 built.</li>
+</ul>
+<h3>On a phone</h3>
+<ul style="font-size:14px;line-height:1.6">
+  <li>The chat is the main view; <b>Canvas</b> and <b>Understood</b> are tabs beside it. The open-question dock and the queue look the same as on desktop.</li>
+</ul>
+</div>

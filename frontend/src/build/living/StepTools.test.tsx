@@ -93,10 +93,11 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
   return onEdit;
 }
 
-const stepTab = () => screen.getByRole("tabpanel", { name: "Step" });
+/** The step opened over the conversation (one builder plan 3). */
+const stepTab = () => screen.getByRole("region", { name: /^step / });
 
 describe("a selected step's tools", () => {
-  it("opens under the Step tab, in place of the card waiting", () => {
+  it("opens over the conversation, in place of the card waiting", () => {
     living("star_align");
     const tools = within(stepTab()).getByRole("region", { name: "change STAR_ALIGN" });
     expect(within(tools).getByRole("button", { name: "Swap for something else" })).toBeInTheDocument();
