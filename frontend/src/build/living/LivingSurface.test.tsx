@@ -532,3 +532,21 @@ it("says where an empty canvas's steps come from, and never points right at a go
   expect(screen.queryByText(/Confirm the goal on the right/)).toBeNull();
   expect(screen.getByText(/as you answer in the conversation/)).toBeInTheDocument();
 });
+
+describe("the hand-over (issue 393)", () => {
+  const wrap = (seq: number) => ({ seq, role: "assistant", state: "answered", text: "", base_revision: 0, at: "",
+    blocks: [{ kind: "receipt", id: `wrap-${seq}`, summary: `wrap-up ${seq}`, revision: seq, by: "resolver" }] });
+
+  it("draws the newest wrap-up of a complete build as the card, and the older as its line", () => {
+    surface(with_({ phase: "complete", pending_proposal: null,
+      turns: [wrap(3), wrap(7)] } as unknown as Partial<AuthoringSession>));
+    expect(screen.getAllByRole("region", { name: "the hand-over" })).toHaveLength(1);
+    expect(screen.getByText("wrap-up 3")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "the hand-over" })).getByText("wrap-up 7")).toBeInTheDocument();
+  });
+
+  it("draws no card while the build is still going", () => {
+    surface(with_({ turns: [wrap(3)] } as unknown as Partial<AuthoringSession>));
+    expect(screen.queryByRole("region", { name: "the hand-over" })).toBeNull();
+  });
+});

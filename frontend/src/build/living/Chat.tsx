@@ -22,6 +22,7 @@ export function Chat({
   follow = true,
   tail = null,
   onAbout,
+  override = null,
 }: {
   session: AuthoringSession;
   /** Messages sent and not yet in the transcript — drawn now, marked as sending. */
@@ -41,6 +42,8 @@ export function Chat({
   tail?: React.ReactNode;
   /** Show what an announcement changed: its step on the canvas, or its line. */
   onAbout?: (about: About) => void;
+  /** One block drawn by the caller instead (the hand-over, issue 393). */
+  override?: { id: string; node: React.ReactNode } | null;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -84,7 +87,7 @@ export function Chat({
           }
           return turn.blocks.filter((block) => pointers || !pointerOf(block)).map((block) => (
             <li key={block.id} className="list-none">
-              <Spoken block={block} failedPhase={failedPhase} onRetry={onRetry} onPoint={onPoint} onAbout={onAbout} />
+              {override && block.id === override.id ? override.node : <Spoken block={block} failedPhase={failedPhase} onRetry={onRetry} onPoint={onPoint} onAbout={onAbout} />}
             </li>
           ));
         })}

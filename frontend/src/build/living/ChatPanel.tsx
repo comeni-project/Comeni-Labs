@@ -7,7 +7,8 @@ import { ChangeSetCard } from "./blocks/ChangeSetCard";
 import { SettingCard } from "./blocks/SettingCard";
 import { byEdit, SuggestionCard } from "./blocks/SuggestionCard";
 import { Composer } from "./Composer";
-import { docked, processName } from "./format";
+import { docked, handoverId, processName } from "./format";
+import { HandoverCard } from "./blocks/HandoverCard";
 import { QuestionDock } from "./QuestionDock";
 import { StepLine } from "./StepLine";
 import { StepSheet } from "./StepSheet";
@@ -44,6 +45,7 @@ export function ChatPanel({
   notices,
   questionRequest = 0,
   onAbout,
+  handover,
 }: {
   session: AuthoringSession;
   waiting: Omit<WaitingProps, "session" | "onAsk" | "saying" | "onSelect">;
@@ -73,9 +75,14 @@ export function ChatPanel({
   questionRequest?: number;
   /** Show what an announcement changed: its step on the canvas, or its line. */
   onAbout?: (about: About) => void;
+  /** What the hand-over's *Next* does (issue 393). */
+  handover?: { runnable: boolean; onRun: () => void; onView: (view: "canvas" | "artifact") => void };
 }) {
   const [showRequest, setShowRequest] = useState(0);
   const [planOpen, setPlanOpen] = useState(false);
+  const handing = handoverId(session);
+  const handingBlock = session.turns.flatMap((t) => t.blocks).find((b) => b.id === handing);
+  const handingSummary = handingBlock?.kind === "receipt" ? handingBlock.summary : "";
   const say = (text: string) => {
     onSelect(null);
     onSay(text);
@@ -124,7 +131,12 @@ export function ChatPanel({
         ) : (
           <div className="flex flex-col gap-4">
             <Stream session={session} sending={sending} onRetry={onRetry} onAsk={say}
-                    waiting={{ ...waiting, onSelect }} showRequest={showRequest + questionRequest} onAbout={onAbout} />
+                    waiting={{ ...waiting, onSelect }} showRequest={showRequest + questionRequest} onAbout={onAbout}
+                    override={handing && handover ? { id: handing, node: (
+                      <HandoverCard session={session} steps={steps} summary={handingSummary}
+                                    runnable={handover.runnable} onRun={handover.onRun} onView={handover.onView}
+                                    onSelect={onSelect} />
+                    ) } : null} />
             {readings.length > 0 && (
               <section aria-label="From your edit" className="flex flex-col gap-2">
                 {readings.map((r) => (

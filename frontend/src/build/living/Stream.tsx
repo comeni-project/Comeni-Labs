@@ -17,13 +17,15 @@ export type StreamProps = {
   showRequest?: number;
   /** Show what an announcement changed. */
   onAbout?: (about: About) => void;
+  /** One block drawn by the caller instead (the hand-over, issue 393). */
+  override?: { id: string; node: React.ReactNode } | null;
 };
 
 /** **One conversation** (one builder plan 3): what was said, then what the engine waits on as the
  *  newest message. Once the person says something after the question was asked, the question's
  *  place keeps a one-line pointer (*Asked: … · see it*) and the question docks above the composer
  *  (`QuestionDock`); the pointer opens the full card again in place. */
-export function Stream({ session, waiting, sending, onRetry, onAsk, showRequest = 0, onAbout }: StreamProps) {
+export function Stream({ session, waiting, sending, onRetry, onAsk, showRequest = 0, onAbout, override = null }: StreamProps) {
   const [opened, setOpened] = useState<string | null>(null);
   const pending = session.pending_proposal;
   const away = docked(session);
@@ -50,6 +52,6 @@ export function Stream({ session, waiting, sending, onRetry, onAsk, showRequest 
   ) : card;
   return (
     <Chat session={session} sending={sending} failedPhase={session.phase === "failed"} onRetry={onRetry}
-          onPoint={() => undefined} pointers={false} tail={tail} onAbout={onAbout} />
+          onPoint={() => undefined} pointers={false} tail={tail} onAbout={onAbout} override={override} />
   );
 }

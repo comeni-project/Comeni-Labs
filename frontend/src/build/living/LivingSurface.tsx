@@ -284,6 +284,8 @@ export function LivingSurface({
     declarations, onCorrect, onRelease, correcting, factsRequest, notices,
   };
 
+  const runnable = run !== null && session.projection_current !== false && !session.retired && !showing;
+
   if (stageOf(session) === "describe") {
     // **Describing in the same frame as building** (one builder plan 3): what was understood where
     // the canvas will be, the conversation where it stays; *Start building* in the header.
@@ -366,7 +368,7 @@ export function LivingSurface({
         running={run ? run.busy : false}
         stage={run?.stage ?? null}
         runError={run?.error ?? null}
-        runnable={run !== null && session.projection_current !== false && !session.retired && !showing}
+        runnable={runnable}
         openValues={values.open}
         onRename={session.retired ? undefined : onRename}
       />
@@ -513,6 +515,7 @@ export function LivingSurface({
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
           questionRequest={questionRequest}
           onAbout={onAbout}
+          handover={{ runnable: runnable, onRun: run ? run.onRun : () => setView("artifact"), onView: setView }}
           {...talk}
         />
       </div>
