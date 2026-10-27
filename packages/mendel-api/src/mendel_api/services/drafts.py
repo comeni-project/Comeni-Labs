@@ -573,6 +573,30 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
                    locate.findings(pipeline.registry.layers))
 
 
+class Emitted(NamedTuple):
+    """The draft's Nextflow, as *Compile it* shows it (one builder plan 5)."""
+
+    revision: int
+    main_nf: str
+    config: str
+
+
+def emitted(draft_id: str, *, ai: AiProvenance | None = None) -> Emitted:
+    """`main.nf` and `nextflow.config` for the draft as it previews. Writes nothing.
+
+    **The preview's materialisation and the bundle's emission**, so what is compiled is what the
+    file shows and what a run would ship. A draft whose preview is not ready has no pipeline to
+    emit, and says why (`MI0219`) rather than answering with an empty workflow."""
+    from mendel_compiler.emit import emit, emit_config
+
+    shown = preview(draft_id, ai=ai)
+    if shown.state != "ready":
+        why = shown.findings[0] if shown.findings else shown.state
+        raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {why}"))
+    pipeline = _materialised(_load(draft_id), registry.stack(), by="", ai=ai)
+    return Emitted(shown.revision, emit(pipeline), emit_config(pipeline))
+
+
 def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:
     """A stored draft as a `Pipeline`, for `keep` and `preview` alike."""
     if not stored.projection_current:

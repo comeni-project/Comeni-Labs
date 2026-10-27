@@ -386,6 +386,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts/{draft_id}/emitted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Nextflow the draft compiles to, as it previews
+         * @description Read-only: emitted from the preview's materialisation, written nowhere (`MI0219` when
+         *     there is no pipeline yet).
+         */
+        get: operations["emittedPipeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/drafts/{draft_id}/bundle": {
         parameters: {
             query?: never;
@@ -2066,6 +2087,18 @@ export interface components {
             graph: components["schemas"]["DraftGraph"];
             /** Expected Revision */
             expected_revision: number;
+        };
+        /**
+         * EmittedPipeline
+         * @description The draft's Nextflow: what *Compile it* shows (one builder plan 5).
+         */
+        EmittedPipeline: {
+            /** Revision */
+            revision: number;
+            /** Main Nf */
+            main_nf: string;
+            /** Nextflow Config */
+            nextflow_config: string;
         };
         /** Entry */
         Entry: {
@@ -4336,6 +4369,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Artifact"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    emittedPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmittedPipeline"];
                 };
             };
             /** @description The id in the path names nothing. */

@@ -188,6 +188,7 @@ decline to curate one.
 | `MI0216` | that is not possible from here |
 | `MI0217` | editing opens when the walk is done |
 | `MI0218` | this older offer has no saved alternative preview |
+| `MI0219` | there is no pipeline to compile yet |
 
 ## Reaching a model
 
