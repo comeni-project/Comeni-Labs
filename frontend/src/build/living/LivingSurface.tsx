@@ -16,7 +16,7 @@ import { PipelineFile } from "./PipelineFile";
 import type { AuthoringState, MotionEvent } from "./authoringReducer";
 import type { CorrectFact } from "./CurrentFacts";
 import type { FactValue } from "./FactEditor";
-import { BuildPanel } from "./BuildPanel";
+import { ChatPanel } from "./ChatPanel";
 import { DescribePage } from "./DescribePage";
 import { authorOf, type Author } from "./format";
 import { LivingCanvas } from "./LivingCanvas";
@@ -368,7 +368,7 @@ export function LivingSurface({
           )}
         </section>
 
-        <BuildPanel
+        <ChatPanel
           session={session}
           waiting={waiting}
           selected={state.selected}

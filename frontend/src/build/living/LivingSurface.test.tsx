@@ -44,21 +44,27 @@ function surface(session: AuthoringSession = FAKE_SESSION, overrides = {}) {
   return props;
 }
 
-/** The panel's conversation tab: the chat lives there, and only there. */
-const toAssistant = () => fireEvent.click(screen.getByRole("tab", { name: /^Assistant/ }));
+/** There are no tabs now (one builder plan 3): the conversation is always showing. */
+const toAssistant = () => undefined;
+/** The whole plan (the step line) opens from the strip's *Step n of m*. */
+const openPlan = () => fireEvent.click(screen.getByRole("button", { name: "the whole plan" }));
 
 const with_ = (changes: Partial<AuthoringSession>) =>
   ({ ...FAKE_SESSION, ...changes }) as AuthoringSession;
 
 describe("the two surfaces", () => {
-  it("has a canvas, a panel with Step and Assistant, one header strip and a composer", () => {
+  it("has a canvas, one conversation with its step strip, one header strip and a composer", () => {
     surface();
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
     expect(screen.getByTestId("living-header")).toHaveTextContent("rnaseq-counts");
     expect(screen.queryByTestId("mode")).toBeNull();
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Step", "Assistant"]);
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.getByRole("navigation", { name: "the plan" })).toHaveTextContent("Step 4 of 5");
+    // The step on offer is the newest message, in the conversation itself.
+    expect(within(screen.getByRole("log", { name: "conversation" }))
+      .getByRole("button", { name: "Add it" })).toBeInTheDocument();
   });
 
   it("keeps the canvas first in the document, whatever the stacked order draws", () => {
@@ -84,11 +90,11 @@ describe("the two surfaces", () => {
 });
 
 describe("every block state in the static session", () => {
-  it("renders each kind the server can send: cards under Step, speech under Assistant", () => {
+  it("renders each kind the server can send: the plan behind the strip, cards and speech in the conversation", () => {
     surface();
-    const step = screen.getByRole("tabpanel", { name: "Step" });
-    expect(within(step).getByRole("list", { name: "the plan" })).toHaveTextContent("Goal");
-    expect(within(step).getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" })).toBeInTheDocument();
+    openPlan();
+    expect(screen.getByRole("list", { name: "the plan" })).toHaveTextContent("Goal");
+    expect(screen.getByRole("region", { name: "Step 4 · SAMTOOLS_SORT" })).toBeInTheDocument();
     toAssistant();
     const log = screen.getByRole("log", { name: "conversation" });
     expect(within(log).getByText(/STAR is here because/)).toBeInTheDocument();
@@ -96,14 +102,13 @@ describe("every block state in the static session", () => {
     for (const title of ["It would not answer", "This answer is out of date", "Something to check", "Done"]) {
       expect(within(log).getByText(title)).toBeInTheDocument();
     }
-    expect(within(log).getAllByTestId("pointer").map((p) => p.textContent)).toEqual([
-      "Read the goal — see Step", "Asked a question — see Step",
-      "Asked for a setting on STAR_ALIGN — see Step", "Suggested a change: Swap the aligner — see Step",
-    ]);
+    // No *see Step* lines: the engine's cards are in the conversation itself (one builder plan 3).
+    expect(within(log).queryAllByTestId("pointer")).toHaveLength(0);
   });
 
   it("collapses every answered step to one line naming who decided it", () => {
     surface();
+    openPlan();
     const row = screen.getByRole("button", { name: /STAR_ALIGN step 3/ });
     expect(row).toHaveTextContent("you chose");
     // The step's own tier is not a word on its place; what it says is how many of its values
@@ -127,6 +132,7 @@ describe("the states a session can be in", () => {
       turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending"),
     });
     surface(restored);
+    openPlan();
     expect(within(screen.getByRole("list", { name: "the plan" })).getAllByRole("button", { name: /step \d/ }))
       .toHaveLength(4);
     toAssistant();
@@ -337,6 +343,7 @@ describe("a goal composed by gathering, once confirmed (issue 173)", () => {
       { id: "g1", kind: "goal", state: "accepted", by: "person", chosen_option: null,
         chosen_contract: null, answer: null, at: "2026-09-28T10:05:00Z", block: card },
     ] } as Partial<AuthoringSession>));
+    openPlan();
     const goal = within(screen.getByRole("list", { name: "the plan" })).getAllByRole("listitem")[0];
     expect(goal).toHaveTextContent("Goal");
     expect(goal).toHaveTextContent("fastq.reads, genome.fasta → counts.matrix");
@@ -468,6 +475,7 @@ it("labels superseded historical reviews and blocks Run while the projection is 
       applicability: decision.id === "h-align" ? "superseded" : "retained" })),
   });
   surface(changed, { run: { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null } });
+  openPlan();
   expect(screen.getByRole("button", { name: /STAR_ALIGN step 3 .*· superseded/ })).toBeInTheDocument();
   expect(screen.getByTestId("living-run")).toBeDisabled();
   expect(screen.getByText(/^Pipeline outdated\./)).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -133,6 +133,7 @@ describe("progress", () => {
       offer: "step", progress: { position: 2, total: 5, again: false } } : undefined }));
     open(live({ history }));
     await screen.findByTestId("living-node-star_align");
+    fireEvent.click(screen.getByRole("button", { name: "the whole plan" }));
     const log = screen.getByRole("list", { name: "the plan" });
     expect(within(log).getByText("step 2")).toBeInTheDocument();
     expect(within(log).queryByText(/step 1\b/)).toBeNull();
@@ -149,6 +150,7 @@ describe("progress", () => {
     open(live({ history: [...FAKE_SESSION.history, offer("stale", "subread_featurecounts"),
                           offer("accepted", "featurecounts_again")] }));
     await screen.findByTestId("living-node-star_align");
+    fireEvent.click(screen.getByRole("button", { name: "the whole plan" }));
     const log = screen.getByRole("list", { name: "the plan" });
     // The first two are the decided rows; the step still to come at 5 follows them.
     const [went, decided] = within(log).getAllByText(/^step 5/);
