@@ -64,8 +64,8 @@ def test_the_spine_still_inserts_trimming_when_no_rule_removes_it(registry):
     insertion* — dropping it unconditionally would delete trimming from every pipeline,
     which is a far bigger change than the one this task is making."""
     steps = [s.contract_id for s in route(_goal(), registry).steps]
-    assert "nf-core/trimgalore@0.6.10" in steps
-    assert "nf-core/star/align@1.11.0" in steps
+    assert "nf-core/trimgalore@2.3.0" in steps
+    assert "nf-core/star/align@2.7.11b" in steps
 
 
 def test_removing_a_conventionally_required_state_still_routes(registry):
@@ -74,8 +74,8 @@ def test_removing_a_conventionally_required_state_still_routes(registry):
     ['trimmed']` — a rule saying "skip trimming" made the pipeline unbuildable."""
     plan = route(_goal(), registry, absent_roles=frozenset({"trimming"}))
     steps = [s.contract_id for s in plan.steps]
-    assert "nf-core/star/align@1.11.0" in steps
-    assert "nf-core/trimgalore@0.6.10" not in steps
+    assert "nf-core/star/align@2.7.11b" in steps
+    assert "nf-core/trimgalore@2.3.0" not in steps
 
 
 def test_removing_a_structurally_required_state_is_refused(registry):
@@ -134,5 +134,5 @@ decisions:
         vocabulary=loaded.vocabulary,
     )
     steps = [node.contract_id for node in ir.nodes]
-    assert "nf-core/trimgalore@0.6.10" not in steps
-    assert "nf-core/star/align@1.11.0" in steps, "the pipeline is shorter, not unroutable"
+    assert "nf-core/trimgalore@2.3.0" not in steps
+    assert "nf-core/star/align@2.7.11b" in steps, "the pipeline is shorter, not unroutable"

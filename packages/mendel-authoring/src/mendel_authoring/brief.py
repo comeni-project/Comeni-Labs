@@ -40,7 +40,7 @@ class Brief(BaseModel):
 
 
 def tool_of(contract_id: str) -> str:
-    """`nf-core/star/align@1.11.0` → `nf-core/star`: the key `tool.yml` is declared under."""
+    """`nf-core/star/align@2.7.11b` → `nf-core/star`: the key `tool.yml` is declared under."""
     return "/".join(contract_id.split("@", 1)[0].split("/")[:2])
 
 

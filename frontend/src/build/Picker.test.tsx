@@ -13,7 +13,7 @@ import { Picker } from "./Picker";
 
 const ANSWER = {
   candidates: [
-    { contract_id: "nf-core/samtools/sort@1.21.0", port: "bam", process: "SAMTOOLS_SORT",
+    { contract_id: "nf-core/samtools/sort@1.24", port: "bam", process: "SAMTOOLS_SORT",
       tool: "samtools/sort", surplus: 0, priority: 0,
       why: "the only producer of alignment.bam[coordinate_sorted]" },
   ],
@@ -89,6 +89,6 @@ describe("the port picker", () => {
     const onPick = at();
     await screen.findByTestId("candidate");
     fireEvent.keyDown(screen.getByTestId("picker"), { key: "Enter" });
-    expect(onPick).toHaveBeenCalledWith("nf-core/samtools/sort@1.21.0", "bam");
+    expect(onPick).toHaveBeenCalledWith("nf-core/samtools/sort@1.24", "bam");
   });
 });

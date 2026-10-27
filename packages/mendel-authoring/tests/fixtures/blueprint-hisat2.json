@@ -119,7 +119,7 @@
    {
     "id": "trimgalore",
     "module": {
-     "contract_id": "nf-core/trimgalore@0.6.10",
+     "contract_id": "nf-core/trimgalore@2.3.0",
      "digest": "sha256:2cc97e3a44288d1ca2bac58c84ee60df1c51b96ef137ff791d36693c1e90f56c",
      "container": "community.wave.seqera.io/library/trim-galore:2.3.0--6a38a479b4972363"
     },
@@ -130,7 +130,7 @@
      "source": "resolver",
      "reason": "uncontested \u2014 nothing else in this stack fills trimming",
      "premise": [],
-     "for_value": "nf-core/trimgalore@0.6.10",
+     "for_value": "nf-core/trimgalore@2.3.0",
      "axis_reason": "",
      "from_layer": "comeni-registry-examples",
      "displaced_layer": null,
@@ -299,7 +299,7 @@
     "why": {
      "tier": 4,
      "source": "human",
-     "reason": "you chose nf-core/hisat2/align@2.2.2 over nf-core/star/align@1.11.0, the engine's pick: rule implementation:alignment where read_length is 150, asserted, not measured: STAR's seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the index cost it pays back over reads this length; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635",
+     "reason": "you chose nf-core/hisat2/align@2.2.2 over nf-core/star/align@2.7.11b, the engine's pick: rule implementation:alignment where read_length is 150, asserted, not measured: STAR's seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the index cost it pays back over reads this length; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635",
      "premise": [],
      "for_value": "nf-core/hisat2/align@2.2.2",
      "axis_reason": "",
@@ -310,7 +310,7 @@
     "presence": {
      "tier": 1,
      "source": "resolver",
-     "reason": "nf-core/samtools/sort@1.21.0 requires 'alignment.bam' here",
+     "reason": "nf-core/samtools/sort@1.24 requires 'alignment.bam' here",
      "premise": [],
      "for_value": null,
      "axis_reason": "",
@@ -440,7 +440,7 @@
    {
     "id": "samtools_sort",
     "module": {
-     "contract_id": "nf-core/samtools/sort@1.21.0",
+     "contract_id": "nf-core/samtools/sort@1.24",
      "digest": "sha256:c6f737dc091ffe6deee034c492634c6938b4871d44d5db4345b8d9e9038870ba",
      "container": "community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd"
     },
@@ -451,7 +451,7 @@
      "source": "resolver",
      "reason": "uncontested \u2014 nothing else in this stack fills bam_sorting",
      "premise": [],
-     "for_value": "nf-core/samtools/sort@1.21.0",
+     "for_value": "nf-core/samtools/sort@1.24",
      "axis_reason": "",
      "from_layer": "comeni-registry-examples",
      "displaced_layer": null,
@@ -460,7 +460,7 @@
     "presence": {
      "tier": 1,
      "source": "resolver",
-     "reason": "nf-core/subread/featurecounts@2.0.6 requires 'alignment.bam' here",
+     "reason": "nf-core/subread/featurecounts@2.1.1 requires 'alignment.bam' here",
      "premise": [],
      "for_value": null,
      "axis_reason": "",
@@ -553,7 +553,7 @@
    {
     "id": "subread_featurecounts",
     "module": {
-     "contract_id": "nf-core/subread/featurecounts@2.0.6",
+     "contract_id": "nf-core/subread/featurecounts@2.1.1",
      "digest": "sha256:23395c4fcd4b859d1bb172fc6a78edf5f0fb9fcd753d7a56004462cbf371c67d",
      "container": "quay.io/biocontainers/subread:2.1.1--h577a1d6_0"
     },
@@ -564,7 +564,7 @@
      "source": "resolver",
      "reason": "uncontested \u2014 nothing else in this stack fills quantification",
      "premise": [],
-     "for_value": "nf-core/subread/featurecounts@2.0.6",
+     "for_value": "nf-core/subread/featurecounts@2.1.1",
      "axis_reason": "",
      "from_layer": "comeni-registry-examples",
      "displaced_layer": null,
@@ -758,7 +758,7 @@
    {
     "key": "producer:alignment.bam",
     "subject": "producer:alignment.bam",
-    "reason": "you chose nf-core/hisat2/align@2.2.2 over nf-core/star/align@1.11.0, the engine's pick: rule implementation:alignment where read_length is 150, asserted, not measured: STAR's seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the index cost it pays back over reads this length; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635",
+    "reason": "you chose nf-core/hisat2/align@2.2.2 over nf-core/star/align@2.7.11b, the engine's pick: rule implementation:alignment where read_length is 150, asserted, not measured: STAR's seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the index cost it pays back over reads this length; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635",
     "confidence": 1.0,
     "resolved_by": "person",
     "tier": 4,
@@ -766,7 +766,7 @@
     "kind": "producer",
     "candidates": [
      "nf-core/hisat2/align@2.2.2",
-     "nf-core/star/align@1.11.0"
+     "nf-core/star/align@2.7.11b"
     ],
     "chosen": "nf-core/hisat2/align@2.2.2",
     "human_override": "nf-core/hisat2/align@2.2.2",

@@ -30,7 +30,7 @@ Typical reasons to create a layer:
 
 ### Contracts shadow on the module key
 
-`nf-core/samtools/sort@1.22.0` in your layer displaces `nf-core/samtools/sort@1.21.0` in
+`nf-core/samtools/sort@1.22.0` in your layer displaces `nf-core/samtools/sort@1.24` in
 the base, because they share the module key `nf-core/samtools/sort`. A **version bump is
 not an ambiguity**, and keying on the full id would make the two tie and demand human
 review for something that is not a question.
@@ -42,7 +42,7 @@ Shadowing is announced on every build:
 ```
 1 overlay reroute(s) — an installed layer changed what the layers below it would do:
   OVERLAY  contracts: nf-core/samtools/sort@1.22.0 from my-lab over
-           nf-core/samtools/sort@1.21.0, displacing comeni-registry-examples
+           nf-core/samtools/sort@1.24, displacing comeni-registry-examples
 ```
 
 The layer is named by its `registry.yml`, not by its path — which is why `my-lab` appears

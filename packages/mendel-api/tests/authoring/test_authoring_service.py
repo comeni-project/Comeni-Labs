@@ -93,14 +93,14 @@ def _offer(kind="step"):
         }
     return {
         "node": "align",
-        "options": {"keep": "nf-core/star/align@1.11.0"},
+        "options": {"keep": "nf-core/star/align@2.7.11b"},
         "amendments": {},
         "edges": [],
         "block": {
             "kind": "step_proposal",
             "id": "step-align",
             "node": "align",
-            "contract": "nf-core/star/align@1.11.0",
+            "contract": "nf-core/star/align@2.7.11b",
             "tier": 1,
             "reason": "declared route",
         },

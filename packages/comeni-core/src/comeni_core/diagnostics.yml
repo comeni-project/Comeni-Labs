@@ -1279,7 +1279,7 @@ MD0306:
         decisions:
           - decides: {effect: implementation, of: alignment}
             rows:
-              - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
+              - {when: {read_length: ">= 70"}, then: nf-core/star/align@2.7.11b}
 
     A contract claims a role in its own file — `roles: [alignment]` — so a lab adding an
     aligner declares it there rather than editing the rule.
@@ -1337,7 +1337,7 @@ MD0308:
             effect: param
             of: alignment
             name: star_ignore_sjdbgtf
-            when_implementation: [nf-core/star/align@1.11.0]
+            when_implementation: [nf-core/star/align@2.7.11b]
 
     Or decide a parameter every filler of the role declares.
   explanation: |
@@ -1455,7 +1455,7 @@ MD0311:
     exhaustive with no bound declared anywhere:
 
         rows:
-          - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0,  cite: "…"}
+          - {when: {read_length: ">= 70"}, then: nf-core/star/align@2.7.11b,  cite: "…"}
           - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2, cite: "…"}
 
     For an enum, cover its declared values — or, where it is `extensible: true`, add a
@@ -1778,7 +1778,7 @@ MD0010:
     Add a `declares:` line naming what the file is:
 
         declares: contract
-        id: nf-core/star/align@1.11.0
+        id: nf-core/star/align@2.7.11b
 
     One of `contract`, `rule`, `vocabulary`, `measurement`, `role`.
   explanation: |
@@ -1936,7 +1936,7 @@ MD0018:
     without the two tying.
   explanation: |
     **Bounded rather than designed around.** One `module/` directory holds one commit, so a
-    layer carrying `star/align@1.11.0` and `star/align@2.0.0` has one of them checked against
+    layer carrying `star/align@2.7.11b` and `star/align@2.0.0` has one of them checked against
     source that is not its own — which is the drift `MD0104` exists to catch, arriving by a
     route `MD0104` cannot see.
 

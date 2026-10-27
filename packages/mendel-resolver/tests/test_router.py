@@ -42,7 +42,7 @@ def _declared(path, body: str) -> str:
     return header + body
 
 ALIGN = """
-id: nf-core/star/align@1.11.0
+id: nf-core/star/align@2.7.11b
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
 consumes: [{name: reads, type_id: fastq.reads, state_required: [trimmed]}]
@@ -51,7 +51,7 @@ priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
 TRIM = """
-id: nf-core/trimgalore@0.6.10
+id: nf-core/trimgalore@2.3.0
 nf_process: TRIMGALORE
 nf_include: modules/nf-core/trimgalore/main
 consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
@@ -60,7 +60,7 @@ priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
 SORT = """
-id: nf-core/samtools/sort@1.21.0
+id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
@@ -96,9 +96,9 @@ def test_inserts_the_gap_filling_step(registry):
     )
     plan = route(goal, registry)
     assert [step.contract_id for step in plan.steps] == [
-        "nf-core/trimgalore@0.6.10",
-        "nf-core/star/align@1.11.0",
-        "nf-core/samtools/sort@1.21.0",
+        "nf-core/trimgalore@2.3.0",
+        "nf-core/star/align@2.7.11b",
+        "nf-core/samtools/sort@1.24",
     ]
 
 
@@ -108,7 +108,7 @@ def test_no_insertion_when_input_already_satisfies(registry):
         want=["alignment.bam"],
     )
     plan = route(goal, registry)
-    assert [s.contract_id for s in plan.steps] == ["nf-core/star/align@1.11.0"]
+    assert [s.contract_id for s in plan.steps] == ["nf-core/star/align@2.7.11b"]
 
 
 def test_unroutable_goal_raises(registry):
@@ -137,8 +137,8 @@ def test_a_contract_cannot_satisfy_its_own_input(registry):
         constraints={"required_states": {"alignment.bam": ["coordinate_sorted"]}},
     )
     ids = [s.contract_id for s in route(goal, registry).steps]
-    assert ids.count("nf-core/samtools/sort@1.21.0") == 1
-    assert "nf-core/star/align@1.11.0" in ids
+    assert ids.count("nf-core/samtools/sort@1.24") == 1
+    assert "nf-core/star/align@2.7.11b" in ids
 
 
 def test_asking_for_no_state_does_not_add_steps_nobody_wanted(registry):
@@ -153,7 +153,7 @@ def test_asking_for_no_state_does_not_add_steps_nobody_wanted(registry):
         want=["alignment.bam"],
     )
     plan = route(goal, registry)
-    assert [s.contract_id for s in plan.steps] == ["nf-core/star/align@1.11.0"]
+    assert [s.contract_id for s in plan.steps] == ["nf-core/star/align@2.7.11b"]
     assert plan.decisions == []
 
 
@@ -177,7 +177,7 @@ def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
         _declared(
             contracts / "b.yml",
             ALIGN.replace("state_required: [trimmed]", "state_required: []")
-        .replace("nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.1")
+        .replace("nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.1")
         .replace("STAR_ALIGN", "HISAT2_ALIGN"))
     )
     registry = Registry.load(tmp_path, Vocabulary.load(tmp_path))
@@ -190,7 +190,7 @@ def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
     assert plan.decisions[0].subject == "producer:alignment.bam"
     assert sorted(plan.decisions[0].candidates) == [
         "nf-core/hisat2/align@2.2.1",
-        "nf-core/star/align@1.11.0",
+        "nf-core/star/align@2.7.11b",
     ]
     assert plan.decisions[0].chosen == plan.steps[0].contract_id, (
         "the record must name the contract the plan actually stepped to"
@@ -207,7 +207,7 @@ def _tied_registry(tmp_path) -> Registry:
     contracts = tmp_path / "contracts"
     contracts.mkdir()
     star = ALIGN.replace("state_required: [trimmed]", "state_required: []")
-    hisat2 = star.replace("nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.1").replace(
+    hisat2 = star.replace("nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.1").replace(
         "STAR_ALIGN", "HISAT2_ALIGN"
     )
     for name, body in (("a", star), ("b", hisat2)):

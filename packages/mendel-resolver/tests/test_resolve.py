@@ -46,7 +46,7 @@ def _declared(path, body: str) -> str:
     return header + body
 
 COUNTS = """
-id: nf-core/subread/featurecounts@2.0.6
+id: nf-core/subread/featurecounts@2.1.1
 roles: [quantification]
 nf_process: FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
@@ -62,7 +62,7 @@ priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
 SORT = """
-id: nf-core/samtools/sort@1.21.0
+id: nf-core/samtools/sort@1.24
 roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
@@ -270,7 +270,7 @@ def test_resolution_is_deterministic(setup):
 
 
 ALIGN_A = """
-id: nf-core/star/align@1.11.0
+id: nf-core/star/align@2.7.11b
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
 consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
@@ -296,7 +296,7 @@ def tied(tmp_path):
     (contracts / "b.yml").write_text(
         _declared(
             contracts / "b.yml",
-            ALIGN_A.replace("star/align@1.11.0", "hisat2/align@2.2.1").replace(
+            ALIGN_A.replace("star/align@2.7.11b", "hisat2/align@2.2.1").replace(
             "STAR_ALIGN", "HISAT2_ALIGN"
         ))
     )
@@ -341,7 +341,7 @@ def test_review_list_covers_params_and_decisions_together(setup):
 
 
 INDEX = """
-id: nf-core/samtools/index@1.21.0
+id: nf-core/samtools/index@1.24
 nf_process: SAMTOOLS_INDEX
 nf_include: modules/nf-core/samtools/index/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
@@ -533,7 +533,7 @@ def test_parameter_resolution_returns_its_unresolved_question_without_mutating_c
     from mendel_resolver.resolve import ParamContext, _resolve_param
 
     registry, rules, measurements, _ = setup
-    contract = registry.get("nf-core/subread/featurecounts@2.0.6")
+    contract = registry.get("nf-core/subread/featurecounts@2.1.1")
     goal = Goal(have=[GoalInput(type_id="alignment.bam")], want=["counts.matrix"])
     context = ParamContext(
         node_id="counts", roles=tuple(contract.roles), implementation=contract.id,

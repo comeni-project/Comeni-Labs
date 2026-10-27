@@ -31,7 +31,7 @@
     },
     {
       "node": "star_align",
-      "contract": "nf-core/star/align@1.11.0",
+      "contract": "nf-core/star/align@2.7.11b",
       "brief": {
         "does": {
           "text": "STAR aligns RNA-seq reads to a genome, splice-aware.",
@@ -70,7 +70,7 @@
             "key": "producer:alignment.bam",
             "candidates": [
               {
-                "value": "nf-core/star/align@1.11.0",
+                "value": "nf-core/star/align@2.7.11b",
                 "does": "STAR aligns RNA-seq reads to a genome, splice-aware."
               },
               {
@@ -85,7 +85,7 @@
     },
     {
       "node": "featurecounts",
-      "contract": "nf-core/subread/featurecounts@2.0.6",
+      "contract": "nf-core/subread/featurecounts@2.1.1",
       "brief": {
         "does": {
           "text": "featureCounts counts reads per gene.",

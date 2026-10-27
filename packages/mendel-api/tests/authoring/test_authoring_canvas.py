@@ -51,7 +51,7 @@ def test_reoffering_existing_node_draws_it_once(authoring_case):
         graph = dict(draft.graph)
         graph["nodes"] = [
             *graph["nodes"],
-            {"id": "star_align", "contract_id": "nf-core/star/align@1.11.0", "params": []},
+            {"id": "star_align", "contract_id": "nf-core/star/align@2.7.11b", "params": []},
         ]
         draft.graph = graph
     frame = facade.read(authoring_case.session_id).get("canvas")
@@ -174,7 +174,7 @@ def test_a_registry_that_lost_a_used_contract_still_reads_the_session(authoring_
     from mendel_api.services import build
 
     def gone(*_args, **_kwargs):
-        raise KeyError("nf-core/star/align@1.11.0")
+        raise KeyError("nf-core/star/align@2.7.11b")
 
     monkeypatch.setattr(build, "step_views", gone)
     picture = facade.read(authoring_case.session_id)

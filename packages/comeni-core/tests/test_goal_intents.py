@@ -11,9 +11,9 @@ from comeni_core.goal.asked import (
 )
 from pydantic import ValidationError
 
-STAR = "nf-core/star/align@1.11.0"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
-SORT = "nf-core/samtools/sort@1.21.0"
+STAR = "nf-core/star/align@2.7.11b"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
+SORT = "nf-core/samtools/sort@1.24"
 DEDUP = "lab/markdup@1.0.0"
 
 

@@ -9,7 +9,7 @@ import { Swap } from "./Swap";
  *  indistinguishable from one that guessed.* */
 
 const STEP = {
-  id: "align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@1.11.0",
+  id: "align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@2.7.11b",
   tier: 3, reason: "a rule matched",
   ports: [
     { name: "reads", type_id: "fastq.reads", side: "in", met: true, states: [] },
@@ -19,13 +19,13 @@ const STEP = {
 };
 
 const GRAPH = {
-  nodes: [{ id: "align", contract_id: "nf-core/star/align@1.11.0", params: [] }],
+  nodes: [{ id: "align", contract_id: "nf-core/star/align@2.7.11b", params: [] }],
   edges: [],
 };
 
 const OPTIONS = {
   candidates: [
-    { contract_id: "nf-core/star/align@1.11.0", port: "bam", process: "STAR_ALIGN",
+    { contract_id: "nf-core/star/align@2.7.11b", port: "bam", process: "STAR_ALIGN",
       tool: "star/align", surplus: 0, priority: 10, why: "produces alignment.bam" },
     { contract_id: "nf-core/hisat2/align@1.0.0", port: "bam", process: "HISAT2_ALIGN",
       tool: "hisat2/align", surplus: 0, priority: 0, why: "produces alignment.bam" },

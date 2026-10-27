@@ -33,7 +33,7 @@ def _declared(path, body: str) -> str:
     return header + body
 
 SORT = """
-id: nf-core/samtools/sort@1.21.0
+id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam}]
@@ -48,11 +48,11 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 # below passed against both. Reverting `producers_of` to id-only ordering failed nothing in
 # the entire suite; the current fixture makes the ordering keys disagree.
 PREFERRED_SORT = SORT.replace(
-    "nf-core/samtools/sort@1.21.0", "nf-core/samtools/zippysort@1.21.0"
+    "nf-core/samtools/sort@1.24", "nf-core/samtools/zippysort@1.21.0"
 ).replace("priority: 0", "priority: 10")
 
 # same module key, newer version — the lab pinning a different build
-NEWER_SORT = SORT.replace("@1.21.0", "@1.22.0").replace("SAMTOOLS_SORT", "SAMTOOLS_SORT_NEW")
+NEWER_SORT = SORT.replace("@1.24", "@1.25").replace("SAMTOOLS_SORT", "SAMTOOLS_SORT_NEW")
 
 
 def _layer(root, name, files):
@@ -85,11 +85,11 @@ def registry(base, vocab):
 
 
 def test_module_key_strips_the_version():
-    assert module_key("nf-core/samtools/sort@1.21.0") == "nf-core/samtools/sort"
+    assert module_key("nf-core/samtools/sort@1.24") == "nf-core/samtools/sort"
 
 
 def test_get_returns_contract_by_id(registry):
-    assert registry.get("nf-core/samtools/sort@1.21.0").nf_process == "SAMTOOLS_SORT"
+    assert registry.get("nf-core/samtools/sort@1.24").nf_process == "SAMTOOLS_SORT"
 
 
 def test_producers_of_matches_required_states(registry):
@@ -111,7 +111,7 @@ def test_producers_are_sorted_by_priority_then_id(registry):
     found = registry.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     assert [c.id for c in found] == [
         "nf-core/samtools/zippysort@1.21.0",
-        "nf-core/samtools/sort@1.21.0",
+        "nf-core/samtools/sort@1.24",
     ]
 
 
@@ -128,17 +128,17 @@ def test_overlay_shadows_the_same_module_key_at_any_version(tmp_path, base, voca
     overlay = _layer(tmp_path, "lab", {"sort.yml": NEWER_SORT})
     reg = Registry.load([base, overlay], vocab)
 
-    # the base's @1.21.0 is gone, displaced by the overlay's @1.22.0
-    assert reg.get("nf-core/samtools/sort@1.22.0").nf_process == "SAMTOOLS_SORT_NEW"
+    # the base's @1.24 is gone, displaced by the overlay's @1.25
+    assert reg.get("nf-core/samtools/sort@1.25").nf_process == "SAMTOOLS_SORT_NEW"
     with pytest.raises(KeyError):
-        reg.get("nf-core/samtools/sort@1.21.0")
+        reg.get("nf-core/samtools/sort@1.24")
 
     # and it did not tie: exactly one sort candidate survives, plus zippysort — which
     # outranks it on priority, so it comes first.
     found = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     assert [c.id for c in found] == [
         "nf-core/samtools/zippysort@1.21.0",
-        "nf-core/samtools/sort@1.22.0",
+        "nf-core/samtools/sort@1.25",
     ]
 
 
@@ -150,8 +150,8 @@ def test_shadowing_is_recorded_as_a_displacement(tmp_path, base, vocab):
     record = reg.displaced[0]
     assert record.kind is DeclaredKind.CONTRACTS
     assert record.key == "nf-core/samtools/sort"
-    assert record.winning_key == "nf-core/samtools/sort@1.22.0"
-    assert record.displaced_keys == ["nf-core/samtools/sort@1.21.0"]
+    assert record.winning_key == "nf-core/samtools/sort@1.25"
+    assert record.displaced_keys == ["nf-core/samtools/sort@1.24"]
 
 
 def test_a_displacement_names_the_contract_routing_prefers(tmp_path, base, vocab):
@@ -166,12 +166,12 @@ def test_a_displacement_names_the_contract_routing_prefers(tmp_path, base, vocab
     )
     reg = Registry.load([base, overlay], vocab)
 
-    # @1.21.0 at priority 5 outranks @1.22.0 at priority 0 under (-priority, id) — so it is
-    # the winner named, even though it sorts later lexically.
-    assert reg.displaced[0].winning_key == "nf-core/samtools/sort@1.21.0"
+    # @1.24 at priority 5 outranks @1.25 at priority 0 under (-priority, id) — so it is the
+    # winner named, even though the other layer offers a newer version.
+    assert reg.displaced[0].winning_key == "nf-core/samtools/sort@1.24"
     produced = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     sorts = [c.id for c in produced if module_key(c.id) == "nf-core/samtools/sort"]
-    assert sorts[0] == "nf-core/samtools/sort@1.21.0"
+    assert sorts[0] == "nf-core/samtools/sort@1.24"
 
 
 def test_a_different_module_key_does_not_shadow(tmp_path, base, vocab):

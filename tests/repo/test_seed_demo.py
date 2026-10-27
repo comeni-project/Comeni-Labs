@@ -14,8 +14,8 @@ import seed_demo  # noqa: E402
 def test_the_demo_graph_uses_the_example_profile():
     built = {
         "steps": [
-            {"id": "index", "contract_id": "nf-core/star/genomegenerate@1.11.0"},
-            {"id": "align", "contract_id": "nf-core/star/align@1.11.0"},
+            {"id": "index", "contract_id": "nf-core/star/genomegenerate@2.7.11b"},
+            {"id": "align", "contract_id": "nf-core/star/align@2.7.11b"},
         ],
         "layout": {
             "wires": [
@@ -33,8 +33,8 @@ def test_the_demo_graph_uses_the_example_profile():
     graph = seed_demo.graph_of(built, goal)
 
     assert graph["nodes"] == [
-        {"id": "index", "contract_id": "nf-core/star/genomegenerate@1.11.0", "params": []},
-        {"id": "align", "contract_id": "nf-core/star/align@1.11.0", "params": []},
+        {"id": "index", "contract_id": "nf-core/star/genomegenerate@2.7.11b", "params": []},
+        {"id": "align", "contract_id": "nf-core/star/align@2.7.11b", "params": []},
     ]
     assert graph["edges"] == [
         {

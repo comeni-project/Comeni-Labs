@@ -45,13 +45,13 @@ def test_a_drawn_edge_is_four_names():
 
 
 def test_a_draft_node_needs_only_an_id_and_a_contract():
-    node = DraftNode(id="align", contract_id="nf-core/star/align@1.11.0")
+    node = DraftNode(id="align", contract_id="nf-core/star/align@2.7.11b")
     assert node.params == []
 
 
 def test_a_graph_holds_nodes_and_edges():
     graph = DraftGraph(
-        nodes=[DraftNode(id="a", contract_id="nf-core/star/align@1.11.0")],
+        nodes=[DraftNode(id="a", contract_id="nf-core/star/align@2.7.11b")],
         edges=[],
     )
     assert graph.nodes[0].id == "a"

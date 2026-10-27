@@ -12,6 +12,6 @@ decisions:
         because: "selective alignment resolves reads between isoforms"
         cite: "Patro et al. 2017, doi:10.1038/nmeth.4197"
       - when: {}
-        then: nf-core/subread/featurecounts@2.0.6
+        then: nf-core/subread/featurecounts@2.1.1
         because: "gene-level counting from a genomic alignment is an interval overlap"
         cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"

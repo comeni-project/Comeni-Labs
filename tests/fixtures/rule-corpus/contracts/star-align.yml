@@ -2,7 +2,7 @@ declares: contract
 # Shadows the shipped STAR contract to add the params the corpus decides. A higher layer
 # sharing a module key replaces the whole contract, so everything the base declared is
 # repeated here — which is invariant 11 working as intended, not duplication.
-id: nf-core/star/align@1.11.0
+id: nf-core/star/align@2.7.11b
 roles: [alignment]
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main

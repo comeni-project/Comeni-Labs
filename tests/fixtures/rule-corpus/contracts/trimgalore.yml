@@ -1,5 +1,5 @@
 declares: contract
-id: nf-core/trimgalore@0.6.10
+id: nf-core/trimgalore@2.3.0
 roles: [trimming]
 nf_process: TRIMGALORE
 nf_include: modules/nf-core/trimgalore/main

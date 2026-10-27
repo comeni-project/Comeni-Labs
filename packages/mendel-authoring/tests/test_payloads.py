@@ -12,10 +12,10 @@ from mendel_authoring.payloads import (
 
 
 def test_source_subject_round_trips_the_consumer_and_port():
-    subject = source_subject("nf-core/subread/featurecounts@2.0.6", "bam")
+    subject = source_subject("nf-core/subread/featurecounts@2.1.1", "bam")
 
-    assert subject == "nf-core/subread/featurecounts@2.0.6|bam"
-    assert source_of(subject) == ("nf-core/subread/featurecounts@2.0.6", "bam")
+    assert subject == "nf-core/subread/featurecounts@2.1.1|bam"
+    assert source_of(subject) == ("nf-core/subread/featurecounts@2.1.1", "bam")
 
 
 def test_payload_check_accepts_only_the_type_bound_to_the_arrow():

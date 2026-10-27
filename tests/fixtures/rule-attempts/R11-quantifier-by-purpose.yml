@@ -8,4 +8,4 @@ decisions:
     cite: "Patro et al. 2017, doi:10.1038/nmeth.4197; Liao et al. 2014"
     rows:
       - {when: {required_state: transcript_level}, then: nf-core/salmon/quant@1.10.1}
-      - {when: {},                                  then: nf-core/subread/featurecounts@2.0.6}
+      - {when: {},                                  then: nf-core/subread/featurecounts@2.1.1}

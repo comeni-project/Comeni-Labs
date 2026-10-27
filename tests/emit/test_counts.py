@@ -29,7 +29,7 @@ def test_featurecounts_declares_no_strandedness_parameter():
     whose flag is watched arriving at a real tool. The claim is now about strandedness, which
     is what was ever true, plus the rule that every param carries a route.
     """
-    contract = layers.load(ROOT / "registry").registry.get("nf-core/subread/featurecounts@2.0.6")
+    contract = layers.load(ROOT / "registry").registry.get("nf-core/subread/featurecounts@2.1.1")
     assert "strandedness" not in [param.name for param in contract.params]
     assert all(param.via for param in contract.params), "a setting with no route is the defect"
 

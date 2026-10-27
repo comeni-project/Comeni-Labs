@@ -225,7 +225,7 @@ decisions:                                      # the decision layer
   - decides: {effect: implementation, of: alignment}
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
-      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0, cite: "Dobin 2013"}
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@2.7.11b, cite: "Dobin 2013"}
       - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2, cite: "Kim 2019"}
 ```
 

@@ -1,5 +1,5 @@
 declares: contract
-id: nf-core/star/genomegenerate@1.11.0
+id: nf-core/star/genomegenerate@2.7.11b
 roles: [index_building]
 nf_process: STAR_GENOMEGENERATE
 nf_include: modules/nf-core/star/genomegenerate/main

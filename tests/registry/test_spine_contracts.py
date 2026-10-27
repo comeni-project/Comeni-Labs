@@ -47,10 +47,10 @@ def test_counts_matrix_is_reachable_from_raw_reads(registry):
         want=["counts.matrix"],
     )
     steps = [s.contract_id for s in route(goal, registry).steps]
-    assert "nf-core/trimgalore@0.6.10" in steps
-    assert "nf-core/star/align@1.11.0" in steps
-    assert "nf-core/samtools/sort@1.21.0" in steps
-    assert "nf-core/subread/featurecounts@2.0.6" in steps
+    assert "nf-core/trimgalore@2.3.0" in steps
+    assert "nf-core/star/align@2.7.11b" in steps
+    assert "nf-core/samtools/sort@1.24" in steps
+    assert "nf-core/subread/featurecounts@2.1.1" in steps
 
 
 def test_qc_report_is_reachable_from_raw_reads(registry):
@@ -108,7 +108,7 @@ def test_an_index_is_not_a_bam(registry):
     `.bai` — audit 2026-08-03, C4. The resolver no longer believes it, but the contract
     must not assert it either.
     """
-    index = registry.get("nf-core/samtools/index@1.21.0")
+    index = registry.get("nf-core/samtools/index@1.24")
     assert [p.type_id for p in index.produces] == ["alignment.bai"]
 
 

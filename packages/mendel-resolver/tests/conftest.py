@@ -108,7 +108,7 @@ def resolve_with_markdup(tmp_path):
     shutil.copytree(EXAMPLES / "tools" / "nf-core" / "samtools" / "sort", markdup)
     contract = (markdup / "contract.yml").read_text()
     for old, new in (
-        ("nf-core/samtools/sort@1.21.0", MARKDUP),
+        ("nf-core/samtools/sort@1.24", MARKDUP),
         ("roles: [bam_sorting]", "roles: []"),
         ("nf_process: SAMTOOLS_SORT", "nf_process: LAB_MARKDUP"),
         ("consumes: [{name: bam, type_id: alignment.bam, state_required: []}]",

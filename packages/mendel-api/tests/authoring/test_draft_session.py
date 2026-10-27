@@ -16,7 +16,7 @@ from mendel_api_tests.database import reachable
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="needs throwaway Postgres")
 
-TRIM = "nf-core/trimgalore@0.6.10"
+TRIM = "nf-core/trimgalore@2.3.0"
 FASTQC = "nf-core/fastqc@0.12.1"
 
 
@@ -88,7 +88,7 @@ def test_an_open_that_loses_the_race_answers_with_the_winner(clean, monkeypatch)
     assert _open(draft_id) == winner
 
 
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 
 
 def test_a_drawn_step_confirmed_asks_for_its_inputs(clean):

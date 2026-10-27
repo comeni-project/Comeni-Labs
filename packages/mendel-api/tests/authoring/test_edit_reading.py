@@ -221,7 +221,7 @@ def test_confirming_star_excluded_mid_walk_offers_the_next_aligner(
                                            picture["revision"], "ana"))
     card = _session(client, building["id"])["pending_proposal"]["block"]
     assert card["node"] == "hisat2_align"
-    assert "you excluded nf-core/star/align@1.11.0 here" in json.dumps(card)
+    assert "you excluded nf-core/star/align@2.7.11b here" in json.dumps(card)
 
 
 @needs_db

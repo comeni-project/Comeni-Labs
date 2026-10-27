@@ -36,10 +36,10 @@ def _registry():
 def _ir():
     return PipelineIR(
         nodes=[
-            IRNode(id="trimgalore", contract_id="nf-core/trimgalore@0.6.10"),
+            IRNode(id="trimgalore", contract_id="nf-core/trimgalore@2.3.0"),
             IRNode(
                 id="star_align",
-                contract_id="nf-core/star/align@1.11.0",
+                contract_id="nf-core/star/align@2.7.11b",
                 params={
                     "seq_platform": ResolvedValue(
                         value="illumina", tier=Tier.CONVENTION, reason="contract default"

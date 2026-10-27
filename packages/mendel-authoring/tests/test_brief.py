@@ -8,7 +8,7 @@ def _step(blueprint, node):
 
 
 def test_the_tool_is_the_contract_ids_first_two_segments():
-    assert tool_of("nf-core/star/align@1.11.0") == "nf-core/star"
+    assert tool_of("nf-core/star/align@2.7.11b") == "nf-core/star"
     assert tool_of("nf-core/fastqc@0.12.1") == "nf-core/fastqc"
 
 

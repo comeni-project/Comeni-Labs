@@ -34,7 +34,7 @@ def test_replay_scans_goal_pins_once_and_only_omits_matching_overrides():
             return super().__iter__()
 
     pinned = "nf-core/hisat2/align@2.2.2"
-    other = "nf-core/star/align@1.11.0"
+    other = "nf-core/star/align@2.7.11b"
     pins = CountedPins([ProducerPin(site=Site(type_id="alignment.bam"), contract=pinned)])
     constraints = Constraints().model_copy(update={"producers": pins})
     goal = Goal(constraints=constraints)

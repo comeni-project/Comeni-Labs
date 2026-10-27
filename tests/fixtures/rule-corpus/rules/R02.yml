@@ -18,7 +18,7 @@ decisions:
       effect: param
       of: alignment
       name: sjdb_overhang
-      when_implementation: [nf-core/star/align@1.11.0]
+      when_implementation: [nf-core/star/align@2.7.11b]
     because: "the overhang is a property of the reads, not a preference"
     cite: "STAR manual 2.2.2"
     rows:

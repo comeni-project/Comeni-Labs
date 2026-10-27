@@ -102,7 +102,7 @@ def _stacked(tmp_path):
     (lab / "contracts").mkdir(parents=True)
     (lab / "rules").mkdir(parents=True)
     # A *different module key*, so this is not a shadow and no ShadowRecord is written.
-    # Priority 99 beats nf-core/samtools/sort@1.21.0 at 0 outright, so it is not a tie
+    # Priority 99 beats nf-core/samtools/sort@1.24 at 0 outright, so it is not a tie
     # either and invariant 8 never fires. That is the whole of A5.
     (lab / "contracts" / "rival-sorter.yml").write_text(
         _declared(lab / "contracts" / "rival-sorter.yml", "id: lab/rival/sorter@9.9.9\n"

@@ -14,8 +14,8 @@ import {
 /** Plain objects in, plain objects out — Task 8 asks for reducer tests before component tests, so
  *  every transition here is checkable without React, a network, or a timer. */
 
-const INDEX = { id: "star_genomegenerate", contract_id: "nf-core/star/genomegenerate@1.11.0" };
-const ALIGN = "nf-core/star/align@1.11.0";
+const INDEX = { id: "star_genomegenerate", contract_id: "nf-core/star/genomegenerate@2.7.11b" };
+const ALIGN = "nf-core/star/align@2.7.11b";
 const INDEX_WIRE = {
   from_node: "star_genomegenerate",
   from_port: "index",
@@ -83,7 +83,7 @@ describe("the checkpoint", () => {
         nodes: [{ ...INDEX, params: [] }, { id: "star_align", contract_id: ALIGN, params: [] }],
         edges: [INDEX_WIRE],
       },
-      pending_proposal: step("p-sort", "samtools_sort", "nf-core/samtools/sort@1.21.0", []),
+      pending_proposal: step("p-sort", "samtools_sort", "nf-core/samtools/sort@1.24", []),
     });
     const reconciled = run(
       [
@@ -158,7 +158,7 @@ describe("optimistic acceptance", () => {
         nodes: [{ ...INDEX, params: [] }, { id: "star_align", contract_id: ALIGN, params: [] }],
         edges: [INDEX_WIRE],
       },
-      pending_proposal: step("p-sort", "samtools_sort", "nf-core/samtools/sort@1.21.0", []),
+      pending_proposal: step("p-sort", "samtools_sort", "nf-core/samtools/sort@1.24", []),
     });
     const state = run([
       { type: "snapshot", session: offered },

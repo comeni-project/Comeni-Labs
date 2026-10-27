@@ -4,7 +4,7 @@ from comeni_core.artifact.pipeline import RegistryProvenance
 from comeni_core.plan.decision import ParamDecision
 from mendel_authoring.gaps import GapKind, gaps_of
 
-STAR = "nf-core/star/align@1.11.0"
+STAR = "nf-core/star/align@2.7.11b"
 
 
 def test_a_setting_with_no_declared_domain_is_a_gap(rnaseq, declared):

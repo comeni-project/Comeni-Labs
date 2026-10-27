@@ -71,7 +71,7 @@ def test_a16_a_decision_declares_its_kind():
 
     common = {"key": "k", "subject": "s", "reason": "r", "resolved_by": "flag-only"}
 
-    assert ProducerDecision(**common, chosen="nf-core/star/align@1.11.0").kind is (
+    assert ProducerDecision(**common, chosen="nf-core/star/align@2.7.11b").kind is (
         DecisionKind.PRODUCER
     )
     with pytest.raises(ValidationError):
@@ -164,7 +164,7 @@ def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
     (layer / "tools" / "nf-core" / "fastp" / "contract.yml").write_text(
         _declared(
             layer / "tools" / "nf-core" / "fastp" / "contract.yml",
-            original.replace("nf-core/trimgalore@0.6.10", "nf-core/fastp@0.24.0").replace(
+            original.replace("nf-core/trimgalore@2.3.0", "nf-core/fastp@0.24.0").replace(
             "TRIMGALORE", "FASTP"
         ))
     )
@@ -516,7 +516,7 @@ def test_a125_a_tie_offers_only_the_candidates_that_tied(tmp_path):
     # — and still never placed: rank order, not the letter h, decides the provisional pick.
     assert asked[0].candidates == [
         "nf-core/minimap2/align@2.28.0",
-        "nf-core/star/align@1.11.0",
+        "nf-core/star/align@2.7.11b",
         "nf-core/hisat2/align@2.2.2",
     ]
     assert "hisat2" not in asked[0].chosen
@@ -546,8 +546,8 @@ def _legacy_producer_record(candidates: list[str]):
         reason="the lab standardised on STAR",
         resolved_by="human",
         candidates=candidates,
-        chosen="nf-core/star/align@1.11.0",
-        human_override="nf-core/star/align@1.11.0",
+        chosen="nf-core/star/align@2.7.11b",
+        human_override="nf-core/star/align@2.7.11b",
     )
 
 
@@ -570,12 +570,12 @@ def test_a126_a_legacy_producer_key_still_replays():
     """
     from mendel_resolver.replay import ReplayResolver
 
-    same = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@1.11.0"]
+    same = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@2.7.11b"]
     resolver = ReplayResolver([_legacy_producer_record(same)])
 
     resolution = resolver.resolve(_asked_producer(same))
 
-    assert resolution.value == "nf-core/star/align@1.11.0"
+    assert resolution.value == "nf-core/star/align@2.7.11b"
     assert resolver.replayed == ["producer:alignment.bam"]
     assert resolver.orphaned == []
 
@@ -599,10 +599,10 @@ def test_a126_a_legacy_record_narrowed_by_a125_goes_stale_rather_than_orphaned()
     before_a125 = [
         "nf-core/hisat2/align@2.2.2",
         "nf-core/minimap2/align@2.28.0",
-        "nf-core/samtools/sort@1.21.0",
-        "nf-core/star/align@1.11.0",
+        "nf-core/samtools/sort@1.24",
+        "nf-core/star/align@2.7.11b",
     ]
-    after_a125 = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@1.11.0"]
+    after_a125 = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@2.7.11b"]
     resolver = ReplayResolver([_legacy_producer_record(before_a125)])
 
     resolver.resolve(_asked_producer(after_a125))

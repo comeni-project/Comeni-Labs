@@ -35,7 +35,7 @@ ROOT = pathlib.Path(__file__).parents[3]
 REGISTRY = ROOT / "registry"
 
 _MINIMAL = {
-    "id": "nf-core/star/align@1.11.0",
+    "id": "nf-core/star/align@2.7.11b",
     "nf_process": "STAR_ALIGN",
     "nf_include": "modules/nf-core/star/align/main",
     "provenance": {"source": "t", "drafted_by": "t", "approved_by": "t", "approved_at": "t"},
@@ -62,7 +62,7 @@ def test_an_overlay_adds_a_role_the_base_does_not_have(tmp_path):
 def test_an_undeclared_role_is_refused_and_the_message_names_what_exists(tmp_path):
     vocabulary = RoleVocabulary(names=frozenset({"alignment", "trimming"}))
     with pytest.raises(UnknownRoleError) as exc:
-        vocabulary.check("nf-core/star/align@1.11.0", ["alignmnet"])
+        vocabulary.check("nf-core/star/align@2.7.11b", ["alignmnet"])
     message = str(exc.value)
     assert "alignmnet" in message
     assert "alignment" in message, "naming what does exist is half the message"

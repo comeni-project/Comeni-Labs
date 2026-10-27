@@ -3,7 +3,7 @@ version: 1
 # R13 — cpus by genome size. A123: the decision is scoped to a role, so it can no longer
 # set `cpus` on every process in the pipeline.
 decisions:
-  - decides: {effect: param, of: alignment, name: cpus, when_implementation: [nf-core/star/align@1.11.0]}
+  - decides: {effect: param, of: alignment, name: cpus, when_implementation: [nf-core/star/align@2.7.11b]}
     because: "alignment against a larger reference parallelises further before saturating IO"
     cite: "nf-core resource labels"
     rows:

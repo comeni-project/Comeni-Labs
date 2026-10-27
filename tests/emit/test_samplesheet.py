@@ -26,8 +26,8 @@ from mendel_resolver import layers
 from mendel_resolver.materialise import goal_of, ir_of
 from support.paths import ROOT
 
-STAR = "nf-core/star/align@1.11.0"
-COUNTS = "nf-core/subread/featurecounts@2.0.6"
+STAR = "nf-core/star/align@2.7.11b"
+COUNTS = "nf-core/subread/featurecounts@2.1.1"
 
 
 @pytest.fixture(scope="module")
@@ -196,7 +196,7 @@ def test_the_spine_is_still_a_glob(stack, tmp_path):
 
 # ── 5.5, the checkpoint ──────────────────────────────────────────────────────────────
 
-GENOME = "nf-core/star/genomegenerate@1.11.0"
+GENOME = "nf-core/star/genomegenerate@2.7.11b"
 
 
 def _runnable() -> DraftGraph:

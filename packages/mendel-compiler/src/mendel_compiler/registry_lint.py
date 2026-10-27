@@ -244,7 +244,7 @@ def _one_version_per_module(root: Path) -> list[Diagnostic]:
     """Two contract versions for one module key, in one layer.
 
     **Bounded rather than designed around** (spec §9.3). One `module/` directory cannot hold
-    two commits, so a layer carrying `star/align@1.11.0` and `@2.0.0` has one of them checked
+    two commits, so a layer carrying `star/align@2.7.11b` and `@2.0.0` has one of them checked
     against source that is not its own — which is the drift `MD0104` exists to catch, arriving
     by a route it cannot see. Pinning a version is what a *higher layer* is for.
     """

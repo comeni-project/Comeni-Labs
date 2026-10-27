@@ -171,7 +171,7 @@ def test_a91_a_meta_route_to_a_key_the_module_never_reads_is_refused():
 
     root = ROOT
     loaded = layers.load(root / "registry")
-    contract = loaded.registry.get("nf-core/star/align@1.11.0")
+    contract = loaded.registry.get("nf-core/star/align@2.7.11b")
     # Reroute the positional parameter to `meta`, which is exactly what the audit did and
     # what nothing refused.
     # `model_validate` rather than `model_copy`: the latter skips validation and leaves

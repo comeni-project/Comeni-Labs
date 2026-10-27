@@ -173,7 +173,7 @@ def test_a_fact_the_registry_refuses_refuses_the_reply(stack, clean_invocations)
 
 DRAFT = ai.compose(
     prompt="why STAR?",
-    steps=[("align", "nf-core/star/align@1.11.0"), ("sort", "nf-core/samtools/sort@1.21.0")],
+    steps=[("align", "nf-core/star/align@2.7.11b"), ("sort", "nf-core/samtools/sort@1.24")],
     options=["opt_hisat2", "opt_keep_star"],
 )
 
@@ -316,7 +316,7 @@ def test_the_prompt_that_was_sent_carries_the_steps_and_the_option_ids(clean_inv
 
     sent = client.last_prompt  # both parts of the split, as one string (#183)
     assert "opt_hisat2" in sent
-    assert "align — nf-core/star/align@1.11.0" in sent
+    assert "align — nf-core/star/align@2.7.11b" in sent
 
 
 def test_the_recorded_row_names_the_builder_and_what_actually_crossed_the_wire(
