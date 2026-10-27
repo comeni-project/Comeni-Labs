@@ -20,7 +20,6 @@ import logging
 from dataclasses import replace
 
 from arq import Retry
-
 from comeni_ai import Client
 from mendel_authoring import commands as c
 from mendel_authoring.interpret import Refused

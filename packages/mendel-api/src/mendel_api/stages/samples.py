@@ -356,8 +356,13 @@ def _announce(session_id: str, revision: int, recorded: list[str], found: list) 
     if not measured:
         return
     _rows.engine_turn(session_id, lambda seq: [
-        Receipt(id=f"sample-{seq}-{i}", summary=f"Measured from your sample: {subject} is {values[subject]}.",
-                revision=revision, by="resolver", about=ReceiptAbout(subject=subject)).model_dump(mode="json")
+        Receipt(
+            id=f"sample-{seq}-{i}",
+            summary=f"Measured from your sample: {subject} is {values[subject]}.",
+            revision=revision,
+            by="resolver",
+            about=ReceiptAbout(subject=subject),
+        ).model_dump(mode="json")
         for i, subject in enumerate(measured)
     ])
 
