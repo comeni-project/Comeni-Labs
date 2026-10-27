@@ -122,11 +122,12 @@ describe("the build stage", () => {
       .toBeInTheDocument();
   });
 
-  it("closes an open step when the person says something, so the reply is seen", () => {
+  it("asks about an open step with the step attached, then closes it so the reply is seen", () => {
     const answered = with_({ turns: FAKE_SESSION.turns.slice(0, 6) });
     const p = page(answered, { state: { ...initialAuthoring, snapshot: answered, composer: "why?", selected: "star_align" } });
+    expect(screen.getByPlaceholderText("Ask about this step…")).toBeInTheDocument();
     fireEvent.submit(screen.getByRole("form", { name: "say something" }));
-    expect(p.onSay).toHaveBeenCalledWith("why?");
+    expect(p.onSay).toHaveBeenCalledWith("About STAR_ALIGN: why?");
     expect(p.onSelect).toHaveBeenCalledWith(null);
   });
 

@@ -155,6 +155,26 @@ def test_a_typed_value_is_applied_at_once_as_the_persons(client, clean, queue, m
     assert _session(client, building["id"])["suggestions"] == []
 
 
+@needs_db
+def test_a_typed_value_is_announced_in_the_conversation_pointing_at_its_step(client, clean, queue,
+                                                                              monkeypatch):
+    """One builder plan 3: every change made outside the chat is said in it, once, and points
+    at where it happened."""
+    building = _walked(client, _building(client, queue, monkeypatch)[0], "star_align")
+    graph = building["graph"]
+    typed = {**graph, "nodes": [
+        {**n, "params": [*n["params"], {"name": "seq_platform", "value": "ILLUMINA"}]}
+        if n["id"] == "star_align" else n for n in graph["nodes"]]}
+    before = len(_session(client, building["id"])["turns"])
+    assert _edit(client, building, typed).status_code == 200
+    turns = _session(client, building["id"])["turns"][before:]
+    receipts = [b for t in turns for b in t["blocks"] if b["kind"] == "receipt"]
+    assert len(receipts) == 1, receipts
+    # A parameter is decided by name for the whole pipeline; the page finds the step holding it.
+    assert receipts[0]["about"] == {"node": None, "subject": "seq_platform"}
+    assert "seq_platform" in receipts[0]["summary"]
+
+
 # ── Task 4: a confirmed reading re-plans; a conflict is said, not swallowed ────────────────
 
 

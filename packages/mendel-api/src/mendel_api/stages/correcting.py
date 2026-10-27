@@ -178,6 +178,8 @@ def receipt(ctx, suffix=""):
                     summary=summary,
                     revision=draft.revision,
                     by="model" if by_model else "person",
+                    # What it changed, for the chat to point at (one builder plan 3). A parameter
+                    # is decided by name for the whole pipeline; the page finds its step.
                     about=ReceiptAbout(subject=change.subject),
                 ).model_dump(mode="json")
             ],

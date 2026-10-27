@@ -1,17 +1,16 @@
 import { useState } from "react";
 
 import type { AuthoringBlock, AuthoringSession, AuthoringVocabulary, DraftGraph } from "../../api/types";
-import { open, optionalOpen, type AnsweredStep } from "../useBuilder";
+import { open, type AnsweredStep } from "../useBuilder";
 import { ChangeSetCard } from "./blocks/ChangeSetCard";
-import { QuestionCard } from "./blocks/QuestionCard";
 import { SettingCard } from "./blocks/SettingCard";
-import { StepTools } from "./blocks/StepTools";
 import { byEdit, SuggestionCard } from "./blocks/SuggestionCard";
 import { Composer } from "./Composer";
 import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
 import { docked, processName } from "./format";
 import { QuestionDock } from "./QuestionDock";
 import { StepLine } from "./StepLine";
+import { StepSheet } from "./StepSheet";
 import { StepStrip } from "./StepStrip";
 import { Stream } from "./Stream";
 import type { WaitingProps } from "./Waiting";
@@ -85,6 +84,9 @@ export function ChatPanel({
     onSelect(null);
     onSay(text);
   };
+  // **Ask about this step** (one builder plan 3): the words go to the conversation with the step
+  // named, and the step closes so the reply is seen.
+  const ask = (text: string) => say(editable ? `About ${processName(editable)}: ${text}` : text);
 
   const pending = session.pending_proposal;
   const ghost = pending?.block.kind === "step_proposal" ? pending.block.node : null;
@@ -120,44 +122,9 @@ export function ChatPanel({
       )}
       <div className="flex-1 min-h-0 overflow-auto px-4 pt-4 pb-4">
         {editable ? (
-          // **A step opened over the conversation** (one builder plan 3); × returns to it.
-          <section aria-label={`step ${processName(editable)}`} className="flex flex-col gap-4">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <button type="button" onClick={() => onSelect(null)}
-                        className="bg-transparent border-0 p-0 text-[12px] text-now-ink cursor-pointer">
-                  ‹ Back to the conversation
-                </button>
-                <h2 className="m-0 mt-[2px] font-data text-[15px] font-semibold text-ink truncate" title={processName(editable)}>
-                  {processName(editable)}
-                </h2>
-                {steps[editable] && (
-                  <p className="m-0 mt-[2px] font-data text-[11.5px] text-ink-3 break-all">{steps[editable].contract_id}</p>
-                )}
-              </div>
-              <button type="button" aria-label="Close the step" onClick={() => onSelect(null)}
-                      className="w-[32px] h-[32px] grid place-items-center p-0 rounded-control border-0
-                                 bg-transparent text-ink-2 text-[20px] leading-none cursor-pointer hover:text-ink
-                                 focus-visible:shadow-[var(--ring)]">
-                ×
-              </button>
-            </div>
-            {/* What needs you first, then what is optional (issue 384). */}
-            {[...(steps[editable]?.settings ?? []).filter(open),
-              ...(steps[editable]?.settings ?? []).filter(optionalOpen)].map((setting) => (
-              <QuestionCard key={`${editable}.${setting.name}`} setting={setting}
-                            step={processName(editable)}
-                            onSave={(value, why) => onSetParam(editable, setting.name, value, why)}
-                            onCancel={() => onSelect(null)} />
-            ))}
-            <section aria-label="Change this step" className="flex flex-col gap-3">
-              <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>
-              <StepTools key={editable} node={editable} step={steps[editable]} graph={graph} onEdit={onEdit} />
-              {requests.filter((r) => r.node === editable).map((r) => (
-                <SettingCard key={r.id} block={r} onApply={onSetParam} />
-              ))}
-            </section>
-          </section>
+          <StepSheet node={editable} step={steps[editable]} graph={graph}
+                     requests={requests.filter((r) => r.node === editable)}
+                     onSetParam={onSetParam} onEdit={onEdit} onClose={() => onSelect(null)} />
         ) : (
           <div className="flex flex-col gap-4">
             <Stream session={session} sending={sending} onRetry={onRetry} onAsk={say}
@@ -219,8 +186,8 @@ export function ChatPanel({
                       onShow={() => setShowRequest((n) => n + 1)} />
       )}
       <div className="px-[16px] pt-[8px] pb-[16px]">
-        <Composer value={composer} onChange={onCompose} onSend={say}
-                  disabled={composerDisabled} placeholder={composerHint} />
+        <Composer value={composer} onChange={onCompose} onSend={ask}
+                  disabled={composerDisabled} placeholder={editable ? "Ask about this step…" : composerHint} />
       </div>
     </section>
   );

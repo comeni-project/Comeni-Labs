@@ -22,6 +22,8 @@ from mendel_api.authoring.types import (
     FactSource,
     Phase,
     ProposalState,
+    Receipt,
+    ReceiptAbout,
     SampleReading,
 )
 from mendel_api.db import session_scope
@@ -30,7 +32,7 @@ from mendel_api.services import authoring_decisions, decisions, registry, sessio
 from mendel_api.services.inspect import Inspection
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.settings import settings
-from mendel_api.stages import _jobs, gathering
+from mendel_api.stages import _jobs, _rows, gathering
 from mendel_api.stages._rows import now as _now
 from mendel_api.stages._rows import swap as _swap
 
@@ -346,6 +348,20 @@ def _moves(ctx: Ctx, answered: bool, recorded: list[str], disagreed: list[str], 
         gathering.queue_phrasing(ctx)
 
 
+def _announce(session_id: str, revision: int, recorded: list[str], found: list) -> None:
+    """**What a sample settled is said in the conversation** (one builder plan 3): one receipt
+    per fact recorded, pointing at it in *What was understood*. Composed here, no model call."""
+    values = {f.measurement: f.value for f in found}
+    measured = [subject for subject in recorded if subject in values]
+    if not measured:
+        return
+    _rows.engine_turn(session_id, lambda seq: [
+        Receipt(id=f"sample-{seq}-{i}", summary=f"Measured from your sample: {subject} is {values[subject]}.",
+                revision=revision, by="resolver", about=ReceiptAbout(subject=subject)).model_dump(mode="json")
+        for i, subject in enumerate(measured)
+    ])
+
+
 def _delivery_key(proposal_id, inspection):
     digest = hashlib.sha256(
         json.dumps(
@@ -422,7 +438,9 @@ def record_inspection(
             ingestion_key=_delivery_key(proposal_id, inspection),
         )
         session_id = proposal.session_id
+        revision = draft.revision
 
+    _announce(session_id, revision, recorded, found)
     _moves(ctx, answered, recorded, disagreed, late=not current)
     return SampleAnswer(
         phase=session.current_phase(session_id), recorded=recorded, kept=kept, disagreed=disagreed
