@@ -1,6 +1,7 @@
 """The commands, through the facade (plan 1c): what each records, and the jobs it asks for."""
 
 import pytest
+from comeni_flow.interpret import Refused
 from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession
@@ -8,7 +9,6 @@ from mendel_api.services import session
 from mendel_api.stages import _jobs
 from mendel_api_tests.database import truncate
 from mendel_authoring import commands as c
-from mendel_authoring.interpret import Refused
 from sqlalchemy import text
 
 
@@ -113,7 +113,7 @@ def test_a_racing_second_answer_leaves_nothing_behind(monkeypatch):
     sid, _ = _gathering(monkeypatch, configured=False)
     pending = session.read(sid)["pending_proposal"]
     facts = session.read(sid)["facts"]
-    from mendel_authoring import interpret
+    from comeni_flow import interpret
 
     real = interpret.run
 

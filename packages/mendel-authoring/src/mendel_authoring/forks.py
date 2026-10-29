@@ -1,14 +1,13 @@
-"""Subjects and snapshots used by declarative protocol forks.
+"""The builder's fork subjects and the snapshot they read. The engine's `Subject` and
+`DEFAULT` live in `comeni_flow.forks`.
 
 A fork delegates case selection to its subject, making setting-dependent paths part of the
 validated protocol rather than hidden conditionals in shell handlers.
 """
 
 from comeni_core.settings.declare import Kind, Setting
+from comeni_flow.forks import Subject
 from pydantic import BaseModel, ConfigDict, JsonValue
-
-DEFAULT = "*"
-"""The case an open subject's fallback edge names. No option can be `*`."""
 
 
 class _Frozen(BaseModel):
@@ -16,24 +15,13 @@ class _Frozen(BaseModel):
 
 
 class Snapshot(_Frozen):
-    """What a fork may read, as plain data. A field per kind of subject, as they arrive."""
+    """What the builder's forks may read, as plain data. A field per kind of subject."""
 
     settings: dict[str, JsonValue] = {}
 
 
-class Subject(_Frozen):
-    """What a fork switches on. Subclass it; the interpreter only calls these two methods."""
-
-    title: str
-    """What the diamond says."""
-
-    def options(self) -> frozenset[str] | None:
-        """The closed set of cases, or `None` for an open domain (which then needs `DEFAULT`)."""
-        raise NotImplementedError
-
-    def value(self, snapshot: Snapshot) -> str:
-        """The case `snapshot` is in."""
-        raise NotImplementedError
+NO_SNAPSHOT = Snapshot()
+"""What a run reads when the shell passes nothing: every subject takes its declared default."""
 
 
 class SettingSubject(Subject):
@@ -61,8 +49,12 @@ class SettingSubject(Subject):
     def options(self) -> frozenset[str] | None:
         return self.cases
 
-    def value(self, snapshot: Snapshot) -> str:
-        raw = snapshot.settings.get(self.key, self.default)
+    def snapshot_key(self) -> str:
+        return self.key
+
+    def value(self, snapshot: Snapshot | None) -> str:
+        # `None`: the shell passed nothing, so the declared default answers (as `NO_SNAPSHOT`).
+        raw = (snapshot or NO_SNAPSHOT).settings.get(self.key, self.default)
         if isinstance(raw, bool):
             return "on" if raw else "off"
         if raw is None and self.cases == {"on", "off"}:

@@ -8,11 +8,11 @@ from datetime import datetime
 from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
+from comeni_flow.interpret import Refused
 from mendel_authoring import commands as c
 from mendel_authoring import payloads as p
 from mendel_authoring import state as st
 from mendel_authoring.decisions import ActorKind
-from mendel_authoring.interpret import Refused
 from mendel_authoring.types import Command
 
 from mendel_api.authoring.types import (

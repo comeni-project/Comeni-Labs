@@ -16,11 +16,12 @@ from typing import Any
 
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftProvenance
-from mendel_authoring import interpret
+from comeni_flow import interpret
+from comeni_flow.protocol import Protocol
 from mendel_authoring import payloads as p
 from mendel_authoring import state as st
-from mendel_authoring.forks import Snapshot
-from mendel_authoring.protocol import PROTOCOL, Protocol
+from mendel_authoring.forks import NO_SNAPSHOT, Snapshot
+from mendel_authoring.protocol import PROTOCOL
 from sqlalchemy import func, select, update
 
 from mendel_api import db as db_mod
@@ -225,7 +226,7 @@ def snapshot(protocol: Protocol = PROTOCOL) -> Snapshot:
 
     keys = protocol.fork_keys()
     if not keys:
-        return interpret.NO_SNAPSHOT
+        return NO_SNAPSHOT
     found = installation()
     return Snapshot(settings={key: found.get(CATALOGUE.setting(key)) for key in sorted(keys)})
 

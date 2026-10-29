@@ -4,6 +4,8 @@ import secrets
 from datetime import UTC, datetime
 
 import pytest
+from comeni_flow.interpret import Refused
+from comeni_flow.protocol import Actor, Edge, Node, Stage
 from mendel_api.authoring.types import Phase
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
@@ -13,9 +15,8 @@ from mendel_api_tests import session_setup as authoring_setup
 from mendel_api_tests.database import truncate
 from mendel_authoring import commands
 from mendel_authoring import payloads as p
-from mendel_authoring.interpret import Refused
 from mendel_authoring.payloads import DecisionChange
-from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
+from mendel_authoring.protocol import authoring_protocol
 from mendel_authoring.types import Event
 from support.example import example_goal
 
@@ -50,7 +51,7 @@ def _n(id, phase, **kw):
     return Node(id=id, stage="s", actor=Actor.ENGINE, label=id, phase=phase, built=True, **kw)
 
 
-TOY = Protocol(
+TOY = authoring_protocol(
     stages=(Stage(id="s", title="s"),),
     nodes=(
         _n("say", Phase.UNDERSTANDING, waits=True),

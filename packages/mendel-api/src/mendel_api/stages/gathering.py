@@ -10,8 +10,8 @@ from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import RequiredStates
 from comeni_core.goal.profile import Evidence
 from comeni_core.review.answer import ValueSource
+from comeni_flow import interpret
 from mendel_authoring import commands as c
-from mendel_authoring import interpret
 from mendel_authoring import payloads as p
 from mendel_authoring import state as st
 from mendel_authoring.decisions import ActorKind

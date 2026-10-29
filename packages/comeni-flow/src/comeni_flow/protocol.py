@@ -224,8 +224,10 @@ class Protocol(_Frozen):
 
     def fork_keys(self) -> frozenset[str]:
         """The snapshot keys this protocol's forks read: what the shell resolves into a snapshot.
-        A subject with no `key` reads nothing the shell must resolve."""
-        return frozenset(n.fork.key for n in self.nodes if n.fork is not None and n.fork.key)
+        A subject whose `snapshot_key()` is `None` reads nothing the shell must resolve."""
+        return frozenset(
+            key for n in self.nodes if n.fork is not None and (key := n.fork.snapshot_key())
+        )
 
     def exits(self, node_id: str) -> list[Edge]:
         """The ways out of the within-request section `node_id` leads into, if it leads into one.

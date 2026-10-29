@@ -18,8 +18,7 @@ class Subject(BaseModel):
     title: str
     """What the diamond says."""
 
-    @property
-    def key(self) -> str | None:
+    def snapshot_key(self) -> str | None:
         """The snapshot key the shell must resolve for this subject, if any."""
         return None
 

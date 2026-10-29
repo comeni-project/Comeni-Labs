@@ -106,6 +106,7 @@ CLOSED_PACKAGES = {
     },
     # The flow engine both of Mendel's conversations are declared on (forge MVP 3, #364).
     "comeni-flow": {
+        "collections",
         "collections.abc",
         "enum",
         "typing",

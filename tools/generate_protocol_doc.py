@@ -9,7 +9,8 @@ nested sections appear inside its single diagram."""
 import sys
 from pathlib import Path
 
-from mendel_authoring.protocol import PROTOCOL, to_mermaid
+from comeni_flow.diagram import to_mermaid
+from mendel_authoring.protocol import PROTOCOL
 
 DIAGRAMS = Path(__file__).parent.parent / "docs" / "explanation" / "diagrams"
 
