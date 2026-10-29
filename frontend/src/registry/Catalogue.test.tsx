@@ -107,3 +107,17 @@ it("a long format list is cut with a count", async () => {
   const sort = await screen.findByRole("row", { name: /samtools\/sort/ });
   expect(sort.textContent).toContain("bam, cram, fa +2 → bam");
 });
+
+it("while a sync runs it says so and reads again until it ends", async () => {
+  const fetch = at({ ...PAGE, last: { ...SYNC, outcome: "running", finished_at: null } });
+  expect(await screen.findByText(/Syncing from nf-core/)).toBeTruthy();
+  const before = fetch.mock.calls.length;
+  await vi.waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(before), { timeout: 4000 });
+});
+
+it("a first sync that failed says why", async () => {
+  at({ ...PAGE, rows: [], total: 0, last_good: null,
+       last: { ...SYNC, outcome: "failed", error: "git clone failed: no network" } });
+  expect(await screen.findByText(/not been synced yet/)).toBeTruthy();
+  expect(screen.getByText(/git clone failed: no network/)).toBeTruthy();
+});

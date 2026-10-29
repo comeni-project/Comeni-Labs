@@ -26,19 +26,17 @@ def parse_module(folder: Path, path: str, source: str = "nf-core") -> UpstreamMo
     problems: list[Problem] = []
     meta = _meta(folder / "meta.yml", problems)
     tools = [_tool(name, props) for name, props in _pairs(meta.get("tools"))]
-    environment = folder / "environment.yml"
-    packages = parse_packages(environment.read_text()) if environment.is_file() else []
+    packages = _packages(folder / "environment.yml")
     version = tool_version(packages, path, [tool.name for tool in tools])
     if version is None:
         problems.append(Problem(
             code="MF0501",
             says="no conda package is this module's tool, so its tool version is unknown",
         ))
-    main = folder / "main.nf"
-    script = main.read_text() if main.is_file() else ""
+    script = _text_of(folder / "main.nf")
     label = _LABEL.search(script)
     inputs, outputs = _inputs(meta.get("input")), _outputs(meta.get("output"))
-    keywords = [str(k) for k in meta.get("keywords") or []]
+    keywords = [str(k) for k in _list(meta.get("keywords"))]
     ontologies = [url for channel in [*inputs, *outputs] for url in channel.ontologies]
     return UpstreamModule(
         source=source,
@@ -49,8 +47,8 @@ def parse_module(folder: Path, path: str, source: str = "nf-core") -> UpstreamMo
         tools=tools,
         inputs=inputs,
         outputs=outputs,
-        authors=[str(a) for a in meta.get("authors") or []],
-        maintainers=[str(m) for m in meta.get("maintainers") or []],
+        authors=[str(a) for a in _list(meta.get("authors"))],
+        maintainers=[str(m) for m in _list(meta.get("maintainers"))],
         packages=packages,
         tool_version=version,
         containers=_containers(script),
@@ -65,14 +63,35 @@ def parse_module(folder: Path, path: str, source: str = "nf-core") -> UpstreamMo
 
 def _meta(path: Path, problems: list[Problem]) -> dict[str, Any]:
     try:
-        data = yaml.safe_load(path.read_text())
-    except (OSError, yaml.YAMLError) as error:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, yaml.YAMLError) as error:
         problems.append(Problem(code="MF0500", says=f"meta.yml cannot be read: {error}"))
         return {}
     if not isinstance(data, dict):
         problems.append(Problem(code="MF0500", says="meta.yml is not a mapping"))
         return {}
     return data
+
+
+def _list(value: object) -> list:
+    """A value the schema says is a list; anything else upstream wrote there reads as empty."""
+    return value if isinstance(value, list) else []
+
+
+def _text_of(path: Path) -> str:
+    """A file's text, or empty when it is missing or not UTF-8 (`main.nf`, the nf-test)."""
+    try:
+        return path.read_text(encoding="utf-8") if path.is_file() else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def _packages(path: Path) -> list:
+    """`environment.yml`'s pins; a file that is missing or malformed pins nothing (MF0501)."""
+    try:
+        return parse_packages(path.read_text(encoding="utf-8")) if path.is_file() else []
+    except (OSError, ValueError, AttributeError, yaml.YAMLError):
+        return []
 
 
 def _text(value: object) -> str | None:
@@ -106,7 +125,7 @@ def _tool(name: str, props: dict[str, Any]) -> UpstreamTool:
 def _channel(name: str, props: dict[str, Any]) -> Channel:
     ontologies = [
         str(url)
-        for entry in props.get("ontologies") or []
+        for entry in _list(props.get("ontologies"))
         if isinstance(entry, dict)
         for url in entry.values()
     ]
@@ -146,7 +165,7 @@ def _outputs(declared: object) -> list[Channel]:
         return _inputs(declared)
     channels = []
     for emit, items in declared.items():
-        elements = [e for item in items if isinstance(items, list) for e in _elements(item)]
+        elements = [e for item in _list(items) for e in _elements(item)]
         primary = _primary(elements)
         if primary is not None:
             channels.append(_channel(str(emit), primary[1]))
@@ -170,7 +189,7 @@ def _containers(script: str) -> list[str]:
 
 
 def _tests(path: Path) -> list[NfTest]:
-    text = path.read_text() if path.is_file() else ""
+    text = _text_of(path)
     starts = list(_TEST.finditer(text))
     tests = []
     for here, after in zip(starts, [*starts[1:], None], strict=False):

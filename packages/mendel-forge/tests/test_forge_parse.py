@@ -79,3 +79,39 @@ def test_two_tools_gives_unknown_version_MF0501():
     assert module.packages, "its packages are still read"
     assert module.tool_version is None
     assert [problem.code for problem in module.problems] == ["MF0501"]
+
+
+def _folder(tmp_path, meta: bytes | str, environment: str | None = None):
+    folder = tmp_path / "odd"
+    folder.mkdir()
+    (folder / "meta.yml").write_bytes(meta if isinstance(meta, bytes) else meta.encode())
+    if environment is not None:
+        (folder / "environment.yml").write_text(environment)
+    return folder
+
+
+def test_a_malformed_environment_is_a_problem_not_a_crash(tmp_path):
+    for environment in ("dependencies: [unclosed\n", "- just\n- a list\n"):
+        folder = tmp_path / str(abs(hash(environment)))
+        folder.mkdir()
+        (folder / "meta.yml").write_text("name: odd\n")
+        (folder / "environment.yml").write_text(environment)
+        module = parse_module(folder, "odd")
+        assert module.tool_version is None
+        assert "MF0501" in [p.code for p in module.problems]
+
+
+def test_a_meta_that_is_not_utf8_is_MF0500(tmp_path):
+    module = parse_module(_folder(tmp_path, b"name: \xff\xfe odd\n"), "odd")
+    assert module.problems, "kept with its problem"
+    assert module.problems[0].code == "MF0500"
+
+
+def test_scalars_where_lists_belong_are_read_as_nothing(tmp_path):
+    meta = ("name: odd\nkeywords: 5\nauthors: 5\n"
+            "input:\n  - reads:\n      type: file\n      ontologies: 5\n"
+            "output:\n  bam: 5\n")
+    module = parse_module(_folder(tmp_path, meta), "odd")
+    assert module.keywords == [] and module.authors == []
+    assert [c.name for c in module.inputs] == ["reads"]
+    assert module.inputs[0].ontologies == []

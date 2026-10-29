@@ -5,7 +5,10 @@ writes them, so a source that fails midway leaves the catalogue as the last good
 and the failed sync is recorded with why.
 """
 
+import hashlib
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from enum import StrEnum
 
@@ -13,7 +16,7 @@ import sqlalchemy as sa
 from mendel_forge import state as state_module
 from mendel_forge.model import Problem, UpstreamModule
 from mendel_forge.nfcore.source import NfCoreSource
-from mendel_forge.source import CatalogueSource
+from mendel_forge.source import CatalogueSource, SourceUnavailable
 from mendel_forge.state import BEST_ORDER, Held, State
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
@@ -26,9 +29,55 @@ from mendel_api.settings import settings
 log = logging.getLogger(__name__)
 
 
-def run_sync(source: CatalogueSource | None = None) -> CatalogueSync:
+def claim_key(source: str) -> int:
+    """The advisory-lock key that claims a source's sync: a stable 63-bit number."""
+    return int.from_bytes(hashlib.sha256(f"catalogue_sync:{source}".encode()).digest()[:8],
+                          "big") >> 1
+
+
+@contextmanager
+def _claim(source: str) -> Iterator[bool]:
+    """**One sync per source at a time**, whoever asked (the daily run or *Sync now*).
+
+    A session-level advisory lock on its own connection: Postgres releases it if the worker dies,
+    so a crash never leaves the source claimed, which a `running` row alone would."""
+    with db.engine.connect() as connection:
+        claimed = connection.execute(sa.text("SELECT pg_try_advisory_lock(:k)"),
+                                     {"k": claim_key(source)}).scalar()
+        try:
+            yield bool(claimed)
+        finally:
+            if claimed:
+                connection.execute(sa.text("SELECT pg_advisory_unlock(:k)"),
+                                   {"k": claim_key(source)})
+
+
+def sync_running(source: str = "nf-core") -> bool:
+    """Whether a sync holds the source now. Asked of the lock, not of the rows: a row a crash
+    left `running` holds nothing."""
+    with _claim(source) as claimed:
+        return not claimed
+
+
+def run_sync(source: CatalogueSource | None = None) -> CatalogueSync | None:
+    """Sync `source`; `None` when another sync holds it, and nothing was started."""
     source = source or NfCoreSource()
+    with _claim(source.name) as claimed:
+        if not claimed:
+            return None
+        return _sync(source)
+
+
+def _sync(source: CatalogueSource) -> CatalogueSync:
     with db.session_scope() as session:
+        # Holding the claim, no other sync is alive: a `running` row is one a crash left.
+        session.execute(
+            sa.update(CatalogueSync)
+            .where(CatalogueSync.source == source.name,
+                   CatalogueSync.outcome == SyncOutcome.RUNNING)
+            .values(outcome=SyncOutcome.FAILED, finished_at=datetime.now(UTC),
+                    error="interrupted: the worker stopped before this sync finished")
+        )
         sync = CatalogueSync(source=source.name, started_at=datetime.now(UTC),
                              outcome=SyncOutcome.RUNNING)
         session.add(sync)
@@ -37,6 +86,10 @@ def run_sync(source: CatalogueSource | None = None) -> CatalogueSync:
     try:
         snapshot = source.sync(settings.forge_cache)
         modules = list(source.modules(snapshot))
+        if not modules:
+            # A moved upstream or a broken checkout, not an empty catalogue: storing it would
+            # mark every module gone.
+            raise SourceUnavailable(f"{source.name} at {snapshot.commit} read no modules")
         with db.transaction() as session:
             _store(session, source.name, sync_id, modules)
             done = session.get(CatalogueSync, sync_id)
@@ -82,8 +135,9 @@ def _row(source: str, sync_id: int, module: UpstreamModule) -> dict:
         "path": module.path,
         "name": module.name,
         "tool_version": module.tool_version,
-        "topics": module.topics,
-        "formats": sorted({*module.formats_in, *module.formats_out}),
+        # Within the columns' widths: one odd value upstream must not abort the sync.
+        "topics": [topic for topic in module.topics if len(topic) <= 64],
+        "formats": sorted({f for f in (*module.formats_in, *module.formats_out) if len(f) <= 32}),
         "upstream_changed": module.upstream_changed,
         "search": " ".join(words).lower(),
         "document": module.model_dump(mode="json"),
@@ -310,11 +364,6 @@ def detail_for(upstream_path: str, source: str = "nf-core") -> ModuleDetail | No
         return read_module(source, upstream_path)
     except KeyError:
         return None
-
-
-def sync_running() -> bool:
-    last = last_sync()
-    return last is not None and last.outcome == SyncOutcome.RUNNING
 
 
 def sync_job_id() -> str:

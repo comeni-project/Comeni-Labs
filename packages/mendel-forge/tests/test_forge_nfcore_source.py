@@ -66,3 +66,41 @@ def test_a_second_sync_sees_a_new_module(upstream, tmp_path):
 def test_unreachable_url_raises_SourceUnavailable(tmp_path):
     with pytest.raises(SourceUnavailable):
         NfCoreSource((tmp_path / "nonexistent").as_uri()).sync(tmp_path / "cache")
+
+
+def test_a_module_the_parser_chokes_on_is_kept_with_MF0500(upstream, tmp_path, monkeypatch):
+    """The backstop: a parser bug costs one module, never the sync."""
+    from mendel_forge.nfcore import source as source_module
+
+    real = source_module.parse_module
+
+    def choke(folder, path, source="nf-core"):
+        if path == "fastqc":
+            raise RuntimeError("a parser bug")
+        return real(folder, path, source=source)
+
+    monkeypatch.setattr(source_module, "parse_module", choke)
+    source = NfCoreSource(upstream.as_uri())
+    modules = {m.path: m for m in source.modules(source.sync(tmp_path / "cache"))}
+    assert sorted(modules) == ["fastqc", "star/align"]
+    assert modules["fastqc"].problems[0].code == "MF0500"
+
+
+def test_a_git_that_hangs_is_cut_off_as_SourceUnavailable(tmp_path, monkeypatch):
+    from mendel_forge.nfcore import source as source_module
+
+    def hang(*args, **kwargs):
+        assert kwargs.get("timeout"), "every git call has a time limit"
+        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+    monkeypatch.setattr(source_module.subprocess, "run", hang)
+    with pytest.raises(SourceUnavailable, match="timed out"):
+        NfCoreSource("file:///anything").sync(tmp_path / "cache")
+
+
+def test_a_lock_left_by_a_killed_git_does_not_block_the_next_sync(upstream, tmp_path):
+    source = NfCoreSource(upstream.as_uri())
+    snapshot = source.sync(tmp_path / "cache")
+    (snapshot.root / ".git" / "index.lock").write_text("")
+    _add(upstream, "bwa/mem", "2026-03-01T00:00:00+00:00")
+    assert "bwa/mem" in {m.path for m in source.modules(source.sync(tmp_path / "cache"))}

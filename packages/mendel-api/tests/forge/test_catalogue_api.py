@@ -133,16 +133,17 @@ def test_last_sync_and_stale(client):
 
 
 def test_sync_now_while_a_sync_runs_starts_nothing(client, monkeypatch):
-    from datetime import UTC, datetime
-
-    from mendel_api.models import CatalogueSync
+    from mendel_api.db import engine
 
     async def must_not_queue(*args, **kwargs):
         raise AssertionError("a second sync was queued")
 
     monkeypatch.setattr(jobs, "enqueue", must_not_queue)
-    with session_scope() as db:
-        db.add(CatalogueSync(source="nf-core", started_at=datetime.now(UTC), outcome="running"))
-    answer = client.post("/api/forge/catalogue/sync")
+    held = engine.connect()
+    held.execute(sa.text("SELECT pg_advisory_lock(:k)"), {"k": catalogue.claim_key("nf-core")})
+    try:
+        answer = client.post("/api/forge/catalogue/sync")
+    finally:
+        held.invalidate()  # close the real connection: a pooled one would keep the lock
     assert answer.status_code == 202
     assert answer.json() == {"queued": False}

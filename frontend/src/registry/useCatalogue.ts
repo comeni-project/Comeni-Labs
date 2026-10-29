@@ -51,5 +51,8 @@ export function useCatalogue() {
     initialPageParam: 0,
     getNextPageParam: (last) => last.next_offset ?? undefined,
     placeholderData: keepPreviousData,
+    // While a sync runs, read again until it ends, so the page shows it finish (or fail).
+    refetchInterval: (query) =>
+      query.state.data?.pages[0]?.last?.outcome === "running" ? 2_000 : false,
   });
 }

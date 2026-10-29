@@ -64,3 +64,59 @@ def test_a_module_with_problems_is_stored_and_counted():
     assert done.problems == 1
     assert _rows()["broken-meta"].document["problems"][0]["code"] == "MF0500"
 
+
+
+def test_a_sync_that_reads_no_modules_fails_and_changes_nothing():
+    """An upstream that moved its modules, or a broken checkout, must not mark everything gone."""
+    catalogue.run_sync(FakeSource(["fastqc", "star/align"]))
+    empty = catalogue.run_sync(FakeSource([], commit="c2"))
+    assert empty.outcome == "failed"
+    assert "no modules" in empty.error
+    assert {row.gone for row in _rows().values()} == {False}
+
+
+def test_an_over_long_format_or_topic_is_dropped_not_fatal(monkeypatch):
+    from mendel_forge.nfcore import parse as parse_module
+
+    real = parse_module.formats_of
+    monkeypatch.setattr(parse_module, "formats_of", lambda channels: [*real(channels), "x" * 80])
+    done = catalogue.run_sync(FakeSource(["fastqc"]))
+    assert done.outcome == "ok"
+    assert all(len(f) <= 32 for f in _rows()["fastqc"].formats)
+
+
+def _hold_the_source():
+    """Another sync, as far as the database can tell: its claim on the source."""
+    from mendel_api.db import engine
+
+    connection = engine.connect()
+    assert connection.execute(sa.text("SELECT pg_try_advisory_lock(:k)"),
+                              {"k": catalogue.claim_key("nf-core")}).scalar()
+    return connection
+
+
+def test_a_sync_while_another_holds_the_source_starts_nothing():
+    """The daily run and *Sync now* can meet; only one may touch the clone."""
+    held = _hold_the_source()
+    try:
+        assert catalogue.run_sync(FakeSource(["fastqc"])) is None
+        assert catalogue.sync_running() is True
+    finally:
+        held.invalidate()  # close the real connection: a pooled one would keep the lock
+    assert catalogue.last_sync() is None, "no sync row was written"
+    assert catalogue.sync_running() is False
+
+
+def test_a_sync_a_crash_left_running_is_closed_by_the_next():
+    from datetime import UTC, datetime
+
+    from mendel_api.models import CatalogueSync
+
+    with session_scope() as db:
+        db.add(CatalogueSync(source="nf-core", started_at=datetime.now(UTC), outcome="running"))
+    assert catalogue.sync_running() is False, "a row is not a claim: nothing holds the source"
+    done = catalogue.run_sync(FakeSource(["fastqc"]))
+    assert done.outcome == "ok"
+    with session_scope() as db:
+        outcomes = db.scalars(sa.select(CatalogueSync.outcome).order_by(CatalogueSync.id)).all()
+    assert outcomes == ["failed", "ok"]

@@ -36,7 +36,12 @@ export function Catalogue() {
             A sync reads every nf-core module and compares it with the registry. It runs daily;
             this starts one now.
           </p>
-          <SyncNow sync={sync} />
+          {first.last?.outcome === "failed" && (
+            <p className="m-0 text-secondary text-needs-you-ink">
+              The last sync failed: {first.last.error}
+            </p>
+          )}
+          {first.last?.outcome === "running" ? <Syncing /> : <SyncNow sync={sync} />}
         </div>
       )}
       {first && first.last_good && (
@@ -97,10 +102,14 @@ function Footer({ first, shown, sync }: {
         {last?.stale
           ? <span className="text-needs-you-ink">Catalogue stale since {ago(last.started_at)}: {last.error}</span>
           : <span>nf-core/modules · synced {first.last_good?.finished_at ? ago(first.last_good.finished_at) : "—"}</span>}
-        <SyncNow sync={sync} small />
+        {last?.outcome === "running" ? <Syncing /> : <SyncNow sync={sync} small />}
       </span>
     </>
   );
+}
+
+function Syncing() {
+  return <span role="status" className="text-ink-2">Syncing from nf-core…</span>;
 }
 
 function SyncNow({ sync, small = false }: { sync: ReturnType<typeof useSyncNow>; small?: boolean }) {

@@ -38,12 +38,12 @@ async def sweep_lost_gates(ctx: dict) -> int:
 
 
 async def sync_catalogue_job(ctx: dict) -> int:
-    """Sync the forge's catalogue from nf-core (forge part 1). Returns the sync's id.
+    """Sync the forge's catalogue from nf-core (forge part 1). Returns the sync's id, or 0.
 
     A clone and a parse of ~2,100 folders are blocking work, so they run in a thread: the worker
     keeps serving gates meanwhile."""
     done = await asyncio.to_thread(catalogue.run_sync)
-    return done.id
+    return done.id if done else 0  # 0: another sync held the source, and this one did nothing
 
 
 class WorkerSettings:
