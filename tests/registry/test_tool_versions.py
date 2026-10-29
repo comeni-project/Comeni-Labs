@@ -6,24 +6,9 @@ version must equal what its vendored `module/environment.yml` pins for its tool:
 whose name is the tool's folder (`trimgalore` → `trim-galore`, `subread/featurecounts` →
 `subread`)."""
 
-import re
-
 import yaml
+from mendel_forge.versions import parse_packages, tool_version
 from support.paths import REGISTRY
-
-PIN = re.compile(r"^(?:[\w-]+::)?([\w.-]+)=([^\s=]+)$")
-
-
-def _norm(name: str) -> str:
-    return re.sub(r"[-_]", "", name.lower())
-
-
-def _tool_pin(environment: str, tool: str) -> str | None:
-    for dependency in yaml.safe_load(environment).get("dependencies", []):
-        found = PIN.match(str(dependency))
-        if found and _norm(found.group(1)) == _norm(tool):
-            return found.group(2)
-    return None
 
 
 def test_every_contract_names_the_tool_version_its_module_pins():
@@ -36,7 +21,8 @@ def test_every_contract_names_the_tool_version_its_module_pins():
         environment = path.parent / "module" / "environment.yml"
         if not environment.is_file():
             continue
-        pinned = _tool_pin(environment.read_text(), tool_path.split("/")[0])
+        # The catalogue's rule (`mendel_forge.versions`), so the two cannot disagree.
+        pinned = tool_version(parse_packages(environment.read_text()), tool_path, [])
         if pinned is not None and pinned != version:
             wrong.append(f"{contract_id}: its module pins {pinned}")
     assert wrong == [], wrong

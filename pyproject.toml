@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 # Install the full application workspace when syncing from the repository root.
-dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler", "comeni-ai", "mendel-ai", "mendel-api", "wiener-core", "wiener-api", "dag-core", "comeni-vendor", "comeni-inspect", "mendel-authoring"]
+dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler", "comeni-ai", "mendel-ai", "mendel-api", "wiener-core", "wiener-api", "dag-core", "comeni-vendor", "comeni-inspect", "mendel-authoring", "mendel-forge"]
 
 [project.urls]
 Homepage = "https://github.com/comeni-project/Comeni-Labs"
@@ -50,6 +50,7 @@ wiener-core = { workspace = true }
 wiener-api = { workspace = true }
 dag-core = { workspace = true }
 comeni-vendor = { workspace = true }
+mendel-forge = { workspace = true }
 comeni-inspect = { workspace = true }
 mendel-authoring = { workspace = true }
 

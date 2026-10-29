@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -19,6 +19,7 @@ members = [
     "mendel-api",
     "mendel-authoring",
     "mendel-compiler",
+    "mendel-forge",
     "mendel-resolver",
     "wiener-api",
     "wiener-core",
@@ -560,6 +561,7 @@ requires-dist = [
 name = "comeni-labs"
 version = "0.1.0"
 source = { virtual = "." }
+default-groups = ["dev", "docs"]
 dependencies = [
     { name = "comeni-ai" },
     { name = "comeni-core" },
@@ -570,6 +572,7 @@ dependencies = [
     { name = "mendel-api" },
     { name = "mendel-authoring" },
     { name = "mendel-compiler" },
+    { name = "mendel-forge" },
     { name = "mendel-resolver" },
     { name = "wiener-api" },
     { name = "wiener-core" },
@@ -601,6 +604,7 @@ requires-dist = [
     { name = "mendel-api", editable = "packages/mendel-api" },
     { name = "mendel-authoring", editable = "packages/mendel-authoring" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
+    { name = "mendel-forge", editable = "packages/mendel-forge" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "wiener-api", editable = "packages/wiener-api" },
     { name = "wiener-core", editable = "packages/wiener-core" },
@@ -1534,6 +1538,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "mendel-authoring" },
     { name = "mendel-compiler" },
+    { name = "mendel-forge" },
     { name = "mendel-resolver" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
@@ -1553,6 +1558,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "mendel-authoring", editable = "packages/mendel-authoring" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
+    { name = "mendel-forge", editable = "packages/mendel-forge" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic-settings", specifier = ">=2.4" },
@@ -1594,6 +1600,27 @@ requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "dag-core", editable = "packages/dag-core" },
     { name = "jinja2", specifier = ">=3.1" },
+    { name = "mendel-resolver", editable = "packages/mendel-resolver" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[[package]]
+name = "mendel-forge"
+version = "0.1.0"
+source = { editable = "packages/mendel-forge" }
+dependencies = [
+    { name = "comeni-core" },
+    { name = "comeni-vendor" },
+    { name = "mendel-resolver" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-vendor", editable = "packages/comeni-vendor" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6.0" },
