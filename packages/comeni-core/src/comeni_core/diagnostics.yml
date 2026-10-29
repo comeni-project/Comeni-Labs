@@ -2194,6 +2194,30 @@ MF0501:
     The first package in `environment.yml` is often a library (`htslib`), and taking it would
     put the library's version on the tool and call an imported tool out of date. Unknown is
     the honest answer.
+MF0502:
+  emitted_by: api
+  concern: catalogue
+  says: "a catalogue sync could not be queued"
+  fires_on: [catalogue sync]
+  refuses: true
+  fix: |
+    The job queue (Redis) did not answer. Check that it and the Mendel worker are running
+    (`docker compose ps`), then ask again. The daily sync still runs once they are up.
+  explanation: |
+    *Sync now* hands the work to the worker rather than cloning inside a request. A queue that
+    cannot be reached is said plainly instead of reporting a sync that will never start.
+MF0503:
+  emitted_by: api
+  concern: catalogue
+  says: "no module at that path in the catalogue"
+  fires_on: [catalogue]
+  refuses: true
+  fix: |
+    Check the path (`star/align`, not `star_align`). A module new upstream appears after the
+    next sync; *Sync now* fetches it sooner.
+  explanation: |
+    The catalogue holds what the last good sync read, and modules gone upstream since. A path
+    it has never seen is not a module it can describe.
 MV0001:
   emitted_by: vendor
   concern: vendoring

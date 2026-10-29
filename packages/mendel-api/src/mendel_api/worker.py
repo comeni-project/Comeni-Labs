@@ -11,9 +11,8 @@ from arq import cron
 from arq.connections import RedisSettings
 from arq.worker import func
 
-from mendel_api.services import catalogue
+from mendel_api.services import catalogue, retention
 from mendel_api.services import gates as gate_service
-from mendel_api.services import retention
 from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)

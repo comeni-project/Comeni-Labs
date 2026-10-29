@@ -43,7 +43,10 @@ def test_the_old_routes_are_gone_and_the_builder_s_remain():
 
     paths = list(create_app().openapi()["paths"])
     assert paths, "the app has no routes at all"
-    gone = ("/api/forge", "/api/contracts", "/api/questions", "/api/sources", "/api/tools")
+    # Not `/api/forge` whole: the new forge serves `/api/forge/catalogue` (part 1, #362). These
+    # are the old forge's routes the new one has no counterpart for (git `95c17b15`).
+    gone = ("/api/forge/adaptations", "/api/forge/overview", "/api/forge/sources",
+            "/api/contracts", "/api/questions", "/api/sources", "/api/tools")
     assert [p for p in paths if p.startswith(gone)] == []
     assert "/api/attention" in paths
     assert any(p.startswith("/api/pipeline/authoring") for p in paths)

@@ -21,6 +21,7 @@ current reader takes `.registry`, `.vocabulary` or `.rules` and reads.
 """
 
 import os
+import subprocess
 from functools import lru_cache
 from pathlib import Path
 
@@ -118,3 +119,17 @@ def builder_types(stack: Layers) -> dict[str, frozenset[str]]:
         for type_id, states in stack.vocabulary.types.items()
         if not type_id.startswith("measurement.")
     }
+
+
+def registry_label() -> str:
+    """What the builder loads, as a person can name it: `git describe` of the registry root
+    (`v0.4.0-37-g98b4566`), else the layer digest. **Not a release** until the app follows
+    releases (forge part 5); a production image without git metadata answers with the digest."""
+    try:
+        described = subprocess.run(
+            ["git", "-C", str(settings.registry_root), "describe", "--tags", "--always"],
+            check=True, capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        described = ""
+    return described or digest()

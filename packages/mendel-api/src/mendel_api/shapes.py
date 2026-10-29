@@ -35,11 +35,11 @@ def _shapes() -> tuple[Shape, ...]:
     from comeni_core.plan.draft import DraftGraph
     from comeni_core.spell.marks import ParamValue
     from mendel_authoring.payloads import DecisionChange
+    from mendel_forge.model import UpstreamModule
 
     from mendel_api.authoring.canvas import AlternativePreview
     from mendel_api.authoring.types import AskedGap, Block
     from mendel_api.migration_data.decisions_v1 import Snapshot
-    from mendel_forge.model import UpstreamModule
 
     loose = dict[str, JsonValue]
     return (

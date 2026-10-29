@@ -249,3 +249,5 @@ decline to curate one.
 |---|---|
 | `MF0500` | a module's `meta.yml` cannot be read |
 | `MF0501` | no conda package is the module's tool, so its tool version is unknown |
+| `MF0502` | a catalogue sync could not be queued |
+| `MF0503` | no module at that path in the catalogue |

@@ -957,6 +957,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Upstream modules against the registry, filtered, searched and paged */
+        get: operations["readCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/catalogue/{source}/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One upstream module: everything its source declares, and its state */
+        get: operations["readCatalogueModule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/catalogue/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync the catalogue from its source now */
+        post: operations["syncCatalogue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1564,6 +1615,20 @@ export interface components {
                 };
             };
         };
+        /** CataloguePage */
+        CataloguePage: {
+            /** Rows */
+            rows: components["schemas"]["ModuleRow"][];
+            /** Total */
+            total: number;
+            counts: components["schemas"]["Counts"];
+            last_good: components["schemas"]["SyncView"] | null;
+            last: components["schemas"]["SyncView"] | null;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Registry At */
+            registry_at: string;
+        };
         /** Change */
         Change: {
             value?: components["schemas"]["JsonValue"];
@@ -1613,6 +1678,25 @@ export interface components {
              * @default []
              */
             settings: string[];
+        };
+        /**
+         * Channel
+         * @description One input or output as `meta.yml` describes it.
+         */
+        Channel: {
+            /** Name */
+            name: string;
+            /** Type */
+            type?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Pattern */
+            pattern?: string | null;
+            /**
+             * Ontologies
+             * @default []
+             */
+            ontologies: string[];
         };
         /**
          * ChannelView
@@ -1714,6 +1798,18 @@ export interface components {
             };
         };
         /**
+         * CondaPackage
+         * @description One pinned dependency of `environment.yml` (`bioconda::star=2.7.11b`).
+         */
+        CondaPackage: {
+            /** Channel */
+            channel: string | null;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * Constraints
          * @description The complete closed set of routing and parameter choices in a goal.
          */
@@ -1765,6 +1861,29 @@ export interface components {
              * @enum {string}
              */
             kind: "measurement" | "input";
+        };
+        /**
+         * Counts
+         * @description Over the whole catalogue, not the filtered view: a filter's count says how many it
+         *     would show. `in_review` and `merged_not_released` are 0 until pull requests (part 4).
+         */
+        Counts: {
+            /** States */
+            states: {
+                [key: string]: number;
+            };
+            /** Topics */
+            topics: {
+                [key: string]: number;
+            };
+            /** Formats */
+            formats: {
+                [key: string]: number;
+            };
+            /** Sources */
+            sources: {
+                [key: string]: number;
+            };
         };
         /**
          * DataProfile
@@ -2724,6 +2843,35 @@ export interface components {
             /** Then */
             then: number | boolean | string | null;
         };
+        /** ModuleDetail */
+        ModuleDetail: {
+            row: components["schemas"]["ModuleRow"];
+            module: components["schemas"]["UpstreamModule"];
+        };
+        /** ModuleRow */
+        ModuleRow: {
+            /** Source */
+            source: string;
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Formats In */
+            formats_in: string[];
+            /** Formats Out */
+            formats_out: string[];
+            /** Tool Version */
+            tool_version: string | null;
+            state: components["schemas"]["State"];
+            /** Registry Version */
+            registry_version: string | null;
+            /** Contract Id */
+            contract_id: string | null;
+            /** Problems */
+            problems: components["schemas"]["Problem"][];
+        };
         /**
          * ModuleView
          * @description A contract the left panel offers, for dragging onto the canvas.
@@ -2814,6 +2962,19 @@ export interface components {
             what: string;
             /** Says */
             readonly says: string;
+        };
+        /**
+         * NfTest
+         * @description One nf-test case and the `test-datasets` paths it reads.
+         */
+        NfTest: {
+            /** Name */
+            name: string;
+            /**
+             * Datasets
+             * @default []
+             */
+            datasets: string[];
         };
         /**
          * Notice
@@ -3045,6 +3206,16 @@ export interface components {
              * @default false
              */
             gathers: boolean;
+        };
+        /**
+         * Problem
+         * @description Why part of a module could not be read. `code` is an `MF05xx` diagnostic.
+         */
+        Problem: {
+            /** Code */
+            code: string;
+            /** Says */
+            says: string;
         };
         /**
          * ProducerExclusion
@@ -3530,6 +3701,11 @@ export interface components {
             states?: string[];
         };
         /**
+         * Sort
+         * @enum {string}
+         */
+        Sort: "best" | "name" | "upstream_changed";
+        /**
          * Source
          * @enum {string}
          */
@@ -3546,6 +3722,11 @@ export interface components {
             /** Producer */
             producer: string;
         };
+        /**
+         * State
+         * @enum {string}
+         */
+        State: "imported" | "update_available" | "not_imported" | "unknown" | "gone_upstream" | "in_review" | "merged_not_released";
         /** StepOffer */
         StepOffer: {
             context: components["schemas"]["OfferContext"];
@@ -3668,6 +3849,29 @@ export interface components {
             /** Types */
             types: number;
         };
+        /** SyncQueued */
+        SyncQueued: {
+            /** Queued */
+            queued: boolean;
+        };
+        /** SyncView */
+        SyncView: {
+            /** Outcome */
+            outcome: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Commit */
+            commit: string | null;
+            /** Error */
+            error: string | null;
+            /** Stale */
+            stale: boolean;
+        };
         /**
          * TextSource
          * @enum {string}
@@ -3719,6 +3923,113 @@ export interface components {
             node: string;
             /** Position */
             position: number;
+        };
+        /** UpstreamModule */
+        UpstreamModule: {
+            /** Source */
+            source: string;
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Keywords
+             * @default []
+             */
+            keywords: string[];
+            /**
+             * Tools
+             * @default []
+             */
+            tools: components["schemas"]["UpstreamTool"][];
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: components["schemas"]["Channel"][];
+            /**
+             * Outputs
+             * @default []
+             */
+            outputs: components["schemas"]["Channel"][];
+            /**
+             * Authors
+             * @default []
+             */
+            authors: string[];
+            /**
+             * Maintainers
+             * @default []
+             */
+            maintainers: string[];
+            /**
+             * Packages
+             * @default []
+             */
+            packages: components["schemas"]["CondaPackage"][];
+            /** Tool Version */
+            tool_version?: string | null;
+            /**
+             * Containers
+             * @default []
+             */
+            containers: string[];
+            /** Label */
+            label?: string | null;
+            /**
+             * Tests
+             * @default []
+             */
+            tests: components["schemas"]["NfTest"][];
+            /**
+             * Topics
+             * @default []
+             */
+            topics: string[];
+            /**
+             * Formats In
+             * @default []
+             */
+            formats_in: string[];
+            /**
+             * Formats Out
+             * @default []
+             */
+            formats_out: string[];
+            /** Upstream Changed */
+            upstream_changed?: string | null;
+            /**
+             * Problems
+             * @default []
+             */
+            problems: components["schemas"]["Problem"][];
+        };
+        /**
+         * UpstreamTool
+         * @description One tool the module wraps, from `meta.yml`'s `tools`.
+         */
+        UpstreamTool: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Homepage */
+            homepage?: string | null;
+            /** Documentation */
+            documentation?: string | null;
+            /** Tool Dev Url */
+            tool_dev_url?: string | null;
+            /** Doi */
+            doi?: string | null;
+            /**
+             * Licence
+             * @default []
+             */
+            licence: string[];
+            /** Biotools */
+            biotools?: string | null;
         };
         /**
          * Urgency
@@ -5528,6 +5839,132 @@ export interface operations {
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readCatalogue: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["State"] | null;
+                topic?: string[];
+                format?: string[];
+                source?: string | null;
+                q?: string | null;
+                sort?: components["schemas"]["Sort"];
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CataloguePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readCatalogueModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleDetail"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    syncCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncQueued"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description The job queue is down. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
