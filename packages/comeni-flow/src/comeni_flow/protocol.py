@@ -60,8 +60,8 @@ class Node(_Frozen):
     actor: Actor
     label: str
     phase: InstanceOf[StrEnum] | None = None
-    """The session phase this node happens in, a member of the flow's `phases`. `None` only while planned: `gathering` does not
-    exist until the substep that builds it."""
+    """The phase this node happens in, a member of the flow's `phases`. `None` only while
+    planned: a phase may not exist until the step that builds it."""
     border: Border = Border.NONE
     shape: Shape = Shape.BOX
     built: bool = False
