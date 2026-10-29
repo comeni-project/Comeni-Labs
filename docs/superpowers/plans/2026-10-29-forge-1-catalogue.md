@@ -13,6 +13,9 @@ tables, syncs it in the worker, and serves the catalogue and the tool page. The 
 **Tech Stack:** Python 3.12, Pydantic 2, FastAPI, SQLAlchemy 2 + Alembic (Postgres), ARQ, git CLI;
 React, react-router, TanStack Query, Tailwind, Vitest.
 
+**Status (2026-10-29):** done on `forge-1-catalogue` except Task 0 step 6, which waits on
+comeni-registry#22. Deviations are listed at the end.
+
 **Spec:** `docs/superpowers/specs/2026-10-29-forge-1-catalogue-design.md` (issues #362, #410).
 Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUHrKhS`, boards
 `Main.dc.html` (catalogue) and `Tool.dc.html` (tool page).
@@ -71,23 +74,23 @@ Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUH
   id and its `module.yml` path. Fix text: add a `contract.yml` beside `module/`, or remove the
   module folder.
 
-- [ ] **Step 1: Write the failing test** `test_MD0025_a_module_without_a_contract` in
+- [x] **Step 1: Write the failing test** `test_MD0025_a_module_without_a_contract` in
   `tests/registry/test_loading_diagnostics.py`: build `_layer(tmp_path)` with the baseline
   contract, add `tools/x/orphan/module.yml` declaring `module`, `id: nf-core/orphan`, and assert
   `"MD0025" in message` and `"nf-core/orphan" in message`. Add
   `test_a_module_bound_by_a_contract_in_another_layer_loads`: base layer holds the module, an
   overlay holds the contract whose `nf_include` keys to it; `layers.load([base, overlay])` loads.
-- [ ] **Step 2: Run** `uv run pytest tests/registry/test_loading_diagnostics.py -k MD0025 -q`.
+- [x] **Step 2: Run** `uv run pytest tests/registry/test_loading_diagnostics.py -k MD0025 -q`.
   Expected: FAIL, no `MD0025` raised.
-- [ ] **Step 3: Implement** in `load`: after `Registry.of`, compute
+- [x] **Step 3: Implement** in `load`: after `Registry.of`, compute
   `bound = {key_of(c.nf_include) for c in registry.all()}` and raise
   `coded("MD0025", ...)` for the first `module.id` (sorted) in `vendored.entries` not in `bound`.
   Declare `MD0025` in `diagnostics.yml` with `emitted_by: core`, `concern: loading`.
-- [ ] **Step 4: Run the new tests**: PASS. Then run `uv run pytest tests/registry -q`: expect the
+- [x] **Step 4: Run the new tests**: PASS. Then run `uv run pytest tests/registry -q`: expect the
   shipped-registry tests to FAIL with `MD0025` naming `nf-core/bedtools/sort`. **That failure is
   the guard's evidence** — record it in `tests/fixtures/guard-ledger.md` (test name, the defect
   it catches, the command, the failing output's first line, 2026-10-29).
-- [ ] **Step 5: Registry pull request.** `gh repo clone comeni-project/comeni-registry
+- [x] **Step 5: Registry pull request.** `gh repo clone comeni-project/comeni-registry
   $SCRATCH/comeni-registry`, branch `remove-modules-without-contracts`, delete the three folders
   (and `picard/` and `bedtools/` whole, since nothing else is under them), run
   `uv run mendel docs --registry $SCRATCH/comeni-registry --in-place`, commit, push, open the pull
@@ -96,7 +99,7 @@ Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUH
 - [ ] **Step 6: Bump the submodule** to the merged commit:
   `git -C registry fetch && git -C registry checkout origin/main`, then
   `uv run pytest tests/registry -q`: PASS.
-- [ ] **Step 7: Run** `make check`: PASS. Commit (`fix(registry): a module without a contract
+- [x] **Step 7: Run** `make check`: PASS. Commit (`fix(registry): a module without a contract
   refuses to load (#410)`).
 
 ### Task 1: `mendel-forge` package and the upstream module model
@@ -136,7 +139,7 @@ Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUH
     str | None` — the one package `same_name` to `module_path`'s first segment, else to
     `tool_names[0]`; `None` when zero or several match.
 
-- [ ] **Step 1: Write failing tests** in `test_versions.py`:
+- [x] **Step 1: Write failing tests** in `test_versions.py`:
   `test_trimgalore_matches_trim_galore` (`tool_version([CondaPackage(channel="bioconda",
   name="trim-galore", version="0.6.10")], "trimgalore", []) == "0.6.10"`);
   `test_the_tool_not_the_first_package` (packages `htslib 1.21`, `samtools 1.21`, `star 2.7.11b`,
@@ -145,12 +148,12 @@ Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUH
   `test_several_matches_is_unknown` (path `bwa/mem`, packages `bwa 0.7.19` and `BWA 0.7.18` →
   `None`);
   `test_no_match_is_unknown_not_a_guess` (path `foo`, packages `bar 1.0` → `None`).
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-forge/tests -q`: FAIL (no module).
-- [ ] **Step 3: Implement** the package, models and `versions.py`; switch
+- [x] **Step 2: Run** `uv run pytest packages/mendel-forge/tests -q`: FAIL (no module).
+- [x] **Step 3: Implement** the package, models and `versions.py`; switch
   `test_tool_versions.py` to `parse_packages` + `tool_version` (its behaviour unchanged).
-- [ ] **Step 4: Run** `uv run pytest packages/mendel-forge/tests tests/registry/test_tool_versions.py
+- [x] **Step 4: Run** `uv run pytest packages/mendel-forge/tests tests/registry/test_tool_versions.py
   -q`: PASS. `uv lock --check`: OK. `make guards`: PASS (purity unaffected).
-- [ ] **Step 5: Commit** (`feat(forge): the mendel-forge package and the shared tool-version rule
+- [x] **Step 5: Commit** (`feat(forge): the mendel-forge package and the shared tool-version rule
   (#362)`).
 
 ### Task 2: Parse one nf-core module folder
@@ -179,18 +182,18 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
 `label 'process_*'`. nf-test names come from `test("...")`; datasets from every
 `params.modules_testdata_base_path + '...'` or `test-datasets` path string.
 
-- [ ] **Step 1: Write failing tests**: `test_star_align_reads_everything` (name `star/align`,
+- [x] **Step 1: Write failing tests**: `test_star_align_reads_everything` (name `star/align`,
   `tool_version == "2.7.11b"`, an input named `reads` with an EDAM ontology URL, outputs include
   `bam`, `containers` nonempty, `label == "process_high"`, `tests` nonempty with a dataset path);
   `test_flat_and_nested_channel_shapes_agree` (fastqc vs star/align both give `Channel`s);
   `test_broken_meta_is_kept_with_MF0500` (returns a module with `problems[0].code == "MF0500"`
   and `name == "broken-meta"`); `test_missing_environment_gives_unknown_version_MF0501`;
   `test_two_tools_gives_unknown_version_MF0501`.
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-forge/tests/test_parse.py -q`: FAIL.
-- [ ] **Step 3: Implement** `parse_module`; declare `MF0500`, `MF0501` in `diagnostics.yml`
+- [x] **Step 2: Run** `uv run pytest packages/mendel-forge/tests/test_parse.py -q`: FAIL.
+- [x] **Step 3: Implement** `parse_module`; declare `MF0500`, `MF0501` in `diagnostics.yml`
   (`emitted_by: forge`, `refuses: false`) and update the band comment to `MF0500-MF0599 the
   forge: the catalogue`.
-- [ ] **Step 4: Run**: PASS. Commit (`feat(forge): read everything an nf-core module declares`).
+- [x] **Step 4: Run**: PASS. Commit (`feat(forge): read everything an nf-core module declares`).
 
 ### Task 3: Topics and formats
 
@@ -207,13 +210,13 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   (`*.{fastq,fq}.gz` → `fastq`, `fq`; compression suffixes `gz`, `bz2`, `zst` dropped), lower
   case, sorted, unique. `parse_module` calls both.
 
-- [ ] **Step 1: Failing tests**: `test_alignment_keyword_gives_alignment`;
+- [x] **Step 1: Failing tests**: `test_alignment_keyword_gives_alignment`;
   `test_no_match_gives_no_topic` (`topics_of(["frobnicate"], []) == []`);
   `test_brace_patterns_expand_and_drop_compression` (`formats_of([Channel(pattern=
   "*.{fastq,fq}.gz", ...)]) == ["fastq", "fq"]`); and in `test_parse.py`,
   `test_star_align_has_topics_and_formats` (`"alignment" in m.topics`, `"bam" in m.formats_out`).
-- [ ] **Step 2–4:** run (FAIL), implement, run (PASS).
-- [ ] **Step 5: Commit** (`feat(forge): topics and formats from nf-core's own words`).
+- [x] **Step 2–4:** run (FAIL), implement, run (PASS).
+- [x] **Step 5: Commit** (`feat(forge): topics and formats from nf-core's own words`).
 
 ### Task 4: `CatalogueSource` and `NfCoreSource`
 
@@ -239,14 +242,14 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   `git log --format=%x00%cI --name-only -- modules/nf-core` (newest first; the first date seen
   for a module's folder is its last change).
 
-- [ ] **Step 1: Failing tests** against a local repository built in `tmp_path` with
+- [x] **Step 1: Failing tests** against a local repository built in `tmp_path` with
   `modules/nf-core/fastqc/` and `modules/nf-core/star/align/` copied from Task 2's fixtures in
   two commits with fixed dates (`GIT_COMMITTER_DATE`): `test_sync_clones_and_reports_the_commit`;
   `test_modules_lists_both_with_their_last_change` (star/align's date is the second commit's);
   `test_a_second_sync_sees_a_new_module`; `test_unreachable_url_raises_SourceUnavailable`
   (`NfCoreSource("file:///nonexistent")`).
-- [ ] **Step 2–4:** run (FAIL), implement, run (PASS).
-- [ ] **Step 5: Commit** (`feat(forge): the catalogue source interface and nf-core behind it`).
+- [x] **Step 2–4:** run (FAIL), implement, run (PASS).
+- [x] **Step 5: Commit** (`feat(forge): the catalogue source interface and nf-core behind it`).
 
 ### Task 5: The state comparison
 
@@ -269,7 +272,7 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   - `gone(held: dict[str, Held], upstream_paths: set[str]) -> list[Held]`.
   - `BEST_ORDER: tuple[State, ...] = (UPDATE, IMPORTED, UNKNOWN, GONE, NOT_IMPORTED)`.
 
-- [ ] **Step 1: Failing tests** (fixture `held` dicts, plus one test on the shipped registry):
+- [x] **Step 1: Failing tests** (fixture `held` dicts, plus one test on the shipped registry):
   `test_same_version_is_imported`; `test_different_version_is_update_available`
   (`"2.7.11a"` vs held `"2.7.11b"` → `UPDATE`, not ordered); `test_absent_is_not_imported`;
   `test_unknown_version_of_a_held_module_is_unknown`;
@@ -277,8 +280,8 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   `test_a_held_path_missing_upstream_is_gone`;
   `test_the_shipped_registry_holds_star_align` (`held(layers.load(REGISTRY))["star/align"]
   .version == "2.7.11b"`).
-- [ ] **Step 2–4:** run (FAIL), implement, run (PASS).
-- [ ] **Step 5: Commit** (`feat(forge): a module's state against the registry, computed on read`).
+- [x] **Step 2–4:** run (FAIL), implement, run (PASS).
+- [x] **Step 5: Commit** (`feat(forge): a module's state against the registry, computed on read`).
 
 ### Task 6: Tables and the sync
 
@@ -317,17 +320,17 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   in `WorkerSettings.functions` with `max_tries=1`, and `cron(sync_catalogue_job, hour=3,
   minute=0)`.
 
-- [ ] **Step 1: Failing tests** (`needs_db`, a fake `CatalogueSource` yielding Task 2 fixture
+- [x] **Step 1: Failing tests** (`needs_db`, a fake `CatalogueSource` yielding Task 2 fixture
   modules): `test_a_sync_stores_every_module`; `test_a_module_gone_upstream_is_marked_not_deleted`;
   `test_a_failing_source_leaves_the_catalogue_whole` (first sync ok with two modules; second
   source raises after yielding one → still two rows, both `seen_in` the first sync, second sync
   row `failed`); `test_a_module_with_problems_is_stored_and_counted`.
-- [ ] **Step 2: Run** `make test-db`, then `DBTEST packages/mendel-api/tests/forge`: FAIL.
-- [ ] **Step 3: Implement** models, migration, service, worker job, setting and Compose mount;
+- [x] **Step 2: Run** `make test-db`, then `DBTEST packages/mendel-api/tests/forge`: FAIL.
+- [x] **Step 3: Implement** models, migration, service, worker job, setting and Compose mount;
   add `.run/forge` to `.gitignore` if `.run/` is not already ignored.
-- [ ] **Step 4: Run**: PASS. `cd packages/mendel-api && MENDEL_DATABASE_URL=<test url> uv run
+- [x] **Step 4: Run**: PASS. `cd packages/mendel-api && MENDEL_DATABASE_URL=<test url> uv run
   alembic downgrade -1 && uv run alembic upgrade head`: both succeed.
-- [ ] **Step 5: Commit** (`feat(api): the stored catalogue and its daily sync (#362)`).
+- [x] **Step 5: Commit** (`feat(api): the stored catalogue and its daily sync (#362)`).
 
 ### Task 7: The catalogue API
 
@@ -366,7 +369,7 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   `name`; every sort ends on `path`. `q` is passed as a bound parameter and matched with
   `ILIKE` on an escaped pattern plus trigram similarity, never interpolated.
 
-- [ ] **Step 1: Failing tests** (`needs_db`, `client` fixture, catalogue seeded through
+- [x] **Step 1: Failing tests** (`needs_db`, `client` fixture, catalogue seeded through
   `run_sync` with a fake source and the shipped registry): `test_filters_by_state_and_counts`;
   `test_topic_and_format_filters_are_any_of`; `test_best_puts_held_modules_first`;
   `test_search_matches_description_and_ranks`; `test_search_wildcards_are_literal`
@@ -376,9 +379,9 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   `test_unknown_module_is_MF0503`; `test_second_sync_request_says_already_queued` (monkeypatch
   `jobs.enqueue` to return `False` → `{"queued": false}`);
   `test_a_held_module_gone_upstream_is_listed`.
-- [ ] **Step 2–4:** `DBTEST packages/mendel-api/tests/forge/test_catalogue_api.py` (FAIL),
+- [x] **Step 2–4:** `DBTEST packages/mendel-api/tests/forge/test_catalogue_api.py` (FAIL),
   implement, run again (PASS).
-- [ ] **Step 5:** `make client`; `cd frontend && npx tsc -b`: PASS. Commit
+- [x] **Step 5:** `make client`; `cd frontend && npx tsc -b`: PASS. Commit
   (`feat(api): the catalogue, filtered, searched and paged`).
 
 ### Task 8: The tool page API
@@ -404,13 +407,13 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   `registry_at: str` (Task 7's `registry_label()`); `catalogue: ModuleDetail | None` (Task 7's, by upstream path).
 - Route: unknown contract id → 404 `MF0504` (*no tool with that id in the registry*).
 
-- [ ] **Step 1: Failing tests**: `test_star_align_page_carries_the_registry` (status 200 for
+- [x] **Step 1: Failing tests**: `test_star_align_page_carries_the_registry` (status 200 for
   `/api/registry/tools/nf-core/star/align@2.7.11b`; `star_ignore_sjdbgtf` has a `because`;
   `seq_platform.asks_person`; port `reads` has `states_conventional == ["trimmed"]`;
   `approved_by == "rafael"`; `rules` has role `alignment`; `registry_at` nonempty);
   `test_unknown_tool_is_MF0504`; `test_page_has_catalogue_when_synced` (`needs_db`).
-- [ ] **Step 2–4:** run (FAIL), implement, run (PASS).
-- [ ] **Step 5:** `make client`. Commit (`feat(api): an imported tool's page, from the registry`).
+- [x] **Step 2–4:** run (FAIL), implement, run (PASS).
+- [x] **Step 5:** `make client`. Commit (`feat(api): an imported tool's page, from the registry`).
 
 ### Task 9: The Registry tab and the catalogue page
 
@@ -435,19 +438,19 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   *stale since <time>: <error>* after a failed sync; before any sync, an empty state with
   **Sync now**.
 
-- [ ] **Step 1: Failing tests** (mocked `get`): `renders rows, counts and the last sync`;
+- [x] **Step 1: Failing tests** (mocked `get`): `renders rows, counts and the last sync`;
   `the state filter writes the URL and refetches`; `selecting a row fills the panel and links an
   imported tool`; `not imported shows a disabled forge action saying part 2`;
   `pull request states show 0 and the part 4 note`; `before any sync it offers Sync now`;
   Shell: `the Registry tab is present`.
-- [ ] **Step 2: Run** `cd frontend && npx vitest run src/registry src/app`: FAIL.
-- [ ] **Step 3: Implement**, following the shell's tokens (`text-ink`, `border-line`,
+- [x] **Step 2: Run** `cd frontend && npx vitest run src/registry src/app`: FAIL.
+- [x] **Step 3: Implement**, following the shell's tokens (`text-ink`, `border-line`,
   `bg-paper`, …) and board 1's three columns; columns stack at phone width with filters
   collapsed behind a *Filters* button.
-- [ ] **Step 4: Run** vitest and `npx tsc -b`: PASS.
-- [ ] **Step 5: Browser check**: `make dev`, sync once (live, by hand), open `/registry` at
+- [x] **Step 4: Run** vitest and `npx tsc -b`: PASS.
+- [x] **Step 5: Browser check**: `make dev`, sync once (live, by hand), open `/registry` at
   1440 px and 390 px, light and dark; compare with board `Main.dc.html`. Fix differences.
-- [ ] **Step 6: Commit** (`feat(frontend): the registry catalogue, as board 1 draws it`).
+- [x] **Step 6: Commit** (`feat(frontend): the registry catalogue, as board 1 draws it`).
 
 ### Task 10: The tool page
 
@@ -463,15 +466,15 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   disabled, *Tests come in part 3*); plus *From nf-core* (catalogue description, formats,
   authors, nf-core's version; *Not synced yet* when `catalogue` is null).
 
-- [ ] **Step 1: Failing tests**: `loads by direct link with a slash and an at sign in the id`
+- [x] **Step 1: Failing tests**: `loads by direct link with a slash and an at sign in the id`
   (memory router at `/registry/tools/nf-core/star/align@2.7.11b` requests that exact id);
   `shows each param's reason and asks-the-person`; `update available shows both versions`;
   `re-forge and add tests are disabled with their part`; `an unknown id shows the MF0504
   refusal`.
-- [ ] **Step 2–4:** run (FAIL), implement, run (PASS); `npx tsc -b`.
-- [ ] **Step 5: Browser check** at 1440 and 390 px, light and dark, against `Tool.dc.html`;
+- [x] **Step 2–4:** run (FAIL), implement, run (PASS); `npx tsc -b`.
+- [x] **Step 5: Browser check** at 1440 and 390 px, light and dark, against `Tool.dc.html`;
   reload on the page to confirm the direct link.
-- [ ] **Step 6: Commit** (`feat(frontend): an imported tool's page, as board 2 draws it`).
+- [x] **Step 6: Commit** (`feat(frontend): an imported tool's page, as board 2 draws it`).
 
 ### Task 11: Documentation and records
 
@@ -486,9 +489,28 @@ list. Parse both; a channel is every non-`meta*` key. Containers come from `main
   (ticks, deviations)
 - Test: `make doc-sizes`, `make check`
 
-- [ ] **Step 1:** Write the pages; link the how-to from `docs/index.md`'s how-to list.
-- [ ] **Step 2: Run** `make check` and `make guards`: PASS. `make verify` is not required (no
+- [x] **Step 1:** Write the pages; link the how-to from `docs/index.md`'s how-to list.
+- [x] **Step 2: Run** `make check` and `make guards`: PASS. `make verify` is not required (no
   resolution, compiler or `pipeline.yml` change) — except that Task 0 changed loading, so run
   `make verify` once: PASS.
-- [ ] **Step 3: Commit** (`docs: forge part 1 — the catalogue how-to, changelog, journal, ticked
+- [x] **Step 3: Commit** (`docs: forge part 1 — the catalogue how-to, changelog, journal, ticked
   plan (#362)`).
+
+## Deviations
+
+- Task 0: four test fixtures that deleted a contract and left its module now delete the folder;
+  `MD0025` is `emitted_by: resolver`.
+- Task 1: test files are `test_forge_*.py` (pytest's default import mode collides on basenames);
+  `mendel-forge` depends on `comeni-vendor` and `mendel-resolver` from the start.
+- Task 6: the new package reuses the name `mendel_forge`, so part 0's guard
+  (`test_old_forge_gone.py`) names the old package's modules and routes instead.
+- Task 7: counts are over the whole catalogue; a held module never seen by any sync is not
+  listed as gone; *Sync now* checks for a running sync and keys the job id on the last sync.
+- Task 8: `RuleView` carries each row's condition, choice, reason and citation (the rule files
+  have no id); outputs carry `states_made`.
+- After the live sync: tool versions ignore conda ecosystem prefixes (`r-`, `bioconductor-`,
+  `perl-`, `python-`, `ncbi-`), taking unknown versions from 450 to 397 of 2,123; `prepare`
+  makes `.run/forge`; the status page's links are relative to `reference/`.
+- Tasks 9–10: *Show more* instead of loading on scroll; the registry line sits in the Registry
+  bar; the table's scroll box uses `contain: inline-size` so pages fit at 390 px.
+- The issues number the forge one ahead of the design (#363 is the tool page, built here).
