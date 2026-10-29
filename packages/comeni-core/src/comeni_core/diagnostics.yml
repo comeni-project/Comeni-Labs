@@ -25,6 +25,7 @@
 #   MD0025         a module no contract binds
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0499  retired with the old forge (#361); the new forge allocates from MF0500
+#   MF0500-MF0599  the forge: the catalogue of upstream modules (#362)
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: retired with the old forge (#361), except MI0106
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
@@ -2166,6 +2167,33 @@ MD0228:
     legal Groovy and appears throughout these expressions — `.map { gtf -> … }` — so
     everything else is left exactly as written. There is no template language here, for the
     same reason Plan 1.15's `transform` is not one: no parser, no precedence, no second name.
+MF0500:
+  emitted_by: forge
+  concern: catalogue
+  says: "a module's `meta.yml` cannot be read"
+  fires_on: [catalogue sync]
+  refuses: false
+  fix: |
+    Nothing to do here: the module is upstream's. It stays in the catalogue with this problem
+    and without what `meta.yml` would have said; the next sync reads it again.
+  explanation: |
+    nf-core holds thousands of modules, and one malformed file must not lose a whole sync or
+    shrink the counts. The module is kept, shown and counted, and what could not be read is
+    left empty rather than guessed.
+MF0501:
+  emitted_by: forge
+  concern: catalogue
+  says: "no conda package is the module's tool, so its tool version is unknown"
+  fires_on: [catalogue sync]
+  refuses: false
+  fix: |
+    Nothing to do here. A module whose `environment.yml` is missing, or names no package that
+    matches its tool (ignoring case, `-` and `_`), or names several, has no version the
+    catalogue can compare; it is shown as unknown.
+  explanation: |
+    The first package in `environment.yml` is often a library (`htslib`), and taking it would
+    put the library's version on the tool and call an imported tool out of date. Unknown is
+    the honest answer.
 MV0001:
   emitted_by: vendor
   concern: vendoring

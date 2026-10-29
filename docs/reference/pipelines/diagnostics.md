@@ -242,3 +242,10 @@ decline to curate one.
 |---|---|
 | `MV0001` | a module could not be fetched at the commit it was pinned to |
 | `MV0002` | a vendored module no longer matches what its module.yml declares |
+
+## The forge — the catalogue of upstream modules
+
+| Code | Says |
+|---|---|
+| `MF0500` | a module's `meta.yml` cannot be read |
+| `MF0501` | no conda package is the module's tool, so its tool version is unknown |
