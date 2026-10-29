@@ -81,6 +81,8 @@ def test_the_status_page_lists_every_marker(tmp_path):
     page = docs_status.render(docs_status.scan(docs))
     assert "start/e.md" in page
     assert "Plan 3" in page
+    # The page lives in `reference/`, so a link to a page is relative to there.
+    assert "](../start/e.md)" in page
 
 
 def test_a_development_guide_without_a_serves_line_is_a_problem(tmp_path):
