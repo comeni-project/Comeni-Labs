@@ -97,6 +97,9 @@ def test_preparation_keeps_environment_and_existing_data(registry, tmp_path):
     assert (tmp_path / ".env").read_text() == "LOCAL_VALUE=preserve\n"
     assert data.read_text() == "stored artifact"
     assert (tmp_path / ".run/drafts").is_dir()
+    # Made here, as the user, so Docker does not create it as root for the worker's bind mount:
+    # the first live sync could not write its clone (forge part 1).
+    assert (tmp_path / ".run/forge").is_dir()
 
 
 def test_compose_dotenv_quotes_interpolation_and_literals_are_not_make_code(tmp_path):

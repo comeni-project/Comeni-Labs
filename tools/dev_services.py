@@ -65,7 +65,8 @@ def prepare(root: Path) -> None:
                 stream.write((root / ".env.example").read_text())
         except FileExistsError:
             pass
-    for path in [".run/wiener/artifacts", ".run/wiener/work", ".run/drafts", "workspace"]:
+    for path in [".run/wiener/artifacts", ".run/wiener/work", ".run/drafts", ".run/forge",
+                 "workspace"]:
         (root / path).mkdir(parents=True, exist_ok=True)
     refresh_registry(root / "registry", root / ".run/registry")
 
