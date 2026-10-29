@@ -121,8 +121,11 @@ after them as MVP 4, disabled.
 item a piece holds keeps its history: drafted by the AI, revised by the AI at the person's
 request, changed by the person. Every revision records its actor, reason, and the model
 invocation that produced it if any. **Commands** move the flow: the AI may issue `draft`,
-`revise` and `add`; only a person may issue `answer`, `write`, `approve`, `change`, `reject` and
-`remove`. The engine refuses an approval from the AI (an `MF05xx` refusal, guarded by a test).
+`revise`, `add` and `propose_removal`, each a **proposal** that waits for approval; only a person
+may issue `answer`, `write`, `approve`, `change`, `reject` and `remove`, each a **decision** that
+counts at once *(operator: the AI may propose writing, changing or removing anything; only
+approval makes it count)*. An approved removal takes the item out, recorded with the AI's
+reason and the person's approval. The engine refuses an approval from the AI (an `MF05xx` refusal, guarded by a test).
 
 **Who drafts is the person's choice** *(operator)*. Each piece opens with two ways in: **Draft
 with the AI**, or **Write it myself**, which opens the piece empty (or, for a re-forge, as the
@@ -153,9 +156,9 @@ and approved, or (for an optional item, such as a param) removed by the person.
 **The chat runs through the whole of drafting** *(operator: "so I can say, why not have this
 rule")*. The person can ask anything, about the tool, a piece or one item (a message can be
 attached to an item, so the AI knows what it is about), and it is open whether the AI or the
-person is drafting. The AI's reply may carry commands: `revise` an existing item, or `add` a new
-one (a rule, a param, a state) the person asked for or the AI suggests, each new revision or item
-waiting for approval. The AI may also answer that something does not fit and say why, with no
+person is drafting. The AI's reply may carry commands: `revise` an existing item, `add` a new
+one (a rule, a param, a state) the person asked for or the AI suggests, or `propose_removal` of
+one that should not be there, each waiting for approval. The AI may also answer that something does not fit and say why, with no
 command. The chat never approves.
 
 **Assembly.** When every piece is approved the engine writes the draft layer (§4). A failure
