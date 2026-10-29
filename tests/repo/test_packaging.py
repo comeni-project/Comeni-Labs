@@ -13,7 +13,7 @@ import tomllib
 from support.paths import ROOT
 
 PYPROJECTS = sorted((ROOT / "packages").glob("*/pyproject.toml"))
-WORKSPACE = {"comeni-core", "mendel-resolver", "mendel-compiler"}
+WORKSPACE = {"comeni-core", "comeni-flow", "mendel-resolver", "mendel-compiler"}
 
 
 def _dependencies(path: pathlib.Path) -> list[str]:

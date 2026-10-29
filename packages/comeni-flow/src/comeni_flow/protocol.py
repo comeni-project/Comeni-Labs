@@ -9,6 +9,7 @@ and forks. Moved from `mendel_authoring.protocol` (forge MVP 3, #364) and made g
 from enum import StrEnum
 from typing import Self
 
+from comeni_core.diagnostics import REGISTRY
 from pydantic import BaseModel, ConfigDict, InstanceOf, model_validator
 
 from comeni_flow.forks import DEFAULT, Subject
@@ -118,6 +119,14 @@ class Protocol(_Frozen):
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:
+        if self.refusal_code not in REGISTRY:
+            raise ValueError(f"refusal code {self.refusal_code!r} is not a declared diagnostic")
+        if (self.failed is None) != (self.retry is None):
+            raise ValueError("failed and retry come together: give both or neither")
+        if self.failed is not None and not isinstance(self.failed, self.phases):
+            raise ValueError(f"failed {self.failed!r} is not a {self.phases.__name__}")
+        if self.retry is not None and not isinstance(self.retry, self.events):
+            raise ValueError(f"retry {self.retry!r} is not a {self.events.__name__}")
         stages = {s.id for s in self.stages}
         nodes = {n.id: n for n in self.nodes}
         shared = sorted(stages & set(nodes))

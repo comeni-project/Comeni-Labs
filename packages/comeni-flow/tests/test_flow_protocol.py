@@ -68,3 +68,23 @@ def test_a_phase_keeps_its_own_type():
 def test_to_mermaid_draws_each_node():
     drawn = to_mermaid(_flow())
     assert "ask" in drawn and "end" in drawn
+
+
+def test_an_undeclared_refusal_code_is_refused_at_construction():
+    """Otherwise `follow` raises an unknown-diagnostic error instead of `Refused`."""
+    with pytest.raises(ValidationError, match="ZZ9999"):
+        _flow(refusal_code="ZZ9999")
+
+
+def test_failed_and_retry_come_together_and_in_the_flows_types():
+    with pytest.raises(ValidationError, match="both or neither"):
+        _flow(failed=Toy.DONE)
+    with pytest.raises(ValidationError, match="not a Toy"):
+        _flow(failed=Other.ELSEWHERE, retry=Go.FINISH)
+
+
+def test_a_return_edge_in_a_flow_without_retry_is_refused():
+    edges = (Edge(source="ask", target="end", event=Go.FINISH, built=True, on="finish",
+                  returns=True),)
+    with pytest.raises(ValidationError, match="does not leave failed on retry"):
+        _flow(edges=edges)

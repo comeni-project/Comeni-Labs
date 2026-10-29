@@ -148,7 +148,7 @@ or a complete commit history.
 - A new pure package: the declarative flow engine the builder's conversation was written on —
   the protocol model and its construction checks, the interpreter, forks and the Mermaid
   diagram — made generic over a flow's own phases, events, commands and refusal code, so the
-  forge declares its flow on the same engine ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)).
+  forge can declare its flow on the same engine (planned) ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)).
 
 ### mendel-authoring
 
