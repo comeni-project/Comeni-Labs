@@ -141,7 +141,22 @@ or a complete commit history.
   explicitly forced. Tier-4 hand edits require both an override and its explanation.
 - The test gate enables Docker. Emitted test profiles pin their datasets by commit.
 
+### comeni-flow
+
+#### Added
+
+- A new pure package: the declarative flow engine the builder's conversation was written on —
+  the protocol model and its construction checks, the interpreter, forks and the Mermaid
+  diagram — made generic over a flow's own phases, events, commands and refusal code, so the
+  forge declares its flow on the same engine ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)).
+
 ### mendel-authoring
+
+#### Changed
+
+- The protocol engine moved to `comeni-flow`; `PROTOCOL` is declared on it through
+  `authoring_protocol(...)`, with no change to the builder's behaviour or its generated diagram
+  ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)).
 
 #### Added
 
