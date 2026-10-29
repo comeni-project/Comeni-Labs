@@ -13,8 +13,8 @@ tables, syncs it in the worker, and serves the catalogue and the tool page. The 
 **Tech Stack:** Python 3.12, Pydantic 2, FastAPI, SQLAlchemy 2 + Alembic (Postgres), ARQ, git CLI;
 React, react-router, TanStack Query, Tailwind, Vitest.
 
-**Status (2026-10-29):** done on `forge-1-catalogue` except Task 0 step 6, which waits on
-comeni-registry#22. Deviations are listed at the end.
+**Status (2026-10-29):** done on `forge-1-catalogue`; comeni-registry#22 merged and the submodule
+bumped. Deviations are listed at the end.
 
 **Spec:** `docs/superpowers/specs/2026-10-29-forge-1-catalogue-design.md` (issues #362, #410).
 Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUHrKhS`, boards
@@ -96,7 +96,7 @@ Boards: canvas *Forge MVP pages*, `https://claude.ai/artifact/8T3V69ZSUr9wLydNUH
   `uv run mendel docs --registry $SCRATCH/comeni-registry --in-place`, commit, push, open the pull
   request referencing Comeni-Labs#410. It loads under the old engine too, so no `ENGINE_REF`
   bump. **Stop and ask the operator to merge it.**
-- [ ] **Step 6: Bump the submodule** to the merged commit:
+- [x] **Step 6: Bump the submodule** to the merged commit:
   `git -C registry fetch && git -C registry checkout origin/main`, then
   `uv run pytest tests/registry -q`: PASS.
 - [x] **Step 7: Run** `make check`: PASS. Commit (`fix(registry): a module without a contract

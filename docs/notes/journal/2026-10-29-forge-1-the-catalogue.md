@@ -11,8 +11,8 @@
   contract is a mistake to refuse, not a state to show (#410).
 - **Found:** three registry modules (`picard/markduplicates`, `samtools/faidx`, `bedtools/sort`)
   had nf-core source and no contract since the old forge's drafting targets (2026-08-17).
-  `MD0025` now refuses them; comeni-registry#22 removes them and waits on the operator's merge.
-  The submodule pointer is bumped after it merges.
+  `MD0025` now refuses them; comeni-registry#22 removed them (merged 2026-10-29).
+  The submodule points at its merge.
 - **Found:** the issues number the forge one ahead of the design (the tool page is "MVP 2",
   #363). The design's part numbers are used in the code and pages; issue numbers in prose.
 - Built: `mendel-forge` (source interface, nf-core blobless clone, parser, topics, state);
