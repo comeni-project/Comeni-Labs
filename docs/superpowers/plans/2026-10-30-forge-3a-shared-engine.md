@@ -73,20 +73,20 @@ declared on the core.
 - Produces, in `comeni_flow.forks`: `DEFAULT = "*"` and `Subject[S]` (abstract `title`,
   `options() -> frozenset[str] | None`, `value(snapshot: S) -> str`).
 
-- [ ] **Step 1: Write failing tests** in `test_flow_protocol.py` with a three-node toy flow
+- [x] **Step 1: Write failing tests** in `test_flow_protocol.py` with a three-node toy flow
   (`class Toy(StrEnum): ASKING, DONE`; `class Go(StrEnum): FINISH`):
   `test_a_flow_without_failed_or_retry_is_valid`;
   `test_a_waiting_node_left_by_a_non_command_is_refused` (`ValueError`, message names the node);
   `test_a_node_whose_phase_is_not_the_flows_type_is_refused` (`ValidationError`);
   `test_transitions_lists_each_event_edge` (`{(Toy.ASKING, Go.FINISH): Toy.DONE}`);
   `test_to_mermaid_draws_each_node`.
-- [ ] **Step 2: Run** `uv run pytest packages/comeni-flow -q`. Expected: FAIL (no package).
-- [ ] **Step 3: Implement** by moving the generic code out of
+- [x] **Step 2: Run** `uv run pytest packages/comeni-flow -q`. Expected: FAIL (no package).
+- [x] **Step 3: Implement** by moving the generic code out of
   `packages/mendel-authoring/src/mendel_authoring/protocol.py` (lines defining `Actor` …
   `Protocol`, `_validate_forks`, and the Mermaid helpers `_FILL` … `to_mermaid`) into
   `comeni_flow/protocol.py`, `diagram.py` and `forks.py`, generalised as the Interfaces say.
-- [ ] **Step 4: Run** the new tests: PASS. `uv lock --check`, `make guards`: PASS.
-- [ ] **Step 5: Commit** (`refactor(flow): comeni-flow, the protocol engine made generic (#364)`).
+- [x] **Step 4: Run** the new tests: PASS. `uv lock --check`, `make guards`: PASS.
+- [x] **Step 5: Commit** (`refactor(flow): comeni-flow, the protocol engine made generic (#364)`).
 
 ### Task 2: the generic interpreter
 
@@ -103,17 +103,17 @@ declared on the core.
   `coded(protocol.refusal_code, …)` and a fork reads `node.fork.value(snapshot)` with whatever
   `snapshot` the caller passes.
 
-- [ ] **Step 1: Failing tests**: `test_run_rests_where_a_node_waits`;
+- [x] **Step 1: Failing tests**: `test_run_rests_where_a_node_waits`;
   `test_a_refusal_carries_the_flows_own_code` (a toy flow with `refusal_code="MD0005"`, a
   declared code unrelated to the builder; `follow` on a missing arrow raises `Refused` whose
   message starts with `MD0005`);
   `test_a_fork_reads_the_callers_snapshot_type` (a `Subject` reading a dataclass snapshot);
   `test_a_cycle_is_refused`.
-- [ ] **Step 2: Run**: FAIL.
-- [ ] **Step 3: Implement** by moving `interpret.py` from `mendel-authoring`, generalised.
+- [x] **Step 2: Run**: FAIL.
+- [x] **Step 3: Implement** by moving `interpret.py` from `mendel-authoring`, generalised.
   (`coded()` refuses an undeclared code, which is why the test borrows a declared one.)
-- [ ] **Step 4: Run**: PASS.
-- [ ] **Step 5: Commit** (`refactor(flow): the interpreter, generic over flow and snapshot`).
+- [x] **Step 4: Run**: PASS.
+- [x] **Step 5: Commit** (`refactor(flow): the interpreter, generic over flow and snapshot`).
 
 ### Task 3: the builder declared on `comeni-flow`
 
@@ -138,22 +138,35 @@ declared on the core.
 - Produces: `mendel_authoring.protocol.PROTOCOL: Protocol[Phase, Event]` (same nodes, edges,
   stages, title as today).
 
-- [ ] **Step 1: Baseline**: on the branch before this task, `make test > before.log` and
+- [x] **Step 1: Baseline**: on the branch before this task, `make test > before.log` and
   `uv run python tools/generate_protocol_doc.py --check`: record pass counts.
-- [ ] **Step 2: Implement** the declarations and import changes.
-- [ ] **Step 3: Run** `uv run python tools/generate_protocol_doc.py --check`: PASS without
+- [x] **Step 2: Implement** the declarations and import changes.
+- [x] **Step 3: Run** `uv run python tools/generate_protocol_doc.py --check`: PASS without
   regenerating (byte-identical diagram). `make test`: the same pass count as Step 1, minus only
   the tests moved to `comeni-flow`, which pass there.
-- [ ] **Step 4: Guard evidence**: change one node label in the builder's `PROTOCOL`, run the
+- [x] **Step 4: Guard evidence**: change one node label in the builder's `PROTOCOL`, run the
   diagram check (FAIL, names the stale page), restore. Record in
   `tests/fixtures/guard-ledger.md` that the diagram guard still bites after the move.
-- [ ] **Step 5: Run** `make check` and `make guards`: PASS. Commit
+- [x] **Step 5: Run** `make check` and `make guards`: PASS. Commit
   (`refactor(authoring): the builder's protocol declared on comeni-flow, unchanged`).
 
 ### Task 4: records
 
-- [ ] `CHANGELOG.md` (comeni-flow: Added; mendel-authoring: Changed — the engine moved),
+- [x] `CHANGELOG.md` (comeni-flow: Added; mendel-authoring: Changed — the engine moved),
   `CLAUDE.md` source map (`packages/comeni-flow/`, and `comeni-flow` in the pure packages
   list of *Boundaries to preserve*), `docs/explanation/` page that describes the protocol
   engine (find with `grep -rl "interpret" docs/explanation`) pointed at `comeni-flow`.
-- [ ] `make doc-sizes links`: PASS. Commit (`docs: the flow engine lives in comeni-flow`).
+- [x] `make doc-sizes links`: PASS. Commit (`docs: the flow engine lives in comeni-flow`).
+
+## Deviations
+
+- Generic through fields (`phases`, `events`, `commands`, `failed`, `retry`, `refusal_code`;
+  members typed `InstanceOf[StrEnum]`) rather than a Pydantic-parametrised `Protocol[P, E]`,
+  which would re-validate nested nodes and could coerce the builder's enum members. No static
+  type checker runs in `make check`.
+- `Subject.snapshot_key()` (a method) instead of a `key` property, so the builder's
+  `SettingSubject` keeps its `key` field.
+- The builder's tests that build small protocols call `authoring_protocol(...)`; assertions are
+  unchanged. The engine's generic cases stay there; `comeni-flow` has its own toy-flow tests.
+- `run(snapshot=None)` passes `None` through; the builder's `SettingSubject` reads it as
+  `NO_SNAPSHOT`.
