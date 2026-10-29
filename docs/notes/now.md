@@ -99,10 +99,10 @@ history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
 
 ## The forge (where declared data comes from)
 
-- **The old forge is gone from `main`** (#361; `MF0001`–`MF0499` retired, new codes from
-  `MF0500`). Part 1 (#362) did not land with it, so **`main` has no forge**: registry data is
-  written by hand. Parts 1–8 (#362–#369): `docs/superpowers/specs/2026-10-19-forge-mvp-design.md`;
-  the registry release setting (#381) waits on it. (2026-10-19, 2026-10-26)
+- **Part 1 (#362, with #363's tool page) is on `forge-1-catalogue`**: `/registry` lists nf-core
+  against the loaded registry; `/registry/tools/<id>`. A module needs a contract (`MD0025`,
+  #410, comeni-registry#22). Next: forging #364, tests #365, pull requests #366, releases #367
+  (+ #381). Design: `docs/superpowers/specs/2026-10-19-forge-mvp-design.md`. (2026-10-29)
 
 ## Wiener (run → watch)
 

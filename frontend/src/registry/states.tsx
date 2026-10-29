@@ -3,7 +3,7 @@ import type { components } from "../api/schema";
 export type State = components["schemas"]["State"];
 
 /** A module's state as board 1 draws it: a word, a colour and an icon, never the colour alone.
- *  The two pull request states are placeholders until part 4 (#365). */
+ *  The two pull request states are placeholders until pull requests (#366). */
 export const STATES: { state: State; label: string; colour: string; placeholder?: boolean }[] = [
   { state: "not_imported", label: "Not imported", colour: "text-ink-3" },
   { state: "imported", label: "Imported", colour: "text-done-ink" },

@@ -29,7 +29,7 @@ showing what the registry says about it. Parts 2–5 hang their actions off thes
 
 - **The pull request states are placeholders** *(operator)*. *In review* and *Merged, not
   released* appear in the filter list with no modules in them, and say they arrive with pull
-  requests. Part 4 (#365) reads GitHub and fills them, with the rest of the git work.
+  requests. Part 4 (#366, "Forge MVP 5" in the issues, which count the tool page as MVP 2) reads GitHub and fills them, with the rest of the git work.
 - **Forging, tests, publishing and releases** (parts 2–5). Their buttons and tabs are drawn but
   disabled, each saying which part brings it (*Forging comes in part 2*, and so on).
 - **Following registry releases** (part 5). Until then "the registry" is the one the app loads.

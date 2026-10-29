@@ -87,6 +87,8 @@ or a complete commit history.
 
 #### Added
 
+- Loading refuses a module that no contract in the stack binds (`MD0025`): such a module could
+  never be chosen. The three in `comeni-registry` were removed ([#410](https://github.com/comeni-project/Comeni-Labs/issues/410)).
 - The resolver honours a person's structural intent on every re-plan: a role switched off, a
   tool excluded at a site, a port's source pinned (recorded as the person's). Conflicts are
   named (`MD0319`–`MD0321`); `inert_intents` reports intents that applied nowhere
@@ -167,6 +169,13 @@ or a complete commit history.
 
 #### Added
 
+- The forge's catalogue ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): `GET /forge/catalogue` lists every nf-core module
+  with its state against the loaded registry (imported, update available, unknown version,
+  gone upstream, not imported), filtered by state, topic, format and source, searched and
+  paged; `GET /forge/catalogue/{source}/{path}` gives one module; `POST
+  /forge/catalogue/sync` queues a sync, which the worker also runs daily. A failed sync keeps
+  the last good catalogue. `GET /registry/tools/{contract_id}` serves an imported tool's page.
+  New tables `catalogue_sync` and `catalogue_module`; codes `MF0502`–`MF0504`.
 - A session's chat replies run in the order its messages were sent, at any AI concurrency
   ([#392](https://github.com/comeni-project/Comeni-Labs/issues/392)). A pending proposal says
   when it was asked (`asked_at`); a receipt says what it changed (`about`), and turn blocks move
@@ -265,6 +274,15 @@ or a complete commit history.
 
 ### mendel-forge
 
+#### Added
+
+- The new forge's first part ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): the `CatalogueSource` interface and
+  `NfCoreSource`, which keeps a blobless clone of `nf-core/modules`; a parser that reads
+  everything a module declares (`meta.yml`, `environment.yml`, `main.nf`, its nf-tests); topics
+  and formats derived from nf-core's keywords, EDAM terms and file patterns; and each module's
+  state against a registry, computed on read. The tool-version rule is shared with the
+  registry's version check. Codes `MF0500`–`MF0501`.
+
 #### Removed
 
 - The package, its `forge` CLI and its diagnostic codes (`MF0001`–`MF0406`, and the API's
@@ -314,6 +332,9 @@ or a complete commit history.
 
 #### Added
 
+- **The Registry tab** ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): the module catalogue (board 1) with filters, search,
+  sort and *Sync now*, and an imported tool's page (board 2). Forging, tests and releases are
+  drawn and disabled until the parts that bring them.
 - **What was asked for and is not offered here is said where the goal is checked**
   ([#293](https://github.com/comeni-project/Comeni-Labs/issues/293), Part I.2): a row in *What
   was understood* and on the goal card, in the person's words. The goal names types the way the
