@@ -12,6 +12,7 @@ from typing import Any
 import yaml
 
 from mendel_forge.model import Channel, NfTest, Problem, UpstreamModule, UpstreamTool
+from mendel_forge.topics import formats_of, topics_of
 from mendel_forge.versions import parse_packages, tool_version
 
 _LABEL = re.compile(r"""^\s*label\s+['"](process_\w+)['"]""", re.M)
@@ -36,15 +37,18 @@ def parse_module(folder: Path, path: str, source: str = "nf-core") -> UpstreamMo
     main = folder / "main.nf"
     script = main.read_text() if main.is_file() else ""
     label = _LABEL.search(script)
+    inputs, outputs = _inputs(meta.get("input")), _outputs(meta.get("output"))
+    keywords = [str(k) for k in meta.get("keywords") or []]
+    ontologies = [url for channel in [*inputs, *outputs] for url in channel.ontologies]
     return UpstreamModule(
         source=source,
         path=path,
         name=path,
         description=_text(meta.get("description")),
-        keywords=[str(k) for k in meta.get("keywords") or []],
+        keywords=keywords,
         tools=tools,
-        inputs=_inputs(meta.get("input")),
-        outputs=_outputs(meta.get("output")),
+        inputs=inputs,
+        outputs=outputs,
         authors=[str(a) for a in meta.get("authors") or []],
         maintainers=[str(m) for m in meta.get("maintainers") or []],
         packages=packages,
@@ -52,6 +56,9 @@ def parse_module(folder: Path, path: str, source: str = "nf-core") -> UpstreamMo
         containers=_containers(script),
         label=label.group(1) if label else None,
         tests=_tests(folder / "tests" / "main.nf.test"),
+        topics=topics_of(keywords, ontologies),
+        formats_in=formats_of(inputs),
+        formats_out=formats_of(outputs),
         problems=problems,
     )
 
