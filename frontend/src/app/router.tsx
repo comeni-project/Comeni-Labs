@@ -1,6 +1,7 @@
 import { type RouteObject } from "react-router";
 
 import { Home } from "../home/Home";
+import { Catalogue } from "../registry/Catalogue";
 import { Board as Runs } from "../runs/Board";
 import { Run } from "../runs/Run";
 import { BuildRoute } from "./BuildRoute";
@@ -19,6 +20,7 @@ export const routes: RouteObject[] = [
       { path: "/build", element: <BuildRoute /> },
       { path: "/runs", element: <Runs /> },
       { path: "/runs/:id", element: <Run /> },
+      { path: "/registry", element: <Catalogue /> },
 
       // Preserve older settings URLs by opening the settings overlay.
       { path: "/settings/:section?", element: <SettingsLink /> },

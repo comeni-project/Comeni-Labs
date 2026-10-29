@@ -85,6 +85,7 @@ export function Shell() {
         <nav aria-label="Main" className="flex items-center gap-1">
           <Tab to="/build">Build</Tab>
           <Tab to="/runs">Runs</Tab>
+          <Tab to="/registry">Registry</Tab>
         </nav>
         <div className="ml-auto flex items-center gap-[10px]">
           <Jump />

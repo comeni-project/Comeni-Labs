@@ -1,0 +1,64 @@
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
+
+import { get, post } from "../api/client";
+import type { components } from "../api/schema";
+import type { State } from "./states";
+
+export type CataloguePage = components["schemas"]["CataloguePage"];
+export type ModuleRow = components["schemas"]["ModuleRow"];
+
+const PER_PAGE = 50;
+
+/** The catalogue's filters live in the address (`?state=…&topic=…&q=…`), so a view can be linked
+ *  and survives a reload. `module` is the selected row. */
+export function useFilters() {
+  const [params, setParams] = useSearchParams();
+  const set = (key: string, values: string[]) =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete(key);
+      for (const value of values) next.append(key, value);
+      return next;
+    }, { replace: true });
+  return {
+    state: (params.get("state") ?? "") as State | "",
+    topics: params.getAll("topic"),
+    formats: params.getAll("format"),
+    q: params.get("q") ?? "",
+    sort: params.get("sort") ?? "best",
+    module: params.get("module") ?? "",
+    set,
+  };
+}
+
+export function useCatalogue() {
+  const { state, topics, formats, q, sort } = useFilters();
+  const query = new URLSearchParams();
+  if (state) query.set("state", state);
+  for (const topic of topics) query.append("topic", topic);
+  for (const format of formats) query.append("format", format);
+  if (q.trim()) query.set("q", q.trim());
+  query.set("sort", sort);
+  query.set("limit", String(PER_PAGE));
+  return useInfiniteQuery({
+    queryKey: ["catalogue", query.toString()],
+    queryFn: ({ pageParam }) => {
+      const page = new URLSearchParams(query);
+      page.set("offset", String(pageParam));
+      return get<CataloguePage>(`/forge/catalogue?${page.toString()}`);
+    },
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next_offset ?? undefined,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** *Sync now*. `queued: false` means one is already running; either way the page re-reads. */
+export function useSyncNow() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => post<{ queued: boolean }>("/forge/catalogue/sync", {}),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["catalogue"] }),
+  });
+}
