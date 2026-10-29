@@ -32,6 +32,7 @@ x-mendel-environment: &mendel-environment
   MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
   MENDEL_WORKSPACE_ROOT: /app/workspace
   MENDEL_DRAFT_ROOT: /app/drafts
+  MENDEL_FORGE_CACHE: /app/forge
   COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
   COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
   COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
@@ -142,6 +143,8 @@ services:
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+      # The forge's clone of nf-core/modules, kept between restarts (MENDEL_FORGE_CACHE).
+      - ./.run/forge:/app/forge
     command: arq mendel_api.worker.WorkerSettings
 
   # Run model calls for pipeline conversations, sample characterisation, and Forge.

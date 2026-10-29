@@ -1,8 +1,12 @@
 """Topics come from nf-core's own keywords and EDAM terms; formats from its file patterns."""
 
+from pathlib import Path
+
 from mendel_forge.model import Channel
+from mendel_forge.nfcore.parse import parse_module
 from mendel_forge.topics import formats_of, topics_of
-from test_forge_parse import _parse
+
+FIXTURES = Path(__file__).parent / "fixtures" / "nf-core"
 
 
 def test_alignment_keyword_gives_alignment():
@@ -26,7 +30,7 @@ def test_a_pattern_without_an_extension_gives_no_format():
 
 
 def test_star_align_has_topics_and_formats():
-    module = _parse("star/align")
+    module = parse_module(FIXTURES / "star" / "align", "star/align")
     assert "alignment" in module.topics
     assert "bam" in module.formats_out
     assert "gtf" in module.formats_in

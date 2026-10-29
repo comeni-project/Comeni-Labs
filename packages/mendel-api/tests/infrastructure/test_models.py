@@ -86,6 +86,10 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_phrasing",
         # Frozen snapshots preserve legacy history without being read by BUILD.
         "pipeline_decision_migration",
+        # The forge's catalogue of UPSTREAM modules (#362). No build reads it: the registry
+        # stays files, and a module's state against it is computed on read.
+        "catalogue_sync",
+        "catalogue_module",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a new one needs the same argument written down. Two rejections in "

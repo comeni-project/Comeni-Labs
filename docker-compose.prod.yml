@@ -23,6 +23,7 @@ services:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+      - ./.run/forge:/app/forge
   ai-worker:
     volumes: !override
       - ./.run/registry:/app/registry

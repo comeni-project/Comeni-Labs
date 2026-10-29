@@ -39,10 +39,12 @@ def _shapes() -> tuple[Shape, ...]:
     from mendel_api.authoring.canvas import AlternativePreview
     from mendel_api.authoring.types import AskedGap, Block
     from mendel_api.migration_data.decisions_v1 import Snapshot
+    from mendel_forge.model import UpstreamModule
 
     loose = dict[str, JsonValue]
     return (
         Shape("ai_invocation", "input_digests", dict[str, str]),
+        Shape("catalogue_module", "document", UpstreamModule),
         Shape("installation_setting", "value", JsonValue),
         Shape("pipeline_authoring_proposal", "payload", loose),
         Shape("pipeline_authoring_proposal", "preview_views", dict[str, AlternativePreview] | None),
