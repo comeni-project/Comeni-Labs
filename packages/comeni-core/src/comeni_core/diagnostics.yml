@@ -2218,6 +2218,18 @@ MF0503:
   explanation: |
     The catalogue holds what the last good sync read, and modules gone upstream since. A path
     it has never seen is not a module it can describe.
+MF0504:
+  emitted_by: api
+  concern: catalogue
+  says: "no tool with that id in the registry"
+  fires_on: [tool page]
+  refuses: true
+  fix: |
+    A tool's id is its contract id, with the tool version: `nf-core/star/align@2.7.11b`. Open
+    it from the catalogue, which links each imported module to its tool.
+  explanation: |
+    The tool page describes what the registry the builder loads holds. An id it does not hold
+    may be a tool not imported yet, or one at a different version.
 MV0001:
   emitted_by: vendor
   concern: vendoring

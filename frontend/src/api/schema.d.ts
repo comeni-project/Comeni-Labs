@@ -108,6 +108,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/registry/tools/{contract_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An imported tool: everything the registry says about it
+         * @description `{contract_id:path}` because an id carries `/` and `@` (`nf-core/star/align@2.7.11b`).
+         */
+        get: operations["readTool"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/example": {
         parameters: {
             query?: never;
@@ -2848,6 +2868,73 @@ export interface components {
             row: components["schemas"]["ModuleRow"];
             module: components["schemas"]["UpstreamModule"];
         };
+        /** ModulePage */
+        ModulePage: {
+            /** Id */
+            id: string;
+            /** Roles */
+            roles: string[];
+            /** Container */
+            container: string | null;
+            /** Consumes */
+            consumes: components["schemas"]["Port"][];
+            /** Produces */
+            produces: components["schemas"]["Port"][];
+            /** Source Path */
+            source_path: string | null;
+            /** Emits Total */
+            emits_total: number | null;
+            /** Emits Declared */
+            emits_declared: number | null;
+            /** Rules Aiming */
+            rules_aiming: string[];
+            /** Inputs From */
+            inputs_from: string[];
+            /** Outputs Feed */
+            outputs_feed: string[];
+            /** Competes With */
+            competes_with: string[];
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Params
+             * @default []
+             */
+            params: components["schemas"]["ParamView"][];
+            /** Ext Args */
+            ext_args?: string | null;
+            /** Ext Args Because */
+            ext_args_because?: string | null;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /** Priority Because */
+            priority_because?: string | null;
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["RuleView"][];
+            upstream?: components["schemas"]["Upstream"] | null;
+            /** Licence */
+            licence?: string | null;
+            /** Approved By */
+            approved_by?: string | null;
+            /** Approved At */
+            approved_at?: string | null;
+            /**
+             * Registry At
+             * @default
+             */
+            registry_at: string;
+            catalogue?: components["schemas"]["ModuleDetail"] | null;
+            /** Pipeline Pins */
+            pipeline_pins?: null;
+        };
         /** ModuleRow */
         ModuleRow: {
             /** Source */
@@ -3098,6 +3185,27 @@ export interface components {
             /** Value */
             value: number | boolean | string | null;
         };
+        /** ParamView */
+        ParamView: {
+            /** Name */
+            name: string;
+            /** Default */
+            default?: unknown;
+            /** Asks Person */
+            asks_person: boolean;
+            /** Via */
+            via: string;
+            /** Key */
+            key: string | null;
+            /** Template */
+            template: string | null;
+            /** Domain */
+            domain: {
+                [key: string]: unknown;
+            } | null;
+            /** Because */
+            because: string | null;
+        };
         /**
          * Phase
          * @description Where a session is in §2's diagram.
@@ -3176,6 +3284,30 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /** Port */
+        Port: {
+            /** Name */
+            name: string;
+            /** Type Id */
+            type_id: string;
+            /**
+             * States Required
+             * @default []
+             */
+            states_required: string[];
+            /**
+             * States Conventional
+             * @default []
+             */
+            states_conventional: string[];
+            /** Conventional Because */
+            conventional_because?: string | null;
+            /**
+             * States Made
+             * @default []
+             */
+            states_made: string[];
         };
         /**
          * PortView
@@ -3450,6 +3582,35 @@ export interface components {
         RoleAbsence: {
             /** Role */
             role: string;
+        };
+        /** RuleRow */
+        RuleRow: {
+            /** When */
+            when: {
+                [key: string]: string;
+            };
+            /** Then */
+            then: string | null;
+            /** Because */
+            because: string | null;
+            /** Cite */
+            cite: string | null;
+        };
+        /**
+         * RuleView
+         * @description One decision of a role this tool fills. A rule belongs to a role, not a tool.
+         */
+        RuleView: {
+            /** Role */
+            role: string;
+            /** Effect */
+            effect: string;
+            /** Because */
+            because: string | null;
+            /** Cite */
+            cite: string | null;
+            /** Rows */
+            rows: components["schemas"]["RuleRow"][];
         };
         /** Said */
         Said: {
@@ -3924,6 +4085,15 @@ export interface components {
             /** Position */
             position: number;
         };
+        /** Upstream */
+        Upstream: {
+            /** Repo */
+            repo: string;
+            /** Sha */
+            sha: string;
+            /** Path */
+            path: string;
+        };
         /** UpstreamModule */
         UpstreamModule: {
             /** Source */
@@ -4201,6 +4371,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TypeCard"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModulePage"];
                 };
             };
             /** @description The id in the path names nothing. */

@@ -251,3 +251,4 @@ decline to curate one.
 | `MF0501` | no conda package is the module's tool, so its tool version is unknown |
 | `MF0502` | a catalogue sync could not be queued |
 | `MF0503` | no module at that path in the catalogue |
+| `MF0504` | no tool with that id in the registry |
