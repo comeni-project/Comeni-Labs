@@ -120,9 +120,16 @@ after them as MVP 4, disabled.
 **Revisions, never overwrites** *(operator agreed: typed commands, append-only revisions)*. Each
 item a piece holds keeps its history: drafted by the AI, revised by the AI at the person's
 request, changed by the person. Every revision records its actor, reason, and the model
-invocation that produced it if any. **Commands** move the flow: the AI may issue `draft` and
-`revise`; only a person may issue `answer`, `approve`, `change`, `reject`. The engine refuses an
-approval from the AI (an `MF05xx` refusal, guarded by a test).
+invocation that produced it if any. **Commands** move the flow: the AI may issue `draft`,
+`revise` and `add`; only a person may issue `answer`, `write`, `approve`, `change`, `reject` and
+`remove`. The engine refuses an approval from the AI (an `MF05xx` refusal, guarded by a test).
+
+**Who drafts is the person's choice** *(operator)*. Each piece opens with two ways in: **Draft
+with the AI**, or **Write it myself**, which opens the piece empty (or, for a re-forge, as the
+registry has it) for the person to fill in. The person can switch at any point: start by hand and
+ask the AI to fill the rest, or take an AI draft and rewrite it. An item the person writes is
+recorded as theirs and counts as their decision; it still passes the same checks as an AI
+draft (§3's validation now, load and conformance at assembly).
 
 **Drafting order** *(spec, after the builder check)*: strictly piece by piece. The AI drafts a
 piece only once the piece before it is approved, so each draft is grounded on approved work and
@@ -143,10 +150,13 @@ themselves (`change`), or tell the AI what to change, and the AI answers with a 
 new revision waits for approval. A rejected item blocks its piece until it is changed, revised
 and approved, or (for an optional item, such as a param) removed by the person.
 
-**The chat** *(operator agreed)*: the person can ask anything, about the tool or about one item;
-a message can be attached to an item, so the AI knows what it is about. When they ask for a
-change, the AI's reply carries a `revise` command, and the new revision waits for approval. The
-chat never approves.
+**The chat runs through the whole of drafting** *(operator: "so I can say, why not have this
+rule")*. The person can ask anything, about the tool, a piece or one item (a message can be
+attached to an item, so the AI knows what it is about), and it is open whether the AI or the
+person is drafting. The AI's reply may carry commands: `revise` an existing item, or `add` a new
+one (a rule, a param, a state) the person asked for or the AI suggests, each new revision or item
+waiting for approval. The AI may also answer that something does not fit and say why, with no
+command. The chat never approves.
 
 **Assembly.** When every piece is approved the engine writes the draft layer (§4). A failure
 there re-opens the piece it blames (a conformance mismatch → Contract; a load error naming a
