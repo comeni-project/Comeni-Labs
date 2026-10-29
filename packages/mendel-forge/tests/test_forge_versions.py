@@ -39,3 +39,10 @@ def test_parse_packages_reads_channel_name_and_version():
     )
     assert parse_packages(environment) == [_pkg("star", "2.7.11b"),
                                            CondaPackage(channel=None, name="pigz", version="2.8")]
+
+
+def test_a_language_ecosystem_prefix_is_not_part_of_the_name():
+    """conda names an R package `r-ampir` and a Bioconductor one `bioconductor-affy`."""
+    assert tool_version([_pkg("r-ampir", "1.1.0"), _pkg("r-base", "4.4")], "ampir", []) == "1.1.0"
+    assert tool_version([_pkg("bioconductor-affy", "1.84.0")], "affy/justrma", []) == "1.84.0"
+    assert tool_version([_pkg("ncbi-amrfinderplus", "4.0.3")], "amrfinderplus/run", []) == "4.0.3"

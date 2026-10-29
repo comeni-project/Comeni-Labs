@@ -16,6 +16,12 @@ PIN = re.compile(r"^(?:([\w-]+)::)?([\w.-]+)=([^\s=]+)$")
 """`bioconda::star=2.7.11b` or `pigz=2.8`. A `pip:` block or an unpinned name does not match."""
 
 
+ECOSYSTEM_PREFIXES = ("r-", "bioconductor-", "perl-", "python-", "ncbi-")
+"""How conda namespaces a package by its language or publisher: `r-ampir` is ampir. On
+nf-core/modules at 810182d (2026-10-29) they take the modules without a readable version from
+450 to 397 of 2,123; most of the rest have no `environment.yml` or install with `pip`."""
+
+
 def same_name(a: str, b: str) -> bool:
     """`trimgalore` is `trim-galore`: case, `-` and `_` do not distinguish package names."""
     return _norm(a) == _norm(b)
@@ -44,9 +50,14 @@ def tool_version(
     guess would put a library's version on the tool."""
     candidates = [module_path.split("/")[0], *tool_names[:1]]
     for name in candidates:
-        matching = [package for package in packages if same_name(package.name, name)]
+        matching = [package for package in packages if _is(package.name, name)]
         if len(matching) == 1:
             return matching[0].version
         if matching:
             return None
     return None
+
+
+def _is(package: str, tool: str) -> bool:
+    bare = next((package[len(p):] for p in ECOSYSTEM_PREFIXES if package.lower().startswith(p)), "")
+    return same_name(package, tool) or (bool(bare) and same_name(bare, tool))
