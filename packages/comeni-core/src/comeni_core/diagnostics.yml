@@ -22,6 +22,7 @@
 #   MD0500-MD0599  validating a hand-built graph
 #   MD0013-MD0019, MD0021-MD0024  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
+#   MD0025         a module no contract binds
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0499  retired with the old forge (#361); the new forge allocates from MF0500
 #   MI0001-MI0099  the API: gating a drawn pipeline
@@ -2047,6 +2048,19 @@ MD0024:
     A tool's `types/` holds the types only that tool touches, so the tool can be reviewed, moved
     or deleted as a unit. A contract elsewhere using one of them means deleting the tool would
     take a type another tool depends on with it.
+MD0025:
+  emitted_by: resolver
+  concern: loading
+  says: "a module is declared with no contract binding it"
+  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  refuses: true
+  fix: |
+    Add a `contract.yml` beside the module's `module/` folder, binding it, or remove the
+    module's folder from the layer. The forge brings a tool in with its contract.
+  explanation: |
+    A contract is how the builder can choose a module; a module no contract names is source
+    nobody can use, and nothing used to say so (#410). The check runs over the whole stack, so
+    an overlay may bind a module its base layer vendored.
 MD0226:
   emitted_by: core
   concern: pipeline-file

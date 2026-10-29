@@ -25,7 +25,7 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.declared.measurement import MeasurementRegistry
-from comeni_core.declared.module import Module
+from comeni_core.declared.module import Module, key_of
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
 from comeni_core.declared.tools import ToolCatalogue
@@ -161,6 +161,16 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     # layer may legitimately fill a role an overlay declares.
     for contract in registry.all():
         roles.check(contract.id, contract.roles)
+    # #410: a module no contract binds can never be chosen, so it is a mistake, not a store.
+    bound = {key_of(contract.nf_include) for contract in registry.all()}
+    for key in sorted(set(vendored.entries) - bound):
+        raise ValueError(
+            coded(
+                "MD0025",
+                f"module {key} ({vendored.entries[key].at}/module.yml) has no contract "
+                "binding it: add a `contract.yml` beside its `module/`, or remove the folder.",
+            )
+        )
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements), buckets=buckets)
     rules = RuleTable.of(decided, stacked)
     # After assembly, so a decision may read a fact a derivation in another file

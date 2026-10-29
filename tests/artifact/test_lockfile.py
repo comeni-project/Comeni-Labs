@@ -139,7 +139,8 @@ def test_a_missing_contract_is_reported_as_drift(built, tmp_path):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    (layer / "tools/nf-core/samtools/sort/contract.yml").unlink()
+    # The whole folder: a module left without its contract refuses to load (MD0025, #410).
+    shutil.rmtree(layer / "tools/nf-core/samtools/sort")
     changed = layers.load(layer)
 
     drift = lock.drift_against(ir, changed.registry, changed.paths)

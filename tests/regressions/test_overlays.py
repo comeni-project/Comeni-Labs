@@ -93,7 +93,8 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     from mendel_resolver.resolve import resolve
 
     base, lab = _stacked(tmp_path)
-    (base / "tools" / "nf-core" / "samtools" / "sort/contract.yml").unlink()
+    # The whole folder: a module left without its contract refuses to load (MD0025, #410).
+    shutil.rmtree(base / "tools" / "nf-core" / "samtools" / "sort")
     shutil.rmtree(lab / "rules")
 
     loaded = layers_mod.load([base, lab])
