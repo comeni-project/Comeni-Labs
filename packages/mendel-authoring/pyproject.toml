@@ -9,7 +9,7 @@ readme = "README.md"
 authors = [{name = "Rafael Correia"}]
 
 # A lower bound and no cap, as `mendel-resolver` argues (docs/internals/releasing.md).
-dependencies = ["comeni-core>=0.1.0", "pydantic>=2.12"]
+dependencies = ["comeni-core>=0.1.0", "comeni-flow>=0.1.0", "pydantic>=2.12"]
 
 [build-system]
 requires = ["hatchling"]
@@ -17,3 +17,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mendel_authoring"]
+
+[tool.uv.sources]
+comeni-core = { workspace = true }
+comeni-flow = { workspace = true }

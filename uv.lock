@@ -11,6 +11,7 @@ resolution-markers = [
 members = [
     "comeni-ai",
     "comeni-core",
+    "comeni-flow",
     "comeni-inspect",
     "comeni-labs",
     "comeni-vendor",
@@ -543,6 +544,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "comeni-flow"
+version = "0.1.0"
+source = { editable = "packages/comeni-flow" }
+dependencies = [
+    { name = "comeni-core" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "pydantic", specifier = ">=2.9" },
+]
+
+[[package]]
 name = "comeni-inspect"
 version = "0.1.0"
 source = { editable = "packages/comeni-inspect" }
@@ -565,6 +581,7 @@ default-groups = ["dev", "docs"]
 dependencies = [
     { name = "comeni-ai" },
     { name = "comeni-core" },
+    { name = "comeni-flow" },
     { name = "comeni-inspect" },
     { name = "comeni-vendor" },
     { name = "dag-core" },
@@ -597,6 +614,7 @@ docs = [
 requires-dist = [
     { name = "comeni-ai", editable = "packages/comeni-ai" },
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-flow", editable = "packages/comeni-flow" },
     { name = "comeni-inspect", editable = "packages/comeni-inspect" },
     { name = "comeni-vendor", editable = "packages/comeni-vendor" },
     { name = "dag-core", editable = "packages/dag-core" },
@@ -1573,12 +1591,14 @@ version = "0.1.0"
 source = { editable = "packages/mendel-authoring" }
 dependencies = [
     { name = "comeni-core" },
+    { name = "comeni-flow" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-flow", editable = "packages/comeni-flow" },
     { name = "pydantic", specifier = ">=2.12" },
 ]
 

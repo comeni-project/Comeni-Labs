@@ -99,9 +99,19 @@ CLOSED_PACKAGES = {
         "typing",
         "pydantic",
         "comeni_core",
+        "comeni_flow",
         "mendel_authoring",
         "hashlib",
         "json",
+    },
+    # The flow engine both of Mendel's conversations are declared on (forge MVP 3, #364).
+    "comeni-flow": {
+        "collections.abc",
+        "enum",
+        "typing",
+        "pydantic",
+        "comeni_core",
+        "comeni_flow",
     },
 }
 
