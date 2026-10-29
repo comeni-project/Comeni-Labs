@@ -17,7 +17,9 @@ export function ModuleTable({ rows, selected, onSelect, footer }: {
   return (
     <div role="table" aria-label="nf-core modules"
          className="bg-surface border border-line rounded-panel overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* `contain: inline-size`: a scroll box still lends its content's minimum width to the
+          page, which pushed every page at phone width to 610px; this keeps it inside. */}
+      <div className="overflow-x-auto [contain:inline-size]">
         <div className="min-w-[560px]">
           <div role="row" style={COLUMNS}
                className="grid px-[18px] py-[10px] border-b border-line text-[12px] font-medium text-ink-3 bg-paper-2">
@@ -57,8 +59,14 @@ export function ModuleTable({ rows, selected, onSelect, footer }: {
   );
 }
 
+/** `fastq → bam`. A list longer than three is cut with a count, so a row stays one line tall;
+ *  the panel beside the table shows the whole list. */
 export function io(row: ModuleRow): string {
-  const reads = row.formats_in.join(", ") || "—";
-  const makes = row.formats_out.join(", ") || "—";
-  return `${reads} → ${makes}`;
+  return `${few(row.formats_in)} → ${few(row.formats_out)}`;
+}
+
+function few(formats: string[]): string {
+  if (formats.length === 0) return "—";
+  const shown = formats.slice(0, 3).join(", ");
+  return formats.length > 3 ? `${shown} +${formats.length - 3}` : shown;
 }

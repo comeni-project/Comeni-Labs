@@ -100,3 +100,10 @@ it("after a failed sync it says the catalogue is stale and why", async () => {
   expect(await screen.findByText(/stale/)).toBeTruthy();
   expect(screen.getByText(/git clone failed/)).toBeTruthy();
 });
+
+it("a long format list is cut with a count", async () => {
+  at({ ...PAGE, rows: [row("samtools/sort", "not_imported",
+                           { formats_in: ["bam", "cram", "fa", "fasta", "sam"] })] });
+  const sort = await screen.findByRole("row", { name: /samtools\/sort/ });
+  expect(sort.textContent).toContain("bam, cram, fa +2 → bam");
+});

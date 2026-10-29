@@ -8,7 +8,8 @@ import { RegistryTabs } from "./RegistryTabs";
 import { Selected } from "./Selected";
 import { ago } from "./states";
 import type { CataloguePage } from "./useCatalogue";
-import { useCatalogue, useFilters, useSyncNow } from "./useCatalogue";
+import { useCatalogue, useFilters } from "./useCatalogue";
+import { useSyncNow } from "./useSyncNow";
 
 /** `/registry`: every nf-core module against the registry the builder loads (board 1, forge MVP
  *  part 1). Filters, search and sort live in the address; the selected row too. */
@@ -108,7 +109,7 @@ function SyncNow({ sync, small = false }: { sync: ReturnType<typeof useSyncNow>;
       <button type="button" onClick={() => sync.mutate()} disabled={sync.isPending}
               className={small
                 ? "underline text-action bg-transparent border-0 p-0 cursor-pointer"
-                : "px-5 py-[10px] rounded-button bg-action text-on-action font-semibold"}>
+                : "px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise"}>
         Sync now
       </button>
       {sync.data && !sync.data.queued && <span>A sync is already running.</span>}

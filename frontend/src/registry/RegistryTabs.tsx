@@ -18,8 +18,8 @@ export function RegistryTabs({ registryAt }: { registryAt?: string }) {
         <span aria-disabled="true" title="Releases come in part 5" className={off}>Releases</span>
       </nav>
       {registryAt && (
-        <span className="ml-auto text-[12.5px] text-ink-3">
-          Builder uses <span className="font-data text-ink">comeni-registry {registryAt}</span>
+        <span className="ml-auto min-w-0 pb-2 sm:pb-0 text-[12.5px] text-ink-3">
+          Builder uses <span className="font-data text-ink break-all">comeni-registry {registryAt}</span>
         </span>
       )}
     </div>

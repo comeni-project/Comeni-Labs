@@ -1,7 +1,7 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
-import { get, post } from "../api/client";
+import { get } from "../api/client";
 import type { components } from "../api/schema";
 import type { State } from "./states";
 
@@ -51,14 +51,5 @@ export function useCatalogue() {
     initialPageParam: 0,
     getNextPageParam: (last) => last.next_offset ?? undefined,
     placeholderData: keepPreviousData,
-  });
-}
-
-/** *Sync now*. `queued: false` means one is already running; either way the page re-reads. */
-export function useSyncNow() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: () => post<{ queued: boolean }>("/forge/catalogue/sync", {}),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["catalogue"] }),
   });
 }

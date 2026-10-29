@@ -62,7 +62,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
       </div>
       {held ? (
         <Link to={`/registry/tools/${row.contract_id}`}
-              className="self-start px-6 py-[11px] rounded-button bg-action text-on-action font-semibold no-underline">
+              className="self-start px-6 py-[11px] rounded-button bg-action text-on-action font-semibold no-underline shadow-raise">
           Open the tool
         </Link>
       ) : (

@@ -33,10 +33,10 @@ export function Filters({ counts }: { counts: CataloguePage["counts"] }) {
         <fieldset className="border-0 m-0 p-0 flex flex-col gap-[2px]">
           <legend className={legend}>Topic</legend>
           {topics.map(([topic, n]) => (
-            <label key={topic} className="flex items-center gap-[9px] px-2 py-[6px] cursor-pointer capitalize">
+            <label key={topic} className="flex items-center gap-[9px] px-2 py-[6px] cursor-pointer">
               <input type="checkbox" className="accent-action" checked={filters.topics.includes(topic)}
                      onChange={() => toggle("topic", filters.topics, topic)} />
-              {topic}<span className={count}>{n}</span>
+              {topic.charAt(0).toUpperCase() + topic.slice(1)}<span className={count}>{n}</span>
             </label>
           ))}
         </fieldset>

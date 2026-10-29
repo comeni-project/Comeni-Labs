@@ -106,7 +106,7 @@ function Ports({ tool }: { tool: ModulePage }) {
   return (
     <section aria-labelledby="tool-io" className={panel}>
       <h2 id="tool-io" className={heading}>Reads and makes</h2>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto [contain:inline-size]">
         <table className="w-full border-collapse text-[13.5px]">
           <thead>
             <tr className="text-left text-ink-3 text-[12px]">
