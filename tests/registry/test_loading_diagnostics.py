@@ -224,3 +224,33 @@ def test_MD0009_a_contract_requires_an_undeclared_state(tmp_path):
     message = _refusal(layer)
     assert "MD0009" in message
     assert "nonexistent" in message
+
+
+MODULE = "declares: module\nid: {id}\n"
+
+
+def test_MD0025_a_module_without_a_contract(tmp_path):
+    """#410: a module folder nobody wrote a contract for loaded silently, unusable and unseen."""
+    layer = _layer(tmp_path)
+    (layer / "contracts" / "fastqc.yml").write_text(
+        _declared(layer / "contracts" / "fastqc.yml", CONTRACT)
+    )
+    (layer / "tools" / "orphan").mkdir(parents=True)
+    (layer / "tools" / "orphan" / "module.yml").write_text(MODULE.format(id="nf-core/orphan"))
+    message = _refusal(layer)
+    assert "MD0025" in message
+    assert "nf-core/orphan" in message
+
+
+def test_a_module_bound_by_a_contract_in_another_layer_loads(tmp_path):
+    """The rule is over the whole stack: an overlay may bind a module its base vendored."""
+    base = _layer(tmp_path / "base")
+    (base / "tools" / "fastqc").mkdir(parents=True)
+    (base / "tools" / "fastqc" / "module.yml").write_text(MODULE.format(id="nf-core/fastqc"))
+    overlay = tmp_path / "overlay"
+    (overlay / "contracts").mkdir(parents=True)
+    (overlay / "registry.yml").write_text(_declared(overlay / "registry.yml", "name: overlay\n"))
+    (overlay / "contracts" / "fastqc.yml").write_text(
+        _declared(overlay / "contracts" / "fastqc.yml", CONTRACT)
+    )
+    assert "nf-core/fastqc" in layers.load([base, overlay]).modules

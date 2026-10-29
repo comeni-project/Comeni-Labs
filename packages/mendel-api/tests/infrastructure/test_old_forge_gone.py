@@ -2,10 +2,14 @@
 
 The new forge is written from scratch (`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`).
 These hold that nothing of the old one is left to be confused with it.
+
+**The new forge reuses the package name `mendel_forge`** (forge part 1, #362), so these name the
+old package's own modules rather than the package: a leftover of the old forge is one of these.
 """
 
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 
@@ -20,10 +24,18 @@ OLD_TABLES = {
 }
 BEFORE = "a9d4e2c7b318"
 AFTER = "89d3b4e5ab6f"  # the old forge's removal, not `head`: later migrations add tables
+OLD_MODULES = (
+    "ai", "assemble", "bundle", "candidates", "catalogue", "cli", "drift", "filler",
+    "hole_manifest", "land", "modulegen", "observe", "ops", "ports", "prompts", "scaffold",
+    "sources", "workflow",
+)
+"""The old `mendel_forge`'s modules (git `95c17b15`), none of which the new package has."""
+OLD_NAME = re.compile(rf"mendel_forge\.(?:{'|'.join(OLD_MODULES)})\b")
 
 
-def test_the_package_is_gone():
-    assert importlib.util.find_spec("mendel_forge") is None
+def test_the_old_package_s_modules_are_gone():
+    assert importlib.util.find_spec("mendel_forge.state") is not None, "the new forge is here"
+    assert [m for m in OLD_MODULES if importlib.util.find_spec(f"mendel_forge.{m}")] == []
 
 
 def test_the_old_routes_are_gone_and_the_builder_s_remain():
@@ -31,7 +43,10 @@ def test_the_old_routes_are_gone_and_the_builder_s_remain():
 
     paths = list(create_app().openapi()["paths"])
     assert paths, "the app has no routes at all"
-    gone = ("/api/forge", "/api/contracts", "/api/questions", "/api/sources", "/api/tools")
+    # Not `/api/forge` whole: the new forge serves `/api/forge/catalogue` (part 1, #362). These
+    # are the old forge's routes the new one has no counterpart for (git `95c17b15`).
+    gone = ("/api/forge/adaptations", "/api/forge/overview", "/api/forge/sources",
+            "/api/contracts", "/api/questions", "/api/sources", "/api/tools")
     assert [p for p in paths if p.startswith(gone)] == []
     assert "/api/attention" in paths
     assert any(p.startswith("/api/pipeline/authoring") for p in paths)
@@ -57,7 +72,7 @@ def test_no_code_or_configuration_names_the_old_forge():
         if path.suffix not in scanned and path.name != "Makefile":
             continue
         text = path.read_text(errors="ignore")
-        if "mendel_forge" in text or "mendel-forge" in text:
+        if OLD_NAME.search(text):
             found.append(rel)
     assert found == []
 

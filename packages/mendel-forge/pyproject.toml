@@ -1,0 +1,49 @@
+[project]
+name = "mendel-forge"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "The forge: the catalogue of upstream modules, read against a registry"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [{name = "Rafael Correia"}]
+keywords = ["bioinformatics", "nextflow", "workflow", "reproducibility", "pipeline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
+
+# Lower bounds follow the repository's package policy; see docs/how-to/development/release.md.
+# An adapter, not a pure package: syncing a source clones a git repository. Vendor supplies the
+# nf-core clone URL and module prefix; the resolver supplies the loaded registry to compare with.
+dependencies = [
+  "comeni-core>=0.1.0",
+  "comeni-vendor>=0.1.0",
+  "mendel-resolver>=0.1.0",
+  "pydantic>=2.9",
+  "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/comeni-project/Comeni-Labs"
+Documentation = "https://github.com/comeni-project/Comeni-Labs/tree/main/docs"
+Repository = "https://github.com/comeni-project/Comeni-Labs"
+Issues = "https://github.com/comeni-project/Comeni-Labs/issues"
+Changelog = "https://github.com/comeni-project/Comeni-Labs/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mendel_forge"]
+
+[tool.uv.sources]
+comeni-core = { workspace = true }
+comeni-vendor = { workspace = true }
+mendel-resolver = { workspace = true }

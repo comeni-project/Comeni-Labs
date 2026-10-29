@@ -4,13 +4,16 @@ Writing goes through the forge and a human's approval (invariant 2). This router
 deliberately read-only, and there is no POST here to add later by accident.
 """
 
+from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import TIER_VOCABULARY
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mendel_api.refusals import REFUSES
+from mendel_api.services import module_page
 from mendel_api.services.lookup import TypeCard
 from mendel_api.services.lookup import type_ as lookup_type
+from mendel_api.services.module_page import ModulePage
 
 router = APIRouter(prefix="/registry", tags=["registry"])
 
@@ -60,3 +63,19 @@ def tiers() -> list[TierCard]:
 )
 def type_card(id: str) -> TypeCard:
     return lookup_type(id)
+
+
+@router.get(
+    "/tools/{contract_id:path}",
+    operation_id="readTool",
+    summary="An imported tool: everything the registry says about it",
+    responses=REFUSES,
+)
+def read_tool(contract_id: str) -> ModulePage:
+    """`{contract_id:path}` because an id carries `/` and `@` (`nf-core/star/align@2.7.11b`)."""
+    try:
+        return module_page.read(contract_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404, detail=coded("MF0504", f"no tool {contract_id!r} in the registry")
+        ) from None

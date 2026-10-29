@@ -33,6 +33,11 @@ def test_every_operation_is_named_by_hand():
         ("/api/registry/types/{id}", "get"): "lookupType",
         # The tier vocabulary, served rather than retyped into an interface.
         ("/api/registry/tiers", "get"): "listTiers",
+        # The forge's catalogue of upstream modules (forge part 1, #362).
+        ("/api/forge/catalogue", "get"): "readCatalogue",
+        ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",
+        ("/api/forge/catalogue/sync", "post"): "syncCatalogue",
+        ("/api/registry/tools/{contract_id}", "get"): "readTool",
         # **The build path, reachable at last.** `resolve_verbs.run` was argparse-shaped until
         # Plan 3C phase 0, so no route could exist here at all. `POST` because a `Goal` is a
         # document — profile, wants, producer pins — and a URL is the wrong place for one.

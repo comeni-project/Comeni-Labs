@@ -18,6 +18,7 @@ from mendel_api.refusals import locked_handler, missing_handler, refusal_handler
 from mendel_api.routes import attention as attention_routes
 from mendel_api.routes import authoring as authoring_routes
 from mendel_api.routes import build as build_routes
+from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
@@ -87,6 +88,8 @@ def create_app() -> FastAPI:
     app.include_router(authoring_routes.router, prefix="/api")
     # Settings for the whole installation (spec 2026-10-01).
     app.include_router(settings_routes.router, prefix="/api")
+    # The forge's catalogue (forge part 1, #362).
+    app.include_router(forge_routes.router, prefix="/api")
     return app
 
 

@@ -46,6 +46,7 @@ decline to curate one.
 | `MD0011` | a declared file names a kind that does not exist |
 | `MD0012` | a vocabulary or measurement does not declare its id |
 | `MD0020` | a layer declares a registry format this Mendel does not understand |
+| `MD0025` | a module is declared with no contract binding it |
 | `MD0228` | a type names a param literally in its `entry_channel` |
 | `MD0317` | an inspector piece names a type or measurement no layer declares |
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
@@ -241,3 +242,13 @@ decline to curate one.
 |---|---|
 | `MV0001` | a module could not be fetched at the commit it was pinned to |
 | `MV0002` | a vendored module no longer matches what its module.yml declares |
+
+## The forge — the catalogue of upstream modules
+
+| Code | Says |
+|---|---|
+| `MF0500` | a module's `meta.yml` cannot be read |
+| `MF0501` | no conda package is the module's tool, so its tool version is unknown |
+| `MF0502` | a catalogue sync could not be queued |
+| `MF0503` | no module at that path in the catalogue |
+| `MF0504` | no tool with that id in the registry |

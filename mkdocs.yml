@@ -104,6 +104,7 @@ nav:
           - Run a pipeline: how-to/pipelines/run.md
           - Watch a run: how-to/pipelines/watch.md
       - Maintain registry data:
+          - Browse the module catalogue: how-to/registry/browse-catalogue.md
           - Write a contract: how-to/registry/add-tool.md
           - Write a data-dependent rule: how-to/registry/write-rule.md
           - Add a lab layer: how-to/registry/add-layer.md

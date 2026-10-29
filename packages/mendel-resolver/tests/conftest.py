@@ -58,7 +58,8 @@ def spine_without_hisat2_index(tmp_path):
     """
     layer = tmp_path / "layer"
     shutil.copytree(EXAMPLES, layer)
-    (layer / "tools/nf-core/hisat2/build/contract.yml").unlink()
+    # The whole folder: a module left without its contract refuses to load (MD0025, #410).
+    shutil.rmtree(layer / "tools/nf-core/hisat2/build")
     return _spine(layer)
 
 
@@ -111,6 +112,8 @@ def resolve_with_markdup(tmp_path):
         ("nf-core/samtools/sort@1.24", MARKDUP),
         ("roles: [bam_sorting]", "roles: []"),
         ("nf_process: SAMTOOLS_SORT", "nf_process: LAB_MARKDUP"),
+        # Its own module, so the copied folder is bound by this contract (MD0025, #410).
+        ("nf_include: modules/nf-core/samtools/sort/main", "nf_include: modules/lab/markdup/main"),
         ("consumes: [{name: bam, type_id: alignment.bam, state_required: []}]",
          "consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]"),
         ("produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]",

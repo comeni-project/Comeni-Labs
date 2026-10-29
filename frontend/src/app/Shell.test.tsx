@@ -31,11 +31,11 @@ describe("the shell's bar", () => {
   });
 
   it("names the sections, and marks the one you are in", () => {
-    // Two until forge MVP part 1 (#362) brings the Registry back.
+    // Forge MVP part 1 (#362) brings the Registry back.
     at("/build");
     const bar = screen.getByRole("navigation", { name: "Main" });
-    const links = within(bar).getAllByRole("link").filter((a) => a.getAttribute("href")?.match(/^\/(build|runs|forge)$/));
-    expect(links.map((a) => a.textContent)).toEqual(["Build", "Runs"]);
+    const links = within(bar).getAllByRole("link").filter((a) => a.getAttribute("href")?.match(/^\/(build|runs|registry)$/));
+    expect(links.map((a) => a.textContent)).toEqual(["Build", "Runs", "Registry"]);
     expect(links[0].getAttribute("aria-current")).toBe("page");
     expect(links[1].getAttribute("aria-current")).toBeNull();
   });

@@ -29,6 +29,7 @@ from sqlalchemy import (
     event,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from mendel_api.authoring.types import (
@@ -667,3 +668,62 @@ class PipelineDecisionMigration(Base):
     reason: Mapped[str | None] = mapped_column(String(24), nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     snapshot: Mapped[dict] = mapped_column(Json)
+
+
+class SyncOutcome(StrEnum):
+    RUNNING = "running"
+    OK = "ok"
+    FAILED = "failed"
+
+
+class CatalogueSync(Base):
+    """One sync of an upstream catalogue (forge part 1). A failed one is kept: the page says the
+    catalogue is stale and why, and the modules stay as the last good sync left them."""
+
+    __tablename__ = "catalogue_sync"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32))
+    commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    outcome: Mapped[str] = mapped_column(_one_of(SyncOutcome, 16, "outcome"))
+    modules: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    problems: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CatalogueModule(Base):
+    """One upstream module as the last good sync read it.
+
+    **No state column**: a module's state against the registry is computed on read
+    (`mendel_forge.state`), because the registry changes without a sync. The columns are what is
+    filtered or sorted; `document` is everything else the source declared. A module gone upstream
+    is marked `gone`, never deleted.
+    """
+
+    __tablename__ = "catalogue_module"
+    shape_version: Mapped[int] = stamp("catalogue_module")
+
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    path: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    tool_version: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    topics: Mapped[list[str]] = mapped_column(ARRAY(String(64)))
+    formats: Mapped[list[str]] = mapped_column(ARRAY(String(32)))
+    upstream_changed: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    search: Mapped[str] = mapped_column(Text)
+    document: Mapped[dict] = mapped_column(Json)
+    seen_in: Mapped[int] = mapped_column(
+        Integer, ForeignKey("catalogue_sync.id", ondelete="RESTRICT"), index=True
+    )
+    gone: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+
+    __table_args__ = (
+        Index("ix_catalogue_module_topics", "topics", postgresql_using="gin"),
+        Index("ix_catalogue_module_formats", "formats", postgresql_using="gin"),
+        Index("ix_catalogue_module_search", "search", postgresql_using="gin",
+              postgresql_ops={"search": "gin_trgm_ops"}),
+    )

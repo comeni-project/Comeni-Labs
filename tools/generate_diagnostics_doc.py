@@ -79,6 +79,7 @@ HEADINGS: dict[str, str] = {
     "storage": "What is stored — shapes, parameters and retention",
     "ingest": "Wiener — what may enter",
     "vendoring": "comeni-vendor — a tool's source in a layer",
+    "catalogue": "The forge — the catalogue of upstream modules",
 }
 """Section titles per `concern`, in the order they are rendered.
 

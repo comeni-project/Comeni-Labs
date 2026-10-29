@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     container. It shipped as a bare relative `Path("examples/…")`, passed every test, and answered
     500 the first time the stack came up. Checkpoint 1 is what found it.
     """
+    forge_cache: Path = Path("./.run/forge")
+    """Where the forge keeps its clone of each catalogue source between syncs, so a restart does
+    not re-clone nf-core/modules. Only the worker that syncs reads it. `MENDEL_FORGE_CACHE`."""
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 

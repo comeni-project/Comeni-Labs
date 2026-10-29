@@ -35,6 +35,7 @@ def _shapes() -> tuple[Shape, ...]:
     from comeni_core.plan.draft import DraftGraph
     from comeni_core.spell.marks import ParamValue
     from mendel_authoring.payloads import DecisionChange
+    from mendel_forge.model import UpstreamModule
 
     from mendel_api.authoring.canvas import AlternativePreview
     from mendel_api.authoring.types import AskedGap, Block
@@ -43,6 +44,7 @@ def _shapes() -> tuple[Shape, ...]:
     loose = dict[str, JsonValue]
     return (
         Shape("ai_invocation", "input_digests", dict[str, str]),
+        Shape("catalogue_module", "document", UpstreamModule),
         Shape("installation_setting", "value", JsonValue),
         Shape("pipeline_authoring_proposal", "payload", loose),
         Shape("pipeline_authoring_proposal", "preview_views", dict[str, AlternativePreview] | None),

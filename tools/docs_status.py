@@ -125,7 +125,7 @@ def render(markers: list[Marker]) -> str:
             "documented behavior has been verified.\n"
         )
     rows = "\n".join(
-        f"| [{m.page}]({m.page}) | {m.plan or '—'} | {m.body} |" for m in markers
+        f"| [{m.page}](../{m.page}) | {m.plan or '—'} | {m.body} |" for m in markers
     )
     return (
         head

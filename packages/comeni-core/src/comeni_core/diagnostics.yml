@@ -22,8 +22,10 @@
 #   MD0500-MD0599  validating a hand-built graph
 #   MD0013-MD0019, MD0021-MD0024  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
+#   MD0025         a module no contract binds
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0499  retired with the old forge (#361); the new forge allocates from MF0500
+#   MF0500-MF0599  the forge: the catalogue of upstream modules (#362)
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: retired with the old forge (#361), except MI0106
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
@@ -2047,6 +2049,19 @@ MD0024:
     A tool's `types/` holds the types only that tool touches, so the tool can be reviewed, moved
     or deleted as a unit. A contract elsewhere using one of them means deleting the tool would
     take a type another tool depends on with it.
+MD0025:
+  emitted_by: resolver
+  concern: loading
+  says: "a module is declared with no contract binding it"
+  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  refuses: true
+  fix: |
+    Add a `contract.yml` beside the module's `module/` folder, binding it, or remove the
+    module's folder from the layer. The forge brings a tool in with its contract.
+  explanation: |
+    A contract is how the builder can choose a module; a module no contract names is source
+    nobody can use, and nothing used to say so (#410). The check runs over the whole stack, so
+    an overlay may bind a module its base layer vendored.
 MD0226:
   emitted_by: core
   concern: pipeline-file
@@ -2152,6 +2167,69 @@ MD0228:
     legal Groovy and appears throughout these expressions — `.map { gtf -> … }` — so
     everything else is left exactly as written. There is no template language here, for the
     same reason Plan 1.15's `transform` is not one: no parser, no precedence, no second name.
+MF0500:
+  emitted_by: forge
+  concern: catalogue
+  says: "a module's `meta.yml` cannot be read"
+  fires_on: [catalogue sync]
+  refuses: false
+  fix: |
+    Nothing to do here: the module is upstream's. It stays in the catalogue with this problem
+    and without what `meta.yml` would have said; the next sync reads it again.
+  explanation: |
+    nf-core holds thousands of modules, and one malformed file must not lose a whole sync or
+    shrink the counts. The module is kept, shown and counted, and what could not be read is
+    left empty rather than guessed.
+MF0501:
+  emitted_by: forge
+  concern: catalogue
+  says: "no conda package is the module's tool, so its tool version is unknown"
+  fires_on: [catalogue sync]
+  refuses: false
+  fix: |
+    Nothing to do here. A module whose `environment.yml` is missing, or names no package that
+    matches its tool (ignoring case, `-` and `_`), or names several, has no version the
+    catalogue can compare; it is shown as unknown.
+  explanation: |
+    The first package in `environment.yml` is often a library (`htslib`), and taking it would
+    put the library's version on the tool and call an imported tool out of date. Unknown is
+    the honest answer.
+MF0502:
+  emitted_by: api
+  concern: catalogue
+  says: "a catalogue sync could not be queued"
+  fires_on: [catalogue sync]
+  refuses: true
+  fix: |
+    The job queue (Redis) did not answer. Check that it and the Mendel worker are running
+    (`docker compose ps`), then ask again. The daily sync still runs once they are up.
+  explanation: |
+    *Sync now* hands the work to the worker rather than cloning inside a request. A queue that
+    cannot be reached is said plainly instead of reporting a sync that will never start.
+MF0503:
+  emitted_by: api
+  concern: catalogue
+  says: "no module at that path in the catalogue"
+  fires_on: [catalogue]
+  refuses: true
+  fix: |
+    Check the path (`star/align`, not `star_align`). A module new upstream appears after the
+    next sync; *Sync now* fetches it sooner.
+  explanation: |
+    The catalogue holds what the last good sync read, and modules gone upstream since. A path
+    it has never seen is not a module it can describe.
+MF0504:
+  emitted_by: api
+  concern: catalogue
+  says: "no tool with that id in the registry"
+  fires_on: [tool page]
+  refuses: true
+  fix: |
+    A tool's id is its contract id, with the tool version: `nf-core/star/align@2.7.11b`. Open
+    it from the catalogue, which links each imported module to its tool.
+  explanation: |
+    The tool page describes what the registry the builder loads holds. An id it does not hold
+    may be a tool not imported yet, or one at a different version.
 MV0001:
   emitted_by: vendor
   concern: vendoring
