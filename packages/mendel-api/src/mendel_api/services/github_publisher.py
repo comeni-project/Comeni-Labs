@@ -12,18 +12,19 @@ from pathlib import Path
 
 import httpx
 from mendel_forge.publishing import (
+    GITHUB_API,
     Change,
     PublishUnavailable,
     PullRequest,
     PullRequestState,
     RegistryPublisher,
+    checks_of,
 )
 
 from mendel_api.settings import settings
 
 CLONE = "registry-publish"
 GIT_TIMEOUT = 300
-API = "https://api.github.com"
 TOKEN_VARIABLE = "COMENI_FORGE_PUSH_TOKEN"
 ASKPASS = f'#!/bin/sh\nprintf %s "${TOKEN_VARIABLE}"\n'
 AUTHOR = ["-c", "user.name=Comeni forge", "-c", "user.email=forge@comeni.invalid"]
@@ -35,7 +36,7 @@ class GitHubPublisher:
         self.repo, self._token, self.cache = repo, token, cache
         self.remote = remote or f"https://x-access-token@github.com/{repo}.git"
         self._client = client or httpx.Client(timeout=60.0)
-        self._client.base_url = API
+        self._client.base_url = GITHUB_API
         self._client.headers.update({"Authorization": f"Bearer {token}",
                                      "Accept": "application/vnd.github+json"})
 
@@ -101,7 +102,7 @@ class GitHubPublisher:
         state = "merged" if pull.get("merged") else pull["state"]
         runs = self._call("GET", f"/repos/{self.repo}/commits/{head}/check-runs",
                           params={"per_page": 100})["check_runs"]
-        checks, says = _checks(runs)
+        checks, says = checks_of(runs)
         return PullRequestState(state=state, head=head, checks=checks, says=says)
 
     def merge(self, number: int, head: str) -> None:
@@ -110,20 +111,6 @@ class GitHubPublisher:
 
     def close(self, number: int) -> None:
         self._call("PATCH", f"/repos/{self.repo}/pulls/{number}", json={"state": "closed"})
-
-
-def _checks(runs: list[dict]) -> tuple[str, str | None]:
-    """All of them, read as one: none yet is pending, not green."""
-    if not runs:
-        return "pending", "registry CI has not started"
-    unfinished = [r["name"] for r in runs if r["status"] != "completed"]
-    failed = [r["name"] for r in runs
-              if r["status"] == "completed" and r["conclusion"] not in ("success", "skipped")]
-    if failed:
-        return "red", f"failed: {', '.join(sorted(failed))}"
-    if unfinished:
-        return "pending", f"still running: {', '.join(sorted(unfinished))}"
-    return "green", None
 
 
 def publisher() -> RegistryPublisher | None:

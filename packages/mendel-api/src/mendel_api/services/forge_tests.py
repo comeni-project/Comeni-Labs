@@ -30,7 +30,7 @@ from mendel_api import db, jobs
 from mendel_api.models import ForgeAdaptation, ForgeTestRun
 from mendel_api.services import bundle, forging
 from mendel_api.services.wiener_runner import runner
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry, settings
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ async def start(adaptation_id: str) -> forging.AdaptationView:
 
 def _tests(adaptation_id: str) -> tuple[list[ToolTest], layers.Layers]:
     adaptation = forging.row(adaptation_id)
-    stack = layers.load([settings.registry_root, *forging.pending_layers(adaptation_id),
+    stack = layers.load([active_registry(), *forging.pending_layers(adaptation_id),
                          forging.draft_dir(adaptation_id)])
     return stack.tests[f"{adaptation.source}/{adaptation.path}@{adaptation.version}"], stack
 

@@ -40,3 +40,13 @@ def test_only_the_worker_is_given_wieners_token():
     holders = [name for name, service in services.items()
                if "MENDEL_WIENER_TOKEN" in (service.get("environment") or {})]
     assert holders == ["mendel-worker"]
+
+
+def test_every_reader_asks_for_the_active_registry():
+    """A reader of `settings.registry_root` would stay on the old registry after a release."""
+    readers = {
+        str(path.relative_to(ROOT))
+        for path in (ROOT / "packages/mendel-api/src").rglob("*.py")
+        if "settings.registry_root" in path.read_text()
+    }
+    assert readers == {"packages/mendel-api/src/mendel_api/settings.py"}

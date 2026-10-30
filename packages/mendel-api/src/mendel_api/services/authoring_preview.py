@@ -9,7 +9,7 @@ from mendel_api.authoring.envelopes import OfferContext, StepOffer
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import blueprint as bp
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry
 
 
 def read(session_id: str, proposal_id: str, option_id: str,
@@ -39,7 +39,7 @@ def read(session_id: str, proposal_id: str, option_id: str,
         if (offer.context.draft_revision != current.draft_revision
                 or offer.context.decision_revision != current.decision_revision
                 or offer.context.registry != current.registry
-                or bp.registry_digest([settings.registry_root]) != current.registry):
+                or bp.registry_digest([active_registry()]) != current.registry):
             raise ValueError(coded("MI0201", "the draft or registry changed after this offer"))
         if option_id not in offer.amendments:
             raise ValueError(coded("MI0205", "that alternative was not offered"))

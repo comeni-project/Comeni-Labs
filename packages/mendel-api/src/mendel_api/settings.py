@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     declarations and `source_root` for the module code they describe, on two release cadences
     in two repositories. `MD0104` exists to catch a contract drifting from its module and was
     comparing two things nothing kept in step."""
+    registries_root: Path | None = None
+    """Where fetched releases live (`MENDEL_REGISTRIES_ROOT`), one read-only folder each. Unset,
+    the app runs `registry_root` as it always has: tests, the CLI, and an installation with no
+    release yet. **Read the registry through `active_registry()`**, never `registry_root`."""
     draft_root: Path = Path("./build/drafts")
     """Where `keep` writes a draft's `pipeline.yml`.
 
@@ -118,6 +122,21 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+CURRENT = "current"
+"""The file under `registries_root` naming the release in use."""
+
+
+def active_registry() -> Path:
+    """The registry this installation reads now: the current release, else the configured root.
+    **Asked each time**, so a switch reaches every reader, and `registry.stack()`'s digest key
+    moves with it."""
+    if settings.registries_root is None:
+        return settings.registry_root
+    current = Path(settings.registries_root) / CURRENT
+    if not current.is_file():
+        return settings.registry_root
+    return Path(settings.registries_root) / current.read_text().strip() / "layer"
 
 
 def model_access(agent: str | None = None, purpose: str | None = None) -> "ModelAccess | None":

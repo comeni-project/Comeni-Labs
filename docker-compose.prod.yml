@@ -15,6 +15,7 @@ services:
     ports: !reset []
     volumes: !override
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
       - ./.run/forge:/app/forge
@@ -22,12 +23,14 @@ services:
   mendel-worker:
     volumes: !override
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
       - ./.run/forge:/app/forge
   ai-worker:
     volumes: !override
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
       - ./.run/forge:/app/forge:ro

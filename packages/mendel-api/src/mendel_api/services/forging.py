@@ -48,7 +48,7 @@ from mendel_api.models import (
 )
 from mendel_api.services import catalogue, registry
 from mendel_api.services.reports import publishing_token_set
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry, settings
 
 log = logging.getLogger(__name__)
 
@@ -468,7 +468,7 @@ def assemble(adaptation_id: str) -> AssemblyView:
     files: list[Path] = []
     try:
         files = _write_draft(adaptation_id, state, out)
-        proof = prove(settings.registry_root, pending_layers(adaptation_id), out)
+        proof = prove(active_registry(), pending_layers(adaptation_id), out)
     except ValidationError as error:  # a contract the registry's model refuses
         proof = _failed(str(error), Piece.CONTRACT)
     except Exception as error:
@@ -509,7 +509,7 @@ def _write_draft(adaptation_id: str, state: Adaptation, out: Path) -> list[Path]
         approved_at=datetime.now(UTC).date().isoformat(),
     )
     return write_layer(approved, f"{adaptation.source}/{adaptation.path}@{adaptation.version}",
-                       provenance, origin, base=settings.registry_root, out=out)
+                       provenance, origin, base=active_registry(), out=out)
 
 
 def _finish(adaptation_id: str, proof: Proof) -> None:

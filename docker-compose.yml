@@ -30,6 +30,8 @@ x-mendel-environment: &mendel-environment
   MENDEL_REDIS_URL: redis://redis:6379
   # Where forge tests run. The API reads it to say whether they can; the token is the worker's.
   MENDEL_WIENER_URL: http://wiener-api:8001
+  # Fetched registry releases. Until one exists, Mendel reads MENDEL_REGISTRY_ROOT.
+  MENDEL_REGISTRIES_ROOT: /app/registries
   MENDEL_REGISTRY_ROOT: /app/registry
   MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
   MENDEL_WORKSPACE_ROOT: /app/workspace
@@ -112,6 +114,7 @@ services:
       - ./packages:/app/packages
       # Writable registry clone prepared by make dev for accepted tool updates.
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries:ro
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       # Share saved pipelines with mendel-worker for gates.
@@ -150,6 +153,7 @@ services:
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
@@ -173,6 +177,7 @@ services:
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries:ro
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts

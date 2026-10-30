@@ -24,6 +24,9 @@ from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict
 
 
+GITHUB_API = "https://api.github.com"
+
+
 class PublishUnavailable(Exception):
     """GitHub could not be reached or refused. The message is safe to show a person."""
 
@@ -81,6 +84,20 @@ class RegistryPublisher(Protocol):
 
     def close(self, number: int) -> None:
         ...
+
+
+def checks_of(runs: list[dict]) -> tuple[str, str | None]:
+    """All of them, read as one: none yet is pending, not green."""
+    if not runs:
+        return "pending", "registry CI has not started"
+    unfinished = [r["name"] for r in runs if r["status"] != "completed"]
+    failed = [r["name"] for r in runs
+              if r["status"] == "completed" and r["conclusion"] not in ("success", "skipped")]
+    if failed:
+        return "red", f"failed: {', '.join(sorted(failed))}"
+    if unfinished:
+        return "pending", f"still running: {', '.join(sorted(unfinished))}"
+    return "green", None
 
 
 def tool_id(module_id: str) -> str:

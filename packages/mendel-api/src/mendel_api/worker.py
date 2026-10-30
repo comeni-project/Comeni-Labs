@@ -11,7 +11,13 @@ from arq import cron
 from arq.connections import RedisSettings
 from arq.worker import func
 
-from mendel_api.services import catalogue, forge_publish, forge_tests, retention
+from mendel_api.services import (
+    catalogue,
+    forge_publish,
+    forge_tests,
+    registry_releases,
+    retention,
+)
 from mendel_api.services import gates as gate_service
 from mendel_api.settings import settings
 
@@ -71,6 +77,11 @@ async def poll_forge_pull_requests(ctx: dict) -> int:
     return await asyncio.to_thread(forge_publish.poll)
 
 
+async def follow_registry_releases(ctx: dict) -> str:
+    """Fetch what the installation wants, and switch to it if it loads."""
+    return await asyncio.to_thread(registry_releases.follow) or ""
+
+
 class WorkerSettings:
     functions = [
         # **Its own limit, and one try** (issue 278). arq's default (300s) cancelled the stub
@@ -86,6 +97,7 @@ class WorkerSettings:
         func(publish_forge_tool, timeout=900, max_tries=1, keep_result=0),
         func(merge_forge_tool, timeout=120, max_tries=1, keep_result=0),
         poll_forge_pull_requests,
+        func(follow_registry_releases, timeout=900, max_tries=1),
     ]
     """**Everything that is not a model call.** The split from `AIWorkerSettings` is about
     starvation: a model call is measured in minutes and must not hold up a gate.
@@ -102,6 +114,8 @@ class WorkerSettings:
         cron(poll_forge_tests, second={0, 30}),
         # Forge MVP 5: CI on an open pull request, every minute.
         cron(poll_forge_pull_requests, second=0),
+        # Forge MVP 6: an installation following `latest` moves within the hour.
+        cron(follow_registry_releases, minute=7, run_at_startup=True),
     ]
     """**`unique=True` is arq's default and is load-bearing**: two worker replicas would
     otherwise each start the same sweep at the same minute."""
