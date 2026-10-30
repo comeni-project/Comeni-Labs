@@ -23,6 +23,7 @@ classifiers = [
 # nf-core clone URL and module prefix; the resolver supplies the loaded registry to compare with.
 dependencies = [
   "comeni-core>=0.1.0",
+  "comeni-flow>=0.1.0",
   "comeni-vendor>=0.1.0",
   "mendel-compiler>=0.1.0",
   "mendel-resolver>=0.1.0",
@@ -46,6 +47,7 @@ packages = ["src/mendel_forge"]
 
 [tool.uv.sources]
 comeni-core = { workspace = true }
+comeni-flow = { workspace = true }
 comeni-vendor = { workspace = true }
 mendel-compiler = { workspace = true }
 mendel-resolver = { workspace = true }

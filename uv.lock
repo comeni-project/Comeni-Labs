@@ -1633,6 +1633,7 @@ version = "0.1.0"
 source = { editable = "packages/mendel-forge" }
 dependencies = [
     { name = "comeni-core" },
+    { name = "comeni-flow" },
     { name = "comeni-vendor" },
     { name = "mendel-compiler" },
     { name = "mendel-resolver" },
@@ -1643,6 +1644,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-flow", editable = "packages/comeni-flow" },
     { name = "comeni-vendor", editable = "packages/comeni-vendor" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
