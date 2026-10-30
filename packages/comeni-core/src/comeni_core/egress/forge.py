@@ -25,6 +25,7 @@ class ForgePiece(StrEnum):
     PARAMETERS = "parameters"
     VOCABULARY = "vocabulary"
     RULES = "rules"
+    TESTS = "tests"
 
 
 class ModuleFacts(EgressPayload):
@@ -33,6 +34,8 @@ class ModuleFacts(EgressPayload):
     module: ModuleKey
     main_nf: Text
     meta_yml: Text
+    nf_test: Text = ""
+    """Its `tests/main.nf.test`: public module source, which test files it uses and how."""
 
 
 class KnownIds(EgressPayload):

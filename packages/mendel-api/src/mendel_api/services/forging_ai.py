@@ -48,7 +48,11 @@ builder's."""
 
 _PURPOSE = {"forge.questions.v1": InvocationPurpose.ANALYSIS,
             "forge.draft.v1": InvocationPurpose.IMPLEMENTATION,
+            "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v1": InvocationPurpose.CHAT}
+
+
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v1", Piece.TESTS: "forge.tests.v1"}
 
 
 def _client(purpose: InvocationPurpose) -> Client | None:
@@ -74,7 +78,8 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
         piece=ForgePiece(piece.value),
         module=ModuleFacts(module=f"{adaptation.source}/{adaptation.path}",
                            main_nf=(folder / "main.nf").read_text(),
-                           meta_yml=(folder / "meta.yml").read_text()),
+                           meta_yml=(folder / "meta.yml").read_text(),
+                           nf_test=_nf_test(folder)),
         known=KnownIds(types=sorted(seen.types), roles=sorted(seen.roles),
                        measurements=sorted(seen.measurements), contracts=sorted(seen.contracts),
                        pending=sorted(seen.pending)),
@@ -83,6 +88,11 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
         turns=[ForgeTurn(role=AuthoringRole(role), content=content)
                for role, content in list(turns)[-CHAT_TAIL:]],
     )
+
+
+def _nf_test(folder: Path) -> str:
+    test = folder / "tests" / "main.nf.test"
+    return test.read_text() if test.is_file() else "(this module has no nf-test)"
 
 
 def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
@@ -98,7 +108,8 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
     turns_text = "\n".join(f"{t.role.value}: {t.content}" for t in request.turns) or "(none)"
     return {
         "module": request.module.module, "main_nf": request.module.main_nf,
-        "meta_yml": request.module.meta_yml, "known": known_text, "items": items_text,
+        "meta_yml": request.module.meta_yml, "nf_test": request.module.nf_test,
+        "known": known_text, "items": items_text,
         "piece": request.piece.value, "turns": turns_text,
         "problems": ("\nYour previous reply was refused:\n- " + "\n- ".join(problems)
                      if problems else ""),
@@ -175,7 +186,7 @@ def _engine_says(adaptation_id: str, content: str) -> None:
 def draft_piece(adaptation_id: str, piece: Piece, client: Client | None = None) -> None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = "forge.questions.v1" if piece is Piece.QUESTIONS else "forge.draft.v1"
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v1")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, "MI0106: no model is configured for the forge (Settings → "

@@ -61,6 +61,7 @@ FREE_TEXT_FIELDS = {
     # adaptation's own items as JSON, the person's chat with the forge, and the prompt.
     ("ModuleFacts", "main_nf"),
     ("ModuleFacts", "meta_yml"),
+    ("ModuleFacts", "nf_test"),
     ("ForgeItemText", "key"),
     ("ForgeItemText", "value"),
     ("ForgeTurn", "content"),

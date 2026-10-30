@@ -174,3 +174,54 @@ def test_the_forge_jobs_free_their_id_when_done():
     forge = [f for f in AIWorkerSettings.functions
              if getattr(f, "name", "") in ("draft_forge_piece", "answer_forge_message")]
     assert len(forge) == 2 and all(f.keep_result_s == 0 for f in forge)
+
+
+TEST_DRAFT = {"items": {"tests:test:paired": {
+    "inputs": {"reads": ["genomics/sarscov2/illumina/fastq/test_1.fastq.gz"]},
+    "expect": [{"port": "bam", "pattern": "*.bam"}]}},
+    "because": {"tests:test:paired": "the module's first nf-test"}}
+
+
+def _ready_for_tests(adaptation: str) -> None:
+    _answer(adaptation)
+    forging.act(adaptation, forging.person(Move.WRITE, "contract:process", expected=None, value={
+        "nf_process": "BWA_MEM", "nf_include": "modules/nf-core/bwa/mem/main"}, because=None))
+    for key, name, type_id in (("contract:input:reads", "reads", "fastq.reads"),
+                               ("contract:output:bam", "bam", "alignment.bam")):
+        forging.act(adaptation, forging.person(Move.WRITE, key, expected=None, value={
+            "position": 0, "name": name, "type_id": type_id}, because=None))
+    for key in ("parameters:none", "vocabulary:none", "rules:none"):
+        forging.act(adaptation, forging.person(Move.WRITE, key, expected=None,
+                                               value={"because": "nothing"}, because=None))
+
+
+def test_drafting_tests_reads_the_modules_nf_test(adaptation):
+    tests = forging.module_folder("nf-core", "bwa/mem") / "tests"
+    tests.mkdir(exist_ok=True)
+    (tests / "main.nf.test").write_text("input[0] = file(params.modules_testdata_base_path + "
+                                        "'genomics/sarscov2/x.fastq.gz')")
+    _ready_for_tests(adaptation)
+    client = FakeClient(TEST_DRAFT)
+    forging_ai.draft_piece(adaptation, Piece.TESTS, client)
+    assert "genomics/sarscov2/x.fastq.gz" in client.prompts[0]
+    item = forging.load(adaptation).items["tests:test:paired"]
+    assert item.status == "proposed" and item.current.actor == "ai"
+    with session_scope() as db:
+        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.tests.v1"
+
+
+def test_a_module_with_no_nf_test_is_drafted_from_its_meta(adaptation):
+    shutil.rmtree(forging.module_folder("nf-core", "bwa/mem") / "tests", ignore_errors=True)
+    _ready_for_tests(adaptation)
+    client = FakeClient(TEST_DRAFT)
+    forging_ai.draft_piece(adaptation, Piece.TESTS, client)
+    assert "(this module has no nf-test)" in client.prompts[0]
+
+
+def test_a_drafted_data_commit_is_refused(adaptation):
+    _ready_for_tests(adaptation)
+    value = {**TEST_DRAFT["items"]["tests:test:paired"], "data_commit": "abc"}
+    wrong = {"items": {"tests:test:paired": value}}
+    forging_ai.draft_piece(adaptation, Piece.TESTS, FakeClient(wrong, wrong))
+    assert "tests:test:paired" not in forging.load(adaptation).items
+    assert "refused twice" in forging.read(adaptation).messages[-1].content
