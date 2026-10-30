@@ -264,3 +264,6 @@ decline to curate one.
 | `MF0513` | an adaptation this one depends on changed |
 | `MF0514` | tests cannot run: this installation has no Wiener to run them |
 | `MF0515` | a tool's test could not run, or did not produce what it declares |
+| `MF0516` | publishing is unavailable: this installation has no GitHub token |
+| `MF0517` | the draft cannot be published: the registry's own checks refuse it |
+| `MF0518` | the pull request cannot be merged: registry CI is not green |

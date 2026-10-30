@@ -2375,6 +2375,42 @@ MF0515:
   explanation: |
     Green means the run succeeded and every declared output exists in its declared format. It
     shows the tool runs through our wiring and parameters, not that its results are correct.
+MF0516:
+  emitted_by: api
+  concern: catalogue
+  says: "publishing is unavailable: this installation has no GitHub token"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Set COMENI_FORGE_GITHUB_TOKEN in .env, with write access to the registry repository's contents
+    and pull requests, and restart the worker. Forging and tests work without it.
+  explanation: |
+    Only an installation with a token can publish. It is a deploy secret, so it is never typed into
+    a page, and the worker alone holds it.
+MF0517:
+  emitted_by: forge
+  concern: catalogue
+  says: "the draft cannot be published: the registry's own checks refuse it"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    The message quotes the check, or names the shared file the draft would change. Change the
+    adaptation and test it again, or change the shared file in comeni-registry by hand.
+  explanation: |
+    The registry's CI runs here first, on a fresh checkout of its main branch, so a forge pull
+    request is not how anybody learns a draft fails it. Nothing was pushed.
+MF0518:
+  emitted_by: api
+  concern: catalogue
+  says: "the pull request cannot be merged: registry CI is not green"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Wait for pending checks. A red check needs the adaptation changed and tested again, which
+    closes this pull request and opens another.
+  explanation: |
+    Approve merges only when CI is green. The server reads the checks again at the click and merges
+    exactly the commit it read.
 MV0001:
   emitted_by: vendor
   concern: vendoring
