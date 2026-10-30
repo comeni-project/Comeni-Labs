@@ -1,21 +1,23 @@
 import { NavLink } from "react-router";
 
-/** The Registry section's own bar (board 1): Catalogue now; Forging and Releases drawn and
- *  disabled until the parts that bring them (forge MVP parts 2 and 5). */
+/** The Registry section's own bar (board 1): Catalogue, Forging and Releases. */
 export function RegistryTabs({ registryAt }: { registryAt?: string }) {
-  const off = "py-3 text-ink-3 cursor-not-allowed";
+  const on = "text-ink font-semibold border-b-2 border-ink";
   return (
     <div className="gutter flex flex-wrap items-center gap-x-[26px] gap-y-1 border-b border-line bg-paper">
       <nav aria-label="Registry" className="flex flex-wrap gap-[26px]">
-        <NavLink
-          to="/registry"
-          end={false}
-          className="py-3 text-ink font-semibold border-b-2 border-ink no-underline"
-        >
+        <NavLink to="/registry" end
+                 className={({ isActive }) => `py-3 no-underline ${isActive ? on : "text-ink-2"}`}>
           Catalogue
         </NavLink>
-        <span aria-disabled="true" title="Forging comes in part 2" className={off}>Forging</span>
-        <span aria-disabled="true" title="Releases come in part 5" className={off}>Releases</span>
+        <NavLink to="/registry/forging"
+                 className={({ isActive }) => `py-3 no-underline ${isActive ? on : "text-ink-2"}`}>
+          Forging
+        </NavLink>
+        <NavLink to="/registry/releases"
+                 className={({ isActive }) => `py-3 no-underline ${isActive ? on : "text-ink-2"}`}>
+          Releases
+        </NavLink>
       </nav>
       {registryAt && (
         <span className="ml-auto min-w-0 pb-2 sm:pb-0 text-[12.5px] text-ink-3">

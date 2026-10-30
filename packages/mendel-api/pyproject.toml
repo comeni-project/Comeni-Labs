@@ -9,6 +9,7 @@ dependencies = [
     "mendel-resolver>=0.1.0",
     "mendel-compiler>=0.1.0",
     "mendel-authoring>=0.1.0",
+    "comeni-flow>=0.1.0",
     "mendel-forge>=0.1.0",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -18,6 +19,7 @@ dependencies = [
     "arq>=0.26",
     "pydantic-settings>=2.4",
     "cryptography>=42",
+    "httpx>=0.27",
     # An uploaded sample is inspected in a child process running `comeni_inspect.run`, and its
     # body is streamed through python-multipart so only each file's head is ever held (#134);
     # 0.0.27 is the first release whose parser caps a part's header count and size (#226).
@@ -39,3 +41,4 @@ comeni-ai = { workspace = true }
 mendel-resolver = { workspace = true }
 mendel-compiler = { workspace = true }
 mendel-forge = { workspace = true }
+comeni-flow = { workspace = true }

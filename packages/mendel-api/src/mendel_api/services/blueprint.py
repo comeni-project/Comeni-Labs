@@ -34,7 +34,7 @@ from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
 
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry
 
 __all__ = [
     "KEEP",
@@ -73,7 +73,7 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Bluepri
     questions stay open, visibly, for a person in the walk; nothing is guessed. The second value
     is the model calls made, always none now, kept so a later Tier-4 answers fork can return
     them for `ai_invocation`."""
-    stack = list(roots or [settings.registry_root])
+    stack = list(roots or [active_registry()])
     built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver())
     placed = layout.of(built.ir)
     order = [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))]

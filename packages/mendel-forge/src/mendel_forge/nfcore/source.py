@@ -22,13 +22,16 @@ log = logging.getLogger(__name__)
 
 NAME = "nf-core"
 CLONE = "nf-core-modules"
+TEST_DATASETS = "https://github.com/nf-core/test-datasets"
+TEST_DATA_BRANCH = "refs/heads/modules"
 
 
 class NfCoreSource:
     name = NAME
 
-    def __init__(self, url: str = REPOS[NAME]) -> None:
+    def __init__(self, url: str = REPOS[NAME], data_url: str | None = None) -> None:
         self.url = url
+        self.data_url = data_url
 
     def sync(self, cache: Path) -> Snapshot:
         repo = cache / CLONE
@@ -47,7 +50,19 @@ class NfCoreSource:
         # would otherwise leave a clone that checks out the whole repository.
         _git(repo, "sparse-checkout", "set", PREFIX[NAME])
         _git(repo, "checkout", "--quiet", "--detach", "origin/HEAD")
-        return Snapshot(source=NAME, commit=_git(repo, "rev-parse", "HEAD"), root=repo)
+        return Snapshot(source=NAME, commit=_git(repo, "rev-parse", "HEAD"), root=repo,
+                        test_data_commit=self._test_data_commit())
+
+    def _test_data_commit(self) -> str | None:
+        """The test data's newest commit. Never fails a sync: tests can wait, the catalogue not."""
+        if self.data_url is None:
+            return None
+        try:
+            said = _git(None, "ls-remote", self.data_url, TEST_DATA_BRANCH)
+        except SourceUnavailable as error:
+            log.warning("could not read the test data's commit: %s", error)
+            return None
+        return said.split()[0] if said else None
 
     def modules(self, snapshot: Snapshot) -> Iterator[UpstreamModule]:
         base = snapshot.root / PREFIX[NAME]

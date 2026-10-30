@@ -61,7 +61,8 @@ subprocess launch and process timeout in `mendel_api/services/inspect.py`.
 |---|---|
 | `mendel_resolver/rules/` | Rule shapes, loading/stacking and load-time validation. The rest of the resolver owns routing, premise evaluation, materialisation of drawn graphs and replay. `ports.py` supplies the adapter boundary for an unresolved choice. |
 | `mendel_compiler/cli/` | Argument parsing, command composition and console rendering. Root modules own emission, conformance, gates, source staging and artifact-file I/O. Disk/subprocess work is not confined to the CLI. |
-| `mendel_authoring/protocol.py`, `interpret.py`, `state.py`, `commands.py`, `types.py`, `payloads.py` | The declared conversation program, interpreter, legal transitions and values passed between actions. They do not own stored sessions. |
+| `mendel_authoring/protocol.py`, `state.py`, `commands.py`, `types.py`, `payloads.py` | The declared conversation program, legal transitions and values passed between actions. They do not own stored sessions. |
+| `comeni_flow/` | The flow engine those programs are declared on: protocol model and checks, interpreter, forks and diagram. Pure; the builder runs on it, and the forge's flow is planned on it (#364). |
 | Other `mendel_authoring` modules | Blueprint/draft projections, alternatives, amendments, decisions, gaps, needs, reviews, progress, pacing, memory and read-back calculations. `ports.py` describes the registry view those calculations need. |
 | `mendel_api/authoring/` | Application-facing authoring shapes, immutable offer envelopes, canvas assembly, committed prompts and the model resolver adapter. Some values here are HTTP-specific; others support model interaction. |
 | `mendel_api/stages/` | Persistence-aware action handlers bound to the pure protocol. `_rows.py` provides shared row operations and `_jobs.py` constructs queued work. `building/` groups amendments, cards and the step walk. |
@@ -86,6 +87,12 @@ subprocess launch and process timeout in `mendel_api/services/inspect.py`.
 | `wiener_api/routes/` | Run, artifact and monitoring HTTP interfaces. |
 | `wiener_api/services/` | Artifact storage, process launch, projections, live streams, telemetry export, retention, deletion and execution verbs. |
 | Wiener root modules and migrations | Database models/repository/query shapes, settings, Redis jobs, app factories and worker composition. Wiener alone owns its schema and Alembic history. |
+
+**Mendel does not run a laboratory's pipeline.** The browser carries a kept pipeline from Mendel to
+Wiener, so Mendel never holds a samplesheet. There is one exception, decided on 2026-10-30
+(#365): the forge's test job calls Wiener through a narrow `TestRunner`, because a forge test
+carries only a generated pipeline and public test data, and publishing needs a result the server
+checked itself. Only that job holds the runner, and `tests/guards/test_forge_runner.py` says so.
 
 The frontend owns browser navigation, rendering and interaction state. Its Mendel and Wiener
 clients use separate API surfaces; generated schema types are outputs of those interfaces.

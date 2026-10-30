@@ -30,7 +30,7 @@ from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel
 
 from mendel_api.services import registry
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry, settings
 
 # The five-module RNA-seq spine. **The screen has to open on something** and nothing can author a
 # goal until the prompt door exists, which is after #69 — so until then this is what a person
@@ -503,13 +503,13 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     outlives the thing it was computed from."""
     built = orchestrate.build(
         Goal.model_validate_json(goal_json),
-        registry_root=settings.registry_root,
+        registry_root=active_registry(),
     )
     return _view(built.ir, built.pipeline, built.layers)
 
 
 def of(goal: Goal) -> BuiltPipeline:
-    return _built(goal.model_dump_json(), str(digest_of_directory(settings.registry_root)))
+    return _built(goal.model_dump_json(), str(digest_of_directory(active_registry())))
 
 
 def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:

@@ -45,6 +45,9 @@ def _shapes() -> tuple[Shape, ...]:
     return (
         Shape("ai_invocation", "input_digests", dict[str, str]),
         Shape("catalogue_module", "document", UpstreamModule),
+        Shape("forge_adaptation", "depends_on", list[str]),
+        Shape("forge_message", "commands", list[loose]),
+        Shape("forge_revision", "value", JsonValue),
         Shape("installation_setting", "value", JsonValue),
         Shape("pipeline_authoring_proposal", "payload", loose),
         Shape("pipeline_authoring_proposal", "preview_views", dict[str, AlternativePreview] | None),

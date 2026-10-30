@@ -1,12 +1,12 @@
-"""Invariant 14: data leaves through five declared doors and no others.
+"""Invariant 14: data leaves through six declared doors and no others.
 
 The doors are listed here, literally, on purpose. Adding one means editing a file
 whose contents say "these are all the ways data leaves this building" — which is
 the moment a person should be thinking, and this test is what makes them.
 
 **Five, on the pipeline path.** Four carry pipeline data along one prompt-taint path and door 6
-the start of a sample. The forge's flow is declared with no doors: the old forge's review chat
-went with it (forge MVP part 0, #361), and the new forge declares its own when it has one.
+the start of a sample. **One on the forge's path**, `forge_drafting` (forge MVP 3, #364): public
+module files and registry ids in, drafted items out, and no lab data.
 
 A separate `FORGE_DOORS` was considered and rejected: two files creates a cheaper file, and the
 less-scrutinised one is where a door that belonged on the other list eventually goes."""
@@ -669,3 +669,18 @@ def test_unregistered_payloads_in_separate_modules_are_also_walked(monkeypatch):
     monkeypatch.setattr(authoring, "UnregisteredPayload", UnregisteredPayload, raising=False)
     assert UnregisteredPayload not in egress.PAYLOADS.values()
     assert UnregisteredPayload in _payload_types()
+
+
+
+def test_the_forge_door_carries_no_lab_data():
+    """Forging sends public tool files and registry ids (#364): no goal, sample or run."""
+    from comeni_core.egress.forge import ForgeRequest
+
+    assert egress.PAYLOADS["forge_drafting"] is ForgeRequest
+    forge = [p for p in _payload_types() if p.__module__ == "comeni_core.egress.forge"]
+    assert forge, "the forge door's models are walked"
+    for payload in forge:
+        assert not _fields(payload, Mark.SAMPLE), payload.__name__
+        hints = " ".join(repr(h) for h in typing.get_type_hints(payload).values())
+        for lab in ("Goal", "Pipeline", "Characterise", "Sample"):
+            assert lab not in hints, f"{payload.__name__} reaches {lab}"

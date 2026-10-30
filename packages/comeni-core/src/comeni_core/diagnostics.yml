@@ -2062,6 +2062,18 @@ MD0025:
     A contract is how the builder can choose a module; a module no contract names is source
     nobody can use, and nothing used to say so (#410). The check runs over the whole stack, so
     an overlay may bind a module its base layer vendored.
+MD0026:
+  emitted_by: resolver
+  concern: loading
+  says: "a tool's test names a contract nothing declares"
+  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  refuses: true
+  fix: |
+    Correct the test's `contract:` to the id in the tool's `contract.yml`, or remove the test
+    with the tool it belonged to.
+  explanation: |
+    A test belongs to one contract. One that outlives its tool would never run, and would read
+    as coverage the registry does not have.
 MD0226:
   emitted_by: core
   concern: pipeline-file
@@ -2230,6 +2242,187 @@ MF0504:
   explanation: |
     The tool page describes what the registry the builder loads holds. An id it does not hold
     may be a tool not imported yet, or one at a different version.
+MF0505:
+  emitted_by: forge
+  concern: catalogue
+  says: "only a person decides: the AI may propose, not approve"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Approve, change, reject or remove the item yourself. The AI's revise, add and
+    propose-removal moves wait for that decision.
+  explanation: |
+    A model's contribution stays visible and reviewable: the AI may propose writing, changing
+    or removing anything, and nothing it proposes counts until a person approves it.
+MF0506:
+  emitted_by: forge
+  concern: catalogue
+  says: "that move is not open here"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message says why: a piece later than the first unfinished one, an item that changed
+    since you looked (reload and decide on the current revision), or a move its state does not
+    allow. Do the earlier piece first, or act on the current revision.
+  explanation: |
+    Forging goes piece by piece, and every decision names the revision it was made against, so
+    two people (or two tabs) never silently overwrite each other.
+MF0507:
+  emitted_by: forge
+  concern: catalogue
+  says: "a reply names an id the registry does not have"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Propose the type or role as new vocabulary in this adaptation, or pick one the registry
+    has. Vocabulary from another adaptation counts only once that adaptation is assembled.
+  explanation: |
+    Every id a forged tool uses must resolve: in the registry, proposed here, or pending from
+    an assembled adaptation. A model's reply is checked before it becomes a proposal.
+MF0508:
+  emitted_by: forge
+  concern: catalogue
+  says: "a port the module's main.nf does not have"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Name the port as `main.nf` declares it: an input among the process's `input:` names, an
+    output among its `emit:` names.
+  explanation: |
+    A contract's ports must agree with the module's source; the same rule the conformance
+    check holds a registry contract to, applied as the reply arrives.
+MF0509:
+  emitted_by: forge
+  concern: catalogue
+  says: "a setting is passed nowhere"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Give an `ext` setting its key (`args`), or wire a positional setting into `nf_inputs`.
+  explanation: |
+    A setting the module never receives would be a decision with no effect.
+MF0510:
+  emitted_by: api
+  concern: catalogue
+  says: "no adaptation with that id"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Open it from the Forging tab, which lists the open adaptations. An abandoned one is kept
+    and still opens by its link.
+  explanation: |
+    An adaptation id names one module being forged; an id that names nothing is said as such.
+MF0511:
+  emitted_by: forge
+  concern: catalogue
+  says: "the draft layer could not be written or does not load"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message names the cause and the piece it re-opens: a licence the registry has no text
+    for, or a loading refusal (an unknown type, a state no type declares, a rule that does not
+    parse). Fix that piece and assemble again.
+  explanation: |
+    A draft counts as assembled only if the builder's own loader accepts it over the registry,
+    so what MVP 5 publishes is something that already loads.
+MF0512:
+  emitted_by: forge
+  concern: catalogue
+  says: "the draft's contract does not conform to its module"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message quotes the conformance finding (a port main.nf lacks, inputs in the wrong
+    order, an output it does not emit). The contract re-opens; change the item it names.
+  explanation: |
+    The same conformance check a registry contract is held to, run on the draft before it is
+    called assembled.
+MF0513:
+  emitted_by: api
+  concern: catalogue
+  says: "an adaptation this one depends on changed"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Look at the re-opened items: they use vocabulary from the earlier adaptation, which was
+    re-opened or abandoned. Approve them again if it still holds, or change them.
+  explanation: |
+    A later adaptation may use an assembled one's new vocabulary before it reaches the
+    registry. When that earlier draft changes, what relied on it is reviewed again rather than
+    silently kept.
+MF0514:
+  emitted_by: api
+  concern: catalogue
+  says: "tests cannot run: this installation has no Wiener to run them"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Set MENDEL_WIENER_URL and MENDEL_WIENER_TOKEN for the worker, then run the tests again. Forging
+    works up to assembly without them.
+  explanation: |
+    A forge test is a real run, so it needs Wiener. Mendel's worker submits it through one narrow
+    interface that only the forge's test job holds.
+MF0515:
+  emitted_by: forge
+  concern: catalogue
+  says: "a tool's test could not run, or did not produce what it declares"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    The message says which test and why: a step that failed, an expected output not published, or
+    a test that does not fit its contract. Open the run in Wiener for its logs, change the item
+    with the chat or by hand, assemble again and run the tests again.
+  explanation: |
+    Green means the run succeeded and every declared output exists in its declared format. It
+    shows the tool runs through our wiring and parameters, not that its results are correct.
+MF0516:
+  emitted_by: api
+  concern: catalogue
+  says: "publishing is unavailable: this installation has no GitHub token"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Set COMENI_FORGE_GITHUB_TOKEN in .env, with write access to the registry repository's contents
+    and pull requests, and restart the worker. Forging and tests work without it.
+  explanation: |
+    Only an installation with a token can publish. It is a deploy secret, so it is never typed into
+    a page, and the worker alone holds it.
+MF0517:
+  emitted_by: forge
+  concern: catalogue
+  says: "the draft cannot be published: the registry's own checks refuse it"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    The message quotes the check, or names the shared file the draft would change. Change the
+    adaptation and test it again, or change the shared file in comeni-registry by hand.
+  explanation: |
+    The registry's CI runs here first, on a fresh checkout of its main branch, so a forge pull
+    request is not how anybody learns a draft fails it. Nothing was pushed.
+MF0518:
+  emitted_by: api
+  concern: catalogue
+  says: "the pull request cannot be merged: registry CI is not green"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Wait for pending checks. A red check needs the adaptation changed and tested again, which
+    closes this pull request and opens another.
+  explanation: |
+    Approve merges only when CI is green. The server reads the checks again at the click and merges
+    exactly the commit it read.
+MF0519:
+  emitted_by: api
+  concern: catalogue
+  says: "the release cannot be cut"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message says why: the version is not vMAJOR.MINOR.PATCH or not newer than the last, main has
+    not moved, CI on main is not green, or a release is already being cut.
+  explanation: |
+    A release is what installations following `latest` move to, so it is cut only from a green main,
+    and tags exactly the commit whose checks were read.
 MV0001:
   emitted_by: vendor
   concern: vendoring

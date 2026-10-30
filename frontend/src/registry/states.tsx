@@ -2,20 +2,16 @@ import type { components } from "../api/schema";
 
 export type State = components["schemas"]["State"];
 
-/** A module's state as board 1 draws it: a word, a colour and an icon, never the colour alone.
- *  The two pull request states are placeholders until pull requests (#366). */
-export const STATES: { state: State; label: string; colour: string; placeholder?: boolean }[] = [
+/** A module's state as board 1 draws it: a word, a colour and an icon, never the colour alone. */
+export const STATES: { state: State; label: string; colour: string }[] = [
   { state: "not_imported", label: "Not imported", colour: "text-ink-3" },
   { state: "imported", label: "Imported", colour: "text-done-ink" },
   { state: "update_available", label: "Update available", colour: "text-measured-ink" },
   { state: "unknown", label: "Unknown version", colour: "text-ink-3" },
   { state: "gone_upstream", label: "Gone upstream", colour: "text-measured-ink" },
-  { state: "in_review", label: "In review", colour: "text-now-ink", placeholder: true },
-  { state: "merged_not_released", label: "Merged, not released", colour: "text-ink-2",
-    placeholder: true },
+  { state: "in_review", label: "In review", colour: "text-now-ink" },
+  { state: "merged_not_released", label: "Merged, not released", colour: "text-ink-2" },
 ];
-
-export const PLACEHOLDER_NOTE = "Arrives with pull requests (part 4)";
 
 export function labelOf(state: State): string {
   return STATES.find((s) => s.state === state)?.label ?? state;

@@ -1,24 +1,21 @@
-"""Execute a declarative authoring protocol until the session rests.
+"""Run a declared flow until it rests. Moved from `mendel_authoring.interpret` (#364).
 
 The caller supplies ``enter`` for acting nodes. This interpreter chooses arrows, evaluates forks,
 tracks the path, refuses missing transitions, and bounds cycles without performing shell effects.
 """
 
 from collections.abc import Callable
+from enum import StrEnum
 from typing import NamedTuple
 
 from comeni_core.diagnostics import coded
 
-from mendel_authoring.forks import DEFAULT, Snapshot
-from mendel_authoring.protocol import Edge, Node, Protocol
-from mendel_authoring.types import Phase
-
-NO_SNAPSHOT = Snapshot()
-"""What a run reads when the shell passes nothing: every subject takes its declared default."""
+from comeni_flow.forks import DEFAULT
+from comeni_flow.protocol import Edge, Node, Protocol
 
 
 class Refused(ValueError):
-    """MI0216: no arrow from here is named by what arrived."""
+    """No arrow from here is named by what arrived. Coded with the flow's `refusal_code`."""
 
 
 class Ran(NamedTuple):
@@ -29,7 +26,7 @@ class Ran(NamedTuple):
 
 
 def follow(
-    protocol: Protocol, at: str, on: str | None, *, returning_to: Phase | None = None
+    protocol: Protocol, at: str, on: str | None, *, returning_to: StrEnum | None = None
 ) -> Edge:
     """The built arrow out of `at` that `on` names; `None` names the one way straight on.
 
@@ -43,7 +40,7 @@ def follow(
         found = [e for e in found if not e.returns or phase[e.target] is returning_to]
     if not found:
         named = "the way straight on" if on is None else repr(on)
-        raise Refused(coded("MI0216", f"from {at!r}, nothing leads on by {named}"))
+        raise Refused(coded(protocol.refusal_code, f"from {at!r}, nothing leads on by {named}"))
     return found[0]
 
 
@@ -53,9 +50,9 @@ def run(
     command: str | None,
     enter: Callable[[str], str | None],
     *,
-    returning_to: Phase | None = None,
+    returning_to: StrEnum | None = None,
     limit: int = 64,
-    snapshot: Snapshot = NO_SNAPSHOT,
+    snapshot: object = None,
 ) -> Ran:
     """Follow `command` out of `at`, then on through every node until the session rests.
 
@@ -91,7 +88,9 @@ def run(
         else:
             return Ran(node.id, path)
         path.append(node.id)
-    raise Refused(coded("MI0216", f"ran {limit} nodes from {at!r} without resting: a cycle"))
+    raise Refused(coded(
+        protocol.refusal_code, f"ran {limit} nodes from {at!r} without resting: a cycle"
+    ))
 
 
 def _one_way_on(protocol: Protocol, at: str) -> bool:
@@ -105,13 +104,16 @@ def _one_way_on(protocol: Protocol, at: str) -> bool:
     )
 
 
-def _case(protocol: Protocol, node: Node, snapshot: Snapshot) -> Edge:
+def _case(protocol: Protocol, node: Node, snapshot: object) -> Edge:
     """The edge out of fork `node` for the case `snapshot` is in, or its `DEFAULT`."""
     value = node.fork.value(snapshot)
     out = {e.case: e for e in protocol.edges if e.built and e.source == node.id}
     found = out.get(value) or out.get(DEFAULT)
     if found is None:
         raise Refused(
-            coded("MI0216", f"fork {node.id!r} has no edge for {value!r}, and no default")
+            coded(
+                protocol.refusal_code,
+                f"fork {node.id!r} has no edge for {value!r}, and no default",
+            )
         )
     return found

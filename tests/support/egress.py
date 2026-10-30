@@ -28,9 +28,9 @@ PIPELINE_DOORS = {
 this set rather than against the whole list."""
 
 
-FORGE_DOORS: set[str] = set()
+FORGE_DOORS: set[str] = {"forge_drafting"}
 """Registry authoring: public tool documentation in, reviewed registry data out, and no `Goal`
-anywhere in it. Empty until the new forge declares its door."""
+anywhere in it. Forge MVP 3 (#364) declares the one door."""
 
 
 DOORS = PIPELINE_DOORS | FORGE_DOORS
@@ -57,6 +57,15 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # is stored, never sent — it crosses no door. It is a level-0 store, recorded in
 # `docs/design/authoring-protocol.md`'s protection table and loosenings.
 FREE_TEXT_FIELDS = {
+    # Forge MVP 3 (#364), door `forge_drafting`: nf-core's public module files, the
+    # adaptation's own items as JSON, the person's chat with the forge, and the prompt.
+    ("ModuleFacts", "main_nf"),
+    ("ModuleFacts", "meta_yml"),
+    ("ModuleFacts", "nf_test"),
+    ("ForgeItemText", "key"),
+    ("ForgeItemText", "value"),
+    ("ForgeTurn", "content"),
+    ("ForgeRequest", "prompt"),
     ("GateFailure", "tool_message"),
     # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
     # prose explaining a choice — genuinely free text, and named here rather than

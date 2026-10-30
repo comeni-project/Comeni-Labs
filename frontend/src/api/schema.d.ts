@@ -1028,6 +1028,179 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open adaptations */
+        get: operations["listAdaptations"];
+        put?: never;
+        /** Start forging a module from the catalogue */
+        post: operations["startAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An adaptation: its pieces, items, revisions and chat */
+        get: operations["readAdaptation"];
+        put?: never;
+        post?: never;
+        /** Abandon an adaptation; its record is kept */
+        delete: operations["abandonAdaptation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A person's decision on one item: answer, write, approve, change, reject, remove */
+        post: operations["commandAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say something to the AI about this tool, or about one item */
+        post: operations["messageAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the AI to draft the next piece */
+        post: operations["draftAdaptationPiece"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/assemble": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write the draft layer and prove it loads and conforms */
+        post: operations["assembleAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run the assembled draft's tests as Wiener runs */
+        post: operations["runAdaptationTests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open a pull request on the registry with a proven draft */
+        post: operations["publishAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge the adaptation's pull request; refused unless registry CI is green */
+        post: operations["approveAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What is unreleased, and releases */
+        get: operations["readReleases"];
+        put?: never;
+        /** Tag and publish a registry release; refused unless main is green */
+        post: operations["cutRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1045,10 +1218,94 @@ export interface components {
             values: string[];
         };
         /**
+         * Actor
+         * @enum {string}
+         */
+        Actor: "ai" | "person" | "registry";
+        /**
          * ActorKind
          * @enum {string}
          */
         ActorKind: "person" | "model" | "resolver" | "unknown";
+        /** AdaptationList */
+        AdaptationList: {
+            /** Adaptations */
+            adaptations: components["schemas"]["AdaptationSummary"][];
+        };
+        /** AdaptationSummary */
+        AdaptationSummary: {
+            /** Id */
+            id: string;
+            /** Path */
+            path: string;
+            /** Version */
+            version: string | null;
+            /** Phase */
+            phase: string;
+            /** Next Piece */
+            next_piece: string | null;
+            /** Approved */
+            approved: number;
+            /** Total */
+            total: number;
+            /** Waiting */
+            waiting: number;
+            /** Drafting */
+            drafting: boolean;
+            /** Started By */
+            started_by: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
+        /** AdaptationView */
+        AdaptationView: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Path */
+            path: string;
+            /** Version */
+            version: string | null;
+            /** Base */
+            base: string;
+            /** Reforge */
+            reforge: string | null;
+            /** Phase */
+            phase: string;
+            /** Depends On */
+            depends_on: string[];
+            /** Started By */
+            started_by: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Abandoned At */
+            abandoned_at: string | null;
+            /** Next Piece */
+            next_piece: string | null;
+            /** Ready */
+            ready: boolean;
+            /** Items */
+            items: components["schemas"]["ItemView"][];
+            /** Messages */
+            messages: components["schemas"]["MessageView"][];
+            /**
+             * Tests
+             * @default []
+             */
+            tests: components["schemas"]["TestRunView"][];
+            /** Tests Unavailable */
+            tests_unavailable?: string | null;
+            pull_request?: components["schemas"]["PullRequestView"] | null;
+            /** Publish Unavailable */
+            publish_unavailable?: string | null;
+        };
         /** AiConfigured */
         AiConfigured: {
             /** Configured */
@@ -1145,6 +1402,19 @@ export interface components {
              * @default []
              */
             sections: string[];
+        };
+        /** AssemblyView */
+        AssemblyView: {
+            /** Loaded */
+            loaded: boolean;
+            /** Conforms */
+            conforms: boolean;
+            /** Problems */
+            problems: components["schemas"]["Problem"][];
+            /** Blames */
+            blames: string | null;
+            /** Files */
+            files: string[];
         };
         /**
          * Attention
@@ -1787,6 +2057,21 @@ export interface components {
         ChooseTool: {
             pin: components["schemas"]["ProducerPin-Output"];
         };
+        /**
+         * CommandBody
+         * @description A person's command. **There is no `actor` field**: the route sets it, so a body cannot
+         *     claim to be the AI or anyone else.
+         */
+        CommandBody: {
+            move: components["schemas"]["Move"];
+            /** Item */
+            item: string;
+            /** Expected */
+            expected?: number | null;
+            value?: components["schemas"]["JsonValue"];
+            /** Because */
+            because?: string | null;
+        };
         /** CompareIn */
         CompareIn: {
             graph: components["schemas"]["DraftGraph"];
@@ -2053,6 +2338,11 @@ export interface components {
             minimum?: number | null;
             /** Maximum */
             maximum?: number | null;
+        };
+        /** DraftBody */
+        DraftBody: {
+            /** Piece */
+            piece: string;
         };
         /**
          * DraftChannel
@@ -2440,6 +2730,13 @@ export interface components {
             /** Target */
             target?: string | null;
         };
+        /** Fragment */
+        Fragment: {
+            /** Path */
+            path: string;
+            /** Text */
+            text: string;
+        };
         /** Gap */
         Gap: {
             kind: components["schemas"]["GapKind"];
@@ -2668,6 +2965,19 @@ export interface components {
                 [key: string]: number | boolean | string;
             };
         };
+        /** ItemView */
+        ItemView: {
+            /** Key */
+            key: string;
+            /** Piece */
+            piece: string;
+            status: components["schemas"]["Status"];
+            value?: components["schemas"]["JsonValue"];
+            /** Current N */
+            current_n: number;
+            /** Revisions */
+            revisions: components["schemas"]["RevisionView"][];
+        };
         JsonValue: unknown;
         /** Kept */
         Kept: {
@@ -2853,6 +3163,52 @@ export interface components {
             /** Entries */
             entries: components["schemas"]["Entry"][];
         };
+        /** MergedTool */
+        MergedTool: {
+            /** Module */
+            module: string;
+            /** Version */
+            version: string | null;
+            /** Number */
+            number: number;
+            /** Url */
+            url: string;
+        };
+        /** MessageBody */
+        MessageBody: {
+            /** Content */
+            content: string;
+            /** Item */
+            item?: string | null;
+        };
+        /** MessageView */
+        MessageView: {
+            /** Seq */
+            seq: number;
+            /** Role */
+            role: string;
+            /** Item */
+            item: string | null;
+            /** Content */
+            content: string;
+            /**
+             * Commands
+             * @default []
+             */
+            commands: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Pending
+             * @default false
+             */
+            pending: boolean;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
         /**
          * MetaValue
          * @description Translate one declared value to the value expected in module metadata.
@@ -2919,6 +3275,11 @@ export interface components {
              * @default []
              */
             rules: components["schemas"]["RuleView"][];
+            /**
+             * Tests
+             * @default []
+             */
+            tests: components["schemas"]["TestView"][];
             upstream?: components["schemas"]["Upstream"] | null;
             /** Licence */
             licence?: string | null;
@@ -2988,6 +3349,11 @@ export interface components {
             /** Container */
             container: string;
         };
+        /**
+         * Move
+         * @enum {string}
+         */
+        Move: "draft" | "revise" | "add" | "propose_removal" | "answer" | "write" | "approve" | "change" | "reject" | "remove";
         /**
          * Narrative
          * @description Bounded prose, optionally naming steps that already exist.
@@ -3437,6 +3803,21 @@ export interface components {
             /** By Model */
             by_model: number;
         };
+        /** PullRequestView */
+        PullRequestView: {
+            /** Number */
+            number: number;
+            /** Url */
+            url: string;
+            /** State */
+            state: string;
+            /** Checks */
+            checks: string;
+            /** Says */
+            says: string | null;
+            /** Merging */
+            merging: boolean;
+        };
         /**
          * Question
          * @description One typed question with a closed set of answers, or a declared open one.
@@ -3549,6 +3930,43 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** Release */
+        Release: {
+            /** Tag */
+            tag: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Published At */
+            published_at?: string | null;
+        };
+        /** ReleaseBody */
+        ReleaseBody: {
+            /** Version */
+            version: string;
+            /** Notes */
+            notes: string;
+        };
+        /** ReleaseRow */
+        ReleaseRow: {
+            /** Version */
+            version: string;
+            /** State */
+            state: string;
+            /** Says */
+            says: string | null;
+            /** Commit */
+            commit: string | null;
+            /** Cut By */
+            cut_by: string;
+            /**
+             * Cut At
+             * Format: date-time
+             */
+            cut_at: string;
+        };
         /** ReleaseToolChoice */
         ReleaseToolChoice: {
             /** Expected Decision Revision */
@@ -3562,6 +3980,41 @@ export interface components {
             /** States */
             states?: string[];
         };
+        /** ReleasesPage */
+        ReleasesPage: {
+            /** In Use */
+            in_use: string;
+            /**
+             * Published
+             * @default []
+             */
+            published: components["schemas"]["Release"][];
+            unreleased?: components["schemas"]["Unreleased"] | null;
+            /**
+             * Merged
+             * @default []
+             */
+            merged: components["schemas"]["MergedTool"][];
+            /**
+             * Suggested
+             * @default
+             */
+            suggested: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Recent
+             * @default []
+             */
+            recent: components["schemas"]["ReleaseRow"][];
+            /** Unavailable */
+            unavailable?: string | null;
+            /** Problem */
+            problem?: string | null;
+        };
         /**
          * RequiredStates
          * @description A wanted output type and the states it must carry.
@@ -3574,6 +4027,20 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /** RevisionView */
+        RevisionView: {
+            /** N */
+            n: number;
+            move: components["schemas"]["Move"];
+            actor: components["schemas"]["Actor"];
+            value?: components["schemas"]["JsonValue"];
+            /** Because */
+            because?: string | null;
+            /** By */
+            by?: string | null;
+            /** Invocation */
+            invocation?: string | null;
         };
         /**
          * RoleAbsence
@@ -3883,11 +4350,25 @@ export interface components {
             /** Producer */
             producer: string;
         };
+        /** StartBody */
+        StartBody: {
+            /** Source */
+            source: string;
+            /** Path */
+            path: string;
+            /** Reforge */
+            reforge?: string | null;
+        };
         /**
          * State
          * @enum {string}
          */
         State: "imported" | "update_available" | "not_imported" | "unknown" | "gone_upstream" | "in_review" | "merged_not_released";
+        /**
+         * Status
+         * @enum {string}
+         */
+        Status: "proposed" | "approved" | "rejected" | "removed" | "reopened";
         /** StepOffer */
         StepOffer: {
             context: components["schemas"]["OfferContext"];
@@ -4033,6 +4514,26 @@ export interface components {
             /** Stale */
             stale: boolean;
         };
+        /** TestRunView */
+        TestRunView: {
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Says */
+            says: string | null;
+        };
+        /** TestView */
+        TestView: {
+            /** Name */
+            name: string;
+            /** Feeds */
+            feeds: string[];
+            /** Expects */
+            expects: string[];
+        };
         /**
          * TextSource
          * @enum {string}
@@ -4074,6 +4575,27 @@ export interface components {
             produced_by: string[];
             /** Consumed By */
             consumed_by: string[];
+        };
+        /**
+         * Unreleased
+         * @description `main` against the last tag.
+         */
+        Unreleased: {
+            /** Last */
+            last: string | null;
+            /** Commit */
+            commit: string;
+            /** Ahead */
+            ahead: number;
+            /** Checks */
+            checks: string;
+            /** Says */
+            says?: string | null;
+            /**
+             * Fragments
+             * @default []
+             */
+            fragments: components["schemas"]["Fragment"][];
         };
         /**
          * Upcoming
@@ -6175,6 +6697,500 @@ export interface operations {
             };
             /** @description The job queue is down. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listAdaptations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationList"];
+                };
+            };
+        };
+    };
+    startAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    abandonAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    commandAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    messageAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    draftAdaptationPiece: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncQueued"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    assembleAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssemblyView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    runAdaptationTests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    publishAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    approveAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasesPage"];
+                };
+            };
+        };
+    };
+    cutRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasesPage"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

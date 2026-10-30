@@ -14,7 +14,7 @@ from arq.connections import RedisSettings
 from arq.worker import func
 
 from mendel_api.jobs import AI_QUEUE
-from mendel_api.services import authoring_jobs
+from mendel_api.services import authoring_jobs, forging_ai
 from mendel_api.settings import settings
 
 
@@ -38,6 +38,11 @@ class AIWorkerSettings:
         # no result**: ARQ stores a job's arguments with its result, and the excerpt must leave
         # Redis when the job does.
         func(authoring_jobs.characterise_sample, keep_result=0),
+        # The forge's calls (MVP 3, #364) cross the `forge_drafting` door: public module files
+        # and registry ids, never lab data. **No kept result**: a kept one would hold the draft's
+        # job id, and refuse the next draft of that piece for as long as ARQ keeps it.
+        func(forging_ai.draft_forge_piece, keep_result=0),
+        func(forging_ai.answer_forge_message, keep_result=0),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE

@@ -232,6 +232,21 @@ REGISTRY_LAYERS = _reported(
     "Each layer stacked on the registry, in order. A later layer can replace an earlier "
     "one's tool.",
 )
+REGISTRY_RELEASE = Setting.text(
+    key="registry.release",
+    label="Registry release",
+    help=(
+        "Which release of the registry to build with: latest, or a version such as v0.5.0 to stay "
+        "on it. A pinned installation never moves; latest moves when a newer release loads."
+    ),
+    env="MENDEL_REGISTRY_RELEASE",
+    default="latest",
+)
+RELEASE_IN_USE = _reported(
+    "registry.release_in_use",
+    "Release in use",
+    "What this installation is built with now, and why, if it is not what was asked for.",
+)
 GITHUB_TOKEN = _reported(
     "registry.github",
     "GitHub token",
@@ -317,7 +332,7 @@ REGISTRY = Section(
     title="Registry & sources",
     lede="Where tools and types are read from, and what the forge can reach.",
     order=8,
-    settings=(REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN),
+    settings=(REGISTRY_RELEASE, RELEASE_IN_USE, REGISTRY_ROOT, REGISTRY_LAYERS, GITHUB_TOKEN),
 )
 AUTHOR = Setting.text(
     key="system.author",

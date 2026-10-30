@@ -12,7 +12,10 @@ listed in the [builder interface reference](../reference/pipelines/builder-inter
 
 ## One declaration, three uses
 
-`mendel_authoring.protocol.PROTOCOL` declares stages, nodes, and arrows.
+`mendel_authoring.protocol.PROTOCOL` declares stages, nodes, and arrows. The engine that
+checks, draws and runs a declaration is the shared `comeni-flow` package; the builder supplies
+its own phases, events, commands and fork subjects, so the forge can declare its own flow on
+the same engine (planned, #364).
 
 - The diagram generator renders the declaration.
 - The state module derives legal phase transitions and retry targets from built event arrows.

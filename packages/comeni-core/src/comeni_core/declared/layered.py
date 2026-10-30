@@ -95,6 +95,9 @@ class DeclaredKind(StrEnum):
     ROLES = "roles"
     """Jobs a contract can perform and decision rules may target."""
 
+    TESTS = "tests"
+    """A tool's tests, beside it: what it runs on and what must come out (forge MVP 4)."""
+
     FAMILIES = "families"
     """The first level of the type choice (#194): a model reading what somebody wants picks a
     family from a short described list, then a type from that family, shown whole. Every type
@@ -260,6 +263,7 @@ _KIND_OF = {
     "module": DeclaredKind.MODULES,
     "family": DeclaredKind.FAMILIES,
     "tool": DeclaredKind.TOOLS,
+    "test": DeclaredKind.TESTS,
     "codec": DeclaredKind.CODECS,
     "format": DeclaredKind.FORMATS,
     "measure": DeclaredKind.MEASURES,

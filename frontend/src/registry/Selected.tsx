@@ -1,4 +1,7 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+
+import { Failed } from "../ui/States";
+import { useStartForge } from "./forging/useForgeActions";
 
 import { colourOf, labelOf } from "./states";
 import type { ModuleRow } from "./useCatalogue";
@@ -20,8 +23,10 @@ const NEXT: Record<string, (row: ModuleRow) => string> = {
 };
 
 /** Board 1's right column: the selected module, what comes next, and its one action. A tool the
- *  registry holds opens its page; forging anything else is part 2, drawn and disabled. */
+ *  registry holds opens its page; anything else starts forging it (forge MVP 3). */
 export function Selected({ row }: { row: ModuleRow | undefined }) {
+  const start = useStartForge();
+  const navigate = useNavigate();
   if (!row) {
     return (
       <aside aria-label="Selected module" className="bg-surface border border-line rounded-panel p-[22px] text-ink-3">
@@ -67,11 +72,13 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
         </Link>
       ) : (
         <div className="flex flex-col gap-1">
-          <button type="button" disabled
-                  className="self-start px-6 py-[11px] rounded-button bg-surface-2 text-ink-3 font-semibold border border-line cursor-not-allowed">
+          <button type="button" disabled={start.isPending}
+                  onClick={() => start.mutate({ source: row.source, path: row.path },
+                                              { onSuccess: (view) => navigate(`/registry/forging/${view.id}`) })}
+                  className="self-start px-6 py-[11px] rounded-button bg-action text-on-action font-semibold shadow-raise">
             Forge {row.name}
           </button>
-          <span className="text-[12px] text-ink-3">Forging comes in part 2.</span>
+          {start.isError && <Failed error={start.error} padded={false} />}
         </div>
       )}
     </aside>

@@ -66,7 +66,7 @@ def prepare(root: Path) -> None:
         except FileExistsError:
             pass
     for path in [".run/wiener/artifacts", ".run/wiener/work", ".run/drafts", ".run/forge",
-                 "workspace"]:
+                 ".run/registries", "workspace"]:
         (root / path).mkdir(parents=True, exist_ok=True)
     refresh_registry(root / "registry", root / ".run/registry")
 

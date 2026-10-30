@@ -15,14 +15,20 @@ from enum import StrEnum
 import sqlalchemy as sa
 from mendel_forge import state as state_module
 from mendel_forge.model import Problem, UpstreamModule
-from mendel_forge.nfcore.source import NfCoreSource
+from mendel_forge.nfcore.source import TEST_DATASETS, NfCoreSource
 from mendel_forge.source import CatalogueSource, SourceUnavailable
 from mendel_forge.state import BEST_ORDER, Held, State
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 
 from mendel_api import db
-from mendel_api.models import CatalogueModule, CatalogueSync, SyncOutcome
+from mendel_api.models import (
+    CatalogueModule,
+    CatalogueSync,
+    ForgeAdaptation,
+    ForgePullRequest,
+    SyncOutcome,
+)
 from mendel_api.services import registry
 from mendel_api.settings import settings
 
@@ -61,7 +67,7 @@ def sync_running(source: str = "nf-core") -> bool:
 
 def run_sync(source: CatalogueSource | None = None) -> CatalogueSync | None:
     """Sync `source`; `None` when another sync holds it, and nothing was started."""
-    source = source or NfCoreSource()
+    source = source or NfCoreSource(data_url=TEST_DATASETS)
     with _claim(source.name) as claimed:
         if not claimed:
             return None
@@ -94,6 +100,7 @@ def _sync(source: CatalogueSource) -> CatalogueSync:
             _store(session, source.name, sync_id, modules)
             done = session.get(CatalogueSync, sync_id)
             done.commit = snapshot.commit
+            done.test_data_commit = snapshot.test_data_commit
             done.modules = len(modules)
             done.problems = sum(1 for module in modules if module.problems)
             done.outcome = SyncOutcome.OK
@@ -149,6 +156,17 @@ def _row(source: str, sync_id: int, module: UpstreamModule) -> dict:
 def last_sync() -> CatalogueSync | None:
     with db.session_scope() as session:
         return session.scalar(sa.select(CatalogueSync).order_by(CatalogueSync.id.desc()).limit(1))
+
+
+def test_data_commit() -> str | None:
+    """The newest `test-datasets` commit a sync read; a later sync may have failed to read it."""
+    with db.session_scope() as session:
+        return session.scalar(
+            sa.select(CatalogueSync.test_data_commit)
+            .where(CatalogueSync.test_data_commit.is_not(None))
+            .order_by(CatalogueSync.id.desc())
+            .limit(1)
+        )
 
 
 def last_good_sync() -> CatalogueSync | None:
@@ -220,11 +238,31 @@ class Sort(StrEnum):
     UPSTREAM_CHANGED = "upstream_changed"
 
 
+def _publishing(held: dict[str, Held]) -> dict[str, State]:
+    """Modules on their way through a pull request. A merged one reads as merged until the
+    registry this installation loads carries that version."""
+    with db.session_scope() as session:
+        rows = session.execute(
+            sa.select(ForgeAdaptation.path, ForgeAdaptation.version, ForgePullRequest.state)
+            .join(ForgePullRequest, ForgePullRequest.adaptation == ForgeAdaptation.id)
+            .where(ForgePullRequest.state.in_(("open", "merged")))
+            .order_by(ForgePullRequest.id)
+        ).all()
+    found: dict[str, State] = {}
+    for path, version, state in rows:
+        if state == "open":
+            found[path] = State.IN_REVIEW
+        elif path not in held or held[path].version != version:
+            found[path] = State.MERGED
+    return found
+
+
 def _state_expression(held: dict[str, Held]) -> sa.ColumnElement[str]:
     """`mendel_forge.state.state_of` in SQL, so the state filter and sort run in the database.
     The registry holds tens of modules, so the `CASE` stays small."""
     column, version = CatalogueModule.path, CatalogueModule.tool_version
-    whens = [(CatalogueModule.gone.is_(True), State.GONE.value)]
+    whens = [(column == path, state.value) for path, state in _publishing(held).items()]
+    whens.append((CatalogueModule.gone.is_(True), State.GONE.value))
     for path, here in held.items():
         whens += [
             (sa.and_(column == path, version.is_(None)), State.UNKNOWN.value),

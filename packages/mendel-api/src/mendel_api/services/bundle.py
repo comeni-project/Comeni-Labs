@@ -21,8 +21,10 @@ archive — the four §12's diagram names — for the same reason `declared_entr
 
 import io
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
 
+from comeni_core.artifact.pipeline import Pipeline
 from mendel_compiler import pipeline_file
 from mendel_compiler.emit import emit, emit_config
 
@@ -52,16 +54,22 @@ def of(draft_id: str) -> bytes:
     if not artifact.is_file():
         raise KeyError(draft_id)
 
-    pipeline = pipeline_file.load(artifact)
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        _write(archive, pipeline_file.FILENAME, artifact.read_text())
-        _write(archive, "main.nf", emit(pipeline))
-        _write(archive, "nextflow.config", emit_config(pipeline))
+    modules = directory / MODULES
+    return archive(artifact.read_text(), pipeline_file.load(artifact), [
+        (f"{MODULES}/{path.relative_to(modules)}", path)
+        for path in sorted(p for p in modules.rglob("*") if p.is_file())
+    ])
 
-        modules = directory / MODULES
-        for path in sorted(p for p in modules.rglob("*") if p.is_file()):
-            _write(archive, f"{MODULES}/{path.relative_to(modules)}", path.read_bytes())
+
+def archive(artifact: str, pipeline: Pipeline, modules: Iterable[tuple[str, Path]]) -> bytes:
+    """The zip of one pipeline: its file, what it emits, and `modules` as (name, file)."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipped:
+        _write(zipped, pipeline_file.FILENAME, artifact)
+        _write(zipped, "main.nf", emit(pipeline))
+        _write(zipped, "nextflow.config", emit_config(pipeline))
+        for name, path in modules:
+            _write(zipped, name, path.read_bytes())
     return buffer.getvalue()
 
 

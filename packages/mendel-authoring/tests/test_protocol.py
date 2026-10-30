@@ -5,9 +5,11 @@ inconsistent. Each refusal below is watched failing against a deliberately broke
 """
 
 import pytest
+from comeni_flow.diagram import to_mermaid
+from comeni_flow.protocol import Actor, Node, Stage
 from mendel_authoring import protocol as p
 from mendel_authoring import state as st
-from mendel_authoring.protocol import Actor, Node, Protocol, Stage
+from mendel_authoring.protocol import authoring_protocol
 from mendel_authoring.types import Command, Event, Phase
 
 S = (p.Stage(id="s", title="S"),)
@@ -26,24 +28,26 @@ def test_the_real_protocol_loads_and_has_built_and_planned_parts():
 
 def test_an_edge_to_an_undeclared_node_is_refused():
     with pytest.raises(ValueError, match="undeclared node 'ghost'"):
-        p.Protocol(stages=S, nodes=(_node("a"),), edges=(p.Edge(source="a", target="ghost"),))
+        p.authoring_protocol(
+            stages=S, nodes=(_node("a"),), edges=(p.Edge(source="a", target="ghost"),)
+        )
 
 
 def test_a_node_in_an_undeclared_stage_is_refused():
     with pytest.raises(ValueError, match="undeclared stage 'nowhere'"):
-        p.Protocol(stages=S, nodes=(_node("a", stage="nowhere"),), edges=())
+        p.authoring_protocol(stages=S, nodes=(_node("a", stage="nowhere"),), edges=())
 
 
 def test_a_built_node_without_a_phase_is_refused():
     with pytest.raises(ValueError, match="built node 'a' has no phase"):
-        p.Protocol(stages=S, nodes=(_node("a", phase=None),), edges=())
+        p.authoring_protocol(stages=S, nodes=(_node("a", phase=None),), edges=())
 
 
 def test_a_built_edge_touching_a_planned_node_is_refused():
     nodes = (_node("a"), _node("b", Phase.GOAL_REVIEW, built=False))
     edge = p.Edge(source="a", target="b", event=Event.WANT_RETURNED, built=True)
     with pytest.raises(ValueError, match="built edge a→b touches a planned node"):
-        p.Protocol(stages=S, nodes=nodes, edges=(edge,))
+        p.authoring_protocol(stages=S, nodes=nodes, edges=(edge,))
 
 
 def test_one_phase_and_event_with_two_targets_is_refused():
@@ -53,21 +57,21 @@ def test_one_phase_and_event_with_two_targets_is_refused():
         p.Edge(source="a", target="c", event=Event.WANT_RETURNED, built=True),
     )
     with pytest.raises(ValueError, match="understanding on want_returned leads to both"):
-        p.Protocol(stages=S, nodes=nodes, edges=edges)
+        p.authoring_protocol(stages=S, nodes=nodes, edges=edges)
 
 
 def test_a_return_edge_must_leave_failed_on_retry():
     nodes = (_node("a"), _node("b", Phase.RESOLVING))
     edge = p.Edge(source="a", target="b", event=Event.RETRY, returns=True, built=True)
     with pytest.raises(ValueError, match="return edge a→b does not leave failed"):
-        p.Protocol(stages=S, nodes=nodes, edges=(edge,))
+        p.authoring_protocol(stages=S, nodes=nodes, edges=(edge,))
 
 
 def test_retry_is_only_ever_a_return_edge():
     nodes = (_node("f", Phase.FAILED), _node("b", Phase.RESOLVING))
     edge = p.Edge(source="f", target="b", event=Event.RETRY, built=True)
     with pytest.raises(ValueError, match="f→b carries retry without returns"):
-        p.Protocol(stages=S, nodes=nodes, edges=(edge,))
+        p.authoring_protocol(stages=S, nodes=nodes, edges=(edge,))
 
 
 def test_planned_parts_are_left_out_of_the_machine():
@@ -76,13 +80,13 @@ def test_planned_parts_are_left_out_of_the_machine():
         p.Edge(source="a", target="b", event=Event.WANT_RETURNED, built=True),
         p.Edge(source="b", target="c", label="later"),
     )
-    proto = p.Protocol(stages=S, nodes=nodes, edges=edges)
+    proto = p.authoring_protocol(stages=S, nodes=nodes, edges=edges)
     assert proto.transitions() == {(Phase.UNDERSTANDING, Event.WANT_RETURNED): Phase.GOAL_REVIEW}
 
 
 def test_the_key_names_every_actor_every_border_and_planned():
     """A new actor cannot be drawn without the key saying what its colour means."""
-    rendered = p.to_mermaid(p.PROTOCOL)
+    rendered = to_mermaid(p.PROTOCOL)
     for actor in p.Actor:
         assert f"key_{actor.value}" in rendered
     for border in p.Border:
@@ -93,14 +97,16 @@ def test_the_key_names_every_actor_every_border_and_planned():
 
 def test_planned_parts_are_drawn_dashed():
     nodes = (_node("a"), _node("c", None, built=False))
-    proto = p.Protocol(stages=S, nodes=nodes, edges=(p.Edge(source="a", target="c", label="x"),))
-    rendered = p.to_mermaid(proto)
+    proto = p.authoring_protocol(
+        stages=S, nodes=nodes, edges=(p.Edge(source="a", target="c", label="x"),)
+    )
+    rendered = to_mermaid(proto)
     assert 'a -. "x" .-> c' in rendered
     assert "style c stroke-dasharray" in rendered
 
 
 def test_rendering_is_deterministic():
-    assert p.to_mermaid(p.PROTOCOL) == p.to_mermaid(p.PROTOCOL)
+    assert to_mermaid(p.PROTOCOL) == to_mermaid(p.PROTOCOL)
 
 
 def test_the_machine_is_read_from_the_protocol():
@@ -177,7 +183,7 @@ def test_a_section_within_a_request_never_moves_the_session():
 
 def test_the_validator_refuses_an_event_inside_a_within_request_section():
     with pytest.raises(ValueError, match="never moves the session"):
-        p.Protocol(
+        p.authoring_protocol(
             stages=(p.Stage(id="w", title="W", within_request=True),),
             nodes=(_node("a", stage="w"), _node("b", stage="w")),
             edges=(p.Edge(source="a", target="b", event=Event.FACT_ADDED, built=True),),
@@ -242,7 +248,7 @@ def test_a_stage_and_a_node_cannot_share_an_id():
     """Found drawing *Inspecting a sample*: a stage and a node both called `admit` made Mermaid
     refuse the diagram (*setting admit as parent of admit would create a cycle*)."""
     with pytest.raises(ValueError, match="both a stage and a node"):
-        Protocol(
+        authoring_protocol(
             stages=(Stage(id="admit", title="A"),),
             nodes=(Node(id="admit", stage="admit", actor=Actor.ENGINE, label="A"),),
             edges=(),
@@ -304,7 +310,9 @@ def test_the_model_reads_through_a_door_the_diagram_names():
 
 
 def _proto(nodes, edges):
-    return Protocol(stages=(Stage(id="s", title="s"),), nodes=tuple(nodes), edges=tuple(edges))
+    return authoring_protocol(
+        stages=(Stage(id="s", title="s"),), nodes=tuple(nodes), edges=tuple(edges)
+    )
 
 
 def _taking(id, **kw):
@@ -386,7 +394,7 @@ def test_the_commands_are_the_specs_and_1bs():
 
 def test_the_ways_out_of_a_section_are_named_once_each():
     with pytest.raises(ValueError, match="ways out of section"):
-        Protocol(
+        authoring_protocol(
             stages=(Stage(id="s", title="s"), Stage(id="w", title="w", within_request=True)),
             nodes=(
                 _taking("a", acts=True),
@@ -480,7 +488,7 @@ def test_each_built_node_acts_waits_or_passes_as_drawn():
 
 def test_every_named_arrow_is_taken_by_its_name():
     """Spec §9: every arrow of the protocol taken once, in a table."""
-    from mendel_authoring.interpret import follow
+    from comeni_flow.interpret import follow
 
     named = [
         e
@@ -495,14 +503,14 @@ def test_every_named_arrow_is_taken_by_its_name():
 
 
 def test_a_sample_leaves_its_section_answered_or_stays_on_the_question():
-    from mendel_authoring.interpret import follow
+    from comeni_flow.interpret import follow
 
     assert follow(p.PROTOCOL, "upload", "answered").target == "next_gap"
     assert follow(p.PROTOCOL, "upload", "stays").target == "reply"
 
 
 def test_every_other_command_is_refused_where_a_session_waits():
-    from mendel_authoring.interpret import Refused, follow
+    from comeni_flow.interpret import Refused, follow
 
     for node in WAITS:
         drawn = {e.on for e in p.PROTOCOL.edges if e.built and e.source == node}
@@ -541,7 +549,8 @@ def test_the_redrawn_arrows():
 # ── forks (spec §12) ─────────────────────────────────────────────────────────────────────────
 
 from comeni_core.settings.declare import Setting  # noqa: E402
-from mendel_authoring.forks import DEFAULT, SettingSubject  # noqa: E402
+from comeni_flow.forks import DEFAULT  # noqa: E402
+from mendel_authoring.forks import SettingSubject  # noqa: E402
 
 _PACE = SettingSubject.of(
     Setting.choice(
@@ -568,7 +577,7 @@ def _forked(subject, cases, **fork_kw):
         p.Edge(source="pace", target=targets[i], case=case, built=True)
         for i, case in enumerate(cases)
     )
-    return p.Protocol(stages=S, nodes=nodes, edges=edges)
+    return p.authoring_protocol(stages=S, nodes=nodes, edges=edges)
 
 
 def test_a_fork_covering_every_option_loads():
@@ -611,13 +620,15 @@ def test_an_edge_out_of_a_fork_needs_a_case():
         p.Edge(source="pace", target="a", built=True),
     )
     with pytest.raises(ValueError, match="pace.*case"):
-        p.Protocol(stages=S, nodes=nodes, edges=edges)
+        p.authoring_protocol(stages=S, nodes=nodes, edges=edges)
 
 
 def test_only_an_edge_out_of_a_fork_has_a_case():
     nodes = (_node("a", waits=True), _node("b", waits=True))
     with pytest.raises(ValueError, match="a→b.*not a fork"):
-        p.Protocol(stages=S, nodes=nodes, edges=(p.Edge(source="a", target="b", case="x"),))
+        p.authoring_protocol(
+            stages=S, nodes=nodes, edges=(p.Edge(source="a", target="b", case="x"),)
+        )
 
 
 def test_case_edges_are_not_read_as_several_ways_straight_on():
@@ -630,7 +641,7 @@ def test_case_edges_are_not_read_as_several_ways_straight_on():
 
 
 def test_a_fork_is_drawn_as_a_diamond_with_its_cases_on_its_edges():
-    rendered = p.to_mermaid(_forked(_PACE, ["together", "stop_where_needed"]))
+    rendered = to_mermaid(_forked(_PACE, ["together", "stop_where_needed"]))
     assert 'pace{"Pacing"}' in rendered
     assert 'pace -- "together" --> a' in rendered
     assert 'pace -- "stop_where_needed" --> b' in rendered
@@ -647,7 +658,7 @@ def test_a_planned_fork_is_drawn_dashed_and_loads():
         p.Edge(source="pace", target="a", case="together"),
         p.Edge(source="pace", target="b", case="stop_where_needed"),
     )
-    assert p.Protocol(stages=S, nodes=nodes, edges=edges)
+    assert p.authoring_protocol(stages=S, nodes=nodes, edges=edges)
 
 
 def test_a_designed_case_of_a_built_fork_is_drawn_dashed_and_loads():
@@ -661,9 +672,9 @@ def test_a_designed_case_of_a_built_fork_is_drawn_dashed_and_loads():
         p.Edge(source="pace", target="a", case="together", built=True),
         p.Edge(source="pace", target="b", case="stop_where_needed"),
     )
-    assert p.Protocol(stages=S, nodes=nodes, edges=edges)
+    assert p.authoring_protocol(stages=S, nodes=nodes, edges=edges)
 
 
 def test_the_protocol_names_the_settings_its_forks_read():
     assert _forked(_PACE, ["together", "stop_where_needed"]).fork_keys() == {"building.pacing"}
-    assert p.Protocol(stages=S, nodes=(_node("a"),), edges=()).fork_keys() == frozenset()
+    assert p.authoring_protocol(stages=S, nodes=(_node("a"),), edges=()).fork_keys() == frozenset()

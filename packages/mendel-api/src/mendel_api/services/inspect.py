@@ -23,7 +23,7 @@ from comeni_inspect import wire
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_api.services import measurers
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry
 
 HEAD_BYTES = 4 * 2**20
 """The most read of any uploaded file (spec §10)."""
@@ -153,7 +153,7 @@ def _ref(kind: str, piece) -> wire.PieceRef:
     folder = (
         piece.folder.resolve()
         if piece.folder is not None
-        else Path(settings.registry_root).resolve() / "inspectors" / kind / piece.id
+        else Path(active_registry()).resolve() / "inspectors" / kind / piece.id
     )
     return wire.PieceRef(
         id=piece.id,

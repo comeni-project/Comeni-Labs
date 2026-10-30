@@ -685,6 +685,7 @@ class CatalogueSync(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source: Mapped[str] = mapped_column(String(32))
     commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    test_data_commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome: Mapped[str] = mapped_column(_one_of(SyncOutcome, 16, "outcome"))
@@ -727,3 +728,160 @@ class CatalogueModule(Base):
         Index("ix_catalogue_module_search", "search", postgresql_using="gin",
               postgresql_ops={"search": "gin_trgm_ops"}),
     )
+
+
+class ForgeAdaptation(Base):
+    """One module at one tool version being forged into registry files (forge MVP 3, #364).
+
+    **Kept when abandoned** (`abandoned_at`): its revisions are the record of who proposed and
+    who decided what, and a later adaptation may depend on it."""
+
+    __tablename__ = "forge_adaptation"
+    shape_version: Mapped[int] = stamp("forge_adaptation")
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32))
+    path: Mapped[str] = mapped_column(String(255), index=True)
+    version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    base: Mapped[str] = mapped_column(String(128))
+    """The registry it was started over (`git describe`, else the layer digest)."""
+    reforge: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    """The contract id it re-forges, when it started from an imported tool."""
+    phase: Mapped[str] = mapped_column(String(16))
+    depends_on: Mapped[list] = mapped_column(Json, default=list)
+    started_by: Mapped[str] = mapped_column(String(128))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    abandoned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ForgeItem(Base):
+    """Where an item stands; its history is `forge_revision`."""
+
+    __tablename__ = "forge_item"
+
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), primary_key=True
+    )
+    item: Mapped[str] = mapped_column(String(255), primary_key=True)
+    piece: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16))
+    current_n: Mapped[int] = mapped_column(Integer)
+
+
+class ForgeRevision(Base):
+    """One move on one item, append-only. `(adaptation, item, n)` is unique, so two decisions
+    against the same revision cannot both land."""
+
+    __tablename__ = "forge_revision"
+    shape_version: Mapped[int] = stamp("forge_revision")
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    item: Mapped[str] = mapped_column(String(255))
+    n: Mapped[int] = mapped_column(Integer)
+    piece: Mapped[str] = mapped_column(String(16))
+    move: Mapped[str] = mapped_column(String(24))
+    actor: Mapped[str] = mapped_column(String(16))
+    value: Mapped[Any] = mapped_column(Json, nullable=True)
+    because: Mapped[str | None] = mapped_column(Text, nullable=True)
+    invocation: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_forge_revision_once", "adaptation", "item", "n", unique=True),)
+
+
+class ForgeTestRun(Base):
+    """One test of one attempt, run in Wiener. `digest` is the draft it ran against: green counts
+    for that draft alone. `run_id` is empty when the run never started; `says` is why."""
+
+    __tablename__ = "forge_test_run"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    attempt: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(128))
+    digest: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), index=True)
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    heard_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """When Wiener last answered about this run."""
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_forge_test_run_once", "adaptation", "attempt", "name",
+                            unique=True),)
+
+
+class ForgePullRequest(Base):
+    """One forge pull request on the registry. **At most one is open**, enforced here, so the next
+    starts after it merges and nothing needs rebasing. `digest` is the draft it carries."""
+
+    __tablename__ = "forge_pull_request"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer)
+    url: Mapped[str] = mapped_column(String(255))
+    branch: Mapped[str] = mapped_column(String(255))
+    state: Mapped[str] = mapped_column(String(16))
+    checks: Mapped[str] = mapped_column(String(16))
+    head: Mapped[str] = mapped_column(String(64))
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
+    digest: Mapped[str] = mapped_column(String(64))
+    opened_by: Mapped[str] = mapped_column(String(128))
+    approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_forge_pull_request_one_open", "state", unique=True,
+                            postgresql_where=text("state = 'open'")),)
+
+
+class ForgeRelease(Base):
+    """A registry release a person cut here. **One is being cut at a time**, enforced here."""
+
+    __tablename__ = "forge_release"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[str] = mapped_column(String(32), unique=True)
+    notes: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(16))
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
+    commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cut_by: Mapped[str] = mapped_column(String(128))
+    cut_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_forge_release_one_cutting", "state", unique=True,
+                            postgresql_where=text("state = 'cutting'")),)
+
+
+class ForgeMessage(Base):
+    """The chat beside an adaptation: the person's messages, the AI's replies and the engine's
+    notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""
+
+    __tablename__ = "forge_message"
+    shape_version: Mapped[int] = stamp("forge_message")
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer)
+    role: Mapped[str] = mapped_column(String(16))
+    item: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    content: Mapped[str] = mapped_column(Text)
+    invocation: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    commands: Mapped[list] = mapped_column(Json, default=list)
+    pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    """A person's message whose reply is still being written."""
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_forge_message_once", "adaptation", "seq", unique=True),)

@@ -1,8 +1,9 @@
 """The interpreter: the protocol run as a program (14.7.8.1). Pure — `enter` is the shell's."""
 
 import pytest
-from mendel_authoring.interpret import Refused, follow, run
-from mendel_authoring.protocol import Actor, Edge, Node, Protocol, Stage
+from comeni_flow.interpret import Refused, follow, run
+from comeni_flow.protocol import Actor, Edge, Node, Stage
+from mendel_authoring.protocol import authoring_protocol
 from mendel_authoring.types import Command, Event, Phase
 
 
@@ -15,7 +16,7 @@ def _e(a, b, on=None):
     return Edge(source=a, target=b, on=on, built=True)
 
 
-GATHER = Protocol(
+GATHER = authoring_protocol(
     stages=(Stage(id="s", title="s"),),
     nodes=(
         _n("reply", waits=True), _n("said"), _n("next_gap", acts=True),
@@ -60,7 +61,7 @@ def test_an_outcome_no_arrow_names_is_refused_by_name():
 
 
 def test_a_cycle_stops_at_the_limit_and_says_so():
-    loop = Protocol(
+    loop = authoring_protocol(
         stages=(Stage(id="s", title="s"),),
         nodes=(_n("a", waits=True), _n("b", acts=True), _n("c", acts=True)),
         edges=(_e("a", "b", Command.CONTINUE.value), _e("b", "c", "on"), _e("c", "b", "on")),
@@ -70,7 +71,7 @@ def test_a_cycle_stops_at_the_limit_and_says_so():
 
 
 def test_a_planned_arrow_is_never_followed():
-    planned = Protocol(
+    planned = authoring_protocol(
         stages=(Stage(id="s", title="s"),),
         nodes=(_n("a", waits=True), _n("b")),
         edges=(Edge(source="a", target="b", on=Command.CONTINUE.value),),
@@ -83,7 +84,7 @@ def _phased(id, phase, **kw):
     return Node(id=id, stage="s", actor=Actor.ENGINE, label=id, phase=phase, built=True, **kw)
 
 
-RETRYING = Protocol(
+RETRYING = authoring_protocol(
     stages=(Stage(id="s", title="s"),),
     nodes=(
         _phased("failed", Phase.FAILED, waits=True),
@@ -104,7 +105,7 @@ def test_two_return_arrows_share_the_retry_name_and_the_failure_chooses():
     assert follow(RETRYING, "failed", "retry", returning_to=Phase.UNDERSTANDING).target == "family"
 
 
-SECTIONED = Protocol(
+SECTIONED = authoring_protocol(
     stages=(Stage(id="s", title="s"), Stage(id="w", title="w", within_request=True)),
     nodes=(
         _n("reply", waits=True), _n("upload", acts=True), _n("next"),
@@ -132,7 +133,7 @@ def test_resuming_enters_where_the_session_rests():
     assert ran.at == "ask" and ran.path == ["next_gap", "ask"]
 
 
-PASSING = Protocol(
+PASSING = authoring_protocol(
     stages=(Stage(id="s", title="s"),),
     nodes=(_n("next_gap", acts=True), _n("ask", acts=True), _n("reply", waits=True),
            _n("family", acts=True, waits=True)),
@@ -161,7 +162,8 @@ def test_an_acting_node_that_waits_still_rests_when_its_work_names_nothing():
 # ── forks (spec §12) ─────────────────────────────────────────────────────────────────────────
 
 from comeni_core.settings.declare import Setting  # noqa: E402
-from mendel_authoring.forks import DEFAULT, SettingSubject, Snapshot  # noqa: E402
+from comeni_flow.forks import DEFAULT  # noqa: E402
+from mendel_authoring.forks import SettingSubject, Snapshot  # noqa: E402
 
 _PACING = Setting.choice(
     key="building.pacing", label="Pacing", help="A setting used by the fork tests.",
@@ -183,7 +185,7 @@ def _forking(subject, cases):
         _e("go", "pace", Command.ANSWER_GAP.value),
         *[Edge(source="pace", target=t, case=c, built=True) for c, t in cases.items()],
     )
-    return Protocol(stages=(Stage(id="s", title="s"),), nodes=nodes, edges=edges)
+    return authoring_protocol(stages=(Stage(id="s", title="s"),), nodes=nodes, edges=edges)
 
 
 PACED = _forking(SettingSubject.of(_PACING), {"together": "walk", "stop_where_needed": "quiet"})
@@ -233,7 +235,7 @@ def test_a_case_whose_edge_is_still_planned_is_refused():
         Edge(source="pace", target="walk", case="together", built=True),
         Edge(source="pace", target="quiet", case="stop_where_needed"),
     )
-    half = Protocol(stages=(Stage(id="s", title="s"),), nodes=nodes, edges=edges)
+    half = authoring_protocol(stages=(Stage(id="s", title="s"),), nodes=nodes, edges=edges)
     with pytest.raises(Refused, match="MI0216") as caught:
         run(half, "go", Command.ANSWER_GAP.value, lambda node: None,
             snapshot=Snapshot(settings={"building.pacing": "stop_where_needed"}))

@@ -28,6 +28,12 @@ or a complete commit history.
 
 ### comeni-core
 
+- `LockedLayer.release`: a pipeline names the registry release it was built with. Omitted when
+  unknown, so existing pipelines keep their digests
+  ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)).
+- `declares: test`: a tool's tests, beside it (`ToolTest`), naming files inside nf-core's
+  `test-datasets`, never URLs ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)). An
+  older engine refuses a layer holding one.
 #### Added
 
 - A goal's constraints carry a person's structural intent: `absent_roles`, `exclusions` and
@@ -141,7 +147,22 @@ or a complete commit history.
   explicitly forced. Tier-4 hand edits require both an override and its explanation.
 - The test gate enables Docker. Emitted test profiles pin their datasets by commit.
 
+### comeni-flow
+
+#### Added
+
+- A new pure package: the declarative flow engine the builder's conversation was written on —
+  the protocol model and its construction checks, the interpreter, forks and the Mermaid
+  diagram — made generic over a flow's own phases, events, commands and refusal code, so the
+  forge can declare its flow on the same engine (planned) ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)).
+
 ### mendel-authoring
+
+#### Changed
+
+- The protocol engine moved to `comeni-flow`; `PROTOCOL` is declared on it through
+  `authoring_protocol(...)`, with no change to the builder's behaviour or its generated diagram
+  ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)).
 
 #### Added
 
@@ -169,6 +190,25 @@ or a complete commit history.
 
 #### Added
 
+- Registry releases ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)): `GET` and
+  `POST /forge/releases`, with `forge_release`; an hourly worker cron fetches releases into read-only
+  folders under `MENDEL_REGISTRIES_ROOT` and switches only to one that loads. New setting
+  `registry.release` (`MENDEL_REGISTRY_RELEASE`).
+- Forge pull requests ([#366](https://github.com/comeni-project/Comeni-Labs/issues/366)):
+  `POST /forge/adaptations/{id}/publish` and `/approve`, with `forge_pull_request`, at most one
+  open. `COMENI_FORGE_GITHUB_TOKEN` now reaches only `mendel-worker`; other services read
+  `COMENI_FORGE_GITHUB_TOKEN_SET`. New `MENDEL_REGISTRY_REPO`.
+- Forge tests ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)):
+  `POST /forge/adaptations/{id}/tests` runs an assembled draft's tests as Wiener runs from a worker
+  job, read by a 30-second cron and stored in `forge_test_run`. Green counts only for the draft it
+  ran on. New `MENDEL_WIENER_URL` and, on the worker only, `MENDEL_WIENER_TOKEN`; `httpx` becomes a
+  runtime dependency.
+- Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): `/forge/adaptations` — start (or re-forge), read, a person's
+  commands (each against the revision it acts on), the chat, asking the AI to draft, assembling,
+  abandoning. Tables `forge_adaptation`, `forge_item`, `forge_revision`, `forge_message`. Model
+  calls cross a new declared boundary, `forge_drafting`, carrying public module files and
+  registry ids only. Pending vocabulary lets later adaptations use assembled ones'. Codes
+  `MF0510`, `MF0513`.
 - The forge's catalogue ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): `GET /forge/catalogue` lists every nf-core module
   with its state against the loaded registry (imported, update available, unknown version,
   gone upstream, not imported), filtered by state, topic, format and source, searched and
@@ -274,8 +314,22 @@ or a complete commit history.
 
 ### mendel-forge
 
+- `publishing`: places a proven draft in the registry's layout, runs the registry's checks and
+  writes the pull request's record, behind `RegistryPublisher`
+  ([#366](https://github.com/comeni-project/Comeni-Labs/issues/366)). The catalogue's *in review* and
+  *merged, not released* are real.
+- A sixth forging piece, Tests, with `build_test_pipeline`, which builds a test directly so routing
+  cannot choose another tool, and the narrow `TestRunner` interface
+  ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)).
 #### Added
 
+- Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): an adaptation's pieces (questions, contract, parameters,
+  vocabulary, rules) as items with append-only revisions; the AI (or the registry, on a
+  re-forge) proposes and only a person decides; pieces go in order and a change re-opens what
+  depends on it. Item values are the registry's own models; replies are checked against the
+  registry and `main.nf`; approved items assemble into a draft layer proven with the builder's
+  loader and conformance. The flow is declared on `comeni-flow`. Codes `MF0505`–`MF0509`,
+  `MF0511`–`MF0512`.
 - The new forge's first part ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): the `CatalogueSource` interface and
   `NfCoreSource`, which keeps a blobless clone of `nf-core/modules`; a parser that reads
   everything a module declares (`meta.yml`, `environment.yml`, `main.nf`, its nf-tests); topics
@@ -332,6 +386,9 @@ or a complete commit history.
 
 #### Added
 
+- Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): the Forging tab, an adaptation's page (pieces, items with Approve,
+  Change and Reject, *Draft with the AI* or *Write it myself*), the chat with the AI's proposal
+  cards, and assembling. *Forge* on the catalogue and *Re-forge* on a tool page start one.
 - **The Registry tab** ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): the module catalogue (board 1) with filters, search,
   sort and *Sync now*, and an imported tool's page (board 2). Forging, tests and releases are
   drawn and disabled until the parts that bring them.

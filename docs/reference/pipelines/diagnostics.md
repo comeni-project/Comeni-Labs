@@ -47,6 +47,7 @@ decline to curate one.
 | `MD0012` | a vocabulary or measurement does not declare its id |
 | `MD0020` | a layer declares a registry format this Mendel does not understand |
 | `MD0025` | a module is declared with no contract binding it |
+| `MD0026` | a tool's test names a contract nothing declares |
 | `MD0228` | a type names a param literally in its `entry_channel` |
 | `MD0317` | an inspector piece names a type or measurement no layer declares |
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
@@ -252,3 +253,18 @@ decline to curate one.
 | `MF0502` | a catalogue sync could not be queued |
 | `MF0503` | no module at that path in the catalogue |
 | `MF0504` | no tool with that id in the registry |
+| `MF0505` | only a person decides: the AI may propose, not approve |
+| `MF0506` | that move is not open here |
+| `MF0507` | a reply names an id the registry does not have |
+| `MF0508` | a port the module's main.nf does not have |
+| `MF0509` | a setting is passed nowhere |
+| `MF0510` | no adaptation with that id |
+| `MF0511` | the draft layer could not be written or does not load |
+| `MF0512` | the draft's contract does not conform to its module |
+| `MF0513` | an adaptation this one depends on changed |
+| `MF0514` | tests cannot run: this installation has no Wiener to run them |
+| `MF0515` | a tool's test could not run, or did not produce what it declares |
+| `MF0516` | publishing is unavailable: this installation has no GitHub token |
+| `MF0517` | the draft cannot be published: the registry's own checks refuse it |
+| `MF0518` | the pull request cannot be merged: registry CI is not green |
+| `MF0519` | the release cannot be cut |

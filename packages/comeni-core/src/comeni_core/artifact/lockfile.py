@@ -20,6 +20,7 @@ from comeni_core.spell.marks import (
     ContractId,
     Digest,
     LayerName,
+    ReleaseTag,
     RepoPath,
     RepoUrl,
 )
@@ -54,6 +55,8 @@ class Locator(BaseModel):
     """Uncommitted edits under the layer: the commit alone does not rebuild it."""
     path: RepoPath | None = None
     """The layer's folder in the repository; `None` when it is the repository's top folder."""
+    release: ReleaseTag | None = None
+    """The registry release this layer is, when it was fetched as one (`v0.5.0`)."""
 
 
 def _unknown(value: object) -> bool:
@@ -70,6 +73,9 @@ class LockedLayer(BaseModel):
     commit: CommitSha | None = Field(default=None, exclude_if=_unknown)
     dirty: bool | None = Field(default=None, exclude_if=_unknown)
     path: RepoPath | None = Field(default=None, exclude_if=_unknown)
+    release: ReleaseTag | None = Field(default=None, exclude_if=_unknown)
+    """A pipeline names the release it was built with. Omitted when unknown, so existing
+    pipelines keep their digests."""
 
 
 class Lockfile(BaseModel):

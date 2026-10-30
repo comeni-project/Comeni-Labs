@@ -25,19 +25,23 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 
+from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
+from mendel_compiler.locate import RELEASE_FILE
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
 
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry
 
 
 @lru_cache(maxsize=4)
-def _load(digest: str) -> Layers:
+def _load(root: Path, digest: str) -> Layers:
     """The digest is the argument rather than a global, so `lru_cache` does the invalidating
     and there is no hand-written expiry to get wrong. `maxsize=4` so switching between a couple
-    of registries — which the tests do constantly — does not thrash."""
-    return layers.load(settings.registry_root)
+    of registries — which the tests do constantly — does not thrash. **The root is part of the
+    key**: a release can hold the same bytes as the last one, and a `Layers` carries its paths,
+    which a pipeline's lockfile names."""
+    return layers.load(root)
 
 
 def signature() -> tuple[tuple[str, int, int, int, int], ...]:
@@ -57,7 +61,7 @@ def signature() -> tuple[tuple[str, int, int, int, int], ...]:
     the layer's own content, and the digest covers it. A symlinked folder is recorded, not
     followed, so adding one is seen and the load decides what it means (issue 223).
     """
-    root = str(settings.registry_root)
+    root = str(active_registry())
     found = []
 
     def entry(path: str) -> tuple[str, int, int, int, int]:
@@ -97,11 +101,11 @@ def digest() -> str:
     stale — one definition of "the registry changed", not two. Exact, and recomputed only when
     `signature()` moves.
     """
-    return _digest_for(settings.registry_root, signature())
+    return _digest_for(active_registry(), signature())
 
 
 def stack() -> Layers:
-    return _load(digest())
+    return _load(active_registry(), digest())
 
 
 def builder_types(stack: Layers) -> dict[str, frozenset[str]]:
@@ -123,11 +127,13 @@ def builder_types(stack: Layers) -> dict[str, frozenset[str]]:
 
 def registry_label() -> str:
     """What the builder loads, as a person can name it: `git describe` of the registry root
-    (`v0.4.0-37-g98b4566`), else the layer digest. **Not a release** until the app follows
-    releases (forge part 5); a production image without git metadata answers with the digest."""
+    (`v0.4.0-37-g98b4566`), else the layer digest. A fetched release is its tag; a production
+    image without git metadata and without a release answers with the digest."""
+    if (marker := active_registry().parent / RELEASE_FILE).is_file():
+        return yaml_strict.load(marker)["tag"]
     try:
         described = subprocess.run(
-            ["git", "-C", str(settings.registry_root), "describe", "--tags", "--always"],
+            ["git", "-C", str(active_registry()), "describe", "--tags", "--always"],
             check=True, capture_output=True, text=True, timeout=5,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):

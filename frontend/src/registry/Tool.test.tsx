@@ -27,6 +27,7 @@ const PAGE = {
   ],
   ext_args: "--readFilesCommand zcat", ext_args_because: "The reads are gzipped.",
   priority: 10, priority_because: "nf-core/rnaseq's default aligner.",
+  tests: [],
   rules: [{ role: "alignment", effect: "implementation", because: "read length decides",
             cite: "Dobin et al. 2013",
             rows: [{ when: { read_length: ">= 70" }, then: ID, because: "built for long reads",
@@ -80,13 +81,17 @@ it("update available shows both versions", async () => {
   expect(within(nfcore).getByText(/2\.7\.11b/)).toBeTruthy();
 });
 
-it("re-forge and add tests are disabled with their part", async () => {
+it("re-forge is offered, and a tool with no tests says how to add them", async () => {
   at({ ok: true, body: PAGE });
   const reforge = await screen.findByRole("button", { name: "Re-forge" });
-  expect((reforge as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByText(/Forging comes in part 2/)).toBeTruthy();
-  expect((screen.getByRole("button", { name: "Add tests" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByText(/Tests come in part 3/)).toBeTruthy();
+  expect((reforge as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.getByText(/re-forge the tool to add them/)).toBeTruthy();
+});
+
+it("a tool's tests are listed", async () => {
+  at({ ok: true, body: { ...PAGE, tests: [{ name: "small", feeds: ["reads"], expects: ["*.bam"] }] } });
+  expect(await screen.findByText("small")).toBeTruthy();
+  expect(screen.getByText("reads → *.bam")).toBeTruthy();
 });
 
 it("an unknown id shows the MF0504 refusal", async () => {

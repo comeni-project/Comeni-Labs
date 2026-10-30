@@ -19,6 +19,8 @@ class Snapshot:
     source: str
     commit: str
     root: Path
+    test_data_commit: str | None = None
+    """The `test-datasets` commit forge tests pin to, when the source has one and it was read."""
 
 
 class SourceUnavailable(Exception):

@@ -28,6 +28,10 @@ x-python-build: &python-build
 x-mendel-environment: &mendel-environment
   MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
   MENDEL_REDIS_URL: redis://redis:6379
+  # Where forge tests run. The API reads it to say whether they can; the token is the worker's.
+  MENDEL_WIENER_URL: http://wiener-api:8001
+  # Fetched registry releases. Until one exists, Mendel reads MENDEL_REGISTRY_ROOT.
+  MENDEL_REGISTRIES_ROOT: /app/registries
   MENDEL_REGISTRY_ROOT: /app/registry
   MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
   MENDEL_WORKSPACE_ROOT: /app/workspace
@@ -45,7 +49,8 @@ x-mendel-environment: &mendel-environment
   COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
   COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
   COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-  COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+  # Whether a publishing token exists, for pages and Settings. The token itself is the worker's.
+  COMENI_FORGE_GITHUB_TOKEN_SET: ${COMENI_FORGE_GITHUB_TOKEN:+set}
 
 services:
   # -----------------------------------------------------------------------------
@@ -109,10 +114,13 @@ services:
       - ./packages:/app/packages
       # Writable registry clone prepared by make dev for accepted tool updates.
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries:ro
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       # Share saved pipelines with mendel-worker for gates.
       - ./.run/drafts:/app/drafts
+      # The forge assembles draft layers here and reads module files to check values (#364).
+      - ./.run/forge:/app/forge
     # Migrate the database before serving; exec forwards shutdown signals to Uvicorn.
     # Use sh -c to preserve the virtualenv PATH, and keep command flags on one line.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
@@ -135,11 +143,17 @@ services:
       api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment: *mendel-environment
+    environment:
+      <<: *mendel-environment
+      # Only this worker calls Wiener, for forge tests. The token permits running code.
+      MENDEL_WIENER_TOKEN: ${WIENER_API_TOKEN:-}
+      # Writes to the registry repository: the forge's publishing, and nothing else.
+      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
     # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
@@ -163,9 +177,12 @@ services:
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
+      - ./.run/registries:/app/registries:ro
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+      # The catalogue's nf-core clone: forging reads a module's main.nf and meta.yml (#364).
+      - ./.run/forge:/app/forge:ro
     command: arq mendel_api.ai_worker.AIWorkerSettings
 
   # -----------------------------------------------------------------------------

@@ -13,7 +13,7 @@ from importlib import metadata
 
 from sqlalchemy import create_engine, text
 
-from mendel_api.settings import settings
+from mendel_api.settings import active_registry, settings
 
 PARTS = (
     "comeni-core", "comeni-ai", "mendel-resolver", "mendel-compiler",
@@ -45,12 +45,12 @@ def _layers() -> object:
 
     # **Checked first**: a missing folder loads as an empty registry rather than raising, which
     # would report the path as though all were well.
-    if not settings.registry_root.is_dir():
-        return f"not readable (no such folder) at {settings.registry_root}"
+    if not active_registry().is_dir():
+        return f"not readable (no such folder) at {active_registry()}"
     try:
         return [str(p) for p in registry.stack().paths]
     except Exception as failed:
-        return f"not readable ({type(failed).__name__}) at {settings.registry_root}"
+        return f"not readable ({type(failed).__name__}) at {active_registry()}"
 
 
 def _first(value: int | set[int] | None) -> int:
@@ -127,10 +127,23 @@ def _model() -> str:
     return f"{access.model}: nothing answered"
 
 
+def _release_in_use() -> str:
+    from mendel_api.services import registry_releases
+
+    return registry_releases.describe()
+
+
+def publishing_token_set() -> bool:
+    """On the worker, the token; elsewhere, Compose's word that one exists."""
+    return token_state("COMENI_FORGE_GITHUB_TOKEN") == "set" or \
+        token_state("COMENI_FORGE_GITHUB_TOKEN_SET") == "set"
+
+
 REPORTERS: dict[str, Callable[[], object]] = {
-    "registry.root": lambda: str(settings.registry_root),
+    "registry.root": lambda: str(active_registry()),
     "registry.layers": _layers,
-    "registry.github": lambda: token_state("COMENI_FORGE_GITHUB_TOKEN"),
+    "registry.release_in_use": _release_in_use,
+    "registry.github": lambda: "set" if publishing_token_set() else "not set",
     "system.versions": _versions,
     "system.database": _database,
     "system.redis": _redis,

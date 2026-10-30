@@ -499,16 +499,16 @@ def test_no_credential_is_written_into_the_compose_file(base):
                 assert str(value).startswith("${"), f"{service}.{name} is a literal"
 
 
-def test_the_token_reaches_every_service_that_reads_an_upstream(base):
-    """**Every Mendel service gets it**, so whichever one the forge publishes from has it.
-
-    The forge opens pull requests and publishes releases on the registry
-    (`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`). A missing token is not an error
-    at startup; it is publishing that says it is unavailable.
+def test_only_the_worker_holds_the_publishing_token(base):
+    """**The worker publishes, so the worker alone has it** (forge MVP 5): it writes to a public
+    repository. Every Mendel service learns whether it exists, so a page can say why publishing is
+    unavailable without holding what would make it available.
     """
+    holders = [name for name, spec in base["services"].items()
+               if "COMENI_FORGE_GITHUB_TOKEN" in env_of(spec)]
+    assert holders == ["mendel-worker"]
     for service in ("api", "mendel-worker", "ai-worker"):
-        environment = env_of(base["services"][service])
-        assert "COMENI_FORGE_GITHUB_TOKEN" in environment, service
+        assert "COMENI_FORGE_GITHUB_TOKEN_SET" in env_of(base["services"][service]), service
 
 
 def test_nothing_but_the_ai_worker_runs_the_ai_queue(base):
@@ -573,3 +573,14 @@ def test_a_service_that_restarts_itself_has_what_it_depends_on_restart_too(base)
     assert stranded == set(), (
         f"these restart by themselves and depend on a service that does not: {sorted(stranded)}"
     )
+
+
+@pytest.mark.parametrize("name", ["api", "mendel-worker", "ai-worker"])
+def test_every_service_that_forges_mounts_the_forge_cache(base, prod, name):
+    """Forge MVP 3 (#364): the API assembles drafts and checks a person's values against the
+    module's files, the worker syncs the clone, the AI worker reads module files. A service
+    without the mount failed its first live assembly with a permission error on /app/forge."""
+    cache = env_of(base["services"][name])["MENDEL_FORGE_CACHE"]
+    for stack in (base, prod):
+        volumes = stack["services"][name]["volumes"]
+        assert any(str(v).split(":")[1] == cache for v in volumes), f"{name} lacks {cache}"

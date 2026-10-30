@@ -29,6 +29,7 @@ from comeni_core.declared.module import Module, key_of
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
 from comeni_core.declared.tools import ToolCatalogue
+from comeni_core.declared.tooltest import ToolTest, test_kind
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field
@@ -57,6 +58,9 @@ class Layers(BaseModel):
 
     modules: dict[str, Module] = Field(default_factory=dict)
     """Vendored tool source by module key, stacked like every other declared kind."""
+
+    tests: dict[str, list[ToolTest]] = Field(default_factory=dict)
+    """Each contract's tests, by name. A build never reads them; the forge runs them."""
 
     paths: list[Path] = Field(default_factory=list)
     """The layer directories this was loaded from, in order.
@@ -171,6 +175,16 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                 "binding it: add a `contract.yml` beside its `module/`, or remove the folder.",
             )
         )
+    tests: dict[str, list[ToolTest]] = {}
+    declared_tests = stack(stacked, test_kind(), buckets=buckets)
+    for (contract_id, _), test in sorted(declared_tests.entries.items()):
+        tests.setdefault(contract_id, []).append(test)
+    declared_contracts = {contract.id for contract in registry.all()}
+    for contract_id in sorted(set(tests) - declared_contracts):
+        raise ValueError(
+            coded("MD0026", f"a test names contract {contract_id}, which nothing declares: "
+                  "fix its `contract:`, or remove it with the tool it tested.")
+        )
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements), buckets=buckets)
     rules = RuleTable.of(decided, stacked)
     # After assembly, so a decision may read a fact a derivation in another file
@@ -195,6 +209,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         roles=roles,
         rules=rules,
         modules=dict(vendored.entries),
+        tests=tests,
         paths=list(layers),
         displaced=[
             *measured.displaced,

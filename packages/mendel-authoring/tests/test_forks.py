@@ -1,7 +1,8 @@
 """A fork's subject: what it switches on, its cases, and the case a snapshot is in (spec §12.2)."""
 
 from comeni_core.settings.declare import Setting
-from mendel_authoring.forks import DEFAULT, SettingSubject, Snapshot
+from comeni_flow.forks import DEFAULT
+from mendel_authoring.forks import SettingSubject, Snapshot
 
 HELP = "A setting used by the fork tests."
 PACING = Setting.choice(

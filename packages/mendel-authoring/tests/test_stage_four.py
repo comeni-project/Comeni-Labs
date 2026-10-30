@@ -4,8 +4,8 @@ Pacing, then Dev mode, both decided before the walk; then `step` places what doe
 rests on one card, which a person continues or changes; a change runs through `amend`."""
 
 import pytest
+from comeni_flow.interpret import run
 from mendel_authoring.forks import Snapshot
-from mendel_authoring.interpret import run
 from mendel_authoring.protocol import PROTOCOL
 from mendel_authoring.types import Command
 
@@ -105,7 +105,7 @@ def test_each_disagreement_returns_through_a_declared_correction_path(suffix):
 
 
 def test_busy_resolver_refuses_competing_corrections():
-    from mendel_authoring.interpret import Refused
+    from comeni_flow.interpret import Refused
 
     with pytest.raises(Refused, match='MI0216'):
         _walk('resolve', 'correct_fact', {})

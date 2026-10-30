@@ -51,8 +51,8 @@ introducing the project: a model's contribution must remain visible and reviewab
 Read [the invariants](docs/explanation/invariants.md) for rationale; verify implementation
 claims in source and guards before repeating them.
 
-- Pure packages (`comeni-core`, `mendel-resolver`, `mendel-compiler`, `mendel-authoring`,
-  `wiener-core`, `dag-core`) do not perform network I/O. Keep adapters outside them.
+- Pure packages (`comeni-core`, `comeni-flow`, `mendel-resolver`, `mendel-compiler`,
+  `mendel-authoring`, `wiener-core`, `dag-core`) do not perform network I/O. Keep adapters outside them.
   Static and runtime purity guards provide partial coverage, not a security sandbox.
   Wiener receives time as an event rather than reading the clock inside its fold.
 - Registry proposals require human approval. Runtime resolution reads declared data;
@@ -104,7 +104,7 @@ compliance, call data anonymised, or promise cloud data handling that has not be
 | Shared types, contracts, artifact schema and diagnostics | `packages/comeni-core/` |
 | Routing, rules and decision tiers | `packages/mendel-resolver/` |
 | Nextflow emission, conformance and gates | `packages/mendel-compiler/` |
-| Authoring protocol and its pure interpreter | `packages/mendel-authoring/` |
+| Authoring protocol / the shared flow engine and interpreter | `packages/mendel-authoring/`, `packages/comeni-flow/` |
 | Build sessions, API, jobs and installation settings | `packages/mendel-api/` |
 | Shared provider transport / Mendel model integration | `packages/comeni-ai/`, `packages/mendel-ai/` |
 | The forge: module catalogue, sources and state against the registry (#360) | `packages/mendel-forge/` |

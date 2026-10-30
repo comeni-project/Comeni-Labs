@@ -8,6 +8,7 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
+from comeni_core import yaml_strict
 from comeni_core.artifact.lockfile import Locator, LockedLayer
 from comeni_core.declared.layer import layer_name
 from comeni_core.diagnostics import coded
@@ -15,6 +16,9 @@ from comeni_core.spell.marks import LayerName, RepoUrl
 from pydantic import TypeAdapter, ValidationError
 
 _URL = TypeAdapter(RepoUrl)
+
+RELEASE_FILE = "release.yml"
+"""Beside a fetched release's layer: what it is. A fetched folder has no git metadata."""
 
 
 def _git(layer: Path, *args: str) -> str | None:
@@ -46,7 +50,12 @@ def _source(layer: Path) -> str | None:
 
 def locate(layer: Path) -> Locator:
     """The layer's remote, commit, folder in the repository, and whether it has uncommitted
-    edits under it."""
+    edits under it. A fetched release says so itself."""
+    marker = layer.parent / RELEASE_FILE
+    if marker.is_file():
+        said = yaml_strict.load(marker)
+        return Locator(source=said["repository"], commit=said["commit"], dirty=False,
+                       release=said["tag"])
     if _git(layer, "rev-parse", "--show-toplevel") is None:
         return Locator()
     folder = (_git(layer, "rev-parse", "--show-prefix") or "").rstrip("/")

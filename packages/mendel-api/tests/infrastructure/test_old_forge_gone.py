@@ -45,11 +45,17 @@ def test_the_old_routes_are_gone_and_the_builder_s_remain():
     assert paths, "the app has no routes at all"
     # Not `/api/forge` whole: the new forge serves `/api/forge/catalogue` (part 1, #362). These
     # are the old forge's routes the new one has no counterpart for (git `95c17b15`).
-    gone = ("/api/forge/adaptations", "/api/forge/overview", "/api/forge/sources",
+    # `/api/forge/adaptations` is the new forge's too (MVP 3, #364).
+    gone = ("/api/forge/overview", "/api/forge/sources",
             "/api/contracts", "/api/questions", "/api/sources", "/api/tools")
     assert [p for p in paths if p.startswith(gone)] == []
     assert "/api/attention" in paths
     assert any(p.startswith("/api/pipeline/authoring") for p in paths)
+
+
+REUSED = {"forge_adaptation", "forge_revision", "forge_message"}
+"""Names the new forge's forging tables reuse (MVP 3, #364): new tables, new columns, made by
+their own migration after the old ones were dropped."""
 
 
 def test_the_models_declare_none_of_the_old_tables():
@@ -57,7 +63,7 @@ def test_the_models_declare_none_of_the_old_tables():
 
     tables = set(Base.metadata.tables)
     assert "ai_invocation" in tables
-    assert tables & OLD_TABLES == set()
+    assert tables & (OLD_TABLES - REUSED) == set()
 
 
 def test_no_code_or_configuration_names_the_old_forge():

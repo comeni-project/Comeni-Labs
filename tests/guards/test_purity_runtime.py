@@ -34,7 +34,9 @@ import pytest
 from support.example import example_mapping
 from support.paths import ROOT
 
-_PACKAGES = ("comeni-core", "mendel-resolver", "mendel-compiler", "mendel-authoring")
+_PACKAGES = (
+    "comeni-core", "comeni-flow", "mendel-resolver", "mendel-compiler", "mendel-authoring",
+)
 PURE = [ROOT / "packages" / p / "src" for p in _PACKAGES]
 
 WATCHED = frozenset(
@@ -254,3 +256,12 @@ def test_every_required_frame_path_names_a_file_that_exists():
         "the watched-region check requires files that do not exist, so it can only fail:\n  "
         + "\n  ".join(missing)
     )
+
+
+def test_the_runtime_guard_watches_every_pure_package_a_build_runs():
+    """Every closed package a build runs is watched here, or a package moved out of a watched
+    one (the flow engine out of mendel-authoring, #364) runs unwatched. `wiener-core` and
+    `dag-core` are closed too, and no build path reaches them."""
+    from support.purity import CLOSED_PACKAGES
+
+    assert set(CLOSED_PACKAGES) - {"wiener-core", "dag-core"} <= set(_PACKAGES)

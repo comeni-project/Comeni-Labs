@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:  # a settings module every route imports must not pull in a transport
@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     declarations and `source_root` for the module code they describe, on two release cadences
     in two repositories. `MD0104` exists to catch a contract drifting from its module and was
     comparing two things nothing kept in step."""
+    registries_root: Path | None = None
+    """Where fetched releases live (`MENDEL_REGISTRIES_ROOT`), one read-only folder each. Unset,
+    the app runs `registry_root` as it always has: tests, the CLI, and an installation with no
+    release yet. **Read the registry through `active_registry()`**, never `registry_root`."""
     draft_root: Path = Path("./build/drafts")
     """Where `keep` writes a draft's `pipeline.yml`.
 
@@ -47,6 +51,15 @@ class Settings(BaseSettings):
     forge_cache: Path = Path("./.run/forge")
     """Where the forge keeps its clone of each catalogue source between syncs, so a restart does
     not re-clone nf-core/modules. Only the worker that syncs reads it. `MENDEL_FORGE_CACHE`."""
+    wiener_url: str = ""
+    """Where forge tests run (`MENDEL_WIENER_URL`). Empty: tests show as unavailable and say why.
+    The API reads it to say whether tests can run; only the worker calls Wiener."""
+    wiener_token: SecretStr = SecretStr("")
+    """Wiener's bearer token (`MENDEL_WIENER_TOKEN`), which permits running code. Never logged,
+    shown, or sent to a model."""
+    registry_repo: str = "comeni-project/comeni-registry"
+    """Where forged tools are published (`MENDEL_REGISTRY_REPO`), so a first live run can use a
+    test repository. Its token is `COMENI_FORGE_GITHUB_TOKEN`, a deploy secret on the worker."""
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 
@@ -109,6 +122,21 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+CURRENT = "current"
+"""The file under `registries_root` naming the release in use."""
+
+
+def active_registry() -> Path:
+    """The registry this installation reads now: the current release, else the configured root.
+    **Asked each time**, so a switch reaches every reader, and `registry.stack()`'s digest key
+    moves with it."""
+    if settings.registries_root is None:
+        return settings.registry_root
+    current = Path(settings.registries_root) / CURRENT
+    if not current.is_file():
+        return settings.registry_root
+    return Path(settings.registries_root) / current.read_text().strip() / "layer"
 
 
 def model_access(agent: str | None = None, purpose: str | None = None) -> "ModelAccess | None":
