@@ -22,6 +22,8 @@ def test_a_token_is_reported_as_set_never_as_itself(monkeypatch):
     assert reports.REPORTERS["registry.github"]() == "set"
     monkeypatch.delenv("COMENI_FORGE_GITHUB_TOKEN")
     assert reports.REPORTERS["registry.github"]() == "not set"
+    monkeypatch.setenv("COMENI_FORGE_GITHUB_TOKEN_SET", "set")
+    assert reports.REPORTERS["registry.github"]() == "set"
 
 
 def test_versions_name_every_package():

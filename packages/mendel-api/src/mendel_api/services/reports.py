@@ -127,10 +127,16 @@ def _model() -> str:
     return f"{access.model}: nothing answered"
 
 
+def publishing_token_set() -> bool:
+    """On the worker, the token; elsewhere, Compose's word that one exists."""
+    return token_state("COMENI_FORGE_GITHUB_TOKEN") == "set" or \
+        token_state("COMENI_FORGE_GITHUB_TOKEN_SET") == "set"
+
+
 REPORTERS: dict[str, Callable[[], object]] = {
     "registry.root": lambda: str(settings.registry_root),
     "registry.layers": _layers,
-    "registry.github": lambda: token_state("COMENI_FORGE_GITHUB_TOKEN"),
+    "registry.github": lambda: "set" if publishing_token_set() else "not set",
     "system.versions": _versions,
     "system.database": _database,
     "system.redis": _redis,

@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     wiener_token: SecretStr = SecretStr("")
     """Wiener's bearer token (`MENDEL_WIENER_TOKEN`), which permits running code. Never logged,
     shown, or sent to a model."""
+    registry_repo: str = "comeni-project/comeni-registry"
+    """Where forged tools are published (`MENDEL_REGISTRY_REPO`), so a first live run can use a
+    test repository. Its token is `COMENI_FORGE_GITHUB_TOKEN`, a deploy secret on the worker."""
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 

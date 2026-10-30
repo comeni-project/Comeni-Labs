@@ -47,7 +47,8 @@ x-mendel-environment: &mendel-environment
   COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
   COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
   COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
-  COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+  # Whether a publishing token exists, for pages and Settings. The token itself is the worker's.
+  COMENI_FORGE_GITHUB_TOKEN_SET: ${COMENI_FORGE_GITHUB_TOKEN:+set}
 
 services:
   # -----------------------------------------------------------------------------
@@ -143,6 +144,8 @@ services:
       <<: *mendel-environment
       # Only this worker calls Wiener, for forge tests. The token permits running code.
       MENDEL_WIENER_TOKEN: ${WIENER_API_TOKEN:-}
+      # Writes to the registry repository: the forge's publishing, and nothing else.
+      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
     # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages
