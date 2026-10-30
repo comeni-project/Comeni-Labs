@@ -117,6 +117,19 @@ def test_a_missing_licence_reopens_nothing_and_says_it_once(client, tmp_path, mo
     assert forging.read(adaptation_id).phase == "reviewing"
 
 
+def test_a_module_vendors_under_its_sources_licence_not_its_tools(client):
+    """#432: nf-core's wrapper is what is vendored; a GPL tool stays in its own container."""
+    adaptation_id = _approved_reforge()
+    with session_scope() as db:
+        db.execute(sa.text("UPDATE catalogue_module SET document = jsonb_set("
+                           "document, '{tools,0,licence}', '[\"GPL-2.0-only\"]')"))
+    proof = forging.assemble(adaptation_id)
+    assert proof.loaded, proof.problems
+    written = list(forging.draft_dir(adaptation_id).rglob("module.yml"))
+    assert written, "assembling writes a module.yml"
+    assert all("licence: MIT" in path.read_text() for path in written)
+
+
 def test_an_assembly_that_breaks_never_leaves_the_phase_assembling(client):
     """Review I2: whatever fails, the adaptation goes back to review, and the route says why."""
     adaptation_id = _approved_reforge()
