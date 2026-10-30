@@ -137,7 +137,11 @@ services:
       api: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment: *mendel-environment
+    environment:
+      <<: *mendel-environment
+      # Only this worker calls Wiener, for forge tests. The token permits running code.
+      MENDEL_WIENER_URL: http://wiener-api:8001
+      MENDEL_WIENER_TOKEN: ${WIENER_API_TOKEN:-}
     # Match the API paths so jobs can read its saved pipelines.
     volumes:
       - ./packages:/app/packages

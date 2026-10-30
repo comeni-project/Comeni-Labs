@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:  # a settings module every route imports must not pull in a transport
@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     forge_cache: Path = Path("./.run/forge")
     """Where the forge keeps its clone of each catalogue source between syncs, so a restart does
     not re-clone nf-core/modules. Only the worker that syncs reads it. `MENDEL_FORGE_CACHE`."""
+    wiener_url: str = ""
+    """Where forge tests run (`MENDEL_WIENER_URL`). Empty: tests show as unavailable and say why.
+    Set for the worker only: nothing else in Mendel calls Wiener."""
+    wiener_token: SecretStr = SecretStr("")
+    """Wiener's bearer token (`MENDEL_WIENER_TOKEN`), which permits running code. Never logged,
+    shown, or sent to a model."""
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 
