@@ -12,7 +12,7 @@ export const PIECES = ["questions", "contract", "parameters", "vocabulary", "rul
 
 /** One adaptation. While the AI works (drafting, or a message waiting for its reply) the page
  *  reads again every two seconds, so the proposals appear when they land; while tests run in
- *  Wiener, every five. */
+ *  Wiener or a pull request opens, every five; while one waits for CI, every fifteen. */
 export function useAdaptation(id: string) {
   return useQuery({
     queryKey: ["adaptation", id],
@@ -22,7 +22,8 @@ export function useAdaptation(id: string) {
       const busy = view && (view.phase === "drafting" || view.phase === "asking"
         || view.messages.some((m) => m.pending));
       if (busy) return 2_000;
-      return view?.phase === "testing" ? 5_000 : false;
+      if (view?.phase === "testing" || view?.phase === "publishing") return 5_000;
+      return view?.phase === "in_review" ? 15_000 : false;
     },
   });
 }

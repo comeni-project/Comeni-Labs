@@ -14,7 +14,8 @@ def test_these_are_the_scheduled_jobs():
     """Named literally, so adding one means editing this test — which is where somebody
     notices that a new job needs a cadence argued for rather than copied."""
     assert WorkerSettings.cron_jobs, "nothing is scheduled"
-    assert sorted(_by_name()) == ["poll_forge_tests", "retention_sweep", "sweep_lost_gates",
+    assert sorted(_by_name()) == ["poll_forge_pull_requests", "poll_forge_tests",
+                                  "retention_sweep", "sweep_lost_gates",
                                   "sync_catalogue_job"]
 
 

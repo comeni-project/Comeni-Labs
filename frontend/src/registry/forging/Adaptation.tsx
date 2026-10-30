@@ -6,12 +6,14 @@ import { Failed, Loading } from "../../ui/States";
 import { RegistryTabs } from "../RegistryTabs";
 import { Chat } from "./Chat";
 import { PieceItems, WriteItem } from "./PieceItems";
+import { PullRequestPanel } from "./PullRequest";
 import { TestsPanel } from "./Tests";
 import { PIECES, useAdaptation, type AdaptationView } from "./useAdaptation";
 import { useForgeActions, type AssemblyView } from "./useForgeActions";
 
 const SETTLED = new Set(["approved", "removed"]);
-const STANDS = new Set(["assembled", "testing", "tested"]);
+const STANDS = new Set(["assembled", "testing", "tested", "publishing", "in_review", "merged"]);
+const PUBLISHING = new Set(["tested", "publishing", "in_review", "merged"]);
 
 /** `/registry/forging/:id` (boards 3–3g): the pieces in order, the current one's items, the
  *  chat, and assembling once everything is approved. */
@@ -138,7 +140,7 @@ function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType
       <p className="m-0 text-ink-2">
         {STANDS.has(view.phase) && !result
           ? "Assembled: the draft loads over the registry and conforms."
-          : "Every piece is approved. Assembling writes the registry files into a draft layer and checks them with the builder's own code. Nothing goes into the registry: that is a pull request, in MVP 5."}
+          : "Every piece is approved. Assembling writes the registry files into a draft layer and checks them with the builder's own code. Nothing goes into the registry until a pull request is merged."}
       </p>
       {!STANDS.has(view.phase) && (
         <button type="button" onClick={() => actions.assemble.mutate()} disabled={actions.assemble.isPending}
@@ -171,6 +173,7 @@ function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType
         </div>
       )}
       {STANDS.has(view.phase) && <TestsPanel view={view} actions={actions} />}
+      {PUBLISHING.has(view.phase) && <PullRequestPanel view={view} actions={actions} />}
     </div>
   );
 }

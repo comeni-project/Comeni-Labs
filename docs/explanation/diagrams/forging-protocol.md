@@ -20,6 +20,9 @@ flowchart LR
         assembled(["Assembled: loads and conforms"]):::you
         testing{{"Wiener runs each test"}}:::engine
         tested(["Green: it runs, and every declared output exists"]):::you
+        publishing{{"The registry's checks; push and open"}}:::engine
+        in_review["A pull request, waiting for green CI and your approval"]:::you
+        merged(["In comeni-registry, not yet released"]):::engine
     end
     style forge fill:transparent,stroke:#555
     ask --> review
@@ -34,6 +37,12 @@ flowchart LR
     testing -- "says what failed" --> assembled
     testing -- "a command landed" --> review
     tested -- "change something" --> review
+    tested -- "open pull request" --> publishing
+    publishing --> in_review
+    publishing -- "says what refused it" --> tested
+    in_review -- "CI green: approve" --> merged
+    in_review -- "closed on GitHub" --> tested
+    in_review -- "change something" --> review
     subgraph KEY ["Key: fill is who acts, border is the tier, dashed is planned"]
         direction TB
         key_you["Blue fill · you"]:::you

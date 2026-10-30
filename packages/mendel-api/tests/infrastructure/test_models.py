@@ -97,6 +97,7 @@ def test_the_registry_is_not_in_the_database():
         "forge_revision",
         "forge_message",
         "forge_test_run",
+        "forge_pull_request",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a new one needs the same argument written down. Two rejections in "

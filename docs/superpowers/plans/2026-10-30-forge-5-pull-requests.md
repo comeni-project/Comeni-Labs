@@ -48,18 +48,18 @@ branch)`, `PullRequestState(state, head, checks, says)`, `Change(branch, title, 
 list[Path]`, `fragment(checkout, module_id, version, summary)`, `check(checkout) -> list[str]`,
 `describe(record: Record) -> str`.
 
-- [ ] **Step 1: Write the failing tests** `test_placing_puts_the_tool_in_the_registrys_layout`,
+- [x] **Step 1: Write the failing tests** `test_placing_puts_the_tool_in_the_registrys_layout`,
   `test_each_role_gets_its_own_file`, `test_a_new_tool_gets_its_tool_yml`,
   `test_an_existing_tool_yml_is_kept`, `test_a_reforge_replaces_the_tool_folder`,
   `test_a_changed_shared_file_is_refused_with_its_path` (focus 5),
   `test_the_placed_draft_passes_the_registrys_checks`,
   `test_a_broken_checkout_says_what_failed` (focus 1, in part),
   `test_the_description_names_who_approved_what`.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement.** `check` runs `registry_lint.lint`, `layers.load`, conformance and the
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement.** `check` runs `registry_lint.lint`, `layers.load`, conformance and the
   docs verb in place, then lints again.
-- [ ] **Step 4: Run; pass.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 4: Run; pass.**
+- [x] **Step 5: Commit.**
 
 ### Task 2: GitHub
 
@@ -70,17 +70,17 @@ list[Path]`, `fragment(checkout, module_id, version, summary)`, `check(checkout)
 **Interfaces:** Produces `GitHubPublisher(repo, token, cache, client=None)`, `publisher() ->
 RegistryPublisher | None`, `settings.registry_repo`, `settings.github_token`.
 
-- [ ] **Step 1: Write the failing tests**, with a local bare repository and `httpx.MockTransport`:
+- [x] **Step 1: Write the failing tests**, with a local bare repository and `httpx.MockTransport`:
   `test_checkout_is_a_fresh_main`, `test_opening_pushes_a_branch_and_opens_a_pull_request`,
   `test_the_token_is_not_in_the_clone_or_any_command`, `test_state_reads_the_checks`
   (green, pending when none exist yet, red), `test_merging_names_the_head_it_checked`,
   `test_a_refusal_never_says_the_token` (focus 2), guards
   `test_only_the_publish_service_holds_the_publisher`, `test_only_the_worker_is_given_the_token`.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement.** Git authenticates through `GIT_ASKPASS`, a script reading the variable.
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement.** Git authenticates through `GIT_ASKPASS`, a script reading the variable.
   The API learns *set or not* from `COMENI_FORGE_GITHUB_TOKEN_SET`, never the token.
-- [ ] **Step 4: Run; pass.** `uv lock --check`.
-- [ ] **Step 5: Commit.**
+- [x] **Step 4: Run; pass.** `uv lock --check`.
+- [x] **Step 5: Commit.**
 
 ### Task 3: Publishing and approving
 
@@ -95,7 +95,7 @@ number, url, branch, state, checks, digest, opened_by, approved_by, opened_at, m
 `/approve`; `AdaptationView.pull_request`, `publish_unavailable`; `MF0516` no token, `MF0517` the
 registry's checks refused, `MF0518` CI not green.
 
-- [ ] **Step 1: Write the failing tests** with a fake publisher:
+- [x] **Step 1: Write the failing tests** with a fake publisher:
   `test_opening_needs_a_proven_draft`, `test_opening_records_the_pull_request_and_enters_review`,
   `test_a_second_adaptation_cannot_open_while_one_is_open`,
   `test_the_registrys_checks_failing_pushes_nothing` (focus 1),
@@ -106,27 +106,27 @@ registry's checks refused, `MF0518` CI not green.
   (focus 4), `test_a_merged_adaptation_refuses_commands`,
   `test_a_change_in_review_demotes_and_the_next_open_closes_the_old_one`,
   `test_the_catalogue_shows_in_review_and_merged_not_released`, `test_no_token_is_MF0516`.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement,** on the shape of `forge_tests`.
-- [ ] **Step 4: Run; pass.** Regenerate the diagram and diagnostics docs.
-- [ ] **Step 5: Commit.**
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement,** on the shape of `forge_tests`.
+- [x] **Step 4: Run; pass.** Regenerate the diagram and diagnostics docs.
+- [x] **Step 5: Commit.**
 
 ### Task 4: The pages
 
 **Files:** Create `frontend/src/registry/forging/PullRequest.tsx`; Modify `Adaptation.tsx`,
 `useForgeActions.ts`, `useAdaptation.ts`, `ForgingList.tsx`, `../states.tsx`, generated client.
 
-- [ ] **Step 1: Write the failing tests** `open pull request starts it`, `pending CI disables approve
+- [x] **Step 1: Write the failing tests** `open pull request starts it`, `pending CI disables approve
   and says why`, `green CI approves`, `merged shows the link and what comes next`, `without a token
   it says why`, `in review and merged are real catalogue states`.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement,** polling every 15 seconds while in review.
-- [ ] **Step 4: Run** `npx vitest run` and `npx tsc -b`; pass.
-- [ ] **Step 5: Commit.**
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement,** polling every 15 seconds while in review.
+- [x] **Step 4: Run** `npx vitest run` and `npx tsc -b`; pass.
+- [x] **Step 5: Commit.**
 
 ### Task 5: Docs, the whole suite, and the push
 
-- [ ] **Step 1:** How-to, `CHANGELOG.md`, `docs/notes/now.md`, a journal entry.
+- [x] **Step 1:** How-to, `CHANGELOG.md`, `docs/notes/now.md`, a journal entry.
 - [ ] **Step 2:** The whole Python suite, `make guards`, `make doc-sizes`, `make links`.
 - [ ] **Step 3:** Commit, and push `forge-5-pull-requests` (operator, 2026-10-30).
 
@@ -136,3 +136,12 @@ registry's checks refused, `MF0518` CI not green.
 - A real pull request: walked against a test repository with #412.
 
 ## Deviations
+
+- Merging runs in a worker job, because only the worker holds the token: `approve` checks the stored
+  CI state and queues, and `merge` re-reads it. So a merge refused at the last moment is reported in
+  the chat, not as the click's response. `approved_by` doubles as *merging* while the row is open.
+- The token moved from every Mendel service to `mendel-worker`, replacing
+  `test_the_token_reaches_every_service_that_reads_an_upstream`.
+- Tests in Tasks 1 to 3 were written with their code. The key rules were then broken by hand
+  (`proven`, the merge's re-read, the registry's checks) and a test failed each time.
+- `RegistryPublisher` gained `checkout` and `close`, and `merge` names the head.

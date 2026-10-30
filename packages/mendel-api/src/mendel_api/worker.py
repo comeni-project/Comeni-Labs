@@ -11,7 +11,7 @@ from arq import cron
 from arq.connections import RedisSettings
 from arq.worker import func
 
-from mendel_api.services import catalogue, forge_tests, retention
+from mendel_api.services import catalogue, forge_publish, forge_tests, retention
 from mendel_api.services import gates as gate_service
 from mendel_api.settings import settings
 
@@ -57,6 +57,20 @@ async def poll_forge_tests(ctx: dict) -> int:
     return await asyncio.to_thread(forge_tests.poll)
 
 
+async def publish_forge_tool(ctx: dict, adaptation_id: str) -> None:
+    """Open a proven draft's pull request: a checkout, the registry's checks and a push."""
+    await asyncio.to_thread(forge_publish.publish, adaptation_id)
+
+
+async def merge_forge_tool(ctx: dict, adaptation_id: str, by: str) -> None:
+    await asyncio.to_thread(forge_publish.merge, adaptation_id, by)
+
+
+async def poll_forge_pull_requests(ctx: dict) -> int:
+    """Read the open pull requests, for CI and for what happens on GitHub by hand."""
+    return await asyncio.to_thread(forge_publish.poll)
+
+
 class WorkerSettings:
     functions = [
         # **Its own limit, and one try** (issue 278). arq's default (300s) cancelled the stub
@@ -69,6 +83,9 @@ class WorkerSettings:
         # No kept result: it would hold the job id and refuse the next attempt.
         func(run_forge_tests, timeout=600, max_tries=1, keep_result=0),
         poll_forge_tests,
+        func(publish_forge_tool, timeout=900, max_tries=1, keep_result=0),
+        func(merge_forge_tool, timeout=120, max_tries=1, keep_result=0),
+        poll_forge_pull_requests,
     ]
     """**Everything that is not a model call.** The split from `AIWorkerSettings` is about
     starvation: a model call is measured in minutes and must not hold up a gate.
@@ -83,6 +100,8 @@ class WorkerSettings:
         cron(sync_catalogue_job, hour=3, minute=0),
         # Forge MVP 4: tests running in Wiener.
         cron(poll_forge_tests, second={0, 30}),
+        # Forge MVP 5: CI on an open pull request, every minute.
+        cron(poll_forge_pull_requests, second=0),
     ]
     """**`unique=True` is arq's default and is load-bearing**: two worker replicas would
     otherwise each start the same sweep at the same minute."""

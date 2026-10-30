@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from mendel_api import jobs
 from mendel_api.identity import default_author
 from mendel_api.refusals import REFUSES, Refusal
-from mendel_api.services import catalogue, forge_tests, forging
+from mendel_api.services import catalogue, forge_publish, forge_tests, forging
 from mendel_api.services.catalogue import CataloguePage, ModuleDetail, Sort
 
 router = APIRouter(prefix="/forge", tags=["forge"])
@@ -210,6 +210,34 @@ def assemble_adaptation(adaptation_id: str) -> forging.AssemblyView:
 async def run_adaptation_tests(adaptation_id: str) -> forging.AdaptationView:
     try:
         return await forge_tests.start(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.post(
+    "/adaptations/{adaptation_id}/publish",
+    operation_id="publishAdaptation",
+    summary="Open a pull request on the registry with a proven draft",
+    status_code=202,
+    responses=REFUSES,
+)
+async def publish_adaptation(adaptation_id: str) -> forging.AdaptationView:
+    try:
+        return await forge_publish.start(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.post(
+    "/adaptations/{adaptation_id}/approve",
+    operation_id="approveAdaptation",
+    summary="Merge the adaptation's pull request; refused unless registry CI is green",
+    status_code=202,
+    responses=REFUSES,
+)
+async def approve_adaptation(adaptation_id: str) -> forging.AdaptationView:
+    try:
+        return await forge_publish.approve(adaptation_id, default_author())
     except KeyError:
         raise _unknown(adaptation_id) from None
 

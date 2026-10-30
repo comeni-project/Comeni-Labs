@@ -48,6 +48,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/forge/adaptations/{adaptation_id}/draft", "post"): "draftAdaptationPiece",
         ("/api/forge/adaptations/{adaptation_id}/assemble", "post"): "assembleAdaptation",
         ("/api/forge/adaptations/{adaptation_id}/tests", "post"): "runAdaptationTests",
+        ("/api/forge/adaptations/{adaptation_id}/publish", "post"): "publishAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}/approve", "post"): "approveAdaptation",
         # **The build path, reachable at last.** `resolve_verbs.run` was argparse-shaped until
         # Plan 3C phase 0, so no route could exist here at all. `POST` because a `Goal` is a
         # document — profile, wants, producer pins — and a URL is the wrong place for one.

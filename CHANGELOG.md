@@ -187,6 +187,10 @@ or a complete commit history.
 
 #### Added
 
+- Forge pull requests ([#366](https://github.com/comeni-project/Comeni-Labs/issues/366)):
+  `POST /forge/adaptations/{id}/publish` and `/approve`, with `forge_pull_request`, at most one
+  open. `COMENI_FORGE_GITHUB_TOKEN` now reaches only `mendel-worker`; other services read
+  `COMENI_FORGE_GITHUB_TOKEN_SET`. New `MENDEL_REGISTRY_REPO`.
 - Forge tests ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)):
   `POST /forge/adaptations/{id}/tests` runs an assembled draft's tests as Wiener runs from a worker
   job, read by a 30-second cron and stored in `forge_test_run`. Green counts only for the draft it
@@ -303,6 +307,10 @@ or a complete commit history.
 
 ### mendel-forge
 
+- `publishing`: places a proven draft in the registry's layout, runs the registry's checks and
+  writes the pull request's record, behind `RegistryPublisher`
+  ([#366](https://github.com/comeni-project/Comeni-Labs/issues/366)). The catalogue's *in review* and
+  *merged, not released* are real.
 - A sixth forging piece, Tests, with `build_test_pipeline`, which builds a test directly so routing
   cannot choose another tool, and the narrow `TestRunner` interface
   ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)).

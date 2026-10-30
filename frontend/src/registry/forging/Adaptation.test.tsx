@@ -238,3 +238,58 @@ it("a test reads as what it feeds and what it expects", async () => {
   const row = await screen.findByRole("group", { name: "small" });
   expect(within(row).getByText("reads → *.bam")).toBeTruthy();
 });
+
+const TESTED = { ...ASSEMBLED, phase: "tested", publish_unavailable: null, pull_request: null,
+                 tests: [{ name: "small", state: "passed", run_id: "r1", says: null }] };
+const PULL = { number: 7, url: "https://github.com/x/y/pull/7", state: "open", checks: "pending",
+               says: "still running: ci", merging: false };
+
+it("open pull request starts it", async () => {
+  const calls = at(TESTED);
+  fireEvent.click(await screen.findByRole("button", { name: "Open pull request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/forge/adaptations/a1/publish")
+    && c.method === "POST")).toBe(true));
+});
+
+it("pending CI disables approve and says why", async () => {
+  at({ ...TESTED, phase: "in_review", pull_request: PULL });
+  const approve = await screen.findByRole("button", { name: "Approve pull request" });
+  expect((approve as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(/Waiting for registry CI: still running: ci/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: /Pull request #7/ }).getAttribute("href")).toBe(PULL.url);
+});
+
+it("red CI says what failed and cannot be approved", async () => {
+  at({ ...TESTED, phase: "in_review",
+       pull_request: { ...PULL, checks: "red", says: "failed: lint" } });
+  expect(await screen.findByText(/Registry CI failed: failed: lint/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Approve pull request" }) as HTMLButtonElement).disabled)
+    .toBe(true);
+});
+
+it("green CI approves", async () => {
+  const calls = at({ ...TESTED, phase: "in_review",
+                     pull_request: { ...PULL, checks: "green", says: null } });
+  fireEvent.click(await screen.findByRole("button", { name: "Approve pull request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/forge/adaptations/a1/approve")
+    && c.method === "POST")).toBe(true));
+});
+
+it("merging shows it, and offers no second click", async () => {
+  at({ ...TESTED, phase: "in_review",
+       pull_request: { ...PULL, checks: "green", says: null, merging: true } });
+  expect((await screen.findByRole("button", { name: "Merging…" }) as HTMLButtonElement).disabled)
+    .toBe(true);
+});
+
+it("merged says what comes next", async () => {
+  at({ ...TESTED, phase: "merged", pull_request: { ...PULL, state: "merged", checks: "green" } });
+  expect(await screen.findByText(/reaches the builder with the next release/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Approve pull request" })).toBeNull();
+});
+
+it("without a token it says why", async () => {
+  at({ ...TESTED, publish_unavailable: "MF0516: no GitHub token is set to publish with" });
+  expect(await screen.findByText(/no GitHub token is set/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Open pull request" })).toBeNull();
+});

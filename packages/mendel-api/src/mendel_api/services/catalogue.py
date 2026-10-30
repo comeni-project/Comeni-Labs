@@ -22,7 +22,13 @@ from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 
 from mendel_api import db
-from mendel_api.models import CatalogueModule, CatalogueSync, SyncOutcome
+from mendel_api.models import (
+    CatalogueModule,
+    CatalogueSync,
+    ForgeAdaptation,
+    ForgePullRequest,
+    SyncOutcome,
+)
 from mendel_api.services import registry
 from mendel_api.settings import settings
 
@@ -232,11 +238,31 @@ class Sort(StrEnum):
     UPSTREAM_CHANGED = "upstream_changed"
 
 
+def _publishing(held: dict[str, Held]) -> dict[str, State]:
+    """Modules on their way through a pull request. A merged one reads as merged until the
+    registry this installation loads carries that version."""
+    with db.session_scope() as session:
+        rows = session.execute(
+            sa.select(ForgeAdaptation.path, ForgeAdaptation.version, ForgePullRequest.state)
+            .join(ForgePullRequest, ForgePullRequest.adaptation == ForgeAdaptation.id)
+            .where(ForgePullRequest.state.in_(("open", "merged")))
+            .order_by(ForgePullRequest.id)
+        ).all()
+    found: dict[str, State] = {}
+    for path, version, state in rows:
+        if state == "open":
+            found[path] = State.IN_REVIEW
+        elif path not in held or held[path].version != version:
+            found[path] = State.MERGED
+    return found
+
+
 def _state_expression(held: dict[str, Held]) -> sa.ColumnElement[str]:
     """`mendel_forge.state.state_of` in SQL, so the state filter and sort run in the database.
     The registry holds tens of modules, so the `CASE` stays small."""
     column, version = CatalogueModule.path, CatalogueModule.tool_version
-    whens = [(CatalogueModule.gone.is_(True), State.GONE.value)]
+    whens = [(column == path, state.value) for path, state in _publishing(held).items()]
+    whens.append((CatalogueModule.gone.is_(True), State.GONE.value))
     for path, here in held.items():
         whens += [
             (sa.and_(column == path, version.is_(None)), State.UNKNOWN.value),

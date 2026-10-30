@@ -818,6 +818,33 @@ class ForgeTestRun(Base):
                             unique=True),)
 
 
+class ForgePullRequest(Base):
+    """One forge pull request on the registry. **At most one is open**, enforced here, so the next
+    starts after it merges and nothing needs rebasing. `digest` is the draft it carries."""
+
+    __tablename__ = "forge_pull_request"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer)
+    url: Mapped[str] = mapped_column(String(255))
+    branch: Mapped[str] = mapped_column(String(255))
+    state: Mapped[str] = mapped_column(String(16))
+    checks: Mapped[str] = mapped_column(String(16))
+    head: Mapped[str] = mapped_column(String(64))
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
+    digest: Mapped[str] = mapped_column(String(64))
+    opened_by: Mapped[str] = mapped_column(String(128))
+    approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_forge_pull_request_one_open", "state", unique=True,
+                            postgresql_where=text("state = 'open'")),)
+
+
 class ForgeMessage(Base):
     """The chat beside an adaptation: the person's messages, the AI's replies and the engine's
     notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""

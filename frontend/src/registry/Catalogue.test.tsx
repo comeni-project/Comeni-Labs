@@ -81,12 +81,12 @@ it("not imported offers Forge, which starts an adaptation", async () => {
     String(url).endsWith("/forge/adaptations") && init?.method === "POST")).toBe(true));
 });
 
-it("pull request states show 0 and the MVP 5 note", async () => {
+it("the pull request states are filters like any other", async () => {
   at();
   const filters = await screen.findByRole("group", { name: "In the registry" });
   const review = within(filters).getByLabelText(/In review/) as HTMLInputElement;
-  expect(review.disabled).toBe(true);
-  expect(within(filters).getAllByText(/Arrives with pull requests \(MVP 5\)/).length).toBe(2);
+  expect(review.disabled).toBe(false);
+  expect(within(filters).getByLabelText(/Merged, not released/)).toBeTruthy();
 });
 
 it("before any sync it offers Sync now", async () => {

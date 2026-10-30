@@ -1149,6 +1149,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations/{adaptation_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open a pull request on the registry with a proven draft */
+        post: operations["publishAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge the adaptation's pull request; refused unless registry CI is green */
+        post: operations["approveAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1250,6 +1284,9 @@ export interface components {
             tests: components["schemas"]["TestRunView"][];
             /** Tests Unavailable */
             tests_unavailable?: string | null;
+            pull_request?: components["schemas"]["PullRequestView"] | null;
+            /** Publish Unavailable */
+            publish_unavailable?: string | null;
         };
         /** AiConfigured */
         AiConfigured: {
@@ -3729,6 +3766,21 @@ export interface components {
             by_person: number;
             /** By Model */
             by_model: number;
+        };
+        /** PullRequestView */
+        PullRequestView: {
+            /** Number */
+            number: number;
+            /** Url */
+            url: string;
+            /** State */
+            state: string;
+            /** Checks */
+            checks: string;
+            /** Says */
+            says: string | null;
+            /** Merging */
+            merging: boolean;
         };
         /**
          * Question
@@ -6838,6 +6890,86 @@ export interface operations {
         };
     };
     runAdaptationTests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    publishAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    approveAdaptation: {
         parameters: {
             query?: never;
             header?: never;

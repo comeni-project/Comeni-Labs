@@ -42,10 +42,12 @@ from mendel_api.models import (
     ForgeAdaptation,
     ForgeItem,
     ForgeMessage,
+    ForgePullRequest,
     ForgeRevision,
     ForgeTestRun,
 )
 from mendel_api.services import catalogue, registry
+from mendel_api.services.reports import publishing_token_set
 from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)
@@ -53,8 +55,13 @@ log = logging.getLogger(__name__)
 
 NO_WIENER = coded("MF0514", "no Wiener is configured to run tests (MENDEL_WIENER_URL)")
 
-_ASSEMBLED = frozenset({Phase.ASSEMBLED, Phase.TESTING, Phase.TESTED})
-"""A draft that loaded and conforms: what later adaptations may build on, and a change demotes."""
+NO_TOKEN = coded("MF0516", "no GitHub token is set to publish with (COMENI_FORGE_GITHUB_TOKEN)")
+
+_STANDING = frozenset({Phase.ASSEMBLED, Phase.TESTING, Phase.TESTED, Phase.PUBLISHING,
+                       Phase.IN_REVIEW})
+"""A draft that loaded and conforms and can still change: a change demotes it to review."""
+_ASSEMBLED = _STANDING | {Phase.MERGED}
+"""What later adaptations may build on. Merged stays visible until the release that carries it."""
 
 
 class RevisionView(BaseModel):
@@ -84,6 +91,16 @@ class TestRunView(BaseModel):
     """`running`, `passed` or `failed`."""
     run_id: str | None
     says: str | None
+
+
+class PullRequestView(BaseModel):
+    number: int
+    url: str
+    state: str
+    checks: str
+    says: str | None
+    merging: bool
+    """A person approved and the worker is merging."""
 
 
 class MessageView(BaseModel):
@@ -116,6 +133,10 @@ class AdaptationView(BaseModel):
     """The latest attempt at this adaptation's tests."""
     tests_unavailable: str | None = None
     """Why tests cannot run here, when they cannot."""
+    pull_request: PullRequestView | None = None
+    """The newest pull request of this adaptation."""
+    publish_unavailable: str | None = None
+    """Why publishing cannot happen here, when it cannot."""
 
 
 class AdaptationSummary(BaseModel):
@@ -211,7 +232,7 @@ def act(adaptation_id: str, command: Command) -> AdaptationView:
     A value a person writes passes the same checks as the AI's (spec §2)."""
     try:
         with db.transaction() as session:
-            lock(session, adaptation_id)
+            _still_open(lock(session, adaptation_id))
             before = load(adaptation_id)
             if command.move in {Move.WRITE, Move.CHANGE, Move.ANSWER}:
                 _check_person_value(adaptation_id, before, command)
@@ -235,9 +256,14 @@ def lock(session, adaptation_id: str) -> ForgeAdaptation:
     return found
 
 
+def _still_open(found: ForgeAdaptation) -> None:
+    if found.phase == Phase.MERGED:
+        raise Refused(coded("MF0506", "this adaptation is merged: re-forge the tool to change it"))
+
+
 def _after_change(adaptation_id: str, state: Adaptation) -> None:
     _record_dependencies(adaptation_id, state)
-    if row(adaptation_id).phase in {*_ASSEMBLED, Phase.ASSEMBLING}:
+    if row(adaptation_id).phase in {*_STANDING, Phase.ASSEMBLING}:
         # A change after assembly: the draft no longer stands for what is decided.
         set_phase(adaptation_id, Phase.REVIEWING)
         _changed(adaptation_id)
@@ -286,7 +312,7 @@ def act_all(adaptation_id: str, commands: list[Command]) -> dict[str, int]:
     each command's item reached, so a chat card can name the value it shows (review I4)."""
     try:
         with db.transaction() as session:
-            lock(session, adaptation_id)
+            _still_open(lock(session, adaptation_id))
             before = load(adaptation_id)
             after = before
             for command in commands:
@@ -367,7 +393,7 @@ def _changed(adaptation_id: str) -> None:
         post_message(dependant, role="engine", content=coded(
             "MF0513", f"it depends on adaptation {adaptation_id}, which changed; the items "
             "using its vocabulary re-opened"))
-        if row(dependant).phase in _ASSEMBLED:
+        if row(dependant).phase in _STANDING:
             set_phase(dependant, Phase.REVIEWING)
             _changed(dependant)
 
@@ -434,6 +460,7 @@ def assemble(adaptation_id: str) -> AssemblyView:
     `assembling`**: a failure the draft is to blame for re-opens that piece; any other (the
     registry has no licence text, the module left the catalogue) re-opens nothing and says so."""
     state = load(adaptation_id)
+    _still_open(row(adaptation_id))
     if not rules.ready_to_assemble(state):
         raise Refused(coded("MF0506", "every piece must be approved before assembling"))
     out = draft_dir(adaptation_id)
@@ -552,6 +579,8 @@ def read(adaptation_id: str) -> AdaptationView:
             items=[_item_view(i) for i in sorted(state.items.values(), key=lambda i: i.key)],
             tests=_test_views(session, adaptation_id),
             tests_unavailable=None if settings.wiener_url else NO_WIENER,
+            pull_request=_pull_request_view(session, adaptation_id),
+            publish_unavailable=None if publishing_token_set() else NO_TOKEN,
             messages=[MessageView(seq=m.seq, role=m.role, item=m.item, content=m.content,
                                   commands=m.commands or [], pending=m.pending, at=m.at)
                       for m in messages],
@@ -565,6 +594,16 @@ def _test_views(session, adaptation_id: str) -> list[TestRunView]:
         ForgeTestRun.adaptation == adaptation_id, ForgeTestRun.attempt == attempt)
         .order_by(ForgeTestRun.name))
     return [TestRunView(name=r.name, state=r.state, run_id=r.run_id, says=r.says) for r in found]
+
+
+def _pull_request_view(session, adaptation_id: str) -> PullRequestView | None:
+    found = session.scalar(sa.select(ForgePullRequest).where(
+        ForgePullRequest.adaptation == adaptation_id).order_by(ForgePullRequest.id.desc()).limit(1))
+    if found is None:
+        return None
+    return PullRequestView(number=found.number, url=found.url, state=found.state,
+                           checks=found.checks, says=found.says,
+                           merging=found.state == "open" and found.approved_by is not None)
 
 
 def visible_phases() -> frozenset[str]:

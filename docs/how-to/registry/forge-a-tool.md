@@ -85,9 +85,28 @@ for the draft it ran on: any later change needs the tests run again.
 Without `MENDEL_WIENER_URL` set, the page says tests cannot run, and forging still works up to
 assembly.
 
-!!! note "Not built yet"
-    Publishing a tool to `comeni-registry` by pull request (issue 366) comes next. Until then, an
-    assembled draft stays in the forge's working folder.
+## Publish it
+
+Once the tests are green, choose **Open pull request**. The forge checks out the registry's `main`,
+places the tool in the registry's layout with a changelog entry, and runs the registry's own checks
+there. If they refuse, nothing is pushed and the chat says why. Otherwise it opens a pull request
+whose description records who decided each item and which runs passed.
+
+One forge pull request is open at a time, so the next tool waits until this one merges. A draft adds
+files: if it would change a file other tools share, publishing names that file and stops, and that
+change is made by hand in `comeni-registry`.
+
+**Approve pull request** merges it, and is available only while registry CI is green. The forge
+reads the checks again before merging, and merges exactly the commit it read. The catalogue shows
+the tool as *in review*, then *merged, not released*.
+
+To change a tool in review, change the adaptation, assemble and test it again, and open the pull
+request again: the old one closes. A merged adaptation is finished; re-forge the tool to change it.
+
+Publishing needs `COMENI_FORGE_GITHUB_TOKEN`, set in `.env` as a deploy secret and held only by the
+worker. Without it the page says so, and forging and tests still work. Give it write access to that
+repository's contents and pull requests, and nothing else. `MENDEL_REGISTRY_REPO` points the forge
+at a different repository, such as a test one.
 
 ## Forge tools that build on each other
 

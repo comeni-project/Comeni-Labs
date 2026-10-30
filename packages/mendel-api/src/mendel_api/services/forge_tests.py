@@ -209,7 +209,7 @@ def conclude(adaptation_id: str) -> None:
 def proven(adaptation_id: str) -> bool:
     """Whether the draft on disk is the one its latest tests passed on: what publishing asks."""
     runs = latest(adaptation_id)
-    if not runs or forging.row(adaptation_id).phase != Phase.TESTED:
+    if not runs or forging.row(adaptation_id).phase not in {Phase.TESTED, Phase.PUBLISHING}:
         return False
     drafted = digest(forging.draft_dir(adaptation_id))
     return all(r.state == "passed" and r.digest == drafted for r in runs)

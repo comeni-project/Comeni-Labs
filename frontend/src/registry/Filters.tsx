@@ -1,6 +1,6 @@
 import type { CataloguePage } from "./useCatalogue";
 import { useFilters } from "./useCatalogue";
-import { PLACEHOLDER_NOTE, STATES } from "./states";
+import { STATES } from "./states";
 
 const SHOWN_TOPICS = 7;
 const SHOWN_FORMATS = ["fastq", "fasta", "bam", "vcf", "bed", "tif", "mzml"];
@@ -23,9 +23,8 @@ export function Filters({ counts }: { counts: CataloguePage["counts"] }) {
       <fieldset className="border-0 m-0 p-0 flex flex-col gap-[2px]">
         <legend className={legend}>In the registry</legend>
         <StateOption label="All modules" value="" n={total} />
-        {STATES.map(({ state, label, placeholder }) => (
-          <StateOption key={state} label={label} value={state} n={counts.states[state] ?? 0}
-                       note={placeholder ? PLACEHOLDER_NOTE : undefined} />
+        {STATES.map(({ state, label }) => (
+          <StateOption key={state} label={label} value={state} n={counts.states[state] ?? 0} />
         ))}
       </fieldset>
 
@@ -72,16 +71,15 @@ export function Filters({ counts }: { counts: CataloguePage["counts"] }) {
   );
 }
 
-function StateOption({ label, value, n, note }: { label: string; value: string; n: number; note?: string }) {
+function StateOption({ label, value, n }: { label: string; value: string; n: number }) {
   const filters = useFilters();
   const chosen = filters.state === value;
   return (
-    <label className={`flex flex-wrap items-center gap-x-[9px] px-2 py-[6px] rounded-control ${
-      note ? "text-ink-3" : "cursor-pointer"} ${chosen ? "bg-now-soft text-ink" : ""}`}>
-      <input type="radio" name="state" className="accent-action" checked={chosen} disabled={!!note}
+    <label className={`flex flex-wrap items-center gap-x-[9px] px-2 py-[6px] rounded-control cursor-pointer ${
+      chosen ? "bg-now-soft text-ink" : ""}`}>
+      <input type="radio" name="state" className="accent-action" checked={chosen}
              onChange={() => filters.set("state", value ? [value] : [])} />
       {label}<span className={count}>{n.toLocaleString("en")}</span>
-      {note && <span className="basis-full pl-[22px] text-[11.5px] text-ink-3">{note}</span>}
     </label>
   );
 }

@@ -45,7 +45,17 @@ export function useForgeActions(id: string) {
     onSuccess: (view) => client.setQueryData(["adaptation", id], view),
     onError: refresh,
   });
-  return { command, draft, say, assemble, runTests };
+  const publish = useMutation({
+    mutationFn: () => post<AdaptationView>(`/forge/adaptations/${id}/publish`, {}),
+    onSuccess: (view) => client.setQueryData(["adaptation", id], view),
+    onError: refresh,
+  });
+  const approve = useMutation({
+    mutationFn: () => post<AdaptationView>(`/forge/adaptations/${id}/approve`, {}),
+    onSuccess: (view) => client.setQueryData(["adaptation", id], view),
+    onError: refresh,
+  });
+  return { command, draft, say, assemble, runTests, publish, approve };
 }
 
 /** Starting a forge from the catalogue. */

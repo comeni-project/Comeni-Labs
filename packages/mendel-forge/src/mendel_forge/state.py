@@ -21,9 +21,9 @@ class State(StrEnum):
     UNKNOWN = "unknown"
     GONE = "gone_upstream"
     IN_REVIEW = "in_review"
-    """Placeholder until pull requests (part 4): never returned yet."""
+    """A forge pull request is open for it."""
     MERGED = "merged_not_released"
-    """Placeholder until pull requests (part 4): never returned yet."""
+    """Merged into the registry, and not in the release this installation loads."""
 
 
 BEST_ORDER: tuple[State, ...] = (

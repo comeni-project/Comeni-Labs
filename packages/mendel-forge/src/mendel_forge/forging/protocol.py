@@ -18,6 +18,9 @@ class Phase(StrEnum):
     ASSEMBLED = "assembled"
     TESTING = "testing"
     TESTED = "tested"
+    PUBLISHING = "publishing"
+    IN_REVIEW = "in_review"
+    MERGED = "merged"
 
 
 class Event(StrEnum):
@@ -27,6 +30,7 @@ class Event(StrEnum):
     DONE = "done"
     REOPEN = "reopen"
     TEST = "test"
+    PUBLISH = "publish"
 
 
 class Command(StrEnum):
@@ -36,6 +40,10 @@ class Command(StrEnum):
     ASSEMBLE = "assemble"
     REOPEN = "reopen"
     TEST = "test"
+    PUBLISH = "publish"
+    APPROVE = "approve"
+    CLOSED = "closed"
+    """Closed on GitHub: a person's act, seen by the cron."""
 
 
 def _node(id: str, actor: Actor, label: str, phase: Phase, **kw) -> Node:
@@ -68,6 +76,12 @@ FORGING = Protocol(
               shape=Shape.GATE),
         _node("tested", Actor.YOU, "Green: it runs, and every declared output exists",
               Phase.TESTED, waits=True, shape=Shape.ROUND),
+        _node("publishing", Actor.ENGINE, "The registry's checks; push and open",
+              Phase.PUBLISHING, acts=True, shape=Shape.GATE),
+        _node("in_review", Actor.YOU, "A pull request, waiting for green CI and your approval",
+              Phase.IN_REVIEW, waits=True),
+        _node("merged", Actor.ENGINE, "In comeni-registry, not yet released", Phase.MERGED,
+              shape=Shape.ROUND),
     ),
     edges=(
         _edge("ask", "review", "asked", Event.REVIEW),
@@ -82,5 +96,11 @@ FORGING = Protocol(
         _edge("testing", "assembled", "failed", Event.REVIEW, "says what failed"),
         _edge("testing", "review", "changed", Event.REOPEN, "a command landed"),
         _edge("tested", "review", Command.REOPEN, Event.REOPEN, "change something"),
+        _edge("tested", "publishing", Command.PUBLISH, Event.PUBLISH, "open pull request"),
+        _edge("publishing", "in_review", "opened", Event.DONE),
+        _edge("publishing", "tested", "failed", Event.REVIEW, "says what refused it"),
+        _edge("in_review", "merged", Command.APPROVE, Event.DONE, "CI green: approve"),
+        _edge("in_review", "tested", Command.CLOSED, Event.REVIEW, "closed on GitHub"),
+        _edge("in_review", "review", Command.REOPEN, Event.REOPEN, "change something"),
     ),
 )
