@@ -2230,6 +2230,31 @@ MF0504:
   explanation: |
     The tool page describes what the registry the builder loads holds. An id it does not hold
     may be a tool not imported yet, or one at a different version.
+MF0505:
+  emitted_by: forge
+  concern: catalogue
+  says: "only a person decides: the AI may propose, not approve"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Approve, change, reject or remove the item yourself. The AI's revise, add and
+    propose-removal moves wait for that decision.
+  explanation: |
+    A model's contribution stays visible and reviewable: the AI may propose writing, changing
+    or removing anything, and nothing it proposes counts until a person approves it.
+MF0506:
+  emitted_by: forge
+  concern: catalogue
+  says: "that move is not open here"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message says why: a piece later than the first unfinished one, an item that changed
+    since you looked (reload and decide on the current revision), or a move its state does not
+    allow. Do the earlier piece first, or act on the current revision.
+  explanation: |
+    Forging goes piece by piece, and every decision names the revision it was made against, so
+    two people (or two tabs) never silently overwrite each other.
 MV0001:
   emitted_by: vendor
   concern: vendoring

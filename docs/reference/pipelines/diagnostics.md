@@ -252,3 +252,5 @@ decline to curate one.
 | `MF0502` | a catalogue sync could not be queued |
 | `MF0503` | no module at that path in the catalogue |
 | `MF0504` | no tool with that id in the registry |
+| `MF0505` | only a person decides: the AI may propose, not approve |
+| `MF0506` | that move is not open here |

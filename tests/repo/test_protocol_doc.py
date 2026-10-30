@@ -68,8 +68,9 @@ def test_a_hand_written_page_is_never_deleted(tmp_path, monkeypatch):
 
 
 def test_one_diagram_with_sections():
-    """14.7.8.1: the sample's inside is a section of the one diagram, not a page of its own."""
+    """14.7.8.1: the sample's inside is a section of the one diagram, not a page of its own.
+    One page per declared flow: the builder's, and the forge's (#364)."""
     pages = _generator().pages()
-    assert set(pages) == {"authoring-protocol.md"}
+    assert set(pages) == {"authoring-protocol.md", "forging-protocol.md"}
     assert 'subgraph sample ["②a Inside: reading a sample"]' in pages["authoring-protocol.md"]
     assert "mendel_authoring/protocol.py" in pages["authoring-protocol.md"]

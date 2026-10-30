@@ -11,6 +11,7 @@ from pathlib import Path
 
 from comeni_flow.diagram import to_mermaid
 from mendel_authoring.protocol import PROTOCOL
+from mendel_forge.forging.protocol import FORGING
 
 DIAGRAMS = Path(__file__).parent.parent / "docs" / "explanation" / "diagrams"
 
@@ -34,8 +35,23 @@ def _page() -> str:
     return f"{header}\n\n{FENCE}mermaid\n{to_mermaid(PROTOCOL)}{FENCE}\n"
 
 
+def _forging_page() -> str:
+    header = "\n".join(
+        [
+            BANNER,
+            f"# {FORGING.title}",
+            "",
+            "**Generated from `mendel_forge/forging/protocol.py`**, declared on the same engine "
+            "as the builder's, so this picture is the machine. Who may do what to each item is "
+            "in `mendel_forge/forging/rules.py`; the design is "
+            "[forge MVP 3](../../superpowers/specs/2026-10-30-forge-3-forging-design.md).",
+        ]
+    )
+    return f"{header}\n\n{FENCE}mermaid\n{to_mermaid(FORGING)}{FENCE}\n"
+
+
 def pages() -> dict[str, str]:
-    return {f"{PROTOCOL.slug}.md": _page()}
+    return {f"{PROTOCOL.slug}.md": _page(), f"{FORGING.slug}.md": _forging_page()}
 
 
 def main(argv: list[str] | None = None) -> int:
