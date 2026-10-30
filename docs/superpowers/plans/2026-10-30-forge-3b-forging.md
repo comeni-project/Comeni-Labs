@@ -69,10 +69,10 @@ new artboards beside `Forge.dc.html`, each a variant of board 3 in its identity:
 - `ForgeList.dc.html` — the Forging tab: open adaptations, progress, phase, *drafting…*.
 - `Forge390.dc.html` — the page at 390 px (pieces as a stepper, chat below).
 
-- [ ] **Step 1:** Read the canvas index and `Forge.dc.html`; draw the artboards above with the
+- [x] **Step 1:** Read the canvas index and `Forge.dc.html`; draw the artboards above with the
   same header, sub-tabs, tokens and fonts; publish to the canvas.
-- [ ] **Step 2: Stop and ask the operator to look.** Record their changes; redraw once.
-- [ ] **Step 3:** Note the agreed boards in the spec's §7 (one line each) and commit.
+- [x] **Step 2: Stop and ask the operator to look.** Record their changes; redraw once.
+- [x] **Step 3:** Note the agreed boards in the spec's §7 (one line each) and commit.
 
 ### Task 2: the forging model and its rules (pure)
 

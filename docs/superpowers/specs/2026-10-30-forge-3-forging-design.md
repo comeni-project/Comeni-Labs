@@ -246,6 +246,12 @@ progress are never visible to another adaptation.
   yet), the current piece's items in the middle with value, route, reason and who proposed it,
   **Approve / Change / Reject** and **Approve the rest**, the chat on the right, "N of M
   approved" in the header. When assembled: the files and the load/conformance result.
+- **Boards agreed (2026-10-30)** on the canvas, beside board 3: `ForgeStart` (who drafts),
+  `ForgeQuestions`, `ForgeReject` (the chat opened on a rejected item), `ForgeChat` (the AI's
+  revise / add / propose-removal cards), `ForgeAssembled`, `ForgeList` (the Forging tab),
+  `Forge390`. **The Rules panel needs more design work** *(operator: "the rules page could use
+  some work … we need to refine rules a little")*; it is built as drawn now, because of the
+  deadline, and refined in a follow-up.
 - **Wording** *(operator: GitHub numbering)*: the disabled actions MVP 1 drew say *Tests come in
   MVP 4*, *Pull requests come in MVP 5*, *Releases come in MVP 6*.
 
