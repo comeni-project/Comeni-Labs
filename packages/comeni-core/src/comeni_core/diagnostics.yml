@@ -2411,6 +2411,18 @@ MF0518:
   explanation: |
     Approve merges only when CI is green. The server reads the checks again at the click and merges
     exactly the commit it read.
+MF0519:
+  emitted_by: api
+  concern: catalogue
+  says: "the release cannot be cut"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message says why: the version is not vMAJOR.MINOR.PATCH or not newer than the last, main has
+    not moved, CI on main is not green, or a release is already being cut.
+  explanation: |
+    A release is what installations following `latest` move to, so it is cut only from a green main,
+    and tags exactly the commit whose checks were read.
 MV0001:
   emitted_by: vendor
   concern: vendoring

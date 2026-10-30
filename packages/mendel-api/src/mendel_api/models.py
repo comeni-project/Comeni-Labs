@@ -845,6 +845,24 @@ class ForgePullRequest(Base):
                             postgresql_where=text("state = 'open'")),)
 
 
+class ForgeRelease(Base):
+    """A registry release a person cut here. **One is being cut at a time**, enforced here."""
+
+    __tablename__ = "forge_release"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[str] = mapped_column(String(32), unique=True)
+    notes: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(16))
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
+    commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cut_by: Mapped[str] = mapped_column(String(128))
+    cut_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_forge_release_one_cutting", "state", unique=True,
+                            postgresql_where=text("state = 'cutting'")),)
+
+
 class ForgeMessage(Base):
     """The chat beside an adaptation: the person's messages, the AI's replies and the engine's
     notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""

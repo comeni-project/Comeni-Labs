@@ -20,6 +20,7 @@ from mendel_forge.publishing import (
     RegistryPublisher,
     checks_of,
 )
+from mendel_forge.releases import Release
 
 from mendel_api.settings import settings
 
@@ -111,6 +112,11 @@ class GitHubPublisher:
 
     def close(self, number: int) -> None:
         self._call("PATCH", f"/repos/{self.repo}/pulls/{number}", json={"state": "closed"})
+
+    def cut_release(self, version: str, notes: str, commit: str) -> Release:
+        done = self._call("POST", f"/repos/{self.repo}/releases", json={
+            "tag_name": version, "target_commitish": commit, "name": version, "body": notes})
+        return Release(tag=done["tag_name"], notes=done.get("body") or "")
 
 
 def publisher() -> RegistryPublisher | None:

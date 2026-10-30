@@ -23,6 +23,7 @@ from mendel_compiler.cli import layer_verbs
 from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict
 
+from mendel_forge.releases import Release
 
 GITHUB_API = "https://api.github.com"
 
@@ -83,6 +84,10 @@ class RegistryPublisher(Protocol):
         ...
 
     def close(self, number: int) -> None:
+        ...
+
+    def cut_release(self, version: str, notes: str, commit: str) -> Release:
+        """Tag `commit` as `version` and publish its GitHub release."""
         ...
 
 

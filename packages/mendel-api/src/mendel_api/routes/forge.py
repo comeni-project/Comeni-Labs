@@ -14,7 +14,13 @@ from pydantic import BaseModel
 from mendel_api import jobs
 from mendel_api.identity import default_author
 from mendel_api.refusals import REFUSES, Refusal
-from mendel_api.services import catalogue, forge_publish, forge_tests, forging
+from mendel_api.services import (
+    catalogue,
+    forge_publish,
+    forge_releases,
+    forge_tests,
+    forging,
+)
 from mendel_api.services.catalogue import CataloguePage, ModuleDetail, Sort
 
 router = APIRouter(prefix="/forge", tags=["forge"])
@@ -240,6 +246,29 @@ async def approve_adaptation(adaptation_id: str) -> forging.AdaptationView:
         return await forge_publish.approve(adaptation_id, default_author())
     except KeyError:
         raise _unknown(adaptation_id) from None
+
+
+class ReleaseBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    version: str
+    notes: str
+
+
+@router.get("/releases", operation_id="readReleases", summary="What is unreleased, and releases")
+def read_releases() -> forge_releases.ReleasesPage:
+    return forge_releases.overview()
+
+
+@router.post(
+    "/releases",
+    operation_id="cutRelease",
+    summary="Tag and publish a registry release; refused unless main is green",
+    status_code=202,
+    responses=REFUSES,
+)
+async def cut_release(body: ReleaseBody) -> forge_releases.ReleasesPage:
+    return await forge_releases.start(body.version, body.notes, default_author())
 
 
 @router.delete(

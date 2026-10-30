@@ -14,6 +14,7 @@ from arq.worker import func
 from mendel_api.services import (
     catalogue,
     forge_publish,
+    forge_releases,
     forge_tests,
     registry_releases,
     retention,
@@ -77,6 +78,10 @@ async def poll_forge_pull_requests(ctx: dict) -> int:
     return await asyncio.to_thread(forge_publish.poll)
 
 
+async def cut_forge_release(ctx: dict, version: str) -> None:
+    await asyncio.to_thread(forge_releases.cut, version)
+
+
 async def follow_registry_releases(ctx: dict) -> str:
     """Fetch what the installation wants, and switch to it if it loads."""
     return await asyncio.to_thread(registry_releases.follow) or ""
@@ -97,6 +102,7 @@ class WorkerSettings:
         func(publish_forge_tool, timeout=900, max_tries=1, keep_result=0),
         func(merge_forge_tool, timeout=120, max_tries=1, keep_result=0),
         poll_forge_pull_requests,
+        func(cut_forge_release, timeout=120, max_tries=1, keep_result=0),
         func(follow_registry_releases, timeout=900, max_tries=1),
     ]
     """**Everything that is not a model call.** The split from `AIWorkerSettings` is about

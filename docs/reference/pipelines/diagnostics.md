@@ -267,3 +267,4 @@ decline to curate one.
 | `MF0516` | publishing is unavailable: this installation has no GitHub token |
 | `MF0517` | the draft cannot be published: the registry's own checks refuse it |
 | `MF0518` | the pull request cannot be merged: registry CI is not green |
+| `MF0519` | the release cannot be cut |
