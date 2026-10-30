@@ -184,6 +184,12 @@ or a complete commit history.
 
 #### Added
 
+- Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): `/forge/adaptations` — start (or re-forge), read, a person's
+  commands (each against the revision it acts on), the chat, asking the AI to draft, assembling,
+  abandoning. Tables `forge_adaptation`, `forge_item`, `forge_revision`, `forge_message`. Model
+  calls cross a new declared boundary, `forge_drafting`, carrying public module files and
+  registry ids only. Pending vocabulary lets later adaptations use assembled ones'. Codes
+  `MF0510`, `MF0513`.
 - The forge's catalogue ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): `GET /forge/catalogue` lists every nf-core module
   with its state against the loaded registry (imported, update available, unknown version,
   gone upstream, not imported), filtered by state, topic, format and source, searched and
@@ -291,6 +297,13 @@ or a complete commit history.
 
 #### Added
 
+- Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): an adaptation's pieces (questions, contract, parameters,
+  vocabulary, rules) as items with append-only revisions; the AI (or the registry, on a
+  re-forge) proposes and only a person decides; pieces go in order and a change re-opens what
+  depends on it. Item values are the registry's own models; replies are checked against the
+  registry and `main.nf`; approved items assemble into a draft layer proven with the builder's
+  loader and conformance. The flow is declared on `comeni-flow`. Codes `MF0505`–`MF0509`,
+  `MF0511`–`MF0512`.
 - The new forge's first part ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): the `CatalogueSource` interface and
   `NfCoreSource`, which keeps a blobless clone of `nf-core/modules`; a parser that reads
   everything a module declares (`meta.yml`, `environment.yml`, `main.nf`, its nf-tests); topics
@@ -347,6 +360,9 @@ or a complete commit history.
 
 #### Added
 
+- Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): the Forging tab, an adaptation's page (pieces, items with Approve,
+  Change and Reject, *Draft with the AI* or *Write it myself*), the chat with the AI's proposal
+  cards, and assembling. *Forge* on the catalogue and *Re-forge* on a tool page start one.
 - **The Registry tab** ([#362](https://github.com/comeni-project/Comeni-Labs/issues/362)): the module catalogue (board 1) with filters, search,
   sort and *Sync now*, and an imported tool's page (board 2). Forging, tests and releases are
   drawn and disabled until the parts that bring them.

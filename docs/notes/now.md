@@ -99,10 +99,10 @@ history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
 
 ## The forge (where declared data comes from)
 
-- **Part 1 (#362, with #363's tool page) is on `forge-1-catalogue`**: `/registry` lists nf-core
-  against the loaded registry; `/registry/tools/<id>`. A module needs a contract (`MD0025`,
-  #410, comeni-registry#22). Next: forging #364, tests #365, pull requests #366, releases #367
-  (+ #381). Design: `docs/superpowers/specs/2026-10-19-forge-mvp-design.md`. (2026-10-29)
+- **MVPs 1–2 merged (#411); MVP 3, forging (#364), is on `forge-3-forging`**: the engine moved
+  to `comeni-flow`; adaptations, the AI drafting and chat (door `forge_drafting`), assembly into
+  a draft layer. Next: tests #365, pull requests #366, releases #367 (+ #381); the Rules panel
+  needs design work. Design: `docs/superpowers/specs/2026-10-30-forge-3-forging-design.md`. (10-30)
 
 ## Wiener (run → watch)
 

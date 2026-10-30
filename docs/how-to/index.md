@@ -24,6 +24,7 @@ start with the [pipeline tutorial](../tutorials/first-pipeline.md).
 | Task | Guide |
 |---|---|
 | See which nf-core modules the registry holds | [Browse the module catalogue](registry/browse-catalogue.md) |
+| Turn an nf-core module into registry files | [Forge a tool](registry/forge-a-tool.md) |
 | Bind a tool to its module | [Writing a contract](registry/add-tool.md) |
 | Use data to choose a tool or setting | [Writing a rule](registry/write-rule.md) |
 | Supply private tools and lab conventions | [Your lab's own layer](registry/add-layer.md) |

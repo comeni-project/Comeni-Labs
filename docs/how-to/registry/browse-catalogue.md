@@ -54,10 +54,10 @@ tool:
 - nf-core's current description and version of the module.
 
 !!! note "Not built yet"
-    Forging a module into the registry (issue 364) and adding tests to a tool (issue 365) are drawn on
-    these pages but cannot be used yet. Until they can, a tool is added by hand.
+    Adding tests to a tool (issue 365) is drawn on the tool page but cannot be used yet.
 
-To add a tool by hand, follow [Writing a contract](add-tool.md).
+To bring a module in, [forge it](forge-a-tool.md); to write a contract entirely by hand, follow
+[Writing a contract](add-tool.md).
 
 ## Keep the catalogue current
 
