@@ -67,10 +67,27 @@ draft layer and checks them with the builder's own code:
 If a check fails, the message says why and the piece it blames re-opens. Nothing is written
 into the registry.
 
+## Run its tests
+
+The last piece, **Tests**, says what a tool runs on and what must come out. The AI drafts it from
+nf-core's own test, or you write it. A test's inputs are files in nf-core's public `test-datasets`,
+pinned to a commit, and every output is either expected by a file pattern or given a reason it
+cannot be. A tool needs at least one test.
+
+Once assembled, choose **Run its tests**. Each test runs in Wiener as a small pipeline of this tool
+alone, so it shows on the runs board like any other run. A failed test says what was missing and
+links to its run; change what is wrong, assemble again and run them again.
+
+**Green** means each run succeeded and every declared output exists. It shows the tool runs through
+Comeni's wiring and settings. It does not show that its results are correct, and it counts only
+for the draft it ran on: any later change needs the tests run again.
+
+Without `MENDEL_WIENER_URL` set, the page says tests cannot run, and forging still works up to
+assembly.
+
 !!! note "Not built yet"
-    Running a forged tool's tests (issue 365) and publishing it to `comeni-registry` by pull
-    request (issue 366) come next. Until then, an assembled draft stays in the forge's working
-    folder.
+    Publishing a tool to `comeni-registry` by pull request (issue 366) comes next. Until then, an
+    assembled draft stays in the forge's working folder.
 
 ## Forge tools that build on each other
 

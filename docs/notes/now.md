@@ -99,10 +99,10 @@ history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
 
 ## The forge (where declared data comes from)
 
-- **MVPs 1–2 merged (#411); MVP 3, forging (#364), is on `forge-3-forging`**: the engine moved
-  to `comeni-flow`; adaptations, the AI drafting and chat (door `forge_drafting`), assembly into
-  a draft layer. Next: tests #365, pull requests #366, releases #367 (+ #381); the Rules panel
-  needs design work. Design: `docs/superpowers/specs/2026-10-30-forge-3-forging-design.md`. (10-30)
+- **MVPs 1–2 merged (#411). MVP 3 (#364) is on `forge-3-forging`, MVP 4 (#365) on `forge-4-tests`
+  above it, neither pushed.** #365 stays open: tests for the ten tools, and no real Wiener run yet
+  (#412). Next: #366, #367 (+ #381). Compare the pages with boards 4–6, unread; the Rules panel
+  needs design. Details: the [journal](journal/2026-10-30-forge-4-tests.md). (10-30)
 
 ## Wiener (run → watch)
 

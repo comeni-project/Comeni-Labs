@@ -28,6 +28,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- `declares: test`: a tool's tests, beside it (`ToolTest`), naming files inside nf-core's
+  `test-datasets`, never URLs ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)). An
+  older engine refuses a layer holding one.
 #### Added
 
 - A goal's constraints carry a person's structural intent: `absent_roles`, `exclusions` and
@@ -184,6 +187,11 @@ or a complete commit history.
 
 #### Added
 
+- Forge tests ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)):
+  `POST /forge/adaptations/{id}/tests` runs an assembled draft's tests as Wiener runs from a worker
+  job, read by a 30-second cron and stored in `forge_test_run`. Green counts only for the draft it
+  ran on. New `MENDEL_WIENER_URL` and, on the worker only, `MENDEL_WIENER_TOKEN`; `httpx` becomes a
+  runtime dependency.
 - Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): `/forge/adaptations` — start (or re-forge), read, a person's
   commands (each against the revision it acts on), the chat, asking the AI to draft, assembling,
   abandoning. Tables `forge_adaptation`, `forge_item`, `forge_revision`, `forge_message`. Model
@@ -295,6 +303,9 @@ or a complete commit history.
 
 ### mendel-forge
 
+- A sixth forging piece, Tests, with `build_test_pipeline`, which builds a test directly so routing
+  cannot choose another tool, and the narrow `TestRunner` interface
+  ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)).
 #### Added
 
 - Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): an adaptation's pieces (questions, contract, parameters,

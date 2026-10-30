@@ -88,6 +88,12 @@ subprocess launch and process timeout in `mendel_api/services/inspect.py`.
 | `wiener_api/services/` | Artifact storage, process launch, projections, live streams, telemetry export, retention, deletion and execution verbs. |
 | Wiener root modules and migrations | Database models/repository/query shapes, settings, Redis jobs, app factories and worker composition. Wiener alone owns its schema and Alembic history. |
 
+**Mendel does not run a laboratory's pipeline.** The browser carries a kept pipeline from Mendel to
+Wiener, so Mendel never holds a samplesheet. There is one exception, decided on 2026-10-30
+(#365): the forge's test job calls Wiener through a narrow `TestRunner`, because a forge test
+carries only a generated pipeline and public test data, and publishing needs a result the server
+checked itself. Only that job holds the runner, and `tests/guards/test_forge_runner.py` says so.
+
 The frontend owns browser navigation, rendering and interaction state. Its Mendel and Wiener
 clients use separate API surfaces; generated schema types are outputs of those interfaces.
 Shared visual tokens do not justify sharing backend database tables. See the
