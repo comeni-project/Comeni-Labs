@@ -72,21 +72,21 @@ it("selecting a row fills the panel and links an imported tool", async () => {
   expect(link.getAttribute("href")).toBe("/registry/tools/nf-core/star/align@2.7.11b");
 });
 
-it("not imported shows a disabled forge action saying part 2", async () => {
-  at();
+it("not imported offers Forge, which starts an adaptation", async () => {
+  const fetch = at();
   fireEvent.click(await screen.findByRole("row", { name: /quast/ }));
   const panel = screen.getByRole("complementary", { name: "Selected module" });
-  const button = within(panel).getByRole("button", { name: "Forge quast" });
-  expect((button as HTMLButtonElement).disabled).toBe(true);
-  expect(within(panel).getByText(/Forging comes in part 2/)).toBeTruthy();
+  fireEvent.click(within(panel).getByRole("button", { name: "Forge quast" }));
+  await vi.waitFor(() => expect(fetch.mock.calls.some(([url, init]) =>
+    String(url).endsWith("/forge/adaptations") && init?.method === "POST")).toBe(true));
 });
 
-it("pull request states show 0 and the part 4 note", async () => {
+it("pull request states show 0 and the MVP 5 note", async () => {
   at();
   const filters = await screen.findByRole("group", { name: "In the registry" });
   const review = within(filters).getByLabelText(/In review/) as HTMLInputElement;
   expect(review.disabled).toBe(true);
-  expect(within(filters).getAllByText(/Arrives with pull requests \(part 4\)/).length).toBe(2);
+  expect(within(filters).getAllByText(/Arrives with pull requests \(MVP 5\)/).length).toBe(2);
 });
 
 it("before any sync it offers Sync now", async () => {

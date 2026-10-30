@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
+import { useStartForge } from "./forging/useForgeActions";
 import { RegistryTabs } from "./RegistryTabs";
 import { colourOf, labelOf, StateIcon } from "./states";
 
@@ -76,7 +77,7 @@ function Body({ tool, path }: { tool: ModulePage; path: string }) {
               </p>
               <span className="flex flex-col items-end gap-1">
                 <button type="button" disabled className="px-4 py-[9px] rounded-control border border-line-2 bg-surface-2 text-ink-3 cursor-not-allowed">Add tests</button>
-                <span className="text-[12px] text-ink-3">Tests come in part 3.</span>
+                <span className="text-[12px] text-ink-3">Tests come in MVP 4.</span>
               </span>
             </div>
           </section>
@@ -89,11 +90,28 @@ function Body({ tool, path }: { tool: ModulePage; path: string }) {
             <p className="m-0 mb-[14px] text-[13px] text-ink-2 leading-[1.5]">
               Re-forging opens a pull request that replaces this tool.
             </p>
-            <button type="button" disabled className="px-4 py-[9px] rounded-control border border-line-2 bg-surface-2 text-ink-3 cursor-not-allowed">Re-forge</button>
-            <p className="m-0 mt-1 text-[12px] text-ink-3">Forging comes in part 2.</p>
+            <Reforge tool={tool} />
           </div>
         </aside>
       </div>
+    </>
+  );
+}
+
+function Reforge({ tool }: { tool: ModulePage }) {
+  const start = useStartForge();
+  const navigate = useNavigate();
+  const path = tool.upstream?.path.replace(/^modules\/nf-core\//, "");
+  if (!path) return <p className="m-0 text-[12px] text-ink-3">Not from nf-core, so it cannot be re-forged here.</p>;
+  return (
+    <>
+      <button type="button" disabled={start.isPending}
+              onClick={() => start.mutate({ source: "nf-core", path, reforge: tool.id },
+                                          { onSuccess: (view) => navigate(`/registry/forging/${view.id}`) })}
+              className="px-4 py-[9px] rounded-control border border-line-2 bg-surface font-medium">
+        Re-forge
+      </button>
+      {start.isError && <Failed error={start.error} padded={false} />}
     </>
   );
 }

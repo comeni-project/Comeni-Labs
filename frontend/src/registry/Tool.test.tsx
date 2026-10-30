@@ -80,13 +80,12 @@ it("update available shows both versions", async () => {
   expect(within(nfcore).getByText(/2\.7\.11b/)).toBeTruthy();
 });
 
-it("re-forge and add tests are disabled with their part", async () => {
+it("re-forge is offered, and add tests is disabled with its MVP", async () => {
   at({ ok: true, body: PAGE });
   const reforge = await screen.findByRole("button", { name: "Re-forge" });
-  expect((reforge as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByText(/Forging comes in part 2/)).toBeTruthy();
+  expect((reforge as HTMLButtonElement).disabled).toBe(false);
   expect((screen.getByRole("button", { name: "Add tests" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByText(/Tests come in part 3/)).toBeTruthy();
+  expect(screen.getByText(/Tests come in MVP 4/)).toBeTruthy();
 });
 
 it("an unknown id shows the MF0504 refusal", async () => {

@@ -15,7 +15,7 @@ export const STATES: { state: State; label: string; colour: string; placeholder?
     placeholder: true },
 ];
 
-export const PLACEHOLDER_NOTE = "Arrives with pull requests (part 4)";
+export const PLACEHOLDER_NOTE = "Arrives with pull requests (MVP 5)";
 
 export function labelOf(state: State): string {
   return STATES.find((s) => s.state === state)?.label ?? state;
