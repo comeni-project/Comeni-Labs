@@ -27,7 +27,6 @@ from comeni_core.egress.forge import (
     ModuleFacts,
 )
 from comeni_flow.interpret import Refused
-from comeni_vendor.ops import PREFIX
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_forge.forging import rules
 from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
@@ -40,7 +39,7 @@ from mendel_api import db
 from mendel_api.invocations import Agent, InvocationPurpose, InvocationState
 from mendel_api.models import AiInvocation, ForgeAdaptation
 from mendel_api.services import forging, registry
-from mendel_api.settings import model_access, settings
+from mendel_api.settings import model_access
 
 PROMPTS = Path(__file__).parent.parent / "forge" / "prompts"
 CHAT_TAIL = 12
@@ -59,11 +58,6 @@ def _client(purpose: InvocationPurpose) -> Client | None:
     return Client(access) if access is not None else None
 
 
-def module_folder(source: str, path: str) -> Path:
-    """The module's files in the catalogue's clone."""
-    return settings.forge_cache / "nf-core-modules" / PREFIX[source] / path
-
-
 # ── the door payload ──────────────────────────────────────────────────────────────────────────
 
 
@@ -73,7 +67,7 @@ def _known(adaptation: ForgeAdaptation) -> Known:
 
 def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt: str,
             turns: list[tuple[str, str]] = ()) -> ForgeRequest:
-    folder = module_folder(adaptation.source, adaptation.path)
+    folder = forging.module_folder(adaptation.source, adaptation.path)
     seen = _known(adaptation)
     return ForgeRequest(
         prompt=prompt,
@@ -166,7 +160,7 @@ def _item_problems(items: dict[str, JsonValue], state: Adaptation, adaptation: F
         return problems
     merged = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
     merged.update({k: v for k, v in items.items() if moves.get(k) is not Move.PROPOSE_REMOVAL})
-    folder = module_folder(adaptation.source, adaptation.path)
+    folder = forging.module_folder(adaptation.source, adaptation.path)
     spec = ModuleSpec.parse(folder / "main.nf")
     return [f"{p.code}: {p.says}" for p in check_items(merged, _known(adaptation), spec)]
 

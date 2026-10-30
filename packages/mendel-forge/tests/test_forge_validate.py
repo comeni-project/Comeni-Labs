@@ -72,3 +72,9 @@ def test_a_param_routed_nowhere_is_MF0509(stack, star_items):
     items = {**star_items, "parameters:param:loose": {"position": 9, "name": "loose",
                                                       "via": "ext", "default": 1}}
     assert _codes(check_items(items, known(stack), ModuleSpec.parse(STAR_NF))) == ["MF0509"]
+
+
+def test_a_port_whose_name_differs_from_its_key_is_MF0508(stack, star_items):
+    items = {**star_items, "contract:output:bam": {**star_items["contract:output:bam"],
+                                                   "name": "bamm"}}
+    assert _codes(check_items(items, known(stack), ModuleSpec.parse(STAR_NF))) == ["MF0508"]

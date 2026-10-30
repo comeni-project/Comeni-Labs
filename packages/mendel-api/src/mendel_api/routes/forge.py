@@ -187,6 +187,19 @@ async def draft_adaptation_piece(adaptation_id: str, body: DraftBody) -> SyncQue
         raise _unknown(adaptation_id) from None
 
 
+@router.post(
+    "/adaptations/{adaptation_id}/assemble",
+    operation_id="assembleAdaptation",
+    summary="Write the draft layer and prove it loads and conforms",
+    responses=REFUSES,
+)
+def assemble_adaptation(adaptation_id: str) -> forging.AssemblyView:
+    try:
+        return forging.assemble(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
 @router.delete(
     "/adaptations/{adaptation_id}",
     operation_id="abandonAdaptation",

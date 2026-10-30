@@ -100,3 +100,11 @@ def test_a_reforge_seeds_every_piece_as_proposals():
     assert next_piece(state) is Piece.QUESTIONS
     with pytest.raises(Refused, match="MF0505"):
         _do(state, Move.APPROVE, Actor.REGISTRY, "contract:input:reads", expected=1)
+
+
+def test_reopen_piece_reopens_the_blamed_piece_itself():
+    from mendel_forge.forging.rules import reopen_piece
+
+    state = reopen_piece(_contract_approved(), Piece.CONTRACT)
+    assert state.items["contract:port:consensus"].status is Status.REOPENED
+    assert state.items["questions:role"].status is Status.APPROVED

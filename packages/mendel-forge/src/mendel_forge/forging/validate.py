@@ -70,6 +70,11 @@ def check_items(
         if role not in seen.roles | seen.pending | _own(items, "role"):
             problems.append(Problem(code="MF0507", says=f"role {role!r} is not in the registry, "
                                     "pending, or proposed here"))
+    for key in sorted(k for k in items if k.startswith(("contract:input:", "contract:output:"))):
+        value = items[key] if isinstance(items[key], dict) else {}
+        if value.get("name") != key.rsplit(":", 1)[1]:
+            problems.append(Problem(code="MF0508", says=f"{key} names its port "
+                                    f"{value.get('name')!r}: a port's item and name agree"))
     inputs = {name for slot in module.inputs for name in slot.names}
     for key in sorted(k for k in items if k.startswith("contract:input:")):
         name = key.removeprefix("contract:input:")

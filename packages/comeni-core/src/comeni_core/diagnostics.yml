@@ -2300,6 +2300,31 @@ MF0510:
     and still opens by its link.
   explanation: |
     An adaptation id names one module being forged; an id that names nothing is said as such.
+MF0511:
+  emitted_by: forge
+  concern: catalogue
+  says: "the draft layer could not be written or does not load"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message names the cause and the piece it re-opens: a licence the registry has no text
+    for, or a loading refusal (an unknown type, a state no type declares, a rule that does not
+    parse). Fix that piece and assemble again.
+  explanation: |
+    A draft counts as assembled only if the builder's own loader accepts it over the registry,
+    so what MVP 5 publishes is something that already loads.
+MF0512:
+  emitted_by: forge
+  concern: catalogue
+  says: "the draft's contract does not conform to its module"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    The message quotes the conformance finding (a port main.nf lacks, inputs in the wrong
+    order, an output it does not emit). The contract re-opens; change the item it names.
+  explanation: |
+    The same conformance check a registry contract is held to, run on the draft before it is
+    called assembled.
 MV0001:
   emitted_by: vendor
   concern: vendoring

@@ -258,3 +258,5 @@ decline to curate one.
 | `MF0508` | a port the module's main.nf does not have |
 | `MF0509` | a setting is passed nowhere |
 | `MF0510` | no adaptation with that id |
+| `MF0511` | the draft layer could not be written or does not load |
+| `MF0512` | the draft's contract does not conform to its module |

@@ -131,6 +131,16 @@ def reopen(state: Adaptation, piece: Piece) -> Adaptation:
     return state.model_copy(update={"items": items})
 
 
+def reopen_piece(state: Adaptation, piece: Piece) -> Adaptation:
+    """Re-open `piece` itself and everything downstream: what an assembly failure blames."""
+    items = {
+        key: item.model_copy(update={"status": Status.REOPENED})
+        if item.piece is piece and item.status is Status.APPROVED else item
+        for key, item in state.items.items()
+    }
+    return reopen(state.model_copy(update={"items": items}), piece)
+
+
 def next_piece(state: Adaptation) -> Piece | None:
     """The first piece not finished: no items yet, or any item not approved or removed."""
     for piece in PIECES:
