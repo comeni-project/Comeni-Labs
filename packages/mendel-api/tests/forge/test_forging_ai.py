@@ -16,7 +16,7 @@ from mendel_api.services import catalogue, forging, forging_ai
 from mendel_api.settings import settings
 from mendel_api_tests.catalogue import FIXTURES, FakeSource
 from mendel_api_tests.database import reachable
-from mendel_forge.forging.model import Move, Piece
+from mendel_forge.forging.model import KEY, Move, Piece
 from pydantic import ValidationError
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
@@ -84,7 +84,7 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v1"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v2"
 
 
 def test_drafting_the_contract_stores_proposals(adaptation):
@@ -112,6 +112,37 @@ def test_an_invalid_reply_is_retried_once_then_shown_never_stored(adaptation):
     assert not [k for k in forging.load(adaptation).items if k.startswith("contract:")]
     messages = forging.read(adaptation).messages
     assert messages and messages[-1].role == "engine" and "MF0507" in messages[-1].content
+
+
+def test_a_refused_questions_draft_tells_the_retry_why(adaptation):
+    numbered = {"questions": [{**QUESTIONS["questions"][0], "key": "questions:input_type2"}]}
+    client = FakeClient(numbered, QUESTIONS)
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, client)
+    assert len(client.prompts) == 2
+    assert "input_type2" in client.prompts[1], "the retry tells the model what was wrong"
+    assert "input_type2" not in client.prompts[0]
+    assert list(forging.load(adaptation).items) == ["questions:role"]
+
+
+def test_the_questions_prompt_teaches_a_key_for_each_input_and_output(adaptation):
+    client = FakeClient(QUESTIONS)
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, client)
+    for key in ("questions:input_type:reads", "questions:output_type:bam"):
+        assert KEY.match(key)
+    assert "questions:input_type:<input>" in client.prompts[0]
+    assert "questions:output_type:<output>" in client.prompts[0]
+
+
+def test_a_refused_chat_reply_tells_the_retry_why(adaptation):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    seq = forging.post_message(adaptation, role="person", content="approve it")
+    approving = {"text": "done", "commands": [
+        {"move": "approve", "item": "questions:role", "because": "asked to"}]}
+    client = FakeClient(approving, approving)
+    forging_ai.answer_message(adaptation, seq, client)
+    assert len(client.prompts) == 2
+    assert "Your previous reply was refused" in client.prompts[1]
+    assert "Your previous reply was refused" not in client.prompts[0]
 
 
 def test_a_chat_reply_with_an_approve_is_refused(adaptation):

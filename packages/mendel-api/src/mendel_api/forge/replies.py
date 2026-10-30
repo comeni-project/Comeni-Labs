@@ -16,7 +16,7 @@ class _Reply(BaseModel):
 
 class AskedQuestion(_Reply):
     key: str
-    """`questions:<subject>`, e.g. `questions:role`."""
+    """`questions:<subject>[:<name>]`, e.g. `questions:role`, `questions:input_type:reads`."""
     asks: str
     options: list[dict]
     allows_new: bool = True

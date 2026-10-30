@@ -46,13 +46,13 @@ CHAT_TAIL = 12
 """How many messages the chat sends back: enough to follow the thread, bounded like the
 builder's."""
 
-_PURPOSE = {"forge.questions.v1": InvocationPurpose.ANALYSIS,
+_PURPOSE = {"forge.questions.v2": InvocationPurpose.ANALYSIS,
             "forge.draft.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
-            "forge.chat.v1": InvocationPurpose.CHAT}
+            "forge.chat.v2": InvocationPurpose.CHAT}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v1", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v2", Piece.TESTS: "forge.tests.v1"}
 
 
 def _client(purpose: InvocationPurpose) -> Client | None:
@@ -258,8 +258,8 @@ def answer_message(adaptation_id: str, seq: int, client: Client | None = None) -
     for _ in range(2):
         state = forging.load(adaptation_id)
         piece = rules.next_piece(state) or Piece.RULES
-        request = compose(adaptation, state, piece, prompt="forge.chat.v1", turns=turns)
-        reply, invocation = _call("forge.chat.v1", request, ChatReply, client, adaptation_id,
+        request = compose(adaptation, state, piece, prompt="forge.chat.v2", turns=turns)
+        reply, invocation = _call("forge.chat.v2", request, ChatReply, client, adaptation_id,
                                   problems)
         if reply is None:
             problems = [getattr(client, "last_refusal", None) or "the reply did not fit its shape"]

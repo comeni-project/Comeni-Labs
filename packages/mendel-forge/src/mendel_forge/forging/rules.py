@@ -43,7 +43,8 @@ def apply(state: Adaptation, command: Command) -> Adaptation:
     move, actor = command.move, command.actor
     if not KEY.match(command.item):
         raise Refused(coded("MF0506", f"{command.item!r} is not an item key: "
-                            "<piece>:<kind>[:<name>], letters, digits, '.', '_' and '-' only"))
+                            "<piece>:<kind>[:<name>]; a kind is lowercase letters and '_' only, "
+                            "a name may also hold digits, '.' and '-'"))
     if command.item == "tests:none":
         raise Refused(coded("MF0506", "a tool needs at least one test: nothing publishes untested"))
     if move in DECISIONS and actor is not Actor.PERSON:

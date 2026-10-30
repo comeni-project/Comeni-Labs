@@ -26,6 +26,11 @@ def _contract_approved() -> Adaptation:
     return _do(state, Move.APPROVE, PERSON, "contract:port:consensus", expected=1, by="rafael")
 
 
+def test_a_refused_key_says_which_part_may_hold_digits():
+    with pytest.raises(Refused, match="a kind is lowercase letters and '_' only"):
+        _do(Adaptation(), Move.DRAFT, AI, "questions:input_type2", value={})
+
+
 def test_the_ai_cannot_approve():
     state = _do(_answered(), Move.DRAFT, AI, "contract:port:consensus", value={})
     with pytest.raises(Refused, match="MF0505"):
