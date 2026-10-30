@@ -86,8 +86,8 @@ to run, since it needs Docker and Nextflow.
 ### Task 4: Docs and the whole suite
 
 - [x] **Step 1:** How-to, `CHANGELOG.md`, `docs/notes/now.md`, a journal entry.
-- [ ] **Step 2:** The whole Python suite, frontend, guards, doc checks.
-- [ ] **Step 3:** Commit. Pushing `forge-6-releases` asks the operator first.
+- [x] **Step 2:** The whole Python suite, frontend, guards, doc checks.
+- [x] **Step 3:** Commit. Pushing `forge-6-releases` asks the operator first.
 
 ## Not in this plan
 
