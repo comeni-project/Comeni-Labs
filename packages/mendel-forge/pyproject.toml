@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
   "comeni-core>=0.1.0",
   "comeni-vendor>=0.1.0",
+  "mendel-compiler>=0.1.0",
   "mendel-resolver>=0.1.0",
   "pydantic>=2.9",
   "pyyaml>=6.0",
@@ -46,4 +47,5 @@ packages = ["src/mendel_forge"]
 [tool.uv.sources]
 comeni-core = { workspace = true }
 comeni-vendor = { workspace = true }
+mendel-compiler = { workspace = true }
 mendel-resolver = { workspace = true }

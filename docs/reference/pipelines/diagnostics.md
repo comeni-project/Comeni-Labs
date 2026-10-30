@@ -254,3 +254,6 @@ decline to curate one.
 | `MF0504` | no tool with that id in the registry |
 | `MF0505` | only a person decides: the AI may propose, not approve |
 | `MF0506` | that move is not open here |
+| `MF0507` | a reply names an id the registry does not have |
+| `MF0508` | a port the module's main.nf does not have |
+| `MF0509` | a setting is passed nowhere |

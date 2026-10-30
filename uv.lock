@@ -1634,6 +1634,7 @@ source = { editable = "packages/mendel-forge" }
 dependencies = [
     { name = "comeni-core" },
     { name = "comeni-vendor" },
+    { name = "mendel-compiler" },
     { name = "mendel-resolver" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -1643,6 +1644,7 @@ dependencies = [
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "comeni-vendor", editable = "packages/comeni-vendor" },
+    { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6.0" },
