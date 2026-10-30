@@ -108,6 +108,22 @@ worker. Without it the page says so, and forging and tests still work. Give it w
 repository's contents and pull requests, and nothing else. `MENDEL_REGISTRY_REPO` points the forge
 at a different repository, such as a test one.
 
+## Release it
+
+A merged tool is in `comeni-registry`, not yet in anyone's builder. Under **Registry → Releases** you
+can see what is merged and unreleased, and cut a release: the page suggests the next version and
+notes from each pull request's changelog entry, and you can change both. A release is cut only when
+CI on the registry's `main` is green, and it tags exactly the commit whose checks were read.
+
+By default the app follows the newest release: it looks once an hour, fetches a new release into
+a read-only folder and switches only if it loads. To stay on one version, set **Registry release**
+in **Settings → Registry & sources** to that version, such as `v0.5.0`, or set
+`MENDEL_REGISTRY_RELEASE`. A pinned installation never moves. If GitHub cannot be reached, the app
+keeps the newest release it has, and with no release yet it uses `MENDEL_REGISTRY_ROOT`. The same
+section says what is in use, and why, if that is not what you asked for.
+
+A pipeline built from a release names it, and a kept pipeline is not changed by a newer release.
+
 ## Forge tools that build on each other
 
 Once an adaptation is assembled, later adaptations may use its new types and roles before they

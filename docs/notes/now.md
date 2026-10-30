@@ -99,10 +99,10 @@ history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
 
 ## The forge (where declared data comes from)
 
-- **MVPs 1–2 merged (#411). MVPs 3–5 (#364–#366) are on `forge-5-pull-requests`, pushed, unmerged.**
-  #365 and #366 stay open: no real Wiener run or pull request yet (#412), and comeni-registry needs
-  `test` placed and `ENGINE_REF` moved. Next: #367 (+ #381). Compare the pages with boards 4–6,
-  unread; the Rules panel needs design. [Journal](journal/2026-10-30-forge-5-pull-requests.md). (10-30)
+- **MVPs 1–2 merged (#411). MVPs 3–5 are on `forge-5-pull-requests`, pushed; MVP 6 (#367) is on
+  `forge-6-releases` above it, local.** All unmerged. #365–#367 stay open: nothing has met a real
+  Wiener or GitHub (#412), and comeni-registry needs its pull request and a first release. Compare
+  the pages with boards 4–6; the Rules panel needs design. [Journal](journal/2026-10-30-forge-6-releases.md). (10-30)
 
 ## Wiener (run → watch)
 

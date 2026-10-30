@@ -28,6 +28,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- `LockedLayer.release`: a pipeline names the registry release it was built with. Omitted when
+  unknown, so existing pipelines keep their digests
+  ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)).
 - `declares: test`: a tool's tests, beside it (`ToolTest`), naming files inside nf-core's
   `test-datasets`, never URLs ([#365](https://github.com/comeni-project/Comeni-Labs/issues/365)). An
   older engine refuses a layer holding one.
@@ -187,6 +190,10 @@ or a complete commit history.
 
 #### Added
 
+- Registry releases ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)): `GET` and
+  `POST /forge/releases`, with `forge_release`; an hourly worker cron fetches releases into read-only
+  folders under `MENDEL_REGISTRIES_ROOT` and switches only to one that loads. New setting
+  `registry.release` (`MENDEL_REGISTRY_RELEASE`).
 - Forge pull requests ([#366](https://github.com/comeni-project/Comeni-Labs/issues/366)):
   `POST /forge/adaptations/{id}/publish` and `/approve`, with `forge_pull_request`, at most one
   open. `COMENI_FORGE_GITHUB_TOKEN` now reaches only `mendel-worker`; other services read

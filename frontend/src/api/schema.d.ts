@@ -1183,6 +1183,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What is unreleased, and releases */
+        get: operations["readReleases"];
+        put?: never;
+        /** Tag and publish a registry release; refused unless main is green */
+        post: operations["cutRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2712,6 +2730,13 @@ export interface components {
             /** Target */
             target?: string | null;
         };
+        /** Fragment */
+        Fragment: {
+            /** Path */
+            path: string;
+            /** Text */
+            text: string;
+        };
         /** Gap */
         Gap: {
             kind: components["schemas"]["GapKind"];
@@ -3137,6 +3162,17 @@ export interface components {
             served_by: "mendel" | "wiener";
             /** Entries */
             entries: components["schemas"]["Entry"][];
+        };
+        /** MergedTool */
+        MergedTool: {
+            /** Module */
+            module: string;
+            /** Version */
+            version: string | null;
+            /** Number */
+            number: number;
+            /** Url */
+            url: string;
         };
         /** MessageBody */
         MessageBody: {
@@ -3894,6 +3930,43 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** Release */
+        Release: {
+            /** Tag */
+            tag: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Published At */
+            published_at?: string | null;
+        };
+        /** ReleaseBody */
+        ReleaseBody: {
+            /** Version */
+            version: string;
+            /** Notes */
+            notes: string;
+        };
+        /** ReleaseRow */
+        ReleaseRow: {
+            /** Version */
+            version: string;
+            /** State */
+            state: string;
+            /** Says */
+            says: string | null;
+            /** Commit */
+            commit: string | null;
+            /** Cut By */
+            cut_by: string;
+            /**
+             * Cut At
+             * Format: date-time
+             */
+            cut_at: string;
+        };
         /** ReleaseToolChoice */
         ReleaseToolChoice: {
             /** Expected Decision Revision */
@@ -3906,6 +3979,41 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /** ReleasesPage */
+        ReleasesPage: {
+            /** In Use */
+            in_use: string;
+            /**
+             * Published
+             * @default []
+             */
+            published: components["schemas"]["Release"][];
+            unreleased?: components["schemas"]["Unreleased"] | null;
+            /**
+             * Merged
+             * @default []
+             */
+            merged: components["schemas"]["MergedTool"][];
+            /**
+             * Suggested
+             * @default
+             */
+            suggested: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Recent
+             * @default []
+             */
+            recent: components["schemas"]["ReleaseRow"][];
+            /** Unavailable */
+            unavailable?: string | null;
+            /** Problem */
+            problem?: string | null;
         };
         /**
          * RequiredStates
@@ -4467,6 +4575,27 @@ export interface components {
             produced_by: string[];
             /** Consumed By */
             consumed_by: string[];
+        };
+        /**
+         * Unreleased
+         * @description `main` against the last tag.
+         */
+        Unreleased: {
+            /** Last */
+            last: string | null;
+            /** Commit */
+            commit: string;
+            /** Ahead */
+            ahead: number;
+            /** Checks */
+            checks: string;
+            /** Says */
+            says?: string | null;
+            /**
+             * Fragments
+             * @default []
+             */
+            fragments: components["schemas"]["Fragment"][];
         };
         /**
          * Upcoming
@@ -6987,6 +7116,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdaptationView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasesPage"];
+                };
+            };
+        };
+    };
+    cutRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasesPage"];
                 };
             };
             /** @description The id in the path names nothing. */

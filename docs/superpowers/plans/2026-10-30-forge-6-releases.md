@@ -45,14 +45,14 @@ to run, since it needs Docker and Nextflow.
 `ReleaseSource`, `Unreleased`, `follow() -> str | None`, `status() -> FollowStatus`,
 `Locator.release`, `LockedLayer.release`, `registry.release`.
 
-- [ ] **Step 1: Write the failing tests** for focus 1–4, `latest` choosing the newest,
+- [x] **Step 1: Write the failing tests** for focus 1–4, `latest` choosing the newest,
   `a pin never moves`, `no release runs the configured root`, `a release is read-only`,
   `the lockfile names the release`, and a guard that no reader but `active_registry` reads
   `settings.registry_root`.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run; pass.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run; pass.**
+- [x] **Step 5: Commit.**
 
 ### Task 2: Cutting a release
 
@@ -62,30 +62,30 @@ to run, since it needs Docker and Nextflow.
 **Interfaces:** Produces `ForgeRelease(id, version, state, says, commit, cut_by, cut_at)`,
 `GET /forge/releases`, `POST /forge/releases`, `MF0519`, `cut_release(version, notes, commit)`.
 
-- [ ] **Step 1: Write the failing tests** `a version must be new and newer`, `nothing to release is
+- [x] **Step 1: Write the failing tests** `a version must be new and newer`, `nothing to release is
   refused`, `a red main is refused at the job`, `cutting names the commit it read`,
   `two cuts make one release` (focus 5), `no token says why`, `the page lists fragments and merged
   pull requests`.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run; pass.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run; pass.**
+- [x] **Step 5: Commit.**
 
 ### Task 3: The Releases page
 
 **Files:** Create `frontend/src/registry/Releases.tsx`, `useReleases.ts`; Modify `RegistryTabs.tsx`,
 `router.tsx`, generated client.
 
-- [ ] **Step 1: Write the failing tests**: the tab links; what is unreleased; the suggested version
+- [x] **Step 1: Write the failing tests**: the tab links; what is unreleased; the suggested version
   and notes; a red main disables cutting and says why; a release in progress; no token.
-- [ ] **Step 2: Run; they fail.**
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run; pass.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 2: Run; they fail.**
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run; pass.**
+- [x] **Step 5: Commit.**
 
 ### Task 4: Docs and the whole suite
 
-- [ ] **Step 1:** How-to, `CHANGELOG.md`, `docs/notes/now.md`, a journal entry.
+- [x] **Step 1:** How-to, `CHANGELOG.md`, `docs/notes/now.md`, a journal entry.
 - [ ] **Step 2:** The whole Python suite, frontend, guards, doc checks.
 - [ ] **Step 3:** Commit. Pushing `forge-6-releases` asks the operator first.
 
@@ -97,3 +97,14 @@ to run, since it needs Docker and Nextflow.
 
 - `.run/registry` stays for now: until a first release exists it is the root a stack runs on. It
   goes once one does.
+- `active_registry()` is a function beside `settings`, not a dynamic `registry_root`: tests and
+  deployment set the field, and a guard holds every reader to the function.
+- `registry.release` is a text setting, with *Release in use* reporting beside it: a choice's
+  options are declared in the catalogue, and releases are data. A wrong version changes nothing.
+- The Releases page reads public GitHub data from the API, cached for 60 seconds, so an installation
+  with no token still sees it. `ReleaseSource` gained `unreleased`; `Unreleased.ahead` decides
+  "nothing to release", because a first release has no fragments.
+- `_load` in `services/registry.py` now keys on the root too: a release with the same bytes as the
+  last would otherwise have kept the old paths.
+- Tests in Tasks 1 and 2 were written with their code; the job's re-read of `main` was broken by
+  hand and a test failed. The reader guard caught a real import, and the suite caught the cache bug.
