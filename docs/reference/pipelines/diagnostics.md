@@ -262,3 +262,5 @@ decline to curate one.
 | `MF0511` | the draft layer could not be written or does not load |
 | `MF0512` | the draft's contract does not conform to its module |
 | `MF0513` | an adaptation this one depends on changed |
+| `MF0514` | tests cannot run: this installation has no Wiener to run them |
+| `MF0515` | a tool's test could not run, or did not produce what it declares |

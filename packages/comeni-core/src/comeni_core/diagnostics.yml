@@ -2350,6 +2350,31 @@ MF0513:
     A later adaptation may use an assembled one's new vocabulary before it reaches the
     registry. When that earlier draft changes, what relied on it is reviewed again rather than
     silently kept.
+MF0514:
+  emitted_by: api
+  concern: catalogue
+  says: "tests cannot run: this installation has no Wiener to run them"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Set MENDEL_WIENER_URL and MENDEL_WIENER_TOKEN for the worker, then run the tests again. Forging
+    works up to assembly without them.
+  explanation: |
+    A forge test is a real run, so it needs Wiener. Mendel's worker submits it through one narrow
+    interface that only the forge's test job holds.
+MF0515:
+  emitted_by: forge
+  concern: catalogue
+  says: "a tool's test could not run, or did not produce what it declares"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    The message says which test and why: a step that failed, an expected output not published, or
+    a test that does not fit its contract. Open the run in Wiener for its logs, change the item
+    with the chat or by hand, assemble again and run the tests again.
+  explanation: |
+    Green means the run succeeded and every declared output exists in its declared format. It
+    shows the tool runs through our wiring and parameters, not that its results are correct.
 MV0001:
   emitted_by: vendor
   concern: vendoring
