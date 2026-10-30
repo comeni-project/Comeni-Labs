@@ -127,8 +127,8 @@ registry's checks refused, `MF0518` CI not green.
 ### Task 5: Docs, the whole suite, and the push
 
 - [x] **Step 1:** How-to, `CHANGELOG.md`, `docs/notes/now.md`, a journal entry.
-- [ ] **Step 2:** The whole Python suite, `make guards`, `make doc-sizes`, `make links`.
-- [ ] **Step 3:** Commit, and push `forge-5-pull-requests` (operator, 2026-10-30).
+- [x] **Step 2:** The whole Python suite, `make guards`, `make doc-sizes`, `make links`.
+- [x] **Step 3:** Commit, and push `forge-5-pull-requests` (operator, 2026-10-30).
 
 ## Not in this plan
 
