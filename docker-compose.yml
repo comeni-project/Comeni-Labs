@@ -30,6 +30,8 @@ x-mendel-environment: &mendel-environment
   MENDEL_REDIS_URL: redis://redis:6379
   # Where forge tests run. The API reads it to say whether they can; the token is the worker's.
   MENDEL_WIENER_URL: http://wiener-api:8001
+  # Where forged tools are published and releases read from: a fork, for a test walk.
+  MENDEL_REGISTRY_REPO: ${MENDEL_REGISTRY_REPO:-comeni-project/comeni-registry}
   # Fetched registry releases. Until one exists, Mendel reads MENDEL_REGISTRY_ROOT.
   MENDEL_REGISTRIES_ROOT: /app/registries
   MENDEL_REGISTRY_ROOT: /app/registry
