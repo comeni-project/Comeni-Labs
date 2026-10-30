@@ -573,3 +573,14 @@ def test_a_service_that_restarts_itself_has_what_it_depends_on_restart_too(base)
     assert stranded == set(), (
         f"these restart by themselves and depend on a service that does not: {sorted(stranded)}"
     )
+
+
+@pytest.mark.parametrize("name", ["api", "mendel-worker", "ai-worker"])
+def test_every_service_that_forges_mounts_the_forge_cache(base, prod, name):
+    """Forge MVP 3 (#364): the API assembles drafts and checks a person's values against the
+    module's files, the worker syncs the clone, the AI worker reads module files. A service
+    without the mount failed its first live assembly with a permission error on /app/forge."""
+    cache = env_of(base["services"][name])["MENDEL_FORGE_CACHE"]
+    for stack in (base, prod):
+        volumes = stack["services"][name]["volumes"]
+        assert any(str(v).split(":")[1] == cache for v in volumes), f"{name} lacks {cache}"

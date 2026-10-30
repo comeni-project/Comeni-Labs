@@ -20,6 +20,16 @@ function summary(item: ItemView): string {
     const value = v.tier_hint === 4 && v.default == null ? "asks the person" : `default ${JSON.stringify(v.default)}`;
     return `${value} · ${v.via ?? ""}${v.key ? ` · ${v.key}` : ""}`;
   }
+  if (Array.isArray(item.value)) {
+    // The wiring: each input channel in order, by its ports or its setting.
+    return (item.value as { ports?: string[]; param?: string }[])
+      .map((i) => (i.ports?.length ? i.ports.join("+") : i.param) || "—").join(" · ");
+  }
+  if ("nf_process" in v) return `${v.nf_process} · ${(v.roles as string[] | undefined)?.join(", ") ?? ""}`;
+  if ("template" in v) return String(v.template);
+  if ("decides" in v) return `decides ${(v.decides as { of?: string }).of ?? ""}`;
+  if ("id" in v) return String(v.id);
+  if ("because" in v) return String(v.because);
   return JSON.stringify(v);
 }
 
@@ -51,7 +61,7 @@ export function PieceItems({ items, actions, onReject }: {
         const waiting = item.status === "proposed" || item.status === "reopened";
         return (
           <div key={item.key} role="group" aria-label={nameOf(item.key)}
-               className={`grid grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] gap-4 items-start px-[22px] py-4 border-t border-line-soft ${
+               className={`grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft ${
                  item.status === "rejected" ? "bg-needs-you-soft" : ""}`}>
             <div>
               <div className="font-data font-medium">{nameOf(item.key)}</div>
@@ -81,7 +91,7 @@ export function PieceItems({ items, actions, onReject }: {
                 </>
               )}
             </div>
-            <div className="flex flex-wrap gap-[6px] justify-end">
+            <div className="flex flex-wrap gap-[6px] sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
               {waiting && (
                 <button type="button" className={primary}
                         onClick={() => actions.command.mutate({ move: "approve", item: item.key,

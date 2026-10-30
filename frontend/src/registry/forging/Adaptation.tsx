@@ -46,15 +46,16 @@ export function Adaptation() {
         <span className="ml-auto text-[13px] text-ink-3">{done} of {PIECES.length} pieces approved</span>
       </div>
       <div className="gutter py-[18px] flex flex-wrap gap-5 items-start">
-        <nav aria-label="Pieces" className="flex-[0_1_230px] min-w-[200px] bg-surface border border-line rounded-panel p-[10px]">
-          <ol className="list-none m-0 p-0 flex flex-col gap-[2px]">
+        <nav aria-label="Pieces" className="basis-full sm:basis-auto sm:flex-[0_1_230px] sm:min-w-[200px] bg-surface border border-line rounded-panel p-[10px] [contain:inline-size] sm:[contain:none]">
+          {/* A row you scroll at phone width (board 3g), a list beside the piece above it. */}
+          <ol className="list-none m-0 p-0 flex flex-row sm:flex-col gap-[2px] overflow-x-auto">
             {PIECES.map((p) => {
               const its = view.items.filter((i) => i.piece === p);
               const waiting = its.filter((i) => !SETTLED.has(i.status)).length;
               const note = its.length === 0 ? (p === view.next_piece ? "not started" : "not yet")
                 : waiting ? `${waiting} waiting for you` : "approved";
               return (
-                <li key={p}>
+                <li key={p} className="shrink-0">
                   <button type="button" onClick={() => { setChosen(p); setWriting(false); }}
                           aria-current={p === piece ? "step" : undefined}
                           className={`w-full text-left flex flex-col px-[10px] py-[9px] rounded-control border-0 ${
@@ -65,7 +66,7 @@ export function Adaptation() {
                 </li>
               );
             })}
-            <li className="px-[10px] py-[9px] mt-[6px] border-t border-line-soft text-ink-3">
+            <li className="shrink-0 px-[10px] py-[9px] sm:mt-[6px] sm:border-t border-line-soft text-ink-3">
               <span className="font-medium">Tests</span>
               <span className="block text-[12px]">Tests come in MVP 4</span>
             </li>
@@ -74,7 +75,7 @@ export function Adaptation() {
 
         <section aria-labelledby="piece" className="flex-[999_1_520px] min-w-0 bg-surface border border-line rounded-panel overflow-hidden">
           <div className="flex flex-wrap items-baseline gap-[10px] px-[22px] py-[18px] border-b border-line">
-            <h2 id="piece" className="m-0 text-[17px] font-semibold capitalize">{piece}</h2>
+            <h2 id="piece" className="m-0 text-[17px] font-semibold capitalize">{view.ready ? "Assembly" : piece}</h2>
             {busy && <span role="status" className="text-[12.5px] text-action">The AI is drafting…</span>}
           </div>
           {view.ready ? (

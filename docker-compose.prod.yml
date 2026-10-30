@@ -17,6 +17,7 @@ services:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+      - ./.run/forge:/app/forge
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
   mendel-worker:
     volumes: !override

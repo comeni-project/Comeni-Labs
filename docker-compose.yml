@@ -113,6 +113,8 @@ services:
       - ./workspace:/app/workspace
       # Share saved pipelines with mendel-worker for gates.
       - ./.run/drafts:/app/drafts
+      # The forge assembles draft layers here and reads module files to check values (#364).
+      - ./.run/forge:/app/forge
     # Migrate the database before serving; exec forwards shutdown signals to Uvicorn.
     # Use sh -c to preserve the virtualenv PATH, and keep command flags on one line.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
