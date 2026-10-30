@@ -685,6 +685,7 @@ class CatalogueSync(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source: Mapped[str] = mapped_column(String(32))
     commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    test_data_commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome: Mapped[str] = mapped_column(_one_of(SyncOutcome, 16, "outcome"))

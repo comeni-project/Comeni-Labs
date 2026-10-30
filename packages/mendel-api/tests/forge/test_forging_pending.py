@@ -45,6 +45,10 @@ def _earlier(assembled: bool = True) -> str:
             _do(a, Move.APPROVE, key)
     _do(a, Move.WRITE, f"vocabulary:type:{NEW}", {"id": NEW, "states": []})
     _do(a, Move.WRITE, "rules:none", {"because": "nothing new"})
+    _do(a, Move.WRITE, "tests:test:small", {
+        "inputs": {"reads": ["genomics/a.fq"], "index": ["genomics/star"],
+                   "gtf": ["genomics/a.gtf"]},
+        "expect": [{"port": "bam", "pattern": "*.bam"}]})
     if assembled:
         proof = forging.assemble(a)
         assert proof.loaded and proof.conforms, proof.problems

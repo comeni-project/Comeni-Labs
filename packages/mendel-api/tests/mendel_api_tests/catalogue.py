@@ -20,7 +20,8 @@ class FakeSource:
         self.paths, self.commit, self.fail_after = paths, commit, fail_after
 
     def sync(self, cache: Path) -> Snapshot:
-        return Snapshot(source=self.name, commit=self.commit, root=FIXTURES)
+        return Snapshot(source=self.name, commit=self.commit, root=FIXTURES,
+                        test_data_commit="c0ffee")
 
     def modules(self, snapshot: Snapshot) -> Iterator[UpstreamModule]:
         for n, path in enumerate(self.paths):

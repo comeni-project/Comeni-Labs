@@ -15,7 +15,7 @@ from enum import StrEnum
 import sqlalchemy as sa
 from mendel_forge import state as state_module
 from mendel_forge.model import Problem, UpstreamModule
-from mendel_forge.nfcore.source import NfCoreSource
+from mendel_forge.nfcore.source import TEST_DATASETS, NfCoreSource
 from mendel_forge.source import CatalogueSource, SourceUnavailable
 from mendel_forge.state import BEST_ORDER, Held, State
 from pydantic import BaseModel
@@ -61,7 +61,7 @@ def sync_running(source: str = "nf-core") -> bool:
 
 def run_sync(source: CatalogueSource | None = None) -> CatalogueSync | None:
     """Sync `source`; `None` when another sync holds it, and nothing was started."""
-    source = source or NfCoreSource()
+    source = source or NfCoreSource(data_url=TEST_DATASETS)
     with _claim(source.name) as claimed:
         if not claimed:
             return None
@@ -94,6 +94,7 @@ def _sync(source: CatalogueSource) -> CatalogueSync:
             _store(session, source.name, sync_id, modules)
             done = session.get(CatalogueSync, sync_id)
             done.commit = snapshot.commit
+            done.test_data_commit = snapshot.test_data_commit
             done.modules = len(modules)
             done.problems = sum(1 for module in modules if module.problems)
             done.outcome = SyncOutcome.OK
@@ -149,6 +150,17 @@ def _row(source: str, sync_id: int, module: UpstreamModule) -> dict:
 def last_sync() -> CatalogueSync | None:
     with db.session_scope() as session:
         return session.scalar(sa.select(CatalogueSync).order_by(CatalogueSync.id.desc()).limit(1))
+
+
+def test_data_commit() -> str | None:
+    """The newest `test-datasets` commit a sync read; a later sync may have failed to read it."""
+    with db.session_scope() as session:
+        return session.scalar(
+            sa.select(CatalogueSync.test_data_commit)
+            .where(CatalogueSync.test_data_commit.is_not(None))
+            .order_by(CatalogueSync.id.desc())
+            .limit(1)
+        )
 
 
 def last_good_sync() -> CatalogueSync | None:

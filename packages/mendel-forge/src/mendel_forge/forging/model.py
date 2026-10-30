@@ -20,6 +20,7 @@ class Piece(StrEnum):
     PARAMETERS = "parameters"
     VOCABULARY = "vocabulary"
     RULES = "rules"
+    TESTS = "tests"
 
 
 PIECES: tuple[Piece, ...] = tuple(Piece)
@@ -139,7 +140,8 @@ class Command(_Frozen):
 
 
 KEY = re.compile(
-    r"^(questions|contract|parameters|vocabulary|rules):[a-z_]+(:[A-Za-z][A-Za-z0-9._-]{0,120})?$"
+    r"^(questions|contract|parameters|vocabulary|rules|tests):"
+    r"[a-z_]+(:[A-Za-z][A-Za-z0-9._-]{0,120})?$"
 )
 """Every item key: `<piece>:<kind>[:<name>]`. A key names a file in the draft layer, so nothing
 outside this grammar (a `/`, a `..`, a space) is ever accepted."""

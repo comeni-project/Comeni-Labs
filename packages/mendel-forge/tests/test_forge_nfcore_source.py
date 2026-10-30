@@ -104,3 +104,18 @@ def test_a_lock_left_by_a_killed_git_does_not_block_the_next_sync(upstream, tmp_
     (snapshot.root / ".git" / "index.lock").write_text("")
     _add(upstream, "bwa/mem", "2026-03-01T00:00:00+00:00")
     assert "bwa/mem" in {m.path for m in source.modules(source.sync(tmp_path / "cache"))}
+
+
+def test_the_test_data_commit_is_read_at_sync(upstream, tmp_path):
+    data = tmp_path / "datasets"
+    data.mkdir()
+    _git(data, "init", "--quiet", "--initial-branch=modules")
+    _git(data, "-c", "user.name=x", "-c", "user.email=x@x", "commit", "--quiet",
+         "--allow-empty", "-m", "x")
+    source = NfCoreSource(upstream.as_uri(), data_url=data.as_uri())
+    assert source.sync(tmp_path / "cache").test_data_commit == _git(data, "rev-parse", "HEAD")
+
+
+def test_an_unreadable_test_data_commit_does_not_fail_the_sync(upstream, tmp_path):
+    source = NfCoreSource(upstream.as_uri(), data_url=(tmp_path / "nowhere").as_uri())
+    assert source.sync(tmp_path / "cache").test_data_commit is None

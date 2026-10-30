@@ -9,6 +9,7 @@ somewhere. Anything else is a coded problem, and the reply is never a proposal.
 from dataclasses import dataclass
 
 from comeni_core.declared.contract import NfInput
+from comeni_core.declared.tooltest import TestDraft
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver.layers import Layers
 from pydantic import JsonValue
@@ -93,7 +94,38 @@ def check_items(
         if (via == "ext" and not param.get("key")) or (via == "positional" and name not in wired):
             problems.append(Problem(code="MF0509", says=f"setting {name!r} is passed nowhere: "
                                     "give its ext key, or wire it as an input"))
-    return problems
+    return [*problems, *_test_problems(items, seen)]
+
+
+def _names(items: dict[str, JsonValue], prefix: str) -> set[str]:
+    return {k.removeprefix(prefix) for k in items if k.startswith(prefix)}
+
+
+def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
+    """A test must fit the contract as it stands: every port fed, every output accounted for."""
+    takes, makes = _names(items, "contract:input:"), _names(items, "contract:output:")
+    settings = _names(items, "parameters:param:")
+    problems: list[str] = []
+    for key in sorted(k for k in items if k.startswith("tests:test:")):
+        test = TestDraft.model_validate(items[key])
+        fed = {port for step in test.setup for port in step.feeds.values()}
+        for port in sorted(set(test.inputs) - takes):
+            problems.append(f"{key}: input {port!r} is not a port of this contract")
+        for port in sorted(fed - takes):
+            problems.append(f"{key}: a setup step feeds {port!r}, not a port of this contract")
+        for port in sorted(takes - set(test.inputs) - fed):
+            problems.append(f"{key}: nothing feeds input {port!r}")
+        for name in sorted(set(test.params) - settings):
+            problems.append(f"{key}: setting {name!r} is not one this contract declares")
+        for step in test.setup:
+            if step.tool not in seen.contracts | seen.pending:
+                problems.append(f"{key}: setup tool {step.tool!r} is not registered or pending")
+        expected = {e.port for e in test.expect}
+        for port in sorted(expected - makes):
+            problems.append(f"{key}: output {port!r} is not a port of this contract")
+        for port in sorted(makes - expected - set(test.unchecked)):
+            problems.append(f"{key}: output {port!r} is neither expected nor given a reason")
+    return [Problem(code="MF0507", says=says) for says in problems]
 
 
 def _nf_inputs(items: dict[str, JsonValue]) -> list[NfInput]:

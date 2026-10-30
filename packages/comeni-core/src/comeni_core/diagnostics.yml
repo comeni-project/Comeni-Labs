@@ -2062,6 +2062,18 @@ MD0025:
     A contract is how the builder can choose a module; a module no contract names is source
     nobody can use, and nothing used to say so (#410). The check runs over the whole stack, so
     an overlay may bind a module its base layer vendored.
+MD0026:
+  emitted_by: resolver
+  concern: loading
+  says: "a tool's test names a contract nothing declares"
+  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  refuses: true
+  fix: |
+    Correct the test's `contract:` to the id in the tool's `contract.yml`, or remove the test
+    with the tool it belonged to.
+  explanation: |
+    A test belongs to one contract. One that outlives its tool would never run, and would read
+    as coverage the registry does not have.
 MD0226:
   emitted_by: core
   concern: pipeline-file

@@ -26,10 +26,11 @@ from mendel_forge.forging.model import (
 
 DEPENDS: dict[Piece, frozenset[Piece]] = {
     Piece.QUESTIONS: frozenset({Piece.CONTRACT}),
-    Piece.CONTRACT: frozenset({Piece.PARAMETERS, Piece.VOCABULARY, Piece.RULES}),
-    Piece.PARAMETERS: frozenset({Piece.RULES}),
+    Piece.CONTRACT: frozenset({Piece.PARAMETERS, Piece.VOCABULARY, Piece.RULES, Piece.TESTS}),
+    Piece.PARAMETERS: frozenset({Piece.RULES, Piece.TESTS}),
     Piece.VOCABULARY: frozenset({Piece.RULES}),
-    Piece.RULES: frozenset(),
+    Piece.RULES: frozenset({Piece.TESTS}),
+    Piece.TESTS: frozenset(),
 }
 """Declared, not inferred: which pieces an approved change upstream re-opens (transitively)."""
 
@@ -43,6 +44,8 @@ def apply(state: Adaptation, command: Command) -> Adaptation:
     if not KEY.match(command.item):
         raise Refused(coded("MF0506", f"{command.item!r} is not an item key: "
                             "<piece>:<kind>[:<name>], letters, digits, '.', '_' and '-' only"))
+    if command.item == "tests:none":
+        raise Refused(coded("MF0506", "a tool needs at least one test: nothing publishes untested"))
     if move in DECISIONS and actor is not Actor.PERSON:
         raise Refused(coded("MF0505", f"{actor} may not {move}: only a person decides"))
     if move in PROPOSALS and actor is Actor.PERSON:
@@ -155,13 +158,16 @@ def reopen_piece(state: Adaptation, piece: Piece) -> Adaptation:
 
 def next_piece(state: Adaptation) -> Piece | None:
     """The first piece not finished: no items yet, or any item not approved or removed. The
-    contract also needs its `contract:process`: ports alone cannot be assembled."""
+    contract also needs its `contract:process`, ports alone cannot be assembled, and tests need
+    one that stands."""
     for piece in PIECES:
         items = [i for i in state.items.values() if i.piece is piece]
         if not items or any(i.status not in _SETTLED for i in items):
             return piece
         process = state.items.get("contract:process")
         if piece is Piece.CONTRACT and (process is None or process.status is not Status.APPROVED):
+            return piece
+        if piece is Piece.TESTS and not any(i.status is Status.APPROVED for i in items):
             return piece
     return None
 

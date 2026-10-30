@@ -444,6 +444,7 @@ def _write_draft(adaptation_id: str, state: Adaptation, out: Path) -> list[Path]
         module_id=f"{adaptation.source}/{adaptation.path}", repo=REPOS[adaptation.source],
         sha=good.commit if good and good.commit else "", licence=licences[0] if licences else "",
         path=f"{PREFIX[adaptation.source]}/{adaptation.path}",
+        data_commit=catalogue.test_data_commit() or "",
     )
     deciders = [r.by for i in state.items.values() for r in i.revisions
                 if r.actor is Actor.PERSON and r.by]

@@ -5,7 +5,7 @@ registry's own messages, and an assembled contract is a `ModuleContract` like an
 Item keys: `contract:process`, `contract:input:<port>`, `contract:output:<port>`,
 `contract:nf_inputs`, `parameters:param:<name>`, `parameters:ext_args`,
 `vocabulary:type:<id>`, `vocabulary:measurement:<id>`, `vocabulary:role:<name>`,
-`rules:rule:<role>`, `<piece>:none`, `questions:<subject>`.
+`rules:rule:<role>`, `tests:test:<name>`, `<piece>:none`, `questions:<subject>`.
 """
 
 from comeni_core.declared.contract import (
@@ -18,6 +18,7 @@ from comeni_core.declared.contract import (
     Provenance,
 )
 from comeni_core.declared.measurement import Measurement
+from comeni_core.declared.tooltest import TestDraft
 from comeni_core.declared.vocabulary import TypeDeclaration
 from mendel_resolver.rules.format import Decision
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
@@ -91,6 +92,7 @@ _FAMILIES: dict[str, type] = {
     "vocabulary:measurement": Measurement,
     "vocabulary:role": RoleDraft,
     "rules:rule": Decision,
+    "tests:test": TestDraft,
 }
 
 

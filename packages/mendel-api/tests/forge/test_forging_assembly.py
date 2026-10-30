@@ -32,6 +32,11 @@ def client(tmp_path, monkeypatch) -> TestClient:
     return TestClient(create_app())
 
 
+STAR_TEST = {"inputs": {"reads": ["genomics/a.fq"], "index": ["genomics/star"],
+                        "gtf": ["genomics/a.gtf"]},
+             "expect": [{"port": "bam", "pattern": "*.bam"}]}
+
+
 def _approved_reforge() -> str:
     adaptation_id = forging.start("nf-core", "star/align", "rafael", reforge=STAR).id
     forging.act(adaptation_id, forging.person(Move.ANSWER, "questions:role", expected=None,
@@ -43,6 +48,8 @@ def _approved_reforge() -> str:
     for key in ("vocabulary:none", "rules:none"):
         forging.act(adaptation_id, forging.person(Move.WRITE, key, expected=None,
                                                   value={"because": "nothing new"}, because=None))
+    forging.act(adaptation_id, forging.person(Move.WRITE, "tests:test:small", expected=None,
+                                              value=STAR_TEST, because=None))
     return adaptation_id
 
 

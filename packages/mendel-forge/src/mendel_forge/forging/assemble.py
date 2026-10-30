@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 from comeni_core.declared.contract import Provenance
+from comeni_core.declared.tooltest import ToolTest
 from comeni_core.diagnostics import coded
 from comeni_vendor.ops import EXCLUDED, digest_of_module
 from mendel_compiler import conformance
@@ -33,6 +34,8 @@ class ModuleOrigin(BaseModel):
     sha: str
     path: str
     licence: str
+    data_commit: str = ""
+    """The `test-datasets` commit a test's files are pinned to (from the last good sync)."""
 
 
 class Proof(BaseModel):
@@ -58,6 +61,10 @@ def write_layer(
     for key in values:
         if not KEY.match(key):
             raise ValueError(coded("MF0511", f"{key!r} is not an item key"))
+    tests = sorted(k for k in values if k.startswith("tests:test:"))
+    if tests and not origin.data_commit:
+        raise ValueError(coded("MF0511", "no `test-datasets` commit is known yet, so a test's "
+                               "files cannot be pinned: sync the catalogue first"))
     if out.exists():
         shutil.rmtree(out)
     tool = out / "tools" / origin.module_id
@@ -96,6 +103,12 @@ def write_layer(
             decision = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
             put(out / "rules" / f"{key.removeprefix('rules:rule:')}.yml",
                 _yaml({"declares": "rule", "version": 1, "decisions": [decision]}))
+    for key in tests:
+        name = key.removeprefix("tests:test:")
+        test = ToolTest(**values[key], contract=contract_id, name=name,
+                        data_commit=origin.data_commit)
+        put(tool / "tests" / f"{name}.yml",
+            _yaml({"declares": "test", **test.model_dump(mode="json", exclude_defaults=True)}))
     return written
 
 

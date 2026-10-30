@@ -85,6 +85,8 @@ def test_all_approved_is_ready_to_assemble():
     state = _contract_approved()
     for key in ("parameters:none", "vocabulary:none", "rules:none"):
         state = _do(state, Move.WRITE, PERSON, key, value=None)
+    assert not ready_to_assemble(state), "a tool needs a test"
+    state = _do(state, Move.WRITE, PERSON, "tests:test:one", value=None)
     assert ready_to_assemble(state)
 
 
