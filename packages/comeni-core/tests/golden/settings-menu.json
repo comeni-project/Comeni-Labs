@@ -733,6 +733,70 @@
       "entries": [
         {
           "setting": {
+            "key": "registry.release",
+            "label": "Registry release",
+            "help": "Which release of the registry to build with: latest, or a version such as v0.5.0 to stay on it. A pinned installation never moves; latest moves when a newer release loads.",
+            "kind": "text",
+            "default": "latest",
+            "env": "MENDEL_REGISTRY_RELEASE",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": "latest",
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "registry.release_in_use",
+            "label": "Release in use",
+            "help": "What this installation is built with now, and why, if it is not what was asked for.",
+            "kind": "readonly",
+            "default": null,
+            "env": null,
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "of": null
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": true,
+            "reason": {
+              "kind": "read_only_here",
+              "why": "reported by the server; not changed here",
+              "says": "Shown here, set elsewhere: reported by the server; not changed here."
+            },
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
             "key": "registry.root",
             "label": "Registry",
             "help": "The folder the tools and types are read from. Set as MENDEL_REGISTRY_ROOT in .env.",

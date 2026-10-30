@@ -41,6 +41,8 @@ class Mark(StrEnum):
     path on a machine."""
     COMMIT_SHA = "commit-sha"
     """A git commit in full: which state of that repository a layer was."""
+    RELEASE_TAG = "release-tag"
+    """A registry release: which published state of a layer it was built with."""
     TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
@@ -641,6 +643,14 @@ another machine and does not belong in a shareable artifact."""
 _HEX = frozenset("0123456789abcdef")
 
 
+def _release_tag(value: str) -> str:
+    parts = value.removeprefix("v").split(".")
+    if not value.startswith("v") or len(parts) != 3 or \
+            not all(part.isascii() and part.isdigit() for part in parts):
+        raise ValueError(f"{value!r} is not a release tag: vMAJOR.MINOR.PATCH")
+    return value
+
+
 def _commit_sha(value: str) -> str:
     # Forty for a SHA-1 repository, sixty-four for a SHA-256 one: git's two object formats.
     if len(value) not in (40, 64) or not set(value) <= _HEX:
@@ -684,6 +694,9 @@ staying inside it. Absent when the layer is the repository's top folder."""
 
 CommitSha = Annotated[str, Mark.COMMIT_SHA, AfterValidator(_commit_sha)]
 """A git commit in full (40 hex digits, or 64 in a SHA-256 repository): one state, no other."""
+
+ReleaseTag = Annotated[str, Mark.RELEASE_TAG, AfterValidator(_release_tag)]
+"""A registry release as it is tagged (`v0.5.0`)."""
 
 ContainerRef = Annotated[str, Mark.CONTAINER_REF]
 """A container image reference as a contract declares it, tag and all.

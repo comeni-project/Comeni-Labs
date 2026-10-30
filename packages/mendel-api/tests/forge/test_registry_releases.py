@@ -7,12 +7,14 @@ import tarfile
 import httpx
 import pytest
 import yaml
+from comeni_core.artifact.lockfile import LockedLayer
 from mendel_api.services import registry, registry_releases
 from mendel_api.services.github_releases import GitHubReleases
 from mendel_api.settings import active_registry, settings
 from mendel_compiler.locate import locate
 from mendel_forge.releases import Fragment as F
 from mendel_forge.releases import Release, ReleaseUnavailable, next_version, notes_from
+from pydantic import ValidationError
 from support.paths import REGISTRY
 
 
@@ -111,6 +113,12 @@ def test_the_lockfile_names_the_release(follow):
     found = locate(active_registry())
     assert found.release == "v0.2.0" and found.commit == "a" * 40
     assert found.source.startswith("https://github.com/") and found.dirty is False
+
+
+@pytest.mark.parametrize("tag", ["0.5.0", "v0.5", "latest", "v0.5.0-rc1", "v٠.٥.٠"])
+def test_a_lockfile_refuses_what_is_not_a_release_tag(tag):
+    with pytest.raises(ValidationError):
+        LockedLayer(name="x", digest=f"sha256:{'0' * 64}", release=tag)
 
 
 def test_a_layer_with_no_release_says_nothing_of_one():
