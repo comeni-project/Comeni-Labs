@@ -15,8 +15,9 @@ export interface CommandInput {
   because?: string;
 }
 
-/** A person's moves on one adaptation. Every mutation re-reads the adaptation; a coded
- *  refusal (`MF0506: … changed since you looked`) is each mutation's `error`. */
+/** A person's moves on one adaptation. Every mutation re-reads the adaptation, a refused one
+ *  too: a refusal (`MF0506: … changed since you looked`) is each mutation's `error`, and the
+ *  page must catch up with whatever made it stale. */
 export function useForgeActions(id: string) {
   const client = useQueryClient();
   const refresh = () => client.invalidateQueries({ queryKey: ["adaptation", id] });
@@ -24,6 +25,7 @@ export function useForgeActions(id: string) {
     mutationFn: (input: CommandInput) =>
       post<AdaptationView>(`/forge/adaptations/${id}/commands`, input),
     onSuccess: (view) => client.setQueryData(["adaptation", id], view),
+    onError: refresh,
   });
   const draft = useMutation({
     mutationFn: (piece: string) => post(`/forge/adaptations/${id}/draft`, { piece }),

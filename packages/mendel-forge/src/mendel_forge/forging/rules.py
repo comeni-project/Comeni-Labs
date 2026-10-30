@@ -10,6 +10,7 @@ from comeni_flow.interpret import Refused
 
 from mendel_forge.forging.model import (
     DECISIONS,
+    KEY,
     PIECES,
     PROPOSALS,
     Actor,
@@ -39,6 +40,9 @@ _OPEN_TO_DECIDE = frozenset({Status.PROPOSED, Status.REOPENED})
 def apply(state: Adaptation, command: Command) -> Adaptation:
     """The adaptation after `command`, or `Refused`. Never mutates `state`."""
     move, actor = command.move, command.actor
+    if not KEY.match(command.item):
+        raise Refused(coded("MF0506", f"{command.item!r} is not an item key: "
+                            "<piece>:<kind>[:<name>], letters, digits, '.', '_' and '-' only"))
     if move in DECISIONS and actor is not Actor.PERSON:
         raise Refused(coded("MF0505", f"{actor} may not {move}: only a person decides"))
     if move in PROPOSALS and actor is Actor.PERSON:
@@ -49,6 +53,8 @@ def apply(state: Adaptation, command: Command) -> Adaptation:
         # A re-forge seeds every piece from the registry's contract at once, as proposals.
         _in_reach(state, piece, move)
     item = state.items.get(command.item)
+    if item is not None and actor is Actor.PERSON and command.expected is None:
+        raise Refused(coded("MF0506", f"{command.item} exists: say which revision you decided on"))
     if item is not None and command.expected is not None and command.expected != item.current.n:
         raise Refused(coded(
             "MF0506",
@@ -56,8 +62,12 @@ def apply(state: Adaptation, command: Command) -> Adaptation:
             "it changed since you looked",
         ))
     status = _next_status(item, command)
+    value = command.value
+    if move is Move.REJECT and item is not None and item.was_approved:
+        # "No, keep it": refusing a change to something decided restores what was decided.
+        status, value = (Status.APPROVED, item.decided)
     revision = Revision(
-        n=item.current.n + 1 if item else 1, move=move, actor=actor, value=command.value,
+        n=item.current.n + 1 if item else 1, move=move, actor=actor, value=value,
         because=command.because, invocation=command.invocation, by=command.by,
     )
     updated = Item(
@@ -101,6 +111,8 @@ def _next_status(item: Item | None, command: Command) -> Status:
         raise Refused(coded("MF0506", f"{command.item} is {item.status}: nothing to {move}"))
     if move is Move.REJECT:
         return Status.REJECTED
+    if item.piece is Piece.QUESTIONS:
+        raise Refused(coded("MF0506", f"{command.item} is a question: answer it"))
     proposing = next(r for r in reversed(item.revisions) if r.move in PROPOSALS or
                      r.move in {Move.WRITE, Move.CHANGE, Move.ANSWER})
     return Status.REMOVED if proposing.move is Move.PROPOSE_REMOVAL else Status.APPROVED
@@ -108,7 +120,7 @@ def _next_status(item: Item | None, command: Command) -> Status:
 
 def _changes_what_counts(item: Item, command: Command, status: Status) -> bool:
     """A decision that replaces or removes a value that counted."""
-    if command.move in {Move.CHANGE, Move.REMOVE, Move.WRITE}:
+    if command.move in {Move.CHANGE, Move.REMOVE, Move.WRITE, Move.ANSWER}:
         return True
     reapproved = item.status is Status.REOPENED
     return command.move is Move.APPROVE and status in _SETTLED and not reapproved
@@ -142,10 +154,14 @@ def reopen_piece(state: Adaptation, piece: Piece) -> Adaptation:
 
 
 def next_piece(state: Adaptation) -> Piece | None:
-    """The first piece not finished: no items yet, or any item not approved or removed."""
+    """The first piece not finished: no items yet, or any item not approved or removed. The
+    contract also needs its `contract:process`: ports alone cannot be assembled."""
     for piece in PIECES:
         items = [i for i in state.items.values() if i.piece is piece]
         if not items or any(i.status not in _SETTLED for i in items):
+            return piece
+        process = state.items.get("contract:process")
+        if piece is Piece.CONTRACT and (process is None or process.status is not Status.APPROVED):
             return piece
     return None
 

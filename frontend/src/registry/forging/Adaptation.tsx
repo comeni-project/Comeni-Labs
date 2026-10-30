@@ -92,7 +92,7 @@ export function Adaptation() {
               {(writing || items.length > 0) && piece === view.next_piece && (
                 <details className="border-t border-line-soft" open={writing}>
                   <summary className="px-[22px] py-3 cursor-pointer text-[13px] text-ink-2">Write an item yourself</summary>
-                  <WriteItem piece={piece} actions={actions} />
+                  <WriteItem piece={piece} items={view.items} actions={actions} />
                 </details>
               )}
             </>

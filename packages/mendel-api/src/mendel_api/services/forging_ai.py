@@ -263,12 +263,13 @@ def answer_message(adaptation_id: str, seq: int, client: Client | None = None) -
                             because=c.because, invocation=invocation)
                     for c in reply.commands]
         try:
-            forging.act_all(adaptation_id, commands)
+            reached = forging.act_all(adaptation_id, commands)
         except Refused as refused:
             problems = [str(refused)]
             continue
         forging.answer_message(adaptation_id, seq, reply.text,
-                               [c.model_dump() for c in reply.commands], invocation)
+                               [{**c.model_dump(), "n": reached[c.item]} for c in reply.commands],
+                               invocation)
         return
     forging.answer_message(adaptation_id, seq, "The AI's reply was refused twice, so nothing "
                            "changed:\n- " + "\n- ".join(problems), [])

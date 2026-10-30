@@ -39,9 +39,10 @@ class AIWorkerSettings:
         # Redis when the job does.
         func(authoring_jobs.characterise_sample, keep_result=0),
         # The forge's calls (MVP 3, #364) cross the `forge_drafting` door: public module files
-        # and registry ids, never lab data.
-        forging_ai.draft_forge_piece,
-        forging_ai.answer_forge_message,
+        # and registry ids, never lab data. **No kept result**: a kept one would hold the draft's
+        # job id, and refuse the next draft of that piece for as long as ARQ keeps it.
+        func(forging_ai.draft_forge_piece, keep_result=0),
+        func(forging_ai.answer_forge_message, keep_result=0),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE

@@ -33,6 +33,57 @@ function summary(item: ItemView): string {
   return JSON.stringify(v);
 }
 
+type Asked = { asks: string; suggested?: string | null; allows_new?: boolean;
+                options: { id: string; label: string; because: string }[] };
+
+/** The question an item asks, from its revisions: once answered, its value is the answer. */
+function asked(item: ItemView): Asked | null {
+  const found = item.revisions.findLast((r) => (r.value as Partial<Asked> | null)?.asks !== undefined);
+  return found ? found.value as Asked : null;
+}
+
+/** A proposed removal carries no value of its own: approving it removes the item. */
+function removing(item: ItemView): boolean {
+  return item.status === "proposed" && item.revisions.at(-1)?.move === "propose_removal";
+}
+
+/** A question is answered, never approved: its options, the AI's suggestion marked but not
+ *  chosen, and a name of the person's own where the question allows one. */
+function Answer({ item, question, actions }: { item: ItemView; question: Asked; actions: Actions }) {
+  const [own, setOwn] = useState("");
+  const chosen = (item.value as { choice?: string } | null)?.choice;
+  const answer = (value: { choice: string; new?: boolean }) =>
+    actions.command.mutate({ move: "answer", item: item.key, expected: item.current_n, value });
+  return (
+    <div className="flex flex-col gap-2">
+      <ul className="list-none m-0 p-0 flex flex-col gap-[6px]">
+        {question.options.map((o) => (
+          <li key={o.id}>
+            <button type="button" aria-pressed={chosen === o.id} onClick={() => answer({ choice: o.id })}
+                    className={`${button} text-left w-full ${chosen === o.id ? "border-action" : ""}`}>
+              <span className="font-medium text-ink">{o.label}</span>
+              {question.suggested === o.id && <span className="ml-2 text-[12px] text-measured-ink">suggested</span>}
+              <span className="block text-[12.5px] text-ink-2">{o.because}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {question.allows_new !== false && (
+        <form className="flex flex-wrap gap-2" onSubmit={(e) => {
+          e.preventDefault();
+          if (own.trim()) answer({ choice: own.trim(), new: true });
+        }}>
+          <label className="sr-only" htmlFor={`own-${item.key}`}>Another answer</label>
+          <input id={`own-${item.key}`} value={own} onChange={(e) => setOwn(e.target.value)}
+                 placeholder="Another answer"
+                 className="flex-1 min-w-0 font-data text-[12.5px] p-2 border border-line-2 rounded-control" />
+          <button type="submit" className={button}>Answer</button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 const STATUS: Record<string, { label: string; tone: string }> = {
   proposed: { label: "waiting for you", tone: "text-measured-ink" },
   approved: { label: "Approved", tone: "text-done-ink" },
@@ -51,6 +102,8 @@ export function PieceItems({ items, actions, onReject }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const open = items.filter((i) => i.status === "proposed" || i.status === "reopened");
+  // Each of these is a decision of its own: a question wants an answer, a removal a second look.
+  const rest = open.filter((i) => !asked(i) && !removing(i));
 
   return (
     <div>
@@ -59,6 +112,7 @@ export function PieceItems({ items, actions, onReject }: {
         const author = current?.actor === "ai" ? "proposed by the AI"
           : current?.actor === "registry" ? "from the registry" : "yours";
         const waiting = item.status === "proposed" || item.status === "reopened";
+        const question = asked(item);
         return (
           <div key={item.key} role="group" aria-label={nameOf(item.key)}
                className={`grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft ${
@@ -85,21 +139,22 @@ export function PieceItems({ items, actions, onReject }: {
               ) : (
                 <>
                   {current?.because ?? ""}
-                  <span className={`block mt-1 text-[12.5px] ${STATUS[item.status]?.tone ?? ""}`}>
-                    {STATUS[item.status]?.label}
+                  {question && item.status !== "removed" && <Answer item={item} question={question} actions={actions} />}
+                  <span className={`block mt-1 text-[12.5px] ${removing(item) ? "text-needs-you-ink" : STATUS[item.status]?.tone ?? ""}`}>
+                    {removing(item) ? "The AI proposes removing this" : STATUS[item.status]?.label}
                   </span>
                 </>
               )}
             </div>
             <div className="flex flex-wrap gap-[6px] sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
-              {waiting && (
+              {waiting && !question && (
                 <button type="button" className={primary}
                         onClick={() => actions.command.mutate({ move: "approve", item: item.key,
                                                                 expected: item.current_n })}>
                   Approve
                 </button>
               )}
-              {item.status !== "removed" && (
+              {item.status !== "removed" && !question && (
                 <button type="button" className={button}
                         onClick={() => { setEditing(item.key); setDraft(JSON.stringify(item.value, null, 2)); }}>
                   Change
@@ -118,11 +173,11 @@ export function PieceItems({ items, actions, onReject }: {
         );
       })}
       {actions.command.isError && <div className="px-[22px] py-3"><Failed error={actions.command.error} padded={false} /></div>}
-      {open.length > 1 && (
+      {rest.length > 1 && (
         <div className="flex justify-between items-center gap-3 px-[22px] py-4 border-t border-line bg-paper-2">
           <span className="text-[13px] text-ink-3">{open.length} items still need you</span>
           <button type="button" className={primary}
-                  onClick={() => open.forEach((i) => actions.command.mutate({
+                  onClick={() => rest.forEach((i) => actions.command.mutate({
                     move: "approve", item: i.key, expected: i.current_n }))}>
             Approve the rest
           </button>
@@ -134,13 +189,18 @@ export function PieceItems({ items, actions, onReject }: {
 
 /** *Write it myself* (board 3a): an item key in this piece and its value as JSON, checked by
  *  the server like any AI draft. */
-export function WriteItem({ piece, actions }: { piece: string; actions: Actions }) {
+export function WriteItem({ piece, items, actions }: {
+  piece: string;
+  items: ItemView[];
+  actions: Actions;
+}) {
   const [key, setKey] = useState(`${piece}:`);
   const [value, setValue] = useState("{}");
   return (
     <form className="flex flex-col gap-2 px-[22px] py-4 border-t border-line-soft" onSubmit={(e) => {
       e.preventDefault();
       actions.command.mutate({ move: piece === "questions" ? "answer" : "write", item: key,
+                               expected: items.find((i) => i.key === key)?.current_n,
                                value: JSON.parse(value) });
     }}>
       <label htmlFor="write-key" className="text-[12.5px] text-ink-2">Item</label>

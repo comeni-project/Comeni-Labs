@@ -136,3 +136,40 @@ def test_a_chat_add_proposes_a_new_item(adaptation):
     assert item.status == "proposed" and item.current.move == "add"
     reply = forging.read(adaptation).messages[-1]
     assert reply.role == "ai" and reply.commands and reply.item == "contract:input:reads"
+
+
+def test_a_chat_card_names_the_revision_it_shows(adaptation):
+    """Review I4: approving a card approves the value on it, or is refused as stale."""
+    _answer(adaptation)
+    seq = forging.post_message(adaptation, role="person", content="add reads")
+    adding = {"text": "Added.", "commands": [
+        {"move": "add", "item": "contract:input:reads",
+         "value": {"position": 0, "name": "reads", "type_id": "fastq.reads"}, "because": "x"}]}
+    forging_ai.answer_message(adaptation, seq, FakeClient(adding))
+    card = forging.read(adaptation).messages[-1].commands[0]
+    assert card["n"] == forging.load(adaptation).items["contract:input:reads"].current.n
+
+
+def test_drafting_that_was_not_queued_does_not_strand_the_page(adaptation, monkeypatch):
+    """Review I1: a refused enqueue says so and leaves the phase as it was."""
+    import asyncio
+
+    from comeni_flow.interpret import Refused
+    from mendel_api import jobs
+
+    async def refused(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(jobs, "enqueue", refused)
+    with pytest.raises(Refused, match="MF0506"):
+        asyncio.run(forging.ask_to_draft(adaptation, "questions"))
+    assert forging.read(adaptation).phase == "reviewing"
+
+
+def test_the_forge_jobs_free_their_id_when_done():
+    """Review I1: a finished draft must not block the next for as long as ARQ keeps results."""
+    from mendel_api.ai_worker import AIWorkerSettings
+
+    forge = [f for f in AIWorkerSettings.functions
+             if getattr(f, "name", "") in ("draft_forge_piece", "answer_forge_message")]
+    assert len(forge) == 2 and all(f.keep_result_s == 0 for f in forge)

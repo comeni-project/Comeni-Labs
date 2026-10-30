@@ -6,6 +6,7 @@ unique `(adaptation, item, n)` is the last word on a race: two decisions against
 cannot both land.
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,6 +41,8 @@ from mendel_api.identity import default_author
 from mendel_api.models import ForgeAdaptation, ForgeItem, ForgeMessage, ForgeRevision
 from mendel_api.services import catalogue, registry
 from mendel_api.settings import settings
+
+log = logging.getLogger(__name__)
 
 
 class RevisionView(BaseModel):
@@ -180,12 +183,13 @@ def load(adaptation_id: str) -> Adaptation:
 def act(adaptation_id: str, command: Command) -> AdaptationView:
     """Apply one command and store what changed. `Refused` from the rules, or on a lost race.
     A value a person writes passes the same checks as the AI's (spec §2)."""
-    before = load(adaptation_id)
-    if command.move in {Move.WRITE, Move.CHANGE, Move.ANSWER}:
-        _check_person_value(adaptation_id, before, command)
-    after = rules.apply(before, command)
     try:
         with db.transaction() as session:
+            _lock(session, adaptation_id)
+            before = load(adaptation_id)
+            if command.move in {Move.WRITE, Move.CHANGE, Move.ANSWER}:
+                _check_person_value(adaptation_id, before, command)
+            after = rules.apply(before, command)
             _write(session, adaptation_id, before, after)
     except IntegrityError as error:
         raise Refused(coded(
@@ -195,9 +199,19 @@ def act(adaptation_id: str, command: Command) -> AdaptationView:
     return read(adaptation_id)
 
 
+def _lock(session, adaptation_id: str) -> ForgeAdaptation:
+    """One mutation of an adaptation at a time: its row, locked for the transaction (review
+    I10). A status written from a stale read could otherwise undo a re-open."""
+    found = session.execute(sa.select(ForgeAdaptation).where(
+        ForgeAdaptation.id == adaptation_id).with_for_update()).scalar_one_or_none()
+    if found is None:
+        raise KeyError(adaptation_id)
+    return found
+
+
 def _after_change(adaptation_id: str, state: Adaptation) -> None:
     _record_dependencies(adaptation_id, state)
-    if row(adaptation_id).phase == Phase.ASSEMBLED:
+    if row(adaptation_id).phase in {Phase.ASSEMBLED, Phase.ASSEMBLING}:
         # A change after assembly: the draft no longer stands for what is decided.
         set_phase(adaptation_id, Phase.REVIEWING)
         _changed(adaptation_id)
@@ -241,20 +255,22 @@ def _check_person_value(adaptation_id: str, state: Adaptation, command: Command)
         raise Refused(coded(problems[0].code, problems[0].says))
 
 
-def act_all(adaptation_id: str, commands: list[Command]) -> AdaptationView:
-    """Apply several commands (one model reply's proposals) all or none."""
-    before = load(adaptation_id)
-    after = before
-    for command in commands:
-        after = rules.apply(after, command)
+def act_all(adaptation_id: str, commands: list[Command]) -> dict[str, int]:
+    """Apply several commands (one model reply's proposals) all or none. Returns the revision
+    each command's item reached, so a chat card can name the value it shows (review I4)."""
     try:
         with db.transaction() as session:
+            _lock(session, adaptation_id)
+            before = load(adaptation_id)
+            after = before
+            for command in commands:
+                after = rules.apply(after, command)
             _write(session, adaptation_id, before, after)
     except IntegrityError as error:
         raise Refused(coded("MF0506", "the adaptation changed while the AI was drafting")) \
             from error
     _after_change(adaptation_id, after)
-    return read(adaptation_id)
+    return {c.item: after.items[c.item].current.n for c in commands}
 
 
 def row(adaptation_id: str) -> ForgeAdaptation:
@@ -325,6 +341,9 @@ def _changed(adaptation_id: str) -> None:
         post_message(dependant, role="engine", content=coded(
             "MF0513", f"it depends on adaptation {adaptation_id}, which changed; the items "
             "using its vocabulary re-opened"))
+        if row(dependant).phase == Phase.ASSEMBLED:
+            set_phase(dependant, Phase.REVIEWING)
+            _changed(dependant)
 
 
 def _uses(value: JsonValue, ids: set[str]) -> bool:
@@ -385,10 +404,35 @@ def draft_dir(adaptation_id: str) -> Path:
 
 
 def assemble(adaptation_id: str) -> AssemblyView:
-    """Write the draft layer and prove it (spec §4); a failure re-opens the blamed piece."""
+    """Write the draft layer and prove it (spec §4). **Whatever fails, the adaptation leaves
+    `assembling`**: a failure the draft is to blame for re-opens that piece; any other (the
+    registry has no licence text, the module left the catalogue) re-opens nothing and says so."""
     state = load(adaptation_id)
     if not rules.ready_to_assemble(state):
         raise Refused(coded("MF0506", "every piece must be approved before assembling"))
+    out = draft_dir(adaptation_id)
+    set_phase(adaptation_id, Phase.ASSEMBLING)
+    files: list[Path] = []
+    try:
+        files = _write_draft(adaptation_id, state, out)
+        proof = prove(settings.registry_root, pending_layers(adaptation_id), out)
+    except ValidationError as error:  # a contract the registry's model refuses
+        proof = _failed(str(error), Piece.CONTRACT)
+    except Exception as error:
+        log.warning("assembling %s failed: %r", adaptation_id, error)
+        proof = _failed(str(error).removeprefix("MF0511: ") or repr(error), None)
+    _finish(adaptation_id, proof)
+    return AssemblyView(loaded=proof.loaded, conforms=proof.conforms, problems=proof.problems,
+                        blames=proof.blames.value if proof.blames else None,
+                        files=sorted(str(f.relative_to(out)) for f in files))
+
+
+def _failed(says: str, blames: Piece | None) -> Proof:
+    return Proof(loaded=False, conforms=False, blames=blames,
+                 problems=[Problem(code="MF0511", says=says)])
+
+
+def _write_draft(adaptation_id: str, state: Adaptation, out: Path) -> list[Path]:
     adaptation = row(adaptation_id)
     detail = catalogue.read_module(adaptation.source, adaptation.path)
     good = catalogue.last_good_sync()
@@ -410,31 +454,29 @@ def assemble(adaptation_id: str) -> AssemblyView:
         approved_by=deciders[-1] if deciders else default_author(),
         approved_at=datetime.now(UTC).date().isoformat(),
     )
-    out = draft_dir(adaptation_id)
-    set_phase(adaptation_id, Phase.ASSEMBLING)
-    try:
-        files = write_layer(approved, f"{adaptation.source}/{adaptation.path}@"
-                            f"{adaptation.version}", provenance, origin,
-                            base=settings.registry_root, out=out)
-        proof = prove(settings.registry_root, pending_layers(adaptation_id), out)
-    except ValueError as error:  # the licence, or a contract the registry's model refuses
-        files, proof = [], Proof(loaded=False, conforms=False, blames=Piece.CONTRACT,
-                                 problems=[Problem(code="MF0511", says=str(error))])
-    if proof.loaded and proof.conforms:
-        set_phase(adaptation_id, Phase.ASSEMBLED)
-        post_message(adaptation_id, role="engine",
-                     content="Assembled: the draft loads over the registry and conforms.")
-    else:
-        reopened = rules.reopen_piece(state, proof.blames or Piece.CONTRACT)
-        with db.transaction() as session:
-            _write(session, adaptation_id, state, reopened)
-        set_phase(adaptation_id, Phase.REVIEWING)
-        post_message(adaptation_id, role="engine", content="Assembly failed; "
-                     f"{(proof.blames or Piece.CONTRACT).value} re-opened:\n- "
-                     + "\n- ".join(f"{p.code}: {p.says}" for p in proof.problems))
-    return AssemblyView(loaded=proof.loaded, conforms=proof.conforms, problems=proof.problems,
-                        blames=proof.blames.value if proof.blames else None,
-                        files=sorted(str(f.relative_to(out)) for f in files))
+    return write_layer(approved, f"{adaptation.source}/{adaptation.path}@{adaptation.version}",
+                       provenance, origin, base=settings.registry_root, out=out)
+
+
+def _finish(adaptation_id: str, proof: Proof) -> None:
+    """Record how assembly ended, against the adaptation as it is now: a command that landed
+    meanwhile has already sent it back to review, and its decisions stand (review I10)."""
+    with db.transaction() as session:
+        found = _lock(session, adaptation_id)
+        if found.phase != Phase.ASSEMBLING:
+            said = "Assembly finished, but the adaptation changed meanwhile: assemble it again."
+        elif proof.loaded and proof.conforms:
+            found.phase = Phase.ASSEMBLED
+            said = "Assembled: the draft loads over the registry and conforms."
+        else:
+            if proof.blames is not None:
+                state = load(adaptation_id)
+                _write(session, adaptation_id, state, rules.reopen_piece(state, proof.blames))
+            found.phase = Phase.REVIEWING
+            opened = f"{proof.blames.value} re-opened" if proof.blames else "nothing re-opened"
+            said = f"Assembly failed; {opened}:\n- " + \
+                "\n- ".join(f"{p.code}: {p.says}" for p in proof.problems)
+    post_message(adaptation_id, role="engine", content=said)
 
 
 def pending_layers(adaptation_id: str) -> list[Path]:
@@ -450,9 +492,12 @@ async def ask_to_draft(adaptation_id: str, piece: str) -> bool:
     if nxt is None or nxt.value != piece:
         raise Refused(coded("MF0506", f"{piece} is not the next piece to draft"
                             + (f" ({nxt} is)" if nxt else " (all are approved)")))
+    queued = await jobs.enqueue("draft_forge_piece", adaptation_id, piece, queue=jobs.AI_QUEUE,
+                                job_id=f"forge-draft:{adaptation_id}:{piece}")
+    if not queued:
+        raise Refused(coded("MF0506", f"the AI is already drafting the {piece}"))
     set_phase(adaptation_id, Phase.ASKING if piece == "questions" else Phase.DRAFTING)
-    return await jobs.enqueue("draft_forge_piece", adaptation_id, piece, queue=jobs.AI_QUEUE,
-                              job_id=f"forge-draft:{adaptation_id}:{piece}:{len(state.items)}")
+    return True
 
 
 def person(move: Move, item: str, *, expected: int | None, value: JsonValue,

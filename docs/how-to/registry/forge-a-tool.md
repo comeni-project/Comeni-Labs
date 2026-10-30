@@ -29,15 +29,19 @@ For each piece, choose:
   item with its reason. It runs in the background; the page shows *drafting…* until it lands.
 - **Write it myself**: enter an item and its value. What you write counts as your decision.
 
-Then, for each item:
+A question is answered, not approved: choose one of its options, or give an answer of your own.
+The AI may mark the option it suggests; only your choice counts.
+
+Then, for each other item:
 
 - **Approve** it, so it counts.
 - **Change** it: your value counts as your decision.
 - **Reject** it: the chat opens on that item. Tell the AI what is wrong and it proposes a
   revision, or write the value yourself. A rejected item holds its piece until it is fixed.
 
-**Approve the rest** approves every item still waiting in the current piece. A piece that needs
-nothing is said explicitly, for example *rules: none needed*.
+**Approve the rest** approves the items still waiting in the current piece, except questions and
+any removal the AI proposes: each of those needs a decision of its own. A piece that needs nothing
+is said explicitly, for example *rules: none needed*.
 
 Every item keeps its history: what the AI proposed, what you changed, and who approved it.
 If two people (or two tabs) act on the same item, the second is refused and asked to reload.

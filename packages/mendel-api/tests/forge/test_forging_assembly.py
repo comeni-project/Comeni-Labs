@@ -92,3 +92,39 @@ def test_a_person_value_is_checked_like_the_ais(client):
         "move": "write", "item": "contract:input:reads",
         "value": {"position": 0, "name": "reads", "type_id": "nothing.here"}})
     assert answer.status_code == 422 and answer.json()["detail"].startswith("MF0507")
+
+
+def test_a_missing_licence_reopens_nothing_and_says_it_once(client, tmp_path, monkeypatch):
+    """Review I9: the fault is the registry's, not the adaptation's."""
+    adaptation_id = _approved_reforge()
+    base = tmp_path / "base"
+    shutil.copytree(REGISTRY, base, ignore=shutil.ignore_patterns(".git", "LICENSES"))
+    monkeypatch.setattr(settings, "registry_root", base)
+    proof = forging.assemble(adaptation_id)
+    assert not proof.loaded and proof.blames is None
+    assert proof.problems[0].says.count("MF0511") == 0, "the code is the problem's, once"
+    assert all(i.status in ("approved", "removed")
+               for i in forging.load(adaptation_id).items.values())
+    assert forging.read(adaptation_id).phase == "reviewing"
+
+
+def test_an_assembly_that_breaks_never_leaves_the_phase_assembling(client):
+    """Review I2: whatever fails, the adaptation goes back to review, and the route says why."""
+    adaptation_id = _approved_reforge()
+    with session_scope() as db:
+        db.execute(sa.text("DELETE FROM catalogue_module"))
+    answer = client.post(f"/api/forge/adaptations/{adaptation_id}/assemble")
+    assert answer.status_code == 200, answer.text
+    assert not answer.json()["loaded"]
+    assert forging.read(adaptation_id).phase == "reviewing"
+
+
+def test_a_command_during_assembly_demotes_it(client):
+    """Review I10: a change landing while assembling must not end as assembled."""
+    adaptation_id = _approved_reforge()
+    forging.set_phase(adaptation_id, "assembling")
+    process = forging.load(adaptation_id).items["contract:process"]
+    forging.act(adaptation_id, forging.person(Move.CHANGE, "contract:process",
+                                              expected=process.current.n,
+                                              value=process.value, because="again"))
+    assert forging.read(adaptation_id).phase == "reviewing"

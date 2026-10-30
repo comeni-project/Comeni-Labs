@@ -318,4 +318,10 @@ changed*) and re-opens items that used its vocabulary.
   implementation = draft, chat).
 - "Write it myself" and "Change" edit values as JSON until per-kind forms are designed.
 - The API also mounts the forge cache (found in the live check).
+- The final review changed five behaviours beyond the plan: an item key has a grammar (`KEY`),
+  checked before anything is stored and again before a file is written; a question is answered,
+  never approved; rejecting a change to something decided restores the decided value; a person's
+  command on an existing item must name its revision; changing an answer re-opens what was built
+  on it. Assembly always leaves `assembling`, and only a failure of the draft's own re-opens a
+  piece: a missing licence text or a module gone from the catalogue re-opens nothing.
 - **Not done: the live run with a model** (no model was configured on the dev stack).

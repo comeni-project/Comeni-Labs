@@ -16,7 +16,7 @@ from mendel_compiler import conformance
 from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from mendel_forge.forging.model import Piece
+from mendel_forge.forging.model import KEY, Piece
 from mendel_forge.forging.values import contract_of, validate_value
 from mendel_forge.model import Problem
 
@@ -55,12 +55,17 @@ def write_layer(
         raise ValueError(coded("MF0511", f"the registry has no text for licence "
                                f"{origin.licence!r} (LICENSES/{origin.licence}.txt), so the "
                                "module cannot be vendored under it"))
+    for key in values:
+        if not KEY.match(key):
+            raise ValueError(coded("MF0511", f"{key!r} is not an item key"))
     if out.exists():
         shutil.rmtree(out)
     tool = out / "tools" / origin.module_id
     written: list[Path] = []
 
     def put(path: Path, text: str) -> None:
+        if not path.resolve().is_relative_to(out.resolve()):
+            raise ValueError(coded("MF0511", f"{path} is outside the draft layer"))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
         written.append(path)

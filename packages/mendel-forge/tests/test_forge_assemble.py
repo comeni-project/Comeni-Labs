@@ -70,3 +70,16 @@ def test_rewriting_replaces_the_previous_draft(tmp_path):
     write_layer(_star_values(), "nf-core/star/align@2.7.11b", PROVENANCE, _origin(),
                 base=REGISTRY, out=out)
     assert not (out / "stray.yml").exists()
+
+
+def test_nothing_is_written_outside_the_draft(tmp_path):
+    """Review C1, the second wall: a key that climbs out is refused before a byte is written."""
+    values = _star_values()
+    values["rules:rule:../../escaped"] = {
+        "decides": {"effect": "implementation", "of": "alignment"}, "rows": [],
+    }
+    with pytest.raises(ValueError, match="MF0511"):
+        write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY,
+                    out=tmp_path / "drafts" / "one")
+    assert not (tmp_path / "escaped.yml").exists()
+    assert not (tmp_path / "drafts" / "escaped.yml").exists()

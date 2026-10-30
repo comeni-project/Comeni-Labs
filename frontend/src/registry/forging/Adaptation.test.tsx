@@ -33,7 +33,8 @@ function at(view: object, extra: Record<string, unknown> = {}) {
     calls.push({ url: String(url), method: init?.method ?? "GET",
                  body: init?.body ? JSON.parse(String(init.body)) : null });
     const reply = Object.entries(extra).find(([path]) => String(url).endsWith(path))?.[1] ?? view;
-    return Promise.resolve({ ok: true, status: 200, json: async () => reply });
+    const status = (reply as { refused?: boolean }).refused ? 422 : 200;
+    return Promise.resolve({ ok: status === 200, status, json: async () => reply });
   }));
   render(
     <QueryClientProvider client={makeClient()}>
@@ -76,13 +77,95 @@ it("an AI proposal in the chat can be approved there", async () => {
   const proposal = { seq: 2, role: "ai", item: null, content: "Here's a revision.", pending: false,
     at: "2026-10-30T10:01:00Z",
     commands: [{ move: "revise", item: "parameters:param:min_contig", value: { default: 200 },
-                 because: "viral" }] };
+                 because: "viral", n: 1 }] };
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "parameters",
                      items: [ANSWERED, PARAM], messages: [proposal] });
   const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
   fireEvent.click(within(chat).getByRole("button", { name: "Approve" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/commands")
-    && (c.body as { move: string }).move === "approve")).toBe(true));
+  await vi.waitFor(() => {
+    const sent = calls.find((c) => c.url.endsWith("/commands"));
+    expect(sent?.body).toEqual({ move: "approve", item: "parameters:param:min_contig", expected: 1 });
+  });
+});
+
+it("a chat card a newer revision replaced says so and decides nothing", async () => {
+  const proposal = { seq: 2, role: "ai", item: null, content: "Here's a revision.", pending: false,
+    at: "2026-10-30T10:01:00Z",
+    commands: [{ move: "draft", item: "parameters:param:min_contig", value: {}, because: "x", n: 1 }] };
+  const revised = item("parameters:param:min_contig", "parameters", "proposed", [
+    rev(1, "draft", "ai", { default: 500 }), rev(2, "revise", "ai", { default: 200 })]);
+  at({ ...BASE, phase: "reviewing", next_piece: "parameters", items: [ANSWERED, revised],
+       messages: [proposal] });
+  const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
+  expect(await within(chat).findByText(/Superseded/)).toBeTruthy();
+  expect(within(chat).queryByRole("button", { name: "Approve" })).toBeNull();
+});
+
+it("a question is answered with its options, and has no Approve", async () => {
+  const question = item("questions:role", "questions", "proposed", [rev(1, "draft", "ai", {
+    asks: "Which role?", suggested: "assembly_qc", allows_new: true, options: [
+      { id: "assembly_qc", label: "assembly QC", because: "it scores assemblies" },
+      { id: "alignment", label: "alignment", because: "it aligns" }] })]);
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [question] });
+  const row = await screen.findByRole("group", { name: "role" });
+  expect(within(row).queryByRole("button", { name: "Approve" })).toBeNull();
+  expect(within(row).getByText(/suggested/i)).toBeTruthy();
+  fireEvent.click(within(row).getByRole("button", { name: /assembly QC/ }));
+  await vi.waitFor(() => {
+    const sent = calls.find((c) => c.url.endsWith("/commands"));
+    expect(sent?.body).toEqual({ move: "answer", item: "questions:role", expected: 1,
+                                 value: { choice: "assembly_qc" } });
+  });
+});
+
+it("a question can be answered with a name of the person's own", async () => {
+  const question = item("questions:role", "questions", "proposed", [rev(1, "draft", "ai", {
+    asks: "Which role?", allows_new: true, options: [] })]);
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [question] });
+  const row = await screen.findByRole("group", { name: "role" });
+  fireEvent.change(within(row).getByLabelText(/another answer/i), { target: { value: "binning" } });
+  fireEvent.click(within(row).getByRole("button", { name: "Answer" }));
+  await vi.waitFor(() => {
+    const sent = calls.find((c) => c.url.endsWith("/commands"));
+    expect(sent?.body).toEqual({ move: "answer", item: "questions:role", expected: 1,
+                                 value: { choice: "binning", new: true } });
+  });
+});
+
+it("a proposed removal says so, and Approve the rest leaves it for the person", async () => {
+  const removing = item("parameters:param:threads", "parameters", "proposed", [
+    rev(1, "draft", "ai", { default: 1 }), rev(2, "propose_removal", "ai", null, "unused")]);
+  const others = ["a", "b"].map((name) => item(`parameters:param:${name}`, "parameters", "proposed",
+    [rev(1, "draft", "ai", { default: 1 })]));
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "parameters",
+                     items: [ANSWERED, removing, ...others] });
+  const row = await screen.findByRole("group", { name: "threads" });
+  expect(within(row).getByText("The AI proposes removing this")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Approve the rest" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.url.endsWith("/commands")).length).toBe(2));
+  expect(calls.filter((c) => c.url.endsWith("/commands"))
+    .map((c) => (c.body as { item: string }).item)).not.toContain("parameters:param:threads");
+});
+
+it("a refused command reads the adaptation again, so a stale page catches up", async () => {
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "parameters", items: [ANSWERED, PARAM] },
+                   { "/commands": { refused: true, detail: "MF0506: it changed since you looked" } });
+  const row = await screen.findByRole("group", { name: "min_contig" });
+  const reads = () => calls.filter((c) => c.method === "GET" && c.url.endsWith("/a1")).length;
+  const before = reads();
+  fireEvent.click(within(row).getByRole("button", { name: "Approve" }));
+  await vi.waitFor(() => expect(reads()).toBeGreaterThan(before));
+});
+
+it("writing an item that exists names its revision", async () => {
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "parameters", items: [ANSWERED, PARAM] });
+  await screen.findByRole("group", { name: "min_contig" });
+  fireEvent.change(screen.getByLabelText("Item"), { target: { value: "parameters:param:min_contig" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => {
+    const sent = calls.find((c) => c.url.endsWith("/commands"));
+    expect((sent?.body as { expected: number }).expected).toBe(1);
+  });
 });
 
 it("shows drafting while the AI works", async () => {

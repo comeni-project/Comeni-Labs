@@ -83,3 +83,13 @@ def test_abandoning_the_earlier_marks_and_reopens_the_later():
     item = forging.load(b).items["contract:input:index"]
     assert item.status == "reopened" and item.value["type_id"] == NEW
     assert "MF0513" in forging.read(b).messages[-1].content
+
+
+def test_an_assembled_dependant_of_an_abandoned_draft_goes_back_to_review():
+    """Review I6: it stops lending its own vocabulary, and its dependants hear of it."""
+    a = _earlier()
+    b = _later()
+    _do(b, Move.WRITE, "contract:input:index", {"position": 1, "name": "index", "type_id": NEW})
+    forging.set_phase(b, "assembled")
+    forging.abandon(a)
+    assert forging.read(b).phase == "reviewing"

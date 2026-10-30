@@ -1,16 +1,29 @@
 import { useState } from "react";
 
 import { Failed } from "../../ui/States";
-import type { AdaptationView } from "./useAdaptation";
+import type { AdaptationView, ItemView } from "./useAdaptation";
 import { nameOf } from "./useAdaptation";
 import type { useForgeActions } from "./useForgeActions";
 
 type Actions = ReturnType<typeof useForgeActions>;
-type Proposal = { move: string; item: string; value?: unknown; because?: string };
+type Proposal = { move: string; item: string; n: number; value?: unknown; because?: string };
+type Fate = { open: boolean; label: string };
 
 const MOVE: Record<string, string> = {
   revise: "AI revises", add: "AI adds", propose_removal: "AI proposes removing",
 };
+
+const DECIDED: Record<string, string> = { approve: "Approved", reject: "Rejected" };
+
+/** What became of a card's proposal: open only while the item is still at the card's revision,
+ *  so approving a card approves the value on it. */
+function fate(item: ItemView | undefined, card: Proposal): Fate {
+  if (!item) return { open: false, label: "" };
+  const after = item.revisions.find((r) => r.n === card.n + 1);
+  if (after) return { open: false, label: DECIDED[after.move] ?? "Superseded by a newer revision" };
+  const waiting = item.status === "proposed" || item.status === "reopened";
+  return { open: waiting, label: item.status };
+}
 
 /** The chat beside the pieces (boards 3c, 3d). A message may be about one item; the AI's
  *  proposals arrive as cards the person approves, changes or rejects, never the chat itself. */
@@ -22,10 +35,8 @@ export function Chat({ view, actions, about, setAbout }: {
 }) {
   const [text, setText] = useState("");
   const current = (key: string) => view.items.find((i) => i.key === key);
-  const decide = (key: string, move: "approve" | "reject") => {
-    const item = current(key);
-    if (item) actions.command.mutate({ move, item: key, expected: item.current_n });
-  };
+  const decide = (card: Proposal, move: "approve" | "reject") =>
+    actions.command.mutate({ move, item: card.item, expected: card.n });
 
   return (
     <aside aria-label="Chat with the AI"
@@ -49,8 +60,7 @@ export function Chat({ view, actions, about, setAbout }: {
               {m.pending && <span className="block text-[12px] text-ink-3">the AI is replying…</span>}
             </div>
             {(m.commands as Proposal[]).map((c, n) => {
-              const item = current(c.item);
-              const waiting = item && (item.status === "proposed" || item.status === "reopened");
+              const decided = fate(current(c.item), c);
               return (
                 <div key={n} className="self-stretch border border-line-2 rounded-control p-3 flex flex-col gap-[6px]">
                   <span className={`text-[12px] ${c.move === "propose_removal" ? "text-needs-you-ink" : "text-measured-ink"}`}>
@@ -60,19 +70,19 @@ export function Chat({ view, actions, about, setAbout }: {
                     <span className="font-data text-[12.5px] break-all">{JSON.stringify(c.value)}</span>
                   )}
                   {c.because && <span className="text-[12.5px] text-ink-2">{c.because}</span>}
-                  {waiting ? (
+                  {decided.open ? (
                     <span className="flex gap-[6px]">
-                      <button type="button" onClick={() => decide(c.item, "approve")}
+                      <button type="button" onClick={() => decide(c, "approve")}
                               className="px-3 py-[6px] rounded-control bg-action text-on-action text-[12.5px] font-semibold shadow-raise">
                         Approve
                       </button>
-                      <button type="button" onClick={() => { decide(c.item, "reject"); setAbout(c.item); }}
+                      <button type="button" onClick={() => { decide(c, "reject"); setAbout(c.item); }}
                               className="px-3 py-[6px] rounded-control border border-line-2 bg-surface text-[12.5px] text-needs-you-ink">
                         Reject
                       </button>
                     </span>
                   ) : (
-                    <span className="text-[12px] text-ink-3">{item?.status === "approved" ? "Approved" : item?.status ?? ""}</span>
+                    <span className="text-[12px] text-ink-3">{decided.label}</span>
                   )}
                 </div>
               );
