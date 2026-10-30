@@ -12,8 +12,9 @@ from mendel_forge.state import State
 from pydantic import BaseModel
 
 from mendel_api import jobs
+from mendel_api.identity import default_author
 from mendel_api.refusals import REFUSES, Refusal
-from mendel_api.services import catalogue
+from mendel_api.services import catalogue, forging
 from mendel_api.services.catalogue import CataloguePage, ModuleDetail, Sort
 
 router = APIRouter(prefix="/forge", tags=["forge"])
@@ -77,3 +78,104 @@ async def sync_catalogue() -> SyncQueued:
             detail=coded("MF0502", f"the sync could not be queued: {error}"),
         ) from error
     return SyncQueued(queued=queued)
+
+
+# ═══ Forging (forge MVP 3, #364) ══════════════════════════════════════════════════════════════
+
+
+class StartBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    source: str
+    path: str
+    reforge: str | None = None
+    """The contract id of an imported tool to re-forge from."""
+
+
+class MessageBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    content: str
+    item: str | None = None
+    """The item the message is about, if any."""
+
+
+def _unknown(adaptation_id: str) -> HTTPException:
+    return HTTPException(status_code=404, detail=coded(
+        "MF0510", f"no adaptation {adaptation_id!r}"))
+
+
+@router.post(
+    "/adaptations",
+    operation_id="startAdaptation",
+    summary="Start forging a module from the catalogue",
+    status_code=201,
+    responses=REFUSES,
+)
+def start_adaptation(body: StartBody) -> forging.AdaptationView:
+    try:
+        return forging.start(body.source, body.path, default_author(), body.reforge)
+    except KeyError as missing:
+        raise HTTPException(status_code=404, detail=coded(
+            "MF0503", f"no module or tool {missing.args[0]!r} to forge from")) from None
+
+
+@router.get("/adaptations", operation_id="listAdaptations", summary="Open adaptations")
+def list_adaptations() -> forging.AdaptationList:
+    return forging.summaries()
+
+
+@router.get(
+    "/adaptations/{adaptation_id}",
+    operation_id="readAdaptation",
+    summary="An adaptation: its pieces, items, revisions and chat",
+    responses=REFUSES,
+)
+def read_adaptation(adaptation_id: str) -> forging.AdaptationView:
+    try:
+        return forging.read(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.post(
+    "/adaptations/{adaptation_id}/commands",
+    operation_id="commandAdaptation",
+    summary="A person's decision on one item: answer, write, approve, change, reject, remove",
+    responses=REFUSES,
+)
+def command_adaptation(adaptation_id: str, body: forging.CommandBody) -> forging.AdaptationView:
+    try:
+        return forging.act(adaptation_id, forging.person(
+            body.move, body.item, expected=body.expected, value=body.value,
+            because=body.because))
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.post(
+    "/adaptations/{adaptation_id}/messages",
+    operation_id="messageAdaptation",
+    summary="Say something to the AI about this tool, or about one item",
+    status_code=202,
+    responses=REFUSES,
+)
+async def message_adaptation(adaptation_id: str, body: MessageBody) -> forging.MessageView:
+    try:
+        return await forging.say(adaptation_id, body.content, body.item, default_author())
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.delete(
+    "/adaptations/{adaptation_id}",
+    operation_id="abandonAdaptation",
+    summary="Abandon an adaptation; its record is kept",
+    status_code=204,
+    responses=REFUSES,
+)
+def abandon_adaptation(adaptation_id: str) -> None:
+    try:
+        forging.abandon(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None

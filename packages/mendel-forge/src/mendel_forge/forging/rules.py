@@ -44,7 +44,10 @@ def apply(state: Adaptation, command: Command) -> Adaptation:
     if move in PROPOSALS and actor is Actor.PERSON:
         raise Refused(coded("MF0506", f"a person does not {move}; write or change it instead"))
     piece = piece_of(command.item)
-    _in_reach(state, piece, move)
+    if actor is not Actor.REGISTRY and command.item not in state.items:
+        # Order governs what is created; deciding on a proposal that exists is always open.
+        # A re-forge seeds every piece from the registry's contract at once, as proposals.
+        _in_reach(state, piece, move)
     item = state.items.get(command.item)
     if item is not None and command.expected is not None and command.expected != item.current.n:
         raise Refused(coded(

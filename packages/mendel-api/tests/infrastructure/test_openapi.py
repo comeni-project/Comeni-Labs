@@ -38,6 +38,13 @@ def test_every_operation_is_named_by_hand():
         ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",
         ("/api/forge/catalogue/sync", "post"): "syncCatalogue",
         ("/api/registry/tools/{contract_id}", "get"): "readTool",
+        # Forging (forge MVP 3, #364).
+        ("/api/forge/adaptations", "post"): "startAdaptation",
+        ("/api/forge/adaptations", "get"): "listAdaptations",
+        ("/api/forge/adaptations/{adaptation_id}", "get"): "readAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}", "delete"): "abandonAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}/commands", "post"): "commandAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}/messages", "post"): "messageAdaptation",
         # **The build path, reachable at last.** `resolve_verbs.run` was argparse-shaped until
         # Plan 3C phase 0, so no route could exist here at all. `POST` because a `Goal` is a
         # document — profile, wants, producer pins — and a URL is the wrong place for one.

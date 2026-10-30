@@ -257,3 +257,4 @@ decline to curate one.
 | `MF0507` | a reply names an id the registry does not have |
 | `MF0508` | a port the module's main.nf does not have |
 | `MF0509` | a setting is passed nowhere |
+| `MF0510` | no adaptation with that id |

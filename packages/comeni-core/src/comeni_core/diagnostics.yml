@@ -2289,6 +2289,17 @@ MF0509:
     Give an `ext` setting its key (`args`), or wire a positional setting into `nf_inputs`.
   explanation: |
     A setting the module never receives would be a decision with no effect.
+MF0510:
+  emitted_by: api
+  concern: catalogue
+  says: "no adaptation with that id"
+  fires_on: [forging]
+  refuses: true
+  fix: |
+    Open it from the Forging tab, which lists the open adaptations. An abandoned one is kept
+    and still opens by its link.
+  explanation: |
+    An adaptation id names one module being forged; an id that names nothing is said as such.
 MV0001:
   emitted_by: vendor
   concern: vendoring

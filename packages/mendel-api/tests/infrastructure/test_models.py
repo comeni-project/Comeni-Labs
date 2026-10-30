@@ -90,6 +90,12 @@ def test_the_registry_is_not_in_the_database():
         # stays files, and a module's state against it is computed on read.
         "catalogue_sync",
         "catalogue_module",
+        # Forging (#364): adaptations of upstream modules, every revision of each item, and
+        # the chat. No build reads them; a forged tool reaches builds only by pull request.
+        "forge_adaptation",
+        "forge_item",
+        "forge_revision",
+        "forge_message",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a new one needs the same argument written down. Two rejections in "

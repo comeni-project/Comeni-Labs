@@ -91,3 +91,12 @@ def test_the_forging_protocol_is_valid_and_draws():
     assert FORGING.refusal_code == "MF0506"
     for node in ("review", "draft", "assemble", "assembled"):
         assert node in drawn
+
+
+def test_a_reforge_seeds_every_piece_as_proposals():
+    """The registry's current contract starts a re-forge: proposals in any piece, never decisions."""
+    state = _do(Adaptation(), Move.DRAFT, Actor.REGISTRY, "contract:input:reads", value={})
+    assert state.items["contract:input:reads"].status is Status.PROPOSED
+    assert next_piece(state) is Piece.QUESTIONS
+    with pytest.raises(Refused, match="MF0505"):
+        _do(state, Move.APPROVE, Actor.REGISTRY, "contract:input:reads", expected=1)
