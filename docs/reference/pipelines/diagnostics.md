@@ -260,3 +260,4 @@ decline to curate one.
 | `MF0510` | no adaptation with that id |
 | `MF0511` | the draft layer could not be written or does not load |
 | `MF0512` | the draft's contract does not conform to its module |
+| `MF0513` | an adaptation this one depends on changed |

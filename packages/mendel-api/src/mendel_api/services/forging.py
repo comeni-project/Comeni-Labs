@@ -29,7 +29,7 @@ from mendel_forge.forging.model import (
     Status,
 )
 from mendel_forge.forging.protocol import Phase
-from mendel_forge.forging.validate import check_items, known
+from mendel_forge.forging.validate import check_items, known, pending_used
 from mendel_forge.forging.values import items_of, validate_value
 from mendel_forge.model import Problem
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -191,7 +191,16 @@ def act(adaptation_id: str, command: Command) -> AdaptationView:
         raise Refused(coded(
             "MF0506", f"{command.item} changed while you decided: reload and decide again",
         )) from error
+    _after_change(adaptation_id, after)
     return read(adaptation_id)
+
+
+def _after_change(adaptation_id: str, state: Adaptation) -> None:
+    _record_dependencies(adaptation_id, state)
+    if row(adaptation_id).phase == Phase.ASSEMBLED:
+        # A change after assembly: the draft no longer stands for what is decided.
+        set_phase(adaptation_id, Phase.REVIEWING)
+        _changed(adaptation_id)
 
 
 def _write(session, adaptation_id: str, before: Adaptation, after: Adaptation) -> None:
@@ -244,6 +253,7 @@ def act_all(adaptation_id: str, commands: list[Command]) -> AdaptationView:
     except IntegrityError as error:
         raise Refused(coded("MF0506", "the adaptation changed while the AI was drafting")) \
             from error
+    _after_change(adaptation_id, after)
     return read(adaptation_id)
 
 
@@ -260,9 +270,71 @@ def set_phase(adaptation_id: str, phase: Phase) -> None:
         session.get(ForgeAdaptation, adaptation_id).phase = phase
 
 
+def _assembled_vocabulary(adaptation_id: str) -> dict[str, str]:
+    """Pending id → the assembled adaptation that proposes it, other than `adaptation_id`.
+    Only an assembled adaptation is visible: work in progress never is (spec §5)."""
+    with db.session_scope() as session:
+        others = session.scalars(sa.select(ForgeAdaptation.id).where(
+            ForgeAdaptation.phase == Phase.ASSEMBLED, ForgeAdaptation.abandoned_at.is_(None),
+            ForgeAdaptation.id != adaptation_id)).all()
+    found: dict[str, str] = {}
+    for other in sorted(others):
+        for key, item in load(other).items.items():
+            if key.startswith(("vocabulary:type:", "vocabulary:role:")) and \
+                    item.status is Status.APPROVED:
+                found.setdefault(key.rsplit(":", 1)[1], other)
+    return found
+
+
 def pending_ids(adaptation_id: str) -> frozenset[str]:
-    """Vocabulary from assembled adaptations this one may use (spec §5); see Task 8."""
-    return frozenset()
+    """Vocabulary from assembled adaptations this one may use, tagged pending (spec §5)."""
+    return frozenset(_assembled_vocabulary(adaptation_id))
+
+
+def _record_dependencies(adaptation_id: str, state: Adaptation) -> None:
+    """Note which assembled adaptations this one's items now rely on."""
+    owners = _assembled_vocabulary(adaptation_id)
+    values = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
+    used = pending_used(values, known(registry.stack(), pending=frozenset(owners)))
+    needed = sorted({owners[i] for i in used})
+    with db.session_scope() as session:
+        found = session.get(ForgeAdaptation, adaptation_id)
+        merged = sorted(set(found.depends_on or []) | set(needed))
+        if merged != list(found.depends_on or []):
+            found.depends_on = merged
+
+
+def _changed(adaptation_id: str) -> None:
+    """An assembled adaptation re-opened or abandoned: its dependants are marked and the items
+    that used its vocabulary re-open, values kept (spec §5). `MF0513`."""
+    with db.session_scope() as session:
+        dependants = [r.id for r in session.scalars(sa.select(ForgeAdaptation).where(
+            ForgeAdaptation.abandoned_at.is_(None)))
+            if adaptation_id in (r.depends_on or [])]
+    vocabulary = {key.rsplit(":", 1)[1] for key in load(adaptation_id).items
+                  if key.startswith(("vocabulary:type:", "vocabulary:role:"))}
+    for dependant in dependants:
+        state = load(dependant)
+        items = {
+            key: item.model_copy(update={"status": Status.REOPENED})
+            if item.status is Status.APPROVED and _uses(item.value, vocabulary) else item
+            for key, item in state.items.items()
+        }
+        with db.transaction() as session:
+            _write(session, dependant, state, state.model_copy(update={"items": items}))
+        post_message(dependant, role="engine", content=coded(
+            "MF0513", f"it depends on adaptation {adaptation_id}, which changed; the items "
+            "using its vocabulary re-opened"))
+
+
+def _uses(value: JsonValue, ids: set[str]) -> bool:
+    if isinstance(value, str):
+        return value in ids
+    if isinstance(value, dict):
+        return any(_uses(v, ids) for v in value.values())
+    if isinstance(value, list):
+        return any(_uses(v, ids) for v in value)
+    return False
 
 
 def post_message(adaptation_id: str, *, role: str, content: str, item: str | None = None,
@@ -366,8 +438,9 @@ def assemble(adaptation_id: str) -> AssemblyView:
 
 
 def pending_layers(adaptation_id: str) -> list[Path]:
-    """Draft layers of assembled adaptations this one depends on (spec §5); see Task 8."""
-    return []
+    """The draft layers of the assembled adaptations this one depends on, stacked beneath it."""
+    return [draft_dir(other) for other in row(adaptation_id).depends_on or []
+            if draft_dir(other).is_dir()]
 
 
 async def ask_to_draft(adaptation_id: str, piece: str) -> bool:
@@ -461,7 +534,8 @@ async def say(adaptation_id: str, content: str, item: str | None, by: str) -> Me
 
 def abandon(adaptation_id: str) -> None:
     with db.transaction() as session:
-        row = session.get(ForgeAdaptation, adaptation_id)
-        if row is None:
+        found = session.get(ForgeAdaptation, adaptation_id)
+        if found is None:
             raise KeyError(adaptation_id)
-        row.abandoned_at = datetime.now(UTC)
+        found.abandoned_at = datetime.now(UTC)
+    _changed(adaptation_id)

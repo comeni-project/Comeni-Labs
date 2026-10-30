@@ -2325,6 +2325,19 @@ MF0512:
   explanation: |
     The same conformance check a registry contract is held to, run on the draft before it is
     called assembled.
+MF0513:
+  emitted_by: api
+  concern: catalogue
+  says: "an adaptation this one depends on changed"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Look at the re-opened items: they use vocabulary from the earlier adaptation, which was
+    re-opened or abandoned. Approve them again if it still holds, or change them.
+  explanation: |
+    A later adaptation may use an assembled one's new vocabulary before it reaches the
+    registry. When that earlier draft changes, what relied on it is reviewed again rather than
+    silently kept.
 MV0001:
   emitted_by: vendor
   concern: vendoring
