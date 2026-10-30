@@ -114,6 +114,7 @@ nav:
           - Run the development stack: how-to/development/local-stack.md
           - Configure a model: how-to/development/configure-model.md
           - Walk and investigate behavior: how-to/development/investigate.md
+          - Walk the forge live: how-to/development/forge-live-walk.md
           - Release a package: how-to/development/release.md
           - Maintain documentation: how-to/development/documentation.md
   - Reference:
