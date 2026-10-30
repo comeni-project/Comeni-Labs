@@ -167,6 +167,26 @@ async def message_adaptation(adaptation_id: str, body: MessageBody) -> forging.M
         raise _unknown(adaptation_id) from None
 
 
+class DraftBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    piece: str
+
+
+@router.post(
+    "/adaptations/{adaptation_id}/draft",
+    operation_id="draftAdaptationPiece",
+    summary="Ask the AI to draft the next piece",
+    status_code=202,
+    responses=REFUSES,
+)
+async def draft_adaptation_piece(adaptation_id: str, body: DraftBody) -> SyncQueued:
+    try:
+        return SyncQueued(queued=await forging.ask_to_draft(adaptation_id, body.piece))
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
 @router.delete(
     "/adaptations/{adaptation_id}",
     operation_id="abandonAdaptation",

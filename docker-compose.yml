@@ -166,6 +166,8 @@ services:
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+      # The catalogue's nf-core clone: forging reads a module's main.nf and meta.yml (#364).
+      - ./.run/forge:/app/forge:ro
     command: arq mendel_api.ai_worker.AIWorkerSettings
 
   # -----------------------------------------------------------------------------

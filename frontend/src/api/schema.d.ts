@@ -1098,6 +1098,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations/{adaptation_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the AI to draft the next piece */
+        post: operations["draftAdaptationPiece"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2212,6 +2229,11 @@ export interface components {
             minimum?: number | null;
             /** Maximum */
             maximum?: number | null;
+        };
+        /** DraftBody */
+        DraftBody: {
+            /** Piece */
+            piece: string;
         };
         /**
          * DraftChannel
@@ -6630,6 +6652,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    draftAdaptationPiece: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncQueued"];
                 };
             };
             /** @description The id in the path names nothing. */

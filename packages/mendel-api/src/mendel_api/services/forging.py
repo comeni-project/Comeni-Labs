@@ -197,6 +197,85 @@ def _write(session, adaptation_id: str, before: Adaptation, after: Adaptation) -
     session.flush()
 
 
+def act_all(adaptation_id: str, commands: list[Command]) -> AdaptationView:
+    """Apply several commands (one model reply's proposals) all or none."""
+    before = load(adaptation_id)
+    after = before
+    for command in commands:
+        after = rules.apply(after, command)
+    try:
+        with db.transaction() as session:
+            _write(session, adaptation_id, before, after)
+    except IntegrityError as error:
+        raise Refused(coded("MF0506", "the adaptation changed while the AI was drafting")) \
+            from error
+    return read(adaptation_id)
+
+
+def row(adaptation_id: str) -> ForgeAdaptation:
+    with db.session_scope() as session:
+        found = session.get(ForgeAdaptation, adaptation_id)
+        if found is None:
+            raise KeyError(adaptation_id)
+        return found
+
+
+def set_phase(adaptation_id: str, phase: Phase) -> None:
+    with db.session_scope() as session:
+        session.get(ForgeAdaptation, adaptation_id).phase = phase
+
+
+def pending_ids(adaptation_id: str) -> frozenset[str]:
+    """Vocabulary from assembled adaptations this one may use (spec §5); see Task 8."""
+    return frozenset()
+
+
+def post_message(adaptation_id: str, *, role: str, content: str, item: str | None = None,
+                 commands: list[dict] | None = None, invocation: str | None = None) -> int:
+    with db.transaction() as session:
+        seq = (session.scalar(sa.select(sa.func.max(ForgeMessage.seq))
+                              .where(ForgeMessage.adaptation == adaptation_id)) or 0) + 1
+        session.add(ForgeMessage(adaptation=adaptation_id, seq=seq, role=role, item=item,
+                                 content=content, commands=commands or [],
+                                 invocation=invocation, at=datetime.now(UTC)))
+    return seq
+
+
+def answer_message(adaptation_id: str, seq: int, content: str, commands: list[dict],
+                   invocation: str | None = None) -> None:
+    """The AI's reply to the person's message `seq`, which stops being pending."""
+    with db.session_scope() as session:
+        asked = session.scalar(sa.select(ForgeMessage).where(
+            ForgeMessage.adaptation == adaptation_id, ForgeMessage.seq == seq))
+        if asked is not None:
+            asked.pending = False
+        item = asked.item if asked is not None else None
+    post_message(adaptation_id, role="ai", content=content, item=item, commands=commands,
+                 invocation=invocation)
+
+
+def turns(adaptation_id: str, upto: int) -> list[tuple[str, str]]:
+    """The conversation up to and including message `upto`, as (role, content)."""
+    with db.session_scope() as session:
+        found = session.scalars(sa.select(ForgeMessage).where(
+            ForgeMessage.adaptation == adaptation_id, ForgeMessage.seq <= upto,
+            ForgeMessage.role.in_(("person", "ai"))).order_by(ForgeMessage.seq)).all()
+        return [("person" if m.role == "person" else "model",
+                 f"[about {m.item}] {m.content}" if m.item else m.content) for m in found]
+
+
+async def ask_to_draft(adaptation_id: str, piece: str) -> bool:
+    """Queue the AI's draft of `piece`, the next one; `MF0506` for any other."""
+    state = load(adaptation_id)
+    nxt = rules.next_piece(state)
+    if nxt is None or nxt.value != piece:
+        raise Refused(coded("MF0506", f"{piece} is not the next piece to draft"
+                            + (f" ({nxt} is)" if nxt else " (all are approved)")))
+    set_phase(adaptation_id, Phase.ASKING if piece == "questions" else Phase.DRAFTING)
+    return await jobs.enqueue("draft_forge_piece", adaptation_id, piece, queue=jobs.AI_QUEUE,
+                              job_id=f"forge-draft:{adaptation_id}:{piece}:{len(state.items)}")
+
+
 def person(move: Move, item: str, *, expected: int | None, value: JsonValue,
            because: str | None) -> Command:
     return Command(move=move, actor=Actor.PERSON, item=item, expected=expected, value=value,

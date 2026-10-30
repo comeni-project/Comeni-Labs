@@ -4,7 +4,7 @@ This registry describes allowed payload shapes; it does not send data or
 intercept transport. Publication uses the saved Pipeline model itself.
 
 Registry projections and filtering take O(b) time and memory for b boundaries.
-The current registry contains five entries; there are no nested scans.
+The current registry contains six entries; there are no nested scans.
 """
 
 from enum import StrEnum
@@ -15,12 +15,13 @@ from pydantic import BaseModel
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.egress.authoring import AuthoringRequest
 from comeni_core.egress.characterisation import CharacteriseRequest
+from comeni_core.egress.forge import ForgeRequest
 from comeni_core.egress.repair import RepairRequest
 from comeni_core.egress.resolution import AmbiguityRequest
 
 
 class BoundaryFlow(StrEnum):
-    """Workflow served by a boundary: pipeline operations, or the forge's (none declared yet)."""
+    """Workflow served by a boundary: pipeline operations, or the forge's."""
 
     PIPELINE = "pipeline"
     FORGE = "forge"
@@ -38,6 +39,8 @@ BOUNDARIES: dict[str, Boundary] = {
     "tier4_resolution": Boundary(AmbiguityRequest, BoundaryFlow.PIPELINE),
     "compiler_repair": Boundary(RepairRequest, BoundaryFlow.PIPELINE),
     "publication": Boundary(Pipeline, BoundaryFlow.PIPELINE),
+    # Forge MVP 3 (#364): public module files and registry ids in, drafted items out.
+    "forge_drafting": Boundary(ForgeRequest, BoundaryFlow.FORGE),
     "characterisation": Boundary(CharacteriseRequest, BoundaryFlow.PIPELINE),
 }
 """Single declaration of all outbound boundaries and their payload models."""

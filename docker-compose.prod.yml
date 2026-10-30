@@ -29,6 +29,7 @@ services:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
+      - ./.run/forge:/app/forge:ro
 
   ollama:
     restart: unless-stopped

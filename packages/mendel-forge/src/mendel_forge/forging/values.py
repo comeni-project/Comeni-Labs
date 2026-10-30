@@ -70,6 +70,8 @@ class Question(_Frozen):
     asks: str
     options: list[Option]
     allows_new: bool = True
+    suggested: str | None = None
+    """The option the AI is confident in, shown for the person to accept; never an answer."""
 
 
 class Answer(_Frozen):
