@@ -1132,6 +1132,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations/{adaptation_id}/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run the assembled draft's tests as Wiener runs */
+        post: operations["runAdaptationTests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1226,6 +1243,13 @@ export interface components {
             items: components["schemas"]["ItemView"][];
             /** Messages */
             messages: components["schemas"]["MessageView"][];
+            /**
+             * Tests
+             * @default []
+             */
+            tests: components["schemas"]["TestRunView"][];
+            /** Tests Unavailable */
+            tests_unavailable?: string | null;
         };
         /** AiConfigured */
         AiConfigured: {
@@ -3178,6 +3202,11 @@ export interface components {
              * @default []
              */
             rules: components["schemas"]["RuleView"][];
+            /**
+             * Tests
+             * @default []
+             */
+            tests: components["schemas"]["TestView"][];
             upstream?: components["schemas"]["Upstream"] | null;
             /** Licence */
             licence?: string | null;
@@ -4324,6 +4353,26 @@ export interface components {
             error: string | null;
             /** Stale */
             stale: boolean;
+        };
+        /** TestRunView */
+        TestRunView: {
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Says */
+            says: string | null;
+        };
+        /** TestView */
+        TestView: {
+            /** Name */
+            name: string;
+            /** Feeds */
+            feeds: string[];
+            /** Expects */
+            expects: string[];
         };
         /**
          * TextSource
@@ -6766,6 +6815,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssemblyView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    runAdaptationTests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationView"];
                 };
             };
             /** @description The id in the path names nothing. */

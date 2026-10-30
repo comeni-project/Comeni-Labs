@@ -6,10 +6,12 @@ import { Failed, Loading } from "../../ui/States";
 import { RegistryTabs } from "../RegistryTabs";
 import { Chat } from "./Chat";
 import { PieceItems, WriteItem } from "./PieceItems";
+import { TestsPanel } from "./Tests";
 import { PIECES, useAdaptation, type AdaptationView } from "./useAdaptation";
 import { useForgeActions, type AssemblyView } from "./useForgeActions";
 
 const SETTLED = new Set(["approved", "removed"]);
+const STANDS = new Set(["assembled", "testing", "tested"]);
 
 /** `/registry/forging/:id` (boards 3–3g): the pieces in order, the current one's items, the
  *  chat, and assembling once everything is approved. */
@@ -26,7 +28,7 @@ export function Adaptation() {
   if (adaptation.isPending) return <><RegistryTabs /><Loading what="the adaptation" /></>;
   if (adaptation.isError || !view) return <><RegistryTabs /><Failed error={adaptation.error} /></>;
 
-  const piece = chosen ?? view.next_piece ?? "rules";
+  const piece = chosen ?? view.next_piece ?? "tests";
   const items = view.items.filter((i) => i.piece === piece);
   const done = PIECES.filter((p) => {
     const its = view.items.filter((i) => i.piece === p);
@@ -66,10 +68,6 @@ export function Adaptation() {
                 </li>
               );
             })}
-            <li className="shrink-0 px-[10px] py-[9px] sm:mt-[6px] sm:border-t border-line-soft text-ink-3">
-              <span className="font-medium">Tests</span>
-              <span className="block text-[12px]">Tests come in MVP 4</span>
-            </li>
           </ol>
         </nav>
 
@@ -138,14 +136,16 @@ function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType
   return (
     <div className="px-[22px] py-5 flex flex-col gap-4">
       <p className="m-0 text-ink-2">
-        {view.phase === "assembled" && !result
+        {STANDS.has(view.phase) && !result
           ? "Assembled: the draft loads over the registry and conforms."
           : "Every piece is approved. Assembling writes the registry files into a draft layer and checks them with the builder's own code. Nothing goes into the registry: that is a pull request, in MVP 5."}
       </p>
-      <button type="button" onClick={() => actions.assemble.mutate()} disabled={actions.assemble.isPending}
-              className="self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise">
-        Assemble
-      </button>
+      {!STANDS.has(view.phase) && (
+        <button type="button" onClick={() => actions.assemble.mutate()} disabled={actions.assemble.isPending}
+                className="self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise">
+          Assemble
+        </button>
+      )}
       {actions.assemble.isError && <Failed error={actions.assemble.error} padded={false} />}
       {result && (
         <div className="flex flex-col gap-3">
@@ -168,9 +168,9 @@ function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType
               ))}
             </ul>
           )}
-          <p className="m-0 text-[12.5px] text-ink-3">Running its tests comes in MVP 4.</p>
         </div>
       )}
+      {STANDS.has(view.phase) && <TestsPanel view={view} actions={actions} />}
     </div>
   );
 }

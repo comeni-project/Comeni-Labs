@@ -14,6 +14,10 @@ function summary(item: ItemView): string {
   const v = item.value as Record<string, unknown> | null;
   if (!v || typeof v !== "object") return v === null ? "" : String(v);
   if ("type_id" in v) return String(v.type_id);
+  if ("expect" in v) {
+    const feeds = Object.keys(v.inputs as object).join(", ") || "setup";
+    return `${feeds} → ${(v.expect as { pattern: string }[]).map((e) => e.pattern).join(", ")}`;
+  }
   if ("choice" in v) return String(v.choice);
   if ("asks" in v) return String(v.asks);
   if (item.key.startsWith("parameters:param:")) {

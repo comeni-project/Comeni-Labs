@@ -31,7 +31,9 @@ export function ForgingList() {
                   <span className="flex-[1_1_200px] font-data font-medium">{a.path} <span className="text-ink-3 font-normal">{a.version}</span></span>
                   <span className="flex-[1_1_160px] text-[13px] text-ink-2">{a.approved} of {a.total} items approved</span>
                   <span className={`flex-[1_1_180px] text-[13px] ${a.drafting ? "text-action" : a.waiting ? "text-measured-ink" : "text-ink-3"}`}>
-                    {a.drafting ? "the AI is drafting…" : a.phase === "assembled" ? "assembled · Tests come in MVP 4"
+                    {a.drafting ? "the AI is drafting…" : a.phase === "tested" ? "tests green"
+                      : a.phase === "testing" ? "tests running in Wiener"
+                      : a.phase === "assembled" ? "assembled · tests not green yet"
                       : a.waiting ? `${a.waiting} proposals waiting for you` : `next: ${a.next_piece ?? "assemble"}`}
                   </span>
                   <span className="text-[12.5px] text-ink-3">{a.started_by}</span>

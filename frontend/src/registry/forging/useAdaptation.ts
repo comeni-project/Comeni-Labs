@@ -8,10 +8,11 @@ export type ItemView = components["schemas"]["ItemView"];
 export type MessageView = components["schemas"]["MessageView"];
 export type AdaptationList = components["schemas"]["AdaptationList"];
 
-export const PIECES = ["questions", "contract", "parameters", "vocabulary", "rules"] as const;
+export const PIECES = ["questions", "contract", "parameters", "vocabulary", "rules", "tests"] as const;
 
 /** One adaptation. While the AI works (drafting, or a message waiting for its reply) the page
- *  reads again every two seconds, so the proposals appear when they land. */
+ *  reads again every two seconds, so the proposals appear when they land; while tests run in
+ *  Wiener, every five. */
 export function useAdaptation(id: string) {
   return useQuery({
     queryKey: ["adaptation", id],
@@ -20,7 +21,8 @@ export function useAdaptation(id: string) {
       const view = query.state.data;
       const busy = view && (view.phase === "drafting" || view.phase === "asking"
         || view.messages.some((m) => m.pending));
-      return busy ? 2_000 : false;
+      if (busy) return 2_000;
+      return view?.phase === "testing" ? 5_000 : false;
     },
   });
 }

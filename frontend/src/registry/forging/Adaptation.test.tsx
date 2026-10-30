@@ -182,3 +182,59 @@ it("all approved: assembling shows the files and the result", async () => {
   expect(await screen.findByText("tools/nf-core/quast/contract.yml")).toBeTruthy();
   expect(screen.getByText(/Loads over the registry/)).toBeTruthy();
 });
+
+const TESTED_ITEM = item("tests:test:small", "tests", "approved",
+  [rev(1, "write", "person", { inputs: { reads: ["a/b.fq"] }, expect: [{ port: "bam", pattern: "*.bam" }] })]);
+const ASSEMBLED = { ...BASE, phase: "assembled", next_piece: null, ready: true,
+                    items: [ANSWERED, TESTED_ITEM], tests: [], tests_unavailable: null };
+
+it("tests is a real piece, drafted like the others", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "tests", items: [ANSWERED] });
+  const pieces = await screen.findByRole("navigation", { name: "Pieces" });
+  expect(within(pieces).getByRole("button", { name: /tests/i })).toBeTruthy();
+  expect(within(pieces).queryByText(/MVP 4/)).toBeNull();
+  expect(screen.getByRole("heading", { name: "tests" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Draft with the AI" })).toBeTruthy();
+});
+
+it("run its tests starts them", async () => {
+  const calls = at(ASSEMBLED);
+  fireEvent.click(await screen.findByRole("button", { name: "Run its tests" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/forge/adaptations/a1/tests")
+    && c.method === "POST")).toBe(true));
+});
+
+it("a running test shows its state and offers no second run", async () => {
+  at({ ...ASSEMBLED, phase: "testing",
+       tests: [{ name: "small", state: "running", run_id: "r1", says: null }] });
+  expect(await screen.findByText("running in Wiener")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Run its tests" })).toBeNull();
+});
+
+it("a failure says what was missing, links the run and can run again", async () => {
+  at({ ...ASSEMBLED, tests: [{ name: "small", state: "failed", run_id: "r1",
+                               says: "output bam: nothing published matches *.bam" }] });
+  expect(await screen.findByText(/nothing published matches/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: /open the run/i }).getAttribute("href")).toBe("/runs/r1");
+  expect(screen.getByRole("button", { name: "Run its tests" })).toBeTruthy();
+});
+
+it("green says what it proves, and no more", async () => {
+  at({ ...ASSEMBLED, phase: "tested",
+       tests: [{ name: "small", state: "passed", run_id: "r1", says: null }] });
+  expect(await screen.findByText(/not that its results are correct/)).toBeTruthy();
+});
+
+it("without Wiener it says why and offers nothing", async () => {
+  at({ ...ASSEMBLED, tests_unavailable: "MF0514: no Wiener is configured to run tests" });
+  expect(await screen.findByText(/no Wiener is configured/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Run its tests" })).toBeNull();
+});
+
+it("a test reads as what it feeds and what it expects", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "tests", items: [ANSWERED, item("tests:test:small",
+    "tests", "proposed", [rev(1, "draft", "ai", { inputs: { reads: ["a/b.fq"] },
+                                                   expect: [{ port: "bam", pattern: "*.bam" }] })])] });
+  const row = await screen.findByRole("group", { name: "small" });
+  expect(within(row).getByText("reads → *.bam")).toBeTruthy();
+});

@@ -66,6 +66,16 @@ class Upstream(BaseModel):
     path: str
 
 
+class TestView(BaseModel):
+    __test__ = False  # pytest: a name, not a test class
+
+    name: str
+    feeds: list[str]
+    """The input ports its files reach."""
+    expects: list[str]
+    """The patterns its outputs must match."""
+
+
 class ModulePage(BaseModel):
     id: str
     roles: list[str]
@@ -95,6 +105,7 @@ class ModulePage(BaseModel):
     priority: int = 0
     priority_because: str | None = None
     rules: list[RuleView] = []
+    tests: list[TestView] = []
     upstream: Upstream | None = None
     licence: str | None = None
     approved_by: str | None = None
@@ -189,6 +200,9 @@ def read(id: str) -> ModulePage:
         priority=contract.priority,
         priority_because=contract.priority_because.strip() or None,
         rules=[_rule(target.of, target.effect, decision) for target, decision in decisions],
+        tests=[TestView(name=test.name, feeds=sorted(test.inputs),
+                        expects=[e.pattern for e in test.expect])
+               for test in stack.tests.get(id, [])],
         upstream=Upstream(repo=upstream.repo, sha=upstream.sha, path=upstream.path)
         if upstream else None,
         licence=module.licence if module is not None else None,

@@ -40,7 +40,12 @@ export function useForgeActions(id: string) {
     mutationFn: () => post<AssemblyView>(`/forge/adaptations/${id}/assemble`, {}),
     onSuccess: refresh,
   });
-  return { command, draft, say, assemble };
+  const runTests = useMutation({
+    mutationFn: () => post<AdaptationView>(`/forge/adaptations/${id}/tests`, {}),
+    onSuccess: (view) => client.setQueryData(["adaptation", id], view),
+    onError: refresh,
+  });
+  return { command, draft, say, assemble, runTests };
 }
 
 /** Starting a forge from the catalogue. */
