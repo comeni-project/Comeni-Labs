@@ -45,7 +45,8 @@ class FakeClient:
 @pytest.fixture
 def adaptation(tmp_path, monkeypatch) -> str:
     with session_scope() as db:
-        for table in ("forge_message", "forge_revision", "forge_item", "forge_adaptation",
+        for table in ("forge_test_run", "forge_message", "forge_revision", "forge_item",
+                      "forge_adaptation",
                       "catalogue_module", "catalogue_sync"):
             db.execute(sa.text(f"DELETE FROM {table}"))
         db.execute(sa.text("DELETE FROM ai_invocation WHERE agent = 'forge'"))

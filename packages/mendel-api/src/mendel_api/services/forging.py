@@ -38,11 +38,23 @@ from sqlalchemy.exc import IntegrityError
 
 from mendel_api import db, jobs
 from mendel_api.identity import default_author
-from mendel_api.models import ForgeAdaptation, ForgeItem, ForgeMessage, ForgeRevision
+from mendel_api.models import (
+    ForgeAdaptation,
+    ForgeItem,
+    ForgeMessage,
+    ForgeRevision,
+    ForgeTestRun,
+)
 from mendel_api.services import catalogue, registry
 from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)
+
+
+NO_WIENER = coded("MF0514", "no Wiener is configured to run tests (MENDEL_WIENER_URL)")
+
+_ASSEMBLED = frozenset({Phase.ASSEMBLED, Phase.TESTING, Phase.TESTED})
+"""A draft that loaded and conforms: what later adaptations may build on, and a change demotes."""
 
 
 class RevisionView(BaseModel):
@@ -62,6 +74,16 @@ class ItemView(BaseModel):
     value: JsonValue = None
     current_n: int
     revisions: list[RevisionView]
+
+
+class TestRunView(BaseModel):
+    __test__ = False  # pytest: a name, not a test class
+
+    name: str
+    state: str
+    """`running`, `passed` or `failed`."""
+    run_id: str | None
+    says: str | None
 
 
 class MessageView(BaseModel):
@@ -90,6 +112,10 @@ class AdaptationView(BaseModel):
     ready: bool
     items: list[ItemView]
     messages: list[MessageView]
+    tests: list[TestRunView] = []
+    """The latest attempt at this adaptation's tests."""
+    tests_unavailable: str | None = None
+    """Why tests cannot run here, when they cannot."""
 
 
 class AdaptationSummary(BaseModel):
@@ -185,7 +211,7 @@ def act(adaptation_id: str, command: Command) -> AdaptationView:
     A value a person writes passes the same checks as the AI's (spec §2)."""
     try:
         with db.transaction() as session:
-            _lock(session, adaptation_id)
+            lock(session, adaptation_id)
             before = load(adaptation_id)
             if command.move in {Move.WRITE, Move.CHANGE, Move.ANSWER}:
                 _check_person_value(adaptation_id, before, command)
@@ -199,7 +225,7 @@ def act(adaptation_id: str, command: Command) -> AdaptationView:
     return read(adaptation_id)
 
 
-def _lock(session, adaptation_id: str) -> ForgeAdaptation:
+def lock(session, adaptation_id: str) -> ForgeAdaptation:
     """One mutation of an adaptation at a time: its row, locked for the transaction (review
     I10). A status written from a stale read could otherwise undo a re-open."""
     found = session.execute(sa.select(ForgeAdaptation).where(
@@ -211,7 +237,7 @@ def _lock(session, adaptation_id: str) -> ForgeAdaptation:
 
 def _after_change(adaptation_id: str, state: Adaptation) -> None:
     _record_dependencies(adaptation_id, state)
-    if row(adaptation_id).phase in {Phase.ASSEMBLED, Phase.ASSEMBLING}:
+    if row(adaptation_id).phase in {*_ASSEMBLED, Phase.ASSEMBLING}:
         # A change after assembly: the draft no longer stands for what is decided.
         set_phase(adaptation_id, Phase.REVIEWING)
         _changed(adaptation_id)
@@ -260,7 +286,7 @@ def act_all(adaptation_id: str, commands: list[Command]) -> dict[str, int]:
     each command's item reached, so a chat card can name the value it shows (review I4)."""
     try:
         with db.transaction() as session:
-            _lock(session, adaptation_id)
+            lock(session, adaptation_id)
             before = load(adaptation_id)
             after = before
             for command in commands:
@@ -291,7 +317,7 @@ def _assembled_vocabulary(adaptation_id: str) -> dict[str, str]:
     Only an assembled adaptation is visible: work in progress never is (spec §5)."""
     with db.session_scope() as session:
         others = session.scalars(sa.select(ForgeAdaptation.id).where(
-            ForgeAdaptation.phase == Phase.ASSEMBLED, ForgeAdaptation.abandoned_at.is_(None),
+            ForgeAdaptation.phase.in_(_ASSEMBLED), ForgeAdaptation.abandoned_at.is_(None),
             ForgeAdaptation.id != adaptation_id)).all()
     found: dict[str, str] = {}
     for other in sorted(others):
@@ -341,7 +367,7 @@ def _changed(adaptation_id: str) -> None:
         post_message(dependant, role="engine", content=coded(
             "MF0513", f"it depends on adaptation {adaptation_id}, which changed; the items "
             "using its vocabulary re-opened"))
-        if row(dependant).phase == Phase.ASSEMBLED:
+        if row(dependant).phase in _ASSEMBLED:
             set_phase(dependant, Phase.REVIEWING)
             _changed(dependant)
 
@@ -463,7 +489,7 @@ def _finish(adaptation_id: str, proof: Proof) -> None:
     """Record how assembly ended, against the adaptation as it is now: a command that landed
     meanwhile has already sent it back to review, and its decisions stand (review I10)."""
     with db.transaction() as session:
-        found = _lock(session, adaptation_id)
+        found = lock(session, adaptation_id)
         if found.phase != Phase.ASSEMBLING:
             said = "Assembly finished, but the adaptation changed meanwhile: assemble it again."
         elif proof.loaded and proof.conforms:
@@ -524,10 +550,26 @@ def read(adaptation_id: str) -> AdaptationView:
             next_piece=next_piece.value if next_piece else None,
             ready=rules.ready_to_assemble(state),
             items=[_item_view(i) for i in sorted(state.items.values(), key=lambda i: i.key)],
+            tests=_test_views(session, adaptation_id),
+            tests_unavailable=None if settings.wiener_url else NO_WIENER,
             messages=[MessageView(seq=m.seq, role=m.role, item=m.item, content=m.content,
                                   commands=m.commands or [], pending=m.pending, at=m.at)
                       for m in messages],
         )
+
+
+def _test_views(session, adaptation_id: str) -> list[TestRunView]:
+    attempt = session.scalar(sa.select(sa.func.max(ForgeTestRun.attempt)).where(
+        ForgeTestRun.adaptation == adaptation_id))
+    found = session.scalars(sa.select(ForgeTestRun).where(
+        ForgeTestRun.adaptation == adaptation_id, ForgeTestRun.attempt == attempt)
+        .order_by(ForgeTestRun.name))
+    return [TestRunView(name=r.name, state=r.state, run_id=r.run_id, says=r.says) for r in found]
+
+
+def visible_phases() -> frozenset[str]:
+    """The phases whose vocabulary later adaptations may use (spec §5, MVP 4 §4)."""
+    return frozenset(p.value for p in _ASSEMBLED)
 
 
 def _item_view(item: Item) -> ItemView:

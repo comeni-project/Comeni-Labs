@@ -23,7 +23,8 @@ def _fastqc(**changes) -> ToolTest:
 
 
 def _star(**changes) -> ToolTest:
-    return ToolTest(**{"contract": "nf-core/star/align@2.7.11b", "name": "one", "data_commit": "abc",
+    return ToolTest(**{"contract": "nf-core/star/align@2.7.11b", "name": "one",
+                       "data_commit": "abc",
                        "inputs": {"reads": ["a/b.fq.gz"], "index": ["a/star"], "gtf": ["a/c.gtf"]},
                        "params": STAR_SETTINGS,
                        "expect": [{"port": "bam", "pattern": "*.bam"}], **changes})
@@ -40,7 +41,8 @@ def test_the_urls_are_pinned_to_the_commit(stack):
     pipeline = build_test_pipeline(test, stack)
     base = TESTDATA_BASE.format(commit="abc")
     assert "/abc/" in base
-    assert list(params_for(test, pipeline).values()) == [[base + "a/b_1.fq.gz", base + "a/b_2.fq.gz"]]
+    urls = [base + "a/b_1.fq.gz", base + "a/b_2.fq.gz"]
+    assert list(params_for(test, pipeline).values()) == [urls]
 
 
 @pytest.mark.parametrize("make", [_fastqc, _star])

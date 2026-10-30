@@ -15,7 +15,8 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 @pytest.fixture
 def client() -> TestClient:
     with session_scope() as db:
-        for table in ("forge_message", "forge_revision", "forge_item", "forge_adaptation",
+        for table in ("forge_test_run", "forge_message", "forge_revision", "forge_item",
+                      "forge_adaptation",
                       "catalogue_module", "catalogue_sync"):
             db.execute(sa.text(f"DELETE FROM {table}"))
     catalogue.run_sync(FakeSource(["star/align", "bwa/mem"]))

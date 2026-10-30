@@ -28,6 +28,8 @@ x-python-build: &python-build
 x-mendel-environment: &mendel-environment
   MENDEL_DATABASE_URL: postgresql+psycopg://mendel:${MENDEL_DB_PASSWORD:-mendel}@postgres:5432/mendel
   MENDEL_REDIS_URL: redis://redis:6379
+  # Where forge tests run. The API reads it to say whether they can; the token is the worker's.
+  MENDEL_WIENER_URL: http://wiener-api:8001
   MENDEL_REGISTRY_ROOT: /app/registry
   MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq.yml
   MENDEL_WORKSPACE_ROOT: /app/workspace
@@ -140,7 +142,6 @@ services:
     environment:
       <<: *mendel-environment
       # Only this worker calls Wiener, for forge tests. The token permits running code.
-      MENDEL_WIENER_URL: http://wiener-api:8001
       MENDEL_WIENER_TOKEN: ${WIENER_API_TOKEN:-}
     # Match the API paths so jobs can read its saved pipelines.
     volumes:

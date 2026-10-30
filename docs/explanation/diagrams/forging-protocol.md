@@ -18,6 +18,8 @@ flowchart LR
         draft["The AI drafts the next piece"]:::ai
         assemble{{"Write the draft layer; load and conformance"}}:::engine
         assembled(["Assembled: loads and conforms"]):::you
+        testing{{"Wiener runs each test"}}:::engine
+        tested(["Green: it runs, and every declared output exists"]):::you
     end
     style forge fill:transparent,stroke:#555
     ask --> review
@@ -27,6 +29,11 @@ flowchart LR
     assemble --> assembled
     assemble -- "re-opens the blamed piece" --> review
     assembled -- "change something" --> review
+    assembled -- "run its tests" --> testing
+    testing --> tested
+    testing -- "says what failed" --> assembled
+    testing -- "a command landed" --> review
+    tested -- "change something" --> review
     subgraph KEY ["Key: fill is who acts, border is the tier, dashed is planned"]
         direction TB
         key_you["Blue fill · you"]:::you

@@ -11,7 +11,7 @@ from arq import cron
 from arq.connections import RedisSettings
 from arq.worker import func
 
-from mendel_api.services import catalogue, retention
+from mendel_api.services import catalogue, forge_tests, retention
 from mendel_api.services import gates as gate_service
 from mendel_api.settings import settings
 
@@ -46,6 +46,17 @@ async def sync_catalogue_job(ctx: dict) -> int:
     return done.id if done else 0  # 0: another sync held the source, and this one did nothing
 
 
+async def run_forge_tests(ctx: dict, adaptation_id: str) -> None:
+    """Submit an assembled draft's tests to Wiener; a bundle and a call each, off the loop."""
+    await asyncio.to_thread(forge_tests.submit_all, adaptation_id)
+
+
+async def poll_forge_tests(ctx: dict) -> int:
+    """Read the open forge test runs. **A cron, not a job that sleeps**: a restart loses nothing,
+    and an idle stack does no work."""
+    return await asyncio.to_thread(forge_tests.poll)
+
+
 class WorkerSettings:
     functions = [
         # **Its own limit, and one try** (issue 278). arq's default (300s) cancelled the stub
@@ -55,6 +66,9 @@ class WorkerSettings:
         sweep_lost_gates,
         # One try: a failed sync is recorded and shown, and waits for tomorrow or *Sync now*.
         func(sync_catalogue_job, timeout=1800, max_tries=1),
+        # No kept result: it would hold the job id and refuse the next attempt.
+        func(run_forge_tests, timeout=600, max_tries=1, keep_result=0),
+        poll_forge_tests,
     ]
     """**Everything that is not a model call.** The split from `AIWorkerSettings` is about
     starvation: a model call is measured in minutes and must not hold up a gate.
@@ -67,6 +81,8 @@ class WorkerSettings:
         cron(retention.retention_sweep, hour=4, minute=0),
         # Forge part 1: the nf-core catalogue, once a day.
         cron(sync_catalogue_job, hour=3, minute=0),
+        # Forge MVP 4: tests running in Wiener.
+        cron(poll_forge_tests, second={0, 30}),
     ]
     """**`unique=True` is arq's default and is load-bearing**: two worker replicas would
     otherwise each start the same sweep at the same minute."""

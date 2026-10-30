@@ -793,6 +793,31 @@ class ForgeRevision(Base):
     __table_args__ = (Index("ix_forge_revision_once", "adaptation", "item", "n", unique=True),)
 
 
+class ForgeTestRun(Base):
+    """One test of one attempt, run in Wiener. `digest` is the draft it ran against: green counts
+    for that draft alone. `run_id` is empty when the run never started; `says` is why."""
+
+    __tablename__ = "forge_test_run"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    attempt: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(128))
+    digest: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), index=True)
+    says: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    heard_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """When Wiener last answered about this run."""
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_forge_test_run_once", "adaptation", "attempt", "name",
+                            unique=True),)
+
+
 class ForgeMessage(Base):
     """The chat beside an adaptation: the person's messages, the AI's replies and the engine's
     notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""

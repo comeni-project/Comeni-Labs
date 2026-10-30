@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     not re-clone nf-core/modules. Only the worker that syncs reads it. `MENDEL_FORGE_CACHE`."""
     wiener_url: str = ""
     """Where forge tests run (`MENDEL_WIENER_URL`). Empty: tests show as unavailable and say why.
-    Set for the worker only: nothing else in Mendel calls Wiener."""
+    The API reads it to say whether tests can run; only the worker calls Wiener."""
     wiener_token: SecretStr = SecretStr("")
     """Wiener's bearer token (`MENDEL_WIENER_TOKEN`), which permits running code. Never logged,
     shown, or sent to a model."""

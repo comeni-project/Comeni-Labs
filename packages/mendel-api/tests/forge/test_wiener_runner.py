@@ -51,7 +51,8 @@ def test_an_unreachable_wiener_never_says_the_token():
 def test_results_reads_every_page():
     def handler(request):
         after = int(request.url.params["after"])
-        files = [{"process": "fastqc", "name": f"{n}.zip"} for n in range(after, min(after + 200, 250))]
+        files = [{"process": "fastqc", "name": f"{n}.zip"}
+                 for n in range(after, min(after + 200, 250))]
         return httpx.Response(200, json={"files": files, "total": 250, "published": True})
 
     found = _runner(handler).results("r1")

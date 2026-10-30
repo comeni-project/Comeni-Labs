@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from mendel_api import jobs
 from mendel_api.identity import default_author
 from mendel_api.refusals import REFUSES, Refusal
-from mendel_api.services import catalogue, forging
+from mendel_api.services import catalogue, forge_tests, forging
 from mendel_api.services.catalogue import CataloguePage, ModuleDetail, Sort
 
 router = APIRouter(prefix="/forge", tags=["forge"])
@@ -196,6 +196,20 @@ async def draft_adaptation_piece(adaptation_id: str, body: DraftBody) -> SyncQue
 def assemble_adaptation(adaptation_id: str) -> forging.AssemblyView:
     try:
         return forging.assemble(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.post(
+    "/adaptations/{adaptation_id}/tests",
+    operation_id="runAdaptationTests",
+    summary="Run the assembled draft's tests as Wiener runs",
+    status_code=202,
+    responses=REFUSES,
+)
+async def run_adaptation_tests(adaptation_id: str) -> forging.AdaptationView:
+    try:
+        return await forge_tests.start(adaptation_id)
     except KeyError:
         raise _unknown(adaptation_id) from None
 

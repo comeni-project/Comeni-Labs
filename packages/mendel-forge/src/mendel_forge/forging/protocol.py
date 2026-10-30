@@ -16,6 +16,8 @@ class Phase(StrEnum):
     REVIEWING = "reviewing"
     ASSEMBLING = "assembling"
     ASSEMBLED = "assembled"
+    TESTING = "testing"
+    TESTED = "tested"
 
 
 class Event(StrEnum):
@@ -24,6 +26,7 @@ class Event(StrEnum):
     ASSEMBLE = "assemble"
     DONE = "done"
     REOPEN = "reopen"
+    TEST = "test"
 
 
 class Command(StrEnum):
@@ -32,6 +35,7 @@ class Command(StrEnum):
     DRAFT = "draft"
     ASSEMBLE = "assemble"
     REOPEN = "reopen"
+    TEST = "test"
 
 
 def _node(id: str, actor: Actor, label: str, phase: Phase, **kw) -> Node:
@@ -60,6 +64,10 @@ FORGING = Protocol(
               Phase.ASSEMBLING, acts=True, shape=Shape.GATE),
         _node("assembled", Actor.YOU, "Assembled: loads and conforms", Phase.ASSEMBLED,
               waits=True, shape=Shape.ROUND),
+        _node("testing", Actor.ENGINE, "Wiener runs each test", Phase.TESTING, acts=True,
+              shape=Shape.GATE),
+        _node("tested", Actor.YOU, "Green: it runs, and every declared output exists",
+              Phase.TESTED, waits=True, shape=Shape.ROUND),
     ),
     edges=(
         _edge("ask", "review", "asked", Event.REVIEW),
@@ -69,5 +77,10 @@ FORGING = Protocol(
         _edge("assemble", "assembled", "loaded", Event.DONE),
         _edge("assemble", "review", "failed", Event.REOPEN, "re-opens the blamed piece"),
         _edge("assembled", "review", Command.REOPEN, Event.REOPEN, "change something"),
+        _edge("assembled", "testing", Command.TEST, Event.TEST, "run its tests"),
+        _edge("testing", "tested", "passed", Event.DONE),
+        _edge("testing", "assembled", "failed", Event.REVIEW, "says what failed"),
+        _edge("testing", "review", "changed", Event.REOPEN, "a command landed"),
+        _edge("tested", "review", Command.REOPEN, Event.REOPEN, "change something"),
     ),
 )
