@@ -3,6 +3,10 @@ title: Walk the forge live
 description: Take one tool from the catalogue to a registry release on a real stack, with a real model, Wiener and GitHub.
 ---
 
+<!--
+Serves: registry.
+-->
+
 # Walk the forge live
 
 The forge's tests use fake model, Wiener and GitHub clients, so this walk is the first time its
