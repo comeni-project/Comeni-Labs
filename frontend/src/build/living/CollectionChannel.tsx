@@ -1,5 +1,6 @@
 import type { Point } from "../geometry";
 import { elbow, path } from "../geometry";
+import { spelledStates } from "../../ui/spelled";
 
 /** How many times a channel delivers, drawn **on the wire** — never as copies of a node.
  *
@@ -145,7 +146,7 @@ export function SourceNode({
       <span className="font-data text-[12px] text-ink leading-tight">{name}</span>
       <span className="font-data text-[10px] text-ink-2 truncate">
         {typeId}
-        {states.length > 0 ? `[${states.join(", ")}]` : ""}
+        {spelledStates(states)}
       </span>
       <span className="text-[10.5px] text-ink-2">
         {scope === "sample" ? (count === null ? "× N items" : `× ${count} samples`) : "read once per task"}

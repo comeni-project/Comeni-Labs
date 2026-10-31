@@ -15,7 +15,7 @@ const ANSWER = {
   candidates: [
     { contract_id: "nf-core/samtools/sort@1.24", port: "bam", process: "SAMTOOLS_SORT",
       tool: "samtools/sort", surplus: 0, priority: 0,
-      why: "the only producer of alignment.bam[coordinate_sorted]" },
+      why: "the only producer of alignment.bam::coordinate_sorted" },
   ],
   total: 12,
 };
@@ -44,7 +44,7 @@ describe("the port picker", () => {
   it("asks the question the port actually asks, states included", async () => {
     // **The states are the difference between a filtered list and an answer.** Without them the
     // question is *what produces a BAM* — three contracts — when featureCounts asks for
-    // `alignment.bam[coordinate_sorted]`, whose answer is one. `PortView.states` was added for
+    // `alignment.bam::coordinate_sorted`, whose answer is one. `PortView.states` was added for
     // exactly this.
     at();
     await screen.findByTestId("candidate");
@@ -65,7 +65,7 @@ describe("the port picker", () => {
   it("shows the reason the server computed, never one of its own", async () => {
     at();
     const row = await screen.findByTestId("candidate");
-    expect(row.textContent).toContain("the only producer of alignment.bam[coordinate_sorted]");
+    expect(row.textContent).toContain("the only producer of alignment.bam::coordinate_sorted");
   });
 
   it("counts what fits against what exists", async () => {

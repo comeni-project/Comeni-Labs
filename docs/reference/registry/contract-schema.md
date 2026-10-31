@@ -81,6 +81,7 @@ Model: `comeni_core.declared.contract.OutputPort`
 | `name` | string | *required* | **the emit label** — read as `PROCESS.out.<name>` |
 | `type_id` | string | *required* | the semantic type it produces |
 | `state` | {string} | `{}` | states the output carries |
+| `format` | {string} | `{}` | the file formats it writes, from `main.nf`, or `folder`. Shown to people and checked (`MD0109`); takes no part in matching |
 
 **`name` is not a name for the thing** — it is the Nextflow channel the compiler reads.
 `type_id` carries the meaning. Three contracts got this backwards and `MD0105` found all three;

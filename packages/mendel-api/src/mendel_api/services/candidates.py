@@ -21,6 +21,7 @@ finding (every registry-touching screen cost ~250ms warm) does not arrive again 
 opens under somebody's cursor.
 """
 
+from comeni_core.declared.signature import join
 from pydantic import BaseModel, ConfigDict
 
 from mendel_api.services import registry
@@ -74,7 +75,7 @@ def _reason(first: bool, alone: bool, surplus: int, type_id: str, states: frozen
     sentence about a tool rather than a fact about the ordering, and #78 records that there is no
     prose to draw on.
     """
-    asked = type_id + (f"[{', '.join(sorted(states))}]" if states else "")
+    asked = join(type_id, states)
     if alone:
         return f"the only producer of {asked}"
     if surplus == 0:
@@ -152,9 +153,8 @@ def consuming(type_id: str, states: frozenset[str]) -> Candidates:
                         surplus=len(states) - asked,
                         priority=contract.priority,
                         why=(
-                            f"takes {type_id}"
-                            + (f"[{', '.join(sorted(alternative.states))}]"
-                               if alternative.states else " in any state")
+                            f"takes {join(type_id, alternative.states)}"
+                            + ("" if alternative.states else " in any state")
                         ),
                     )
                 )

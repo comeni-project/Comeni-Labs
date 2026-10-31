@@ -13,7 +13,7 @@ def test_a_signature_sorts_its_states():
     assert signature("alignment.bam", frozenset()) == "alignment.bam"
     assert (
         signature("alignment.bam", frozenset({"indexed", "coordinate_sorted"}))
-        == "alignment.bam[coordinate_sorted,indexed]"
+        == "alignment.bam::coordinate_sorted::indexed"
     )
 
 
@@ -46,7 +46,7 @@ def test_the_conventional_alternative_is_first(stack):
     idx = index(stack)
     # star/align.reads declares state_required_conventional: [trimmed], so the conventional
     # form is the trimmed one and the bare form is the fallback.
-    assert idx.requires[f"{STAR}#reads"] == ["fastq.reads[trimmed]", "fastq.reads"]
+    assert idx.requires[f"{STAR}#reads"] == ["fastq.reads::trimmed", "fastq.reads"]
 
 
 def test_the_index_agrees_with_the_verb_on_every_pair(stack):

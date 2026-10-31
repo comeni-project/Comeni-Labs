@@ -144,7 +144,7 @@ def test_a_contract_cannot_satisfy_its_own_input(registry):
 def test_asking_for_no_state_does_not_add_steps_nobody_wanted(registry):
     """With nothing required, every producer of the type matches on superset.
 
-    The aligner produces alignment.bam[] and the sorter alignment.bam[coordinate_sorted];
+    The aligner produces alignment.bam[] and the sorter alignment.bam::coordinate_sorted;
     both satisfy "any BAM". Preferring the smaller surplus keeps "get me a BAM" from
     quietly meaning "get me a sorted BAM".
     """

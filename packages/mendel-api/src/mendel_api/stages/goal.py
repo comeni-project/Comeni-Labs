@@ -1,6 +1,7 @@
 """③ The goal card: accept, *not quite*, a correction in words, and the read-back in the
 model's words (14.7.8.1; plan 1c). Moved from `services/authoring.py`."""
 
+from comeni_core.declared.signature import join
 from mendel_authoring import commands as c
 from mendel_authoring import state as st
 from mendel_authoring.payloads import ContextStamp
@@ -59,7 +60,7 @@ def readback_context(session_id: str) -> str:
     kept = goal.constraints.required_states
     if kept:
         lines.append("required: " + "; ".join(
-            f"{r.type_id} [{', '.join(r.states)}]" for r in kept
+            join(r.type_id, frozenset(r.states)) for r in kept
         ))
     return "\n".join(lines)
 

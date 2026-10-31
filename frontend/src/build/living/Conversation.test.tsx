@@ -243,7 +243,7 @@ describe("the goal card", () => {
     const onConfirm = vi.fn();
     mount(<GoalCard proposal={suggesting} vocabulary={vocabulary} busy={false}
                     onConfirm={onConfirm} onReject={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "keep counts.matrix [gene_level]" }));
+    fireEvent.click(screen.getByRole("button", { name: "keep counts.matrix::gene_level" }));
     fireEvent.click(screen.getByTestId("accept-goal"));
     expect(onConfirm.mock.calls[0][0].constraints.required_states).toEqual([
       { type_id: "counts.matrix", states: ["gene_level"] },
@@ -252,9 +252,9 @@ describe("the goal card", () => {
 
   it("shows the states it is asking the person to confirm", () => {
     // **Found by the first walk with a real model (2026-09-28).** `gemma3:12b` wrote
-    // `fastq.reads[deduplicated]` for *paired-end RNA-seq*, and the chip said `fastq.reads` —
+    // `fastq.reads::deduplicated` for *paired-end RNA-seq*, and the chip said `fastq.reads` —
     // the one field the model got wrong was the one the card exists to check, and it was hidden.
-    // `LivingGoal` draws it as `fastq.reads[paired]`.
+    // `LivingGoal` draws it as `fastq.reads::paired`.
     const withStates = {
       ...goal,
       block: { ...goal.block,
@@ -268,7 +268,7 @@ describe("the goal card", () => {
     const have = screen.getByRole("list", { name: "what you have" });
     expect(within(have).getByRole("listitem").textContent).toContain("fastq.reads[deduplicated, trimmed]");
     const want = screen.getByRole("list", { name: "what you want" });
-    expect(within(want).getByRole("listitem").textContent).toContain("counts.matrix[gene_level]");
+    expect(within(want).getByRole("listitem").textContent).toContain("counts.matrix::gene_level");
     // and the sentences are joined without doubling the full stop a model already wrote
     expect(screen.getByText(/^reads — count them — a matrix\.$/)).toBeTruthy();
   });

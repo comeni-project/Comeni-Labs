@@ -9,11 +9,13 @@ import shutil
 from pathlib import Path
 
 import yaml
-from comeni_core.declared.contract import Provenance
+from comeni_core.declared.contract import ModuleContract, Provenance
+from comeni_core.declared.signature import join
 from comeni_core.declared.tooltest import ToolTest
 from comeni_core.diagnostics import coded
 from comeni_vendor.ops import EXCLUDED, digest_of_module
 from mendel_compiler import conformance
+from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict, JsonValue
 
@@ -88,7 +90,8 @@ def write_layer(
         "excluded": list(EXCLUDED), "digest": digest_of_module(tool / "module"),
     }))
     put(tool / "contract.yml",
-        _yaml({"declares": "contract", **contract.model_dump(mode="json", exclude_defaults=True)}))
+        _yaml({"declares": "contract", **contract_file(
+            contract, ModuleSpec.parse(tool / "module" / "main.nf").emit_formats)}))
     for key, value in sorted(values.items()):
         if key.startswith("vocabulary:type:"):
             declared = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
@@ -110,6 +113,28 @@ def write_layer(
         put(tool / "tests" / f"{name}.yml",
             _yaml({"declares": "test", **test.model_dump(mode="json", exclude_defaults=True)}))
     return written
+
+
+def _in_type(port: dict, field: str) -> dict:
+    """A dumped port with its states written in its type."""
+    states = frozenset(port.pop(field, ()))
+    return {**port, "type_id": join(port["type_id"], states)}
+
+
+def contract_file(contract: ModuleContract, formats: dict[str, list[str]]) -> dict:
+    """A contract as it is written: states in the type, and each output's formats from the
+    module, so a person never has to state what `main.nf` already says."""
+    produces = [port.model_copy(update={"format": frozenset(formats.get(port.name, ()))})
+                for port in contract.produces]
+    data = contract.model_copy(update={"produces": produces}).model_dump(
+        mode="json", exclude_defaults=True)
+    data["produces"] = [_in_type(port, "state") for port in data.get("produces", [])]
+    for port in data.get("consumes", []):
+        if "accepts" in port:
+            port["accepts"] = [_in_type(a, "states") for a in port["accepts"]]
+    data["consumes"] = [_in_type(port, "state_required") if "type_id" in port else port
+                        for port in data.get("consumes", [])]
+    return data
 
 
 def _yaml(data: dict) -> str:

@@ -8,6 +8,7 @@ STAR's out — leaves nothing behind (issues 253, 254).
 """
 
 from comeni_core.declared.measurement import MeasuredEntry
+from comeni_core.declared.signature import join
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import ValueSource
 from mendel_authoring import commands as c
@@ -105,9 +106,8 @@ def unbuildable_change(unroutable: UnroutableError) -> str:
     missing = ""
     if unroutable.missing is not None:
         type_id, states = unroutable.missing
-        missing = f": it would need {type_id}" + (
-            f"[{', '.join(sorted(states))}]" if states else ""
-        ) + ", and nothing can make it from what you have"
+        missing = (f": it would need {join(type_id, states)}, "
+                   "and nothing can make it from what you have")
     return coded("MI0207", "that change cannot be built" + missing) + (
         "\n  nothing was changed — keep the step, or choose another answer"
     )

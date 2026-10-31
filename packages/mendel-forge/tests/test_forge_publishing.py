@@ -5,7 +5,7 @@ import shutil
 import pytest
 import yaml
 from comeni_core.declared.contract import ModuleContract, Provenance
-from mendel_forge.forging.assemble import ModuleOrigin, write_layer
+from mendel_forge.forging.assemble import ModuleOrigin, contract_file, write_layer
 from mendel_forge.forging.values import items_of
 from mendel_forge.publishing import (
     Decided,
@@ -124,3 +124,18 @@ def test_the_description_names_who_approved_what():
     assert "nf-core/star/align" in body and "2.7.11b" in body
     assert "`contract:process`" in body and "ana" in body and "run1" in body and "d1" in body
     assert "does not show its results are correct" in body
+
+
+def test_a_drafted_contract_says_its_file_formats(tmp_path):
+    draft = _draft(tmp_path)
+    contract = yaml.safe_load((draft / "tools/nf-core/star/align/contract.yml").read_text())
+    assert contract["produces"][0]["format"] == ["bam"]
+
+
+def test_a_contract_is_written_with_its_states_in_the_type():
+    data = yaml.safe_load((REGISTRY / "tools/nf-core/samtools/index/contract.yml").read_text())
+    data.pop("declares")
+    written = contract_file(ModuleContract(**data), {})
+    assert written["consumes"][0]["type_id"] == "alignment.bam::coordinate_sorted"
+    assert "state_required" not in written["consumes"][0]
+    assert ModuleContract(**written).consumes[0].state_required == {"coordinate_sorted"}

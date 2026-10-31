@@ -146,6 +146,18 @@ MD0105:
     `produces[].name` must appear in the module's `emit:` labels. A mismatch fails at
     runtime against a channel that does not exist.
 
+MD0109:
+  emitted_by: compiler
+  concern: conformance
+  says: "a `produces[].format` is not what the module's output pattern writes"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Set `format` to the formats in the module's `path(...)` pattern for that emit.
+  explanation: |
+    `format` tells a person what file to expect. It takes no part in matching, so nothing else
+    would notice a wrong one, and the module's output block is the only source that can say.
+
 MD0106:
   emitted_by: compiler
   concern: conformance
@@ -2708,7 +2720,7 @@ MD0503:
     declares its own `type_id` and `states` and is a legitimate second answer.
   explanation: |
     Type identity is the cheap half. The states are the half that matters, and they are
-    MD0504: `alignment.bam` with no state and `alignment.bam[coordinate_sorted]` are the same
+    MD0504: `alignment.bam` with no state and `alignment.bam::coordinate_sorted` are the same
     type and only one of them can feed featureCounts.
 
     The two are separate codes because the fixes differ. "Wire a sorter in" repairs one of

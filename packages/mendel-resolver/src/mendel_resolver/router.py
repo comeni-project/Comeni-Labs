@@ -473,7 +473,7 @@ def _by_rule(here: _Here) -> Choice | None:
     # The pinned contract is not a candidate *here*. Load-time validation already
     # proved it exists and produces this type, so the only way to arrive is that it
     # cannot produce the requested *states* — this site is asking for something the
-    # rule was not about. `alignment.bam[coordinate_sorted]` has exactly one producer,
+    # rule was not about. `alignment.bam::coordinate_sorted` has exactly one producer,
     # the sorter; the aligner rule applies one level down, on the sorter's own input,
     # where the aligners genuinely compete. Raising here instead would make every
     # state-refining step in the spine unroutable the moment a producer rule exists.

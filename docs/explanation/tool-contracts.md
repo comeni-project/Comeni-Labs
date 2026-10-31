@@ -11,7 +11,7 @@ index. A contract makes the implicit sentence explicit:
 
 ```text
 SAMTOOLS_SORT consumes alignment.bam
-SAMTOOLS_SORT produces alignment.bam[coordinate_sorted]
+SAMTOOLS_SORT produces alignment.bam::coordinate_sorted
 ```
 
 Once that sentence is true and checked, Comeni can reuse it anywhere a future analysis needs a

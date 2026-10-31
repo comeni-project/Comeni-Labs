@@ -104,7 +104,7 @@ def test_contracts_agree_with_the_vendored_modules(registry):
 def test_an_index_is_not_a_bam(registry):
     """samtools/index emits a sidecar, and nf-core's process emits no BAM at all.
 
-    Declaring it `alignment.bam[indexed]` is what let the router hand featureCounts a
+    Declaring it `alignment.bam::indexed` is what let the router hand featureCounts a
     `.bai` — audit 2026-08-03, C4. The resolver no longer believes it, but the contract
     must not assert it either.
     """

@@ -176,7 +176,7 @@ and the `OVERLAY` block of `mendel build`.
 
 `Vocabulary.validate(type_id, states)` raises `UnknownStateError` for any state the type does
 not declare. A contract naming an undeclared state fails to load. This is what makes routing
-provable rather than plausible: `alignment.bam[coordinate_sorted]` means one thing across the
+provable rather than plausible: `alignment.bam::coordinate_sorted` means one thing across the
 whole registry, and a typo is an error at load rather than a module that silently never
 matches.
 
@@ -333,7 +333,7 @@ decision in the walk as such an amendment to the goal, and projects the draft fr
 blueprint.
 
 A pin binds only where the pinned contract is genuinely a candidate for the requested
-*states*. featureCounts asks for `alignment.bam[coordinate_sorted]`, whose only producer is
+*states*. featureCounts asks for `alignment.bam::coordinate_sorted`, whose only producer is
 the sorter; the aligner rule is about the sorter's own BAM input, one level down, where the
 aligners actually compete. Treating a pin as binding everywhere makes the spine unbuildable.
 `UnroutablePinError` is for the case that *is* a contradiction: the pin was selected and its

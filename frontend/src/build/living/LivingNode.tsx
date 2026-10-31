@@ -2,6 +2,7 @@ import type { PortView } from "../../api/types";
 import { HEAD_H, NODE_H, NODE_W, PORT_ROW, portOffset } from "../geometry";
 import type { Author } from "./format";
 import { processName } from "./format";
+import { spelledStates } from "../../ui/spelled";
 
 export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
 
@@ -151,7 +152,7 @@ export function LivingNode({
             <span className="text-ink-3">{port.side === "in" ? "< " : "> "}</span>
             <span className={port.side === "in" ? "text-ink truncate" : "text-ink-2 truncate"}>
               {port.type_id}
-              {port.states.length > 0 ? `[${port.states.join(", ")}]` : ""}
+              {spelledStates(port.states)}
             </span>
           </span>
         ))}

@@ -17,7 +17,7 @@ type PortView = components["schemas"]["PortView"];
  * opening is the **order**, and the order is `producers_of`'s: `(surplus, -priority, id)`,
  * computed by `GET /pipeline/candidates`.
  *
- * So the row's reason is arithmetic. *The only producer of `alignment.bam[coordinate_sorted]`*
+ * So the row's reason is arithmetic. *The only producer of `alignment.bam::coordinate_sorted`*
  * is a fact the registry produced, not a sentence somebody wrote beside a list they sorted
  * alphabetically — which would be a `why:`-less value wearing a UI costume, the exact failure
  * this product exists to prevent.

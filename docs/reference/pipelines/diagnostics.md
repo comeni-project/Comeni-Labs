@@ -65,6 +65,7 @@ decline to curate one.
 | `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
 | `MD0107` | `container` has drifted from the module's directive |
 | `MD0108` | a setting routes to an `ext` key this module never reads |
+| `MD0109` | a `produces[].format` is not what the module's output pattern writes |
 
 ## A layer is not arranged the way its manifest says
 

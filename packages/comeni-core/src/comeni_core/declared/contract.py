@@ -8,13 +8,16 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SerializerFunctionWrapHandler,
     ValidationError,
     field_serializer,
+    model_serializer,
     model_validator,
 )
 
 from comeni_core import yaml_strict
 from comeni_core.declared.measurement import MeasurementKind
+from comeni_core.declared.signature import states_in_type
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
@@ -41,6 +44,11 @@ class Alternative(BaseModel):
 
     type_id: TypeId
     states: frozenset[str] = frozenset()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _carried(cls, data: object) -> object:
+        return states_in_type(data, "states")
 
     @field_serializer("states")
     def _sorted(self, states: frozenset[str]) -> list[str]:
@@ -92,6 +100,11 @@ class InputPort(BaseModel):
     cardinality: Cardinality = Cardinality.ONE
     """How many channel items each process invocation receives."""
 
+    @model_validator(mode="before")
+    @classmethod
+    def _carried(cls, data: object) -> object:
+        return states_in_type(data, "state_required")
+
     @field_serializer(
         "state_required", "state_required_conventional", "state_preferred", "prefer"
     )
@@ -141,10 +154,27 @@ class OutputPort(BaseModel):
     MD0105 found all three."""
     type_id: TypeId
     state: frozenset[str] = frozenset()
+    format: frozenset[str] = frozenset()
+    """The file formats it writes, as `main.nf` says (`tsv`; `folder` for a directory). Shown
+    to people and checked against the module; it takes no part in matching, so tools writing
+    the same content in different layouts stay interchangeable."""
 
-    @field_serializer("state")
+    @model_validator(mode="before")
+    @classmethod
+    def _carried(cls, data: object) -> object:
+        return states_in_type(data, "state")
+
+    @field_serializer("state", "format")
     def _sorted(self, states: frozenset[str]) -> list[str]:
         return sorted(states)
+
+    @model_serializer(mode="wrap")
+    def _no_empty_format(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Left out when unknown, so a contract that says nothing keeps its digest."""
+        dumped = handler(self)
+        if not dumped.get("format"):
+            dumped.pop("format", None)
+        return dumped
 
 
 class ParamDomain(BaseModel):
