@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from comeni_core.declared.contract import ModuleContract, Provenance
 from comeni_core.diagnostics import coded
 from comeni_flow.interpret import Refused
-from comeni_vendor.ops import PREFIX, REPOS
+from comeni_vendor.ops import PREFIX, REPOS, SOURCE_LICENCE
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_forge.forging import rules
 from mendel_forge.forging.assemble import ModuleOrigin, Proof, prove, write_layer
@@ -487,15 +487,14 @@ def _failed(says: str, blames: Piece | None) -> Proof:
 
 def _write_draft(adaptation_id: str, state: Adaptation, out: Path) -> list[Path]:
     adaptation = row(adaptation_id)
-    detail = catalogue.read_module(adaptation.source, adaptation.path)
+    catalogue.read_module(adaptation.source, adaptation.path)  # refuses a module that left
     good = catalogue.last_good_sync()
     approved = {k: i.value for k, i in state.items.items() if i.status is Status.APPROVED
                 and not k.startswith("questions:") and not k.endswith(":none")}
-    licences = [lic for tool in detail.module.tools for lic in tool.licence]
     origin = ModuleOrigin(
         source_dir=module_folder(adaptation.source, adaptation.path),
         module_id=f"{adaptation.source}/{adaptation.path}", repo=REPOS[adaptation.source],
-        sha=good.commit if good and good.commit else "", licence=licences[0] if licences else "",
+        sha=good.commit if good and good.commit else "", licence=SOURCE_LICENCE[adaptation.source],
         path=f"{PREFIX[adaptation.source]}/{adaptation.path}",
         data_commit=catalogue.test_data_commit() or "",
     )

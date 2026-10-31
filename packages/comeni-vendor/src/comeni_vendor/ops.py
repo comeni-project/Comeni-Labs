@@ -29,6 +29,10 @@ REPOS = {"nf-core": "https://github.com/nf-core/modules.git"}
 PREFIX = {"nf-core": "modules/nf-core"}
 """Where under each known repository the modules sit."""
 
+SOURCE_LICENCE = {"nf-core": "MIT"}
+"""What a source's module code arrives under, which is not its tools' licence (`meta.yml`): a
+GPL tool stays in its container, and only the source's wrapper is vendored."""
+
 LICENCES = "LICENSES"
 """Directory containing one licence text per SPDX identifier, following REUSE conventions."""
 

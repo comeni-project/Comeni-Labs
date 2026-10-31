@@ -252,6 +252,8 @@ or a complete commit history.
 - A refused forge draft or chat reply now tells the retry why: `forge.questions.v2` and
   `forge.chat.v2` carry the problems, and the questions prompt teaches its item keys
   ([#421](https://github.com/comeni-project/Comeni-Labs/issues/421)).
+- Forge assembly names the licence the module's code arrives under, not its tool's, so a tool with
+  any licence can be assembled ([#432](https://github.com/comeni-project/Comeni-Labs/issues/432)).
 - Authoring actions use one transaction, with jobs queued after commit. Serialized draft
   writes and version checks prevent autosave and background work from overwriting each other.
 - Late or duplicated replies cannot silently advance or lock a newer question. Failed jobs
