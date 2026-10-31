@@ -228,6 +228,17 @@ def against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diag
                     fix=f"rename the port to one of: {', '.join(sorted(emitted)) or '(none)'}",
                 )
             )
+        elif port.format and not port.format <= set(spec.emit_formats.get(port.name, [])):
+            written = ", ".join(spec.emit_formats.get(port.name, [])) or "(unknown)"
+            found.append(
+                Diagnostic(
+                    code="MD0109",
+                    where=contract.id,
+                    summary=f"output {port.name!r} declares a format the module does not write",
+                    detail=f"    contract {', '.join(sorted(port.format))}\n    {path}   {written}",
+                    fix=f"set `format` to what the module writes: {written}",
+                )
+            )
 
     found += _dead_ext_routes(contract, spec, path)
 

@@ -183,7 +183,7 @@ class PortView(BaseModel):
 
     **Added for the port picker**, Plan 4 phase 3b. Without it the picker can only ask *what
     produces a BAM*, and the answer to that is three contracts; featureCounts asks for
-    `alignment.bam[coordinate_sorted]` and the answer to THAT is one. The states are the
+    `alignment.bam::coordinate_sorted` and the answer to THAT is one. The states are the
     difference between a filtered list and an answer, which is the whole point of the picker.
 
     An input declaring alternatives reports the **conventional** one — `alternatives()[0]`, the

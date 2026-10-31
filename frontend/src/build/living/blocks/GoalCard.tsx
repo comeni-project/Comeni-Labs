@@ -8,6 +8,7 @@ import { useTypeNames } from "../useTypeNames";
 import { factWords } from "../FactHistory";
 import { Primary, Secondary } from "./parts";
 import { piece } from "./piece";
+import { spelled } from "../../../ui/spelled";
 
 type Chosen = { have: string[]; want: string[] };
 type Fact = AuthoringSession["facts"][number];
@@ -116,7 +117,7 @@ export function GoalCard({
     (t) => (held[t] ?? []).join() !== (states.have.get(t) ?? []).join());
   const suggested = block.suggested ?? [];
   const keyOf = (r: { type_id: string; states?: string[] }) =>
-    `${r.type_id} [${(r.states ?? []).join(", ")}]`;
+    spelled(r.type_id, r.states ?? []);
   const edited = chosenSuggestions.length > 0 || statesMoved ||
     chosen.have.join() !== original.have.join() || chosen.want.join() !== original.want.join();
   const types = vocabulary ? Object.keys(vocabulary) : [];
@@ -132,7 +133,7 @@ export function GoalCard({
     if (!edited) return onConfirm();
     const goal = block.goal as GoalIn;
     // **An input the person kept keeps its states.** Rebuilding `have` from bare type ids would
-    // turn `fastq.reads[trimmed]` into `fastq.reads` on every edit that touched something else —
+    // turn `fastq.reads::trimmed` into `fastq.reads` on every edit that touched something else —
     // a quiet change to the goal nobody made, caught by the typecheck asking where `states` went.
     const kept = new Map((goal.have ?? []).map((entry) => [entry.type_id, entry]));
     const required = [
@@ -385,13 +386,6 @@ function Line({ label, children, heard, note, chip, correct, editor }: {
 function labelOf(subject: string): string {
   const words = subject.replaceAll("_", " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** `fastq.reads[paired]`, as `LivingGoal` draws it. **States are what a person is confirming**:
- * a model that writes a state nobody stated tells the engine to skip the step that makes it
- * true, and a chip showing only the type hides exactly that. */
-function spelled(type_id: string, states: string[] | undefined): string {
-  return states && states.length > 0 ? `${type_id}[${states.join(", ")}]` : type_id;
 }
 
 /** A model's sentence usually ends in a full stop already; the card adds its own once. */

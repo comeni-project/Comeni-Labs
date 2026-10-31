@@ -91,6 +91,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/registry/choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every type, job and tool a person can pick from */
+        get: operations["readChoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/registry/types/{id}": {
         parameters: {
             query?: never;
@@ -2049,6 +2066,15 @@ export interface components {
             label: string;
             /** Designed */
             designed?: string | null;
+        };
+        /** Choices */
+        Choices: {
+            /** Types */
+            types: components["schemas"]["TypeChoice"][];
+            /** Roles */
+            roles: components["schemas"]["RoleChoice"][];
+            /** Tools */
+            tools: components["schemas"]["ToolChoice"][];
         };
         /**
          * ChooseTool
@@ -4050,6 +4076,17 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** RoleChoice */
+        RoleChoice: {
+            /** Id */
+            id: string;
+            /** Tools */
+            tools: string[];
+            /** Reads */
+            reads: string[];
+            /** Makes */
+            makes: string[];
+        };
         /** RuleRow */
         RuleRow: {
             /** When */
@@ -4555,6 +4592,17 @@ export interface components {
             /** Colour */
             colour: string;
         };
+        /** ToolChoice */
+        ToolChoice: {
+            /** Id */
+            id: string;
+            /** Roles */
+            roles: string[];
+            /** Reads */
+            reads: string[];
+            /** Makes */
+            makes: string[];
+        };
         /**
          * TurnState
          * @description Whether an assistant turn has landed.
@@ -4575,6 +4623,23 @@ export interface components {
             produced_by: string[];
             /** Consumed By */
             consumed_by: string[];
+        };
+        /** TypeChoice */
+        TypeChoice: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Explain */
+            explain: string | null;
+            /** Family */
+            family: string;
+            /** Family Says */
+            family_says: string;
+            /** Made By */
+            made_by: string[];
+            /** Read By */
+            read_by: string[];
         };
         /**
          * Unreleased
@@ -4871,6 +4936,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TierCard"][];
+                };
+            };
+        };
+    };
+    readChoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Choices"];
                 };
             };
         };

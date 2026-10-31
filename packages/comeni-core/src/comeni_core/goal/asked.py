@@ -10,6 +10,7 @@ for callers that construct complete goals.
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
+from comeni_core.declared.signature import states_in_type
 from comeni_core.goal.profile import DataProfile, Measured  # noqa: F401  (re-exported)
 from comeni_core.spell.marks import (
     ChannelName,
@@ -76,6 +77,11 @@ class RequiredStates(BaseModel):
 
     type_id: TypeId
     states: list[StateName] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _carried(cls, data: object) -> object:
+        return states_in_type(data, "states")
 
 
 class Site(BaseModel):

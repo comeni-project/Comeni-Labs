@@ -17,6 +17,10 @@ _OUTPUT_BLOCK = re.compile(r"^    output:\n(.*?)^    (?:script|stub|exec|when):"
 _ELEMENT = re.compile(r"\b(val|path|eval|env|stdout)\s*\(")
 _NAMED_ELEMENT = re.compile(r"\b(?:val|path|eval|env|stdout)\s*\(\s*(\w*)")
 _EMIT = re.compile(r"\bemit:\s*(\w+)")
+_EMIT_LINE = re.compile(r"^(.*?)\bemit:\s*(\w+)", re.M)
+_PATH = re.compile(r"""\bpath\s*\(\s*(["'])(.*?)\1""")
+_BRACES = re.compile(r"\{([^{}]*)\}")
+_COMPRESSION = (".gz", ".bz2", ".zst", ".xz")
 _META = re.compile(r"\b(meta\d*)\.(\w+)")
 _CONTAINER = re.compile(r"container\s+\"(.*?)\"", re.S)
 _QUOTED = re.compile(r"'([^']+)'")
@@ -67,6 +71,8 @@ class ModuleSpec(BaseModel):
     process: str
     inputs: list[InputSlot] = Field(default_factory=list)
     emits: list[str] = Field(default_factory=list)
+    emit_formats: dict[str, list[str]] = Field(default_factory=dict)
+    """Each emit's file formats, read from its `path(...)` patterns; empty for a value."""
     container: str | None = None
     meta_reads: list[MetaRead] = Field(default_factory=list)
     reads_ext_args: bool = False
@@ -125,6 +131,7 @@ class ModuleSpec(BaseModel):
             process=process.group(1),
             inputs=slots,
             emits=emits,
+            emit_formats=_emit_formats(source),
             container=_container(source),
             meta_reads=meta_reads,
             reads_ext_args="task.ext.args" in source,
@@ -242,6 +249,40 @@ def _names(line: str, expected: int) -> list[str]:
     """
     found = [name.strip() for name in _NAMED_ELEMENT.findall(line)]
     return (found + [""] * expected)[:expected]
+
+
+def _expanded(pattern: str) -> list[str]:
+    """`*.{bai,csi}` to `*.bai` and `*.csi`, every brace in turn."""
+    found = _BRACES.search(pattern)
+    if not found:
+        return [pattern]
+    return [text for choice in found.group(1).split(",")
+            for text in _expanded(pattern[:found.start()] + choice + pattern[found.end():])]
+
+
+def _format(pattern: str) -> str | None:
+    """A pattern's format: its last suffix once compression is off. With no suffix it is a
+    folder, unless compression showed it to be a file (`*fastq.gz`). `None` for a suffix only
+    known at run time."""
+    name = pattern.rsplit("/", 1)[-1]
+    packed = name.endswith(_COMPRESSION)
+    if packed:
+        name = name.rsplit(".", 1)[0]
+    last = name.rsplit(".", 1)[-1].lstrip("*") if "." in name or packed else "folder"
+    return None if "$" in last or not last else last
+
+
+def formats_of(line: str) -> list[str]:
+    """Every file format the `path(...)` elements of one output line name, sorted."""
+    return sorted({found for _, pattern in _PATH.findall(line) for text in _expanded(pattern)
+                   if (found := _format(text))})
+
+
+def _emit_formats(source: str) -> dict[str, list[str]]:
+    block = _OUTPUT_BLOCK.search(source)
+    if not block:
+        return {}
+    return {name: formats_of(line) for line, name in _EMIT_LINE.findall(block.group(1))}
 
 
 def _emits(source: str) -> list[str]:

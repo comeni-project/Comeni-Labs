@@ -5,6 +5,7 @@ keyed by type-and-state signatures so clients can look up compatibility without 
 second rule or making a server round trip.
 """
 
+from comeni_core.declared.signature import join
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.layers import Layers
@@ -13,15 +14,8 @@ __all__ = ["Compatibility", "index", "signature"]
 
 
 def signature(type_id: str, states: frozenset[str]) -> str:
-    """`alignment.bam[coordinate_sorted,indexed]`.
-
-    Sorted, because a `frozenset` has no order and byte-identical output is a hard requirement
-    everywhere else in this system — `IREdge.states` carries a `field_serializer` for the same
-    reason.
-    """
-    if not states:
-        return type_id
-    return f"{type_id}[{','.join(sorted(states))}]"
+    """`alignment.bam::coordinate_sorted::indexed`."""
+    return join(type_id, states)
 
 
 class Compatibility(BaseModel):

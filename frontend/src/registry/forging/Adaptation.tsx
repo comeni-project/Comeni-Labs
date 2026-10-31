@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 
 import { useTitle } from "../../app/useTitle";
 import { Failed, Loading } from "../../ui/States";
+import { ToolDiagram } from "../parts/ToolDiagram";
+import { toolShape } from "../parts/toolShape";
+import { Tracker, type TrackedPiece } from "../parts/Tracker";
 import { RegistryTabs } from "../RegistryTabs";
 import { Chat } from "./Chat";
 import { PieceItems, WriteItem } from "./PieceItems";
@@ -24,7 +27,12 @@ export function Adaptation() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [about, setAbout] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
   const view = adaptation.data;
+  // After the render that opens the piece, so the question is there to reach.
+  useEffect(() => {
+    if (focus) document.querySelector(`[data-item="${CSS.escape(focus)}"]`)?.scrollIntoView?.({ block: "center" });
+  }, [focus]);
   useTitle(view ? `Forging ${view.path}` : "Forging");
 
   if (adaptation.isPending) return <><RegistryTabs /><Loading what="the adaptation" /></>;
@@ -32,16 +40,34 @@ export function Adaptation() {
 
   const piece = chosen ?? view.next_piece ?? "tests";
   const items = view.items.filter((i) => i.piece === piece);
-  const done = PIECES.filter((p) => {
+  const tracked: TrackedPiece[] = PIECES.map((p) => {
     const its = view.items.filter((i) => i.piece === p);
-    return its.length > 0 && its.every((i) => SETTLED.has(i.status));
-  }).length;
+    const settled = its.length > 0 && its.every((i) => SETTLED.has(i.status));
+    const waiting = its.filter((i) => i.status === "proposed" || i.status === "reopened").length;
+    return {
+      name: p,
+      state: settled ? "done" : p === (view.next_piece ?? "tests") ? "now" : "later",
+      note: settled ? "approved" : waiting ? `${waiting} waiting for you` : its.length ? "in progress" : "not started",
+    };
+  });
+  const done = tracked.filter((p) => p.state === "done").length;
   const busy = view.phase === "drafting" || view.phase === "asking";
+  // Ready means Assembly, until a person opens a piece to read it again.
+  const assembling = view.ready && chosen === null;
+  const shape = toolShape(view.items);
+  const questions = view.items.filter((i) => i.piece === "questions" && i.status !== "removed");
+  const answered = questions.filter((i) => (i.value as { choice?: string } | null)?.choice).length;
+  const goTo = (key: string) => {
+    setChosen("questions");
+    setWriting(false);
+    setFocus(key);
+  };
 
   return (
-    <div className="min-h-full bg-paper-2">
+    <div className="min-h-full bg-paper">
       <RegistryTabs />
-      <div className="gutter pt-[18px] flex flex-wrap items-center gap-3">
+      <div className="frame gutter pt-[18px] pb-7 flex flex-col gap-[14px]">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="m-0 text-[22px] font-semibold">Forging <span className="font-data font-medium">{view.path}</span>{" "}
           <span className="font-data text-[15px] text-ink-3">{view.version}</span></h1>
         {view.depends_on.length > 0 && (
@@ -49,36 +75,26 @@ export function Adaptation() {
         )}
         <span className="ml-auto text-[13px] text-ink-3">{done} of {PIECES.length} pieces approved</span>
       </div>
-      <div className="gutter py-[18px] flex flex-wrap gap-5 items-start">
-        <nav aria-label="Pieces" className="basis-full sm:basis-auto sm:flex-[0_1_230px] sm:min-w-[200px] bg-surface border border-line rounded-panel p-[10px] [contain:inline-size] sm:[contain:none]">
-          {/* A row you scroll at phone width (board 3g), a list beside the piece above it. */}
-          <ol className="list-none m-0 p-0 flex flex-row sm:flex-col gap-[2px] overflow-x-auto">
-            {PIECES.map((p) => {
-              const its = view.items.filter((i) => i.piece === p);
-              const waiting = its.filter((i) => !SETTLED.has(i.status)).length;
-              const note = its.length === 0 ? (p === view.next_piece ? "not started" : "not yet")
-                : waiting ? `${waiting} waiting for you` : "approved";
-              return (
-                <li key={p} className="shrink-0">
-                  <button type="button" onClick={() => { setChosen(p); setWriting(false); }}
-                          aria-current={p === piece ? "step" : undefined}
-                          className={`w-full text-left flex flex-col px-[10px] py-[9px] rounded-control border-0 ${
-                            p === piece ? "bg-now-soft" : "bg-transparent"}`}>
-                    <span className="font-medium capitalize">{p}</span>
-                    <span className={`text-[12px] ${waiting ? "text-measured-ink" : "text-ink-3"}`}>{note}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-
-        <section aria-labelledby="piece" className="flex-[999_1_520px] min-w-0 bg-surface border border-line rounded-panel overflow-hidden">
-          <div className="flex flex-wrap items-baseline gap-[10px] px-[22px] py-[18px] border-b border-line">
-            <h2 id="piece" className="m-0 text-[17px] font-semibold capitalize">{view.ready ? "Assembly" : piece}</h2>
-            {busy && <span role="status" className="text-[12.5px] text-action">The AI is drafting…</span>}
+      <Tracker pieces={tracked} current={piece} onPick={(p) => { setChosen(p); setWriting(false); }} />
+      {shape.inputs.length + shape.outputs.length > 0 && (
+        <section aria-labelledby="tool-so-far" className="bg-surface border border-line rounded-panel px-[16px] py-[12px]">
+          <div className="flex flex-wrap justify-between items-baseline gap-x-[10px] mb-2">
+            <h2 id="tool-so-far" className="m-0 text-[14px] font-semibold">The tool so far</h2>
+            <span aria-live="polite" className="text-[12.5px] text-ink-3">{answered} of {questions.length} answered. Pick any part.</span>
           </div>
-          {view.ready ? (
+          <ToolDiagram name={view.path} shape={shape} focus={focus} onPick={goTo} />
+        </section>
+      )}
+      <div className="flex flex-wrap items-start gap-[14px]">
+        <section aria-labelledby="piece" className="flex-[999_1_520px] min-w-0 bg-surface border border-line rounded-panel">
+          <div className="flex flex-wrap items-baseline gap-[10px] px-[22px] py-[18px] border-b border-line">
+            <h2 id="piece" className="m-0 text-[17px] font-semibold capitalize">{assembling ? "Assembly" : piece}</h2>
+            {busy && <span role="status" className="text-[12.5px] text-action">The AI is drafting…</span>}
+            {view.ready && chosen !== null && (
+              <button type="button" className="control ml-auto" onClick={() => setChosen(null)}>Back to Assembly</button>
+            )}
+          </div>
+          {assembling ? (
             <Assembly view={view} actions={actions} />
           ) : (
             <>
@@ -101,6 +117,7 @@ export function Adaptation() {
 
         <Chat view={view} actions={actions} about={about} setAbout={setAbout} />
       </div>
+      </div>
     </div>
   );
 }
@@ -116,7 +133,7 @@ function Start({ piece, busy, onDraft, onWrite }: {
           <span className="font-semibold">Draft with the AI</span>
           <span className="text-[13px] text-ink-2">The AI reads the module's files and proposes each item. Nothing counts until you approve it.</span>
           <button type="button" disabled={busy} onClick={onDraft}
-                  className="self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise">
+                  className="control-primary self-start">
             Draft with the AI
           </button>
         </div>
@@ -124,7 +141,7 @@ function Start({ piece, busy, onDraft, onWrite }: {
           <span className="font-semibold">Write it myself</span>
           <span className="text-[13px] text-ink-2">Your entries count as your decisions; the same checks run on them.</span>
           <button type="button" onClick={onWrite}
-                  className="self-start px-5 py-[10px] rounded-button border border-line-2 bg-surface font-medium">
+                  className="control self-start">
             Write it myself
           </button>
         </div>
@@ -144,7 +161,7 @@ function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType
       </p>
       {!STANDS.has(view.phase) && (
         <button type="button" onClick={() => actions.assemble.mutate()} disabled={actions.assemble.isPending}
-                className="self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise">
+                className="control-primary self-start">
           Assemble
         </button>
       )}

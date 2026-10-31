@@ -11,16 +11,16 @@ const COUNTS = "nf-core/subread/featurecounts@2.1.1";
 const INDEX = {
   emits: {
     [`${STAR}#bam`]: "alignment.bam",
-    [`${SORT}#bam`]: "alignment.bam[coordinate_sorted]",
+    [`${SORT}#bam`]: "alignment.bam::coordinate_sorted",
   },
   requires: {
-    [`${COUNTS}#bam`]: ["alignment.bam[coordinate_sorted]"],
+    [`${COUNTS}#bam`]: ["alignment.bam::coordinate_sorted"],
     [`${SORT}#bam`]: ["alignment.bam"],
-    [`${STAR}#reads`]: ["fastq.reads[trimmed]", "fastq.reads"],
+    [`${STAR}#reads`]: ["fastq.reads::trimmed", "fastq.reads"],
   },
   satisfies: {
     "alignment.bam": ["alignment.bam"],
-    "alignment.bam[coordinate_sorted]": ["alignment.bam", "alignment.bam[coordinate_sorted]"],
+    "alignment.bam::coordinate_sorted": ["alignment.bam", "alignment.bam::coordinate_sorted"],
     "fastq.reads": ["fastq.reads"],
   },
 };

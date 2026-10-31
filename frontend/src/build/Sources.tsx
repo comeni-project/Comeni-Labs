@@ -1,5 +1,6 @@
 import type { components } from "../api/schema";
 import { NODE_H, NODE_W, type Point, portOffset } from "./geometry";
+import { spelledStates } from "../ui/spelled";
 
 type Built = components["schemas"]["BuiltPipeline"];
 type Placed = components["schemas"]["PlacedNode"];
@@ -162,7 +163,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
           the binding happens at the run. */}
       <span className="block font-data text-label text-now-ink truncate">
         {port.type_id}
-        {(port.states ?? []).length > 0 && `[${(port.states ?? []).join(", ")}]`}
+        {spelledStates(port.states)}
       </span>
 
       {/* ═══ SPLIT AND MERGE — spec §4, the operator's "multiple of the same type" ═══════

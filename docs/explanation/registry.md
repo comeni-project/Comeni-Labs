@@ -59,9 +59,9 @@ Comeni one reusable fact, tool, or rule, and future compatible analyses inherit 
 In the [RNA-seq example](../tutorials/rnaseq-example.md), the registry lets the builder reason
 like this:
 
-1. The user wants `counts.matrix[gene_level]`.
+1. The user wants `counts.matrix::gene_level`.
 2. The `featureCounts` contract says it can produce that.
-3. `featureCounts` needs `alignment.bam[coordinate_sorted]`.
+3. `featureCounts` needs `alignment.bam::coordinate_sorted`.
 4. The `samtools sort` contract says it can make a BAM coordinate-sorted.
 5. The aligner rule reads `read_length: 150` and selects STAR.
 6. No fact proves `seq_platform`, so the builder asks a person.

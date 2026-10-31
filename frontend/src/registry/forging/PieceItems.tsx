@@ -1,13 +1,15 @@
 import { useState } from "react";
 
 import { Failed } from "../../ui/States";
+import { RegistryPicker, type PickerEntry } from "../parts/RegistryPicker";
+import { roleEntries, typeEntries, useChoices } from "../parts/useChoices";
 import { nameOf, type ItemView } from "./useAdaptation";
 import type { useForgeActions } from "./useForgeActions";
 
 type Actions = ReturnType<typeof useForgeActions>;
 
-const button = "px-3 py-[7px] rounded-control border border-line-2 bg-surface text-[13px]";
-const primary = "px-3 py-[7px] rounded-control bg-action text-on-action text-[13px] font-semibold shadow-raise";
+const button = "control";
+const primary = "control-primary";
 
 /** What an item's value says in one line: a setting's default and route, a port's type. */
 function summary(item: ItemView): string {
@@ -51,10 +53,22 @@ function removing(item: ItemView): boolean {
   return item.status === "proposed" && item.revisions.at(-1)?.move === "propose_removal";
 }
 
+/** Which picker answers a question, from its key: its job, or an input's or output's type. */
+function pickerFor(key: string): "role" | "type" | null {
+  if (key === "questions:role") return "role";
+  return /^questions:(input|output)_type:/.test(key) ? "type" : null;
+}
+
 /** A question is answered, never approved: its options, the AI's suggestion marked but not
  *  chosen, and a name of the person's own where the question allows one. */
 function Answer({ item, question, actions }: { item: ItemView; question: Asked; actions: Actions }) {
   const [own, setOwn] = useState("");
+  const [picking, setPicking] = useState(false);
+  const pending = actions.command.isPending;
+  const kind = pickerFor(item.key);
+  const choices = useChoices(picking);
+  const entries: PickerEntry[] = !choices.data || !kind ? []
+    : kind === "role" ? roleEntries(choices.data) : typeEntries(choices.data);
   const chosen = (item.value as { choice?: string } | null)?.choice;
   const answer = (value: { choice: string; new?: boolean }) =>
     actions.command.mutate({ move: "answer", item: item.key, expected: item.current_n, value });
@@ -63,8 +77,8 @@ function Answer({ item, question, actions }: { item: ItemView; question: Asked; 
       <ul className="list-none m-0 p-0 flex flex-col gap-[6px]">
         {question.options.map((o) => (
           <li key={o.id}>
-            <button type="button" aria-pressed={chosen === o.id} onClick={() => answer({ choice: o.id })}
-                    className={`${button} text-left w-full ${chosen === o.id ? "border-action" : ""}`}>
+            <button type="button" aria-pressed={chosen === o.id} disabled={pending} aria-busy={pending}
+                    onClick={() => answer({ choice: o.id })} className="choice">
               <span className="font-medium text-ink">{o.label}</span>
               {question.suggested === o.id && <span className="ml-2 text-[12px] text-measured-ink">suggested</span>}
               <span className="block text-[12.5px] text-ink-2">{o.because}</span>
@@ -72,6 +86,29 @@ function Answer({ item, question, actions }: { item: ItemView; question: Asked; 
           </li>
         ))}
       </ul>
+      {kind && !picking && (
+        <button type="button" className="control self-start" onClick={() => setPicking(true)}>
+          Something else in the registry
+        </button>
+      )}
+      {picking && choices.isError && <Failed error={choices.error} padded={false} />}
+      {picking && choices.data && (
+        <div className="picker-anchor">
+        <button type="button" aria-label="Close the picker" className="picker-outside" onClick={() => setPicking(false)} />
+        <RegistryPicker
+          title={kind === "role" ? "Choose a job" : "Choose a type"}
+          entries={entries} closest={question.options.map((o) => o.id)} chosen={chosen}
+          before={kind === "role" ? "Tools doing this job read" : "Made by"}
+          after={kind === "role" ? "and make" : "Read by"}
+          emptyBefore={kind === "role" ? "No tool yet" : "Nothing: a person supplies it"}
+          onClose={() => setPicking(false)}
+          onPick={(id) => { answer({ choice: id }); setPicking(false); }}
+          onNew={question.allows_new !== false && kind === "type"
+            ? (name) => { answer({ choice: name, new: true }); setPicking(false); } : undefined}
+          newLabel="New type"
+        />
+        </div>
+      )}
       {question.allows_new !== false && (
         <form className="flex flex-wrap gap-2" onSubmit={(e) => {
           e.preventDefault();
@@ -118,12 +155,11 @@ export function PieceItems({ items, actions, onReject }: {
         const waiting = item.status === "proposed" || item.status === "reopened";
         const question = asked(item);
         return (
-          <div key={item.key} role="group" aria-label={nameOf(item.key)}
-               className={`grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft ${
-                 item.status === "rejected" ? "bg-needs-you-soft" : ""}`}>
+          <div key={item.key} role="group" aria-label={nameOf(item.key)} data-item={item.key}
+               className="grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft">
             <div>
-              <div className="font-data font-medium">{nameOf(item.key)}</div>
-              <div className="font-data text-[12.5px] text-ink-2 break-all">{summary(item)}</div>
+              <div className="font-data font-medium break-words">{nameOf(item.key)}</div>
+              <div className="font-data text-[12.5px] text-ink-2 break-words">{summary(item)}</div>
               <div className="text-[12px] text-ink-3">{author}</div>
             </div>
             <div className="text-[13.5px] text-ink-2 leading-[1.55]">
@@ -152,7 +188,8 @@ export function PieceItems({ items, actions, onReject }: {
             </div>
             <div className="flex flex-wrap gap-[6px] sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
               {waiting && !question && (
-                <button type="button" className={primary}
+                <button type="button" className={primary} disabled={actions.command.isPending}
+                        aria-busy={actions.command.isPending}
                         onClick={() => actions.command.mutate({ move: "approve", item: item.key,
                                                                 expected: item.current_n })}>
                   Approve

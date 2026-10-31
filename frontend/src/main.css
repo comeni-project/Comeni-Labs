@@ -378,3 +378,128 @@ body {
   .living[data-pane="canvas"] > .living-rail, .living[data-pane="understood"] > .living-rail { display: none; }
   .living > .living-canvas { height: calc(100dvh - 180px); }
 }
+
+/* ═══ THE REGISTRY'S PARTS ═════════════════════════════════════════════════════════════════
+   One frame, so a registry page's logo, tabs, tracker and panels share their edges, and one set
+   of controls, so hover, press, focus, chosen and waiting look the same on every page. */
+.frame { box-sizing: border-box; width: 100%; max-width: 1600px; margin-inline: auto; }
+
+.frame.gutter { padding-inline: 16px; }
+@media (min-width: 760px) { .frame.gutter { padding-inline: 32px; } }
+
+.control, .control-primary {
+  cursor: pointer;
+  transition: background-color var(--t), border-color var(--t), box-shadow var(--t), transform var(--t);
+}
+.control {
+  padding: 7px 12px; border-radius: var(--radius-control); border: 1px solid var(--line-2);
+  background: transparent; color: var(--ink); font-size: 13px; text-decoration: none;
+}
+.control:hover:not(:disabled) { background: var(--hover); border-color: var(--ink-3); }
+.control:active:not(:disabled) { background: var(--hover-strong); transform: translateY(1px); }
+.control-primary {
+  padding: 8px 14px; border: 0; border-radius: var(--radius-button); background: var(--action);
+  color: var(--on-action); font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-raise);
+}
+.control-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 0 var(--action-edge); }
+.control-primary:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--action-edge); }
+.control:focus-visible, .control-primary:focus-visible, .choice:focus-visible, .pin-box:focus-visible,
+.tool-block:focus-visible, .tracker button:focus-visible, .picker-option:focus-visible,
+.picker-group:focus-visible { outline: none; box-shadow: var(--ring); }
+.control:disabled, .control-primary:disabled, .choice:disabled { cursor: not-allowed; opacity: .55; }
+[aria-busy="true"] { cursor: progress; }
+
+/* A choice: an answer a person picks. Chosen is a filled state, not a thin border. */
+.choice {
+  width: 100%; text-align: left; padding: 10px 12px; border-radius: 10px; color: var(--ink);
+  border: 1px solid var(--line-2); background: var(--surface); cursor: pointer;
+  transition: background-color var(--t), border-color var(--t), transform var(--t);
+}
+.choice:hover:not(:disabled) { background: var(--hover); border-color: var(--now); transform: translateY(-1px); }
+.choice:active:not(:disabled) { transform: translateY(0); }
+.choice[aria-pressed="true"] { background: var(--now-soft); border-color: var(--now); box-shadow: inset 0 0 0 1px var(--now); }
+
+.tracker { display: flex; list-style: none; margin: 0; padding: 0; }
+.tracker li { position: relative; flex: 1 1 0; min-width: 0; }
+.tracker li:last-child { flex: 0 0 auto; }
+.tracker li::before { content: ""; position: absolute; left: 26px; right: 0; top: 11px; height: 2px; background: var(--line-2); }
+.tracker li:last-child::before { display: none; }
+.tracker li[data-state="done"]::before { background: var(--done); }
+.tracker button {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; max-width: 100%;
+  padding: 0 8px 2px 0; background: transparent; border: 0; border-radius: 6px; color: var(--ink-2); text-align: left;
+  cursor: pointer; transition: color var(--t);
+}
+.tracker li:last-child button { align-items: flex-end; text-align: right; padding-right: 0; }
+.tracker button:hover { color: var(--ink); }
+.tracker button[aria-current="step"] { color: var(--ink); }
+.tracker-dot {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-family: var(--font-data);
+  font-size: 11px; background: var(--surface-2); box-shadow: inset 0 0 0 1.5px var(--line-2); color: var(--ink-3);
+}
+[data-state="done"] .tracker-dot { background: var(--done); box-shadow: none; color: var(--on-action); }
+.tracker button[aria-current="step"] .tracker-dot { background: var(--now-soft); box-shadow: inset 0 0 0 2px var(--now); color: var(--now-ink); }
+
+.tracker-now { display: none; }
+@media (max-width: 759px) {
+  /* Six labels do not fit: the bar shows where you are, and each step stays a named target. */
+  .tracker-now { display: block; margin: 0 0 6px; font-size: 13px; color: var(--ink-2); }
+  .tracker { gap: 3px; }
+  .tracker li, .tracker li:last-child { flex: 1 1 0; }
+  .tracker li::before { display: none; }
+  .tracker button, .tracker li:last-child button { display: block; width: 100%; padding: 19px 0; }
+  .tracker button { position: relative; }
+  .tracker-dot { position: absolute; inset: 19px 0 auto; width: auto; height: 6px; border-radius: 3px; font-size: 0; }
+  .tracker-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+
+.tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 170px) minmax(0, 1fr); align-items: stretch; }
+.tool-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pin { display: flex; align-items: center; min-width: 0; }
+.pin::after { content: ""; flex: none; width: 28px; height: 2px; background: var(--line-2); }
+.tool-right .pin { flex-direction: row-reverse; }
+.pin-box {
+  flex: 1; min-width: 0; padding: 7px 11px; text-align: left; color: var(--ink); cursor: pointer;
+  background: transparent; border: 1px dashed var(--line-2); border-radius: 9px;
+  transition: border-color var(--t), background-color var(--t), transform var(--t);
+}
+.pin-box[data-decided="true"] { background: var(--surface-2); border: 1px solid var(--action-edge); }
+.pin-box:hover { border-color: var(--now); transform: translateY(-1px); }
+.pin-box[aria-pressed="true"] { background: var(--now-soft); border: 1px solid var(--now); }
+.tool-block {
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; min-height: 84px;
+  padding: 12px; color: var(--ink); text-align: center; cursor: pointer; background: var(--surface-2);
+  border: 1px solid var(--line-2); border-radius: 12px; transition: border-color var(--t), background-color var(--t);
+}
+.tool-block:hover { border-color: var(--now); }
+.tool-block[aria-pressed="true"] { background: var(--now-soft); border-color: var(--now); }
+
+.picker-anchor { position: relative; height: 0; }
+.picker-outside { position: fixed; inset: 0; z-index: 30; padding: 0; border: 0; background: transparent; cursor: default; }
+.picker-anchor .picker { position: absolute; top: 6px; left: 0; z-index: 31; }
+.picker {
+  display: flex; flex-direction: column; width: min(640px, 100%); height: 500px; overflow: hidden;
+  background: var(--paper-2); border: 1px solid var(--line-2); border-radius: var(--radius-panel); box-shadow: var(--e3);
+}
+:root[data-theme="dark"] .picker { color-scheme: dark; }
+.picker-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); }
+.picker-option {
+  display: block; width: 100%; padding: 8px 10px; text-align: left; color: var(--ink); cursor: pointer;
+  background: transparent; border: 0; border-radius: 8px; transition: background-color var(--t);
+}
+.picker-option:hover { background: var(--hover); }
+.picker-option[aria-selected="true"] { background: var(--now-soft); }
+.picker-group {
+  padding: 3px 9px; background: transparent; border: 0; border-radius: 999px; color: var(--ink-2); font-size: 12.5px;
+  cursor: pointer; transition: background-color var(--t), color var(--t);
+}
+.picker-group:hover { background: var(--hover); color: var(--ink); }
+.picker-group[aria-pressed="true"] { background: var(--now-soft); color: var(--ink); }
+@media (max-width: 759px) {
+  .picker-anchor .picker { position: fixed; top: 64px; }
+  .picker { position: fixed; inset: 64px 0 0 0; z-index: 40; width: auto; height: auto; border-radius: 14px 14px 0 0; border-width: 1px 0 0; }
+  .picker-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .tool { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .pin::after { display: none; }
+  .tool-block { min-height: 0; }
+}

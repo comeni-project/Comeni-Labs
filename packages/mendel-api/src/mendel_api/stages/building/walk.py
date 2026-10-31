@@ -11,6 +11,7 @@ always the blueprint's reviewed steps (`amending.project`), never built up by ap
 import logging
 from typing import NamedTuple
 
+from comeni_core.declared.signature import join
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring import commands as c
@@ -74,7 +75,7 @@ def unbuildable(unroutable: UnroutableError) -> str:
     if unroutable.missing is None:
         return coded("MI0207", "the confirmed goal cannot be built from what it says you have")
     type_id, states = unroutable.missing
-    spelled = f"{type_id}[{', '.join(sorted(states))}]" if states else type_id
+    spelled = join(type_id, states)
     return coded(
         "MI0207",
         f"this goal needs {spelled}, and nothing can make it from what you have — "

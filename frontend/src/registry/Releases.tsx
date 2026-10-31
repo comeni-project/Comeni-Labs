@@ -16,9 +16,9 @@ export function Releases() {
   if (page.isError || !page.data) return <><RegistryTabs /><Failed error={page.error} /></>;
   const view = page.data;
   return (
-    <div className="min-h-full bg-paper-2">
+    <div className="min-h-full bg-paper">
       <RegistryTabs />
-      <div className="gutter py-[18px] flex flex-wrap gap-5 items-start">
+      <div className="frame gutter py-[18px] flex flex-wrap gap-5 items-start">
         <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-5">
           <h1 className="m-0 text-[22px] font-semibold">Releases</h1>
           <p className="m-0 text-[13.5px] text-ink-2">{view.in_use}</p>

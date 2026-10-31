@@ -28,6 +28,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- `qc.report::assembly`: a type's states can be written in the type, on contract ports and goals,
+  and a signature is now spelled that way. `OutputPort.format` records the file formats an output
+  writes, checked against the module (`MD0109`) and taking no part in matching.
 - `LockedLayer.release`: a pipeline names the registry release it was built with. Omitted when
   unknown, so existing pipelines keep their digests
   ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)).
@@ -188,6 +191,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- `GET /registry/choices` serves every type, job and tool a person can pick from, with what makes
+  and reads each, for the forge's searchable pickers.
 #### Added
 
 - Registry releases ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)): `GET` and

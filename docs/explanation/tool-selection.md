@@ -33,9 +33,9 @@ declare what the tool means, not every pipeline it might appear in.
 If the goal is gene-level counts from RNA-seq reads, the resolver may find this chain:
 
 ```text
-counts.matrix[gene_level]
+counts.matrix::gene_level
   <- featureCounts
-     needs alignment.bam[coordinate_sorted]
+     needs alignment.bam::coordinate_sorted
        <- samtools/sort
           needs alignment.bam
             <- STAR or HISAT2 align

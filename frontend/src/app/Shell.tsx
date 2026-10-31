@@ -76,8 +76,9 @@ export function Shell() {
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-dvh">
-      <header className="gutter min-h-[60px] py-[10px] flex flex-wrap items-center gap-x-[26px] gap-y-2
-                         border-b border-line bg-paper">
+      <header className="border-b border-line bg-paper">
+        <div className={`gutter min-h-[60px] py-[10px] flex flex-wrap items-center gap-x-[26px] gap-y-2 ${
+          location.pathname.startsWith("/registry") ? "frame" : ""}`}>
         <Link to="/" aria-label="Comeni — home" className="flex items-center gap-[10px] text-ink no-underline">
           <Mark />
           <span className="text-brand font-bold tracking-[-.01em]">Comeni Labs</span>
@@ -98,6 +99,7 @@ export function Shell() {
               <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
             </svg>
           </Link>
+        </div>
         </div>
       </header>
       <Outlet />

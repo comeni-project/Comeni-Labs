@@ -10,10 +10,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mendel_api.refusals import REFUSES
-from mendel_api.services import module_page
+from mendel_api.services import module_page, registry_choices
 from mendel_api.services.lookup import TypeCard
 from mendel_api.services.lookup import type_ as lookup_type
 from mendel_api.services.module_page import ModulePage
+from mendel_api.services.registry_choices import Choices
 
 router = APIRouter(prefix="/registry", tags=["registry"])
 
@@ -53,6 +54,15 @@ def tiers() -> list[TierCard]:
         )
         for tier, words in sorted(TIER_VOCABULARY.items())
     ]
+
+
+@router.get(
+    "/choices",
+    operation_id="readChoices",
+    summary="Every type, job and tool a person can pick from",
+)
+def choices() -> Choices:
+    return registry_choices.read()
 
 
 @router.get(

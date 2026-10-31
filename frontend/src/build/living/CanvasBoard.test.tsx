@@ -37,7 +37,7 @@ describe("a step on the canvas", () => {
   it("marks what it reads with < and what it makes with >", () => {
     fake();
     const node = screen.getByTestId("living-node-star_align");
-    expect(node).toHaveTextContent("< fastq.reads[trimmed]");
+    expect(node).toHaveTextContent("< fastq.reads::trimmed");
     expect(node).toHaveTextContent("> alignment.bam");
   });
 
