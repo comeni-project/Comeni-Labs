@@ -55,6 +55,8 @@ export function Adaptation() {
   // Ready means Assembly, until a person opens a piece to read it again.
   const assembling = view.ready && chosen === null;
   const shape = toolShape(view.items);
+  const questions = view.items.filter((i) => i.piece === "questions" && i.status !== "removed");
+  const answered = questions.filter((i) => (i.value as { choice?: string } | null)?.choice).length;
   const goTo = (key: string) => {
     setChosen("questions");
     setWriting(false);
@@ -75,12 +77,16 @@ export function Adaptation() {
       </div>
       <Tracker pieces={tracked} current={piece} onPick={(p) => { setChosen(p); setWriting(false); }} />
       {shape.inputs.length + shape.outputs.length > 0 && (
-        <section aria-label="The tool so far" className="bg-surface border border-line rounded-panel px-4 py-3">
+        <section aria-labelledby="tool-so-far" className="bg-surface border border-line rounded-panel px-[16px] py-[12px]">
+          <div className="flex flex-wrap justify-between items-baseline gap-x-[10px] mb-2">
+            <h2 id="tool-so-far" className="m-0 text-[14px] font-semibold">The tool so far</h2>
+            <span aria-live="polite" className="text-[12.5px] text-ink-3">{answered} of {questions.length} answered. Pick any part.</span>
+          </div>
           <ToolDiagram name={view.path} shape={shape} focus={focus} onPick={goTo} />
         </section>
       )}
       <div className="flex flex-wrap items-start gap-[14px]">
-        <section aria-labelledby="piece" className="flex-[999_1_520px] min-w-0 bg-surface border border-line rounded-panel overflow-hidden">
+        <section aria-labelledby="piece" className="flex-[999_1_520px] min-w-0 bg-surface border border-line rounded-panel">
           <div className="flex flex-wrap items-baseline gap-[10px] px-[22px] py-[18px] border-b border-line">
             <h2 id="piece" className="m-0 text-[17px] font-semibold capitalize">{assembling ? "Assembly" : piece}</h2>
             {busy && <span role="status" className="text-[12.5px] text-action">The AI is drafting…</span>}

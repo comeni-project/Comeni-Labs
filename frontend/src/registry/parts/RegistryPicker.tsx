@@ -26,7 +26,7 @@ function Listed({ label, ids, empty }: { label: string; ids: string[]; empty?: s
  *  what the option in view connects to. `closest` pins entries the caller has a reason for; the
  *  order of the rest is the server's. A sheet at phone width. */
 export function RegistryPicker({
-  title, entries, before, after, emptyBefore, emptyAfter, closest = [], onPick, onClose, onNew, newLabel,
+  title, entries, before, after, emptyBefore, emptyAfter, closest = [], chosen, onPick, onClose, onNew, newLabel,
 }: {
   title: string;
   entries: PickerEntry[];
@@ -35,6 +35,7 @@ export function RegistryPicker({
   emptyBefore?: string;
   emptyAfter?: string;
   closest?: string[];
+  chosen?: string;
   onPick: (id: string) => void;
   onClose: () => void;
   onNew?: (name: string) => void;
@@ -55,13 +56,14 @@ export function RegistryPicker({
   const pinned = shown.filter((e) => closest.includes(e.id));
   const rest = shown.filter((e) => !closest.includes(e.id));
   const list = [...pinned, ...rest];
-  const current = list.find((e) => e.id === inView) ?? list[0] ?? null;
+  const current = list.find((e) => e.id === (inView ?? chosen)) ?? list[0] ?? null;
   const typed = query.trim();
 
   const option = (e: PickerEntry) => (
     <button key={e.id} type="button" role="option" aria-selected={e.id === current?.id}
             className="picker-option" onClick={() => setInView(e.id)} onMouseEnter={() => setInView(e.id)}>
-      <span className="block text-[13.5px]">{e.name}</span>
+      <span className="flex justify-between gap-2 text-[13.5px]">{e.name}
+        {e.id === chosen && <span aria-label="chosen" className="text-done-ink">✓</span>}</span>
       <span className="block truncate font-data text-[12px] text-ink-3">{e.id}</span>
     </button>
   );
@@ -73,7 +75,7 @@ export function RegistryPicker({
         <input type="search" autoFocus aria-label={title} value={query} placeholder="Search by name or meaning"
                onChange={(event) => { setQuery(event.target.value); setGroup(null); setInView(null); }}
                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-ink text-[14.5px]" />
-        <span className="font-data text-[12px] text-ink-3">{entries.length} in the registry</span>
+        <span className="hidden sm:inline font-data text-[12px] text-ink-3 shrink-0">{entries.length} in the registry</span>
         <button type="button" className="control" onClick={onClose}>Close</button>
       </div>
       {groups.length > 1 && (

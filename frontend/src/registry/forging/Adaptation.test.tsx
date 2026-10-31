@@ -333,3 +333,18 @@ it("picking a pin opens the question that decides it", async () => {
   fireEvent.click(within(tool).getByRole("button", { name: /gff/ }));
   expect(await screen.findByRole("group", { name: "gff" })).toBeTruthy();
 });
+
+it("the tool says how much of it is decided", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ANSWERED, ASKED] });
+  const tool = await screen.findByRole("region", { name: "The tool so far" });
+  expect(within(tool).getByRole("heading", { name: "The tool so far" })).toBeTruthy();
+  expect(within(tool).getByText("1 of 2 answered. Pick any part.")).toBeTruthy();
+});
+
+it("the picker floats over the page and closes from outside it", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ASKED] }, { "/registry/choices": CHOICES });
+  fireEvent.click(await screen.findByRole("button", { name: "Something else in the registry" }));
+  await screen.findByRole("dialog", { name: "Choose a type" });
+  fireEvent.click(screen.getByRole("button", { name: "Close the picker" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

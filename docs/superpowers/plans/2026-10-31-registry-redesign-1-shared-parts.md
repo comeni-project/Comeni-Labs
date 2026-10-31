@@ -24,6 +24,12 @@ The operator chose to proceed without approving each plan (2026-10-31, "you can 
 - When every piece is approved, a piece can now be reopened, with *Back to Assembly*. The old rail
   never allowed it, and pins would have led nowhere.
 
+## Compared with the boards
+
+Side by side on 2026-10-31 at about 1870 wide, 1000 and 390. Fixed: frame padding, sub-tab pills, tool
+panel heading and padding, the picker as a floating card opening on the current answer. Kept on
+purpose: a status under each tracker step, because it says what is waiting.
+
 ## Known limits
 
 - **Jobs have no declared description.** Roles are bare names, so the picker shows what is declared:

@@ -93,9 +93,11 @@ function Answer({ item, question, actions }: { item: ItemView; question: Asked; 
       )}
       {picking && choices.isError && <Failed error={choices.error} padded={false} />}
       {picking && choices.data && (
+        <div className="picker-anchor">
+        <button type="button" aria-label="Close the picker" className="picker-outside" onClick={() => setPicking(false)} />
         <RegistryPicker
           title={kind === "role" ? "Choose a job" : "Choose a type"}
-          entries={entries} closest={question.options.map((o) => o.id)}
+          entries={entries} closest={question.options.map((o) => o.id)} chosen={chosen}
           before={kind === "role" ? "Tools doing this job read" : "Made by"}
           after={kind === "role" ? "and make" : "Read by"}
           emptyBefore={kind === "role" ? "No tool yet" : "Nothing: a person supplies it"}
@@ -105,6 +107,7 @@ function Answer({ item, question, actions }: { item: ItemView; question: Asked; 
             ? (name) => { answer({ choice: name, new: true }); setPicking(false); } : undefined}
           newLabel="New type"
         />
+        </div>
       )}
       {question.allows_new !== false && (
         <form className="flex flex-wrap gap-2" onSubmit={(e) => {

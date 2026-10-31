@@ -2,21 +2,23 @@ import { NavLink } from "react-router";
 
 /** The Registry section's own bar (board 1): Catalogue, Forging and Releases. */
 export function RegistryTabs({ registryAt }: { registryAt?: string }) {
-  const on = "text-ink font-semibold border-b-2 border-ink";
+  const tab = "px-[10px] py-[6px] rounded-control no-underline transition-colors";
+  const on = "bg-surface text-ink font-semibold shadow-[inset_0_0_0_1px_var(--line)]";
+  const off = "text-ink-2 hover:bg-hover hover:text-ink";
   return (
     <div className="border-b border-line bg-paper">
-      <div className="frame gutter flex flex-wrap items-center gap-x-[26px] gap-y-1">
-      <nav aria-label="Registry" className="flex flex-wrap gap-[26px]">
+      <div className="frame gutter py-[9px] flex flex-wrap items-center gap-x-[26px] gap-y-1">
+      <nav aria-label="Registry" className="flex flex-wrap gap-1">
         <NavLink to="/registry" end
-                 className={({ isActive }) => `py-3 no-underline ${isActive ? on : "text-ink-2"}`}>
+                 className={({ isActive }) => `${tab} ${isActive ? on : off}`}>
           Catalogue
         </NavLink>
         <NavLink to="/registry/forging"
-                 className={({ isActive }) => `py-3 no-underline ${isActive ? on : "text-ink-2"}`}>
+                 className={({ isActive }) => `${tab} ${isActive ? on : off}`}>
           Forging
         </NavLink>
         <NavLink to="/registry/releases"
-                 className={({ isActive }) => `py-3 no-underline ${isActive ? on : "text-ink-2"}`}>
+                 className={({ isActive }) => `${tab} ${isActive ? on : off}`}>
           Releases
         </NavLink>
       </nav>

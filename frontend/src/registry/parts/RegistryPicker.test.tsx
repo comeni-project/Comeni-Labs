@@ -75,3 +75,9 @@ it("offers a new name only where one is allowed", () => {
   fireEvent.click(screen.getByRole("button", { name: /New type “annotation.gff”/ }));
   expect(onNew).toHaveBeenCalledWith("annotation.gff");
 });
+
+it("opens on the current answer, marked as chosen", () => {
+  show({ chosen: "qc.report" });
+  expect(screen.getByRole("region", { name: "qc.report" })).toBeTruthy();
+  expect(screen.getByRole("option", { name: /quality-control report/ }).textContent).toContain("✓");
+});
