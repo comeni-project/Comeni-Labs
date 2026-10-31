@@ -11,7 +11,13 @@ For each question give 2–4 options, each with a one-sentence reason, using onl
 lists below or a new name you mark as new. If one option is clearly right, set `suggested` to it.
 Do not ask what is already answered under "This adaptation so far".
 
-Reply with JSON only: {"questions": [{"key": "questions:<subject>", "asks": "...",
+Each question's key says what it asks, with no numbers in place of a name:
+- questions:role
+- questions:input_type:<input>, one for each input, with the input's name from meta.yml
+- questions:output_type:<output>, one for each output, with the output's name from meta.yml
+- questions:competition
+
+Reply with JSON only: {"questions": [{"key": "<key>", "asks": "...",
 "options": [{"id": "...", "label": "...", "because": "..."}], "allows_new": true,
 "suggested": null}]}
 
@@ -27,3 +33,4 @@ main.nf:
 
 === this adaptation so far ===
 {{items}}
+{{problems}}

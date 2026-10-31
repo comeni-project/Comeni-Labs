@@ -20,3 +20,4 @@ main.nf:
 
 === the conversation (latest last) ===
 {{turns}}
+{{problems}}
