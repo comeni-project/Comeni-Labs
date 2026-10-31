@@ -293,3 +293,43 @@ it("without a token it says why", async () => {
   expect(await screen.findByText(/no GitHub token is set/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Open pull request" })).toBeNull();
 });
+
+it("all approved: a piece can still be opened, and Assembly is one step back", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: null, ready: true, items: [ANSWERED] });
+  await screen.findByRole("button", { name: "Assemble" });
+  const pieces = screen.getByRole("navigation", { name: "Pieces" });
+  fireEvent.click(within(pieces).getByRole("button", { name: /questions/i }));
+  expect(await screen.findByRole("group", { name: "role" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Assemble" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Back to Assembly" }));
+  expect(await screen.findByRole("button", { name: "Assemble" })).toBeTruthy();
+});
+
+const ASKED = item("questions:input_type:gff", "questions", "proposed", [rev(1, "draft", "ai",
+  { asks: "What kind of file is it?", suggested: "annotation.gtf", allows_new: true,
+    options: [{ id: "annotation.gtf", label: "annotation.gtf", because: "GTF" }] })]);
+const CHOICES = { roles: [], tools: [], types: [
+  { id: "annotation.gtf", name: "gene annotation (GTF)", explain: "Where genes lie", family: "annotation",
+    family_says: "Features", made_by: [], read_by: ["nf-core/star/align@2.7.11b"] },
+  { id: "genome.fasta", name: "reference genome (FASTA)", explain: null, family: "genome",
+    family_says: "A reference genome", made_by: [], read_by: [] },
+] };
+
+it("a type can be chosen from everything the registry has", async () => {
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ASKED] },
+                   { "/registry/choices": CHOICES });
+  fireEvent.click(await screen.findByRole("button", { name: "Something else in the registry" }));
+  const picker = await screen.findByRole("dialog", { name: "Choose a type" });
+  fireEvent.click(within(picker).getByRole("option", { name: /reference genome/ }));
+  fireEvent.click(within(picker).getByRole("button", { name: "Use genome.fasta" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({
+    move: "answer", item: "questions:input_type:gff", value: { choice: "genome.fasta" } });
+});
+
+it("picking a pin opens the question that decides it", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: null, ready: true, items: [ASKED] });
+  const tool = await screen.findByRole("group", { name: /The tool so far/ });
+  fireEvent.click(within(tool).getByRole("button", { name: /gff/ }));
+  expect(await screen.findByRole("group", { name: "gff" })).toBeTruthy();
+});

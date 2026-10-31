@@ -37,9 +37,9 @@ export function Tool() {
   useTitle(path);
 
   return (
-    <div className="min-h-full bg-paper-2">
+    <div className="min-h-full bg-paper">
       <RegistryTabs registryAt={tool?.registry_at} />
-      <main className="max-w-[1240px] mx-auto gutter pt-6 pb-12">
+      <main className="frame gutter pt-6 pb-12">
         <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3 mb-[14px]">
           <Link to="/registry">Catalogue</Link> / <span className="font-data">{path}</span>
         </nav>

@@ -188,6 +188,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- `GET /registry/choices` serves every type, job and tool a person can pick from, with what makes
+  and reads each, for the forge's searchable pickers.
 #### Added
 
 - Registry releases ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)): `GET` and

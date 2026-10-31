@@ -33,6 +33,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/registry/types/{id}", "get"): "lookupType",
         # The tier vocabulary, served rather than retyped into an interface.
         ("/api/registry/tiers", "get"): "listTiers",
+        # What a person can pick from (the registry redesign).
+        ("/api/registry/choices", "get"): "readChoices",
         # The forge's catalogue of upstream modules (forge part 1, #362).
         ("/api/forge/catalogue", "get"): "readCatalogue",
         ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",

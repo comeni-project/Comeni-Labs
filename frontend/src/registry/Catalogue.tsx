@@ -25,12 +25,12 @@ export function Catalogue() {
   const selected = rows.find((row) => row.path === filters.module) ?? rows[0];
 
   return (
-    <div className="min-h-full bg-paper-2">
+    <div className="min-h-full bg-paper">
       <RegistryTabs registryAt={first?.registry_at} />
       {catalogue.isPending && <Loading what="the catalogue" />}
       {catalogue.isError && <Failed error={catalogue.error} />}
       {first && !first.last_good && (
-        <div className="gutter py-8 flex flex-col items-start gap-3">
+        <div className="frame gutter py-8 flex flex-col items-start gap-3">
           <p className="m-0 text-body">The catalogue has not been synced yet.</p>
           <p className="m-0 text-secondary text-ink-3">
             A sync reads every nf-core module and compares it with the registry. It runs daily;
@@ -45,7 +45,7 @@ export function Catalogue() {
         </div>
       )}
       {first && first.last_good && (
-        <div className="gutter py-6 flex flex-wrap gap-6 items-start">
+        <div className="frame gutter py-6 flex flex-wrap gap-6 items-start">
           <div className="basis-full lg:basis-[236px] lg:shrink-0">
             <button type="button" className="lg:hidden mb-3 px-4 py-2 border border-line-2 rounded-control bg-surface"
                     aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}>

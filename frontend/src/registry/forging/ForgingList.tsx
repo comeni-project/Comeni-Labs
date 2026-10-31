@@ -10,9 +10,9 @@ export function ForgingList() {
   useTitle("Forging");
   const list = useAdaptations();
   return (
-    <div className="min-h-full bg-paper-2">
+    <div className="min-h-full bg-paper">
       <RegistryTabs />
-      <main className="max-w-[1100px] mx-auto gutter pt-6 pb-12 flex flex-col gap-[14px]">
+      <main className="frame gutter pt-6 pb-12 flex flex-col gap-[14px]">
         <div className="flex flex-wrap items-baseline gap-3">
           <h1 className="m-0 text-[22px] font-semibold">Forging</h1>
           <span className="text-[13px] text-ink-3">Each tool is forged on its own. Start one from the catalogue.</span>
