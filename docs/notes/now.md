@@ -100,11 +100,9 @@ history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
 ## The forge (where declared data comes from)
 
 - **MVPs 1–6 are on `main` (#415); comeni-registry v0.5.0 is its first release.** #365–#367 stay
-  open. **The [live walk](../how-to/development/forge-live-walk.md) (#412) stopped at step 4 with
-  `gemma3:12b`:** steps 1–2 pass; forging reached 6 of 6 pieces mostly by hand, and #432 blocked
-  assembly. Its fix and #421's are on `forge-walk-fixes` (#433 is open for #421). Findings are
-  #420–#432. **Next:** a second design pass on the registry canvas linked from #412 (feedback
-  there), then build it and resume at step 4. #428 and #431 wait for the operator. (10-30)
+  open. **The [live walk](../how-to/development/forge-live-walk.md) (#412) stopped at step 4;**
+  findings are #420–#432. **Next:** build the approved redesign, then resume at step 4. #428 and
+  #431 wait for the operator. (10-31)
 
 ## Wiener (run → watch)
 
