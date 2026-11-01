@@ -37,6 +37,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/registry/choices", "get"): "readChoices",
         # The forge's catalogue of upstream modules (forge part 1, #362).
         ("/api/forge/catalogue", "get"): "readCatalogue",
+        ("/api/forge/catalogue/flow", "get"): "readCatalogueFlow",
         ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",
         ("/api/forge/catalogue/sync", "post"): "syncCatalogue",
         ("/api/registry/tools/{contract_id}", "get"): "readTool",

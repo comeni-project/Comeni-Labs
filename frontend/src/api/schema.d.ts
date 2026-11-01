@@ -1011,6 +1011,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/catalogue/flow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How the file formats on show connect, under the same filters */
+        get: operations["readCatalogueFlow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/catalogue/{source}/{path}": {
         parameters: {
             query?: never;
@@ -1935,6 +1952,12 @@ export interface components {
             next_offset: number | null;
             /** Registry At */
             registry_at: string;
+            /** Wider */
+            wider: number;
+            /** Aliases */
+            aliases: {
+                [key: string]: string;
+            };
         };
         /** Change */
         Change: {
@@ -2195,8 +2218,9 @@ export interface components {
         };
         /**
          * Counts
-         * @description Over the whole catalogue, not the filtered view: a filter's count says how many it
-         *     would show. `in_review` and `merged_not_released` are 0 until pull requests (part 4).
+         * @description What each choice would show given the other filters: a facet leaves out its own pick, so
+         *     its numbers stay choices rather than collapsing to the one already made. `reads` and `makes`
+         *     narrow each other, which is what lets a person follow one format.
          */
         Counts: {
             /** States */
@@ -2207,8 +2231,18 @@ export interface components {
             topics: {
                 [key: string]: number;
             };
-            /** Formats */
-            formats: {
+            /** No Topic */
+            no_topic: number;
+            /** Suites */
+            suites: {
+                [key: string]: number;
+            };
+            /** Reads */
+            reads: {
+                [key: string]: number;
+            };
+            /** Makes */
+            makes: {
                 [key: string]: number;
             };
             /** Sources */
@@ -2756,6 +2790,26 @@ export interface components {
             /** Target */
             target?: string | null;
         };
+        /**
+         * Fits
+         * @description Registry tools sharing a file format with a module. By format only, so a suggestion of
+         *     where it might go rather than a checked connection: its types are not decided yet.
+         */
+        Fits: {
+            /** Feeds It */
+            feeds_it: string[];
+            /** Reads It */
+            reads_it: string[];
+        };
+        /** FormatLink */
+        FormatLink: {
+            /** Reads */
+            reads: string;
+            /** Makes */
+            makes: string;
+            /** Modules */
+            modules: number;
+        };
         /** Fragment */
         Fragment: {
             /** Path */
@@ -3249,6 +3303,7 @@ export interface components {
         ModuleDetail: {
             row: components["schemas"]["ModuleRow"];
             module: components["schemas"]["UpstreamModule"];
+            fits: components["schemas"]["Fits"];
         };
         /** ModulePage */
         ModulePage: {
@@ -3336,6 +3391,10 @@ export interface components {
             formats_in: string[];
             /** Formats Out */
             formats_out: string[];
+            /** Mentions In */
+            mentions_in: string[];
+            /** Mentions Out */
+            mentions_out: string[];
             /** Tool Version */
             tool_version: string | null;
             state: components["schemas"]["State"];
@@ -4602,6 +4661,8 @@ export interface components {
             reads: string[];
             /** Makes */
             makes: string[];
+            /** Feeds */
+            feeds: string[];
         };
         /**
          * TurnState
@@ -6670,7 +6731,11 @@ export interface operations {
             query?: {
                 state?: components["schemas"]["State"] | null;
                 topic?: string[];
-                format?: string[];
+                no_topic?: boolean;
+                suite?: string[];
+                reads?: string[];
+                makes?: string[];
+                mentioned?: boolean;
                 source?: string | null;
                 q?: string | null;
                 sort?: components["schemas"]["Sort"];
@@ -6690,6 +6755,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CataloguePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readCatalogueFlow: {
+        parameters: {
+            query?: {
+                show_reads?: string[];
+                show_makes?: string[];
+                state?: components["schemas"]["State"] | null;
+                topic?: string[];
+                no_topic?: boolean;
+                suite?: string[];
+                mentioned?: boolean;
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormatLink"][];
                 };
             };
             /** @description Validation Error */

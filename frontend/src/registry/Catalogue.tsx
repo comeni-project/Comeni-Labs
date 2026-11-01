@@ -3,13 +3,22 @@ import { useState } from "react";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { Filters } from "./Filters";
+import { FormatFlow } from "./FormatFlow";
 import { ModuleTable } from "./ModuleTable";
+import { RegistryGraph } from "./RegistryGraph";
 import { RegistryTabs } from "./RegistryTabs";
+import { SearchBar } from "./SearchBar";
 import { Selected } from "./Selected";
-import { ago } from "./states";
+import { ago, colourOf, StateIcon, STATES } from "./states";
 import type { CataloguePage } from "./useCatalogue";
 import { useCatalogue, useFilters } from "./useCatalogue";
 import { useSyncNow } from "./useSyncNow";
+
+/** What the registry holds first: that is what a person comes here to compare. */
+const ORDERED = [...STATES.filter(({ state }) => state !== "not_imported"),
+                 ...STATES.filter(({ state }) => state === "not_imported")];
+
+const MAPS = [["flow", "Format flow"], ["registry", "Your registry"], ["none", "Hide"]] as const;
 
 /** `/registry`: every nf-core module against the registry the builder loads (board 1, forge MVP
  *  part 1). Filters, search and sort live in the address; the selected row too. */
@@ -23,6 +32,7 @@ export function Catalogue() {
   const first = pages[0];
   const rows = pages.flatMap((page) => page.rows);
   const selected = rows.find((row) => row.path === filters.module) ?? rows[0];
+  const all = Object.values(first?.counts.states ?? {}).reduce((a, b) => a + b, 0);
 
   return (
     <div className="min-h-full bg-paper">
@@ -30,60 +40,100 @@ export function Catalogue() {
       {catalogue.isPending && <Loading what="the catalogue" />}
       {catalogue.isError && <Failed error={catalogue.error} />}
       {first && !first.last_good && (
-        <div className="frame gutter py-8 flex flex-col items-start gap-3">
-          <p className="m-0 text-body">The catalogue has not been synced yet.</p>
-          <p className="m-0 text-secondary text-ink-3">
-            A sync reads every nf-core module and compares it with the registry. It runs daily;
-            this starts one now.
-          </p>
-          {first.last?.outcome === "failed" && (
-            <p className="m-0 text-secondary text-needs-you-ink">
-              The last sync failed: {first.last.error}
-            </p>
-          )}
-          {first.last?.outcome === "running" ? <Syncing /> : <SyncNow sync={sync} />}
+        <div className="frame gutter py-[18px] flex flex-col gap-[14px]">
+          <div className="catalogue-start">
+            <section className="bg-surface border border-line rounded-panel p-[18px] flex flex-col gap-[12px] items-start">
+              <h1 className="m-0 text-[18px] font-semibold">Find a tool to add</h1>
+              <p className="m-0 text-[13px] text-ink-2 max-w-[62ch]">
+                The catalogue has not been synced yet. Comeni reads nf-core's module list and compares
+                it with your registry, so you can see what's new and what's out of date. It then
+                refreshes daily.
+              </p>
+              {first.last?.outcome === "failed" && (
+                <p className="m-0 text-secondary text-needs-you-ink">The last sync failed: {first.last.error}</p>
+              )}
+              {first.last?.outcome !== "running" && <SyncNow sync={sync} />}
+            </section>
+            <section aria-live="polite" className="bg-surface border border-line rounded-panel p-[18px] flex flex-col gap-[12px]">
+              <h2 className="m-0 text-[15px] font-semibold">While it reads</h2>
+              {first.last?.outcome === "running" ? <Syncing />
+                : <p className="m-0 text-[13px] text-ink-3">About 2 minutes. You can leave this page.</p>}
+              <p className="mt-auto mb-0 text-[12px] text-ink-3">The list appears here when it's ready.</p>
+            </section>
+          </div>
         </div>
       )}
       {first && first.last_good && (
-        <div className="frame gutter py-6 flex flex-wrap gap-6 items-start">
-          <div className="basis-full lg:basis-[236px] lg:shrink-0">
-            <button type="button" className="lg:hidden mb-3 px-4 py-2 border border-line-2 rounded-control bg-surface"
-                    aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}>
-              Filters
-            </button>
-            <div className={showFilters ? "block" : "hidden lg:block"}>
-              <Filters counts={first.counts} />
+        <div className="frame gutter py-[18px] flex flex-col gap-[14px]">
+          <SearchBar page={first} rows={rows} />
+          <div className="flex flex-wrap justify-between items-center gap-3">
+            <div className="seg" role="group" aria-label="Against your registry">
+              <button type="button" className="seg-item" aria-pressed={!filters.state} onClick={() => filters.set("state", [])}>
+                All modules <span className="font-data text-[12px] text-ink-3">{all.toLocaleString("en")}</span>
+              </button>
+              {ORDERED.filter(({ state }) => first.counts.states[state] > 0 || state === filters.state).map(({ state, label }) => (
+                <button key={state} type="button" className="seg-item" aria-pressed={filters.state === state}
+                        onClick={() => filters.set("state", [state])}>
+                  <span className={colourOf(state)}><StateIcon state={state} /></span>{label}{" "}
+                  <span className="font-data text-[12px] text-ink-3">{(first.counts.states[state] ?? 0).toLocaleString("en")}</span>
+                </button>
+              ))}
+            </div>
+            <div className="seg" role="group" aria-label="Picture">
+              {MAPS.map(([id, label]) => (
+                <button key={id} type="button" className="seg-item" aria-pressed={filters.map === id}
+                        onClick={() => filters.set("map", id === "flow" ? [] : [id])}>{label}</button>
+              ))}
             </div>
           </div>
-          <section aria-label="Modules" className="flex-[999_1_560px] min-w-0 flex flex-col gap-3">
-            <div className="flex flex-wrap gap-[10px] items-center">
-              <label htmlFor="catalogue-q" className="sr-only">Search modules</label>
-              <input id="catalogue-q" type="search" value={filters.q}
-                     placeholder="Search by name, tool, format or what it does"
-                     onChange={(e) => filters.set("q", e.target.value ? [e.target.value] : [])}
-                     className="flex-[1_1_320px] min-w-0 px-[14px] py-[11px] bg-surface border border-line-2 rounded-control" />
-              <label htmlFor="catalogue-sort" className="text-[12.5px] text-ink-2">Sort</label>
-              <select id="catalogue-sort" value={filters.sort}
-                      onChange={(e) => filters.set("sort", [e.target.value])}
-                      className="px-3 py-[10px] border border-line-2 rounded-control bg-surface">
-                <option value="best">Best match</option>
-                <option value="name">Name</option>
-                <option value="upstream_changed">Newest upstream change</option>
-              </select>
+          {filters.map === "flow" && <FormatFlow page={first} total={first.total} />}
+          {filters.map === "registry" && (
+            <RegistryGraph states={Object.fromEntries(rows.map((row) => [row.path, row.state]))} />
+          )}
+          <div className="catalogue-body">
+            <div className="min-w-0">
+              <button type="button" className="control lg:hidden mb-2" aria-expanded={showFilters}
+                      onClick={() => setShowFilters(!showFilters)}>Filters</button>
+              <div className={showFilters ? "block" : "hidden lg:block"}><Filters counts={first.counts} /></div>
             </div>
-            <ModuleTable rows={rows} selected={selected?.path ?? ""}
-                         onSelect={(path) => filters.set("module", [path])}
-                         footer={<Footer first={first} shown={rows.length} sync={sync} />} />
-            {catalogue.hasNextPage && (
-              <button type="button" onClick={() => catalogue.fetchNextPage()}
-                      disabled={catalogue.isFetchingNextPage}
-                      className="self-center px-4 py-2 border border-line-2 rounded-control bg-surface">
-                {catalogue.isFetchingNextPage ? "Reading…" : "Show more"}
-              </button>
-            )}
-          </section>
-          <div className="flex-[1_1_320px] max-w-[380px]">
-            <Selected row={selected} />
+            <section aria-label="Modules" className="min-w-0 flex flex-col gap-2 self-start">
+              <div className="flex flex-wrap justify-between items-center gap-3">
+                <p aria-live="polite" className="m-0 text-[13.5px]">
+                  <strong className="font-semibold">{first.total.toLocaleString("en")}</strong>{" "}
+                  <span className="text-ink-3">{first.total === all ? "nf-core modules" : `of ${all.toLocaleString("en")} modules`}</span>
+                </p>
+                <label className="inline-flex items-center gap-2 text-[12.5px] text-ink-3">Sort
+                  <select aria-label="Sort" value={filters.sort} onChange={(e) => filters.set("sort", [e.target.value])}
+                          className="px-2 py-[5px] border border-line-2 rounded-control bg-surface text-ink">
+                    <option value="best">Best match</option>
+                    <option value="name">Name</option>
+                    <option value="upstream_changed">Newest upstream change</option>
+                  </select>
+                </label>
+              </div>
+              <ModuleTable rows={rows} selected={selected?.path ?? ""}
+                           onSelect={(path) => filters.set("module", [path])}
+                           footer={<Footer first={first} shown={rows.length} sync={sync} />} />
+              {first.wider > 0 && !filters.mentioned && (
+                <p className="m-0 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-2">
+                  {first.wider.toLocaleString("en")} more only mention it in a description, because nf-core left the format unstated.
+                  <button type="button" className="link-plain" onClick={() => filters.set("mentioned", ["true"])}>Include them</button>
+                </p>
+              )}
+              {filters.mentioned && (
+                <p className="m-0 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-2">
+                  Including modules that only mention a format in a description.
+                  <button type="button" className="link-plain" onClick={() => filters.set("mentioned", [])}>Declared only</button>
+                </p>
+              )}
+              {catalogue.hasNextPage && (
+                <button type="button" className="control self-center" onClick={() => catalogue.fetchNextPage()}
+                        disabled={catalogue.isFetchingNextPage}>
+                  {catalogue.isFetchingNextPage ? "Reading…" : "Show more"}
+                </button>
+              )}
+            </section>
+            <div className="min-w-0 self-start lg:sticky lg:top-4"><Selected row={selected} /></div>
           </div>
         </div>
       )}

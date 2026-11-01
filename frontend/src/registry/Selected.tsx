@@ -1,10 +1,11 @@
 import { Link, useNavigate } from "react-router";
 
 import { Failed } from "../ui/States";
+import { FormatPills } from "./FormatPills";
 import { useStartForge } from "./forging/useForgeActions";
-
-import { colourOf, labelOf } from "./states";
+import { colourOf, labelOf, StateIcon } from "./states";
 import type { ModuleRow } from "./useCatalogue";
+import { useFilters, useModuleDetail } from "./useCatalogue";
 
 const NEXT: Record<string, (row: ModuleRow) => string> = {
   imported: () => "In the registry the builder loads. The builder can choose it.",
@@ -27,6 +28,8 @@ const NEXT: Record<string, (row: ModuleRow) => string> = {
 export function Selected({ row }: { row: ModuleRow | undefined }) {
   const start = useStartForge();
   const navigate = useNavigate();
+  const filters = useFilters();
+  const fits = useModuleDetail(row).data?.fits;
   if (!row) {
     return (
       <aside aria-label="Selected module" className="bg-surface border border-line rounded-panel p-[22px] text-ink-3">
@@ -37,26 +40,49 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
   const held = row.contract_id !== null && row.contract_id !== undefined;
   return (
     <aside aria-label="Selected module"
-           className="bg-surface border border-line rounded-panel p-[22px] flex flex-col gap-[18px]">
+           className="bg-surface border border-line rounded-panel p-[16px] flex flex-col gap-[12px]">
       <div>
-        <div className="font-data text-[17px] font-medium">{row.name}</div>
-        {row.description && <p className="mt-[6px] mb-0 text-ink-2 leading-[1.5]">{row.description}</p>}
+        <div className="font-data text-[16px] font-medium break-all">{row.path}</div>
+        {row.description && <p className="mt-[3px] mb-0 text-[13px] text-ink-2 leading-[1.5]">{row.description}</p>}
       </div>
-      <dl className="m-0 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-[10px] text-[13px]">
-        <dt className="text-ink-3">Reads</dt>
-        <dd className="m-0 font-data">{row.formats_in.join(", ") || "—"}</dd>
-        <dt className="text-ink-3">Makes</dt>
-        <dd className="m-0 font-data">{row.formats_out.join(", ") || "—"}</dd>
-        <dt className="text-ink-3">Tool version</dt>
-        <dd className="m-0 font-data">{row.tool_version ?? "unknown"}</dd>
-        <dt className="text-ink-3">Registry</dt>
-        <dd className={`m-0 ${colourOf(row.state)}`}>{labelOf(row.state)}</dd>
-        <dt className="text-ink-3">Upstream</dt>
-        <dd className="m-0">
-          <a href={`https://github.com/nf-core/modules/tree/master/modules/nf-core/${row.path}`}
-             target="_blank" rel="noreferrer">nf-core/modules · {row.path}</a>
-        </dd>
-      </dl>
+      <div className="flex flex-col">
+        <p className="m-0 mb-[3px] text-[11.5px] text-ink-3">Reads</p>
+        <div className="flex flex-wrap gap-1 items-center min-h-[21px]">
+          <FormatPills declared={row.formats_in} mentioned={row.mentions_in} all />
+        </div>
+        <div className="my-[7px] px-[11px] py-2 rounded-control border border-now bg-now-soft font-data">
+          <span className="block text-[13px]">{row.name}</span>
+          <span className="block text-[11.5px] text-ink-3">
+            {row.state === "update_available" ? `${row.registry_version} here, ${row.tool_version} upstream` : row.tool_version ?? "unknown"}
+          </span>
+        </div>
+        <p className="m-0 mb-[3px] text-[11.5px] text-ink-3">Makes</p>
+        <div className="flex flex-wrap gap-1 items-center min-h-[21px]">
+          <FormatPills declared={row.formats_out} mentioned={row.mentions_out} tone="makes" all />
+        </div>
+        {row.mentions_in.length + row.mentions_out.length > 0 && (
+          <p className="mt-[6px] mb-0 text-[11.5px] text-ink-3">Outlined: mentioned in its description, not declared.</p>
+        )}
+      </div>
+      {fits && (
+        <div className="flex flex-col gap-1 pt-[10px] border-t border-line-soft">
+          <p className="m-0 text-[11.5px] text-ink-3">Fits with your registry, by file format</p>
+          {[...fits.feeds_it.map((path) => ({ path, how: "feeds it" })),
+            ...fits.reads_it.map((path) => ({ path, how: "reads it" }))].slice(0, 5).map(({ path, how }) => (
+            <button key={`${how}:${path}`} type="button" className="fit" onClick={() => filters.set("module", [path])}>
+              <span className="text-ink-3 shrink-0">{how}</span><span className="truncate">{path}</span>
+            </button>
+          ))}
+          {fits.feeds_it.length + fits.reads_it.length === 0 && (
+            <p className="m-0 text-[12.5px] text-ink-3">No registry tool shares a format with this one yet.</p>
+          )}
+        </div>
+      )}
+      <p className={`m-0 flex items-center gap-[7px] text-[12.5px] ${colourOf(row.state)}`}>
+        <StateIcon state={row.state} />{labelOf(row.state)}
+      </p>
+      <a className="text-[12.5px] text-ink-2" href={`https://github.com/nf-core/modules/tree/master/modules/nf-core/${row.path}`}
+         target="_blank" rel="noreferrer">nf-core/modules · {row.path}</a>
       {row.problems.length > 0 && (
         <ul className="m-0 pl-4 text-[12.5px] text-ink-3">
           {row.problems.map((p) => <li key={p.code}><span className="font-data">{p.code}</span> {p.says}</li>)}
@@ -67,15 +93,15 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
       </div>
       {held ? (
         <Link to={`/registry/tools/${row.contract_id}`}
-              className="self-start px-6 py-[11px] rounded-button bg-action text-on-action font-semibold no-underline shadow-raise">
+              className="control-primary text-center no-underline">
           Open the tool
         </Link>
       ) : (
         <div className="flex flex-col gap-1">
-          <button type="button" disabled={start.isPending}
+          <button type="button" disabled={start.isPending} aria-busy={start.isPending}
                   onClick={() => start.mutate({ source: row.source, path: row.path },
                                               { onSuccess: (view) => navigate(`/registry/forging/${view.id}`) })}
-                  className="self-start px-6 py-[11px] rounded-button bg-action text-on-action font-semibold shadow-raise">
+                  className="control-primary">
             Forge {row.name}
           </button>
           {start.isError && <Failed error={start.error} padded={false} />}

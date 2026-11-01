@@ -32,7 +32,7 @@ def test_a_sync_stores_every_module():
     star = rows["star/align"]
     assert star.tool_version == "2.7.11b"
     assert "alignment" in star.topics
-    assert "bam" in star.formats
+    assert "bam" in star.formats_out
     assert "align reads" in star.search
     assert star.document["tools"][0]["name"] == "star"
     assert star.seen_in == done.id
@@ -82,7 +82,7 @@ def test_an_over_long_format_or_topic_is_dropped_not_fatal(monkeypatch):
     monkeypatch.setattr(parse_module, "formats_of", lambda channels: [*real(channels), "x" * 80])
     done = catalogue.run_sync(FakeSource(["fastqc"]))
     assert done.outcome == "ok"
-    assert all(len(f) <= 32 for f in _rows()["fastqc"].formats)
+    assert all(len(f) <= 32 for f in _rows()["fastqc"].formats_out)
 
 
 def _hold_the_source():

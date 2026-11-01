@@ -18,8 +18,9 @@ from mendel_forge.model import Problem, UpstreamModule
 from mendel_forge.nfcore.source import TEST_DATASETS, NfCoreSource
 from mendel_forge.source import CatalogueSource, SourceUnavailable
 from mendel_forge.state import BEST_ORDER, Held, State
+from mendel_forge.topics import ALIASES, canonical, mentioned
 from pydantic import BaseModel
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import ARRAY, insert
 
 from mendel_api import db
 from mendel_api.models import (
@@ -120,8 +121,9 @@ def _store(session, source: str, sync_id: int, modules: list[UpstreamModule]) ->
     rows = [_row(source, sync_id, module) for module in modules]
     for start in range(0, len(rows), 500):
         statement = insert(CatalogueModule).values(rows[start:start + 500])
-        columns = ("name", "tool_version", "topics", "formats", "upstream_changed", "search",
-                   "document", "seen_in", "gone")
+        columns = ("name", "tool_version", "topics", "formats_in", "formats_out",
+                   "mentions_in", "mentions_out", "upstream_changed", "search", "document",
+                   "seen_in", "gone")
         session.execute(statement.on_conflict_do_update(
             index_elements=["source", "path"],
             set_={column: statement.excluded[column] for column in columns},
@@ -134,7 +136,13 @@ def _store(session, source: str, sync_id: int, modules: list[UpstreamModule]) ->
     )
 
 
+def _fitting(formats: list[str]) -> list[str]:
+    """Within the column's width: one odd value upstream must not abort the sync."""
+    return [found for found in formats if len(found) <= 32]
+
+
 def _row(source: str, sync_id: int, module: UpstreamModule) -> dict:
+    reads, makes = canonical(module.formats_in), canonical(module.formats_out)
     words = [module.name, module.description or "", *module.keywords,
              *(tool.name for tool in module.tools), *module.formats_in, *module.formats_out]
     return {
@@ -144,7 +152,10 @@ def _row(source: str, sync_id: int, module: UpstreamModule) -> dict:
         "tool_version": module.tool_version,
         # Within the columns' widths: one odd value upstream must not abort the sync.
         "topics": [topic for topic in module.topics if len(topic) <= 64],
-        "formats": sorted({f for f in (*module.formats_in, *module.formats_out) if len(f) <= 32}),
+        "formats_in": _fitting(reads),
+        "formats_out": _fitting(makes),
+        "mentions_in": mentioned(module.inputs, reads),
+        "mentions_out": mentioned(module.outputs, makes),
         "upstream_changed": module.upstream_changed,
         "search": " ".join(words).lower(),
         "document": module.model_dump(mode="json"),
@@ -189,6 +200,8 @@ class ModuleRow(BaseModel):
     description: str | None
     formats_in: list[str]
     formats_out: list[str]
+    mentions_in: list[str]
+    mentions_out: list[str]
     tool_version: str | None
     state: State
     registry_version: str | None
@@ -198,12 +211,16 @@ class ModuleRow(BaseModel):
 
 
 class Counts(BaseModel):
-    """Over the whole catalogue, not the filtered view: a filter's count says how many it
-    would show. `in_review` and `merged_not_released` are 0 until pull requests (part 4)."""
+    """What each choice would show given the other filters: a facet leaves out its own pick, so
+    its numbers stay choices rather than collapsing to the one already made. `reads` and `makes`
+    narrow each other, which is what lets a person follow one format."""
 
     states: dict[State, int]
     topics: dict[str, int]
-    formats: dict[str, int]
+    no_topic: int
+    suites: dict[str, int]
+    reads: dict[str, int]
+    makes: dict[str, int]
     sources: dict[str, int]
 
 
@@ -225,11 +242,24 @@ class CataloguePage(BaseModel):
     last: SyncView | None
     next_offset: int | None
     registry_at: str
+    wider: int
+    """How many more modules match if a format only mentioned in a description counts."""
+    aliases: dict[str, str]
+    """Other spellings of a format, so a person typing `fa` finds `fasta`."""
+
+
+class Fits(BaseModel):
+    """Registry tools sharing a file format with a module. By format only, so a suggestion of
+    where it might go rather than a checked connection: its types are not decided yet."""
+
+    feeds_it: list[str]
+    reads_it: list[str]
 
 
 class ModuleDetail(BaseModel):
     row: ModuleRow
     module: UpstreamModule
+    fits: Fits
 
 
 class Sort(StrEnum):
@@ -282,46 +312,111 @@ def _escaped(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+class Filters(BaseModel):
+    state: State | None = None
+    topics: list[str] = []
+    no_topic: bool = False
+    suites: list[str] = []
+    reads: list[str] = []
+    makes: list[str] = []
+    mentioned: bool = False
+    source: str | None = None
+    q: str | None = None
+
+
+SUITE = sa.func.split_part(CatalogueModule.path, "/", 1)
+"""The tool before the subcommand. Unlike a topic, every module has one."""
+
+
+def _sides(filters: Filters) -> tuple:
+    """The columns a format is read from: what is declared, and on request what is mentioned."""
+    reads, makes = CatalogueModule.formats_in, CatalogueModule.formats_out
+    if filters.mentioned:
+        return (reads.op("||")(CatalogueModule.mentions_in),
+                makes.op("||")(CatalogueModule.mentions_out))
+    return reads, makes
+
+
+def _where(filters: Filters, held, state_of, *, skip: frozenset[str] = frozenset()) -> list:
+    """The conditions for `filters`, without the facets in `skip`."""
+    reads, makes = _sides(filters)
+    where = [_visible(held)]
+    if filters.state is not None and "state" not in skip:
+        where.append(state_of == filters.state.value)
+    if (filters.topics or filters.no_topic) and "topic" not in skip:
+        chosen = []
+        if filters.topics:
+            chosen.append(CatalogueModule.topics.overlap(filters.topics))
+        if filters.no_topic:
+            chosen.append(sa.func.cardinality(CatalogueModule.topics) == 0)
+        where.append(sa.or_(*chosen))
+    if filters.suites and "suite" not in skip:
+        where.append(SUITE.in_(filters.suites))
+    if filters.reads and "reads" not in skip:
+        where.append(sa.cast(reads, ARRAY(sa.String)).contains(filters.reads))
+    if filters.makes and "makes" not in skip:
+        where.append(sa.cast(makes, ARRAY(sa.String)).contains(filters.makes))
+    if filters.source:
+        where.append(CatalogueModule.source == filters.source)
+    needle = (filters.q or "").strip().lower()
+    if needle:
+        where.append(CatalogueModule.search.ilike(f"%{_escaped(needle)}%", escape="\\"))
+    return where
+
+
 def read_page(
-    *,
-    state: State | None = None,
-    topics: list[str] = (),
-    formats: list[str] = (),
-    source: str | None = None,
-    q: str | None = None,
-    sort: Sort = Sort.BEST,
-    offset: int = 0,
-    limit: int = 50,
+    filters: Filters, *, sort: Sort = Sort.BEST, offset: int = 0, limit: int = 50,
 ) -> CataloguePage:
     held = state_module.held(registry.stack())
     state_of = _state_expression(held).label("state")
-    where = [_visible(held)]
-    if state is not None:
-        where.append(state_of == state.value)
-    if topics:
-        where.append(CatalogueModule.topics.overlap(list(topics)))
-    if formats:
-        where.append(CatalogueModule.formats.overlap(list(formats)))
-    if source:
-        where.append(CatalogueModule.source == source)
-    needle = (q or "").strip().lower()
-    if needle:
-        where.append(CatalogueModule.search.ilike(f"%{_escaped(needle)}%", escape="\\"))
+    where = _where(filters, held, state_of)
+    needle = (filters.q or "").strip().lower()
     with db.session_scope() as session:
-        counted = sa.select(sa.func.count()).select_from(CatalogueModule).where(*where)
-        total = session.scalar(counted)
+        total = session.scalar(
+            sa.select(sa.func.count()).select_from(CatalogueModule).where(*where))
         query = sa.select(CatalogueModule, state_of).where(*where)
         query = query.order_by(*_order(sort, needle, state_of), CatalogueModule.path)
         found = session.execute(query.offset(offset).limit(limit)).all()
         rows = [_row_view(module, State(value), held) for module, value in found]
-        counts = _counts(session, held)
+        counts = _counts(session, filters, held, state_of)
+        wider = 0
+        if (filters.reads or filters.makes) and not filters.mentioned:
+            wide = _where(filters.model_copy(update={"mentioned": True}), held, state_of)
+            wider = session.scalar(
+                sa.select(sa.func.count()).select_from(CatalogueModule).where(*wide)) - total
     end = offset + len(rows)
     return CataloguePage(
         rows=rows, total=total, counts=counts,
         last_good=_view(last_good_sync()), last=_view(last_sync()),
         next_offset=end if end < total else None,
-        registry_at=registry.registry_label(),
+        registry_at=registry.registry_label(), wider=wider, aliases=ALIASES,
     )
+
+
+class FormatLink(BaseModel):
+    reads: str
+    makes: str
+    modules: int
+
+
+def read_flow(filters: Filters, reads: list[str], makes: list[str]) -> list[FormatLink]:
+    """How many modules join each format on show on one side to each on the other, under every
+    filter but the two sides' own picks. Most connected first, so a page drawing few keeps the
+    strongest; ties by name, so the same catalogue always draws the same."""
+    held = state_module.held(registry.stack())
+    state_of = _state_expression(held).label("state")
+    where = _where(filters, held, state_of, skip=frozenset({"reads", "makes"}))
+    left, right = _sides(filters)
+    joined = (sa.select(sa.func.unnest(left).label("reads"), CatalogueModule.path,
+                        right.label("out")).where(*where).subquery())
+    pair = sa.select(joined.c.reads, sa.func.unnest(joined.c.out).label("makes"), joined.c.path) \
+        .where(joined.c.reads.in_(reads)).subquery()
+    modules = sa.func.count(sa.distinct(pair.c.path)).label("n")
+    query = (sa.select(pair.c.reads, pair.c.makes, modules)
+             .where(pair.c.makes.in_(makes)).group_by(pair.c.reads, pair.c.makes)
+             .order_by(sa.desc("n"), pair.c.reads, pair.c.makes))
+    with db.session_scope() as session:
+        return [FormatLink(reads=a, makes=b, modules=n) for a, b, n in session.execute(query)]
 
 
 def _order(sort: Sort, needle: str, state_of) -> list:
@@ -337,27 +432,36 @@ def _order(sort: Sort, needle: str, state_of) -> list:
     return [rank, CatalogueModule.name]
 
 
-def _counts(session, held: dict[str, Held]) -> Counts:
-    visible = _visible(held)
-    state_of = _state_expression(held)
+def _counts(session, filters: Filters, held: dict[str, Held], state_of) -> Counts:
+    def apart(*facets: str) -> list:
+        return _where(filters, held, state_of, skip=frozenset(facets))
+
     states = {s: 0 for s in State}
     for value, n in session.execute(
-        sa.select(state_of, sa.func.count()).where(visible).group_by(state_of)
+        sa.select(state_of, sa.func.count()).where(*apart("state")).group_by(state_of)
     ):
         states[State(value)] = n
 
-    def tally(column) -> dict[str, int]:
-        item = sa.func.unnest(column).label("item")
-        inner = sa.select(item).where(visible).subquery()
+    def tally(column, where: list) -> dict[str, int]:
+        inner = sa.select(sa.func.unnest(column).label("item")).where(*where).subquery()
         grouped = sa.select(inner.c.item, sa.func.count()).group_by(inner.c.item)
         return dict(session.execute(grouped.order_by(inner.c.item)).all())
 
+    reads, makes = _sides(filters)
+    suites = dict(session.execute(
+        sa.select(SUITE, sa.func.count()).where(*apart("suite")).group_by(SUITE).order_by(SUITE)
+    ).all())
     sources = dict(session.execute(
-        sa.select(CatalogueModule.source, sa.func.count()).where(visible)
+        sa.select(CatalogueModule.source, sa.func.count()).where(*apart())
         .group_by(CatalogueModule.source)
     ).all())
-    return Counts(states=states, topics=tally(CatalogueModule.topics),
-                  formats=tally(CatalogueModule.formats), sources=sources)
+    no_topic = session.scalar(sa.select(sa.func.count()).select_from(CatalogueModule).where(
+        *apart("topic"), sa.func.cardinality(CatalogueModule.topics) == 0))
+    return Counts(
+        states=states, topics=tally(CatalogueModule.topics, apart("topic")), no_topic=no_topic,
+        suites=suites, reads=tally(reads, apart("reads")), makes=tally(makes, apart("makes")),
+        sources=sources,
+    )
 
 
 def _row_view(module: CatalogueModule, state: State, held: dict[str, Held]) -> ModuleRow:
@@ -365,10 +469,27 @@ def _row_view(module: CatalogueModule, state: State, held: dict[str, Held]) -> M
     here = held.get(module.path)
     return ModuleRow(
         source=module.source, path=module.path, name=module.name,
-        description=document.description, formats_in=document.formats_in,
-        formats_out=document.formats_out, tool_version=module.tool_version, state=state,
+        description=document.description, formats_in=module.formats_in,
+        formats_out=module.formats_out, mentions_in=module.mentions_in,
+        mentions_out=module.mentions_out, tool_version=module.tool_version, state=state,
         registry_version=here.version if here else None,
         contract_id=here.contract_id if here else None, problems=document.problems,
+    )
+
+
+GENERIC = frozenset({"txt", "log", "json", "yaml", "table", "report"})
+"""Formats too broad to say two tools belong together."""
+
+
+def _fits(session, module: CatalogueModule, held: dict[str, Held]) -> Fits:
+    others = session.scalars(sa.select(CatalogueModule).where(
+        CatalogueModule.path.in_(list(held)), CatalogueModule.path != module.path,
+    ).order_by(CatalogueModule.path)).all()
+    takes = {*module.formats_in, *module.mentions_in} - GENERIC
+    makes = set(module.formats_out) - GENERIC
+    return Fits(
+        feeds_it=[o.path for o in others if takes & set(o.formats_out)],
+        reads_it=[o.path for o in others if makes & {*o.formats_in, *o.mentions_in}],
     )
 
 
@@ -390,11 +511,12 @@ def read_module(source: str, path: str) -> ModuleDetail:
             sa.select(CatalogueModule, _state_expression(held))
             .where(CatalogueModule.source == source, CatalogueModule.path == path)
         ).first()
-    if found is None:
-        raise KeyError(f"{source}/{path}")
-    module, value = found
+        if found is None:
+            raise KeyError(f"{source}/{path}")
+        module, value = found
+        fits = _fits(session, module, held)
     return ModuleDetail(row=_row_view(module, State(value), held),
-                        module=UpstreamModule.model_validate(module.document))
+                        module=UpstreamModule.model_validate(module.document), fits=fits)
 
 
 def detail_for(upstream_path: str, source: str = "nf-core") -> ModuleDetail | None:

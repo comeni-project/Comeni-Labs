@@ -195,6 +195,9 @@ or a complete commit history.
   and reads each, for the forge's searchable pickers.
 #### Added
 
+- The catalogue filters by what a module reads and makes, by tool suite and by having no topic,
+  folds a format's spellings together, and keeps a format only mentioned in a description apart.
+  `GET /forge/catalogue/flow` joins the formats on show. The `format` filter is gone.
 - Registry releases ([#367](https://github.com/comeni-project/Comeni-Labs/issues/367)): `GET` and
   `POST /forge/releases`, with `forge_release`; an hourly worker cron fetches releases into read-only
   folders under `MENDEL_REGISTRIES_ROOT` and switches only to one that loads. New setting
