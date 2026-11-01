@@ -586,3 +586,46 @@ body {
   .format-flow { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .ribbons { display: none; }
 }
+
+/* The forge's chat. */
+.forge-body { display: flex; align-items: flex-start; gap: 0; }
+.forge-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.chat-handle { flex: none; align-self: stretch; display: grid; place-items: center; width: 14px; padding: 0; background: transparent; border: 0; border-radius: 6px; cursor: col-resize; transition: background-color var(--t); }
+.chat-handle:hover { background: var(--hover); }
+.chat-handle:focus-visible { outline: none; box-shadow: var(--ring); }
+.chat-handle span { display: block; width: 3px; height: 44px; border-radius: 2px; background: var(--line-2); transition: background-color var(--t); }
+.chat-handle:hover span { background: var(--now); }
+.chat-panel {
+  --chat-width: 380px; flex: 0 0 var(--chat-width); position: sticky; top: 16px; display: flex; flex-direction: column; box-sizing: border-box;
+  min-height: 640px; max-height: calc(100dvh - 32px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-panel);
+}
+.chat-peek { display: none; }
+.chat-peek-line { min-width: 0; overflow: hidden; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; text-overflow: ellipsis; }
+.chat-peek-line::after { content: attr(data-line); }
+.chat-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.chat-log { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.proposal { align-self: stretch; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; }
+.proposal[data-open="true"] { border-color: var(--measured); }
+.status-chip { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--measured-soft); color: var(--measured-ink); font-size: 11.5px; white-space: nowrap; }
+.progress-line { display: flex; gap: 9px; font-size: 13px; color: var(--ink-3); }
+.progress-line[data-state="done"] { color: var(--ink-2); }
+.progress-line[data-state="now"], .progress-line[data-state="refused"] { color: var(--ink); }
+.progress-mark { flex: none; display: grid; place-items: center; width: 15px; height: 20px; color: var(--ink-3); }
+.progress-mark i { width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); }
+.progress-line[data-state="now"] .progress-mark i { box-sizing: border-box; width: 11px; height: 11px; background: transparent; border: 2px solid var(--now); border-right-color: transparent; animation: chat-spin 1s linear infinite; }
+@keyframes chat-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .progress-line[data-state="now"] .progress-mark i { animation: none; } }
+.progress-line[data-state="done"] .progress-mark { color: var(--done); }
+.progress-line[data-state="refused"] .progress-mark { color: var(--needs-you-ink); }
+@media (max-width: 1023px) {
+  .chat-handle { display: none; }
+  .forge-body { padding-bottom: 72px; }
+  .chat-panel {
+    position: fixed; inset: auto 0 0 0; z-index: 35; flex: none; width: auto; min-height: 0; max-height: 80dvh; overflow: hidden;
+    padding-top: 6px; border-width: 1px 0 0; border-color: var(--line-2); border-radius: 14px 14px 0 0; box-shadow: var(--e3);
+  }
+  .chat-panel::before { content: ""; flex: none; width: 36px; height: 4px; margin: 0 auto 4px; border-radius: 2px; background: var(--line-2); }
+  .chat-panel[data-open="false"] > :not(.chat-peek) { display: none; }
+  .chat-peek { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 16px 10px; box-sizing: content-box; color: var(--ink); text-align: left; background: transparent; border: 0; cursor: pointer; }
+  .chat-head { display: none; }
+}

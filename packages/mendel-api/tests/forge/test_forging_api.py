@@ -15,7 +15,8 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 @pytest.fixture
 def client() -> TestClient:
     with session_scope() as db:
-        for table in ("forge_pull_request", "forge_test_run", "forge_message", "forge_revision",
+        for table in ("forge_pull_request", "forge_test_run", "forge_step",
+                      "forge_message", "forge_revision",
                       "forge_item",
                       "forge_adaptation",
                       "catalogue_module", "catalogue_sync"):

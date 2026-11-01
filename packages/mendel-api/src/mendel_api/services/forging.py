@@ -44,6 +44,7 @@ from mendel_api.models import (
     ForgeMessage,
     ForgePullRequest,
     ForgeRevision,
+    ForgeStep,
     ForgeTestRun,
 )
 from mendel_api.services import catalogue, registry
@@ -109,7 +110,21 @@ class MessageView(BaseModel):
     item: str | None
     content: str
     commands: list[dict] = []
+    details: list[str] = []
+    resolved: bool = False
+    """A refused draft whose piece has since been drafted: history, not something to act on."""
     pending: bool = False
+    at: datetime
+
+
+DRAFT = "draft:"
+"""A refused draft's `item`: the piece it was for, which is not an item of its own."""
+
+
+class EventView(BaseModel):
+    seq: int
+    kind: str
+    data: dict
     at: datetime
 
 
@@ -408,19 +423,49 @@ def _uses(value: JsonValue, ids: set[str]) -> bool:
     return False
 
 
+def record(adaptation_id: str, kind: str, **data: JsonValue) -> None:
+    """One step of what the AI did. Numbered in its own transaction, so a reader following the
+    record sees it now, and in order."""
+    with db.transaction() as session:
+        seq = (session.scalar(sa.select(sa.func.max(ForgeStep.seq))
+                              .where(ForgeStep.adaptation == adaptation_id)) or 0) + 1
+        session.add(ForgeStep(adaptation=adaptation_id, seq=seq, kind=kind, data=data,
+                               at=datetime.now(UTC)))
+
+
+def events(adaptation_id: str, after: int = 0) -> list[EventView]:
+    with db.session_scope() as session:
+        found = session.scalars(sa.select(ForgeStep).where(
+            ForgeStep.adaptation == adaptation_id, ForgeStep.seq > after,
+        ).order_by(ForgeStep.seq)).all()
+        return [EventView(seq=e.seq, kind=e.kind, data=e.data, at=e.at) for e in found]
+
+
+def working(adaptation_id: str) -> bool:
+    """Whether the AI is at work on this adaptation."""
+    with db.session_scope() as session:
+        phase = session.scalar(sa.select(ForgeAdaptation.phase)
+                               .where(ForgeAdaptation.id == adaptation_id))
+        waiting = session.scalar(sa.select(ForgeMessage.seq).where(
+            ForgeMessage.adaptation == adaptation_id, ForgeMessage.pending).limit(1))
+    return phase in (Phase.DRAFTING, Phase.ASKING) or waiting is not None
+
+
 def post_message(adaptation_id: str, *, role: str, content: str, item: str | None = None,
-                 commands: list[dict] | None = None, invocation: str | None = None) -> int:
+                 commands: list[dict] | None = None, invocation: str | None = None,
+                 details: list[str] | None = None) -> int:
     with db.transaction() as session:
         seq = (session.scalar(sa.select(sa.func.max(ForgeMessage.seq))
                               .where(ForgeMessage.adaptation == adaptation_id)) or 0) + 1
         session.add(ForgeMessage(adaptation=adaptation_id, seq=seq, role=role, item=item,
                                  content=content, commands=commands or [],
-                                 invocation=invocation, at=datetime.now(UTC)))
+                                 details=details or [], invocation=invocation,
+                                 at=datetime.now(UTC)))
     return seq
 
 
 def answer_message(adaptation_id: str, seq: int, content: str, commands: list[dict],
-                   invocation: str | None = None) -> None:
+                   invocation: str | None = None, details: list[str] | None = None) -> None:
     """The AI's reply to the person's message `seq`, which stops being pending."""
     with db.session_scope() as session:
         asked = session.scalar(sa.select(ForgeMessage).where(
@@ -429,7 +474,7 @@ def answer_message(adaptation_id: str, seq: int, content: str, commands: list[di
             asked.pending = False
         item = asked.item if asked is not None else None
     post_message(adaptation_id, role="ai", content=content, item=item, commands=commands,
-                 invocation=invocation)
+                 invocation=invocation, details=details)
 
 
 def turns(adaptation_id: str, upto: int) -> list[tuple[str, str]]:
@@ -581,9 +626,17 @@ def read(adaptation_id: str) -> AdaptationView:
             pull_request=_pull_request_view(session, adaptation_id),
             publish_unavailable=None if publishing_token_set() else NO_TOKEN,
             messages=[MessageView(seq=m.seq, role=m.role, item=m.item, content=m.content,
-                                  commands=m.commands or [], pending=m.pending, at=m.at)
+                                  commands=m.commands or [], details=m.details or [],
+                                  resolved=_resolved(m, state), pending=m.pending, at=m.at)
                       for m in messages],
         )
+
+
+def _resolved(message: ForgeMessage, state: Adaptation) -> bool:
+    """A refused draft is history once its piece has items. `item` names the draft it was about."""
+    drafted = (message.item or "").removeprefix(DRAFT)
+    return (message.item or "").startswith(DRAFT) and any(
+        key.startswith(f"{drafted}:") for key in state.items)
 
 
 def _test_views(session, adaptation_id: str) -> list[TestRunView]:

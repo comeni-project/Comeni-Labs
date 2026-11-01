@@ -868,6 +868,25 @@ class ForgeRelease(Base):
                             postgresql_where=text("state = 'cutting'")),)
 
 
+class ForgeStep(Base):
+    """What the AI did, in order: each step, attempt, refusal and call total. The chat follows
+    these as they happen and reads them back later, so progress and history are one record."""
+
+    __tablename__ = "forge_step"
+    shape_version: Mapped[int] = stamp("forge_step")
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(16))
+    data: Mapped[dict] = mapped_column(Json, default=dict)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_forge_step_once", "adaptation", "seq", unique=True),)
+
+
 class ForgeMessage(Base):
     """The chat beside an adaptation: the person's messages, the AI's replies and the engine's
     notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""
@@ -885,6 +904,8 @@ class ForgeMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     invocation: Mapped[str | None] = mapped_column(String(32), nullable=True)
     commands: Mapped[list] = mapped_column(Json, default=list)
+    details: Mapped[list] = mapped_column(Json, default=list)
+    """Why, in the engine's words, for a person who asks: the message itself stays a sentence."""
     pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     """A person's message whose reply is still being written."""
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -1149,6 +1149,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations/{adaptation_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the AI did, in order, after a point */
+        get: operations["readAdaptationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the AI does as it does it, as server-sent events */
+        get: operations["followAdaptationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/adaptations/{adaptation_id}/assemble": {
         parameters: {
             query?: never;
@@ -2620,6 +2654,22 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** EventView */
+        EventView: {
+            /** Seq */
+            seq: number;
+            /** Kind */
+            kind: string;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
         /**
          * Evidence
          * @description How much input an inspector read to establish a measurement.
@@ -3278,6 +3328,16 @@ export interface components {
             commands: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Details
+             * @default []
+             */
+            details: string[];
+            /**
+             * Resolved
+             * @default false
+             */
+            resolved: boolean;
             /**
              * Pending
              * @default false
@@ -7162,6 +7222,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readAdaptationEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    followAdaptationEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

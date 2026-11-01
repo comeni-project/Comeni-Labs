@@ -13,6 +13,7 @@ import { PullRequestPanel } from "./PullRequest";
 import { TestsPanel } from "./Tests";
 import { PIECES, useAdaptation, type AdaptationView } from "./useAdaptation";
 import { useForgeActions, type AssemblyView } from "./useForgeActions";
+import { useForgeSteps } from "./useForgeSteps";
 
 const SETTLED = new Set(["approved", "removed"]);
 const STANDS = new Set(["assembled", "testing", "tested", "publishing", "in_review", "merged"]);
@@ -29,6 +30,9 @@ export function Adaptation() {
   const [writing, setWriting] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const view = adaptation.data;
+  const working = !!view && (view.phase === "drafting" || view.phase === "asking"
+    || view.messages.some((m) => m.pending));
+  const steps = useForgeSteps(id, working);
   // After the render that opens the piece, so the question is there to reach.
   useEffect(() => {
     if (focus) document.querySelector(`[data-item="${CSS.escape(focus)}"]`)?.scrollIntoView?.({ block: "center" });
@@ -76,6 +80,8 @@ export function Adaptation() {
         <span className="ml-auto text-[13px] text-ink-3">{done} of {PIECES.length} pieces approved</span>
       </div>
       <Tracker pieces={tracked} current={piece} onPick={(p) => { setChosen(p); setWriting(false); }} />
+      <div className="forge-body">
+        <div className="forge-main">
       {shape.inputs.length + shape.outputs.length > 0 && (
         <section aria-labelledby="tool-so-far" className="bg-surface border border-line rounded-panel px-[16px] py-[12px]">
           <div className="flex flex-wrap justify-between items-baseline gap-x-[10px] mb-2">
@@ -85,11 +91,9 @@ export function Adaptation() {
           <ToolDiagram name={view.path} shape={shape} focus={focus} onPick={goTo} />
         </section>
       )}
-      <div className="flex flex-wrap items-start gap-[14px]">
-        <section aria-labelledby="piece" className="flex-[999_1_520px] min-w-0 bg-surface border border-line rounded-panel">
+        <section aria-labelledby="piece" className="min-w-0 bg-surface border border-line rounded-panel">
           <div className="flex flex-wrap items-baseline gap-[10px] px-[22px] py-[18px] border-b border-line">
             <h2 id="piece" className="m-0 text-[17px] font-semibold capitalize">{assembling ? "Assembly" : piece}</h2>
-            {busy && <span role="status" className="text-[12.5px] text-action">The AI is drafting…</span>}
             {view.ready && chosen !== null && (
               <button type="button" className="control ml-auto" onClick={() => setChosen(null)}>Back to Assembly</button>
             )}
@@ -115,7 +119,9 @@ export function Adaptation() {
           )}
         </section>
 
-        <Chat view={view} actions={actions} about={about} setAbout={setAbout} />
+        </div>
+        <Chat view={view} steps={steps} working={working} actions={actions} about={about} setAbout={setAbout}
+              onWrite={() => { setChosen(piece); setWriting(true); }} />
       </div>
       </div>
     </div>
