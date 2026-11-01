@@ -1,85 +1,66 @@
+import { useState } from "react";
+
 import type { CataloguePage } from "./useCatalogue";
 import { useFilters } from "./useCatalogue";
-import { STATES } from "./states";
 
-const SHOWN_TOPICS = 7;
-const SHOWN_FORMATS = ["fastq", "fasta", "bam", "vcf", "bed", "tif", "mzml"];
+const SUITES_SHOWN = 8;
 
-const count = "ml-auto font-data text-[12px] text-ink-3 tabular-nums";
-const legend = "text-[12px] font-semibold text-ink-2 mb-2 p-0";
-
-/** The left column of board 1: state, topic, reads-or-makes and source. Counts are over the
- *  whole catalogue, so each says how many a filter would show. */
-export function Filters({ counts }: { counts: CataloguePage["counts"] }) {
-  const filters = useFilters();
-  const topics = Object.entries(counts.topics).sort((a, b) => b[1] - a[1]).slice(0, SHOWN_TOPICS);
-  const formats = SHOWN_FORMATS.filter((f) => f in counts.formats);
-  const toggle = (key: "topic" | "format", list: string[], value: string) =>
-    filters.set(key, list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
-  const total = Object.values(counts.states).reduce((a, b) => a + b, 0);
-
+function Bar({ label, n, most, on, mono = false, onClick }: {
+  label: string; n: number; most: number; on: boolean; mono?: boolean; onClick: () => void;
+}) {
   return (
-    <aside aria-label="Filters" className="flex flex-col gap-[26px]">
-      <fieldset className="border-0 m-0 p-0 flex flex-col gap-[2px]">
-        <legend className={legend}>In the registry</legend>
-        <StateOption label="All modules" value="" n={total} />
-        {STATES.map(({ state, label }) => (
-          <StateOption key={state} label={label} value={state} n={counts.states[state] ?? 0} />
-        ))}
-      </fieldset>
-
-      {topics.length > 0 && (
-        <fieldset className="border-0 m-0 p-0 flex flex-col gap-[2px]">
-          <legend className={legend}>Topic</legend>
-          {topics.map(([topic, n]) => (
-            <label key={topic} className="flex items-center gap-[9px] px-2 py-[6px] cursor-pointer">
-              <input type="checkbox" className="accent-action" checked={filters.topics.includes(topic)}
-                     onChange={() => toggle("topic", filters.topics, topic)} />
-              {topic.charAt(0).toUpperCase() + topic.slice(1)}<span className={count}>{n}</span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-
-      {formats.length > 0 && (
-        <fieldset className="border-0 m-0 p-0">
-          <legend className={legend}>Reads or makes</legend>
-          <div className="flex flex-wrap gap-[6px]">
-            {formats.map((format) => (
-              <label key={format}
-                     className="inline-flex items-center gap-[6px] px-[10px] py-[5px] border border-line-2 rounded-full font-data text-[12px] bg-surface cursor-pointer">
-                <input type="checkbox" className="accent-action m-0" checked={filters.formats.includes(format)}
-                       onChange={() => toggle("format", filters.formats, format)} />
-                {format}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
-
-      <fieldset className="border-0 m-0 p-0 flex flex-col gap-[2px]">
-        <legend className={legend}>Source</legend>
-        <label className="flex items-center gap-[9px] px-2 py-[6px]">
-          <input type="checkbox" checked readOnly className="accent-action" />nf-core
-          <span className={count}>{counts.sources["nf-core"] ?? 0}</span>
-        </label>
-        <label className="flex items-center gap-[9px] px-2 py-[6px] text-ink-3">
-          <input type="checkbox" disabled />pegi3s<span className="ml-auto text-[12px]">later</span>
-        </label>
-      </fieldset>
-    </aside>
+    <button type="button" className="bar" aria-pressed={on} data-empty={n === 0} onClick={onClick}>
+      <span className="bar-fill" style={{ width: `${(n / most) * 100}%` }} />
+      <span className={`bar-label ${mono ? "font-data text-[12.5px]" : ""}`}>{label}</span>
+      <span className="bar-count">{n.toLocaleString("en")}</span>
+    </button>
   );
 }
 
-function StateOption({ label, value, n }: { label: string; value: string; n: number }) {
+const named = (topic: string) => topic.charAt(0).toUpperCase() + topic.slice(1);
+
+/** The left rail: each bar shows what choosing it would show. Nearly half of nf-core's modules
+ *  carry no topic, so that row stays, and every module has a suite. */
+export function Filters({ counts }: { counts: CataloguePage["counts"] }) {
   const filters = useFilters();
-  const chosen = filters.state === value;
+  const [find, setFind] = useState("");
+  const toggle = (key: string, list: string[], value: string) =>
+    filters.set(key, list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+
+  const topics = Object.entries(counts.topics).sort((a, b) => b[1] - a[1]);
+  const topicMost = Math.max(1, counts.no_topic, ...topics.map(([, n]) => n));
+  const wanted = find.trim().toLowerCase();
+  const allSuites = Object.entries(counts.suites).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const matching = allSuites.filter(([suite]) => !wanted || suite.includes(wanted));
+  const suites = [
+    ...filters.suites.filter((s) => !matching.slice(0, SUITES_SHOWN).some(([x]) => x === s))
+      .map((s): [string, number] => [s, counts.suites[s] ?? 0]),
+    ...matching,
+  ].slice(0, SUITES_SHOWN);
+  const suiteMost = Math.max(1, ...suites.map(([, n]) => n));
+
   return (
-    <label className={`flex flex-wrap items-center gap-x-[9px] px-2 py-[6px] rounded-control cursor-pointer ${
-      chosen ? "bg-now-soft text-ink" : ""}`}>
-      <input type="radio" name="state" className="accent-action" checked={chosen}
-             onChange={() => filters.set("state", value ? [value] : [])} />
-      {label}<span className={count}>{n.toLocaleString("en")}</span>
-    </label>
+    <aside aria-label="Filters" className="flex flex-col gap-4 min-w-0">
+      <div>
+        <p className="m-0 mb-[5px] text-[12px] text-ink-3">Topic</p>
+        {topics.map(([topic, n]) => (
+          <Bar key={topic} label={named(topic)} n={n} most={topicMost} on={filters.topics.includes(topic)}
+               onClick={() => toggle("topic", filters.topics, topic)} />
+        ))}
+        <Bar label="No topic" n={counts.no_topic} most={topicMost} on={filters.noTopic}
+             onClick={() => filters.set("no_topic", filters.noTopic ? [] : ["true"])} />
+      </div>
+      <div>
+        <p className="m-0 mb-[5px] flex justify-between text-[12px] text-ink-3">
+          <span>Tool suite</span><span>{allSuites.length.toLocaleString("en")}</span>
+        </p>
+        <input type="search" aria-label="Find a suite" value={find} placeholder="Find a suite" autoComplete="off"
+               onChange={(event) => setFind(event.target.value)} className="facet-find" />
+        {suites.map(([suite, n]) => (
+          <Bar key={suite} label={suite} n={n} most={suiteMost} mono on={filters.suites.includes(suite)}
+               onClick={() => toggle("suite", filters.suites, suite)} />
+        ))}
+      </div>
+    </aside>
   );
 }

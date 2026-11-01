@@ -1,11 +1,12 @@
+import { FormatPills } from "./FormatPills";
 import { colourOf, labelOf, StateIcon } from "./states";
 import type { ModuleRow } from "./useCatalogue";
 
 /** Board 1's columns, shared by the head and every row. An inline style, because a track list
  *  assembled in a string is invisible to Tailwind's scanner (see `runs/Board.tsx`). */
 const COLUMNS = {
-  gridTemplateColumns: "minmax(0,2.4fr) minmax(0,1.4fr) 88px 168px",
-  gap: "16px",
+  gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1.25fr) 76px 18px",
+  gap: "14px",
 } as const;
 
 export function ModuleTable({ rows, selected, onSelect, footer }: {
@@ -22,31 +23,36 @@ export function ModuleTable({ rows, selected, onSelect, footer }: {
       <div className="overflow-x-auto [contain:inline-size]">
         <div className="min-w-[560px]">
           <div role="row" style={COLUMNS}
-               className="grid px-[18px] py-[10px] border-b border-line text-[12px] font-medium text-ink-3 bg-paper-2">
+               className="grid px-[14px] py-[9px] border-b border-line text-[12px] font-medium text-ink-3 bg-paper-2">
             <span role="columnheader">Module</span>
             <span role="columnheader">Reads → makes</span>
-            <span role="columnheader" className="text-right">Version</span>
-            <span role="columnheader">Registry</span>
+            <span role="columnheader">Version</span>
+            <span role="columnheader"><span className="sr-only">Registry</span></span>
           </div>
           {rows.map((row) => (
             <div key={`${row.source}/${row.path}`} role="row" tabIndex={0} style={COLUMNS}
                  aria-selected={row.path === selected}
                  onClick={() => onSelect(row.path)}
                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(row.path); } }}
-                 className={`grid items-center px-[18px] py-[11px] border-b border-line-soft cursor-pointer ${
+                 className={`grid items-center px-[14px] py-[9px] border-b border-line-soft cursor-pointer transition-colors ${
                    row.path === selected ? "bg-now-soft" : "hover:bg-hover"}`}>
               <span role="cell" className="min-w-0">
-                <span className="block font-data text-[13.5px] font-medium text-ink">{row.name}</span>
+                <span className="block truncate font-data text-[13.5px] font-medium text-ink">
+                  {row.path.includes("/") && <span className="font-normal text-ink-3">{row.path.slice(0, row.path.lastIndexOf("/") + 1)}</span>}
+                  {row.path.slice(row.path.lastIndexOf("/") + 1)}
+                </span>
                 <span className="block text-[12.5px] text-ink-3 truncate">{row.description ?? ""}</span>
               </span>
-              <span role="cell" className="font-data text-[12.5px] text-ink-2">
-                {io(row)}
+              <span role="cell" className="flex items-center gap-1 min-w-0 overflow-hidden">
+                <FormatPills declared={row.formats_in} mentioned={row.mentions_in} />
+                <span className="shrink-0 mx-[2px] text-[12px] text-ink-3" aria-label="makes">→</span>
+                <FormatPills declared={row.formats_out} mentioned={row.mentions_out} tone="makes" />
               </span>
-              <span role="cell" className="text-right font-data text-[12.5px] tabular-nums">
-                {row.tool_version ?? <span className="text-ink-3">unknown</span>}
+              <span role="cell" className="truncate font-data text-[12px] text-ink-3 tabular-nums">
+                {row.tool_version ?? "unknown"}
               </span>
-              <span role="cell" className={`flex items-center gap-[7px] text-[13px] ${colourOf(row.state)}`}>
-                <StateIcon state={row.state} />{labelOf(row.state)}
+              <span role="cell" title={labelOf(row.state)} className={colourOf(row.state)}>
+                <StateIcon state={row.state} /><span className="sr-only">{labelOf(row.state)}</span>
               </span>
             </div>
           ))}
@@ -57,16 +63,4 @@ export function ModuleTable({ rows, selected, onSelect, footer }: {
       </div>
     </div>
   );
-}
-
-/** `fastq → bam`. A list longer than three is cut with a count, so a row stays one line tall;
- *  the panel beside the table shows the whole list. */
-export function io(row: ModuleRow): string {
-  return `${few(row.formats_in)} → ${few(row.formats_out)}`;
-}
-
-function few(formats: string[]): string {
-  if (formats.length === 0) return "—";
-  const shown = formats.slice(0, 3).join(", ");
-  return formats.length > 3 ? `${shown} +${formats.length - 3}` : shown;
 }
