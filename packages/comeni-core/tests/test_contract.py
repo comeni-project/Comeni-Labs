@@ -46,11 +46,9 @@ nf_include: modules/nf-core/samtools/sort/main
 consumes:
   - name: bam
     type_id: alignment.bam
-    state_required: []
 produces:
   - name: bam
-    type_id: alignment.bam
-    state: [coordinate_sorted]
+    type_id: alignment.bam::coordinate_sorted
 params: []
 priority: 0
 container: quay.io/biocontainers/samtools:1.21--h50ea8bc_0

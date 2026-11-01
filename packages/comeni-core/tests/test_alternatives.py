@@ -51,8 +51,8 @@ def test_accepts_declares_several_alternatives_in_order():
     port = InputPort(
         name="bam",
         accepts=[
-            {"type_id": "alignment.bam", "states": ["coordinate_sorted"]},
-            {"type_id": "alignment.cram", "states": ["coordinate_sorted"]},
+            {"type_id": "alignment.bam::coordinate_sorted"},
+            {"type_id": "alignment.cram::coordinate_sorted"},
         ],
     )
     assert [a.type_id for a in port.alternatives()] == ["alignment.bam", "alignment.cram"]
@@ -108,8 +108,8 @@ def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
         "consumes": [{
             "name": "bam",
             "accepts": [
-                {"type_id": "alignment.bam", "states": ["coordinate_sorted"]},
-                {"type_id": "alignment.cram", "states": ["coordinate_sorted"]},
+                {"type_id": "alignment.bam::coordinate_sorted"},
+                {"type_id": "alignment.cram::coordinate_sorted"},
             ],
         }],
         "produces": [{"name": "counts", "type_id": "counts.matrix"}],

@@ -114,11 +114,10 @@ def resolve_with_markdup(tmp_path):
         ("nf_process: SAMTOOLS_SORT", "nf_process: LAB_MARKDUP"),
         # Its own module, so the copied folder is bound by this contract (MD0025, #410).
         ("nf_include: modules/nf-core/samtools/sort/main", "nf_include: modules/lab/markdup/main"),
-        ("consumes: [{name: bam, type_id: alignment.bam, state_required: []}]",
-         "consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]"),
-        ("produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]",
-         "produces: [{name: bam, type_id: alignment.bam, "
-         "state: [coordinate_sorted, deduplicated]}]"),
+        ("consumes: [{name: bam, type_id: alignment.bam}]",
+         "consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]"),
+        ("produces: [{name: bam, type_id: alignment.bam::coordinate_sorted, format: [bam]}]",
+         "produces: [{name: bam, type_id: alignment.bam::coordinate_sorted::deduplicated}]"),
     ):
         assert old in contract, old
         contract = contract.replace(old, new)

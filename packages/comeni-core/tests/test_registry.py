@@ -37,7 +37,7 @@ id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam}]
-produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
+produces: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """

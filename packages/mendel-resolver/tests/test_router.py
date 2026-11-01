@@ -45,8 +45,8 @@ ALIGN = """
 id: nf-core/star/align@2.7.11b
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: [trimmed]}]
-produces: [{name: bam, type_id: alignment.bam, state: []}]
+consumes: [{name: reads, type_id: fastq.reads::trimmed}]
+produces: [{name: bam, type_id: alignment.bam}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
@@ -54,8 +54,8 @@ TRIM = """
 id: nf-core/trimgalore@2.3.0
 nf_process: TRIMGALORE
 nf_include: modules/nf-core/trimgalore/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
-produces: [{name: reads, type_id: fastq.reads, state: [trimmed]}]
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: reads, type_id: fastq.reads::trimmed}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
@@ -63,8 +63,8 @@ SORT = """
 id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
@@ -171,12 +171,12 @@ def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
     (contracts / "a.yml").write_text(
         _declared(
             contracts / "a.yml",
-            ALIGN.replace("state_required: [trimmed]", "state_required: []"))
+            ALIGN.replace("fastq.reads::trimmed", "fastq.reads"))
     )
     (contracts / "b.yml").write_text(
         _declared(
             contracts / "b.yml",
-            ALIGN.replace("state_required: [trimmed]", "state_required: []")
+            ALIGN.replace("fastq.reads::trimmed", "fastq.reads")
         .replace("nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.1")
         .replace("STAR_ALIGN", "HISAT2_ALIGN"))
     )
@@ -206,7 +206,7 @@ def _tied_registry(tmp_path) -> Registry:
         path.write_text(_declared(path, "states: []\n"))
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    star = ALIGN.replace("state_required: [trimmed]", "state_required: []")
+    star = ALIGN.replace("fastq.reads::trimmed", "fastq.reads")
     hisat2 = star.replace("nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.1").replace(
         "STAR_ALIGN", "HISAT2_ALIGN"
     )

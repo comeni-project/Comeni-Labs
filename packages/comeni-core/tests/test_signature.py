@@ -1,7 +1,7 @@
 """`qc.report::assembly`: a type and the states that make it more specific."""
 
 import pytest
-from comeni_core.declared.contract import Alternative, InputPort, OutputPort
+from comeni_core.declared.contract import Alternative, InputPort, ModuleContract, OutputPort
 from comeni_core.declared.signature import join, split
 from comeni_core.goal.asked import RequiredStates
 
@@ -75,3 +75,16 @@ def test_an_output_can_say_its_file_formats():
 
 def test_an_output_with_no_format_digests_as_before():
     assert "format" not in OutputPort(name="zip", type_id="qc.report").model_dump()
+
+
+@pytest.mark.parametrize(("port", "field"), [
+    ("consumes: [{name: b, type_id: a.b, state_required: [x]}]\nproduces: []", "state_required"),
+    ("consumes: []\nproduces: [{name: b, type_id: a.b, state: [x]}]", "state"),
+    ("consumes: [{name: b, accepts: [{type_id: a.b, states: [x]}]}]\nproduces: []", "states"),
+])
+def test_a_contract_file_writes_states_only_in_the_type(tmp_path, port, field):
+    path = tmp_path / "contract.yml"
+    head = "declares: contract\nid: a/b@1\nroles: [x]\nnf_process: B\nnf_include: modules/b/main\n"
+    path.write_text(head + port + "\n")
+    with pytest.raises(ValueError, match=rf"MD0110.*{field}"):
+        ModuleContract.load(path, None)

@@ -9,12 +9,11 @@ nf_include: modules/nf-core/star/align/main
 consumes:
   - name: reads
     type_id: fastq.reads
-    state_required: []
     state_required_conventional: [trimmed]
     state_conventional_because: "STAR soft-clips adapter sequence rather than requiring it removed"
-  - {name: index, type_id: genome.index.star, state_required: []}
-  - {name: gtf, type_id: annotation.gtf, state_required: []}
-produces: [{name: bam, type_id: alignment.bam, state: []}]
+  - {name: index, type_id: genome.index.star}
+  - {name: gtf, type_id: annotation.gtf}
+produces: [{name: bam, type_id: alignment.bam}]
 params:
   - {name: seq_platform, tier_hint: 4, via: ext, key: args, template: "--x {value}"}
   - name: star_ignore_sjdbgtf

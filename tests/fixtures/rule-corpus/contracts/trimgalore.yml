@@ -3,8 +3,8 @@ id: nf-core/trimgalore@2.3.0
 roles: [trimming]
 nf_process: TRIMGALORE
 nf_include: modules/nf-core/trimgalore/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
-produces: [{name: reads, type_id: fastq.reads, state: [trimmed]}]
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: reads, type_id: fastq.reads::trimmed}]
 params:
   - name: trim_min_length
     tier_hint: 3

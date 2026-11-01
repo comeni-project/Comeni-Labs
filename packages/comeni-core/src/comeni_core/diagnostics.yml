@@ -158,6 +158,18 @@ MD0109:
     `format` tells a person what file to expect. It takes no part in matching, so nothing else
     would notice a wrong one, and the module's output block is the only source that can say.
 
+MD0110:
+  emitted_by: core
+  concern: loading
+  says: "a contract file writes `state`, `state_required` or `states` beside the type"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Write the states in the type: `type_id: alignment.bam::coordinate_sorted`.
+  explanation: |
+    A type and its states have one spelling, so a file reads the same way everywhere and a
+    reader never has to check two places.
+
 MD0106:
   emitted_by: compiler
   concern: conformance

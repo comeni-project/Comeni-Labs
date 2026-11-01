@@ -58,8 +58,8 @@ id: nf-core/subread/featurecounts@2.1.1
 roles: [quantification]
 nf_process: SUBREAD_FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
-produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
+consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
+produces: [{name: counts, type_id: counts.matrix::gene_level}]
 params:
   - name: strandedness
     tier_hint: 3
@@ -442,8 +442,8 @@ id: nf-core/star/align@2.7.11b
 roles: [alignment]
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: []}]
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: bam, type_id: alignment.bam}]
 params:
   - {name: star_ignore_sjdbgtf, tier_hint: 2, via: ext, key: args, template: "--x {value}"}
   # No `domain`, which is legal and is what most contracts say today. `_computed_over`
@@ -715,8 +715,8 @@ id: comeni/htseq-count@2.0.5
 roles: [quantification]
 nf_process: HTSEQ_COUNT
 nf_include: modules/comeni/htseq/count/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
-produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
+consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
+produces: [{name: counts, type_id: counts.matrix::gene_level}]
 params:
   # The same parameter name, a different domain. htseq-count spells strandedness as words
   # where featureCounts spells it as 0/1/2 — a real disagreement between two tools, not a

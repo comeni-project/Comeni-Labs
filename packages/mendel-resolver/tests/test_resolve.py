@@ -50,8 +50,8 @@ id: nf-core/subread/featurecounts@2.1.1
 roles: [quantification]
 nf_process: FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
-produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
+consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
+produces: [{name: counts, type_id: counts.matrix::gene_level}]
 params:
   # `via:` is mandatory since Plan 1.10 Task 3 — a setting with no route reaches no tool.
   # The template is a stand-in: these fixtures test resolution, not emission.
@@ -66,8 +66,8 @@ id: nf-core/samtools/sort@1.24
 roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
@@ -273,8 +273,8 @@ ALIGN_A = """
 id: nf-core/star/align@2.7.11b
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: []}]
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: bam, type_id: alignment.bam}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
 """
@@ -344,8 +344,8 @@ INDEX = """
 id: nf-core/samtools/index@1.24
 nf_process: SAMTOOLS_INDEX
 nf_include: modules/nf-core/samtools/index/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
-produces: [{name: bai, type_id: alignment.bam, state: [coordinate_sorted, indexed]}]
+consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
+produces: [{name: bai, type_id: alignment.bam::coordinate_sorted::indexed}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
 """

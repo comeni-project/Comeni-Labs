@@ -440,8 +440,8 @@ id: nf-core/minimap2/align@2.28.0
 nf_process: MINIMAP2_ALIGN
 nf_include: modules/nf-core/minimap2/align/main
 consumes:
-  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
-produces: [{name: bam, type_id: alignment.bam, state: []}]
+  - {name: reads, type_id: fastq.reads::trimmed}
+produces: [{name: bam, type_id: alignment.bam}]
 priority: 10
 nf_inputs:
   - {ports: [reads]}

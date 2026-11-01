@@ -14,8 +14,8 @@ id: nf-core/samtools/sort@1.24
 roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: bam, type_id: alignment.bam::coordinate_sorted, format: [bam]}]
 params:
   - name: index_format
     default: bai
@@ -59,7 +59,7 @@ Model: `comeni_core.declared.contract.InputPort`
 |---|---|---|---|
 | `name` | string | *required* | the port name |
 | `type_id` | string | `""` | the type it accepts |
-| `state_required` | {string} | `{}` | states the input **must** carry, or it does not match |
+| `state_required` | {string} | `{}` | states the input **must** carry, or it does not match. Written in the type, `alignment.bam::coordinate_sorted`; a file that writes this key is refused (`MD0110`) |
 | `state_required_conventional` | {string} | `{}` | states convention says it should carry — the resolver will **add a step** to get them |
 | `state_conventional_because` | string | `""` | why that convention. Required when the above is set |
 | `state_preferred` | {string} | `{}` | states that rank a candidate higher without excluding others |
@@ -80,7 +80,7 @@ Model: `comeni_core.declared.contract.OutputPort`
 |---|---|---|---|
 | `name` | string | *required* | **the emit label** — read as `PROCESS.out.<name>` |
 | `type_id` | string | *required* | the semantic type it produces |
-| `state` | {string} | `{}` | states the output carries |
+| `state` | {string} | `{}` | states the output carries. Written in the type, `alignment.bam::coordinate_sorted`; a file that writes this key is refused (`MD0110`) |
 | `format` | {string} | `{}` | the file formats it writes, from `main.nf`, or `folder`. Shown to people and checked (`MD0109`); takes no part in matching |
 
 **`name` is not a name for the thing** — it is the Nextflow channel the compiler reads.
