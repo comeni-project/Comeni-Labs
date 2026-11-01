@@ -62,6 +62,11 @@ def _client(purpose: InvocationPurpose) -> Client | None:
     return Client(access) if access is not None else None
 
 
+ATTEMPTS = 2
+NO_MODEL = "No model is set for the forge. Write the piece yourself, or set one in Settings."
+NO_MODEL_DETAIL = "MI0106: no model is configured (Settings → Models → Adapting tools)"
+
+
 # ── the door payload ──────────────────────────────────────────────────────────────────────────
 
 
@@ -120,15 +125,23 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
 
 
 def _call(prompt_id: str, request: ForgeRequest, shape: type[BaseModel], client: Client,
-          adaptation_id: str, problems: list[str] = ()) -> tuple[BaseModel | None, str]:
+          adaptation_id: str, attempt: int, problems: list[str] = (),
+          ) -> tuple[BaseModel | None, str]:
     template = PromptTemplate.load(PROMPTS, prompt_id)
     wanted = template.placeholders()
     rendered = template.render({k: v for k, v in _values(request, list(problems)).items()
                                 if k in wanted})
     started = datetime.now(UTC)
+    forging.record(adaptation_id, "asking", attempt=attempt, attempts=ATTEMPTS,
+                   model=client.access.model)
     reply = client.respond(rendered.text, shape)
     invocation = _record(prompt_id, rendered.digest, client, adaptation_id, started,
                          ok=reply is not None)
+    usage = getattr(client, "last_usage", None)
+    forging.record(adaptation_id, "called", attempt=attempt,
+                   input_tokens=usage.input_tokens if usage else None,
+                   output_tokens=usage.output_tokens if usage else None,
+                   seconds=(datetime.now(UTC) - started).seconds)
     return reply, invocation
 
 
@@ -151,6 +164,9 @@ def _record(prompt_id: str, digest: str, client: Client, adaptation_id: str,
             failure_code="" if ok else "MA0004",
             started_at=started, finished_at=finished,
             duration_ms=int((finished - started).total_seconds() * 1000),
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
+            cached_tokens=usage.cached_tokens if usage else None,
             response=getattr(client, "last_response", None),
         ))
     return invocation_id
@@ -176,8 +192,14 @@ def _item_problems(items: dict[str, JsonValue], state: Adaptation, adaptation: F
     return [f"{p.code}: {p.says}" for p in check_items(merged, _known(adaptation), spec)]
 
 
-def _engine_says(adaptation_id: str, content: str) -> None:
-    forging.post_message(adaptation_id, role="engine", content=content)
+def _engine_says(adaptation_id: str, content: str, details: list[str],
+                 item: str | None = None) -> None:
+    forging.post_message(adaptation_id, role="engine", content=content, details=details, item=item)
+
+
+def _refused(adaptation_id: str, attempt: int, problems: list[str]) -> list[str]:
+    forging.record(adaptation_id, "refused", attempt=attempt, problems=problems)
+    return problems
 
 
 # ── drafting a piece ─────────────────────────────────────────────────────────────────────────
@@ -189,25 +211,29 @@ def draft_piece(adaptation_id: str, piece: Piece, client: Client | None = None) 
     prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v1")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
-        _engine_says(adaptation_id, "MI0106: no model is configured for the forge (Settings → "
-                     "Models → Adapting tools). Write the piece yourself, or set a model.")
+        _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])
         forging.set_phase(adaptation_id, Phase.REVIEWING)
         return
+    forging.record(adaptation_id, "started", what="drafting", piece=piece.value)
     problems: list[str] = []
-    for _ in range(2):
+    for attempt in range(1, ATTEMPTS + 1):
         state = forging.load(adaptation_id)
         request = compose(adaptation, state, piece, prompt=prompt_id)
         shape = _questions_shape() if piece is Piece.QUESTIONS else _draft_shape()
-        reply, invocation = _call(prompt_id, request, shape, client, adaptation_id, problems)
+        reply, invocation = _call(prompt_id, request, shape, client, adaptation_id, attempt,
+                                  problems)
         if reply is None:
-            problems = [getattr(client, "last_refusal", None) or "the reply did not fit its shape"]
+            problems = _refused(adaptation_id, attempt, [
+                getattr(client, "last_refusal", None) or "the reply did not fit its shape"])
             continue
+        forging.record(adaptation_id, "checking", attempt=attempt)
         items, because = _proposed(piece, reply)
         moves = {k: Move.REVISE if k in state.items else Move.DRAFT for k in items}
         wrong_piece = [k for k in items if not k.startswith(f"{piece.value}:")]
         problems = [f"{k}: not part of {piece.value}" for k in wrong_piece] or \
             _item_problems(items, state, adaptation, moves)
         if problems:
+            _refused(adaptation_id, attempt, problems)
             continue
         commands = [Command(move=moves[k], actor=Actor.AI, item=k, value=v,
                             because=because.get(k), invocation=invocation)
@@ -215,12 +241,13 @@ def draft_piece(adaptation_id: str, piece: Piece, client: Client | None = None) 
         try:
             forging.act_all(adaptation_id, commands)
         except Refused as refused:
-            problems = [str(refused)]
+            problems = _refused(adaptation_id, attempt, [str(refused)])
             continue
+        forging.record(adaptation_id, "saved", items=len(commands))
         forging.set_phase(adaptation_id, Phase.REVIEWING)
         return
-    _engine_says(adaptation_id, "The AI's draft of " + piece.value + " was refused twice, so "
-                 "nothing was stored:\n- " + "\n- ".join(problems))
+    _engine_says(adaptation_id, f"The {piece.value} draft wasn't usable, so nothing was saved.",
+                 problems, item=forging.DRAFT + piece.value)
     forging.set_phase(adaptation_id, Phase.REVIEWING)
 
 
@@ -250,24 +277,27 @@ def answer_message(adaptation_id: str, seq: int, client: Client | None = None) -
     adaptation = forging.row(adaptation_id)
     client = client or _client(InvocationPurpose.CHAT)
     if client is None:
-        forging.answer_message(adaptation_id, seq, "MI0106: no model is configured for the "
-                               "forge (Settings → Models → Adapting tools).", [])
+        forging.answer_message(adaptation_id, seq, NO_MODEL, [], details=[NO_MODEL_DETAIL])
         return
+    forging.record(adaptation_id, "started", what="replying")
     turns = forging.turns(adaptation_id, upto=seq)
     problems: list[str] = []
-    for _ in range(2):
+    for attempt in range(1, ATTEMPTS + 1):
         state = forging.load(adaptation_id)
         piece = rules.next_piece(state) or Piece.RULES
         request = compose(adaptation, state, piece, prompt="forge.chat.v2", turns=turns)
         reply, invocation = _call("forge.chat.v2", request, ChatReply, client, adaptation_id,
-                                  problems)
+                                  attempt, problems)
         if reply is None:
-            problems = [getattr(client, "last_refusal", None) or "the reply did not fit its shape"]
+            problems = _refused(adaptation_id, attempt, [
+                getattr(client, "last_refusal", None) or "the reply did not fit its shape"])
             continue
+        forging.record(adaptation_id, "checking", attempt=attempt)
         items = {c.item: c.value for c in reply.commands}
         moves = {c.item: Move(c.move) for c in reply.commands}
         problems = _item_problems(items, state, adaptation, moves)
         if problems:
+            _refused(adaptation_id, attempt, problems)
             continue
         commands = [Command(move=Move(c.move), actor=Actor.AI, item=c.item,
                             value=None if c.move == "propose_removal" else c.value,
@@ -276,14 +306,15 @@ def answer_message(adaptation_id: str, seq: int, client: Client | None = None) -
         try:
             reached = forging.act_all(adaptation_id, commands)
         except Refused as refused:
-            problems = [str(refused)]
+            problems = _refused(adaptation_id, attempt, [str(refused)])
             continue
+        forging.record(adaptation_id, "saved", items=len(commands))
         forging.answer_message(adaptation_id, seq, reply.text,
                                [{**c.model_dump(), "n": reached[c.item]} for c in reply.commands],
                                invocation)
         return
-    forging.answer_message(adaptation_id, seq, "The AI's reply was refused twice, so nothing "
-                           "changed:\n- " + "\n- ".join(problems), [])
+    forging.answer_message(adaptation_id, seq, "The AI's reply wasn't usable, so nothing changed.",
+                           [], details=problems)
 
 
 # ── the jobs (AI worker) ─────────────────────────────────────────────────────────────────────

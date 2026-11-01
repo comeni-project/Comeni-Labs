@@ -4,10 +4,13 @@ Read-only apart from asking for a sync. Nothing here writes the registry: forgin
 and releases are later parts, each behind a person's approval.
 """
 
+import asyncio
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from mendel_forge.state import State
 from pydantic import BaseModel
 
@@ -24,6 +27,9 @@ from mendel_api.services import (
 from mendel_api.services.catalogue import CataloguePage, ModuleDetail, Sort
 
 router = APIRouter(prefix="/forge", tags=["forge"])
+
+FOLLOW_SECONDS = 0.5
+"""How often a stream looks for new events: quick to a person, cheap to the database."""
 
 
 class SyncQueued(BaseModel):
@@ -216,6 +222,41 @@ async def draft_adaptation_piece(adaptation_id: str, body: DraftBody) -> SyncQue
         return SyncQueued(queued=await forging.ask_to_draft(adaptation_id, body.piece))
     except KeyError:
         raise _unknown(adaptation_id) from None
+
+
+@router.get(
+    "/adaptations/{adaptation_id}/events",
+    operation_id="readAdaptationEvents",
+    summary="What the AI did, in order, after a point",
+)
+def read_adaptation_events(adaptation_id: str, after: int = 0) -> list[forging.EventView]:
+    return forging.events(adaptation_id, after)
+
+
+async def _following(adaptation_id: str, after: int) -> AsyncIterator[str]:
+    """Each new event as it lands, then `end` once nothing is at work and all has been sent. A
+    worker writes these from another process, so the record is the channel."""
+    seen = after
+    while True:
+        idle = not await asyncio.to_thread(forging.working, adaptation_id)
+        found = await asyncio.to_thread(forging.events, adaptation_id, seen)
+        for event in found:
+            seen = event.seq
+            yield f"data: {event.model_dump_json()}\n\n"
+        if idle:
+            yield "event: end\ndata: {}\n\n"
+            return
+        await asyncio.sleep(FOLLOW_SECONDS)
+
+
+@router.get(
+    "/adaptations/{adaptation_id}/events/stream",
+    operation_id="followAdaptationEvents",
+    summary="What the AI does as it does it, as server-sent events",
+    response_class=StreamingResponse,
+)
+async def follow_adaptation_events(adaptation_id: str, after: int = 0) -> StreamingResponse:
+    return StreamingResponse(_following(adaptation_id, after), media_type="text/event-stream")
 
 
 @router.post(

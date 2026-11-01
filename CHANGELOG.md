@@ -195,6 +195,8 @@ or a complete commit history.
   and reads each, for the forge's searchable pickers.
 #### Added
 
+- Forge calls record their tokens, and `forge_step` keeps each step, attempt, refusal and call
+  total. `GET /forge/adaptations/{id}/events` reads it and `.../events/stream` follows it.
 - The catalogue filters by what a module reads and makes, by tool suite and by having no topic,
   folds a format's spellings together, and keeps a format only mentioned in a description apart.
   `GET /forge/catalogue/flow` joins the formats on show. The `format` filter is gone.

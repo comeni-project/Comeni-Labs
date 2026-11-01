@@ -14,6 +14,7 @@ VERSIONS: dict[str, int] = {
     "ai_invocation": 1,
     "catalogue_module": 1,
     "forge_adaptation": 1,
+    "forge_step": 1,
     "forge_message": 1,
     "forge_revision": 1,
     "installation_setting": 1,

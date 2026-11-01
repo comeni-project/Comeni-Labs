@@ -9,8 +9,10 @@ import shutil
 
 import pytest
 import sqlalchemy as sa
-from comeni_ai import ModelAccess
+from comeni_ai import ModelAccess, Usage
+from fastapi.testclient import TestClient
 from mendel_api.db import session_scope
+from mendel_api.main import create_app
 from mendel_api.models import AiInvocation
 from mendel_api.services import catalogue, forging, forging_ai
 from mendel_api.settings import settings
@@ -45,7 +47,8 @@ class FakeClient:
 @pytest.fixture
 def adaptation(tmp_path, monkeypatch) -> str:
     with session_scope() as db:
-        for table in ("forge_pull_request", "forge_test_run", "forge_message", "forge_revision",
+        for table in ("forge_pull_request", "forge_test_run", "forge_step",
+                      "forge_message", "forge_revision",
                       "forge_item",
                       "forge_adaptation",
                       "catalogue_module", "catalogue_sync"):
@@ -111,7 +114,8 @@ def test_an_invalid_reply_is_retried_once_then_shown_never_stored(adaptation):
     assert "MF0507" in client.prompts[1], "the retry tells the model what was wrong"
     assert not [k for k in forging.load(adaptation).items if k.startswith("contract:")]
     messages = forging.read(adaptation).messages
-    assert messages and messages[-1].role == "engine" and "MF0507" in messages[-1].content
+    assert messages and messages[-1].role == "engine"
+    assert "MF0507" in " ".join(messages[-1].details)
 
 
 def test_a_refused_questions_draft_tells_the_retry_why(adaptation):
@@ -153,7 +157,7 @@ def test_a_chat_reply_with_an_approve_is_refused(adaptation):
         {"move": "approve", "item": "questions:role", "because": "asked to"}]}
     forging_ai.answer_message(adaptation, seq, FakeClient(approving, approving))
     assert forging.load(adaptation) == before
-    assert "refused twice" in forging.read(adaptation).messages[-1].content
+    assert "nothing changed" in forging.read(adaptation).messages[-1].content
 
 
 def test_a_chat_add_proposes_a_new_item(adaptation):
@@ -256,4 +260,105 @@ def test_a_drafted_data_commit_is_refused(adaptation):
     wrong = {"items": {"tests:test:paired": value}}
     forging_ai.draft_piece(adaptation, Piece.TESTS, FakeClient(wrong, wrong))
     assert "tests:test:paired" not in forging.load(adaptation).items
-    assert "refused twice" in forging.read(adaptation).messages[-1].content
+    assert "wasn't usable" in forging.read(adaptation).messages[-1].content
+
+# ── what the AI did, as a record the page can follow (#420, #430) ─────────────────────────────
+
+
+def _usage(self):
+    self.last_usage = Usage(model="fake/forge", duration_ms=9, input_tokens=120, output_tokens=30,
+                            cached_tokens=5)
+
+
+class CountingClient(FakeClient):
+    def respond(self, prompt, shape, choices=None):
+        reply = super().respond(prompt, shape, choices)
+        _usage(self)
+        return reply
+
+
+def _kinds(adaptation):
+    return [e.kind for e in forging.events(adaptation)]
+
+
+def test_a_forge_call_records_its_tokens(adaptation):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient(QUESTIONS))
+    with session_scope() as session:
+        call = session.scalars(sa.select(AiInvocation)).one()
+        assert (call.input_tokens, call.output_tokens, call.cached_tokens) == (120, 30, 5)
+
+
+def test_a_draft_leaves_each_step_in_order(adaptation):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient(QUESTIONS))
+    assert _kinds(adaptation) == ["started", "asking", "called", "checking", "saved"]
+    found = forging.events(adaptation)
+    assert [e.seq for e in found] == sorted(e.seq for e in found)
+    assert found[0].data["piece"] == "questions"
+    assert found[1].data == {"attempt": 1, "attempts": 2, "model": "fake/forge"}
+    assert found[2].data["input_tokens"] == 120
+    assert found[2].data["output_tokens"] == 30
+    assert found[4].data["items"] == 1
+
+
+def test_a_refused_attempt_appears_when_it_happens(adaptation):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient({"nope": 1}, QUESTIONS))
+    kinds = _kinds(adaptation)
+    assert kinds.count("refused") == 1
+    assert kinds.index("refused") < kinds.index("saved")
+    refused = next(e for e in forging.events(adaptation) if e.kind == "refused")
+    assert refused.data["attempt"] == 1 and refused.data["problems"]
+
+
+def test_giving_up_says_it_in_a_sentence_with_the_detail_apart(adaptation):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient({"nope": 1}, {"nope": 2}))
+    message = forging.read(adaptation).messages[-1]
+    assert message.content == "The questions draft wasn't usable, so nothing was saved."
+    assert ":" not in message.content
+    assert message.details
+    assert message.resolved is False
+
+
+def test_a_refused_draft_is_resolved_once_its_piece_has_items(adaptation):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient({"nope": 1}, {"nope": 2}))
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient(QUESTIONS))
+    assert forging.read(adaptation).messages[0].resolved is True
+
+
+def test_no_model_is_a_sentence_too(adaptation, monkeypatch):
+    monkeypatch.setattr(forging_ai, "_client", lambda purpose: None)
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS)
+    message = forging.read(adaptation).messages[-1]
+    assert message.content.startswith("No model is set for the forge")
+    assert "MI0106" in " ".join(message.details)
+
+
+def test_a_chat_reply_leaves_its_steps(adaptation):
+    seq = forging.post_message(adaptation, role="person", content="Add a question")
+    forging_ai.answer_message(adaptation, seq, CountingClient({"text": "Okay.", "commands": []}))
+    assert _kinds(adaptation)[:2] == ["started", "asking"]
+    assert forging.events(adaptation)[0].data["what"] == "replying"
+
+
+@pytest.fixture
+def client():
+    return TestClient(create_app())
+
+
+def test_the_record_can_be_read_after_a_point(adaptation, client):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient(QUESTIONS))
+    every = client.get(f"/api/forge/adaptations/{adaptation}/events").json()
+    assert [e["kind"] for e in every][:2] == ["started", "asking"]
+    later = client.get(f"/api/forge/adaptations/{adaptation}/events",
+                       params={"after": every[2]["seq"]}).json()
+    assert [e["kind"] for e in later] == ["checking", "saved"]
+
+
+def test_the_stream_sends_what_is_new_then_ends_when_nothing_is_working(adaptation, client):
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, CountingClient(QUESTIONS))
+    with client.stream("GET", f"/api/forge/adaptations/{adaptation}/events/stream") as answer:
+        assert answer.headers["content-type"].startswith("text/event-stream")
+        text = "".join(answer.iter_text())
+    body, _, ended = text.partition("event: end")
+    sent = [json.loads(line[6:]) for line in body.splitlines() if line.startswith("data: ")]
+    assert [e["kind"] for e in sent] == ["started", "asking", "called", "checking", "saved"]
+    assert ended

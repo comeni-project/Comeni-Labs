@@ -38,6 +38,8 @@ def test_every_operation_is_named_by_hand():
         # The forge's catalogue of upstream modules (forge part 1, #362).
         ("/api/forge/catalogue", "get"): "readCatalogue",
         ("/api/forge/catalogue/flow", "get"): "readCatalogueFlow",
+        ("/api/forge/adaptations/{adaptation_id}/events", "get"): "readAdaptationEvents",
+        ("/api/forge/adaptations/{adaptation_id}/events/stream", "get"): "followAdaptationEvents",
         ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",
         ("/api/forge/catalogue/sync", "post"): "syncCatalogue",
         ("/api/registry/tools/{contract_id}", "get"): "readTool",

@@ -96,6 +96,8 @@ def test_the_registry_is_not_in_the_database():
         "forge_item",
         "forge_revision",
         "forge_message",
+        # What the AI did, step by step, which the chat follows (#420).
+        "forge_step",
         "forge_test_run",
         "forge_pull_request",
         "forge_release",
