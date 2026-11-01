@@ -47,3 +47,21 @@ def test_every_list_is_in_a_stable_order():
         assert found
         ids = [entry.id for entry in found]
         assert ids == sorted(ids)
+
+
+def _next(choices, tool):
+    return next(t for t in choices.tools if t.id == tool).feeds
+
+
+def test_a_tool_feeds_what_accepts_its_output_with_its_states():
+    choices = registry_choices.read()
+    assert "nf-core/samtools/sort@1.24" in _next(choices, "nf-core/star/align@2.7.11b")
+    assert "nf-core/samtools/index@1.24" in _next(choices, "nf-core/samtools/sort@1.24")
+    # Index and featureCounts need a sorted BAM, which the aligner alone does not make.
+    assert "nf-core/samtools/index@1.24" not in _next(choices, "nf-core/star/align@2.7.11b")
+    assert "nf-core/subread/featurecounts@2.1.1" not in _next(choices, "nf-core/star/align@2.7.11b")
+
+
+def test_a_tool_that_reads_what_it_makes_does_not_feed_itself():
+    choices = registry_choices.read()
+    assert "nf-core/multiqc@1.35" not in _next(choices, "nf-core/multiqc@1.35")

@@ -711,7 +711,11 @@ class CatalogueModule(Base):
     name: Mapped[str] = mapped_column(String(255), index=True)
     tool_version: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     topics: Mapped[list[str]] = mapped_column(ARRAY(String(64)))
-    formats: Mapped[list[str]] = mapped_column(ARRAY(String(32)))
+    formats_in: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
+    formats_out: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
+    mentions_in: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
+    """Formats only a description names: looked at on request, never counted as declared."""
+    mentions_out: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
     upstream_changed: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -724,7 +728,8 @@ class CatalogueModule(Base):
 
     __table_args__ = (
         Index("ix_catalogue_module_topics", "topics", postgresql_using="gin"),
-        Index("ix_catalogue_module_formats", "formats", postgresql_using="gin"),
+        Index("ix_catalogue_module_formats_in", "formats_in", postgresql_using="gin"),
+        Index("ix_catalogue_module_formats_out", "formats_out", postgresql_using="gin"),
         Index("ix_catalogue_module_search", "search", postgresql_using="gin",
               postgresql_ops={"search": "gin_trgm_ops"}),
     )

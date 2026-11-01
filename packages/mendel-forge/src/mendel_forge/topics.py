@@ -88,3 +88,31 @@ def _extension(pattern: str) -> list[str]:
     suffixes = [s.lstrip(".").lower() for s in PurePosixPath(pattern).suffixes]
     meaningful = [s for s in suffixes if s and s not in COMPRESSION and re.fullmatch(r"\w+", s)]
     return meaningful[-1:]
+
+
+ALIASES: dict[str, str] = {
+    "fq": "fastq", "fa": "fasta", "fna": "fasta", "fas": "fasta", "fsa": "fasta", "ffn": "fasta",
+    "faa": "fasta", "sam": "bam", "bcf": "vcf", "gff3": "gff", "gtf": "gff", "tsv": "table",
+    "csv": "table", "html": "report", "pdf": "report", "yml": "yaml",
+}
+"""Spellings of one format, as `TOPICS` is ours to keep. A person looking for FASTA should not
+need to know a module wrote `.fna`. The two kinds that fold differing files (`table`, `report`)
+are the ones a reader chooses by what they hold rather than how they are laid out."""
+
+_NAMED = {
+    "fastq": r"fastq|fq", "fasta": r"fasta|fa|fna", "bam": r"bam|sam", "cram": r"cram",
+    "vcf": r"vcf|bcf", "bed": r"bed", "gff": r"gff3?|gtf", "table": r"tsv|csv",
+}
+
+
+def canonical(formats: list[str]) -> list[str]:
+    return sorted({ALIASES.get(found, found) for found in formats})
+
+
+def mentioned(channels: list[Channel], declared: list[str]) -> list[str]:
+    """Formats a channel's description names and its pattern does not. **Never a declaration**:
+    stored apart, shown apart, and offered only as a person's choice to look wider, because
+    nf-core leaves many a pattern unstated and a guess would be a fact nobody stated."""
+    words = " ".join((channel.description or "") for channel in channels).lower()
+    return sorted(found for found, spelled in _NAMED.items()
+                  if found not in declared and re.search(rf"\b(?:{spelled})\b", words))

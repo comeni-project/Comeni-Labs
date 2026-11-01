@@ -39,15 +39,40 @@ class SyncQueued(BaseModel):
 def read_catalogue(
     state: State | None = None,
     topic: Annotated[list[str], Query()] = [],  # noqa: B006 — FastAPI copies query defaults
-    format: Annotated[list[str], Query()] = [],  # noqa: B006
+    no_topic: bool = False,
+    suite: Annotated[list[str], Query()] = [],  # noqa: B006
+    reads: Annotated[list[str], Query()] = [],  # noqa: B006
+    makes: Annotated[list[str], Query()] = [],  # noqa: B006
+    mentioned: bool = False,
     source: str | None = None,
     q: str | None = None,
     sort: Sort = Sort.BEST,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> CataloguePage:
-    return catalogue.read_page(state=state, topics=topic, formats=format, source=source, q=q,
-                               sort=sort, offset=offset, limit=limit)
+    filters = catalogue.Filters(state=state, topics=topic, no_topic=no_topic, suites=suite,
+                                reads=reads, makes=makes, mentioned=mentioned, source=source, q=q)
+    return catalogue.read_page(filters, sort=sort, offset=offset, limit=limit)
+
+
+@router.get(
+    "/catalogue/flow",
+    operation_id="readCatalogueFlow",
+    summary="How the file formats on show connect, under the same filters",
+)
+def read_catalogue_flow(
+    show_reads: Annotated[list[str], Query()] = [],  # noqa: B006
+    show_makes: Annotated[list[str], Query()] = [],  # noqa: B006
+    state: State | None = None,
+    topic: Annotated[list[str], Query()] = [],  # noqa: B006
+    no_topic: bool = False,
+    suite: Annotated[list[str], Query()] = [],  # noqa: B006
+    mentioned: bool = False,
+    q: str | None = None,
+) -> list[catalogue.FormatLink]:
+    filters = catalogue.Filters(state=state, topics=topic, no_topic=no_topic, suites=suite,
+                                mentioned=mentioned, q=q)
+    return catalogue.read_flow(filters, show_reads, show_makes)
 
 
 @router.get(

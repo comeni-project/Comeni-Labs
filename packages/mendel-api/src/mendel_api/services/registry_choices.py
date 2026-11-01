@@ -35,6 +35,9 @@ class ToolChoice(BaseModel):
     roles: list[str]
     reads: list[str]
     makes: list[str]
+    feeds: list[str]
+    """Tools with an input that accepts one of its outputs, states included. Worked out here
+    because that is the router's rule, and a page drawing the links must not hold a copy."""
 
 
 class Choices(BaseModel):
@@ -75,6 +78,12 @@ def read() -> Choices:
             reads=sorted({t for c in doing for t in reads(c)}),
             makes=sorted({t for c in doing for t in makes(c)}),
         ))
-    tools = [ToolChoice(id=c.id, roles=sorted(c.roles), reads=reads(c), makes=makes(c))
-             for c in contracts]
+    def feeds(contract) -> list[str]:
+        return [other.id for other in contracts if other.id != contract.id and any(
+            out.type_id == accepted.type_id and accepted.states <= out.state
+            for out in contract.produces for port in other.consumes
+            for accepted in port.alternatives())]
+
+    tools = [ToolChoice(id=c.id, roles=sorted(c.roles), reads=reads(c), makes=makes(c),
+                        feeds=feeds(c)) for c in contracts]
     return Choices(types=types, roles=roles, tools=tools)

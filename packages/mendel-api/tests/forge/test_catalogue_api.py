@@ -42,12 +42,9 @@ def test_filters_by_state_and_counts(client):
     assert page["registry_at"]
 
 
-def test_topic_and_format_filters_are_any_of(client):
+def test_topics_are_any_of(client):
     aligned = {row["path"] for row in _page(client, topic="alignment")["rows"]}
     assert {"star/align", "bwa/mem"} <= aligned
-    either = {row["path"] for row in _page(client, format=["gtf", "html"])["rows"]}
-    assert {"star/align", "fastqc"} <= either
-    assert "bwa/mem" not in either
 
 
 def test_best_puts_held_modules_first(client):
@@ -147,3 +144,39 @@ def test_sync_now_while_a_sync_runs_starts_nothing(client, monkeypatch):
         held.invalidate()  # close the real connection: a pooled one would keep the lock
     assert answer.status_code == 202
     assert answer.json() == {"queued": False}
+
+
+def test_reads_and_makes_are_separate_sides(client):
+    star = _page(client, reads="gff", makes="bam")
+    assert [row["path"] for row in star["rows"]] == ["star/align"]
+    assert _page(client, reads="bam", makes="gff")["total"] == 0
+
+
+def test_a_facet_leaves_out_its_own_pick(client):
+    page = _page(client, suite="samtools")
+    assert page["total"] == 1
+    assert page["counts"]["suites"]["star"] == 1
+    assert page["counts"]["suites"]["samtools"] == 1
+
+
+def test_a_module_with_no_topic_can_be_found(client):
+    every = _page(client)
+    assert every["counts"]["no_topic"] >= 0
+    alone = _page(client, no_topic="true")
+    assert alone["total"] == every["counts"]["no_topic"]
+    assert all(not row["path"].startswith("star/") for row in alone["rows"])
+
+
+def test_the_flow_joins_the_formats_on_show(client):
+    links = client.get("/api/forge/catalogue/flow",
+                       params={"show_reads": ["gff"], "show_makes": ["bam", "log"]}).json()
+    assert {"reads": "gff", "makes": "bam", "modules": 1} in links
+    assert links == sorted(links, key=lambda x: (-x["modules"], x["reads"], x["makes"]))
+
+
+def test_a_modules_detail_says_what_fits_it_in_the_registry(client):
+    answer = client.get("/api/forge/catalogue/nf-core/bwa/mem")
+    assert answer.status_code == 200, answer.text
+    fits = answer.json()["fits"]
+    assert "samtools/sort" in fits["reads_it"]
+    assert "bwa/mem" not in fits["reads_it"] + fits["feeds_it"]
