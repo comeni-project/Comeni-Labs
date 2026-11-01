@@ -13,7 +13,13 @@ const primary = "control-primary";
 
 /** What an item's value says in one line: a setting's default and route, a port's type. */
 function summary(item: ItemView): string {
-  const v = item.value as Record<string, unknown> | null;
+  return summaryOf(item.key, item.value);
+}
+
+/** A value in a line, never as JSON: the chat's proposals read the same as the items. */
+export function summaryOf(key: string, value: unknown): string {
+  const item = { key, value };
+  const v = value as Record<string, unknown> | null;
   if (!v || typeof v !== "object") return v === null ? "" : String(v);
   if ("type_id" in v) return String(v.type_id);
   if ("expect" in v) {

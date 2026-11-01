@@ -14,9 +14,20 @@
 
 ## Page
 
-- [ ] `useForgeEvents`: stream while the AI works, polling if it drops.
-- [ ] One message shape with sender and time; progress ladder with tokens (#420, #430).
-- [ ] What each reply changed, including nothing, from the commands it sent (#423).
-- [ ] Proposals in words, decided in place.
-- [ ] Resizable, pinned column; a sheet at phone width (#425).
-- [ ] Side-by-side comparison with the Chat states, Review and Phone boards.
+- [x] `useForgeSteps` (the table is `forge_step`, so the hook takes its name): stream while the AI works, polling if it drops.
+- [x] One message shape with sender and time; progress ladder with tokens (#420, #430).
+- [x] What each reply changed, including nothing, from the commands it sent (#423).
+- [x] Proposals in words, decided in place.
+- [x] Resizable, pinned column; a sheet at phone width (#425).
+- [x] Side-by-side comparison with the Chat states, Review and Phone boards.
+
+Deviations, found side by side with the boards:
+
+- The tool diagram moved into the left column beside the chat, as the Review board has it; slice 1 had
+  it full width, which pushed the composer below the fold.
+- The boards' "The reviewer reads it" step waits for the reviewer, slice 4.
+- Proposals say Accept, Change, Decline as Chat states does; item rows keep Approve and Reject until
+  their own pages are rebuilt, in slice 6. Change only points the chat at the item: slice 5 adds the form.
+- Checked with fixture states through a local proxy, because no model was running: working, refused
+  and proposal at 1440 and 390, dark, and refused at 1440, light. The stream route answered on the real
+  stack with nothing working. A real draft has not yet been watched live; the walk does that.

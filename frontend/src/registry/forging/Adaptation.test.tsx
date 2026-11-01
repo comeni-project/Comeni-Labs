@@ -32,7 +32,8 @@ function at(view: object, extra: Record<string, unknown> = {}) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     calls.push({ url: String(url), method: init?.method ?? "GET",
                  body: init?.body ? JSON.parse(String(init.body)) : null });
-    const reply = Object.entries(extra).find(([path]) => String(url).endsWith(path))?.[1] ?? view;
+    const reply = Object.entries(extra).find(([path]) => String(url).endsWith(path))?.[1]
+      ?? (String(url).endsWith("/events") ? [] : view);
     const status = (reply as { refused?: boolean }).refused ? 422 : 200;
     return Promise.resolve({ ok: status === 200, status, json: async () => reply });
   }));
@@ -70,7 +71,7 @@ it("reject opens the chat on the item", async () => {
   const row = await screen.findByRole("group", { name: "min_contig" });
   fireEvent.click(within(row).getByRole("button", { name: "Reject" }));
   const chat = screen.getByRole("complementary", { name: "Chat with the AI" });
-  expect(within(chat).getByText(/about parameters:param:min_contig/)).toBeTruthy();
+  expect(within(chat).getByText("about min_contig")).toBeTruthy();
 });
 
 it("an AI proposal in the chat can be approved there", async () => {
@@ -81,7 +82,7 @@ it("an AI proposal in the chat can be approved there", async () => {
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "parameters",
                      items: [ANSWERED, PARAM], messages: [proposal] });
   const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
-  fireEvent.click(within(chat).getByRole("button", { name: "Approve" }));
+  fireEvent.click(within(chat).getByRole("button", { name: "Accept" }));
   await vi.waitFor(() => {
     const sent = calls.find((c) => c.url.endsWith("/commands"));
     expect(sent?.body).toEqual({ move: "approve", item: "parameters:param:min_contig", expected: 1 });
@@ -347,4 +348,77 @@ it("the picker floats over the page and closes from outside it", async () => {
   await screen.findByRole("dialog", { name: "Choose a type" });
   fireEvent.click(screen.getByRole("button", { name: "Close the picker" }));
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+const ENGINE = { seq: 1, role: "engine", item: "draft:contract", content: "The contract draft wasn't usable, so nothing was saved.",
+                 commands: [], details: ["MF0507: not a port"], resolved: false, pending: false, at: "2026-11-01T10:00:00Z" };
+
+it("while the AI works the chat shows what it is doing, with tokens", async () => {
+  at({ ...BASE, phase: "drafting", next_piece: "contract", items: [ANSWERED] }, { "/events": [
+    { seq: 1, kind: "started", data: { what: "drafting", piece: "contract" }, at: "2026-11-01T10:00:00Z" },
+    { seq: 2, kind: "asking", data: { attempt: 1, attempts: 2, model: "gemma3:12b" }, at: "2026-11-01T10:00:00Z" },
+    { seq: 3, kind: "called", data: { attempt: 1, input_tokens: 4379, output_tokens: 20, seconds: 9 }, at: "2026-11-01T10:00:09Z" },
+    { seq: 4, kind: "asking", data: { attempt: 2, attempts: 2, model: "gemma3:12b" }, at: "2026-11-01T10:00:09Z" },
+  ] });
+  const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
+  expect(await within(chat).findByText("Drafting the contract")).toBeTruthy();
+  expect(await within(chat).findByText(/attempt 2 of 2/)).toBeTruthy();
+  expect(await within(chat).findByText(/4,379 tokens sent/)).toBeTruthy();
+});
+
+it("a refused draft is a sentence, with its detail tucked away and a way forward", async () => {
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED], messages: [ENGINE] });
+  const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
+  expect(await within(chat).findByText(/wasn't usable/)).toBeTruthy();
+  expect(within(chat).queryByText("MF0507: not a port")).toBeNull();
+  fireEvent.click(within(chat).getByRole("button", { name: "Details" }));
+  expect(within(chat).getByText("MF0507: not a port")).toBeTruthy();
+  fireEvent.click(within(chat).getByRole("button", { name: "Try again" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith("/draft") && (c.body as { piece: string }).piece === "contract")).toBe(true));
+});
+
+it("a refused draft that was later redone steps back", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "parameters", items: [ANSWERED], messages: [{ ...ENGINE, resolved: true }] });
+  const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
+  expect(await within(chat).findByText(/refused, then redone/)).toBeTruthy();
+  expect(within(chat).queryByRole("button", { name: "Try again" })).toBeNull();
+});
+
+it("a reply that sent nothing says so, however confident its words", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED], messages: [
+    { seq: 1, role: "ai", item: null, content: "Okay, I'll add them.", commands: [], details: [], resolved: false,
+      pending: false, at: "2026-11-01T10:00:00Z" }] });
+  const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
+  expect(await within(chat).findByText("No changes made")).toBeTruthy();
+  expect(within(chat).getByRole("button", { name: "Redraft" })).toBeTruthy();
+});
+
+it("Redraft is offered only on the latest reply", async () => {
+  const said = { role: "ai", item: null, content: "Okay.", commands: [], details: [], resolved: false, pending: false };
+  at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED], messages: [
+    { ...said, seq: 1, at: "2026-11-01T10:00:00Z" },
+    { ...said, seq: 2, role: "person", at: "2026-11-01T10:01:00Z" }] });
+  const chat = await screen.findByRole("complementary", { name: "Chat with the AI" });
+  expect(await within(chat).findByText("No changes made")).toBeTruthy();
+  expect(within(chat).queryByRole("button", { name: "Redraft" })).toBeNull();
+});
+
+it("the tool diagram sits beside the chat, in the left column", async () => {
+  const pin = item("questions:input_type:consensus", "questions", "approved", [rev(1, "draft", "ai", { choice: "assembly.fasta" })]);
+  at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED, pin] });
+  const tool = await screen.findByRole("region", { name: "The tool so far" });
+  const chat = screen.getByRole("complementary", { name: "Chat with the AI" });
+  expect(tool.parentElement?.contains(chat)).toBe(false);
+  expect(tool.closest(".forge-body")?.contains(chat)).toBe(true);
+});
+
+it("the chat can be resized from the keyboard, and keeps its limits", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED] });
+  const handle = await screen.findByRole("button", { name: /Resize the chat/ });
+  const chat = screen.getByRole("complementary", { name: "Chat with the AI" });
+  const width = () => chat.style.getPropertyValue("--chat-width");
+  fireEvent.keyDown(handle, { key: "ArrowLeft" });
+  expect(width()).toBe("404px");
+  for (let n = 0; n < 40; n += 1) fireEvent.keyDown(handle, { key: "ArrowLeft" });
+  expect(width()).toBe("620px");
 });
