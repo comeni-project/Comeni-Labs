@@ -48,6 +48,7 @@ decline to curate one.
 | `MD0020` | a layer declares a registry format this Mendel does not understand |
 | `MD0025` | a module is declared with no contract binding it |
 | `MD0026` | a tool's test names a contract nothing declares |
+| `MD0110` | a contract file writes `state`, `state_required` or `states` beside the type |
 | `MD0228` | a type names a param literally in its `entry_channel` |
 | `MD0317` | an inspector piece names a type or measurement no layer declares |
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |

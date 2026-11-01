@@ -274,7 +274,7 @@ def test_a34_a_process_name_is_an_identifier_or_it_does_not_load(tmp_path):
             "nf_process: \"LAB_SORT }\\nprintln 'OWNED'\\nprocess X {\"\n"
             "nf_include: modules/lab/evil/main\n"
             "consumes: []\n"
-            "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+            "produces: [{name: bam, type_id: alignment.bam}]\n"
             "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n",
         )
     )
@@ -301,7 +301,7 @@ def test_a34_an_include_path_cannot_leave_the_pipeline(tmp_path):
             "nf_process: LAB_ESCAPE\n"
             "nf_include: ../../../etc/passwd\n"
             "consumes: []\n"
-            "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+            "produces: [{name: bam, type_id: alignment.bam}]\n"
             "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n",
         )
     )

@@ -54,9 +54,9 @@ facts:
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:2a4abc9eb3bdad83882e1949a88271cac90002287bbec8f41de541a3572c3801
+    digest: sha256:ad11da47b2476b90c4a9b5d2d8eca00548d71a1793d37be75fdefca3d5fa053f
     source: https://github.com/comeni-project/comeni-registry
-    commit: 3521a2856068c6e64115423d39dfc7d8879837ff
+    commit: 4f89cc19c6eb8e68bdafdba126bc809099421489
     dirty: false
   displaced: []
   unverified: []
@@ -67,7 +67,7 @@ steps:
 - id: trimgalore
   module:
     contract_id: nf-core/trimgalore@2.3.0
-    digest: sha256:50a7bfc963dacc23620d3bdc8c02049375547a847f72331738a2789953bff6d2
+    digest: sha256:807ca62ffc86e5d1ab346865d828412f7ab4e1356cfae74b6778f320b15df934
     container: community.wave.seqera.io/library/trim-galore:2.3.0--6a38a479b4972363
   process: TRIMGALORE
   include: modules/nf-core/trimgalore/main
@@ -121,7 +121,7 @@ steps:
 - id: star_genomegenerate
   module:
     contract_id: nf-core/star/genomegenerate@2.7.11b
-    digest: sha256:8eeec7fb5278d864b2615be714e9f41b913a8d31410a5dd8d038fd7e0cdf59fb
+    digest: sha256:4c20990b60c2f42a8e41f13e2d26d30431911371cb8f8a9212c98b9036054dd6
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_GENOMEGENERATE
   include: modules/nf-core/star/genomegenerate/main
@@ -187,7 +187,7 @@ steps:
 - id: star_align
   module:
     contract_id: nf-core/star/align@2.7.11b
-    digest: sha256:9e142d9e1428c40d3819ae53d83964e34afbe8180e2ff5a1c795a591890aa9a6
+    digest: sha256:671970d4391500a79270d9e67493738e36b8b9ab52c2e422650fee427304ba11
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_ALIGN
   include: modules/nf-core/star/align/main
@@ -318,7 +318,7 @@ steps:
 - id: samtools_sort
   module:
     contract_id: nf-core/samtools/sort@1.24
-    digest: sha256:d8bfebc03c6b0733801b937bb865f70159a5a171e0a4e07b52b2ce3074b366e4
+    digest: sha256:d4c294027e7805fe8ad3a912fcf511c6361401cb7dffdaa433935af9ea89ecff
     container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
   process: SAMTOOLS_SORT
   include: modules/nf-core/samtools/sort/main
@@ -411,7 +411,7 @@ steps:
 - id: subread_featurecounts
   module:
     contract_id: nf-core/subread/featurecounts@2.1.1
-    digest: sha256:5837e20d6007bdc604bf1a8472b054e0960c47d451ad05c854f6e51dd4bb189e
+    digest: sha256:63b7c986694c2eca4263e98be0f9c6185aedd3747dc8222658693ba44396dcc7
     container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
   process: SUBREAD_FEATURECOUNTS
   include: modules/nf-core/subread/featurecounts/main
@@ -582,6 +582,6 @@ emitted:
     digest: sha256:a6a2385c2e669232e6ff3d0e02456ae526a46b4702c4406e423440559233b01d
   - name: nextflow.config
     digest: sha256:3ab4940b199765adefadd05bce08200737124f67bcc3e59ee5ca3b48d3e10b10
-  from_digest: sha256:821b221715f453b7a1a286ae3263a2f4b707cd7adbc824ad5f373b9e5553041a
+  from_digest: sha256:e9b358e8aeb2e695fba2bdefec790d42b717658e7a986fae5104daac8f580508
 gate: null
 input_form: direct

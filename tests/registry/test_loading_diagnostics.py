@@ -53,8 +53,8 @@ id: nf-core/fastqc@0.12.1
 roles: [qc_per_sample]
 nf_process: FASTQC
 nf_include: modules/nf-core/fastqc/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
-produces: [{name: zip, type_id: qc.report, state: []}]
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: zip, type_id: qc.report}]
 params: []
 priority: 0
 nf_inputs: [{ports: [reads]}]
@@ -219,7 +219,7 @@ def test_MD0009_a_contract_requires_an_undeclared_state(tmp_path):
     (layer / "contracts" / "fastqc.yml").write_text(
         _declared(
             layer / "contracts" / "fastqc.yml",
-            CONTRACT.replace("state_required: []", "state_required: [nonexistent]"))
+            CONTRACT.replace("type_id: fastq.reads", "type_id: fastq.reads::nonexistent"))
     )
     message = _refusal(layer)
     assert "MD0009" in message

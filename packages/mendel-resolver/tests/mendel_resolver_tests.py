@@ -46,8 +46,8 @@ ALIGNER = """
 id: audit/aligner-{tag}@1.0.0
 nf_process: ALIGNER_{upper}
 nf_include: modules/audit/aligner-{tag}/main
-consumes: [{{name: reads, type_id: fastq.reads, state_required: []}}]
-produces: [{{name: bam, type_id: alignment.bam, state: []}}]
+consumes: [{{name: reads, type_id: fastq.reads}}]
+produces: [{{name: bam, type_id: alignment.bam}}]
 priority: 0
 provenance: {{source: audit, drafted_by: audit, approved_by: audit, approved_at: "2026-08-06"}}
 """
@@ -118,10 +118,10 @@ DUAL = """
 id: audit/dual@1.0.0
 nf_process: DUAL
 nf_include: modules/audit/dual/main
-consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
+consumes: [{name: reads, type_id: fastq.reads}]
 produces:
-  - {name: bam, type_id: alignment.bam, state: []}
-  - {name: bam_transcriptome, type_id: alignment.bam, state: []}
+  - {name: bam, type_id: alignment.bam}
+  - {name: bam_transcriptome, type_id: alignment.bam}
 priority: 0
 provenance: {source: audit, drafted_by: audit, approved_by: audit, approved_at: "2026-08-06"}
 """
@@ -131,8 +131,8 @@ COUNTER = """
 id: audit/counter@1.0.0
 nf_process: COUNTER
 nf_include: modules/audit/counter/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: counts, type_id: counts.matrix, state: []}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: counts, type_id: counts.matrix}]
 priority: 0
 provenance: {source: audit, drafted_by: audit, approved_by: audit, approved_at: "2026-08-06"}
 """

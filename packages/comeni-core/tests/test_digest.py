@@ -45,8 +45,8 @@ CONTRACT = """
 id: nf-core/samtools/sort@1.24
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted, indexed]}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: bam, type_id: alignment.bam::coordinate_sorted::indexed}]
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-04"}
 """

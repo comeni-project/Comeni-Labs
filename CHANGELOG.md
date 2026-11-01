@@ -28,8 +28,8 @@ or a complete commit history.
 
 ### comeni-core
 
-- `qc.report::assembly`: a type's states can be written in the type, on contract ports and goals,
-  and a signature is now spelled that way. `OutputPort.format` records the file formats an output
+- `qc.report::assembly`: a type's states are written in the type. A contract file writing them
+  beside it is refused (`MD0110`), and a signature is spelled that way. `OutputPort.format` records the file formats an output
   writes, checked against the module (`MD0109`) and taking no part in matching.
 - `LockedLayer.release`: a pipeline names the registry release it was built with. Omitted when
   unknown, so existing pipelines keep their digests

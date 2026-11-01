@@ -53,9 +53,9 @@ nf_include: modules/lab/caller/main
 consumes:
   - name: reads
     accepts:
-      - {type_id: alignment.bam, states: [coordinate_sorted]}
-      - {type_id: alignment.cram, states: [coordinate_sorted]}
-produces: [{name: vcf, type_id: variants.vcf, state: []}]
+      - {type_id: alignment.bam::coordinate_sorted}
+      - {type_id: alignment.cram::coordinate_sorted}
+produces: [{name: vcf, type_id: variants.vcf}]
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
 """
 
@@ -63,8 +63,8 @@ CRAM_MAKER = """
 id: lab/cram@1.0.0
 nf_process: CRAM
 nf_include: modules/lab/cram/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: cram, type_id: alignment.cram, state: [coordinate_sorted]}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: cram, type_id: alignment.cram::coordinate_sorted}]
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
 """
 
@@ -72,8 +72,8 @@ SORT = """
 id: lab/sort@1.0.0
 nf_process: SORT
 nf_include: modules/lab/sort/main
-consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
-produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
 """
 

@@ -17,11 +17,21 @@ against Comeni's `main`, so neither can move first. Three steps, operator's choi
 
 ## Step 2: the registry moves over (comeni-registry)
 
-- [ ] Contracts written with `::`, and `format` on every output.
-- [ ] `state: [reads]` on fastqc's report, declared on `qc.report`.
-- [ ] A registry release, and the submodule pinned to it.
+- [x] Contracts written with `::`, and `format` on every tool output (#24, v0.6.0).
+- [x] The submodule pinned to the release.
+- [x] Reverted: `qc.report::reads` on fastqc (#25, v0.6.1). With no plain producer, every plain
+  request for a report stopped to ask a person, breaking a rule an existing test states.
 
 ## Step 3: Comeni drops the old form
 
-- [ ] Remove `state`, `state_required` and `states` as written keys; `pipeline.yml` and goals follow.
-- [ ] Reference docs and guides.
+- [x] A contract file writing `state`, `state_required` or `states` is refused (`MD0110`).
+- [x] Fixtures, inline test contracts and the reference.
+
+## Deviations
+
+- **Saved pipelines and goals keep `{type_id, states}`.** They are structured data written by the
+  engine and read by the API and the page, not notation a person writes. A starter may still write
+  `type_id: counts.matrix::gene_level`.
+- The model fields stay, so code can build a port directly; only files are held to one spelling.
+- `format` changes the digest of every contract that gains it, so the saved pipeline fixture moved.
+  `main.nf` stayed byte-identical.

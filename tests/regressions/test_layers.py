@@ -200,7 +200,7 @@ def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):
         "nf_process: TWO_WAYS\n"
         "nf_include: modules/lab/two/main\n"
         "priority: 0\n"
-        "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+        "produces: [{name: bam, type_id: alignment.bam}]\n"
         "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
         "priority: 999\n")
     )

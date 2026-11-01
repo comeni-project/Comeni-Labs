@@ -419,6 +419,7 @@ class ModuleContract(BaseModel):
         # file is how a loader comes to strip a field it did not write.
         if isinstance(data, dict):
             data.pop("declares", None)
+            cls._states_beside_the_type(path, data)
         try:
             contract = cls.model_validate(data)
         except ValidationError as exc:
@@ -430,6 +431,18 @@ class ModuleContract(BaseModel):
             raise
         contract.check_against(vocab)
         return contract
+
+    @staticmethod
+    def _states_beside_the_type(path: Path, data: Any) -> None:
+        """MD0110: a contract file has one way to write states, in the type."""
+        ports = [*data.get("produces", []), *data.get("consumes", [])]
+        ports += [a for port in data.get("consumes", []) for a in port.get("accepts", [])]
+        for port in ports:
+            field = next((f for f in ("state", "state_required", "states") if f in port), None)
+            if field is not None:
+                raise ValueError(coded(
+                    "MD0110", f"{path}: port {port.get('name', port.get('type_id'))!r} writes "
+                    f"`{field}`; states belong in the type, as `type::state`"))
 
     @staticmethod
     def _missing_via(exc: ValidationError, data: Any) -> ValueError | None:
