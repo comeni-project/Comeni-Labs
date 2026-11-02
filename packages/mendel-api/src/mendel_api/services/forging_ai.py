@@ -47,7 +47,7 @@ CHAT_TAIL = 12
 builder's."""
 
 _PURPOSE = {"forge.questions.v2": InvocationPurpose.ANALYSIS,
-            "forge.draft.v1": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v2": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT}
 
@@ -208,7 +208,7 @@ def _refused(adaptation_id: str, attempt: int, problems: list[str]) -> list[str]
 def draft_piece(adaptation_id: str, piece: Piece, client: Client | None = None) -> None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v1")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v2")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])

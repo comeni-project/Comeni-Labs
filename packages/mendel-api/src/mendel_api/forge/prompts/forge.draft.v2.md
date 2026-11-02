@@ -11,7 +11,8 @@ Item keys and their shapes:
 - parameters:param:<name> — {"position", "name", "default" or "tier_hint": 4, "domain", "via",
   "key", "template", "because"}; via is ext (with key), positional (wired in nf_inputs) or meta
 - parameters:ext_args — {"template", "because"}
-- vocabulary:type:<id> / vocabulary:role:<name> — only for ids the lists below lack
+- vocabulary:type:<id> — only for ids the lists below lack
+- vocabulary:role:<name> — {"name", "explain", "because"}, only for ids the lists below lack; explain says what the job is, in one plain sentence
 - rules:rule:<role> — a decision: {"decides": {"effect", "of"}, "because", "cite", "rows": [...]}
 - <piece>:none — {"because"} when the piece needs nothing
 

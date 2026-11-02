@@ -21,7 +21,7 @@ from comeni_core.declared.measurement import Measurement
 from comeni_core.declared.tooltest import TestDraft
 from comeni_core.declared.vocabulary import TypeDeclaration
 from mendel_resolver.rules.format import Decision
-from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 
 class _Frozen(BaseModel):
@@ -52,6 +52,7 @@ class ProcessDraft(_Frozen):
 
 class RoleDraft(_Frozen):
     name: str
+    explain: str = Field(min_length=1, max_length=600)
     because: str = ""
 
 

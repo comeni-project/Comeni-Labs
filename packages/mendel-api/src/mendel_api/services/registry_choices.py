@@ -25,6 +25,7 @@ class TypeChoice(BaseModel):
 
 class RoleChoice(BaseModel):
     id: str
+    explain: str | None = None
     tools: list[str]
     reads: list[str]
     makes: list[str]
@@ -74,7 +75,7 @@ def read() -> Choices:
     for role in sorted(stack.roles.names):
         doing = [c for c in contracts if role in c.roles]
         roles.append(RoleChoice(
-            id=role, tools=[c.id for c in doing],
+            id=role, explain=stack.roles.explains.get(role), tools=[c.id for c in doing],
             reads=sorted({t for c in doing for t in reads(c)}),
             makes=sorted({t for c in doing for t in makes(c)}),
         ))

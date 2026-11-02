@@ -1,5 +1,7 @@
 declares: role
 # Roles the corpus needs that the shipped registry does not declare. Stacks over it.
 roles:
-  - ribo_depletion
-  - deduplication
+  - id: ribo_depletion
+    explain: Remove ribosomal reads.
+  - id: deduplication
+    explain: Mark or remove duplicate reads.

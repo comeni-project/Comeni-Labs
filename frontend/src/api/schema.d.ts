@@ -4199,6 +4199,8 @@ export interface components {
         RoleChoice: {
             /** Id */
             id: string;
+            /** Explain */
+            explain?: string | null;
             /** Tools */
             tools: string[];
             /** Reads */

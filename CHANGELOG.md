@@ -197,6 +197,8 @@ or a complete commit history.
 
 - Forge calls record their tokens, and `forge_step` keeps each step, attempt, refusal and call
   total. `GET /forge/adaptations/{id}/events` reads it and `.../events/stream` follows it.
+- A role in the registry is an `id` and a required `explain`. Bare names no longer load, and the job
+  picker's data carries the words.
 - The forge's chat shows what the AI is doing as it works, says what each reply changed, including
   nothing, keeps a refused draft to a sentence with its details a click away, and resizes. At phone
   width it is a sheet.

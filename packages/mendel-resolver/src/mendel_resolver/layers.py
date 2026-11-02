@@ -154,7 +154,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     families.check(vocabulary.types)
     named_roles = stack(stacked, RoleVocabulary.kind(), buckets=buckets)
     vendored = stack(stacked, Module.kind(), buckets=buckets)
-    roles = RoleVocabulary(names=frozenset(named_roles.entries))
+    roles = RoleVocabulary.of(named_roles.entries)
     try:
         contracts = stack(stacked, Registry.kind(vocabulary), buckets=buckets)
     except UnknownStateError as error:
