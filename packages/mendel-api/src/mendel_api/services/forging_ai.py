@@ -46,13 +46,14 @@ CHAT_TAIL = 12
 """How many messages the chat sends back: enough to follow the thread, bounded like the
 builder's."""
 
-_PURPOSE = {"forge.questions.v2": InvocationPurpose.ANALYSIS,
+_PURPOSE = {"forge.questions.v3": InvocationPurpose.ANALYSIS,
             "forge.draft.v2": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
-            "forge.chat.v2": InvocationPurpose.CHAT}
+            "forge.chat.v2": InvocationPurpose.CHAT,
+            "forge.review.v1": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v2", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v3", Piece.TESTS: "forge.tests.v1"}
 
 
 def _client(purpose: InvocationPurpose) -> Client | None:
@@ -85,7 +86,9 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
                            main_nf=(folder / "main.nf").read_text(),
                            meta_yml=(folder / "meta.yml").read_text(),
                            nf_test=_nf_test(folder)),
-        known=KnownIds(types=sorted(seen.types), roles=sorted(seen.roles),
+        known=KnownIds(types=sorted(seen.types),
+                       signatures=sorted(f"{t}::{s}" for t, states in seen.states.items()
+                                         for s in states), roles=sorted(seen.roles),
                        measurements=sorted(seen.measurements), contracts=sorted(seen.contracts),
                        pending=sorted(seen.pending)),
         items=[ForgeItemText(key=key, value=json.dumps(item.value, sort_keys=True))
@@ -103,6 +106,7 @@ def _nf_test(folder: Path) -> str:
 def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
     known_text = "\n".join([
         f"types: {', '.join(request.known.types)}",
+        f"type states: {', '.join(request.known.signatures)}",
         f"roles: {', '.join(request.known.roles)}",
         f"measurements: {', '.join(request.known.measurements)}",
         f"tools: {', '.join(request.known.contracts)}",
@@ -126,13 +130,14 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
 
 def _call(prompt_id: str, request: ForgeRequest, shape: type[BaseModel], client: Client,
           adaptation_id: str, attempt: int, problems: list[str] = (),
+          *, attempts: int = ATTEMPTS,
           ) -> tuple[BaseModel | None, str]:
     template = PromptTemplate.load(PROMPTS, prompt_id)
     wanted = template.placeholders()
     rendered = template.render({k: v for k, v in _values(request, list(problems)).items()
                                 if k in wanted})
     started = datetime.now(UTC)
-    forging.record(adaptation_id, "asking", attempt=attempt, attempts=ATTEMPTS,
+    forging.record(adaptation_id, "asking", attempt=attempt, attempts=attempts,
                    model=client.access.model)
     reply = client.respond(rendered.text, shape)
     invocation = _record(prompt_id, rendered.digest, client, adaptation_id, started,
@@ -205,7 +210,8 @@ def _refused(adaptation_id: str, attempt: int, problems: list[str]) -> list[str]
 # ── drafting a piece ─────────────────────────────────────────────────────────────────────────
 
 
-def draft_piece(adaptation_id: str, piece: Piece, client: Client | None = None) -> None:
+def draft_piece(adaptation_id: str, piece: Piece,
+                client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
     prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v2")
@@ -239,13 +245,14 @@ def draft_piece(adaptation_id: str, piece: Piece, client: Client | None = None) 
                             because=because.get(k), invocation=invocation)
                     for k, v in sorted(items.items())]
         try:
-            forging.act_all(adaptation_id, commands)
+            reached = forging.act_all(adaptation_id, commands)
         except Refused as refused:
             problems = _refused(adaptation_id, attempt, [str(refused)])
             continue
         forging.record(adaptation_id, "saved", items=len(commands))
-        forging.set_phase(adaptation_id, Phase.REVIEWING)
-        return
+        if finish:
+            forging.set_phase(adaptation_id, Phase.REVIEWING)
+        return reached
     _engine_says(adaptation_id, f"The {piece.value} draft wasn't usable, so nothing was saved.",
                  problems, item=forging.DRAFT + piece.value)
     forging.set_phase(adaptation_id, Phase.REVIEWING)
@@ -321,7 +328,17 @@ def answer_message(adaptation_id: str, seq: int, client: Client | None = None) -
 
 
 async def draft_forge_piece(ctx: dict, adaptation_id: str, piece: str) -> str:
-    await asyncio.to_thread(draft_piece, adaptation_id, Piece(piece))
+    from mendel_api.services.forge_review import queue_review
+
+    reached = await asyncio.to_thread(draft_piece, adaptation_id, Piece(piece), finish=False)
+    if reached is not None:
+        try:
+            if reached:
+                await queue_review(adaptation_id, piece, reached)
+        finally:
+            # Publish reviewer pending work before ending drafting, so polling/streaming cannot
+            # see an idle gap and stop before it learns that the reviewer was queued.
+            forging.set_phase(adaptation_id, Phase.REVIEWING)
     return f"{adaptation_id}:{piece}"
 
 

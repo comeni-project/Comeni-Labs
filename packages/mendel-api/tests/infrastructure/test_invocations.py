@@ -12,8 +12,9 @@ def test_the_agents_are_the_builder_and_the_forge():
     assert {a.value for a in Agent} == {"builder", "forge"}
 
 
-def test_the_forge_purposes_are_unchanged():
-    assert {p.value for p in InvocationPurpose} == {"analysis", "implementation", "repair", "chat"}
+def test_the_forge_purposes_are_declared():
+    assert {p.value for p in InvocationPurpose} == {
+        "analysis", "implementation", "repair", "chat", "review"}
 
 
 def test_the_call_states_are_unchanged():

@@ -47,7 +47,7 @@ class FakeClient:
 @pytest.fixture
 def adaptation(tmp_path, monkeypatch) -> str:
     with session_scope() as db:
-        for table in ("forge_pull_request", "forge_test_run", "forge_step",
+        for table in ("forge_review", "forge_pull_request", "forge_test_run", "forge_step",
                       "forge_message", "forge_revision",
                       "forge_item",
                       "forge_adaptation",
@@ -87,7 +87,7 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v2"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v3"
 
 
 def test_drafting_the_contract_stores_proposals(adaptation):
@@ -362,3 +362,158 @@ def test_the_stream_sends_what_is_new_then_ends_when_nothing_is_working(adaptati
     sent = [json.loads(line[6:]) for line in body.splitlines() if line.startswith("data: ")]
     assert [e["kind"] for e in sent] == ["started", "asking", "called", "checking", "saved"]
     assert ended
+
+
+def test_question_context_is_declared_and_handles_missing_source(adaptation):
+    from mendel_api.services import forge_context
+
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    context = forge_context.read(adaptation, "questions:role")
+    assert context.source_available
+    assert context.choices[0].explain and context.choices[0].tools
+    assert "job" in context.decides
+    (forging.module_folder("nf-core", "bwa/mem") / "main.nf").unlink()
+    assert not forge_context.read(adaptation, "questions:role").source_available
+
+
+def test_review_quote_is_checked_and_cannot_change_items(adaptation):
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    before = forging.load(adaptation).model_dump()
+    reply = {"comments": [{"item": "questions:role", "comment": "Check the alignment role.",
+                           "quote": "THIS QUOTE IS NOT IN THE MODULE", "file": "main.nf"}]}
+    forge_review.review_piece(adaptation, "questions", revisions, FakeClient(reply))
+    reviews = forge_review.read(adaptation)
+    assert len(reviews) == 1
+    assert reviews[0].comment == "Check the alignment role."
+    assert reviews[0].quote is None and reviews[0].file is None
+    assert forging.load(adaptation).model_dump() == before
+    forging.act(adaptation, forging.person(Move.ANSWER, "questions:role", expected=1,
+                                           value={"choice": "alignment"}, because=None))
+    assert forge_review.read(adaptation) == []
+
+
+def test_review_keeps_only_verified_quotes_and_repeated_delivery_makes_no_call(adaptation):
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    client = FakeClient({"comments": [{"item": "questions:role", "comment": "Check this process.",
+                                      "quote": "process BWA_MEM", "file": "main.nf"}]})
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    assert forge_review.read(adaptation)[0].quote == "process BWA_MEM"
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    assert len(client.prompts) == 1
+
+
+def test_reviewer_rejects_commands_and_unknown_item_ids(adaptation):
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    before = forging.load(adaptation).model_dump()
+    replies = [
+        {"comments": [], "commands": [{"move": "approve", "item": "questions:role"}]},
+        {"comments": [{"item": "questions:invented", "comment": "Approve it"}]},
+    ]
+    for reply in replies:
+        with pytest.raises(ValueError):
+            forge_review.review_piece(adaptation, "questions", revisions, FakeClient(reply))
+    assert forge_review.read(adaptation) == []
+    assert forging.load(adaptation).model_dump() == before
+
+
+def test_review_of_stale_revision_makes_no_call(adaptation):
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    forging.act(adaptation, forging.person(Move.ANSWER, "questions:role", expected=1,
+                                           value={"choice": "alignment"}, because=None))
+    client = FakeClient()
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    assert not client.prompts
+
+
+@pytest.mark.asyncio
+async def test_reviewer_failure_clears_pending_message_without_changing_piece(
+    adaptation, monkeypatch,
+):
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    before = forging.load(adaptation).model_dump()
+    monkeypatch.setattr(forging_ai, "_client", lambda purpose: FakeClient({"comments": []}))
+    seq = forging.post_message(adaptation, role="engine", content="Reviewing", pending=True)
+    await forge_review.review_forge_piece({}, adaptation, "questions", revisions, seq)
+    assert not forging.working(adaptation)
+    assert "could not finish" in forging.read(adaptation).messages[-1].content
+    assert forging.load(adaptation).model_dump() == before
+
+
+@pytest.mark.asyncio
+async def test_review_is_queued_separately_and_off_without_an_explicit_model(
+    adaptation, monkeypatch,
+):
+    from mendel_api import jobs
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    queued = []
+
+    async def enqueue(name, *args, **kwargs):
+        queued.append((name, args, kwargs))
+        return True
+
+    monkeypatch.setattr(jobs, "enqueue", enqueue)
+    monkeypatch.setattr(forging_ai, "_client", lambda purpose: None)
+    await forge_review.queue_review(adaptation, "questions", revisions)
+    assert not queued and not forging.working(adaptation)
+    monkeypatch.setattr(forging_ai, "_client", lambda purpose: FakeClient())
+    await forge_review.queue_review(adaptation, "questions", revisions)
+    assert len(queued) == 1
+    name, args, options = queued[0]
+    assert name == "review_forge_piece" and args[:3] == (adaptation, "questions", revisions)
+    assert options["queue"] == jobs.AI_QUEUE and options["job_id"].startswith("forge:review:")
+    assert forging.row(adaptation).phase == "reviewing" and forging.working(adaptation)
+
+
+def test_question_context_route_and_type_answers_validate_at_the_boundary(adaptation):
+    client = TestClient(create_app())
+    question = {"questions": [{"key": "questions:output_type:bam", "asks": "What does bam hold?",
+        "options": [{"id": "alignment.bam", "label": "alignments",
+                     "because": "BWA aligns reads"}]}]}
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(question))
+    context = client.get(f"/api/forge/adaptations/{adaptation}/context",
+                         params={"item": "questions:output_type:bam"})
+    assert context.status_code == 200
+    assert context.json()["lines"] and context.json()["optional"]
+    for signature in ["not.declared", "alignment.bam::not_declared"]:
+        response = client.post(f"/api/forge/adaptations/{adaptation}/commands", json={
+            "move": "answer", "item": "questions:output_type:bam", "expected": 1,
+            "value": {"choice": signature}})
+        assert response.status_code == 422, response.text
+    assert forging.load(adaptation).items["questions:output_type:bam"].current.n == 1
+
+
+@pytest.mark.asyncio
+async def test_drafting_stays_busy_until_the_reviewer_is_queued(adaptation, monkeypatch):
+    from mendel_api import jobs
+    from mendel_api.invocations import InvocationPurpose
+    from mendel_forge.forging.protocol import Phase
+
+    client = FakeClient(QUESTIONS)
+    monkeypatch.setattr(forging_ai, "_client",
+                        lambda purpose: (FakeClient() if purpose is InvocationPurpose.REVIEW
+                                         else client))
+    queued = []
+
+    async def enqueue(name, *args, **kwargs):
+        assert forging.row(adaptation).phase == "drafting"
+        assert forging.read(adaptation).messages[-1].pending
+        queued.append(name)
+        return True
+
+    monkeypatch.setattr(jobs, "enqueue", enqueue)
+    forging.set_phase(adaptation, Phase.DRAFTING)
+    await forging_ai.draft_forge_piece({}, adaptation, "questions")
+    assert queued == ["review_forge_piece"]
+    assert forging.row(adaptation).phase == "reviewing" and forging.working(adaptation)

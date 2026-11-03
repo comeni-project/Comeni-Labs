@@ -98,19 +98,19 @@ function Cut({ view }: { view: ReleasesPage }) {
         }}>
           <label htmlFor="release-version" className="text-[12.5px] text-ink-2">Version</label>
           <input id="release-version" value={version} onChange={(e) => setVersion(e.target.value)}
-                 className="font-data text-[13px] p-2 border border-line-2 rounded-control" />
+                 required className="font-data text-[13px] p-2 border border-line-2 rounded-control" />
           <label htmlFor="release-notes" className="text-[12.5px] text-ink-2">Notes</label>
           <textarea id="release-notes" rows={6} value={notes} onChange={(e) => setNotes(e.target.value)}
-                    className="font-data text-[12.5px] p-2 border border-line-2 rounded-control" />
+                    className="text-[13px] p-2 border border-line-2 rounded-control" />
           {why && <p className="m-0 text-[13px] text-needs-you-ink">{why}</p>}
           {unreleased?.commit && !why && (
             <p className="m-0 text-[13px] text-ink-2">
               Tags <span className="font-data">{version}</span> at commit <span className="font-data">{unreleased.commit.slice(0, 12)}</span> and publishes it. Installations following latest move to it, and a release cannot be taken back here.
             </p>
           )}
-          <button type="submit" disabled={!!why || !unreleased || cutting || cut.isPending}
-                  className="self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise disabled:bg-surface-2 disabled:text-ink-3 disabled:shadow-none">
-            {cutting ? "Being cut…" : "Cut release"}
+          <button type="submit" disabled={!!why || !unreleased || cutting || cut.isPending || !version.trim()}
+                  className="control-primary self-start">
+            {cutting || cut.isPending ? "Being cut…" : "Cut release"}
           </button>
           {cut.isError && <Failed error={cut.error} padded={false} />}
         </form>

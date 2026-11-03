@@ -83,3 +83,40 @@ def test_nothing_is_written_outside_the_draft(tmp_path):
                     out=tmp_path / "drafts" / "one")
     assert not (tmp_path / "escaped.yml").exists()
     assert not (tmp_path / "drafts" / "escaped.yml").exists()
+
+
+def test_new_content_state_cannot_assemble_without_reviewed_vocabulary(tmp_path):
+    values = _star_values()
+    values["contract:output:bam"]["type_id"] = "alignment.bam::new_content"
+    out = tmp_path / "draft"
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    assert not prove(REGISTRY, [], out).loaded
+    values["vocabulary:type:alignment.bam"] = {"id": "alignment.bam", "add_states": ["new_content"]}
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    proof = prove(REGISTRY, [], out)
+    assert proof.loaded and proof.conforms, proof.problems
+    saved = yaml.safe_load((out / "tools/nf-core/star/align/contract.yml").read_text())
+    assert next(p for p in saved["produces"] if p["name"] == "bam")["type_id"] == \
+        "alignment.bam::new_content"
+
+
+def test_quast_assembly_report_keeps_content_and_format_separate(tmp_path):
+    from pathlib import Path
+
+    source = Path(__file__).parent / "fixtures/nf-core/quast"
+    values = {
+        "contract:process": {"nf_process": "QUAST", "nf_include": "modules/nf-core/quast/main"},
+        "contract:nf_inputs": [{"literal": [], "because": "Only output typing is exercised here."}
+                               for _ in range(3)],
+        "contract:output:tsv": {"position": 0, "name": "tsv", "type_id": "qc.report::assembly"},
+        "vocabulary:type:qc.report": {"id": "qc.report", "add_states": ["assembly"]},
+    }
+    origin = ModuleOrigin(source_dir=source, module_id="nf-core/quast", repo="nf-core/modules",
+                          sha="fixture", path="modules/nf-core/quast", licence="MIT")
+    out = tmp_path / "draft"
+    write_layer(values, "nf-core/quast@5.3.0", PROVENANCE, origin, base=REGISTRY, out=out)
+    proof = prove(REGISTRY, [], out)
+    assert proof.loaded and proof.conforms, proof.problems
+    saved = yaml.safe_load((out / "tools/nf-core/quast/contract.yml").read_text())
+    assert saved["produces"] == [
+        {"name": "tsv", "type_id": "qc.report::assembly", "format": ["tsv"]}]

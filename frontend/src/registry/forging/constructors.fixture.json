@@ -1,0 +1,1436 @@
+{
+  "kinds": [
+    {
+      "family": "questions:role",
+      "label": "The tool's job",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "new": {
+            "default": false,
+            "title": "New",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "Answer",
+        "type": "object"
+      }
+    },
+    {
+      "family": "questions:input_type",
+      "label": "An input's type",
+      "named": true,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "new": {
+            "default": false,
+            "title": "New",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "Answer",
+        "type": "object"
+      }
+    },
+    {
+      "family": "questions:output_type",
+      "label": "An output's type",
+      "named": true,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "new": {
+            "default": false,
+            "title": "New",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "Answer",
+        "type": "object"
+      }
+    },
+    {
+      "family": "questions:competition",
+      "label": "Whether a selection rule is needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "new": {
+            "default": false,
+            "title": "New",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "Answer",
+        "type": "object"
+      }
+    },
+    {
+      "family": "contract:process",
+      "label": "Process",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "nf_process": {
+            "title": "Nf Process",
+            "type": "string"
+          },
+          "nf_include": {
+            "title": "Nf Include",
+            "type": "string"
+          },
+          "roles": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Container"
+          },
+          "priority": {
+            "default": 0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "priority_because": {
+            "default": "",
+            "title": "Priority Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nf_process",
+          "nf_include"
+        ],
+        "title": "ProcessDraft",
+        "type": "object"
+      }
+    },
+    {
+      "family": "contract:input",
+      "label": "Input",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "Alternative": {
+            "additionalProperties": false,
+            "description": "One acceptable shape for a port: a type, and states that must all hold.",
+            "properties": {
+              "type_id": {
+                "title": "Type Id",
+                "type": "string"
+              },
+              "states": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "States",
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "type_id"
+            ],
+            "title": "Alternative",
+            "type": "object"
+          },
+          "Cardinality": {
+            "description": "Whether a process invocation consumes one item or the complete channel.",
+            "enum": [
+              "1",
+              "*"
+            ],
+            "title": "Cardinality",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type_id": {
+            "default": "",
+            "title": "Type Id",
+            "type": "string"
+          },
+          "state_required": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "State Required",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "state_required_conventional": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "State Required Conventional",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "state_conventional_because": {
+            "default": "",
+            "title": "State Conventional Because",
+            "type": "string"
+          },
+          "state_preferred": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "State Preferred",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "accepts": {
+            "items": {
+              "$ref": "#/$defs/Alternative"
+            },
+            "title": "Accepts",
+            "type": "array"
+          },
+          "prefer": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Prefer",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "cardinality": {
+            "$ref": "#/$defs/Cardinality",
+            "default": "1"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "position"
+        ],
+        "title": "InputItem",
+        "type": "object"
+      }
+    },
+    {
+      "family": "contract:output",
+      "label": "Output",
+      "named": true,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type_id": {
+            "title": "Type Id",
+            "type": "string"
+          },
+          "state": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "State",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "format": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Format",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "type_id",
+          "position"
+        ],
+        "title": "OutputItem",
+        "type": "object"
+      }
+    },
+    {
+      "family": "contract:nf_inputs",
+      "label": "Process input wiring",
+      "named": false,
+      "fields": {
+        "$defs": {
+          "Join": {
+            "description": "How two channels filling one process input are matched.\n\nClosed for the same reason `Via` is: each member needs its own line in the emitter.\n\nThere is no default because broadcast and per-sample pairing have different cardinality.\n`.combine()` is a Cartesian product, while `.join()` pairs matching sample metadata.",
+            "enum": [
+              "broadcast",
+              "by_sample"
+            ],
+            "title": "Join",
+            "type": "string"
+          },
+          "NfInput": {
+            "additionalProperties": false,
+            "description": "One positional input of the process, and what fills it.\n\nA contract port is *semantic* \u2014 a typed thing the module consumes. A process\ninput is *plumbing* \u2014 one channel in the call signature. They do not\ncorrespond, and assuming they did is what made the first generated spine\nuncallable:\n\n- `subread/featurecounts` takes **one** channel carrying a tuple of bam *and*\n  annotation, so two ports collapse into one position;\n- `samtools/sort` takes **three**, of which a reference tuple and an\n  `index_format` value model nothing in the type system;\n- `star/align` takes **four** for two ports.\n\nDeclaring the signature here rather than parsing it out of `main.nf` is what\nlets the compiler emit a call for *any* module \u2014 a pegi3s image, an in-house\nprocess \u2014 not only for nf-core ones. Exactly one field is meaningful per entry.",
+            "properties": {
+              "ports": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Ports",
+                "type": "array"
+              },
+              "literal": {
+                "default": null,
+                "title": "Literal"
+              },
+              "param": {
+                "default": "",
+                "title": "Param",
+                "type": "string"
+              },
+              "because": {
+                "default": "",
+                "title": "Because",
+                "type": "string"
+              },
+              "empty": {
+                "default": 0,
+                "title": "Empty",
+                "type": "integer"
+              },
+              "join": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Join"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "title": "NfInput",
+            "type": "object"
+          }
+        },
+        "items": {
+          "$ref": "#/$defs/NfInput"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "family": "parameters:param",
+      "label": "Setting",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "ExtKey": {
+            "description": "Which key inside the `ext` scope.\n\n`args` is read by all 10 vendored modules and `prefix` by 8. `args2` and `args3` are here on\n**nf-core convention with no evidence in this repository** \u2014 no vendored module reads them.\nKept because an unused enum value costs nothing while adding one later costs a `version:`\nbump for every archived `pipeline.yml`, and `MD0108` refuses a contract naming a key its\nmodule does not read, so a wrong inclusion fails loudly at build rather than silently at run.\n\n**`when` is deliberately absent.** It is a boolean that skips a process entirely, so a\nsetting could switch off a step while `steps:` and `inputs:` still describe it running \u2014\na second routing mechanism competing with resolution. Whether a step exists is decided by\nresolving the goal, not by a setting.",
+            "enum": [
+              "args",
+              "args2",
+              "args3",
+              "prefix"
+            ],
+            "title": "ExtKey",
+            "type": "string"
+          },
+          "MeasurementKind": {
+            "enum": [
+              "integer",
+              "number",
+              "boolean",
+              "enum"
+            ],
+            "title": "MeasurementKind",
+            "type": "string"
+          },
+          "ParamDomain": {
+            "additionalProperties": false,
+            "description": "The enum, boolean, integer, or numeric values a parameter accepts.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/MeasurementKind"
+              },
+              "values": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Values",
+                "type": "array"
+              },
+              "minimum": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Minimum"
+              },
+              "maximum": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Maximum"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "title": "ParamDomain",
+            "type": "object"
+          },
+          "Via": {
+            "description": "The emission site. Closed because each one needs its own code in the emitter.",
+            "enum": [
+              "ext",
+              "meta",
+              "directive",
+              "positional"
+            ],
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "tier_hint": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tier Hint"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ParamDomain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "default": {
+            "default": null,
+            "title": "Default"
+          },
+          "because": {
+            "default": "",
+            "title": "Because",
+            "type": "string"
+          },
+          "via": {
+            "$ref": "#/$defs/Via"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Template"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "via",
+          "position"
+        ],
+        "title": "ParamItem",
+        "type": "object"
+      }
+    },
+    {
+      "family": "parameters:ext_args",
+      "label": "Baseline arguments",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "Baseline argument text a module always needs and its stated premise.",
+        "properties": {
+          "template": {
+            "default": "",
+            "title": "Template",
+            "type": "string"
+          },
+          "because": {
+            "default": "",
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "title": "ContractExtArgs",
+        "type": "object"
+      }
+    },
+    {
+      "family": "vocabulary:type",
+      "label": "Data type or added states",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "TypeDeclaration": {
+            "additionalProperties": false,
+            "description": "One data type, including its closed states and default pipeline-entry settings.",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "states": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "States",
+                "type": "array",
+                "uniqueItems": true
+              },
+              "sample_columns": {
+                "default": 1,
+                "title": "Sample Columns",
+                "type": "integer"
+              },
+              "scope": {
+                "default": "sample",
+                "title": "Scope",
+                "type": "string"
+              },
+              "entry_channel": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Entry Channel"
+              },
+              "param": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Param"
+              },
+              "test_data": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Test Data"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "explain": {
+                "anyOf": [
+                  {
+                    "maxLength": 600,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Explain"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "TypeDeclaration",
+            "type": "object"
+          },
+          "TypeExtension": {
+            "additionalProperties": false,
+            "description": "An overlay that adds states to a type declared in a lower layer.",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "add_states": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Add States",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "add_states"
+            ],
+            "title": "TypeExtension",
+            "type": "object"
+          }
+        },
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TypeDeclaration"
+          },
+          {
+            "$ref": "#/$defs/TypeExtension"
+          }
+        ]
+      }
+    },
+    {
+      "family": "vocabulary:measurement",
+      "label": "Measurement",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "MeasurementKind": {
+            "enum": [
+              "integer",
+              "number",
+              "boolean",
+              "enum"
+            ],
+            "title": "MeasurementKind",
+            "type": "string"
+          },
+          "MetaValue": {
+            "additionalProperties": false,
+            "description": "Translate one declared value to the value expected in module metadata.",
+            "properties": {
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "When"
+              },
+              "then": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Then"
+              }
+            },
+            "required": [
+              "when",
+              "then"
+            ],
+            "title": "MetaValue",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "A typed property that a goal may assert or a profiling contract may measure.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/MeasurementKind"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          },
+          "extensible": {
+            "default": false,
+            "title": "Extensible",
+            "type": "boolean"
+          },
+          "per_sample": {
+            "default": false,
+            "title": "Per Sample",
+            "type": "boolean"
+          },
+          "assertion_only": {
+            "default": false,
+            "title": "Assertion Only",
+            "type": "boolean"
+          },
+          "assertion_only_because": {
+            "default": "",
+            "title": "Assertion Only Because",
+            "type": "string"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minimum"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maximum"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cite"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Explain"
+          },
+          "edam": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Edam"
+          },
+          "describes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Describes"
+          },
+          "meta_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Meta Key"
+          },
+          "meta_values": {
+            "items": {
+              "$ref": "#/$defs/MetaValue"
+            },
+            "title": "Meta Values",
+            "type": "array"
+          },
+          "deprecated": {
+            "default": false,
+            "title": "Deprecated",
+            "type": "boolean"
+          },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Replaced By"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "Measurement",
+        "type": "object"
+      }
+    },
+    {
+      "family": "vocabulary:role",
+      "label": "Job",
+      "named": true,
+      "fields": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "explain": {
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Explain",
+            "type": "string"
+          },
+          "because": {
+            "default": "",
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "explain"
+        ],
+        "title": "RoleDraft",
+        "type": "object"
+      }
+    },
+    {
+      "family": "rules:rule",
+      "label": "Decision rule",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "DecisionRow": {
+            "additionalProperties": false,
+            "properties": {
+              "when": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "title": "When",
+                "type": "object"
+              },
+              "then": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Then"
+              },
+              "because": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Because"
+              },
+              "cite": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cite"
+              }
+            },
+            "title": "DecisionRow",
+            "type": "object"
+          },
+          "DecisionTarget": {
+            "additionalProperties": false,
+            "description": "An effect on a role, optionally narrowed to a named parameter and implementations.",
+            "properties": {
+              "effect": {
+                "$ref": "#/$defs/Effect"
+              },
+              "of": {
+                "title": "Of",
+                "type": "string"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "when_implementation": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "When Implementation",
+                "type": "array"
+              }
+            },
+            "required": [
+              "effect",
+              "of"
+            ],
+            "title": "DecisionTarget",
+            "type": "object"
+          },
+          "Effect": {
+            "description": "Whether a decision changes step presence, implementation, or a parameter.",
+            "enum": [
+              "presence",
+              "param",
+              "implementation"
+            ],
+            "title": "Effect",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "decides": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DecisionTarget"
+              },
+              {
+                "items": {
+                  "$ref": "#/$defs/DecisionTarget"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Decides"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/$defs/DecisionRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "because": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Because"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cite"
+          }
+        },
+        "required": [
+          "decides"
+        ],
+        "title": "Decision",
+        "type": "object"
+      }
+    },
+    {
+      "family": "tests:test",
+      "label": "Test",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "Expected": {
+            "additionalProperties": false,
+            "description": "One output that must exist: a file published by `port` whose path matches `pattern`.",
+            "properties": {
+              "port": {
+                "title": "Port",
+                "type": "string"
+              },
+              "pattern": {
+                "maxLength": 120,
+                "pattern": "^[A-Za-z0-9_.*?/\\[\\]-]+$",
+                "title": "Pattern",
+                "type": "string"
+              }
+            },
+            "required": [
+              "port",
+              "pattern"
+            ],
+            "title": "Expected",
+            "type": "object"
+          },
+          "SetupStep": {
+            "additionalProperties": false,
+            "description": "A registry tool run first, when an input cannot come ready-made (design answer 7).",
+            "properties": {
+              "tool": {
+                "title": "Tool",
+                "type": "string"
+              },
+              "inputs": {
+                "additionalProperties": {
+                  "items": {
+                    "maxLength": 300,
+                    "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "default": {},
+                "title": "Inputs",
+                "type": "object"
+              },
+              "feeds": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Feeds",
+                "type": "object"
+              }
+            },
+            "required": [
+              "tool",
+              "feeds"
+            ],
+            "title": "SetupStep",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "inputs": {
+            "additionalProperties": {
+              "items": {
+                "maxLength": 300,
+                "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "setup": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/SetupStep"
+            },
+            "title": "Setup",
+            "type": "array"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {},
+            "title": "Params",
+            "type": "object"
+          },
+          "expect": {
+            "items": {
+              "$ref": "#/$defs/Expected"
+            },
+            "minItems": 1,
+            "title": "Expect",
+            "type": "array"
+          },
+          "unchecked": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Unchecked",
+            "type": "object"
+          }
+        },
+        "required": [
+          "inputs",
+          "expect"
+        ],
+        "title": "TestDraft",
+        "type": "object"
+      }
+    },
+    {
+      "family": "parameters:none",
+      "label": "Nothing needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
+        "properties": {
+          "because": {
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because"
+        ],
+        "title": "NoneNeeded",
+        "type": "object"
+      }
+    },
+    {
+      "family": "vocabulary:none",
+      "label": "Nothing needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
+        "properties": {
+          "because": {
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because"
+        ],
+        "title": "NoneNeeded",
+        "type": "object"
+      }
+    },
+    {
+      "family": "rules:none",
+      "label": "Nothing needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
+        "properties": {
+          "because": {
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because"
+        ],
+        "title": "NoneNeeded",
+        "type": "object"
+      }
+    },
+    {
+      "family": "tests:none",
+      "label": "Nothing needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
+        "properties": {
+          "because": {
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because"
+        ],
+        "title": "NoneNeeded",
+        "type": "object"
+      }
+    }
+  ],
+  "inputs": [
+    "fasta",
+    "reference"
+  ],
+  "outputs": [
+    "tsv",
+    "report"
+  ]
+}

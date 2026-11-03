@@ -4,8 +4,7 @@ The consolidated state of the project. **Read this first**, then any entry still
 [the journal](journal/). How this page is kept: [the compaction rules](compaction.md). Each line
 cites its entry; the long form is in [the archive](journal/archive/).
 
-**Compacted through: 2026-10-26.** The pre-2026-09-28 `CLAUDE.md`, with its plan-by-plan
-history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
+**Compacted through: 2026-10-26.** Earlier `CLAUDE.md` history: `tests/fixtures/claude-md-2026-09-28.md`.
 
 ## Where the work is
 
@@ -101,8 +100,9 @@ history, is kept verbatim in `tests/fixtures/claude-md-2026-09-28.md`.
 
 - **MVPs 1–6 are on `main` (#415); comeni-registry v0.5.0 is its first release.** #365–#367 stay
   open. **The [live walk](../how-to/development/forge-live-walk.md) (#412) stopped at step 4;**
-  findings are #420–#432. **Next:** build the approved redesign, then resume at step 4. #428 and
-  #431 wait for the operator. (10-31)
+  findings are #420–#432. Redesign slices 1–3 are on main; 4–6 await review and merge on
+  `registry-redesign-6-pages`. **Next:** operator decisions #428/#431, then live step 4 on the GPU
+  machine. No slice 7 is planned; MVPs 4–6 already supply tests, pull requests and releases. (11-03)
 
 ## Wiener (run → watch)
 

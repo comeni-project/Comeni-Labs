@@ -26,7 +26,7 @@ export function typeEntries(choices: Choices): PickerEntry[] {
 export function roleEntries(choices: Choices): PickerEntry[] {
   return choices.roles.map((r) => ({
     id: r.id, name: r.id.replace(/_/g, " "), group: r.id.split("_")[0],
-    says: r.tools.length ? `Done by ${r.tools.join(", ")}` : "No tool does this yet.",
+    says: r.explain ?? (r.tools.length ? `Done by ${r.tools.join(", ")}` : "No tool does this yet."),
     before: r.reads, after: r.makes,
   }));
 }

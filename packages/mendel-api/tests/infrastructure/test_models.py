@@ -98,6 +98,8 @@ def test_the_registry_is_not_in_the_database():
         "forge_message",
         # What the AI did, step by step, which the chat follows (#420).
         "forge_step",
+        # Advice about drafts; builds still read only published registry files.
+        "forge_review",
         "forge_test_run",
         "forge_pull_request",
         "forge_release",

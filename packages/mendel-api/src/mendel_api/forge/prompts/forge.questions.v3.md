@@ -9,6 +9,11 @@ Ask only what the module's own files cannot settle about fitting this registry:
 
 For each question give 2–4 options, each with a one-sentence reason, using only ids from the
 lists below or a new name you mark as new. If one option is clearly right, set `suggested` to it.
+For an output, name what the file holds, not the tool or its extension: for example,
+qc.report::assembly for assembly quality metrics, with tsv as its separate file format.
+Use declared type::state signatures where they fit. If the needed state or type is absent,
+mark that option "new": true: it requires a separate vocabulary proposal and human review.
+A general reader of qc.report can still accept qc.report::assembly. Never invent a tool hierarchy.
 Do not ask what is already answered under "This adaptation so far".
 
 Each question's key says what it asks, with no numbers in place of a name:
@@ -18,7 +23,7 @@ Each question's key says what it asks, with no numbers in place of a name:
 - questions:competition
 
 Reply with JSON only: {"questions": [{"key": "<key>", "asks": "...",
-"options": [{"id": "...", "label": "...", "because": "..."}], "allows_new": true,
+"options": [{"id": "...", "label": "...", "because": "...", "new": false}], "allows_new": true,
 "suggested": null}]}
 
 === the module: {{module}} ===

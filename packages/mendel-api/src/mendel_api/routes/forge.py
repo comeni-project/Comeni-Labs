@@ -19,8 +19,12 @@ from mendel_api.identity import default_author
 from mendel_api.refusals import REFUSES, Refusal
 from mendel_api.services import (
     catalogue,
+    forge_constructors,
+    forge_context,
     forge_publish,
     forge_releases,
+    forge_review,
+    forge_rule_preview,
     forge_tests,
     forging,
 )
@@ -171,6 +175,45 @@ def list_adaptations() -> forging.AdaptationList:
 def read_adaptation(adaptation_id: str) -> forging.AdaptationView:
     try:
         return forging.read(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.get("/adaptations/{adaptation_id}/constructors", operation_id="readForgeConstructors",
+            summary="Fields and source channels for writing a forge item", responses=REFUSES)
+def read_constructors(adaptation_id: str) -> forge_constructors.Constructors:
+    try:
+        return forge_constructors.read(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.post("/adaptations/{adaptation_id}/rule-preview", operation_id="previewForgeRule",
+             summary="Try a stored rule with hypothetical facts; changes nothing",
+             responses=REFUSES)
+def preview_rule(
+    adaptation_id: str, body: forge_rule_preview.PreviewBody,
+) -> forge_rule_preview.Preview:
+    try:
+        return forge_rule_preview.read(adaptation_id, body)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.get("/adaptations/{adaptation_id}/reviews", operation_id="readForgeReviews",
+            summary="Reviewer advice for current revisions", responses=REFUSES)
+def read_reviews(adaptation_id: str) -> list[forge_review.ReviewView]:
+    try:
+        return forge_review.read(adaptation_id)
+    except KeyError:
+        raise _unknown(adaptation_id) from None
+
+
+@router.get("/adaptations/{adaptation_id}/context", operation_id="readForgeContext",
+            summary="Evidence behind a question", responses=REFUSES)
+def read_context(adaptation_id: str, item: str) -> forge_context.QuestionContext:
+    try:
+        return forge_context.read(adaptation_id, item)
     except KeyError:
         raise _unknown(adaptation_id) from None
 

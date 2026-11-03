@@ -798,6 +798,23 @@ class ForgeRevision(Base):
     __table_args__ = (Index("ix_forge_revision_once", "adaptation", "item", "n", unique=True),)
 
 
+class ForgeReview(Base):
+    """Advice about one immutable revision; never an item command."""
+
+    __tablename__ = "forge_review"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    adaptation: Mapped[str] = mapped_column(
+        String(32), ForeignKey("forge_adaptation.id", ondelete="RESTRICT"), index=True)
+    item: Mapped[str] = mapped_column(String(255))
+    revision: Mapped[int] = mapped_column(Integer)
+    comment: Mapped[str] = mapped_column(Text)
+    quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    model: Mapped[str] = mapped_column(String(255))
+    invocation: Mapped[str] = mapped_column(String(32))
+    __table_args__ = (Index("ix_forge_review_once", "adaptation", "item", "revision", unique=True),)
+
+
 class ForgeTestRun(Base):
     """One test of one attempt, run in Wiener. `digest` is the draft it ran against: green counts
     for that draft alone. `run_id` is empty when the run never started; `says` is why."""

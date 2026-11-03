@@ -21,7 +21,7 @@ STAR = "nf-core/star/align@2.7.11b"
 @pytest.fixture
 def client(tmp_path, monkeypatch) -> TestClient:
     with session_scope() as db:
-        for table in ("forge_pull_request", "forge_test_run", "forge_step",
+        for table in ("forge_review", "forge_pull_request", "forge_test_run", "forge_step",
                       "forge_message", "forge_revision",
                       "forge_item",
                       "forge_adaptation",

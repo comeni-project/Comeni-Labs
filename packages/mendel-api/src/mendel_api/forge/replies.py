@@ -7,7 +7,7 @@ reply that tries to decide fails validation and changes nothing.
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
 class _Reply(BaseModel):
@@ -43,3 +43,14 @@ class AiCommand(_Reply):
 class ChatReply(_Reply):
     text: str
     commands: list[AiCommand] = []
+
+
+class ReviewComment(_Reply):
+    item: str
+    comment: str = Field(min_length=1, max_length=4000)
+    quote: str | None = None
+    file: Literal["main.nf", "meta.yml", "tests/main.nf.test"] | None = None
+
+
+class ReviewReply(_Reply):
+    comments: list[ReviewComment]

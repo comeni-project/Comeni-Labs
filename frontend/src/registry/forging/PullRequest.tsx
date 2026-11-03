@@ -2,7 +2,7 @@ import { Failed } from "../../ui/States";
 import type { AdaptationView } from "./useAdaptation";
 import type { useForgeActions } from "./useForgeActions";
 
-const primary = "self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise";
+const primary = "control-primary self-start";
 
 function checks(pull: NonNullable<AdaptationView["pull_request"]>): string {
   if (pull.checks === "green") return "Registry CI is green.";

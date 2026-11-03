@@ -58,3 +58,13 @@ describe("the model picker", () => {
     expect(await screen.findByText("Could not list models on Local.")).toBeTruthy();
   });
 });
+
+it("shows Off for an optional model purpose that does not inherit the default", () => {
+  const entry = { ...ENTRY, setting: { ...ENTRY.setting, inherit_default: false } };
+  const menu = { ...MENU, sections: [] };
+  render(<QueryClientProvider client={new QueryClient()}>
+    <ModelPicker entry={entry} menu={menu} onWrite={vi.fn()} />
+  </QueryClientProvider>);
+  expect(screen.getByRole("option", { name: "Off" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Same as the default" })).toBeNull();
+});

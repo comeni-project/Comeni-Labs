@@ -1098,6 +1098,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations/{adaptation_id}/constructors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fields and source channels for writing a forge item */
+        get: operations["readForgeConstructors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/rule-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Try a stored rule with hypothetical facts; changes nothing */
+        post: operations["previewForgeRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reviewer advice for current revisions */
+        get: operations["readForgeReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evidence behind a question */
+        get: operations["readForgeContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/adaptations/{adaptation_id}/commands": {
         parameters: {
             query?: never;
@@ -2233,6 +2301,55 @@ export interface components {
             /** Sources */
             sources?: components["schemas"]["SourcePin"][];
         };
+        /** Constructor */
+        Constructor: {
+            /** Family */
+            family: string;
+            /** Label */
+            label: string;
+            /** Named */
+            named: boolean;
+            /** Fields */
+            fields: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        };
+        /** Constructors */
+        Constructors: {
+            /** Kinds */
+            kinds: components["schemas"]["Constructor"][];
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: string[];
+            /**
+             * Outputs
+             * @default []
+             */
+            outputs: string[];
+        };
+        /** ContextChoice */
+        ContextChoice: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Explain */
+            explain?: string | null;
+            /** Scope */
+            scope?: string | null;
+            /**
+             * Tools
+             * @default []
+             */
+            tools: string[];
+            /**
+             * Proposed
+             * @default false
+             */
+            proposed: boolean;
+        };
         /** CorrectAuthoringFact */
         CorrectAuthoringFact: {
             /** Expected Decision Revision */
@@ -2624,6 +2741,12 @@ export interface components {
             expected_revision: number;
         };
         /**
+         * Effect
+         * @description Whether a decision changes step presence, implementation, or a parameter.
+         * @enum {string}
+         */
+        Effect: "presence" | "param" | "implementation";
+        /**
          * EmittedPipeline
          * @description The draft's Nextflow: what *Compile it* shows (one builder plan 5).
          */
@@ -2839,6 +2962,36 @@ export interface components {
             source?: string | null;
             /** Target */
             target?: string | null;
+        };
+        /**
+         * Fired
+         * @description A matched row with its value, tier, justification, and layer evidence.
+         */
+        Fired: {
+            effect: components["schemas"]["Effect"];
+            /** Role */
+            role: string;
+            /** Name */
+            name?: string | null;
+            /** Value */
+            value?: number | boolean | string | null;
+            /** @default 3 */
+            tier: components["schemas"]["Tier"];
+            /**
+             * Because
+             * @default
+             */
+            because: string;
+            /**
+             * Cite
+             * @default
+             */
+            cite: string;
+            /**
+             * Axis Because
+             * @default
+             */
+            axis_because: string;
         };
         /**
          * Fits
@@ -3850,6 +4003,24 @@ export interface components {
              */
             gathers: boolean;
         };
+        /** Preview */
+        Preview: {
+            /** Revision */
+            revision: number;
+            /** Effects */
+            effects: components["schemas"]["Fired"][];
+        };
+        /** PreviewBody */
+        PreviewBody: {
+            /** Item */
+            item: string;
+            /** Expected */
+            expected: number;
+            /** Premises */
+            premises?: {
+                [key: string]: number | boolean | string | null;
+            };
+        };
         /**
          * Problem
          * @description Why part of a module could not be read. `code` is an `MF05xx` diagnostic.
@@ -4002,6 +4173,24 @@ export interface components {
              */
             phrasing: "pending" | "done" | "none";
             reading?: components["schemas"]["SampleReading"] | null;
+        };
+        /** QuestionContext */
+        QuestionContext: {
+            /** Lines */
+            lines: components["schemas"]["SourceLine"][];
+            /** Source Available */
+            source_available: boolean;
+            /** Upstream */
+            upstream?: string | null;
+            /** Choices */
+            choices: components["schemas"]["ContextChoice"][];
+            /** Decides */
+            decides: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
         };
         /**
          * ReadOnlyHere
@@ -4172,6 +4361,21 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /** ReviewView */
+        ReviewView: {
+            /** Item */
+            item: string;
+            /** Revision */
+            revision: number;
+            /** Comment */
+            comment: string;
+            /** Quote */
+            quote: string | null;
+            /** File */
+            file: string | null;
+            /** Model */
+            model: string;
         };
         /** RevisionView */
         RevisionView: {
@@ -4370,6 +4574,11 @@ export interface components {
              * @default []
              */
             actions: string[];
+            /**
+             * Inherit Default
+             * @default true
+             */
+            inherit_default: boolean;
             /** Of */
             of?: string | null;
         };
@@ -4496,6 +4705,13 @@ export interface components {
          * @enum {string}
          */
         Source: "default" | "installation" | "environment" | "reported";
+        /** SourceLine */
+        SourceLine: {
+            /** Number */
+            number: number;
+            /** Text */
+            text: string;
+        };
         /**
          * SourcePin
          * @description A person's choice of producer for one consumer port.
@@ -4697,6 +4913,11 @@ export interface components {
          * @enum {string}
          */
         TextSource: "engine" | "curated";
+        /**
+         * Tier
+         * @enum {integer}
+         */
+        Tier: 1 | 2 | 3 | 4;
         /**
          * TierCard
          * @description One tier, as an interface needs to say it.
@@ -7075,6 +7296,172 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readForgeConstructors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Constructors"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    previewForgeRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readForgeReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewView"][];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readForgeContext: {
+        parameters: {
+            query: {
+                item: string;
+            };
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionContext"];
+                };
             };
             /** @description The id in the path names nothing. */
             404: {

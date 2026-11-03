@@ -1076,6 +1076,11 @@ export interface components {
              * @default []
              */
             actions: string[];
+            /**
+             * Inherit Default
+             * @default true
+             */
+            inherit_default: boolean;
             /** Of */
             of?: string | null;
         };

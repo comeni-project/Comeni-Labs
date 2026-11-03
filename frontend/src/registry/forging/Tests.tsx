@@ -27,6 +27,8 @@ export function TestsPanel({ view, actions }: {
           Green: each run succeeded and every declared output exists. This shows the tool runs, not that its results are correct.
         </p>
       )}
+      {view.tests.length === 0 && <p className="m-0 text-[13px] text-ink-3">No test runs recorded for this draft.</p>}
+      {view.phase === "testing" && <p role="status" className="m-0 text-[13px] text-action">Tests are running. Open a run below to follow its logs.</p>}
       {view.tests.length > 0 && (
         <ul className="m-0 p-0 list-none border border-line rounded-control">
           {view.tests.map((test) => (
@@ -43,7 +45,7 @@ export function TestsPanel({ view, actions }: {
       )}
       {canRun && (
         <button type="button" onClick={() => actions.runTests.mutate()} disabled={actions.runTests.isPending}
-                className="self-start px-5 py-[10px] rounded-button bg-action text-on-action font-semibold shadow-raise">
+                className="control-primary self-start">
           Run its tests
         </button>
       )}

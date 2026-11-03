@@ -174,7 +174,12 @@ MODEL_FORGE = _purpose(
     "Adapting tools",
     "Drafts a new tool's contract in the registry's workshop, for a person to review.",
 )
-PURPOSE_SETTINGS = (MODEL_WANT, MODEL_TALK, MODEL_TIER4, MODEL_READBACK, MODEL_FORGE)
+MODEL_FORGE_REVIEW = _purpose(
+    "forge_review", "Reviewing tool drafts",
+    "Comments on each drafted item for you to check. Off unless a model is chosen here.",
+).model_copy(update={"inherit_default": False})
+PURPOSE_SETTINGS = (MODEL_WANT, MODEL_TALK, MODEL_TIER4, MODEL_READBACK, MODEL_FORGE,
+                    MODEL_FORGE_REVIEW)
 
 WHERE_PURPOSES = Setting.readonly(
     key="privacy.where",

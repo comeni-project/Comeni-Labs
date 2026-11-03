@@ -8,7 +8,9 @@ import { toolShape } from "../parts/toolShape";
 import { Tracker, type TrackedPiece } from "../parts/Tracker";
 import { RegistryTabs } from "../RegistryTabs";
 import { Chat } from "./Chat";
+import { attemptNote, PIECE_HELP, pieceWaiting } from "./pieces";
 import { PieceItems, WriteItem } from "./PieceItems";
+import { useReviews } from "./Reviews";
 import { PullRequestPanel } from "./PullRequest";
 import { TestsPanel } from "./Tests";
 import { PIECES, useAdaptation, type AdaptationView } from "./useAdaptation";
@@ -33,6 +35,7 @@ export function Adaptation() {
   const working = !!view && (view.phase === "drafting" || view.phase === "asking"
     || view.messages.some((m) => m.pending));
   const steps = useForgeSteps(id, working);
+  const reviews = useReviews(id, working, view?.items.map((i) => `${i.key}:${i.current_n}`).join(",") ?? "");
   // After the render that opens the piece, so the question is there to reach.
   useEffect(() => {
     if (focus) document.querySelector(`[data-item="${CSS.escape(focus)}"]`)?.scrollIntoView?.({ block: "center" });
@@ -47,24 +50,26 @@ export function Adaptation() {
   const tracked: TrackedPiece[] = PIECES.map((p) => {
     const its = view.items.filter((i) => i.piece === p);
     const settled = its.length > 0 && its.every((i) => SETTLED.has(i.status));
-    const waiting = its.filter((i) => i.status === "proposed" || i.status === "reopened").length;
+    const waiting = pieceWaiting(its);
     return {
       name: p,
       state: settled ? "done" : p === (view.next_piece ?? "tests") ? "now" : "later",
-      note: settled ? "approved" : waiting ? `${waiting} waiting for you` : its.length ? "in progress" : "not started",
+      note: settled ? "approved" : waiting ? `${waiting} waiting for you` : its.length ? "in progress" : attemptNote(steps, p) ?? "not started",
     };
   });
   const done = tracked.filter((p) => p.state === "done").length;
-  const busy = view.phase === "drafting" || view.phase === "asking";
+  const busy = working || actions.draft.isPending;
   // Ready means Assembly, until a person opens a piece to read it again.
   const assembling = view.ready && chosen === null;
   const shape = toolShape(view.items);
   const questions = view.items.filter((i) => i.piece === "questions" && i.status !== "removed");
   const answered = questions.filter((i) => (i.value as { choice?: string } | null)?.choice).length;
   const goTo = (key: string) => {
-    setChosen("questions");
+    const target = key === "questions:role" && !view.items.some((i) => i.key === key)
+      ? "contract:process" : key;
+    setChosen(target.split(":")[0]);
     setWriting(false);
-    setFocus(key);
+    setFocus(target);
   };
 
   return (
@@ -102,17 +107,20 @@ export function Adaptation() {
             <Assembly view={view} actions={actions} />
           ) : (
             <>
+              <p className="m-0 px-[22px] py-4 text-[13.5px] text-ink-2 border-b border-line-soft">{PIECE_HELP[piece]}</p>
+              {items.length === 0 && attemptNote(steps, piece) && <p role="status" className="m-0 px-[22px] py-3 text-[13px] text-ink-2">{attemptNote(steps, piece)}. Read the attempt in the chat, revise your instructions or write the piece yourself.</p>}
               {items.length === 0 && !writing && piece === view.next_piece && (
                 <Start piece={piece} busy={busy} onDraft={() => actions.draft.mutate(piece)}
                        onWrite={() => setWriting(true)} />
               )}
+              {items.length === 0 && piece !== view.next_piece && <p className="m-0 px-[22px] py-5 text-[13px] text-ink-3">This piece comes later. Finish {view.next_piece ?? "the current piece"} first.</p>}
               {actions.draft.isError && <div className="px-[22px] py-3"><Failed error={actions.draft.error} padded={false} /></div>}
-              <PieceItems items={items} actions={actions}
+              <PieceItems id={id} reviews={reviews.data} items={items} actions={actions}
                           onReject={(key) => setAbout(key)} />
               {(writing || items.length > 0) && piece === view.next_piece && (
                 <details className="border-t border-line-soft" open={writing}>
                   <summary className="px-[22px] py-3 cursor-pointer text-[13px] text-ink-2">Write an item yourself</summary>
-                  <WriteItem piece={piece} items={view.items} actions={actions} />
+                  <WriteItem key={piece} id={id} piece={piece} items={view.items} actions={actions} />
                 </details>
               )}
             </>
@@ -158,8 +166,15 @@ function Start({ piece, busy, onDraft, onWrite }: {
 
 function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType<typeof useForgeActions> }) {
   const result: AssemblyView | undefined = actions.assemble.data;
+  const liveItems = view.items.filter((i) => i.status !== "removed");
   return (
     <div className="px-[22px] py-5 flex flex-col gap-4">
+      <ol aria-label="Publication progress" className="m-0 p-0 list-none flex flex-wrap gap-3 text-[13px]">
+        {[['Assembly', STANDS.has(view.phase)], ['Tests', PUBLISHING.has(view.phase)],
+          ['Pull request', ['in_review', 'merged'].includes(view.phase)], ['Merged', view.phase === 'merged']]
+          .map(([label, done]) => <li key={String(label)} className={done ? "text-done-ink" : "text-ink-3"}>{done ? "✓ " : "○ "}{label}</li>)}
+      </ol>
+      <p className="m-0 text-[13px] text-ink-3">{liveItems.length} current items · base <span className="font-data">{view.base}</span></p>
       <p className="m-0 text-ink-2">
         {STANDS.has(view.phase) && !result
           ? "Assembled: the draft loads over the registry and conforms."
@@ -189,7 +204,7 @@ function Assembly({ view, actions }: { view: AdaptationView; actions: ReturnType
           {result.files.length > 0 && (
             <ul className="m-0 p-0 list-none border border-line rounded-control">
               {result.files.filter((f) => !f.includes("/module/")).map((f) => (
-                <li key={f} className="px-3 py-2 border-b border-line-soft font-data text-[13px]">{f}</li>
+                <li key={f} className="px-3 py-2 border-b border-line-soft font-data text-[13px] [overflow-wrap:anywhere]">{f}</li>
               ))}
             </ul>
           )}

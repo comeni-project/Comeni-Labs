@@ -11,7 +11,11 @@ Item keys and their shapes:
 - parameters:param:<name> — {"position", "name", "default" or "tier_hint": 4, "domain", "via",
   "key", "template", "because"}; via is ext (with key), positional (wired in nf_inputs) or meta
 - parameters:ext_args — {"template", "because"}
-- vocabulary:type:<id> — only for ids the lists below lack
+- vocabulary:type:<id> — a full type declaration for a new id, or {"id", "add_states": [...]} to
+  extend an existing type with the content states the person chose. New states require this
+  separate proposal and approval before assembly; never silently add them.
+- Preserve answered type::state signatures on contract ports, with "format": ["tsv"] separately
+  from main.nf's emit pattern. A question answer marked new is pending vocabulary, not a declaration.
 - vocabulary:role:<name> — {"name", "explain", "because"}, only for ids the lists below lack; explain says what the job is, in one plain sentence
 - rules:rule:<role> — a decision: {"decides": {"effect", "of"}, "because", "cite", "rows": [...]}
 - <piece>:none — {"because"} when the piece needs nothing

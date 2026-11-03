@@ -57,6 +57,8 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # is stored, never sent — it crosses no door. It is a level-0 store, recorded in
 # `docs/design/authoring-protocol.md`'s protection table and loosenings.
 FREE_TEXT_FIELDS = {
+    # Declared type/state signatures from registry vocabulary, sent through the forge door.
+    ("KnownIds", "signatures"),
     # Forge MVP 3 (#364), door `forge_drafting`: nf-core's public module files, the
     # adaptation's own items as JSON, the person's chat with the forge, and the prompt.
     ("ModuleFacts", "main_nf"),

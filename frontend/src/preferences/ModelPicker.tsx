@@ -49,7 +49,7 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
         }}
         className={FIELD}
       >
-        <option value="">Same as the default</option>
+        <option value="">{entry.setting.inherit_default === false ? "Off" : "Same as the default"}</option>
         {current && !known && <option value={encode(current)}>{current.connection} · {short(current.model)}</option>}
         {options.map((o) => <option key={encode(o)} value={encode(o)}>{o.connection} · {short(o.model)}</option>)}
         <option value={"\u0001"}>Other…</option>
