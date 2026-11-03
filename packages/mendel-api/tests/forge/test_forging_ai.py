@@ -87,7 +87,7 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v3"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v4"
 
 
 def test_drafting_the_contract_stores_proposals(adaptation):
@@ -517,3 +517,55 @@ async def test_drafting_stays_busy_until_the_reviewer_is_queued(adaptation, monk
     await forging_ai.draft_forge_piece({}, adaptation, "questions")
     assert queued == ["review_forge_piece"]
     assert forging.row(adaptation).phase == "reviewing" and forging.working(adaptation)
+
+
+def test_contract_retry_names_bad_fields_as_well_as_wrong_piece_items(adaptation):
+    _answer(adaptation)
+    bad = {"items": {
+        "contract:process": {"nf_process": True, "nf_include": False, "container": True},
+        "vocabulary:role:extra": {"name": "extra", "explain": "An extra job"},
+    }}
+    client = FakeClient(bad, bad)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    assert len(client.prompts) == 2
+    retry = client.prompts[1]
+    assert "vocabulary:role:extra: not part of contract" in retry
+    assert "nf_process: Input should be a valid string" in retry
+    assert "nf_include: Input should be a valid string" in retry
+    assert "container: Input should be a valid string" in retry
+    assert "contract:process" not in forging.load(adaptation).items
+
+
+def test_a_contract_draft_can_use_an_explicitly_approved_new_type(adaptation):
+    _answer(adaptation)
+    forging.act(adaptation, forging.person(Move.ANSWER, "questions:output_type:bam",
+        expected=None, value={"choice": "alignment.custom", "new": True}, because=None))
+    contract = {**CONTRACT["items"], "contract:output:bam": {
+        "position": 0, "name": "bam", "type_id": "alignment.custom"}}
+    client = FakeClient({"items": contract})
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    state = forging.load(adaptation)
+    assert state.items["contract:output:bam"].value["type_id"] == "alignment.custom"
+    assert state.items["contract:output:bam"].status.value == "proposed"
+    assert not any(k.startswith("vocabulary:") for k in state.items)
+
+
+def test_draft_prompt_separates_approved_answers_and_retains_removed_questions(adaptation):
+    from mendel_forge.forging.model import Actor, Command
+
+    _answer(adaptation)
+    key = "questions:input_type:meta"
+    forging.act_all(adaptation, [Command(move=Move.DRAFT, actor=Actor.AI, item=key,
+        value={"asks": "What file is meta?", "options": []})])
+    forging.act(adaptation, forging.person(Move.REJECT, key, expected=1, value=None, because=None))
+    forging.act(adaptation, forging.person(Move.REMOVE, key, expected=2, value=None,
+                                          because="Metadata, not a file"))
+    client = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    prompt = client.prompts[0]
+    assert "=== approved answers (instructions for this piece) ===" in prompt
+    assert 'questions:role = {"choice": "alignment"}' in prompt
+    assert "questions:input_type:meta [removed]" in prompt
+    assert "Do not reintroduce removed questions or ports" in prompt
+    assert "zero-based" in prompt
+    assert '"nf_process": "EXAMPLE"' in prompt

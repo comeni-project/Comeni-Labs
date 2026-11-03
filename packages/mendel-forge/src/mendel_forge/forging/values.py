@@ -21,7 +21,7 @@ from comeni_core.declared.measurement import Measurement
 from comeni_core.declared.tooltest import TestDraft
 from comeni_core.declared.vocabulary import TypeDeclaration, TypeExtension
 from mendel_resolver.rules.format import Decision
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 
 
 class _Frozen(BaseModel):
@@ -114,6 +114,14 @@ def value_model(key: str, *, answer: bool = False) -> type:
 def validate_value(key: str, value: JsonValue, *, answer: bool = False):
     """The validated model, or a `ValidationError` in the registry's words."""
     return TypeAdapter(value_model(key, answer=answer)).validate_python(value)
+
+
+def value_problems(key: str, error: ValidationError | KeyError) -> list[str]:
+    """Name invalid fields consistently for a person and a model retry."""
+    if isinstance(error, KeyError):
+        return [f"{key}: {error}"]
+    return [f"{key}: {'.'.join(str(part) for part in problem['loc']) or 'value'}: "
+            f"{problem['msg']}" for problem in error.errors()]
 
 
 def items_of(contract: ModuleContract) -> dict[str, JsonValue]:

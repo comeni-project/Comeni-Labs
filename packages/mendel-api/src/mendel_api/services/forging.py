@@ -30,8 +30,8 @@ from mendel_forge.forging.model import (
     Status,
 )
 from mendel_forge.forging.protocol import Phase
-from mendel_forge.forging.validate import check_items, known, pending_used
-from mendel_forge.forging.values import items_of, validate_value
+from mendel_forge.forging.validate import check_items, known, pending_used, validation_items
+from mendel_forge.forging.values import items_of, validate_value, value_problems
 from mendel_forge.model import Problem
 from pydantic import BaseModel, JsonValue, ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -307,7 +307,7 @@ def _check_person_value(adaptation_id: str, state: Adaptation, command: Command)
     try:
         validate_value(command.item, command.value, answer=command.move is Move.ANSWER)
     except (ValidationError, KeyError) as error:
-        raise Refused(coded("MF0507", f"{command.item}: {str(error).splitlines()[0]}")) \
+        raise Refused(coded("MF0507", "; ".join(value_problems(command.item, error)))) \
             from None
     if command.item.startswith("questions:"):
         if command.move is Move.ANSWER:
@@ -316,8 +316,7 @@ def _check_person_value(adaptation_id: str, state: Adaptation, command: Command)
     if command.item.endswith(":none"):
         return
     adaptation = row(adaptation_id)
-    merged = {k: i.value for k, i in state.items.items()
-              if i.status is not Status.REMOVED}
+    merged = validation_items(state)
     merged[command.item] = command.value
     spec = ModuleSpec.parse(module_folder(adaptation.source, adaptation.path) / "main.nf")
     problems = check_items(merged, known(registry.stack(), pending=pending_ids(adaptation_id)),
@@ -328,17 +327,24 @@ def _check_person_value(adaptation_id: str, state: Adaptation, command: Command)
 
 def _check_answer(state: Adaptation, command: Command) -> None:
     from comeni_core.declared.signature import split
+    from comeni_core.spell.marks import _role_name, _type_id
 
-    answer = command.value
+    answer = validate_value(command.item, command.value, answer=True).model_dump()
     item = state.items.get(command.item)
     question = next((r.value for r in reversed(item.revisions)
                      if isinstance(r.value, dict) and "options" in r.value), None) if item else None
     if answer.get("new"):
         if question and not question.get("allows_new", True):
             raise Refused(coded("MF0507", "this question does not allow a new answer"))
+        if command.item == "questions:role":
+            try:
+                _role_name(answer["choice"])
+            except ValueError as error:
+                raise Refused(coded("MF0507", str(error))) from None
         if command.item.startswith(("questions:input_type:", "questions:output_type:")):
             try:
-                split(answer["choice"])
+                identifier, _ = split(answer["choice"])
+                _type_id(identifier)
             except ValueError as error:
                 raise Refused(coded("MF0507", str(error))) from None
         return

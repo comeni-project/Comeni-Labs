@@ -504,3 +504,57 @@ it("an empty refused piece keeps the attempt visible on the page and tracker", a
   expect(screen.getByText("draft refused · try again")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Draft with the AI" })).toBeTruthy();
 });
+
+it("a rejected question stays unresolved and has explicit removal with a recorded reason", async () => {
+  const q = { asks: "What file type is meta?", options: [] };
+  const rejected = item("questions:input_type:meta", "questions", "rejected", [
+    rev(1, "draft", "ai", q), rev(2, "reject", "person", null),
+  ]);
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ANSWERED, rejected] });
+  const row = await screen.findByRole("group", { name: "meta" });
+  expect(within(row).getByText(/still needs an answer, correction or explicit removal/)).toBeTruthy();
+  fireEvent.click(within(row).getByRole("button", { name: "Remove question" }));
+  const form = within(row).getByRole("form", { name: "Remove meta question" });
+  expect(within(row).queryByRole("button", { name: /^Answer$/ })).toBeNull();
+  expect(within(form).getByRole("button", { name: "Remove question" })).toBeDisabled();
+  fireEvent.change(within(form).getByLabelText("Why does this question not apply?"), {
+    target: { value: "meta carries metadata, not a file" },
+  });
+  fireEvent.click(within(form).getByRole("button", { name: "Remove question" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.url.endsWith("/commands"))?.body).toEqual({
+    move: "remove", item: "questions:input_type:meta", expected: 2,
+    because: "meta carries metadata, not a file",
+  }));
+});
+
+it("a refused removal keeps the reason and the revision being decided on", async () => {
+  const q = item("questions:input_type:meta", "questions", "proposed", [
+    rev(1, "draft", "ai", { asks: "What file is meta?", options: [] }),
+  ]);
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [q] }, {
+    "/commands": { refused: true, detail: "MF0506: it changed since you looked" },
+  });
+  const row = await screen.findByRole("group", { name: "meta" });
+  fireEvent.click(within(row).getByRole("button", { name: "Remove question" }));
+  const form = within(row).getByRole("form", { name: "Remove meta question" });
+  fireEvent.change(within(form).getByLabelText("Why does this question not apply?"), {
+    target: { value: "Metadata, not a file" },
+  });
+  fireEvent.click(within(form).getByRole("button", { name: "Remove question" }));
+  expect(await within(form).findByRole("alert")).toHaveTextContent("changed since you looked");
+  expect(within(form).getByLabelText("Why does this question not apply?")).toHaveValue("Metadata, not a file");
+  expect(calls.find((c) => c.url.endsWith("/commands"))?.body).toEqual({
+    move: "remove", item: q.key, expected: 1, because: "Metadata, not a file",
+  });
+});
+
+it("a process-only contract stays current instead of appearing approved in the tracker", async () => {
+  const process = item("contract:process", "contract", "approved", [rev(1, "write", "person", {
+    nf_process: "QUAST", nf_include: "tools/nf-core/quast/module/main.nf", roles: ["assembly_qc"],
+  })]);
+  at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED, process] });
+  const tracker = await screen.findByRole("navigation", { name: "Pieces" });
+  const contract = within(tracker).getByRole("button", { name: /contract/i });
+  expect(contract.getAttribute("aria-current")).toBe("step");
+  expect(contract.closest("li")?.getAttribute("data-state")).toBe("now");
+});

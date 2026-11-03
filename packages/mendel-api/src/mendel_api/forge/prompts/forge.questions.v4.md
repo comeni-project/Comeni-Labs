@@ -14,7 +14,8 @@ qc.report::assembly for assembly quality metrics, with tsv as its separate file 
 Use declared type::state signatures where they fit. If the needed state or type is absent,
 mark that option "new": true: it requires a separate vocabulary proposal and human review.
 A general reader of qc.report can still accept qc.report::assembly. Never invent a tool hierarchy.
-Do not ask what is already answered under "This adaptation so far".
+Do not ask what is already answered under "This adaptation so far". Entries marked removed
+were explicitly dismissed by the person: do not ask those questions again.
 
 Each question's key says what it asks, with no numbers in place of a name:
 - questions:role

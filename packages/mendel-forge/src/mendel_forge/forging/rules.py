@@ -159,7 +159,7 @@ def reopen_piece(state: Adaptation, piece: Piece) -> Adaptation:
 
 def next_piece(state: Adaptation) -> Piece | None:
     """The first piece not finished: no items yet, or any item not approved or removed. The
-    contract also needs its `contract:process`, ports alone cannot be assembled, and tests need
+    contract needs its process and at least one approved port, and tests need
     one that stands."""
     for piece in PIECES:
         items = [i for i in state.items.values() if i.piece is piece]
@@ -167,6 +167,12 @@ def next_piece(state: Adaptation) -> Piece | None:
             return piece
         process = state.items.get("contract:process")
         if piece is Piece.CONTRACT and (process is None or process.status is not Status.APPROVED):
+            return piece
+        if piece is Piece.CONTRACT and not any(
+            i.status is Status.APPROVED
+            and i.key.startswith(("contract:input:", "contract:output:"))
+            for i in items
+        ):
             return piece
         if piece is Piece.TESTS and not any(i.status is Status.APPROVED for i in items):
             return piece

@@ -5429,8 +5429,28 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   Logs: `/tmp/forge-review-list-red.log`, `/tmp/forge-review-constructor-red.log`,
   `/tmp/forge-review-list-green.log`, `/tmp/forge-review-constructor-green.log`.
 
+- 2026-11-03, Forge MVP 3 #431: the contract retry and person-refusal field-detail regressions
+  failed before their fix: the retry reported only the wrong piece, and the person saw only
+  the validation-error count. Both now name every invalid process field. The affected API/model
+  suites passed (48 tests). Logs: `/tmp/forge-431-fields-red.log`, `/tmp/forge-431-fields-green.log`.
+
+
 - 2026-11-03, Forge MVP 3 merge review #446: CI and an isolated empty forge cache reproduced
   the source-hint test failure (empty inputs/outputs). The test now supplies its own source;
   the API suite passes with the external cache empty. Missing source is tested separately and
   still returns empty hints. Logs: `/tmp/forge-review-cache-red.log`,
   `/tmp/forge-review-cache-green.log`; failed CI run `41673042651`.
+
+- 2026-11-03, Forge MVP 3 #428/#431: the approved-new-answer and process-only completion guards
+  failed against the original code; the removal UI test failed before its action existed.
+  Explicit state fields and input-alternative guards also failed before being read through the
+  port models. Logs: `/tmp/forge-blockers-pure-red.log`, `/tmp/forge-blockers-ui-red.log`,
+  `/tmp/forge-blockers-port-forms-red.log`.
+- Removing the status filter in `validation_items` made three unapproved-answer permission
+  cases fail (proposed/reopened/rejected). Restored before the final 363 backend tests and 95
+  guards passed. Log: `/tmp/forge-blockers-approval-mutation.log`.
+
+- 2026-11-03, #428 removal interaction: extending the removal regression to forbid a competing
+  Answer action failed while that action remained visible. Hiding competing row decisions
+  while the removal form is open passed; backend revision checks remain unchanged.
+  Log: `/tmp/forge-blockers-competing-action-red.log`.

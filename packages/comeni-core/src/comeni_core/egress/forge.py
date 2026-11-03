@@ -49,11 +49,20 @@ class KnownIds(EgressPayload):
     pending: list[TypeId] = []
 
 
+class ForgeItemStatus(StrEnum):
+    PROPOSED = "proposed"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    REMOVED = "removed"
+    REOPENED = "reopened"
+
+
 class ForgeItemText(EgressPayload):
     """One item of this adaptation and its current value, as JSON text."""
 
     key: Text
     value: Text
+    status: ForgeItemStatus = ForgeItemStatus.PROPOSED
 
 
 class ForgeTurn(EgressPayload):

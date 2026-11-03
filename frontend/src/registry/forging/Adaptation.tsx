@@ -49,12 +49,12 @@ export function Adaptation() {
   const items = view.items.filter((i) => i.piece === piece);
   const tracked: TrackedPiece[] = PIECES.map((p) => {
     const its = view.items.filter((i) => i.piece === p);
-    const settled = its.length > 0 && its.every((i) => SETTLED.has(i.status));
+    const settled = p !== view.next_piece && its.length > 0 && its.every((i) => SETTLED.has(i.status));
     const waiting = pieceWaiting(its);
     return {
       name: p,
       state: settled ? "done" : p === (view.next_piece ?? "tests") ? "now" : "later",
-      note: settled ? "approved" : waiting ? `${waiting} waiting for you` : its.length ? "in progress" : attemptNote(steps, p) ?? "not started",
+      note: settled ? "approved" : waiting ? `${waiting} waiting for you` : its.some((i) => i.status === "rejected") ? "needs correction" : its.length ? "in progress" : attemptNote(steps, p) ?? "not started",
     };
   });
   const done = tracked.filter((p) => p.state === "done").length;

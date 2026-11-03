@@ -6,6 +6,7 @@ import { roleEntries, typeEntries, useChoices } from "../parts/useChoices";
 import { ItemConstructor } from "./ItemConstructor";
 import { RulePreview } from "./RulePreview";
 import { ValueDetails } from "./ValueDetails";
+import { QuestionRemoval } from "./QuestionRemoval";
 import { QuestionContext } from "./QuestionContext";
 import { ReviewComment, type Review } from "./Reviews";
 import { nameOf, type ItemView } from "./useAdaptation";
@@ -154,6 +155,7 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
   actions: Actions;
   onReject: (key: string) => void;
 }) {
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const open = items.filter((i) => i.status === "proposed" || i.status === "reopened");
   // Each of these is a decision of its own: a question wants an answer, a removal a second look.
@@ -175,6 +177,7 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
           : supplied?.actor === "registry" ? "from the registry" : "written by you";
         const waiting = item.status === "proposed" || item.status === "reopened";
         const question = asked(item);
+        const isQuestion = item.piece === "questions";
         return (
           <div key={item.key} role="group" aria-label={nameOf(item.key)} data-item={item.key}
                className="grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft">
@@ -195,7 +198,12 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                     && <RulePreview key={`${item.key}:${item.current_n}`} id={id} item={item} />}
                   {question && <QuestionContext id={id} item={item.key} revision={item.current_n} />}
                   {current?.because ?? ""}
-                  {question && item.status !== "removed" && <Answer item={item} question={question} actions={actions} />}
+                  {isQuestion && item.status === "rejected" && <p className="m-0 mb-2 text-[13px]">
+                    This still needs an answer, correction or explicit removal. Rejecting it does not settle the question.
+                  </p>}
+                  {isQuestion && removingKey === item.key && item.status !== "removed" &&
+                    <QuestionRemoval key={item.key} item={item} actions={actions} onClose={() => setRemovingKey(null)} />}
+                  {question && item.status !== "removed" && removingKey !== item.key && <Answer item={item} question={question} actions={actions} />}
                   <span className={`block mt-1 text-[12.5px] ${removing(item) ? "text-needs-you-ink" : STATUS[item.status]?.tone ?? ""}`}>
                     {removing(item) ? "The AI proposes removing this" : STATUS[item.status]?.label}
                   </span>
@@ -213,13 +221,17 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                   Approve
                 </button>
               )}
-              {item.status !== "removed" && !question && editing !== item.key && (
+              {item.status !== "removed" && !question && editing !== item.key && removingKey !== item.key && (
                 <button type="button" className={button}
                         onClick={() => setEditing(item.key)}>
                   Change
                 </button>
               )}
-              {waiting && (
+              {isQuestion && item.status !== "removed" && removingKey !== item.key && editing !== item.key && (
+                <button type="button" className={button} disabled={actions.command.isPending}
+                  onClick={() => setRemovingKey(item.key)}>Remove question</button>
+              )}
+              {waiting && removingKey !== item.key && (
                 <button type="button" disabled={actions.command.isPending} className={`${button} text-needs-you-ink`}
                         onClick={() => { actions.command.mutate({ move: "reject", item: item.key,
                                                                    expected: item.current_n });

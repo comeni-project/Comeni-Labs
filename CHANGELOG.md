@@ -191,6 +191,11 @@ or a complete commit history.
 
 ### mendel-api
 
+- Questions have explicit removal with a recorded reason; rejection remains unresolved. Approved
+  new question answers permit draft references, while vocabulary declarations remain required
+  at Assembly. Contract completion requires a process and a port. Draft prompts distinguish
+  approved answers and removed history, and refusals name each invalid field (#428, #431).
+
 - Forge piece pages retain answered questions and show declared details, ordered decisions and
   refusal history. Rule previews run hypothetical facts through the server's resolver with a
   revision check; Forging progress excludes removed items. Assembly, testing and publication show

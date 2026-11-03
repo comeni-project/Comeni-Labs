@@ -187,6 +187,17 @@ def test_constructor_options_obey_the_required_test_piece():
     assert {"parameters:none", "vocabulary:none", "rules:none"} <= families
 
 
+def test_a_person_refusal_names_each_bad_field(client):
+    started = _start(client)
+    response = _command(client, started["id"], move="write", item="contract:process",
+        value={"nf_process": True, "nf_include": False, "container": True})
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "nf_process: Input should be a valid string" in detail
+    assert "nf_include: Input should be a valid string" in detail
+    assert "container: Input should be a valid string" in detail
+
+
 def test_constructor_source_hints_are_empty_when_source_is_unavailable(
     client, tmp_path, monkeypatch,
 ):
@@ -199,3 +210,59 @@ def test_constructor_source_hints_are_empty_when_source_is_unavailable(
     data = response.json()
     assert data["kinds"]
     assert data["inputs"] == data["outputs"] == []
+
+
+def test_approved_new_answers_allow_contract_drafting_before_vocabulary(
+    client, tmp_path, monkeypatch,
+):
+    import shutil
+
+    from mendel_api.settings import settings
+    from mendel_api_tests.catalogue import FIXTURES
+
+    monkeypatch.setattr(settings, "forge_cache", tmp_path)
+    shutil.copytree(FIXTURES / "bwa/mem", tmp_path / "nf-core-modules/modules/nf-core/bwa/mem")
+    adaptation_id = _start(client)["id"]
+    for key, choice in (("questions:role", "custom_alignment"),
+                        ("questions:input_type:reads", "fastq.custom")):
+        response = _command(client, adaptation_id, move="answer", item=key,
+                            value={"choice": choice, "new": True})
+        assert response.status_code == 200, response.text
+    process = _command(client, adaptation_id, move="write", item="contract:process", value={
+        "nf_process": "BWA_MEM", "nf_include": "modules/nf-core/bwa/mem/main",
+        "roles": ["custom_alignment"],
+    })
+    assert process.status_code == 200, process.text
+    assert process.json()["next_piece"] == "contract"
+    refused = _command(client, adaptation_id, move="write", item="contract:input:reads",
+        value={"position": 0, "name": "reads", "type_id": "fastq.unapproved"})
+    assert refused.status_code == 422
+    allowed = _command(client, adaptation_id, move="write", item="contract:input:reads",
+        value={"position": 0, "name": "reads", "type_id": "fastq.custom"})
+    assert allowed.status_code == 200, allowed.text
+    assert allowed.json()["next_piece"] == "parameters"
+    assert not any(i["piece"] == "vocabulary" for i in allowed.json()["items"])
+
+
+def test_rejected_question_removal_records_the_reason_and_allows_the_next_piece(client):
+    from mendel_api.services import forging
+    from mendel_forge.forging.model import Actor, Command, Move
+
+    adaptation_id = _start(client)["id"]
+    _command(client, adaptation_id, move="answer", item="questions:role",
+             value={"choice": "alignment"})
+    key = "questions:input_type:meta"
+    forging.act_all(adaptation_id, [Command(move=Move.DRAFT, actor=Actor.AI, item=key,
+        value={"asks": "What file is meta?", "options": []})])
+    rejected = _command(client, adaptation_id, move="reject", item=key, expected=1)
+    assert rejected.status_code == 200
+    assert rejected.json()["next_piece"] == "questions"
+    removed = _command(client, adaptation_id, move="remove", item=key, expected=2,
+                       because="Metadata, not a file")
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["next_piece"] == "contract"
+    saved = next(i for i in removed.json()["items"] if i["key"] == key)
+    assert saved["status"] == "removed"
+    assert saved["revisions"][-1]["because"] == "Metadata, not a file"
+    assert saved["revisions"][-1]["by"]
+    assert [r["move"] for r in saved["revisions"]] == ["draft", "reject", "remove"]

@@ -19,6 +19,7 @@ from comeni_ai import Client
 from comeni_ai.prompts import PromptTemplate
 from comeni_core.egress.authoring import AuthoringRole
 from comeni_core.egress.forge import (
+    ForgeItemStatus,
     ForgeItemText,
     ForgePiece,
     ForgeRequest,
@@ -29,10 +30,10 @@ from comeni_core.egress.forge import (
 from comeni_flow.interpret import Refused
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_forge.forging import rules
-from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
+from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece
 from mendel_forge.forging.protocol import Phase
-from mendel_forge.forging.validate import Known, check_items, known
-from mendel_forge.forging.values import validate_value
+from mendel_forge.forging.validate import Known, check_items, known, validation_items
+from mendel_forge.forging.values import validate_value, value_problems
 from pydantic import BaseModel, JsonValue, ValidationError
 
 from mendel_api import db
@@ -46,14 +47,14 @@ CHAT_TAIL = 12
 """How many messages the chat sends back: enough to follow the thread, bounded like the
 builder's."""
 
-_PURPOSE = {"forge.questions.v3": InvocationPurpose.ANALYSIS,
-            "forge.draft.v2": InvocationPurpose.IMPLEMENTATION,
+_PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
+            "forge.draft.v3": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v3", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v4", Piece.TESTS: "forge.tests.v1"}
 
 
 def _client(purpose: InvocationPurpose) -> Client | None:
@@ -91,8 +92,9 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
                                          for s in states), roles=sorted(seen.roles),
                        measurements=sorted(seen.measurements), contracts=sorted(seen.contracts),
                        pending=sorted(seen.pending)),
-        items=[ForgeItemText(key=key, value=json.dumps(item.value, sort_keys=True))
-               for key, item in sorted(state.items.items()) if item.status is not Status.REMOVED],
+        items=[ForgeItemText(key=key, value=json.dumps(item.value, sort_keys=True),
+                             status=ForgeItemStatus(item.status.value))
+               for key, item in sorted(state.items.items())],
         turns=[ForgeTurn(role=AuthoringRole(role), content=content)
                for role, content in list(turns)[-CHAT_TAIL:]],
     )
@@ -113,12 +115,16 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
         f"pending (from approved drafts, not in the registry yet): "
         f"{', '.join(request.known.pending) or '(none)'}",
     ])
-    items_text = "\n".join(f"{i.key} = {i.value}" for i in request.items) or "(nothing yet)"
+    items_text = "\n".join(f"{i.key} [{i.status.value}] = {i.value}"
+                           for i in request.items) or "(nothing yet)"
+    answers_text = "\n".join(f"{i.key} = {i.value}" for i in request.items
+        if i.status is ForgeItemStatus.APPROVED and i.key.startswith("questions:")
+        and isinstance(json.loads(i.value), dict) and "choice" in json.loads(i.value)) or "(none)"
     turns_text = "\n".join(f"{t.role.value}: {t.content}" for t in request.turns) or "(none)"
     return {
         "module": request.module.module, "main_nf": request.module.main_nf,
         "meta_yml": request.module.meta_yml, "nf_test": request.module.nf_test,
-        "known": known_text, "items": items_text,
+        "known": known_text, "items": items_text, "answers": answers_text,
         "piece": request.piece.value, "turns": turns_text,
         "problems": ("\nYour previous reply was refused:\n- " + "\n- ".join(problems)
                      if problems else ""),
@@ -187,10 +193,10 @@ def _item_problems(items: dict[str, JsonValue], state: Adaptation, adaptation: F
         try:
             validate_value(key, value)
         except (ValidationError, KeyError) as error:
-            problems.append(f"{key}: {error}".splitlines()[0])
+            problems.extend(value_problems(key, error))
     if problems:
         return problems
-    merged = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
+    merged = validation_items(state)
     merged.update({k: v for k, v in items.items() if moves.get(k) is not Move.PROPOSE_REMOVAL})
     folder = forging.module_folder(adaptation.source, adaptation.path)
     spec = ModuleSpec.parse(folder / "main.nf")
@@ -214,7 +220,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
                 client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v2")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v3")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])
@@ -236,8 +242,8 @@ def draft_piece(adaptation_id: str, piece: Piece,
         items, because = _proposed(piece, reply)
         moves = {k: Move.REVISE if k in state.items else Move.DRAFT for k in items}
         wrong_piece = [k for k in items if not k.startswith(f"{piece.value}:")]
-        problems = [f"{k}: not part of {piece.value}" for k in wrong_piece] or \
-            _item_problems(items, state, adaptation, moves)
+        problems = ([f"{k}: not part of {piece.value}" for k in wrong_piece]
+                    + _item_problems(items, state, adaptation, moves))
         if problems:
             _refused(adaptation_id, attempt, problems)
             continue
