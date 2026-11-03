@@ -14,6 +14,10 @@ isolation, constructor data preservation, rule previews, progress and publicatio
   actual test and always refuses that item. Removed the impossible option; optional pieces
   retain their none constructors. The regression failed against the advertised option before
   the fix and passed afterwards. The schema fixture was regenerated from the service.
+- **#446, fixed:** the constructor source-hint test relied on the development cache. Both clean
+  CI runners failed on empty hints, and the failure was reproduced locally with an empty cache.
+  The source-backed test now copies its own module fixture into an isolated cache; a separate
+  test verifies that absent source returns empty hints while retaining constructor schemas.
 - Reviewer advice applies no commands and is tied to immutable revisions; source quotes are
   checked against the exact request text. Display filters out superseded revisions. Rule
   previews use the resolver and reject stale revisions. These boundaries must remain intact.
@@ -31,7 +35,8 @@ branch and nearby callers; it does not establish live-model or live-tool correct
 ## Verification
 
 - Both new regressions were watched failing before their fixes.
-- API constructor suite: 13 passed; constructor/editor suite: 15 passed; TypeScript passed.
+- API constructor suite: 14 passed with an empty external module cache; constructor/editor suite: 15 passed; TypeScript passed. Full frontend: 991 passed. The mixed-list removal also passed in the
+  browser at 1440/390 in both themes, without errors or page overflow.
 - Earlier slice verification: 342 focused backend, 990 frontend and 95 invariant guards passed;
   44 browser combinations passed at 1440/390 in both themes. Full Python had one pre-existing
   Python 3.14 exception-message mismatch in blueprint navigation. PR CI uses Python 3.12/3.13.

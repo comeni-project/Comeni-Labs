@@ -5428,3 +5428,9 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `tests:none` was advertised. Both passed after restoration of the intended behavior.
   Logs: `/tmp/forge-review-list-red.log`, `/tmp/forge-review-constructor-red.log`,
   `/tmp/forge-review-list-green.log`, `/tmp/forge-review-constructor-green.log`.
+
+- 2026-11-03, Forge MVP 3 merge review #446: CI and an isolated empty forge cache reproduced
+  the source-hint test failure (empty inputs/outputs). The test now supplies its own source;
+  the API suite passes with the external cache empty. Missing source is tested separately and
+  still returns empty hints. Logs: `/tmp/forge-review-cache-red.log`,
+  `/tmp/forge-review-cache-green.log`; failed CI run `41673042651`.
