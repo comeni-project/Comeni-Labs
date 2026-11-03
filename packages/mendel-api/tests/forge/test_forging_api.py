@@ -123,11 +123,20 @@ def test_a_message_is_stored_and_queued(client, monkeypatch):
     assert [m["content"] for m in messages] == ["Why bwa?"]
 
 
-def test_constructor_fields_come_from_command_models_and_source_channels(client):
+def test_constructor_fields_come_from_command_models_and_source_channels(
+    client, tmp_path, monkeypatch,
+):
+    import shutil
+
     from mendel_api.services import forge_constructors
+    from mendel_api.settings import settings
+    from mendel_api_tests.catalogue import FIXTURES
     from mendel_forge.forging.values import Answer, value_model
     from pydantic import TypeAdapter
 
+    monkeypatch.setattr(settings, "forge_cache", tmp_path)
+    shutil.copytree(FIXTURES / "bwa/mem",
+                    tmp_path / "nf-core-modules/modules/nf-core/bwa/mem")
     started = _start(client)
     response = client.get(f"/api/forge/adaptations/{started['id']}/constructors")
     assert response.status_code == 200, response.text
@@ -187,3 +196,17 @@ def test_a_person_refusal_names_each_bad_field(client):
     assert "nf_process: Input should be a valid string" in detail
     assert "nf_include: Input should be a valid string" in detail
     assert "container: Input should be a valid string" in detail
+
+
+def test_constructor_source_hints_are_empty_when_source_is_unavailable(
+    client, tmp_path, monkeypatch,
+):
+    from mendel_api.settings import settings
+
+    monkeypatch.setattr(settings, "forge_cache", tmp_path)
+    started = _start(client)
+    response = client.get(f"/api/forge/adaptations/{started['id']}/constructors")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["kinds"]
+    assert data["inputs"] == data["outputs"] == []

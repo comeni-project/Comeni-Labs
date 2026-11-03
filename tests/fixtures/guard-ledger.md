@@ -5433,3 +5433,10 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   failed before their fix: the retry reported only the wrong piece, and the person saw only
   the validation-error count. Both now name every invalid process field. The affected API/model
   suites passed (48 tests). Logs: `/tmp/forge-431-fields-red.log`, `/tmp/forge-431-fields-green.log`.
+
+
+- 2026-11-03, Forge MVP 3 merge review #446: CI and an isolated empty forge cache reproduced
+  the source-hint test failure (empty inputs/outputs). The test now supplies its own source;
+  the API suite passes with the external cache empty. Missing source is tested separately and
+  still returns empty hints. Logs: `/tmp/forge-review-cache-red.log`,
+  `/tmp/forge-review-cache-green.log`; failed CI run `41673042651`.
