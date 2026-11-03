@@ -203,7 +203,7 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                   </p>}
                   {isQuestion && removingKey === item.key && item.status !== "removed" &&
                     <QuestionRemoval key={item.key} item={item} actions={actions} onClose={() => setRemovingKey(null)} />}
-                  {question && item.status !== "removed" && <Answer item={item} question={question} actions={actions} />}
+                  {question && item.status !== "removed" && removingKey !== item.key && <Answer item={item} question={question} actions={actions} />}
                   <span className={`block mt-1 text-[12.5px] ${removing(item) ? "text-needs-you-ink" : STATUS[item.status]?.tone ?? ""}`}>
                     {removing(item) ? "The AI proposes removing this" : STATUS[item.status]?.label}
                   </span>
@@ -221,7 +221,7 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                   Approve
                 </button>
               )}
-              {item.status !== "removed" && !question && editing !== item.key && (
+              {item.status !== "removed" && !question && editing !== item.key && removingKey !== item.key && (
                 <button type="button" className={button}
                         onClick={() => setEditing(item.key)}>
                   Change
@@ -231,7 +231,7 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                 <button type="button" className={button} disabled={actions.command.isPending}
                   onClick={() => setRemovingKey(item.key)}>Remove question</button>
               )}
-              {waiting && (
+              {waiting && removingKey !== item.key && (
                 <button type="button" disabled={actions.command.isPending} className={`${button} text-needs-you-ink`}
                         onClick={() => { actions.command.mutate({ move: "reject", item: item.key,
                                                                    expected: item.current_n });

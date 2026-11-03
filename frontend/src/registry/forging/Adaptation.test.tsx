@@ -515,6 +515,7 @@ it("a rejected question stays unresolved and has explicit removal with a recorde
   expect(within(row).getByText(/still needs an answer, correction or explicit removal/)).toBeTruthy();
   fireEvent.click(within(row).getByRole("button", { name: "Remove question" }));
   const form = within(row).getByRole("form", { name: "Remove meta question" });
+  expect(within(row).queryByRole("button", { name: /^Answer$/ })).toBeNull();
   expect(within(form).getByRole("button", { name: "Remove question" })).toBeDisabled();
   fireEvent.change(within(form).getByLabelText("Why does this question not apply?"), {
     target: { value: "meta carries metadata, not a file" },

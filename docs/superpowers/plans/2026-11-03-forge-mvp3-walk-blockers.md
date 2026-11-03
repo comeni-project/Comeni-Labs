@@ -55,7 +55,9 @@ Logs: `/tmp/forge-431-fields-red.log`, `/tmp/forge-431-fields-green.log`.
 - [x] Send item status in the typed model payload, retain removed questions as history, and
   separate approved answers as prompt instructions. Draft v3 adds typed examples, zero-based
   positions and process-slot/tuple instructions. Questions v4 honours removed questions.
-- [ ] Complete backend/frontend/guard checks, browser verification, commit, push and merge.
+- [x] Complete backend/frontend/guard checks and browser verification.
+
+Implementation and merge are tracked by PR #447.
 
 Live model calls, tool execution and registry publication remain deferred until the GPU walk.
 
@@ -63,8 +65,10 @@ Live model calls, tool execution and registry publication remain deferred until 
 ## Verification
 
 - Focused backend: **363 passed**, covering the pure forge, Forge API and OpenAPI operations.
+- Core package: **483 passed**, covering the shared payload/schema changes.
 - Frontend: **994 passed**; TypeScript passed. Tests cover explicit removal, retained reasons,
-  stale revisions and process-only Contract progress.
+  stale revisions and process-only Contract progress. Removal forms hide competing Answer and
+  Reject decisions; its regression failed before that restriction.
 - Invariant guards: **95 passed**. Removing the approved-answer filter made three permission
   cases fail; the filter was restored before the final suites. The new-type and completion
   regressions also failed against the original behavior before implementation.

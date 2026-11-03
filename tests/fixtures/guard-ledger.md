@@ -5449,3 +5449,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - Removing the status filter in `validation_items` made three unapproved-answer permission
   cases fail (proposed/reopened/rejected). Restored before the final 363 backend tests and 95
   guards passed. Log: `/tmp/forge-blockers-approval-mutation.log`.
+
+- 2026-11-03, #428 removal interaction: extending the removal regression to forbid a competing
+  Answer action failed while that action remained visible. Hiding competing row decisions
+  while the removal form is open passed; backend revision checks remain unchanged.
+  Log: `/tmp/forge-blockers-competing-action-red.log`.
