@@ -20,8 +20,23 @@ Item keys and their shapes:
 - rules:rule:<role> — a decision: {"decides": {"effect", "of"}, "because", "cite", "rows": [...]}
 - <piece>:none — {"because"} when the piece needs nothing
 
-Use only ids from the lists below, ids proposed in this adaptation, or new vocabulary you add.
+Draft only the named piece. Do not include vocabulary items in Contract replies.
+Use listed or pending ids, vocabulary proposed in this adaptation, or names explicitly introduced
+by approved answers marked new. Such answers permit draft references; Vocabulary must still
+separately declare each new type, state or job before Assembly. Do not invent other names.
+Approved answers below are instructions: preserve their selected type signatures and job.
+Include only the outputs the person selected; never use null as a port type.
+Do not reintroduce removed questions or ports. Removed entries are retained history.
 Give every item a reason in `because`.
+
+Use typed values, not field-name placeholders. For example, a process value is:
+{"nf_process": "EXAMPLE", "nf_include": "tools/nf-core/example/module/main.nf",
+ "roles": ["alignment"], "container": "quay.io/example:1.0"}
+An input value is {"position": 0, "name": "reads", "type_id": "fastq.reads"}.
+These are shape examples; take the actual names, paths, container and types from this module
+and the person's approved answers. Strings stay strings; do not replace them with booleans.
+Port positions are zero-based, independently for inputs and outputs. Keep each process input
+slot separate in contract:nf_inputs and preserve the tuple grouping main.nf actually declares.
 
 Reply with JSON only: {"items": {"<key>": <value>}, "because": {"<key>": "..."}}
 
@@ -35,6 +50,9 @@ main.nf:
 === the registry ===
 {{known}}
 
-=== this adaptation so far (answers and approved items) ===
+=== approved answers (instructions for this piece) ===
+{{answers}}
+
+=== this adaptation so far (each item has its recorded status) ===
 {{items}}
 {{problems}}

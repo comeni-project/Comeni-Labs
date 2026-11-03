@@ -34,6 +34,7 @@ def _do(state, move, actor, item, **kw):
 def _all_but_tests() -> Adaptation:
     state = _do(Adaptation(), Move.ANSWER, Actor.PERSON, "questions:role", value={"choice": "x"})
     state = _do(state, Move.WRITE, Actor.PERSON, "contract:process", value={})
+    state = _do(state, Move.WRITE, Actor.PERSON, "contract:input:reads", value={})
     for key in ("parameters:none", "vocabulary:none", "rules:none"):
         state = _do(state, Move.WRITE, Actor.PERSON, key, value={"because": "nothing"})
     return state

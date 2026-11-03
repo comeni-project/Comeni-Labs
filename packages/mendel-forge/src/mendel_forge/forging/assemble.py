@@ -147,7 +147,7 @@ def prove(base: Path, below: list[Path], draft: Path) -> Proof:
     contract."""
     try:
         stack = layers.load([base, *below, draft])
-    except ValueError as error:
+    except (ValueError, KeyError) as error:
         said = str(error)
         return Proof(loaded=False, conforms=False, blames=_blamed(said),
                      problems=[Problem(code="MF0511", says=f"the draft does not load: {said}")])

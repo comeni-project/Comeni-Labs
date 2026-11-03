@@ -120,3 +120,28 @@ def test_quast_assembly_report_keeps_content_and_format_separate(tmp_path):
     saved = yaml.safe_load((out / "tools/nf-core/quast/contract.yml").read_text())
     assert saved["produces"] == [
         {"name": "tsv", "type_id": "qc.report::assembly", "format": ["tsv"]}]
+
+
+@pytest.mark.parametrize(("signature", "declaration"), [
+    ("alignment.custom", {"id": "alignment.custom", "states": []}),
+    ("alignment.bam::reviewed", {"id": "alignment.bam", "add_states": ["reviewed"]}),
+])
+def test_new_answers_do_not_replace_vocabulary_declarations_at_assembly(
+    tmp_path, signature, declaration,
+):
+    values = _star_values()
+    values["questions:output_type:bam"] = {"choice": signature, "new": True}
+    values["questions:role"] = {"choice": "custom_alignment", "new": True}
+    values["contract:output:bam"]["type_id"] = signature
+    values["contract:process"]["roles"].append("custom_alignment")
+    out = tmp_path / "draft"
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    assert not prove(REGISTRY, [], out).loaded
+    values["vocabulary:role:custom_alignment"] = {
+        "name": "custom_alignment", "explain": "A custom alignment job"}
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    assert not prove(REGISTRY, [], out).loaded
+    values[f"vocabulary:type:{declaration['id']}"] = declaration
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    proof = prove(REGISTRY, [], out)
+    assert proof.loaded and proof.conforms, proof.problems

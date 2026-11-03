@@ -5440,3 +5440,12 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   the API suite passes with the external cache empty. Missing source is tested separately and
   still returns empty hints. Logs: `/tmp/forge-review-cache-red.log`,
   `/tmp/forge-review-cache-green.log`; failed CI run `41673042651`.
+
+- 2026-11-03, Forge MVP 3 #428/#431: the approved-new-answer and process-only completion guards
+  failed against the original code; the removal UI test failed before its action existed.
+  Explicit state fields and input-alternative guards also failed before being read through the
+  port models. Logs: `/tmp/forge-blockers-pure-red.log`, `/tmp/forge-blockers-ui-red.log`,
+  `/tmp/forge-blockers-port-forms-red.log`.
+- Removing the status filter in `validation_items` made three unapproved-answer permission
+  cases fail (proposed/reopened/rejected). Restored before the final 363 backend tests and 95
+  guards passed. Log: `/tmp/forge-blockers-approval-mutation.log`.

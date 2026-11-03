@@ -38,7 +38,10 @@ stays visible and your chosen option is marked. Each question shows what the
 answer decides, relevant module lines and upstream descriptions, and the registry's explanations
 and existing uses. An output can name its content, such as `qc.report::assembly`, separately from
 its file format, such as `tsv`. A new content state needs an approved vocabulary proposal before
-assembly.
+assembly. Approved answers marked as new also permit a contract draft to reference a new type
+or job before the Vocabulary piece. They do not declare it: Vocabulary still needs the separate
+entry before Assembly will load it. A process-only contract stays unfinished; approve at least
+one input or output port as well.
 
 To get a second model's advice, choose **Settings → Models → Reviewing tool drafts**. This is
 **Off** until you choose a model, even when a default model is configured. The reviewer runs after
@@ -52,6 +55,11 @@ Then, for each other item:
 - **Change** it: the same form opens with its current fields. Your saved value counts as your decision.
 - **Reject** it: the chat opens on that item. Tell the AI what is wrong and it proposes a
   revision, or write the value yourself. A rejected item holds its piece until it is fixed.
+
+A rejected question still needs an answer, correction or explicit removal. If its premise is
+false (for example, `meta` is metadata rather than a file), choose **Remove question** and give
+a reason. The question, previous answers and removal reason stay in its history; removal lets
+that question's piece advance. Removing an approved answer re-opens dependent approved pieces.
 
 **Approve the rest** approves the items still waiting in the current piece, except questions and
 any removal the AI proposes: each of those needs a decision of its own. A piece that needs nothing
