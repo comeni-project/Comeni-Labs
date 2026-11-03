@@ -48,7 +48,7 @@ CHAT_TAIL = 12
 builder's."""
 
 _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
-            "forge.draft.v3": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v4": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW}
@@ -73,7 +73,8 @@ NO_MODEL_DETAIL = "MI0106: no model is configured (Settings → Models → Adapt
 
 
 def _known(adaptation: ForgeAdaptation) -> Known:
-    return known(registry.stack(), pending=forging.pending_ids(adaptation.id))
+    return known(registry.stack(), pending=forging.pending_ids(adaptation.id),
+                 pending_families=forging.pending_families(adaptation.id))
 
 
 def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt: str,
@@ -91,7 +92,8 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
                        signatures=sorted(f"{t}::{s}" for t, states in seen.states.items()
                                          for s in states), roles=sorted(seen.roles),
                        measurements=sorted(seen.measurements), contracts=sorted(seen.contracts),
-                       pending=sorted(seen.pending)),
+                       pending=sorted(seen.pending), families=sorted(seen.families),
+                       pending_families=sorted(seen.pending_families)),
         items=[ForgeItemText(key=key, value=json.dumps(item.value, sort_keys=True),
                              status=ForgeItemStatus(item.status.value))
                for key, item in sorted(state.items.items())],
@@ -107,6 +109,9 @@ def _nf_test(folder: Path) -> str:
 
 def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
     known_text = "\n".join([
+        f"families (first segment of each type ID): {', '.join(request.known.families)}",
+        f"pending families (from assembled drafts): "
+        f"{', '.join(request.known.pending_families) or '(none)'}",
         f"types: {', '.join(request.known.types)}",
         f"type states: {', '.join(request.known.signatures)}",
         f"roles: {', '.join(request.known.roles)}",
@@ -220,7 +225,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
                 client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v3")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v4")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])

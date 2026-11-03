@@ -65,6 +65,7 @@ it("can construct nothing-needed without knowing an item key", async () => {
 it.each([
   ["contract:input:reads", { name: "reads", position: 0, accepts: [{ type_id: "alignment.bam", states: ["sorted"] }], cardinality: "*" }],
   ["contract:nf_inputs", [{ ports: ["reads", "reference"], join: "broadcast" }, { literal: false }]],
+  ["vocabulary:family:assembly", { id: "assembly", description: "Assembled genomic sequences." }],
   ["vocabulary:type:qc.report", { id: "qc.report", add_states: ["assembly"] }],
   ["vocabulary:measurement:read_length", { id: "read_length", kind: "integer", describes: "fastq.reads", meta_values: [{ when: 1, then: true }] }],
   ["rules:rule:alignment", { decides: [{ effect: "param", of: "alignment", name: "threads", when_implementation: ["nf-core/bwa/mem@1"] }],
@@ -75,7 +76,9 @@ it.each([
   const submit = mount(key.split(":")[0], existing(key, value));
   fireEvent.click(await screen.findByRole("button", { name: "Save" }));
   await vi.waitFor(() => expect(submit).toHaveBeenCalledWith({ move: "change", item: key, expected: 7, value }));
-  expect(document.querySelector("textarea")).toBeNull();
+  if (key.startsWith("vocabulary:family:")) {
+    expect(screen.getByLabelText("Description").tagName).toBe("TEXTAREA");
+  } else expect(document.querySelector("textarea")).toBeNull();
 });
 
 it("disables duplicate saves while a command is pending", async () => {
@@ -132,4 +135,15 @@ it("a background refresh cannot advance the revision of the value being edited",
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await vi.waitFor(() => expect(submit).toHaveBeenCalledWith({ move: "change", item: old.key, expected: 7,
     value: { name: "qc", explain: "My explanation" } }));
+});
+
+it("writes an explicit family with its ID and description", async () => {
+  const submit = mount("vocabulary");
+  fireEvent.change(await screen.findByLabelText("What are you adding?"), { target: { value: "vocabulary:family" } });
+  fireEvent.change(screen.getByLabelText("Family ID"), { target: { value: "assembly" } });
+  fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Assembled genomic sequences." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(submit).toHaveBeenCalledWith({ move: "write", item: "vocabulary:family:assembly",
+    expected: undefined, value: { id: "assembly", description: "Assembled genomic sequences." } }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Saved assembly.");
 });

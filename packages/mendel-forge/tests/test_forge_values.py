@@ -58,3 +58,18 @@ def test_contract_of_records_the_forge_as_its_source():
     provenance = Provenance(source="forge", drafted_by="ai", approved_by="rafael",
                             approved_at="2026-10-30")
     assert contract_of(items_of(star), star.id, provenance).provenance.source == "forge"
+
+
+@pytest.mark.parametrize("identifier", [
+    "../assembly", "assembly.fasta", "assembly/x", "", "x" * 65,
+])
+def test_family_id_is_a_safe_single_type_segment(identifier):
+    with pytest.raises(ValidationError):
+        validate_value("vocabulary:family:assembly", {
+            "id": identifier, "description": "Assembled sequences"})
+
+
+@pytest.mark.parametrize("description", ["", "x" * 201])
+def test_family_description_uses_registry_bounds(description):
+    with pytest.raises(ValidationError):
+        validate_value("vocabulary:family:assembly", {"id": "assembly", "description": description})

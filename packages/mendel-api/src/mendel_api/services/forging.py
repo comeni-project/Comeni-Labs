@@ -30,7 +30,14 @@ from mendel_forge.forging.model import (
     Status,
 )
 from mendel_forge.forging.protocol import Phase
-from mendel_forge.forging.validate import check_items, known, pending_used, validation_items
+from mendel_forge.forging.validate import (
+    check_items,
+    families_used,
+    known,
+    pending_families_used,
+    pending_used,
+    validation_items,
+)
 from mendel_forge.forging.values import items_of, validate_value, value_problems
 from mendel_forge.model import Problem
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -390,7 +397,9 @@ def set_phase(adaptation_id: str, phase: Phase) -> None:
         session.get(ForgeAdaptation, adaptation_id).phase = phase
 
 
-def _assembled_vocabulary(adaptation_id: str) -> dict[str, str]:
+def _assembled_vocabulary(
+    adaptation_id: str, prefixes: tuple[str, ...] = ("vocabulary:type:", "vocabulary:role:"),
+) -> dict[str, str]:
     """Pending id → the assembled adaptation that proposes it, other than `adaptation_id`.
     Only an assembled adaptation is visible: work in progress never is (spec §5)."""
     with db.session_scope() as session:
@@ -400,7 +409,7 @@ def _assembled_vocabulary(adaptation_id: str) -> dict[str, str]:
     found: dict[str, str] = {}
     for other in sorted(others):
         for key, item in load(other).items.items():
-            if key.startswith(("vocabulary:type:", "vocabulary:role:")) and \
+            if key.startswith(prefixes) and \
                     item.status is Status.APPROVED:
                 found.setdefault(key.rsplit(":", 1)[1], other)
     return found
@@ -411,12 +420,22 @@ def pending_ids(adaptation_id: str) -> frozenset[str]:
     return frozenset(_assembled_vocabulary(adaptation_id))
 
 
+def pending_families(adaptation_id: str) -> frozenset[str]:
+    """Assembled family declarations, kept separate from type and role IDs."""
+    return frozenset(_assembled_vocabulary(adaptation_id, ("vocabulary:family:",)))
+
+
 def _record_dependencies(adaptation_id: str, state: Adaptation) -> None:
     """Note which assembled adaptations this one's items now rely on."""
     owners = _assembled_vocabulary(adaptation_id)
-    values = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
-    used = pending_used(values, known(registry.stack(), pending=frozenset(owners)))
-    needed = sorted({owners[i] for i in used})
+    values = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED
+              and not (k.startswith("vocabulary:family:") and i.status is not Status.APPROVED)}
+    family_owners = _assembled_vocabulary(adaptation_id, ("vocabulary:family:",))
+    seen = known(registry.stack(), pending=frozenset(owners),
+                 pending_families=frozenset(family_owners))
+    used = pending_used(values, seen)
+    needed = sorted({owners[i] for i in used} |
+                    {family_owners[i] for i in pending_families_used(values, seen)})
     with db.session_scope() as session:
         found = session.get(ForgeAdaptation, adaptation_id)
         merged = sorted(set(found.depends_on or []) | set(needed))
@@ -433,11 +452,17 @@ def _changed(adaptation_id: str) -> None:
             if adaptation_id in (r.depends_on or [])]
     vocabulary = {key.rsplit(":", 1)[1] for key in load(adaptation_id).items
                   if key.startswith(("vocabulary:type:", "vocabulary:role:"))}
+    families = {key.removeprefix("vocabulary:family:") for key in load(adaptation_id).items
+                if key.startswith("vocabulary:family:")}
     for dependant in dependants:
         state = load(dependant)
+        own_families = {key.removeprefix("vocabulary:family:") for key, item in state.items.items()
+                        if key.startswith("vocabulary:family:") and item.status is Status.APPROVED}
         items = {
             key: item.model_copy(update={"status": Status.REOPENED})
-            if item.status is Status.APPROVED and _uses(item.value, vocabulary) else item
+            if item.status is Status.APPROVED and (
+                _uses(item.value, vocabulary) or
+                families_used({key: item.value}) & (families - own_families)) else item
             for key, item in state.items.items()
         }
         with db.transaction() as session:

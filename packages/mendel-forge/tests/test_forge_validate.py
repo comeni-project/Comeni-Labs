@@ -149,3 +149,15 @@ def test_input_alternatives_use_the_same_approved_new_type_permission(stack, sta
     assert "MF0507" in _codes(check_items(items, known(stack), ModuleSpec.parse(STAR_NF)))
     items["questions:input_type:reads"] = {"choice": "alignment.custom", "new": True}
     assert check_items(items, known(stack), ModuleSpec.parse(STAR_NF)) == []
+
+
+@pytest.mark.parametrize(("own", "expected"), [(False, {"assembly"}), (True, set())])
+def test_pending_families_are_separate_from_type_and_role_names(stack, own, expected):
+    from mendel_forge.forging.validate import pending_families_used
+
+    items = {"vocabulary:type:assembly.graph": {"id": "assembly.graph", "states": []}}
+    if own:
+        items["vocabulary:family:assembly"] = {"id": "assembly", "description": "Assembly products"}
+    seen = known(stack, pending=frozenset({"assembly"}), pending_families=frozenset({"assembly"}))
+    assert pending_used(items, seen) == set()
+    assert pending_families_used(items, seen) == expected

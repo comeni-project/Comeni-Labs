@@ -145,3 +145,22 @@ def test_new_answers_do_not_replace_vocabulary_declarations_at_assembly(
     write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
     proof = prove(REGISTRY, [], out)
     assert proof.loaded and proof.conforms, proof.problems
+
+
+def test_new_family_requires_an_explicit_declaration_and_loads_with_it(tmp_path):
+    """#441: assembly.fasta must carry its reviewed family into the assembled layer."""
+    values = _star_values()
+    values["contract:output:bam"]["type_id"] = "assembly.fasta"
+    values["vocabulary:type:assembly.fasta"] = {"id": "assembly.fasta", "states": []}
+    out = tmp_path / "draft"
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    proof = prove(REGISTRY, [], out)
+    assert not proof.loaded and proof.blames is Piece.VOCABULARY
+    assert any("MD0316" in p.says for p in proof.problems)
+    values["vocabulary:family:assembly"] = {
+        "id": "assembly", "description": "Assembled genomic sequences and assembly products."}
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY, out=out)
+    proof = prove(REGISTRY, [], out)
+    assert proof.loaded and proof.conforms, proof.problems
+    assert yaml.safe_load((out / "vocabulary/families/assembly.yml").read_text()) == {
+        "declares": "family", **values["vocabulary:family:assembly"]}

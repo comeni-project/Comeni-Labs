@@ -20,6 +20,7 @@ KINDS = (
     ("vocabulary:type", "Data type or added states", True),
     ("vocabulary:measurement", "Measurement", True),
     ("vocabulary:role", "Job", True),
+    ("vocabulary:family", "Family", True),
     ("rules:rule", "Decision rule", True),
     ("tests:test", "Test", True),
 )

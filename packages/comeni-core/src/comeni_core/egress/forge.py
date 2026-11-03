@@ -47,6 +47,8 @@ class KnownIds(EgressPayload):
     measurements: list[MeasurementId] = []
     contracts: list[ContractId] = []
     pending: list[TypeId] = []
+    families: list[TypeId] = []
+    pending_families: list[TypeId] = []
 
 
 class ForgeItemStatus(StrEnum):

@@ -101,8 +101,8 @@ cites its entry; the long form is in [the archive](journal/archive/).
 - **MVPs 1–6 are on `main` (#415); comeni-registry v0.5.0 is its first release.** #365–#367 stay
   open. **The [live walk](../how-to/development/forge-live-walk.md) (#412) stopped at step 4;**
   findings are #420–#432. Redesign slices 1–6 landed (#445); #428/#431 have approved decisions
-  and implemented fixes. **Next:** decide #441 (new type families), then resume live step 4 on
-  the GPU machine. No redesign slice 7 is planned; MVPs 4–6 already have implementations. (11-03)
+  and implemented fixes. #441 adds explicit, approved Family declarations in Vocabulary.
+  **Next:** resume live step 4 on the GPU machine. No redesign slice 7 is planned; MVPs 4–6 already have implementations. (11-03)
 
 ## Wiener (run → watch)
 

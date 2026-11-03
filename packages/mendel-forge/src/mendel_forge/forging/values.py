@@ -5,7 +5,8 @@ registry's own messages, and an assembled contract is a `ModuleContract` like an
 Item keys: `contract:process`, `contract:input:<port>`, `contract:output:<port>`,
 `contract:nf_inputs`, `parameters:param:<name>`, `parameters:ext_args`,
 `vocabulary:type:<id>`, `vocabulary:measurement:<id>`, `vocabulary:role:<name>`,
-`rules:rule:<role>`, `tests:test:<name>`, `<piece>:none`, `questions:<subject>`.
+`vocabulary:family:<id>`, `rules:rule:<role>`, `tests:test:<name>`, `<piece>:none`,
+`questions:<subject>`.
 """
 
 from comeni_core.declared.contract import (
@@ -17,11 +18,21 @@ from comeni_core.declared.contract import (
     Param,
     Provenance,
 )
+from comeni_core.declared.families import Family
 from comeni_core.declared.measurement import Measurement
 from comeni_core.declared.tooltest import TestDraft
 from comeni_core.declared.vocabulary import TypeDeclaration, TypeExtension
+from comeni_core.spell.marks import TypeId
 from mendel_resolver.rules.format import Decision
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+)
 
 
 class _Frozen(BaseModel):
@@ -54,6 +65,19 @@ class RoleDraft(_Frozen):
     name: str
     explain: str = Field(min_length=1, max_length=600)
     because: str = ""
+
+
+class FamilyDraft(Family):
+    """A family ID is one safe type segment; its description uses the registry bounds."""
+
+    id: TypeId = Field(min_length=1, max_length=64)
+
+    @field_validator("id")
+    @classmethod
+    def single_segment(cls, value: str) -> str:
+        if "." in value:
+            raise ValueError("a family ID is the first segment of a type ID, without dots")
+        return value
 
 
 class NoneNeeded(_Frozen):
@@ -93,6 +117,7 @@ _FAMILIES: dict[str, type] = {
     "vocabulary:type": TypeDeclaration | TypeExtension,
     "vocabulary:measurement": Measurement,
     "vocabulary:role": RoleDraft,
+    "vocabulary:family": FamilyDraft,
     "rules:rule": Decision,
     "tests:test": TestDraft,
 }

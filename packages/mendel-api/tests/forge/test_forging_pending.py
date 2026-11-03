@@ -100,3 +100,47 @@ def test_an_assembled_dependant_of_an_abandoned_draft_goes_back_to_review():
     forging.set_phase(b, "assembled")
     forging.abandon(a)
     assert forging.read(b).phase == "reviewing"
+
+
+def test_a_new_type_can_depend_on_a_pending_family_and_reopens_when_it_changes():
+    a = _earlier(assembled=False)
+    _do(a, Move.WRITE, "vocabulary:family:assembly", {
+        "id": "assembly", "description": "Assembled sequences and assembly products."})
+    _do(a, Move.WRITE, "vocabulary:type:assembly.fasta", {"id": "assembly.fasta", "states": []})
+    proof = forging.assemble(a)
+    assert proof.loaded and proof.conforms, proof.problems
+    b = _later()
+    _do(b, Move.WRITE, "contract:process", {
+        "nf_process": "BWA_MEM", "nf_include": "modules/nf-core/bwa/mem/main",
+        "roles": ["alignment"]})
+    _do(b, Move.WRITE, "contract:input:reads", {
+        "position": 0, "name": "reads", "type_id": "fastq.reads"})
+    _do(b, Move.WRITE, "contract:output:bam", {
+        "position": 0, "name": "bam", "type_id": "alignment.bam"})
+    _do(b, Move.WRITE, "contract:nf_inputs", [
+        {"ports": ["reads"]}, {"literal": [], "because": "Only family loading is tested"},
+        {"literal": [], "because": "Only family loading is tested"},
+        {"literal": False, "because": "Use the default output format"}])
+    _do(b, Move.WRITE, "parameters:none", {"because": "Defaults"})
+    assert "assembly" in forging.pending_families(b)
+    assert "assembly" not in forging.pending_ids(b)
+    key = "vocabulary:type:assembly.graph"
+    _do(b, Move.WRITE, key, {"id": "assembly.graph", "states": []})
+    assert forging.read(b).depends_on == [a]
+    _do(b, Move.WRITE, "rules:none", {"because": "No new selection rule"})
+    _do(b, Move.WRITE, "tests:test:small", {
+        "inputs": {"reads": ["genomics/a.fq"]},
+        "expect": [{"port": "bam", "pattern": "*.bam"}]})
+    proof = forging.assemble(b)
+    assert proof.loaded and proof.conforms, proof.problems
+    forging.abandon(a)
+    assert forging.read(b).phase == "reviewing"
+    item = forging.load(b).items[key]
+    assert item.status == "reopened" and item.value["id"] == "assembly.graph"
+
+
+def test_family_key_and_declared_id_must_agree():
+    b = _later()
+    with pytest.raises(Exception, match="family ID must match"):
+        _do(b, Move.WRITE, "vocabulary:family:assembly", {
+            "id": "other", "description": "Assembled sequences."})
