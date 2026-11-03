@@ -32,7 +32,7 @@ from mendel_forge.forging import rules
 from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
 from mendel_forge.forging.protocol import Phase
 from mendel_forge.forging.validate import Known, check_items, known
-from mendel_forge.forging.values import validate_value
+from mendel_forge.forging.values import validate_value, value_problems
 from pydantic import BaseModel, JsonValue, ValidationError
 
 from mendel_api import db
@@ -187,7 +187,7 @@ def _item_problems(items: dict[str, JsonValue], state: Adaptation, adaptation: F
         try:
             validate_value(key, value)
         except (ValidationError, KeyError) as error:
-            problems.append(f"{key}: {error}".splitlines()[0])
+            problems.extend(value_problems(key, error))
     if problems:
         return problems
     merged = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
@@ -236,8 +236,8 @@ def draft_piece(adaptation_id: str, piece: Piece,
         items, because = _proposed(piece, reply)
         moves = {k: Move.REVISE if k in state.items else Move.DRAFT for k in items}
         wrong_piece = [k for k in items if not k.startswith(f"{piece.value}:")]
-        problems = [f"{k}: not part of {piece.value}" for k in wrong_piece] or \
-            _item_problems(items, state, adaptation, moves)
+        problems = ([f"{k}: not part of {piece.value}" for k in wrong_piece]
+                    + _item_problems(items, state, adaptation, moves))
         if problems:
             _refused(adaptation_id, attempt, problems)
             continue

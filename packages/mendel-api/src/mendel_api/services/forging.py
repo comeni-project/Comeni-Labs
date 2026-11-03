@@ -31,7 +31,7 @@ from mendel_forge.forging.model import (
 )
 from mendel_forge.forging.protocol import Phase
 from mendel_forge.forging.validate import check_items, known, pending_used
-from mendel_forge.forging.values import items_of, validate_value
+from mendel_forge.forging.values import items_of, validate_value, value_problems
 from mendel_forge.model import Problem
 from pydantic import BaseModel, JsonValue, ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -307,7 +307,7 @@ def _check_person_value(adaptation_id: str, state: Adaptation, command: Command)
     try:
         validate_value(command.item, command.value, answer=command.move is Move.ANSWER)
     except (ValidationError, KeyError) as error:
-        raise Refused(coded("MF0507", f"{command.item}: {str(error).splitlines()[0]}")) \
+        raise Refused(coded("MF0507", "; ".join(value_problems(command.item, error)))) \
             from None
     if command.item.startswith("questions:"):
         if command.move is Move.ANSWER:

@@ -517,3 +517,20 @@ async def test_drafting_stays_busy_until_the_reviewer_is_queued(adaptation, monk
     await forging_ai.draft_forge_piece({}, adaptation, "questions")
     assert queued == ["review_forge_piece"]
     assert forging.row(adaptation).phase == "reviewing" and forging.working(adaptation)
+
+
+def test_contract_retry_names_bad_fields_as_well_as_wrong_piece_items(adaptation):
+    _answer(adaptation)
+    bad = {"items": {
+        "contract:process": {"nf_process": True, "nf_include": False, "container": True},
+        "vocabulary:role:extra": {"name": "extra", "explain": "An extra job"},
+    }}
+    client = FakeClient(bad, bad)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    assert len(client.prompts) == 2
+    retry = client.prompts[1]
+    assert "vocabulary:role:extra: not part of contract" in retry
+    assert "nf_process: Input should be a valid string" in retry
+    assert "nf_include: Input should be a valid string" in retry
+    assert "container: Input should be a valid string" in retry
+    assert "contract:process" not in forging.load(adaptation).items

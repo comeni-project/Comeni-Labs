@@ -5428,3 +5428,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `tests:none` was advertised. Both passed after restoration of the intended behavior.
   Logs: `/tmp/forge-review-list-red.log`, `/tmp/forge-review-constructor-red.log`,
   `/tmp/forge-review-list-green.log`, `/tmp/forge-review-constructor-green.log`.
+
+- 2026-11-03, Forge MVP 3 #431: the contract retry and person-refusal field-detail regressions
+  failed before their fix: the retry reported only the wrong piece, and the person saw only
+  the validation-error count. Both now name every invalid process field. The affected API/model
+  suites passed (48 tests). Logs: `/tmp/forge-431-fields-red.log`, `/tmp/forge-431-fields-green.log`.

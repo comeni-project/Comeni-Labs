@@ -176,3 +176,14 @@ def test_constructor_options_obey_the_required_test_piece():
     assert "tests:test" in families
     assert "tests:none" not in families
     assert {"parameters:none", "vocabulary:none", "rules:none"} <= families
+
+
+def test_a_person_refusal_names_each_bad_field(client):
+    started = _start(client)
+    response = _command(client, started["id"], move="write", item="contract:process",
+        value={"nf_process": True, "nf_include": False, "container": True})
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "nf_process: Input should be a valid string" in detail
+    assert "nf_include: Input should be a valid string" in detail
+    assert "container: Input should be a valid string" in detail
