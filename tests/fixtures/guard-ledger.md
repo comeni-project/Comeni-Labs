@@ -5420,3 +5420,11 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `forging.summaries` made `test_forging_api.py::test_forging_progress_excludes_removed_items`
   fail (2 total instead of 1). Both mutations were restored before the final suite.
   Logs: `/tmp/forge-slice6-stale-mutation.log`, `/tmp/forge-slice6-progress-mutation.log`.
+
+- 2026-11-03, Forge MVP 3 merge review (#443/#444):
+  `ConstructorFields.test.tsx::removing an entry retains the surviving value's kind and editable value`
+  failed before the fix (retained null editor kind 4 instead of numeric kind 1).
+  `test_forging_api.py::test_constructor_options_obey_the_required_test_piece` failed because
+  `tests:none` was advertised. Both passed after restoration of the intended behavior.
+  Logs: `/tmp/forge-review-list-red.log`, `/tmp/forge-review-constructor-red.log`,
+  `/tmp/forge-review-list-green.log`, `/tmp/forge-review-constructor-green.log`.

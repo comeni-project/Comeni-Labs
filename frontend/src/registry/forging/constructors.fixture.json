@@ -1403,26 +1403,6 @@
         "title": "NoneNeeded",
         "type": "object"
       }
-    },
-    {
-      "family": "tests:none",
-      "label": "Nothing needed",
-      "named": false,
-      "fields": {
-        "additionalProperties": false,
-        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
-        "properties": {
-          "because": {
-            "title": "Because",
-            "type": "string"
-          }
-        },
-        "required": [
-          "because"
-        ],
-        "title": "NoneNeeded",
-        "type": "object"
-      }
     }
   ],
   "inputs": [

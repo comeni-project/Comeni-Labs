@@ -46,7 +46,7 @@ def kinds() -> list[Constructor]:
         for family, label, named in KINDS]
     result.extend(Constructor(family=f"{piece}:none", label="Nothing needed", named=False,
         fields=NoneNeeded.model_json_schema())
-        for piece in ("parameters", "vocabulary", "rules", "tests"))
+        for piece in ("parameters", "vocabulary", "rules"))
     return result
 
 

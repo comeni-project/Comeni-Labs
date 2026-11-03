@@ -113,7 +113,8 @@ export function Fields({ schema, root, value, onChange, label, reference, family
     const best = variants.map((b, n) => ({ n, schema: resolve(b, root) }))
       .filter((b) => matches(b.schema, value, root))
       .sort((a, b) => (b.schema.required?.length ?? 0) - (a.schema.required?.length ?? 0))[0]?.n ?? 0;
-    const chosen = branch ?? best;
+    const chosen = branch !== null && variants[branch] && matches(variants[branch], value, root)
+      ? branch : best;
     return <fieldset className="min-w-0 border-0 m-0 p-0 flex flex-col gap-2">
       <legend className="text-[12.5px] text-ink-2">{label}</legend>
       <select aria-label={`${label} kind`} className={input} value={chosen} onChange={(e) => {

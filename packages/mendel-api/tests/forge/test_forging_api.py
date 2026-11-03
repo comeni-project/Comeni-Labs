@@ -167,3 +167,12 @@ def test_forging_progress_excludes_removed_items(client):
     summary = client.get("/api/forge/adaptations").json()["adaptations"][0]
     assert summary["approved"] == summary["total"] == 1
     assert summary["waiting"] == 0
+
+
+def test_constructor_options_obey_the_required_test_piece():
+    from mendel_api.services.forge_constructors import kinds
+
+    families = {kind.family for kind in kinds()}
+    assert "tests:test" in families
+    assert "tests:none" not in families
+    assert {"parameters:none", "vocabulary:none", "rules:none"} <= families
