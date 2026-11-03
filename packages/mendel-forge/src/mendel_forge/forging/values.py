@@ -19,9 +19,9 @@ from comeni_core.declared.contract import (
 )
 from comeni_core.declared.measurement import Measurement
 from comeni_core.declared.tooltest import TestDraft
-from comeni_core.declared.vocabulary import TypeDeclaration
+from comeni_core.declared.vocabulary import TypeDeclaration, TypeExtension
 from mendel_resolver.rules.format import Decision
-from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 
 class _Frozen(BaseModel):
@@ -52,6 +52,7 @@ class ProcessDraft(_Frozen):
 
 class RoleDraft(_Frozen):
     name: str
+    explain: str = Field(min_length=1, max_length=600)
     because: str = ""
 
 
@@ -62,6 +63,7 @@ class NoneNeeded(_Frozen):
 
 
 class Option(_Frozen):
+    new: bool = False
     id: str
     label: str
     because: str
@@ -88,7 +90,7 @@ _FAMILIES: dict[str, type] = {
     "contract:nf_inputs": list[NfInput],
     "parameters:param": ParamItem,
     "parameters:ext_args": ContractExtArgs,
-    "vocabulary:type": TypeDeclaration,
+    "vocabulary:type": TypeDeclaration | TypeExtension,
     "vocabulary:measurement": Measurement,
     "vocabulary:role": RoleDraft,
     "rules:rule": Decision,

@@ -5,6 +5,7 @@ import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { useStartForge } from "./forging/useForgeActions";
+import { ToolDiagram } from "./parts/ToolDiagram";
 import { RegistryTabs } from "./RegistryTabs";
 import { colourOf, labelOf, StateIcon } from "./states";
 
@@ -65,7 +66,13 @@ function Body({ tool, path }: { tool: ModulePage; path: string }) {
         </span>
       </div>
       <div className="flex flex-wrap gap-6 items-start">
-        <div className="flex-[999_1_600px] min-w-0 flex flex-col gap-5">
+        <div className="flex-[999_1_600px] min-w-0 flex flex-col gap-5 [overflow-wrap:anywhere]">
+          <section aria-label="Tool diagram" className={`${panel} p-4`}>
+            <ToolDiagram name={path} shape={{ job: tool.roles.join(", ") || null,
+              inputs: tool.consumes.map((p) => ({ key: `input:${p.name}`, name: p.name, type: [p.type_id, ...(p.states_required ?? [])].join("::") })),
+              outputs: tool.produces.map((p) => ({ key: `output:${p.name}`, name: p.name, type: [p.type_id, ...(p.states_made ?? [])].join("::") })),
+            }} onPick={(key) => document.getElementById(key === "questions:role" ? "tool-rules" : "tool-io")?.scrollIntoView({ block: "center", behavior: "smooth" })} />
+          </section>
           <Ports tool={tool} />
           <Settings tool={tool} />
           <Rules tool={tool} />
@@ -130,7 +137,7 @@ function Ports({ tool }: { tool: ModulePage }) {
     <section aria-labelledby="tool-io" className={panel}>
       <h2 id="tool-io" className={heading}>Reads and makes</h2>
       <div className="overflow-x-auto [contain:inline-size]">
-        <table className="w-full border-collapse text-[13.5px]">
+        <table className="w-full min-w-[560px] border-collapse text-[13.5px] [overflow-wrap:normal]">
           <thead>
             <tr className="text-left text-ink-3 text-[12px]">
               <th scope="col" className="px-5 py-[10px] font-medium"><span className="sr-only">Direction</span></th>
@@ -179,7 +186,7 @@ function Settings({ tool }: { tool: ModulePage }) {
     <section aria-labelledby="tool-settings" className={panel}>
       <h2 id="tool-settings" className={heading}>Settings</h2>
       {params.map((param) => (
-        <div key={param.name} className="px-5 py-[14px] grid grid-cols-[minmax(0,220px)_minmax(0,1fr)] gap-[14px] border-b border-line-soft">
+        <div key={param.name} className="px-5 py-[14px] grid grid-cols-1 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)] gap-[14px] border-b border-line-soft">
           <div>
             <div className="font-data">{param.name}</div>
             {param.asks_person
@@ -193,7 +200,7 @@ function Settings({ tool }: { tool: ModulePage }) {
         </div>
       ))}
       {tool.ext_args && (
-        <div className="px-5 py-[14px] grid grid-cols-[minmax(0,220px)_minmax(0,1fr)] gap-[14px]">
+        <div className="px-5 py-[14px] grid grid-cols-1 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)] gap-[14px]">
           <div>
             <div className="font-data">{tool.ext_args}</div>
             <div className="mt-[6px] text-[12px] text-ink-3">always passed</div>
@@ -218,7 +225,7 @@ function Rules({ tool }: { tool: ModulePage }) {
               Rule <span className="font-data text-[12.5px]">{rule.role}</span>
               {rule.because && <>: {rule.because}</>}{rule.cite && <>. {rule.cite}</>}.
             </p>
-            <div className="grid grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-[14px] gap-y-[10px] text-[13.5px]">
+            <div className="grid grid-cols-[minmax(0,110px)_minmax(0,1fr)] sm:grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-[14px] gap-y-[10px] text-[13.5px]">
               {rule.rows.map((row, m) => (
                 <Row key={m} row={row} self={row.then === tool.id} />
               ))}

@@ -153,7 +153,7 @@ def _one_role_per_file(root: Path) -> list[Diagnostic]:
     for path, singular in _declared_files(root):
         if singular != "role":
             continue
-        declared = list((yaml_strict.load(path) or {}).get("roles", []))
+        declared = [entry["id"] for entry in (yaml_strict.load(path) or {}).get("roles", [])]
         stem = path.name.removesuffix(".yaml").removesuffix(".yml")
         if len(declared) > 1:
             found.append(

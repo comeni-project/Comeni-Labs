@@ -78,3 +78,23 @@ def test_a_port_whose_name_differs_from_its_key_is_MF0508(stack, star_items):
     items = {**star_items, "contract:output:bam": {**star_items["contract:output:bam"],
                                                    "name": "bamm"}}
     assert _codes(check_items(items, known(stack), ModuleSpec.parse(STAR_NF))) == ["MF0508"]
+
+
+def test_undeclared_output_state_requires_explicit_new_option(stack):
+    question = {"asks": "What does this report hold?", "options": [
+        {"id": "qc.report::assembly", "label": "assembly report", "because": "assembly metrics"}]}
+    items = {"questions:output_type:report": question}
+    assert _codes(check_items(items, known(stack), ModuleSpec.parse(STAR_NF))) == ["MF0507"]
+    question["options"][0]["new"] = True
+    assert check_items(items, known(stack), ModuleSpec.parse(STAR_NF)) == []
+
+
+def test_an_undeclared_contract_state_requires_an_answer_or_vocabulary(stack, star_items):
+    items = {**star_items, "contract:output:bam": {**star_items["contract:output:bam"],
+                                                 "type_id": "alignment.bam::new_state"}}
+    assert _codes(check_items(items, known(stack), ModuleSpec.parse(STAR_NF))) == ["MF0507"]
+    items["questions:output_type:bam"] = {"choice": "alignment.bam::new_state", "new": True}
+    assert check_items(items, known(stack), ModuleSpec.parse(STAR_NF)) == []
+    del items["questions:output_type:bam"]
+    items["vocabulary:type:alignment.bam"] = {"id": "alignment.bam", "add_states": ["new_state"]}
+    assert check_items(items, known(stack), ModuleSpec.parse(STAR_NF)) == []

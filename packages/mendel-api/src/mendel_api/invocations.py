@@ -26,6 +26,7 @@ class InvocationPurpose(StrEnum):
     IMPLEMENTATION = "implementation"
     REPAIR = "repair"
     CHAT = "chat"
+    REVIEW = "review"
 
 
 class InvocationState(StrEnum):

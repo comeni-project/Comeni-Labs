@@ -61,12 +61,13 @@ def test_placing_puts_the_tool_in_the_registrys_layout(tmp_path, checkout):
 
 
 def test_each_role_gets_its_own_file(tmp_path, checkout):
-    values = {**_values(), "vocabulary:role:forged_one": {"name": "forged_one"},
-              "vocabulary:role:forged_two": {"name": "forged_two"}}
+    values = {**_values(), "vocabulary:role:forged_one": {"name": "forged_one", "explain": "One."},
+              "vocabulary:role:forged_two": {"name": "forged_two", "explain": "Two."}}
     place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)
     roles = checkout / "vocabulary/roles"
     assert not (roles / "forge.yml").exists()
-    assert yaml.safe_load((roles / "forged_one.yml").read_text())["roles"] == ["forged_one"]
+    assert yaml.safe_load((roles / "forged_one.yml").read_text())["roles"] == [
+        {"id": "forged_one", "explain": "One."}]
     assert (roles / "forged_two.yml").is_file()
 
 

@@ -70,7 +70,7 @@ provenance:
 TYPES = {"fastq.reads": "states: [trimmed]\nentry_channel: \"Channel.empty()\"\n",
          "qc.report": "states: []\n"}
 
-ROLES = "declares: role\nroles: [qc_per_sample]\n"
+ROLES = "declares: role\nroles:\n  - id: qc_per_sample\n    explain: Report on one sample.\n"
 
 
 def _layer(root: pathlib.Path) -> pathlib.Path:

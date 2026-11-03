@@ -72,7 +72,8 @@ def test_several_roles_in_one_file_are_refused(layer):
     """MD0015. `roles.yml` held all nine and a diff touching it said only that *some* job
     changed."""
     (layer / "vocabulary" / "roles" / "trimming.yml").write_text(
-        "declares: role\nroles:\n  - trimming\n  - alignment\n"
+        "declares: role\nroles:\n  - id: trimming\n    explain: Trim.\n"
+        "  - id: alignment\n    explain: Align.\n"
     )
     assert "MD0015" in codes(lint(layer))
 

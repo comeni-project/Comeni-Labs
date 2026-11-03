@@ -147,7 +147,7 @@ def _shared(source: Path, target: Path, relative: Path) -> list[Path]:
 def _roles(path: Path, checkout: Path) -> list[Path]:
     placed = []
     for role in yaml.safe_load(path.read_text())["roles"]:
-        target = checkout / "vocabulary" / "roles" / f"{role}.yml"
+        target = checkout / "vocabulary" / "roles" / f"{role['id']}.yml"
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(yaml.safe_dump({"declares": "role", "roles": [role]}))

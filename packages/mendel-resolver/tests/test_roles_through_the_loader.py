@@ -101,7 +101,8 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
     overlay = tmp_path / "lab"
     (overlay / "roles").mkdir(parents=True)
     (overlay / "roles" / "extra.yml").write_text(
-        _declared(overlay / "roles" / "extra.yml", "roles: [long_read_alignment]\n")
+        _declared(overlay / "roles" / "extra.yml",
+                  "roles:\n  - id: long_read_alignment\n    explain: Align long reads.\n")
     )
 
     loaded = layers.load([base, overlay])

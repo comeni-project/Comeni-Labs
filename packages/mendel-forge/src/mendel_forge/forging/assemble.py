@@ -97,8 +97,8 @@ def write_layer(
             declared = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
             put(out / "vocabulary" / "types" / f"{declared['id']}.yml",
                 _yaml({"declares": "vocabulary", **declared}))
-    roles = sorted(validate_value(k, v).name for k, v in values.items()
-                   if k.startswith("vocabulary:role:"))
+    drafted = [validate_value(k, v) for k, v in values.items() if k.startswith("vocabulary:role:")]
+    roles = [{"id": r.name, "explain": r.explain} for r in sorted(drafted, key=lambda r: r.name)]
     if roles:
         put(out / "vocabulary" / "roles" / "forge.yml", _yaml({"declares": "role", "roles": roles}))
     for key, value in sorted(values.items()):

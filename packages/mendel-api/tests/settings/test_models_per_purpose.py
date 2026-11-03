@@ -105,7 +105,9 @@ def test_a_hosted_provider_from_env_is_said_to_leave(clean_env, monkeypatch):
     monkeypatch.setenv("COMENI_AI_MODEL", "anthropic/claude-sonnet-4-5")
     monkeypatch.setenv("COMENI_AI_API_KEY", "sk-ant-guard-0000-1111")
     rows = where_purposes(installation.installation())
-    assert rows and all(r["goes"] == "goes to anthropic" for r in rows)
+    assert rows
+    assert all(r["goes"] == "goes to anthropic"
+               for r in rows if r["purpose"] != "Reviewing tool drafts")
 
 
 def test_a_connection_with_no_endpoint_is_said_to_leave(clean_env, settings_in_memory):
@@ -115,14 +117,16 @@ def test_a_connection_with_no_endpoint_is_said_to_leave(clean_env, settings_in_m
     ]
     settings_in_memory.rows["models.default"] = {"connection": "Cloud", "model": "openai/gpt-x"}
     rows = where_purposes(installation.installation())
-    assert all(r["goes"] == "goes to openai" for r in rows)
+    assert all(r["goes"] == "goes to openai"
+               for r in rows if r["purpose"] != "Reviewing tool drafts")
 
 
 def test_old_names_alone_are_reported_where_they_go(clean_env, monkeypatch):
     """Review M5, re-graded: calls reach the model, so Privacy must not say nothing is sent."""
     monkeypatch.setenv("MENDEL_MODEL", "anthropic/claude-sonnet-4-5")
     rows = where_purposes(installation.installation())
-    assert all(r["goes"] == "goes to anthropic" for r in rows)
+    assert all(r["goes"] == "goes to anthropic"
+               for r in rows if r["purpose"] != "Reviewing tool drafts")
 
 
 def test_a_purpose_pinned_in_env_works_without_a_default(clean_env, monkeypatch):
@@ -224,3 +228,20 @@ def test_the_privacy_page_says_where_each_purposes_calls_go(
         assert said[setting.label] == _destination(access_for(inst, os.environ, agent, purpose)), (
             f"{setting.label}: the page and the {agent}/{purpose} call disagree"
         )
+
+
+def test_reviewer_is_off_even_when_default_and_env_models_exist(clean_env, settings_in_memory,
+                                                               monkeypatch):
+    _choose(settings_in_memory, default="fake/default")
+    monkeypatch.setenv("COMENI_AI_MODEL", "fake/env")
+    assert model_access("forge", "review") is None
+    rows = where_purposes(installation.installation())
+    assert next(r for r in rows if r["purpose"] == "Reviewing tool drafts")["goes"] == \
+        "no model: nothing is sent"
+
+
+def test_reviewer_uses_only_its_explicit_model(clean_env, settings_in_memory):
+    _choose(settings_in_memory, default="fake/default", forge_review="fake/reviewer")
+    assert model_access("forge", "review").model == "fake/reviewer"
+    settings_in_memory.rows["models.forge_review"]["connection"] = "Gone"
+    assert model_access("forge", "review") is None

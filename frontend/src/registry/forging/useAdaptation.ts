@@ -32,6 +32,8 @@ export function useAdaptations() {
   return useQuery({
     queryKey: ["adaptations"],
     queryFn: () => get<AdaptationList>("/forge/adaptations"),
+    refetchInterval: (query) => query.state.data?.adaptations.some((a) => a.drafting
+      || ["assembling", "testing", "publishing", "in_review"].includes(a.phase)) ? 5_000 : false,
   });
 }
 

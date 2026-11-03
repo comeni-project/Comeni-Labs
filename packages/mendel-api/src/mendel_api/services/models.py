@@ -30,6 +30,7 @@ PURPOSES: dict[tuple[str, str], Setting] = {
     ("forge", "implementation"): c.MODEL_FORGE,
     ("forge", "repair"): c.MODEL_FORGE,
     ("forge", "chat"): c.MODEL_FORGE,
+    ("forge", "review"): c.MODEL_FORGE_REVIEW,
 }
 
 
@@ -55,6 +56,10 @@ def _access(inst: Installation, choice: dict, env: Mapping[str, str]) -> ModelAc
 def access_for(
     inst: Installation, env: Mapping[str, str], agent: str | None = None, purpose: str | None = None
 ) -> ModelAccess | None:
+    setting = PURPOSES.get((agent, purpose))
+    if setting is not None and not setting.inherit_default:
+        choice = inst.get(setting)
+        return _access(inst, choice, env) if isinstance(choice, dict) else None
     if agent is None:
         order = [c.DEFAULT_MODEL, *c.PURPOSE_SETTINGS]
     else:
@@ -86,8 +91,12 @@ def where_purposes(inst: Installation) -> list[dict]:
     default = inst.get(c.DEFAULT_MODEL)
     legacy = ModelAccess.from_env(inst.env)
     for setting in c.PURPOSE_SETTINGS:
-        choice = inst.get(setting) or default
+        choice = inst.get(setting) or (default if setting.inherit_default else None)
         record = inst.record(c.CONNECTIONS, choice["connection"]) if choice else None
+        if not setting.inherit_default and record is None:
+            rows.append({"purpose": setting.label, "connection": None,
+                         "goes": "no model: nothing is sent"})
+            continue
         if record is not None:
             goes = _goes(record.get("endpoint"), record.get("server"), choice["model"])
             connection = choice["connection"]

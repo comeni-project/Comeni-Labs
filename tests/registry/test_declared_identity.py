@@ -75,7 +75,7 @@ provenance:
 
 TYPE = "declares: vocabulary\nid: fastq.reads\nstates: [trimmed]\n"
 REPORT = "declares: vocabulary\nid: qc.report\nstates: []\n"
-ROLES = "declares: role\nroles: [qc_per_sample]\n"
+ROLES = "declares: role\nroles:\n  - id: qc_per_sample\n    explain: Report on one sample.\n"
 
 
 def _layer(root: pathlib.Path) -> pathlib.Path:

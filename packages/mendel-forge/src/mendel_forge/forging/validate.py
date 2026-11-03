@@ -6,9 +6,10 @@ assembled adaptation; ports must exist in the module's `main.nf`; a setting must
 somewhere. Anything else is a coded problem, and the reply is never a proposal.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from comeni_core.declared.contract import NfInput
+from comeni_core.declared.signature import split
 from comeni_core.declared.tooltest import TestDraft
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver.layers import Layers
@@ -23,6 +24,7 @@ class Known:
     roles: frozenset[str]
     measurements: frozenset[str]
     contracts: frozenset[str]
+    states: dict[str, frozenset[str]] = field(default_factory=dict)
     pending: frozenset[str] = frozenset()
     """Ids from assembled adaptations, usable here and tagged as pending."""
 
@@ -30,6 +32,7 @@ class Known:
 def known(stack: Layers, pending: frozenset[str] = frozenset()) -> Known:
     return Known(
         types=frozenset(stack.vocabulary.types),
+        states=dict(stack.vocabulary.types),
         roles=frozenset(stack.roles.names),
         measurements=frozenset(stack.measurements.measurements),
         contracts=frozenset(c.id for c in stack.registry.all()),
@@ -44,7 +47,7 @@ def _own(items: dict[str, JsonValue], family: str) -> frozenset[str]:
 
 
 def _referenced(items: dict[str, JsonValue]) -> dict[str, set[str]]:
-    types = {v["type_id"] for k, v in items.items()
+    types = {split(v["type_id"])[0] for k, v in items.items()
              if k.startswith(("contract:input:", "contract:output:"))
              and isinstance(v, dict) and v.get("type_id")}
     process = items.get("contract:process")
@@ -94,7 +97,7 @@ def check_items(
         if (via == "ext" and not param.get("key")) or (via == "positional" and name not in wired):
             problems.append(Problem(code="MF0509", says=f"setting {name!r} is passed nowhere: "
                                     "give its ext key, or wire it as an input"))
-    return [*problems, *_test_problems(items, seen)]
+    return [*problems, *_signature_problems(items, seen), *_test_problems(items, seen)]
 
 
 def _names(items: dict[str, JsonValue], prefix: str) -> set[str]:
@@ -131,3 +134,47 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
 def _nf_inputs(items: dict[str, JsonValue]) -> list[NfInput]:
     raw = items.get("contract:nf_inputs") or []
     return [NfInput(**entry) for entry in raw if isinstance(entry, dict)]
+
+
+def _signature_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
+    problems = []
+    allowed = dict(seen.states)
+    for key, value in items.items():
+        if key.startswith("vocabulary:type:") and isinstance(value, dict):
+            identifier = key.removeprefix("vocabulary:type:")
+            allowed[identifier] = (allowed.get(identifier, frozenset()) |
+                frozenset(value.get("add_states", value.get("states", []))))
+    # An explicit answer may be carried into a contract draft before the vocabulary piece.
+    # Assembly still loads the layer and refuses it until its vocabulary is declared.
+    for key, value in items.items():
+        if (key.startswith(("questions:input_type:", "questions:output_type:"))
+                and isinstance(value, dict) and value.get("new") and value.get("choice")):
+            identifier, states = split(value["choice"])
+            allowed[identifier] = allowed.get(identifier, frozenset()) | states
+    for key, value in items.items():
+        if not isinstance(value, dict):
+            continue
+        signatures = []
+        if key.startswith(("contract:input:", "contract:output:")):
+            signatures = [(value.get("type_id", ""), False)]
+        elif key.startswith(("questions:input_type:", "questions:output_type:")):
+            options = value.get("options", [])
+            signatures = [(o["id"], o.get("new", False)) for o in options]
+            if value.get("suggested") and value["suggested"] not in {o["id"] for o in options}:
+                problems.append(Problem(code="MF0507",
+                    says=f"{key}: suggestion is not an offered option"))
+        for signature, new in signatures:
+            try:
+                identifier, states = split(signature)
+                if new:
+                    continue
+                if identifier not in seen.types | seen.pending | _own(items, "type"):
+                    if key.startswith("contract:"):
+                        continue  # The reference check above already reports this type.
+                    raise ValueError(f"{signature!r} is not declared; mark a new option as new")
+                if not states <= allowed.get(identifier, frozenset()):
+                    raise ValueError(f"{signature!r} has undeclared states; "
+                                     "propose vocabulary for review")
+            except ValueError as error:
+                problems.append(Problem(code="MF0507", says=f"{key}: {error}"))
+    return problems

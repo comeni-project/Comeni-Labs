@@ -9,7 +9,7 @@ function PinButton({ pin, focus, onPick }: { pin: Pin; focus?: string | null; on
           <span className="truncate">{pin.name}</span>
           {pin.type !== null && <span aria-hidden="true" className="text-done-ink">✓</span>}
         </span>
-        <span className="block truncate font-data text-[12px] text-ink-2">{pin.type ?? "not decided"}</span>
+        <span className="block truncate font-data text-[12px] text-ink-2">{pin.type ?? "not decided"}{pin.format?.length ? ` · ${pin.format.join(", ")}` : ""}</span>
       </button>
     </div>
   );

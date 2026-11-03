@@ -33,6 +33,7 @@ def _declared(path, body: str) -> str:
 
 ROOT = pathlib.Path(__file__).parents[3]
 REGISTRY = ROOT / "registry"
+ROLE = "roles:\n  - id: ribo_depletion\n    explain: Remove ribosomal reads.\n"
 
 _MINIMAL = {
     "id": "nf-core/star/align@2.7.11b",
@@ -40,6 +41,33 @@ _MINIMAL = {
     "nf_include": "modules/nf-core/star/align/main",
     "provenance": {"source": "t", "drafted_by": "t", "approved_by": "t", "approved_at": "t"},
 }
+
+
+def test_every_shipped_role_says_what_it_means():
+    vocabulary = RoleVocabulary.load(REGISTRY)
+    assert vocabulary.names
+    assert set(vocabulary.explains) == set(vocabulary.names)
+
+
+def test_a_role_carries_its_words_through_the_stack(tmp_path):
+    overlay = tmp_path / "lab"
+    (overlay / "roles").mkdir(parents=True)
+    (overlay / "roles" / "extra.yml").write_text(_declared(overlay / "roles" / "extra.yml", ROLE))
+    words = RoleVocabulary.load([REGISTRY, overlay]).explains
+    assert words["ribo_depletion"] == "Remove ribosomal reads."
+
+
+@pytest.mark.parametrize("body", [
+    "roles: [ribo_depletion]\n",
+    "roles:\n  - id: ribo_depletion\n",
+    "roles:\n  - id: ribo_depletion\n    explain: ''\n",
+])
+def test_a_role_with_no_words_does_not_load(tmp_path, body):
+    overlay = tmp_path / "lab"
+    (overlay / "roles").mkdir(parents=True)
+    (overlay / "roles" / "extra.yml").write_text(_declared(overlay / "roles" / "extra.yml", body))
+    with pytest.raises(ValueError, match="MD0302"):
+        RoleVocabulary.load([REGISTRY, overlay])
 
 
 def test_the_shipped_registry_declares_the_roles_its_contracts_fill():
@@ -52,7 +80,7 @@ def test_an_overlay_adds_a_role_the_base_does_not_have(tmp_path):
     overlay = tmp_path / "lab"
     (overlay / "roles").mkdir(parents=True)
     (overlay / "roles" / "extra.yml").write_text(
-        _declared(overlay / "roles" / "extra.yml", "roles: [ribo_depletion]\n")
+        _declared(overlay / "roles" / "extra.yml", ROLE)
     )
     names = RoleVocabulary.load([REGISTRY, overlay]).names
     assert "ribo_depletion" in names
@@ -91,7 +119,8 @@ def test_a_vocabulary_cannot_declare_a_role_no_contract_could_name(tmp_path):
     overlay = tmp_path / "lab"
     (overlay / "roles").mkdir(parents=True)
     (overlay / "roles" / "bad.yml").write_text(
-        _declared(overlay / "roles" / "bad.yml", "roles: [Ribo-Depletion]\n")
+        _declared(overlay / "roles" / "bad.yml",
+                  "roles:\n  - id: Ribo-Depletion\n    explain: Remove ribosomal reads.\n")
     )
     with pytest.raises(ValueError, match="is not a role name"):
         RoleVocabulary.load([REGISTRY, overlay])

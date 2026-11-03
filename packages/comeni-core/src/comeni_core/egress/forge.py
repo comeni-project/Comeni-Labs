@@ -42,6 +42,7 @@ class KnownIds(EgressPayload):
     """What a reply may name: the registry's ids, and pending ones from assembled drafts."""
 
     types: list[TypeId] = []
+    signatures: list[Text] = []
     roles: list[RoleName] = []
     measurements: list[MeasurementId] = []
     contracts: list[ContractId] = []

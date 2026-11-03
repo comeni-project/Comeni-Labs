@@ -309,17 +309,48 @@ def _check_person_value(adaptation_id: str, state: Adaptation, command: Command)
     except (ValidationError, KeyError) as error:
         raise Refused(coded("MF0507", f"{command.item}: {str(error).splitlines()[0]}")) \
             from None
-    if command.item.startswith("questions:") or command.item.endswith(":none"):
+    if command.item.startswith("questions:"):
+        if command.move is Move.ANSWER:
+            _check_answer(state, command)
+        return
+    if command.item.endswith(":none"):
         return
     adaptation = row(adaptation_id)
     merged = {k: i.value for k, i in state.items.items()
-              if i.status is not Status.REMOVED and not k.startswith("questions:")}
+              if i.status is not Status.REMOVED}
     merged[command.item] = command.value
     spec = ModuleSpec.parse(module_folder(adaptation.source, adaptation.path) / "main.nf")
     problems = check_items(merged, known(registry.stack(), pending=pending_ids(adaptation_id)),
                            spec)
     if problems:
         raise Refused(coded(problems[0].code, problems[0].says))
+
+
+def _check_answer(state: Adaptation, command: Command) -> None:
+    from comeni_core.declared.signature import split
+
+    answer = command.value
+    item = state.items.get(command.item)
+    question = next((r.value for r in reversed(item.revisions)
+                     if isinstance(r.value, dict) and "options" in r.value), None) if item else None
+    if answer.get("new"):
+        if question and not question.get("allows_new", True):
+            raise Refused(coded("MF0507", "this question does not allow a new answer"))
+        if command.item.startswith(("questions:input_type:", "questions:output_type:")):
+            try:
+                split(answer["choice"])
+            except ValueError as error:
+                raise Refused(coded("MF0507", str(error))) from None
+        return
+    stack = registry.stack()
+    if command.item == "questions:role" and answer["choice"] not in stack.roles.names:
+        raise Refused(coded("MF0507", "this role is not declared; mark a new answer as new"))
+    if command.item.startswith(("questions:input_type:", "questions:output_type:")):
+        try:
+            identifier, states = split(answer["choice"])
+            stack.vocabulary.validate(identifier, states)
+        except (ValueError, KeyError) as error:
+            raise Refused(coded("MF0507", str(error))) from None
 
 
 def act_all(adaptation_id: str, commands: list[Command]) -> dict[str, int]:
@@ -453,13 +484,13 @@ def working(adaptation_id: str) -> bool:
 
 def post_message(adaptation_id: str, *, role: str, content: str, item: str | None = None,
                  commands: list[dict] | None = None, invocation: str | None = None,
-                 details: list[str] | None = None) -> int:
+                 details: list[str] | None = None, pending: bool = False) -> int:
     with db.transaction() as session:
         seq = (session.scalar(sa.select(sa.func.max(ForgeMessage.seq))
                               .where(ForgeMessage.adaptation == adaptation_id)) or 0) + 1
         session.add(ForgeMessage(adaptation=adaptation_id, seq=seq, role=role, item=item,
                                  content=content, commands=commands or [],
-                                 details=details or [], invocation=invocation,
+                                 details=details or [], invocation=invocation, pending=pending,
                                  at=datetime.now(UTC)))
     return seq
 
@@ -682,7 +713,7 @@ def summaries() -> AdaptationList:
     found = []
     for adaptation_id in ids:
         state, row = load(adaptation_id), meta[adaptation_id]
-        statuses = [i.status for i in state.items.values()]
+        statuses = [i.status for i in state.items.values() if i.status is not Status.REMOVED]
         nxt = rules.next_piece(state)
         found.append(AdaptationSummary(
             id=row.id, path=row.path, version=row.version, phase=row.phase,

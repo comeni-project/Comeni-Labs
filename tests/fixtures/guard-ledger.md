@@ -5399,3 +5399,38 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 | 2026-10-30 | `tests/guards/test_forge_runner.py::test_only_the_forge_test_job_holds_the_runner` (#365) | a stray module importing `wiener_runner` | failed, naming the file; removed, passed | `assert {...stray.py...} <= {...}` |
 | 2026-10-30 | `tests/repo/test_compose.py::test_only_the_worker_holds_the_publishing_token` (#366) | `COMENI_FORGE_GITHUB_TOKEN` on every Mendel service, as it stood | failed before the move, as the old test asserted the opposite; passed once the token moved to `mendel-worker` | `assert ['api', 'mendel-worker', 'ai-worker'] == ['mendel-worker']` |
 | 2026-10-30 | `tests/guards/test_forge_runner.py::test_every_reader_asks_for_the_active_registry` (#367) | nine services reading `settings.registry_root`, as they stood | failed, listing them; each moved to `active_registry()`, passed | `assert {...services/build.py...} == {...settings.py}` |
+
+
+## Forge MVP 3, slice 4 — 2026-11-03
+
+| guard | seeded defect | observed failure | restored |
+|---|---|---|---|
+| `packages/mendel-api/tests/forge/test_forging_ai.py::test_review_quote_is_checked_and_cannot_change_items` | Removed the source-membership check in `forge_review.review_piece`, retaining only the empty-quote check | Assertion failed: quote was `THIS QUOTE IS NOT IN THE MODULE` instead of `None` | Same test passed after restoration |
+
+- 2026-11-03, Forge MVP 3 slice 5: `ItemConstructor.test.tsx`'s “a background refresh
+  cannot advance the revision of the value being edited” captures revision 7, refreshes to
+  revision 8 and still submits against 7. Mutating the command to read the refreshed
+  `item.current_n` failed (expected 7, received 8). Restoring the captured revision passed
+  the frontend suite. Logs: `/tmp/forge-slice5-revision-mutation.log` and
+  `/tmp/forge-slice5-ui-final.log`.
+
+- 2026-11-03, Forge MVP 3 slice 6: removing the expected-revision comparison in
+  `forge_rule_preview.read` made `test_forge_rule_preview.py::test_stale_rule_is_refused`
+  fail (200 instead of 422). Restoring it passes. Removing the removed-item filter in
+  `forging.summaries` made `test_forging_api.py::test_forging_progress_excludes_removed_items`
+  fail (2 total instead of 1). Both mutations were restored before the final suite.
+  Logs: `/tmp/forge-slice6-stale-mutation.log`, `/tmp/forge-slice6-progress-mutation.log`.
+
+- 2026-11-03, Forge MVP 3 merge review (#443/#444):
+  `ConstructorFields.test.tsx::removing an entry retains the surviving value's kind and editable value`
+  failed before the fix (retained null editor kind 4 instead of numeric kind 1).
+  `test_forging_api.py::test_constructor_options_obey_the_required_test_piece` failed because
+  `tests:none` was advertised. Both passed after restoration of the intended behavior.
+  Logs: `/tmp/forge-review-list-red.log`, `/tmp/forge-review-constructor-red.log`,
+  `/tmp/forge-review-list-green.log`, `/tmp/forge-review-constructor-green.log`.
+
+- 2026-11-03, Forge MVP 3 merge review #446: CI and an isolated empty forge cache reproduced
+  the source-hint test failure (empty inputs/outputs). The test now supplies its own source;
+  the API suite passes with the external cache empty. Missing source is tested separately and
+  still returns empty hints. Logs: `/tmp/forge-review-cache-red.log`,
+  `/tmp/forge-review-cache-green.log`; failed CI run `41673042651`.

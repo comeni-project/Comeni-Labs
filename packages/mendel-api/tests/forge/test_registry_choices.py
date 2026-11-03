@@ -15,12 +15,16 @@ def test_a_type_says_what_it_is_and_what_uses_it():
     assert "nf-core/star/align@2.7.11b" in gtf.read_by
 
 
-def test_a_type_with_no_explanation_still_has_its_familys_words():
+def test_a_type_brings_its_own_words_and_its_familys():
     choices = registry_choices.read()
     bam = next(t for t in choices.types if t.id == "alignment.bam")
-    assert bam.explain is None
+    assert bam.explain
     assert bam.family_says
     assert bam.made_by
+
+
+def test_a_job_says_what_it_means():
+    assert all(role.explain for role in registry_choices.read().roles)
 
 
 def test_a_job_lists_the_tools_doing_it_and_what_they_read_and_make():

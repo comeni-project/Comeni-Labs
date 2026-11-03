@@ -496,7 +496,7 @@ body {
 .picker-group:hover { background: var(--hover); color: var(--ink); }
 .picker-group[aria-pressed="true"] { background: var(--now-soft); color: var(--ink); }
 @media (max-width: 759px) {
-  .picker-anchor .picker { position: fixed; top: 64px; }
+  .picker-anchor .picker { position: fixed; top: 64px; z-index: 40; }
   .picker { position: fixed; inset: 64px 0 0 0; z-index: 40; width: auto; height: auto; border-radius: 14px 14px 0 0; border-width: 1px 0 0; }
   .picker-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .tool { grid-template-columns: minmax(0, 1fr); gap: 8px; }

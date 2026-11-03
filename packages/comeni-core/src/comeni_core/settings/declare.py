@@ -105,6 +105,8 @@ class Setting(BaseModel):
     from_env: EnvItem | None = None
     actions: tuple[str, ...] = ()
     """API actions offered for each collection record, such as `test` or `models`."""
+    inherit_default: bool = True
+    """For model settings, whether an unset choice uses the default model or stays off."""
     of: str | None = None
     """Collection key from which a model setting selects its connection."""
 

@@ -14,7 +14,7 @@ from arq.connections import RedisSettings
 from arq.worker import func
 
 from mendel_api.jobs import AI_QUEUE
-from mendel_api.services import authoring_jobs, forging_ai
+from mendel_api.services import authoring_jobs, forge_review, forging_ai
 from mendel_api.settings import settings
 
 
@@ -43,6 +43,7 @@ class AIWorkerSettings:
         # job id, and refuse the next draft of that piece for as long as ARQ keeps it.
         func(forging_ai.draft_forge_piece, keep_result=0),
         func(forging_ai.answer_forge_message, keep_result=0),
+        func(forge_review.review_forge_piece, keep_result=0),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE

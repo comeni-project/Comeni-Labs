@@ -40,6 +40,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -93,6 +94,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -132,6 +134,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -175,6 +178,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -229,6 +233,7 @@
                 "item_name": "name",
                 "from_env": null,
                 "actions": [],
+                "inherit_default": true,
                 "of": null
               },
               {
@@ -263,6 +268,7 @@
                 "item_name": "name",
                 "from_env": null,
                 "actions": [],
+                "inherit_default": true,
                 "of": null
               },
               {
@@ -281,6 +287,7 @@
                 "item_name": "name",
                 "from_env": null,
                 "actions": [],
+                "inherit_default": true,
                 "of": null
               },
               {
@@ -299,6 +306,7 @@
                 "item_name": "name",
                 "from_env": null,
                 "actions": [],
+                "inherit_default": true,
                 "of": null
               }
             ],
@@ -322,6 +330,7 @@
               "test",
               "models"
             ],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -350,6 +359,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": "models.connections"
           },
           "shown": {
@@ -378,6 +388,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": "models.connections"
           },
           "shown": {
@@ -406,6 +417,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": "models.connections"
           },
           "shown": {
@@ -434,6 +446,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": "models.connections"
           },
           "shown": {
@@ -462,6 +475,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": "models.connections"
           },
           "shown": {
@@ -490,6 +504,36 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
+            "of": "models.connections"
+          },
+          "shown": {
+            "value": null,
+            "source": "default",
+            "locked": false,
+            "reason": null,
+            "set": null,
+            "last4": null
+          }
+        },
+        {
+          "setting": {
+            "key": "models.forge_review",
+            "label": "Reviewing tool drafts",
+            "help": "Comments on each drafted item for you to check. Off unless a model is chosen here.",
+            "kind": "model",
+            "default": null,
+            "env": "COMENI_AI_MODEL_FORGE_REVIEW",
+            "options": [],
+            "minimum": null,
+            "maximum": null,
+            "unavailable": null,
+            "where": "installation",
+            "fields": [],
+            "item_name": "name",
+            "from_env": null,
+            "actions": [],
+            "inherit_default": false,
             "of": "models.connections"
           },
           "shown": {
@@ -548,6 +592,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -580,6 +625,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -652,6 +698,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -711,6 +758,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -748,6 +796,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -780,6 +829,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -816,6 +866,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -852,6 +903,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -888,6 +940,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -929,6 +982,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -961,6 +1015,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -997,6 +1052,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -1033,6 +1089,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -1069,6 +1126,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {
@@ -1110,6 +1168,7 @@
             "item_name": "name",
             "from_env": null,
             "actions": [],
+            "inherit_default": true,
             "of": null
           },
           "shown": {

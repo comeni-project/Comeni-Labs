@@ -75,3 +75,8 @@ it("only the AI's replies carry an outcome", () => {
   expect(outcomeOf({ role: "person", commands: [], pending: true })).toBeNull();
   expect(outcomeOf({ role: "engine", commands: [], pending: false })).toBeNull();
 });
+
+it("names the reviewer separately from drafting", () => {
+  const progress = progressOf([{ seq: 1, kind: "started", data: { what: "reviewing", piece: "questions" }, at: "2026-11-03T10:00:00Z" }]);
+  expect(progress.title).toBe("The reviewer reads it");
+});

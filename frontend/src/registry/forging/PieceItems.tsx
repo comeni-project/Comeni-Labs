@@ -3,6 +3,11 @@ import { useState } from "react";
 import { Failed } from "../../ui/States";
 import { RegistryPicker, type PickerEntry } from "../parts/RegistryPicker";
 import { roleEntries, typeEntries, useChoices } from "../parts/useChoices";
+import { ItemConstructor } from "./ItemConstructor";
+import { RulePreview } from "./RulePreview";
+import { ValueDetails } from "./ValueDetails";
+import { QuestionContext } from "./QuestionContext";
+import { ReviewComment, type Review } from "./Reviews";
 import { nameOf, type ItemView } from "./useAdaptation";
 import type { useForgeActions } from "./useForgeActions";
 
@@ -42,11 +47,11 @@ export function summaryOf(key: string, value: unknown): string {
   if ("decides" in v) return `decides ${(v.decides as { of?: string }).of ?? ""}`;
   if ("id" in v) return String(v.id);
   if ("because" in v) return String(v.because);
-  return JSON.stringify(v);
+  return "Declared details below";
 }
 
 type Asked = { asks: string; suggested?: string | null; allows_new?: boolean;
-                options: { id: string; label: string; because: string }[] };
+                options: { id: string; label: string; because: string; new?: boolean }[] };
 
 /** The question an item asks, from its revisions: once answered, its value is the answer. */
 function asked(item: ItemView): Asked | null {
@@ -84,9 +89,10 @@ function Answer({ item, question, actions }: { item: ItemView; question: Asked; 
         {question.options.map((o) => (
           <li key={o.id}>
             <button type="button" aria-pressed={chosen === o.id} disabled={pending} aria-busy={pending}
-                    onClick={() => answer({ choice: o.id })} className="choice">
+                    onClick={() => answer({ choice: o.id, ...(o.new ? { new: true } : {}) })} className="choice">
               <span className="font-medium text-ink">{o.label}</span>
-              {question.suggested === o.id && <span className="ml-2 text-[12px] text-measured-ink">suggested</span>}
+              {chosen === o.id && <span className="ml-2 text-[12px] text-done-ink">chosen by you</span>}
+              {!chosen && question.suggested === o.id && <span className="ml-2 text-[12px] text-measured-ink">suggested</span>}
               <span className="block text-[12.5px] text-ink-2">{o.because}</span>
             </button>
           </li>
@@ -140,50 +146,54 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 };
 
 /** The current piece's items (boards 3, 3c): value, how it is passed, the reason, who
- *  proposed it, and the person's moves. Change edits the value as JSON. */
-export function PieceItems({ items, actions, onReject }: {
+ *  proposed it, and the person's moves. Change opens the same constructor used to write an item. */
+export function PieceItems({ id, items, reviews = [], actions, onReject }: {
+  id: string;
+  reviews?: Review[];
   items: ItemView[];
   actions: Actions;
   onReject: (key: string) => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
   const open = items.filter((i) => i.status === "proposed" || i.status === "reopened");
   // Each of these is a decision of its own: a question wants an answer, a removal a second look.
   const rest = open.filter((i) => !asked(i) && !removing(i));
 
+  const ordered = [...items].sort((a, b) => {
+    const rank = (i: ItemView) => i.key === "questions:role" ? 0
+      : i.key.startsWith("questions:input_type:") ? 1
+      : i.key.startsWith("questions:output_type:") ? 2 : i.piece === "questions" ? 3 : 4;
+    return rank(a) - rank(b);
+  });
   return (
     <div>
-      {items.map((item) => {
+      {ordered.map((item) => {
         const current = item.revisions.at(-1);
-        const author = current?.actor === "ai" ? "proposed by the AI"
-          : current?.actor === "registry" ? "from the registry" : "yours";
+        const supplied = item.revisions.findLast((r) =>
+          ["draft", "revise", "add", "answer", "write", "change"].includes(r.move));
+        const author = supplied?.actor === "ai" ? "proposed by the AI"
+          : supplied?.actor === "registry" ? "from the registry" : "written by you";
         const waiting = item.status === "proposed" || item.status === "reopened";
         const question = asked(item);
         return (
           <div key={item.key} role="group" aria-label={nameOf(item.key)} data-item={item.key}
-               className="grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft">
+               className="grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft">
             <div>
-              <div className="font-data font-medium break-words">{nameOf(item.key)}</div>
+              <div className="font-data font-medium break-words">{item.key.includes(":input") ? "Input · " : item.key.includes(":output") ? "Output · " : ""}{nameOf(item.key)}</div>
               <div className="font-data text-[12.5px] text-ink-2 break-words">{summary(item)}</div>
               <div className="text-[12px] text-ink-3">{author}</div>
             </div>
-            <div className="text-[13.5px] text-ink-2 leading-[1.55]">
+            <div className="min-w-0 text-[13.5px] text-ink-2 leading-[1.55]">
               {editing === item.key ? (
-                <form className="flex flex-col gap-2" onSubmit={(e) => {
-                  e.preventDefault();
-                  actions.command.mutate({ move: "change", item: item.key, expected: item.current_n,
-                                           value: JSON.parse(draft) });
-                  setEditing(null);
-                }}>
-                  <label className="sr-only" htmlFor={`edit-${item.key}`}>New value for {nameOf(item.key)}</label>
-                  <textarea id={`edit-${item.key}`} value={draft} onChange={(e) => setDraft(e.target.value)}
-                            rows={4} className="font-data text-[12.5px] p-2 border border-line-2 rounded-control" />
-                  <span className="flex gap-2"><button type="submit" className={primary}>Save</button>
-                    <button type="button" className={button} onClick={() => setEditing(null)}>Cancel</button></span>
-                </form>
+                <ItemConstructor id={id} piece={item.piece} items={items} item={item} actions={actions}
+                                 onCancel={() => setEditing(null)} />
               ) : (
                 <>
+                  {question && <p className="m-0 mb-3 text-ink font-medium">{question.asks}</p>}
+                  {!question && <ValueDetails value={item.value} />}
+                  {item.key.startsWith("rules:rule:") && !["removed", "rejected"].includes(item.status)
+                    && <RulePreview key={`${item.key}:${item.current_n}`} id={id} item={item} />}
+                  {question && <QuestionContext id={id} item={item.key} revision={item.current_n} />}
                   {current?.because ?? ""}
                   {question && item.status !== "removed" && <Answer item={item} question={question} actions={actions} />}
                   <span className={`block mt-1 text-[12.5px] ${removing(item) ? "text-needs-you-ink" : STATUS[item.status]?.tone ?? ""}`}>
@@ -191,9 +201,11 @@ export function PieceItems({ items, actions, onReject }: {
                   </span>
                 </>
               )}
+              {reviews.filter((r) => r.item === item.key && r.revision === item.current_n)
+                .map((r) => <ReviewComment key={r.item} review={r} />)}
             </div>
-            <div className="flex flex-wrap gap-[6px] sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
-              {waiting && !question && (
+            <div className="flex flex-wrap gap-[6px] sm:col-start-2 sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
+              {waiting && !question && editing !== item.key && (
                 <button type="button" className={primary} disabled={actions.command.isPending}
                         aria-busy={actions.command.isPending}
                         onClick={() => actions.command.mutate({ move: "approve", item: item.key,
@@ -201,14 +213,14 @@ export function PieceItems({ items, actions, onReject }: {
                   Approve
                 </button>
               )}
-              {item.status !== "removed" && !question && (
+              {item.status !== "removed" && !question && editing !== item.key && (
                 <button type="button" className={button}
-                        onClick={() => { setEditing(item.key); setDraft(JSON.stringify(item.value, null, 2)); }}>
+                        onClick={() => setEditing(item.key)}>
                   Change
                 </button>
               )}
               {waiting && (
-                <button type="button" className={`${button} text-needs-you-ink`}
+                <button type="button" disabled={actions.command.isPending} className={`${button} text-needs-you-ink`}
                         onClick={() => { actions.command.mutate({ move: "reject", item: item.key,
                                                                    expected: item.current_n });
                                          onReject(item.key); }}>
@@ -223,7 +235,7 @@ export function PieceItems({ items, actions, onReject }: {
       {rest.length > 1 && (
         <div className="flex justify-between items-center gap-3 px-[22px] py-4 border-t border-line bg-paper-2">
           <span className="text-[13px] text-ink-3">{open.length} items still need you</span>
-          <button type="button" className={primary}
+          <button type="button" disabled={actions.command.isPending} className={primary}
                   onClick={() => rest.forEach((i) => actions.command.mutate({
                     move: "approve", item: i.key, expected: i.current_n }))}>
             Approve the rest
@@ -234,30 +246,12 @@ export function PieceItems({ items, actions, onReject }: {
   );
 }
 
-/** *Write it myself* (board 3a): an item key in this piece and its value as JSON, checked by
- *  the server like any AI draft. */
-export function WriteItem({ piece, items, actions }: {
+/** A person writes through the same value models and checks as a model draft. */
+export function WriteItem({ id, piece, items, actions }: {
+  id: string;
   piece: string;
   items: ItemView[];
   actions: Actions;
 }) {
-  const [key, setKey] = useState(`${piece}:`);
-  const [value, setValue] = useState("{}");
-  return (
-    <form className="flex flex-col gap-2 px-[22px] py-4 border-t border-line-soft" onSubmit={(e) => {
-      e.preventDefault();
-      actions.command.mutate({ move: piece === "questions" ? "answer" : "write", item: key,
-                               expected: items.find((i) => i.key === key)?.current_n,
-                               value: JSON.parse(value) });
-    }}>
-      <label htmlFor="write-key" className="text-[12.5px] text-ink-2">Item</label>
-      <input id="write-key" value={key} onChange={(e) => setKey(e.target.value)}
-             className="font-data text-[13px] p-2 border border-line-2 rounded-control" />
-      <label htmlFor="write-value" className="text-[12.5px] text-ink-2">Value (JSON)</label>
-      <textarea id="write-value" rows={5} value={value} onChange={(e) => setValue(e.target.value)}
-                className="font-data text-[12.5px] p-2 border border-line-2 rounded-control" />
-      <button type="submit" className={`${primary} self-start`}>Save</button>
-      {actions.command.isError && <Failed error={actions.command.error} padded={false} />}
-    </form>
-  );
+  return <div className="px-[22px] py-4"><ItemConstructor id={id} piece={piece} items={items} actions={actions} /></div>;
 }

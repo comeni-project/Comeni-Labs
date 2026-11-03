@@ -3,7 +3,7 @@ export type Line = { key: string; label: string; state: "done" | "now" | "waitin
 export type Progress = { title: string; steps: Line[]; tokens: { sent: number; received: number } | null; since: string | null };
 
 const titled = (what: unknown, piece: unknown) =>
-  (what === "replying" ? "Writing a reply" : `Drafting the ${String(piece ?? "piece")}`);
+  (what === "reviewing" ? "The reviewer reads it" : what === "replying" ? "Writing a reply" : `Drafting the ${String(piece ?? "piece")}`);
 
 /** The latest piece of work, as a person reads it: what has happened, what is happening, what is
  *  left. A refused attempt appears when it happens, not as one message after the last. */

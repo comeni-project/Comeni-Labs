@@ -32,3 +32,22 @@ it("leaves out a removed question and anything that is not a port", () => {
   expect(shape.outputs).toEqual([]);
   expect(shape.job).toBeNull();
 });
+
+it("keeps the content state and the contract's file format on an output pin", () => {
+  const shape = toolShape([
+    item("questions:output_type:tsv", { choice: "qc.report::assembly" }, "approved"),
+    item("contract:output:tsv", { type_id: "qc.report::assembly", format: ["tsv"] }),
+  ]);
+  expect(shape.outputs[0]).toMatchObject({ type: "qc.report::assembly", format: ["tsv"] });
+});
+
+it("draws the existing contract when a re-forge has no port questions yet", () => {
+  const shape = toolShape([
+    item("contract:process", { roles: ["alignment"] }),
+    item("contract:input:reads", { type_id: "fastq.reads" }),
+    item("contract:output:bam", { type_id: "alignment.bam", format: ["bam"] }),
+  ]);
+  expect(shape.job).toBe("alignment");
+  expect(shape.inputs).toEqual([{ key: "contract:input:reads", name: "reads", type: "fastq.reads" }]);
+  expect(shape.outputs).toEqual([{ key: "contract:output:bam", name: "bam", type: "alignment.bam", format: ["bam"] }]);
+});

@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { makeClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
+import constructors from "./constructors.fixture.json";
 
 const rev = (n: number, move: string, actor: string, value: unknown, because = "") =>
   ({ n, move, actor, value, because, by: actor === "person" ? "rafael" : null, invocation: null });
@@ -33,7 +34,9 @@ function at(view: object, extra: Record<string, unknown> = {}) {
     calls.push({ url: String(url), method: init?.method ?? "GET",
                  body: init?.body ? JSON.parse(String(init.body)) : null });
     const reply = Object.entries(extra).find(([path]) => String(url).endsWith(path))?.[1]
-      ?? (String(url).endsWith("/events") ? [] : view);
+      ?? (String(url).endsWith("/constructors") ? constructors : String(url).includes("/context?") ? { lines: [], source_available: false,
+        choices: [], decides: "Chooses the output content.", optional: false }
+        : /\/(events|reviews)$/.test(String(url)) ? [] : view);
     const status = (reply as { refused?: boolean }).refused ? 422 : 200;
     return Promise.resolve({ ok: status === 200, status, json: async () => reply });
   }));
@@ -158,14 +161,16 @@ it("a refused command reads the adaptation again, so a stale page catches up", a
   await vi.waitFor(() => expect(reads()).toBeGreaterThan(before));
 });
 
-it("writing an item that exists names its revision", async () => {
+it("changing an item uses fields and sends its revision", async () => {
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "parameters", items: [ANSWERED, PARAM] });
-  await screen.findByRole("group", { name: "min_contig" });
-  fireEvent.change(screen.getByLabelText("Item"), { target: { value: "parameters:param:min_contig" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  const row = await screen.findByRole("group", { name: "min_contig" });
+  fireEvent.click(within(row).getByRole("button", { name: "Change" }));
+  fireEvent.change(await within(row).findByLabelText("Default"), { target: { value: "700" } });
+  fireEvent.click(within(row).getByRole("button", { name: "Save" }));
   await vi.waitFor(() => {
     const sent = calls.find((c) => c.url.endsWith("/commands"));
-    expect((sent?.body as { expected: number }).expected).toBe(1);
+    expect(sent?.body).toMatchObject({ move: "change", item: "parameters:param:min_contig", expected: 1,
+      value: { position: 0, name: "min_contig", default: 700, via: "ext", key: "args" } });
   });
 });
 
@@ -421,4 +426,81 @@ it("the chat can be resized from the keyboard, and keeps its limits", async () =
   expect(width()).toBe("404px");
   for (let n = 0; n < 40; n += 1) fireEvent.keyDown(handle, { key: "ArrowLeft" });
   expect(width()).toBe("620px");
+});
+
+it("shows question evidence and current reviewer advice alongside the answers", async () => {
+  const q = { asks: "What does the table hold?", allows_new: true, suggested: "qc.report::assembly",
+    options: [{ id: "qc.report::assembly", label: "Assembly metrics", because: "It measures an assembly", new: true }] };
+  const question = item("questions:output_type:tsv", "questions", "proposed", [rev(1, "draft", "ai", q)]);
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [question] }, {
+    "/context?item=questions%3Aoutput_type%3Atsv": {
+      lines: [{ number: 20, text: "emit: tsv" }], source_available: true, upstream: "The metrics table",
+      decides: "Chooses what the table holds.", optional: true,
+      choices: [{ id: "qc.report::assembly", name: "quality report", explain: "Assembly quality metrics",
+        scope: "sample", tools: [], proposed: true }],
+    },
+    "/reviews": [{ item: question.key, revision: 1, comment: "Check the assembly state.",
+      quote: "emit: tsv", file: "main.nf", model: "recorded/reviewer" }],
+  });
+  expect(await screen.findByText("Chooses what the table holds.")).toBeTruthy();
+  expect(await screen.findByText("Check the assembly state.")).toBeTruthy();
+  expect(screen.getByText(/Declaring this output is optional/)).toBeTruthy();
+  expect(screen.getByText("Proposed vocabulary · needs review")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Assembly metrics/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.url.endsWith("/commands"))?.body).toEqual({
+    move: "answer", item: question.key, expected: 1, value: { choice: "qc.report::assembly", new: true },
+  }));
+});
+
+it("does not display reviewer advice about an older revision", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "parameters", items: [PARAM] }, {
+    "/reviews": [{ item: PARAM.key, revision: 0, comment: "Outdated advice", quote: null,
+      file: null, model: "recorded/reviewer" }],
+  });
+  await screen.findByRole("group", { name: "min_contig" });
+  expect(screen.queryByText("Outdated advice")).toBeNull();
+});
+
+it("retains the question after answering and marks the person's choice without the old suggestion", async () => {
+  const q = { asks: "What does the report hold?", suggested: "qc.report", options: [
+    { id: "qc.report", label: "General report", because: "general" },
+    { id: "qc.report::assembly", label: "Assembly report", because: "assembly metrics" },
+  ] };
+  at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [
+    item("questions:output_type:tsv", "questions", "approved", [
+      rev(1, "draft", "ai", q), rev(2, "answer", "person", { choice: "qc.report::assembly" }),
+    ]),
+  ] });
+  const row = await screen.findByRole("group", { name: "tsv" });
+  expect(within(row).getByText(q.asks)).toBeTruthy();
+  expect(within(row).getByText("Output · tsv")).toBeTruthy();
+  expect(within(row).getByRole("button", { name: /Assembly report/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(within(row).getByText("chosen by you")).toBeTruthy();
+  expect(within(row).queryByText("suggested")).toBeNull();
+});
+
+it("orders the job before the input and output decisions", async () => {
+  const q = { asks: "Choose", options: [] };
+  at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [
+    item("questions:output_type:tsv", "questions", "proposed", [rev(1, "draft", "ai", q)]),
+    item("questions:input_type:fasta", "questions", "proposed", [rev(1, "draft", "ai", q)]),
+    item("questions:role", "questions", "proposed", [rev(1, "draft", "ai", q)]),
+  ] });
+  await screen.findByRole("group", { name: "role" });
+  const rows = screen.getAllByRole("group").filter((r) => r.hasAttribute("data-item"));
+  expect(rows.map((r) => r.getAttribute("data-item"))).toEqual([
+    "questions:role", "questions:input_type:fasta", "questions:output_type:tsv",
+  ]);
+});
+
+it("an empty refused piece keeps the attempt visible on the page and tracker", async () => {
+  at({ ...BASE, phase: "reviewing", next_piece: "contract", items: [ANSWERED] }, {
+    "/events": [
+      { seq: 1, kind: "started", data: { piece: "contract", what: "drafting" }, at: "2026-11-03T10:00:00Z" },
+      { seq: 2, kind: "refused", data: { attempt: 1, problems: ["No process"] }, at: "2026-11-03T10:00:01Z" },
+    ],
+  });
+  expect(await screen.findByText(/Read the attempt in the chat/)).toBeTruthy();
+  expect(screen.getByText("draft refused · try again")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Draft with the AI" })).toBeTruthy();
 });

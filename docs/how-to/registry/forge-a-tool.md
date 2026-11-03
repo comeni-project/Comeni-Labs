@@ -21,27 +21,55 @@ registry's current contract becomes the starting proposals.
 ## Work through the pieces
 
 The pieces go in order, each once the one before it is approved: **Questions**, **Contract**,
-**Parameters**, **Vocabulary**, **Rules**.
+**Parameters**, **Vocabulary**, **Rules**, **Tests**.
 
 For each piece, choose:
 
 - **Draft with the AI**: the AI reads the module's `main.nf` and `meta.yml` and proposes each
   item with its reason. It runs in the background; the page shows *drafting…* until it lands.
-- **Write it myself**: enter an item and its value. What you write counts as your decision.
+- **Write it myself**: choose what to add, then fill in its fields. Channel names come from the
+  module; content types, jobs and tools can be picked from the registry. What you write counts
+  as your decision. A refusal keeps your entries and explains what needs fixing; a successful
+  save names the item.
 
 A question is answered, not approved: choose one of its options, or give an answer of your own.
-The AI may mark the option it suggests; only your choice counts.
+The AI may mark the option it suggests; only your choice counts. After answering, the question
+stays visible and your chosen option is marked. Each question shows what the
+answer decides, relevant module lines and upstream descriptions, and the registry's explanations
+and existing uses. An output can name its content, such as `qc.report::assembly`, separately from
+its file format, such as `tsv`. A new content state needs an approved vocabulary proposal before
+assembly.
+
+To get a second model's advice, choose **Settings → Models → Reviewing tool drafts**. This is
+**Off** until you choose a model, even when a default model is configured. The reviewer runs after
+a piece is drafted and adds a comment to each item. It cannot change or approve items. Quotes
+appear only when found verbatim in the named module file; comments disappear when their item
+revision changes. A failed review leaves the piece available for you to decide.
 
 Then, for each other item:
 
 - **Approve** it, so it counts.
-- **Change** it: your value counts as your decision.
+- **Change** it: the same form opens with its current fields. Your saved value counts as your decision.
 - **Reject** it: the chat opens on that item. Tell the AI what is wrong and it proposes a
   revision, or write the value yourself. A rejected item holds its piece until it is fixed.
 
 **Approve the rest** approves the items still waiting in the current piece, except questions and
 any removal the AI proposes: each of those needs a decision of its own. A piece that needs nothing
 is said explicitly, for example *rules: none needed*.
+
+A setting has a kind and an optional typed default. Its preview shows the declared argument
+text or destination as you edit; the server checks the setting when you save. Rules, tests and
+process wiring have controls for adding and removing their rows and named values. Choose
+**Nothing needed** with a reason when a piece requires no entries.
+
+Each piece shows its declared details, including nested rule conditions, process wiring and test
+setup. The tracker keeps refused draft attempts visible even when they produced no items. Read
+the attempt in the chat, then retry with revised instructions or write the piece yourself.
+
+On a decision rule, **Try this rule** accepts hypothetical facts. When the rule reads read length,
+a slider and numeric field set that value. The server runs the displayed revision through the
+resolver, in row order, and shows all its effects and reasons. A miss remains unresolved; a
+changed rule is refused. The preview changes no items and supplies no measured facts to a build.
 
 Every item keeps its history: what the AI proposed, what you changed, and who approved it.
 If two people (or two tabs) act on the same item, the second is refused and asked to reload.
@@ -134,3 +162,12 @@ abandoned, the later one says so and re-opens the items that used them.
 
 Forging uses the model set for **Adapting tools** in **Settings → Models**: an API model or a
 local one. See [Model configuration](../development/configure-model.md).
+
+
+## Follow progress
+
+**Registry → Forging** lists current adaptations with approval progress, excluding removed items.
+Filter by **Needs you**, **Working**, or **In review or merged**. The author is shown when recorded.
+The tool page draws its declared inputs and outputs; pick a pin to reach the port details.
+Assembly shows the steps through tests, pull request and merge. Published registry versions remain
+on **Registry → Releases**, along with merged changes awaiting a release.
