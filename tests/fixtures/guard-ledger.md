@@ -5454,3 +5454,12 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   Answer action failed while that action remained visible. Hiding competing row decisions
   while the removal form is open passed; backend revision checks remain unchanged.
   Log: `/tmp/forge-blockers-competing-action-red.log`.
+
+- 2026-11-03, Forge MVP 3 #441: `test_new_family_requires_an_explicit_declaration_and_loads_with_it`
+  failed against the original writer: `assembly.fasta` still raised MD0316 after adding its
+  Family item. Disabling Family output reproduced this failure (`/tmp/forge441-assembly-red.log`).
+  Removing family dependency recording made
+  `test_a_new_type_can_depend_on_a_pending_family_and_reopens_when_it_changes` fail at its
+  `depends_on` assertion (`/tmp/forge441-dependency-red.log`). Both mutations were restored.
+  The Family constructor creation/edit guards failed before its schema fixture exposed the
+  kind (`/tmp/forge441-ui-red.log`); the complete frontend suite then passed (996 tests).

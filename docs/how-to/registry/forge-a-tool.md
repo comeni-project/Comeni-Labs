@@ -160,9 +160,17 @@ section says what is in use, and why, if that is not what you asked for.
 
 A pipeline built from a release names it, and a kept pipeline is not changed by a newer release.
 
+## Declare a new type family
+
+In **Vocabulary → Write it myself**, choose **Family** and enter its ID and short description.
+The family is the first segment of a type ID: `assembly.fasta` belongs to `assembly`. Reuse an
+existing family when it fits. A new family needs its own declaration alongside the new type;
+approving the type alone cannot make the layer load. AI proposals require your approval.
+Assembly writes the approved declarations and checks them together with the registry loader.
+
 ## Forge tools that build on each other
 
-Once an adaptation is assembled, later adaptations may use its new types and roles before they
+Once an adaptation is assembled, later adaptations may use its new types, families and roles before they
 reach the registry; they are marked as *pending*. If the earlier adaptation changes or is
 abandoned, the later one says so and re-opens the items that used them.
 

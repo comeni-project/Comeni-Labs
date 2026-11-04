@@ -354,6 +354,10 @@ or a complete commit history.
 
 ### mendel-forge
 
+- Explicit Family items in Vocabulary let a reviewed new type such as `assembly.fasta` load
+  with its new family at Assembly. Constructors and AI drafting use the registry Family schema;
+  pending family dependencies reopen affected items when their supplying draft changes (#441).
+
 - Output questions distinguish content states from file formats. New states require a reviewed
   vocabulary extension before assembly; the forge accepts `add_states` proposals (#426).
 

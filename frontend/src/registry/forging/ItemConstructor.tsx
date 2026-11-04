@@ -53,14 +53,14 @@ function Constructor({ forms, piece, items, item, actions, onCancel }: {
     : family.endsWith("output_type") || family === "contract:output" ? forms.outputs : [];
   const record = (value && typeof value === "object" && !Array.isArray(value) ? value : {}) as Record<string, unknown>;
   const hasIdentity = ["contract:input", "contract:output", "parameters:param",
-    "vocabulary:type", "vocabulary:measurement", "vocabulary:role"].includes(family);
+    "vocabulary:type", "vocabulary:measurement", "vocabulary:role", "vocabulary:family"].includes(family);
+  const identity = ["vocabulary:type", "vocabulary:measurement", "vocabulary:family"].includes(family) ? "id" : "name";
   const changeName = (next: string) => {
     setName(next); setSaved("");
     if (hasIdentity) {
-      setValue({ ...record, [family === "vocabulary:type" || family === "vocabulary:measurement" ? "id" : "name"]: next });
+      setValue({ ...record, [identity]: next });
     }
   };
-  const identity = family === "vocabulary:type" || family === "vocabulary:measurement" ? "id" : "name";
   const updateValue = (next: unknown) => {
     setSaved("");
     setValue(hasIdentity && next && typeof next === "object" && !Array.isArray(next)
@@ -91,11 +91,14 @@ function Constructor({ forms, piece, items, item, actions, onCancel }: {
           setFamily(next.family); setName(""); setValue(initial(next.fields, next.fields)); setError(""); setSaved("");
         }}>{kinds.map((k) => <option key={k.family} value={k.family}>{k.label}</option>)}</select>
       </label>
-      {kind.named && <label className="text-[12.5px] text-ink-2">{hints.length ? "Module channel" : "Item name"}
+      {kind.named && <label className="text-[12.5px] text-ink-2">{family === "vocabulary:family" ? "Family ID" : hints.length ? "Module channel" : "Item name"}
         <input className="control w-full font-data" value={name} disabled={!!item} list={`channels-${listId}`}
           onChange={(e) => changeName(e.target.value)} />
         <datalist id={`channels-${listId}`}>{hints.map((n) => <option key={n} value={n} />)}</datalist>
       </label>}
+      {family === "vocabulary:family" && <p className="m-0 text-[12.5px] text-ink-2">
+        Use the first part of the type ID: assembly.fasta belongs to assembly. Describe what the family holds in at most 200 characters.
+      </p>}
       {(family === "vocabulary:type" || family === "vocabulary:role") && !item &&
         <RegistryReference kind={family === "vocabulary:type" ? "type" : "role"} value={name} onChange={changeName} />}
       {family === "parameters:param" ? <SettingFields schema={fields} value={record} onChange={updateValue} />

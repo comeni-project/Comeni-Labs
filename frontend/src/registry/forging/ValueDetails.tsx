@@ -10,7 +10,7 @@ const LABELS: Record<string, string> = {
   inputs: "Inputs", expect: "Expected outputs", setup: "Setup commands", params: "Settings",
   when: "When", then: "Choose", because: "Reason", cite: "Reference", rows: "Ordered choices",
   decides: "Decides", effect: "Decision", of: "Job", when_implementation: "For tools",
-  describes: "Describes", kind: "Kind", explain: "Meaning", pattern: "Output pattern",
+  description: "Description", describes: "Describes", kind: "Kind", explain: "Meaning", pattern: "Output pattern",
   ports: "Ports", param: "Setting", value: "Value", name: "Name", id: "Identifier",
   priority: "Fallback priority", priority_because: "Fallback reason", per_sample: "Per sample",
 };

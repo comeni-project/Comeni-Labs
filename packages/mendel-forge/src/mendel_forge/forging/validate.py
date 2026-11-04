@@ -9,6 +9,7 @@ somewhere. Anything else is a coded problem, and the reply is never a proposal.
 from dataclasses import dataclass, field
 
 from comeni_core.declared.contract import InputPort, NfInput, OutputPort
+from comeni_core.declared.families import family_of
 from comeni_core.declared.signature import join, split
 from comeni_core.declared.tooltest import TestDraft
 from mendel_compiler.modulespec import ModuleSpec
@@ -26,12 +27,15 @@ class Known:
     roles: frozenset[str]
     measurements: frozenset[str]
     contracts: frozenset[str]
+    families: frozenset[str] = frozenset()
+    pending_families: frozenset[str] = frozenset()
     states: dict[str, frozenset[str]] = field(default_factory=dict)
     pending: frozenset[str] = frozenset()
     """Ids from assembled adaptations, usable here and tagged as pending."""
 
 
-def known(stack: Layers, pending: frozenset[str] = frozenset()) -> Known:
+def known(stack: Layers, pending: frozenset[str] = frozenset(),
+          pending_families: frozenset[str] = frozenset()) -> Known:
     return Known(
         types=frozenset(stack.vocabulary.types),
         states=dict(stack.vocabulary.types),
@@ -39,6 +43,8 @@ def known(stack: Layers, pending: frozenset[str] = frozenset()) -> Known:
         measurements=frozenset(stack.measurements.measurements),
         contracts=frozenset(c.id for c in stack.registry.all()),
         pending=pending,
+        families=frozenset(stack.families.families),
+        pending_families=pending_families,
     )
 
 
@@ -98,11 +104,26 @@ def pending_used(items: dict[str, JsonValue], seen: Known) -> set[str]:
     return (used["types"] | used["roles"]) & seen.pending
 
 
+def families_used(items: dict[str, JsonValue]) -> set[str]:
+    """Family references in ports and type declarations, independently of type ownership."""
+    return {family_of(identifier) for identifier in
+            _referenced(items)["types"] | set(_own(items, "type"))}
+
+
+def pending_families_used(items: dict[str, JsonValue], seen: Known) -> set[str]:
+    return families_used(items) & (seen.pending_families - seen.families - _own(items, "family"))
+
+
 def check_items(
     items: dict[str, JsonValue], seen: Known, module: ModuleSpec
 ) -> list[Problem]:
     problems: list[Problem] = []
     used = _referenced(items)
+    for key, value in items.items():
+        if (key.startswith("vocabulary:family:") and isinstance(value, dict)
+                and value.get("id") != key.removeprefix("vocabulary:family:")):
+            problems.append(Problem(code="MF0507",
+                                    says=f"{key}: family ID must match its item key"))
     introduced_types, introduced_roles = _introduced(items)
     for type_id in sorted(used["types"]):
         if type_id not in seen.types | seen.pending | _own(items, "type") | introduced_types.keys():

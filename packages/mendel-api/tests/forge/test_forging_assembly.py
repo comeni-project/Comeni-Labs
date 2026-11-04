@@ -151,3 +151,22 @@ def test_a_command_during_assembly_demotes_it(client):
                                               expected=process.current.n,
                                               value=process.value, because="again"))
     assert forging.read(adaptation_id).phase == "reviewing"
+
+
+def test_an_unapproved_family_blocks_assembly_until_a_person_approves_it(client):
+    from mendel_forge.forging.model import Actor, Command
+
+    adaptation_id = _approved_reforge()
+    key = "vocabulary:family:assembly"
+    forging.act(adaptation_id, Command(move=Move.DRAFT, actor=Actor.AI, item=key,
+        value={"id": "assembly", "description": "Assembled genomic sequences."},
+        because="A new family needs review"))
+    answer = client.post(f"/api/forge/adaptations/{adaptation_id}/assemble")
+    assert answer.status_code == 422 and "MF0506" in answer.json()["detail"]
+    assert not (forging.draft_dir(adaptation_id) / "vocabulary/families/assembly.yml").exists()
+    item = forging.load(adaptation_id).items[key]
+    forging.act(adaptation_id, forging.person(Move.APPROVE, key, expected=item.current.n,
+                                              value=None, because=None))
+    proof = client.post(f"/api/forge/adaptations/{adaptation_id}/assemble").json()
+    assert proof["loaded"] and proof["conforms"], proof["problems"]
+    assert "vocabulary/families/assembly.yml" in proof["files"]

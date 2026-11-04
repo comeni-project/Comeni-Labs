@@ -983,6 +983,35 @@
       }
     },
     {
+      "family": "vocabulary:family",
+      "label": "Family",
+      "named": true,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A family ID is one safe type segment; its description uses the registry bounds.",
+        "properties": {
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "description"
+        ],
+        "title": "FamilyDraft",
+        "type": "object"
+      }
+    },
+    {
       "family": "rules:rule",
       "label": "Decision rule",
       "named": true,

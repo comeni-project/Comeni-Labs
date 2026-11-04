@@ -569,3 +569,29 @@ def test_draft_prompt_separates_approved_answers_and_retains_removed_questions(a
     assert "Do not reintroduce removed questions or ports" in prompt
     assert "zero-based" in prompt
     assert '"nf_process": "EXAMPLE"' in prompt
+
+
+def test_family_proposals_need_human_approval_and_include_known_family_context(adaptation):
+    _answer(adaptation)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(CONTRACT))
+    for key, item in forging.load(adaptation).items.items():
+        if item.status == "proposed":
+            forging.act(adaptation, forging.person(Move.APPROVE, key,
+                expected=item.current.n, value=None, because=None))
+    forging.act(adaptation, forging.person(Move.WRITE, "parameters:none",
+        expected=None, value={"because": "Defaults"}, because=None))
+    key = "vocabulary:family:assembly"
+    value = {"id": "assembly", "description": "Assembled sequences and assembly products."}
+    client = FakeClient({"items": {key: value}, "because": {key: "The new type needs a family"}})
+    forging_ai.draft_piece(adaptation, Piece.VOCABULARY, client)
+    item = forging.load(adaptation).items[key]
+    assert item.status == "proposed" and item.value == value
+    assert "families (first segment of each type ID):" in client.prompts[0]
+    assert "alignment" in client.prompts[0]
+    assert "Families require human approval" in client.prompts[0]
+    with session_scope() as db:
+        invocation = db.get(AiInvocation, item.current.invocation)
+        assert invocation.prompt_id == "forge.draft.v4"
+    forging.act(adaptation, forging.person(Move.APPROVE, key,
+        expected=item.current.n, value=None, because=None))
+    assert forging.load(adaptation).items[key].status == "approved"

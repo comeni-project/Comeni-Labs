@@ -97,6 +97,11 @@ def write_layer(
             declared = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
             put(out / "vocabulary" / "types" / f"{declared['id']}.yml",
                 _yaml({"declares": "vocabulary", **declared}))
+    for key, value in sorted(values.items()):
+        if key.startswith("vocabulary:family:"):
+            declared = validate_value(key, value).model_dump(mode="json")
+            put(out / "vocabulary" / "families" / f"{declared['id']}.yml",
+                _yaml({"declares": "family", **declared}))
     drafted = [validate_value(k, v) for k, v in values.items() if k.startswith("vocabulary:role:")]
     roles = [{"id": r.name, "explain": r.explain} for r in sorted(drafted, key=lambda r: r.name)]
     if roles:
@@ -166,6 +171,6 @@ def _blamed(message: str) -> Piece:
     lowered = message.lower()
     if "rule" in lowered or "decision" in lowered:
         return Piece.RULES
-    if "type" in lowered or "state" in lowered or "role" in lowered or "measurement" in lowered:
+    if any(word in lowered for word in ("type", "state", "role", "measurement", "family")):
         return Piece.VOCABULARY
     return Piece.CONTRACT

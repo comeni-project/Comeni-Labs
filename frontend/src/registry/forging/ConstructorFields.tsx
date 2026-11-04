@@ -171,6 +171,8 @@ export function Fields({ schema, root, value, onChange, label, reference, family
       {s.enum.map((v) => <option key={v} value={v}>{v}</option>)}</select>
     : s.type === "boolean" ? <select id={id} className={input} value={value ? "true" : "false"}
       onChange={(e) => onChange(e.target.value === "true")}><option value="false">No</option><option value="true">Yes</option></select>
+    : family === "vocabulary:family" && path === ".description" ? <textarea id={id} className={input}
+      rows={3} maxLength={s.maxLength} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />
     : <input id={id} className={input} type={s.type === "number" || s.type === "integer" ? "number" : "text"}
       step={s.type === "integer" ? 1 : "any"} min={s.minimum} max={s.maximum} maxLength={s.maxLength}
       value={value == null ? "" : String(value)} onChange={(e) => onChange(e.target.type === "number"
