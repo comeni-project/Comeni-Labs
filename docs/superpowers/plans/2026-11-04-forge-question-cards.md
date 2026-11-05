@@ -44,7 +44,11 @@ to closing the issues (2026-11-04).
   which refused the whole review. Only that exact label is stripped, and the case has a guard.
 - [x] v5 is given each input's arrival as the engine reads it (`{{inputs}}`). With one smoke run
   and no such hint, v5 still suggested genome.fasta for consensus.
-- [ ] `tools/measure_forge_prompts.py`, five runs each with gemma3:12b; results on #453.
+- [x] `tools/measure_forge_prompts.py`, five runs each with gemma3:12b; results on #453.
+  - Drafter v5 moves consensus to `assembly.fasta` in 4/5 runs, but fasta follows it, so the
+    inputs still share one type.
+  - Reviewer v2: 0/30 verbatim quotes, so nothing is shown.
+  - Keep v5/v2; the engine checks backstop the rest.
 
 ## Checks
 
