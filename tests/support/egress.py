@@ -68,6 +68,13 @@ FREE_TEXT_FIELDS = {
     ("ForgeItemText", "value"),
     ("ForgeTurn", "content"),
     ("ForgeRequest", "prompt"),
+    # #453: each registry type's declared name and explanation (registry data), and
+    # #452: the engine's own findings on the adaptation's questions. No lab data in either.
+    ("KnownType", "name"),
+    ("KnownType", "explain"),
+    ("ForgeFinding", "item"),
+    ("ForgeFinding", "code"),
+    ("ForgeFinding", "says"),
     ("GateFailure", "tool_message"),
     # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
     # prose explaining a choice — genuinely free text, and named here rather than

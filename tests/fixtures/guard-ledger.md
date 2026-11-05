@@ -5463,3 +5463,21 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `depends_on` assertion (`/tmp/forge441-dependency-red.log`). Both mutations were restored.
   The Family constructor creation/edit guards failed before its schema fixture exposed the
   kind (`/tmp/forge441-ui-red.log`); the complete frontend suite then passed (996 tests).
+
+- 2026-11-04, #451 option `new` from the registry:
+  `test_the_engine_not_the_model_says_which_options_are_new` failed with "the draft was refused:
+  the model's `new` flag decided, not the registry" once `mark_new` was removed from
+  `draft_piece`, and passed once it was restored.
+- 2026-11-04, #452 engine checks: disabling the scope comparison in `checks.findings` made
+  `test_quasts_walk_suggestions_are_each_flagged` fail at its code map, because consensus lost
+  MF0520. Restored.
+- 2026-11-04, #453 reviewer may say nothing: restoring v1's exact-key rule in `review_piece` made
+  `test_a_reviewer_with_no_concern_says_nothing_and_is_not_asked_again` fail with "The reviewer
+  commented on items it was not given, or twice on one." Restored.
+- 2026-11-04, #454 flagged suggestion not pre-selected: forcing `flagged = false` in
+  `QuestionCards.tsx` made "an engine finding shows on the collapsed row…" fail at the missing
+  `Answer:` button assertion. Restored; the complete frontend suite passed.
+- 2026-11-04, #453 reviewer key label: with the label stripping removed from `review_piece`,
+  `test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key` failed with "The
+  reviewer commented on items it was not given". That is the refusal a live gemma3:12b reply
+  hit. Restored.

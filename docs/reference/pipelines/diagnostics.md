@@ -270,3 +270,6 @@ decline to curate one.
 | `MF0517` | the draft cannot be published: the registry's own checks refuse it |
 | `MF0518` | the pull request cannot be merged: registry CI is not green |
 | `MF0519` | the release cannot be cut |
+| `MF0520` | an input arrives at a different scope than its type |
+| `MF0521` | two inputs of one tool have the same type |
+| `MF0522` | an input's file format differs from its type's format |
