@@ -87,7 +87,7 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v6"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v7"
 
 
 def test_a_redraft_sees_only_what_the_person_settled(adaptation):

@@ -199,9 +199,11 @@ or a complete commit history.
   verbatim quote. A revision it reads with no concern is recorded as reviewed. Drafted
   questions use `forge.questions.v5`. Both prompts see each type's name, scope and meaning, and
   the engine's findings (#453).
-- Questions are drafted with `forge.questions.v6`. A redraft sees only what the person
+- Questions are drafted with `forge.questions.v7`. A redraft sees only what the person
   settled (answers and removals), so each open question is drafted fresh rather than kept
   from an earlier model's guess. Outputs on nf-core's `versions` topic get no type question.
+  Every question carries a suggestion, an output prefers a state of a listed type to a new
+  type, and competition is answered `no_rule` or `rule_needed` (#453).
 - Each question option's `new` flag comes from the registry, not the model (#451).
 - Type questions carry advisory engine findings (MF0520–MF0522) for scope, duplicate types and
   format, on each item and in the question context (#452).

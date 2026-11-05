@@ -25,7 +25,7 @@ from mendel_api.invocations import InvocationPurpose
 from mendel_api.services import forging, forging_ai
 from mendel_forge.forging.model import Piece
 
-DRAFTERS = ("forge.questions.v5", "forge.questions.v6")
+DRAFTERS = ("forge.questions.v6", "forge.questions.v7")
 REVIEWERS = ("forge.review.v1", "forge.review.v2")
 
 
@@ -37,6 +37,10 @@ def _suggested(reply: QuestionsReply, name: str) -> str | None:
             except ValueError:
                 return question.suggested
     return None
+
+
+def _is_state_of_listed(suggested: str | None, listed: set[str]) -> bool:
+    return bool(suggested) and "::" in suggested and suggested.split("::")[0] in listed
 
 
 def drafter(adaptation_id: str, prompt: str, runs: int) -> Counter:
@@ -53,10 +57,20 @@ def drafter(adaptation_id: str, prompt: str, runs: int) -> Counter:
         if reply is None:
             counts["unusable"] += 1
             continue
+        listed = set(request.known.types)
+        outputs = [q for q in reply.questions if q.key.startswith("questions:output_type:")]
+        counts["questions"] += len(reply.questions)
+        counts["with a suggestion"] += sum(bool(q.suggested) for q in reply.questions)
+        counts["outputs"] += len(outputs)
+        counts["output is a state of a listed type"] += sum(
+            _is_state_of_listed(q.suggested, listed) for q in outputs)
+        counts["asks versions"] += any("versions" in q.key for q in reply.questions)
         consensus, fasta, gff = (_suggested(reply, n) for n in ("consensus", "fasta", "gff"))
         counts["consensus is not genome.fasta"] += consensus not in (None, "genome.fasta")
         counts["consensus and fasta differ"] += bool(consensus and fasta and consensus != fasta)
         counts["gff is not annotation.gtf"] += gff not in (None, "annotation.gtf")
+        counts["all three inputs right"] += (consensus, fasta, gff) == (
+            "assembly.fasta", "genome.fasta", "annotation.gff")
     return counts
 
 
@@ -97,18 +111,25 @@ def main() -> None:
     parser.add_argument("--model", help="a LiteLLM model id to measure instead of Settings'")
     parser.add_argument("--temperature", type=float, default=0.0,
                         help="with --model; a reasoning model accepts only 1")
+    parser.add_argument("--reasoning-effort", help="with --model: none, minimal … high")
+    parser.add_argument("--drafters", nargs="*", default=list(DRAFTERS))
+    parser.add_argument("--no-review", action="store_true", help="measure the drafters only")
     args = parser.parse_args()
     if args.model:
-        access = ModelAccess(model=args.model, temperature=args.temperature)
+        access = ModelAccess(model=args.model, temperature=args.temperature,
+                             reasoning_effort=args.reasoning_effort)
         forging_ai._client = lambda _purpose: Client(access)
-    print(f"model: {args.model or 'as Settings names it'}")
-    for prompt in DRAFTERS:
+    print(f"model: {args.model or 'as Settings names it'}, effort: {args.reasoning_effort}")
+    for prompt in args.drafters:
         counts = drafter(args.adaptation, prompt, args.runs)
         print(f"\n{prompt}")
         for key in ("unusable", "consensus is not genome.fasta", "consensus and fasta differ",
-                    "gff is not annotation.gtf"):
+                    "gff is not annotation.gtf", "all three inputs right", "asks versions"):
             print(f"  {key}: {_rate(counts, key, 'runs')}")
-    for prompt in REVIEWERS:
+        print(f"  with a suggestion: {_rate(counts, 'with a suggestion', 'questions')}")
+        print(f"  output is a state of a listed type: "
+              f"{_rate(counts, 'output is a state of a listed type', 'outputs')}")
+    for prompt in () if args.no_review else REVIEWERS:
         counts = reviewer(args.adaptation, prompt, args.runs)
         print(f"\n{prompt}")
         print(f"  unusable: {_rate(counts, 'unusable', 'runs')}")

@@ -59,6 +59,7 @@ builder's."""
 _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.questions.v5": InvocationPurpose.ANALYSIS,
             "forge.questions.v6": InvocationPurpose.ANALYSIS,
+            "forge.questions.v7": InvocationPurpose.ANALYSIS,
             "forge.draft.v4": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
@@ -66,7 +67,7 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.review.v2": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v6", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v7", Piece.TESTS: "forge.tests.v1"}
 
 _SETTLED = frozenset({Status.APPROVED, Status.REMOVED})
 
