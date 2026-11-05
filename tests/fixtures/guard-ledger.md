@@ -5481,3 +5481,10 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key` failed with "The
   reviewer commented on items it was not given". That is the refusal a live gemma3:12b reply
   hit. Restored.
+- 2026-11-05, #457 per-purpose call settings: written before the change,
+  `test_a_model_choice_can_tune_the_call` failed because the model setting accepted only
+  `connection` and `model`, and `test_a_purpose_tunes_its_own_call` failed because
+  `ModelAccess` had no `reasoning_effort` and the choice's temperature was ignored. On the
+  live stack, a forge call to `chatgpt/gpt-6.1-sol` at the installation's temperature 0 was
+  refused ("doesn't support temperature=0.0 while reasoning is active"); with Settings →
+  Models → Adapting tools at temperature 1, it answered.

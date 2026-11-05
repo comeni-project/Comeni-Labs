@@ -49,6 +49,8 @@ x-mendel-environment: &mendel-environment
   COMENI_AI_MODEL_FORGE: ${COMENI_AI_MODEL_FORGE:-}
   COMENI_AI_MODEL_FORGE_REVIEW: ${COMENI_AI_MODEL_FORGE_REVIEW:-}
   COMENI_SETTINGS_KEY: ${COMENI_SETTINGS_KEY:-}
+  # A ChatGPT subscription's sign-in, for `chatgpt/<model>` (#457). LiteLLM refreshes it here.
+  CHATGPT_TOKEN_DIR: /app/chatgpt
   COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
   COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
   COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
@@ -124,6 +126,7 @@ services:
       - ./.run/drafts:/app/drafts
       # The forge assembles draft layers here and reads module files to check values (#364).
       - ./.run/forge:/app/forge
+      - ./.run/chatgpt:/app/chatgpt
     # Migrate the database before serving; exec forwards shutdown signals to Uvicorn.
     # Use sh -c to preserve the virtualenv PATH, and keep command flags on one line.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
@@ -186,6 +189,7 @@ services:
       - ./.run/drafts:/app/drafts
       # The catalogue's nf-core clone: forging reads a module's main.nf and meta.yml (#364).
       - ./.run/forge:/app/forge:ro
+      - ./.run/chatgpt:/app/chatgpt
     command: arq mendel_api.ai_worker.AIWorkerSettings
 
   # -----------------------------------------------------------------------------

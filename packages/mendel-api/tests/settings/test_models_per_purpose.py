@@ -41,6 +41,18 @@ def test_a_purpose_uses_its_own_model(clean_env, settings_in_memory):
     assert model_access("builder", "goal").model == "ollama_chat/gemma3:12b"
 
 
+def test_a_purpose_tunes_its_own_call(clean_env, settings_in_memory):
+    """#457: GPT refuses temperature 0, so the forge says 1 while gemma keeps 0."""
+    _choose(settings_in_memory, default="ollama_chat/gemma3:12b")
+    settings_in_memory.rows["models.forge"] = {
+        "connection": "Local", "model": "chatgpt/gpt-6.1-sol", "temperature": 1,
+        "reasoning_effort": "high", "timeout_seconds": 180}
+    forge = model_access("forge", "analysis")
+    assert (forge.temperature, forge.reasoning_effort, forge.timeout_seconds) == (1, "high", 180)
+    plain = model_access("builder", "goal")
+    assert (plain.temperature, plain.reasoning_effort, plain.timeout_seconds) == (0, None, 60)
+
+
 def test_a_purpose_without_its_own_model_uses_the_default(clean_env, settings_in_memory):
     _choose(settings_in_memory, default="ollama_chat/qwen2.5:7b")
     assert model_access("forge", "analysis").model == "ollama_chat/qwen2.5:7b"

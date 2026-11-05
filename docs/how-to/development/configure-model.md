@@ -35,6 +35,34 @@ registry.
 Leaving `COMENI_AI_MODEL` empty is a supported way to run Comeni. Every deterministic step
 still works, and every open question is answered by a person.
 
+## Use a ChatGPT subscription
+
+A ChatGPT plan that includes Codex can answer model calls through LiteLLM's `chatgpt/`
+provider, with no API key. Calls count against the plan's usage limits.
+
+1. In ChatGPT's security settings, turn on device code login.
+2. Sign in once. The command prints a link and a code; approve it in the browser:
+
+   ```bash
+   docker exec mendel-ai-worker python -u -c "import litellm; print(litellm.completion(model='chatgpt/gpt-6.1-sol', messages=[{'role': 'user', 'content': 'say ok'}]).choices[0].message.content)"
+   ```
+
+   The sign-in is kept in `.run/chatgpt/auth.json`, which the API and the AI worker share as
+   `CHATGPT_TOKEN_DIR`. It lasts about ten days. When calls start failing, sign in again.
+3. In **Settings → Models**, add a connection with the server **A hosted provider**, and no
+   endpoint or key.
+4. For a purpose, choose **Other…**, that connection and a model such as
+   `chatgpt/gpt-6.1-sol`. A plan accepts only some models; the call says which it refuses.
+5. Open the purpose's **Call settings** and set **Temperature** to 1. A reasoning model
+   refuses any other temperature unless its reasoning effort is `none`.
+
+## Tune a purpose's calls
+
+Each purpose's **Call settings** can set its own temperature, reasoning effort and timeout.
+An empty field keeps the installation's value: `COMENI_AI_TEMPERATURE` (0 when unset) and
+`COMENI_AI_TIMEOUT_SECONDS` (60 when unset). Reasoning effort is sent only when chosen, because
+models without reasoning refuse it. Choosing another model clears its call settings.
+
 ## Tune the local server
 
 The Docker stack keeps the model loaded for an hour after its last request and serves one

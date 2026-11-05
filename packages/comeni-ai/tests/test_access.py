@@ -30,14 +30,6 @@ def test_the_local_lane_needs_no_key() -> None:
     assert access.base_url == "http://localhost:11434"
 
 
-def test_there_is_nowhere_to_put_a_subscription_token() -> None:
-    """Subscription credentials are excluded by the access model's shape."""
-    assert "oauth" not in ModelAccess.model_fields
-    assert "token" not in ModelAccess.model_fields
-    with pytest.raises(ValidationError):
-        ModelAccess(model="m", oauth_token="whatever")
-
-
 def test_it_is_frozen() -> None:
     """What was configured is what is used — the same argument EgressPayload makes."""
     access = ModelAccess(model="m")

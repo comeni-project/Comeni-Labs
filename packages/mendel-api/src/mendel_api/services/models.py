@@ -15,6 +15,7 @@ from comeni_ai import ModelAccess
 from comeni_ai.access import MODEL
 from comeni_core.settings import FROM_ENV, Installation, Setting
 from comeni_core.settings import catalogue as c
+from comeni_core.settings.declare import TUNING
 
 PURPOSES: dict[tuple[str, str], Setting] = {
     ("builder", "goal"): c.MODEL_WANT,
@@ -42,6 +43,8 @@ def _access(inst: Installation, choice: dict, env: Mapping[str, str]) -> ModelAc
     # environment lane always has; the connection then supplies where and with what key.
     base = ModelAccess.from_env({**env, MODEL: choice["model"]})
     assert base is not None
+    # The choice's own tuning (#457) wins over the environment's, for this purpose only.
+    base = base.model_copy(update={k: choice[k] for k in TUNING if k in choice})
     if choice["connection"] == FROM_ENV:
         return base
     key = record.get("key")  # a `SecretStr`, or None: opened only here, at the call (spec §8)

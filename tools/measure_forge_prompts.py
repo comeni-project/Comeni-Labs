@@ -9,11 +9,16 @@ The checks are quast's walk (#412): `consensus` is one sample's assembly, `fasta
 and `gff` a GFF annotation. Needs the database `.env` names and a forge model in Settings:
 
     uv run python tools/measure_forge_prompts.py <adaptation-id> --runs 5
+
+`--model chatgpt/gpt-6.1-sol` measures another model than Settings names, for example a
+ChatGPT subscription signed in through LiteLLM (#457), without changing Settings.
 """
 
 import argparse
 from collections import Counter
 
+from comeni_ai import Client
+from comeni_ai.access import ModelAccess
 from comeni_core.declared.signature import split
 from mendel_api.forge.replies import QuestionsReply, ReviewReply
 from mendel_api.invocations import InvocationPurpose
@@ -89,7 +94,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("adaptation")
     parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--model", help="a LiteLLM model id to measure instead of Settings'")
+    parser.add_argument("--temperature", type=float, default=0.0,
+                        help="with --model; a reasoning model accepts only 1")
     args = parser.parse_args()
+    if args.model:
+        access = ModelAccess(model=args.model, temperature=args.temperature)
+        forging_ai._client = lambda _purpose: Client(access)
+    print(f"model: {args.model or 'as Settings names it'}")
     for prompt in DRAFTERS:
         counts = drafter(args.adaptation, prompt, args.runs)
         print(f"\n{prompt}")

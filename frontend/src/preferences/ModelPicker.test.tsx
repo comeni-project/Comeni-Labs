@@ -68,3 +68,48 @@ it("shows Off for an optional model purpose that does not inherit the default", 
   expect(screen.getByRole("option", { name: "Off" })).toBeTruthy();
   expect(screen.queryByRole("option", { name: "Same as the default" })).toBeNull();
 });
+
+describe("a chosen model's call settings (issue 457)", () => {
+  const chosen = { ...ENTRY, shown: { ...ENTRY.shown, source: "installation",
+    value: { connection: "Local", model: "chatgpt/gpt-6.1-sol" } } } as unknown as Entry;
+
+  it("writes a temperature, reasoning effort and timeout with the choice", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, says: "", values: [] }) }));
+    const onWrite = vi.fn();
+    render(<QueryClientProvider client={new QueryClient()}>
+      <ModelPicker entry={chosen} menu={MENU} onWrite={onWrite} />
+    </QueryClientProvider>);
+    await userEvent.click(screen.getByText("Call settings"));
+    await userEvent.type(screen.getByRole("spinbutton", { name: "Temperature" }), "1");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Reasoning effort" }), "high");
+    await userEvent.type(screen.getByRole("spinbutton", { name: "Timeout (seconds)" }), "180");
+    await userEvent.click(screen.getByRole("button", { name: "Save call settings" }));
+    expect(onWrite).toHaveBeenCalledWith({ connection: "Local", model: "chatgpt/gpt-6.1-sol",
+      temperature: 1, reasoning_effort: "high", timeout_seconds: 180 });
+  });
+
+  it("says the defaults when nothing is tuned, and clearing a field drops it", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, says: "", values: [] }) }));
+    const tuned = { ...chosen, shown: { ...chosen.shown, value: { connection: "Local", model: "chatgpt/gpt-6.1-sol", temperature: 1 } } } as unknown as Entry;
+    const onWrite = vi.fn();
+    const { rerender } = render(<QueryClientProvider client={new QueryClient()}>
+      <ModelPicker entry={chosen} menu={MENU} onWrite={onWrite} />
+    </QueryClientProvider>);
+    expect(screen.getByText("Installation defaults")).toBeTruthy();
+    rerender(<QueryClientProvider client={new QueryClient()}>
+      <ModelPicker entry={tuned} menu={MENU} onWrite={onWrite} />
+    </QueryClientProvider>);
+    expect(screen.getByText("Temperature 1")).toBeTruthy();
+    await userEvent.click(screen.getByText("Call settings"));
+    await userEvent.clear(screen.getByRole("spinbutton", { name: "Temperature" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save call settings" }));
+    expect(onWrite).toHaveBeenCalledWith({ connection: "Local", model: "chatgpt/gpt-6.1-sol" });
+  });
+
+  it("offers no call settings for the default", () => {
+    render(<QueryClientProvider client={new QueryClient()}>
+      <ModelPicker entry={ENTRY} menu={{ ...MENU, sections: [] } as unknown as Menu} onWrite={vi.fn()} />
+    </QueryClientProvider>);
+    expect(screen.queryByText("Call settings")).toBeNull();
+  });
+});

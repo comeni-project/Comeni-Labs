@@ -21,6 +21,8 @@ mounted here as a submodule. Its changes and releases are recorded in that repos
   and migration histories. A new data volume preserves both legacy volumes; migration tooling
   backs up, restores and verifies data before Make permits cutover.
 - Production requires separate administrator, Mendel and Wiener database passwords.
+- The API and the AI worker share `.run/chatgpt` as `CHATGPT_TOKEN_DIR`, for a ChatGPT
+  subscription's sign-in (#457).
 
 These notes consolidate the earlier unreleased entries and backfill notable changes
 through the explain-inputs and retention work on this branch. They are not a new release
@@ -28,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- A model choice may carry `temperature`, `reasoning_effort` and `timeout_seconds` for that
+  purpose's calls (#457). Invariant 12 (no subscription OAuth) is retired.
 - `qc.report::assembly`: a type's states are written in the type. A contract file writing them
   beside it is refused (`MD0110`), and a signature is spelled that way. `OutputPort.format` records the file formats an output
   writes, checked against the module (`MD0109`) and taking no part in matching.
@@ -337,6 +341,8 @@ or a complete commit history.
   cache markers, raw replies and cached-token accounting.
 - Provider-specific structured response formats constrain declared answers and preserve null
   where allowed. Server validation remains required; an empty allowed list allows no values.
+- `ModelAccess.reasoning_effort`, sent only when set. A `chatgpt/` model signs in through
+  LiteLLM with no key (#457).
 
 ### mendel-ai
 

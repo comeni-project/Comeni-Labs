@@ -12,7 +12,71 @@ import type { Entry, Menu } from "./usePreferences";
  *  label (`ollama_chat/gemma3:4b` reads *gemma3:4b*). */
 const short = (model: string) => model.includes("/") ? model.slice(model.indexOf("/") + 1) : model;
 
-type Choice = { connection: string; model: string } | null;
+type Tuning = { temperature?: number; reasoning_effort?: string; timeout_seconds?: number };
+type Choice = ({ connection: string; model: string } & Tuning) | null;
+
+const EFFORTS = ["none", "minimal", "low", "medium", "high"];
+
+/** What a tuned call sends, in a line: *Temperature 1 · effort high · 180 s*. */
+function tuned(c: Tuning): string {
+  const parts = [
+    c.temperature !== undefined && `Temperature ${c.temperature}`,
+    c.reasoning_effort && `effort ${c.reasoning_effort}`,
+    c.timeout_seconds !== undefined && `${c.timeout_seconds} s`,
+  ].filter(Boolean);
+  // The defaults are the installation's (`COMENI_AI_TEMPERATURE`, `…_TIMEOUT_SECONDS`), which
+  // this page does not read, so it does not name a number.
+  return parts.length ? parts.join(" · ") : "Installation defaults";
+}
+
+/** A chosen model's call settings (issue 457): a reasoning model refuses temperature 0, and a slow
+ *  one needs longer than a minute. An empty field sends the installation's default. */
+function CallSettings({ choice, disabled, onWrite }: {
+  choice: NonNullable<Choice>; disabled: boolean; onWrite: (v: Choice) => void;
+}) {
+  const [temperature, setTemperature] = useState(choice.temperature?.toString() ?? "");
+  const [effort, setEffort] = useState(choice.reasoning_effort ?? "");
+  const [timeout, setTimeout_] = useState(choice.timeout_seconds?.toString() ?? "");
+  const save = () => {
+    const { connection, model } = choice;
+    onWrite({
+      connection, model,
+      ...(temperature !== "" && { temperature: Number(temperature) }),
+      ...(effort && { reasoning_effort: effort }),
+      ...(timeout !== "" && { timeout_seconds: Number(timeout) }),
+    });
+  };
+  return (
+    <details className="basis-full text-label text-ink-2">
+      <summary className="cursor-pointer min-h-[24px]">
+        Call settings <span aria-hidden="true" className="text-ink-3">·</span> <span className="text-ink-3">{tuned(choice)}</span>
+      </summary>
+      <span className="mt-[8px] flex flex-wrap items-end gap-x-[16px] gap-y-[8px]">
+        <label className="flex flex-col gap-[4px]">Temperature
+          <input type="number" min={0} max={2} step={0.1} placeholder="default" value={temperature}
+                 disabled={disabled} onChange={(e) => setTemperature(e.target.value)}
+                 className={`${FIELD} max-w-[110px]`} />
+        </label>
+        <label className="flex flex-col gap-[4px]">Reasoning effort
+          <select value={effort} disabled={disabled} onChange={(e) => setEffort(e.target.value)}
+                  className={`${FIELD} max-w-[150px]`}>
+            <option value="">Not sent</option>
+            {EFFORTS.map((e) => <option key={e}>{e}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-[4px]">Timeout (seconds)
+          <input type="number" min={1} step={1} placeholder="default" value={timeout}
+                 disabled={disabled} onChange={(e) => setTimeout_(e.target.value)}
+                 className={`${FIELD} max-w-[110px]`} />
+        </label>
+        <button type="button" disabled={disabled} onClick={save}
+                className="h-[34px] bg-transparent text-now-ink cursor-pointer text-secondary">
+          Save call settings
+        </button>
+      </span>
+    </details>
+  );
+}
 
 export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu; onWrite: (v: Choice) => void }) {
   const of = (entry.setting as unknown as { of: string }).of;
@@ -45,6 +109,7 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
           const v = event.target.value;
           if (v === "\u0001") return setOther({ connection: records[0]?.name ?? "", model: "" });
           setOther(null);
+          // A new model starts untuned: its call settings were the old model's.
           onWrite(v ? { connection: v.split("\u0000")[0], model: v.split("\u0000")[1] } : null);
         }}
         className={FIELD}
@@ -60,6 +125,10 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
         <span className="basis-full text-label text-needs-you-ink" title={failed.map((f) => f.says).join("\n")}>
           Could not list models on {failed.map((f) => f.name).join(", ")}.
         </span>
+      )}
+      {current && !other && (
+        <CallSettings key={JSON.stringify(current)} choice={current}
+                      disabled={entry.shown.locked} onWrite={onWrite} />
       )}
       {other && (
         <>
