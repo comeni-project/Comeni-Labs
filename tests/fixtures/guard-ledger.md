@@ -5488,3 +5488,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   live stack, a forge call to `chatgpt/gpt-6.1-sol` at the installation's temperature 0 was
   refused ("doesn't support temperature=0.0 while reasoning is active"); with Settings →
   Models → Adapting tools at temperature 1, it answered.
+- 2026-11-05, #457 redraft context: `test_a_redraft_sees_only_what_the_person_settled` failed
+  with "the earlier open proposal anchored the redraft" on the v5 code, which listed every item
+  as "so far". That is how GPT left gemma's open quast questions alone. With `_DRAFTED_WITH`
+  set back to v5, `test_the_questions_prompt_says_the_versions_topic_is_not_a_port` failed.
+  Both pass on v6. Restored.

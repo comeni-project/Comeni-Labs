@@ -33,7 +33,7 @@ from comeni_core.egress.forge import (
 from comeni_flow.interpret import Refused
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_forge.forging import rules
-from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece
+from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
 from mendel_forge.forging.protocol import Phase
 from mendel_forge.forging.validate import (
     Known,
@@ -58,6 +58,7 @@ builder's."""
 
 _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.questions.v5": InvocationPurpose.ANALYSIS,
+            "forge.questions.v6": InvocationPurpose.ANALYSIS,
             "forge.draft.v4": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
@@ -65,7 +66,18 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.review.v2": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v5", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v6", Piece.TESTS: "forge.tests.v1"}
+
+_SETTLED = frozenset({Status.APPROVED, Status.REMOVED})
+
+
+def settled_questions(state: Adaptation) -> Adaptation:
+    """What a questions draft sees: the person's answers and removals, never an open proposal.
+    An earlier draft's guess anchored a stronger model to it (#457 walk), so each open question
+    is drafted fresh; the guess stays in the item's history."""
+    return state.model_copy(update={"items": {
+        key: item for key, item in state.items.items()
+        if not key.startswith("questions:") or item.status in _SETTLED}})
 
 
 def _client(purpose: InvocationPurpose) -> Client | None:
@@ -287,7 +299,8 @@ def draft_piece(adaptation_id: str, piece: Piece,
     problems: list[str] = []
     for attempt in range(1, ATTEMPTS + 1):
         state = forging.load(adaptation_id)
-        request = compose(adaptation, state, piece, prompt=prompt_id)
+        shown = settled_questions(state) if piece is Piece.QUESTIONS else state
+        request = compose(adaptation, shown, piece, prompt=prompt_id)
         shape = _questions_shape() if piece is Piece.QUESTIONS else _draft_shape()
         reply, invocation = _call(prompt_id, request, shape, client, adaptation_id, attempt,
                                   problems)

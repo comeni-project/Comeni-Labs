@@ -25,7 +25,7 @@ from mendel_api.invocations import InvocationPurpose
 from mendel_api.services import forging, forging_ai
 from mendel_forge.forging.model import Piece
 
-DRAFTERS = ("forge.questions.v4", "forge.questions.v5")
+DRAFTERS = ("forge.questions.v5", "forge.questions.v6")
 REVIEWERS = ("forge.review.v1", "forge.review.v2")
 
 
