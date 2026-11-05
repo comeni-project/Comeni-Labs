@@ -122,6 +122,20 @@ def test_a_redraft_sees_only_what_the_person_settled(adaptation):
         "suggested"] == "fastq.reads"
 
 
+def test_a_contract_redraft_does_not_see_its_earlier_open_proposal(adaptation):
+    """The quast contract's first draft had nf_include ending in main.nf; a redraft shown that
+    proposal would be anchored to it, as questions were."""
+    _answer(adaptation)
+    wrong = {"items": {**CONTRACT["items"], "contract:process": {
+        **CONTRACT["items"]["contract:process"], "nf_include": "modules/nf-core/bwa/mem/main.nf"}},
+        "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(wrong))
+    again = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, again)
+    assert "bwa/mem/main.nf" not in again.prompts[0]
+    assert '"choice": "alignment"' in again.prompts[0], "the answered questions are context"
+
+
 def test_the_questions_prompt_says_the_versions_topic_is_not_a_port(adaptation):
     client = FakeClient(QUESTIONS)
     forging_ai.draft_piece(adaptation, Piece.QUESTIONS, client)
@@ -134,6 +148,18 @@ def test_drafting_the_contract_stores_proposals(adaptation):
     items = forging.load(adaptation).items
     assert items["contract:input:reads"].status == "proposed"
     assert items["contract:process"].current.because == "BWA_MEM in main.nf"
+
+
+def test_the_contract_prompt_teaches_nf_include_and_a_folder_format(adaptation):
+    """#459: v4's own example was `.../module/main.nf`, and GPT copied it for quast, which
+    keys no module. A directory output also got no format."""
+    _answer(adaptation)
+    client = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    sent = client.prompts[0]
+    assert "main.nf\"" not in sent.split("=== the module")[0], "an example still ends in .nf"
+    assert '"nf_include": "modules/nf-core/example/main"' in sent
+    assert '"format": ["folder"]' in sent
 
 
 def test_the_prompt_carries_the_module_and_the_registry(adaptation):
@@ -631,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v4"
+        assert invocation.prompt_id == "forge.draft.v5"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"

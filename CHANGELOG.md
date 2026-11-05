@@ -204,6 +204,9 @@ or a complete commit history.
   from an earlier model's guess. Outputs on nf-core's `versions` topic get no type question.
   Every question carries a suggestion, an output prefers a state of a listed type to a new
   type, and competition is answered `no_rule` or `rule_needed` (#453).
+- Pieces after Questions are drafted with `forge.draft.v5`. It names each port's exact
+  fields, writes `nf_include` without `.nf`, and gives a directory output `folder`. Every
+  piece's redraft, not only Questions, sees only what the person settled (#459).
 - Each question option's `new` flag comes from the registry, not the model (#451).
 - Type questions carry advisory engine findings (MF0520–MF0522) for scope, duplicate types and
   format, on each item and in the question context (#452).

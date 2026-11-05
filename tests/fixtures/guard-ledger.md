@@ -5493,3 +5493,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   as "so far". That is how GPT left gemma's open quast questions alone. With `_DRAFTED_WITH`
   set back to v5, `test_the_questions_prompt_says_the_versions_topic_is_not_a_port` failed.
   Both pass on v6. Restored.
+- 2026-11-05, #459 contract prompt: `test_the_contract_prompt_teaches_nf_include_and_a_folder_format`
+  failed on `forge.draft.v4` with "an example still ends in .nf". With `settled` narrowed back
+  to questions only, `test_a_contract_redraft_does_not_see_its_earlier_open_proposal` failed.
+  Both pass. Restored. Live on quast with GPT: on v5 the first try was accepted, with
+  `modules/nf-core/quast/main` and `results` as `folder`.
