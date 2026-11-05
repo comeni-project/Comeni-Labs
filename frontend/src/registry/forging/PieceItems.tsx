@@ -1,13 +1,10 @@
 import { useState } from "react";
 
 import { Failed } from "../../ui/States";
-import { RegistryPicker, type PickerEntry } from "../parts/RegistryPicker";
-import { roleEntries, typeEntries, useChoices } from "../parts/useChoices";
 import { ItemConstructor } from "./ItemConstructor";
+import { asked, QuestionList } from "./QuestionCards";
 import { RulePreview } from "./RulePreview";
 import { ValueDetails } from "./ValueDetails";
-import { QuestionRemoval } from "./QuestionRemoval";
-import { QuestionContext } from "./QuestionContext";
 import { ReviewComment, type Review } from "./Reviews";
 import { nameOf, type ItemView } from "./useAdaptation";
 import type { useForgeActions } from "./useForgeActions";
@@ -51,91 +48,9 @@ export function summaryOf(key: string, value: unknown): string {
   return "Declared details below";
 }
 
-type Asked = { asks: string; suggested?: string | null; allows_new?: boolean;
-                options: { id: string; label: string; because: string; new?: boolean }[] };
-
-/** The question an item asks, from its revisions: once answered, its value is the answer. */
-function asked(item: ItemView): Asked | null {
-  const found = item.revisions.findLast((r) => (r.value as Partial<Asked> | null)?.asks !== undefined);
-  return found ? found.value as Asked : null;
-}
-
 /** A proposed removal carries no value of its own: approving it removes the item. */
 function removing(item: ItemView): boolean {
   return item.status === "proposed" && item.revisions.at(-1)?.move === "propose_removal";
-}
-
-/** Which picker answers a question, from its key: its job, or an input's or output's type. */
-function pickerFor(key: string): "role" | "type" | null {
-  if (key === "questions:role") return "role";
-  return /^questions:(input|output)_type:/.test(key) ? "type" : null;
-}
-
-/** A question is answered, never approved: its options, the AI's suggestion marked but not
- *  chosen, and a name of the person's own where the question allows one. */
-function Answer({ item, question, actions }: { item: ItemView; question: Asked; actions: Actions }) {
-  const [own, setOwn] = useState("");
-  const [picking, setPicking] = useState(false);
-  const pending = actions.command.isPending;
-  const kind = pickerFor(item.key);
-  const choices = useChoices(picking);
-  const entries: PickerEntry[] = !choices.data || !kind ? []
-    : kind === "role" ? roleEntries(choices.data) : typeEntries(choices.data);
-  const chosen = (item.value as { choice?: string } | null)?.choice;
-  const answer = (value: { choice: string; new?: boolean }) =>
-    actions.command.mutate({ move: "answer", item: item.key, expected: item.current_n, value });
-  return (
-    <div className="flex flex-col gap-2">
-      <ul className="list-none m-0 p-0 flex flex-col gap-[6px]">
-        {question.options.map((o) => (
-          <li key={o.id}>
-            <button type="button" aria-pressed={chosen === o.id} disabled={pending} aria-busy={pending}
-                    onClick={() => answer({ choice: o.id, ...(o.new ? { new: true } : {}) })} className="choice">
-              <span className="font-medium text-ink">{o.label}</span>
-              {chosen === o.id && <span className="ml-2 text-[12px] text-done-ink">chosen by you</span>}
-              {!chosen && question.suggested === o.id && <span className="ml-2 text-[12px] text-measured-ink">suggested</span>}
-              <span className="block text-[12.5px] text-ink-2">{o.because}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      {kind && !picking && (
-        <button type="button" className="control self-start" onClick={() => setPicking(true)}>
-          Something else in the registry
-        </button>
-      )}
-      {picking && choices.isError && <Failed error={choices.error} padded={false} />}
-      {picking && choices.data && (
-        <div className="picker-anchor">
-        <button type="button" aria-label="Close the picker" className="picker-outside" onClick={() => setPicking(false)} />
-        <RegistryPicker
-          title={kind === "role" ? "Choose a job" : "Choose a type"}
-          entries={entries} closest={question.options.map((o) => o.id)} chosen={chosen}
-          before={kind === "role" ? "Tools doing this job read" : "Made by"}
-          after={kind === "role" ? "and make" : "Read by"}
-          emptyBefore={kind === "role" ? "No tool yet" : "Nothing: a person supplies it"}
-          onClose={() => setPicking(false)}
-          onPick={(id) => { answer({ choice: id }); setPicking(false); }}
-          onNew={question.allows_new !== false && kind === "type"
-            ? (name) => { answer({ choice: name, new: true }); setPicking(false); } : undefined}
-          newLabel="New type"
-        />
-        </div>
-      )}
-      {question.allows_new !== false && (
-        <form className="flex flex-wrap gap-2" onSubmit={(e) => {
-          e.preventDefault();
-          if (own.trim()) answer({ choice: own.trim(), new: true });
-        }}>
-          <label className="sr-only" htmlFor={`own-${item.key}`}>Another answer</label>
-          <input id={`own-${item.key}`} value={own} onChange={(e) => setOwn(e.target.value)}
-                 placeholder="Another answer"
-                 className="flex-1 min-w-0 font-data text-[12.5px] p-2 border border-line-2 rounded-control" />
-          <button type="submit" className={button}>Answer</button>
-        </form>
-      )}
-    </div>
-  );
 }
 
 const STATUS: Record<string, { label: string; tone: string }> = {
@@ -148,14 +63,14 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 
 /** The current piece's items (boards 3, 3c): value, how it is passed, the reason, who
  *  proposed it, and the person's moves. Change opens the same constructor used to write an item. */
-export function PieceItems({ id, items, reviews = [], actions, onReject }: {
+export function PieceItems({ id, items, reviews = [], actions, onReject, focus }: {
   id: string;
   reviews?: Review[];
   items: ItemView[];
   actions: Actions;
   onReject: (key: string) => void;
+  focus?: string | null;
 }) {
-  const [removingKey, setRemovingKey] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const open = items.filter((i) => i.status === "proposed" || i.status === "reopened");
   // Each of these is a decision of its own: a question wants an answer, a removal a second look.
@@ -167,17 +82,18 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
       : i.key.startsWith("questions:output_type:") ? 2 : i.piece === "questions" ? 3 : 4;
     return rank(a) - rank(b);
   });
+  const questions = ordered.filter((i) => i.piece === "questions");
   return (
     <div>
-      {ordered.map((item) => {
+      {questions.length > 0 && <QuestionList id={id} items={questions} reviews={reviews}
+        actions={actions} onReject={onReject} focus={focus} />}
+      {ordered.filter((i) => i.piece !== "questions").map((item) => {
         const current = item.revisions.at(-1);
         const supplied = item.revisions.findLast((r) =>
           ["draft", "revise", "add", "answer", "write", "change"].includes(r.move));
         const author = supplied?.actor === "ai" ? "proposed by the AI"
           : supplied?.actor === "registry" ? "from the registry" : "written by you";
         const waiting = item.status === "proposed" || item.status === "reopened";
-        const question = asked(item);
-        const isQuestion = item.piece === "questions";
         return (
           <div key={item.key} role="group" aria-label={nameOf(item.key)} data-item={item.key}
                className="grid grid-cols-1 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)] gap-x-4 gap-y-2 items-start px-[22px] py-4 border-t border-line-soft">
@@ -192,28 +108,20 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                                  onCancel={() => setEditing(null)} />
               ) : (
                 <>
-                  {question && <p className="m-0 mb-3 text-ink font-medium">{question.asks}</p>}
-                  {!question && <ValueDetails value={item.value} />}
+                  <ValueDetails value={item.value} />
                   {item.key.startsWith("rules:rule:") && !["removed", "rejected"].includes(item.status)
                     && <RulePreview key={`${item.key}:${item.current_n}`} id={id} item={item} />}
-                  {question && <QuestionContext id={id} item={item.key} revision={item.current_n} />}
                   {current?.because ?? ""}
-                  {isQuestion && item.status === "rejected" && <p className="m-0 mb-2 text-[13px]">
-                    This still needs an answer, correction or explicit removal. Rejecting it does not settle the question.
-                  </p>}
-                  {isQuestion && removingKey === item.key && item.status !== "removed" &&
-                    <QuestionRemoval key={item.key} item={item} actions={actions} onClose={() => setRemovingKey(null)} />}
-                  {question && item.status !== "removed" && removingKey !== item.key && <Answer item={item} question={question} actions={actions} />}
                   <span className={`block mt-1 text-[12.5px] ${removing(item) ? "text-needs-you-ink" : STATUS[item.status]?.tone ?? ""}`}>
                     {removing(item) ? "The AI proposes removing this" : STATUS[item.status]?.label}
                   </span>
                 </>
               )}
-              {reviews.filter((r) => r.item === item.key && r.revision === item.current_n)
+              {reviews.filter((r) => r.item === item.key && r.revision === item.current_n && r.comment)
                 .map((r) => <ReviewComment key={r.item} review={r} />)}
             </div>
             <div className="flex flex-wrap gap-[6px] sm:col-start-2 sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
-              {waiting && !question && editing !== item.key && (
+              {waiting && editing !== item.key && (
                 <button type="button" className={primary} disabled={actions.command.isPending}
                         aria-busy={actions.command.isPending}
                         onClick={() => actions.command.mutate({ move: "approve", item: item.key,
@@ -221,17 +129,13 @@ export function PieceItems({ id, items, reviews = [], actions, onReject }: {
                   Approve
                 </button>
               )}
-              {item.status !== "removed" && !question && editing !== item.key && removingKey !== item.key && (
+              {item.status !== "removed" && editing !== item.key && (
                 <button type="button" className={button}
                         onClick={() => setEditing(item.key)}>
                   Change
                 </button>
               )}
-              {isQuestion && item.status !== "removed" && removingKey !== item.key && editing !== item.key && (
-                <button type="button" className={button} disabled={actions.command.isPending}
-                  onClick={() => setRemovingKey(item.key)}>Remove question</button>
-              )}
-              {waiting && removingKey !== item.key && (
+              {waiting && (
                 <button type="button" disabled={actions.command.isPending} className={`${button} text-needs-you-ink`}
                         onClick={() => { actions.command.mutate({ move: "reject", item: item.key,
                                                                    expected: item.current_n });

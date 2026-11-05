@@ -116,7 +116,7 @@ export function Adaptation() {
               {items.length === 0 && piece !== view.next_piece && <p className="m-0 px-[22px] py-5 text-[13px] text-ink-3">This piece comes later. Finish {view.next_piece ?? "the current piece"} first.</p>}
               {actions.draft.isError && <div className="px-[22px] py-3"><Failed error={actions.draft.error} padded={false} /></div>}
               <PieceItems id={id} reviews={reviews.data} items={items} actions={actions}
-                          onReject={(key) => setAbout(key)} />
+                          onReject={(key) => setAbout(key)} focus={focus} />
               {(writing || items.length > 0) && piece === view.next_piece && (
                 <details className="border-t border-line-soft" open={writing}>
                   <summary className="px-[22px] py-3 cursor-pointer text-[13px] text-ink-2">Write an item yourself</summary>

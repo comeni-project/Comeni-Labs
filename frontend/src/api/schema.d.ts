@@ -3260,6 +3260,11 @@ export interface components {
             current_n: number;
             /** Revisions */
             revisions: components["schemas"]["RevisionView"][];
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["QuestionFinding"][];
         };
         JsonValue: unknown;
         /** Kept */
@@ -4191,6 +4196,24 @@ export interface components {
              * @default false
              */
             optional: boolean;
+            /** Arrival */
+            arrival?: string | null;
+            /** Channel */
+            channel?: string | null;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["QuestionFinding"][];
+        };
+        /** QuestionFinding */
+        QuestionFinding: {
+            /** Code */
+            code: string;
+            /** Says */
+            says: string;
+            /** Option */
+            option?: string | null;
         };
         /**
          * ReadOnlyHere

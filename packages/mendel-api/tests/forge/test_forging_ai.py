@@ -87,7 +87,7 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v4"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v5"
 
 
 def test_drafting_the_contract_stores_proposals(adaptation):
@@ -386,7 +386,8 @@ def test_review_quote_is_checked_and_cannot_change_items(adaptation):
     forge_review.review_piece(adaptation, "questions", revisions, FakeClient(reply))
     reviews = forge_review.read(adaptation)
     assert len(reviews) == 1
-    assert reviews[0].comment == "Check the alignment role."
+    # #453: a comment without a verbatim quote is dropped; the revision is still reviewed.
+    assert reviews[0].comment == ""
     assert reviews[0].quote is None and reviews[0].file is None
     assert forging.load(adaptation).model_dump() == before
     forging.act(adaptation, forging.person(Move.ANSWER, "questions:role", expected=1,
@@ -441,7 +442,8 @@ async def test_reviewer_failure_clears_pending_message_without_changing_piece(
 
     revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
     before = forging.load(adaptation).model_dump()
-    monkeypatch.setattr(forging_ai, "_client", lambda purpose: FakeClient({"comments": []}))
+    monkeypatch.setattr(forging_ai, "_client", lambda purpose: FakeClient(
+        {"comments": [{"item": "questions:invented", "comment": "x"}]}))
     seq = forging.post_message(adaptation, role="engine", content="Reviewing", pending=True)
     await forge_review.review_forge_piece({}, adaptation, "questions", revisions, seq)
     assert not forging.working(adaptation)
@@ -595,3 +597,82 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
+
+
+def _typed(*options: dict) -> dict:
+    return {"questions": [{"key": "questions:input_type:reads", "asks": "What does reads hold?",
+                           "options": list(options), "suggested": options[0]["id"]}]}
+
+
+def test_the_engine_not_the_model_says_which_options_are_new(adaptation):
+    """#451: a declared type the model marked new is not new; an undeclared one it left
+    unmarked is. The model's flag is discarded on the way in."""
+    reply = _typed({"id": "genome.fasta", "label": "genome", "because": "fasta", "new": True},
+                   {"id": "assembly.fasta", "label": "assembly", "because": "contigs"})
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(reply, reply))
+    items = forging.load(adaptation).items
+    assert "questions:input_type:reads" in items, (
+        "the draft was refused: the model's `new` flag decided, not the registry")
+    options = items["questions:input_type:reads"].value["options"]
+    assert options, "the question was stored without options"
+    assert {o["id"]: o["new"] for o in options} == {"genome.fasta": False, "assembly.fasta": True}
+
+
+@pytest.fixture
+def quast(tmp_path, monkeypatch, adaptation) -> str:
+    """quast beside bwa/mem: three inputs, one per sample and two references (#412)."""
+    cache = settings.forge_cache
+    shutil.copytree(FIXTURES / "quast", cache / "nf-core-modules/modules/nf-core/quast")
+    catalogue.run_sync(FakeSource(["bwa/mem", "quast"]))
+    return forging.start("nf-core", "quast", "rafael").id
+
+
+def test_quasts_walk_suggestions_show_engine_findings(quast):
+    """#452: the GPU walk's suggestions, each flagged on the item view and in the context."""
+    def asked(name: str, type_id: str) -> dict:
+        return {"key": f"questions:input_type:{name}", "asks": f"What does {name} hold?",
+                "options": [{"id": type_id, "label": type_id, "because": "fits"}],
+                "suggested": type_id}
+    forging_ai.draft_piece(quast, Piece.QUESTIONS, FakeClient({"questions": [
+        asked("consensus", "genome.fasta"), asked("fasta", "genome.fasta"),
+        asked("gff", "annotation.gtf")]}))
+    view = {i.key: [f.code for f in i.findings] for i in forging.read(quast).items}
+    assert view["questions:input_type:consensus"] == ["MF0520", "MF0521"]
+    assert view["questions:input_type:gff"] == ["MF0522"]
+    from mendel_api.services import forge_context
+    context = forge_context.read(quast, "questions:input_type:consensus")
+    assert context.arrival == "sample"
+    assert context.channel == "tuple val(meta) , path(consensus)"
+    assert [f.code for f in context.findings] == ["MF0520", "MF0521"]
+    request = forging_ai.compose(forging.row(quast), forging.load(quast), Piece.QUESTIONS,
+                                 prompt="forge.questions.v4")
+    assert any(t.id == "genome.fasta" and t.scope == "run" for t in request.known.described)
+    assert {f.code for f in request.findings} == {"MF0520", "MF0521", "MF0522"}
+
+
+def test_a_reviewer_with_no_concern_says_nothing_and_is_not_asked_again(adaptation):
+    """#453: v1 had to comment on every item; v2 may return none, and that is recorded."""
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    client = FakeClient({"comments": []})
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    reviews = forge_review.read(adaptation)
+    assert reviews, "the reviewed revision is recorded"
+    assert [r.comment for r in reviews] == [""]
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    assert len(client.prompts) == 1
+    assert "Engine findings" in client.prompts[0] and "one per" in client.prompts[0]
+
+
+def test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key(adaptation):
+    """gemma3:12b replied `questions:role [proposed]`, copying the prompt's label (#453)."""
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    forge_review.review_piece(adaptation, "questions", revisions, FakeClient({"comments": [
+        {"item": "questions:role [proposed]", "comment": "Check this process.",
+         "quote": "process BWA_MEM", "file": "main.nf"}]}))
+    reviews = forge_review.read(adaptation)
+    assert reviews, "the review was refused"
+    assert [(r.item, r.comment) for r in reviews] == [("questions:role", "Check this process.")]

@@ -2447,6 +2447,42 @@ MF0519:
   explanation: |
     A release is what installations following `latest` move to, so it is cut only from a green main,
     and tags exactly the commit whose checks were read.
+MF0520:
+  emitted_by: forge
+  concern: catalogue
+  says: "an input arrives at a different scope than its type"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Pick a type whose scope matches how the input arrives, or propose one. nf-core names the
+    per-sample map `meta` and a reference's map `meta2`, `meta3` and so on.
+  explanation: |
+    A type says whether it arrives once per run (a reference) or once per sample. An input whose
+    module tuple suggests the other scope is probably the wrong type. Advisory: the person decides.
+MF0521:
+  emitted_by: forge
+  concern: catalogue
+  says: "two inputs of one tool have the same type"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Check that both inputs really hold the same kind of file. A tool rarely reads one kind twice;
+    usually one of them is a reference or a different kind of result.
+  explanation: |
+    The engine connects inputs by type, so two inputs with one type are filled from the same
+    source unless something else separates them. Advisory: the person decides.
+MF0522:
+  emitted_by: forge
+  concern: catalogue
+  says: "an input's file format differs from its type's format"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Pick a type of the format the module reads, or propose one. The format comes from the
+    module's meta.yml pattern, or from the input's name when that is a format's name.
+  explanation: |
+    A type ID names its format (`annotation.gtf` is GTF). A module documented to read GFF is not
+    connected safely to a GTF source. Advisory: the person decides.
 MV0001:
   emitted_by: vendor
   concern: vendoring

@@ -191,6 +191,13 @@ or a complete commit history.
 
 ### mendel-api
 
+- The forge's reviewer (`forge.review.v2`) comments only where it has a concern, and only with a
+  verbatim quote. A revision it reads with no concern is recorded as reviewed. Drafted
+  questions use `forge.questions.v5`. Both prompts see each type's name, scope and meaning, and
+  the engine's findings (#453).
+- Each question option's `new` flag comes from the registry, not the model (#451).
+- Type questions carry advisory engine findings (MF0520–MF0522) for scope, duplicate types and
+  format, on each item and in the question context (#452).
 - Questions have explicit removal with a recorded reason; rejection remains unresolved. Approved
   new question answers permit draft references, while vocabulary declarations remain required
   at Assembly. Contract completion requires a process and a port. Draft prompts distinguish
@@ -354,6 +361,8 @@ or a complete commit history.
 
 ### mendel-forge
 
+- `forging.checks` finds a type question's scope, duplicate-type and format mismatches. They are
+  advice only; nothing is refused (#452).
 - Explicit Family items in Vocabulary let a reviewed new type such as `assembly.fasta` load
   with its new family at Assembly. Constructors and AI drafting use the registry Family schema;
   pending family dependencies reopen affected items when their supplying draft changes (#441).
@@ -432,6 +441,14 @@ or a complete commit history.
 ### frontend
 
 #### Added
+
+- Forge question cards (#454):
+  - one question open at a time;
+  - collapsed rows show the answer or the suggestion and the engine's findings;
+  - one card per option merges the registry's name, scope and meaning with the AI's reason;
+  - the module's evidence and the engine checks sit above the options;
+  - the second opinion is labelled as a model's;
+  - on a phone the options fold under "N more".
 
 - Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): the Forging tab, an adaptation's page (pieces, items with Approve,
   Change and Reject, *Draft with the AI* or *Write it myself*), the chat with the AI's proposal

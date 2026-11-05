@@ -11,7 +11,7 @@ const rev = (n: number, move: string, actor: string, value: unknown, because = "
   ({ n, move, actor, value, because, by: actor === "person" ? "rafael" : null, invocation: null });
 
 const item = (key: string, piece: string, status: string, revisions: unknown[]) => ({
-  key, piece, status, current_n: revisions.length,
+  key, piece, status, current_n: revisions.length, findings: [] as unknown[],
   value: (revisions[revisions.length - 1] as { value: unknown }).value, revisions,
 });
 
@@ -113,8 +113,12 @@ it("a question is answered with its options, and has no Approve", async () => {
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [question] });
   const row = await screen.findByRole("group", { name: "role" });
   expect(within(row).queryByRole("button", { name: "Approve" })).toBeNull();
-  expect(within(row).getByText(/suggested/i)).toBeTruthy();
-  fireEvent.click(within(row).getByRole("button", { name: /assembly QC/ }));
+  expect(within(row).getByText("AI suggests")).toBeTruthy();
+  fireEvent.click(within(row).getByRole("radio", { name: /alignment/ }));
+  expect(within(row).getByRole("radio", { name: /alignment/ })).toHaveAttribute("aria-checked", "true");
+  expect(calls.some((c) => c.url.endsWith("/commands"))).toBe(false);
+  fireEvent.click(within(row).getByRole("radio", { name: /assembly QC/ }));
+  fireEvent.click(within(row).getByRole("button", { name: "Answer: assembly QC" }));
   await vi.waitFor(() => {
     const sent = calls.find((c) => c.url.endsWith("/commands"));
     expect(sent?.body).toEqual({ move: "answer", item: "questions:role", expected: 1,
@@ -127,8 +131,9 @@ it("a question can be answered with a name of the person's own", async () => {
     asks: "Which role?", allows_new: true, options: [] })]);
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [question] });
   const row = await screen.findByRole("group", { name: "role" });
-  fireEvent.change(within(row).getByLabelText(/another answer/i), { target: { value: "binning" } });
-  fireEvent.click(within(row).getByRole("button", { name: "Answer" }));
+  fireEvent.click(within(row).getByRole("button", { name: "Propose a new job" }));
+  fireEvent.change(within(row).getByLabelText(/new job's name/i), { target: { value: "binning" } });
+  fireEvent.click(within(row).getByRole("button", { name: "Answer with it" }));
   await vi.waitFor(() => {
     const sent = calls.find((c) => c.url.endsWith("/commands"));
     expect(sent?.body).toEqual({ move: "answer", item: "questions:role", expected: 1,
@@ -324,7 +329,7 @@ const CHOICES = { roles: [], tools: [], types: [
 it("a type can be chosen from everything the registry has", async () => {
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ASKED] },
                    { "/registry/choices": CHOICES });
-  fireEvent.click(await screen.findByRole("button", { name: "Something else in the registry" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Pick another registry type…" }));
   const picker = await screen.findByRole("dialog", { name: "Choose a type" });
   fireEvent.click(within(picker).getByRole("option", { name: /reference genome/ }));
   fireEvent.click(within(picker).getByRole("button", { name: "Use genome.fasta" }));
@@ -349,7 +354,7 @@ it("the tool says how much of it is decided", async () => {
 
 it("the picker floats over the page and closes from outside it", async () => {
   at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ASKED] }, { "/registry/choices": CHOICES });
-  fireEvent.click(await screen.findByRole("button", { name: "Something else in the registry" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Pick another registry type…" }));
   await screen.findByRole("dialog", { name: "Choose a type" });
   fireEvent.click(screen.getByRole("button", { name: "Close the picker" }));
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -445,8 +450,9 @@ it("shows question evidence and current reviewer advice alongside the answers", 
   expect(await screen.findByText("Chooses what the table holds.")).toBeTruthy();
   expect(await screen.findByText("Check the assembly state.")).toBeTruthy();
   expect(screen.getByText(/Declaring this output is optional/)).toBeTruthy();
-  expect(screen.getByText("Proposed vocabulary · needs review")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: /Assembly metrics/ }));
+  expect(screen.getByText("new")).toBeTruthy();
+  expect(screen.getByText("Second opinion", { exact: false })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Answer: quality report" }));
   await vi.waitFor(() => expect(calls.find((c) => c.url.endsWith("/commands"))?.body).toEqual({
     move: "answer", item: question.key, expected: 1, value: { choice: "qc.report::assembly", new: true },
   }));
@@ -472,11 +478,15 @@ it("retains the question after answering and marks the person's choice without t
     ]),
   ] });
   const row = await screen.findByRole("group", { name: "tsv" });
+  const toggle = within(row).getByRole("button", { expanded: false });
+  expect(toggle).toHaveTextContent("Output");
+  expect(toggle).toHaveTextContent("Assembly report");
+  fireEvent.click(toggle);
   expect(within(row).getByText(q.asks)).toBeTruthy();
-  expect(within(row).getByText("Output · tsv")).toBeTruthy();
-  expect(within(row).getByRole("button", { name: /Assembly report/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(within(row).getByRole("radio", { name: /Assembly report/ })).toHaveAttribute("aria-checked", "true");
   expect(within(row).getByText("chosen by you")).toBeTruthy();
-  expect(within(row).queryByText("suggested")).toBeNull();
+  expect(within(row).queryByText("AI suggests")).toBeNull();
+  expect(within(row).queryByRole("button", { name: /^Answer:/ })).toBeNull();
 });
 
 it("orders the job before the input and output decisions", async () => {
@@ -513,7 +523,7 @@ it("a rejected question stays unresolved and has explicit removal with a recorde
   const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [ANSWERED, rejected] });
   const row = await screen.findByRole("group", { name: "meta" });
   expect(within(row).getByText(/still needs an answer, correction or explicit removal/)).toBeTruthy();
-  fireEvent.click(within(row).getByRole("button", { name: "Remove question" }));
+  fireEvent.click(within(row).getByRole("button", { name: "Not needed for this tool" }));
   const form = within(row).getByRole("form", { name: "Remove meta question" });
   expect(within(row).queryByRole("button", { name: /^Answer$/ })).toBeNull();
   expect(within(form).getByRole("button", { name: "Remove question" })).toBeDisabled();
@@ -535,7 +545,7 @@ it("a refused removal keeps the reason and the revision being decided on", async
     "/commands": { refused: true, detail: "MF0506: it changed since you looked" },
   });
   const row = await screen.findByRole("group", { name: "meta" });
-  fireEvent.click(within(row).getByRole("button", { name: "Remove question" }));
+  fireEvent.click(within(row).getByRole("button", { name: "Not needed for this tool" }));
   const form = within(row).getByRole("form", { name: "Remove meta question" });
   fireEvent.change(within(form).getByLabelText("Why does this question not apply?"), {
     target: { value: "Metadata, not a file" },
@@ -557,4 +567,39 @@ it("a process-only contract stays current instead of appearing approved in the t
   const contract = within(tracker).getByRole("button", { name: /contract/i });
   expect(contract.getAttribute("aria-current")).toBe("step");
   expect(contract.closest("li")?.getAttribute("data-state")).toBe("now");
+});
+
+it("an engine finding shows on the collapsed row and as a note in the open card, and decides nothing", async () => {
+  const q = { asks: "What does consensus hold?", suggested: "genome.fasta", options: [
+    { id: "genome.fasta", label: "genome", because: "a fasta" },
+    { id: "assembly.fasta", label: "assembly", because: "contigs", new: true }] };
+  const finding = { code: "MF0520", option: "genome.fasta",
+    says: "consensus arrives one per sample (the module's meta naming suggests so), but genome.fasta is one per run." };
+  const open = { ...item("questions:input_type:consensus", "questions", "proposed", [rev(1, "draft", "ai", q)]),
+                 findings: [finding] };
+  const later = { ...item("questions:input_type:fasta", "questions", "proposed", [rev(1, "draft", "ai", q)]),
+                  findings: [{ ...finding, code: "MF0521", says: "Same type as consensus: a tool rarely reads one kind of file twice." }] };
+  const calls = at({ ...BASE, phase: "reviewing", next_piece: "questions", items: [open, later] }, {
+    "/context?item=questions%3Ainput_type%3Aconsensus": {
+      lines: [], source_available: true, upstream: "Fasta file containing the assembly of interest",
+      decides: "Chooses what consensus reads.", optional: false, arrival: "sample",
+      channel: "tuple val(meta), path(consensus)", findings: [finding],
+      choices: [
+        { id: "genome.fasta", name: "reference genome (FASTA)", explain: "The genome sequence", scope: "run", tools: ["bwa/mem"], proposed: false },
+        { id: "assembly.fasta", name: null, explain: null, scope: null, tools: [], proposed: true }],
+    },
+  });
+  const fasta = await screen.findByRole("group", { name: "fasta" });
+  expect(within(fasta).getByRole("button", { expanded: false })).toHaveTextContent("Same type as consensus");
+  const row = screen.getByRole("group", { name: "consensus" });
+  expect(await within(row).findByRole("note")).toHaveTextContent("one per run");
+  expect(within(row).getByText("one per run")).toHaveClass("chip-flag");
+  expect(within(row).getByText("new · one per sample")).toBeTruthy();
+  expect(within(row).getByText("tuple val(meta), path(consensus)")).toBeTruthy();
+  // A flagged suggestion is not pre-selected: nothing to answer until the person picks.
+  expect(within(row).queryByRole("button", { name: /^Answer:/ })).toBeNull();
+  fireEvent.click(within(row).getByRole("radio", { name: /reference genome/ }));
+  fireEvent.click(within(row).getByRole("button", { name: "Answer: reference genome (FASTA)" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.url.endsWith("/commands"))?.body).toEqual({
+    move: "answer", item: open.key, expected: 1, value: { choice: "genome.fasta" } }));
 });
