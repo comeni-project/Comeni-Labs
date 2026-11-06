@@ -9,11 +9,13 @@ tier 3, and unresolved ties are tier 4 decisions for review.
 from collections.abc import Callable
 from typing import NamedTuple
 
+from comeni_core.declared.constraints import rows_of, sentence
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState, ProducerPin, Site, SourcePin
 from comeni_core.goal.premise import PremiseRecord
+from comeni_core.logic.when import matches
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.plan.ir import InputDecider, InputRecord, Tier
 from comeni_core.plan.tiers import ValueSource
@@ -35,6 +37,12 @@ class UnroutableError(ValueError):
     def __init__(self, message: str, *, missing: tuple[str, frozenset[str]] | None = None):
         super().__init__(message)
         self.missing = missing
+
+
+class ConstraintViolation(UnroutableError):
+    """Raised when a tool's constraints (#460) cannot hold in this pipeline: an input a person
+    switched off is needed (MD0609), a needed output's condition fails (MD0608), or a
+    connection or setting is forbidden (MD0610)."""
 
 
 class UnroutablePinError(UnroutableError):
@@ -261,13 +269,11 @@ def route(
             )
         chosen, pin = choice.contract, choice.pin
 
-        records: list[InputRecord] = []
+        records = _optional_states(goal, chosen, _matched_output(chosen, type_id, states))
+        off = {r.port for r in records if r.state is InputState.OFF}
         for port in chosen.consumes:
-            if not port.required:
-                record = _optional_state(goal, chosen.id, port.name)
-                records.append(record)
-                if record.state is InputState.OFF:
-                    continue
+            if port.name in off:
+                continue
             try:
                 source = goal.constraints.source_at(chosen.id, port.name)
                 if source is not None:
@@ -362,15 +368,70 @@ def _feeding(registry: Registry, port: InputPort, source: SourcePin):
     )
 
 
-def _optional_state(goal: Goal, contract: str, port: str) -> InputRecord:
-    """An optional input is off unless a person switched it on (#460). The engine never
-    switches one on by itself: that is the person's, a model's (confirmed) or a rule's."""
-    choice = goal.constraints.input_at(contract, port)
-    if choice is None:
-        return InputRecord(port=port, state=InputState.OFF, reason="off: not switched on",
-                           by=InputDecider.ROUTER)
-    return InputRecord(port=port, state=choice.state, reason=f"{choice.state}: you chose it",
-                       by=InputDecider.PERSON)
+def _matched_output(contract: ModuleContract, type_id: str, states: frozenset[str]):
+    """The output of `contract` that satisfies `type_id` with `states` here, first declared."""
+    return next((o for o in contract.produces
+                 if o.type_id == type_id and states <= frozenset(o.state)), None)
+
+
+_STRENGTH = {InputState.OFF: 0, InputState.OPTIONAL: 1, InputState.REQUIRED: 2}
+
+
+def _optional_states(goal: Goal, contract: ModuleContract, needed) -> list[InputRecord]:
+    """Each optional input's state (#460), sorted by port.
+
+    Off unless switched on. The router only ever makes one stronger, and says why:
+    *required* when the output needed here exists only with it, and on when a constraint row
+    requires it given what is on. It never turns one on from nothing; that is a person's, a
+    model's (confirmed) or a rule's. A person's *off* that a need contradicts is refused."""
+    records: dict[str, InputRecord] = {}
+    for port in contract.optional_ports():
+        choice = goal.constraints.input_at(contract.id, port)
+        records[port] = (
+            InputRecord(port=port, state=choice.state, reason=f"{choice.state}: you chose it",
+                        by=InputDecider.PERSON)
+            if choice is not None else
+            InputRecord(port=port, state=InputState.OFF, reason="off: not switched on",
+                        by=InputDecider.ROUTER))
+
+    def raise_to(port: str, state: InputState, reason: str) -> None:
+        current = records[port]
+        if _STRENGTH[state] <= _STRENGTH[current.state]:
+            return
+        if current.by is InputDecider.PERSON and current.state is InputState.OFF:
+            raise ConstraintViolation(coded(
+                "MD0609", f"you switched {contract.id}'s {port} off, but {reason}. Switch it "
+                f"on, or remove what needs it — `mendel explain MD0609`."))
+        records[port] = InputRecord(port=port, state=state, reason=reason,
+                                    by=InputDecider.ROUTER)
+
+    if needed is not None and needed.produced_when:
+        for key in needed.produced_when:
+            space, _, port = key.partition(".")
+            if space == "given" and port in records:
+                raise_to(port, InputState.REQUIRED,
+                         f"{needed.name} is needed here, and is written only with {port}")
+    changed = True
+    while changed:
+        changed = False
+        on = {p.name for p in contract.consumes if p.required}
+        on |= {p for p, r in records.items() if r.state is not InputState.OFF}
+        facts = {f"given.{p}": _On(True) for p in on}
+        for row in rows_of(contract):
+            if not matches(row.when, facts):
+                continue
+            subjects = [k.partition(".")[2] for k in row.when if k.startswith("given.")]
+            strongest = max((records[s].state for s in subjects if s in records),
+                            key=_STRENGTH.__getitem__, default=InputState.REQUIRED)
+            for port in row.requires:
+                if port in records and _STRENGTH[strongest] > _STRENGTH[records[port].state]:
+                    raise_to(port, strongest, sentence(row))
+                    changed = True
+    return sorted(records.values(), key=lambda r: r.port)
+
+
+class _On(NamedTuple):
+    value: object
 
 
 def _satisfy_port(
