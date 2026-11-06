@@ -451,7 +451,7 @@
 - [x] **Step 2:** Run `npx vitest run src/registry/forging`. Expected: FAIL.
 - [x] **Step 3:** Implement with tokens only (`tokens.test.ts` forbids raw colours).
 - [x] **Step 4:** Run `npx vitest run` and `npx tsc -b`. Expected: PASS.
-- [x] **Step 5:** Inspect in a browser at 1440 and 390, light and dark, on quast's adaptation.
+- [ ] **Step 5:** Inspect in a browser at 1440 and 390, light and dark, on quast's adaptation. *Not done: the Chrome extension disconnected during the session; required before merge.*
 - [x] **Step 6: Live.** Restart `mendel-ai-worker`, then redraft quast's Contract piece on
   `chatgpt/gpt-6.1-sol`. Record what it drafted for `fasta`, `gff`, the three reports and the
   constraint row on #412. Do not approve it; the operator approves.
