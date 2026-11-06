@@ -76,17 +76,25 @@ export function SubmitForm({ submit }: { submit: Submit }) {
           {submit.artifact.declared
             .filter((name) => !(submit.columns !== null && name === "input"))
             .map((name) => (
-            <label key={name} className="flex items-center gap-2">
+            <label key={name} className="flex flex-wrap items-center gap-2">
               <span className="font-data text-body w-28 text-ink-3">{name}</span>
               <input
                 data-testid={`param-${name}`}
                 value={submit.values[name] ?? ""}
                 onChange={(event) => submit.set(name, event.target.value)}
                 placeholder="a path on the machine that runs this"
-                className="flex-1 px-2 py-1 rounded-control bg-surface border border-line
+                className="flex-1 min-w-0 px-2 py-1 rounded-control bg-surface border border-line
                            font-data text-body text-ink"
               />
+              {submit.optional.has(name) && (
+                <span className="basis-full text-secondary text-ink-3 sm:pl-[120px]">
+                  optional — leave empty to run without it
+                </span>
+              )}
             </label>
+          ))}
+          {submit.broken.map((says) => (
+            <p key={says} role="alert" className="m-0 text-secondary text-needs-you-ink">{says}</p>
           ))}
         </div>
       )}
@@ -148,7 +156,7 @@ export function SubmitAction({ submit, draftId, gated, errors = true }: {
         <button
           data-testid="start-run"
           className={button}
-          disabled={submit.unfilled.length > 0 || submit.starting}
+          disabled={submit.unfilled.length > 0 || submit.broken.length > 0 || submit.starting}
           title={
             submit.unfilled.length
               ? `Still empty: ${submit.unfilled.join(", ")}`

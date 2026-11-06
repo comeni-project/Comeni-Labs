@@ -118,3 +118,40 @@ describe("when Wiener wants a token", () => {
     await waitFor(() => expect(screen.getByTestId("token-prompt")).toBeTruthy());
   });
 });
+
+describe("inputs a run may leave empty (issue 460)", () => {
+  const OPTIONAL = {
+    ...STORED,
+    declared: ["consensus", "fasta", "gff"],
+    optional: ["fasta", "gff"],
+    rules: [{ given: ["gff"], requires: ["fasta"], forbids: [], says: "`gff` is used only with `fasta`" }],
+  };
+
+  it("labels an optional input and does not count it as empty", async () => {
+    vi.stubGlobal("fetch", uploads(OPTIONAL));
+    show(<SubmitPanel draftId="abc" gated />);
+    screen.getByTestId("send-to-wiener").click();
+
+    await waitFor(() => expect(screen.getByTestId("param-fasta")).toBeTruthy());
+    expect(screen.getAllByText(/optional — leave empty to run without it/i)).toHaveLength(2);
+    expect(screen.getByTestId("start-run").title).toMatch(/consensus/);
+    expect(screen.getByTestId("start-run").title).not.toMatch(/fasta/);
+  });
+
+  it("blocks a GFF without a reference, saying why", async () => {
+    vi.stubGlobal("fetch", uploads(OPTIONAL));
+    show(<SubmitPanel draftId="abc" gated />);
+    screen.getByTestId("send-to-wiener").click();
+    await waitFor(() => expect(screen.getByTestId("param-gff")).toBeTruthy());
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(screen.getByTestId("param-consensus"), { target: { value: "a.fa" } });
+    fireEvent.change(screen.getByTestId("param-gff"), { target: { value: "g.gff" } });
+    expect(screen.getByText("`gff` is used only with `fasta`")).toBeTruthy();
+    expect(screen.getByTestId("start-run")).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId("param-fasta"), { target: { value: "ref.fa" } });
+    expect(screen.queryByText("`gff` is used only with `fasta`")).toBeNull();
+    expect(screen.getByTestId("start-run")).not.toBeDisabled();
+  });
+});

@@ -394,6 +394,16 @@ export interface components {
              */
             declared: string[];
             /**
+             * Optional
+             * @default []
+             */
+            optional: string[];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["RunRuleView"][];
+            /**
              * Input Form
              * @default direct
              * @enum {string}
@@ -988,6 +998,27 @@ export interface components {
             tasks_seen: number;
             /** Pipeline Digest */
             pipeline_digest?: string | null;
+        };
+        /**
+         * RunRuleView
+         * @description A constraint only a run can settle (#460): when every param in `given` is supplied, those
+         *     in `requires` must be and those in `forbids` must not. `says` is the sentence to show.
+         */
+        RunRuleView: {
+            /** Given */
+            given: string[];
+            /**
+             * Requires
+             * @default []
+             */
+            requires: string[];
+            /**
+             * Forbids
+             * @default []
+             */
+            forbids: string[];
+            /** Says */
+            says: string;
         };
         /**
          * RunsPage
