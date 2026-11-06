@@ -52,6 +52,7 @@ _PIPELINE_MODELS = frozenset(
         "ModuleRef",
         "Channel",
         "InputRecord",
+        "RunRule",
         "Why",
         "PremiseRecord",
         "Emitted",

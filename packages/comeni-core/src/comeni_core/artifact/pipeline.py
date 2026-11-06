@@ -83,6 +83,7 @@ __all__ = [
     "ModuleRef",
     "Pipeline",
     "RegistryProvenance",
+    "RunRule",
     "Setting",
     "Step",
     "StepInput",
@@ -291,6 +292,18 @@ class StepInput(BaseModel):
 # ---------------- MODELS: STEPS AND CHANNELS ----------------
 
 
+class RunRule(BaseModel):
+    """One constraint only a run can settle (#460), in the pipeline's own params: when every
+    param in `given` is supplied, those in `requires` must be and those in `forbids` must not."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    given: list[NfIdentifier]
+    requires: list[NfIdentifier] = Field(default_factory=list)
+    forbids: list[NfIdentifier] = Field(default_factory=list)
+    says: Line
+
+
 class Step(BaseModel):
     """One pipeline process, including its module, arguments, inputs, and provenance."""
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -313,9 +326,9 @@ class Step(BaseModel):
         default_factory=list, exclude_if=lambda states: not states)
     """Each optional input's state, who set it and why, sorted by port (#460); omitted when the
     step's tool has none."""
-    run_rules: list[Line] = Field(default_factory=list, exclude_if=lambda rules: not rules)
+    run_rules: list[RunRule] = Field(default_factory=list, exclude_if=lambda rules: not rules)
     """This step's constraints only a run can settle, because they involve an input each run
-    may leave empty, as sentences the run sheet checks: "`gff` is used only with `fasta` (…)".
+    may leave empty. The pipeline checks them at its start and the run sheet before sending.
     On the step, not the channel: a channel carries no free text (test_scope_override)."""
 
     @model_validator(mode="after")

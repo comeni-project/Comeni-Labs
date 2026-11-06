@@ -84,8 +84,8 @@ FREE_TEXT_FIELDS = {
     # Why a step's optional input is off, optional or required (#460): the router's or the
     # person's sentence, beside the decisions above.
     ("InputRecord", "reason"),
-    # A step's constraints only a run can settle, as sentences the run sheet shows (#460).
-    ("Step", "run_rules"),
+    # The sentence of a constraint only a run can settle, shown by the run sheet (#460).
+    ("RunRule", "says"),
     # One per decision kind since A16 split `DecisionRecord` into three. Four entries
     # became six by a refactor rather than by a new field crossing the boundary — which is
     # exactly the sort of change this literal list exists to make someone notice.

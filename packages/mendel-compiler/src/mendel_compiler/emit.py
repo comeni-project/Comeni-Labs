@@ -213,6 +213,24 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     ]
 
 
+def _run_guards(pipeline: Pipeline) -> list[str]:
+    """The constraints only a run can settle (#460), checked before any process starts, so a
+    run that breaks one fails at once with the reason, however it was launched."""
+    guards = set()
+    for step in pipeline.steps:
+        for rule in step.run_rules:
+            when = [f"params.{p}" for p in rule.given]
+            when += [f"!params.{p}" for p in rule.requires]
+            when += [f"params.{p}" for p in rule.forbids]
+            guards.add(f"if ({' && '.join(when)}) {{ error \"{_groovy_text(rule.says)}\" }}")
+    return sorted(guards)
+
+
+def _groovy_text(text: str) -> str:
+    """Text inside a Groovy double-quoted string: no interpolation, no early end."""
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$")
+
+
 def _optional(channel, expression: str) -> str:
     """An input each run may leave empty (#460): its process gets the empty tuple it takes
     instead, so the same pipeline runs with or without the file."""
@@ -370,6 +388,7 @@ def emit(pipeline: Pipeline) -> str:
     return env.get_template("main.nf.j2").render(
         nodes=nodes,
         entry_channels=_entry_channels(pipeline),
+        guards=_run_guards(pipeline),
         calls=_calls(pipeline),
     )
 

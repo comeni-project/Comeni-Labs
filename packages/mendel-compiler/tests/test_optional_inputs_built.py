@@ -143,12 +143,33 @@ def test_a_required_reference_is_emitted_as_a_plain_channel(tmp_path):
     assert f"params.{param} ?" not in emit(pipeline)
 
 
-def test_a_rule_only_a_run_can_settle_is_on_the_step(tmp_path):
+SAYS = "`gff` is used only with `fasta` (QUAST reads --features only against a reference (-r))"
+
+
+def _both_optional(tmp_path):
     goal = _goal(["assembly.fasta", "genome.fasta", "annotation.gff"], ["assembly.qc"],
                  ("fasta", InputState.OPTIONAL), ("gff", InputState.OPTIONAL))
-    step = _quast_step(_build(tmp_path, goal))
-    assert step.run_rules == [
-        "`gff` is used only with `fasta` (QUAST reads --features only against a reference (-r))"]
+    return _build(tmp_path, goal)
+
+
+def _param(pipeline: Pipeline, type_id: str) -> str:
+    return next(c.param for c in pipeline.channels if c.type_id == type_id)
+
+
+def test_a_rule_only_a_run_can_settle_is_on_the_step(tmp_path):
+    pipeline = _both_optional(tmp_path)
+    rules = _quast_step(pipeline).run_rules
+    assert [(r.given, r.requires, r.forbids, r.says) for r in rules] == [
+        ([_param(pipeline, "annotation.gff")], [_param(pipeline, "genome.fasta")], [], SAYS)]
+
+
+def test_the_pipeline_refuses_a_gff_without_a_reference_at_its_start(tmp_path):
+    pipeline = _both_optional(tmp_path)
+    gff, fasta = _param(pipeline, "annotation.gff"), _param(pipeline, "genome.fasta")
+    text = emit(pipeline)
+    guard = f"if (params.{gff} && !params.{fasta}) {{ error "
+    assert guard in text, "the run-time rule is not checked by the pipeline"
+    assert text.index(guard) < text.index("QUAST("), "checked before any process runs"
 
 
 WIDE_REF = """declares: contract

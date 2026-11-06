@@ -29,13 +29,14 @@ from comeni_core.artifact.pipeline import (
     ModuleRef,
     Pipeline,
     RegistryProvenance,
+    RunRule,
     Setting,
     Step,
     StepInput,
     Why,
     _no_flags_why,
 )
-from comeni_core.declared.constraints import Setup, evaluate
+from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence
 from comeni_core.declared.contract import Cardinality, ModuleContract
 from comeni_core.declared.measurement import Measurement, MeasurementRegistry
 from comeni_core.declared.registry import Registry
@@ -79,9 +80,14 @@ def of(
     default_channels_by_type = {channel.type_id: channel.name for channel in channels}
 
     steps = []
+    params_of = {channel.name: channel.param for channel in channels}
     for node in ir.nodes:
         contract = registry.get(node.contract_id)
         entry = pinned[node.contract_id]
+        wiring = _inputs(
+            node, contract, incoming_edges, assigned_channels, default_channels_by_type
+        )
+        fed = {w.port: params_of[w.channel] for w in wiring if w.channel is not None}
         steps.append(
             Step(
                 id=node.id,
@@ -95,13 +101,11 @@ def of(
                 why=_why(node.selection),
                 presence=_why(node.presence),
                 ext_args=_ext_args(contract),
-                inputs=_inputs(
-                    node, contract, incoming_edges, assigned_channels, default_channels_by_type
-                ),
+                inputs=wiring,
                 call=_call(contract, _off(node)),
                 settings=_settings(node, contract),
                 input_states=list(node.inputs),
-                run_rules=_run_rules(contract, node),
+                run_rules=_run_rules(contract, node, fed),
             )
         )
     channels = _optional_channels(channels, steps, registry)
@@ -340,7 +344,27 @@ def _optional_channels(
     return marked
 
 
-def _run_rules(contract: ModuleContract, node: IRNode) -> list[str]:
+def _run_rules(contract: ModuleContract, node: IRNode, fed: dict[str, str]) -> list[RunRule]:
+    """The step's constraints only a run can settle, as the pipeline params they concern, so the
+    pipeline and the run sheet can check them (#460). A row about an input fed by another step
+    or about a param was settled at build time, and is not here."""
+    said = set(_run_sentences(contract, node))
+    rules = []
+    for row in rows_of(contract):
+        says = sentence(row)
+        if says not in said:
+            continue
+        given = [fed[k.partition(".")[2]] for k in row.when
+                 if k.startswith("given.") and k.partition(".")[2] in fed]
+        rule = RunRule(given=sorted(given),
+                       requires=sorted(fed[n] for n in row.requires if n in fed),
+                       forbids=sorted(fed[n] for n in row.forbids if n in fed), says=says)
+        if rule.given and (rule.requires or rule.forbids) and rule not in rules:
+            rules.append(rule)
+    return rules
+
+
+def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:
     states = {r.port: r.state for r in node.inputs}
     given = {p.name for p in contract.consumes if p.required}
     given |= {p for p, s in states.items() if s is InputState.REQUIRED}
