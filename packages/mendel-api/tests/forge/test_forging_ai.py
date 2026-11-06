@@ -87,7 +87,59 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v5"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v7"
+
+
+def test_a_redraft_sees_only_what_the_person_settled(adaptation):
+    """#457 walk: GPT redrafting quast left gemma's open questions alone, because the prompt
+    listed them as "so far". An open proposal is an earlier model's guess: a redraft drafts it
+    fresh. An answer and a removal are the person's, and the drafter keeps seeing both."""
+    first = {"questions": [*QUESTIONS["questions"], {
+        "key": "questions:input_type:reads", "asks": "Which type?", "options": [
+            {"id": "earlier.guess", "label": "earlier guess", "because": "a weak model said so"}],
+        "suggested": "earlier.guess"}, {
+        "key": "questions:output_type:bam", "asks": "Which type?", "options": [
+            {"id": "alignment.bam", "label": "aligned reads", "because": "BAM"}]}]}
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(first))
+    state = forging.load(adaptation)
+    forging.act(adaptation, forging.person(Move.ANSWER, "questions:role",
+                                           expected=state.items["questions:role"].current.n,
+                                           value={"choice": "alignment"}, because=None))
+    forging.act(adaptation, forging.person(
+        Move.REMOVE, "questions:output_type:bam",
+        expected=state.items["questions:output_type:bam"].current.n, value=None,
+        because="not needed"))
+    again = FakeClient({"questions": [{
+        "key": "questions:input_type:reads", "asks": "Which type?", "options": [
+            {"id": "fastq.reads", "label": "reads", "because": "FASTQ per sample"}],
+        "suggested": "fastq.reads"}]})
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, again)
+    sent = again.prompts[0]
+    assert "earlier.guess" not in sent, "the earlier open proposal anchored the redraft"
+    assert "questions:role" in sent and '"choice": "alignment"' in sent, "the answer is context"
+    assert "questions:output_type:bam [removed]" in sent, "a removal stays visible, not re-asked"
+    assert forging.load(adaptation).items["questions:input_type:reads"].current.value[
+        "suggested"] == "fastq.reads"
+
+
+def test_a_contract_redraft_does_not_see_its_earlier_open_proposal(adaptation):
+    """The quast contract's first draft had nf_include ending in main.nf; a redraft shown that
+    proposal would be anchored to it, as questions were."""
+    _answer(adaptation)
+    wrong = {"items": {**CONTRACT["items"], "contract:process": {
+        **CONTRACT["items"]["contract:process"], "nf_include": "modules/nf-core/bwa/mem/main.nf"}},
+        "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(wrong))
+    again = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, again)
+    assert "bwa/mem/main.nf" not in again.prompts[0]
+    assert '"choice": "alignment"' in again.prompts[0], "the answered questions are context"
+
+
+def test_the_questions_prompt_says_the_versions_topic_is_not_a_port(adaptation):
+    client = FakeClient(QUESTIONS)
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, client)
+    assert "nf-core's versions channel for the run's software report" in client.prompts[0]
 
 
 def test_drafting_the_contract_stores_proposals(adaptation):
@@ -96,6 +148,18 @@ def test_drafting_the_contract_stores_proposals(adaptation):
     items = forging.load(adaptation).items
     assert items["contract:input:reads"].status == "proposed"
     assert items["contract:process"].current.because == "BWA_MEM in main.nf"
+
+
+def test_the_contract_prompt_teaches_nf_include_and_a_folder_format(adaptation):
+    """#459: v4's own example was `.../module/main.nf`, and GPT copied it for quast, which
+    keys no module. A directory output also got no format."""
+    _answer(adaptation)
+    client = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    sent = client.prompts[0]
+    assert "main.nf\"" not in sent.split("=== the module")[0], "an example still ends in .nf"
+    assert '"nf_include": "modules/nf-core/example/main"' in sent
+    assert '"format": ["folder"]' in sent
 
 
 def test_the_prompt_carries_the_module_and_the_registry(adaptation):
@@ -593,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v4"
+        assert invocation.prompt_id == "forge.draft.v5"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"

@@ -134,10 +134,13 @@ measurement or a vocabulary type finally has somewhere to be reported. `states:`
 type's states, `add_states:` extends them; `values:` and `add_values:` say the same pair for
 a measurement. Never let an installed overlay reroute a pipeline silently.
 
-### 12. No subscription OAuth
+### 12. Retired: subscription sign-in is allowed
 
-Claude Pro/Max tokens in third-party tools violate Anthropic's
-Consumer ToS (documented 2026-02-19, enforced since 2026-01). API keys or local models only.
+This was "no subscription OAuth". The operator dropped it on 2026-11-05 (#457) so that a paid
+ChatGPT subscription can answer forge calls through LiteLLM's ChatGPT provider. The number
+stays so that references to later invariants keep their meaning. Anthropic's consumer terms
+still forbid Claude Pro/Max tokens in third-party tools; that is the provider's rule, not this
+repository's.
 
 ### 13. Self-hosted is not a degraded tier
 

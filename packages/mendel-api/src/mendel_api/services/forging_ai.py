@@ -33,7 +33,7 @@ from comeni_core.egress.forge import (
 from comeni_flow.interpret import Refused
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_forge.forging import rules
-from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece
+from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
 from mendel_forge.forging.protocol import Phase
 from mendel_forge.forging.validate import (
     Known,
@@ -58,14 +58,29 @@ builder's."""
 
 _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.questions.v5": InvocationPurpose.ANALYSIS,
+            "forge.questions.v6": InvocationPurpose.ANALYSIS,
+            "forge.questions.v7": InvocationPurpose.ANALYSIS,
             "forge.draft.v4": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v5": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW,
             "forge.review.v2": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v5", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v7", Piece.TESTS: "forge.tests.v1"}
+
+_SETTLED = frozenset({Status.APPROVED, Status.REMOVED})
+
+
+def settled(state: Adaptation, piece: Piece) -> Adaptation:
+    """What a draft of `piece` sees of that piece: the person's approvals and removals, never
+    an open proposal. An earlier draft's guess anchored a stronger model to it (#457 walk), so
+    each open item is drafted fresh; the guess stays in the item's history. Other pieces are
+    shown whole: they are context, not what is being drafted."""
+    return state.model_copy(update={"items": {
+        key: item for key, item in state.items.items()
+        if not key.startswith(f"{piece.value}:") or item.status in _SETTLED}})
 
 
 def _client(purpose: InvocationPurpose) -> Client | None:
@@ -277,7 +292,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
                 client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v4")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v5")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])
@@ -287,7 +302,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
     problems: list[str] = []
     for attempt in range(1, ATTEMPTS + 1):
         state = forging.load(adaptation_id)
-        request = compose(adaptation, state, piece, prompt=prompt_id)
+        request = compose(adaptation, settled(state, piece), piece, prompt=prompt_id)
         shape = _questions_shape() if piece is Piece.QUESTIONS else _draft_shape()
         reply, invocation = _call(prompt_id, request, shape, client, adaptation_id, attempt,
                                   problems)

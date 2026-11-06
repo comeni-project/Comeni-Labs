@@ -5481,3 +5481,20 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key` failed with "The
   reviewer commented on items it was not given". That is the refusal a live gemma3:12b reply
   hit. Restored.
+- 2026-11-05, #457 per-purpose call settings: written before the change,
+  `test_a_model_choice_can_tune_the_call` failed because the model setting accepted only
+  `connection` and `model`, and `test_a_purpose_tunes_its_own_call` failed because
+  `ModelAccess` had no `reasoning_effort` and the choice's temperature was ignored. On the
+  live stack, a forge call to `chatgpt/gpt-6.1-sol` at the installation's temperature 0 was
+  refused ("doesn't support temperature=0.0 while reasoning is active"); with Settings →
+  Models → Adapting tools at temperature 1, it answered.
+- 2026-11-05, #457 redraft context: `test_a_redraft_sees_only_what_the_person_settled` failed
+  with "the earlier open proposal anchored the redraft" on the v5 code, which listed every item
+  as "so far". That is how GPT left gemma's open quast questions alone. With `_DRAFTED_WITH`
+  set back to v5, `test_the_questions_prompt_says_the_versions_topic_is_not_a_port` failed.
+  Both pass on v6. Restored.
+- 2026-11-05, #459 contract prompt: `test_the_contract_prompt_teaches_nf_include_and_a_folder_format`
+  failed on `forge.draft.v4` with "an example still ends in .nf". With `settled` narrowed back
+  to questions only, `test_a_contract_redraft_does_not_see_its_earlier_open_proposal` failed.
+  Both pass. Restored. Live on quast with GPT: on v5 the first try was accepted, with
+  `modules/nf-core/quast/main` and `results` as `folder`.

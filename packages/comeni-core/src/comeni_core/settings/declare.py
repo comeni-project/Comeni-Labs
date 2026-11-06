@@ -41,9 +41,32 @@ class Kind(StrEnum):
     SECRET = "secret"
     READONLY = "readonly"
     MODEL = "model"
-    """`None` — the default model — or `{"connection": name, "model": id}`."""
+    """`None` — the default model — or `{"connection": name, "model": id}`, optionally with
+    `TUNING` keys for that call."""
     COLLECTION = "collection"
     """A list of records, each keyed by field name. Connections are one."""
+
+
+REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high")
+TUNING: dict[str, str] = {
+    "temperature": "a temperature from 0 to 2",
+    "reasoning_effort": f"a reasoning effort: {', '.join(REASONING_EFFORTS)}",
+    "timeout_seconds": "a timeout above 0 seconds",
+}
+"""Optional keys of a model choice that tune its call (#457). A reasoning model refuses
+temperature 0, so the temperature belongs to the model chosen, not to the installation."""
+
+
+def _tuning_problem(key: str, value: Any) -> str | None:
+    number = isinstance(value, int | float) and not isinstance(value, bool)
+    ok = {
+        "temperature": number and 0 <= value <= 2,
+        "reasoning_effort": value in REASONING_EFFORTS,
+        "timeout_seconds": number and value > 0,
+    }.get(key)
+    if ok is None:
+        return f"{key} is not a model setting"
+    return None if ok else f"{key} must be {TUNING[key]}"
 
 
 class Where(StrEnum):
@@ -188,10 +211,14 @@ class Setting(BaseModel):
             case Kind.MODEL:
                 if value is not None and (
                     not isinstance(value, dict)
-                    or set(value) != {"connection", "model"}
-                    or not all(isinstance(v, str) and v.strip() for v in value.values())
+                    or not {"connection", "model"} <= set(value)
+                    or not all(isinstance(value[k], str) and value[k].strip()
+                               for k in ("connection", "model"))
                 ):
                     raise IllegalValue("a model is a connection and a model id, or the default")
+                for key in sorted(set(value or {}) - {"connection", "model"}):
+                    if problem := _tuning_problem(key, value[key]):
+                        raise IllegalValue(problem)
             case Kind.COLLECTION:
                 return self._records(value)
             case Kind.READONLY:

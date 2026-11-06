@@ -323,6 +323,8 @@ class LiteLLMTransport:
                 base_url=access.base_url,
                 timeout=access.timeout_seconds,
                 temperature=access.temperature,
+                **({"reasoning_effort": access.reasoning_effort}
+                   if access.reasoning_effort else {}),
                 **({"response_format": response_format} if response_format else {}),
             )
         except litellm.AuthenticationError as failure:

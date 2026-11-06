@@ -231,6 +231,21 @@ def test_a_model_is_the_default_or_a_connection_and_a_model():
     }
 
 
+def test_a_model_choice_can_tune_the_call():
+    """#457: a reasoning model refuses temperature 0, so each purpose says its own."""
+    want = Setting.model(
+        key="models.want", label="Want", help=HELP, of="models.connections",
+        env="COMENI_AI_MODEL_WANT",
+    )
+    tuned = {"connection": "ChatGPT", "model": "chatgpt/gpt-6.1-sol", "temperature": 1,
+             "reasoning_effort": "high", "timeout_seconds": 180}
+    assert want.check(tuned) == tuned
+    for wrong in ({"temperature": 3}, {"temperature": "hot"}, {"reasoning_effort": "max"},
+                  {"timeout_seconds": 0}, {"colour": "red"}):
+        with pytest.raises(IllegalValue):
+            want.check({"connection": "C", "model": "m/x", **wrong})
+
+
 def test_a_model_says_which_collection_it_picks_from():
     with pytest.raises(ValidationError, match="of"):
         Setting.model(key="models.want", label="Want", help=HELP)

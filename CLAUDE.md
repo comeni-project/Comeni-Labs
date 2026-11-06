@@ -70,7 +70,7 @@ claims in source and guards before repeating them.
   agree with readable module source; absent source is unverified, not confirmed conformance.
 - `pipeline.yml` is the saved pipeline, including settings and decision provenance.
   Publication verifies the saved artifact and emitted files; it must not silently re-resolve.
-- Use API keys or local models, not subscription OAuth. Self-hosting must retain the same
+- Models are reached by API key, local endpoint or subscription sign-in. Self-hosting must retain the same
   construction capabilities and reproducible output. Telemetry is opt-in and off by default.
 - Data crosses boundaries only through declared payloads. Sample inspection and model
   characterisation are explicit exceptions controlled by protection level. Inspect the current
