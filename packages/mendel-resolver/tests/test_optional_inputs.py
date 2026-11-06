@@ -228,3 +228,14 @@ def test_an_input_another_step_requires_from_the_same_file_is_required_here(tmp_
     state, by, reason = _records(route(goal, registry))["fasta"]
     assert (state, by) == (InputState.REQUIRED, "router")
     assert "lab/needsref@1.0.0" in reason
+
+
+def test_a_switched_on_input_nothing_makes_comes_from_outside(tmp_path):
+    """Switching the reference on in the builder needs no goal input added by hand: nothing in
+    the pipeline makes a genome.fasta, so it is a pipeline input."""
+    registry, vocabulary = _world(tmp_path, {"quast.yml": QUAST})
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta")], want=["qc.report"],
+                constraints=_choose(("fasta", InputState.OPTIONAL)))
+    assert _records(route(goal, registry))["fasta"][0] is InputState.OPTIONAL
+    ir = resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
+    assert not any(e.to_port == "fasta" for e in ir.edges), "fed from outside, not a step"

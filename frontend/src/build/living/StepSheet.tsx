@@ -14,7 +14,7 @@ type Setting = AnsweredStep["settings"][number];
  *  grouped by how they were decided — what still needs the person first, as questions; then what
  *  was measured; then what a rule settled, folded — each opening its reason in place; then the
  *  step's tools. × and *Back to the conversation* return to the chat where it was. */
-export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose }: {
+export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onSwitchInput }: {
   node: string;
   step: AnsweredStep | undefined;
   graph: DraftGraph;
@@ -23,12 +23,15 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   onEdit: (graph: DraftGraph) => void;
   onClose: () => void;
+  /** Switch a tool's optional input off, optional or required: the person's change (issue 460). */
+  onSwitchInput?: (contract: string, port: string, state: InputState) => void;
 }) {
   const [showSettled, setShowSettled] = useState(false);
   const settings = step?.settings ?? [];
   const asking = [...settings.filter(open), ...settings.filter(optionalOpen)];
   const measured = settings.filter((s) => s.tier === 3 && (s.evidence === "measured" || s.evidence === "read_by_ai"));
   const settled = settings.filter((s) => !asking.includes(s) && !measured.includes(s));
+  const optional = (step?.ports ?? []).filter((p) => p.side === "in" && p.optional);
 
   return (
     <section aria-label={`step ${processName(node)}`} className="flex flex-col gap-4">
@@ -72,12 +75,57 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
           {showSettled && settled.map((s) => <Value key={s.name} setting={s} />)}
         </Group>
       )}
+      {optional.length > 0 && step && (
+        <Group label="Optional inputs" count={optional.length}>
+          {optional.map((port) => (
+            <OptionalInput key={port.name} port={port}
+                           onSwitch={onSwitchInput && ((state) => onSwitchInput(step.contract_id, port.name, state))} />
+          ))}
+        </Group>
+      )}
       <section aria-label="Change this step" className="flex flex-col gap-3">
         <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>
         <StepTools key={node} node={node} step={step} graph={graph} onEdit={onEdit} />
         {requests.map((r) => <SettingCard key={r.id} block={r} onApply={onSetParam} />)}
       </section>
     </section>
+  );
+}
+
+type InputState = "off" | "optional" | "required";
+const STATES: { value: InputState; label: string }[] = [
+  { value: "off", label: "Off" }, { value: "optional", label: "Optional" }, { value: "required", label: "Required" },
+];
+
+/** One input the tool can run without: what it adds, its state and why, and the switch. Optional
+ *  means each run may supply the file or leave it empty; required means every run supplies it. */
+function OptionalInput({ port, onSwitch }: {
+  port: AnsweredStep["ports"][number];
+  onSwitch?: (state: InputState) => void;
+}) {
+  const state = (port.state ?? "off") as InputState;
+  return (
+    <div className="rounded-button border border-dashed border-line-2 px-[10px] py-[8px] flex flex-col gap-[6px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="font-data text-[13px] text-ink">{port.name}</span>
+        <span className="font-data text-[12px] text-ink-3">{port.type_id}</span>
+      </div>
+      {(port.adds ?? []).length > 0 && (
+        <p className="m-0 text-[12px] text-ink-2">adds {(port.adds ?? []).join(", ")}</p>
+      )}
+      <div role="radiogroup" aria-label={`${port.name}: off, optional or required`} className="flex flex-wrap gap-[6px]">
+        {STATES.map(({ value, label }) => (
+          <label key={value}
+                 className={`min-h-[32px] px-[10px] inline-flex items-center gap-[6px] rounded-control border text-[12.5px] cursor-pointer
+                             ${state === value ? "border-now bg-now-soft text-ink" : "border-line text-ink-2"}`}>
+            <input type="radio" name={`input-${port.name}`} value={value} checked={state === value}
+                   disabled={!onSwitch} onChange={() => onSwitch?.(value)} className="accent-[var(--now)]" />
+            {label}
+          </label>
+        ))}
+      </div>
+      {port.reason && <p className="m-0 text-[11.5px] text-ink-3">{port.reason}</p>}
+    </div>
   );
 }
 

@@ -173,6 +173,17 @@ class PortView(BaseModel):
     type_id: str
     side: str
     """`in` or `out`."""
+    optional: bool = False
+    """An input the tool can run without (#460). Drawn dashed: hollow already means a required
+    input nothing feeds."""
+    state: str | None = None
+    """An optional input's state, `off`, `optional` or `required`; none for any other port."""
+    reason: str | None = None
+    """Why it is in that state, and who set it, in a sentence."""
+    adds: list[str] = []
+    """The outputs written only with this input: what switching it on gives."""
+    only: str | None = None
+    """When an output is written, if not always: "only with fasta"."""
     met: bool
     """False when nothing in this pipeline feeds it — the hollow dot. Always true for an
     output, which cannot be unmet."""
@@ -338,6 +349,15 @@ def _because(layers, contract_id: str, name: str) -> str:
     return param.because if param else ""
 
 
+def _only_with(when: dict | None) -> str | None:
+    """A condition in a few words: `{given.fasta: present}` reads "only with fasta"."""
+    if not when:
+        return None
+    parts = [key.partition(".")[2] if key.startswith("given.") or value is True
+             else f"{key.partition('.')[2]} = {value}" for key, value in when.items()]
+    return "only with " + " and ".join(parts)
+
+
 def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[StepView]:
     """Declared ports and recorded values, shared by resolved and authored canvases."""
     by_id = {step.id: step for step in pipeline.steps}
@@ -351,12 +371,18 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         if step is None:
             return []
         contract = layers.registry.get(step.module.contract_id)
+        states = {r.port: r for r in step.input_states}
         return [
             PortView(
                 name=port.name,
                 type_id=port.type_id,
                 side="in",
                 gathers=(node_id, port.name) in gathered,
+                optional=not port.required,
+                state=states[port.name].state.value if port.name in states else None,
+                reason=states[port.name].reason if port.name in states else None,
+                adds=[o.name for o in contract.produces
+                      if f"given.{port.name}" in (o.produced_when or {})],
                 met=(node_id, port.name) in fed or port.type_id in entered,
                 # The conventional alternative — index 0 is the contract author's own first
                 # choice, the same ordering `compatibility.requires` carries.
@@ -365,7 +391,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
             for port in contract.consumes
         ] + [
             PortView(name=port.name, type_id=port.type_id, side="out", met=True,
-                     states=sorted(port.state))
+                     states=sorted(port.state), only=_only_with(port.produced_when))
             for port in contract.produces
         ]
 

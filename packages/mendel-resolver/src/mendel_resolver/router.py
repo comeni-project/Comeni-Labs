@@ -301,6 +301,10 @@ def route(
             except UnroutablePinError:
                 raise
             except UnroutableError as exc:
+                if not port.required:
+                    # A switched-on optional input nothing here makes comes from outside: the
+                    # pipeline gets an input for it, optional or required by its state (#460).
+                    continue
                 if choice.pinned is None:
                     raise
                 raise UnroutablePinError(

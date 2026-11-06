@@ -74,15 +74,19 @@ export function Port({
   // Where the press landed, so release can tell a click from a drag.
   const down = useRef<{ x: number; y: number } | null>(null);
   const inbound = side === "in";
+  // An optional input (issue 460) is dashed, never hollow: hollow means a required input nothing
+  // feeds, and an optional one that is off needs nothing.
+  const optional = inbound && port.optional;
+  const unmet = !port.met && !(optional && port.state === "off");
 
   return (
     <button
       data-testid="port"
       data-side={side}
       data-met={port.met}
+      data-optional={optional ? "true" : undefined}
       aria-label={`${inbound ? "Input" : "Output"} ${port.name}: ${port.type_id}${
-        port.met ? "" : " — nothing feeds this"
-      }`}
+        optional ? `, optional, ${port.state ?? "off"}` : ""}${unmet ? " — nothing feeds this" : ""}`}
       data-verdict={verdict ?? ""}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -141,14 +145,14 @@ export function Port({
         background: verdict === "yes" || verdict === "conventional-no"
           ? "var(--now-soft)"
           : "var(--node)",
-        border: `1px solid ${
+        border: `1px ${optional ? "dashed" : "solid"} ${
           verdict === "no"
             ? "var(--port-line)"
             : verdict === "conventional-no"
               ? "var(--measured)"
               : verdict === "yes"
                 ? "var(--now)"
-                : port.met
+                : !unmet
                   ? "var(--port-line)"
                   : "var(--needs-you)"
         }`,
@@ -165,7 +169,8 @@ export function Port({
         >
           <b className="font-semibold">{port.name}</b>
           <span className="text-ink-3"> · {port.type_id}</span>
-          {!port.met && <span className="text-needs-you-ink"> · nothing feeds this</span>}
+          {optional && <span className="text-ink-3"> · optional, {port.state ?? "off"}</span>}
+          {unmet && <span className="text-needs-you-ink"> · nothing feeds this</span>}
         </span>
       )}
     </button>

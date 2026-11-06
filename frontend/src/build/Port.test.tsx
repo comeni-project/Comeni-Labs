@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Port } from "./Port";
 
-const out = { name: "bam", type_id: "alignment.bam", side: "out" as const, met: true, states: [], gathers: false };
-const inp = { name: "bam", type_id: "alignment.bam", side: "in" as const, met: false, states: [], gathers: false };
+const out = { name: "bam", type_id: "alignment.bam", side: "out" as const, met: true, states: [], gathers: false, optional: false, adds: [] };
+const inp = { name: "bam", type_id: "alignment.bam", side: "in" as const, met: false, states: [], gathers: false, optional: false, adds: [] };
 
 describe("drag-to-connect", () => {
   it("an output starts a wire and an input does not", () => {
@@ -91,5 +91,16 @@ describe("click a port, get what fits", () => {
     const port = screen.getByTestId("port");
     expect(port.tagName).toBe("BUTTON");
     expect(port.getAttribute("aria-label")).toMatch(/Output bam: alignment\.bam/);
+  });
+});
+
+describe("an optional input (issue 460)", () => {
+  it("is drawn dashed and says it is optional and off, not that nothing feeds it", () => {
+    const fasta = { ...inp, name: "fasta", optional: true, state: "off", adds: ["misassemblies"] };
+    render(<Port port={fasta} side="in" y={56} />);
+    const port = screen.getByTestId("port");
+    expect(port.getAttribute("data-optional")).toBe("true");
+    expect(port.getAttribute("aria-label")).toMatch(/optional, off/);
+    expect(port.getAttribute("aria-label")).not.toMatch(/nothing feeds this/);
   });
 });

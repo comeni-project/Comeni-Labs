@@ -4022,6 +4022,22 @@ export interface components {
             type_id: string;
             /** Side */
             side: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
+            /** State */
+            state?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Adds
+             * @default []
+             */
+            adds: string[];
+            /** Only */
+            only?: string | null;
             /** Met */
             met: boolean;
             /**

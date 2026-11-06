@@ -33,6 +33,7 @@ export function ChatPanel({
   steps,
   onEdit,
   onSetParam,
+  onSwitchInput,
   onApplyChange,
   suggestions,
   composer,
@@ -58,6 +59,8 @@ export function ChatPanel({
   steps: Record<string, AnsweredStep>;
   onEdit: (graph: DraftGraph) => void;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
+  /** Switch a tool's optional input (issue 460); absent where the sheet is read-only. */
+  onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
   onApplyChange: (block: ChangeBlock) => void;
   suggestions: {
     busy: boolean;
@@ -127,7 +130,8 @@ export function ChatPanel({
         {editable ? (
           <StepSheet node={editable} step={steps[editable]} graph={graph}
                      requests={requests.filter((r) => r.node === editable)}
-                     onSetParam={onSetParam} onEdit={onEdit} onClose={() => onSelect(null)} />
+                     onSetParam={onSetParam} onEdit={onEdit} onClose={() => onSelect(null)}
+                     onSwitchInput={onSwitchInput} />
         ) : (
           <div className="flex flex-col gap-4">
             <Stream session={session} sending={sending} onRetry={onRetry} onAsk={say}

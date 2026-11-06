@@ -118,7 +118,8 @@ export function LivingNode({
                 width: wide,
                 height: tall,
                 background: selected ? "var(--now)" : "var(--node)",
-                border: `1px solid ${selected ? "var(--now)" : "var(--port-line)"}`,
+                // An optional input (issue 460) is dashed, as `Port` draws it.
+                border: `1px ${side === "in" && port.optional ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--port-line)"}`,
               }}
             />
           );
