@@ -768,3 +768,15 @@ def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
     view = forging.read(adaptation)
     found = next(i for i in view.items if i.key == "contract:nf_inputs").findings
     assert [f.code for f in found] == ["MF0532"]
+
+
+def test_a_constraint_item_reads_as_its_sentence(adaptation):
+    _answer(adaptation)
+    drafted = {"items": {
+        **CONTRACT["items"],
+        "contract:constraint:row1": {"when": {"given.reads": "present"}, "forbids": [],
+                                  "requires": ["reads"], "because": "it reads them"},
+    }, "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(drafted))
+    item = next(i for i in forging.read(adaptation).items if i.key == "contract:constraint:row1")
+    assert item.sentence == "`reads` is used only with `reads` (it reads them)"

@@ -4,12 +4,14 @@ function PinButton({ pin, focus, onPick }: { pin: Pin; focus?: string | null; on
   return (
     <div className="pin">
       <button type="button" className="pin-box" data-decided={pin.type !== null}
+              data-optional={pin.optional ? "true" : undefined}
               aria-pressed={focus === pin.key} onClick={() => onPick(pin.key)}>
         <span className="flex justify-between gap-2 font-data text-[13px]">
-          <span className="truncate">{pin.name}</span>
+          <span className="truncate">{pin.name}{pin.optional && <span className="text-ink-3 font-sans text-[11.5px]"> optional</span>}</span>
           {pin.type !== null && <span aria-hidden="true" className="text-done-ink">✓</span>}
         </span>
         <span className="block truncate font-data text-[12px] text-ink-2">{pin.type ?? "not decided"}{pin.format?.length ? ` · ${pin.format.join(", ")}` : ""}</span>
+        {pin.only && <span className="block truncate text-[11.5px] text-ink-3">{pin.only}</span>}
       </button>
     </div>
   );

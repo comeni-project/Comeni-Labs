@@ -2282,6 +2282,8 @@ export interface components {
             exclusions?: components["schemas"]["ProducerExclusion-Input"][];
             /** Sources */
             sources?: components["schemas"]["SourcePin"][];
+            /** Inputs */
+            inputs?: components["schemas"]["InputChoice"][];
         };
         /**
          * Constraints
@@ -2300,6 +2302,8 @@ export interface components {
             exclusions?: components["schemas"]["ProducerExclusion-Output"][];
             /** Sources */
             sources?: components["schemas"]["SourcePin"][];
+            /** Inputs */
+            inputs?: components["schemas"]["InputChoice"][];
         };
         /** Constructor */
         Constructor: {
@@ -3209,6 +3213,18 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * InputChoice
+         * @description A person's choice for one optional input of one tool. Like `SourcePin`, it is the
+         *     person's by being in the goal's constraints, so it carries no `by`.
+         */
+        InputChoice: {
+            /** Contract */
+            contract: string;
+            /** Port */
+            port: string;
+            state: components["schemas"]["InputState"];
+        };
         /** InputDecision */
         InputDecision: {
             /** Key */
@@ -3227,6 +3243,15 @@ export interface components {
             /** @default person_said */
             origin: components["schemas"]["FactOrigin"];
         };
+        /**
+         * InputState
+         * @description Whether a tool's optional input is part of the pipeline (#460).
+         *
+         *     `off` leaves it out. `optional` makes it a pipeline input each run may supply or leave
+         *     empty. `required` makes every run supply it, or wires it from another step.
+         * @enum {string}
+         */
+        InputState: "off" | "optional" | "required";
         /** InspectedFactView */
         InspectedFactView: {
             /** Measurement */
@@ -3265,6 +3290,8 @@ export interface components {
              * @default []
              */
             findings: components["schemas"]["QuestionFinding"][];
+            /** Sentence */
+            sentence?: string | null;
         };
         JsonValue: unknown;
         /** Kept */

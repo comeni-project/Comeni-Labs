@@ -17,7 +17,13 @@ from typing import Any, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.declared.contract import ConstraintRow, GroupKind, ModuleContract, Param
+from comeni_core.declared.contract import (
+    ConstraintRow,
+    Group,
+    GroupKind,
+    ModuleContract,
+    Param,
+)
 from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.diagnostics import coded
 from comeni_core.logic.when import PRESENT, matches
@@ -89,6 +95,17 @@ def sentence(row: ConstraintRow) -> str:
     if not subject:
         return f"`{banned}` cannot be used ({row.because})"
     return f"`{subject}` cannot be used with `{banned}` ({row.because})"
+
+
+def group_sentence(group: Group) -> str:
+    """A group as a person reads it."""
+    names = ", ".join(f"`{m}`" for m in group.members)
+    if group.kind is GroupKind.ONE_OF:
+        return f"exactly one of {names} ({group.because})"
+    if group.kind is GroupKind.ANY_OF:
+        return f"at least one of {names} ({group.because})"
+    joined = " and ".join(f"`{m}`" for m in group.members)
+    return f"{joined} together, or none of them ({group.because})"
 
 
 def _worlds(setup: Setup) -> Iterator[frozenset[str]]:

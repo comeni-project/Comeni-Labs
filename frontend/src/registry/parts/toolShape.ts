@@ -1,6 +1,34 @@
 import { nameOf, type ItemView } from "../forging/useAdaptation";
 
-export type Pin = { key: string; name: string; type: string | null; format?: string[] };
+export type Pin = {
+  key: string; name: string; type: string | null; format?: string[];
+  /** The process runs without this input (issue 460). */
+  optional?: boolean;
+  /** When a conditional output is written: "only with fasta". */
+  only?: string;
+};
+
+type PortValue = { type_id?: string; format?: string[]; required?: boolean;
+                   produced_when?: Record<string, unknown> | null };
+
+/** A condition as a few words: `{given.fasta: present}` reads "only with fasta". */
+export function onlyWith(when: Record<string, unknown> | null | undefined): string | undefined {
+  if (!when || !Object.keys(when).length) return undefined;
+  const parts = Object.entries(when).map(([key, value]) => {
+    const name = key.slice(key.indexOf(".") + 1);
+    return key.startsWith("given.") || value === true ? name : `${name} = ${JSON.stringify(value)}`;
+  });
+  return `only with ${parts.join(" and ")}`;
+}
+
+function portParts(port: PortValue | undefined): Pick<Pin, "format" | "optional" | "only"> {
+  const only = onlyWith(port?.produced_when);
+  return {
+    ...(port?.format?.length ? { format: port.format } : {}),
+    ...(port?.required === false ? { optional: true } : {}),
+    ...(only ? { only } : {}),
+  };
+}
 export type ToolShape = { job: string | null; inputs: Pin[]; outputs: Pin[] };
 
 const PREFIX = { inputs: "questions:input_type:", outputs: "questions:output_type:" };
@@ -18,16 +46,14 @@ export function toolShape(items: ItemView[]): ToolShape {
     const questions = live.filter((i) => i.key.startsWith(prefix));
     const result = questions.map((i) => {
       const port = live.find((p) => p.key === `${contractPrefix}${nameOf(i.key)}`);
-      const format = (port?.value as { format?: string[] } | undefined)?.format;
-      return { key: i.key, name: nameOf(i.key), type: answer(i), ...(format?.length ? { format } : {}) };
+      return { key: i.key, name: nameOf(i.key), type: answer(i), ...portParts(port?.value as PortValue) };
     });
     // Re-forging begins with a declared contract, before its questions are drafted.
     for (const port of live.filter((i) => i.key.startsWith(contractPrefix))) {
       const name = nameOf(port.key);
       if (items.some((i) => i.key === `${prefix}${name}`)) continue;
-      const value = port.value as { type_id: string; format?: string[] };
-      if (value?.type_id) result.push({ key: port.key, name, type: value.type_id,
-        ...(value.format?.length ? { format: value.format } : {}) });
+      const value = port.value as PortValue;
+      if (value?.type_id) result.push({ key: port.key, name, type: value.type_id, ...portParts(value) });
     }
     return result;
   };

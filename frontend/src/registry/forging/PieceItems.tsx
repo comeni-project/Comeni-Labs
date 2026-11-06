@@ -7,6 +7,7 @@ import { RulePreview } from "./RulePreview";
 import { ValueDetails } from "./ValueDetails";
 import { ReviewComment, type Review } from "./Reviews";
 import { nameOf, type ItemView } from "./useAdaptation";
+import { onlyWith } from "../parts/toolShape";
 import type { useForgeActions } from "./useForgeActions";
 
 type Actions = ReturnType<typeof useForgeActions>;
@@ -16,15 +17,20 @@ const primary = "control-primary";
 
 /** What an item's value says in one line: a setting's default and route, a port's type. */
 function summary(item: ItemView): string {
-  return summaryOf(item.key, item.value);
+  return summaryOf(item.key, item.value, item.sentence);
 }
 
 /** A value in a line, never as JSON: the chat's proposals read the same as the items. */
-export function summaryOf(key: string, value: unknown): string {
+export function summaryOf(key: string, value: unknown, sentence?: string | null): string {
+  if (sentence) return sentence;
   const item = { key, value };
   const v = value as Record<string, unknown> | null;
   if (!v || typeof v !== "object") return v === null ? "" : String(v);
-  if ("type_id" in v) return String(v.type_id);
+  if ("type_id" in v) {
+    const only = onlyWith(v.produced_when as Record<string, unknown> | null);
+    return [String(v.type_id), v.required === false ? "optional" : null, only ?? null]
+      .filter(Boolean).join(" · ");
+  }
   if ("expect" in v) {
     const feeds = Object.keys(v.inputs as object).join(", ") || "setup";
     return `${feeds} → ${(v.expect as { pattern: string }[]).map((e) => e.pattern).join(", ")}`;

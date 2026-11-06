@@ -16,13 +16,13 @@ Item keys and their shapes:
   An entry whose inputs are all optional also says "absent": the width of the empty tuple
   passed when they are left out (2 for `tuple val(meta), path(x)`). Several optional inputs
   share an entry only when a group says they go together.
-- contract:constraint:<n> — {"when", "requires", "forbids", "because", "cite"}: what the tool
+- contract:constraint:row<n> (row1, row2, …) — {"when", "requires", "forbids", "because", "cite"}: what the tool
   allows between its inputs and params. "when" tests "given.<input>": "present" or
   "param.<name>": <value>; "requires" and "forbids" name inputs or params. Example:
   {"when": {"given.gff": "present"}, "requires": ["fasta"],
    "because": "the script reads the GFF only against a reference"}. A constraint says what is
   possible, never what to choose.
-- contract:group:<n> — {"kind", "members", "because"}: kind is one_of (exactly one member),
+- contract:group:group<n> (group1, …) — {"kind", "members", "because"}: kind is one_of (exactly one member),
   any_of (at least one) or all_or_none (together or not at all).
 - parameters:param:<name> — {"position", "name", "default" or "tier_hint": 4, "domain", "via",
   "key", "template", "because"}; via is ext (with key), positional (wired in nf_inputs) or meta

@@ -464,6 +464,7 @@ body {
   transition: border-color var(--t), background-color var(--t), transform var(--t);
 }
 .pin-box[data-decided="true"] { background: var(--surface-2); border: 1px solid var(--action-edge); }
+.pin-box[data-optional="true"] { border-style: dashed; }
 .pin-box:hover { border-color: var(--now); transform: translateY(-1px); }
 .pin-box[aria-pressed="true"] { background: var(--now-soft); border: 1px solid var(--now); }
 .tool-block {

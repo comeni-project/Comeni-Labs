@@ -85,7 +85,7 @@ def _codes(items: dict) -> dict[str, list[str]]:
 
 def test_quast_items_round_trip_through_contract_of():
     items = _quast_items()
-    assert "contract:constraint:0" in items
+    assert "contract:constraint:row1" in items
     contract = contract_of(items, "nf-core/quast@5.3.0", Provenance(
         source="t", drafted_by="t", approved_by="t", approved_at="2026-11-06"))
     assert contract.constraints[0].requires == ["fasta"]
@@ -109,7 +109,7 @@ def test_an_input_used_only_under_a_ternary_marked_required_is_mf0531():
     items["contract:input:gff"].pop("required")
     items["contract:nf_inputs"] = [e if e.get("ports") != ["gff"] else {"ports": ["gff"]}
                                    for e in items["contract:nf_inputs"]]
-    items.pop("contract:constraint:0")
+    items.pop("contract:constraint:row1")
     assert _codes(items) == {"contract:input:gff": ["MF0531"]}
 
 

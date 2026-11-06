@@ -51,3 +51,15 @@ it("draws the existing contract when a re-forge has no port questions yet", () =
   expect(shape.inputs).toEqual([{ key: "contract:input:reads", name: "reads", type: "fastq.reads" }]);
   expect(shape.outputs).toEqual([{ key: "contract:output:bam", name: "bam", type: "alignment.bam", format: ["bam"] }]);
 });
+
+it("marks an optional input and says when a conditional output is written (issue 460)", () => {
+  const shape = toolShape([
+    item("questions:input_type:fasta", { choice: "genome.fasta" }, "approved"),
+    item("contract:input:fasta", { position: 1, name: "fasta", type_id: "genome.fasta", required: false }),
+    item("questions:output_type:misassemblies", { choice: "qc.report" }, "approved"),
+    item("contract:output:misassemblies", { position: 3, name: "misassemblies", type_id: "qc.report",
+      produced_when: { "given.fasta": "present" } }),
+  ]);
+  expect(shape.inputs[0]).toMatchObject({ name: "fasta", optional: true });
+  expect(shape.outputs[0]).toMatchObject({ name: "misassemblies", only: "only with fasta" });
+});

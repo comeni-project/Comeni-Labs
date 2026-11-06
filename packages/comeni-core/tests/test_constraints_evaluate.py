@@ -88,3 +88,15 @@ def test_rows_and_sentences_are_in_declaration_order():
     assert [r.requires for r in rows] == [["dbsnp_tbi"], ["dbsnp"]]
     assert sentence(rows[0]) == ("`dbsnp` is used only with `dbsnp_tbi` "
                                  "(the tabix index is read with the VCF it indexes)")
+
+
+def test_each_group_kind_reads_as_a_sentence():
+    from comeni_core.declared.constraints import group_sentence
+    from comeni_core.declared.contract import Group
+
+    def of(kind: str) -> str:
+        return group_sentence(Group(kind=kind, members=["a", "b"], because="why"))
+
+    assert of("one_of") == "exactly one of `a`, `b` (why)"
+    assert of("any_of") == "at least one of `a`, `b` (why)"
+    assert of("all_or_none") == "`a` and `b` together, or none of them (why)"
