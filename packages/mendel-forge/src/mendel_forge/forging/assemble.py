@@ -159,7 +159,8 @@ def prove(base: Path, below: list[Path], draft: Path) -> Proof:
     # The draft's own contracts, read from its files: it cannot load alone, since its types
     # are the registry's.
     contracts = {yaml.safe_load(p.read_text())["id"] for p in draft.rglob("contract.yml")}
-    found = [d for d in conformance.check(stack.registry, stack.modules, stack.measurements)
+    found = [d for d in conformance.blocking(
+                 conformance.check(stack.registry, stack.modules, stack.measurements))
              if d.where in contracts]
     if found:
         return Proof(loaded=True, conforms=False, blames=Piece.CONTRACT, problems=[

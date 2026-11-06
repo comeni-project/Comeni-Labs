@@ -180,8 +180,8 @@ def check(checkout: Path) -> list[str]:
     except ValueError as error:
         return [str(error)]
     found = [f"{d.code} {d.where}: {d.summary}"
-             for d in conformance.check(stack.registry, stack.modules, stack.measurements)
-             if d.code != "MD0100"]
+             for d in conformance.blocking(
+                 conformance.check(stack.registry, stack.modules, stack.measurements))]
     with contextlib.redirect_stdout(io.StringIO()) as printed:
         if layer_verbs._docs_verb([checkout], None, False, in_place=True) != 0:
             found.append(f"the tool pages could not be written: {printed.getvalue()}")
