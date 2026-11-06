@@ -101,9 +101,10 @@ def of(
                 call=_call(contract, _off(node)),
                 settings=_settings(node, contract),
                 input_states=list(node.inputs),
+                run_rules=_run_rules(contract, node),
             )
         )
-    channels = _optional_channels(channels, steps, ir, registry)
+    channels = _optional_channels(channels, steps, registry)
 
     return Pipeline(
         # Save the resolved profile with the original intent and inputs.
@@ -302,14 +303,13 @@ def _inputs(
 
 
 def _optional_channels(
-    channels: list[Channel], steps: list[Step], ir: PipelineIR, registry: Registry
+    channels: list[Channel], steps: list[Step], registry: Registry
 ) -> list[Channel]:
     """Mark a channel optional when every step it feeds has it as an optional input (#460).
 
     One required consumer makes it required: a run cannot leave a file empty that another
-    step needs. An optional channel carries the empty tuple its consumers take instead, and the
-    constraints only a run can settle, as sentences the run sheet checks."""
-    nodes = {node.id: node for node in ir.nodes}
+    step needs. An optional channel carries the empty tuple its consumers take instead; the
+    constraints a run must settle are on those steps (`Step.run_rules`)."""
     consumers: dict[str, list[tuple[Step, str]]] = {}
     for step in steps:
         for wiring in step.inputs:
@@ -318,19 +318,17 @@ def _optional_channels(
     marked = []
     for channel in channels:
         fed = consumers.get(channel.name, [])
-        widths, rules = [], []
+        widths = []
         for step, port in fed:
             states = {r.port: r.state for r in step.input_states}
             if states.get(port) is not InputState.OPTIONAL:
                 break
             contract = registry.get(step.module.contract_id)
             widths += [e.absent for e in contract.input_signature() if port in e.ports]
-            rules += _run_rules(contract, nodes[step.id])
         else:
             if fed:
-                channel = channel.model_copy(update={
-                    "optional": True, "absent_width": max(widths),
-                    "run_rules": sorted(set(rules))})
+                channel = channel.model_copy(update={"optional": True,
+                                                     "absent_width": max(widths)})
         marked.append(channel)
     return marked
 

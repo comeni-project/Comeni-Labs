@@ -141,3 +141,11 @@ def test_a_required_reference_is_emitted_as_a_plain_channel(tmp_path):
     pipeline = _build(tmp_path, goal, extra)
     param = next(c for c in pipeline.channels if c.type_id == "genome.fasta").param
     assert f"params.{param} ?" not in emit(pipeline)
+
+
+def test_a_rule_only_a_run_can_settle_is_on_the_step(tmp_path):
+    goal = _goal(["assembly.fasta", "genome.fasta", "annotation.gff"], ["assembly.qc"],
+                 ("fasta", InputState.OPTIONAL), ("gff", InputState.OPTIONAL))
+    step = _quast_step(_build(tmp_path, goal))
+    assert step.run_rules == [
+        "`gff` is used only with `fasta` (QUAST reads --features only against a reference (-r))"]

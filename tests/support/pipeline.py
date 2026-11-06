@@ -158,6 +158,7 @@ SERIALISED_SHAPE = {
         "call",
         "settings",
         "input_states",
+        "run_rules",
     ],
     "ExtArgs": ["template", "why"],
     "Setting": ["name", "value", "via", "key", "template", "why"],

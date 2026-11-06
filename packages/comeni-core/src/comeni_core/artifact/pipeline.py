@@ -313,6 +313,10 @@ class Step(BaseModel):
         default_factory=list, exclude_if=lambda states: not states)
     """Each optional input's state, who set it and why, sorted by port (#460); omitted when the
     step's tool has none."""
+    run_rules: list[Line] = Field(default_factory=list, exclude_if=lambda rules: not rules)
+    """This step's constraints only a run can settle, because they involve an input each run
+    may leave empty, as sentences the run sheet checks: "`gff` is used only with `fasta` (…)".
+    On the step, not the channel: a channel carries no free text (test_scope_override)."""
 
     @model_validator(mode="after")
     def _no_duplicate_setting(self) -> "Step":
@@ -381,9 +385,6 @@ class Channel(BaseModel):
     feeds has it as an optional input."""
     absent_width: int = Field(default=0, exclude_if=lambda width: not width)
     """The empty tuple's width passed when a run leaves this input empty."""
-    run_rules: list[Line] = Field(default_factory=list, exclude_if=lambda rules: not rules)
-    """The constraints only a run can settle, as sentences the run sheet checks: "`gff` is
-    used only with `fasta` (…)"."""
 
     @model_validator(mode="after")
     def _optional_says_its_placeholder(self) -> "Channel":
