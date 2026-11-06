@@ -2203,6 +2203,36 @@ MD0228:
     legal Groovy and appears throughout these expressions — `.map { gtf -> … }` — so
     everything else is left exactly as written. There is no template language here, for the
     same reason Plan 1.15's `transform` is not one: no parser, no precedence, no second name.
+MD0601:
+  emitted_by: core
+  concern: loading
+  says: "an nf_inputs entry cannot be emitted when its optional inputs are left out"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Give the entry that holds an optional input `absent: <width>`, the width of the empty tuple
+    the process expects (`2` for `tuple val(meta), path(x)`). Put each optional input in its own
+    entry, or put several together only when they form one `all_or_none` group. Remove `absent`
+    from an entry whose inputs are required.
+  explanation: |
+    When an optional input is left out, the compiler still has to fill its slot in the process
+    call, and Nextflow matches tuple arity: `[[:], []]` for a two-element tuple. The width is
+    declared, not guessed, because a tuple's arity is not always one plus its ports (#460).
+
+MD0602:
+  emitted_by: core
+  concern: loading
+  says: "a contract's constraint names an input or param it does not declare"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Spell the name as the contract declares it, case included. A condition tests
+    `given.<input>` (the input is connected) or `param.<name>` (a declared param's value).
+  explanation: |
+    A misspelt name in a constraint would never hold, so the constraint would silently do
+    nothing. Measurements such as `paired` are not yet legal in a contract's condition: they can
+    differ per sample, which is #466.
+
 MF0500:
   emitted_by: forge
   concern: catalogue

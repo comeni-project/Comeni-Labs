@@ -52,6 +52,8 @@ decline to curate one.
 | `MD0228` | a type names a param literally in its `entry_channel` |
 | `MD0317` | an inspector piece names a type or measurement no layer declares |
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
+| `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
+| `MD0602` | a contract's constraint names an input or param it does not declare |
 
 ## A contract disagrees with its module
 
