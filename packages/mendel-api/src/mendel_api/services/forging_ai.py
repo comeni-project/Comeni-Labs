@@ -62,6 +62,7 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.questions.v7": InvocationPurpose.ANALYSIS,
             "forge.draft.v4": InvocationPurpose.IMPLEMENTATION,
             "forge.draft.v5": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v6": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW,
@@ -292,7 +293,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
                 client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v5")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v6")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])

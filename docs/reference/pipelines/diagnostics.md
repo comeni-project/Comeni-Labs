@@ -284,3 +284,6 @@ decline to curate one.
 | `MF0520` | an input arrives at a different scope than its type |
 | `MF0521` | two inputs of one tool have the same type |
 | `MF0522` | an input's file format differs from its type's format |
+| `MF0530` | an output main.nf marks optional has no `produced_when` |
+| `MF0531` | an input the script reads only under `?:` is marked required |
+| `MF0532` | an nf_inputs entry whose inputs are all optional has no `absent` |

@@ -3004,6 +3004,39 @@ MD0509:
     It is `illegal` rather than `unmet` because nothing about the node can be checked — every
     later check reads a contract this one could not load.
 
+MF0530:
+  emitted_by: forge
+  concern: catalogue
+  says: "an output main.nf marks optional has no `produced_when`"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Give the output `produced_when`, the condition under which the module writes it, such as {given.fasta: present}. If the contract never omits it (as STAR's default --outSAMtype BAM does), leave it and say why in the item's reason.
+  explanation: |
+    The module's own `optional: true` is the evidence that some calls do not write it (#460).
+
+MF0531:
+  emitted_by: forge
+  concern: catalogue
+  says: "an input the script reads only under `?:` is marked required"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Mark the input `required: false`, and give its nf_inputs entry `absent`.
+  explanation: |
+    `def x = input ? "--flag $input" : ''` means the process runs without the input, so it is optional (#460).
+
+MF0532:
+  emitted_by: forge
+  concern: catalogue
+  says: "an nf_inputs entry whose inputs are all optional has no `absent`"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Give the entry `absent`: the width of the empty tuple the process expects (2 for `tuple val(meta), path(x)`).
+  explanation: |
+    Without it the compiler cannot fill the slot when the inputs are left out; assembly would refuse it as MD0601 (#460).
+
 MI0001:
   emitted_by: api
   concern: gates

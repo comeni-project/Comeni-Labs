@@ -657,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v5"
+        assert invocation.prompt_id == "forge.draft.v6"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
@@ -740,3 +740,31 @@ def test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key(adaptat
     reviews = forge_review.read(adaptation)
     assert reviews, "the review was refused"
     assert [(r.item, r.comment) for r in reviews] == [("questions:role", "Check this process.")]
+
+
+def test_the_contract_prompt_teaches_constraints(adaptation):
+    """#460: the Contract piece can say an input is optional, when an output is written, and
+    how inputs constrain each other."""
+    _answer(adaptation)
+    client = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    sent = client.prompts[0]
+    assert '"produced_when"' in sent and "contract:constraint:" in sent and '"absent"' in sent
+    with session_scope() as db:
+        assert db.query(AiInvocation).order_by(AiInvocation.started_at.desc()).first(
+            ).prompt_id == "forge.draft.v6"
+
+
+def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
+    """#460: an optional input whose nf_inputs entry has no `absent` is MF0532 on the page."""
+    _answer(adaptation)
+    optional = {"items": {
+        **CONTRACT["items"],
+        "contract:input:reads": {"position": 0, "name": "reads", "type_id": "fastq.reads",
+                                 "required": False},
+        "contract:nf_inputs": [{"ports": ["reads"]}],
+    }, "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(optional))
+    view = forging.read(adaptation)
+    found = next(i for i in view.items if i.key == "contract:nf_inputs").findings
+    assert [f.code for f in found] == ["MF0532"]
