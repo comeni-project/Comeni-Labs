@@ -51,6 +51,7 @@ CLOSED_PACKAGES = {
         "datetime",
         "enum",
         "hashlib",
+        "itertools",  # constraint checks enumerate setups (#460)
         "operator",  # the shared `when` evaluator moved here from mendel-resolver (#460)
         "pathlib",
         "typing",
