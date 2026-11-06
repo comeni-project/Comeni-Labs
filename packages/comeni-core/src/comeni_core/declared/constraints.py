@@ -226,6 +226,13 @@ def check_constraints(contract: ModuleContract) -> list[str]:
             space, _, name = key.partition(".")
             if space == "param":
                 compared.setdefault(name, []).extend(_literals(expected))
+    # A param a row requires or forbids by name has a value or not; its domain or default says
+    # which (final review: one named only there was absent from every setup tried).
+    named = {n for row in rows_of(contract) for n in (*row.requires, *row.forbids)}
+    named |= {m for group in contract.groups for m in group.members}
+    for param in contract.params:
+        if param.name in named:
+            compared.setdefault(param.name, [])
     params = [p for p in contract.params if p.name in compared]
     choices = [_values(p, compared[p.name]) for p in params]
     count = 2 ** len(optional) * prod(len(c) for c in choices)

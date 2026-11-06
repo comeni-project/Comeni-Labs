@@ -114,3 +114,9 @@ def test_a_multi_port_entry_is_all_required_or_one_all_or_none_group():
 def test_a_group_names_real_ports_or_params():
     _refused("MD0602", _gatk([{"kind": "all_or_none", "members": ["dbsnp", "nope"],
                                "because": "names nothing"}]))
+
+
+def test_a_misspelt_given_value_is_refused():
+    """Final review: `presnt` made the row silently never apply."""
+    _refused("MD0602", _quast(constraints=[{"when": {"given.gff": "presnt"},
+                                            "requires": ["fasta"], "because": "typo"}]))

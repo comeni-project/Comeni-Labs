@@ -80,3 +80,23 @@ def test_load_refuses_a_contract_with_a_finding(tmp_path):
     vocab = Vocabulary(types={"fastq.reads": frozenset()})
     with pytest.raises(ValueError, match="MD0603"):
         ModuleContract.load(path, vocab)
+
+
+def test_a_param_named_only_in_requires_is_enumerated():
+    """Final review I3: a param in `requires` but in no `when` was absent from every setup."""
+    contract = _tool([A, B], params=[{"name": "k", "via": "positional", "default": 21,
+                                      "because": "the tool's default"}],
+                     constraints=[{"when": {"given.b": "present"}, "requires": ["k"],
+                                   "because": "b needs k"}])
+    contract = contract.model_copy(update={"nf_inputs": [*contract.nf_inputs,
+                                                         contract.nf_inputs[0].model_copy(
+                                                             update={"ports": [], "param": "k"})]})
+    assert check_constraints(contract) == []
+
+
+def test_a_param_with_a_default_that_a_row_forbids_kills_the_input():
+    contract = _tool([A, B], params=[{"name": "k", "via": "positional", "default": 21,
+                                      "because": "the tool's default"}],
+                     constraints=[{"when": {"given.b": "present"}, "forbids": ["k"],
+                                   "because": "b cannot run with k"}])
+    assert _codes(contract) == ["MD0604"]

@@ -36,7 +36,13 @@ from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
-from mendel_resolver.router import ConstraintViolation, IntentConflict, UnroutableError, route
+from mendel_resolver.router import (
+    ConstraintViolation,
+    IntentConflict,
+    UnroutableError,
+    _have_satisfies,
+    route,
+)
 from mendel_resolver.router import _layer_name as _layer_of
 from mendel_resolver.rules import RuleTable
 
@@ -268,7 +274,8 @@ def resolve(
             pinned = goal.constraints.source_at(contract.id, port.name)
             source = _source_for(produced, port, node.id, ir.decisions, resolver,
                                  pinned=_node_of(ir, pinned.producer) if pinned else None)
-            if source is None:
+            if source is None and not any(_have_satisfies(goal, a.type_id, a.states)
+                                          for a in port.alternatives()):
                 _not_withheld(withheld, port, contract.id)
             if source is not None:
                 from_node, from_port, type_id, states = source

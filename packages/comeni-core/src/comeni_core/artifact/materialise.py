@@ -326,9 +326,16 @@ def _optional_channels(
             contract = registry.get(step.module.contract_id)
             widths += [e.absent for e in contract.input_signature() if port in e.ports]
         else:
+            if fed and len(set(widths)) > 1:
+                # One empty tuple feeds every consumer, and Nextflow matches its arity.
+                raise ValueError(
+                    f"optional input {channel.name} feeds steps whose empty placeholders "
+                    f"differ in width ({', '.join(str(w) for w in sorted(set(widths)))}), "
+                    "so one run cannot leave it empty for all of them; make it required "
+                    "for one of them")
             if fed:
                 channel = channel.model_copy(update={"optional": True,
-                                                     "absent_width": max(widths)})
+                                                     "absent_width": widths[0]})
         marked.append(channel)
     return marked
 

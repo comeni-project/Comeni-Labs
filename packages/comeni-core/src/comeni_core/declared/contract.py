@@ -419,9 +419,11 @@ def _when_keys(when: dict[str, Any], ports: set[str], params: set[str]) -> list[
     """The keys of a contract's `when` that name nothing in it. Phase 1 reads `given.<port>`
     and `param.<name>` only; a measurement waits for per-sample facts (#466)."""
     wrong = []
-    for key in when:
+    for key, value in when.items():
         space, _, name = key.partition(".")
-        if not ((space == "given" and name in ports) or (space == "param" and name in params)):
+        if space == "given" and name in ports and value not in ("present", "absent"):
+            wrong.append(f"{key}: {value!r} (an input is `present` or `absent`)")
+        elif not ((space == "given" and name in ports) or (space == "param" and name in params)):
             wrong.append(key)
     return wrong
 

@@ -145,15 +145,16 @@ def contract_findings(items: dict[str, JsonValue], spec: ModuleSpec,
     Advice only: nothing is refused here; assembly refuses what the contract model refuses."""
     out: dict[str, list[QuestionFinding]] = {}
 
-    def say(key: str, code: str, says: str) -> None:
+    def say(key: str, *, code: str, says: str) -> None:
         out.setdefault(key, []).append(QuestionFinding(code=code, says=says))
 
     for name in spec.optional_emits:
         key = f"contract:output:{name}"
         value = items.get(key)
         if isinstance(value, dict) and not value.get("produced_when"):
-            say(key, "MF0530", f"main.nf marks {name} `optional: true`; say when it is "
-                "written with `produced_when`, e.g. {given.<input>: present}.")
+            say(key, code="MF0530",
+                says=f"main.nf marks {name} `optional: true`; say when it is written with "
+                     "`produced_when`, e.g. {given.<input>: present}.")
     script = _SCRIPT.search(main_nf)
     body = script.group(1) if script else ""
     required: dict[str, bool] = {}
@@ -162,11 +163,13 @@ def contract_findings(items: dict[str, JsonValue], spec: ModuleSpec,
             name = key.removeprefix("contract:input:")
             required[name] = value.get("required", True)
             if required[name] and re.search(rf"\b{re.escape(name)}\s*\?(?!\.)", body):
-                say(key, "MF0531", f"the script reads {name} only under `{name} ? … : …`, so "
-                    "the process runs without it; mark it `required: false`.")
+                say(key, code="MF0531",
+                    says=f"the script reads {name} only under `{name} ? … : …`, so the "
+                         "process runs without it; mark it `required: false`.")
     for entry in items.get("contract:nf_inputs") or []:
         ports = entry.get("ports") or [] if isinstance(entry, dict) else []
         if ports and all(required.get(p) is False for p in ports) and not entry.get("absent"):
-            say("contract:nf_inputs", "MF0532", f"{', '.join(ports)}: an entry whose inputs "
-                "are all optional needs `absent`, the empty tuple's width.")
+            say("contract:nf_inputs", code="MF0532",
+                says=f"{', '.join(ports)}: an entry whose inputs are all optional needs "
+                     "`absent`, the empty tuple's width.")
     return out

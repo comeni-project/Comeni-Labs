@@ -165,3 +165,66 @@ def test_a_forbidden_connection_is_refused_after_parameters_resolve(tmp_path):
                                 state=InputState.REQUIRED)]))
     with pytest.raises(ConstraintViolation, match=r"MD0610.*extra"):
         resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
+
+
+# ── final review fixes ──────────────────────────────────────────────────────────────────────
+
+KRAKEN2 = (ROOT / "packages/comeni-core/tests/fixtures/constraints/kraken2.yml").read_text()
+QC = """
+id: lab/qc@1.0.0
+nf_process: QC
+nf_include: modules/lab/qc/main
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: html, type_id: report.html}]
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-06"}
+"""
+
+
+def test_a_withheld_output_does_not_refuse_a_consumer_fed_by_the_persons_files(tmp_path):
+    """Final review I1: QC of the raw reads was refused because kraken2 withholds its FASTQs."""
+    TYPES.update({"fastq.reads": "", "kraken2.db": "", "report.html": ""})
+    try:
+        registry, vocabulary = _world(tmp_path, {"kraken2.yml": KRAKEN2, "qc.yml": QC})
+    finally:
+        for t in ("fastq.reads", "kraken2.db", "report.html"):
+            TYPES.pop(t)
+    goal = Goal(have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="kraken2.db")],
+                want=["qc.report", "report.html"])
+    ir = resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
+    assert {n.contract_id for n in ir.nodes} >= {"lab/qc@1.0.0"}
+
+
+def test_a_later_need_raises_an_earlier_visits_input(tmp_path):
+    """Final review I2: the wants' order decided whether fasta was switched on."""
+    registry, vocabulary = _stated_world(tmp_path)
+    have = [GoalInput(type_id="assembly.fasta"), GoalInput(type_id="genome.fasta")]
+    for want in (["qc.report", "report.html"], ["report.html", "qc.report"]):
+        goal = Goal(have=have, want=want)
+        assert _records(route(goal, registry))["fasta"][0] is InputState.REQUIRED, want
+        resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
+
+
+NEEDS_REF = """
+id: lab/needsref@1.0.0
+nf_process: NEEDSREF
+nf_include: modules/lab/needsref/main
+consumes: [{name: reference, type_id: genome.fasta}]
+produces: [{name: summary, type_id: report.html}]
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-06"}
+"""
+
+
+def test_an_input_another_step_requires_from_the_same_file_is_required_here(tmp_path):
+    """Final review I4: the channel became required but quast's own checks still treated
+    fasta as optional per run."""
+    TYPES["report.html"] = ""
+    try:
+        registry, _ = _world(tmp_path, {"quast.yml": QUAST, "needsref.yml": NEEDS_REF})
+    finally:
+        TYPES.pop("report.html")
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta"), GoalInput(type_id="genome.fasta")],
+                want=["qc.report", "report.html"],
+                constraints=_choose(("fasta", InputState.OPTIONAL)))
+    state, by, reason = _records(route(goal, registry))["fasta"]
+    assert (state, by) == (InputState.REQUIRED, "router")
+    assert "lab/needsref@1.0.0" in reason

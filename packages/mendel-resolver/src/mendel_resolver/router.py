@@ -215,6 +215,9 @@ def route(
         )
     premises = premises if premises is not None else {}
     emitted: set[str] = set()
+    # Each step's optional-input states across every visit: a later need may raise one an
+    # earlier visit left off (final review I2), so the order of the wants cannot decide it.
+    seen_inputs: dict[str, list[InputRecord]] = {}
 
     def satisfy(
         type_id: str,
@@ -269,7 +272,10 @@ def route(
             )
         chosen, pin = choice.contract, choice.pin
 
-        records = _optional_states(goal, chosen, _matched_output(chosen, type_id, states))
+        records = _strongest(seen_inputs.get(chosen.id, []),
+                             _optional_states(goal, chosen,
+                                              _matched_output(chosen, type_id, states)))
+        seen_inputs[chosen.id] = records
         off = {r.port for r in records if r.state is InputState.OFF}
         for port in chosen.consumes:
             if port.name in off:
@@ -301,6 +307,10 @@ def route(
                     f"{chosen.id} is pinned to produce {type_id}, but its inputs are "
                     f"unreachable from this goal ({exc}). Pinned by {choice.pinned}"
                 ) from exc
+        if chosen.id in emitted:
+            for step in plan.steps:
+                if step.contract_id == chosen.id:
+                    step.inputs = records
         if chosen.id not in emitted:
             emitted.add(chosen.id)
             plan.steps.append(
@@ -349,7 +359,44 @@ def route(
             frozenset(),
             f"the goal asks for {wanted}",
         )
+    _required_where_shared(plan, registry)
     return plan
+
+
+def _strongest(before: list[InputRecord], now: list[InputRecord]) -> list[InputRecord]:
+    """Per port, the stronger of two visits' states; a tie keeps the first visit's record."""
+    merged = {r.port: r for r in before}
+    for record in now:
+        kept = merged.get(record.port)
+        if kept is None or _STRENGTH[record.state] > _STRENGTH[kept.state]:
+            merged[record.port] = record
+    return sorted(merged.values(), key=lambda r: r.port)
+
+
+def _required_where_shared(plan: RoutePlan, registry: Registry) -> None:
+    """An optional input fed by the same pipeline input that another step requires is required
+    here too (final review I4): every run supplies that file, so this step's constraints are
+    settled at build time, not left to the run. Entry inputs are shared by type, as the
+    artifact's default channels are."""
+    required: dict[str, str] = {}
+    for step in plan.steps:
+        contract = registry.get(step.contract_id)
+        states = {r.port: r.state for r in step.inputs}
+        for port in contract.consumes:
+            state = states.get(port.name)
+            if (port.required or state is InputState.REQUIRED) and port.type_id:
+                required.setdefault(port.type_id, contract.id)
+    for step in plan.steps:
+        contract = registry.get(step.contract_id)
+        ports = {p.name: p for p in contract.consumes}
+        step.inputs = [
+            InputRecord(port=r.port, state=InputState.REQUIRED, by=InputDecider.ROUTER,
+                        reason=f"required: {required[ports[r.port].type_id]} reads the same "
+                               "file in every run")
+            if r.state is InputState.OPTIONAL and ports[r.port].type_id in required
+            and required[ports[r.port].type_id] != contract.id else r
+            for r in step.inputs
+        ]
 
 
 def _feeding(registry: Registry, port: InputPort, source: SourcePin):

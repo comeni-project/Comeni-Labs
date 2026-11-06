@@ -149,3 +149,32 @@ def test_a_rule_only_a_run_can_settle_is_on_the_step(tmp_path):
     step = _quast_step(_build(tmp_path, goal))
     assert step.run_rules == [
         "`gff` is used only with `fasta` (QUAST reads --features only against a reference (-r))"]
+
+
+WIDE_REF = """declares: contract
+id: lab/wideref@1.0.0
+nf_process: WIDEREF
+nf_include: modules/lab/wideref/main
+roles: [qc_per_sample]
+consumes:
+  - {name: assembly, type_id: assembly.fasta}
+  - {name: reference, type_id: genome.fasta, required: false}
+produces: [{name: summary, type_id: assembly.summary}]
+nf_inputs: [{ports: [assembly]}, {ports: [reference], absent: 3}]
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-06"}
+"""
+
+
+def test_one_optional_input_with_two_placeholder_widths_is_refused(tmp_path):
+    """Final review: two consumers wanting [[:], []] and [[:], [], []] cannot share one."""
+    import pytest
+
+    extra = {"wideref.contract.yml": WIDE_REF,
+             "assembly.summary.yml": "declares: vocabulary\nid: assembly.summary\nstates: []\n"}
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta"), GoalInput(type_id="genome.fasta")],
+                want=["assembly.qc", "assembly.summary"], constraints=Constraints(inputs=[
+                    InputChoice(contract=QUAST_ID, port="fasta", state=InputState.OPTIONAL),
+                    InputChoice(contract="lab/wideref@1.0.0", port="reference",
+                                state=InputState.OPTIONAL)]))
+    with pytest.raises(ValueError, match="width"):
+        _build(tmp_path, goal, extra)
