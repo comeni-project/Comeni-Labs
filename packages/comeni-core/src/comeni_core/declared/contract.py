@@ -572,6 +572,12 @@ class ModuleContract(BaseModel):
                 raise missing_via from exc
             raise
         contract.check_against(vocab)
+        # Late import: constraints evaluates contracts, so it imports this module.
+        from comeni_core.declared.constraints import check_constraints
+
+        findings = check_constraints(contract)
+        if findings:
+            raise ValueError(f"{path}: " + "\n".join(findings))
         return contract
 
     @staticmethod

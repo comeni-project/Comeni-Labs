@@ -11,12 +11,15 @@ violated in some is left for the run to settle, and its sentence is in `holds_at
 """
 
 from collections.abc import Iterator
-from itertools import combinations
+from itertools import combinations, product
+from math import prod
 from typing import Any, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.declared.contract import ConstraintRow, GroupKind, ModuleContract
+from comeni_core.declared.contract import ConstraintRow, GroupKind, ModuleContract, Param
+from comeni_core.declared.measurement import MeasurementKind
+from comeni_core.diagnostics import coded
 from comeni_core.logic.when import PRESENT, matches
 
 
@@ -147,3 +150,96 @@ def evaluate(contract: ModuleContract, setup: Setup) -> Verdict:
         if when is None or all(matches(when, _facts(g, setup.params)) for g in worlds):
             verdict.produced.append(output.name)
     return verdict
+
+
+SETUP_BOUND = 4096
+"""The most setups `check_constraints` tries. Beyond it the contract is refused (MD0607), so a
+check never reports clean over cases it did not try."""
+
+
+def _literals(expected: Any) -> list[Any]:
+    """The values a condition compares against: `{in: [...]}`, `{not: x}`, `"< 70"`, or a
+    plain value."""
+    if isinstance(expected, dict):
+        if "in" in expected:
+            return list(expected["in"])
+        return [expected.get("not")]
+    if isinstance(expected, str):
+        symbol, _, literal = expected.partition(" ")
+        if symbol in {">=", ">", "<=", "<", "==", "!="}:
+            try:
+                number = float(literal)
+            except ValueError:
+                return [literal]
+            whole = int(number) if number.is_integer() else number
+            return [whole - 1, whole, whole + 1]
+        if expected in {"present", "absent"}:
+            return []
+    return [expected]
+
+
+def _values(param: Param, compared: list[Any]) -> list[Any]:
+    """Every value worth trying for one param: its domain, or what conditions compare it to.
+    A param with a default always has a value; one without may have none."""
+    domain = param.domain
+    if domain is not None and domain.kind is MeasurementKind.BOOLEAN:
+        values: list[Any] = [True, False]
+    elif domain is not None and domain.kind is MeasurementKind.ENUM and domain.values:
+        values = list(domain.values)
+    else:
+        values = list(dict.fromkeys(compared)) or [param.default]
+    if param.default is None:
+        values = [None, *(v for v in values if v is not None)]
+    return values
+
+
+def _conditions(contract: ModuleContract) -> list[dict[str, Any]]:
+    whens = [row.when for row in rows_of(contract)] + [g.when for g in contract.groups]
+    return whens + [o.produced_when for o in contract.produces if o.produced_when]
+
+
+def check_constraints(contract: ModuleContract) -> list[str]:
+    """Findings, each a coded message: MD0603 no valid setup, MD0604 a dead optional input,
+    MD0605 a fake optional one, MD0606 an output never produced, MD0607 too many setups."""
+    optional = contract.optional_ports()
+    required = frozenset(p.name for p in contract.consumes if p.required)
+    compared: dict[str, list[Any]] = {}
+    for when in _conditions(contract):
+        for key, expected in when.items():
+            space, _, name = key.partition(".")
+            if space == "param":
+                compared.setdefault(name, []).extend(_literals(expected))
+    params = [p for p in contract.params if p.name in compared]
+    choices = [_values(p, compared[p.name]) for p in params]
+    count = 2 ** len(optional) * prod(len(c) for c in choices)
+    if count > SETUP_BOUND:
+        return [coded("MD0607", f"{contract.id} has {count} setups to check, above "
+                      f"{SETUP_BOUND}: fewer optional inputs or conditioned params")]
+    valid: list[tuple[frozenset[str], Verdict]] = []
+    for size in range(len(optional) + 1):
+        for chosen in combinations(optional, size):
+            given = required | frozenset(chosen)
+            for values in product(*choices):
+                setup = Setup(given=given, params=dict(zip([p.name for p in params], values,
+                                                           strict=True)))
+                verdict = evaluate(contract, setup)
+                if not verdict.missing and not verdict.forbidden:
+                    valid.append((given, verdict))
+    if not valid:
+        return [coded("MD0603", f"{contract.id}: no combination of inputs and params satisfies "
+                      "its constraints, so the tool can never run")]
+    findings = []
+    for port in optional:
+        used = [port in given for given, _ in valid]
+        if not any(used):
+            findings.append(coded("MD0604", f"{contract.id}: optional input {port!r} is "
+                                  "connected in no combination its constraints allow"))
+        elif all(used):
+            findings.append(coded("MD0605", f"{contract.id}: optional input {port!r} is "
+                                  "connected in every combination its constraints allow, so "
+                                  "it is required"))
+    for output in contract.produces:
+        if output.produced_when and not any(output.name in v.produced for _, v in valid):
+            findings.append(coded("MD0606", f"{contract.id}: output {output.name!r} is "
+                                  "produced in no combination its constraints allow"))
+    return findings

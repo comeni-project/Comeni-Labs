@@ -54,6 +54,11 @@ decline to curate one.
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
+| `MD0603` | no combination of inputs and params satisfies a contract's constraints |
+| `MD0604` | an optional input is connected in no combination the constraints allow |
+| `MD0605` | an optional input is connected in every combination the constraints allow |
+| `MD0606` | an output's `produced_when` holds in no combination the constraints allow |
+| `MD0607` | a contract has too many combinations to check |
 
 ## A contract disagrees with its module
 

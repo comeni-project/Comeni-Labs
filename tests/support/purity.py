@@ -52,6 +52,7 @@ CLOSED_PACKAGES = {
         "enum",
         "hashlib",
         "itertools",  # constraint checks enumerate setups (#460)
+        "math",  # the constraint checks' bound on setups (#460)
         "operator",  # the shared `when` evaluator moved here from mendel-resolver (#460)
         "pathlib",
         "typing",

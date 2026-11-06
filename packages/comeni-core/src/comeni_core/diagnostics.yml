@@ -2233,6 +2233,61 @@ MD0602:
     nothing. Measurements such as `paired` are not yet legal in a contract's condition: they can
     differ per sample, which is #466.
 
+MD0603:
+  emitted_by: core
+  concern: loading
+  says: "no combination of inputs and params satisfies a contract's constraints"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Read the rows together: one of them forbids what another, or a required input, needs. Remove or narrow the row that contradicts the tool's own main.nf.
+  explanation: |
+    Every combination of the contract's optional inputs and of the values its conditions test was tried, and each broke a row. The tool could never run, so the contract is refused (#460).
+
+MD0604:
+  emitted_by: core
+  concern: loading
+  says: "an optional input is connected in no combination the constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    A row forbids the input whenever it could be given. Narrow that row, or remove the input if the tool really never uses it.
+  explanation: |
+    A dead input is an option the builder would offer and the engine would always refuse.
+
+MD0605:
+  emitted_by: core
+  concern: loading
+  says: "an optional input is connected in every combination the constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Mark it `required: true`, or relax the row that requires it unconditionally.
+  explanation: |
+    An input every valid setup connects is required in fact; calling it optional would offer a switch that can only be refused.
+
+MD0606:
+  emitted_by: core
+  concern: loading
+  says: "an output's `produced_when` holds in no combination the constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Check the output's condition against the rows: it tests an input or a value the rows never allow.
+  explanation: |
+    An output that is never written would be offered to later steps that would then wait for nothing.
+
+MD0607:
+  emitted_by: core
+  concern: loading
+  says: "a contract has too many combinations to check"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Reduce the optional inputs or the params its conditions test, or split the contract by mode (#464).
+  explanation: |
+    The checks try every combination, bounded at 4096. Above the bound the contract is refused rather than checked partly, so a clean result always means every case was tried.
+
 MF0500:
   emitted_by: forge
   concern: catalogue
