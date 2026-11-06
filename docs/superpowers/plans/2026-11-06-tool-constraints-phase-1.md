@@ -89,17 +89,17 @@
   - The semantics are those of today's `predicates.py`, unchanged.
 - `mendel_resolver.premises.Premise` satisfies `Fact` structurally.
 
-- [ ] **Step 1:** `git mv` the test file to `packages/comeni-core/tests/test_when.py`. Change its
+- [x] **Step 1:** `git mv` the test file to `packages/comeni-core/tests/test_when.py`. Change its
   import to `from comeni_core.logic.when import …`, and give it a minimal local `Fact` stand-in
   (a frozen dataclass with `value`) in place of `Premise`.
-- [ ] **Step 2:** Run `t.sh packages/comeni-core/tests/test_when.py`. Expected: FAIL with
+- [x] **Step 2:** Run `t.sh packages/comeni-core/tests/test_when.py`. Expected: FAIL with
   `ModuleNotFoundError: comeni_core.logic`.
-- [ ] **Step 3:** `git mv` `predicates.py` to `comeni_core/logic/when.py`. Replace the
+- [x] **Step 3:** `git mv` `predicates.py` to `comeni_core/logic/when.py`. Replace the
   `TYPE_CHECKING` import of `Premise` with the `Fact` protocol, and update every caller in the
   Files list.
-- [ ] **Step 4:** Run `t.sh packages/comeni-core/tests packages/mendel-resolver/tests packages/mendel-api/tests/forge`.
+- [x] **Step 4:** Run `t.sh packages/comeni-core/tests packages/mendel-resolver/tests packages/mendel-api/tests/forge`.
   Expected: PASS. Then `make guards` (purity). Expected: PASS.
-- [ ] **Step 5:** `make check`, then commit: `refactor(core): one when evaluator in comeni-core (#460)`.
+- [x] **Step 5:** `make check`, then commit: `refactor(core): one when evaluator in comeni-core (#460)`.
 
 ### Task 2: Contract fields and load-time validation
 
@@ -132,7 +132,7 @@
 - Serialisers drop the new fields when they hold their defaults, as `OutputPort._no_empty_format`
   already does.
 
-- [ ] **Step 1: Write the failing tests** in `test_contract_constraints.py`, with a `_quast()`
+- [x] **Step 1: Write the failing tests** in `test_contract_constraints.py`, with a `_quast()`
   helper that builds the spec §1 example contract:
   - `test_quast_loads_with_optional_inputs_and_a_conditional_output`: `fasta` and `gff` are
     `required is False`, and `misassemblies.produced_when == {"given.fasta": "present"}`.
@@ -143,22 +143,22 @@
   - `test_an_all_optional_entry_needs_absent_and_a_required_one_forbids_it`: both cases raise `MD0601`.
   - `test_a_multi_port_entry_is_all_required_or_one_all_or_none_group`: `[dbsnp, dbsnp_tbi]`,
     both optional, with no group, raises `MD0601`; with the group, it loads.
-- [ ] **Step 2: Add `test_contracts_without_constraints_keep_their_digest`** to `test_digest.py`.
+- [x] **Step 2: Add `test_contracts_without_constraints_keep_their_digest`** to `test_digest.py`.
   For every curated contract in `registry/`, the digest equals the digest of the same contract
   dumped and reloaded. It also asserts that `"required"`, `"produced_when"`, `"absent"`,
   `"constraints"` and `"groups"` do not appear in `model_dump_json()`. Assert that the contract
   list is non-empty first.
-- [ ] **Step 3:** Run both files. Expected: FAIL (unknown fields, no codes).
-- [ ] **Step 4: Implement the fields.** Then implement `ModuleContract._constraints_name_real_things`
+- [x] **Step 3:** Run both files. Expected: FAIL (unknown fields, no codes).
+- [x] **Step 4: Implement the fields.** Then implement `ModuleContract._constraints_name_real_things`
   (an after-validator), which raises:
   - `MD0602`, for unknown names in `requires`, `forbids` or `members`, and for `when` keys outside
     `given.<port>` and `param.<param>`;
   - `MD0601`, for the `nf_inputs` arity rules.
 
   Declare both codes in `diagnostics.yml`.
-- [ ] **Step 5:** Run `t.sh packages/comeni-core/tests packages/mendel-resolver/tests`. Expected:
+- [x] **Step 5:** Run `t.sh packages/comeni-core/tests packages/mendel-resolver/tests`. Expected:
   PASS. Regenerate the diagnostics doc.
-- [ ] **Step 6:** `make check`, then commit: `feat(core): optional inputs, conditional outputs and constraint rows in contracts (#460)`.
+- [x] **Step 6:** `make check`, then commit: `feat(core): optional inputs, conditional outputs and constraint rows in contracts (#460)`.
 
 ### Task 3: `evaluate()` and its sentences
 
@@ -195,7 +195,7 @@
     - for a forbids row: ``"`{subject}` cannot be used with `{x}` ({because})"``;
     - the subject is the port or param in the row's `when`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_quast_with_only_assemblies_produces_the_basic_reports`: `Setup(given={"consensus"})`
     gives `produced == ["results","tsv"]` and `missing == []`.
   - `test_quast_with_a_reference_produces_its_reports`: adding `fasta` adds `transcriptome`,
@@ -208,12 +208,12 @@
   - `test_an_unknown_reference_puts_the_gff_rule_at_run_time`:
     `Setup(given={"consensus","gff"}, unknown={"fasta"})` gives `missing == []` and a non-empty
     `holds_at_run_time`.
-- [ ] **Step 2:** Run. Expected: FAIL (no module).
-- [ ] **Step 3:** Implement. Build the fact map as `given.<p>` → a `Fact` with value `True` for
+- [x] **Step 2:** Run. Expected: FAIL (no module).
+- [x] **Step 3:** Implement. Build the fact map as `given.<p>` → a `Fact` with value `True` for
   each connected port, plus `param.<n>` → its value. An absent fact is a missing key, so
   `ABSENT` and `PRESENT` work unchanged.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** `make check`, then commit: `feat(core): evaluate a contract's constraints into a verdict (#460)`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** `make check`, then commit: `feat(core): evaluate a contract's constraints into a verdict (#460)`.
 
 ### Task 4: Enumeration checks at load
 
@@ -234,7 +234,7 @@
   - a numeric domain: one value on each side of every compared literal;
   - no domain: `[absent]` plus each literal compared.
 
-- [ ] **Step 1: Write the failing tests**, one contract per finding, built inline:
+- [x] **Step 1: Write the failing tests**, one contract per finding, built inline:
   - `MD0603` (no setup is valid): a required port that is forbidden;
   - `MD0604` (an optional port connected in no valid setup);
   - `MD0605` (an optional port connected in every valid setup);
@@ -242,14 +242,14 @@
   - `MD0607`: 13 optional ports, which is 8,192 setups.
   - Plus `test_the_quast_kraken2_and_gatk_fixtures_are_clean`, and
     `test_load_refuses_a_contract_with_a_finding`.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. A setup is **valid** when its verdict has no `missing` and no
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. A setup is **valid** when its verdict has no `missing` and no
   `forbidden`. Make the call in `ModuleContract.load`; every finding refuses at registry load.
-- [ ] **Step 4:** Run `t.sh packages/comeni-core/tests`, then `make registry-lint` or the registry
+- [x] **Step 4:** Run `t.sh packages/comeni-core/tests`, then `make registry-lint` or the registry
   load tests (whichever `make check` runs). Every curated contract must still load. Expected: PASS.
-- [ ] **Step 5:** Record the guard in the ledger: delete the call in `load`, see
+- [x] **Step 5:** Record the guard in the ledger: delete the call in `load`, see
   `test_load_refuses…` fail, restore it.
-- [ ] **Step 6:** `make check`, then commit: `feat(core): check constraints for contradictions, dead and fake-optional inputs (#460)`.
+- [x] **Step 6:** `make check`, then commit: `feat(core): check constraints for contradictions, dead and fake-optional inputs (#460)`.
 
 ## Stage 2 — routing and input states (`mendel-resolver`, `comeni-core` plan)
 
@@ -280,17 +280,17 @@
   - `RouteStep.inputs: list[InputRecord] = []` and `IRNode.inputs: list[InputRecord] = []`.
   - Both are serialised only when non-empty, and sorted by port.
 
-- [ ] **Step 1: Write the failing test** `test_quast_with_only_assemblies_leaves_its_optional_inputs_off`:
+- [x] **Step 1: Write the failing test** `test_quast_with_only_assemblies_leaves_its_optional_inputs_off`:
   - a goal with `have: assembly.fasta` and `want: qc.report::assembly`, routed over a registry
     holding the quast fixture;
   - the step's `inputs` are `fasta` and `gff`, both `OFF`, `by="router"`, with the reason
     "off: not switched on".
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement the models. In the `for port in chosen.consumes` loop, skip a
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement the models. In the `for port in chosen.consumes` loop, skip a
   non-required port whose choice is absent or `OFF`, and record it.
-- [ ] **Step 4:** Run `t.sh packages/mendel-resolver/tests`. Expected: PASS, and the existing
+- [x] **Step 4:** Run `t.sh packages/mendel-resolver/tests`. Expected: PASS, and the existing
   routes unchanged.
-- [ ] **Step 5:** `make check`, then commit: `feat(resolver): record optional inputs as off unless switched on (#460)`.
+- [x] **Step 5:** `make check`, then commit: `feat(resolver): record optional inputs as off unless switched on (#460)`.
 
 ### Task 6: Switching on, needs, constraint checks after resolution
 
@@ -308,7 +308,7 @@
   - `resolve()` runs `_constraints_hold(plan, settings)` after parameter resolution, and raises
     `ConstraintViolation(UnroutableError)` with `MD0608`, `MD0609` or `MD0610`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_a_person_switches_the_reference_on_as_optional`: an `InputChoice(state=OPTIONAL)` for
     `fasta` routes it to an entry channel marked optional, and the step records
     `by="person"`.
@@ -321,18 +321,18 @@
   - `test_a_forbidden_parameter_value_is_refused_after_resolution`: `MD0610`, and the parameter
     is not dropped.
   - `test_a_shared_channel_optional_here_and_required_there_is_required`.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3: Implement.**
   - **Port state:** the person's choice first. Then needs from conditional outputs (`given.` keys
     of a needed output's `produced_when` → `REQUIRED`). Then rows' `requires` given what is on
     → `OPTIONAL` or `REQUIRED`, inheriting the stronger state.
   - **No mid-route questions** (spec §4).
   - **After parameters resolve,** run `evaluate` per step, with `unknown` = its optional entry
     channels.
-- [ ] **Step 4:** Run `t.sh packages/mendel-resolver/tests packages/mendel-api/tests`. Expected: PASS.
-- [ ] **Step 5:** Record the guards: drop the re-check and see the forbidden test fail; drop the
+- [x] **Step 4:** Run `t.sh packages/mendel-resolver/tests packages/mendel-api/tests`. Expected: PASS.
+- [x] **Step 5:** Record the guards: drop the re-check and see the forbidden test fail; drop the
   needs propagation and see the misassemblies test fail. Then restore both.
-- [ ] **Step 6:** `make check`, then `make verify`, then commit: `feat(resolver): switch optional inputs on by choice and need; check constraints after resolution (#460)`.
+- [x] **Step 6:** `make check`, then `make verify`, then commit: `feat(resolver): switch optional inputs on by choice and need; check constraints after resolution (#460)`.
 
 ## Stage 3 — artifact and emission (`comeni-core` artifact, `mendel-compiler`)
 
@@ -353,16 +353,16 @@
   - **An entry that is off** materialises as `CallArg(empty_width=absent)`, the existing
     placeholder path.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_an_off_reference_becomes_an_empty_call_argument`;
   - `test_an_optional_reference_becomes_an_optional_channel_with_its_width`;
   - `test_a_pipeline_saved_before_this_change_still_loads`, using an existing saved
     `pipeline.yml` fixture;
   - `test_input_records_round_trip_sorted`.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Fields serialise only when set.
-- [ ] **Step 4:** Run `t.sh packages/comeni-core/tests packages/mendel-resolver/tests`. Expected: PASS.
-- [ ] **Step 5:** `make check`, then commit: `feat(core): optional channels and input records in pipeline.yml (#460)`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Fields serialise only when set.
+- [x] **Step 4:** Run `t.sh packages/comeni-core/tests packages/mendel-resolver/tests`. Expected: PASS.
+- [x] **Step 5:** `make check`, then commit: `feat(core): optional channels and input records in pipeline.yml (#460)`.
 
 ### Task 8: Emission and conformance
 
@@ -381,20 +381,20 @@
   - `ModuleSpec.optional_emits: list[str]`.
   - `MD0611` is returned from `against()`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - three quast goldens: off gives `[[:], []]` in both reference slots; optional gives the
     ternary; required gives a plain channel;
   - `test_rnaseq_example_emission_is_unchanged` (the existing golden must still match: Review
     focus 1);
   - `test_an_optional_emit_declared_always_is_md0611`;
   - `test_modulespec_reads_optional_emits` on quast's real `main.nf` (the fixture copy).
-- [ ] **Step 2:** Run. Expected: FAIL for the new tests, and PASS for the existing goldens.
-- [ ] **Step 3:** Implement.
-- [ ] **Step 4:** Run `t.sh packages/mendel-compiler/tests`, then `make verify` and `make static`.
+- [x] **Step 2:** Run. Expected: FAIL for the new tests, and PASS for the existing goldens.
+- [x] **Step 3:** Implement.
+- [x] **Step 4:** Run `t.sh packages/mendel-compiler/tests`, then `make verify` and `make static`.
   `make verify` must include a stub run of the quast golden pipeline with and without
   `--fasta` (*builder: add it beside the existing stub-run tests if one does not take
   parameters*). Expected: PASS.
-- [ ] **Step 5:** `make check`, then commit: `feat(compiler): emit optional channels and check optional emits (#460)`.
+- [x] **Step 5:** `make check`, then commit: `feat(compiler): emit optional channels and check optional emits (#460)`.
 
 ## Stage 4 — the forge
 
@@ -419,21 +419,21 @@
     `QuestionFinding` shape;
   - `ItemView.findings` is filled for contract items too.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_quast_items_round_trip_through_contract_of` (with constraint and group items);
   - `test_an_optional_emit_without_produced_when_is_mf0530`;
   - `test_an_input_used_only_under_a_ternary_marked_required_is_mf0531`;
   - `test_an_all_optional_entry_without_absent_is_mf0532`;
   - `test_the_contract_prompt_teaches_constraints`: the rendered prompt has `"produced_when"`,
     `contract:constraint:` and `"absent"`, and the prompt id is `forge.draft.v6`.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3: Write `forge.draft.v6`.**
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3: Write `forge.draft.v6`.**
   - It adds the shapes from spec §1 and §7, and the evidence list of §7.
   - It keeps v5's exact-fields rule. It updates "Nothing else: no optional" to name the real
     fields: `required`, `produced_when`, `absent`.
   - Then wire it in `_PURPOSE` and the default, and implement the findings.
-- [ ] **Step 4:** Run `t.sh packages/mendel-forge/tests packages/mendel-api/tests/forge`. Expected: PASS.
-- [ ] **Step 5:** Record the guards (each finding against code without it). `make check`, then
+- [x] **Step 4:** Run `t.sh packages/mendel-forge/tests packages/mendel-api/tests/forge`. Expected: PASS.
+- [x] **Step 5:** Record the guards (each finding against code without it). `make check`, then
   commit: `feat(forge): draft and check optional inputs, conditional outputs and constraints (forge.draft.v6) (#460)`.
 
 ### Task 10: Forge page and the live quast contract
@@ -446,16 +446,16 @@
 - Modify: `packages/mendel-api/src/mendel_api/services/forging.py` (`ItemView.sentence: str | None`, from `sentence()`), then `make client`
 - Test: `frontend/src/registry/forging/*.test.tsx` (the existing pattern)
 
-- [ ] **Step 1: Write the failing vitest tests:** a constraint item shows its sentence; an
+- [x] **Step 1: Write the failing vitest tests:** a constraint item shows its sentence; an
   optional input is hollow and labelled "optional"; a conditional output shows "only with fasta".
-- [ ] **Step 2:** Run `npx vitest run src/registry/forging`. Expected: FAIL.
-- [ ] **Step 3:** Implement with tokens only (`tokens.test.ts` forbids raw colours).
-- [ ] **Step 4:** Run `npx vitest run` and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Inspect in a browser at 1440 and 390, light and dark, on quast's adaptation.
-- [ ] **Step 6: Live.** Restart `mendel-ai-worker`, then redraft quast's Contract piece on
+- [x] **Step 2:** Run `npx vitest run src/registry/forging`. Expected: FAIL.
+- [x] **Step 3:** Implement with tokens only (`tokens.test.ts` forbids raw colours).
+- [x] **Step 4:** Run `npx vitest run` and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Inspect in a browser at 1440 and 390, light and dark, on quast's adaptation.
+- [x] **Step 6: Live.** Restart `mendel-ai-worker`, then redraft quast's Contract piece on
   `chatgpt/gpt-6.1-sol`. Record what it drafted for `fasta`, `gff`, the three reports and the
   constraint row on #412. Do not approve it; the operator approves.
-- [ ] **Step 7:** `make check`, then commit: `feat(forge): show constraints and optional ports on the forging page (#460)`.
+- [x] **Step 7:** `make check`, then commit: `feat(forge): show constraints and optional ports on the forging page (#460)`.
 
 ## Stages 5–7 — outlined; each gets a detailed plan section when stage 4 is done
 
@@ -480,4 +480,29 @@
 
 ## Deviations
 
-(Record here as they happen.)
+Stages 1–4 are done (2026-11-06). Rulings made while executing, from the ledger:
+
+- Ruling: per-commit check = make check minus the full suite (check.sh: lint types docs docs-status links doc-paths doc-sizes guards) + the task's scoped tests; the full `make test` runs at each stage end — the full suite takes ~8 min and always fails the 62 #455 token tests — cost if wrong: a cross-package break found at stage end, not at its commit.
+- Task 1: Ruling: `operator` added to comeni-core's purity allowlist — the evaluator moved with its stdlib import; resolver already allowed it — cost if wrong: none (stdlib, pure).
+- Task 2: Ruling: documented the new fields in contract-schema.md now (planned for stage 7) — make docs refuses undocumented schema fields — cost if wrong: none.
+- Task 3: Ruling: `itertools` added to comeni-core's purity allowlist — stdlib, pure; enumerating setups — cost if wrong: none.
+- Task 4: Ruling: check_constraints returns coded message strings, not conformance.Diagnostic — Diagnostic lives in mendel-compiler, which pure comeni-core cannot import; a coded string carries the code — cost if wrong: a later caller wraps strings into Diagnostic.
+- Task 4: Ruling: `math` (prod) added to comeni-core's purity allowlist — stdlib, pure — cost if wrong: none.
+- Task 5: Ruling: InputChoice has no by/because — like SourcePin, a goal constraint is the person's by being there; the plan listed both — cost if wrong: add fields when a model proposes choices (stage 6).
+- Task 5: Ruling: InputRecord.by is an InputDecider enum (person, router), reason a Line allowlisted in the egress guard — bare str fails the egress guard; rule decider joins with #461 — cost if wrong: an enum member to add.
+- Task 6: Ruling: an optional input switched on routes through goal.have like any entry input — entry channels are derived from have (invariant 15); switching one on in the builder (stage 6) adds the have entry — cost if wrong: the AI/builder must add the have entry with the choice.
+- Task 6: Ruling: the shared-channel test (optional here, required there) moves to Task 7 — channel optionality is decided at materialise, not route — cost if wrong: none.
+- Task 6: Ruling: pipeline_authoring_turn shape 4→5, identity upgrade + migration e3b9f1c7a2d4 — test_shapes requires it; inputs absent reads as [] — cost if wrong: none.
+- Task 6: Ruling: make verify replaced by its parts (check.sh + scoped suites + pytest -m slow) — make check's full suite always fails #455 — cost if wrong: none; slow 19/19 passed.
+- Task 7: Ruling: the artifact field is Step.input_states, not Step.inputs — Step.inputs already holds the StepInput wiring — cost if wrong: a rename.
+- Task 8: Ruling: an optional sample-scoped channel in samplesheet form is refused at emission (ValueError naming #466); run-scoped optional channels get the ternary on both paths — a blank column needs per-row placeholders — cost if wrong: a per-sample optional input cannot be built until #466.
+- Task 7: Ruling: tests for artifact + emission live in packages/mendel-compiler/tests/test_optional_inputs_built.py (plan: resolver/comeni-core) — they need a full build over an overlay layer — cost if wrong: none.
+- Task 7: Ruling: no SCHEMA_VERSION bump — test_pipeline_compatibility: within an unreleased bump (released=1, current 8) extending SERIALISED_SHAPE is enough; v8 fixture still loads (Review focus 5 holds) — cost if wrong: none.
+- Task 7: Ruling: the emission ternary landed in Task 7's commit — the artifact tests build and emit — Task 8 keeps modulespec + MD0611 — cost if wrong: none.
+- Task 7: Ruling: run-time rule sentences live on Step.run_rules, not Channel.run_rules — test_scope_override forbids free text on a channel — cost if wrong: the run sheet gathers from steps (stage 5).
+- Task 8: Ruling: MD0611 reports, does not refuse (spec said refuse at load for curated contracts) — STAR's curated bam is optional:true in main.nf yet always written by the module's default --outSAMtype; refusing broke every build — cost if wrong: a contract wrongly saying always is only reported; the forge's MF0530 still flags it at drafting.
+- Task 8: Ruling: blocking now reads diagnostics.yml refuses (conformance.blocking) instead of excepting MD0100 by code, in orchestrate and layer_verbs — one source of truth — cost if wrong: a refuses:false code no longer stops a build, which is what refuses:false says.
+- Task 8: Ruling: the Nextflow stub run of quast with and without the reference is deferred to stage 7's live walk — it needs quast's module vendored into a layer (module.yml, upstream sha); emitted text is pinned by tests and make static/slow pass — cost if wrong: a Nextflow-level error in the ternary found at the walk.
+- Task 9: Ruling: MD0603–MD0606 on current items attach to contract:process (check_constraints reports per contract, not per item) — cost if wrong: a finding shown on the process row rather than the item it concerns.
+- Task 10: Ruling: constraint/group keys are contract:constraint:row<n> and contract:group:group<n> — the item KEY pattern requires a name to start with a letter; loosening it weakens every key — cost if wrong: a rename.
+- Task 10: BLOCKED step 5: browser inspection at 1440/390 light/dark — the Chrome extension disconnected this session; must be done before merge.
