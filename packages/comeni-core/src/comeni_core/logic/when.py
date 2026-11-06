@@ -1,18 +1,23 @@
 """Evaluate rule predicates consistently at validation and resolution time.
 
 Predicates support equality, ordered comparisons, membership, negation, and explicit presence or
-absence. ``Premise`` is imported only for type checking because premise construction calls back
-into this module.
+absence. Rules (a resolver `Premise`) and contracts (#460) both call it: a fact is anything with
+a `value`, so the evaluator depends on neither.
 """
 
 import operator
-from typing import TYPE_CHECKING, Any
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier
 
-if TYPE_CHECKING:
-    from mendel_resolver.premises import Premise
+
+class Fact(Protocol):
+    """One fact a condition reads. Only its value matters here; provenance is the caller's."""
+
+    @property
+    def value(self) -> Any: ...
 
 _OPS = {
     ">=": operator.ge,
@@ -51,11 +56,11 @@ def tier_of_row(when: dict[str, Any]) -> Tier:
     return Tier.DATA_PROFILED if positive else Tier.CONVENTION
 
 
-def matches(when: dict[str, Any], premises: "dict[str, Premise]") -> bool:
-    return all(_one(key, expected, premises.get(key)) for key, expected in when.items())
+def matches(when: dict[str, Any], facts: Mapping[str, Fact]) -> bool:
+    return all(_one(key, expected, facts.get(key)) for key, expected in when.items())
 
 
-def _one(fact: str, expected: Any, premise: "Premise | None") -> bool:
+def _one(fact: str, expected: Any, premise: Fact | None) -> bool:
     if expected == ABSENT:
         return premise is None
     if expected == PRESENT:

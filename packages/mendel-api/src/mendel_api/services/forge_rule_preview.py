@@ -2,9 +2,9 @@
 
 from comeni_core.diagnostics import coded
 from comeni_core.goal.premise import PremiseOrigin
+from comeni_core.logic.when import PredicateError
 from comeni_core.spell.marks import ParamValue
 from mendel_forge.forging.values import validate_value
-from mendel_resolver.predicates import PredicateError
 from mendel_resolver.premises import Premise
 from mendel_resolver.rules import RuleTable
 from mendel_resolver.rules.format import Fired

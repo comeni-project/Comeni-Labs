@@ -1,16 +1,22 @@
 """Predicate matching and tier classification for every supported rule condition."""
 
+from dataclasses import dataclass
+from typing import Any
+
 import pytest
+from comeni_core.logic.when import PredicateError, matches, tier_of_row
 from comeni_core.plan.tiers import Tier
-from mendel_resolver.predicates import PredicateError, matches, tier_of_row
-from mendel_resolver.premises import Premise, PremiseOrigin
 
 
-def P(**facts) -> dict[str, Premise]:
-    return {
-        key: Premise(id=key, value=value, origin=PremiseOrigin.MEASURED)
-        for key, value in facts.items()
-    }
+@dataclass(frozen=True)
+class _Fact:
+    """Any object with a `value` is a fact; rules pass `Premise`, contracts their own."""
+
+    value: Any
+
+
+def P(**facts) -> dict[str, _Fact]:
+    return {key: _Fact(value) for key, value in facts.items()}
 
 
 def test_equality_and_comparison_still_work():
