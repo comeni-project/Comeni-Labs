@@ -1230,7 +1230,7 @@ MD0304:
     file can see.
 
 MD0305:
-  emitted_by: resolver
+  emitted_by: core
   concern: routing
   says: "a `when` clause uses a mapping predicate nothing implements"
   fires_on: [build, upgrade, profile]
@@ -1257,7 +1257,7 @@ MD0305:
     Spec §4.5.
 
 MD0312:
-  emitted_by: resolver
+  emitted_by: core
   concern: routing
   says: "a scalar comparison is applied to a per-sample measurement"
   fires_on: [build, upgrade, profile]
@@ -2287,6 +2287,39 @@ MD0607:
     Reduce the optional inputs or the params its conditions test, or split the contract by mode (#464).
   explanation: |
     The checks try every combination, bounded at 4096. Above the bound the contract is refused rather than checked partly, so a clean result always means every case was tried.
+
+MD0608:
+  emitted_by: resolver
+  concern: routing
+  says: "an output a later step needs is not written with this step's settings"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Set the parameter its condition tests (the message names it), or route the later step to an output that is always written.
+  explanation: |
+    A tool writes some outputs only under a parameter's value. Choosing that value is a decision (#461); until one is made, the build refuses rather than wiring a step to a file that will not exist.
+
+MD0609:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool's input is needed, but it was switched off or cannot be connected"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Switch the input on, or remove the step that needs it. The message says what needs it and why.
+  explanation: |
+    An optional input can be needed for two reasons: a later step needs an output that is written only with it, or one of the tool's constraint rows requires it given what else is connected (#460).
+
+MD0610:
+  emitted_by: resolver
+  concern: routing
+  says: "a connection or setting is forbidden by the tool's constraints"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Switch off the input, or change the setting, that the constraint names.
+  explanation: |
+    Constraints say what a tool allows. A forbidden value is refused at build time, never silently dropped from the pipeline (#460).
 
 MF0500:
   emitted_by: forge

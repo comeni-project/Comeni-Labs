@@ -153,6 +153,9 @@ decline to curate one.
 | `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
 | `MD0320` | a tool you excluded was the only one that can make this step's output |
 | `MD0321` | a tool you chose to feed a step's input makes nothing that input accepts |
+| `MD0608` | an output a later step needs is not written with this step's settings |
+| `MD0609` | a tool's input is needed, but it was switched off or cannot be connected |
+| `MD0610` | a connection or setting is forbidden by the tool's constraints |
 
 ## Gates and emission
 
