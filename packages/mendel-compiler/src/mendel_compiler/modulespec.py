@@ -18,6 +18,7 @@ _ELEMENT = re.compile(r"\b(val|path|eval|env|stdout)\s*\(")
 _NAMED_ELEMENT = re.compile(r"\b(?:val|path|eval|env|stdout)\s*\(\s*(\w*)")
 _EMIT = re.compile(r"\bemit:\s*(\w+)")
 _EMIT_LINE = re.compile(r"^(.*?)\bemit:\s*(\w+)", re.M)
+_OPTIONAL = re.compile(r"\boptional\s*:\s*true\b")
 _PATH = re.compile(r"""\bpath\s*\(\s*(["'])(.*?)\1""")
 _BRACES = re.compile(r"\{([^{}]*)\}")
 _COMPRESSION = (".gz", ".bz2", ".zst", ".xz")
@@ -73,6 +74,8 @@ class ModuleSpec(BaseModel):
     emits: list[str] = Field(default_factory=list)
     emit_formats: dict[str, list[str]] = Field(default_factory=dict)
     """Each emit's file formats, read from its `path(...)` patterns; empty for a value."""
+    optional_emits: list[str] = Field(default_factory=list)
+    """Emits the process may not write (`optional: true`), in declaration order (#460)."""
     container: str | None = None
     meta_reads: list[MetaRead] = Field(default_factory=list)
     reads_ext_args: bool = False
@@ -132,6 +135,7 @@ class ModuleSpec(BaseModel):
             inputs=slots,
             emits=emits,
             emit_formats=_emit_formats(source),
+            optional_emits=_optional_emits(source),
             container=_container(source),
             meta_reads=meta_reads,
             reads_ext_args="task.ext.args" in source,
@@ -283,6 +287,14 @@ def _emit_formats(source: str) -> dict[str, list[str]]:
     if not block:
         return {}
     return {name: formats_of(line) for line, name in _EMIT_LINE.findall(block.group(1))}
+
+
+def _optional_emits(source: str) -> list[str]:
+    block = _OUTPUT_BLOCK.search(source)
+    if not block:
+        return []
+    return list(dict.fromkeys(name for line, name in _EMIT_LINE.findall(block.group(1))
+                              if _OPTIONAL.search(line)))
 
 
 def _emits(source: str) -> list[str]:

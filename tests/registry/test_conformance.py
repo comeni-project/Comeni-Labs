@@ -69,8 +69,17 @@ def codes(diagnostics) -> set[str]:
 
 def test_the_shipped_registry_is_conformant(registry):
     """The baseline. If this fails, the checker or the contracts are wrong — and after
-    Plan 1.5 the contracts have been run against real data, so suspect the checker."""
-    assert check(registry, MODULES) == []
+    Plan 1.5 the contracts have been run against real data, so suspect the checker.
+
+    One reported diagnostic is expected (#460): STAR's `bam` is `optional: true` in the
+    module, which adds `--outSAMtype BAM Unsorted` unless `ext.args` sets another
+    `--outSAMtype`; the curated contract sets none, so it rightly says `bam` is always
+    written. MD0611 reports it, and refuses nothing."""
+    found = check(registry, MODULES)
+    assert [(d.code, d.where) for d in found] == [("MD0611", "nf-core/star/align@2.7.11b")]
+    from mendel_compiler.conformance import blocking
+
+    assert blocking(found) == []
 
 
 def test_M0101_a_process_name_that_does_not_exist(registry):

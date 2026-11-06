@@ -2321,6 +2321,23 @@ MD0610:
   explanation: |
     Constraints say what a tool allows. A forbidden value is refused at build time, never silently dropped from the pipeline (#460).
 
+MD0611:
+  emitted_by: compiler
+  concern: conformance
+  says: "an output the module marks `optional: true` is always written, by the contract"
+  fires_on: [build]
+  refuses: false
+  fix: |
+    Give the output `produced_when`: the condition under which the module writes it, such as
+    `{given.fasta: present}` for QUAST's reference-only reports.
+  explanation: |
+    A later step wired to an output the module may not write waits for a file that never
+    comes. The module's own `optional: true` is the evidence; the contract says when (#460).
+    It is reported, not refused: a module marks an output optional when *some* call omits it,
+    and a contract that never omits it is right to say it is always written. STAR's `bam`:
+    the module adds `--outSAMtype BAM Unsorted` unless `ext.args` sets another `--outSAMtype`,
+    and the curated contract sets none.
+
 MF0500:
   emitted_by: forge
   concern: catalogue

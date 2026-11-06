@@ -83,7 +83,7 @@ def build(
     diagnostics = conformance.check(
         loaded.registry, loaded.modules, measurements=loaded.measurements
     )
-    blocking = [d for d in diagnostics if d.code != "MD0100"]
+    blocking = conformance.blocking(diagnostics)
     if blocking:
         raise ConformanceRefused(
             blocking,
