@@ -2456,7 +2456,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input";
             /** Subject */
             subject: string;
             /** Value */

@@ -38,3 +38,19 @@ def test_withdrawn_intents_are_not_in_the_goal():
     )
     constraints = selected.goal(MeasurementRegistry.load(REGISTRY)).constraints
     assert (constraints.absent_roles, constraints.exclusions, constraints.sources) == ([], [], [])
+
+
+QUAST = "nf-core/quast@5.3.0"
+
+
+def test_an_optional_input_choice_round_trips_through_the_goal():
+    """#460: a person switching a tool's optional input on is a decision like a source pin."""
+    from mendel_authoring.decisions import OptionalInputChoice
+
+    goal = Goal.model_validate({"want": ["qc.report"], "constraints": {
+        "inputs": [{"contract": QUAST, "port": "fasta", "state": "optional"}]}})
+    fresh = Decisions.from_goal(goal).goal(MeasurementRegistry.load(REGISTRY))
+    assert fresh.model_dump(mode="json") == goal.model_dump(mode="json")
+    withdrawn = Decisions(optional_inputs=[OptionalInputChoice(contract=QUAST, port="fasta",
+                                                               state=None)])
+    assert withdrawn.goal(MeasurementRegistry.load(REGISTRY)).constraints.inputs == []

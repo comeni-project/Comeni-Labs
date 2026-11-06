@@ -75,3 +75,21 @@ def test_importing_a_goal_writes_its_intents():
         "sources": [{"consumer": COUNTS, "port": "bam", "producer": SORT}]}})
     decisions.import_goal(draft, goal, who="ana")
     assert decisions.goal(draft).constraints == goal.constraints
+
+
+QUAST = "nf-core/quast@5.3.0"
+
+
+def test_switching_an_optional_input_reaches_the_goal_with_its_history():
+    """#460: the person's choice for a tool's optional input is a decision family."""
+    from comeni_core.goal.asked import InputChoice, InputState
+
+    draft = _draft()
+    decisions.set_optional_input(draft, QUAST, "fasta", "optional", who="ana")
+    assert decisions.goal(draft).constraints.inputs == [
+        InputChoice(contract=QUAST, port="fasta", state=InputState.OPTIONAL)]
+    key = decisions.source_key(QUAST, "fasta")
+    decisions.release_intent(draft, "optional_input", key, who="ana")
+    assert decisions.goal(draft).constraints.inputs == []
+    assert [e["action"] for e in decisions.intent_history(draft, "optional_input", key)] == [
+        "select", "retract"]

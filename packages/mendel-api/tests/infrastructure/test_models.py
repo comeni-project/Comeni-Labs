@@ -77,6 +77,9 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_exclusion_revision",
         "pipeline_source",
         "pipeline_source_revision",
+        # A person's choice for a tool's optional input (#460), a family like source.
+        "pipeline_optional_input",
+        "pipeline_optional_input_revision",
         "pipeline_parameter",
         "pipeline_parameter_revision",
         "pipeline_review",

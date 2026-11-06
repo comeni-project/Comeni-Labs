@@ -6,7 +6,7 @@ one set of checks: an undeclared type, tool or parameter is refused with `MI0204
 measurement refuses with `MI0208`, and nothing is written for either."""
 
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import Site
+from comeni_core.goal.asked import InputState, Site
 from mendel_authoring.decisions import ActorKind, FactOrigin, InputDecision
 from mendel_authoring.payloads import DecisionChange, source_of
 
@@ -59,6 +59,14 @@ def _port(stack, consumer: str, port: str) -> None:
         raise ValueError(coded("MI0204", f"{consumer} reads nothing called {port}"))
 
 
+def _optional_port(stack, contract: str, port: str) -> None:
+    """Only an input the tool can run without can be switched (#460)."""
+    _port(stack, contract, port)
+    if port not in stack.registry.get(contract).optional_ports():
+        raise ValueError(coded("MI0204", f"{contract}'s {port} is required, so it is not "
+                               "switched on or off"))
+
+
 def check(change: DecisionChange) -> None:
     """Refuse what names something undeclared, before anything moves (`MI0204`, `MI0208`)."""
     stack = registry.stack()
@@ -80,6 +88,10 @@ def check(change: DecisionChange) -> None:
         _port(stack, *source_of(subject))
         if not change.retract:
             _tool(stack, str(change.value))
+    elif kind == "optional_input":
+        _optional_port(stack, *source_of(subject))
+        if not change.retract and change.value not in {s.value for s in InputState}:
+            raise ValueError(coded("MI0204", f"{change.value!r} is not off, optional or required"))
 
 
 def retracts_something(draft_id: str, change: DecisionChange) -> bool:
@@ -108,6 +120,10 @@ def retracts_something(draft_id: str, change: DecisionChange) -> bool:
         consumer, port = source_of(subject)
         return any((s.consumer, s.port) == (consumer, port) and s.producer
                    for s in current.sources)
+    if change.kind == "optional_input":
+        contract, port = source_of(subject)
+        return any((c.contract, c.port) == (contract, port) and c.state
+                   for c in current.optional_inputs)
     if change.kind == "asked":
         key = " ".join(subject.split()).casefold()
         return any(" ".join(a.phrase.split()).casefold() == key
@@ -227,12 +243,13 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         if change.retract:
             return decisions.retract_asked(draft_id, subject, **said) is not None
         decisions.set_asked(draft_id, subject, **said, **heard)
-    elif kind in ("role", "exclude", "source"):
+    elif kind in ("role", "exclude", "source", "optional_input"):
         check(change)
         if change.retract:
             if not retracts_something(draft_id, change):
                 return False
-            family = {"role": "role", "exclude": "exclusion", "source": "source"}[kind]
+            family = {"role": "role", "exclude": "exclusion", "source": "source",
+                      "optional_input": "optional_input"}[kind]
             key = (decisions.exclusion_key(_site(change), change.value) if kind == "exclude"
                    else subject)
             decisions.release_intent(draft_id, family, key, who=who)
@@ -240,6 +257,9 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             decisions.switch_off_role(draft_id, subject, **said)
         elif kind == "exclude":
             decisions.exclude_producer(draft_id, _site(change), str(change.value), **said)
+        elif kind == "optional_input":
+            decisions.set_optional_input(draft_id, *source_of(subject), str(change.value),
+                                         **said)
         else:
             decisions.pin_source(draft_id, *source_of(subject), str(change.value), **said)
     elif kind == "retain":
@@ -299,6 +319,13 @@ def describe(change: DecisionChange) -> str:
             return f"{_process(stack, consumer)}'s {port} back to the engine's choice"
         return (f"{_process(stack, consumer)} reads its {port} from "
                 f"{_process(stack, str(change.value))}")
+    if change.kind == "optional_input":
+        contract, port = source_of(subject)
+        tool = _process(stack, contract)
+        if change.retract:
+            return f"{tool}'s {port} back to off"
+        return {"off": f"{tool} without a {port}", "optional": f"{tool} may read a {port}",
+                "required": f"{tool} reads a {port} in every run"}[str(change.value)]
     if change.kind == "retain":
         return f"kept your selected answer for {subject}"
     return f"selected the evidence for {subject}"

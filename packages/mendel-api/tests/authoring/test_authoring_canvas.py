@@ -15,7 +15,9 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="run make test-db")
 # The three structural-intent families (A1) added one statement each per decisions read — four
 # reads paced together, five stopping where needed: 50 → 62 and 62 → 77. Part I.2's not-offered
 # notes add one statement per read (`decisions.read_asked`): 62 → 63; stop-where-needed fits in 77.
-BASELINE = {"together": 63, "stop_where_needed": 77}
+# The optional-input family (#460) adds one statement per decisions read, four paced together:
+# 63 → 67; stop-where-needed still fits in 77.
+BASELINE = {"together": 67, "stop_where_needed": 77}
 
 
 @pytest.mark.parametrize("pacing", ["together", "stop_where_needed"])
