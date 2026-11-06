@@ -51,6 +51,7 @@ _PIPELINE_MODELS = frozenset(
         "ExtArgs",
         "ModuleRef",
         "Channel",
+        "InputRecord",
         "Why",
         "PremiseRecord",
         "Emitted",

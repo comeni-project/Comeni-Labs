@@ -35,12 +35,13 @@ from comeni_core.artifact.pipeline import (
     Why,
     _no_flags_why,
 )
+from comeni_core.declared.constraints import Setup, evaluate
 from comeni_core.declared.contract import Cardinality, ModuleContract
 from comeni_core.declared.measurement import Measurement, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import Goal
+from comeni_core.goal.asked import Goal, InputState
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import InputForm, Scope, Tier, ValueSource
@@ -97,10 +98,12 @@ def of(
                 inputs=_inputs(
                     node, contract, incoming_edges, assigned_channels, default_channels_by_type
                 ),
-                call=_call(contract),
+                call=_call(contract, _off(node)),
                 settings=_settings(node, contract),
+                input_states=list(node.inputs),
             )
         )
+    channels = _optional_channels(channels, steps, ir, registry)
 
     return Pipeline(
         # Save the resolved profile with the original intent and inputs.
@@ -223,16 +226,23 @@ def _settings(node: IRNode, contract: ModuleContract) -> list[Setting]:
     ]
 
 
-def _call(contract: ModuleContract) -> list[CallArg]:
+def _off(node: IRNode) -> frozenset[str]:
+    """The optional inputs this step leaves out (#460)."""
+    return frozenset(r.port for r in node.inputs if r.state is InputState.OFF)
+
+
+def _call(contract: ModuleContract, off: frozenset[str] = frozenset()) -> list[CallArg]:
     """Copy the contract's ordered process input signature into call arguments.
 
-    Records ports, literals, empty inputs, setting references, joins, and reasons.
+    Records ports, literals, empty inputs, setting references, joins, and reasons. An entry
+    whose inputs are all left out passes its declared empty tuple (`absent`, #460).
     """
     return [
         CallArg(
             ports=list(spec.ports),
             literal=spec.literal,
-            empty_width=spec.empty or None,
+            empty_width=(spec.absent if spec.ports and set(spec.ports) <= off
+                         else spec.empty) or None,
             from_setting=spec.param or None,
             join=spec.join,
             why=(
@@ -266,7 +276,10 @@ def _inputs(
     channel. Marks multi-item ports for gathering on either input route.
     """
     inputs = []
+    off = _off(node)
     for port in contract.consumes:
+        if port.name in off:
+            continue
         edge = incoming_edges.get((node.id, port.name))
         # Multi-item ports gather both upstream outputs and external inputs.
         gather = port.cardinality is Cardinality.MANY
@@ -286,6 +299,51 @@ def _inputs(
             )
             inputs.append(StepInput(port=port.name, channel=assigned, gather=gather))
     return inputs
+
+
+def _optional_channels(
+    channels: list[Channel], steps: list[Step], ir: PipelineIR, registry: Registry
+) -> list[Channel]:
+    """Mark a channel optional when every step it feeds has it as an optional input (#460).
+
+    One required consumer makes it required: a run cannot leave a file empty that another
+    step needs. An optional channel carries the empty tuple its consumers take instead, and the
+    constraints only a run can settle, as sentences the run sheet checks."""
+    nodes = {node.id: node for node in ir.nodes}
+    consumers: dict[str, list[tuple[Step, str]]] = {}
+    for step in steps:
+        for wiring in step.inputs:
+            if wiring.channel is not None:
+                consumers.setdefault(wiring.channel, []).append((step, wiring.port))
+    marked = []
+    for channel in channels:
+        fed = consumers.get(channel.name, [])
+        widths, rules = [], []
+        for step, port in fed:
+            states = {r.port: r.state for r in step.input_states}
+            if states.get(port) is not InputState.OPTIONAL:
+                break
+            contract = registry.get(step.module.contract_id)
+            widths += [e.absent for e in contract.input_signature() if port in e.ports]
+            rules += _run_rules(contract, nodes[step.id])
+        else:
+            if fed:
+                channel = channel.model_copy(update={
+                    "optional": True, "absent_width": max(widths),
+                    "run_rules": sorted(set(rules))})
+        marked.append(channel)
+    return marked
+
+
+def _run_rules(contract: ModuleContract, node: IRNode) -> list[str]:
+    states = {r.port: r.state for r in node.inputs}
+    given = {p.name for p in contract.consumes if p.required}
+    given |= {p for p, s in states.items() if s is InputState.REQUIRED}
+    unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
+    params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
+              for p in contract.params}
+    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown))
+    return verdict.holds_at_run_time
 
 
 def _form(channels: Sequence[Channel]) -> InputForm:
@@ -310,8 +368,9 @@ def _wanted(
     """
     defaulted: set[str] = set()
     for node in ir.nodes:
+        off = _off(node)
         for port in registry.get(node.contract_id).consumes:
-            if (node.id, port.name) in incoming_edges:
+            if (node.id, port.name) in incoming_edges or port.name in off:
                 continue
             if f"{node.id}.{port.name}" not in assigned_channels:
                 defaulted.add(port.type_id)

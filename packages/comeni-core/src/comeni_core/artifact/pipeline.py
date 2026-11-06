@@ -35,6 +35,7 @@ from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
+from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
     InputForm,
     PremiseOrigin,
@@ -308,6 +309,10 @@ class Step(BaseModel):
     inputs: list[StepInput] = Field(default_factory=list)
     call: list[CallArg] = Field(default_factory=list)
     settings: list[Setting] = Field(default_factory=list)
+    input_states: list[InputRecord] = Field(
+        default_factory=list, exclude_if=lambda states: not states)
+    """Each optional input's state, who set it and why, sorted by port (#460); omitted when the
+    step's tool has none."""
 
     @model_validator(mode="after")
     def _no_duplicate_setting(self) -> "Step":
@@ -370,6 +375,21 @@ class Channel(BaseModel):
     meta: list[MetaEntry] = Field(default_factory=list)
     test_data: list[TestDataRef] = Field(default_factory=list)
     """Public example inputs used by the test profile, represented as a list."""
+
+    optional: bool = Field(default=False, exclude_if=lambda optional: not optional)
+    """Each run may supply this input or leave it empty (#460). True only when every step it
+    feeds has it as an optional input."""
+    absent_width: int = Field(default=0, exclude_if=lambda width: not width)
+    """The empty tuple's width passed when a run leaves this input empty."""
+    run_rules: list[Line] = Field(default_factory=list, exclude_if=lambda rules: not rules)
+    """The constraints only a run can settle, as sentences the run sheet checks: "`gff` is
+    used only with `fasta` (…)"."""
+
+    @model_validator(mode="after")
+    def _optional_says_its_placeholder(self) -> "Channel":
+        if self.optional and self.absent_width < 1:
+            raise ValueError(f"optional channel {self.name} has no absent_width")
+        return self
 
     @model_validator(mode="after")
     def _params_match_the_expression(self) -> "Channel":
