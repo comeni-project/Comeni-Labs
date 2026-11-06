@@ -184,6 +184,7 @@ def resolve(
                 tier=step.presence_tier,
                 reason=step.presence_reason or "required by the pipeline",
             ),
+            inputs=step.inputs,
         )
 
         # The contract's layer is distinct from the layer whose rule selected the step.

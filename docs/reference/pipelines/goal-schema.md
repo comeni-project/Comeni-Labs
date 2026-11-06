@@ -74,6 +74,7 @@ Model: `comeni_core.goal.asked.Constraints`
 | `absent_roles` | [role-absence] | `[]` | a role you switched off; left out when empty |
 | `exclusions` | [producer-exclusion] | `[]` | a tool you excluded at a site; left out when empty |
 | `sources` | [source-pin] | `[]` | the tool you chose to feed a step's input; left out when empty |
+| `inputs` | [input-choice] | `[]` | an optional input you switched `off`, `optional` (each run may leave it empty) or `required`, as `{contract, port, state}`; left out when empty |
 
 `required_states` is what turns *get me a count matrix* into *get me a gene-level count matrix*.
 Without it, any producer of the type matches.

@@ -8,6 +8,8 @@ identifiers, paths, and other undeclared payloads cannot pass through silently.
 for callers that construct complete goals.
 """
 
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from comeni_core.declared.signature import states_in_type
@@ -139,6 +141,28 @@ class SourcePin(BaseModel):
     producer: ContractId
 
 
+class InputState(StrEnum):
+    """Whether a tool's optional input is part of the pipeline (#460).
+
+    `off` leaves it out. `optional` makes it a pipeline input each run may supply or leave
+    empty. `required` makes every run supply it, or wires it from another step."""
+
+    OFF = "off"
+    OPTIONAL = "optional"
+    REQUIRED = "required"
+
+
+class InputChoice(BaseModel):
+    """A person's choice for one optional input of one tool. Like `SourcePin`, it is the
+    person's by being in the goal's constraints, so it carries no `by`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    contract: ContractId
+    port: PortName
+    state: InputState
+
+
 class Constraints(BaseModel):
     """The complete closed set of routing and parameter choices in a goal."""
 
@@ -160,6 +184,8 @@ class Constraints(BaseModel):
     """Excluded producers, omitted from serialized output when empty."""
     sources: list[SourcePin] = Field(default_factory=list, exclude_if=lambda sources: not sources)
     """Pinned port sources, omitted from serialized output when empty."""
+    inputs: list[InputChoice] = Field(default_factory=list, exclude_if=lambda inputs: not inputs)
+    """Optional inputs a person switched on or off, omitted from serialized output when empty."""
 
     @model_validator(mode="before")
     @classmethod
@@ -184,6 +210,12 @@ class Constraints(BaseModel):
         """The pin on `consumer`'s `port`: the last one, so a later amendment wins."""
         return next(
             (p for p in reversed(self.sources) if (p.consumer, p.port) == (consumer, port)), None
+        )
+
+    def input_at(self, contract: str, port: str) -> InputChoice | None:
+        """The person's choice for `contract`'s optional `port`: the last one wins."""
+        return next(
+            (c for c in reversed(self.inputs) if (c.contract, c.port) == (contract, port)), None
         )
 
     def roles_absent(self) -> frozenset[str]:

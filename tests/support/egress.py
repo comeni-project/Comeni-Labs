@@ -81,6 +81,9 @@ FREE_TEXT_FIELDS = {
     # exempted, because an audit found these riding along unexamined inside a nested
     # model the guard never opened.
     ("ResolvedValue", "reason"),
+    # Why a step's optional input is off, optional or required (#460): the router's or the
+    # person's sentence, beside the decisions above.
+    ("InputRecord", "reason"),
     # One per decision kind since A16 split `DecisionRecord` into three. Four entries
     # became six by a refactor rather than by a new field crossing the boundary — which is
     # exactly the sort of change this literal list exists to make someone notice.

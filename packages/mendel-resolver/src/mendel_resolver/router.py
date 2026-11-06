@@ -12,10 +12,10 @@ from typing import NamedTuple
 from comeni_core.declared.contract import InputPort, ModuleContract
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import ProducerPin, Site, SourcePin
+from comeni_core.goal.asked import InputState, ProducerPin, Site, SourcePin
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
-from comeni_core.plan.ir import Tier
+from comeni_core.plan.ir import InputDecider, InputRecord, Tier
 from comeni_core.plan.tiers import ValueSource
 from comeni_core.review import Excerpt
 from pydantic import BaseModel, Field
@@ -94,6 +94,9 @@ class RouteStep(BaseModel):
 
     displaced_layer: str | None = None
     """Which lower layer this beat, if any. Audit A5, A15, A22."""
+
+    inputs: list[InputRecord] = Field(default_factory=list)
+    """Each optional input's state and why, sorted by port (#460)."""
 
 
 class RoutePlan(BaseModel):
@@ -258,7 +261,13 @@ def route(
             )
         chosen, pin = choice.contract, choice.pin
 
+        records: list[InputRecord] = []
         for port in chosen.consumes:
+            if not port.required:
+                record = _optional_state(goal, chosen.id, port.name)
+                records.append(record)
+                if record.state is InputState.OFF:
+                    continue
             try:
                 source = goal.constraints.source_at(chosen.id, port.name)
                 if source is not None:
@@ -322,6 +331,7 @@ def route(
                         if pin
                         else _displaced_layer(registry, chosen, candidates)
                     ),
+                    inputs=sorted(records, key=lambda r: r.port),
                 )
             )
 
@@ -350,6 +360,17 @@ def _feeding(registry: Registry, port: InputPort, source: SourcePin):
               "output the port accepts — `mendel explain MD0321`."),
         intent=source,
     )
+
+
+def _optional_state(goal: Goal, contract: str, port: str) -> InputRecord:
+    """An optional input is off unless a person switched it on (#460). The engine never
+    switches one on by itself: that is the person's, a model's (confirmed) or a rule's."""
+    choice = goal.constraints.input_at(contract, port)
+    if choice is None:
+        return InputRecord(port=port, state=InputState.OFF, reason="off: not switched on",
+                           by=InputDecider.ROUTER)
+    return InputRecord(port=port, state=choice.state, reason=f"{choice.state}: you chose it",
+                       by=InputDecider.PERSON)
 
 
 def _satisfy_port(
