@@ -457,26 +457,167 @@
   constraint row on #412. Do not approve it; the operator approves.
 - [x] **Step 7:** `make check`, then commit: `feat(forge): show constraints and optional ports on the forging page (#460)`.
 
-## Stages 5–7 — outlined; each gets a detailed plan section when stage 4 is done
+## Stage 5 — the run (artifact rules, emission guard, Wiener, run sheet)
 
-- **Stage 5, the run sheet** (`frontend/src/build/RunSheet.tsx`, Wiener's binding):
-  - optional channels show "optional", with what each adds;
-  - an empty one passes no `params.<name>`;
-  - `run_rules` are checked before submitting;
-  - tests include leaving the reference empty, and refusing a GFF without a reference.
-- **Stage 6, the builder:**
-  - hollow ports on step cards, "+N optional inputs", and switching one on to another step's
-    output or a new optional pipeline input;
-  - a refused connection explains itself with the verdict's sentence;
-  - "Add option" for optional settings;
-  - authoring commands so Mendel's AI proposes input states and flags, flagged and confirmed.
-  - Design canvas first if the layout is not obvious, then a browser comparison.
-- **Stage 7, docs:**
-  - the contract-format reference (fields, `MD0601`–`MD0611`);
-  - a user how-to for optional inputs;
-  - an explanation section on constraints versus decisions;
-  - `CHANGELOG.md`;
-  - then resume the quast walk to assembly and a run, with and without a reference.
+Written 2026-11-06, after stage 4, from the code. **Finding that shaped it:** Wiener requires
+a run to supply exactly the params the artifact leaves null (`routes/runs.py` `submit`). A
+sentence alone cannot be checked, so a run-time rule becomes structured, with the param names
+it concerns. The pipeline then checks it itself, so it holds however the run is launched.
+
+### Task 11: Structured run rules, and the pipeline checks them
+
+**Files:**
+- Modify: `packages/comeni-core/src/comeni_core/artifact/pipeline.py` (`Step.run_rules`
+  becomes `list[RunRule]`)
+- Modify: `packages/comeni-core/src/comeni_core/artifact/materialise.py`
+- Modify: `packages/mendel-compiler/src/mendel_compiler/emit.py` and its `main.nf.j2` template
+- Test: `packages/mendel-compiler/tests/test_optional_inputs_built.py`
+
+**Interfaces:**
+- Produces: `class RunRule(BaseModel)`, frozen, with:
+  - `given: list[NfIdentifier]`: the params that, when supplied, make the rule apply;
+  - `requires: list[NfIdentifier]`;
+  - `forbids: list[NfIdentifier]`;
+  - `says: Line`: the row's sentence.
+
+  It is built in materialise from each row in `holds_at_run_time`, mapping each
+  `given.<port>` to the param of the channel feeding that port.
+- **Emission:** after the entry channels, one guard per rule, deduplicated and sorted:
+  `if (params.a && !params.b) { error "<says>" }` (and `&& params.c` for each `forbids`).
+
+- [ ] **Step 1: Failing tests:**
+  - `test_a_rule_only_a_run_can_settle_is_on_the_step` now asserts `RunRule(given=[gff
+    param], requires=[fasta param], says=…)`;
+  - `test_the_pipeline_refuses_a_gff_without_a_reference_at_its_start` asserts the emitted
+    guard line.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** Implement, with `RunRule` in the egress allowlist (`says`) and
+  SERIALISED_SHAPE.
+- [ ] **Step 4:** Run the compiler, artifact and emit tests, then `make static`. Expected: PASS.
+- [ ] **Step 5:** `check.sh`, then commit.
+
+### Task 12: Wiener knows its optional inputs; the run sheet offers them
+
+**Files:**
+- Modify: `packages/wiener-api/src/wiener_api/services/artifacts.py` (`optional_holes`,
+  `run_rules`)
+- Modify: `packages/wiener-api/src/wiener_api/routes/runs.py` (`ArtifactStored.optional`,
+  `ArtifactStored.rules`)
+- Modify: `frontend/src/build/Submit.tsx`, `frontend/src/build/useSubmit.ts`; then `make client`
+- Test: `packages/wiener-api/tests/test_optional_holes.py`, `frontend/src/build/Submit.test.tsx`
+
+**Interfaces:**
+- **Wiener:**
+  - `optional_holes(artifact_id) -> set[str]`: the params of the `pipeline.yml` channels that
+    are optional;
+  - `run_rules(artifact_id) -> list[dict]`: the steps' `RunRule`s, as plain dicts. Wiener
+    stays unaware of contracts.
+- **Submit form:**
+  - an optional param shows the label "optional — leave empty to run without it", plus the
+    outputs it enables if the artifact says so;
+  - an empty optional value is sent as `""`;
+  - a rule broken by the values entered is shown under the fields, with its `says`, and blocks
+    *Start run*.
+
+- [ ] **Step 1: Failing tests:**
+  - Wiener: optional holes from a built quast artifact; a submit with `fasta: ""` is accepted;
+  - frontend: the optional label; an empty optional input sent as `""`; a GFF without a
+    reference blocks Start with the sentence.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** Implement. Then inspect in a browser at 1440 and 390, light and dark.
+- [ ] **Step 4:** Run `t.sh packages/wiener-api/tests` and `npx vitest run`. Expected: PASS.
+- [ ] **Step 5:** `check.sh`, then commit.
+
+## Stage 6 — the builder
+
+**Finding that shaped it:** a person's choice in a build is a decision family with revisions,
+like `source` (A1, commit 1f451359: one family about 180 lines of API plus migration, tests
+and authoring). Switching an optional input therefore becomes a decision family. One path
+then serves a click, the chat and the model. The port legend already uses *hollow* for "a
+required input nothing feeds" (`Port.tsx`), so an optional input is drawn dashed, not hollow.
+
+### Task 13: The `optional_input` decision family
+
+**Files:**
+- Modify: `packages/mendel-authoring/src/mendel_authoring/decisions.py`
+  (`OptionalInputChoice(consumer, port, state)` into `Constraints.inputs`) and
+  `payloads.py` (`DecisionChange.kind` adds `"optional_input"`)
+- Modify: `packages/mendel-api/src/mendel_api/decision_models.py`, `services/decisions.py`,
+  `services/changes.py`, `models.py`, `shape_versions.py`, `shapes.py`
+- Create: a migration adding `pipeline_optional_input` and `pipeline_optional_input_revision`,
+  modelled on `7ea478ea7f3b_structural_intents.py`
+- Test: `packages/mendel-authoring/tests/test_decisions_intents.py`,
+  `packages/mendel-api/tests/authoring/decisions/test_intent_families.py`
+
+- [ ] **Step 1: Failing tests:**
+  - a change of kind `optional_input` (`subject=source_subject(contract, port)`,
+    `value="optional"`) puts an `InputChoice` in the goal;
+  - `retract` withdraws it;
+  - history says who and when.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** Implement, mirroring `source` throughout.
+- [ ] **Step 4:** Run the authoring and API decision tests, `make test-db`, and the
+  infrastructure tests. Expected: PASS.
+- [ ] **Step 5:** `check.sh`, then commit.
+
+### Task 14: Step cards show optional inputs; a person switches one on
+
+**Files:**
+- Modify: the canvas view models (`PortView` gains `optional: bool`, `state`, `adds: list[str]`)
+  in `packages/mendel-api/src/mendel_api/services/` (wherever `PortView` is built); then
+  `make client`
+- Modify: `frontend/src/build/Port.tsx`, the living node (`frontend/src/build/living/LivingNode.tsx`)
+  and the manual canvas node
+- Test: `frontend/src/build/Port.test.tsx` and the living node tests
+
+- [ ] **Step 1: Failing tests:**
+  - an optional port renders dashed with "optional" and what it adds;
+  - "+N optional inputs" folds them;
+  - switching one on sends `optional_input` with `value: "optional"`;
+  - a refused connection shows the verdict's sentence.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** Implement. A Claude Design canvas first if the node layout is not obvious from
+  the existing artboard. Then compare in a browser at 1440 and 390, light and dark.
+- [ ] **Step 4:** Run `npx vitest run` and `npx tsc -b`. Expected: PASS.
+- [ ] **Step 5:** `check.sh`, then commit.
+
+### Task 15: Mendel's AI proposes input states, flagged and confirmed
+
+**Files:**
+- Modify: the authoring chat's allowed commands (the payloads the chat model may return) so
+  `optional_input` is one of them, actor `model`
+- Modify: the receiving check, which refuses a port that is not optional on that contract
+- Test: authoring chat tests with a recorded reply
+
+- [ ] **Step 1: Failing tests:**
+  - a recorded model reply switching quast's `fasta` on becomes a proposal flagged as the
+    model's, applied only when the person confirms it;
+  - a reply naming a required port is refused at the boundary.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Run the scoped suites. Expected: PASS.
+- [ ] **Step 5:** `check.sh`, then commit.
+
+## Stage 7 — docs and the test run
+
+### Task 16: Documentation
+
+- [ ] The pipeline schema reference documents `Channel.optional`, `absent_width`,
+  `Step.input_states` and `run_rules`.
+- [ ] A user how-to covers optional inputs in the builder and the run sheet.
+- [ ] An explanation section covers constraints versus decisions, linking #463.
+- [ ] `CHANGELOG.md`, under each package.
+- [ ] `make docs`, `make links`, then commit.
+
+### Task 17: The quast walk to a real run
+
+- [ ] Approve quast's pieces in the forge, through assembly. **The operator approves, not the
+  agent.**
+- [ ] Run the forge's tests on Wiener.
+- [ ] Build a pipeline with quast and its reference **optional**.
+- [ ] Run it twice, once with a reference and once with it empty. The run with the reference
+  writes the three reports; the empty run writes only `results` and `tsv`, and both succeed.
+- [ ] Record the results on #412 and #460.
 
 ## Deviations
 
