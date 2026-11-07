@@ -100,6 +100,7 @@ or a complete commit history.
 ### mendel-resolver
 
 - Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
+
 #### Added
 
 - Loading refuses a module that no contract in the stack binds (`MD0025`): such a module could
@@ -124,6 +125,7 @@ or a complete commit history.
 ### mendel-compiler
 
 - An optional channel is emitted as `params.x ? … : <empty tuple>`, and run rules as guards at the workflow's start. `ModuleSpec.optional_emits`; MD0611 reports an optional emit a contract says is always written. Builds stop only on codes `diagnostics.yml` declares refusing (#460).
+
 #### Added
 
 - `mendel build <starter>` builds from a starter: a version-7 `pipeline.yml` with only
@@ -438,6 +440,7 @@ or a complete commit history.
 ### wiener-api
 
 - A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
+
 #### Added
 
 - Run submission, local execution, event ingestion and live updates integrate with the build
