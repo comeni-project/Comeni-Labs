@@ -80,11 +80,17 @@ def _resource_limits() -> str:
     return f"process.resourceLimits = [ cpus: {cpus}, memory: {gigabytes}.GB, time: 24.h ]\n"
 
 
+WEBLOG_PLUGIN = "nf-weblog@1.2.0"
+"""Nextflow 26 reports run events only through this plugin (#471). The image installs the
+same version at build (`Dockerfile`), so a run never downloads it."""
+
+
 def site_config(run: Run) -> str:
     url = f"{settings.ingest_base_url}/events/{run.id}/{run.ingest_secret}"
     return (
         _resource_limits() +
         "// Written by Wiener at launch. Site facts only — never the artifact.\n"
+        f"plugins {{\n    id '{WEBLOG_PLUGIN}'\n}}\n"
         "weblog {\n"
         "    enabled = true\n"
         f"    url = '{url}'\n"

@@ -5511,3 +5511,7 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_an_optional_input_a_test_gives_no_data_is_off` failed (channels included `tool_fasta`,
   `tool_gff`) and `test_a_test_may_leave_an_optional_input_out` failed ("nothing feeds input
   'b'"). Both pass. Restored.
+- 2026-11-07, #471 weblog plugin: without the fix,
+  `test_the_site_config_loads_the_weblog_plugin_the_image_installs` failed at import
+  (`WEBLOG_PLUGIN` absent), before its assertions; the defect itself was seen in the worker
+  log (`Unrecognized config option 'weblog.enabled'`) and in a run stuck `queued`. Passes.

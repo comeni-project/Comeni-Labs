@@ -446,6 +446,7 @@ or a complete commit history.
 ### wiener-api
 
 - A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
+- The image pins Nextflow (26.10.2) and installs `nf-weblog@1.2.0`, which the site config loads: Nextflow 26 has no built-in weblog, so no run reported its end (#471).
 
 #### Added
 

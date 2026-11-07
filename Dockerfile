@@ -48,12 +48,16 @@ COPY examples/ ./examples/
 # 3. Prepare Nextflow and the default API command
 # -----------------------------------------------------------------------------
 ENV NXF_HOME=/app/.nextflow
+# Pinned, so a rebuild cannot change how runs behave: 26 moved run events into nf-weblog
+# (#471). The plugin version is `WEBLOG_PLUGIN` in wiener_api/services/launcher.py.
+ENV NXF_VER=26.10.2
 # Download the Nextflow runtime during the build, before a worker needs it.
 # Its launcher writes temporary files in the working directory; run it while /app is writable.
 # Cache ownership follows the runtime identity supplied by Compose at build time.
 ARG RUNTIME_UID=1000
 ARG RUNTIME_GID=1000
 RUN nextflow -version \
+ && nextflow plugin install nf-weblog@1.2.0 \
  && chown -R ${RUNTIME_UID}:${RUNTIME_GID} /app/.nextflow
 
 ENV PATH="/app/.venv/bin:$PATH"
