@@ -46,6 +46,12 @@ For the shared [RNA-seq example](../../tutorials/rnaseq-example.md), a local run
 Those are run-time paths. They are not part of the scientific choice that selected STAR,
 samtools, or featureCounts.
 
+An input the pipeline takes as **optional** is marked *optional — leave empty to run without
+it*. Leave it empty and the tool runs without it; supply it and you get what it adds. When
+inputs depend on each other, the sheet says so before you start — *`gff` is used only with
+`fasta`* — and holds **Start run** until the values agree. The pipeline checks the same rule
+again when it starts, however it was launched.
+
 ## Current alpha behavior
 
 | Step | What happens today |

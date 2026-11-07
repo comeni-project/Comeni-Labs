@@ -35,6 +35,23 @@ To start without a model, open **New analysis** and add the step that makes what
 as featureCounts for gene counts. After you confirm it, the engine asks which inputs you have,
 shows what it understood, and offers the steps it needs one at a time.
 
+## Optional inputs
+
+Some tools can run with or without an input — QUAST runs on assemblies alone, and adds
+misassembly reports when it also gets a reference genome. On the canvas, such an input is drawn
+dashed. Open the step to see its **Optional inputs**: each says what it adds and is one of:
+
+- **Off** — the pipeline does not take it. This is where every optional input starts.
+- **Optional** — the pipeline takes it, and each run may supply the file or leave it empty.
+- **Required** — every run supplies it.
+
+Switching one is your decision, kept with its history like any other. You can also say it in
+the conversation (*check my assemblies against the K-12 reference*): the assistant proposes the
+switch, and it waits for your click unless your own words said it. The engine never switches an
+input on by itself; it only makes one required when a later step needs what it adds, and says
+why. If a tool's rules tie inputs together (QUAST reads a GFF only with a reference), switching
+one brings the other, and the step says so.
+
 ## Inspect the aligner in the RNA-seq example
 
 Using the shared [RNA-seq example](../../tutorials/rnaseq-example.md), select the aligner step. In the current

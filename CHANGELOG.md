@@ -30,6 +30,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- Tool constraints (#460): contracts declare optional inputs (`required: false`, `absent`), outputs written under a condition (`produced_when`), constraint rows and groups. `comeni_core.logic.when` is the one condition evaluator for contracts and rules; `declared.constraints` evaluates a setup and checks a contract for contradictions, dead and fake-optional inputs and outputs never written (MD0601–MD0607). `pipeline.yml` records each step's optional-input states and run rules, and marks optional channels.
 - A model choice may carry `temperature`, `reasoning_effort` and `timeout_seconds` for that
   purpose's calls (#457). Invariant 12 (no subscription OAuth) is retired.
 - `qc.report::assembly`: a type's states are written in the type. A contract file writing them
@@ -98,6 +99,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
 #### Added
 
 - Loading refuses a module that no contract in the stack binds (`MD0025`): such a module could
@@ -121,6 +123,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- An optional channel is emitted as `params.x ? … : <empty tuple>`, and run rules as guards at the workflow's start. `ModuleSpec.optional_emits`; MD0611 reports an optional emit a contract says is always written. Builds stop only on codes `diagnostics.yml` declares refusing (#460).
 #### Added
 
 - `mendel build <starter>` builds from a starter: a version-7 `pipeline.yml` with only
@@ -195,6 +198,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- A person's choice for a tool's optional input is a decision family (`optional_input`), switched from the step sheet or proposed by the chat (`builder.chat.v8`) under the quote rule. The forge drafts constraints (`forge.draft.v6`) and flags main.nf evidence (MF0530–MF0532). Turn blocks, suggestions and proposals move to shapes 5, 3 and 3 (identity upgrades).
 - The forge's reviewer (`forge.review.v2`) comments only where it has a concern, and only with a
   verbatim quote. A revision it reads with no concern is recorded as reviewed. Drafted
   questions use `forge.questions.v5`. Both prompts see each type's name, scope and meaning, and
@@ -433,6 +437,7 @@ or a complete commit history.
 
 ### wiener-api
 
+- A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
 #### Added
 
 - Run submission, local execution, event ingestion and live updates integrate with the build

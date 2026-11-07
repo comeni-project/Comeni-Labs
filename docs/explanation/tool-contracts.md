@@ -55,3 +55,17 @@ states: [coordinate_sorted, name_sorted, deduplicated, filtered, indexed]
 ```
 
 For instructions, see [Add a tool](../how-to/registry/add-tool.md).
+
+## Constraints and decisions
+
+A contract can also say what a tool **allows** between its inputs and settings: an input it can
+run without, an output it writes only under a condition, an input that needs another
+(`gff` requires `fasta`), and groups that go together or exclude each other. These are
+**constraints** — facts about the tool, checked when the contract loads for contradictions,
+inputs no setup can use, and outputs never written ([contract schema](../reference/registry/contract-schema.md)).
+
+A constraint never chooses. Whether a pipeline takes QUAST's reference is a **decision**: yours,
+the assistant's proposal that you confirm, or later a rule's (#461). Constraints narrow what is
+possible; decisions choose within it; one condition syntax serves both. The whole design is
+issue #463.
+
