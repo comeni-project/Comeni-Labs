@@ -780,3 +780,27 @@ def test_a_constraint_item_reads_as_its_sentence(adaptation):
     forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(drafted))
     item = next(i for i in forging.read(adaptation).items if i.key == "contract:constraint:row1")
     assert item.sentence == "`reads` is used only with `reads` (it reads them)"
+
+
+def test_the_item_guide_names_every_kind_the_engine_reads():
+    """#468: one description of each item kind, kept in step with the engine's own table."""
+    from mendel_forge.forging.values import _FAMILIES
+
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    assert _FAMILIES, "the engine declares no item kinds — this test is measuring nothing"
+    import re
+
+    missing = [kind for kind in [*_FAMILIES, "<piece>:none"]
+               if not re.search(rf"^- {re.escape(kind)}[: ]", guide, re.MULTILINE)]
+    assert missing == [], f"the item guide does not describe {missing}"
+
+
+def test_the_chat_can_add_the_first_constraint_row(adaptation):
+    """#468: with no constraint in the draft, the chat was shown no key for one, and refused."""
+    _answer(adaptation)
+    assert not any(k.startswith("contract:constraint") for k in forging.load(adaptation).items)
+    seq = forging.post_message(adaptation, role="person", content="gff needs the reference")
+    client = FakeClient({"text": "Nothing to add.", "commands": []})
+    forging_ai.answer_message(adaptation, seq, client)
+    assert "contract:constraint:row<n>" in client.prompts[0]
+    assert "contract:group:group<n>" in client.prompts[0]

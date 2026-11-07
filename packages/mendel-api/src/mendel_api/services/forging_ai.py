@@ -52,6 +52,9 @@ from mendel_api.services import forge_checks, forging, registry
 from mendel_api.settings import model_access
 
 PROMPTS = Path(__file__).parent.parent / "forge" / "prompts"
+ITEM_SHAPES = PROMPTS / "parts" / "items.v1.md"
+"""Every item kind and its value's shape, in one place, for each prompt that writes items
+(#468). A prompt shown only the adaptation's items cannot add the first item of a new kind."""
 CHAT_TAIL = 12
 """How many messages the chat sends back: enough to follow the thread, bounded like the
 builder's."""
@@ -65,6 +68,7 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.draft.v6": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
+            "forge.chat.v3": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW,
             "forge.review.v2": InvocationPurpose.REVIEW}
 
@@ -199,6 +203,7 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
         "known": known_text, "items": items_text, "answers": answers_text,
         "piece": request.piece.value, "turns": turns_text,
         "types_described": described_text, "findings": findings_text, "inputs": inputs_text,
+        "item_shapes": ITEM_SHAPES.read_text().rstrip("\n"),
         "problems": ("\nYour previous reply was refused:\n- " + "\n- ".join(problems)
                      if problems else ""),
     }
@@ -375,8 +380,8 @@ def answer_message(adaptation_id: str, seq: int, client: Client | None = None) -
     for attempt in range(1, ATTEMPTS + 1):
         state = forging.load(adaptation_id)
         piece = rules.next_piece(state) or Piece.RULES
-        request = compose(adaptation, state, piece, prompt="forge.chat.v2", turns=turns)
-        reply, invocation = _call("forge.chat.v2", request, ChatReply, client, adaptation_id,
+        request = compose(adaptation, state, piece, prompt="forge.chat.v3", turns=turns)
+        reply, invocation = _call("forge.chat.v3", request, ChatReply, client, adaptation_id,
                                   attempt, problems)
         if reply is None:
             problems = _refused(adaptation_id, attempt, [

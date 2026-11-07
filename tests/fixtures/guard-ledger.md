@@ -5498,3 +5498,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   to questions only, `test_a_contract_redraft_does_not_see_its_earlier_open_proposal` failed.
   Both pass. Restored. Live on quast with GPT: on v5 the first try was accepted, with
   `modules/nf-core/quast/main` and `results` as `folder`.
+- 2026-11-07, #468 forge chat item kinds: `test_the_chat_can_add_the_first_constraint_row`
+  failed on `forge.chat.v2` ("'contract:constraint:row<n>' in …" false). With the guide's
+  `tests:test` line renamed, `test_the_item_guide_names_every_kind_the_engine_reads` failed
+  ("does not describe ['tests:test']"); an earlier substring version of it passed against that
+  break and was tightened. Both pass on `forge.chat.v3`. Restored.

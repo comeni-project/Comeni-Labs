@@ -201,6 +201,9 @@ or a complete commit history.
 ### mendel-api
 
 - A person's choice for a tool's optional input is a decision family (`optional_input`), switched from the step sheet or proposed by the chat (`builder.chat.v8`) under the quote rule. The forge drafts constraints (`forge.draft.v6`) and flags main.nf evidence (MF0530–MF0532). Turn blocks, suggestions and proposals move to shapes 5, 3 and 3 (identity upgrades).
+- The forge chat (`forge.chat.v3`) is shown every item kind and its shape, from one shared
+  guide (`forge/prompts/parts/items.v1.md`), so it can add the first constraint, group or
+  other item of a kind the draft has none of (#468).
 - The forge's reviewer (`forge.review.v2`) comments only where it has a concern, and only with a
   verbatim quote. A revision it reads with no concern is recorded as reviewed. Drafted
   questions use `forge.questions.v5`. Both prompts see each type's name, scope and meaning, and
