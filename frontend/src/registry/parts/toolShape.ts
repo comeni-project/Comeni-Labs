@@ -38,12 +38,16 @@ function answer(item: ItemView): string | null {
 }
 
 /** The tool as far as it is decided, from its questions: a pin for each input and output, with
- *  its type once answered, and the job. A removed question is no longer part of the tool. */
+ *  its type once answered, and the job. A removed question or contract port is no longer part
+ *  of the tool. */
 export function toolShape(items: ItemView[]): ToolShape {
   const live = items.filter((i) => i.status !== "removed");
   const pins = (prefix: string): Pin[] => {
     const contractPrefix = prefix === PREFIX.inputs ? "contract:input:" : "contract:output:";
-    const questions = live.filter((i) => i.key.startsWith(prefix));
+    // A port the contract removed is gone, though its question keeps its answer (issue 467).
+    const removed = new Set(items.filter((i) => i.status === "removed"
+      && i.key.startsWith(contractPrefix)).map((i) => nameOf(i.key)));
+    const questions = live.filter((i) => i.key.startsWith(prefix) && !removed.has(nameOf(i.key)));
     const result = questions.map((i) => {
       const port = live.find((p) => p.key === `${contractPrefix}${nameOf(i.key)}`);
       return { key: i.key, name: nameOf(i.key), type: answer(i), ...portParts(port?.value as PortValue) };

@@ -63,3 +63,12 @@ it("marks an optional input and says when a conditional output is written (issue
   expect(shape.inputs[0]).toMatchObject({ name: "fasta", optional: true });
   expect(shape.outputs[0]).toMatchObject({ name: "misassemblies", only: "only with fasta" });
 });
+
+it("leaves out a port the contract removed, though its question was answered", () => {
+  const shape = toolShape([
+    item("questions:output_type:transcriptome", { choice: "qc.report::assembly" }, "approved"),
+    item("contract:output:transcriptome", { type_id: "qc.report::assembly" }, "removed"),
+    item("questions:output_type:tsv", { choice: "qc.report::assembly" }, "approved"),
+  ]);
+  expect(shape.outputs.map((p) => p.name)).toEqual(["tsv"]);
+});
