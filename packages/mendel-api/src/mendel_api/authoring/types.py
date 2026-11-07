@@ -35,7 +35,7 @@ from mendel_authoring.brief import Brief
 from mendel_authoring.gaps import Gap
 from mendel_authoring.needs import Need
 from mendel_authoring.types import Event, Phase, ProposalState  # noqa: F401 (re-exported)
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # **How many prior turns a model is shown.** Taken from the old forge's review chat, and §2 says
 # to keep that precedent until evaluation shows a different number is needed. It has not; it is a
@@ -683,6 +683,23 @@ class PinItem(_Shape):
     quote: _Quote | None = None
 
 
+class OptionalInputItem(_Shape):
+    """A tool's optional input, switched (#460): which tool, which input, and its state."""
+
+    tool: str = Field(min_length=1, max_length=200)
+    port: str = Field(min_length=1, max_length=128)
+    state: str = Field(min_length=2, max_length=16)
+    """`off`, `optional` or `required`; checked here rather than sent as an enum."""
+    quote: _Quote | None = None
+
+    @field_validator("state")
+    @classmethod
+    def _a_state(cls, value: str) -> str:
+        if value not in ("off", "optional", "required"):
+            raise ValueError(f"{value!r} is not off, optional or required")
+        return value
+
+
 class ParameterItem(_Shape):
     name: str = Field(min_length=1, max_length=128)
     value: HumanParamValue | list[HumanParamValue]
@@ -726,6 +743,7 @@ class ChatReply(_Shape):
     requires: list[RequireItem] = []
     pins: list[PinItem] = []
     parameters: list[ParameterItem] = []
+    optional_inputs: list[OptionalInputItem] = []
     retract: list[RetractItem] = []
     not_offered: list[NotOfferedItem] = []
     questions: list[AskedQuestion] = []

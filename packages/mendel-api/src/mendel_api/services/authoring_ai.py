@@ -183,7 +183,7 @@ def _vocabulary_text(stack, types: Sequence[str] | None = None) -> str:
     return "\n".join(lines)
 
 
-def _pipeline_text(request: AuthoringRequest) -> str:
+def _pipeline_text(request: AuthoringRequest, stack=None) -> str:
     """The steps that exist and the goal that was confirmed, as the model may refer to them.
 
     Ids first and contracts beside them, because an explanation is admitted by comparing the ids
@@ -194,11 +194,34 @@ def _pipeline_text(request: AuthoringRequest) -> str:
         lines += [f"  {step.node} — {step.contract}" for step in request.steps]
     else:
         lines.append("  (none yet)")
+    optional = _optional_inputs_text(request, stack) if stack is not None else []
+    if optional:
+        lines += ["", "Inputs a step can run without, each off, optional (each run may supply it "
+                  "or leave it empty) or required, and what it adds:", *optional]
     if request.goal is not None:
         have = ", ".join(entry.type_id for entry in request.goal.have) or "(nothing stated)"
         want = ", ".join(request.goal.want) or "(nothing stated)"
         lines += ["", f"The confirmed goal: they have {have}; they want {want}."]
     return "\n".join(lines)
+
+
+def _optional_inputs_text(request: AuthoringRequest, stack) -> list[str]:
+    """Each step's optional inputs (#460), from its contract, with the state the goal gives it."""
+    lines = []
+    for step in request.steps:
+        try:
+            contract = stack.registry.get(step.contract)
+        except (KeyError, ValueError):
+            continue
+        ports = {p.name: p for p in contract.consumes}
+        for port in contract.optional_ports():
+            choice = request.goal.constraints.input_at(contract.id, port) if request.goal else None
+            state = choice.state.value if choice else "off"
+            adds = [o.name for o in contract.produces
+                    if f"given.{port}" in (o.produced_when or {})]
+            lines.append(f"  {step.node} · {port} ({ports[port].type_id}): {state}"
+                         + (f"; adds {', '.join(adds)}" if adds else ""))
+    return lines
 
 
 def _options_text(options: Sequence[str]) -> str:
@@ -365,7 +388,7 @@ def follow_up(
             "memory": memory or "(nothing is known yet)",
             "vocabulary": _vocabulary_text(stack),
             "open": _open_text(stack, open_question),
-            "pipeline": _pipeline_text(request),
+            "pipeline": _pipeline_text(request, stack),
             "options": _options_text(request.options),
             "conversation": _conversation_text(request.turns),
             "request": request.prompt,

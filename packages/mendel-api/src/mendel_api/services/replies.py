@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from comeni_core.diagnostics import coded
 from mendel_authoring import heard as heard_mod
-from mendel_authoring.payloads import DecisionChange
+from mendel_authoring.payloads import DecisionChange, source_subject
 from sqlalchemy import select
 
 from mendel_api.authoring.types import ChatReply, TurnRole, Understanding
@@ -86,6 +86,14 @@ def admit(reply: Understanding | ChatReply, stack) -> Understanding | ChatReply:
     for item in getattr(reply, "parameters", []):
         if not any(item.name == p.name for c in stack.registry.all() for p in c.params):
             unknown.append(f"setting {item.name}")
+    for item in getattr(reply, "optional_inputs", []):
+        try:
+            optional = stack.registry.get(item.tool).optional_ports()
+        except (KeyError, ValueError):
+            unknown.append(f"tool {item.tool}")
+            continue
+        if item.port not in optional:
+            unknown.append(f"optional input {item.port} on {item.tool}")
     for item in getattr(reply, "retract", []):
         if item.subject not in types and item.subject not in measurements.measurements:
             unknown.append(f"subject {item.subject}")
@@ -97,7 +105,8 @@ def admit(reply: Understanding | ChatReply, stack) -> Understanding | ChatReply:
     return reply
 
 
-_ITEMS = ("wants", "inputs", "facts", "requires", "pins", "parameters", "retract")
+_ITEMS = ("wants", "inputs", "facts", "requires", "pins", "parameters", "optional_inputs",
+          "retract")
 
 
 @dataclass(frozen=True)
@@ -109,7 +118,7 @@ class Sifted:
 
 
 def _names(item) -> set[str]:
-    return {v for k in ("type", "subject", "name", "tool")
+    return {v for k in ("type", "subject", "name", "tool", "port")
             if isinstance(v := getattr(item, k, None), str)}
 
 
@@ -167,6 +176,10 @@ def _changes(reply, stack, wanted: frozenset[str]) -> list[tuple[DecisionChange,
         out.append(
             (DecisionChange(kind="parameter", subject=item.name, value=item.value), item.quote)
         )
+    for item in getattr(reply, "optional_inputs", []):
+        subject = source_subject(item.tool, item.port)
+        out.append((DecisionChange(kind="optional_input", subject=subject, value=item.state),
+                    item.quote))
     for item in getattr(reply, "retract", []):
         if item.subject in types:
             kind = "want" if item.subject in wanted else "input"
