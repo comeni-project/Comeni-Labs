@@ -69,7 +69,10 @@ export function useSubmit(draftId: string | null, name = "") {
         artifact_id: artifact?.artifact_id,
         // The samplesheet replaces `input`'s string. Wiener accepts either — a laboratory that
         // already has a CSV gives its path, and the editor is a convenience over that.
-        params: sheet ? { ...values, input: rows } : values,
+        // Trimmed, so a value that is only spaces is empty here as it is in the check above:
+        // Groovy would read "  " as given (second review).
+        params: Object.fromEntries(Object.entries(sheet ? { ...values, input: rows } : values)
+          .map(([name, value]) => [name, typeof value === "string" ? value.trim() : value])),
         executor: "local",
       }),
   });

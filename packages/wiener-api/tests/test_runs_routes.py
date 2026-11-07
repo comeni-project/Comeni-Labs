@@ -267,3 +267,23 @@ def test_an_unknown_phase_or_status_is_a_422_naming_the_vocabulary(client, a_run
     tasks = client.get(f"/api/runs/{a_run.id}/tasks", params={"status": "failed"})
     assert tasks.status_code == 422, tasks.text
     assert "FAILED" in tasks.text
+
+
+def test_an_empty_value_for_a_required_hole_is_refused(client, a_bundle):
+    """Second review I4 (#460): `""` means "run without it" only for an optional input; for a
+    required one it would fail deep inside Nextflow."""
+    artifact = client.post("/api/artifacts", files={"bundle": ("p.zip", a_bundle)}).json()
+    response = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                              "params": {"input": "x", "fasta": "  "}})
+    assert response.status_code == 422
+    assert response.json()["detail"]["empty"] == ["fasta"]
+
+
+def test_an_optional_hole_may_be_left_empty(client, a_bundle, monkeypatch):
+    from wiener_api.routes import runs
+
+    monkeypatch.setattr(runs, "optional_holes", lambda artifact_id: {"fasta"})
+    artifact = client.post("/api/artifacts", files={"bundle": ("p.zip", a_bundle)}).json()
+    response = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                              "params": {"input": "x", "fasta": ""}})
+    assert response.status_code == 202

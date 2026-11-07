@@ -199,3 +199,37 @@ def test_one_optional_input_with_two_placeholder_widths_is_refused(tmp_path):
                                 state=InputState.OPTIONAL)]))
     with pytest.raises(ValueError, match="width"):
         _build(tmp_path, goal, extra)
+
+
+STRICT = """declares: contract
+id: lab/strict@1.0.0
+nf_process: STRICT
+nf_include: modules/lab/strict/main
+roles: [qc_per_sample]
+consumes:
+  - {name: assembly, type_id: assembly.fasta}
+  - {name: gff, type_id: annotation.gff, required: false}
+produces: [{name: summary, type_id: assembly.summary}]
+params:
+  - {name: strict, via: positional, default: true, domain: {kind: boolean},
+     because: "strict mode is the tool's default"}
+nf_inputs: [{ports: [assembly]}, {ports: [gff], absent: 2}, {param: strict}]
+constraints:
+  - {when: {param.strict: true}, forbids: [gff], because: "strict mode reads no annotation"}
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-07"}
+"""
+
+
+def test_a_forbidding_rule_with_no_given_still_reaches_the_run(tmp_path):
+    """Second review I3: `given` was empty after mapping, and the rule was dropped."""
+    extra = {"strict.contract.yml": STRICT,
+             "assembly.summary.yml": "declares: vocabulary\nid: assembly.summary\nstates: []\n"}
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta"), GoalInput(type_id="annotation.gff")],
+                want=["assembly.summary"], constraints=Constraints(inputs=[
+                    InputChoice(contract="lab/strict@1.0.0", port="gff",
+                                state=InputState.OPTIONAL)]))
+    pipeline = _build(tmp_path, goal, extra)
+    step = next(s for s in pipeline.steps if s.module.contract_id == "lab/strict@1.0.0")
+    gff = _param(pipeline, "annotation.gff")
+    assert [(r.given, r.forbids) for r in step.run_rules] == [([], [gff])]
+    assert f"if (params.{gff}) {{ error " in emit(pipeline)

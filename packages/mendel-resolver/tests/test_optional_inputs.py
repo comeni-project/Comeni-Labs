@@ -239,3 +239,64 @@ def test_a_switched_on_input_nothing_makes_comes_from_outside(tmp_path):
     assert _records(route(goal, registry))["fasta"][0] is InputState.OPTIONAL
     ir = resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
     assert not any(e.to_port == "fasta" for e in ir.edges), "fed from outside, not a step"
+
+
+# ── second review fixes ─────────────────────────────────────────────────────────────────────
+
+GFF_MAKER = """
+id: lab/other@1.0.0
+nf_process: OTHER
+nf_include: modules/lab/other/main
+consumes: [{name: a, type_id: assembly.fasta}]
+produces: [{name: g, type_id: annotation.gff}]
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-07"}
+"""
+
+
+def test_a_persons_source_pin_on_an_optional_input_is_still_refused_by_name(tmp_path):
+    """Second review I1: the optional `continue` swallowed MD0321."""
+    from comeni_core.goal.asked import SourcePin
+    from mendel_resolver.router import IntentConflict
+
+    registry, _ = _world(tmp_path, {"quast.yml": QUAST, "other.yml": GFF_MAKER})
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta")], want=["qc.report"],
+                constraints=Constraints(
+                    inputs=[InputChoice(contract=QUAST_ID, port="fasta",
+                                        state=InputState.OPTIONAL)],
+                    sources=[SourcePin(consumer=QUAST_ID, port="fasta",
+                                       producer="lab/other@1.0.0")]))
+    with pytest.raises(IntentConflict):
+        route(goal, registry)
+
+
+HALF = """
+id: lab/c@1.0.0
+nf_process: C
+nf_include: modules/lab/c/main
+consumes: [{name: a, type_id: assembly.fasta}]
+produces: [{name: x, type_id: x.bin}]
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-07"}
+"""
+NEEDS_Y = """
+id: lab/p@1.0.0
+nf_process: P
+nf_include: modules/lab/p/main
+consumes: [{name: x, type_id: x.bin}, {name: y, type_id: y.bin}]
+produces: [{name: g, type_id: genome.fasta}]
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-07"}
+"""
+
+
+def test_a_half_routed_optional_input_leaves_no_orphan_step(tmp_path):
+    """Second review I2: C was routed, P failed on y, and C stayed with nothing reading it."""
+    from mendel_resolver.router import UnroutableError
+
+    TYPES.update({"x.bin": "", "y.bin": ""})
+    try:
+        registry, _ = _world(tmp_path, {"quast.yml": QUAST, "c.yml": HALF, "p.yml": NEEDS_Y})
+    finally:
+        TYPES.pop("x.bin"), TYPES.pop("y.bin")
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta")], want=["qc.report"],
+                constraints=_choose(("fasta", InputState.OPTIONAL)))
+    with pytest.raises(UnroutableError, match="y.bin"):
+        route(goal, registry)

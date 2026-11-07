@@ -301,7 +301,7 @@ def route(
             except UnroutablePinError:
                 raise
             except UnroutableError as exc:
-                if not port.required:
+                if _comes_from_outside(port, exc, goal.constraints.source_at(chosen.id, port.name)):
                     # A switched-on optional input nothing here makes comes from outside: the
                     # pipeline gets an input for it, optional or required by its state (#460).
                     continue
@@ -365,6 +365,17 @@ def route(
         )
     _required_where_shared(plan, registry)
     return plan
+
+
+def _comes_from_outside(port: InputPort, exc: UnroutableError, source) -> bool:
+    """Only when nothing at all makes the optional input's own type, and no person chose what
+    feeds it. Every other refusal stands: a person's intent (MD0320, MD0321), a constraint
+    (MD0608–MD0610), or a producer that was found but cannot itself be fed, which would also
+    leave the steps already routed for it orphaned (second review I1, I2)."""
+    if port.required or source is not None or isinstance(exc, IntentConflict | ConstraintViolation):
+        return False
+    own = {a.type_id for a in port.alternatives()}
+    return exc.missing is not None and exc.missing[0] in own
 
 
 def _strongest(before: list[InputRecord], now: list[InputRecord]) -> list[InputRecord]:

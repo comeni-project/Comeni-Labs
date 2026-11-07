@@ -359,7 +359,11 @@ def _run_rules(contract: ModuleContract, node: IRNode, fed: dict[str, str]) -> l
         rule = RunRule(given=sorted(given),
                        requires=sorted(fed[n] for n in row.requires if n in fed),
                        forbids=sorted(fed[n] for n in row.forbids if n in fed), says=says)
-        if rule.given and (rule.requires or rule.forbids) and rule not in rules:
+        # A row with no condition left to test still binds the run when it forbids something:
+        # `forbids: [gff]` becomes `if (params.gff) error` (second review I3). One that only
+        # requires, with nothing given, would already be a build-time refusal.
+        keeps = rule.forbids or (rule.given and rule.requires)
+        if keeps and rule not in rules:
             rules.append(rule)
     return rules
 

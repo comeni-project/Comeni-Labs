@@ -250,6 +250,15 @@ async def submit(body: SubmitRequest) -> RunAccepted:
                 "unknown": sorted(supplied - holes),
                 "missing": sorted(holes - supplied),
             })
+        # `""` means "run without it" only for an input the pipeline takes as optional (#460).
+        optional = optional_holes(body.artifact_id)
+        empty = sorted(name for name, value in body.params.items()
+                       if isinstance(value, str) and not value.strip() and name not in optional)
+        if empty:
+            raise HTTPException(status_code=422, detail={
+                "message": "a required parameter cannot be left empty",
+                "declared": sorted(holes), "empty": empty,
+            })
         repository.add(session, settings.lab_id, Run(
             id=run_id, artifact_id=body.artifact_id, submitted_by="operator",
             submitted_at=datetime.now(UTC), phase="queued", executor=body.executor,
