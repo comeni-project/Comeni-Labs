@@ -152,7 +152,8 @@ def _states_missing(source: Path, target: Path) -> list[str] | None:
     """For a type extension (`add_states`), the states the registry's type still lacks; `None`
     when the draft file is not an extension of that type."""
     draft, shared = yaml.safe_load(source.read_text()), yaml.safe_load(target.read_text())
-    if not isinstance(draft, dict) or "add_states" not in draft or draft.get("id") != shared.get("id"):
+    if (not isinstance(draft, dict) or "add_states" not in draft
+            or draft.get("id") != shared.get("id")):
         return None
     return sorted(set(draft["add_states"]) - set(shared.get("states") or []))
 
