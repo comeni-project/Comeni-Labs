@@ -77,3 +77,28 @@ def test_the_bundle_holds_each_steps_module(stack):
     names = [name for name, _ in module_files(pipeline, stack)]
     assert "modules/nf-core/fastqc/main.nf" in names
     assert emit_config(pipeline)
+
+
+QUAST = (REGISTRY.parent / "packages/comeni-core/tests/fixtures/constraints/quast.yml").read_text()
+OVERLAY = {
+    "assembly.family.yml": "declares: family\nid: assembly\ndescription: Genome assemblies\n",
+    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\n",
+    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
+    "quast.contract.yml": "declares: contract\n" + QUAST,
+}
+
+
+def test_an_optional_input_a_test_gives_no_data_is_off(tmp_path):
+    """#470: `fasta: []` became a hole nothing could fill (MF0515 nothing feeds tool_fasta)."""
+    for name, body in OVERLAY.items():
+        (tmp_path / name).write_text(body)
+    stack = layers.load([REGISTRY, tmp_path])
+    test = ToolTest(contract="nf-core/quast@5.3.0", name="noref", data_commit="abc",
+                    inputs={"consensus": ["a/contigs.fa"], "fasta": []},
+                    expect=[{"port": "results", "pattern": "*"}])
+    pipeline = build_test_pipeline(test, stack)
+    assert [c.name for c in pipeline.channels] == ["tool_consensus"]
+    assert sorted(params_for(test, pipeline)) == entry_params(pipeline)
+    quast = pipeline.steps[0]
+    assert [(r.port, r.state) for r in quast.input_states] == [("fasta", "off"), ("gff", "off")]
+    assert emit(pipeline).count("Channel.value([[:], []])") == 2

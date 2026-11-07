@@ -198,6 +198,13 @@ def _names(items: dict[str, JsonValue], prefix: str) -> set[str]:
     return {k.removeprefix(prefix) for k in items if k.startswith(prefix)}
 
 
+def _required(items: dict[str, JsonValue]) -> set[str]:
+    """The inputs a test must feed: an optional one it leaves out runs without (#470)."""
+    return {key.rsplit(":", 1)[1] for key, value in items.items()
+            if key.startswith("contract:input:")
+            and not (isinstance(value, dict) and value.get("required") is False)}
+
+
 def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
     """A test must fit the contract as it stands: every port fed, every output accounted for."""
     takes, makes = _names(items, "contract:input:"), _names(items, "contract:output:")
@@ -210,7 +217,8 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
             problems.append(f"{key}: input {port!r} is not a port of this contract")
         for port in sorted(fed - takes):
             problems.append(f"{key}: a setup step feeds {port!r}, not a port of this contract")
-        for port in sorted(takes - set(test.inputs) - fed):
+        given = {port for port, paths in test.inputs.items() if paths}
+        for port in sorted(_required(items) - given - fed):
             problems.append(f"{key}: nothing feeds input {port!r}")
         for name in sorted(set(test.params) - settings):
             problems.append(f"{key}: setting {name!r} is not one this contract declares")

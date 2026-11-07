@@ -5507,3 +5507,7 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   on `forge.draft.v6` (the domain sentence absent). Passes on `forge.draft.v7`. Restored.
 - 2026-11-07, #468 new type fields: `test_the_guide_spells_out_a_new_type` failed with the guide
   before this change ("scope" absent). Passes. Restored.
+- 2026-11-07, #470 forge tests leave an optional input out: without the fix,
+  `test_an_optional_input_a_test_gives_no_data_is_off` failed (channels included `tool_fasta`,
+  `tool_gff`) and `test_a_test_may_leave_an_optional_input_out` failed ("nothing feeds input
+  'b'"). Both pass. Restored.
