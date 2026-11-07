@@ -25,7 +25,16 @@
 - parameters:ext_args — {"template", "because"}
 - vocabulary:type:<id> — a full type declaration for a new id, or {"id", "add_states": [...]} to
   extend an existing type with the content states the person chose. New states require this
-  separate proposal and approval before assembly; never silently add them.
+  separate proposal and approval before assembly; never silently add them. A full declaration
+  is {"id", "states", "scope", "name", "explain", "entry_channel"}:
+  - "scope" is "run" for a file shared by every sample (a reference, an annotation, a
+    database) and "sample" for one per sample;
+  - "name" is what a person calls it (at most 80 characters), and "explain" says what it is
+    and where it usually comes from, in a sentence or two;
+  - "entry_channel" reads it as a pipeline input, with params.{param} for the path. For a file
+    give it the sample's name: "Channel.fromPath(params.{param}, checkIfExists: true).map { f
+    -> [ [id: f.baseName], f ] }". Without it a tool that names outputs after meta.id writes
+    "null".
 - Preserve answered type::state signatures on contract ports. An output's "format" is the
   file format it writes, from its extension in main.nf: "format": ["tsv"] for
   ${prefix}.tsv. An output that is a directory (path("${prefix}") with no file

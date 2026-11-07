@@ -5505,3 +5505,5 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   break and was tightened. Both pass on `forge.chat.v3`. Restored.
 - 2026-11-07, #468 draft param domain: `test_the_draft_teaches_a_param_domain_by_its_kind` failed
   on `forge.draft.v6` (the domain sentence absent). Passes on `forge.draft.v7`. Restored.
+- 2026-11-07, #468 new type fields: `test_the_guide_spells_out_a_new_type` failed with the guide
+  before this change ("scope" absent). Passes. Restored.

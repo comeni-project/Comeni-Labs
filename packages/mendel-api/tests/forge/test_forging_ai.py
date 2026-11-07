@@ -815,3 +815,11 @@ def test_the_draft_teaches_a_param_domain_by_its_kind(adaptation):
     assert '"domain" is null or {"kind": "boolean" | "enum" | "integer" | "number"' in \
         client.prompts[0]
     assert "contract:constraint:row<n>" in client.prompts[0], "the draft reads the shared guide"
+
+
+def test_the_guide_spells_out_a_new_type():
+    """#468 walk: drafted types were bare ids, so a run-wide annotation arrived per sample
+    and outputs were named "null"."""
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    for field in ('"scope"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
+        assert field in guide, field
