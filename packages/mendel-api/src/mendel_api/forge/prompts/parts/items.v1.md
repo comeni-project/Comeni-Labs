@@ -19,7 +19,9 @@
 - contract:group:group<n> (group1, …) — {"kind", "members", "because"}: kind is one_of (exactly one member),
   any_of (at least one) or all_or_none (together or not at all).
 - parameters:param:<name> — {"position", "name", "default" or "tier_hint": 4, "domain", "via",
-  "key", "template", "because"}; via is ext (with key), positional (wired in nf_inputs) or meta
+  "key", "template", "because"}; via is ext (with key), positional (wired in nf_inputs) or meta.
+  "domain" is null or {"kind": "boolean" | "enum" | "integer" | "number", "values": [...]
+  (for enum), "minimum", "maximum"}; a free-text setting such as a prefix has no domain
 - parameters:ext_args — {"template", "because"}
 - vocabulary:type:<id> — a full type declaration for a new id, or {"id", "add_states": [...]} to
   extend an existing type with the content states the person chose. New states require this

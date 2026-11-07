@@ -5503,3 +5503,5 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `tests:test` line renamed, `test_the_item_guide_names_every_kind_the_engine_reads` failed
   ("does not describe ['tests:test']"); an earlier substring version of it passed against that
   break and was tightened. Both pass on `forge.chat.v3`. Restored.
+- 2026-11-07, #468 draft param domain: `test_the_draft_teaches_a_param_domain_by_its_kind` failed
+  on `forge.draft.v6` (the domain sentence absent). Passes on `forge.draft.v7`. Restored.

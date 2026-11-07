@@ -657,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v6"
+        assert invocation.prompt_id == "forge.draft.v7"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
@@ -752,7 +752,7 @@ def test_the_contract_prompt_teaches_constraints(adaptation):
     assert '"produced_when"' in sent and "contract:constraint:" in sent and '"absent"' in sent
     with session_scope() as db:
         assert db.query(AiInvocation).order_by(AiInvocation.started_at.desc()).first(
-            ).prompt_id == "forge.draft.v6"
+            ).prompt_id == "forge.draft.v7"
 
 
 def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
@@ -804,3 +804,14 @@ def test_the_chat_can_add_the_first_constraint_row(adaptation):
     forging_ai.answer_message(adaptation, seq, client)
     assert "contract:constraint:row<n>" in client.prompts[0]
     assert "contract:group:group<n>" in client.prompts[0]
+
+
+def test_the_draft_teaches_a_param_domain_by_its_kind(adaptation):
+    """#468 walk: GPT wrote `domain: {type: ...}`; the shape was named but never spelled out."""
+    _answer(adaptation)
+    reply = {"items": {"parameters:none": {"because": "none"}}, "because": {}}
+    client = FakeClient(reply, reply)
+    forging_ai.draft_piece(adaptation, Piece.PARAMETERS, client)
+    assert '"domain" is null or {"kind": "boolean" | "enum" | "integer" | "number"' in \
+        client.prompts[0]
+    assert "contract:constraint:row<n>" in client.prompts[0], "the draft reads the shared guide"
