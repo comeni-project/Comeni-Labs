@@ -5515,3 +5515,5 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_the_site_config_loads_the_weblog_plugin_the_image_installs` failed at import
   (`WEBLOG_PLUGIN` absent), before its assertions; the defect itself was seen in the worker
   log (`Unrecognized config option 'weblog.enabled'`) and in a run stuck `queued`. Passes.
+- 2026-11-07, #472 folder outputs in forge tests: `test_a_folder_output_is_matched_by_its_folder`
+  failed without the fix ("output results: nothing published matches quast"). Passes. Restored.

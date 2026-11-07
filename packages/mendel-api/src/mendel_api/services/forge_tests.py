@@ -116,14 +116,17 @@ def _record(adaptation_id: str, attempt: int, name: str, drafted: str, run_id: s
 
 
 def green(test: ToolTest, process: str, files: list[str]) -> list[Problem]:
-    """Every expected output published by the tool's own process, by name."""
+    """Every expected output published by the tool's own process, by name. A folder output is
+    published as the files inside it, so a pattern may also match a folder a file sits in (#472)."""
     prefix = f"{process.lower()}/"
     published = [f.removeprefix(prefix) for f in files if f.startswith(prefix)]
+    names = {name for f in published
+             for path in (PurePosixPath(f), *PurePosixPath(f).parents) if str(path) != "."
+             for name in (str(path), path.name)}
     return [
         Problem(code="MF0515", says=f"output {e.port}: nothing published matches {e.pattern}")
         for e in test.expect
-        if not any(fnmatch(name, e.pattern) or fnmatch(PurePosixPath(name).name, e.pattern)
-                   for name in published)
+        if not any(fnmatch(name, e.pattern) for name in names)
     ]
 
 
