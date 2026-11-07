@@ -5517,3 +5517,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   log (`Unrecognized config option 'weblog.enabled'`) and in a run stuck `queued`. Passes.
 - 2026-11-07, #472 folder outputs in forge tests: `test_a_folder_output_is_matched_by_its_folder`
   failed without the fix ("output results: nothing published matches quast"). Passes. Restored.
+- 2026-11-07, #473 publishing a type extension: without the fix,
+  `test_an_extension_the_registry_already_has_is_placed_as_nothing` failed (MF0517 "would
+  change a shared file" though the state was there). Passes. Restored.

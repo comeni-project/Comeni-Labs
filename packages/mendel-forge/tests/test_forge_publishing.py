@@ -140,3 +140,19 @@ def test_a_contract_is_written_with_its_states_in_the_type():
     assert written["consumes"][0]["type_id"] == "alignment.bam::coordinate_sorted"
     assert "state_required" not in written["consumes"][0]
     assert ModuleContract(**written).consumes[0].state_required == {"coordinate_sorted"}
+
+
+def test_an_extension_the_registry_already_has_is_placed_as_nothing(tmp_path, checkout):
+    """#473: `add_states` never equals the shared declaration, so a forged extension could not
+    be published even after the states were added by hand."""
+    shared = checkout / "vocabulary/types/qc.report.yml"
+    states = yaml.safe_load(shared.read_text())["states"]
+    assert states, "qc.report declares no states — this test is measuring nothing"
+    before = shared.read_text()
+    values = {**_values(), "vocabulary:type:qc.report": {"id": "qc.report",
+                                                         "add_states": [states[0]]}}
+    place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)
+    assert shared.read_text() == before
+    values["vocabulary:type:qc.report"] = {"id": "qc.report", "add_states": ["brand_new"]}
+    with pytest.raises(ValueError, match="MF0517.*add the states brand_new by hand"):
+        place(_draft(tmp_path / "again", values), checkout, "nf-core/star/align", FACTS)
